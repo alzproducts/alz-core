@@ -8,7 +8,10 @@
     "require": {
         "php": "^8.4",
         "laravel/framework": "^12.0",
-        "laravel/tinker": "^2.10.1"
+        "laravel/horizon": "^5.35",
+        "laravel/sanctum": "^4.2",
+        "laravel/tinker": "^2.10.1",
+        "predis/predis": "^3.2"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",
