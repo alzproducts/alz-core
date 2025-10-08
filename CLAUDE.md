@@ -2,111 +2,58 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Commands
+## Project Goal
 
-### Development
+Backend service for e-commerce webhooks and background jobs. Replaces legacy PHP app for 3-4 internal staff.
+
+**Key Functions**: Process webhooks, sync orders/inventory/products, scheduled tasks
+**Frontend**: Separate Next.js app using Supabase (already built)
+**Deployment**: Railway (planned)
+
+See detailed plan: `.ai/docs/plans/alz-core-initial-plan.md`
+
+## Current Stack
+
+- Laravel 12
+- PHP 8.2+
+- SQLite (development) → PostgreSQL/Supabase (production, planned)
+- Redis (cache/queues, planned)
+- Horizon + Telescope (monitoring, planned)
+
+## Development Commands
+
+### Using Sail (no local PHP required)
 ```bash
-# First-time setup (installs dependencies, sets up environment, runs migrations)
-composer run setup
+# First time: Install via Docker
+docker run --rm -u "$(id -u):$(id -g)" -v "$(pwd):/var/www/html" -w /var/www/html \
+    laravelsail/php84-composer:latest composer install --ignore-platform-reqs
 
-# Start development environment (runs server, queue, logs, and vite concurrently)
-composer run dev
+docker run --rm -u "$(id -u):$(id -g)" -v "$(pwd):/var/www/html" -w /var/www/html \
+    laravelsail/php84-composer:latest php artisan sail:install
 
-# Alternative individual development commands
-php artisan serve          # Start development server (http://localhost:8000)
-npm run dev                # Start Vite dev server for frontend assets
-php artisan queue:listen   # Start queue worker
-php artisan pail          # Watch real-time logs
+# Start/stop
+./vendor/bin/sail up -d
+./vendor/bin/sail down
+
+# Run commands
+./vendor/bin/sail artisan test
+./vendor/bin/sail artisan migrate
 ```
 
-### Testing
+### With local PHP 8.2+
 ```bash
-# Run all tests
-composer run test
-# OR
-php artisan test
-
-# Run specific test file
-php artisan test tests/Feature/ExampleTest.php
-
-# Run specific test method
-php artisan test --filter test_example_method
-
-# Run tests with coverage
-php artisan test --coverage
+composer run setup    # First-time setup
+composer run dev      # Start all services (server, queue, logs, vite)
+composer run test     # Run tests
 ```
 
-### Code Quality
-```bash
-# Format code with Laravel Pint
-./vendor/bin/pint
+## Key Architectural Decisions
 
-# Format specific file or directory
-./vendor/bin/pint app/Http/Controllers
-```
+1. **Cache-first**: Default to caching, remove only when needed
+2. **Thin SDK**: E-commerce API package (planned) stays simple, Laravel handles logic
+3. **Queue everything**: Webhooks respond immediately, process async
+4. **Supabase shared**: Same PostgreSQL database as Next.js frontend
 
-### Build & Production
-```bash
-# Build frontend assets for production
-npm run build
+---
 
-# Clear all caches
-php artisan optimize:clear
-
-# Cache configuration for production
-php artisan optimize
-```
-
-### Database
-```bash
-# Run migrations
-php artisan migrate
-
-# Rollback migrations
-php artisan migrate:rollback
-
-# Fresh migration (drop all tables and re-run)
-php artisan migrate:fresh
-
-# Create new migration
-php artisan make:migration create_example_table
-```
-
-## Architecture
-
-### Laravel 12 Structure
-This is a Laravel 12 application using:
-- **SQLite** as the default database (configured in `.env` as `DB_CONNECTION=sqlite`)
-- **Vite** for asset bundling with Tailwind CSS v4
-- **Composer scripts** for orchestrated development workflow
-
-### Request Flow
-1. **Entry Point**: `public/index.php` → `bootstrap/app.php`
-2. **Routing**: Routes defined in `routes/web.php` (web) and `routes/console.php` (CLI)
-3. **Middleware**: Configured via `withMiddleware()` in `bootstrap/app.php`
-4. **Controllers**: Located in `app/Http/Controllers/`, extend base `Controller`
-5. **Models**: Eloquent models in `app/Models/`, using SQLite by default
-6. **Views**: Blade templates in `resources/views/`
-
-### Key Configuration Files
-- **bootstrap/app.php**: Application bootstrap and configuration (routes, middleware, exceptions)
-- **config/**: All application configuration files (app, database, cache, session, queue)
-- **.env**: Environment-specific settings (copy from `.env.example` for new setup)
-
-### Development Workflow
-The `composer run dev` command starts all necessary services concurrently:
-- PHP development server on port 8000
-- Queue worker for background jobs
-- Pail for real-time log monitoring
-- Vite dev server for hot-reloading frontend assets
-
-### Testing Strategy
-- **Unit Tests**: `tests/Unit/` - Test individual components in isolation
-- **Feature Tests**: `tests/Feature/` - Test entire features/endpoints
-- **Configuration**: `phpunit.xml` uses in-memory SQLite for fast test execution
-
-### Frontend Build
-- Vite configuration in `vite.config.js`
-- Entry points: `resources/css/app.css` and `resources/js/app.js`
-- Tailwind CSS v4 integrated via `@tailwindcss/vite` plugin
-- Hot module replacement in development, optimized builds for production
+*This file grows as we build. See plan for full roadmap.*
