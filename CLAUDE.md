@@ -14,7 +14,7 @@ See detailed plan: `.ai/docs/plans/alz-core-initial-plan.md`
 
 ## Current Stack
 
-- Laravel 12
+- Laravel 12 (backend-only, no frontend)
 - PHP 8.2+
 - SQLite (development) → PostgreSQL/Supabase (production, planned)
 - Redis (cache/queues, planned)
