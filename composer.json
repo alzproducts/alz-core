@@ -60,20 +60,48 @@
         "pre-package-uninstall": [
             "Illuminate\\Foundation\\ComposerScripts::prePackageUninstall"
         ],
-        "check": [
-            "@lint:test",
+        "lint": [
+            "@pint:test",
+            "@analyse"
+        ],
+        "lint:full": [
+            "@pint:test",
             "@analyse",
+            "@insights"
+        ],
+        "fix": [
+            "Composer\\Config::disableProcessTimeout",
+            "@php vendor/bin/pint"
+        ],
+        "pint": [
+            "Composer\\Config::disableProcessTimeout",
+            "@php vendor/bin/pint"
+        ],
+        "pint:test": [
+            "Composer\\Config::disableProcessTimeout",
+            "@php vendor/bin/pint --test"
+        ],
+        "analyse": [
+            "Composer\\Config::disableProcessTimeout",
+            "@php vendor/bin/phpstan analyse"
+        ],
+        "insights": [
+            "Composer\\Config::disableProcessTimeout",
+            "@php vendor/bin/phpinsights --no-interaction"
+        ],
+        "stan": "@analyse",
+        "check": [
+            "@lint:full",
             "@test"
         ],
-        "lint": "vendor/bin/sail pint",
-        "lint:test": "vendor/bin/sail pint --test",
-        "analyse": "vendor/bin/sail bin phpstan analyse",
-        "insights": "vendor/bin/sail bin phpinsights --no-interaction",
-        "pint": "@lint",
-        "pint:test": "@lint:test",
-        "stan": "@analyse",
-        "test": "vendor/bin/sail bin pest --parallel",
-        "test:coverage": "vendor/bin/sail bin pest --coverage --min=80",
+        "test": [
+            "Composer\\Config::disableProcessTimeout",
+            "@php vendor/bin/pest --parallel"
+        ],
+        "test:coverage": [
+            "Composer\\Config::disableProcessTimeout",
+            "@php vendor/bin/pest --coverage --min=80"
+        ],
         "ide-helper": [
             "@php artisan ide-helper:generate",
             "@php artisan ide-helper:models --nowrite",
