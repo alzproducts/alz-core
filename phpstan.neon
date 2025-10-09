@@ -1,0 +1,25 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+    - vendor/phpstan/phpstan-strict-rules/rules.neon
+    - vendor/phpstan/phpstan-deprecation-rules/rules.neon
+
+parameters:
+    level: 8
+
+    paths:
+        - app/
+        - config/
+        - database/
+        - routes/
+        - tests/
+
+    # Fix Docker/Sail cache permission issues - use storage directory
+    tmpDir: storage/framework/phpstan
+
+    # Exclude generated/vendor code
+    excludePaths:
+        - bootstrap/cache/
+        - storage/
+        - vendor/
+        - config/insights.php  # PHP Insights config with class references
+        - tests/Unit/ExampleTest.php  # Placeholder test
