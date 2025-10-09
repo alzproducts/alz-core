@@ -66,13 +66,34 @@ composer run test     # Run tests
 3. **PHP Insights** (Architecture/Quality) - Complexity, architecture, code quality metrics
 
 ### Running Linters
+
+**IMPORTANT**: Run all linters through Sail to ensure correct PHP version:
+
 ```bash
-composer lint           # Fix code style with Pint
-composer lint:test      # Test code style (dry-run)
-composer analyse        # Run PHPStan static analysis
-composer insights       # Run PHP Insights quality check
-composer check          # Run all linters (lint:test + analyse + test)
+# Fast linting (pre-commit) - ~5-10 seconds
+./vendor/bin/sail composer lint           # Run Pint + PHPStan (tests only, no fixes)
+
+# Full linting (pre-push) - ~20-30 seconds
+./vendor/bin/sail composer lint:full      # Run Pint + PHPStan + PHP Insights
+
+# Auto-fix style issues
+./vendor/bin/sail composer fix            # Auto-fix code style with Pint
+
+# Individual linters
+./vendor/bin/sail composer pint           # Fix code style with Pint
+./vendor/bin/sail composer pint:test      # Test code style (dry-run)
+./vendor/bin/sail composer analyse        # Run PHPStan static analysis
+./vendor/bin/sail composer insights       # Run PHP Insights quality check
+
+# Run everything (tests + linters)
+./vendor/bin/sail composer check          # Run lint:full + tests
 ```
+
+### Recommended Workflow
+- **On save/frequent**: `./vendor/bin/sail composer fix` (auto-fix style, ~1s)
+- **Before commit**: `./vendor/bin/sail composer lint` (Pint + PHPStan, ~5-10s)
+- **Before push**: `./vendor/bin/sail composer lint:full` or `composer check` (all linters + tests, ~30s)
+- **In CI/CD**: `composer check` (full validation)
 
 ### Linting Standards
 - **All code MUST pass all three linters before commit**
