@@ -1,0 +1,13 @@
+{
+    "preset": "laravel",
+    "rules": {
+        "declare_strict_types": true,
+        "native_function_invocation": {
+            "include": ["@all"]
+        },
+        "ordered_imports": {
+            "sort_algorithm": "alpha"
+        },
+        "void_return": true
+    }
+}
