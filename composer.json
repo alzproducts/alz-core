@@ -27,6 +27,8 @@
         "pestphp/pest": "^3.0",
         "pestphp/pest-plugin-arch": "^3.0",
         "pestphp/pest-plugin-laravel": "^3.0",
+        "phpstan/phpstan-deprecation-rules": "^2.0",
+        "phpstan/phpstan-strict-rules": "^2.0",
         "phpunit/phpunit": "^11.5.3"
     },
     "autoload": {
@@ -59,16 +61,19 @@
             "Illuminate\\Foundation\\ComposerScripts::prePackageUninstall"
         ],
         "check": [
-            "@pint:test",
-            "@stan",
+            "@lint:test",
+            "@analyse",
             "@test"
         ],
-        "pint": "./vendor/bin/pint",
-        "pint:test": "./vendor/bin/pint --test",
-        "stan": "./vendor/bin/phpstan analyse",
-        "insights": "./vendor/bin/phpinsights --no-interaction --min-quality=80 --min-complexity=80 --min-architecture=80 --min-style=80",
-        "test": "./vendor/bin/pest --parallel",
-        "test:coverage": "./vendor/bin/pest --coverage --min=80",
+        "lint": "vendor/bin/sail pint",
+        "lint:test": "vendor/bin/sail pint --test",
+        "analyse": "vendor/bin/sail bin phpstan analyse",
+        "insights": "vendor/bin/sail bin phpinsights --no-interaction",
+        "pint": "@lint",
+        "pint:test": "@lint:test",
+        "stan": "@analyse",
+        "test": "vendor/bin/sail bin pest --parallel",
+        "test:coverage": "vendor/bin/sail bin pest --coverage --min=80",
         "ide-helper": [
             "@php artisan ide-helper:generate",
             "@php artisan ide-helper:models --nowrite",

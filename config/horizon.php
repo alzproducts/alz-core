@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use Illuminate\Support\Str;
 
 return [
@@ -15,7 +17,7 @@ return [
     |
     */
 
-    'domain' => env('HORIZON_DOMAIN'),
+    'domain' => \env('HORIZON_DOMAIN'),
 
     /*
     |--------------------------------------------------------------------------
@@ -28,7 +30,7 @@ return [
     |
     */
 
-    'path' => env('HORIZON_PATH', 'horizon'),
+    'path' => \env('HORIZON_PATH', 'horizon'),
 
     /*
     |--------------------------------------------------------------------------
@@ -54,9 +56,9 @@ return [
     |
     */
 
-    'prefix' => env(
+    'prefix' => \env(
         'HORIZON_PREFIX',
-        Str::slug(env('APP_NAME', 'laravel'), '_').'_horizon:'
+        Str::slug((string) \env('APP_NAME', 'laravel'), '_').'_horizon:'
     ),
 
     /*
