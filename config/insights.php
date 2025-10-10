@@ -8,7 +8,16 @@ use NunoMaduro\PhpInsights\Domain\Insights\ForbiddenNormalClasses;
 use NunoMaduro\PhpInsights\Domain\Insights\ForbiddenPrivateMethods;
 use NunoMaduro\PhpInsights\Domain\Insights\ForbiddenTraits;
 use NunoMaduro\PhpInsights\Domain\Metrics\Architecture\Classes;
+use NunoMaduro\PhpInsights\Domain\Sniffs\CyclomaticComplexityIsHigh;
+use PHP_CodeSniffer\Standards\Generic\Sniffs\Files\LineLengthSniff;
+use PHP_CodeSniffer\Standards\Generic\Sniffs\Formatting\SpaceAfterCastSniff;
+use PHP_CodeSniffer\Standards\Generic\Sniffs\Formatting\SpaceAfterNotSniff;
+use PHP_CodeSniffer\Standards\Generic\Sniffs\Functions\OpeningFunctionBraceBsdAllmanSniff;
+use PHP_CodeSniffer\Standards\PEAR\Sniffs\Classes\ClassDeclarationSniff;
+use SlevomatCodingStandard\Sniffs\Classes\ClassStructureSniff;
+use SlevomatCodingStandard\Sniffs\Commenting\DocCommentSpacingSniff;
 use SlevomatCodingStandard\Sniffs\Commenting\UselessFunctionDocCommentSniff;
+use SlevomatCodingStandard\Sniffs\Functions\FunctionLengthSniff;
 use SlevomatCodingStandard\Sniffs\Namespaces\AlphabeticallySortedUsesSniff;
 use SlevomatCodingStandard\Sniffs\TypeHints\DeclareStrictTypesSniff;
 use SlevomatCodingStandard\Sniffs\TypeHints\DisallowMixedTypeHintSniff;
@@ -90,14 +99,14 @@ return [
         AlphabeticallySortedUsesSniff::class,
         DeclareStrictTypesSniff::class,
         UselessFunctionDocCommentSniff::class,
-        \SlevomatCodingStandard\Sniffs\Commenting\DocCommentSpacingSniff::class,
-        \PHP_CodeSniffer\Standards\Generic\Sniffs\Formatting\SpaceAfterCastSniff::class,
-        \PHP_CodeSniffer\Standards\Generic\Sniffs\Formatting\SpaceAfterNotSniff::class,
+        DocCommentSpacingSniff::class,
+        SpaceAfterCastSniff::class,
+        SpaceAfterNotSniff::class,
 
         // Brace style - delegate to Pint (PSR-12)
-        \PHP_CodeSniffer\Standards\Generic\Sniffs\Functions\OpeningFunctionBraceBsdAllmanSniff::class,
-        \PHP_CodeSniffer\Standards\PEAR\Sniffs\Classes\ClassDeclarationSniff::class,
-        \SlevomatCodingStandard\Sniffs\Classes\ClassStructureSniff::class,
+        OpeningFunctionBraceBsdAllmanSniff::class,
+        ClassDeclarationSniff::class,
+        ClassStructureSniff::class,
     ],
 
     'config' => [
@@ -106,17 +115,17 @@ return [
         ],
 
         // Cyclomatic Complexity - realistic threshold for Laravel
-        \NunoMaduro\PhpInsights\Domain\Sniffs\CyclomaticComplexityIsHigh::class => [
+        CyclomaticComplexityIsHigh::class => [
             'maxComplexity' => 10,
         ],
 
         // Function length - allow reasonable method sizes
-        \SlevomatCodingStandard\Sniffs\Functions\FunctionLengthSniff::class => [
+        FunctionLengthSniff::class => [
             'maxLinesLength' => 50,
         ],
 
         // Line length
-        \PHP_CodeSniffer\Standards\Generic\Sniffs\Files\LineLengthSniff::class => [
+        LineLengthSniff::class => [
             'lineLimit' => 120,
             'absoluteLineLimit' => 120,
             'ignoreComments' => false,

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Models\User;
 use Illuminate\Support\Facades\Gate;
 use Laravel\Telescope\IncomingEntry;
 use Laravel\Telescope\Telescope;
@@ -22,7 +23,7 @@ class TelescopeServiceProvider extends TelescopeApplicationServiceProvider
 
         $isLocal = $this->app->environment('local');
 
-        Telescope::filter(function (IncomingEntry $entry) use ($isLocal): bool {
+        Telescope::filter(static function (IncomingEntry $entry) use ($isLocal): bool {
             return $isLocal ||
                    $entry->isReportableException() ||
                    $entry->isFailedRequest() ||
@@ -57,7 +58,7 @@ class TelescopeServiceProvider extends TelescopeApplicationServiceProvider
      */
     protected function gate(): void
     {
-        Gate::define('viewTelescope', function (\App\Models\User $user): bool {
+        Gate::define('viewTelescope', static function (User $user): bool {
             // TODO: Add authorized emails here
             return false;
         });
