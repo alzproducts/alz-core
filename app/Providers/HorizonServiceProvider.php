@@ -28,7 +28,7 @@ class HorizonServiceProvider extends HorizonApplicationServiceProvider
      */
     protected function gate(): void
     {
-        Gate::define('viewHorizon', function ($user = null) {
+        Gate::define('viewHorizon', function (?\App\Models\User $user = null): bool {
             // TODO: Add authorized emails here
             return false;
         });
