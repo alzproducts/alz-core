@@ -86,13 +86,18 @@ return [
         PropertyTypeHintSniff::class,
         ReturnTypeHintSniff::class,
 
-        // Style - let Pint handle ALL style
+        // Style - let Pint handle ALL style (PSR-12)
         AlphabeticallySortedUsesSniff::class,
         DeclareStrictTypesSniff::class,
         UselessFunctionDocCommentSniff::class,
         \SlevomatCodingStandard\Sniffs\Commenting\DocCommentSpacingSniff::class,
         \PHP_CodeSniffer\Standards\Generic\Sniffs\Formatting\SpaceAfterCastSniff::class,
         \PHP_CodeSniffer\Standards\Generic\Sniffs\Formatting\SpaceAfterNotSniff::class,
+
+        // Brace style - delegate to Pint (PSR-12)
+        \PHP_CodeSniffer\Standards\Generic\Sniffs\Functions\OpeningFunctionBraceBsdAllmanSniff::class,
+        \PHP_CodeSniffer\Standards\PEAR\Sniffs\Classes\ClassDeclarationSniff::class,
+        \SlevomatCodingStandard\Sniffs\Classes\ClassStructureSniff::class,
     ],
 
     'config' => [
