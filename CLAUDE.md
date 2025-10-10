@@ -15,7 +15,7 @@ See detailed plan: `.ai/docs/plans/alz-core-initial-plan.md`
 ## Current Stack
 
 - Laravel 12 (backend-only, no frontend)
-- PHP 8.2+
+- PHP 8.4+
 - SQLite (development) → PostgreSQL/Supabase (production, planned)
 - Redis (cache/queues, planned)
 - Horizon + Telescope (monitoring, planned)
@@ -42,7 +42,7 @@ docker run --rm -u "$(id -u):$(id -g)" -v "$(pwd):/var/www/html" -w /var/www/htm
 ./vendor/bin/sail artisan migrate
 ```
 
-### With local PHP 8.2+
+### With local PHP 8.4+
 ```bash
 composer run setup    # First-time setup
 composer run dev      # Start all services (server, queue, logs, vite)
