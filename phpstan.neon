@@ -2,9 +2,23 @@ includes:
     - vendor/larastan/larastan/extension.neon
     - vendor/phpstan/phpstan-strict-rules/rules.neon
     - vendor/phpstan/phpstan-deprecation-rules/rules.neon
+    - vendor/shipmonk/phpstan-rules/rules.neon
 
 parameters:
     level: 8
+
+    # ShipMonk strict rules configuration
+    shipmonkRules:
+        # Enforce native type hints on closure parameters (strict mode)
+        enforceClosureParamNativeTypehint:
+            allowMissingTypeWhenInferred: false  # Strict: require explicit types on ALL closures
+
+    # Ignore overly strict ShipMonk rules not suitable for Laravel
+    ignoreErrors:
+        # Laravel often requires unused closure parameters (Gate::define signatures, factory states, etc.)
+        - identifier: shipmonk.unusedParameter
+        # Laravel config files use nullable string concatenation
+        - identifier: shipmonk.binaryOperationWithNull
 
     paths:
         - app/

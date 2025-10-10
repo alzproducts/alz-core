@@ -1,6 +1,8 @@
 <?php
 
 declare(strict_types=1);
+use Illuminate\Http\Client\Factory;
+use Illuminate\Http\Client\PendingRequest;
 
 return [
 
@@ -289,7 +291,7 @@ return [
     |
     */
     'macro_default_return_types' => [
-        Illuminate\Http\Client\Factory::class => Illuminate\Http\Client\PendingRequest::class,
+        Factory::class => PendingRequest::class,
     ],
 
     /*
