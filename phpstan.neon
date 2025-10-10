@@ -19,6 +19,10 @@ parameters:
         - identifier: shipmonk.unusedParameter
         # Laravel config files use nullable string concatenation
         - identifier: shipmonk.binaryOperationWithNull
+        # PHP Insights config references PHP_CodeSniffer classes as config keys (not loaded via Composer autoload)
+        -
+            message: '#^Class PHP_CodeSniffer\\.*#'
+            path: config/insights.php
 
     paths:
         - app/
