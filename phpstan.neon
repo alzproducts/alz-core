@@ -30,10 +30,8 @@ parameters:
     # Fix Docker/Sail cache permission issues - use storage directory
     tmpDir: storage/framework/phpstan
 
-    # Exclude generated/vendor code
+    # Exclude generated/vendor code only
     excludePaths:
         - bootstrap/cache/
         - storage/
         - vendor/
-        - config/insights.php  # PHP Insights config with class references
-        - tests/Unit/ExampleTest.php  # Placeholder test
