@@ -29,7 +29,8 @@
         "pestphp/pest-plugin-laravel": "^3.0",
         "phpstan/phpstan-deprecation-rules": "^2.0",
         "phpstan/phpstan-strict-rules": "^2.0",
-        "phpunit/phpunit": "^11.5.3"
+        "phpunit/phpunit": "^11.5.3",
+        "shipmonk/phpstan-rules": "^4.2"
     },
     "autoload": {
         "psr-4": {
