@@ -18,13 +18,13 @@
 
 ### Technology Stack
 
-| Component | Choice | Reasoning |
-|-----------|--------|-----------|
-| Backend Framework | Laravel + Octane | Modern PHP, excellent DX, 10-30x performance boost |
-| Database | Supabase (PostgreSQL) | Already integrated with Next.js, single source of truth |
-| Cache/Queue | Redis | Fast, reliable, great Laravel integration |
-| Deployment | Railway | Vercel-like experience, easy deployment |
-| Monitoring | Horizon + Telescope | Built-in Laravel tools for queue and debug monitoring |
+| Component         | Choice                | Reasoning                                               |
+|-------------------|-----------------------|---------------------------------------------------------|
+| Backend Framework | Laravel + Octane      | Modern PHP, excellent DX, 10-30x performance boost      |
+| Database          | Supabase (PostgreSQL) | Already integrated with Next.js, single source of truth |
+| Cache/Queue       | Redis                 | Fast, reliable, great Laravel integration               |
+| Deployment        | Railway               | Vercel-like experience, easy deployment                 |
+| Monitoring        | Horizon + Telescope   | Built-in Laravel tools for queue and debug monitoring   |
 
 ### Domain Structure
 
