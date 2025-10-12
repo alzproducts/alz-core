@@ -1,3 +1,4 @@
-release: php artisan migrate --force && php artisan config:cache && php artisan route:cache && php artisan view:cache && php artisan event:cache
+release: php artisan migrate --force && php artisan optimize
 worker: php artisan horizon
-scheduler: php artisan schedule:work
+# Scheduler removed - no scheduled tasks defined yet (YAGNI)
+# Will be added in Phase 2 using Railway cron - see .ai/docs/plans/alz-core-deferred-decisions.md
