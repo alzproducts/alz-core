@@ -1,8 +1,12 @@
 <?php
 
 declare(strict_types=1);
+
+use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
+use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Http\Client\Factory;
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Session\Store;
 
 return [
 
@@ -187,8 +191,8 @@ return [
     */
 
     'extra' => [
-        'Eloquent' => ['Illuminate\Database\Eloquent\Builder', 'Illuminate\Database\Query\Builder'],
-        'Session' => ['Illuminate\Session\Store'],
+        'Eloquent' => [EloquentBuilder::class, QueryBuilder::class],
+        'Session' => [Store::class],
     ],
 
     'magic' => [],
