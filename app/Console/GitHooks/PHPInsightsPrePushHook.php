@@ -4,69 +4,37 @@ declare(strict_types=1);
 
 namespace App\Console\GitHooks;
 
-use Closure;
-use Exception;
-use Igorsgm\GitHooks\Contracts\PrePushHook;
-use Igorsgm\GitHooks\Git\Log;
-use Illuminate\Console\Command;
-use Symfony\Component\Process\Process;
-
-class PHPInsightsPrePushHook implements PrePushHook
+class PHPInsightsPrePushHook extends BaseProcessHook
 {
     protected string $name = 'PHP Insights';
 
-    /** @phpstan-ignore-next-line shipmonk.publicPropertyNotReadonly - Required by Hook interface for dependency injection */
-    public Command $command;
-
-    public function getName(): ?string
+    /**
+     * @return list<string>
+     */
+    protected function getProcessCommand(): array
     {
-        return $this->name;
-    }
-
-    public function setCommand(Command $command): void
-    {
-        $this->command = $command;
-    }
-
-    public function handle(Log $log, Closure $next): mixed
-    {
-        $this->info('Running PHP Insights...');
-
-        $process = new Process([
+        return [
             './vendor/bin/phpinsights',
             '--no-interaction',
             '--min-quality=90',
             '--min-complexity=85',
             '--min-architecture=90',
             '--min-style=95',
-        ]);
-        $process->setTimeout(180); // 3 minutes max
-        $process->run();
-
-        if (! $process->isSuccessful()) {
-            $this->error('PHP Insights quality check failed!');
-            $this->line($process->getOutput());
-
-            throw new Exception('PHP Insights quality standards not met');
-        }
-
-        $this->info('✓ Code quality standards met!');
-
-        return $next($log);
+        ];
     }
 
-    protected function info(string $message): void
+    protected function getTimeout(): int
     {
-        echo "\033[32m{$message}\033[0m\n";
+        return 180; // 3 minutes
     }
 
-    protected function error(string $message): void
+    protected function getSuccessMessage(): string
     {
-        echo "\033[31m{$message}\033[0m\n";
+        return 'Code quality standards met!';
     }
 
-    protected function line(string $message): void
+    protected function getFailureMessage(): string
     {
-        echo "{$message}\n";
+        return 'PHP Insights quality check failed!';
     }
 }
