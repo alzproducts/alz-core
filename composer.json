@@ -16,6 +16,7 @@
     "require-dev": {
         "barryvdh/laravel-ide-helper": "^3.6",
         "fakerphp/faker": "^1.23",
+        "igorsgm/laravel-git-hooks": "^2.0",
         "larastan/larastan": "^3.0",
         "laravel/pail": "^1.2",
         "laravel/pint": "^1.24",
