@@ -24,6 +24,8 @@ See detailed plan: `.ai/docs/plans/alz-core-initial-plan.md`
 
 **IMPORTANT**: All PHP and Composer commands MUST be run through Sail. Never use local PHP/Composer as it may be the wrong version or have platform compatibility issues.
 
+**NOTE**: Do NOT run `sail up` or `sail down` - the user manages Sail container lifecycle manually.
+
 ### Using Sail (no local PHP required)
 ```bash
 # First time: Install via Docker
@@ -55,6 +57,30 @@ composer run test     # Run tests
 2. **Thin SDK**: E-commerce API package (planned) stays simple, Laravel handles logic
 3. **Queue everything**: Webhooks respond immediately, process async
 4. **Supabase shared**: Same PostgreSQL database as Next.js frontend
+
+## Modern PHP Standards
+
+**Target**: PHP 8.4+ features and best practices
+
+### Exception Handling
+- **Use specific SPL exceptions** instead of generic `\Exception`
+- Runtime failures → `RuntimeException`
+- Invalid arguments → `InvalidArgumentException`
+- Logic errors → `LogicException`
+- See: [SPL Exceptions](https://www.php.net/manual/en/spl.exceptions.php)
+
+### PHP 8.4 Features
+- **Property Hooks**: Use where appropriate (getters/setters on properties)
+  - ⚠️ Cannot replace interface-required methods
+  - Good for internal class properties with validation/transformation logic
+- **Asymmetric Visibility**: Use `public private(set)` for read-only properties
+- **Array Functions**: Use `array_find()`, `array_find_key()`, `array_any()`, `array_all()`
+
+### Type Safety
+- Always use strict types: `declare(strict_types=1);`
+- Use union types over docblock annotations: `string|int` not `@var string|int`
+- Prefer readonly properties for immutable data
+- Use enums over class constants for fixed sets
 
 ## Code Quality & Linting
 
