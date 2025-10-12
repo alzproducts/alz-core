@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Http\Middleware\HorizonBasicAuth;
 use Illuminate\Support\Str;
 
 return [
@@ -18,6 +19,22 @@ return [
     */
 
     'domain' => \env('HORIZON_DOMAIN'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Horizon Authentication
+    |--------------------------------------------------------------------------
+    |
+    | These credentials will be used to authenticate access to the Horizon
+    | dashboard via HTTP Basic Authentication. This provides simple but
+    | effective protection for the Horizon interface in production.
+    |
+    */
+
+    'auth' => [
+        'username' => \env('HORIZON_USER'),
+        'password' => \env('HORIZON_PASSWORD'),
+    ],
 
     /*
     |--------------------------------------------------------------------------
@@ -72,7 +89,7 @@ return [
     |
     */
 
-    'middleware' => ['web'],
+    'middleware' => ['web', HorizonBasicAuth::class],
 
     /*
     |--------------------------------------------------------------------------
@@ -159,7 +176,7 @@ return [
     |
     */
 
-    'fast_termination' => false,
+    'fast_termination' => true,
 
     /*
     |--------------------------------------------------------------------------
@@ -172,7 +189,7 @@ return [
     |
     */
 
-    'memory_limit' => 64,
+    'memory_limit' => 256,
 
     /*
     |--------------------------------------------------------------------------
@@ -207,6 +224,10 @@ return [
                 'maxProcesses' => 10,
                 'balanceMaxShift' => 1,
                 'balanceCooldown' => 3,
+                'tries' => 3,
+                'timeout' => 90,
+                'maxTime' => 3600,
+                'maxJobs' => 100,
             ],
         ],
 
