@@ -28,6 +28,19 @@
         "fully_qualified_strict_types": {
             "import_symbols": true
         },
-        "static_lambda": true
+        "static_lambda": true,
+        "phpdoc_to_param_type": true,
+        "phpdoc_to_return_type": true,
+        "phpdoc_to_property_type": true,
+        "nullable_type_declaration_for_default_null_value": true,
+        "native_type_declaration_casing": true,
+        "return_type_declaration": {
+            "space_before": "none"
+        },
+        "no_null_property_initialization": true,
+        "no_unset_on_property": true,
+        "nullable_type_declaration": {
+            "syntax": "question_mark"
+        }
     }
 }
