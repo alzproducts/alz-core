@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 use App\Console\GitHooks\PestPrePushHook;
+use App\Console\GitHooks\PHPArkitectPreCommitHook;
+use App\Console\GitHooks\PHPArkitectPrePushHook;
 use App\Console\GitHooks\PHPInsightsPrePushHook;
 use Igorsgm\GitHooks\Console\Commands\Hooks\LarastanPreCommitHook;
 use Igorsgm\GitHooks\Console\Commands\Hooks\PintPreCommitHook;
@@ -13,11 +15,12 @@ return [
     | Pre-Commit Hooks
     |--------------------------------------------------------------------------
     | Fast linting checks on staged files - runs before commit (5-10 seconds)
-    | PHP Insights is too slow and better suited for pre-push
+    | PHPArkitect is extremely fast (~0.1s) so included for immediate feedback
     */
     'pre-commit' => [
         PintPreCommitHook::class,
         LarastanPreCommitHook::class,
+        PHPArkitectPreCommitHook::class,
     ],
 
     /*
@@ -30,6 +33,7 @@ return [
     'pre-push' => [
         PestPrePushHook::class,
         PHPInsightsPrePushHook::class,
+        PHPArkitectPrePushHook::class,
     ],
 
     /*
