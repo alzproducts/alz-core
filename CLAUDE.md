@@ -87,13 +87,14 @@ composer run test     # Run tests
 
 ## Code Quality & Linting
 
-**CRITICAL**: We maintain strict code quality standards with four linters:
+**CRITICAL**: We maintain strict code quality standards with four linters + mutation testing:
 
 ### Linters Configured
 1. **Laravel Pint** (Code Style) - PER (PHP Evolving Recommendation) preset with strict rules
 2. **PHPStan Level max** (Static Analysis) - Maximum strictness + 11 ShipMonk rules + bleeding edge
 3. **PHP Insights** (Architecture/Quality) - Complexity, architecture, code quality metrics
 4. **PHPArkitect** (Architecture Enforcement) - Clean Architecture layer boundaries + naming conventions
+5. **Infection** (Mutation Testing) - Validates test quality by catching weak assertions (especially AI-generated tests)
 
 ### Running Linters
 
@@ -213,6 +214,70 @@ App\Presentation   → Entry points (Controllers, Console commands, Jobs)
 - ✅ Eloquent Models allowed in Domain (pragmatic choice)
 - ✅ Collections, Support classes allowed
 - ❌ HTTP, Console, Queue, Facades forbidden in Domain
+
+### Infection (Mutation Testing)
+
+**Purpose**: Validates test quality by mutating code and checking if tests fail. **Critical for catching weak assertions in AI-generated tests.**
+
+**What It Does**:
+- Modifies code (mutations) to check if tests catch changes
+- Detects weak assertions (`assertNotNull()` vs. specific value checks)
+- Measures Mutation Score Indicator (MSI) - % of mutations caught
+
+**Running Infection**:
+
+```bash
+# Run mutation tests on entire codebase
+./vendor/bin/sail composer infection
+
+# Run tests + mutation tests together (recommended workflow)
+./vendor/bin/sail composer test:ai
+
+# CI/CD mode with strict thresholds
+./vendor/bin/sail composer infection:ci
+
+# Include in full quality check
+./vendor/bin/sail composer check:full
+```
+
+**Quality Thresholds**:
+- Minimum MSI: 70% (overall mutation score)
+- Minimum Covered MSI: 80% (tested code only)
+
+**AI Test Validation Workflow**:
+1. Use AI to generate tests for new code
+2. Run `./vendor/bin/sail composer test:ai`
+3. Review escaped mutants in `build/infection.log`
+4. Strengthen weak assertions identified by Infection
+5. Re-run until MSI ≥ 70%
+
+**Common Escaped Mutants & Fixes**:
+
+```php
+// ❌ WEAK: Infection escapes this
+$this->assertNotNull($result);
+
+// ✅ STRONG: Infection catches mutations
+$this->assertEquals('expected-value', $result);
+
+// ❌ WEAK: Infection changes === to == and test still passes
+$this->assertTrue($status);
+
+// ✅ STRONG: Specific value assertion
+$this->assertSame(200, $response->status());
+```
+
+**Performance Notes**:
+- Small codebase: ~10-30 seconds
+- Runs on covered code only by default
+- Parallelized with 4 threads
+- Not included in pre-commit hooks (too slow)
+- Optional in pre-push hooks (commented out, adds 30-60s)
+
+**Git Hook Integration**:
+- Pre-push hook available but **disabled by default** due to performance
+- Enable by uncommenting `InfectionPrePushHook::class` in `config/git-hooks.php`
+- Recommended: Run manually with `composer test:ai` instead
 
 ### ⚠️ IMPORTANT: Bypassing Linters
 

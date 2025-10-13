@@ -17,6 +17,7 @@
         "barryvdh/laravel-ide-helper": "^3.6",
         "fakerphp/faker": "^1.23",
         "igorsgm/laravel-git-hooks": "^2.0",
+        "infection/infection": "*",
         "larastan/larastan": "^3.0",
         "laravel/pail": "^1.2",
         "laravel/pint": "^1.24",
@@ -108,11 +109,29 @@
         ],
         "test": [
             "Composer\\Config::disableProcessTimeout",
-            "@php vendor/bin/pest --parallel"
+            "@php vendor/bin/pest --parallel --fail-on-deprecation"
         ],
         "test:coverage": [
             "Composer\\Config::disableProcessTimeout",
             "@php vendor/bin/pest --coverage --min=80"
+        ],
+        "infection": [
+            "Composer\\Config::disableProcessTimeout",
+            "@php vendor/bin/infection --show-mutations --threads=4"
+        ],
+        "infection:ci": [
+            "Composer\\Config::disableProcessTimeout",
+            "@php vendor/bin/infection --logger-github --min-msi=70 --min-covered-msi=80"
+        ],
+        "test:ai": [
+            "Composer\\Config::disableProcessTimeout",
+            "@test",
+            "@infection"
+        ],
+        "check:full": [
+            "@lint:full",
+            "@test",
+            "@infection"
         ],
         "ide-helper": [
             "@php artisan ide-helper:generate",
@@ -132,7 +151,8 @@
         "allow-plugins": {
             "dealerdirect/phpcodesniffer-composer-installer": true,
             "pestphp/pest-plugin": true,
-            "php-http/discovery": true
+            "php-http/discovery": true,
+            "infection/extension-installer": true
         },
         "platform": {
             "php": "8.4.0"
