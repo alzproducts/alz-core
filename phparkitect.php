@@ -10,7 +10,7 @@ use Arkitect\Expression\ForClasses\ResideInOneOfTheseNamespaces;
 use Arkitect\Rules\Rule;
 
 return static function (Config $config): void {
-    $classSet = ClassSet::fromDir(\getcwd() . '/app');
+    $classSet = ClassSet::fromDir(__DIR__ . '/app');
 
     /*
      |--------------------------------------------------------------------------
@@ -90,7 +90,7 @@ return static function (Config $config): void {
     //
     $rules[] = Rule::allClasses()
         ->that(new ResideInOneOfTheseNamespaces($domain))
-        ->should(new NotHaveDependencyOutsideNamespace($domain, ['DateTimeImmutable', 'DateTimeZone', 'DateTime']))
+        ->should(new NotHaveDependencyOutsideNamespace($domain, ['DateTime', 'DateTimeImmutable', 'DateTimeZone', 'DateTimeInterface', 'DateInterval', 'DatePeriod']))
         ->because('the Domain layer should be self-contained and not depend on any other layer.');
 
     // RULE 2: Application Can Only Depend on Domain
@@ -113,7 +113,7 @@ return static function (Config $config): void {
     //
     $rules[] = Rule::allClasses()
         ->that(new ResideInOneOfTheseNamespaces($application))
-        ->should(new NotHaveDependencyOutsideNamespace($application, [$domain, 'DateTimeImmutable', 'DateTimeZone', 'DateTime']))
+        ->should(new NotHaveDependencyOutsideNamespace($application, [$domain, 'DateTime', 'DateTimeImmutable', 'DateTimeZone', 'DateTimeInterface', 'DateInterval', 'DatePeriod']))
         ->because('the Application layer can only depend on the Domain layer.');
 
     // RULE 3: Infrastructure Implements Domain/Application Interfaces
@@ -131,7 +131,7 @@ return static function (Config $config): void {
     //
     $rules[] = Rule::allClasses()
         ->that(new ResideInOneOfTheseNamespaces($infrastructure))
-        ->should(new NotHaveDependencyOutsideNamespace($infrastructure, [$application, $domain, 'Illuminate', 'DateTimeImmutable', 'DateTimeZone', 'DateTime']))
+        ->should(new NotHaveDependencyOutsideNamespace($infrastructure, [$application, $domain, 'Illuminate', 'DateTime', 'DateTimeImmutable', 'DateTimeZone', 'DateTimeInterface', 'DateInterval', 'DatePeriod']))
         ->because('the Infrastructure layer implements interfaces from Application and Domain layers.');
 
     // RULE 4: Presentation Uses Application Services
@@ -150,7 +150,7 @@ return static function (Config $config): void {
     //
     $rules[] = Rule::allClasses()
         ->that(new ResideInOneOfTheseNamespaces($presentation))
-        ->should(new NotHaveDependencyOutsideNamespace($presentation, [$application, $domain, 'Illuminate', 'DateTimeImmutable', 'DateTimeZone', 'DateTime']))
+        ->should(new NotHaveDependencyOutsideNamespace($presentation, [$application, $domain, 'Illuminate', 'DateTime', 'DateTimeImmutable', 'DateTimeZone', 'DateTimeInterface', 'DateInterval', 'DatePeriod']))
         ->because('the Presentation layer uses Application services and may handle Domain objects they return.');
 
     // NOTE: Additional architectural constraints (like "Controllers must not depend on
