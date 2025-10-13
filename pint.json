@@ -41,6 +41,14 @@
         "no_unset_on_property": true,
         "nullable_type_declaration": {
             "syntax": "question_mark"
+        },
+        "no_php4_constructor": true,
+        "random_api_migration": true,
+        "no_alias_functions": true,
+        "is_null": true,
+        "ereg_to_preg": true,
+        "error_suppression": {
+            "noise_remaining_usages": false
         }
     }
 }
