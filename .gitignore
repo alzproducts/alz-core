@@ -25,6 +25,6 @@ Homestead.yaml
 Thumbs.db
 
 # IDE Helper generated files
-_ide_helper.php
+# Note: _ide_helper.php is committed for PHPStan max level support
 _ide_helper_models.php
 .phpstorm.meta.php
