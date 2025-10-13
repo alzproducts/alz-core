@@ -23,9 +23,13 @@ class HorizonBasicAuth
             \abort(500, 'Horizon authentication not configured');
         }
 
+        // Type narrowing: after validation, these are guaranteed to be non-empty strings
+        \assert((\is_string($username)));
+        \assert(\is_string($password));
+
         if (
-            ($request->getUser() !== $username)
-            || ($request->getPassword() !== $password)
+            !\hash_equals($username, $request->getUser() ?? '')
+            || !\hash_equals($password, $request->getPassword() ?? '')
         ) {
             return \response('Unauthorized', 401, [
                 'WWW-Authenticate' => 'Basic realm="Horizon Dashboard"',
