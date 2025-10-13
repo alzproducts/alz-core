@@ -6,9 +6,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Backend service for e-commerce webhooks and background jobs. Replaces legacy PHP app for 3-4 internal staff.
 
+**Team Structure**: Solo developer (1 person), 3-4 internal staff users
 **Key Functions**: Process webhooks, sync orders/inventory/products, scheduled tasks
 **Frontend**: Separate Next.js app using Supabase (already built)
 **Deployment**: Railway (planned)
+
+**Development Philosophy**: Portfolio piece demonstrating modern PHP best practices. Previous PHP project became unmaintainable due to poor architecture—this project aims to establish clean architecture from day one.
 
 See detailed plan: `.ai/docs/plans/alz-core-initial-plan.md`
 
