@@ -87,8 +87,8 @@ composer run test     # Run tests
 **CRITICAL**: We maintain strict code quality standards with three linters:
 
 ### Linters Configured
-1. **Laravel Pint** (Code Style) - PSR-12 + Laravel conventions
-2. **PHPStan Level 8** (Static Analysis) - Type safety + strict rules + deprecation detection
+1. **Laravel Pint** (Code Style) - PER (PHP Evolving Recommendation) preset with strict rules
+2. **PHPStan Level max** (Static Analysis) - Maximum strictness + 11 ShipMonk rules + bleeding edge
 3. **PHP Insights** (Architecture/Quality) - Complexity, architecture, code quality metrics
 
 ### Running Linters
@@ -123,10 +123,45 @@ composer run test     # Run tests
 
 ### Linting Standards
 - **All code MUST pass all three linters before commit**
-- **PHPStan Level 8** enforces strict type safety
+- **PHPStan Level max** enforces maximum type safety with bleeding edge features
 - **Strict comparisons required**: Use `===` instead of `==` (enforced by phpstan-strict-rules)
 - **Deprecation warnings are errors**: Uses phpstan-deprecation-rules for upgrade path safety
 - **All PHP files MUST include**: `declare(strict_types=1);`
+
+### Pint Strict Rules (PER Preset)
+
+**Why PER?** PHP Evolving Recommendation is the modern successor to PSR-12, supporting PHP 8+ features (enums, match, attributes).
+
+**Strict Rules Enabled:**
+
+1. **`declare_strict_types: true`**
+   - Automatically adds `declare(strict_types=1);` to all PHP files
+   - Prevents type juggling bugs and enforces explicit type handling
+
+2. **`strict_comparison: true`**
+   - Enforces `in_array($x, $y, true)` over `in_array($x, $y)`
+   - Requires strict mode for array/string comparison functions
+   - Prevents accidental type coercion (e.g., `"0" == 0` returning true)
+
+3. **`strict_param: true`**
+   - Forces strict parameters in functions like `array_search()`, `array_keys()`
+   - Ensures consistent strict behavior across all comparison functions
+
+4. **`mb_str_functions: true`** ⚠️ *Risky*
+   - Converts `strlen()` → `mb_strlen()`, `strpos()` → `mb_strpos()`
+   - **Why enabled**: E-commerce backend handles international data (product names, addresses)
+   - Prevents Unicode bugs with multi-byte characters (emoji, Chinese, Arabic, etc.)
+   - Requires `mbstring` extension (included in PHP core)
+
+5. **`modernize_types_casting: true`** ⚠️ *Risky*
+   - Converts `intval($x)` → `(int) $x`, `strval($x)` → `(string) $x`
+   - **Why enabled**: Type casts are faster and more explicit than function calls
+   - Prevents accidental function overrides
+
+6. **`date_time_immutable: true`** ⚠️ *Risky*
+   - Enforces `DateTimeImmutable` over `DateTime`
+   - **Why enabled**: Prevents mutation bugs in date handling
+   - Immutability = fewer bugs in background jobs and webhooks
 
 ### Quality Thresholds (PHP Insights)
 - Code Quality: 90% minimum
