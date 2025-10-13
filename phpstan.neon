@@ -7,6 +7,7 @@ includes:
 
 parameters:
     level: max
+    phpVersion: 80400  # Target PHP 8.4.0
 
     # ShipMonk strict rules configuration
     shipmonkRules:
