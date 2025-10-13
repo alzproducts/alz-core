@@ -13,7 +13,13 @@ return new class extends Migration
      */
     public function getConnection(): ?string
     {
-        return \config('telescope.storage.database.connection');
+        $connection = \config('telescope.storage.database.connection');
+
+        if ($connection !== null && ! \is_string($connection)) {
+            throw new LogicException('Telescope database connection must be a string or null');
+        }
+
+        return $connection;
     }
 
     /**
