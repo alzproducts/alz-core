@@ -7,6 +7,8 @@ use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Http\Client\Factory;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Session\Store;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 
 return [
 
@@ -295,6 +297,10 @@ return [
     |
     */
     'macro_default_return_types' => [
+        EloquentBuilder::class => 'static',
+        QueryBuilder::class => 'static',
+        Collection::class => 'static',
+        Str::class => 'string',
         Factory::class => PendingRequest::class,
     ],
 
