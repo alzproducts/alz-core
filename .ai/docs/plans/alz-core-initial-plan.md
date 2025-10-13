@@ -261,16 +261,22 @@ public function getOrderData($orderId) {
 ## Development Tools Setup
 
 ### Code Quality
-```json
-// composer.json scripts
-{
-    "scripts": {
-        "test": "pest",
-        "lint": "pint",
-        "stan": "phpstan analyse",
-        "check": ["@lint", "@stan", "@test"]
-    }
-}
+
+Composer scripts for code quality checks:
+
+```bash
+# Run tests
+composer test
+
+# Check/fix code style
+composer lint
+composer fix
+
+# Run static analysis
+composer analyse
+
+# Run all checks
+composer check
 ```
 
 ### PHPStan Configuration
