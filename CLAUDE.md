@@ -101,7 +101,7 @@ composer run test     # Run tests
 
 ```bash
 # Fast linting (pre-commit) - ~5-10 seconds
-./vendor/bin/sail composer lint           # Run Pint + PHPStan (tests only, no fixes)
+./vendor/bin/sail composer lint           # Run Pint + PHPStan + PHPArkitect (tests only, no fixes)
 
 # Full linting (pre-push) - ~20-30 seconds
 ./vendor/bin/sail composer lint:full      # Run Pint + PHPStan + PHP Insights + PHPArkitect
@@ -122,9 +122,13 @@ composer run test     # Run tests
 
 ### Recommended Workflow
 - **On save/frequent**: `./vendor/bin/sail composer fix` (auto-fix style, ~1s)
-- **Before commit**: `./vendor/bin/sail composer lint` (Pint + PHPStan, ~5-10s)
+- **Before commit**: `./vendor/bin/sail composer lint` (Pint + PHPStan + PHPArkitect, ~5-10s)
 - **Before push**: `./vendor/bin/sail composer lint:full` or `composer check` (all linters + tests, ~30s)
 - **In CI/CD**: `composer check` (full validation)
+
+### Git Hooks (Automated)
+- **Pre-commit**: Pint + PHPStan + PHPArkitect (runs automatically on `git commit`)
+- **Pre-push**: Pest tests + PHP Insights + PHPArkitect (runs automatically on `git push`)
 
 ### Linting Standards
 - **All code MUST pass all four linters before commit**
