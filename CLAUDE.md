@@ -87,12 +87,13 @@ composer run test     # Run tests
 
 ## Code Quality & Linting
 
-**CRITICAL**: We maintain strict code quality standards with three linters:
+**CRITICAL**: We maintain strict code quality standards with four linters:
 
 ### Linters Configured
 1. **Laravel Pint** (Code Style) - PER (PHP Evolving Recommendation) preset with strict rules
 2. **PHPStan Level max** (Static Analysis) - Maximum strictness + 11 ShipMonk rules + bleeding edge
 3. **PHP Insights** (Architecture/Quality) - Complexity, architecture, code quality metrics
+4. **PHPArkitect** (Architecture Enforcement) - Clean Architecture layer boundaries + naming conventions
 
 ### Running Linters
 
@@ -103,7 +104,7 @@ composer run test     # Run tests
 ./vendor/bin/sail composer lint           # Run Pint + PHPStan (tests only, no fixes)
 
 # Full linting (pre-push) - ~20-30 seconds
-./vendor/bin/sail composer lint:full      # Run Pint + PHPStan + PHP Insights
+./vendor/bin/sail composer lint:full      # Run Pint + PHPStan + PHP Insights + PHPArkitect
 
 # Auto-fix style issues
 ./vendor/bin/sail composer fix            # Auto-fix code style with Pint
@@ -113,6 +114,7 @@ composer run test     # Run tests
 ./vendor/bin/sail composer pint:test      # Test code style (dry-run)
 ./vendor/bin/sail composer analyse        # Run PHPStan static analysis
 ./vendor/bin/sail composer insights       # Run PHP Insights quality check
+./vendor/bin/sail composer phparkitect    # Run PHPArkitect architecture checks
 
 # Run everything (tests + linters)
 ./vendor/bin/sail composer check          # Run lint:full + tests
@@ -125,11 +127,12 @@ composer run test     # Run tests
 - **In CI/CD**: `composer check` (full validation)
 
 ### Linting Standards
-- **All code MUST pass all three linters before commit**
+- **All code MUST pass all four linters before commit**
 - **PHPStan Level max** enforces maximum type safety with bleeding edge features
 - **Strict comparisons required**: Use `===` instead of `==` (enforced by phpstan-strict-rules)
 - **Deprecation warnings are errors**: Uses phpstan-deprecation-rules for upgrade path safety
 - **All PHP files MUST include**: `declare(strict_types=1);`
+- **Clean Architecture enforced**: PHPArkitect prevents layer violations and enforces naming conventions
 
 ### Pint Strict Rules (PER Preset)
 
@@ -171,6 +174,41 @@ composer run test     # Run tests
 - Complexity: 85% minimum
 - Architecture: 90% minimum
 - Style: 95% minimum
+
+### PHPArkitect Architecture Rules
+
+**Purpose**: Enforces Clean Architecture boundaries from day one, preventing the architectural decay that plagued the previous project.
+
+**4 Layers Enforced**:
+
+```
+App\Domain         → Business logic (Order, Product, calculations)
+App\Application    → Use cases (SyncOrdersUseCase, ProcessWebhookUseCase)
+App\Infrastructure → Implementations (EloquentOrderRepository, ApiClient)
+App\Presentation   → Entry points (Controllers, Console commands, Jobs)
+```
+
+**8 Rules Active** (see `phparkitect.php` for full details):
+
+1. **Domain Must Be Self-Contained** - No dependencies on other layers
+2. **Application Only Depends on Domain** - Use cases depend on domain interfaces
+3. **Infrastructure Implements Domain/Application** - Concrete implementations live here
+4. **Presentation Uses Application Services** - Controllers delegate to use cases
+5. **Controllers Must End With "Controller"** - Naming convention enforcement
+6. **Application Services Must End With "UseCase" or "Service"**
+7. **Repositories Must End With "Repository"**
+8. **API Clients Must End With "Client"**
+
+**Key Benefits**:
+- ✅ Violations caught immediately on 9-file codebase (easy to fix)
+- ✅ Real-time learning through descriptive error messages
+- ✅ Prevents "controller bloat" and "business logic in HTTP layer"
+- ✅ Ensures proper naming from first class created
+
+**Pragmatic Laravel Approach**:
+- ✅ Eloquent Models allowed in Domain (pragmatic choice)
+- ✅ Collections, Support classes allowed
+- ❌ HTTP, Console, Queue, Facades forbidden in Domain
 
 ### ⚠️ IMPORTANT: Bypassing Linters
 
