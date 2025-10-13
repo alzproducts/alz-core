@@ -15,7 +15,7 @@ return new class extends Migration
     {
         $connection = \config('telescope.storage.database.connection');
 
-        if ($connection !== null && ! \is_string($connection)) {
+        if (($connection !== null) && ! \is_string($connection)) {
             throw new LogicException('Telescope database connection must be a string or null');
         }
 
