@@ -54,6 +54,17 @@
         "array_push": true,
         "pow_to_exponentiation": true,
         "combine_nested_dirname": true,
-        "modernize_strpos": true
+        "modernize_strpos": true,
+        "get_class_to_class_keyword": true,
+        "use_arrow_functions": true,
+        "list_syntax": {
+            "syntax": "short"
+        },
+        "ternary_to_null_coalescing": true,
+        "assign_null_coalescing_to_coalesce_equal": true,
+        "array_syntax": {
+            "syntax": "short"
+        },
+        "new_with_parentheses": false
     }
 }

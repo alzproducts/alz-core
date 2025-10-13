@@ -36,9 +36,7 @@ class HorizonBasicAuthTest extends TestCase
 
         // Define a test route that is protected by the middleware.
         // This allows us to test the middleware in a realistic request-response cycle.
-        Route::get('/_test/protected-route', static function (): Response {
-            return \response('Success', 200);
-        })->middleware(HorizonBasicAuth::class);
+        Route::get('/_test/protected-route', static fn(): Response => \response('Success', 200))->middleware(HorizonBasicAuth::class);
     }
 
     /**
