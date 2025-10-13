@@ -21,7 +21,9 @@
     "timeout": 10,
     "threads": 4,
 
-    // Quality thresholds (realistic for small codebase with AI-generated tests)
+    // Quality thresholds - Set for AI-generated tests
+    // First AI test run: expect 65-75% MSI
+    // After strengthening assertions: target 85%+
     "minMsi": 70,              // Minimum Mutation Score Indicator
     "minCoveredMsi": 80,       // MSI for covered code only
 
@@ -32,8 +34,14 @@
         "json": "build/infection.json"
     },
 
-    // Mutators - Focus on catching AI test weaknesses
-    // Using @default profile which includes all the important mutators
+    // AI-Optimized Mutators
+    // @default includes all standard mutators that catch common AI test weaknesses:
+    // - Equal/Identical mutators: Catch AI using == instead of ===
+    // - TrueValue/FalseValue: Catch AI using assertTrue() instead of assertEquals()
+    // - Not mutators: Catch AI using assertNotNull() instead of specific values
+    // - Comparison mutators: Catch AI missing boundary checks
+    //
+    // See full list: vendor/infection/infection/src/Mutator/
     "mutators": {
         "@default": true
     }
