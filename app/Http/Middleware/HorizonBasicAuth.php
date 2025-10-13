@@ -17,8 +17,8 @@ class HorizonBasicAuth
         $password = \config('horizon.auth.password');
 
         if (
-            (($username === null) || ($username === '')) ||
-            (($password === null) || ($password === ''))
+            (($username === null) || ($username === ''))
+            || (($password === null) || ($password === ''))
         ) {
             \abort(500, 'Horizon authentication not configured');
         }

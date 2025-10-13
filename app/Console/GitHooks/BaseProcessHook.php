@@ -48,10 +48,10 @@ abstract class BaseProcessHook implements PrePushHook
                 $this->command->line($errorOutput);
             }
 
-            throw new HookFailException($hookName.' failed.');
+            throw new HookFailException($hookName . ' failed.');
         }
 
-        $this->command->info('✓ '.$this->getSuccessMessage());
+        $this->command->info('✓ ' . $this->getSuccessMessage());
 
         return $next($log);
     }
