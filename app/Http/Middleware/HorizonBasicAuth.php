@@ -16,16 +16,14 @@ class HorizonBasicAuth
         $username = \config('horizon.auth.username');
         $password = \config('horizon.auth.password');
 
-        if (
-            (($username === null) || ($username === ''))
-            || (($password === null) || ($password === ''))
-        ) {
-            \abort(500, 'Horizon authentication not configured');
+        // Validate configuration: must be non-empty strings
+        if (!\is_string($username) || ($username === '')) {
+            \abort(500, 'Horizon username not configured or invalid type');
         }
 
-        // Type narrowing: after validation, these are guaranteed to be non-empty strings
-        \assert((\is_string($username)));
-        \assert(\is_string($password));
+        if (!\is_string($password) || ($password === '')) {
+            \abort(500, 'Horizon password not configured or invalid type');
+        }
 
         if (
             !\hash_equals($username, $request->getUser() ?? '')
