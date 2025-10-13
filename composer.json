@@ -68,7 +68,8 @@
         ],
         "lint": [
             "@pint:test",
-            "@analyse"
+            "@analyse",
+            "@phparkitect"
         ],
         "lint:full": [
             "@pint:test",
