@@ -1,6 +1,7 @@
 <?php
 
 declare(strict_types=1);
+use App\Console\GitHooks\InfectionPrePushHook;
 use App\Console\GitHooks\PestPrePushHook;
 use App\Console\GitHooks\PHPArkitectPreCommitHook;
 use App\Console\GitHooks\PHPArkitectPrePushHook;
@@ -29,11 +30,15 @@ return [
     |--------------------------------------------------------------------------
     | Comprehensive checks on entire codebase - runs before pushing to remote
     | Runs all tests and full code quality analysis (20-30 seconds)
+    |
+    | NOTE: InfectionPrePushHook is commented out by default due to ~30-60s overhead.
+    | Uncomment to enable automatic mutation testing before push.
     */
     'pre-push' => [
         PestPrePushHook::class,
         PHPInsightsPrePushHook::class,
         PHPArkitectPrePushHook::class,
+        // InfectionPrePushHook::class,  // Uncomment to enable mutation testing on push
     ],
 
     /*

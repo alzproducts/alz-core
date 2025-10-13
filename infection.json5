@@ -1,0 +1,40 @@
+{
+    "$schema": "vendor/infection/infection/resources/schema.json",
+
+    // Source code to mutate
+    "source": {
+        "directories": [
+            "app/Http/Middleware",
+            "app/Console",
+            "app/Models"
+        ],
+        "excludes": [
+            "app/Providers",
+            "app/Console/Kernel.php"
+        ]
+    },
+
+    // Test framework configuration (Pest runs on PHPUnit)
+    "testFramework": "phpunit",
+
+    // Performance optimization
+    "timeout": 10,
+    "threads": 4,
+
+    // Quality thresholds (realistic for small codebase with AI-generated tests)
+    "minMsi": 70,              // Minimum Mutation Score Indicator
+    "minCoveredMsi": 80,       // MSI for covered code only
+
+    // Logging
+    "logs": {
+        "text": "build/infection.log",
+        "summary": "build/infection-summary.log",
+        "json": "build/infection.json"
+    },
+
+    // Mutators - Focus on catching AI test weaknesses
+    // Using @default profile which includes all the important mutators
+    "mutators": {
+        "@default": true
+    }
+}
