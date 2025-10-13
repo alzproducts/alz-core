@@ -14,6 +14,50 @@ parameters:
         enforceClosureParamNativeTypehint:
             allowMissingTypeWhenInferred: false  # Strict: require explicit types on ALL closures
 
+        # Require return type hints when possible
+        enforceNativeReturnTypehint:
+            enabled: true
+
+        # Require readonly modifier on public properties that aren't modified after construction
+        enforceReadonlyPublicProperty:
+            enabled: true
+
+        # Block accessing properties on mixed types
+        forbidFetchOnMixed:
+            enabled: true
+
+        # Block calling methods on mixed types
+        forbidMethodCallOnMixed:
+            enabled: true
+
+        # Report nullable return types when null is never returned
+        forbidUselessNullableReturn:
+            enabled: true
+
+        # Only allow comparison operators on comparable types (int/float/string/DateTime)
+        allowComparingOnlyComparableTypes:
+            enabled: true
+
+        # Warn when comparing objects with === or !== (usually want ->equals())
+        forbidIdenticalClassComparison:
+            enabled: true
+
+        # Enforce list<T> return type when function always returns sequential arrays
+        enforceListReturn:
+            enabled: true
+
+        # Encourage using match() construct for enum comparisons
+        enforceEnumMatch:
+            enabled: true
+
+        # Prevent default arm in match() for native enums (exhaustiveness checking)
+        forbidMatchDefaultArmForEnums:
+            enabled: true
+
+        # Block arithmetic operations on non-numeric types
+        forbidArithmeticOperationOnNonNumber:
+            enabled: true
+
     # Ignore overly strict ShipMonk rules not suitable for Laravel
     ignoreErrors:
         # Laravel often requires unused closure parameters (Gate::define signatures, factory states, etc.)
