@@ -62,8 +62,8 @@ return [
     'code_analyzers' => [
         'laravel_pint' => [
             'path' => \env('LARAVEL_PINT_PATH', 'vendor/bin/pint'),
-            'config' => \env('LARAVEL_PINT_CONFIG'),
-            'preset' => \env('LARAVEL_PINT_PRESET', 'laravel'),
+            'config' => \env('LARAVEL_PINT_CONFIG', 'pint.json'),
+            'preset' => \env('LARAVEL_PINT_PRESET'),
             'file_extensions' => \env('LARAVEL_PINT_FILE_EXTENSIONS', '/\.php$/'),
             'run_in_docker' => \env('LARAVEL_PINT_RUN_IN_DOCKER', false),
             'docker_container' => \env('LARAVEL_PINT_DOCKER_CONTAINER', ''),
