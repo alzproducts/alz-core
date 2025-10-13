@@ -3,9 +3,10 @@ includes:
     - vendor/phpstan/phpstan-strict-rules/rules.neon
     - vendor/phpstan/phpstan-deprecation-rules/rules.neon
     - vendor/shipmonk/phpstan-rules/rules.neon
+    - vendor/phpstan/phpstan/conf/bleedingEdge.neon
 
 parameters:
-    level: 8
+    level: max
 
     # ShipMonk strict rules configuration
     shipmonkRules:
