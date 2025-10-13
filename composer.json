@@ -28,6 +28,7 @@
         "pestphp/pest": "^3.0",
         "pestphp/pest-plugin-arch": "^3.0",
         "pestphp/pest-plugin-laravel": "^3.0",
+        "phparkitect/phparkitect": "^0.6.0",
         "phpstan/phpstan-deprecation-rules": "^2.0",
         "phpstan/phpstan-mockery": "^2.0",
         "phpstan/phpstan-phpunit": "^2.0",
@@ -72,7 +73,8 @@
         "lint:full": [
             "@pint:test",
             "@analyse",
-            "@insights"
+            "@insights",
+            "@phparkitect"
         ],
         "fix": [
             "Composer\\Config::disableProcessTimeout",
@@ -93,6 +95,10 @@
         "insights": [
             "Composer\\Config::disableProcessTimeout",
             "@php vendor/bin/phpinsights --no-interaction"
+        ],
+        "phparkitect": [
+            "Composer\\Config::disableProcessTimeout",
+            "@php vendor/bin/phparkitect check"
         ],
         "stan": "@analyse",
         "check": [
