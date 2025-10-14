@@ -13,14 +13,7 @@ final class PHPInsightsPrePushHook extends BaseProcessHook
      */
     protected function getProcessCommand(): array
     {
-        return [
-            './vendor/bin/phpinsights',
-            '--no-interaction',
-            '--min-quality=90',
-            '--min-complexity=85',
-            '--min-architecture=90',
-            '--min-style=95',
-        ];
+        return ['composer', 'insights'];
     }
 
     protected function getTimeout(): int
