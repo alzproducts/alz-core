@@ -82,23 +82,23 @@
         ],
         "fix": [
             "Composer\\Config::disableProcessTimeout",
-            "@php vendor/bin/pint"
+            "@php vendor/bin/pint --parallel"
         ],
         "pint": [
             "Composer\\Config::disableProcessTimeout",
-            "@php vendor/bin/pint"
+            "@php vendor/bin/pint --parallel"
         ],
         "pint:test": [
             "Composer\\Config::disableProcessTimeout",
-            "@php vendor/bin/pint --test"
+            "@php vendor/bin/pint --test --parallel"
         ],
         "analyse": [
             "Composer\\Config::disableProcessTimeout",
-            "@php vendor/bin/phpstan analyse"
+            "@php -d xdebug.mode=off vendor/bin/phpstan analyse"
         ],
         "insights": [
             "Composer\\Config::disableProcessTimeout",
-            "@php vendor/bin/phpinsights --no-interaction"
+            "@php -d xdebug.mode=off vendor/bin/phpinsights --no-interaction"
         ],
         "phparkitect": [
             "Composer\\Config::disableProcessTimeout",
