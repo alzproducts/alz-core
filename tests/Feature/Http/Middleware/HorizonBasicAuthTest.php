@@ -144,7 +144,7 @@ class HorizonBasicAuthTest extends TestCase
         // Assert: The server should return a 500 error.
         // This prevents the dashboard from being exposed with no authentication.
         // The status code is the critical security requirement - access must be denied.
-        $response->assertStatus(500);
+        $response->assertInternalServerError();
     }
 
     /**
@@ -188,7 +188,7 @@ class HorizonBasicAuthTest extends TestCase
         $response = $this->makeRequest(self::USER, self::PASS);
 
         // Assert: Non-string values are configuration errors - fail with 500.
-        $response->assertStatus(500);
+        $response->assertInternalServerError();
     }
 
     /**
