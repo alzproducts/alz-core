@@ -9,27 +9,30 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Testing\TestResponse;
 use LogicException;
+use Override;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Test;
 use Symfony\Component\HttpFoundation\Response;
 use Tests\TestCase;
 
-/**
- * @covers \App\Http\Middleware\HorizonBasicAuth
- */
+#[CoversClass(HorizonBasicAuth::class)]
 class HorizonBasicAuthTest extends TestCase
 {
     /**
      * The username to use for testing.
      */
-    private const USER = 'test-user';
+    private const string USER = 'test-user';
 
     /**
      * The password to use for testing.
      */
-    private const PASS = 'test-password';
+    private const string PASS = 'test-password';
 
     /**
      * Set up a test route protected by the middleware before each test.
      */
+    #[Override]
     protected function setUp(): void
     {
         parent::setUp();
@@ -42,9 +45,6 @@ class HorizonBasicAuthTest extends TestCase
     /**
      * Helper to make a request with Basic Auth credentials.
      *
-     * @param  string|null  $user
-     * @param  string|null  $pass
-     * @param  string  $uri
      * @return TestResponse<Response>
      */
     private function makeRequest(?string $user, ?string $pass, string $uri = '/_test/protected-route'): TestResponse
@@ -60,9 +60,8 @@ class HorizonBasicAuthTest extends TestCase
 
     /**
      * Test that a request with valid credentials passes through the middleware.
-     *
-     * @test
      */
+    #[Test]
     public function allows_access_with_valid_credentials(): void
     {
         // Arrange: Set the expected username and password in the configuration.
@@ -86,10 +85,10 @@ class HorizonBasicAuthTest extends TestCase
      * for timing-safe comparison, preventing timing-based user enumeration attacks.
      * The comparison must complete in constant time regardless of credential correctness.
      *
-     * @test
      *
-     * @dataProvider invalidCredentialsProvider
      */
+    #[DataProvider('invalidCredentialsProvider')]
+    #[Test]
     public function denies_access_with_invalid_credentials(
         ?string $providedUser,
         ?string $providedPass,
@@ -127,10 +126,10 @@ class HorizonBasicAuthTest extends TestCase
     /**
      * Test that the middleware aborts if credentials are not configured.
      *
-     * @test
      *
-     * @dataProvider unconfiguredCredentialsProvider
      */
+    #[DataProvider('unconfiguredCredentialsProvider')]
+    #[Test]
     public function aborts_with_500_if_credentials_are_not_configured(?string $user, ?string $pass): void
     {
         // Arrange: Set an invalid configuration.
@@ -173,10 +172,10 @@ class HorizonBasicAuthTest extends TestCase
      *
      * These are configuration errors and should fail loudly with 500 errors.
      *
-     * @test
      *
-     * @dataProvider nonStringConfigValuesProvider
      */
+    #[DataProvider('nonStringConfigValuesProvider')]
+    #[Test]
     public function rejects_non_string_config_values(mixed $user, mixed $pass, string $description): void
     {
         // Arrange: Set configuration with non-string values.
@@ -211,9 +210,8 @@ class HorizonBasicAuthTest extends TestCase
 
     /**
      * Test edge case where a valid password is a falsy string '0'.
-     *
-     * @test
      */
+    #[Test]
     public function allows_access_with_falsy_zero_string_password(): void
     {
         // Arrange: Configure a password that is a '0' string.
@@ -233,9 +231,8 @@ class HorizonBasicAuthTest extends TestCase
 
     /**
      * Test edge case where credentials contain special characters.
-     *
-     * @test
      */
+    #[Test]
     public function allows_access_with_special_characters_in_credentials(): void
     {
         // Arrange: Configure credentials with various special characters.
@@ -261,9 +258,8 @@ class HorizonBasicAuthTest extends TestCase
      * framework automatically converts null returns to proper Response objects before
      * they reach middleware. This check serves as documentation of the contract and
      * provides protection if used outside Laravel's standard request lifecycle.
-     *
-     * @test
      */
+    #[Test]
     public function validates_response_type_from_next_handler(): void
     {
         // Arrange: Set configuration first
@@ -279,7 +275,7 @@ class HorizonBasicAuthTest extends TestCase
         ]);
 
         // Create a next handler that violates the contract
-        $next = static fn(Request $req) => null;
+        $next = static fn(Request $req): null => null;
 
         // Assert: Expect the LogicException
         $this->expectException(LogicException::class);
