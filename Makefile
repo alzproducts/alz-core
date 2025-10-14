@@ -73,12 +73,12 @@ install: ## First-time project setup
 		docker run --rm -u "$$(id -u):$$(id -g)" \
 			-v "$$(pwd):/var/www/html" \
 			-w /var/www/html \
-			$(COMPOSER_IMAGE) \
+			"$(COMPOSER_IMAGE)" \
 			composer install --ignore-platform-reqs || exit 1; \
 	fi
 	@if [ ! -f ".env" ]; then \
 		cp .env.example .env && \
-		echo "$(GREEN).env file created$(NC)" || exit 1; \
+		echo "$(GREEN).env file created$(NC)"; \
 	fi
 	@if [ "$(CI)" != "true" ] && [ "$(IN_DOCKER)" != "yes" ]; then \
 		if [ ! -x "$(SAIL)" ]; then \
@@ -89,7 +89,7 @@ install: ## First-time project setup
 		$(SAIL) up -d && \
 		$(SAIL) artisan key:generate && \
 		$(SAIL) artisan migrate && \
-		echo "$(GREEN)Setup complete! Access: http://localhost$(NC)" || exit 1; \
+		echo "$(GREEN)Setup complete! Access: http://localhost$(NC)"; \
 	fi
 
 # Sail Container Management
