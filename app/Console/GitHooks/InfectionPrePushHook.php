@@ -13,13 +13,10 @@ class InfectionPrePushHook extends BaseProcessHook
      */
     protected function getProcessCommand(): array
     {
+        // Use composer script to centralize configuration
         return [
-            './vendor/bin/infection',
-            '--min-msi=70',
-            '--min-covered-msi=80',
-            // --only-covered removed: deprecated in 0.31.0+, now default behavior
-            '--show-mutations',
-            '--threads=4',
+            'composer',
+            'infection:strict',
         ];
     }
 

@@ -62,23 +62,34 @@ When Infection reports "escaped mutants":
 ### Commands
 
 ```bash
-# Infection (comprehensive)
-./vendor/bin/sail composer test:ai        # Tests + Infection validation (recommended)
-./vendor/bin/sail composer infection      # Infection only
-./vendor/bin/sail composer infection:ci   # Infection CI mode
+# Quick validation (single engine)
+./vendor/bin/sail composer test:ai           # Tests + Infection (exploratory, no thresholds)
 
-# Pest Mutate (fast, alternative engine)
-./vendor/bin/sail pest --mutate --everything --covered-only --min=90
+# Comprehensive validation (both engines with thresholds)
+./vendor/bin/sail composer test:mutate       # Tests + Pest Mutate + Infection Strict
 
-# Defense in depth (run both)
-./vendor/bin/sail composer test:ai && ./vendor/bin/sail pest --mutate --everything --covered-only --min=90
+# Individual mutation engines
+./vendor/bin/sail composer infection         # Infection only (exploratory)
+./vendor/bin/sail composer infection:strict  # Infection with thresholds (70%/80%)
+./vendor/bin/sail composer pest:mutate       # Pest Mutate with 90% threshold
+./vendor/bin/sail composer infection:ci      # CI mode with GitHub logger
 ```
 
+**Script Breakdown**:
+- `test:ai`: Original workflow (tests + exploratory Infection)
+- `test:mutate`: **Recommended** - Runs both mutation engines with strict thresholds
+- `infection`: Interactive exploration, no minimum thresholds
+- `infection:strict`: Enforces 70% MSI / 80% Covered MSI (same as git hook)
+- `pest:mutate`: Enforces 90% minimum score (different mutation strategy)
+
 **Configuration**:
-- Infection: See `infection.json5` for 80+ mutator settings
-- Pest Mutate: Zero config required, uses `--everything --covered-only` flags
+- All mutation testing config centralized in `composer.json` scripts
+- Infection mutators: See `infection.json5` for 80+ mutator settings
+- Pest Mutate: No config file needed, flags in composer script
+- Thresholds: `--min=90` (Pest) and `--min-msi=70 --min-covered-msi=80` (Infection)
 
 **Git Hooks**:
-- Both mutation engines available as pre-push hooks (commented out by default)
-- Enable in `config/git-hooks.php` for automatic validation
+- Both mutation engines **enabled** as pre-push hooks by default
+- Hooks call composer scripts (centralized config)
+- Disable in `config/git-hooks.php` if too slow
 - See file comments for dual-engine strategy explanation
