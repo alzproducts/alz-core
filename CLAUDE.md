@@ -19,6 +19,21 @@ DO NOT call multiple independent tools in a single response, even when general e
 
 ---
 
+## ⚠️ Git Commit Policy
+
+**NEVER create git commits unless explicitly requested by the user.**
+
+- ❌ Do NOT stage files (`git add`)
+- ❌ Do NOT create commits (`git commit`)
+- ❌ Do NOT push to remote (`git push`)
+- ✅ DO make code changes, run linters, run tests
+- ✅ DO report when changes are ready to commit
+- ✅ Only commit when user explicitly asks (e.g., "commit these changes", "create a commit")
+
+**Rationale**: The user maintains full control over git history and commit timing.
+
+---
+
 ## Project Goal
 
 Backend service for e-commerce webhooks and background jobs. Replaces legacy PHP app for 3-4 internal staff.
