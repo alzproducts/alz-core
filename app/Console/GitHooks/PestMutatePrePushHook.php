@@ -13,12 +13,10 @@ class PestMutatePrePushHook extends BaseProcessHook
      */
     protected function getProcessCommand(): array
     {
+        // Use composer script to centralize configuration
         return [
-            './vendor/bin/pest',
-            '--mutate',
-            '--everything',
-            '--covered-only',
-            '--min=90',
+            'composer',
+            'pest:mutate',
         ];
     }
 

@@ -125,9 +125,19 @@
             "Composer\\Config::disableProcessTimeout",
             "@php vendor/bin/infection --logger-github --min-msi=70 --min-covered-msi=80"
         ],
+        "pest:mutate": [
+            "Composer\\Config::disableProcessTimeout",
+            "@php vendor/bin/pest --mutate --everything --covered-only --min=90"
+        ],
         "test:ai": [
             "Composer\\Config::disableProcessTimeout",
             "@test",
+            "@infection"
+        ],
+        "test:mutate": [
+            "Composer\\Config::disableProcessTimeout",
+            "@test",
+            "@pest:mutate",
             "@infection"
         ],
         "check:full": [
