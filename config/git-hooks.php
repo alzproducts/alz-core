@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 use App\Console\GitHooks\InfectionPrePushHook;
+use App\Console\GitHooks\PestMutatePrePushHook;
 use App\Console\GitHooks\PestPrePushHook;
 use App\Console\GitHooks\PHPArkitectPreCommitHook;
 use App\Console\GitHooks\PHPArkitectPrePushHook;
@@ -31,14 +32,20 @@ return [
     | Comprehensive checks on entire codebase - runs before pushing to remote
     | Runs all tests and full code quality analysis (20-30 seconds)
     |
-    | NOTE: InfectionPrePushHook is commented out by default due to ~30-60s overhead.
-    | Uncomment to enable automatic mutation testing before push.
+    | DUAL MUTATION TESTING STRATEGY (Defense in Depth):
+    | - PestMutatePrePushHook: Fast Pest mutation engine (~90s, 90% threshold)
+    | - InfectionPrePushHook: Comprehensive Infection engine (~40s, 70%/80% thresholds)
+    |
+    | Both are commented out by default due to ~2 minute overhead.
+    | Uncomment ONE or BOTH for automatic mutation testing before push.
+    | Using both provides maximum test quality validation.
     */
     'pre-push' => [
         PestPrePushHook::class,
         PHPInsightsPrePushHook::class,
         PHPArkitectPrePushHook::class,
-        // InfectionPrePushHook::class,  // Uncomment to enable mutation testing on push
+        PestMutatePrePushHook::class,  // Pest Mutate: Fast, Pest-native mutations
+        InfectionPrePushHook::class,   // Infection: Mature, comprehensive mutations
     ],
 
     /*
