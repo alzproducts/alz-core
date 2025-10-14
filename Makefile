@@ -1,19 +1,37 @@
 .PHONY: help install up down shell migrate fresh test test-coverage test-ai test-mutate lint lint-full fix analyse insights phparkitect rector rector-dry-run refactor check check-full infection infection-fast infection-strict infection-incremental infection-ci ide-helper
 
-# Color output
+# Enable strict shell mode for robust error handling
+SHELL := bash
+.SHELLFLAGS := -eu -o pipefail -c
+.DELETE_ON_ERROR:
+MAKEFLAGS += --warn-undefined-variables
+
+# Color output (conditional on TTY)
+ifeq ($(shell test -t 1 && echo true),true)
 BLUE := \033[0;34m
 GREEN := \033[0;32m
 YELLOW := \033[1;33m
 NC := \033[0m
+else
+BLUE :=
+GREEN :=
+YELLOW :=
+NC :=
+endif
 
-# Detect environment
+# Configuration
 CI ?= false
 SAIL := ./vendor/bin/sail
+SAIL_CONTAINER_NAME ?= laravel.test
+COMPOSER_IMAGE ?= laravelsail/php84-composer:latest
 
 # Check if inside Docker container
 IN_DOCKER := $(shell test -f /.dockerenv && echo yes)
 
-# Check if Docker is available and Sail containers are running
+# Check if Docker daemon is available
+DOCKER_AVAILABLE := $(shell docker info > /dev/null 2>&1 && echo yes)
+
+# Determine execution mode based on environment
 ifeq ($(CI),true)
 	# CI environment - use native commands
 	EXEC = php
@@ -24,7 +42,12 @@ else ifeq ($(IN_DOCKER),yes)
 	EXEC = php
 	COMPOSER = composer
 	MODE = $(GREEN)[Container Mode]$(NC)
-else ifeq ($(shell docker info > /dev/null 2>&1 && docker ps -q -f name=laravel.test 2>/dev/null | head -n 1),)
+else ifneq ($(DOCKER_AVAILABLE),yes)
+	# Docker daemon not responding - use native commands
+	EXEC = php
+	COMPOSER = composer
+	MODE = $(YELLOW)[Native Mode - Docker unavailable]$(NC)
+else ifeq ($(shell docker ps -q -f name=$(SAIL_CONTAINER_NAME) 2>/dev/null),)
 	# Sail not running - use native commands (fallback)
 	EXEC = php
 	COMPOSER = composer
@@ -44,34 +67,64 @@ help: ## Show this help message
 
 # Installation & Setup
 install: ## First-time project setup
+	@echo "Running installation in $(MODE)"
 	@echo "$(GREEN)Installing dependencies...$(NC)"
 	@if [ ! -d "vendor" ]; then \
 		docker run --rm -u "$$(id -u):$$(id -g)" \
 			-v "$$(pwd):/var/www/html" \
 			-w /var/www/html \
-			laravelsail/php84-composer:latest \
-			composer install --ignore-platform-reqs; \
+			$(COMPOSER_IMAGE) \
+			composer install --ignore-platform-reqs || exit 1; \
 	fi
 	@if [ ! -f ".env" ]; then \
-		cp .env.example .env; \
-		echo "$(GREEN).env file created$(NC)"; \
+		cp .env.example .env && \
+		echo "$(GREEN).env file created$(NC)" || exit 1; \
 	fi
 	@if [ "$(CI)" != "true" ] && [ "$(IN_DOCKER)" != "yes" ]; then \
-		$(SAIL) up -d; \
-		$(SAIL) artisan key:generate; \
-		$(SAIL) artisan migrate; \
-		echo "$(GREEN)Setup complete! Access: http://localhost$(NC)"; \
+		if [ ! -x "$(SAIL)" ]; then \
+			echo "$(YELLOW)Error: Sail not found at $(SAIL)$(NC)"; \
+			echo "$(YELLOW)Installation may have failed. Check vendor directory.$(NC)"; \
+			exit 1; \
+		fi; \
+		$(SAIL) up -d && \
+		$(SAIL) artisan key:generate && \
+		$(SAIL) artisan migrate && \
+		echo "$(GREEN)Setup complete! Access: http://localhost$(NC)" || exit 1; \
 	fi
 
 # Sail Container Management
 up: ## Start Sail containers
+	@if [ "$(CI)" = "true" ] || [ "$(IN_DOCKER)" = "yes" ]; then \
+		echo "$(YELLOW)Cannot start Sail from CI or inside container$(NC)"; \
+		exit 1; \
+	fi
+	@if [ ! -x "$(SAIL)" ]; then \
+		echo "$(YELLOW)Error: Sail not found at $(SAIL)$(NC)"; \
+		echo "$(YELLOW)Run 'make install' first$(NC)"; \
+		exit 1; \
+	fi
 	@echo "$(MODE)"
 	$(SAIL) up -d
 
 down: ## Stop Sail containers
+	@if [ "$(CI)" = "true" ] || [ "$(IN_DOCKER)" = "yes" ]; then \
+		echo "$(YELLOW)Cannot stop Sail from CI or inside container$(NC)"; \
+		exit 1; \
+	fi
+	@echo "$(MODE)"
 	$(SAIL) down
 
 shell: ## Access container shell
+	@if [ "$(CI)" = "true" ] || [ "$(IN_DOCKER)" = "yes" ]; then \
+		echo "$(YELLOW)Already in shell or CI environment$(NC)"; \
+		exit 1; \
+	fi
+	@if [ ! -x "$(SAIL)" ]; then \
+		echo "$(YELLOW)Error: Sail not found at $(SAIL)$(NC)"; \
+		echo "$(YELLOW)Run 'make install' first$(NC)"; \
+		exit 1; \
+	fi
+	@echo "$(MODE)"
 	$(SAIL) shell
 
 # Code Quality Commands
