@@ -100,7 +100,7 @@
         ],
         "insights": [
             "Composer\\Config::disableProcessTimeout",
-            "@php -d xdebug.mode=off vendor/bin/phpinsights --no-interaction"
+            "@php -d xdebug.mode=off artisan insights --no-interaction"
         ],
         "phparkitect": [
             "Composer\\Config::disableProcessTimeout",

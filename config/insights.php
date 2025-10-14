@@ -4,21 +4,21 @@ declare(strict_types=1);
 
 use NunoMaduro\PhpInsights\Domain\Insights\CyclomaticComplexityIsHigh;
 use NunoMaduro\PhpInsights\Domain\Insights\ForbiddenDefineFunctions;
-use NunoMaduro\PhpInsights\Domain\Insights\ForbiddenFinalClasses;
 use NunoMaduro\PhpInsights\Domain\Insights\ForbiddenNormalClasses;
 use NunoMaduro\PhpInsights\Domain\Insights\ForbiddenPrivateMethods;
 use NunoMaduro\PhpInsights\Domain\Insights\ForbiddenTraits;
-use NunoMaduro\PhpInsights\Domain\Metrics\Architecture\Classes;
 use NunoMaduro\PhpInsights\Domain\Sniffs\ForbiddenSetterSniff;
 use PHP_CodeSniffer\Standards\Generic\Sniffs\Files\LineLengthSniff;
 use PHP_CodeSniffer\Standards\Generic\Sniffs\Formatting\SpaceAfterCastSniff;
 use PHP_CodeSniffer\Standards\Generic\Sniffs\Formatting\SpaceAfterNotSniff;
 use PHP_CodeSniffer\Standards\Generic\Sniffs\Functions\OpeningFunctionBraceBsdAllmanSniff;
 use PHP_CodeSniffer\Standards\PEAR\Sniffs\Classes\ClassDeclarationSniff;
-use PHP_CodeSniffer\Standards\PEAR\Sniffs\Functions\FunctionDeclarationSniff;
 use PHP_CodeSniffer\Standards\PEAR\Sniffs\WhiteSpace\ScopeClosingBraceSniff;
 use PHP_CodeSniffer\Standards\PSR2\Sniffs\Methods\FunctionClosingBraceSniff;
-use PHP_CodeSniffer\Standards\Squiz\Sniffs\WhiteSpace\ScopeClosingBraceSniff as SquizScopeClosingBraceSniff;
+use PhpCsFixer\Fixer\Basic\BracesFixer;
+use PhpCsFixer\Fixer\ClassNotation\ClassDefinitionFixer;
+use PhpCsFixer\Fixer\ClassNotation\OrderedClassElementsFixer;
+use PhpCsFixer\Fixer\FunctionNotation\FunctionDeclarationFixer;
 use SlevomatCodingStandard\Sniffs\Classes\ClassStructureSniff;
 use SlevomatCodingStandard\Sniffs\Commenting\DocCommentSpacingSniff;
 use SlevomatCodingStandard\Sniffs\Commenting\UselessFunctionDocCommentSniff;
@@ -83,9 +83,7 @@ return [
     ],
 
     'add' => [
-        Classes::class => [
-            ForbiddenFinalClasses::class,
-        ],
+        // No additional checks needed
     ],
 
     'remove' => [
@@ -112,10 +110,18 @@ return [
         OpeningFunctionBraceBsdAllmanSniff::class,
         ClassDeclarationSniff::class,
         ClassStructureSniff::class,
-        FunctionDeclarationSniff::class,        // Arrow function spacing
-        ScopeClosingBraceSniff::class,          // Empty method braces
-        FunctionClosingBraceSniff::class,       // Function closing braces
-        SquizScopeClosingBraceSniff::class,     // Alternative scope closing brace
+        ScopeClosingBraceSniff::class,          // CodeSniffer: scope braces
+        FunctionClosingBraceSniff::class,       // CodeSniffer: function braces
+
+        // PHP-CS-Fixer style - delegate to Pint (PER preset)
+        /** @phpstan-ignore classConstant.deprecatedClass */
+        BracesFixer::class,                     // PHP-CS-Fixer: brace placement (deprecated)
+        ClassDefinitionFixer::class,            // PHP-CS-Fixer: class definition style
+        FunctionDeclarationFixer::class,        // PHP-CS-Fixer: function declaration style
+        OrderedClassElementsFixer::class,       // PHP-CS-Fixer: class element ordering
+
+        // Line length - delegate to Pint (PER preset)
+        LineLengthSniff::class,                 // Let Pint handle line length
     ],
 
     'config' => [
@@ -131,13 +137,6 @@ return [
         // Function length - allow reasonable method sizes
         FunctionLengthSniff::class => [
             'maxLinesLength' => 50,
-        ],
-
-        // Line length
-        LineLengthSniff::class => [
-            'lineLimit' => 120,
-            'absoluteLineLimit' => 120,
-            'ignoreComments' => false,
         ],
 
         // Framework-required patterns (per-file exclusions)
