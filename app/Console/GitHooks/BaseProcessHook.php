@@ -13,13 +13,18 @@ use Symfony\Component\Process\Process;
 
 abstract class BaseProcessHook implements PrePushHook
 {
-    public Command $command;
+    protected Command $command;
 
     protected string $name;
 
     public function getName(): ?string
     {
         return $this->name;
+    }
+
+    protected function getCommand(): Command
+    {
+        return $this->command;
     }
 
     public function setCommand(Command $command): void

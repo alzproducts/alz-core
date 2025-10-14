@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\GitHooks;
 
-class InfectionPrePushHook extends BaseProcessHook
+final class InfectionPrePushHook extends BaseProcessHook
 {
     protected string $name = 'Infection Mutation Tests';
 
