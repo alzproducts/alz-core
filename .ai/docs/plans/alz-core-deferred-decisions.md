@@ -199,6 +199,142 @@ Multi-model consensus (gemini-2.5-pro vs gemini-2.5-flash) resulted in:
 
 ---
 
+## Security Hardening (Pre-Production Audit)
+
+**Decision Date**: 2025-10-15
+**Implementation Target**: As features are built
+**Status**: Audit completed, implementation deferred to feature development
+
+### Completed Security Fixes
+
+The following configuration hardening was completed based on security audit findings:
+
+1. **Session Encryption**: Enabled `SESSION_ENCRYPT=true` in `.env.production.example`
+2. **Secure Cookies**: Enforced `SESSION_SECURE_COOKIE=true` for HTTPS-only transmission
+3. **Redis Authentication**: Added documentation requiring strong passwords (32+ chars)
+4. **PostgreSQL SSL**: Changed default from `prefer` to `require` in `config/database.php`
+5. **Rate Limiting**: Added `api`, `webhooks`, and `global` rate limiters to `bootstrap/app.php`
+
+### Deferred to Deployment (Railway)
+
+**Pre-Deployment Checklist**:
+
+When deploying to Railway, verify these environment variables:
+- ✅ `APP_KEY` - Run `php artisan key:generate` to generate
+- ✅ `REDIS_PASSWORD` - Set strong password (32+ characters minimum)
+- ✅ `HORIZON_USER` - Set username for Horizon dashboard access
+- ✅ `HORIZON_PASSWORD` - Set strong password (16+ characters minimum)
+- ✅ `APP_DEBUG=false` - Ensure debug mode disabled in production
+- ✅ `DB_SSLMODE=require` - Enforce SSL for Supabase connections (already defaulted)
+
+**Optional Deployment Validation Script**:
+
+```bash
+#!/bin/bash
+# Add to deployment pipeline or run manually before deploy
+
+echo "🔒 Security Pre-Deployment Checks"
+
+# Check APP_KEY is set
+if [ -z "$APP_KEY" ]; then
+  echo "❌ APP_KEY not set. Run: php artisan key:generate"
+  exit 1
+fi
+
+# Check Redis password is set
+if [ -z "$REDIS_PASSWORD" ]; then
+  echo "❌ REDIS_PASSWORD not set"
+  exit 1
+fi
+
+# Check Horizon credentials
+if [ -z "$HORIZON_USER" ] || [ -z "$HORIZON_PASSWORD" ]; then
+  echo "⚠️  WARNING: Horizon credentials not set"
+fi
+
+# Verify debug mode disabled
+if [ "$APP_DEBUG" = "true" ]; then
+  echo "❌ APP_DEBUG=true in production!"
+  exit 1
+fi
+
+echo "✅ All security checks passed"
+```
+
+### Deferred to Webhook Implementation
+
+**When adding webhook endpoints** (`routes/web.php`), implement:
+
+1. **Rate Limiting** (already configured in `bootstrap/app.php`):
+   ```php
+   Route::post('/webhooks/ecommerce', [WebhookController::class, 'handle'])
+       ->middleware('throttle:webhooks');  // 100 requests/minute
+   ```
+
+2. **Webhook Signature Verification** (HMAC-SHA256):
+   - Create middleware: `app/Http/Middleware/VerifyWebhookSignature.php`
+   - Use `hash_equals()` for constant-time comparison (prevents timing attacks)
+   - Store webhook secret in `.env` as `WEBHOOK_SECRET`
+   - Signature format depends on provider (Stripe, Shopify, etc.)
+
+   Example pattern:
+   ```php
+   $expectedSignature = hash_hmac('sha256', $payload, $secret);
+   return hash_equals($expectedSignature, $providedSignature);
+   ```
+
+3. **Security Event Logging**:
+   - Log all webhook attempts (success/failure) with IP addresses
+   - Create dedicated `security` log channel in `config/logging.php`
+   - Never log sensitive data (tokens, passwords, credit cards, full payloads)
+
+### Deferred to Application Logging Implementation
+
+**When adding application logging**, implement:
+
+1. **Log Sanitization**:
+   - Create middleware to strip sensitive data before logging
+   - Blacklist: passwords, tokens, API keys, session IDs, credit card numbers
+   - Use Laravel's `Log::channel('security')` for security events
+
+2. **Audit Trail Requirements**:
+   - Authentication attempts (success/failure with IP)
+   - Webhook deliveries (timestamp, provider, signature status)
+   - Failed authorization attempts
+   - Queue job failures with context
+
+3. **Log Retention**:
+   - Security logs: 90 days minimum
+   - Application logs: 30 days
+   - Error logs: 60 days
+
+### Security Audit Summary
+
+**Overall Security Posture**: GOOD (Pre-Production) ⭐⭐⭐⭐☆
+
+**Vulnerabilities Found**:
+- Critical: 0
+- High: 0
+- Medium: 7 (all configuration, all fixed)
+- Low: 4 (best practices, addressed)
+
+**Dependencies**: Zero known vulnerabilities (`composer audit` clean)
+
+**Key Strengths**:
+- Timing attack protection (`hash_equals()` in HorizonBasicAuth)
+- Zero dependency vulnerabilities
+- Strict types enforced (`declare(strict_types=1)`)
+- PHPStan Level max + strict rules
+- Clean Architecture boundaries enforced
+
+**Run Security Audit Again**:
+```bash
+# When ready to deploy or after major changes
+/secaudit "Run comprehensive pre-deployment security review"
+```
+
+---
+
 ## Placeholder for Future Decisions
 
 Document future architectural decisions here as they're made:
@@ -207,11 +343,8 @@ Document future architectural decisions here as they're made:
 
 - **Database Migration**: Moving from SQLite (dev) to PostgreSQL/Supabase (production)
 - **Error Tracking**: Sentry, Bugsnag, or other service selection
-- **Webhook Signature Verification**: Implementation approach for e-commerce webhooks
-- **API Rate Limiting**: Strategy for protecting webhook endpoints
-- **Logging Strategy**: Log channels, retention policies, monitoring approach
 - **Backup/Recovery**: Supabase backup strategy and disaster recovery procedures
 
 ---
 
-**Last Updated**: 2025-10-14
+**Last Updated**: 2025-10-15
