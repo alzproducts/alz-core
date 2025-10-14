@@ -104,7 +104,7 @@
         ],
         "phparkitect": [
             "Composer\\Config::disableProcessTimeout",
-            "@php vendor/bin/phparkitect check"
+            "@php -d xdebug.mode=off vendor/bin/phparkitect check"
         ],
         "stan": "@analyse",
         "check": [
@@ -117,7 +117,7 @@
         ],
         "test:coverage": [
             "Composer\\Config::disableProcessTimeout",
-            "@php vendor/bin/pest --coverage --min=80"
+            "@php -d xdebug.mode=coverage vendor/bin/pest --coverage --min=80"
         ],
         "infection": [
             "Composer\\Config::disableProcessTimeout",
@@ -129,7 +129,7 @@
         ],
         "infection:fast": [
             "Composer\\Config::disableProcessTimeout",
-            "@php -d xdebug.mode=off vendor/bin/pest --log-junit=build/logs/junit.xml --coverage-xml=build/logs/coverage-xml --coverage-clover=build/logs/clover.xml",
+            "@php -d xdebug.mode=coverage vendor/bin/pest --log-junit=build/logs/junit.xml --coverage-xml=build/logs/coverage-xml --coverage-clover=build/logs/clover.xml",
             "@php -d xdebug.mode=off vendor/bin/infection --coverage=build/logs --skip-initial-tests --no-progress --show-mutations --min-msi=70 --min-covered-msi=80"
         ],
         "infection:incremental": [
@@ -161,9 +161,9 @@
             "@infection"
         ],
         "ide-helper": [
-            "@php artisan ide-helper:generate",
-            "@php artisan ide-helper:models --nowrite",
-            "@php artisan ide-helper:meta"
+            "@php -d xdebug.mode=off artisan ide-helper:generate",
+            "@php -d xdebug.mode=off artisan ide-helper:models --nowrite",
+            "@php -d xdebug.mode=off artisan ide-helper:meta"
         ],
         "rector": [
             "Composer\\Config::disableProcessTimeout",
