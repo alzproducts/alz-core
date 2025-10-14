@@ -85,6 +85,29 @@ composer run test     # Run tests
 - Prefer readonly properties for immutable data
 - Use enums over class constants for fixed sets
 
+### Assertions (webmozart/assert)
+
+**Use for:** Internal developer contracts (preconditions, business invariants, value objects)
+**Don't use for:** External input validation (use Laravel Request/Validator instead)
+
+**Examples:**
+```php
+// Domain value objects
+class Money {
+    public function __construct(int $cents, string $currency) {
+        Assert::greaterThanEq($cents, 0);
+        Assert::length($currency, 3);
+    }
+}
+
+// Service preconditions
+public function applyDiscount(Order $order, DiscountCode $code) {
+    Assert::true($order->isEligibleForDiscounts());
+}
+```
+
+**PHPStan Integration:** Provides type narrowing after assertions (e.g., `Assert::string($x)` tells PHPStan `$x` is non-null string)
+
 ## Code Quality & Linting
 
 **CRITICAL**: We maintain strict code quality standards with four linters + mutation testing:
