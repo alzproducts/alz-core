@@ -96,6 +96,47 @@ composer run test     # Run tests
 4. **PHPArkitect** (Architecture Enforcement) - Clean Architecture layer boundaries + naming conventions
 5. **Infection** (Mutation Testing) - Validates test quality by catching weak assertions (especially AI-generated tests)
 
+### Rector (Code Refactoring & Modernization)
+
+**Purpose**: Automated code refactoring and PHP/Laravel version upgrades.
+
+**When to Use Rector**:
+- **PHP version upgrades**: Upgrading PHP 8.4 → 8.5/9.0
+- **Laravel version upgrades**: Laravel 12 → 13 → 14
+- **Deprecation fixes**: Converting deprecated patterns to modern equivalents
+- **Code modernization**: Applying new PHP features (attributes, enums, match expressions)
+
+**Key Differences from Pint**:
+- **Pint**: Code style only (formatting, spacing, brackets)
+- **Rector**: Code structure (refactoring, API migrations, language upgrades)
+- **Workflow**: Rector → Pint → PHPStan → Tests
+
+**Running Rector**:
+
+```bash
+# Preview changes (always run first!)
+./vendor/bin/sail composer rector:dry-run
+
+# Apply refactorings
+./vendor/bin/sail composer rector
+
+# Rector + Pint combo (recommended)
+./vendor/bin/sail composer refactor
+```
+
+**Configuration**: `rector.php` - Conservative rules targeting:
+- PHP 8.4 features
+- Laravel 11.0 best practices
+- PHPUnit 10+ attribute conversions (`@test` → `#[Test]`)
+- Dead code removal
+- Early returns and type declarations
+
+**Important Notes**:
+- ⚠️ Always run `rector:dry-run` first on large changes
+- ✅ Rector is manual-only (not in git hooks) for intentional refactoring
+- 🔄 Output needs formatting - always run Pint after Rector
+- 📊 Industry data: Manual upgrades take 3 months, Rector reduces to 3 days
+
 ### Running Linters
 
 **IMPORTANT**: Run all linters through Sail to ensure correct PHP version:
