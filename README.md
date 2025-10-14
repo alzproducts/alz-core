@@ -54,10 +54,10 @@ docker run --rm -u "$(id -u):$(id -g)" -v "$(pwd):/var/www/html" -w /var/www/htm
 ./vendor/bin/sail up -d
 
 # Run tests
-./vendor/bin/sail artisan test
+make test
 
 # Run linters (before commit)
-./vendor/bin/sail composer lint
+make lint
 
 # Stop services
 ./vendor/bin/sail down
@@ -74,13 +74,17 @@ We maintain strict code quality with automated linting:
 
 ```bash
 # Fast linting (pre-commit) - ~5-10 seconds
-./vendor/bin/sail composer lint
+make lint
 
 # Full linting (pre-push) - ~20-30 seconds
-./vendor/bin/sail composer lint:full
+make lint-full
 
 # Run everything (tests + linters)
-./vendor/bin/sail composer check
+make check
+
+# Alternative: via composer (delegates to make)
+composer run lint
+composer run check
 ```
 
 Git hooks automatically enforce these standards on commit/push.

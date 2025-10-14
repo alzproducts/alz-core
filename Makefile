@@ -1,4 +1,4 @@
-.PHONY: help install up down shell migrate fresh test test-coverage test-ai test-mutate lint lint-full fix analyse insights phparkitect rector rector-dry-run refactor check check-full infection infection-fast infection-strict infection-incremental infection-ci ide-helper
+.PHONY: help install up down shell migrate fresh pint pint-test test test-coverage pest-mutate test-ai test-mutate lint lint-full fix analyse insights phparkitect stan rector rector-dry-run refactor check check-full infection infection-fast infection-strict infection-incremental infection-ci ide-helper
 
 # Enable strict shell mode for robust error handling
 SHELL := bash
@@ -133,79 +133,105 @@ shell: ## Access container shell
 	$(SAIL) shell
 
 # Code Quality Commands
+pint: ## Auto-fix code style with Pint
+	@echo "$(MODE)"
+	$(EXEC) vendor/bin/pint --parallel
+
+pint-test: ## Test code style (dry-run)
+	@echo "$(MODE)"
+	$(EXEC) vendor/bin/pint --test --parallel
+
 lint: ## Run quick lint (Pint + PHPStan + PHPArkitect)
 	@echo "$(MODE)"
-	$(COMPOSER) run lint
+	@$(MAKE) pint-test
+	@$(MAKE) analyse
+	@$(MAKE) phparkitect
 
 lint-full: ## Run full linting (Pint + PHPStan + Insights + PHPArkitect)
 	@echo "$(MODE)"
-	$(COMPOSER) run lint:full
+	@$(MAKE) pint-test
+	@$(MAKE) analyse
+	@$(MAKE) insights
+	@$(MAKE) phparkitect
 
 fix: ## Auto-fix code style with Pint
 	@echo "$(MODE)"
-	$(COMPOSER) run fix
+	@$(MAKE) pint
 
 analyse: ## Run PHPStan Level max static analysis
 	@echo "$(MODE)"
-	$(COMPOSER) run analyse
+	$(EXEC) -d xdebug.mode=off vendor/bin/phpstan analyse
 
 insights: ## Run PHP Insights quality check
 	@echo "$(MODE)"
-	$(COMPOSER) run insights
+	$(EXEC) -d xdebug.mode=off artisan insights --no-interaction
 
 phparkitect: ## Run PHPArkitect architecture checks
 	@echo "$(MODE)"
-	$(COMPOSER) run phparkitect
+	$(EXEC) -d xdebug.mode=off vendor/bin/phparkitect check
+
+stan: ## Alias for analyse (PHPStan)
+	@echo "$(MODE)"
+	@$(MAKE) analyse
 
 # Refactoring
 rector: ## Run Rector refactoring (apply changes)
 	@echo "$(MODE)"
-	$(COMPOSER) run rector
+	$(EXEC) -d xdebug.mode=off vendor/bin/rector process
 
 rector-dry-run: ## Preview Rector changes (dry-run)
 	@echo "$(MODE)"
-	$(COMPOSER) run rector:dry-run
+	$(EXEC) -d xdebug.mode=off vendor/bin/rector process --dry-run
 
 refactor: ## Run Rector + Pint combo
 	@echo "$(MODE)"
-	$(COMPOSER) run refactor
+	@$(MAKE) rector
+	@$(MAKE) fix
 
 # Testing
 test: ## Run Pest test suite
 	@echo "$(MODE)"
-	$(COMPOSER) run test
+	$(EXEC) vendor/bin/pest --parallel --fail-on-deprecation
 
 test-coverage: ## Run tests with 80% coverage requirement
 	@echo "$(MODE)"
-	$(COMPOSER) run test:coverage
+	$(EXEC) -d xdebug.mode=coverage vendor/bin/pest --coverage --min=80
 
-test-ai: ## Validate AI-generated tests with mutation testing
+pest-mutate: ## Run Pest mutation testing
 	@echo "$(MODE)"
-	$(COMPOSER) run test:ai
-
-test-mutate: ## Run full mutation testing suite
-	@echo "$(MODE)"
-	$(COMPOSER) run test:mutate
+	$(EXEC) -d xdebug.mode=off vendor/bin/pest --mutate --everything --covered-only --min=90
 
 infection: ## Run Infection mutation testing
 	@echo "$(MODE)"
-	$(COMPOSER) run infection
-
-infection-fast: ## Run Infection with cached coverage (fastest)
-	@echo "$(MODE)"
-	$(COMPOSER) run infection:fast
+	$(EXEC) -d xdebug.mode=off vendor/bin/infection --no-progress --show-mutations
 
 infection-strict: ## Run Infection with strict thresholds
 	@echo "$(MODE)"
-	$(COMPOSER) run infection:strict
+	$(EXEC) -d xdebug.mode=off vendor/bin/infection --no-progress --show-mutations --min-msi=70 --min-covered-msi=80
+
+infection-fast: ## Run Infection with cached coverage (fastest)
+	@echo "$(MODE)"
+	$(EXEC) -d xdebug.mode=coverage vendor/bin/pest --log-junit=build/logs/junit.xml --coverage-xml=build/logs/coverage-xml --coverage-clover=build/logs/clover.xml
+	$(EXEC) -d xdebug.mode=off vendor/bin/infection --coverage=build/logs --skip-initial-tests --no-progress --show-mutations --min-msi=70 --min-covered-msi=80
 
 infection-incremental: ## Run Infection on changed lines only
 	@echo "$(MODE)"
-	$(COMPOSER) run infection:incremental
+	$(EXEC) -d xdebug.mode=off vendor/bin/infection --git-diff-lines --git-diff-base=main --no-progress --show-mutations --min-msi=70 --min-covered-msi=80
 
 infection-ci: ## Run Infection for CI with GitHub logger
 	@echo "$(MODE)"
-	$(COMPOSER) run infection:ci
+	$(EXEC) -d xdebug.mode=off vendor/bin/infection --no-progress --logger-github --min-msi=70 --min-covered-msi=80
+
+test-ai: ## Validate AI-generated tests with mutation testing
+	@echo "$(MODE)"
+	@$(MAKE) test
+	@$(MAKE) infection
+
+test-mutate: ## Run full mutation testing suite
+	@echo "$(MODE)"
+	@$(MAKE) test
+	@$(MAKE) pest-mutate
+	@$(MAKE) infection-strict
 
 # Database
 migrate: ## Run database migrations
@@ -219,13 +245,18 @@ fresh: ## Fresh database with seeders
 # IDE Helper
 ide-helper: ## Generate IDE helper files
 	@echo "$(MODE)"
-	$(COMPOSER) run ide-helper
+	$(EXEC) -d xdebug.mode=off artisan ide-helper:generate
+	$(EXEC) -d xdebug.mode=off artisan ide-helper:models --nowrite
+	$(EXEC) -d xdebug.mode=off artisan ide-helper:meta
 
 # Composite Commands
 check: ## Run all quality checks + tests
 	@echo "$(MODE)"
-	$(COMPOSER) run check
+	@$(MAKE) lint-full
+	@$(MAKE) test
 
 check-full: ## Run full checks including mutation testing
 	@echo "$(MODE)"
-	$(COMPOSER) run check:full
+	@$(MAKE) lint-full
+	@$(MAKE) test
+	@$(MAKE) infection
