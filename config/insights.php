@@ -15,6 +15,10 @@ use PHP_CodeSniffer\Standards\Generic\Sniffs\Formatting\SpaceAfterCastSniff;
 use PHP_CodeSniffer\Standards\Generic\Sniffs\Formatting\SpaceAfterNotSniff;
 use PHP_CodeSniffer\Standards\Generic\Sniffs\Functions\OpeningFunctionBraceBsdAllmanSniff;
 use PHP_CodeSniffer\Standards\PEAR\Sniffs\Classes\ClassDeclarationSniff;
+use PHP_CodeSniffer\Standards\PEAR\Sniffs\Functions\FunctionDeclarationSniff;
+use PHP_CodeSniffer\Standards\PEAR\Sniffs\WhiteSpace\ScopeClosingBraceSniff;
+use PHP_CodeSniffer\Standards\PSR2\Sniffs\Methods\FunctionClosingBraceSniff;
+use PHP_CodeSniffer\Standards\Squiz\Sniffs\WhiteSpace\ScopeClosingBraceSniff as SquizScopeClosingBraceSniff;
 use SlevomatCodingStandard\Sniffs\Classes\ClassStructureSniff;
 use SlevomatCodingStandard\Sniffs\Commenting\DocCommentSpacingSniff;
 use SlevomatCodingStandard\Sniffs\Commenting\UselessFunctionDocCommentSniff;
@@ -75,7 +79,7 @@ return [
     */
 
     'exclude' => [
-        //  'path/to/directory-or-file'
+        'phparkitect.php',  // Config file with intentionally long descriptive strings
     ],
 
     'add' => [
@@ -104,10 +108,14 @@ return [
         SpaceAfterCastSniff::class,
         SpaceAfterNotSniff::class,
 
-        // Brace style - delegate to Pint (PSR-12)
+        // Brace style - delegate to Pint (PER preset)
         OpeningFunctionBraceBsdAllmanSniff::class,
         ClassDeclarationSniff::class,
         ClassStructureSniff::class,
+        FunctionDeclarationSniff::class,        // Arrow function spacing
+        ScopeClosingBraceSniff::class,          // Empty method braces
+        FunctionClosingBraceSniff::class,       // Function closing braces
+        SquizScopeClosingBraceSniff::class,     // Alternative scope closing brace
     ],
 
     'config' => [
