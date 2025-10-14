@@ -71,112 +71,31 @@
         "pre-package-uninstall": [
             "Illuminate\\Foundation\\ComposerScripts::prePackageUninstall"
         ],
-        "lint": [
-            "@pint:test",
-            "@analyse",
-            "@phparkitect"
-        ],
-        "lint:full": [
-            "@pint:test",
-            "@analyse",
-            "@insights",
-            "@phparkitect"
-        ],
-        "fix": [
-            "Composer\\Config::disableProcessTimeout",
-            "@php vendor/bin/pint --parallel"
-        ],
-        "pint": [
-            "Composer\\Config::disableProcessTimeout",
-            "@php vendor/bin/pint --parallel"
-        ],
-        "pint:test": [
-            "Composer\\Config::disableProcessTimeout",
-            "@php vendor/bin/pint --test --parallel"
-        ],
-        "analyse": [
-            "Composer\\Config::disableProcessTimeout",
-            "@php -d xdebug.mode=off vendor/bin/phpstan analyse"
-        ],
-        "insights": [
-            "Composer\\Config::disableProcessTimeout",
-            "@php -d xdebug.mode=off artisan insights --no-interaction"
-        ],
-        "phparkitect": [
-            "Composer\\Config::disableProcessTimeout",
-            "@php -d xdebug.mode=off vendor/bin/phparkitect check"
-        ],
+        "lint": "make lint",
+        "lint:full": "make lint-full",
+        "fix": "make fix",
+        "pint": "make pint",
+        "pint:test": "make pint-test",
+        "analyse": "make analyse",
+        "insights": "make insights",
+        "phparkitect": "make phparkitect",
         "stan": "@analyse",
-        "check": [
-            "@lint:full",
-            "@test"
-        ],
-        "test": [
-            "Composer\\Config::disableProcessTimeout",
-            "@php vendor/bin/pest --parallel --fail-on-deprecation"
-        ],
-        "test:coverage": [
-            "Composer\\Config::disableProcessTimeout",
-            "@php -d xdebug.mode=coverage vendor/bin/pest --coverage --min=80"
-        ],
-        "infection": [
-            "Composer\\Config::disableProcessTimeout",
-            "@php -d xdebug.mode=off vendor/bin/infection --no-progress --show-mutations"
-        ],
-        "infection:strict": [
-            "Composer\\Config::disableProcessTimeout",
-            "@php -d xdebug.mode=off vendor/bin/infection --no-progress --show-mutations --min-msi=70 --min-covered-msi=80"
-        ],
-        "infection:fast": [
-            "Composer\\Config::disableProcessTimeout",
-            "@php -d xdebug.mode=coverage vendor/bin/pest --log-junit=build/logs/junit.xml --coverage-xml=build/logs/coverage-xml --coverage-clover=build/logs/clover.xml",
-            "@php -d xdebug.mode=off vendor/bin/infection --coverage=build/logs --skip-initial-tests --no-progress --show-mutations --min-msi=70 --min-covered-msi=80"
-        ],
-        "infection:incremental": [
-            "Composer\\Config::disableProcessTimeout",
-            "@php -d xdebug.mode=off vendor/bin/infection --git-diff-lines --git-diff-base=main --no-progress --show-mutations --min-msi=70 --min-covered-msi=80"
-        ],
-        "infection:ci": [
-            "Composer\\Config::disableProcessTimeout",
-            "@php -d xdebug.mode=off vendor/bin/infection --no-progress --logger-github --min-msi=70 --min-covered-msi=80"
-        ],
-        "pest:mutate": [
-            "Composer\\Config::disableProcessTimeout",
-            "@php -d xdebug.mode=off vendor/bin/pest --mutate --everything --covered-only --min=90"
-        ],
-        "test:ai": [
-            "Composer\\Config::disableProcessTimeout",
-            "@test",
-            "@infection"
-        ],
-        "test:mutate": [
-            "Composer\\Config::disableProcessTimeout",
-            "@test",
-            "@pest:mutate",
-            "@infection:strict"
-        ],
-        "check:full": [
-            "@lint:full",
-            "@test",
-            "@infection"
-        ],
-        "ide-helper": [
-            "@php -d xdebug.mode=off artisan ide-helper:generate",
-            "@php -d xdebug.mode=off artisan ide-helper:models --nowrite",
-            "@php -d xdebug.mode=off artisan ide-helper:meta"
-        ],
-        "rector": [
-            "Composer\\Config::disableProcessTimeout",
-            "@php -d xdebug.mode=off vendor/bin/rector process"
-        ],
-        "rector:dry-run": [
-            "Composer\\Config::disableProcessTimeout",
-            "@php -d xdebug.mode=off vendor/bin/rector process --dry-run"
-        ],
-        "refactor": [
-            "@rector",
-            "@fix"
-        ]
+        "check": "make check",
+        "test": "make test",
+        "test:coverage": "make test-coverage",
+        "infection": "make infection",
+        "infection:strict": "make infection-strict",
+        "infection:fast": "make infection-fast",
+        "infection:incremental": "make infection-incremental",
+        "infection:ci": "make infection-ci",
+        "pest:mutate": "make pest-mutate",
+        "test:ai": "make test-ai",
+        "test:mutate": "make test-mutate",
+        "check:full": "make check-full",
+        "ide-helper": "make ide-helper",
+        "rector": "make rector",
+        "rector:dry-run": "make rector-dry-run",
+        "refactor": "make refactor"
     },
     "extra": {
         "laravel": {

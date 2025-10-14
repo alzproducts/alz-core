@@ -140,6 +140,30 @@ public function applyDiscount(Order $order, DiscountCode $code) {
 
 **PHPStan Integration:** Provides type narrowing after assertions (e.g., `Assert::string($x)` tells PHPStan `$x` is non-null string)
 
+## Build System: Makefile vs Composer
+
+**Single Source of Truth**: Makefile owns all build/test/quality command implementations. The `composer.json` scripts delegate to Makefile targets.
+
+**Two Ways to Run Commands:**
+1. **Via Make** (recommended): `make lint`
+2. **Via Composer**: `composer run lint` (delegates to make)
+
+**Why Use Make:**
+- **Simpler syntax**: `make lint` vs `./vendor/bin/sail composer lint`
+- **Smart environment detection**: Automatically uses Sail when running, native PHP when not
+- **No wrapper needed**: Makefile handles `$(EXEC)` variable resolution
+- **Cross-platform**: Works identically on macOS, Linux, Windows (with make installed)
+
+**Environment Detection:**
+The Makefile automatically detects your environment and adjusts execution:
+- `[Sail Mode]` - When Sail containers are running (uses `./vendor/bin/sail php`)
+- `[Container Mode]` - When running inside container (uses `php`)
+- `[Native Mode]` - When Sail not running (uses local `php`)
+- `[CI Mode]` - In CI environments (uses `php`)
+
+**Available Commands:**
+Run `make help` to see all available targets with descriptions.
+
 ## Code Quality & Linting
 
 **CRITICAL**: We maintain strict code quality standards with four linters + mutation testing:
@@ -194,34 +218,60 @@ public function applyDiscount(Order $order, DiscountCode $code) {
 
 ### Running Linters
 
-**IMPORTANT**: Run all linters through Sail to ensure correct PHP version:
+**Primary Interface**: Use `make` commands for simplest syntax with automatic environment detection.
 
 ```bash
 # Fast linting (pre-commit) - ~5-10 seconds
-./vendor/bin/sail composer lint           # Run Pint + PHPStan + PHPArkitect (tests only, no fixes)
+make lint                   # Run Pint + PHPStan + PHPArkitect (tests only, no fixes)
 
 # Full linting (pre-push) - ~20-30 seconds
-./vendor/bin/sail composer lint:full      # Run Pint + PHPStan + PHP Insights + PHPArkitect
+make lint-full              # Run Pint + PHPStan + PHP Insights + PHPArkitect
 
 # Auto-fix style issues
-./vendor/bin/sail composer fix            # Auto-fix code style with Pint
+make fix                    # Auto-fix code style with Pint
 
 # Individual linters
-./vendor/bin/sail composer pint           # Fix code style with Pint
-./vendor/bin/sail composer pint:test      # Test code style (dry-run)
-./vendor/bin/sail composer analyse        # Run PHPStan static analysis
-./vendor/bin/sail composer insights       # Run PHP Insights quality check
-./vendor/bin/sail composer phparkitect    # Run PHPArkitect architecture checks
+make pint                   # Fix code style with Pint
+make pint-test              # Test code style (dry-run)
+make analyse                # Run PHPStan static analysis (alias: make stan)
+make insights               # Run PHP Insights quality check
+make phparkitect            # Run PHPArkitect architecture checks
 
 # Run everything (tests + linters)
-./vendor/bin/sail composer check          # Run lint:full + tests
+make check                  # Run lint-full + tests
+make check-full             # Run lint-full + tests + infection
+
+# Mutation testing
+make infection              # Run Infection mutation testing
+make infection-strict       # With strict MSI thresholds (70/80)
+make test-ai                # Validate AI-generated tests (test + infection)
+
+# Refactoring
+make rector                 # Run Rector refactoring (apply changes)
+make rector-dry-run         # Preview Rector changes
+make refactor               # Run Rector + Pint combo
+```
+
+**Alternative: Via Composer**
+
+All commands also work via `composer run <script>` (delegates to make):
+```bash
+composer run lint           # Same as: make lint
+composer run test           # Same as: make test
+```
+
+**Legacy: Via Sail Wrapper**
+
+If you prefer explicit Sail commands (more verbose):
+```bash
+./vendor/bin/sail composer lint    # Works, but verbose
 ```
 
 ### Recommended Workflow
-- **On save/frequent**: `./vendor/bin/sail composer fix` (auto-fix style, ~1s)
-- **Before commit**: `./vendor/bin/sail composer lint` (Pint + PHPStan + PHPArkitect, ~5-10s)
-- **Before push**: `./vendor/bin/sail composer lint:full` or `composer check` (all linters + tests, ~30s)
-- **In CI/CD**: `composer check` (full validation)
+- **On save/frequent**: `make fix` (auto-fix style, ~1s)
+- **Before commit**: `make lint` (Pint + PHPStan + PHPArkitect, ~5-10s)
+- **Before push**: `make lint-full` or `make check` (all linters + tests, ~30s)
+- **In CI/CD**: `make check` (full validation)
 
 ### Git Hooks (Automated)
 - **Pre-commit**: Pint + PHPStan + PHPArkitect (runs automatically on `git commit`)
