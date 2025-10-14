@@ -9,6 +9,7 @@ use NunoMaduro\PhpInsights\Domain\Insights\ForbiddenNormalClasses;
 use NunoMaduro\PhpInsights\Domain\Insights\ForbiddenPrivateMethods;
 use NunoMaduro\PhpInsights\Domain\Insights\ForbiddenTraits;
 use NunoMaduro\PhpInsights\Domain\Metrics\Architecture\Classes;
+use NunoMaduro\PhpInsights\Domain\Sniffs\ForbiddenSetterSniff;
 use PHP_CodeSniffer\Standards\Generic\Sniffs\Files\LineLengthSniff;
 use PHP_CodeSniffer\Standards\Generic\Sniffs\Formatting\SpaceAfterCastSniff;
 use PHP_CodeSniffer\Standards\Generic\Sniffs\Formatting\SpaceAfterNotSniff;
@@ -129,6 +130,20 @@ return [
             'lineLimit' => 120,
             'absoluteLineLimit' => 120,
             'ignoreComments' => false,
+        ],
+
+        // Framework-required patterns (per-file exclusions)
+        ForbiddenSetterSniff::class => [
+            'exclude' => [
+                'app/Console/GitHooks/BaseProcessHook.php',
+                'app/Console/GitHooks/BasePreCommitProcessHook.php',
+            ],
+        ],
+
+        PropertyTypeHintSniff::class => [
+            'exclude' => [
+                'app/Models/User.php',
+            ],
         ],
     ],
 
