@@ -111,6 +111,11 @@ down: ## Stop Sail containers
 		echo "$(YELLOW)Cannot stop Sail from CI or inside container$(NC)"; \
 		exit 1; \
 	fi
+	@if [ ! -x "$(SAIL)" ]; then \
+		echo "$(YELLOW)Error: Sail not found at $(SAIL)$(NC)"; \
+		echo "$(YELLOW)Run 'make install' first$(NC)"; \
+		exit 1; \
+	fi
 	@echo "$(MODE)"
 	$(SAIL) down
 
