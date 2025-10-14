@@ -126,7 +126,7 @@ composer run test     # Run tests
 
 **Configuration**: `rector.php` - Conservative rules targeting:
 - PHP 8.4 features
-- Laravel 11.0 best practices
+- Laravel 12.0 best practices
 - PHPUnit 10+ attribute conversions (`@test` → `#[Test]`)
 - Dead code removal
 - Early returns and type declarations
