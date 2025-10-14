@@ -9,30 +9,11 @@ use Illuminate\Http\Request;
 use LogicException;
 use Symfony\Component\HttpFoundation\Response;
 
-class HorizonBasicAuth
+final class HorizonBasicAuth
 {
     public function handle(Request $request, Closure $next): Response
     {
-        $username = \config('horizon.auth.username');
-        $password = \config('horizon.auth.password');
-
-        // Validate configuration: must be non-empty strings
-        if (!\is_string($username) || ($username === '')) {
-            \abort(500, 'Horizon username not configured or invalid type');
-        }
-
-        if (!\is_string($password) || ($password === '')) {
-            \abort(500, 'Horizon password not configured or invalid type');
-        }
-
-        if (
-            !\hash_equals($username, $request->getUser() ?? '')
-            || !\hash_equals($password, $request->getPassword() ?? '')
-        ) {
-            return \response('Unauthorized', 401, [
-                'WWW-Authenticate' => 'Basic realm="Horizon Dashboard"',
-            ]);
-        }
+        $this->validateCredentials($request);
 
         $response = $next($request);
 
@@ -41,5 +22,34 @@ class HorizonBasicAuth
         }
 
         return $response;
+    }
+
+    private function validateCredentials(Request $request): void
+    {
+        $username = $this->getConfigValue('username');
+        $password = $this->getConfigValue('password');
+
+        if (! $this->credentialsMatch($username, $password, $request)) {
+            \abort(401, 'Unauthorized', [
+                'WWW-Authenticate' => 'Basic realm="Horizon Dashboard"',
+            ]);
+        }
+    }
+
+    private function getConfigValue(string $key): string
+    {
+        $value = \config("horizon.auth.{$key}");
+
+        if (! \is_string($value) || ($value === '')) {
+            \abort(500, "Horizon {$key} not configured or invalid type");
+        }
+
+        return $value;
+    }
+
+    private function credentialsMatch(string $username, string $password, Request $request): bool
+    {
+        return \hash_equals($username, $request->getUser() ?? '')
+            && \hash_equals($password, $request->getPassword() ?? '');
     }
 }
