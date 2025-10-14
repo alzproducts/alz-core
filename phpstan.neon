@@ -71,11 +71,6 @@ parameters:
         -
             message: '#^Class PHP_CodeSniffer\\.*#'
             path: config/insights.php
-        # Git Hook classes constrained by third-party interface requiring non-readonly public Command property
-        -
-            identifier: shipmonk.publicPropertyNotReadonly
-            path: app/Console/GitHooks/*
-            message: '#Public property.*command.*not marked as readonly#'
 
     paths:
         - app/
