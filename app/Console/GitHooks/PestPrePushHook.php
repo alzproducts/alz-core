@@ -13,7 +13,7 @@ final class PestPrePushHook extends BaseProcessHook
      */
     protected function getProcessCommand(): array
     {
-        return ['./vendor/bin/pest', '--parallel'];
+        return ['composer', 'test'];
     }
 
     protected function getTimeout(): int

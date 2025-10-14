@@ -13,10 +13,7 @@ final class PHPArkitectPreCommitHook extends BasePreCommitProcessHook
      */
     protected function getProcessCommand(): array
     {
-        return [
-            './vendor/bin/phparkitect',
-            'check',
-        ];
+        return ['composer', 'phparkitect'];
     }
 
     protected function getTimeout(): int
