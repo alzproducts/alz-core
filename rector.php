@@ -13,7 +13,19 @@ return RectorConfig::configure()
     ->withSkip([
         __DIR__ . '/bootstrap',
         __DIR__ . '/vendor',
+        __DIR__ . '/storage',
+        __DIR__ . '/public',
+        __DIR__ . '/resources',
     ])
+
+    // Performance optimizations
+    ->withParallel(
+        120,  // timeout seconds
+        8,    // max processes (~60% of 14 cores on M4 Pro)
+        10,    // job size (files per job)
+    )
+    ->withCache(__DIR__ . '/.rector-cache')
+
     ->withPhpSets(php84: true)
     ->withPreparedSets(
         deadCode: true,
