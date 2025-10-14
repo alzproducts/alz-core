@@ -121,6 +121,10 @@
             "Composer\\Config::disableProcessTimeout",
             "@php vendor/bin/infection --show-mutations --threads=4"
         ],
+        "infection:strict": [
+            "Composer\\Config::disableProcessTimeout",
+            "@php vendor/bin/infection --show-mutations --threads=4 --min-msi=70 --min-covered-msi=80"
+        ],
         "infection:ci": [
             "Composer\\Config::disableProcessTimeout",
             "@php vendor/bin/infection --logger-github --min-msi=70 --min-covered-msi=80"
@@ -138,7 +142,7 @@
             "Composer\\Config::disableProcessTimeout",
             "@test",
             "@pest:mutate",
-            "@infection"
+            "@infection:strict"
         ],
         "check:full": [
             "@lint:full",
