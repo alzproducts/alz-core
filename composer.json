@@ -15,9 +15,10 @@
     },
     "require-dev": {
         "barryvdh/laravel-ide-helper": "^3.6",
+        "driftingly/rector-laravel": "^2.1",
         "fakerphp/faker": "^1.23",
         "igorsgm/laravel-git-hooks": "^2.0",
-        "infection/infection": "*",
+        "infection/infection": "^0.31.7",
         "larastan/larastan": "^3.0",
         "laravel/pail": "^1.2",
         "laravel/pint": "^1.24",
@@ -35,6 +36,7 @@
         "phpstan/phpstan-phpunit": "^2.0",
         "phpstan/phpstan-strict-rules": "^2.0",
         "phpunit/phpunit": "^11.5.3",
+        "rector/rector": "^2.2",
         "shipmonk/phpstan-rules": "^4.2"
     },
     "autoload": {
@@ -137,6 +139,18 @@
             "@php artisan ide-helper:generate",
             "@php artisan ide-helper:models --nowrite",
             "@php artisan ide-helper:meta"
+        ],
+        "rector": [
+            "Composer\\Config::disableProcessTimeout",
+            "@php vendor/bin/rector process"
+        ],
+        "rector:dry-run": [
+            "Composer\\Config::disableProcessTimeout",
+            "@php vendor/bin/rector process --dry-run"
+        ],
+        "refactor": [
+            "@rector",
+            "@fix"
         ]
     },
     "extra": {
