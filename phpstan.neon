@@ -74,6 +74,7 @@ parameters:
 
     paths:
         - app/
+        - bootstrap/
         - config/
         - database/
         - routes/
