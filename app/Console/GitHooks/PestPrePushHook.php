@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\GitHooks;
 
-class PestPrePushHook extends BaseProcessHook
+final class PestPrePushHook extends BaseProcessHook
 {
     protected string $name = 'Pest Tests';
 

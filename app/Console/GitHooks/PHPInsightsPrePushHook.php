@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\GitHooks;
 
-class PHPInsightsPrePushHook extends BaseProcessHook
+final class PHPInsightsPrePushHook extends BaseProcessHook
 {
     protected string $name = 'PHP Insights';
 

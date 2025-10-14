@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\GitHooks;
 
-class PHPArkitectPrePushHook extends BaseProcessHook
+final class PHPArkitectPrePushHook extends BaseProcessHook
 {
     protected string $name = 'PHPArkitect';
 

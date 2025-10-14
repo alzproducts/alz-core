@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\GitHooks;
 
-class PHPArkitectPreCommitHook extends BasePreCommitProcessHook
+final class PHPArkitectPreCommitHook extends BasePreCommitProcessHook
 {
     protected string $name = 'PHPArkitect';
 
