@@ -119,11 +119,11 @@
         ],
         "infection": [
             "Composer\\Config::disableProcessTimeout",
-            "@php vendor/bin/infection --show-mutations --threads=4"
+            "@php vendor/bin/infection --show-mutations"
         ],
         "infection:strict": [
             "Composer\\Config::disableProcessTimeout",
-            "@php vendor/bin/infection --show-mutations --threads=4 --min-msi=70 --min-covered-msi=80"
+            "@php vendor/bin/infection --show-mutations --min-msi=70 --min-covered-msi=80"
         ],
         "infection:ci": [
             "Composer\\Config::disableProcessTimeout",
