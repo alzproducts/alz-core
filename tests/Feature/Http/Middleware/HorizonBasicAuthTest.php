@@ -47,15 +47,15 @@ class HorizonBasicAuthTest extends TestCase
      *
      * @return TestResponse<Response>
      */
-    private function makeRequest(?string $user, ?string $pass, string $uri = '/_test/protected-route'): TestResponse
+    private function makeRequest(?string $user, ?string $pass): TestResponse
     {
         $headers = [];
-        if ($user !== null || $pass !== null) {
+        if (($user !== null) || ($pass !== null)) {
             $token = \base64_encode(($user ?? '') . ':' . ($pass ?? ''));
             $headers['Authorization'] = 'Basic ' . $token;
         }
 
-        return $this->withHeaders($headers)->get($uri);
+        return $this->withHeaders($headers)->get('/_test/protected-route');
     }
 
     /**
