@@ -152,6 +152,7 @@ jobs:
       DB_DATABASE: testing
       DB_USERNAME: postgres
       DB_PASSWORD: password
+      DB_SSLMODE: disable
       REDIS_HOST: localhost
       REDIS_PORT: 6379
       CACHE_DRIVER: redis
