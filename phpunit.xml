@@ -9,12 +9,14 @@
          failOnWarning="true"
 >
     <testsuites>
-        <testsuite name="Unit">
-            <directory>tests/Unit</directory>
-        </testsuite>
         <testsuite name="Feature">
             <directory>tests/Feature</directory>
         </testsuite>
+        <!-- Uncomment when you add unit tests:
+        <testsuite name="Unit">
+            <directory>tests/Unit</directory>
+        </testsuite>
+        -->
     </testsuites>
     <coverage>
         <report>
