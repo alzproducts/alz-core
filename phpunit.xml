@@ -12,11 +12,9 @@
         <testsuite name="Feature">
             <directory>tests/Feature</directory>
         </testsuite>
-        <!-- Uncomment when you add unit tests:
         <testsuite name="Unit">
             <directory>tests/Unit</directory>
         </testsuite>
-        -->
     </testsuites>
     <coverage>
         <report>
@@ -27,6 +25,12 @@
         <include>
             <directory>app</directory>
         </include>
+        <exclude>
+            <directory>app/Console/GitHooks</directory>
+            <file>app/Models/User.php</file>
+            <file>app/Providers/HorizonServiceProvider.php</file>
+            <file>app/Providers/TelescopeServiceProvider.php</file>
+        </exclude>
     </source>
     <php>
         <env name="APP_ENV" value="testing"/>
