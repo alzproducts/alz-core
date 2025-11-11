@@ -21,8 +21,11 @@ final class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        // Only validate in production to avoid disrupting local development
-        if ($this->app->environment('production')) {
+        // Only validate in production to avoid disrupting local development and CI
+        // Skip validation in CI environments (GitHub Actions, etc.)
+        $isCi = \getenv('CI') !== false || \getenv('GITHUB_ACTIONS') !== false;
+
+        if ($this->app->environment('production') && ! $isCi) {
             $this->validateProductionEnvironment();
         }
     }
