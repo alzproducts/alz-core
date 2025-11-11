@@ -6,7 +6,9 @@ use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Exceptions\ThrottleRequestsException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -45,5 +47,17 @@ return Application::configure(basePath: dirname(__DIR__))
         // Middleware configuration
     })
     ->withExceptions(static function (Exceptions $exceptions): void {
-        //
+        // Log rate limit violations using render() instead of reportable()
+        // because ThrottleRequestsException is thrown in middleware and bypasses reportable callbacks
+        $exceptions->render(static function (ThrottleRequestsException $e, Request $request): null {
+            Log::channel('security')->warning('Rate limit exceeded', [
+                'event' => 'rate_limit.exceeded',
+                'ip' => $request->ip(),
+                'path' => $request->path(),
+                'user_agent' => $request->userAgent(),
+            ]);
+
+            // Return null to use Laravel's default 429 response
+            return null;
+        });
     })->create();

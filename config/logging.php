@@ -129,6 +129,20 @@ return [
             'path' => storage_path('logs/laravel.log'),
         ],
 
+        'security' => [
+            'driver' => 'stack',
+            'channels' => env('APP_ENV') === 'production' ? ['stderr'] : ['security_daily'],
+            'ignore_exceptions' => false,
+        ],
+
+        'security_daily' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/security.log'),
+            'level' => env('LOG_LEVEL', 'warning'),
+            'days' => 14,
+            'replace_placeholders' => true,
+        ],
+
     ],
 
 ];
