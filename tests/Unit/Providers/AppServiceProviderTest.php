@@ -138,6 +138,10 @@ final class AppServiceProviderTest extends TestCase
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage($expectedMessageFragment);
         $this->expectExceptionMessage('Production deployment blocked');
+        // Verify complete message structure to kill concatenation mutations
+        $this->expectExceptionMessage('Application cannot start safely');
+        $this->expectExceptionMessage('Please configure these variables');
+        $this->expectExceptionMessage('in your deployment environment');
 
         // Act
         $this->provider->boot();
@@ -197,6 +201,8 @@ final class AppServiceProviderTest extends TestCase
         // Assert
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('SECURITY: APP_KEY is too short or invalid.');
+        // Verify complete message structure to kill concatenation mutations
+        $this->expectExceptionMessage("Run 'php artisan key:generate' to create a secure key.");
 
         // Act
         $this->provider->boot();

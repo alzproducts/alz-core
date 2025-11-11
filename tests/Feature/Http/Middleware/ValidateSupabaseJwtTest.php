@@ -76,7 +76,9 @@ final class ValidateSupabaseJwtTest extends TestCase
             ->with(
                 'Missing authorization token',
                 Mockery::on(static fn(array $context): bool => $context['event'] === 'api.auth.missing_token'
-                    && $context['path'] === '_test/protected-route'),
+                    && $context['path'] === '_test/protected-route'
+                    && \array_key_exists('ip', $context)
+                    && \array_key_exists('user_agent', $context)),
             );
 
         Log::shouldReceive('channel')
@@ -103,7 +105,10 @@ final class ValidateSupabaseJwtTest extends TestCase
             ->with(
                 'Invalid JWT token',
                 Mockery::on(static fn(array $context): bool => $context['event'] === 'api.auth.invalid_token'
-                    && $context['error'] === 'Signature verification failed'),
+                    && $context['error'] === 'Signature verification failed'
+                    && \array_key_exists('ip', $context)
+                    && \array_key_exists('path', $context)
+                    && \array_key_exists('user_agent', $context)),
             );
 
         Log::shouldReceive('channel')
@@ -132,7 +137,10 @@ final class ValidateSupabaseJwtTest extends TestCase
             ->with(
                 'Invalid JWT token',
                 Mockery::on(static fn(array $context): bool => $context['event'] === 'api.auth.invalid_token'
-                    && $context['error'] === 'Expired token'),
+                    && $context['error'] === 'Expired token'
+                    && \array_key_exists('ip', $context)
+                    && \array_key_exists('path', $context)
+                    && \array_key_exists('user_agent', $context)),
             );
 
         Log::shouldReceive('channel')
@@ -161,7 +169,11 @@ final class ValidateSupabaseJwtTest extends TestCase
             ->once()
             ->with(
                 'Invalid JWT token',
-                Mockery::on(static fn(array $context): bool => $context['error'] === 'SUPABASE_JWT_SECRET not configured'),
+                Mockery::on(static fn(array $context): bool => $context['error'] === 'SUPABASE_JWT_SECRET not configured'
+                    && \array_key_exists('event', $context)
+                    && \array_key_exists('ip', $context)
+                    && \array_key_exists('path', $context)
+                    && \array_key_exists('user_agent', $context)),
             );
 
         Log::shouldReceive('channel')
@@ -190,7 +202,11 @@ final class ValidateSupabaseJwtTest extends TestCase
             ->once()
             ->with(
                 'Invalid JWT token',
-                Mockery::on(static fn(array $context): bool => $context['event'] === 'api.auth.invalid_token'),
+                Mockery::on(static fn(array $context): bool => $context['event'] === 'api.auth.invalid_token'
+                    && \array_key_exists('ip', $context)
+                    && \array_key_exists('path', $context)
+                    && \array_key_exists('user_agent', $context)
+                    && \array_key_exists('error', $context)),
             );
 
         Log::shouldReceive('channel')
@@ -216,7 +232,11 @@ final class ValidateSupabaseJwtTest extends TestCase
             ->once()
             ->with(
                 'Invalid JWT token',
-                Mockery::on(static fn(array $context): bool => $context['error'] === 'JWT token missing required "sub" claim'),
+                Mockery::on(static fn(array $context): bool => $context['error'] === 'JWT token missing required "sub" claim'
+                    && \array_key_exists('event', $context)
+                    && \array_key_exists('ip', $context)
+                    && \array_key_exists('path', $context)
+                    && \array_key_exists('user_agent', $context)),
             );
 
         Log::shouldReceive('channel')
@@ -280,5 +300,68 @@ final class ValidateSupabaseJwtTest extends TestCase
                 'auth_user_id' => $userId,
                 'auth_user_email' => null,
             ]);
+    }
+
+    /**
+     * Test that empty string token is rejected (kills EmptyStringToNotEmpty mutation on line 27).
+     */
+    #[Test]
+    public function returns_unauthorized_for_empty_string_token(): void
+    {
+        // Arrange
+        $logger = Mockery::mock();
+        $logger->shouldReceive('warning')
+            ->once()
+            ->with(
+                'Missing authorization token',
+                Mockery::on(static fn(array $context): bool => $context['event'] === 'api.auth.missing_token'
+                    && \array_key_exists('ip', $context)
+                    && \array_key_exists('path', $context)
+                    && \array_key_exists('user_agent', $context)),
+            );
+
+        Log::shouldReceive('channel')
+            ->with('security')
+            ->andReturn($logger);
+
+        // Act: Manually set Authorization header to empty bearer token
+        $response = $this->withHeaders(['Authorization' => 'Bearer '])
+            ->getJson('/_test/protected-route');
+
+        // Assert
+        $response->assertStatus(401)->assertJson(['error' => 'Unauthorized']);
+    }
+
+    /**
+     * Test that empty string sub claim is rejected (kills EmptyStringToNotEmpty mutation on line 52).
+     */
+    #[Test]
+    public function returns_unauthorized_if_sub_claim_is_empty_string(): void
+    {
+        // Arrange
+        $logger = Mockery::mock();
+        $logger->shouldReceive('warning')
+            ->once()
+            ->with(
+                'Invalid JWT token',
+                Mockery::on(static fn(array $context): bool => $context['error'] === 'JWT token missing required "sub" claim'
+                    && \array_key_exists('event', $context)
+                    && \array_key_exists('ip', $context)
+                    && \array_key_exists('path', $context)
+                    && \array_key_exists('user_agent', $context)),
+            );
+
+        Log::shouldReceive('channel')
+            ->with('security')
+            ->andReturn($logger);
+
+        $payload = ['sub' => '']; // Empty string instead of null
+        $token = $this->generateToken($payload);
+
+        // Act
+        $response = $this->withToken($token)->getJson('/_test/protected-route');
+
+        // Assert
+        $response->assertStatus(401)->assertJson(['error' => 'Unauthorized']);
     }
 }
