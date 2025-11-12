@@ -78,13 +78,13 @@ parameters:
         - config/
         - database/
         - routes/
-        - tests/
 
     # Fix Docker/Sail cache permission issues - use storage directory
     tmpDir: storage/framework/phpstan
 
-    # Exclude generated/vendor code only
+    # Exclude generated/vendor code and tests
     excludePaths:
         - bootstrap/cache/
         - storage/
         - vendor/
+        - tests/
