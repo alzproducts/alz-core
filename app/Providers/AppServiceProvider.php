@@ -63,10 +63,10 @@ final class AppServiceProvider extends ServiceProvider
             $list = \implode("\n  - ", $missing);
 
             throw new RuntimeException(
-                "SECURITY: Production deployment blocked. The following required "
+                'SECURITY: Production deployment blocked. The following required '
                 . "configuration values are not set:\n\n  - {$list}\n\n"
-                . "Application cannot start safely. Please configure these variables "
-                . "in your deployment environment.",
+                . 'Application cannot start safely. Please configure these variables '
+                . 'in your deployment environment.',
             );
         }
 
@@ -74,8 +74,8 @@ final class AppServiceProvider extends ServiceProvider
         $appKey = \config('app.key');
         if (! \is_string($appKey) || \mb_strlen($appKey) < 32) {
             throw new RuntimeException(
-                "SECURITY: APP_KEY is too short or invalid. "
-                . "Run 'php artisan key:generate' to create a secure key.",
+                'SECURITY: APP_KEY is too short or invalid. '
+                . 'Run \'php artisan key:generate\' to create a secure key.',
             );
         }
     }
