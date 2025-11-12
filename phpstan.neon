@@ -78,7 +78,6 @@ parameters:
         - config/
         - database/
         - routes/
-        - tests/
 
     # Fix Docker/Sail cache permission issues - use storage directory
     tmpDir: storage/framework/phpstan
