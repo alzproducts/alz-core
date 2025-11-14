@@ -1,0 +1,142 @@
+# ==============================================================================
+# Docker Compose for Production-like Testing
+# ==============================================================================
+# Purpose: Test production Dockerfile locally before Railway deployment
+# Usage: docker-compose -f docker-compose.prod.yml up --build
+# ==============================================================================
+
+services:
+  # ----------------------------------------------------------------------------
+  # Laravel Application (Octane + Swoole)
+  # ----------------------------------------------------------------------------
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    container_name: alz-core-prod
+    ports:
+      - "8000:8000"
+    environment:
+      # Application
+      APP_NAME: "ALZ Core (Local Production Test)"
+      APP_ENV: production
+      APP_DEBUG: false
+      APP_KEY: base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      APP_URL: http://localhost:8000
+
+      # Railway simulation (dynamic PORT)
+      PORT: 8000
+
+      # Octane
+      OCTANE_SERVER: swoole
+      OCTANE_WORKERS: 2
+      OCTANE_TASK_WORKERS: 2
+      OCTANE_MAX_REQUESTS: 500
+
+      # Logging
+      LOG_CHANNEL: stderr
+      LOG_LEVEL: debug
+
+      # Database (PostgreSQL)
+      DB_CONNECTION: pgsql
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_DATABASE: alz_core_prod
+      DB_USERNAME: postgres
+      DB_PASSWORD: secret
+      DB_SSLMODE: prefer
+
+      # Redis
+      REDIS_HOST: redis
+      REDIS_PASSWORD: null
+      REDIS_PORT: 6379
+
+      # Cache & Queue
+      CACHE_DRIVER: redis
+      QUEUE_CONNECTION: redis
+      SESSION_DRIVER: database
+      SESSION_ENCRYPT: true
+
+      # Horizon Dashboard (for testing)
+      HORIZON_USER: admin
+      HORIZON_PASSWORD: secret
+
+      # Entrypoint script controls
+      AUTO_MIGRATE: true
+      SKIP_DB_CHECK: false
+
+      # Supabase (not needed for local testing)
+      SUPABASE_JWT_SECRET: test-secret-key-not-for-production
+
+      # Telescope (disabled in production)
+      TELESCOPE_ENABLED: false
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - alz-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/up"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  # ----------------------------------------------------------------------------
+  # PostgreSQL Database
+  # ----------------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: alz-core-postgres-prod
+    environment:
+      POSTGRES_DB: alz_core_prod
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: secret
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - alz-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ----------------------------------------------------------------------------
+  # Redis (Cache & Queues)
+  # ----------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: alz-core-redis-prod
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - alz-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+# ==============================================================================
+# Volumes
+# ==============================================================================
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+# ==============================================================================
+# Networks
+# ==============================================================================
+networks:
+  alz-network:
+    driver: bridge
