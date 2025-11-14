@@ -1,0 +1,134 @@
+# ==============================================================================
+# .dockerignore - Exclude files from Docker build context
+# ==============================================================================
+# Purpose: Reduce build context size by 70-80% for faster uploads to Railway
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Version Control
+# ------------------------------------------------------------------------------
+.git
+.gitignore
+.gitattributes
+
+# ------------------------------------------------------------------------------
+# Development Dependencies
+# ------------------------------------------------------------------------------
+node_modules/
+# Vendor excluded from build context (installed in builder stage via composer)
+vendor/
+
+# ------------------------------------------------------------------------------
+# Environment Files (managed separately in Railway)
+# ------------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+!.env.production.example
+
+# ------------------------------------------------------------------------------
+# Testing & Quality Tools
+# ------------------------------------------------------------------------------
+tests/
+.phpunit.result.cache
+phpunit.xml
+pest.xml
+infection.json.php
+phpstan.neon
+phpstan-baseline.neon
+pint.json
+phpinsights.php
+phparkitect.php
+rector.php
+
+# ------------------------------------------------------------------------------
+# Documentation & Planning
+# ------------------------------------------------------------------------------
+*.md
+!README.md
+.ai/
+docs/
+
+# ------------------------------------------------------------------------------
+# IDE & Editor Files
+# ------------------------------------------------------------------------------
+.idea/
+.vscode/
+.phpstorm.meta.php
+_ide_helper.php
+_ide_helper_models.php
+.php-cs-fixer.cache
+
+# ------------------------------------------------------------------------------
+# Build Artifacts
+# ------------------------------------------------------------------------------
+storage/logs/*
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/testing/*
+storage/framework/views/*
+!storage/logs/.gitkeep
+!storage/framework/cache/.gitkeep
+!storage/framework/sessions/.gitkeep
+!storage/framework/testing/.gitkeep
+!storage/framework/views/.gitkeep
+
+# ------------------------------------------------------------------------------
+# Development Tools
+# ------------------------------------------------------------------------------
+Makefile
+docker-compose.yml
+docker-compose.*.yml
+!docker-compose.prod.yml
+Dockerfile.dev
+.editorconfig
+.php-cs-fixer.php
+
+# ------------------------------------------------------------------------------
+# CI/CD (not needed in production image)
+# ------------------------------------------------------------------------------
+.github/
+.gitlab-ci.yml
+
+# ------------------------------------------------------------------------------
+# OS Files
+# ------------------------------------------------------------------------------
+.DS_Store
+Thumbs.db
+
+# ------------------------------------------------------------------------------
+# Laravel Sail (development only)
+# ------------------------------------------------------------------------------
+vendor/laravel/sail/
+
+# ------------------------------------------------------------------------------
+# Temporary Files
+# ------------------------------------------------------------------------------
+*.log
+*.tmp
+*.swp
+*.swo
+*~
+
+# ------------------------------------------------------------------------------
+# NPM/Node (if accidentally present)
+# ------------------------------------------------------------------------------
+package.json
+package-lock.json
+node_modules/
+npm-debug.log
+yarn.lock
+
+# ------------------------------------------------------------------------------
+# Database Files (SQLite development)
+# ------------------------------------------------------------------------------
+*.sqlite
+*.sqlite-journal
+database/*.sqlite
+
+# ------------------------------------------------------------------------------
+# PHPUnit Coverage Reports
+# ------------------------------------------------------------------------------
+.phpunit.cache/
+coverage/
+.phpunit.result.cache
