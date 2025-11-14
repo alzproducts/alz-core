@@ -54,7 +54,7 @@ jobs:
           restore-keys: ${{ runner.os }}-composer-
 
       - name: Install dependencies
-        run: composer install --no-interaction --prefer-dist --no-progress
+        run: composer install --no-interaction --prefer-dist --no-progress --ignore-platform-req=ext-swoole
 
       - name: Run Laravel Pint
         run: composer run lint
@@ -98,7 +98,7 @@ jobs:
             phpstan-
 
       - name: Install dependencies
-        run: composer install --no-interaction --prefer-dist --no-progress
+        run: composer install --no-interaction --prefer-dist --no-progress --ignore-platform-req=ext-swoole
 
       - name: Run PHPStan analysis
         run: composer run analyse
@@ -132,7 +132,7 @@ jobs:
           restore-keys: ${{ runner.os }}-composer-
 
       - name: Install dependencies
-        run: composer install --no-interaction --prefer-dist --no-progress
+        run: composer install --no-interaction --prefer-dist --no-progress --ignore-platform-req=ext-swoole
 
       - name: Run PHP Insights
         run: composer run insights
@@ -213,7 +213,7 @@ jobs:
           restore-keys: ${{ runner.os }}-composer-
 
       - name: Install dependencies
-        run: composer install --no-interaction --prefer-dist --no-progress
+        run: composer install --no-interaction --prefer-dist --no-progress --ignore-platform-req=ext-swoole
 
       - name: Prepare Laravel application
         run: |
@@ -273,7 +273,7 @@ jobs:
           restore-keys: ${{ runner.os }}-composer-
 
       - name: Install dependencies
-        run: composer install --no-interaction --prefer-dist --no-progress
+        run: composer install --no-interaction --prefer-dist --no-progress --ignore-platform-req=ext-swoole
 
       - name: Run Composer audit
         run: composer audit --format=json
