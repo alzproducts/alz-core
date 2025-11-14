@@ -14,6 +14,7 @@ Backend service for e-commerce webhooks and background jobs. Portfolio piece dem
 
 - Laravel 12 (backend-only API)
 - PHP 8.4+
+- Laravel Octane with Swoole (application server)
 - PostgreSQL via Supabase (production) / SQLite (development)
 - Redis (cache, queues, sessions)
 - Laravel Horizon (queue monitoring)
@@ -53,6 +54,12 @@ docker run --rm -u "$(id -u):$(id -g)" -v "$(pwd):/var/www/html" -w /var/www/htm
 # Start services
 ./vendor/bin/sail up -d
 
+# Start Octane server (in separate terminal)
+./vendor/bin/sail artisan octane:start
+
+# Or use watch mode (auto-reloads on file changes)
+./vendor/bin/sail artisan octane:start --watch
+
 # Run tests
 make test
 
@@ -61,6 +68,11 @@ make lint
 
 # Stop services
 ./vendor/bin/sail down
+```
+
+**Important**: Code changes require Octane reload (unless using `--watch` mode):
+```bash
+./vendor/bin/sail artisan octane:reload
 ```
 
 ## Code Quality Standards
@@ -101,9 +113,9 @@ All configuration is done via Railway Dashboard UI (Settings persist across depl
 
 **Settings → Deploy**
 - **Source**: Connect to GitHub repository
-- **Deploy Command**: `php artisan migrate --force && php artisan config:cache && php artisan route:cache && php artisan view:cache`
-- **Start Command**: Leave blank (Railway auto-detects Laravel and uses nginx + php-fpm)
-- **Health Check Path**: `/health`
+- **Deploy Command**: `php artisan migrate --force && php artisan config:cache && php artisan route:cache`
+- **Start Command**: `php artisan octane:start --server=swoole --host=0.0.0.0 --port=${PORT:-8000}`
+- **Health Check Path**: `/up`
 - **Health Check Timeout**: 300 seconds
 
 **Settings → Environment**
@@ -114,6 +126,12 @@ LOG_CHANNEL=errorlog
 QUEUE_CONNECTION=redis
 CACHE_DRIVER=redis
 SESSION_DRIVER=redis
+
+# Octane Configuration
+OCTANE_SERVER=swoole
+OCTANE_WORKERS=4
+OCTANE_TASK_WORKERS=6
+OCTANE_MAX_REQUESTS=500
 ```
 
 #### Service 2: Worker (Horizon Queue)
@@ -175,7 +193,7 @@ Railway's 2025 best practice is **configuration via UI**, not config files:
 
 ### Architecture Notes
 
-**PHP-FPM vs Laravel Octane**: We use Railway's auto-configured nginx + php-fpm. Octane is overkill for 3-4 internal users. Consider Octane only if profiling shows request bootstrapping bottlenecks.
+**Laravel Octane**: We use Laravel Octane with Swoole for improved performance. Octane keeps the application in memory across requests, eliminating bootstrap overhead. This is the modern standard for Laravel deployments regardless of scale.
 
 **Separate Services**: Web and Worker run as separate Railway services for:
 - Independent scaling (scale web without scaling worker)

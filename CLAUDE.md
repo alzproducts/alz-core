@@ -34,6 +34,7 @@ See detailed plan: `.ai/docs/plans/alz-core-initial-plan.md`
 
 - Laravel 12 (backend-only, no frontend)
 - PHP 8.4+
+- Laravel Octane with Swoole (application server)
 - SQLite (development) → PostgreSQL/Supabase (production, planned)
 - Redis (cache/queues, planned)
 - Horizon + Telescope (monitoring, planned)
@@ -60,6 +61,25 @@ docker run --rm -u "$(id -u):$(id -g)" -v "$(pwd):/var/www/html" -w /var/www/htm
 # Run commands
 ./vendor/bin/sail artisan test
 ./vendor/bin/sail artisan migrate
+```
+
+### Octane Server
+
+```bash
+# Start Octane (development with auto-reload)
+./vendor/bin/sail artisan octane:start --watch
+
+# Start Octane (production mode)
+./vendor/bin/sail artisan octane:start
+
+# Reload after code changes (if not using --watch)
+./vendor/bin/sail artisan octane:reload
+
+# Check worker status
+./vendor/bin/sail artisan octane:status
+
+# Stop Octane
+./vendor/bin/sail artisan octane:stop
 ```
 
 ### With local PHP 8.4+
