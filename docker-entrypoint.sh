@@ -79,7 +79,10 @@ fi
 if [ "${SKIP_DB_CHECK}" != "true" ]; then
     log_info "Checking database connectivity..."
 
-    MAX_RETRIES=30
+    # Database connection timeout: 90 retries × 2 seconds = 180 seconds (3 minutes)
+    # Accommodates Railway + Supabase serverless cold starts
+    # Override with DB_CONNECT_RETRIES env var if needed
+    MAX_RETRIES=${DB_CONNECT_RETRIES:-90}
     RETRY_COUNT=0
 
     while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
@@ -146,7 +149,8 @@ fi
 if php artisan event:cache; then
     log_success "Events cached"
 else
-    log_warning "Event caching failed (non-critical)"
+    log_error "Event caching failed"
+    exit 1
 fi
 
 log_success "Laravel optimization completed"

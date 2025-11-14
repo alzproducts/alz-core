@@ -22,7 +22,8 @@ services:
       APP_NAME: "ALZ Core (Local Production Test)"
       APP_ENV: production
       APP_DEBUG: false
-      APP_KEY: base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      # ⚠️ WARNING: For local testing ONLY. Use strong credentials in production.
+      APP_KEY: ${APP_KEY:-base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=}
       APP_URL: http://localhost:8000
 
       # Railway simulation (dynamic PORT)
@@ -44,7 +45,8 @@ services:
       DB_PORT: 5432
       DB_DATABASE: alz_core_prod
       DB_USERNAME: postgres
-      DB_PASSWORD: secret
+      # ⚠️ WARNING: For local testing ONLY. Use strong credentials in production.
+      DB_PASSWORD: ${DB_PASSWORD:-secret}
       DB_SSLMODE: prefer
 
       # Redis
@@ -60,7 +62,8 @@ services:
 
       # Horizon Dashboard (for testing)
       HORIZON_USER: admin
-      HORIZON_PASSWORD: secret
+      # ⚠️ WARNING: For local testing ONLY. Use strong credentials in production.
+      HORIZON_PASSWORD: ${HORIZON_PASSWORD:-secret}
 
       # Entrypoint script controls
       AUTO_MIGRATE: true
@@ -94,7 +97,8 @@ services:
     environment:
       POSTGRES_DB: alz_core_prod
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: secret
+      # ⚠️ WARNING: For local testing ONLY. Use strong credentials in production.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secret}
     ports:
       - "5433:5432"
     volumes:

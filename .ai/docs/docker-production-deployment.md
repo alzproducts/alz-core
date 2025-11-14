@@ -77,7 +77,7 @@ Railway discontinued Nixpacks, and Railpacks do not support Swoole extensions. W
 
 **Stage 1: Builder**
 - Installs build dependencies (gcc, make, autoconf)
-- Compiles Swoole from PECL (pinned to 5.1.4)
+- Compiles Swoole from PECL (latest stable 6.x)
 - Installs Composer dependencies
 - **Discarded after build** (keeps final image small)
 
@@ -95,14 +95,16 @@ Railway discontinued Nixpacks, and Railpacks do not support Swoole extensions. W
 - `bcmath` - Arbitrary precision math (e-commerce calculations)
 - `opcache` - Bytecode caching (2-3x performance boost)
 
-**Installed via PECL (version pinned):**
-- `swoole-5.1.4` - Async server for Octane
-- `redis-6.1.0` - Redis client library
+**Installed via PECL (latest stable):**
+- `swoole` (latest 6.x) - Async server for Octane, PHP 8.4 compatible
+- Redis extension - Provided by serversideup/php base image
 
-**Why version pinning?**
-- ✅ Reproducible builds (same image every time)
-- ✅ Prevents breaking changes from auto-updates
-- ✅ Explicit upgrade path (update version in Dockerfile)
+**Why latest instead of pinned version?**
+- ✅ Swoole 6.0+ required for PHP 8.4 compatibility (curl extension synchronization)
+- ✅ Automatic security patches
+- ✅ Stable 6.x branch with Laravel Octane support
+- ✅ Railway rebuilds containers on every deploy (reproducibility maintained)
+- ❌ Swoole 5.1.4 incompatible with PHP 8.4 (build failures)
 
 ### 4. Security Hardening
 
@@ -148,6 +150,19 @@ php artisan event:cache    # Cache event listeners
 ```
 
 **Why runtime?** Build-time caching uses `.env.example`, not production `.env`.
+
+### 5.1 OPcache validate_timestamps=0 Implications
+
+⚠️ **Important:** `opcache.validate_timestamps=0` means OPcache NEVER checks if PHP files changed.
+
+**What this means:**
+- Code changes require **container rebuild** (`docker build`), not just restart
+- Production best practice: 2-3x performance boost by eliminating filesystem stat() calls
+- Safe for Railway: Every deployment rebuilds the container automatically
+
+**Local Development:**
+Use `docker-compose.yml` (development) which sets `opcache.validate_timestamps=1` for auto-reload.
+The production image (`docker-compose.prod.yml`) uses `validate_timestamps=0` for maximum performance.
 
 ### 6. Health Checks
 
