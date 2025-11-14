@@ -126,8 +126,8 @@ return [
         OperationTerminated::class => [
             FlushOnce::class,
             FlushTemporaryContainerInstances::class,
+            CollectGarbage::class,
             // DisconnectFromDatabases::class,
-            // CollectGarbage::class,
         ],
 
         WorkerErrorOccurred::class => [
@@ -171,10 +171,8 @@ return [
     */
 
     'tables' => [
-        'example:1000' => [
-            'name' => 'string:1000',
-            'votes' => 'int',
-        ],
+        // Swoole tables for shared data across workers
+        // See: https://laravel.com/docs/12.x/octane#tables
     ],
 
     /*
