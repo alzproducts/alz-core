@@ -15,6 +15,7 @@
 # Development Dependencies
 # ------------------------------------------------------------------------------
 node_modules/
+# Vendor excluded from build context (installed in builder stage via composer)
 vendor/
 
 # ------------------------------------------------------------------------------

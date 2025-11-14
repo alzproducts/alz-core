@@ -44,7 +44,8 @@ RUN docker-php-ext-install -j$(nproc) \
 RUN pecl install swoole && \
     docker-php-ext-enable swoole
 
-# Note: Redis extension already included in serversideup/php base image
+# Verify Redis extension from base image
+RUN php -m | grep redis || (echo "ERROR: Redis extension not found in base image!" && exit 1)
 
 # Copy Composer from official image
 COPY --from=composer:2.8 /usr/bin/composer /usr/bin/composer
@@ -127,15 +128,14 @@ USER www-data
 EXPOSE ${PORT:-8000}
 
 # Health check (uses Laravel's /up endpoint configured in routes/web.php)
+# Using shell form to enable environment variable expansion for PORT
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-    CMD curl -f http://localhost:${PORT:-8000}/up || exit 1
+    CMD sh -c "curl -f http://localhost:${PORT:-8000}/up || exit 1"
 
 # Use tini as init system for proper signal handling (graceful shutdown)
 ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/docker-entrypoint.sh"]
 
 # Default command: Start Octane with Swoole
 # Worker configuration comes from environment variables (OCTANE_WORKERS, etc.)
-CMD ["php", "artisan", "octane:start", \
-     "--server=swoole", \
-     "--host=0.0.0.0", \
-     "--port=${PORT:-8000}"]
+# Using shell form to enable environment variable expansion for PORT (required for Railway)
+CMD ["sh", "-c", "exec php artisan octane:start --server=swoole --host=0.0.0.0 --port=${PORT:-8000}"]
