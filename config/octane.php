@@ -44,6 +44,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Octane Port
+    |--------------------------------------------------------------------------
+    |
+    | This value determines the port that Octane will bind to when starting
+    | the server. The port is cast to an integer to ensure compatibility
+    | with PHP's fsockopen() function and Railway's dynamic PORT variable.
+    |
+    */
+
+    'port' => (int) env('OCTANE_PORT', env('PORT', 8000)),
+
+    /*
+    |--------------------------------------------------------------------------
     | Force HTTPS
     |--------------------------------------------------------------------------
     |
