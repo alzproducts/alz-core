@@ -44,7 +44,14 @@ return Application::configure(basePath: dirname(__DIR__))
         },
     )
     ->withMiddleware(static function (Middleware $middleware): void {
-        // Middleware configuration
+        // Trust proxies for Railway deployment
+        // Railway uses a reverse proxy that adds X-Forwarded-* headers
+        // In production: Trust all proxies (*) because Railway's proxy IPs are dynamic
+        //                and all traffic is routed through Railway's secure network
+        // In local dev: Don't trust any proxies to prevent header spoofing
+        $middleware->trustProxies(
+            at: app()->environment('production') ? '*' : [],
+        );
     })
     ->withExceptions(static function (Exceptions $exceptions): void {
         // Log rate limit violations using render() instead of reportable()
