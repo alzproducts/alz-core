@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "8f5adaabb401f7f562b4441ff1498bf9",
+    "content-hash": "12fb86ee6dbc0590bc2a615e4b4b6419",
     "packages": [
         {
             "name": "brick/math",
@@ -1115,6 +1115,138 @@
                 }
             ],
             "time": "2025-08-22T14:27:06+00:00"
+        },
+        {
+            "name": "helpscout/api",
+            "version": "3.10.2",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/helpscout/helpscout-api-php.git",
+                "reference": "52078c205c033e51810aa731be8f3c81a8a18a10"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/helpscout/helpscout-api-php/zipball/52078c205c033e51810aa731be8f3c81a8a18a10",
+                "reference": "52078c205c033e51810aa731be8f3c81a8a18a10",
+                "shasum": ""
+            },
+            "require": {
+                "guzzlehttp/guzzle": "^6.3|^7.0.1",
+                "php": "^7.3|^8.0",
+                "rize/uri-template": "^0.3.5|^0.4.0",
+                "webmozart/assert": "^1.2"
+            },
+            "require-dev": {
+                "friendsofphp/php-cs-fixer": "^3.4",
+                "mockery/mockery": "^1.1",
+                "phpstan/phpstan": "^1.10",
+                "phpunit/phpunit": "^8.4",
+                "ramsey/uuid": "^4.1"
+            },
+            "suggest": {
+                "helpscout/api-laravel": "API adapters for use with Laravel and Lumen"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "HelpScout\\Api\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Help Scout Platform Team",
+                    "email": "developer@helpscout.net",
+                    "homepage": "https://www.helpscout.net"
+                }
+            ],
+            "description": "Help Scout API v2 Client",
+            "homepage": "https://github.com/helpscout/helpscout-api-php",
+            "keywords": [
+                "api",
+                "help desk",
+                "helpscout",
+                "support"
+            ],
+            "support": {
+                "issues": "https://github.com/helpscout/helpscout-api-php/issues",
+                "source": "https://github.com/helpscout/helpscout-api-php/tree/3.10.2"
+            },
+            "time": "2025-01-09T11:53:06+00:00"
+        },
+        {
+            "name": "helpscout/api-laravel",
+            "version": "2.1.3",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/helpscout/helpscout-api-php-laravel.git",
+                "reference": "a3db160ca5903d93bffc278e5042241e3077aa0e"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/helpscout/helpscout-api-php-laravel/zipball/a3db160ca5903d93bffc278e5042241e3077aa0e",
+                "reference": "a3db160ca5903d93bffc278e5042241e3077aa0e",
+                "shasum": ""
+            },
+            "require": {
+                "helpscout/api": "~3.0",
+                "illuminate/support": "^5.6|^6.0|^7.0|^8.0|^9.0|^10.0|^11.0|^12.0",
+                "php": "^7.3|^8.0"
+            },
+            "require-dev": {
+                "friendsofphp/php-cs-fixer": "^2.3",
+                "phpstan/phpstan": "^0.12",
+                "phpunit/phpunit": "^8.0"
+            },
+            "suggest": {
+                "laravel/framework": "To test the Laravel bindings",
+                "laravel/lumen-framework": "To test the Lumen bindings"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "aliases": {
+                        "HelpScout": "HelpScout\\Laravel\\HelpScoutFacade"
+                    },
+                    "providers": [
+                        "HelpScout\\Laravel\\HelpScoutServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "HelpScout\\Laravel\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Help Scout Platform Team",
+                    "email": "developer@helpscout.com",
+                    "homepage": "https://www.helpscout.com"
+                }
+            ],
+            "description": "Service provider and facade to integrate the Help Scout Mailbox API 2.0 with Laravel and Lumen",
+            "homepage": "https://www.helpscout.com",
+            "keywords": [
+                "api",
+                "help desk",
+                "helpscout",
+                "laravel",
+                "lumen",
+                "support"
+            ],
+            "support": {
+                "issues": "https://github.com/helpscout/helpscout-api-php-laravel/issues",
+                "source": "https://github.com/helpscout/helpscout-api-php-laravel"
+            },
+            "time": "2025-02-27T15:57:10+00:00"
         },
         {
             "name": "laminas/laminas-diactoros",
@@ -3723,6 +3855,70 @@
                 "source": "https://github.com/ramsey/uuid/tree/4.9.1"
             },
             "time": "2025-09-04T20:59:21+00:00"
+        },
+        {
+            "name": "rize/uri-template",
+            "version": "0.4.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/rize/UriTemplate.git",
+                "reference": "56f374a9a42c7c3998f8b55b6b21b224de90c58b"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/rize/UriTemplate/zipball/56f374a9a42c7c3998f8b55b6b21b224de90c58b",
+                "reference": "56f374a9a42c7c3998f8b55b6b21b224de90c58b",
+                "shasum": ""
+            },
+            "require": {
+                "php": ">=8.1"
+            },
+            "require-dev": {
+                "friendsofphp/php-cs-fixer": "^3.63",
+                "phpstan/phpstan": "^1.12",
+                "phpunit/phpunit": "~10.0"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Rize\\": "src/Rize"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Marut K",
+                    "homepage": "http://twitter.com/rezigned"
+                }
+            ],
+            "description": "PHP URI Template (RFC 6570) supports both expansion & extraction",
+            "keywords": [
+                "RFC 6570",
+                "template",
+                "uri"
+            ],
+            "support": {
+                "issues": "https://github.com/rize/UriTemplate/issues",
+                "source": "https://github.com/rize/UriTemplate/tree/0.4.0"
+            },
+            "funding": [
+                {
+                    "url": "https://www.paypal.me/rezigned",
+                    "type": "custom"
+                },
+                {
+                    "url": "https://github.com/rezigned",
+                    "type": "github"
+                },
+                {
+                    "url": "https://opencollective.com/rize-uri-template",
+                    "type": "open_collective"
+                }
+            ],
+            "time": "2024-11-27T12:13:42+00:00"
         },
         {
             "name": "symfony/clock",
@@ -14265,7 +14461,8 @@
         "php": "^8.4",
         "ext-pcntl": "*",
         "ext-pdo": "*",
-        "ext-pdo_pgsql": "*"
+        "ext-pdo_pgsql": "*",
+        "ext-swoole": "*"
     },
     "platform-dev": {},
     "platform-overrides": {

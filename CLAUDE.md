@@ -38,6 +38,7 @@ See detailed plan: `.ai/docs/plans/alz-core-initial-plan.md`
 - SQLite (development) → PostgreSQL/Supabase (production, planned)
 - Redis (cache/queues, planned)
 - Horizon + Telescope (monitoring, planned)
+- Helpscout API ([helpscout/api-laravel](https://github.com/helpscout/helpscout-api-php-laravel)) - Customer support integration
 
 ## Development Commands
 

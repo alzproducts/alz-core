@@ -12,6 +12,7 @@
         "ext-pdo_pgsql": "*",
         "ext-swoole": "*",
         "firebase/php-jwt": "*",
+        "helpscout/api-laravel": "^2.1",
         "laravel/framework": "^12.0",
         "laravel/horizon": "^5.35",
         "laravel/octane": "^2.13",
