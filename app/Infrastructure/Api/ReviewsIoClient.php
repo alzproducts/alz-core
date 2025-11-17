@@ -9,7 +9,6 @@ use App\Domain\Review\Validation\ValidSku;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\RequestException;
-use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
@@ -63,12 +62,10 @@ final readonly class ReviewsIoClient
         /** @var array<string> $validatedSkus */
         $validatedSkus = $validated['skus'];
 
-        $queryString = Arr::query([
-            'sku' => \implode(';', $validatedSkus),
-        ]);
-
         $response = $this->http()
-                         ->get("product/rating-batch?{$queryString}")
+                         ->get('product/rating-batch', [
+                             'sku' => \implode(';', $validatedSkus),
+                         ])
                          ->throw();
 
         /** @var array<mixed> $data */
