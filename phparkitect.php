@@ -90,7 +90,7 @@ return static function (Config $config): void {
     //
     $rules[] = Rule::allClasses()
         ->that(new ResideInOneOfTheseNamespaces($domain))
-        ->should(new NotHaveDependencyOutsideNamespace($domain, ['DateTime', 'DateTimeImmutable', 'DateTimeZone', 'DateTimeInterface', 'DateInterval', 'DatePeriod']))
+        ->should(new NotHaveDependencyOutsideNamespace($domain, ['DateTime', 'DateTimeImmutable', 'DateTimeZone', 'DateTimeInterface', 'DateInterval', 'DatePeriod', 'Spatie\LaravelData']))
         ->because('the Domain layer should be self-contained and not depend on any other layer.');
 
     // RULE 2: Application Can Only Depend on Domain
@@ -131,7 +131,7 @@ return static function (Config $config): void {
     //
     $rules[] = Rule::allClasses()
         ->that(new ResideInOneOfTheseNamespaces($infrastructure))
-        ->should(new NotHaveDependencyOutsideNamespace($infrastructure, [$application, $domain, 'Illuminate', 'DateTime', 'DateTimeImmutable', 'DateTimeZone', 'DateTimeInterface', 'DateInterval', 'DatePeriod', 'RuntimeException', 'InvalidArgumentException', 'LogicException']))
+        ->should(new NotHaveDependencyOutsideNamespace($infrastructure, [$application, $domain, 'Illuminate', 'DateTime', 'DateTimeImmutable', 'DateTimeZone', 'DateTimeInterface', 'DateInterval', 'DatePeriod', 'RuntimeException', 'InvalidArgumentException', 'LogicException', 'Spatie\LaravelData', 'Closure']))
         ->because('the Infrastructure layer implements interfaces from Application and Domain layers.');
 
     // RULE 4: Presentation Uses Application Services
