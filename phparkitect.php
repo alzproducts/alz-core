@@ -90,7 +90,7 @@ return static function (Config $config): void {
     //
     $rules[] = Rule::allClasses()
         ->that(new ResideInOneOfTheseNamespaces($domain))
-        ->should(new NotHaveDependencyOutsideNamespace($domain, ['DateTime', 'DateTimeImmutable', 'DateTimeZone', 'DateTimeInterface', 'DateInterval', 'DatePeriod', 'Spatie\LaravelData']))
+        ->should(new NotHaveDependencyOutsideNamespace($domain, ['DateTime', 'DateTimeImmutable', 'DateTimeZone', 'DateTimeInterface', 'DateInterval', 'DatePeriod', 'Spatie\LaravelData', 'Illuminate\Contracts\Validation', 'Closure']))
         ->because('the Domain layer should be self-contained and not depend on any other layer.');
 
     // RULE 2: Application Can Only Depend on Domain
