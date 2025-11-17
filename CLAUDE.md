@@ -121,28 +121,70 @@ composer run test     # Run tests
 - Prefer readonly properties for immutable data
 - Use enums over class constants for fixed sets
 
-### Assertions (webmozart/assert)
+### Assertion & Validation Quick Reference
 
-**Use for:** Internal developer contracts (preconditions, business invariants, value objects)
-**Don't use for:** External input validation (use Laravel Request/Validator instead)
+#### Runtime Assertions (Development Only)
+Zero cost in production when `zend.assertions=-1`
+
+- **PHP assert()** - Built-in, compiles out in production
+- **webmozart/assert** - Fluent API with 100+ methods, PHPStan integration
+
+**Use for:** Internal contracts, preconditions in private methods, class invariants, logical impossibilities
+**Never for:** User input, API parameters, security checks, business validation
+
+#### Static Analysis (Compile-time)
+Pure documentation, zero runtime cost
+
+- **PHPStan annotations** - `@phpstan-assert`, `@phpstan-assert-if-true`
+- **Larastan** - PHPStan + Laravel extensions
+
+**Use for:** Type narrowing at Level 8, custom validation function contracts
+
+#### Testing Assertions (Test-only)
+
+- **Pest** - Modern test framework with expectation API
+- **PHPUnit** - Traditional assertions
+
+**Use for:** Verifying behavior in test suites
+
+#### Validation (Always Active)
+Remains active in production, handles untrusted input
+
+- **Laravel Validator** - Framework-integrated, 80+ rules, Form Requests
+
+**Use for:** User input, API requests/responses, external data, security boundaries
+
+#### Decision Tree
+
+1. **External/untrusted data** → Laravel Validator
+2. **Internal contracts** → Runtime assertions (webmozart/assert)
+3. **Type narrowing** → Static analysis annotations
+4. **Test verification** → Pest expectations
 
 **Examples:**
 ```php
-// Domain value objects
-class Money {
-    public function __construct(int $cents, string $currency) {
-        Assert::greaterThanEq($cents, 0);
-        Assert::length($currency, 3);
+// ✅ Laravel Validator for API input (external)
+public function store(Request $request) {
+    $validated = $request->validate([
+        'email' => ['required', 'email'],
+        'amount' => ['required', 'integer', 'min:1'],
+    ]);
+}
+
+// ✅ Assertions for internal contracts (private method)
+private function calculateDiscount(int $cents, float $rate) {
+    Assert::greaterThanEq($cents, 0);
+    Assert::range($rate, 0, 1);
+}
+
+// ✅ PHPStan annotation for type narrowing
+/** @phpstan-assert non-empty-string $value */
+private function ensureNotEmpty(string $value): void {
+    if ($value === '') {
+        throw new InvalidArgumentException('Value cannot be empty');
     }
 }
-
-// Service preconditions
-public function applyDiscount(Order $order, DiscountCode $code) {
-    Assert::true($order->isEligibleForDiscounts());
-}
 ```
-
-**PHPStan Integration:** Provides type narrowing after assertions (e.g., `Assert::string($x)` tells PHPStan `$x` is non-null string)
 
 ## Build System: Makefile vs Composer
 
