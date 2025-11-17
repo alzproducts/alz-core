@@ -15,11 +15,12 @@ final class HorizonServiceProvider extends HorizonApplicationServiceProvider
      *
      * This gate determines who can access Horizon in non-local environments.
      * Access is controlled via HorizonBasicAuth middleware, so we allow all
-     * authenticated requests (BasicAuth already verified credentials).
+     * requests regardless of Laravel authentication status ($user = null).
+     * BasicAuth has already verified credentials before this gate is checked.
      */
     #[Override]
     protected function gate(): void
     {
-        Gate::define('viewHorizon', static fn(): bool => true);
+        Gate::define('viewHorizon', static fn(mixed $user = null): bool => true);
     }
 }
