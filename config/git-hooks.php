@@ -89,8 +89,8 @@ return [
             'config' => env('LARASTAN_CONFIG', 'phpstan.neon'),
             'additional_params' => env('LARASTAN_ADDITIONAL_PARAMS', ''),
             // Exclude tests/ directory from pre-commit hook (tests excluded from phpstan.neon paths)
-            // Regex matches .php files but rejects paths containing /tests/
-            'file_extensions' => env('LARASTAN_FILE_EXTENSIONS', '/^(?!.*\/tests\/).*\.php$/'),
+            // Regex matches .php files but rejects paths starting with tests/ or containing /tests/
+            'file_extensions' => env('LARASTAN_FILE_EXTENSIONS', '/^(?!tests\/)(?!.*\/tests\/).*\.php$/'),
             'run_in_docker' => env('LARASTAN_RUN_IN_DOCKER', false),
             'docker_container' => env('LARASTAN_DOCKER_CONTAINER', ''),
         ],
