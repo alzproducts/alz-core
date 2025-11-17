@@ -19,6 +19,7 @@
         "laravel/sanctum": "^4.2",
         "laravel/tinker": "^2.10.1",
         "predis/predis": "^3.2",
+        "spatie/laravel-data": "^4.18",
         "webmozart/assert": "^1.11"
     },
     "require-dev": {
