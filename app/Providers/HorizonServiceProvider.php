@@ -14,11 +14,12 @@ final class HorizonServiceProvider extends HorizonApplicationServiceProvider
      * Register the Horizon gate.
      *
      * This gate determines who can access Horizon in non-local environments.
-     * Access is controlled via HorizonBasicAuth middleware, not user-based authorization.
+     * Access is controlled via HorizonBasicAuth middleware, so we allow all
+     * authenticated requests (BasicAuth already verified credentials).
      */
     #[Override]
     protected function gate(): void
     {
-        Gate::define('viewHorizon', static fn(): bool => false);
+        Gate::define('viewHorizon', static fn(): bool => true);
     }
 }
