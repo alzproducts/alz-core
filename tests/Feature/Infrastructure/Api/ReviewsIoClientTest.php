@@ -435,8 +435,8 @@ final class ReviewsIoClientTest extends TestCase
         Http::fake(['*' => Http::response([])]);
 
         // Should not throw exception
-        $client->getProductRatingBatch('SKU');
+        $result = $client->getProductRatingBatch('SKU');
 
-        $this->assertTrue(true); // Assertion to satisfy PHPUnit
+        $this->assertInstanceOf(DataCollection::class, $result);
     }
 }
