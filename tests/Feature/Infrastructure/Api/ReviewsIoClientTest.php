@@ -377,7 +377,7 @@ final class ReviewsIoClientTest extends TestCase
     #[Test]
     public function it_configures_http_client_with_correct_base_url(): void
     {
-        Http::fake();
+        Http::fake(['*' => Http::response([])]);
 
         $this->client->getProductRatingBatch('TEST-SKU');
 
@@ -391,7 +391,7 @@ final class ReviewsIoClientTest extends TestCase
     #[Test]
     public function it_sends_required_query_parameters_in_every_request(): void
     {
-        Http::fake();
+        Http::fake(['*' => Http::response([])]);
 
         $this->client->getProductRatingBatch('TEST-SKU');
 
@@ -408,7 +408,7 @@ final class ReviewsIoClientTest extends TestCase
     #[Test]
     public function it_uses_get_method_for_rating_batch_endpoint(): void
     {
-        Http::fake();
+        Http::fake(['*' => Http::response([])]);
 
         $this->client->getProductRatingBatch('TEST-SKU');
 
