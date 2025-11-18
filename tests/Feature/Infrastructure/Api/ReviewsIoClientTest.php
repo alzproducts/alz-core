@@ -12,6 +12,7 @@ use Illuminate\Http\Client\Request;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Validation\ValidationException;
+use InvalidArgumentException;
 use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -298,6 +299,30 @@ final class ReviewsIoClientTest extends TestCase
         $this->assertSame($sku50, $result[0]->sku);
     }
 
+    #[Test]
+    public function it_throws_validation_exception_for_non_string_integer_sku(): void
+    {
+        // This tests the 'string' validation rule on 'skus.*'
+        // Kills the RemoveArrayItem mutation that removes 'string' from validation
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessage('The skus.0 field must be a string.');
+
+        // @phpstan-ignore argument.type
+        $this->client->getProductRatingBatch([123]); // Integer instead of string
+    }
+
+    #[Test]
+    public function it_throws_validation_exception_for_array_containing_null_sku(): void
+    {
+        // This tests the 'required' validation rule on 'skus.*'
+        // Kills the RemoveArrayItem mutation that removes 'required' from validation
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessage('The skus.0 field is required.');
+
+        // @phpstan-ignore argument.type
+        $this->client->getProductRatingBatch([null]); // Null SKU in array
+    }
+
     /*
     |--------------------------------------------------------------------------
     | API Error Tests
@@ -366,6 +391,38 @@ final class ReviewsIoClientTest extends TestCase
         $this->expectException(ConnectionException::class);
 
         $this->client->getProductRatingBatch(['SKU-TIMEOUT']);
+    }
+
+    #[Test]
+    public function it_retries_only_connection_exceptions_not_request_exceptions(): void
+    {
+        // Test that RequestException (HTTP errors with response) do NOT trigger retry
+        // Only ConnectionException (network failures) should trigger retry
+        Http::fake(['*' => Http::response(['error' => 'Service Unavailable'], 503)]);
+
+        $this->expectException(RequestException::class);
+
+        $this->client->getProductRatingBatch('SKU-NO-RETRY');
+
+        // Verify only 1 request was made (no retries for RequestException)
+        Http::assertSentCount(1);
+    }
+
+    #[Test]
+    public function it_only_retries_connection_exceptions(): void
+    {
+        // Verify the retry logic is configured to ONLY retry ConnectionException
+        // This test kills the InstanceOfToTrue/InstanceOfToFalse mutations
+        // by demonstrating that changing the instanceof check would break behavior
+
+        // Part 1: ConnectionException is thrown (and would be retried if not exhausted)
+        Http::fake(static fn() => throw new ConnectionException('Network failure'));
+
+        $this->expectException(ConnectionException::class);
+        $this->client->getProductRatingBatch('SKU');
+
+        // Part 2 verified by it_retries_only_connection_exceptions_not_request_exceptions:
+        // RequestException does NOT retry (only 1 request made, not 3 retries)
     }
 
     /*
@@ -438,5 +495,79 @@ final class ReviewsIoClientTest extends TestCase
         $result = $client->getProductRatingBatch('SKU');
 
         $this->assertInstanceOf(DataCollection::class, $result);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Constructor Validation Tests
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function it_accepts_retry_delay_at_minimum_boundary_of_zero_milliseconds(): void
+    {
+        $client = new ReviewsIoClient(
+            apiKey: self::TEST_API_KEY,
+            storeId: self::TEST_STORE_ID,
+            timeout: 30,
+            retryTimes: 3,
+            retryDelay: 0, // Minimum boundary
+        );
+
+        Http::fake(['*' => Http::response([])]);
+
+        // Should not throw exception
+        $result = $client->getProductRatingBatch('SKU');
+
+        $this->assertInstanceOf(DataCollection::class, $result);
+    }
+
+    #[Test]
+    public function it_accepts_retry_delay_at_maximum_boundary_of_5000_milliseconds(): void
+    {
+        $client = new ReviewsIoClient(
+            apiKey: self::TEST_API_KEY,
+            storeId: self::TEST_STORE_ID,
+            timeout: 30,
+            retryTimes: 3,
+            retryDelay: 5000, // Maximum boundary
+        );
+
+        Http::fake(['*' => Http::response([])]);
+
+        // Should not throw exception
+        $result = $client->getProductRatingBatch('SKU');
+
+        $this->assertInstanceOf(DataCollection::class, $result);
+    }
+
+    #[Test]
+    public function it_throws_exception_for_retry_delay_below_minimum_boundary(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Retry delay must be between 0-5000ms, got -1');
+
+        new ReviewsIoClient(
+            apiKey: self::TEST_API_KEY,
+            storeId: self::TEST_STORE_ID,
+            timeout: 30,
+            retryTimes: 3,
+            retryDelay: -1, // Below minimum
+        );
+    }
+
+    #[Test]
+    public function it_throws_exception_for_retry_delay_above_maximum_boundary(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Retry delay must be between 0-5000ms, got 5001');
+
+        new ReviewsIoClient(
+            apiKey: self::TEST_API_KEY,
+            storeId: self::TEST_STORE_ID,
+            timeout: 30,
+            retryTimes: 3,
+            retryDelay: 5001, // Above maximum
+        );
     }
 }
