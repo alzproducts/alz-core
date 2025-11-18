@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
-use App\Infrastructure\Api\ReviewsIoClient;
+use App\Infrastructure\Api\ReviewsIo\ReviewsIoClient;
 use Illuminate\Contracts\Support\DeferrableProvider;
 use Illuminate\Support\ServiceProvider;
 use Override;
