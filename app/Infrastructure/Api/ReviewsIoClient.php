@@ -13,7 +13,9 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
+use RuntimeException;
 use Spatie\LaravelData\DataCollection;
+use Throwable;
 
 /**
  * Reviews.io API Client (Synchronous HTTP)
@@ -45,30 +47,35 @@ final readonly class ReviewsIoClient
     ) {
         // Validate configuration when client is instantiated
         if ($apiKey === '') {
-            throw new InvalidArgumentException('Reviews.io API key cannot be empty');
+            throw new RuntimeException('Reviews.io API key cannot be empty');
         }
 
         if ($storeId === '') {
-            throw new InvalidArgumentException('Reviews.io store ID cannot be empty');
+            throw new RuntimeException('Reviews.io store ID cannot be empty');
         }
 
-        if ($timeout < 1 || $timeout > 300) {
-            throw new InvalidArgumentException('Timeout must be between 1-300 seconds');
+        if (($timeout < 1) || ($timeout > 300)) {
+            throw new InvalidArgumentException(
+                "Timeout must be between 1-300 seconds, got {$timeout}",
+            );
         }
 
-        if ($retryTimes < 0 || $retryTimes > 10) {
-            throw new InvalidArgumentException('Retry times must be between 0-10');
+        if (($retryTimes < 0) || ($retryTimes > 10)) {
+            throw new InvalidArgumentException(
+                "Retry times must be between 0-10, got {$retryTimes}",
+            );
         }
 
-        if ($retryDelay < 0 || $retryDelay > 5000) {
-            throw new InvalidArgumentException('Retry delay must be between 0-5000 milliseconds');
+        if (($retryDelay < 0) || ($retryDelay > 5000)) {
+            throw new InvalidArgumentException(
+                "Retry delay must be between 0-5000ms, got {$retryDelay}",
+            );
         }
     }
 
     private function http(): PendingRequest
     {
         return Http::baseUrl(self::BASE_URL)
-            ->retry($this->retryTimes, $this->retryDelay, throw: false)
             // Note: Reviews.io API requires credentials via query parameters.
             // Header-based authentication (e.g., Authorization: Bearer) is not supported.
             // See: https://developer.reviews.io/reference/
@@ -76,6 +83,11 @@ final readonly class ReviewsIoClient
                 'apikey' => $this->apiKey,
                 'store' => $this->storeId,
             ])
+            ->retry(
+                times: $this->retryTimes,
+                sleepMilliseconds: $this->retryDelay,
+                when: static fn(Throwable $exception) => $exception instanceof ConnectionException,
+            )
             ->timeout($this->timeout);
     }
 
