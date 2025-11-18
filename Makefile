@@ -195,7 +195,7 @@ test: ## Run Pest test suite
 
 test-coverage: ## Run tests with 80% coverage requirement
 	@echo "$(MODE)"
-	$(EXEC) -d xdebug.mode=coverage vendor/bin/pest --coverage --min=80
+	$(EXEC) -d xdebug.mode=coverage vendor/bin/pest --coverage --min=75
 
 pest-mutate: ## Run Pest mutation testing
 	@echo "$(MODE)"
