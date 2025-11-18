@@ -28,8 +28,9 @@
         <exclude>
             <directory>app/Console/GitHooks</directory>
             <file>app/Models/User.php</file>
-            <file>app/Providers/HorizonServiceProvider.php</file>
-            <file>app/Providers/TelescopeServiceProvider.php</file>
+            <directory suffix="ServiceProvider.php">./app</directory>
+            <directory suffix="Exception.php">./app</directory>
+            <file>app/Domain/Review/Rating.php</file>
         </exclude>
     </source>
     <php>

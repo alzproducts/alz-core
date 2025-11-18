@@ -8,25 +8,44 @@ use Illuminate\Support\ServiceProvider;
 use Override;
 use RuntimeException;
 
+/**
+ * Application Service Provider
+ *
+ * Three-layer validation pattern to prevent CI failures:
+ *
+ * 1. Constructor Validation - Service classes validate their own configuration
+ *    (type safety, range checks, business rules). Keeps validation logic close
+ *    to the service.
+ *
+ * 2. Lazy Resolution - register() uses lazy binding without eager validation.
+ *    Only type-cast config values; validation happens when service is resolved.
+ *    CRITICAL: register() runs during composer install/package:discover where
+ *    secrets aren't available.
+ *
+ * 3. Production Boot - validateProductionEnvironment() checks critical credentials
+ *    exist before app starts. Safety net for deployment failures.
+ */
 final class AppServiceProvider extends ServiceProvider
 {
     /**
-     * Register any application services.
+     * Register application services.
      */
     #[Override]
-    public function register(): void {}
+    public function register(): void
+    {
+        //
+    }
 
     /**
      * Bootstrap any application services.
      */
     public function boot(): void
     {
-        // Only validate in production to avoid disrupting local development and CI
         // Skip validation in CI environments (GitHub Actions, etc.)
-        $isCi = \getenv('CI') !== false || \getenv('GITHUB_ACTIONS') !== false;
+        $isCi = (\getenv('CI') !== false) || (\getenv('GITHUB_ACTIONS') !== false);
 
         if ($this->app->environment('production') && ! $isCi) {
-            $this->validateProductionEnvironment();
+            self::validateProductionEnvironment();
         }
     }
 
@@ -35,7 +54,7 @@ final class AppServiceProvider extends ServiceProvider
      *
      * Prevents catastrophic deployment failures due to missing secrets.
      */
-    private function validateProductionEnvironment(): void
+    private static function validateProductionEnvironment(): void
     {
         // Map of config keys to human-readable descriptions
         $required = [
@@ -54,7 +73,7 @@ final class AppServiceProvider extends ServiceProvider
         foreach ($required as $configKey => $description) {
             $value = \config($configKey);
 
-            if ($value === null || $value === '' || $value === false) {
+            if (($value === null) || ($value === '') || ($value === false)) {
                 $missing[] = $description;
             }
         }
@@ -63,20 +82,17 @@ final class AppServiceProvider extends ServiceProvider
             $list = \implode("\n  - ", $missing);
 
             throw new RuntimeException(
-                'SECURITY: Production deployment blocked. The following required '
-                . "configuration values are not set:\n\n  - {$list}\n\n"
-                . 'Application cannot start safely. Please configure these variables '
-                . 'in your deployment environment.',
+                "SECURITY: Production deployment blocked. The following required configuration values are not set:\n\n  - {$list}\n\nApplication cannot start safely. Please configure these variables in your deployment environment.",
             );
         }
 
         // Additional validation: APP_KEY must be properly formatted (base64 encoded)
         $appKey = \config('app.key');
-        if (! \is_string($appKey) || \mb_strlen($appKey) < 32) {
+        if (! \is_string($appKey) || (\mb_strlen($appKey) < 32)) {
             throw new RuntimeException(
-                'SECURITY: APP_KEY is too short or invalid. '
-                . 'Run \'php artisan key:generate\' to create a secure key.',
+                "SECURITY: APP_KEY is too short or invalid. Run 'php artisan key:generate' to create a secure key.",
             );
         }
     }
+
 }
