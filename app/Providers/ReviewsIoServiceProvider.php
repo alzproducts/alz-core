@@ -6,6 +6,7 @@ namespace App\Providers;
 
 use App\Infrastructure\Api\ReviewsIo\ReviewsIoClient;
 use Illuminate\Contracts\Support\DeferrableProvider;
+use Illuminate\Foundation\Application;
 use Illuminate\Support\ServiceProvider;
 use Override;
 use RuntimeException;
@@ -14,16 +15,36 @@ use RuntimeException;
  * Reviews.io API Client Service Provider
  *
  * Deferred provider for ReviewsIoClient - only loads when the service is requested.
+ * Configuration is validated lazily on first resolution, not on boot.
  */
 final class ReviewsIoServiceProvider extends ServiceProvider implements DeferrableProvider
 {
-    public function boot(): void
+    /**
+     * Register Reviews.io API client.
+     *
+     * Validates configuration lazily when the service is first resolved.
+     * This defers validation until the service is actually needed, allowing
+     * other application features to function even if Reviews.io config is missing.
+     */
+    #[Override]
+    public function register(): void
     {
-        $isCi = \getenv('CI') !== false;
+        $this->app->singleton(ReviewsIoClient::class, static function (Application $app): ReviewsIoClient {
+            if ($app->environment('production') && (\getenv('CI') === false)) {
+                self::validateProductionConfig();
+            }
 
-        if ($this->app->environment('production') && !$isCi) {
-            self::validateProductionConfig();
-        }
+            /** @var array{api_key: string|null, store_id: string|null, timeout: int, retry_times: int, retry_delay: int, enabled: bool} $config */
+            $config = \config('reviewsio');
+
+            return new ReviewsIoClient(
+                apiKey: $config['api_key'] ?? '',
+                storeId: $config['store_id'] ?? '',
+                timeout: $config['timeout'],
+                retryTimes: $config['retry_times'],
+                retryDelay: $config['retry_delay'],
+            );
+        });
     }
 
     private static function validateProductionConfig(): void
@@ -43,32 +64,10 @@ final class ReviewsIoServiceProvider extends ServiceProvider implements Deferrab
 
         if ($missing !== []) {
             throw new RuntimeException(
-                'PRODUCTION DEPLOYMENT BLOCKED: Reviews.io missing config: '
+                'Reviews.io missing required configuration: '
                 . \implode(', ', $missing),
             );
         }
-    }
-
-    /**
-     * Register Reviews.io API client.
-     *
-     * Validates configuration in ReviewsIoClient constructor.
-     */
-    #[Override]
-    public function register(): void
-    {
-        $this->app->singleton(ReviewsIoClient::class, static function (): ReviewsIoClient {
-            /** @var array{api_key: string|null, store_id: string|null, timeout: int, retry_times: int, retry_delay: int, enabled: bool} $config */
-            $config = \config('reviewsio');
-
-            return new ReviewsIoClient(
-                apiKey: $config['api_key'] ?? '',
-                storeId: $config['store_id'] ?? '',
-                timeout: $config['timeout'],
-                retryTimes: $config['retry_times'],
-                retryDelay: $config['retry_delay'],
-            );
-        });
     }
 
     /**
