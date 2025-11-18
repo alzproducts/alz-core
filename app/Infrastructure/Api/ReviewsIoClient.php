@@ -59,15 +59,15 @@ final readonly class ReviewsIoClient
 
     /**
      * Get product reviews by SKU in batch.
-     * $this->assertInstanceOf(DataCollection::class, $result);
+     *
      * Returns a collection of Rating objects indexed by integer keys.
      * Example: [0 => Rating(sku: 'FLP-01', averageRating: 4.5, numRatings: 362)]
+     *
      * Note: This method does not cache responses. Implement caching in the
      * Application layer (e.g., CachedRatingService) to avoid unnecessary
      * API calls for frequently accessed product ratings.
      *
      * @param string|array<string> $skus Single SKU or array of SKUs (max 100)
-     *
      * @return DataCollection<int, Rating> Collection of rating data
      * @throws ValidationException If SKU parameter is invalid
      * @throws RequestException|ConnectionException If API request fails
