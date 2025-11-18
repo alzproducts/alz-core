@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Infrastructure\Api;
 
 use App\Domain\Review\Rating;
+use App\Domain\Review\Validation\ValidSku;
 use App\Infrastructure\Api\ReviewsIoClient;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
@@ -20,17 +21,15 @@ use Tests\TestCase;
 
 /**
  * ReviewsIoClient Feature Tests
- *
  * Tests the Reviews.io API client implementation covering:
  * - Success paths (single/multiple SKUs, empty responses)
  * - Validation failures (empty array, invalid SKUs, batch limits)
  * - API errors (HTTP 4xx/5xx, network failures)
  * - HTTP client configuration (query params, retry logic)
  * - Data transformation (snake_case → camelCase)
- *
- * @covers \App\Infrastructure\Api\ReviewsIoClient
- * @covers \App\Domain\Review\Validation\ValidSku
  */
+#[CoversClass(ValidSku::class)]
+#[CoversClass(ReviewsIoClient::class)]
 #[CoversClass(ReviewsIoClient::class)]
 final class ReviewsIoClientTest extends TestCase
 {
@@ -277,11 +276,11 @@ final class ReviewsIoClientTest extends TestCase
     #[Test]
     public function it_throws_validation_exception_for_sku_at_exactly_51_characters_boundary(): void
     {
-        $boundarySkub = \str_repeat('X', 51);
+        $boundarySku = \str_repeat('X', 51);
 
         $this->expectException(ValidationException::class);
 
-        $this->client->getProductRatingBatch([$boundarySkub]);
+        $this->client->getProductRatingBatch([$boundarySku]);
     }
 
     #[Test]
