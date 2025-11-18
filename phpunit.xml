@@ -31,6 +31,9 @@
             <file>app/Providers/AppServiceProvider.php</file>
             <file>app/Providers/HorizonServiceProvider.php</file>
             <file>app/Providers/TelescopeServiceProvider.php</file>
+            <file>app/Infrastructure/Exceptions/ReviewsIoApiException.php</file>
+            <file>app/Providers/ReviewsIoServiceProvider.php</file>
+            <file>app/Domain/Review/Rating.php</file>
         </exclude>
     </source>
     <php>
