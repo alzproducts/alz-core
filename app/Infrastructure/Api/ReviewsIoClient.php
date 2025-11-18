@@ -14,6 +14,22 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 use Spatie\LaravelData\DataCollection;
 
+/**
+ * Reviews.io API Client (Synchronous HTTP)
+ *
+ * Makes blocking HTTP calls to Reviews.io API. Use within Laravel
+ * Jobs/Queues for async execution in production.
+ *
+ * Design Philosophy: "Thin SDK"
+ * - No caching (implement in Application layer via CachedRatingService)
+ * - No business logic (pure HTTP + validation)
+ * - Simple error handling (throw on failures)
+ *
+ * Authentication: Reviews.io API requires credentials via query parameters
+ * (header-based auth is not supported per official API documentation).
+ *
+ * @see https://developer.reviews.io Official API documentation
+ */
 final readonly class ReviewsIoClient
 {
     private const string BASE_URL = 'https://api.reviews.co.uk/';
@@ -31,6 +47,9 @@ final readonly class ReviewsIoClient
     {
         return Http::baseUrl(self::BASE_URL)
             ->retry($this->retryTimes, $this->retryDelay, throw: false)
+            // Note: Reviews.io API requires credentials via query parameters.
+            // Header-based authentication (e.g., Authorization: Bearer) is not supported.
+            // See: https://developer.reviews.io/reference/
             ->withQueryParameters([
                 'apikey' => $this->apiKey,
                 'store' => $this->storeId,
@@ -40,10 +59,16 @@ final readonly class ReviewsIoClient
 
     /**
      * Get product reviews by SKU in batch.
+     * $this->assertInstanceOf(DataCollection::class, $result);
+     * Returns a collection of Rating objects indexed by integer keys.
+     * Example: [0 => Rating(sku: 'FLP-01', averageRating: 4.5, numRatings: 362)]
+     * Note: This method does not cache responses. Implement caching in the
+     * Application layer (e.g., CachedRatingService) to avoid unnecessary
+     * API calls for frequently accessed product ratings.
      *
-     * @param string|array<string> $skus Single SKU or array of SKUs
+     * @param string|array<string> $skus Single SKU or array of SKUs (max 100)
      *
-     * @return DataCollection<int, Rating>
+     * @return DataCollection<int, Rating> Collection of rating data
      * @throws ValidationException If SKU parameter is invalid
      * @throws RequestException|ConnectionException If API request fails
      */
