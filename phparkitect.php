@@ -131,7 +131,7 @@ return static function (Config $config): void {
     //
     $rules[] = Rule::allClasses()
         ->that(new ResideInOneOfTheseNamespaces($infrastructure))
-        ->should(new NotHaveDependencyOutsideNamespace($infrastructure, [$application, $domain, 'Illuminate', 'DateTime', 'DateTimeImmutable', 'DateTimeZone', 'DateTimeInterface', 'DateInterval', 'DatePeriod', 'RuntimeException', 'InvalidArgumentException', 'LogicException', 'Throwable', 'Spatie\LaravelData', 'Closure']))
+        ->should(new NotHaveDependencyOutsideNamespace($infrastructure, [$application, $domain, 'Illuminate', 'Illuminate\Support\Collection', 'DateTime', 'DateTimeImmutable', 'DateTimeZone', 'DateTimeInterface', 'DateInterval', 'DatePeriod', 'RuntimeException', 'InvalidArgumentException', 'LogicException', 'Throwable', 'JsonException', 'Spatie\LaravelData', 'Closure']))
         ->because('the Infrastructure layer implements interfaces from Application and Domain layers.');
 
     // RULE 4: Presentation Uses Application Services
