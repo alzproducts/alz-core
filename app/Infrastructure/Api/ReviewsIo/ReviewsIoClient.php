@@ -7,6 +7,7 @@ namespace App\Infrastructure\Api\ReviewsIo;
 use App\Domain\Review\Rating;
 use App\Domain\Review\Validation\ValidSku;
 use App\Infrastructure\Exceptions\ReviewsIoApiException;
+use App\Infrastructure\Support\ApiRetryStrategy;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\RequestException;
@@ -16,7 +17,6 @@ use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
 use RuntimeException;
 use Spatie\LaravelData\DataCollection;
-use Throwable;
 
 /**
  * Reviews.io API Client (Synchronous HTTP)
@@ -87,24 +87,21 @@ final readonly class ReviewsIoClient
             ->retry(
                 times: $this->retryTimes,
                 sleepMilliseconds: $this->retryDelay,
-                when: static fn(Throwable $exception) => ($exception instanceof ConnectionException)
-                                                         || (($exception instanceof RequestException)
-                                                             && ($exception->response->status() >= 500)),
+                when: ApiRetryStrategy::defaultRetry(),
             )
             ->timeout($this->timeout);
     }
 
     /**
      * Get product reviews by SKU in batch.
-     *
      * Returns a collection of Rating objects indexed by integer keys.
      * Example: [0 => Rating(sku: 'FLP-01', averageRating: 4.5, numRatings: 362)]
-     *
      * Note: This method does not cache responses. Implement caching in the
      * Application layer (e.g., CachedRatingService) to avoid unnecessary
      * API calls for frequently accessed product ratings.
      *
      * @param string|array<string> $skus Single SKU or array of SKUs (max 100)
+     *
      * @return DataCollection<int, Rating> Collection of rating data
      * @throws ValidationException If SKU parameter is invalid
      * @throws RequestException|ConnectionException If API request fails
