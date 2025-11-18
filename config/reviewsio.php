@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-return (static fn(): array => [
+return [
     /*
         |--------------------------------------------------------------------------
         | Reviews.io API Credentials
@@ -12,8 +12,8 @@ return (static fn(): array => [
         | Set them in your .env file.
         |
         */
-    'api_key' => env('REVIEWSIO_API_KEY'),
-    'store_id' => env('REVIEWSIO_STORE_ID'),
+    'api_key'     => env('REVIEWSIO_API_KEY'),
+    'store_id'    => env('REVIEWSIO_STORE_ID'),
 
     /*
         |--------------------------------------------------------------------------
@@ -24,7 +24,7 @@ return (static fn(): array => [
         | Hardcoded defaults unless you need environment-specific overrides.
         |
         */
-    'timeout' => 30,           // Hardcoded - no env var needed
+    'timeout'     => 30,           // Hardcoded - no env var needed
     'retry_times' => 3,        // Hardcoded - no env var needed
     'retry_delay' => 100,      // Hardcoded - no env var needed
 
@@ -36,5 +36,5 @@ return (static fn(): array => [
         | Business logic configuration that might differ per environment.
         |
         */
-    'enabled' => env('REVIEWSIO_ENABLED', true),
-])();
+    'enabled'     => env('REVIEWSIO_ENABLED', true),
+];
