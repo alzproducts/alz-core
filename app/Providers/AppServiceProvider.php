@@ -4,84 +4,36 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
-use App\Infrastructure\Api\ReviewsIoClient;
 use Illuminate\Support\ServiceProvider;
 use Override;
 use RuntimeException;
 
 /**
- * Application Service Provider - Service Registration and Production Validation
+ * Application Service Provider
  *
- * ## Service Registration Pattern
+ * Three-layer validation pattern to prevent CI failures:
  *
- * This provider follows a three-layer validation pattern to prevent CI failures:
+ * 1. Constructor Validation - Service classes validate their own configuration
+ *    (type safety, range checks, business rules). Keeps validation logic close
+ *    to the service.
  *
- * ### 1. Constructor Validation (Infrastructure Layer)
- * Service classes SHOULD validate their own configuration in their constructors.
- * This keeps validation logic close to the service and ensures type safety.
+ * 2. Lazy Resolution - register() uses lazy binding without eager validation.
+ *    Only type-cast config values; validation happens when service is resolved.
+ *    CRITICAL: register() runs during composer install/package:discover where
+ *    secrets aren't available.
  *
- * Example: ReviewsIoClient validates apiKey, storeId, timeout, retryTimes, retryDelay
- *
- * ### 2. Lazy Resolution (Service Provider)
- * The `register()` method MUST NOT perform eager validation. It only defines how
- * services are constructed. Validation occurs when the service is first resolved.
- *
- * ⚠️ IMPORTANT: `register()` runs during `composer install` and `package:discover`,
- * not just application boot. Eager validation here will fail in CI environments.
- *
- * ### 3. Production Boot Validation (Production Only)
- * The `validateProductionEnvironment()` method checks that critical credentials
- * exist on production boot. This is the safety net for deployment failures.
- *
- * ## When to Use Each Layer
- *
- * | Layer | Use For | Example |
- * |-------|---------|---------|
- * | Constructor | Type validation, range checks, business rules | timeout must be 1-300 seconds |
- * | Lazy Resolution | Type casting mixed config values | `is_string($apiKey) ? $apiKey : ''` |
- * | Production Boot | Critical credentials existence check | APP_KEY, DB_PASSWORD, API keys |
- *
- * ## Example: Registering a New API Client
- *
- * ```php
- * // ✅ CORRECT: Lazy validation, simple registration
- * $this->app->singleton(ExampleClient::class, static function (): ExampleClient {
- *     $apiKey = \config('services.example.api_key');
- *     return new ExampleClient(
- *         apiKey: \is_string($apiKey) ? $apiKey : '', // Constructor validates
- *     );
- * });
- * ```
- *
- * ```php
- * // ❌ WRONG: Eager validation in register()
- * public function register(): void {
- *     $apiKey = \config('services.example.api_key');
- *     if ($apiKey === '') {
- *         throw new RuntimeException('API key missing'); // Fails in CI!
- *     }
- *     // ...
- * }
- * ```
- *
- * @see ReviewsIoClient::__construct() for constructor validation example
- * @see self::validateProductionEnvironment() for production boot validation
+ * 3. Production Boot - validateProductionEnvironment() checks critical credentials
+ *    exist before app starts. Safety net for deployment failures.
  */
 final class AppServiceProvider extends ServiceProvider
 {
     /**
      * Register application services.
-     *
-     * ⚠️ CRITICAL: Do NOT add validation logic here. This method runs during
-     * `composer install` and will fail in CI environments where secrets are
-     * not available.
-     *
-     * Service constructors handle validation when the service is first resolved.
      */
     #[Override]
     public function register(): void
     {
-        $this->registerReviewsIoClient();
+        //
     }
 
     /**
@@ -143,28 +95,6 @@ final class AppServiceProvider extends ServiceProvider
                 "SECURITY: APP_KEY is too short or invalid. Run 'php artisan key:generate' to create a secure key.",
             );
         }
-    }
-
-    private function registerReviewsIoClient(): void
-    {
-        $this->app->singleton(ReviewsIoClient::class, static function (): ReviewsIoClient {
-            $apiKey     = \config('services.reviewsio.api_key');
-            $store      = \config('services.reviewsio.store');
-            $timeout    = \config('services.reviewsio.timeout', 30);
-            $retryTimes = \config('services.reviewsio.retry_times', 3);
-            $retryDelay = \config('services.reviewsio.retry_delay', 100);
-
-            return new ReviewsIoClient(
-                apiKey: \is_string($apiKey) ? $apiKey : '',
-                storeId: \is_string($store) ? $store : '',
-                timeout: \is_int(
-                    $timeout,
-                ) ? $timeout : 30,
-                retryTimes: \is_int($retryTimes) ? $retryTimes : 3,
-                retryDelay: \is_int($retryDelay)
-                    ? $retryDelay : 100,
-            );
-        });
     }
 
 }
