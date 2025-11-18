@@ -6,6 +6,7 @@ namespace App\Infrastructure\Api\ReviewsIo;
 
 use App\Domain\Review\Rating;
 use App\Domain\Review\Validation\ValidSku;
+use App\Infrastructure\Exceptions\ReviewsIoApiException;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\RequestException;
@@ -127,8 +128,11 @@ final readonly class ReviewsIoClient
             ])
             ->throw();
 
-        /** @var array<mixed> $data */
-        $data = $response->json() ?? [];
+        $data = $response->json();
+
+        if (!\is_array($data)) {
+            throw ReviewsIoApiException::invalidResponse('Expected array response');
+        }
 
         return Rating::collect($data, DataCollection::class);
     }
