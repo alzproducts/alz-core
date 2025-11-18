@@ -12,6 +12,7 @@ use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
+use InvalidArgumentException;
 use Spatie\LaravelData\DataCollection;
 
 /**
@@ -41,7 +42,28 @@ final readonly class ReviewsIoClient
         private int $timeout = 30,
         private int $retryTimes = 3,
         private int $retryDelay = 100,
-    ) {}
+    ) {
+        // Validate configuration when client is instantiated
+        if ($apiKey === '') {
+            throw new InvalidArgumentException('Reviews.io API key cannot be empty');
+        }
+
+        if ($storeId === '') {
+            throw new InvalidArgumentException('Reviews.io store ID cannot be empty');
+        }
+
+        if ($timeout < 1 || $timeout > 300) {
+            throw new InvalidArgumentException('Timeout must be between 1-300 seconds');
+        }
+
+        if ($retryTimes < 0 || $retryTimes > 10) {
+            throw new InvalidArgumentException('Retry times must be between 0-10');
+        }
+
+        if ($retryDelay < 0 || $retryDelay > 5000) {
+            throw new InvalidArgumentException('Retry delay must be between 0-5000 milliseconds');
+        }
+    }
 
     private function http(): PendingRequest
     {

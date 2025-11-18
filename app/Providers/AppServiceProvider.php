@@ -9,10 +9,74 @@ use Illuminate\Support\ServiceProvider;
 use Override;
 use RuntimeException;
 
+/**
+ * Application Service Provider - Service Registration and Production Validation
+ *
+ * ## Service Registration Pattern
+ *
+ * This provider follows a three-layer validation pattern to prevent CI failures:
+ *
+ * ### 1. Constructor Validation (Infrastructure Layer)
+ * Service classes SHOULD validate their own configuration in their constructors.
+ * This keeps validation logic close to the service and ensures type safety.
+ *
+ * Example: ReviewsIoClient validates apiKey, storeId, timeout, retryTimes, retryDelay
+ *
+ * ### 2. Lazy Resolution (Service Provider)
+ * The `register()` method MUST NOT perform eager validation. It only defines how
+ * services are constructed. Validation occurs when the service is first resolved.
+ *
+ * ⚠️ IMPORTANT: `register()` runs during `composer install` and `package:discover`,
+ * not just application boot. Eager validation here will fail in CI environments.
+ *
+ * ### 3. Production Boot Validation (Production Only)
+ * The `validateProductionEnvironment()` method checks that critical credentials
+ * exist on production boot. This is the safety net for deployment failures.
+ *
+ * ## When to Use Each Layer
+ *
+ * | Layer | Use For | Example |
+ * |-------|---------|---------|
+ * | Constructor | Type validation, range checks, business rules | timeout must be 1-300 seconds |
+ * | Lazy Resolution | Type casting mixed config values | `is_string($apiKey) ? $apiKey : ''` |
+ * | Production Boot | Critical credentials existence check | APP_KEY, DB_PASSWORD, API keys |
+ *
+ * ## Example: Registering a New API Client
+ *
+ * ```php
+ * // ✅ CORRECT: Lazy validation, simple registration
+ * $this->app->singleton(ExampleClient::class, static function (): ExampleClient {
+ *     $apiKey = \config('services.example.api_key');
+ *     return new ExampleClient(
+ *         apiKey: \is_string($apiKey) ? $apiKey : '', // Constructor validates
+ *     );
+ * });
+ * ```
+ *
+ * ```php
+ * // ❌ WRONG: Eager validation in register()
+ * public function register(): void {
+ *     $apiKey = \config('services.example.api_key');
+ *     if ($apiKey === '') {
+ *         throw new RuntimeException('API key missing'); // Fails in CI!
+ *     }
+ *     // ...
+ * }
+ * ```
+ *
+ * @see ReviewsIoClient::__construct() for constructor validation example
+ * @see self::validateProductionEnvironment() for production boot validation
+ */
 final class AppServiceProvider extends ServiceProvider
 {
     /**
-     * Register any application services.
+     * Register application services.
+     *
+     * ⚠️ CRITICAL: Do NOT add validation logic here. This method runs during
+     * `composer install` and will fail in CI environments where secrets are
+     * not available.
+     *
+     * Service constructors handle validation when the service is first resolved.
      */
     #[Override]
     public function register(): void
@@ -20,50 +84,11 @@ final class AppServiceProvider extends ServiceProvider
         $this->registerReviewsIoClient();
     }
 
-    private function registerReviewsIoClient(): void
-    {
-        $apiKey = \config('services.reviewsio.api_key');
-        $store = \config('services.reviewsio.store');
-        $timeout = \config('services.reviewsio.timeout', 30);
-        $retryTimes = \config('services.reviewsio.retry_times', 3);
-        $retryDelay = \config('services.reviewsio.retry_delay', 100);
-
-        if (!\is_string($apiKey) || ($apiKey === '')) {
-            throw new RuntimeException('REVIEWSIO_API_KEY not configured');
-        }
-
-        if (!\is_string($store) || ($store === '')) {
-            throw new RuntimeException('REVIEWSIO_STORE not configured');
-        }
-
-        if (!\is_int($timeout) || ($timeout < 1) || ($timeout > 300)) {
-            throw new RuntimeException('REVIEWSIO_TIMEOUT must be between 1-300');
-        }
-
-        if (!\is_int($retryTimes) || ($retryTimes < 0) || ($retryTimes > 10)) {
-            throw new RuntimeException('REVIEWSIO_RETRY_TIMES must be between 0-10');
-        }
-
-        if (!\is_int($retryDelay) || ($retryDelay < 0) || ($retryDelay > 5000)) {
-            throw new RuntimeException('REVIEWSIO_RETRY_DELAY must be between 0-5000');
-        }
-
-        // Register with validated config
-        $this->app->singleton(ReviewsIoClient::class, static fn() => new ReviewsIoClient(
-            apiKey: $apiKey,
-            storeId: $store,
-            timeout: $timeout,
-            retryTimes: $retryTimes,
-            retryDelay: $retryDelay,
-        ));
-    }
-
     /**
      * Bootstrap any application services.
      */
     public function boot(): void
     {
-        // Only validate in production to avoid disrupting local development and CI
         // Skip validation in CI environments (GitHub Actions, etc.)
         $isCi = (\getenv('CI') !== false) || (\getenv('GITHUB_ACTIONS') !== false);
 
@@ -119,4 +144,27 @@ final class AppServiceProvider extends ServiceProvider
             );
         }
     }
+
+    private function registerReviewsIoClient(): void
+    {
+        $this->app->singleton(ReviewsIoClient::class, static function (): ReviewsIoClient {
+            $apiKey     = \config('services.reviewsio.api_key');
+            $store      = \config('services.reviewsio.store');
+            $timeout    = \config('services.reviewsio.timeout', 30);
+            $retryTimes = \config('services.reviewsio.retry_times', 3);
+            $retryDelay = \config('services.reviewsio.retry_delay', 100);
+
+            return new ReviewsIoClient(
+                apiKey: \is_string($apiKey) ? $apiKey : '',
+                storeId: \is_string($store) ? $store : '',
+                timeout: \is_int(
+                    $timeout,
+                ) ? $timeout : 30,
+                retryTimes: \is_int($retryTimes) ? $retryTimes : 3,
+                retryDelay: \is_int($retryDelay)
+                    ? $retryDelay : 100,
+            );
+        });
+    }
+
 }
