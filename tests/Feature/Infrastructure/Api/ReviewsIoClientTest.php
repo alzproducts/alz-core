@@ -6,7 +6,7 @@ namespace Tests\Feature\Infrastructure\Api;
 
 use App\Domain\Review\Rating;
 use App\Domain\Review\Validation\ValidSku;
-use App\Infrastructure\Api\ReviewsIo\ReviewsIoClient;
+use App\Infrastructure\Api\ReviewsIoClient;
 use App\Infrastructure\Exceptions\ReviewsIoApiException;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
