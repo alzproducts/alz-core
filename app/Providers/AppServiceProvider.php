@@ -22,9 +22,9 @@ final class AppServiceProvider extends ServiceProvider
 
     private function registerReviewsIoClient(): void
     {
-        $apiKey     = \config('services.reviewsio.api_key');
-        $store      = \config('services.reviewsio.store');
-        $timeout    = \config('services.reviewsio.timeout', 30);
+        $apiKey = \config('services.reviewsio.api_key');
+        $store = \config('services.reviewsio.store');
+        $timeout = \config('services.reviewsio.timeout', 30);
         $retryTimes = \config('services.reviewsio.retry_times', 3);
         $retryDelay = \config('services.reviewsio.retry_delay', 100);
 
@@ -105,10 +105,7 @@ final class AppServiceProvider extends ServiceProvider
             $list = \implode("\n  - ", $missing);
 
             throw new RuntimeException(
-                'SECURITY: Production deployment blocked. The following required '
-                . "configuration values are not set:\n\n  - {$list}\n\n"
-                . 'Application cannot start safely. Please configure these variables '
-                . 'in your deployment environment.',
+                "SECURITY: Production deployment blocked. The following required configuration values are not set:\n\n  - {$list}\n\nApplication cannot start safely. Please configure these variables in your deployment environment.",
             );
         }
 
@@ -116,8 +113,7 @@ final class AppServiceProvider extends ServiceProvider
         $appKey = \config('app.key');
         if (! \is_string($appKey) || (\mb_strlen($appKey) < 32)) {
             throw new RuntimeException(
-                'SECURITY: APP_KEY is too short or invalid. '
-                . 'Run \'php artisan key:generate\' to create a secure key.',
+                "SECURITY: APP_KEY is too short or invalid. Run 'php artisan key:generate' to create a secure key.",
             );
         }
     }

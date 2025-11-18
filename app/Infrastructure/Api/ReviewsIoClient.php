@@ -30,18 +30,18 @@ final readonly class ReviewsIoClient
     private function http(): PendingRequest
     {
         return Http::baseUrl(self::BASE_URL)
-                   ->retry($this->retryTimes, $this->retryDelay, throw: false)
-                   ->withQueryParameters([
-                       'apikey' => $this->apiKey,
-                       'store'  => $this->storeId,
-                   ])
-                   ->timeout($this->timeout);
+            ->retry($this->retryTimes, $this->retryDelay, throw: false)
+            ->withQueryParameters([
+                'apikey' => $this->apiKey,
+                'store' => $this->storeId,
+            ])
+            ->timeout($this->timeout);
     }
 
     /**
      * Get product reviews by SKU in batch.
      *
-     * @param string|string[] $skus Single SKU or array of SKUs
+     * @param string|array<string> $skus Single SKU or array of SKUs
      *
      * @return DataCollection<int, Rating>
      * @throws ValidationException If SKU parameter is invalid
@@ -54,7 +54,7 @@ final readonly class ReviewsIoClient
         $validated = Validator::make(
             ['skus' => $skuArray],
             [
-                'skus'   => ['required', 'array', 'min:1', 'max:' . self::MAX_BATCH_SIZE], // Batch limit
+                'skus' => ['required', 'array', 'min:1', 'max:' . self::MAX_BATCH_SIZE], // Batch limit
                 'skus.*' => ['required', 'string', 'min:1', 'max:50', new ValidSku()],
             ],
         )->validate();
@@ -63,14 +63,13 @@ final readonly class ReviewsIoClient
         $validatedSkus = $validated['skus'];
 
         $response = $this->http()
-                         ->get('product/rating-batch', [
-                             'sku' => \implode(';', $validatedSkus),
-                         ])
-                         ->throw();
+            ->get('product/rating-batch', [
+                'sku' => \implode(';', $validatedSkus),
+            ])
+            ->throw();
 
         /** @var array<mixed> $data */
         $data = $response->json() ?? [];
-
 
         return Rating::collect($data, DataCollection::class);
     }
