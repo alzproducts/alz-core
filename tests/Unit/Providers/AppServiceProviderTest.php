@@ -57,6 +57,8 @@ final class AppServiceProviderTest extends TestCase
             'horizon.auth.username' => 'user',
             'horizon.auth.password' => 'password',
             'services.supabase.jwt_secret' => 'secret',
+            'reviewsio.api_key' => 'test-api-key',
+            'reviewsio.store_id' => 'test-store',
         ];
 
         // Allow overriding specific values for failure tests
