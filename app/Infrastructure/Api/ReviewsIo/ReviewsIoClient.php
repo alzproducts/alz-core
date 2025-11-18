@@ -87,7 +87,9 @@ final readonly class ReviewsIoClient
             ->retry(
                 times: $this->retryTimes,
                 sleepMilliseconds: $this->retryDelay,
-                when: static fn(Throwable $exception) => $exception instanceof ConnectionException,
+                when: static fn(Throwable $exception) => ($exception instanceof ConnectionException)
+                                                         || (($exception instanceof RequestException)
+                                                             && ($exception->response->status() >= 500)),
             )
             ->timeout($this->timeout);
     }
