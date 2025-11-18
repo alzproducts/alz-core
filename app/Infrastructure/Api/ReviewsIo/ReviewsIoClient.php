@@ -135,6 +135,11 @@ final readonly class ReviewsIoClient
         if (!\is_array($data)) {
             throw ReviewsIoApiException::invalidResponse('Expected array response');
         }
+        if (isset($data[0]) && \is_array($data[0]) && (!isset($data[0]['sku'], $data[0]['average_rating']))) {
+            throw ReviewsIoApiException::invalidResponse(
+                'Response data is missing expected keys (sku, average_rating).',
+            );
+        }
 
         return Rating::collect($data, DataCollection::class);
     }
