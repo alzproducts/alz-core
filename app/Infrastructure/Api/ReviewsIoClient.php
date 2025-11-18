@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Infrastructure\Api\ReviewsIo;
+namespace App\Infrastructure\Api;
 
 use App\Domain\Review\Rating;
 use App\Domain\Review\Validation\ValidSku;
