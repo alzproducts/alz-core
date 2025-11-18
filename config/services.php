@@ -41,12 +41,4 @@ return [
         'jwt_secret' => env('SUPABASE_JWT_SECRET'),
     ],
 
-    'reviewsio' => [
-        'api_key' => env('REVIEWSIO_API_KEY'),
-        'store' => env('REVIEWSIO_STORE'),
-        'timeout' => (int) env('REVIEWSIO_TIMEOUT', 30),
-        'retry_times' => (int) env('REVIEWSIO_RETRY_TIMES', 3),
-        'retry_delay' => (int) env('REVIEWSIO_RETRY_DELAY', 100),
-    ],
-
 ];

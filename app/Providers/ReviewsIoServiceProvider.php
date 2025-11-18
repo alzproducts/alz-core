@@ -19,27 +19,21 @@ final class ReviewsIoServiceProvider extends ServiceProvider implements Deferrab
     /**
      * Register Reviews.io API client.
      *
-     * Uses lazy type casting - validation happens in ReviewsIoClient constructor.
+     * Validates configuration in ReviewsIoClient constructor.
      */
     #[Override]
     public function register(): void
     {
         $this->app->singleton(ReviewsIoClient::class, static function (): ReviewsIoClient {
-            $apiKey     = \config('services.reviewsio.api_key');
-            $store      = \config('services.reviewsio.store');
-            $timeout    = \config('services.reviewsio.timeout', 30);
-            $retryTimes = \config('services.reviewsio.retry_times', 3);
-            $retryDelay = \config('services.reviewsio.retry_delay', 100);
+            /** @var array{api_key: string|null, store_id: string|null, timeout: int, retry_times: int, retry_delay: int, enabled: bool} $config */
+            $config = \config('reviewsio');
 
             return new ReviewsIoClient(
-                apiKey: \is_string($apiKey) ? $apiKey : '',
-                storeId: \is_string($store) ? $store : '',
-                timeout: \is_int(
-                    $timeout,
-                ) ? $timeout : 30,
-                retryTimes: \is_int($retryTimes) ? $retryTimes : 3,
-                retryDelay: \is_int($retryDelay)
-                    ? $retryDelay : 100,
+                apiKey: $config['api_key'] ?? '',
+                storeId: $config['store_id'] ?? '',
+                timeout: $config['timeout'],
+                retryTimes: $config['retry_times'],
+                retryDelay: $config['retry_delay'],
             );
         });
     }
