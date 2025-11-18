@@ -67,7 +67,7 @@ final class AppServiceProvider extends ServiceProvider
             'horizon.auth.password' => 'Horizon dashboard password (HORIZON_PASSWORD)',
             'services.supabase.jwt_secret' => 'Supabase JWT secret (SUPABASE_JWT_SECRET)',
             'reviewsio.api_key' => 'Reviews.io API key (REVIEWSIO_API_KEY)',
-            'reviewsio.store' => 'Reviews.io store ID (REVIEWSIO_STORE)',
+            'reviewsio.store_id' => 'Reviews.io store ID (REVIEWSIO_STORE_ID)',
         ];
 
         $missing = [];
