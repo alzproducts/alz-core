@@ -26,7 +26,7 @@ Backend service for e-commerce webhooks and background jobs. Replaces legacy PHP
 **Frontend**: Separate Next.js app using Supabase (already built)
 **Deployment**: Railway (planned)
 
-**Development Philosophy**: Portfolio piece demonstrating modern PHP best practices. Previous PHP project became unmaintainable due to poor architecture—this project aims to establish clean architecture from day one.
+**Development Philosophy**: Portfolio piece demonstrating modern PHP best practices. Previous PHP project became unmaintainable due to poor architecture—this project enforces **Clean Architecture** from day one (see "Clean Architecture" section below).
 
 See detailed plan: `.ai/docs/plans/alz-core-initial-plan.md`
 
@@ -89,6 +89,28 @@ composer run setup    # First-time setup
 composer run dev      # Start all services (server, queue, logs, vite)
 composer run test     # Run tests
 ```
+
+## Clean Architecture
+
+This project follows **Clean Architecture** (Robert C. Martin) — dependencies point inward, outer layers depend on inner layers, never the reverse.
+
+### Layers (Outer → Inner)
+
+- **Presentation** (`App\Presentation`) — Entry points: HTTP controllers, console commands. Delegates to Application layer. *Naming: `*Controller`*
+
+- **Infrastructure** (`App\Infrastructure`) — External world: API clients, database repositories, SDK wrappers. Implements Domain interfaces. Validates external data with exceptions. *Naming: `*Client`, `*Repository`*
+
+- **Application** (`App\Application`) — Use cases: orchestrates Domain objects and Infrastructure services to accomplish tasks. Contains jobs, transformers. *Naming: `*UseCase`, `*Service`*
+
+- **Domain** (`App\Domain`) — Pure business logic: value objects, entities, interfaces, domain exceptions. Zero external dependencies. Validates internal contracts with assertions.
+
+### Key Rules
+
+1. **Domain** depends on nothing (only PHP built-ins, `Webmozart\Assert`)
+2. **Application** depends only on Domain
+3. **Infrastructure** implements Domain interfaces, can use external SDKs/Laravel
+4. **Presentation** calls Application use cases, never Infrastructure directly
+5. **Validation**: External data → exceptions (Infrastructure), internal contracts → assertions (Domain)
 
 ## Key Architectural Decisions
 
