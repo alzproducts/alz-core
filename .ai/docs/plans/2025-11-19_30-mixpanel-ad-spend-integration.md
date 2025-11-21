@@ -200,7 +200,7 @@ phparkitect.php                             # Updated with AdSpend namespace rul
 - [ ] Create SyncGoogleAdsToMixpanelJob
 - [ ] Configure job middleware (throttling, overlapping)
 - [ ] Write feature tests
-- [ ] Test transformation logic (micros → dollars, timestamps)
+- [ ] Test transformation logic (micros → pounds, timestamps)
 
 **Acceptance Criteria**:
 - Transformation handles edge cases (null conversions, zero spend)
@@ -368,7 +368,7 @@ final readonly class CampaignMetrics
         public int $campaignId,
         public string $campaignName,
         public string $date,
-        public float $costInDollars,
+        public float $costInpounds,
         public int $clicks,
         public int $impressions,
         public float $conversions,
@@ -376,7 +376,7 @@ final readonly class CampaignMetrics
         Assert::greaterThan($campaignId, 0, 'Campaign ID must be positive');
         Assert::notEmpty($campaignName, 'Campaign name cannot be empty');
         Assert::regex($date, '/^\d{4}-\d{2}-\d{2}$/', 'Date must be YYYY-MM-DD format');
-        Assert::greaterThanEq($costInDollars, 0, 'Cost cannot be negative');
+        Assert::greaterThanEq($costInpounds, 0, 'Cost cannot be negative');
         Assert::greaterThanEq($clicks, 0, 'Clicks cannot be negative');
         Assert::greaterThanEq($impressions, 0, 'Impressions cannot be negative');
         Assert::greaterThanEq($conversions, 0, 'Conversions cannot be negative');
@@ -388,7 +388,7 @@ final readonly class CampaignMetrics
             campaignId: (int) $row->getCampaign()->getId(),
             campaignName: $row->getCampaign()->getName(),
             date: $row->getSegments()->getDate(),
-            costInDollars: $row->getMetrics()->getCostMicros() / 1_000_000,
+            costInpounds: $row->getMetrics()->getCostMicros() / 1_000_000,
             clicks: (int) $row->getMetrics()->getClicks(),
             impressions: (int) $row->getMetrics()->getImpressions(),
             conversions: $row->getMetrics()->getConversions(),
@@ -401,7 +401,7 @@ final readonly class CampaignMetrics
 - `readonly` prevents mutation after construction
 - Webmozart assertions validate all inputs
 - Named constructor `fromGoogleAdsRow()` handles API response mapping
-- Micros → dollars conversion happens here (domain logic)
+- Micros → pounds conversion happens here (domain logic)
 
 ---
 
@@ -849,7 +849,7 @@ final class AdSpendTransformer
             source: 'Google',
             campaignId: $campaign->campaignId,
             campaignName: $campaign->campaignName,
-            cost: $campaign->costInDollars,
+            cost: $campaign->costInpounds,
             clicks: $campaign->clicks,
             impressions: $campaign->impressions,
             conversions: $campaign->conversions,
@@ -1266,14 +1266,14 @@ final class CampaignMetricsTest extends TestCase
             campaignId: 123456,
             campaignName: 'Test Campaign',
             date: '2024-11-18',
-            costInDollars: 125.43,
+            costInpounds: 125.43,
             clicks: 342,
             impressions: 8234,
             conversions: 12.5,
         );
 
         $this->assertSame(123456, $metrics->campaignId);
-        $this->assertSame(125.43, $metrics->costInDollars);
+        $this->assertSame(125.43, $metrics->costInpounds);
     }
 
     #[Test]
@@ -1285,7 +1285,7 @@ final class CampaignMetricsTest extends TestCase
             campaignId: -1,
             campaignName: 'Test',
             date: '2024-11-18',
-            costInDollars: 0,
+            costInpounds: 0,
             clicks: 0,
             impressions: 0,
             conversions: 0,
@@ -1301,7 +1301,7 @@ final class CampaignMetricsTest extends TestCase
             campaignId: 123,
             campaignName: 'Test',
             date: '11/18/2024',
-            costInDollars: 0,
+            costInpounds: 0,
             clicks: 0,
             impressions: 0,
             conversions: 0,
@@ -1483,15 +1483,15 @@ public function failed(?Throwable $exception): void
 
 **Total**: 15-18 hours
 
-| Phase | Duration | Blocker Risk |
-|-------|----------|--------------|
-| Domain Layer | 2-3h | Low |
-| Infrastructure Layer | 4-5h | Medium (OAuth setup) |
-| Application Layer | 3-4h | Low |
-| Presentation Layer | 1-2h | Low |
-| Service Provider | 1h | Low |
-| Testing & QA | 2-3h | Medium (API credentials) |
-| Deployment | 2h | High (Railway cron) |
+| Phase                | Duration | Blocker Risk             |
+|----------------------|----------|--------------------------|
+| Domain Layer         | 2-3h     | Low                      |
+| Infrastructure Layer | 4-5h     | Medium (OAuth setup)     |
+| Application Layer    | 3-4h     | Low                      |
+| Presentation Layer   | 1-2h     | Low                      |
+| Service Provider     | 1h       | Low                      |
+| Testing & QA         | 2-3h     | Medium (API credentials) |
+| Deployment           | 2h       | High (Railway cron)      |
 
 **High-Risk Items**:
 1. Getting Google Ads OAuth refresh token (1-2h setup)
