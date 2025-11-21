@@ -67,16 +67,26 @@ SyncGoogleAdsToMixpanelJob (dispatched to Horizon queue)
     │
     ├─→ GoogleAdsClient::getDailyCampaignMetrics(yesterday)
     │       │
-    │       └─→ Google Ads API (searchStream with GAQL)
+    │       ├─→ Google Ads API (searchStream with GAQL)
+    │       │
+    │       └─→ GoogleAdsRowMapper::toCampaignMetrics()  ← VALIDATION BOUNDARY
+    │           ├─ Validates null/missing fields
+    │           ├─ Throws InvalidGoogleAdsResponseException on invalid data
+    │           └─→ Returns validated CampaignMetrics (Domain)
     │
     ├─→ AdSpendTransformer::transformToMixpanelEvents()
     │       │
-    │       └─→ Convert micros, generate $insert_id, map fields
+    │       └─→ Convert to AdSpendEvent objects, generate $insert_id
     │
     └─→ MixpanelClient::importBatch()
             │
             └─→ Mixpanel Import API (/import endpoint)
 ```
+
+**Key Design Point**: GoogleAdsRowMapper acts as the Infrastructure/Domain boundary:
+- **Left side** (Google Ads API): Untrusted external data with nullable fields
+- **Right side** (CampaignMetrics): Validated domain objects ready for business logic
+- **Validation**: Runtime exceptions (always active in production), not assertions (compile-out)
 
 ---
 
@@ -99,6 +109,7 @@ app/
 │   │   └── Exceptions/
 │   │       ├── ApiRateLimitException.php
 │   │       ├── GoogleAdsApiException.php
+│   │       ├── InvalidGoogleAdsResponseException.php  # Runtime validation at Infrastructure/Domain boundary
 │   │       └── MixpanelApiException.php
 │
 ├── Application/
@@ -114,7 +125,8 @@ app/
 │   └── AdSpend/
 │       ├── GoogleAds/
 │       │   ├── GoogleAdsClient.php
-│       │   └── GoogleAdsClientFactory.php
+│       │   ├── GoogleAdsClientFactory.php
+│       │   └── GoogleAdsRowMapper.php       # Validation boundary - transforms & validates API responses
 │       └── Mixpanel/
 │           └── MixpanelClient.php
 │
@@ -286,6 +298,55 @@ phparkitect.php                             # Updated with AdSpend namespace rul
 
 ---
 
+## Validation Strategy: Three-Tier Approach
+
+### Problem Statement
+The Google Ads API is **loosely-typed** with protobuf-generated classes where all getters can return `null`:
+```php
+$campaign = $row->getCampaign();  // Can be null
+$metrics = $row->getMetrics();    // Can be null
+$campaignId = $campaign?->getId(); // Still can be null
+```
+
+If we put validation in Domain layer, we either:
+1. Use **assertions** → compile-out in production → API nulls crash production
+2. Use **exceptions** → pollutes Domain with infrastructure concerns
+
+### Solution: Validation at Infrastructure/Domain Boundary
+
+**Three Layers**:
+
+| Layer | Responsibility | Tool |
+|-------|---|---|
+| **Domain** | Business logic (CampaignMetrics) | Webmozart Assertions (internal contracts, compile-out) |
+| **Infrastructure** | API response validation | **GoogleAdsRowMapper** with runtime exceptions |
+| **Infrastructure** | Error handling | InvalidGoogleAdsResponseException |
+
+**Why This Works**:
+1. **Domain stays pure**: CampaignMetrics only validates its own invariants
+2. **Assertions compile-out**: No performance penalty in production
+3. **Validation always runs**: RuntimeExceptions at boundary catch all API nulls
+4. **Clear responsibility**: Mapper handles "untrusted external data"
+
+**Example Flow**:
+```
+Google Ads API (nullable getters)
+    ↓
+GoogleAdsRowMapper::toCampaignMetrics()  ← VALIDATION BARRIER
+    ↓ (all fields validated, no nulls possible)
+CampaignMetrics (trusted domain object)
+    ↓ (assertions validate internal contracts)
+Business Logic (Application layer)
+```
+
+### Production Safety Guarantee
+- If Google Ads API returns unexpected `null` → mapper catches it
+- If mapper somehow passes invalid data → domain assertions catch it (dev error)
+- Exception logged with context → job retries with backoff
+- No silent failures, no corrupted data
+
+---
+
 ## Layer-by-Layer Implementation
 
 ### Domain Layer
@@ -381,27 +442,14 @@ final readonly class CampaignMetrics
         Assert::greaterThanEq($impressions, 0, 'Impressions cannot be negative');
         Assert::greaterThanEq($conversions, 0, 'Conversions cannot be negative');
     }
-
-    public static function fromGoogleAdsRow(object $row): self
-    {
-        return new self(
-            campaignId: (int) $row->getCampaign()->getId(),
-            campaignName: $row->getCampaign()->getName(),
-            date: $row->getSegments()->getDate(),
-            costInpounds: $row->getMetrics()->getCostMicros() / 1_000_000,
-            clicks: (int) $row->getMetrics()->getClicks(),
-            impressions: (int) $row->getMetrics()->getImpressions(),
-            conversions: $row->getMetrics()->getConversions(),
-        );
-    }
 }
 ```
 
 **Key Points**:
 - `readonly` prevents mutation after construction
-- Webmozart assertions validate all inputs
-- Named constructor `fromGoogleAdsRow()` handles API response mapping
-- Micros → pounds conversion happens here (domain logic)
+- Webmozart assertions validate all **internal** contracts (compile-out in production)
+- Pure domain object with no external dependencies
+- Validation of external API data happens at Infrastructure boundary (see GoogleAdsRowMapper)
 
 ---
 
@@ -518,6 +566,44 @@ final class GoogleAdsApiException extends RuntimeException
 }
 ```
 
+**File**: `app/Domain/AdSpend/Exceptions/InvalidGoogleAdsResponseException.php`
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace App\Domain\AdSpend\Exceptions;
+
+use RuntimeException;
+
+final class InvalidGoogleAdsResponseException extends RuntimeException
+{
+    /**
+     * Thrown when Google Ads API response contains null/missing required fields.
+     * This is a **runtime validation exception** (always active in production),
+     * not an assertion (which compile-out).
+     *
+     * Distinguishes from GoogleAdsApiException:
+     * - GoogleAdsApiException: API returned error status code
+     * - InvalidGoogleAdsResponseException: API returned 200 but data invalid
+     */
+    public static function missingField(string $field, string $context = ''): self
+    {
+        $message = "Google Ads response missing required field: {$field}";
+        if ($context !== '') {
+            $message .= " ({$context})";
+        }
+        return new self($message);
+    }
+
+    public static function invalidValue(string $field, string $reason): self
+    {
+        return new self("Google Ads response has invalid value for {$field}: {$reason}");
+    }
+}
+```
+
 **File**: `app/Domain/AdSpend/Exceptions/MixpanelApiException.php`
 
 ```php
@@ -542,11 +628,135 @@ final class MixpanelApiException extends RuntimeException
 }
 ```
 
+**Key Points on Exception Strategy**:
+- **ApiRateLimitException**: Recoverable → job retries with backoff
+- **GoogleAdsApiException**: API error status → log and fail
+- **InvalidGoogleAdsResponseException**: Invalid data despite 200 status → log and fail (production-safe validation)
+- **MixpanelApiException**: Mixpanel validation failed → log failed records
+
 ---
 
 ### Infrastructure Layer
 
-#### 6. GoogleAdsClient Implementation
+#### 6. GoogleAdsRowMapper (Validation Boundary)
+**File**: `app/Infrastructure/AdSpend/GoogleAds/GoogleAdsRowMapper.php`
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace App\Infrastructure\AdSpend\GoogleAds;
+
+use App\Domain\AdSpend\Exceptions\InvalidGoogleAdsResponseException;
+use App\Domain\AdSpend\ValueObjects\CampaignMetrics;
+use Google\Ads\GoogleAds\V22\Services\GoogleAdsRow;
+
+/**
+ * Validates and transforms Google Ads API responses into domain value objects.
+ *
+ * **Critical Role**: This class sits at the Infrastructure/Domain boundary and ensures:
+ * 1. All null/missing fields are caught BEFORE domain layer
+ * 2. Data validation is production-safe (uses exceptions, not assertions)
+ * 3. Type conversions (micros → pounds) are explicit and validated
+ *
+ * **Design Pattern**: Mapper transforms external data with runtime validation.
+ *
+ * **Exception Strategy**:
+ * - Assertions in Domain layer compile-out in production
+ * - Validation in Infrastructure layer always runs in production
+ * - This ensures external data safety at all times
+ */
+final class GoogleAdsRowMapper
+{
+    /**
+     * @throws InvalidGoogleAdsResponseException
+     */
+    public static function toCampaignMetrics(GoogleAdsRow $row): CampaignMetrics
+    {
+        // Validate nested objects exist
+        $campaign = $row->getCampaign();
+        if ($campaign === null) {
+            throw InvalidGoogleAdsResponseException::missingField('campaign', 'row.campaign');
+        }
+
+        $metrics = $row->getMetrics();
+        if ($metrics === null) {
+            throw InvalidGoogleAdsResponseException::missingField('metrics', 'row.metrics');
+        }
+
+        $segments = $row->getSegments();
+        if ($segments === null) {
+            throw InvalidGoogleAdsResponseException::missingField('segments', 'row.segments');
+        }
+
+        // Validate required fields
+        $campaignId = $campaign->getId();
+        if ($campaignId === null) {
+            throw InvalidGoogleAdsResponseException::missingField('id', 'campaign.id');
+        }
+
+        $campaignName = $campaign->getName();
+        if ($campaignName === null) {
+            throw InvalidGoogleAdsResponseException::missingField('name', 'campaign.name');
+        }
+
+        $date = $segments->getDate();
+        if ($date === null) {
+            throw InvalidGoogleAdsResponseException::missingField('date', 'segments.date');
+        }
+
+        $costMicros = $metrics->getCostMicros();
+        if ($costMicros === null) {
+            throw InvalidGoogleAdsResponseException::missingField('cost_micros', 'metrics.cost_micros');
+        }
+
+        $clicks = $metrics->getClicks();
+        if ($clicks === null) {
+            throw InvalidGoogleAdsResponseException::missingField('clicks', 'metrics.clicks');
+        }
+
+        $impressions = $metrics->getImpressions();
+        if ($impressions === null) {
+            throw InvalidGoogleAdsResponseException::missingField('impressions', 'metrics.impressions');
+        }
+
+        $conversions = $metrics->getConversions();
+        if ($conversions === null) {
+            throw InvalidGoogleAdsResponseException::missingField('conversions', 'metrics.conversions');
+        }
+
+        // Create domain value object with validated data
+        return new CampaignMetrics(
+            campaignId: (int) $campaignId,
+            campaignName: $campaignName,
+            date: $date,
+            costInpounds: $costMicros / 1_000_000,
+            clicks: (int) $clicks,
+            impressions: (int) $impressions,
+            conversions: (float) $conversions,
+        );
+    }
+}
+```
+
+**Why This Approach**:
+1. **Assertions vs Validation**:
+   - Domain uses Webmozart assertions (compile-out in production)
+   - Infrastructure validates external data with exceptions (always active)
+
+2. **Separation of Concerns**:
+   - Domain: "Assume data is valid, use assertions for programmer errors"
+   - Infrastructure: "Validate untrusted external data with exceptions"
+
+3. **Production Safety**:
+   - If Google Ads API returns unexpected null, Infrastructure catches it immediately
+   - Error logged and job retries (no silent failures)
+   - Assertions in domain don't protect against null values from API
+
+---
+
+#### 7. GoogleAdsClient Implementation
 **File**: `app/Infrastructure/AdSpend/GoogleAds/GoogleAdsClient.php`
 
 ```php
@@ -559,6 +769,7 @@ namespace App\Infrastructure\AdSpend\GoogleAds;
 use App\Domain\AdSpend\Contracts\GoogleAdsClientInterface;
 use App\Domain\AdSpend\Exceptions\ApiRateLimitException;
 use App\Domain\AdSpend\Exceptions\GoogleAdsApiException;
+use App\Domain\AdSpend\Exceptions\InvalidGoogleAdsResponseException;
 use App\Domain\AdSpend\ValueObjects\CampaignMetrics;
 use Google\Ads\GoogleAds\Lib\V22\GoogleAdsClient as SdkClient;
 use Google\Ads\GoogleAds\V22\Services\SearchGoogleAdsStreamRequest;
@@ -574,6 +785,7 @@ final class GoogleAdsClient implements GoogleAdsClientInterface
 
     /**
      * @return array<int, CampaignMetrics>
+     * @throws InvalidGoogleAdsResponseException
      */
     public function getDailyCampaignMetrics(string $date): array
     {
@@ -592,7 +804,8 @@ final class GoogleAdsClient implements GoogleAdsClientInterface
 
             $metrics = [];
             foreach ($stream->iterateAllElements() as $row) {
-                $metrics[] = CampaignMetrics::fromGoogleAdsRow($row);
+                // Use mapper at Infrastructure boundary to validate before creating domain objects
+                $metrics[] = GoogleAdsRowMapper::toCampaignMetrics($row);
             }
 
             Log::info('Google Ads data fetched', [
@@ -600,6 +813,13 @@ final class GoogleAdsClient implements GoogleAdsClientInterface
             ]);
 
             return $metrics;
+
+        } catch (InvalidGoogleAdsResponseException $e) {
+            // Re-throw validation errors (already production-safe)
+            Log::error('Invalid Google Ads response', [
+                'error' => $e->getMessage(),
+            ]);
+            throw $e;
 
         } catch (ApiException $e) {
             if ($this->isRateLimitError($e)) {
@@ -640,7 +860,7 @@ final class GoogleAdsClient implements GoogleAdsClientInterface
 
 ---
 
-#### 7. GoogleAdsClientFactory
+#### 8. GoogleAdsClientFactory
 **File**: `app/Infrastructure/AdSpend/GoogleAds/GoogleAdsClientFactory.php`
 
 ```php
@@ -704,7 +924,7 @@ final class GoogleAdsClientFactory
 
 ---
 
-#### 8. MixpanelClient Implementation
+#### 9. MixpanelClient Implementation
 **File**: `app/Infrastructure/AdSpend/Mixpanel/MixpanelClient.php`
 
 ```php
@@ -812,7 +1032,7 @@ final class MixpanelClient implements MixpanelClientInterface
 
 ### Application Layer
 
-#### 9. AdSpendTransformer Service
+#### 10. AdSpendTransformer Service
 **File**: `app/Application/AdSpend/Services/AdSpendTransformer.php`
 
 ```php
@@ -881,7 +1101,7 @@ final class AdSpendTransformer
 
 ---
 
-#### 10. SyncAdSpendUseCase
+#### 11. SyncAdSpendUseCase
 **File**: `app/Application/AdSpend/UseCases/SyncAdSpendUseCase.php`
 
 ```php
@@ -932,7 +1152,7 @@ final class SyncAdSpendUseCase
 
 ---
 
-#### 11. SyncGoogleAdsToMixpanelJob
+#### 12. SyncGoogleAdsToMixpanelJob
 **File**: `app/Application/AdSpend/Jobs/SyncGoogleAdsToMixpanelJob.php`
 
 ```php
@@ -1026,7 +1246,7 @@ final class SyncGoogleAdsToMixpanelJob implements ShouldQueue
 
 ### Presentation Layer
 
-#### 12. Manual Testing Command
+#### 13. Manual Testing Command
 **File**: `app/Console/Commands/SyncAdSpendCommand.php`
 
 ```php
@@ -1074,7 +1294,7 @@ final class SyncAdSpendCommand extends Command
 
 ### Configuration
 
-#### 13. Google Ads Config
+#### 14. Google Ads Config
 **File**: `config/google-ads.php`
 
 ```php
@@ -1092,7 +1312,7 @@ return [
 ];
 ```
 
-#### 14. Mixpanel Config
+#### 15. Mixpanel Config
 **File**: `config/mixpanel.php`
 
 ```php
@@ -1106,7 +1326,7 @@ return [
 ];
 ```
 
-#### 15. Schedule Definition
+#### 16. Schedule Definition
 **File**: `routes/console.php`
 
 ```php
@@ -1129,7 +1349,7 @@ Schedule::job(new SyncGoogleAdsToMixpanelJob())
 
 ### Service Provider
 
-#### 16. AdSpendServiceProvider
+#### 17. AdSpendServiceProvider
 **File**: `app/Providers/AdSpendServiceProvider.php`
 
 ```php
