@@ -71,6 +71,12 @@ parameters:
         -
             message: '#^Class PHP_CodeSniffer\\.*#'
             path: config/insights.php
+        # Google Ads SDK has inaccurate PHPDoc (claims methods return string but they return string|null)
+        # GoogleAdsRowTransformer validates all fields at the boundary, so type checks are necessary
+        # even though PHPStan believes the PhPDoc over reality
+        -
+            message: '#^(Strict comparison using === between|Call to function is_|Result of && is always|Binary operation|Cannot cast|Using / over non-number|Casting to).*#'
+            path: app/Infrastructure/AdSpend/GoogleAds/GoogleAdsRowTransformer.php
 
     paths:
         - app/
