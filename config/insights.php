@@ -20,6 +20,8 @@ use PhpCsFixer\Fixer\ClassNotation\ClassDefinitionFixer;
 use PhpCsFixer\Fixer\ClassNotation\OrderedClassElementsFixer;
 use PhpCsFixer\Fixer\FunctionNotation\FunctionDeclarationFixer;
 use SlevomatCodingStandard\Sniffs\Classes\ClassStructureSniff;
+use SlevomatCodingStandard\Sniffs\Classes\SuperfluousExceptionNamingSniff;
+use SlevomatCodingStandard\Sniffs\Classes\SuperfluousInterfaceNamingSniff;
 use SlevomatCodingStandard\Sniffs\Commenting\DocCommentSpacingSniff;
 use SlevomatCodingStandard\Sniffs\Commenting\UselessFunctionDocCommentSniff;
 use SlevomatCodingStandard\Sniffs\Functions\FunctionLengthSniff;
@@ -91,6 +93,10 @@ return [
         ForbiddenNormalClasses::class,
         ForbiddenDefineFunctions::class,
         ForbiddenTraits::class,
+
+        // Naming - allow Interface/Exception suffixes (PHP standard convention)
+        SuperfluousInterfaceNamingSniff::class,
+        SuperfluousExceptionNamingSniff::class,
 
         // Type hints - handled by PHPStan level 8
         DisallowMixedTypeHintSniff::class,
