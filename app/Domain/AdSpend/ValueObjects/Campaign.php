@@ -22,6 +22,6 @@ final readonly class Campaign
     ) {
         Assert::greaterThan($campaignId, 0, 'Campaign ID must be positive');
         Assert::notEmpty($campaignName, 'Campaign name cannot be empty');
-        Assert::inArray($status, ['ENABLED', 'PAUSED', 'REMOVED'], 'Campaign status must be ENABLED, PAUSED, or REMOVED');
+        Assert::inArray($status, ['UNSPECIFIED', 'ENABLED', 'PAUSED', 'REMOVED'], 'Campaign status must be UNSPECIFIED, ENABLED, PAUSED, or REMOVED');
     }
 }
