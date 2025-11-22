@@ -12,6 +12,7 @@ use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
@@ -132,13 +133,20 @@ final readonly class ReviewsIoClient
         if (!\is_array($data)) {
             throw ReviewsIoApiException::invalidResponse('Expected array response');
         }
-        if (isset($data[0]) && \is_array($data[0]) && (!isset($data[0]['sku'], $data[0]['average_rating']))) {
+
+        try {
+            return Rating::collect($data, DataCollection::class);
+        } catch (ValidationException $e) {
+            Log::warning('Reviews.io API validation failed', [
+                'errors' => $e->errors(),
+                'payload' => $data,
+            ]);
+
             throw ReviewsIoApiException::invalidResponse(
-                'Response data is missing expected keys (sku, average_rating).',
+                message: 'Reviews.io API returned invalid data structure',
+                previous: $e,
             );
         }
-
-        return Rating::collect($data, DataCollection::class);
     }
 
 }
