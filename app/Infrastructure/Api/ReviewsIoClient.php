@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Infrastructure\Api;
 
 use App\Domain\Review\Rating;
-use App\Domain\Review\Validation\ValidSku;
 use App\Infrastructure\Exceptions\ReviewsIoApiException;
 use App\Infrastructure\Support\ApiRetryStrategy;
+use App\Infrastructure\Validation\ValidSku;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\RequestException;
