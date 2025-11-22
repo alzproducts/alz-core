@@ -102,10 +102,12 @@ app/
 │   ├── AdSpend/
 │   │   ├── Contracts/
 │   │   │   ├── GoogleAdsClientInterface.php
-│   │   │   └── MixpanelClientInterface.php
+│   │   │   ├── MixpanelClientInterface.php
+│   │   │   └── MixpanelLookupTableClientInterface.php  # Phase 3.5: Lookup tables API
 │   │   ├── ValueObjects/
 │   │   │   ├── CampaignMetrics.php
-│   │   │   └── AdSpendEvent.php
+│   │   │   ├── AdSpendEvent.php
+│   │   │   └── Campaign.php                            # Phase 3.5: Campaign metadata (id, name, status)
 │   │   └── Exceptions/
 │   │       ├── ApiRateLimitException.php
 │   │       ├── GoogleAdsApiException.php
@@ -115,9 +117,11 @@ app/
 ├── Application/
 │   └── AdSpend/
 │       ├── Jobs/
-│       │   └── SyncGoogleAdsToMixpanelJob.php
+│       │   ├── SyncGoogleAdsToMixpanelJob.php
+│       │   └── SyncCampaignLookupTableJob.php         # Phase 3.5: Daily lookup table sync
 │       ├── UseCases/
-│       │   └── SyncAdSpendUseCase.php
+│       │   ├── SyncAdSpendUseCase.php
+│       │   └── SyncCampaignLookupTableUseCase.php     # Phase 3.5: Orchestrates lookup sync
 │       └── Services/
 │           └── AdSpendTransformer.php
 │
@@ -126,9 +130,11 @@ app/
 │       ├── GoogleAds/
 │       │   ├── GoogleAdsClient.php
 │       │   ├── GoogleAdsClientFactory.php
-│       │   └── GoogleAdsRowMapper.php       # Validation boundary - transforms & validates API responses
+│       │   ├── GoogleAdsRowMapper.php       # Validation boundary - transforms & validates API responses
+│       │   └── CampaignRowMapper.php        # Phase 3.5: Validates campaign metadata from API
 │       └── Mixpanel/
-│           └── MixpanelClient.php
+│           ├── MixpanelClient.php
+│           └── MixpanelLookupTableClient.php  # Phase 3.5: CSV formatting and PUT requests
 │
 └── Providers/
     └── AdSpendServiceProvider.php
@@ -146,7 +152,14 @@ tests/
 │   │   └── AdSpend/
 │   │       └── ValueObjects/
 │   │           ├── CampaignMetricsTest.php
-│   │           └── AdSpendEventTest.php
+│   │           ├── AdSpendEventTest.php
+│   │           └── CampaignTest.php                   # Phase 3.5: Campaign VO tests
+│   ├── Infrastructure/
+│   │   └── AdSpend/
+│   │       ├── GoogleAds/
+│   │       │   └── CampaignRowMapperTest.php          # Phase 3.5: Mapper validation tests
+│   │       └── Mixpanel/
+│   │           └── MixpanelLookupTableClientTest.php  # Phase 3.5: CSV formatting tests
 │   └── Application/
 │       └── AdSpend/
 │           └── Services/
@@ -155,7 +168,8 @@ tests/
 └── Feature/
     └── AdSpend/
         ├── SyncAdSpendUseCaseTest.php
-        └── SyncGoogleAdsToMixpanelJobTest.php
+        ├── SyncGoogleAdsToMixpanelJobTest.php
+        └── SyncCampaignLookupTableUseCaseTest.php     # Phase 3.5: End-to-end lookup sync test
 
 phparkitect.php                             # Updated with AdSpend namespace rules
 ```
@@ -213,6 +227,140 @@ Implemented three-tier validation approach with GoogleAdsRowMapper at Infrastruc
 
 **Architectural Achievement**:
 Implemented strict type-safe SDK mocking for Google Ads and Mixpanel clients. Solved SDK return type enforcement by matching declared types exactly (PagedListResponse) and using onlyMethods() for real SDK methods. Documented this pattern in tests/CLAUDE.md for future SDK integrations.
+
+---
+
+### Phase 3.5: Campaign Lookup Table Sync (UTM Resolution)
+**Duration**: 4-5 hours
+**Dependencies**: Phase 2 complete
+**Status**: Pending
+
+**Problem Being Solved**:
+Google Ads UTM tracking passes campaign IDs in `utm_campaign` parameter instead of human-readable names:
+- **Google Ads**: `utm_campaign=123456789` (numeric ID 😞)
+- **Bing Ads**: `utm_campaign=Summer_Sale_2024` (human-readable 👍)
+
+This affects ALL Mixpanel events from Google Ads traffic (page views, signups, purchases), not just Ad Spend events.
+
+**Solution**: Sync campaign ID→Name mappings to Mixpanel Lookup Tables. Mixpanel creates nested properties (`utm_campaign.campaign_name`) that resolve IDs to names in reports.
+
+#### Architecture
+
+```
+Google Ads API                    Mixpanel Lookup Tables API
+     │                                      │
+     │ getCampaigns()                       │
+     ▼                                      │
+┌──────────────────────┐                    │
+│ Campaign             │                    │
+│ - campaignId         │ ──────────────────►│ PUT /lookup-tables/{id}
+│ - campaignName       │    (CSV format)    │ Content-Type: text/csv
+│ - status             │                    │
+└──────────────────────┘                    ▼
+                                   ┌─────────────────────────┐
+                                   │ Lookup Table            │
+                                   │ Join key: utm_campaign  │
+                                   │ → campaign_name         │
+                                   │ → campaign_status       │
+                                   └─────────────────────────┘
+```
+
+**CSV Format** (first column is join key):
+```csv
+utm_campaign,campaign_name,campaign_status
+123456789,"[01] Search - Branded",ENABLED
+987654321,"[02] Performance Max - All Products",PAUSED
+```
+
+**GAQL Query**:
+```sql
+SELECT campaign.id, campaign.name, campaign.status
+FROM campaign
+WHERE campaign.status != 'REMOVED'
+ORDER BY campaign.id
+```
+
+#### What Already Exists (from Phases 1 & 2)
+
+The following infrastructure from Phases 1 & 2 will be **extended** (not recreated):
+- ✅ `GoogleAdsClientInterface` — Add new `getCampaigns()` method alongside existing `getDailyCampaignMetrics()`
+- ✅ `GoogleAdsClient` — Implement `getCampaigns()` using existing SDK client and factory
+- ✅ `GoogleAdsClientFactory` — Reuse for campaign fetching (same OAuth credentials)
+- ✅ `config/mixpanel.php` — Add `lookup_table_id` to existing config
+- ✅ Exception classes — Reuse `GoogleAdsApiException`, `ApiRateLimitException`, etc.
+
+#### New Files to Create
+
+**Domain Layer**:
+- `app/Domain/AdSpend/ValueObjects/Campaign.php` — Campaign metadata VO (id, name, status)
+- `app/Domain/AdSpend/Contracts/MixpanelLookupTableClientInterface.php` — **Separate** interface for lookup tables API (different from MixpanelClientInterface)
+
+**Infrastructure Layer**:
+- `app/Infrastructure/AdSpend/GoogleAds/CampaignRowMapper.php` — Validates campaign data (similar pattern to GoogleAdsRowMapper)
+- `app/Infrastructure/AdSpend/Mixpanel/MixpanelLookupTableClient.php` — CSV formatting and PUT requests (**not** extending MixpanelClient - different API format)
+
+**Application Layer**:
+- `app/Application/AdSpend/UseCases/SyncCampaignLookupTableUseCase.php` — Orchestrates sync
+- `app/Application/AdSpend/Jobs/SyncCampaignLookupTableJob.php` — Daily queued job (same patterns as SyncGoogleAdsToMixpanelJob)
+
+**Presentation Layer**:
+- `app/Console/Commands/SyncCampaignLookupCommand.php` — Artisan command `adspend:sync-lookup` for manual testing
+
+#### Files to Modify
+
+- `app/Domain/AdSpend/Contracts/GoogleAdsClientInterface.php` — Add `getCampaigns(): array<Campaign>` method
+- `app/Infrastructure/AdSpend/GoogleAds/GoogleAdsClient.php` — Implement `getCampaigns()` method
+- `app/Providers/AdSpendServiceProvider.php` — Bind `MixpanelLookupTableClientInterface`
+- `config/mixpanel.php` — Add `campaign_lookup_table_id` key
+- `routes/console.php` — Add schedule for lookup table sync (7:55 AM UTC)
+
+#### Implementation Steps
+
+- [ ] **Step 1: Domain Layer** (~1h)
+  - Create `Campaign` value object with `campaignId`, `campaignName`, `status` (similar to existing `CampaignMetrics`)
+  - Create `MixpanelLookupTableClientInterface` with `replaceLookupTable()` method
+  - **Modify** existing `GoogleAdsClientInterface` — add `getCampaigns(): array<Campaign>` method
+  - Write unit tests for Campaign VO (follow existing `CampaignMetricsTest` patterns)
+
+- [ ] **Step 2: Infrastructure Layer** (~2h)
+  - Create `CampaignRowMapper` (follow existing `GoogleAdsRowMapper` validation pattern)
+  - **Modify** existing `GoogleAdsClient` — implement `getCampaigns()` using existing `$client` and `$customerId`
+  - Create `MixpanelLookupTableClient` with CSV formatting (different from existing JSON-based `MixpanelClient`)
+  - Write unit tests with Http::fake() (follow existing `GoogleAdsClientTest` and `MixpanelClientTest` patterns)
+
+- [ ] **Step 3: Application Layer** (~1h)
+  - Create `SyncCampaignLookupTableUseCase` (simpler than `SyncAdSpendUseCase` - no transformation needed)
+  - Create `SyncCampaignLookupTableJob` (copy structure from existing `SyncGoogleAdsToMixpanelJob`)
+  - Create `SyncCampaignLookupCommand` artisan command (copy structure from existing `SyncAdSpendCommand`)
+  - Write feature tests for use case
+
+- [ ] **Step 4: Integration & Scheduling** (~1h)
+  - **Modify** existing `AdSpendServiceProvider` — add binding for `MixpanelLookupTableClientInterface`
+  - **Modify** existing `config/mixpanel.php` — add `campaign_lookup_table_id` key
+  - **Modify** existing `routes/console.php` — add schedule for 7:55 AM UTC
+  - Run `make check` to verify all quality gates pass
+
+#### Prerequisites (Manual Steps)
+
+1. **Create lookup table in Mixpanel UI**:
+   - Go to Data Management → Lookup Tables → Create
+   - Name: `google_ads_campaigns`
+   - Upload initial CSV, set `utm_campaign` as join key
+   - Copy `lookup_table_id` from URL
+
+2. **Add environment variable**:
+   ```bash
+   MIXPANEL_CAMPAIGN_LOOKUP_TABLE_ID=your-table-id-here
+   ```
+
+#### Acceptance Criteria
+
+- [ ] Fetches all campaigns WHERE status != REMOVED
+- [ ] Sends valid CSV with `utm_campaign` as first column (join key)
+- [ ] Job runs daily at 7:55 AM UTC (before ad spend sync at 8:00 AM)
+- [ ] All quality gates pass (Pint, PHPStan max, PHP Insights, PHPArkitect)
+- [ ] Mutation testing achieves ≥80% MSI on new code
+- [ ] Lookup table visible in Mixpanel with `utm_campaign.campaign_name` resolvable
 
 ---
 
@@ -1336,6 +1484,9 @@ declare(strict_types=1);
 return [
     'project_token' => env('MIXPANEL_PROJECT_TOKEN'),
     'base_url' => env('MIXPANEL_BASE_URL', 'https://api.mixpanel.com'),
+
+    // Phase 3.5: Lookup table for Google Ads campaign ID→Name resolution
+    'campaign_lookup_table_id' => env('MIXPANEL_CAMPAIGN_LOOKUP_TABLE_ID'),
 ];
 ```
 
@@ -1347,9 +1498,19 @@ return [
 
 declare(strict_types=1);
 
+use App\Application\AdSpend\Jobs\SyncCampaignLookupTableJob;
 use App\Application\AdSpend\Jobs\SyncGoogleAdsToMixpanelJob;
 use Illuminate\Support\Facades\Schedule;
 
+// Phase 3.5: Sync campaign lookup table BEFORE ad spend (so lookups are ready)
+Schedule::job(new SyncCampaignLookupTableJob())
+    ->dailyAt('07:55')
+    ->timezone('UTC')
+    ->onOneServer()
+    ->withoutOverlapping(10)
+    ->emailOutputOnFailure('[email protected]');
+
+// Phase 3+: Sync ad spend data (after lookup table is updated)
 Schedule::job(new SyncGoogleAdsToMixpanelJob())
     ->dailyAt('08:00')
     ->timezone('UTC')
@@ -1433,6 +1594,7 @@ GOOGLE_ADS_LOGIN_CUSTOMER_ID=
 # Mixpanel
 MIXPANEL_PROJECT_TOKEN=
 MIXPANEL_BASE_URL=https://api.mixpanel.com
+MIXPANEL_CAMPAIGN_LOOKUP_TABLE_ID=   # Phase 3.5: Get from Mixpanel UI after creating lookup table
 ```
 
 ### Railway Environment Setup
