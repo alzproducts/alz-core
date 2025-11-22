@@ -31,7 +31,6 @@ final class ApiRetryStrategy
      * - Invalid requests (401, 403, 404, etc.)
      * - Authentication failures (401)
      *
-     * @return Closure
      */
     public static function defaultRetry(): Closure
     {
@@ -44,7 +43,7 @@ final class ApiRetryStrategy
             // Retry on server errors (5xx) and rate limiting (429)
             if ($exception instanceof RequestException) {
                 return $exception->response->serverError()
-                       || $exception->response->status() === 429;
+                       || ($exception->response->status() === 429);
             }
 
             return false;
