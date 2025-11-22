@@ -151,7 +151,7 @@ return static function (Config $config): void {
     //
     $rules[] = Rule::allClasses()
         ->that(new ResideInOneOfTheseNamespaces($presentation))
-        ->should(new NotHaveDependencyOutsideNamespace($presentation, [$application, $domain, 'Illuminate', 'DateTime', 'DateTimeImmutable', 'DateTimeZone', 'DateTimeInterface', 'DateInterval', 'DatePeriod']))
+        ->should(new NotHaveDependencyOutsideNamespace($presentation, [$application, $domain, 'Illuminate', 'DateTime', 'DateTimeImmutable', 'DateTimeZone', 'DateTimeInterface', 'DateInterval', 'DatePeriod', 'Throwable']))
         ->because('the Presentation layer uses Application services and may handle Domain objects they return.');
 
     // NOTE: Additional architectural constraints (like "Controllers must not depend on
