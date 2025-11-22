@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Api;
 
-use App\Domain\Review\Rating;
 use App\Infrastructure\Exceptions\ReviewsIoApiException;
+use App\Infrastructure\Responses\Rating;
 use App\Infrastructure\Support\ApiRetryStrategy;
 use App\Infrastructure\Validation\ValidSku;
 use Illuminate\Http\Client\ConnectionException;
