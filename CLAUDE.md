@@ -143,6 +143,11 @@ This project follows **Clean Architecture** (Robert C. Martin) — dependencies 
 - Prefer readonly properties for immutable data
 - Use enums over class constants for fixed sets
 
+### Import & Use Statements
+- **All classes must be imported** with `use` statements at the top of the file
+- Never use fully qualified names in docblocks: use `@throws CustomException` not `@throws \App\Domain\Exceptions\CustomException`
+- Same applies to all docblock type hints: `@param CustomException $e`, `@return CustomException`
+
 ### Assertion & Validation Quick Reference
 
 #### Runtime Assertions (Development Only)

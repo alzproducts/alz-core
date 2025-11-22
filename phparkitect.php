@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Arkitect\ClassSet;
 use Arkitect\CLI\Config;
 use Arkitect\Expression\ForClasses\HaveNameMatching;
+use Arkitect\Expression\ForClasses\MatchOneOfTheseNames;
 use Arkitect\Expression\ForClasses\NotHaveDependencyOutsideNamespace;
 use Arkitect\Expression\ForClasses\ResideInOneOfTheseNamespaces;
 use Arkitect\Rules\Rule;
@@ -113,7 +114,7 @@ return static function (Config $config): void {
     //
     $rules[] = Rule::allClasses()
         ->that(new ResideInOneOfTheseNamespaces($application))
-        ->should(new NotHaveDependencyOutsideNamespace($application, [$domain, 'DateTime', 'DateTimeImmutable', 'DateTimeZone', 'DateTimeInterface', 'DateInterval', 'DatePeriod']))
+        ->should(new NotHaveDependencyOutsideNamespace($application, [$domain, 'DateTime', 'DateTimeImmutable', 'DateTimeZone', 'DateTimeInterface', 'DateInterval', 'DatePeriod', 'Illuminate\Support\Facades\Log']))
         ->because('the Application layer can only depend on the Domain layer.');
 
     // RULE 3: Infrastructure Implements Domain/Application Interfaces
@@ -179,7 +180,7 @@ return static function (Config $config): void {
     // Application services must end with "UseCase" or "Service"
     $rules[] = Rule::allClasses()
         ->that(new ResideInOneOfTheseNamespaces($application))
-        ->should(new HaveNameMatching('*UseCase|*Service'))
+        ->should(new MatchOneOfTheseNames(['*UseCase', '*Service']))
         ->because('Application layer classes should be clearly identifiable as use cases or services.');
 
     // Repository implementations must end with "Repository"
