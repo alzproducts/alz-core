@@ -136,6 +136,8 @@ This project follows **Clean Architecture** (Robert C. Martin) — dependencies 
   - Good for internal class properties with validation/transformation logic
 - **Asymmetric Visibility**: Use `public private(set)` for read-only properties
 - **Array Functions**: Use `array_find()`, `array_find_key()`, `array_any()`, `array_all()`
+- **Static Functions**: Use static methods and closures wherever applicable (stateless transformations, utilities, factories)
+- **Readonly Classes**: Mark classes as `readonly` when all properties are immutable (DTOs, value objects, transformers)
 
 ### Type Safety
 - Always use strict types: `declare(strict_types=1);`
