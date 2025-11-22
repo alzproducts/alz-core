@@ -67,6 +67,11 @@ parameters:
         - identifier: shipmonk.unusedParameter
         # Laravel config files use nullable string concatenation
         - identifier: shipmonk.binaryOperationWithNull
+        # Laravel ShouldQueue contract requires public mutable properties (tries, backoff, etc.)
+        # These are intentionally public and mutable per Laravel's queue job specification
+        -
+            identifier: shipmonk.publicPropertyNotReadonly
+            path: app/Presentation/Jobs/*
         # PHP Insights config references PHP_CodeSniffer classes as config keys (not loaded via Composer autoload)
         -
             message: '#^Class PHP_CodeSniffer\\.*#'
