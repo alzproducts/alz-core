@@ -93,3 +93,35 @@ When Infection reports "escaped mutants":
 - Hooks call composer scripts (centralized config)
 - Disable in `config/git-hooks.php` if too slow
 - See file comments for dual-engine strategy explanation
+
+---
+
+## Mocking External SDKs with Strict Return Types
+
+**Key lesson**: Third-party SDKs (Google Ads, Firebase, etc.) enforce strict return type checking on mocks. This isn't a limitation—it's a feature preventing production bugs.
+
+**The problem**:
+```php
+// ❌ FAILS - Wrong return type
+$response = $this->getMockBuilder(SearchGoogleAdsResponse::class)->getMock();
+// Error: Method search() declares return type PagedListResponse, not SearchGoogleAdsResponse
+```
+
+**The solution**:
+```php
+// ✅ CORRECT - Mock the actual declared return type
+$response = $this->getMockBuilder(PagedListResponse::class)
+    ->disableOriginalConstructor()
+    ->onlyMethods(['iterateAllElements'])  // ← Real methods use onlyMethods()
+    ->getMock();
+```
+
+**Rules**:
+- **Match declared return types exactly** from the SDK's method signatures
+- **Use `onlyMethods()`** for methods that exist on the real class (not `addMethods()`)
+- **Use Reflection** for accessing protected properties on SDK exceptions:
+  ```php
+  $prop = new ReflectionProperty($exception, 'metadata');
+  $prop->setAccessible(true);
+  $prop->setValue($exception, ['retry-after' => '180']);
+  ```
