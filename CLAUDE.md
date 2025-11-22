@@ -155,6 +155,19 @@ make check        # Full validation: lint-full + tests
 make test-ai      # Validate AI-generated tests (test + infection)
 ```
 
+### Pint Style Fixes (Automated Approach)
+
+**ALWAYS try auto-fixing with Pint before manually editing for style issues:**
+
+```bash
+./vendor/bin/sail php vendor/bin/pint <file-path>  # Auto-fix single file
+make fix                                             # Auto-fix all files
+```
+
+Pint can auto-fix ~95% of style issues (trailing newlines, spacing, imports ordering, etc.). Only manually edit code if:
+1. Pint cannot auto-fix the specific issue
+2. The issue requires semantic changes (not just formatting)
+
 ### Git Hooks (Automated)
 - **Pre-commit**: Pint + PHPStan + PHPArkitect (runs automatically on `git commit`)
 - **Pre-push**: Pest tests + PHP Insights + PHPArkitect (runs automatically on `git push`)
