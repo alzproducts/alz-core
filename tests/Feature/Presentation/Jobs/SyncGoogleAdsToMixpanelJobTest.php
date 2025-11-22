@@ -214,6 +214,45 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
         self::assertSame(960, $calculatedDelay);
     }
 
+    #[Test]
+    #[DataProvider('releaseDelayProvider')]
+    public function it_releases_job_with_correct_backoff_delay_for_each_attempt(int $attempt, int $expectedDelay): void
+    {
+        $rateLimitException = new ApiRateLimitException('Rate limited', 60);
+
+        $this->googleAdsMock
+            ->shouldReceive('getDailyCampaignMetrics')
+            ->andThrow($rateLimitException);
+
+        $job = new SyncGoogleAdsToMixpanelJob(self::TEST_DATE);
+
+        // Mock the queue job to verify release is called with exact delay
+        $queueJob = Mockery::mock(QueueJobContract::class);
+        $queueJob->shouldReceive('attempts')->andReturn($attempt);
+        $queueJob->shouldReceive('release')->once()->with($expectedDelay)->andReturnNull();
+        $queueJob->shouldReceive('isReleased')->andReturn(false);
+        $queueJob->shouldReceive('isDeletedOrReleased')->andReturn(false);
+        $job->setJob($queueJob);
+
+        // Should not throw - catches ApiRateLimitException
+        $job->handle($this->useCase);
+    }
+
+    /**
+     * @return array<string, array{int, int}>
+     */
+    public static function releaseDelayProvider(): array
+    {
+        return [
+            'attempt 1 releases with 60 seconds' => [1, 60],
+            'attempt 2 releases with 120 seconds' => [2, 120],
+            'attempt 3 releases with 240 seconds' => [3, 240],
+            'attempt 4 releases with 480 seconds' => [4, 480],
+            'attempt 5 releases with 960 seconds' => [5, 960],
+            'attempt 6 releases with 960 fallback' => [6, 960],
+        ];
+    }
+
     // ========================================================================
     // Exception Propagation Tests
     // ========================================================================
