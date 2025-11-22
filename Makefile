@@ -199,7 +199,7 @@ test-coverage: ## Run tests with 80% coverage requirement
 
 pest-mutate: ## Run Pest mutation testing
 	@echo "$(MODE)"
-	$(EXEC) -d xdebug.mode=off vendor/bin/pest --mutate --everything --covered-only --min=75
+	$(EXEC) -d xdebug.mode=off vendor/bin/pest --mutate --everything --covered-only --min=85
 
 infection: ## Run Infection mutation testing
 	@echo "$(MODE)"
@@ -207,20 +207,20 @@ infection: ## Run Infection mutation testing
 
 infection-strict: ## Run Infection with strict thresholds
 	@echo "$(MODE)"
-	$(EXEC) -d xdebug.mode=off vendor/bin/infection --no-progress --show-mutations --min-msi=70 --min-covered-msi=80
+	$(EXEC) -d xdebug.mode=off vendor/bin/infection --no-progress --show-mutations --min-msi=80 --min-covered-msi=85
 
 infection-fast: ## Run Infection with cached coverage (fastest)
 	@echo "$(MODE)"
 	$(EXEC) -d xdebug.mode=coverage vendor/bin/pest --log-junit=build/logs/junit.xml --coverage-xml=build/logs/coverage-xml --coverage-clover=build/logs/clover.xml
-	$(EXEC) -d xdebug.mode=off vendor/bin/infection --coverage=build/logs --skip-initial-tests --no-progress --show-mutations --min-msi=70 --min-covered-msi=80
+	$(EXEC) -d xdebug.mode=off vendor/bin/infection --coverage=build/logs --skip-initial-tests --no-progress --show-mutations --min-msi=80 --min-covered-msi=85
 
 infection-incremental: ## Run Infection on changed lines only
 	@echo "$(MODE)"
-	$(EXEC) -d xdebug.mode=off vendor/bin/infection --git-diff-lines --git-diff-base=main --no-progress --show-mutations --min-msi=70 --min-covered-msi=80
+	$(EXEC) -d xdebug.mode=off vendor/bin/infection --git-diff-lines --git-diff-base=main --no-progress --show-mutations --min-msi=80 --min-covered-msi=85
 
 infection-ci: ## Run Infection for CI with GitHub logger
 	@echo "$(MODE)"
-	$(EXEC) -d xdebug.mode=off vendor/bin/infection --no-progress --logger-github --min-msi=70 --min-covered-msi=80
+	$(EXEC) -d xdebug.mode=off vendor/bin/infection --no-progress --logger-github --min-msi=80 --min-covered-msi=85
 
 test-ai: ## Validate AI-generated tests with mutation testing
 	@echo "$(MODE)"
