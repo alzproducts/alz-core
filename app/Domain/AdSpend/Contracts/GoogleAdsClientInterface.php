@@ -6,6 +6,7 @@ namespace App\Domain\AdSpend\Contracts;
 
 use App\Domain\AdSpend\Exceptions\ApiRateLimitException;
 use App\Domain\AdSpend\Exceptions\GoogleAdsApiException;
+use App\Domain\AdSpend\ValueObjects\Campaign;
 use App\Domain\AdSpend\ValueObjects\CampaignMetrics;
 
 interface GoogleAdsClientInterface
@@ -19,4 +20,14 @@ interface GoogleAdsClientInterface
      * @throws ApiRateLimitException
      */
     public function getDailyCampaignMetrics(string $date): array;
+
+    /**
+     * Fetch all active campaigns.
+     *
+     * @return array<int, Campaign>
+     *
+     * @throws GoogleAdsApiException
+     * @throws ApiRateLimitException
+     */
+    public function getCampaigns(): array;
 }
