@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Domain\AdSpend\ValueObjects;
 
-use App\Infrastructure\AdSpend\Mixpanel\MixpanelAdSpendEventDTO;
+use App\Infrastructure\Mixpanel\MixpanelAdSpendEventDTO;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -12,7 +12,7 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 #[CoversClass(MixpanelAdSpendEventDTO::class)]
-final class AdSpendEventTest extends TestCase
+final class MixpanelAdSpendEventDTOTest extends TestCase
 {
     /**
      * @param array<string, mixed> $overrides

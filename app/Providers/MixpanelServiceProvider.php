@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Application\Contracts\MixpanelClientInterface;
-use App\Infrastructure\AdSpend\Mixpanel\MixpanelClientFactory;
+use App\Infrastructure\Mixpanel\MixpanelClientFactory;
 use Illuminate\Contracts\Support\DeferrableProvider;
 use Illuminate\Support\ServiceProvider;
 use Override;

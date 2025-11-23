@@ -7,7 +7,7 @@ namespace Tests\Feature\Infrastructure\AdSpend\Mixpanel;
 use App\Domain\AdSpend\Exceptions\ApiRateLimitException;
 use App\Domain\AdSpend\Exceptions\MixpanelApiException;
 use App\Domain\AdSpend\ValueObjects\CampaignMetrics;
-use App\Infrastructure\AdSpend\Mixpanel\MixpanelClient;
+use App\Infrastructure\Mixpanel\MixpanelClient;
 use Illuminate\Http\Client\Request;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
