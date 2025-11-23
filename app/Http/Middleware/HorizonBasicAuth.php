@@ -13,8 +13,9 @@ final class HorizonBasicAuth
 {
     public function handle(Request $request, Closure $next): Response
     {
-        // Skip auth in local development, but always validate in testing
-        if (! (\app()->environment('local') && ! \app()->environment('testing'))) {
+        // Skip auth in local environment only if credentials aren't configured
+        // This allows local dev without credentials while enforcing auth in tests/production
+        if (! (\app()->environment('local') && $this->credentialsNotConfigured())) {
             $this->validateCredentials($request);
         }
 
@@ -25,6 +26,15 @@ final class HorizonBasicAuth
         }
 
         return $response;
+    }
+
+    private function credentialsNotConfigured(): bool
+    {
+        $username = \config('horizon.auth.username');
+        $password = \config('horizon.auth.password');
+
+        return (! \is_string($username) || $username === '')
+            && (! \is_string($password) || $password === '');
     }
 
     private function validateCredentials(Request $request): void
