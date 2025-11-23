@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Infrastructure\AdSpend\Mixpanel;
+namespace App\Infrastructure\Mixpanel;
 
 use App\Application\Contracts\MixpanelClientInterface;
 use RuntimeException;
