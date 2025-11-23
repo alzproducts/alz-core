@@ -11,6 +11,7 @@ use App\Domain\AdSpend\Exceptions\GoogleAdsApiException;
 use App\Domain\AdSpend\Exceptions\MixpanelApiException;
 use App\Domain\AdSpend\Transformers\AdSpendTransformer;
 use Illuminate\Support\Facades\Log;
+use InvalidArgumentException;
 
 /**
  * Orchestrate ad spend synchronization from Google Ads to Mixpanel.
@@ -33,9 +34,15 @@ final readonly class SyncAdSpendUseCase
      * @throws GoogleAdsApiException
      * @throws ApiRateLimitException
      * @throws MixpanelApiException
+     * @throws InvalidArgumentException When date format is invalid
      */
     public function execute(string $date): void
     {
+        // Validate date format before API calls
+        if (\preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) !== 1) {
+            throw new InvalidArgumentException('Date must be in YYYY-MM-DD format.');
+        }
+
         Log::info('Starting ad spend sync', ['date' => $date]);
 
         // Step 1: Fetch campaign metrics from Google Ads
