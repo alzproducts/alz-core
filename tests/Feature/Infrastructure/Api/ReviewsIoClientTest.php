@@ -402,7 +402,7 @@ final class ReviewsIoClientTest extends TestCase
         ])]);
 
         $this->expectException(ReviewsIoApiException::class);
-        $this->expectExceptionMessage('missing expected keys');
+        $this->expectExceptionMessage('invalid data structure');
 
         $this->client->getProductRatingBatch('TEST-SKU');
     }
