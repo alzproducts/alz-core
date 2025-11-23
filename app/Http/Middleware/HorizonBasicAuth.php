@@ -13,8 +13,8 @@ final class HorizonBasicAuth
 {
     public function handle(Request $request, Closure $next): Response
     {
-        // Skip auth in local development
-        if (! \app()->environment('local')) {
+        // Skip auth in local development, but always validate in testing
+        if (! (\app()->environment('local') && ! \app()->environment('testing'))) {
             $this->validateCredentials($request);
         }
 
