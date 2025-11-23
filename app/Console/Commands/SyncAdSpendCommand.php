@@ -18,11 +18,9 @@ final class SyncAdSpendCommand extends Command
         $date = $this->option('date');
 
         // Validate date format if provided
-        if ($date !== null) {
-            if (1 !== \preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
-                $this->error('Date must be in YYYY-MM-DD format');
-                return self::FAILURE;
-            }
+        if (($date !== null) && (\preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) !== 1)) {
+            $this->error('Date must be in YYYY-MM-DD format');
+            return self::FAILURE;
         }
 
         $syncDate = $date ?? \now()->subDay()->format('Y-m-d');
