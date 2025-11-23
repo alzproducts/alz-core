@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Application\AdSpend\UseCases;
 
-use App\Domain\AdSpend\Contracts\GoogleAdsClientInterface;
-use App\Domain\AdSpend\Contracts\MixpanelClientInterface;
+use App\Application\Contracts\GoogleAdsClientInterface;
+use App\Application\Contracts\MixpanelClientInterface;
 use App\Domain\AdSpend\Exceptions\GoogleAdsApiException;
 use App\Domain\AdSpend\Exceptions\MixpanelApiException;
 use Illuminate\Support\Facades\Log;

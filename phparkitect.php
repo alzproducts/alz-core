@@ -133,7 +133,7 @@ return static function (Config $config): void {
     //
     $rules[] = Rule::allClasses()
         ->that(new ResideInOneOfTheseNamespaces($infrastructure))
-        ->should(new NotHaveDependencyOutsideNamespace($infrastructure, [$application, $domain, 'Illuminate', 'Illuminate\Support\Collection', 'DateTime', 'DateTimeImmutable', 'DateTimeZone', 'DateTimeInterface', 'DateInterval', 'DatePeriod', 'RuntimeException', 'InvalidArgumentException', 'LogicException', 'Throwable', 'JsonException', 'Spatie\LaravelData', 'Closure', 'Google*']))
+        ->should(new NotHaveDependencyOutsideNamespace($infrastructure, [$application, $domain, 'Illuminate', 'Illuminate\Support\Collection', 'DateTime', 'DateTimeImmutable', 'DateTimeZone', 'DateTimeInterface', 'DateInterval', 'DatePeriod', 'Webmozart\Assert\Assert', 'RuntimeException', 'InvalidArgumentException', 'LogicException', 'Throwable', 'JsonException', 'Spatie\LaravelData', 'Closure', 'Google*']))
         ->because('the Infrastructure layer implements interfaces from Application and Domain layers.');
 
     // RULE 4: Presentation Uses Application Services
@@ -178,11 +178,11 @@ return static function (Config $config): void {
         ->should(new HaveNameMatching('*Controller'))
         ->because('Controllers should have a "Controller" suffix for clarity.');
 
-    // Application services must end with "UseCase" or "Service"
+    // Application services must end with "UseCase", "Service", "Transformer", "Formatter", or "Interface"
     $rules[] = Rule::allClasses()
         ->that(new ResideInOneOfTheseNamespaces($application))
-        ->should(new MatchOneOfTheseNames(['*UseCase', '*Service']))
-        ->because('Application layer classes should be clearly identifiable as use cases or services.');
+        ->should(new MatchOneOfTheseNames(['*UseCase', '*Service', '*Transformer', '*Formatter', '*Interface']))
+        ->because('Application layer classes should be clearly identifiable as use cases, services, transformers, formatters, or interfaces.');
 
     // Repository implementations must end with "Repository"
     $rules[] = Rule::allClasses()

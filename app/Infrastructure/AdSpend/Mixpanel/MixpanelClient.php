@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\AdSpend\Mixpanel;
 
-use App\Domain\AdSpend\Contracts\MixpanelClientInterface;
+use App\Application\Contracts\MixpanelClientInterface;
 use App\Domain\AdSpend\Exceptions\ApiRateLimitException;
 use App\Domain\AdSpend\Exceptions\MixpanelApiException;
-use App\Domain\AdSpend\ValueObjects\AdSpendEvent;
 use App\Domain\AdSpend\ValueObjects\Campaign;
+use App\Domain\AdSpend\ValueObjects\CampaignMetrics;
 use App\Infrastructure\Support\ApiRetryStrategy;
 use App\Infrastructure\Support\CsvFormatter;
 use Illuminate\Http\Client\ConnectionException;
@@ -44,24 +44,33 @@ final readonly class MixpanelClient implements MixpanelClientInterface
     ) {}
 
     /**
-     * Import batch of ad spend events to Mixpanel.
+     * Import campaign metrics to Mixpanel analytics.
      *
-     * @param array<int, AdSpendEvent> $events
+     * Accepts Domain layer campaign metrics and internally transforms
+     * them to Infrastructure DTO for Mixpanel API formatting.
+     *
+     * @param array<int, CampaignMetrics> $campaigns Domain campaign metrics
      *
      * @throws MixpanelApiException
      * @throws ApiRateLimitException|ConnectionException
      */
-    public function importBatch(array $events): void
+    public function importCampaigns(array $campaigns): void
     {
-        if (\count($events) === 0) {
+        if (\count($campaigns) === 0) {
             return;
         }
 
+        // Transform Domain objects to Infrastructure DTOs
+        $events = \array_map(
+            static fn(CampaignMetrics $campaign): MixpanelAdSpendEventDTO => MixpanelAdSpendEventDTO::fromCampaignMetrics($campaign),
+            $campaigns,
+        );
+
         // Convert events to Mixpanel format
-        $payload = [];
-        foreach ($events as $event) {
-            $payload[] = $event->toMixpanelFormat();
-        }
+        $payload = \array_map(
+            static fn(MixpanelAdSpendEventDTO $event) => $event->toMixpanelFormat(),
+            $events,
+        );
 
         try {
             Http::asJson()

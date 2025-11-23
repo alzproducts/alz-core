@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\AdSpend\GoogleAds;
 
-use App\Domain\AdSpend\Contracts\GoogleAdsClientInterface;
+use App\Application\Contracts\GoogleAdsClientInterface;
 use Google\Ads\GoogleAds\Lib\OAuth2TokenBuilder;
 use Google\Ads\GoogleAds\Lib\V22\GoogleAdsClientBuilder;
 use RuntimeException;

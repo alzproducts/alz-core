@@ -6,7 +6,7 @@ namespace Tests\Feature\Infrastructure\AdSpend\Mixpanel;
 
 use App\Domain\AdSpend\Exceptions\ApiRateLimitException;
 use App\Domain\AdSpend\Exceptions\MixpanelApiException;
-use App\Domain\AdSpend\ValueObjects\AdSpendEvent;
+use App\Domain\AdSpend\ValueObjects\CampaignMetrics;
 use App\Infrastructure\AdSpend\Mixpanel\MixpanelClient;
 use Illuminate\Http\Client\Request;
 use Illuminate\Http\Client\RequestException;
@@ -49,7 +49,7 @@ final class MixpanelClientTest extends TestCase
 
         $event = $this->createEvent();
 
-        $this->client->importBatch([$event]);
+        $this->client->importCampaigns([$event]);
 
         Http::assertSent(static function (Request $request): bool {
             self::assertSame('POST', $request->method());
@@ -65,12 +65,12 @@ final class MixpanelClientTest extends TestCase
         Http::fake(['*' => Http::response([], 200)]);
 
         $events = [
-            $this->createEvent(insertId: 'event-1'),
-            $this->createEvent(insertId: 'event-2'),
-            $this->createEvent(insertId: 'event-3'),
+            $this->createEvent(campaignId: 111),
+            $this->createEvent(campaignId: 222),
+            $this->createEvent(campaignId: 333),
         ];
 
-        $this->client->importBatch($events);
+        $this->client->importCampaigns($events);
 
         Http::assertSent(static function (Request $request): bool {
             self::assertSame('POST', $request->method());
@@ -86,7 +86,7 @@ final class MixpanelClientTest extends TestCase
     {
         Http::fake(['*' => Http::response([], 200)]);
 
-        $this->client->importBatch([]);
+        $this->client->importCampaigns([]);
 
         Http::assertNothingSent();
     }
@@ -97,7 +97,7 @@ final class MixpanelClientTest extends TestCase
         Http::fake(['*' => Http::response([], 200)]);
 
         $event = $this->createEvent();
-        $this->client->importBatch([$event]);
+        $this->client->importCampaigns([$event]);
 
         Http::assertSent(static function (Request $request): bool {
             $expectedUrl = self::BASE_URL . '/import?project_id=' . self::PROJECT_ID;
@@ -113,7 +113,7 @@ final class MixpanelClientTest extends TestCase
         Http::fake(['*' => Http::response([], 200)]);
 
         $event = $this->createEvent();
-        $this->client->importBatch([$event]);
+        $this->client->importCampaigns([$event]);
 
         Http::assertSent(static function (Request $request): bool {
             self::assertSame('POST', $request->method());
@@ -128,7 +128,7 @@ final class MixpanelClientTest extends TestCase
         Http::fake(['*' => Http::response([], 200)]);
 
         $event = $this->createEvent();
-        $this->client->importBatch([$event]);
+        $this->client->importCampaigns([$event]);
 
         Http::assertSent(static function (Request $request): bool {
             $contentTypeHeader = $request->header('Content-Type');
@@ -145,7 +145,7 @@ final class MixpanelClientTest extends TestCase
         Http::fake(['*' => Http::response([], 200)]);
 
         $event = $this->createEvent();
-        $this->client->importBatch([$event]);
+        $this->client->importCampaigns([$event]);
 
         Http::assertSent(static function (Request $request): bool {
             $authHeader = $request->header('Authorization');
@@ -162,7 +162,7 @@ final class MixpanelClientTest extends TestCase
         Http::fake(['*' => Http::response([], 200)]);
 
         $event = $this->createEvent();
-        $this->client->importBatch([$event]);
+        $this->client->importCampaigns([$event]);
 
         Http::assertSent(static function (Request $request): bool {
             $payload = $request->data();
@@ -179,30 +179,25 @@ final class MixpanelClientTest extends TestCase
         Http::fake(['*' => Http::response([], 200)]);
 
         $event = $this->createEvent(
-            insertId: 'test-insert-id',
-            timestamp: 1700000000,
-            source: 'google_ads',
             campaignId: 999,
             campaignName: 'Test Campaign Name',
+            date: '2024-11-18',
             cost: 99.99,
             clicks: 50,
             impressions: 2500,
             conversions: 2.5,
-            utmSource: 'google',
-            utmMedium: 'cpc',
-            utmCampaign: 'summer',
         );
 
-        $this->client->importBatch([$event]);
+        $this->client->importCampaigns([$event]);
 
         Http::assertSent(static function (Request $request): bool {
             $payload = $request->data();
             $eventData = $payload[0];
 
             self::assertSame('Ad Data', $eventData['event']);
-            self::assertSame(1700000000, $eventData['properties']['time']);
-            self::assertSame('test-insert-id', $eventData['properties']['$insert_id']);
-            self::assertSame('google_ads', $eventData['properties']['source']);
+            self::assertSame(\strtotime('2024-11-18'), $eventData['properties']['time']);
+            self::assertSame('G-2024-11-18-999', $eventData['properties']['$insert_id']);
+            self::assertSame('Google', $eventData['properties']['source']);
             self::assertSame(999, $eventData['properties']['campaign_id']);
             self::assertSame('Test Campaign Name', $eventData['properties']['campaign_name']);
             self::assertSame(99.99, $eventData['properties']['cost']);
@@ -211,7 +206,7 @@ final class MixpanelClientTest extends TestCase
             self::assertSame(2.5, $eventData['properties']['conversions']);
             self::assertSame('google', $eventData['properties']['utm_source']);
             self::assertSame('cpc', $eventData['properties']['utm_medium']);
-            self::assertSame('summer', $eventData['properties']['utm_campaign']);
+            self::assertSame('Test Campaign Name', $eventData['properties']['utm_campaign']);
 
             return true;
         });
@@ -227,7 +222,7 @@ final class MixpanelClientTest extends TestCase
         $this->expectException(ApiRateLimitException::class);
         $this->expectExceptionMessage('Mixpanel API rate limit exceeded after retries');
 
-        $this->client->importBatch([$event]);
+        $this->client->importCampaigns([$event]);
     }
 
     #[Test]
@@ -240,7 +235,7 @@ final class MixpanelClientTest extends TestCase
         $event = $this->createEvent();
 
         try {
-            $this->client->importBatch([$event]);
+            $this->client->importCampaigns([$event]);
         } catch (ApiRateLimitException $e) {
             self::assertSame(120, $e->getRetryAfter());
 
@@ -258,7 +253,7 @@ final class MixpanelClientTest extends TestCase
         $event = $this->createEvent();
 
         try {
-            $this->client->importBatch([$event]);
+            $this->client->importCampaigns([$event]);
         } catch (ApiRateLimitException $e) {
             self::assertSame(60, $e->getRetryAfter());
 
@@ -278,7 +273,7 @@ final class MixpanelClientTest extends TestCase
         $event = $this->createEvent();
 
         try {
-            $this->client->importBatch([$event]);
+            $this->client->importCampaigns([$event]);
         } catch (ApiRateLimitException $e) {
             self::assertSame(60, $e->getRetryAfter());
 
@@ -296,7 +291,7 @@ final class MixpanelClientTest extends TestCase
         $event = $this->createEvent();
 
         try {
-            $this->client->importBatch([$event]);
+            $this->client->importCampaigns([$event]);
         } catch (ApiRateLimitException $e) {
             self::assertNotNull($e->getPrevious());
             self::assertInstanceOf(RequestException::class, $e->getPrevious());
@@ -316,7 +311,7 @@ final class MixpanelClientTest extends TestCase
 
         $this->expectException(MixpanelApiException::class);
 
-        $this->client->importBatch([$event]);
+        $this->client->importCampaigns([$event]);
     }
 
     #[Test]
@@ -328,7 +323,7 @@ final class MixpanelClientTest extends TestCase
 
         $this->expectException(MixpanelApiException::class);
 
-        $this->client->importBatch([$event]);
+        $this->client->importCampaigns([$event]);
     }
 
     #[Test]
@@ -340,7 +335,7 @@ final class MixpanelClientTest extends TestCase
 
         $this->expectException(MixpanelApiException::class);
 
-        $this->client->importBatch([$event]);
+        $this->client->importCampaigns([$event]);
     }
 
     #[Test]
@@ -351,7 +346,7 @@ final class MixpanelClientTest extends TestCase
         $event = $this->createEvent();
 
         try {
-            $this->client->importBatch([$event]);
+            $this->client->importCampaigns([$event]);
         } catch (MixpanelApiException $e) {
             self::assertNotNull($e->getPrevious());
             self::assertInstanceOf(RequestException::class, $e->getPrevious());
@@ -363,32 +358,22 @@ final class MixpanelClientTest extends TestCase
     }
 
     private function createEvent(
-        string $insertId = 'event-1',
-        int $timestamp = 1700000000,
-        string $source = 'google_ads',
         int $campaignId = 123,
         string $campaignName = 'Test Campaign',
+        string $date = '2024-11-18',
         float $cost = 50.25,
         int $clicks = 100,
         int $impressions = 5000,
         float $conversions = 5.5,
-        string $utmSource = 'google',
-        string $utmMedium = 'cpc',
-        string $utmCampaign = 'summer-sale',
-    ): AdSpendEvent {
-        return new AdSpendEvent(
-            insertId: $insertId,
-            timestamp: $timestamp,
-            source: $source,
+    ): CampaignMetrics {
+        return new CampaignMetrics(
             campaignId: $campaignId,
             campaignName: $campaignName,
-            cost: $cost,
+            date: $date,
+            costInPounds: $cost,
             clicks: $clicks,
             impressions: $impressions,
             conversions: $conversions,
-            utmSource: $utmSource,
-            utmMedium: $utmMedium,
-            utmCampaign: $utmCampaign,
         );
     }
 }

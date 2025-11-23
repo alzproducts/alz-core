@@ -2,24 +2,27 @@
 
 declare(strict_types=1);
 
-namespace App\Domain\AdSpend\Contracts;
+namespace App\Application\Contracts;
 
 use App\Domain\AdSpend\Exceptions\ApiRateLimitException;
 use App\Domain\AdSpend\Exceptions\MixpanelApiException;
-use App\Domain\AdSpend\ValueObjects\AdSpendEvent;
 use App\Domain\AdSpend\ValueObjects\Campaign;
+use App\Domain\AdSpend\ValueObjects\CampaignMetrics;
 
 interface MixpanelClientInterface
 {
     /**
-     * Import batch of ad spend events to Mixpanel.
+     * Import campaign metrics to Mixpanel analytics.
      *
-     * @param array<int, AdSpendEvent> $events
+     * Accepts Domain layer campaign metrics. Infrastructure implementation
+     * handles internal transformation to Mixpanel event format.
+     *
+     * @param array<int, CampaignMetrics> $campaigns
      *
      * @throws MixpanelApiException
      * @throws ApiRateLimitException
      */
-    public function importBatch(array $events): void;
+    public function importCampaigns(array $campaigns): void;
 
     /**
      * Replace the campaign lookup table with latest campaign data.

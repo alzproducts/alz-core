@@ -5,13 +5,11 @@ declare(strict_types=1);
 namespace Tests\Feature\Application\AdSpend\UseCases;
 
 use App\Application\AdSpend\UseCases\SyncAdSpendUseCase;
-use App\Domain\AdSpend\Contracts\GoogleAdsClientInterface;
-use App\Domain\AdSpend\Contracts\MixpanelClientInterface;
+use App\Application\Contracts\GoogleAdsClientInterface;
+use App\Application\Contracts\MixpanelClientInterface;
 use App\Domain\AdSpend\Exceptions\ApiRateLimitException;
 use App\Domain\AdSpend\Exceptions\GoogleAdsApiException;
 use App\Domain\AdSpend\Exceptions\MixpanelApiException;
-use App\Domain\AdSpend\Transformers\AdSpendTransformer;
-use App\Domain\AdSpend\ValueObjects\AdSpendEvent;
 use App\Domain\AdSpend\ValueObjects\CampaignMetrics;
 use Illuminate\Support\Facades\Log;
 use Mockery;
@@ -69,20 +67,17 @@ final class SyncAdSpendUseCaseTest extends TestCase
             ->andReturn([$campaign]);
 
         $this->mixpanelClient
-            ->shouldReceive('importBatch')
+            ->shouldReceive('importCampaigns')
             ->once()
-            ->withArgs(static function (array $events): bool {
-                self::assertCount(1, $events);
-                self::assertInstanceOf(AdSpendEvent::class, $events[0]);
-                self::assertSame(123456, $events[0]->campaignId);
-                self::assertSame('[01] Search - Branded', $events[0]->campaignName);
-                self::assertSame(125.43, $events[0]->cost);
-                self::assertSame(342, $events[0]->clicks);
-                self::assertSame(8234, $events[0]->impressions);
-                self::assertSame(12.5, $events[0]->conversions);
-                self::assertSame('Google', $events[0]->source);
-                self::assertSame('google', $events[0]->utmSource);
-                self::assertSame('cpc', $events[0]->utmMedium);
+            ->withArgs(static function (array $campaigns): bool {
+                self::assertCount(1, $campaigns);
+                self::assertInstanceOf(CampaignMetrics::class, $campaigns[0]);
+                self::assertSame(123456, $campaigns[0]->campaignId);
+                self::assertSame('[01] Search - Branded', $campaigns[0]->campaignName);
+                self::assertSame(125.43, $campaigns[0]->costInPounds);
+                self::assertSame(342, $campaigns[0]->clicks);
+                self::assertSame(8234, $campaigns[0]->impressions);
+                self::assertSame(12.5, $campaigns[0]->conversions);
 
                 return true;
             });
@@ -115,16 +110,16 @@ final class SyncAdSpendUseCaseTest extends TestCase
             ->andReturn($campaigns);
 
         $this->mixpanelClient
-            ->shouldReceive('importBatch')
+            ->shouldReceive('importCampaigns')
             ->once()
-            ->withArgs(static function (array $events): bool {
-                self::assertCount(3, $events);
-                self::assertSame(111, $events[0]->campaignId);
-                self::assertSame('Campaign One', $events[0]->campaignName);
-                self::assertSame(222, $events[1]->campaignId);
-                self::assertSame('Campaign Two', $events[1]->campaignName);
-                self::assertSame(333, $events[2]->campaignId);
-                self::assertSame('Campaign Three', $events[2]->campaignName);
+            ->withArgs(static function (array $campaigns): bool {
+                self::assertCount(3, $campaigns);
+                self::assertSame(111, $campaigns[0]->campaignId);
+                self::assertSame('Campaign One', $campaigns[0]->campaignName);
+                self::assertSame(222, $campaigns[1]->campaignId);
+                self::assertSame('Campaign Two', $campaigns[1]->campaignName);
+                self::assertSame(333, $campaigns[2]->campaignId);
+                self::assertSame('Campaign Three', $campaigns[2]->campaignName);
 
                 return true;
             });
@@ -328,7 +323,7 @@ final class SyncAdSpendUseCaseTest extends TestCase
             ->andReturn([$campaign]);
 
         $this->mixpanelClient
-            ->shouldReceive('importBatch')
+            ->shouldReceive('importCampaigns')
             ->once()
             ->andThrow($exception);
 
@@ -353,7 +348,7 @@ final class SyncAdSpendUseCaseTest extends TestCase
             ->andReturn([$campaign]);
 
         $this->mixpanelClient
-            ->shouldReceive('importBatch')
+            ->shouldReceive('importCampaigns')
             ->once()
             ->andThrow($exception);
 
@@ -380,7 +375,7 @@ final class SyncAdSpendUseCaseTest extends TestCase
             ->andReturn([$campaign]);
 
         $this->mixpanelClient
-            ->shouldReceive('importBatch')
+            ->shouldReceive('importCampaigns')
             ->andThrow($exception);
 
         try {
@@ -415,33 +410,26 @@ final class SyncAdSpendUseCaseTest extends TestCase
             conversions: 25.0,
         );
 
-        $expectedEvents = AdSpendTransformer::transformToEvents([$campaign]);
-
         $this->googleAdsClient
             ->shouldReceive('getDailyCampaignMetrics')
             ->andReturn([$campaign]);
 
         $this->mixpanelClient
-            ->shouldReceive('importBatch')
+            ->shouldReceive('importCampaigns')
             ->once()
-            ->withArgs(static function (array $events) use ($expectedEvents): bool {
+            ->withArgs(static function (array $events) use ($campaign): bool {
                 self::assertCount(1, $events);
 
-                $expected = $expectedEvents[0];
                 $actual = $events[0];
 
-                self::assertSame($expected->insertId, $actual->insertId);
-                self::assertSame($expected->timestamp, $actual->timestamp);
-                self::assertSame($expected->source, $actual->source);
-                self::assertSame($expected->campaignId, $actual->campaignId);
-                self::assertSame($expected->campaignName, $actual->campaignName);
-                self::assertSame($expected->cost, $actual->cost);
-                self::assertSame($expected->clicks, $actual->clicks);
-                self::assertSame($expected->impressions, $actual->impressions);
-                self::assertSame($expected->conversions, $actual->conversions);
-                self::assertSame($expected->utmSource, $actual->utmSource);
-                self::assertSame($expected->utmMedium, $actual->utmMedium);
-                self::assertSame($expected->utmCampaign, $actual->utmCampaign);
+                // Verify raw CampaignMetrics are passed unchanged to Infrastructure layer
+                self::assertSame($campaign->campaignId, $actual->campaignId);
+                self::assertSame($campaign->campaignName, $actual->campaignName);
+                self::assertSame($campaign->date, $actual->date);
+                self::assertSame($campaign->costInPounds, $actual->costInPounds);
+                self::assertSame($campaign->clicks, $actual->clicks);
+                self::assertSame($campaign->impressions, $actual->impressions);
+                self::assertSame($campaign->conversions, $actual->conversions);
 
                 return true;
             });
@@ -467,11 +455,11 @@ final class SyncAdSpendUseCaseTest extends TestCase
             ->andReturn([$campaign]);
 
         $this->mixpanelClient
-            ->shouldReceive('importBatch')
+            ->shouldReceive('importCampaigns')
             ->once()
-            ->withArgs(static function (array $events) use ($specialCampaignName): bool {
-                self::assertSame($specialCampaignName, $events[0]->campaignName);
-                self::assertSame($specialCampaignName, $events[0]->utmCampaign);
+            ->withArgs(static function (array $events) use ($campaign): bool {
+                // Verify raw CampaignMetrics are passed - transformation happens in Infrastructure
+                self::assertSame($campaign->campaignName, $events[0]->campaignName);
 
                 return true;
             });
@@ -492,10 +480,13 @@ final class SyncAdSpendUseCaseTest extends TestCase
             ->andReturn([$campaign]);
 
         $this->mixpanelClient
-            ->shouldReceive('importBatch')
+            ->shouldReceive('importCampaigns')
             ->once()
-            ->withArgs(static function (array $events): bool {
-                self::assertSame('G-2024-11-18-123456', $events[0]->insertId);
+            ->withArgs(static function (array $events) use ($campaign): bool {
+                // Verify raw CampaignMetrics are passed to Infrastructure layer
+                // Infrastructure layer handles transformation to include insertId
+                self::assertSame($campaign->campaignId, $events[0]->campaignId);
+                self::assertSame($campaign->date, $events[0]->date);
 
                 return true;
             });
@@ -509,7 +500,6 @@ final class SyncAdSpendUseCaseTest extends TestCase
         Log::spy();
 
         $date = '2024-11-18';
-        $expectedTimestamp = (int) \strtotime($date);
 
         $campaign = $this->createCampaignMetrics(campaignId: 123, date: $date);
 
@@ -518,11 +508,12 @@ final class SyncAdSpendUseCaseTest extends TestCase
             ->andReturn([$campaign]);
 
         $this->mixpanelClient
-            ->shouldReceive('importBatch')
+            ->shouldReceive('importCampaigns')
             ->once()
-            ->withArgs(static function (array $events) use ($expectedTimestamp): bool {
-                self::assertSame($expectedTimestamp, $events[0]->timestamp);
-                self::assertGreaterThan(0, $events[0]->timestamp);
+            ->withArgs(static function (array $events) use ($campaign): bool {
+                // Verify raw CampaignMetrics are passed
+                // Infrastructure layer transforms date to Unix timestamp
+                self::assertSame($campaign->date, $events[0]->date);
 
                 return true;
             });
@@ -548,10 +539,10 @@ final class SyncAdSpendUseCaseTest extends TestCase
             ->andReturn([$campaign]);
 
         $this->mixpanelClient
-            ->shouldReceive('importBatch')
+            ->shouldReceive('importCampaigns')
             ->once()
             ->withArgs(static function (array $events): bool {
-                self::assertSame(125.43, $events[0]->cost);
+                self::assertSame(125.43, $events[0]->costInPounds);
                 self::assertSame(12.567, $events[0]->conversions);
 
                 return true;
@@ -581,10 +572,10 @@ final class SyncAdSpendUseCaseTest extends TestCase
             ->andReturn([$campaign]);
 
         $this->mixpanelClient
-            ->shouldReceive('importBatch')
+            ->shouldReceive('importCampaigns')
             ->once()
             ->withArgs(static function (array $events): bool {
-                self::assertSame(0.0, $events[0]->cost);
+                self::assertSame(0.0, $events[0]->costInPounds);
                 self::assertSame(0, $events[0]->clicks);
                 self::assertSame(0, $events[0]->impressions);
                 self::assertSame(0.0, $events[0]->conversions);
@@ -638,7 +629,7 @@ final class SyncAdSpendUseCaseTest extends TestCase
             ->andReturn($campaigns);
 
         $this->mixpanelClient
-            ->shouldReceive('importBatch')
+            ->shouldReceive('importCampaigns')
             ->once();
 
         $this->useCase->execute($date);
@@ -685,7 +676,7 @@ final class SyncAdSpendUseCaseTest extends TestCase
             ->andReturn($campaigns);
 
         $this->mixpanelClient
-            ->shouldReceive('importBatch')
+            ->shouldReceive('importCampaigns')
             ->once()
             ->withArgs(static function (array $events): bool {
                 // Order should match input, not be sorted
