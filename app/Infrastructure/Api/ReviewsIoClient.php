@@ -140,7 +140,6 @@ final readonly class ReviewsIoClient
         } catch (CannotCreateData $e) {
             Log::warning('Reviews.io API validation failed', [
                 'error' => $e->getMessage(),
-                'payload' => $data,
             ]);
 
             throw ReviewsIoApiException::invalidResponse(
