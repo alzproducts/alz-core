@@ -81,7 +81,7 @@ parameters:
         # even though PHPStan believes the PhPDoc over reality
         -
             message: '#^(Strict comparison using === between|Call to function is_|Result of && is always|Binary operation|Cannot cast|Using / over non-number|Casting to).*#'
-            path: app/Infrastructure/AdSpend/GoogleAds/GoogleAdsRowTransformer.php
+            path: app/Infrastructure/GoogleAds/GoogleAdsRowTransformer.php
 
     paths:
         - app/

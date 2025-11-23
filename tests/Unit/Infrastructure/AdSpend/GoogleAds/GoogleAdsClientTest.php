@@ -8,7 +8,7 @@ use App\Domain\AdSpend\Exceptions\ApiRateLimitException;
 use App\Domain\AdSpend\Exceptions\GoogleAdsApiException;
 use App\Domain\AdSpend\Exceptions\InvalidGoogleAdsResponseException;
 use App\Domain\AdSpend\ValueObjects\CampaignMetrics;
-use App\Infrastructure\AdSpend\GoogleAds\GoogleAdsClient;
+use App\Infrastructure\GoogleAds\GoogleAdsClient;
 use Google\Ads\GoogleAds\Lib\V22\GoogleAdsClient as SdkGoogleAdsClient;
 use Google\Ads\GoogleAds\V22\Common\Metrics;
 use Google\Ads\GoogleAds\V22\Common\Segments;

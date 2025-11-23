@@ -6,7 +6,7 @@ namespace Tests\Unit\Infrastructure\AdSpend\GoogleAds;
 
 use App\Domain\AdSpend\Exceptions\InvalidGoogleAdsResponseException;
 use App\Domain\AdSpend\ValueObjects\Campaign;
-use App\Infrastructure\AdSpend\GoogleAds\CampaignRowTransformer;
+use App\Infrastructure\GoogleAds\CampaignRowTransformer;
 use Google\Ads\GoogleAds\V22\Services\GoogleAdsRow;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;

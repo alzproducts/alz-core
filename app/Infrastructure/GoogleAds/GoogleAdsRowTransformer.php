@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Infrastructure\AdSpend\GoogleAds;
+namespace App\Infrastructure\GoogleAds;
 
 use App\Domain\AdSpend\Exceptions\InvalidGoogleAdsResponseException;
 use App\Domain\AdSpend\ValueObjects\CampaignMetrics;
