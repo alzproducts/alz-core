@@ -43,9 +43,13 @@ final class SyncGoogleAdsToMixpanelJob implements ShouldQueue
      */
     public array $backoff = [60, 120, 240, 480, 960];
 
-    public function __construct(
-        private readonly string $date,
-    ) {}
+    private readonly string $date;
+
+    public function __construct(?string $date = null)
+    {
+        // If no date provided, default to yesterday (evaluated at job execution time, not boot time)
+        $this->date = $date ?? \now()->subDay()->format('Y-m-d');
+    }
 
     /**
      * Execute the job.
