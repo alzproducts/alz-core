@@ -22,14 +22,23 @@ final class MixpanelClientTest extends TestCase
 
     private const string BASE_URL = 'https://api.mixpanel.com';
 
-    private const string TOKEN = 'test-token-123';
+    private const string PROJECT_ID = 'test-project-123';
+
+    private const string USERNAME = 'test-username';
+
+    private const string PASSWORD = 'test-password';
+
+    private const string LOOKUP_TABLE_ID = 'test-lookup-table-id';
 
     protected function setUp(): void
     {
         parent::setUp();
         $this->client = new MixpanelClient(
-            mixpanelToken: self::TOKEN,
             mixpanelBaseUrl: self::BASE_URL,
+            serviceAccountUsername: self::USERNAME,
+            serviceAccountPassword: self::PASSWORD,
+            projectId: self::PROJECT_ID,
+            lookupTableId: self::LOOKUP_TABLE_ID,
         );
     }
 
@@ -66,7 +75,7 @@ final class MixpanelClientTest extends TestCase
         Http::assertSent(static function (Request $request): bool {
             self::assertSame('POST', $request->method());
             $payload = $request->data();
-            self::assertCount(3, $payload['data']);
+            self::assertCount(3, $payload);
 
             return true;
         });
@@ -91,7 +100,7 @@ final class MixpanelClientTest extends TestCase
         $this->client->importBatch([$event]);
 
         Http::assertSent(static function (Request $request): bool {
-            $expectedUrl = self::BASE_URL . '/import';
+            $expectedUrl = self::BASE_URL . '/import?project_id=' . self::PROJECT_ID;
             self::assertSame($expectedUrl, $request->url());
 
             return true;
@@ -131,7 +140,7 @@ final class MixpanelClientTest extends TestCase
     }
 
     #[Test]
-    public function it_includes_token_in_payload(): void
+    public function it_uses_http_basic_auth(): void
     {
         Http::fake(['*' => Http::response([], 200)]);
 
@@ -139,15 +148,16 @@ final class MixpanelClientTest extends TestCase
         $this->client->importBatch([$event]);
 
         Http::assertSent(static function (Request $request): bool {
-            $payload = $request->data();
-            self::assertSame(self::TOKEN, $payload['token']);
+            $authHeader = $request->header('Authorization');
+            self::assertIsArray($authHeader);
+            self::assertStringStartsWith('Basic ', $authHeader[0]);
 
             return true;
         });
     }
 
     #[Test]
-    public function it_includes_data_array_in_payload(): void
+    public function it_sends_events_as_json_array(): void
     {
         Http::fake(['*' => Http::response([], 200)]);
 
@@ -156,8 +166,8 @@ final class MixpanelClientTest extends TestCase
 
         Http::assertSent(static function (Request $request): bool {
             $payload = $request->data();
-            self::assertIsArray($payload['data']);
-            self::assertCount(1, $payload['data']);
+            self::assertIsArray($payload);
+            self::assertCount(1, $payload);
 
             return true;
         });
@@ -187,7 +197,7 @@ final class MixpanelClientTest extends TestCase
 
         Http::assertSent(static function (Request $request): bool {
             $payload = $request->data();
-            $eventData = $payload['data'][0];
+            $eventData = $payload[0];
 
             self::assertSame('Ad Data', $eventData['event']);
             self::assertSame(1700000000, $eventData['properties']['time']);
