@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Application\Contracts\GoogleAdsClientInterface;
-use App\Infrastructure\AdSpend\GoogleAds\GoogleAdsClientFactory;
+use App\Infrastructure\GoogleAds\GoogleAdsClientFactory;
 use Illuminate\Contracts\Support\DeferrableProvider;
 use Illuminate\Support\ServiceProvider;
 use Override;
