@@ -186,6 +186,84 @@ private function ensureNotEmpty(string $value): void {
 }
 ```
 
+## Spatie LaravelData (DTO Pattern)
+
+**Purpose**: Provide type-safe, immutable data structures for transforming and representing data across layer boundaries.
+
+**Key Rule**: Spatie Data is **not allowed in Domain layer** to keep business logic framework-agnostic. Use it strategically in Application and Infrastructure layers.
+
+### Application Layer: Domain → API Transformation DTOs
+
+**Use Case**: Transform Domain objects into API request/response DTOs for external systems.
+
+```php
+// ❌ NOT in Domain - Domain doesn't know about frameworks
+namespace App\Domain\Review;
+use Spatie\LaravelData\Data;  // NO! Domain must be framework-independent
+
+// ✅ In Application: Transform Domain to API format
+namespace App\Application\Webhooks\Reviews;
+use Spatie\LaravelData\Data;
+use Spatie\LaravelData\Attributes\MapOutputName;
+use Spatie\LaravelData\Mappers\SnakeCaseMapper;
+
+#[MapOutputName(SnakeCaseMapper::class)]
+final class RatingForApiDTO extends Data
+{
+    public function __construct(
+        public readonly string $sku,
+        public readonly float $averageRating,
+        public readonly int $numRatings,
+    ) {}
+}
+```
+
+**Benefits in Application Layer**:
+- Type-safe transformation
+- Automatic casting and mapping (snake_case ↔ camelCase)
+- Serialization to API responses
+- Validation and hydration from Domain objects
+
+### Infrastructure Layer: External API Response Objects
+
+**Use Case**: Parse and represent data from external APIs (Reviews.io, payment processors, etc.).
+
+```php
+// ✅ In Infrastructure: External API response DTO
+namespace App\Infrastructure\Responses;
+use Spatie\LaravelData\Data;
+use Spatie\LaravelData\Attributes\MapInputName;
+use Spatie\LaravelData\Mappers\SnakeCaseMapper;
+
+#[MapInputName(SnakeCaseMapper::class)]
+final class Rating extends Data
+{
+    public function __construct(
+        public readonly string $sku,
+        public readonly float $averageRating,
+        public readonly int $numRatings,
+    ) {}
+}
+```
+
+**Benefits in Infrastructure Layer**:
+- Automatic parsing of external API responses
+- Type coercion (string → int, etc.)
+- Collections via `DataCollection`
+- Validation rules for API data
+
+### Architecture Summary
+
+| Layer | Usage | Example |
+|-------|-------|---------|
+| **Domain** | ❌ NOT allowed | Business logic should be framework-independent |
+| **Application** | ✅ Transformations | Domain → DTOs for API responses, use case outputs |
+| **Infrastructure** | ✅ API Responses | External API request/response objects, database DTOs |
+
+**PHPArkitect Enforcement**: `Spatie\LaravelData` is in allowed dependencies for Application and Infrastructure layers but explicitly forbidden from Domain.
+
+---
+
 ## Build System: Makefile vs Composer
 
 **Single Source of Truth**: Makefile owns all build/test/quality command implementations. The `composer.json` scripts delegate to Makefile targets.
