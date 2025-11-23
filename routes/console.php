@@ -20,7 +20,8 @@ Schedule::job(new SyncCampaignLookupTableJob())
     ->withoutOverlapping(10);
 
 // Ad spend data sync - runs AFTER lookup table is updated (8:00 AM UTC)
-Schedule::job(new SyncGoogleAdsToMixpanelJob(now()->subDay()->format('Y-m-d')))
+// Date is calculated at job execution time, not at boot time (prevents stale date issues)
+Schedule::job(new SyncGoogleAdsToMixpanelJob())
     ->dailyAt('08:00')
     ->timezone('UTC')
     ->onOneServer()
