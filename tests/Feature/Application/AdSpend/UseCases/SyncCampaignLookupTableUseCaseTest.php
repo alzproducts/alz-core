@@ -6,7 +6,7 @@ namespace Tests\Feature\Application\AdSpend\UseCases;
 
 use App\Application\AdSpend\UseCases\SyncCampaignLookupTableUseCase;
 use App\Domain\AdSpend\Contracts\GoogleAdsClientInterface;
-use App\Domain\AdSpend\Contracts\MixpanelCampaignLookupClientInterface;
+use App\Domain\AdSpend\Contracts\MixpanelClientInterface;
 use App\Domain\AdSpend\Exceptions\ApiRateLimitException;
 use App\Domain\AdSpend\Exceptions\GoogleAdsApiException;
 use App\Domain\AdSpend\Exceptions\MixpanelApiException;
@@ -23,7 +23,7 @@ final class SyncCampaignLookupTableUseCaseTest extends TestCase
 {
     private GoogleAdsClientInterface&MockInterface $googleAdsClient;
 
-    private MixpanelCampaignLookupClientInterface&MockInterface $mixpanelLookupTable;
+    private MixpanelClientInterface&MockInterface $mixpanelClient;
 
     private SyncCampaignLookupTableUseCase $useCase;
 
@@ -32,11 +32,11 @@ final class SyncCampaignLookupTableUseCaseTest extends TestCase
         parent::setUp();
 
         $this->googleAdsClient = Mockery::mock(GoogleAdsClientInterface::class);
-        $this->mixpanelLookupTable = Mockery::mock(MixpanelCampaignLookupClientInterface::class);
+        $this->mixpanelClient = Mockery::mock(MixpanelClientInterface::class);
 
         $this->useCase = new SyncCampaignLookupTableUseCase(
             $this->googleAdsClient,
-            $this->mixpanelLookupTable,
+            $this->mixpanelClient,
         );
     }
 
@@ -60,7 +60,7 @@ final class SyncCampaignLookupTableUseCaseTest extends TestCase
             ->once()
             ->andReturn([$campaign]);
 
-        $this->mixpanelLookupTable
+        $this->mixpanelClient
             ->shouldReceive('replaceCampaignLookupTable')
             ->once()
             ->withArgs(static function (array $campaigns): bool {
@@ -103,7 +103,7 @@ final class SyncCampaignLookupTableUseCaseTest extends TestCase
             ->once()
             ->andReturn($campaigns);
 
-        $this->mixpanelLookupTable
+        $this->mixpanelClient
             ->shouldReceive('replaceCampaignLookupTable')
             ->once()
             ->withArgs(static function (array $receivedCampaigns): bool {
@@ -139,7 +139,7 @@ final class SyncCampaignLookupTableUseCaseTest extends TestCase
             ->once()
             ->andReturn($campaigns);
 
-        $this->mixpanelLookupTable
+        $this->mixpanelClient
             ->shouldReceive('replaceCampaignLookupTable')
             ->once()
             ->withArgs(static function (array $receivedCampaigns): bool {
@@ -168,7 +168,7 @@ final class SyncCampaignLookupTableUseCaseTest extends TestCase
             ->once()
             ->andReturn([]);
 
-        $this->mixpanelLookupTable
+        $this->mixpanelClient
             ->shouldNotReceive('replaceCampaignLookupTable');
 
         $this->useCase->execute();
@@ -193,7 +193,7 @@ final class SyncCampaignLookupTableUseCaseTest extends TestCase
             ->once()
             ->andReturn([]);
 
-        $this->mixpanelLookupTable
+        $this->mixpanelClient
             ->shouldNotReceive('replaceCampaignLookupTable');
 
         $this->useCase->execute();
@@ -218,7 +218,7 @@ final class SyncCampaignLookupTableUseCaseTest extends TestCase
             ->once()
             ->andThrow($exception);
 
-        $this->mixpanelLookupTable
+        $this->mixpanelClient
             ->shouldNotReceive('replaceCampaignLookupTable');
 
         $this->expectExceptionObject($exception);
@@ -238,7 +238,7 @@ final class SyncCampaignLookupTableUseCaseTest extends TestCase
             ->once()
             ->andThrow($exception);
 
-        $this->mixpanelLookupTable
+        $this->mixpanelClient
             ->shouldNotReceive('replaceCampaignLookupTable');
 
         try {
@@ -294,7 +294,7 @@ final class SyncCampaignLookupTableUseCaseTest extends TestCase
             ->once()
             ->andReturn($campaigns);
 
-        $this->mixpanelLookupTable
+        $this->mixpanelClient
             ->shouldReceive('replaceCampaignLookupTable')
             ->once()
             ->andThrow($exception);
@@ -321,7 +321,7 @@ final class SyncCampaignLookupTableUseCaseTest extends TestCase
             ->once()
             ->andReturn($campaigns);
 
-        $this->mixpanelLookupTable
+        $this->mixpanelClient
             ->shouldReceive('replaceCampaignLookupTable')
             ->once()
             ->andThrow($exception);
@@ -350,7 +350,7 @@ final class SyncCampaignLookupTableUseCaseTest extends TestCase
             ->shouldReceive('getCampaigns')
             ->andReturn($campaigns);
 
-        $this->mixpanelLookupTable
+        $this->mixpanelClient
             ->shouldReceive('replaceCampaignLookupTable')
             ->andThrow($exception);
 
@@ -386,7 +386,7 @@ final class SyncCampaignLookupTableUseCaseTest extends TestCase
             ->once()
             ->andReturn([$campaign]);
 
-        $this->mixpanelLookupTable
+        $this->mixpanelClient
             ->shouldReceive('replaceCampaignLookupTable')
             ->once()
             ->withArgs(static function (array $campaigns): bool {
@@ -417,7 +417,7 @@ final class SyncCampaignLookupTableUseCaseTest extends TestCase
             ->once()
             ->andReturn([$campaign]);
 
-        $this->mixpanelLookupTable
+        $this->mixpanelClient
             ->shouldReceive('replaceCampaignLookupTable')
             ->once()
             ->withArgs(static function (array $campaigns) use ($specialName): bool {
@@ -446,7 +446,7 @@ final class SyncCampaignLookupTableUseCaseTest extends TestCase
             ->once()
             ->andReturn($campaigns);
 
-        $this->mixpanelLookupTable
+        $this->mixpanelClient
             ->shouldReceive('replaceCampaignLookupTable')
             ->once()
             ->withArgs(static function (array $receivedCampaigns): bool {
@@ -495,7 +495,7 @@ final class SyncCampaignLookupTableUseCaseTest extends TestCase
             ->shouldReceive('getCampaigns')
             ->andReturn($campaigns);
 
-        $this->mixpanelLookupTable
+        $this->mixpanelClient
             ->shouldReceive('replaceCampaignLookupTable')
             ->once();
 
@@ -519,7 +519,7 @@ final class SyncCampaignLookupTableUseCaseTest extends TestCase
             ->shouldReceive('getCampaigns')
             ->andReturn($campaigns);
 
-        $this->mixpanelLookupTable
+        $this->mixpanelClient
             ->shouldReceive('replaceCampaignLookupTable')
             ->once();
 
