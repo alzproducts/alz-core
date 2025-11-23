@@ -7,6 +7,7 @@ use Arkitect\CLI\Config;
 use Arkitect\Expression\ForClasses\HaveNameMatching;
 use Arkitect\Expression\ForClasses\MatchOneOfTheseNames;
 use Arkitect\Expression\ForClasses\NotHaveDependencyOutsideNamespace;
+use Arkitect\Expression\ForClasses\NotResideInTheseNamespaces;
 use Arkitect\Expression\ForClasses\ResideInOneOfTheseNamespaces;
 use Arkitect\Rules\Rule;
 
@@ -195,6 +196,68 @@ return static function (Config $config): void {
         ->that(new ResideInOneOfTheseNamespaces('App\Infrastructure\Api'))
         ->should(new HaveNameMatching('*Client'))
         ->because('API client classes should have a "Client" suffix.');
+
+    // RULE 5: No interfaces in Infrastructure
+    //
+    // WHY: Infrastructure implements contracts, doesn't define them.
+    // Public interfaces belong in Domain or Application layers.
+    //
+    // VIOLATION EXAMPLE:
+    // ❌ namespace App\Infrastructure\Database;
+    //    interface OrderRepositoryInterface { }  // Wrong layer!
+    //    class EloquentOrderRepository implements OrderRepositoryInterface { }
+    //
+    // CORRECT:
+    // ✅ namespace App\Domain\Contracts;
+    //    interface OrderRepositoryInterface { }  // Domain defines contract
+    //    namespace App\Infrastructure\Database;
+    //    class EloquentOrderRepository implements OrderRepositoryInterface { }
+    //
+    $rules[] = Rule::allClasses()
+        ->that(new HaveNameMatching('*Interface'))
+        ->should(new NotResideInTheseNamespaces($infrastructure))
+        ->because('Public interfaces belong in Domain or Application layers. Infrastructure implements contracts defined by higher layers.');
+
+    // RULE 6: Interfaces must be in Contracts subdirectories
+    //
+    // WHY: Enforces consistent organization and makes contracts easy to discover.
+    //
+    // CORRECT:
+    // ✅ namespace App\Domain\Contracts;
+    //    interface OrderRepositoryInterface { }
+    //    namespace App\Application\Contracts;
+    //    interface MixpanelClientInterface { }
+    //
+    $rules[] = Rule::allClasses()
+        ->that(new HaveNameMatching('*Interface'))
+        ->should(new ResideInOneOfTheseNamespaces(
+            'App\Domain\Contracts',
+            'App\Application\Contracts',
+        ))
+        ->because('Interfaces must be organized in Contracts subdirectories for easy discovery.');
+
+    // RULE 7: Contracts directories only contain interfaces
+    //
+    // WHY: Prevents mixing interfaces with implementations. Contracts directories
+    // are for definitions only, implementations live elsewhere.
+    //
+    // VIOLATION EXAMPLE:
+    // ❌ namespace App\Application\Contracts;
+    //    class OrderService { }  // Wrong! Should be in UseCases/Services
+    //
+    // CORRECT:
+    // ✅ namespace App\Application\Contracts;
+    //    interface OrderServiceInterface { }
+    //    namespace App\Application\Services;
+    //    class OrderService implements OrderServiceInterface { }
+    //
+    $rules[] = Rule::allClasses()
+        ->that(new ResideInOneOfTheseNamespaces(
+            'App\Domain\Contracts',
+            'App\Application\Contracts',
+        ))
+        ->should(new HaveNameMatching('*Interface'))
+        ->because('Contracts directories should only contain interfaces, not implementations.');
 
     $config->add($classSet, ...$rules);
 
