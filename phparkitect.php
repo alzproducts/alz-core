@@ -259,6 +259,31 @@ return static function (Config $config): void {
         ->should(new HaveNameMatching('*Interface'))
         ->because('Contracts directories should only contain interfaces, not implementations.');
 
+    // RULE 8: No DTOs in Domain Layer
+    //
+    // WHY: Domain contains business concepts (ValueObjects, Entities), not
+    // transfer formats (DTOs). DTOs belong in Application/Infrastructure
+    // for data transfer between layers or external systems.
+    //
+    // VIOLATION EXAMPLE:
+    // ❌ namespace App\Domain\Order;
+    //    class OrderDTO { }  // DTOs don't belong in Domain!
+    //
+    // CORRECT:
+    // ✅ namespace App\Domain\Order\ValueObjects;
+    //    class Order { }  // Pure business concept
+    //
+    //    namespace App\Infrastructure\Api\DTOs;
+    //    class OrderDTO { }  // Transfer format for external API
+    //
+    //    namespace App\Application\DTOs;
+    //    class OrderForApiDTO { }  // Transfer format for response
+    //
+    $rules[] = Rule::allClasses()
+        ->that(new HaveNameMatching('*DTO'))
+        ->should(new NotResideInTheseNamespaces($domain))
+        ->because('DTOs are data transfer formats for Infrastructure/Application layers. Domain should only contain ValueObjects representing pure business concepts.');
+
     $config->add($classSet, ...$rules);
 
     /*
