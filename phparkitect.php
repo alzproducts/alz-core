@@ -90,7 +90,7 @@ return static function (Config $config): void {
     //
     $rules[] = Rule::allClasses()
         ->that(new ResideInOneOfTheseNamespaces($domain))
-        ->should(new NotHaveDependencyOutsideNamespace($domain, ['DateTime', 'DateTimeImmutable', 'DateTimeZone', 'DateTimeInterface', 'DateInterval', 'DatePeriod', 'Spatie\LaravelData', 'Illuminate\Contracts\Validation', 'Closure']))
+        ->should(new NotHaveDependencyOutsideNamespace($domain, ['DateTime', 'DateTimeImmutable', 'DateTimeZone', 'DateTimeInterface', 'DateInterval', 'DatePeriod', 'Closure', 'RuntimeException', 'InvalidArgumentException', 'LogicException', 'Throwable', 'JsonException', 'Webmozart\Assert\Assert']))
         ->because('the Domain layer should be self-contained and not depend on any other layer.');
 
     // RULE 2: Application Can Only Depend on Domain
@@ -113,7 +113,7 @@ return static function (Config $config): void {
     //
     $rules[] = Rule::allClasses()
         ->that(new ResideInOneOfTheseNamespaces($application))
-        ->should(new NotHaveDependencyOutsideNamespace($application, [$domain, 'DateTime', 'DateTimeImmutable', 'DateTimeZone', 'DateTimeInterface', 'DateInterval', 'DatePeriod']))
+        ->should(new NotHaveDependencyOutsideNamespace($application, [$domain, 'DateTime', 'DateTimeImmutable', 'DateTimeZone', 'DateTimeInterface', 'DateInterval', 'DatePeriod', 'Spatie\LaravelData', 'RuntimeException', 'InvalidArgumentException', 'LogicException', 'Throwable', 'Illuminate\Support\Facades\Log']))
         ->because('the Application layer can only depend on the Domain layer.');
 
     // RULE 3: Infrastructure Implements Domain/Application Interfaces
@@ -128,6 +128,7 @@ return static function (Config $config): void {
     //            return Order::where('synced', false)->get();  // Eloquent OK here
     //        }
     //    }
+    //
     //
     $rules[] = Rule::allClasses()
         ->that(new ResideInOneOfTheseNamespaces($infrastructure))

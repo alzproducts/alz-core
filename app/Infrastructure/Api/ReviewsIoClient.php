@@ -4,19 +4,21 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Api;
 
-use App\Domain\Review\Rating;
-use App\Domain\Review\Validation\ValidSku;
 use App\Infrastructure\Exceptions\ReviewsIoApiException;
+use App\Infrastructure\Responses\Rating;
 use App\Infrastructure\Support\ApiRetryStrategy;
+use App\Infrastructure\Validation\ValidSku;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
 use RuntimeException;
 use Spatie\LaravelData\DataCollection;
+use Spatie\LaravelData\Exceptions\CannotCreateData;
 
 /**
  * Reviews.io API Client (Synchronous HTTP)
@@ -132,13 +134,20 @@ final readonly class ReviewsIoClient
         if (!\is_array($data)) {
             throw ReviewsIoApiException::invalidResponse('Expected array response');
         }
-        if (isset($data[0]) && \is_array($data[0]) && (!isset($data[0]['sku'], $data[0]['average_rating']))) {
+
+        try {
+            return Rating::collect($data, DataCollection::class);
+        } catch (CannotCreateData $e) {
+            Log::warning('Reviews.io API validation failed', [
+                'error' => $e->getMessage(),
+                'payload' => $data,
+            ]);
+
             throw ReviewsIoApiException::invalidResponse(
-                'Response data is missing expected keys (sku, average_rating).',
+                message: 'Reviews.io API returned invalid data structure',
+                previous: $e,
             );
         }
-
-        return Rating::collect($data, DataCollection::class);
     }
 
 }
