@@ -6,7 +6,7 @@ namespace Tests\Feature\Presentation\Jobs;
 
 use App\Application\AdSpend\UseCases\SyncCampaignLookupTableUseCase;
 use App\Domain\AdSpend\Contracts\GoogleAdsClientInterface;
-use App\Domain\AdSpend\Contracts\MixpanelCampaignLookupClientInterface;
+use App\Domain\AdSpend\Contracts\MixpanelClientInterface;
 use App\Domain\AdSpend\Exceptions\ApiRateLimitException;
 use App\Domain\AdSpend\Exceptions\GoogleAdsApiException;
 use App\Domain\AdSpend\Exceptions\MixpanelApiException;
@@ -29,7 +29,7 @@ final class SyncCampaignLookupTableJobTest extends TestCase
 {
     private GoogleAdsClientInterface&MockInterface $googleAdsMock;
 
-    private MixpanelCampaignLookupClientInterface&MockInterface $mixpanelMock;
+    private MixpanelClientInterface&MockInterface $mixpanelMock;
 
     private SyncCampaignLookupTableUseCase $useCase;
 
@@ -38,7 +38,7 @@ final class SyncCampaignLookupTableJobTest extends TestCase
         parent::setUp();
 
         $this->googleAdsMock = Mockery::mock(GoogleAdsClientInterface::class);
-        $this->mixpanelMock = Mockery::mock(MixpanelCampaignLookupClientInterface::class);
+        $this->mixpanelMock = Mockery::mock(MixpanelClientInterface::class);
         $this->useCase = new SyncCampaignLookupTableUseCase($this->googleAdsMock, $this->mixpanelMock);
 
         Log::spy();

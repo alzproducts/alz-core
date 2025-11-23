@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Application\AdSpend\UseCases;
 
 use App\Domain\AdSpend\Contracts\GoogleAdsClientInterface;
-use App\Domain\AdSpend\Contracts\MixpanelCampaignLookupClientInterface;
+use App\Domain\AdSpend\Contracts\MixpanelClientInterface;
 use App\Domain\AdSpend\Exceptions\GoogleAdsApiException;
 use App\Domain\AdSpend\Exceptions\MixpanelApiException;
 use Illuminate\Support\Facades\Log;
@@ -20,7 +20,7 @@ final readonly class SyncCampaignLookupTableUseCase
 {
     public function __construct(
         private GoogleAdsClientInterface $googleAds,
-        private MixpanelCampaignLookupClientInterface $mixpanelLookupTable,
+        private MixpanelClientInterface $mixpanel,
     ) {}
 
     /**
@@ -55,7 +55,7 @@ final readonly class SyncCampaignLookupTableUseCase
         }
 
         // Step 3: Upload to Mixpanel Lookup Table (replaces entire table)
-        $this->mixpanelLookupTable->replaceCampaignLookupTable($campaigns);
+        $this->mixpanel->replaceCampaignLookupTable($campaigns);
 
         Log::info('Campaign lookup table sync completed', [
             'campaigns_synced' => \count($campaigns),

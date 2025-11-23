@@ -8,25 +8,26 @@ use App\Domain\AdSpend\Contracts\MixpanelClientInterface;
 use App\Domain\AdSpend\Exceptions\ApiRateLimitException;
 use App\Domain\AdSpend\Exceptions\MixpanelApiException;
 use App\Domain\AdSpend\ValueObjects\AdSpendEvent;
+use App\Domain\AdSpend\ValueObjects\Campaign;
 use App\Infrastructure\Support\ApiRetryStrategy;
+use App\Infrastructure\Support\CsvFormatter;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 
 /**
- * Sends ad spend events to Mixpanel for analytics tracking.
+ * Manages Mixpanel API interactions for events and lookup tables.
  *
  * Responsibilities:
- * 1. Convert domain events to Mixpanel API format
- * 2. Batch POST events to Mixpanel API endpoint with automatic retries
- * 3. Handle API errors and rate limiting
+ * 1. Send ad spend events to Mixpanel Import API with HTTP Basic Auth
+ * 2. Replace campaign lookup table via Lookup Tables API with HTTP Basic Auth
+ * 3. Format data and handle API errors
  *
- * Design: Uses Laravel's Http facade with built-in retry mechanism via ApiRetryStrategy.
- * Retry Strategy:
- * - Retries up to 3 times on transient failures (5xx and 429)
- * - Uses exponential backoff with 100ms base delay
- * - Uses ApiRetryStrategy::defaultRetry() to determine retry eligibility
+ * Authentication: HTTP Basic Auth with Service Account credentials
+ * - Applies to both Import Events and Lookup Tables APIs
+ * - Username: service_account_username
+ * - Password: service_account_password
  *
  * Error Handling:
  * - 429 after all retries → ApiRateLimitException
@@ -35,11 +36,16 @@ use Illuminate\Support\Facades\Http;
 final readonly class MixpanelClient implements MixpanelClientInterface
 {
     public function __construct(
-        private string $mixpanelToken,
         private string $mixpanelBaseUrl,
+        private string $serviceAccountUsername,
+        private string $serviceAccountPassword,
+        private string $projectId,
+        private string $lookupTableId,
     ) {}
 
     /**
+     * Import batch of ad spend events to Mixpanel.
+     *
      * @param array<int, AdSpendEvent> $events
      *
      * @throws MixpanelApiException
@@ -59,15 +65,13 @@ final readonly class MixpanelClient implements MixpanelClientInterface
 
         try {
             Http::asJson()
+                ->withBasicAuth($this->serviceAccountUsername, $this->serviceAccountPassword)
                 ->retry(
                     times: 3,
                     sleepMilliseconds: 100,
                     when: ApiRetryStrategy::defaultRetry(),
                 )
-                ->post("{$this->mixpanelBaseUrl}/import", [
-                    'token' => $this->mixpanelToken,
-                    'data' => $payload,
-                ])
+                ->post("{$this->mixpanelBaseUrl}/import?project_id={$this->projectId}", $payload)
                 ->throw();
         } catch (RequestException $e) {
             // Handle rate limiting (429)
@@ -82,6 +86,53 @@ final readonly class MixpanelClient implements MixpanelClientInterface
             // All other errors (4xx/5xx) become MixpanelApiException
             throw new MixpanelApiException(
                 $e->getMessage(),
+                0,
+                $e,
+            );
+        }
+    }
+
+    /**
+     * Replace the campaign lookup table with latest campaign data.
+     *
+     * @param array<int, Campaign> $campaigns
+     *
+     * @throws MixpanelApiException
+     * @throws ApiRateLimitException|ConnectionException
+     */
+    public function replaceCampaignLookupTable(array $campaigns): void
+    {
+        // Format campaigns as RFC 4180-compliant CSV
+        $headers = ['utm_campaign', 'campaign_name', 'campaign_status'];
+        $rows = \array_map(
+            static fn(Campaign $campaign) => [
+                (string) $campaign->campaignId,
+                $campaign->campaignName,
+                $campaign->status,
+            ],
+            $campaigns,
+        );
+        $csv = CsvFormatter::format($headers, $rows);
+
+        try {
+            Http::withBasicAuth($this->serviceAccountUsername, $this->serviceAccountPassword)
+                ->withBody($csv, 'text/csv')
+                ->timeout(60)
+                ->retry(times: 1, sleepMilliseconds: 1000)
+                ->put("{$this->mixpanelBaseUrl}/lookup_tables/{$this->projectId}/{$this->lookupTableId}")
+                ->throw();
+        } catch (RequestException $e) {
+            // Handle rate limiting (429)
+            if ($e->response->status() === 429) {
+                throw new ApiRateLimitException(
+                    'Mixpanel Lookup Table API rate limit exceeded',
+                    $this->extractRetryAfter($e->response),
+                    $e,
+                );
+            }
+
+            throw new MixpanelApiException(
+                "Mixpanel Lookup Table API error ({$e->response->status()}): {$e->response->body()}",
                 0,
                 $e,
             );
@@ -107,4 +158,5 @@ final readonly class MixpanelClient implements MixpanelClientInterface
 
         return $retryAfter;
     }
+
 }
