@@ -159,7 +159,7 @@ final class SyncCampaignLookupTableUseCaseTest extends TestCase
     // ========================================================================
 
     #[Test]
-    public function it_handles_empty_results_from_google_ads(): void
+    public function it_throws_exception_when_no_campaigns_found(): void
     {
         Log::spy();
 
@@ -171,20 +171,17 @@ final class SyncCampaignLookupTableUseCaseTest extends TestCase
         $this->mixpanelClient
             ->shouldNotReceive('replaceCampaignLookupTable');
 
+        $this->expectException(GoogleAdsApiException::class);
+        $this->expectExceptionMessage('Expected at least one campaign from Google Ads API, received empty result');
+
         $this->useCase->execute();
 
-        Log::shouldHaveReceived('info')
-            ->with('Starting campaign lookup table sync');
-
-        Log::shouldHaveReceived('warning')
-            ->with('No campaigns found in Google Ads, clearing Mixpanel lookup table');
-
-        Log::shouldHaveReceived('info')
-            ->with('Campaign lookup table sync completed', ['campaigns_synced' => 0]);
+        Log::shouldHaveReceived('error')
+            ->with('No campaigns found in Google Ads - this may indicate an API issue or account misconfiguration');
     }
 
     #[Test]
-    public function it_does_not_call_mixpanel_when_no_campaigns_found(): void
+    public function it_logs_error_and_does_not_call_mixpanel_when_no_campaigns_found(): void
     {
         Log::spy();
 
@@ -196,7 +193,14 @@ final class SyncCampaignLookupTableUseCaseTest extends TestCase
         $this->mixpanelClient
             ->shouldNotReceive('replaceCampaignLookupTable');
 
-        $this->useCase->execute();
+        try {
+            $this->useCase->execute();
+        } catch (GoogleAdsApiException) {
+            // Expected
+        }
+
+        Log::shouldHaveReceived('error')
+            ->with('No campaigns found in Google Ads - this may indicate an API issue or account misconfiguration');
     }
 
     // ========================================================================
@@ -470,9 +474,17 @@ final class SyncCampaignLookupTableUseCaseTest extends TestCase
     {
         Log::spy();
 
+        $campaigns = [
+            new Campaign(campaignId: 1, campaignName: 'Search Campaign', status: 'ENABLED'),
+        ];
+
         $this->googleAdsClient
             ->shouldReceive('getCampaigns')
-            ->andReturn([]);
+            ->andReturn($campaigns);
+
+        $this->mixpanelClient
+            ->shouldReceive('replaceCampaignLookupTable')
+            ->once();
 
         $this->useCase->execute();
 

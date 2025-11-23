@@ -44,14 +44,11 @@ final readonly class SyncCampaignLookupTableUseCase
             'campaign_count' => \count($campaigns),
         ]);
 
-        // Step 2: Handle empty results
+        // Step 2: Handle empty results - this indicates an API issue or misconfiguration
         if ($campaigns === []) {
-            Log::warning('No campaigns found in Google Ads, clearing Mixpanel lookup table');
-            Log::info('Campaign lookup table sync completed', [
-                'campaigns_synced' => 0,
-            ]);
+            Log::error('No campaigns found in Google Ads - this may indicate an API issue or account misconfiguration');
 
-            return;
+            throw new GoogleAdsApiException('Expected at least one campaign from Google Ads API, received empty result');
         }
 
         // Step 3: Upload to Mixpanel Lookup Table (replaces entire table)
