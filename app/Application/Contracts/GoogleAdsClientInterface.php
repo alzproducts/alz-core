@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Domain\AdSpend\Contracts;
+namespace App\Application\Contracts;
 
 use App\Domain\AdSpend\Exceptions\ApiRateLimitException;
 use App\Domain\AdSpend\Exceptions\GoogleAdsApiException;

@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Tests\Feature\Application\AdSpend\UseCases;
 
 use App\Application\AdSpend\UseCases\SyncCampaignLookupTableUseCase;
-use App\Domain\AdSpend\Contracts\GoogleAdsClientInterface;
-use App\Domain\AdSpend\Contracts\MixpanelClientInterface;
+use App\Application\Contracts\GoogleAdsClientInterface;
+use App\Application\Contracts\MixpanelClientInterface;
 use App\Domain\AdSpend\Exceptions\ApiRateLimitException;
 use App\Domain\AdSpend\Exceptions\GoogleAdsApiException;
 use App\Domain\AdSpend\Exceptions\MixpanelApiException;

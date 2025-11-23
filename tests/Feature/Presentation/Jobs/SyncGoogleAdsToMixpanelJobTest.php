@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Tests\Feature\Presentation\Jobs;
 
 use App\Application\AdSpend\UseCases\SyncAdSpendUseCase;
-use App\Domain\AdSpend\Contracts\GoogleAdsClientInterface;
-use App\Domain\AdSpend\Contracts\MixpanelClientInterface;
+use App\Application\Contracts\GoogleAdsClientInterface;
+use App\Application\Contracts\MixpanelClientInterface;
 use App\Domain\AdSpend\Exceptions\ApiRateLimitException;
 use App\Domain\AdSpend\Exceptions\GoogleAdsApiException;
 use App\Domain\AdSpend\Exceptions\MixpanelApiException;
@@ -588,7 +588,7 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
             ->andReturn([$campaign]);
 
         $this->mixpanelMock
-            ->shouldReceive('importBatch')
+            ->shouldReceive('importCampaigns')
             ->once();
     }
 
@@ -610,7 +610,7 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
             ->andReturn([$campaign]);
 
         $this->mixpanelMock
-            ->shouldReceive('importBatch')
+            ->shouldReceive('importCampaigns')
             ->once()
             ->andThrow($exception);
     }

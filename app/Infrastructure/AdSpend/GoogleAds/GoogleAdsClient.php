@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\AdSpend\GoogleAds;
 
-use App\Domain\AdSpend\Contracts\GoogleAdsClientInterface;
+use App\Application\Contracts\GoogleAdsClientInterface;
 use App\Domain\AdSpend\Exceptions\ApiRateLimitException;
 use App\Domain\AdSpend\Exceptions\GoogleAdsApiException;
 use App\Domain\AdSpend\Exceptions\InvalidGoogleAdsResponseException;

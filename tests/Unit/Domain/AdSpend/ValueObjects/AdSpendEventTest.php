@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Domain\AdSpend\ValueObjects;
 
-use App\Domain\AdSpend\ValueObjects\AdSpendEvent;
+use App\Infrastructure\AdSpend\Mixpanel\MixpanelAdSpendEventDTO;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
-#[CoversClass(AdSpendEvent::class)]
+#[CoversClass(MixpanelAdSpendEventDTO::class)]
 final class AdSpendEventTest extends TestCase
 {
     /**
@@ -44,7 +44,7 @@ final class AdSpendEventTest extends TestCase
         $data = $this->createValidData();
 
         // Act
-        $event = new AdSpendEvent(...$data);
+        $event = new MixpanelAdSpendEventDTO(...$data);
 
         // Assert
         self::assertSame($data['insertId'], $event->insertId);
@@ -59,39 +59,6 @@ final class AdSpendEventTest extends TestCase
         self::assertSame($data['utmSource'], $event->utmSource);
         self::assertSame($data['utmMedium'], $event->utmMedium);
         self::assertSame($data['utmCampaign'], $event->utmCampaign);
-    }
-
-    #[Test]
-    public function it_formats_data_correctly_for_mixpanel(): void
-    {
-        // Arrange
-        $data = $this->createValidData();
-        $event = new AdSpendEvent(...$data);
-
-        // Act
-        $mixpanelFormat = $event->toMixpanelFormat();
-
-        // Assert
-        $expected = [
-            'event' => 'Ad Data',
-            'properties' => [
-                'time' => $data['timestamp'],
-                'distinct_id' => '',
-                '$insert_id' => $data['insertId'],
-                'source' => $data['source'],
-                'campaign_id' => $data['campaignId'],
-                'campaign_name' => $data['campaignName'],
-                'cost' => $data['cost'],
-                'clicks' => $data['clicks'],
-                'impressions' => $data['impressions'],
-                'conversions' => $data['conversions'],
-                'utm_source' => $data['utmSource'],
-                'utm_medium' => $data['utmMedium'],
-                'utm_campaign' => $data['utmCampaign'],
-            ],
-        ];
-
-        self::assertEquals($expected, $mixpanelFormat);
     }
 
     /**
@@ -109,7 +76,7 @@ final class AdSpendEventTest extends TestCase
         $data = $this->createValidData($invalidData);
 
         // Act
-        new AdSpendEvent(...$data);
+        new MixpanelAdSpendEventDTO(...$data);
     }
 
     /**
@@ -134,7 +101,7 @@ final class AdSpendEventTest extends TestCase
         $validMultiByteId = \str_repeat('é', 10);
 
         // Act
-        $event = new AdSpendEvent(...$this->createValidData(['insertId' => $validMultiByteId]));
+        $event = new MixpanelAdSpendEventDTO(...$this->createValidData(['insertId' => $validMultiByteId]));
 
         // Assert
         self::assertSame($validMultiByteId, $event->insertId);
@@ -152,7 +119,7 @@ final class AdSpendEventTest extends TestCase
         $this->expectExceptionMessage('Insert ID must be ≤36 characters');
 
         // Act
-        new AdSpendEvent(...$this->createValidData(['insertId' => $invalidId]));
+        new MixpanelAdSpendEventDTO(...$this->createValidData(['insertId' => $invalidId]));
     }
 
     #[Test]
@@ -162,7 +129,7 @@ final class AdSpendEventTest extends TestCase
         $idAtBoundary = \str_repeat('a', 36); // Exactly 36 characters
 
         // Act
-        $event = new AdSpendEvent(...$this->createValidData(['insertId' => $idAtBoundary]));
+        $event = new MixpanelAdSpendEventDTO(...$this->createValidData(['insertId' => $idAtBoundary]));
 
         // Assert
         self::assertSame($idAtBoundary, $event->insertId);

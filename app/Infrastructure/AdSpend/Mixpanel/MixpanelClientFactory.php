@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\AdSpend\Mixpanel;
 
-use App\Domain\AdSpend\Contracts\MixpanelClientInterface;
+use App\Application\Contracts\MixpanelClientInterface;
 use RuntimeException;
 
 final class MixpanelClientFactory

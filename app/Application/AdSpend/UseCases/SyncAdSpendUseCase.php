@@ -4,12 +4,11 @@ declare(strict_types=1);
 
 namespace App\Application\AdSpend\UseCases;
 
-use App\Domain\AdSpend\Contracts\GoogleAdsClientInterface;
-use App\Domain\AdSpend\Contracts\MixpanelClientInterface;
+use App\Application\Contracts\GoogleAdsClientInterface;
+use App\Application\Contracts\MixpanelClientInterface;
 use App\Domain\AdSpend\Exceptions\ApiRateLimitException;
 use App\Domain\AdSpend\Exceptions\GoogleAdsApiException;
 use App\Domain\AdSpend\Exceptions\MixpanelApiException;
-use App\Domain\AdSpend\Transformers\AdSpendTransformer;
 use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
 
@@ -55,11 +54,9 @@ final readonly class SyncAdSpendUseCase
             return;
         }
 
-        // Step 3: Transform to Mixpanel events
-        $events = AdSpendTransformer::transformToEvents($campaigns);
-
-        // Step 4: Import to Mixpanel
-        $this->mixpanel->importBatch($events);
+        // Step 3: Import campaign metrics to Mixpanel
+        // Infrastructure layer handles internal transformation to Mixpanel event format
+        $this->mixpanel->importCampaigns($campaigns);
 
         Log::info('Ad spend sync completed', [
             'date' => $date,
