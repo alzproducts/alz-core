@@ -18,6 +18,7 @@ use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
 use RuntimeException;
 use Spatie\LaravelData\DataCollection;
+use Spatie\LaravelData\Exceptions\CannotCreateData;
 
 /**
  * Reviews.io API Client (Synchronous HTTP)
@@ -136,9 +137,9 @@ final readonly class ReviewsIoClient
 
         try {
             return Rating::collect($data, DataCollection::class);
-        } catch (ValidationException $e) {
+        } catch (CannotCreateData $e) {
             Log::warning('Reviews.io API validation failed', [
-                'errors' => $e->errors(),
+                'error' => $e->getMessage(),
                 'payload' => $data,
             ]);
 
