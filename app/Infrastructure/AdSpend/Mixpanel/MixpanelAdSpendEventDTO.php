@@ -43,7 +43,7 @@ final readonly class MixpanelAdSpendEventDTO
     {
         return new self(
             insertId: self::generateInsertId($campaign),
-            timestamp: (int) \strtotime($campaign->date),
+            timestamp: (int) \strtotime($campaign->date . ' UTC'),
             source: 'Google',
             campaignId: $campaign->campaignId,
             campaignName: $campaign->campaignName,
@@ -98,7 +98,7 @@ final readonly class MixpanelAdSpendEventDTO
 
         // Mixpanel $insert_id limit: 36 characters
         if (\mb_strlen($raw) > 36) {
-            return \mb_substr(\md5($raw), 0, 36);
+            return \md5($raw);
         }
 
         return $raw;
