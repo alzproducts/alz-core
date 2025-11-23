@@ -14,6 +14,7 @@ use Google\Ads\GoogleAds\Lib\V22\GoogleAdsClient as SdkGoogleAdsClient;
 use Google\Ads\GoogleAds\V22\Services\GoogleAdsRow;
 use Google\Ads\GoogleAds\V22\Services\SearchGoogleAdsRequest;
 use Google\ApiCore\ApiException;
+use Google\ApiCore\PagedListResponse;
 use Google\ApiCore\ValidationException;
 use Google\Rpc\Code;
 
@@ -59,45 +60,18 @@ final readonly class GoogleAdsClient implements GoogleAdsClientInterface
             WHERE segments.date = '{$date}'
             GAQL;
 
-        try {
-            // Create search request
-            $request = new SearchGoogleAdsRequest();
-            $request->setCustomerId($this->customerId);
-            $request->setQuery($query);
-            $request->setPageSize(10000);
+        // Execute query via helper method
+        $response = $this->search($query);
 
-            // Execute query via Google Ads service client
-            $response = $this->sdkClient->getGoogleAdsServiceClient()->search($request);
-
-            // Transform each row into CampaignMetrics domain value object
-            $metrics = [];
-            foreach ($response->iterateAllElements() as $item) {
-                /** @var GoogleAdsRow $googleAdsRow */
-                $googleAdsRow = $item;
-                $metrics[] = GoogleAdsRowTransformer::toCampaignMetrics($googleAdsRow);
-            }
-
-            return $metrics;
-        } catch (ApiException $e) {
-            // Handle API rate limiting
-            if ($e->getCode() === Code::RESOURCE_EXHAUSTED) {
-                // Extract retry-after from metadata if available
-                $retryAfter = $this->extractRetryAfter($e);
-
-                throw new ApiRateLimitException(
-                    "Google Ads API rate limit exceeded: {$e->getMessage()}",
-                    $retryAfter,
-                    $e,
-                );
-            }
-
-            // Handle other API errors
-            throw GoogleAdsApiException::fromApiError(
-                (string) $e->getCode(),
-                $e->getMessage(),
-                $e,
-            );
+        // Transform each row into CampaignMetrics domain value object
+        $metrics = [];
+        foreach ($response->iterateAllElements() as $item) {
+            /** @var GoogleAdsRow $googleAdsRow */
+            $googleAdsRow = $item;
+            $metrics[] = GoogleAdsRowTransformer::toCampaignMetrics($googleAdsRow);
         }
+
+        return $metrics;
     }
 
     /**
@@ -119,6 +93,29 @@ final readonly class GoogleAdsClient implements GoogleAdsClientInterface
             ORDER BY campaign.id
             GAQL;
 
+        // Execute query via helper method
+        $response = $this->search($query);
+
+        // Transform each row into Campaign domain value object
+        $campaigns = [];
+        foreach ($response->iterateAllElements() as $item) {
+            /** @var GoogleAdsRow $googleAdsRow */
+            $googleAdsRow = $item;
+            $campaigns[] = CampaignRowTransformer::toCampaign($googleAdsRow);
+        }
+
+        return $campaigns;
+    }
+
+    /**
+     * Execute a GAQL query against Google Ads API with unified error handling.
+     *
+     * @throws GoogleAdsApiException
+     * @throws ApiRateLimitException
+     * @throws ValidationException
+     */
+    private function search(string $query): PagedListResponse
+    {
         try {
             // Create search request
             $request = new SearchGoogleAdsRequest();
@@ -127,17 +124,7 @@ final readonly class GoogleAdsClient implements GoogleAdsClientInterface
             $request->setPageSize(10000);
 
             // Execute query via Google Ads service client
-            $response = $this->sdkClient->getGoogleAdsServiceClient()->search($request);
-
-            // Transform each row into Campaign domain value object
-            $campaigns = [];
-            foreach ($response->iterateAllElements() as $item) {
-                /** @var GoogleAdsRow $googleAdsRow */
-                $googleAdsRow = $item;
-                $campaigns[] = CampaignRowTransformer::toCampaign($googleAdsRow);
-            }
-
-            return $campaigns;
+            return $this->sdkClient->getGoogleAdsServiceClient()->search($request);
         } catch (ApiException $e) {
             // Handle API rate limiting
             if ($e->getCode() === Code::RESOURCE_EXHAUSTED) {
