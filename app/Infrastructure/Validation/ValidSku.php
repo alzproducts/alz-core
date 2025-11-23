@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Domain\Review\Validation;
+namespace App\Infrastructure\Validation;
 
 use Closure;
 use Illuminate\Contracts\Validation\ValidationRule;
