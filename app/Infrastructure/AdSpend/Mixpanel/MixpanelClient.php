@@ -127,7 +127,11 @@ final readonly class MixpanelClient implements MixpanelClientInterface
             Http::withBasicAuth($this->serviceAccountUsername, $this->serviceAccountPassword)
                 ->withBody($csv, 'text/csv')
                 ->timeout(60)
-                ->retry(times: 1, sleepMilliseconds: 1000)
+                ->retry(
+                    times: 3,
+                    sleepMilliseconds: 100,
+                    when: ApiRetryStrategy::defaultRetry(),
+                )
                 ->put("{$this->mixpanelBaseUrl}/lookup_tables/{$this->projectId}/{$this->lookupTableId}")
                 ->throw();
         } catch (RequestException $e) {
