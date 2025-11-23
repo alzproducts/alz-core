@@ -44,6 +44,32 @@ This project follows **Clean Architecture** (Robert C. Martin) — dependencies 
 4. **Presentation** calls Application use cases, never Infrastructure directly
 5. **Validation**: External data → exceptions (Infrastructure), internal contracts → assertions (Domain)
 
+### Spatie LaravelData (DTOs)
+
+**Rule**: ❌ **NOT allowed in Domain layer**. Domain must stay framework-independent.
+
+**Use in Application Layer**: Transform Domain objects to API response DTOs.
+```php
+#[MapOutputName(SnakeCaseMapper::class)]
+final class RatingForApiDTO extends Data {
+    public function __construct(
+        public readonly string $sku,
+        public readonly float $averageRating,
+    ) {}
+}
+```
+
+**Use in Infrastructure Layer**: Parse external API responses and represent them as type-safe objects.
+```php
+#[MapInputName(SnakeCaseMapper::class)]
+final class Rating extends Data {
+    public function __construct(
+        public readonly string $sku,
+        public readonly float $averageRating,
+    ) {}
+}
+```
+
 ## Key Architectural Decisions
 
 1. **Cache-first**: Default to caching, remove only when needed
