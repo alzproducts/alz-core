@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\ReviewsIo;
 
-use App\Infrastructure\Responses\Rating;
 use App\Infrastructure\ReviewsIo\Exceptions\ReviewsIoApiException;
+use App\Infrastructure\ReviewsIo\Responses\Rating;
+use App\Infrastructure\ReviewsIo\Validation\ValidSku;
 use App\Infrastructure\Support\ApiRetryStrategy;
-use App\Infrastructure\Validation\ValidSku;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\RequestException;
