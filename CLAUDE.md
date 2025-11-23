@@ -70,6 +70,22 @@ final class Rating extends Data {
 }
 ```
 
+## Interface Placement Rules
+
+**Core Principle:** Interfaces live where they're USED, not where they're IMPLEMENTED.
+
+**Correct Pattern:**
+- Application defines: `Application/Contracts/MixpanelClientInterface`
+- Application uses: `SyncAdSpendUseCase` uses the interface
+- Infrastructure implements: `Infrastructure/Mixpanel/MixpanelClient implements MixpanelClientInterface`
+
+**Why:** Dependency Inversion Principle - higher layers define contracts, lower layers fulfill them.
+
+**Organization Rules:**
+- No interfaces in Infrastructure layer (Infrastructure implements, doesn't define)
+- All interfaces live in `/Contracts/` subdirectories within Domain or Application
+- Contracts directories contain ONLY interfaces, never implementations
+
 ## Key Architectural Decisions
 
 1. **Cache-first**: Default to caching, remove only when needed
