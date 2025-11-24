@@ -96,6 +96,19 @@ When Infection reports "escaped mutants":
 
 ---
 
+## Code Coverage Strategy
+
+**Test**: Runtime business logic, error paths, transformations, API interactions
+**Exclude**: Boot-time validation, framework boilerplate, deployment config
+
+**Excluded in `phpunit.xml`**:
+- `*Factory.php` - Boot-time config validation (fail-fast at startup)
+- `*ServiceProvider.php`, `*Exception.php` - Framework boilerplate
+
+**Target**: 75% minimum (excludes infrastructure concerns)
+
+---
+
 ## Mocking External SDKs with Strict Return Types
 
 **Key lesson**: Third-party SDKs (Google Ads, Firebase, etc.) enforce strict return type checking on mocks. This isn't a limitation—it's a feature preventing production bugs.
