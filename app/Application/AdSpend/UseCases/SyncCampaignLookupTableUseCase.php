@@ -7,6 +7,7 @@ namespace App\Application\AdSpend\UseCases;
 use App\Application\Contracts\GoogleAdsClientInterface;
 use App\Application\Contracts\MixpanelClientInterface;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\UnexpectedApiResultException;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -31,6 +32,7 @@ final readonly class SyncCampaignLookupTableUseCase
      * resolve campaign IDs (UTM parameters) to human-readable campaign names.
      *
      * @throws ExternalServiceUnavailableException
+     * @throws UnexpectedApiResultException
      */
     public function execute(): void
     {
@@ -47,7 +49,7 @@ final readonly class SyncCampaignLookupTableUseCase
         if ($campaigns === []) {
             $this->logger->error('No campaigns found in Google Ads - this may indicate an API issue or account misconfiguration');
 
-            throw new ExternalServiceUnavailableException('Expected at least one campaign from Google Ads API, received empty result');
+            throw new UnexpectedApiResultException('Google Ads', 'Expected at least one campaign, received empty result');
         }
 
         // Step 3: Upload to Mixpanel Lookup Table (replaces entire table)

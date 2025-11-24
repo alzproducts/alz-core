@@ -6,6 +6,7 @@ namespace App\Presentation\Jobs;
 
 use App\Application\AdSpend\UseCases\SyncCampaignLookupTableUseCase;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\UnexpectedApiResultException;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -54,6 +55,15 @@ final class SyncCampaignLookupTableJob implements ShouldQueue
             $useCase->execute();
 
             Log::info('Campaign lookup table sync job completed successfully');
+        } catch (UnexpectedApiResultException $e) {
+            // Permanent failure - retrying won't help, needs human investigation
+            Log::critical('Unexpected API result during campaign lookup table sync, failing immediately', [
+                'service' => $e->serviceName,
+                'reason' => $e->reason,
+                'attempts' => $this->attempts(),
+            ]);
+
+            $this->fail($e);
         } catch (ExternalServiceUnavailableException $e) {
             Log::warning('External service unavailable during campaign lookup table sync, will retry', [
                 'service' => $e->serviceName,
