@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\GoogleAds\Exceptions;
 
-use RuntimeException;
+use App\Infrastructure\Exceptions\ApiException;
 use Throwable;
 
-final class GoogleAdsApiException extends RuntimeException
+final class GoogleAdsApiException extends ApiException
 {
     public static function fromApiError(string $errorCode, string $message, ?Throwable $previous = null): self
     {

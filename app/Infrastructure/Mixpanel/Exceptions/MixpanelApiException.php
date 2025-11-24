@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Mixpanel\Exceptions;
 
-use RuntimeException;
+use App\Infrastructure\Exceptions\ApiException;
 
-final class MixpanelApiException extends RuntimeException
+final class MixpanelApiException extends ApiException
 {
     /**
      * @param array<int, array<string, mixed>> $failedRecords

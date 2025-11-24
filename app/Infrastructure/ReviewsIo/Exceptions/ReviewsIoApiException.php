@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\ReviewsIo\Exceptions;
 
-use RuntimeException;
+use App\Infrastructure\Exceptions\ApiException;
 use Throwable;
 
-final class ReviewsIoApiException extends RuntimeException
+final class ReviewsIoApiException extends ApiException
 {
     public static function invalidResponse(
         string $message,
