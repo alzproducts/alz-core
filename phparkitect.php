@@ -60,10 +60,10 @@ return static function (Config $config): void {
     $rules = [];
 
     // Layer definitions
-    $domain = 'App\Domain';
-    $application = 'App\Application';
+    $domain         = 'App\Domain';
+    $application    = 'App\Application';
     $infrastructure = 'App\Infrastructure';
-    $presentation = 'App\Presentation';
+    $presentation   = 'App\Presentation';
 
     /*
      |--------------------------------------------------------------------------
@@ -91,9 +91,28 @@ return static function (Config $config): void {
     //    class TaxService implements TaxCalculator { }  // Implements Domain
     //
     $rules[] = Rule::allClasses()
-        ->that(new ResideInOneOfTheseNamespaces($domain))
-        ->should(new NotHaveDependencyOutsideNamespace($domain, ['DateTime', 'DateTimeImmutable', 'DateTimeZone', 'DateTimeInterface', 'DateInterval', 'DatePeriod', 'Closure', 'RuntimeException', 'InvalidArgumentException', 'LogicException', 'Throwable', 'JsonException', 'Webmozart\Assert\Assert']))
-        ->because('the Domain layer should be self-contained and not depend on any other layer.');
+                   ->that(new ResideInOneOfTheseNamespaces($domain))
+                   ->should(
+                       new NotHaveDependencyOutsideNamespace(
+                           $domain,
+                           [
+                               'DateTime',
+                               'DateTimeImmutable',
+                               'DateTimeZone',
+                               'DateTimeInterface',
+                               'DateInterval',
+                               'DatePeriod',
+                               'Closure',
+                               'RuntimeException',
+                               'InvalidArgumentException',
+                               'LogicException',
+                               'Throwable',
+                               'JsonException',
+                               'Webmozart\Assert\Assert',
+                           ],
+                       ),
+                   )
+                   ->because('the Domain layer should be self-contained and not depend on any other layer.');
 
     // RULE 2: Application Can Only Depend on Domain
     //
@@ -114,9 +133,28 @@ return static function (Config $config): void {
     //    }
     //
     $rules[] = Rule::allClasses()
-        ->that(new ResideInOneOfTheseNamespaces($application))
-        ->should(new NotHaveDependencyOutsideNamespace($application, [$domain, 'DateTime', 'DateTimeImmutable', 'DateTimeZone', 'DateTimeInterface', 'DateInterval', 'DatePeriod', 'Spatie\LaravelData', 'RuntimeException', 'InvalidArgumentException', 'LogicException', 'Throwable', 'Illuminate\Support\Facades\Log']))
-        ->because('the Application layer can only depend on the Domain layer.');
+                   ->that(new ResideInOneOfTheseNamespaces($application))
+                   ->should(
+                       new NotHaveDependencyOutsideNamespace(
+                           $application,
+                           [
+                               $domain,
+                               'DateTime',
+                               'DateTimeImmutable',
+                               'DateTimeZone',
+                               'DateTimeInterface',
+                               'DateInterval',
+                               'DatePeriod',
+                               'Spatie\LaravelData',
+                               'RuntimeException',
+                               'InvalidArgumentException',
+                               'LogicException',
+                               'Throwable',
+                               'Illuminate\Support\Facades\Log',
+                           ],
+                       ),
+                   )
+                   ->because('the Application layer can only depend on the Domain layer.');
 
     // RULE 3: Infrastructure Implements Domain/Application Interfaces
     //
@@ -133,9 +171,34 @@ return static function (Config $config): void {
     //
     //
     $rules[] = Rule::allClasses()
-        ->that(new ResideInOneOfTheseNamespaces($infrastructure))
-        ->should(new NotHaveDependencyOutsideNamespace($infrastructure, [$application, $domain, 'Illuminate', 'Illuminate\Support\Collection', 'DateTime', 'DateTimeImmutable', 'DateTimeZone', 'DateTimeInterface', 'DateInterval', 'DatePeriod', 'Webmozart\Assert\Assert', 'RuntimeException', 'InvalidArgumentException', 'LogicException', 'Throwable', 'JsonException', 'Spatie\LaravelData', 'Closure', 'Google*']))
-        ->because('the Infrastructure layer implements interfaces from Application and Domain layers.');
+                   ->that(new ResideInOneOfTheseNamespaces($infrastructure))
+                   ->should(
+                       new NotHaveDependencyOutsideNamespace(
+                           $infrastructure,
+                           [
+                               $application,
+                               $domain,
+                               'Illuminate',
+                               'Illuminate\Support\Collection',
+                               'DateTime',
+                               'DateTimeImmutable',
+                               'DateTimeZone',
+                               'DateTimeInterface',
+                               'DateInterval',
+                               'DatePeriod',
+                               'Webmozart\Assert\Assert',
+                               'RuntimeException',
+                               'InvalidArgumentException',
+                               'LogicException',
+                               'Throwable',
+                               'JsonException',
+                               'Spatie\LaravelData',
+                               'Closure',
+                               'Google*',
+                           ],
+                       ),
+                   )
+                   ->because('the Infrastructure layer implements interfaces from Application and Domain layers.');
 
     // RULE 4: Presentation Uses Application Services
     //
@@ -152,9 +215,27 @@ return static function (Config $config): void {
     //    }
     //
     $rules[] = Rule::allClasses()
-        ->that(new ResideInOneOfTheseNamespaces($presentation))
-        ->should(new NotHaveDependencyOutsideNamespace($presentation, [$application, $domain, 'Illuminate', 'DateTime', 'DateTimeImmutable', 'DateTimeZone', 'DateTimeInterface', 'DateInterval', 'DatePeriod', 'Throwable']))
-        ->because('the Presentation layer uses Application services and may handle Domain objects they return.');
+                   ->that(new ResideInOneOfTheseNamespaces($presentation))
+                   ->should(
+                       new NotHaveDependencyOutsideNamespace(
+                           $presentation,
+                           [
+                               $application,
+                               $domain,
+                               'Illuminate',
+                               'DateTime',
+                               'DateTimeImmutable',
+                               'DateTimeZone',
+                               'DateTimeInterface',
+                               'DateInterval',
+                               'DatePeriod',
+                               'Throwable',
+                           ],
+                       ),
+                   )
+                   ->because(
+                       'the Presentation layer uses Application services and may handle Domain objects they return.',
+                   );
 
     // NOTE: Additional architectural constraints (like "Controllers must not depend on
     // Infrastructure" or "Domain must not use Facades") are already enforced by Rules 1-4.
@@ -175,27 +256,61 @@ return static function (Config $config): void {
 
     // Controllers must end with "Controller"
     $rules[] = Rule::allClasses()
-        ->that(new ResideInOneOfTheseNamespaces('App\Presentation\Http\Controllers'))
-        ->should(new HaveNameMatching('*Controller'))
-        ->because('Controllers should have a "Controller" suffix for clarity.');
+                   ->that(new ResideInOneOfTheseNamespaces('App\Presentation\Http\Controllers'))
+                   ->should(new HaveNameMatching('*Controller'))
+                   ->because('Controllers should have a "Controller" suffix for clarity.');
+
+    // RULE 9: Presentation Layer Naming Convention (Whitelist)
+    //
+    // WHY: Entry points should have clear, consistent naming. Controllers handle
+    // HTTP requests, Commands handle CLI, Jobs handle queue messages.
+    //
+    // CORRECT:
+    // ✅ namespace App\Presentation\Http\Controllers;
+    //    class WebhookController { }  // Handles HTTP webhooks
+    //
+    // ✅ namespace App\Presentation\Console\Commands;
+    //    class SyncDataCommand { }  // CLI command
+    //
+    // ✅ namespace App\Presentation\Jobs;
+    //    class ProcessWebhookJob implements ShouldQueue {  // Queue job
+    //        public function handle(ProcessWebhookUseCase $useCase) {
+    //            $useCase->execute($this->data);  // Delegates to Application
+    //        }
+    //    }
+    //
+    // VIOLATION:
+    // ❌ namespace App\Presentation\Http;
+    //    class WebhookHandler { }  // Missing *Controller/*Command/*Job suffix
+    //
+    $rules[] = Rule::allClasses()
+                   ->that(new ResideInOneOfTheseNamespaces($presentation))
+                   ->should(new MatchOneOfTheseNames(['*Controller', '*Command', '*Job']))
+                   ->because(
+                       'Presentation layer classes should be clearly identifiable as controllers, commands, or jobs.',
+                   );
 
     // Application services must end with "UseCase", "Service", "Transformer", "Formatter", or "Interface"
     $rules[] = Rule::allClasses()
-        ->that(new ResideInOneOfTheseNamespaces($application))
-        ->should(new MatchOneOfTheseNames(['*UseCase', '*Service', '*Transformer', '*Formatter', '*Interface']))
-        ->because('Application layer classes should be clearly identifiable as use cases, services, transformers, formatters, or interfaces.');
+                   ->that(new ResideInOneOfTheseNamespaces($application))
+                   ->should(
+                       new MatchOneOfTheseNames(['*UseCase', '*Service', '*Transformer', '*Formatter', '*Interface']),
+                   )
+                   ->because(
+                       'Application layer classes should be clearly identifiable as use cases, services, transformers, formatters, or interfaces.',
+                   );
 
     // Repository implementations must end with "Repository"
     $rules[] = Rule::allClasses()
-        ->that(new ResideInOneOfTheseNamespaces('App\Infrastructure\Database'))
-        ->should(new HaveNameMatching('*Repository'))
-        ->because('Repository implementations should have a "Repository" suffix.');
+                   ->that(new ResideInOneOfTheseNamespaces('App\Infrastructure\Database'))
+                   ->should(new HaveNameMatching('*Repository'))
+                   ->because('Repository implementations should have a "Repository" suffix.');
 
     // API clients must end with "Client"
     $rules[] = Rule::allClasses()
-        ->that(new ResideInOneOfTheseNamespaces('App\Infrastructure\Api'))
-        ->should(new HaveNameMatching('*Client'))
-        ->because('API client classes should have a "Client" suffix.');
+                   ->that(new ResideInOneOfTheseNamespaces('App\Infrastructure\Api'))
+                   ->should(new HaveNameMatching('*Client'))
+                   ->because('API client classes should have a "Client" suffix.');
 
     // RULE 5: No interfaces in Infrastructure
     //
@@ -214,9 +329,11 @@ return static function (Config $config): void {
     //    class EloquentOrderRepository implements OrderRepositoryInterface { }
     //
     $rules[] = Rule::allClasses()
-        ->that(new HaveNameMatching('*Interface'))
-        ->should(new NotResideInTheseNamespaces($infrastructure))
-        ->because('Public interfaces belong in Domain or Application layers. Infrastructure implements contracts defined by higher layers.');
+                   ->that(new HaveNameMatching('*Interface'))
+                   ->should(new NotResideInTheseNamespaces($infrastructure))
+                   ->because(
+                       'Public interfaces belong in Domain or Application layers. Infrastructure implements contracts defined by higher layers.',
+                   );
 
     // RULE 6: Interfaces must be in Contracts subdirectories
     //
@@ -229,12 +346,14 @@ return static function (Config $config): void {
     //    interface MixpanelClientInterface { }
     //
     $rules[] = Rule::allClasses()
-        ->that(new HaveNameMatching('*Interface'))
-        ->should(new ResideInOneOfTheseNamespaces(
-            'App\Domain\Contracts',
-            'App\Application\Contracts',
-        ))
-        ->because('Interfaces must be organized in Contracts subdirectories for easy discovery.');
+                   ->that(new HaveNameMatching('*Interface'))
+                   ->should(
+                       new ResideInOneOfTheseNamespaces(
+                           'App\Domain\Contracts',
+                           'App\Application\Contracts',
+                       ),
+                   )
+                   ->because('Interfaces must be organized in Contracts subdirectories for easy discovery.');
 
     // RULE 7: Contracts directories only contain interfaces
     //
@@ -252,12 +371,14 @@ return static function (Config $config): void {
     //    class OrderService implements OrderServiceInterface { }
     //
     $rules[] = Rule::allClasses()
-        ->that(new ResideInOneOfTheseNamespaces(
-            'App\Domain\Contracts',
-            'App\Application\Contracts',
-        ))
-        ->should(new HaveNameMatching('*Interface'))
-        ->because('Contracts directories should only contain interfaces, not implementations.');
+                   ->that(
+                       new ResideInOneOfTheseNamespaces(
+                           'App\Domain\Contracts',
+                           'App\Application\Contracts',
+                       ),
+                   )
+                   ->should(new HaveNameMatching('*Interface'))
+                   ->because('Contracts directories should only contain interfaces, not implementations.');
 
     // RULE 8: No DTOs in Domain Layer
     //
@@ -280,12 +401,13 @@ return static function (Config $config): void {
     //    class OrderForApiDTO { }  // Transfer format for response
     //
     $rules[] = Rule::allClasses()
-        ->that(new HaveNameMatching('*DTO'))
-        ->should(new NotResideInTheseNamespaces($domain))
-        ->because('DTOs are data transfer formats for Infrastructure/Application layers. Domain should only contain ValueObjects representing pure business concepts.');
+                   ->that(new HaveNameMatching('*DTO'))
+                   ->should(new NotResideInTheseNamespaces($domain))
+                   ->because(
+                       'DTOs are data transfer formats for Infrastructure/Application layers. Domain should only contain ValueObjects representing pure business concepts.',
+                   );
 
     $config->add($classSet, ...$rules);
-
     /*
      |--------------------------------------------------------------------------
      | TROUBLESHOOTING GUIDE
