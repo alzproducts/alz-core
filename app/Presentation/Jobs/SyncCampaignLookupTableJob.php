@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Presentation\Jobs;
 
 use App\Application\AdSpend\UseCases\SyncCampaignLookupTableUseCase;
-use App\Domain\AdSpend\Exceptions\ApiRateLimitException;
+use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -44,7 +44,7 @@ final class SyncCampaignLookupTableJob implements ShouldQueue
     /**
      * Execute the job: synchronize campaign lookup table.
      *
-     * @throws ApiRateLimitException Rate limit hit - will retry with backoff
+     * @throws ExternalServiceUnavailableException When external APIs unavailable - will retry
      */
     public function handle(SyncCampaignLookupTableUseCase $useCase): void
     {
@@ -54,15 +54,17 @@ final class SyncCampaignLookupTableJob implements ShouldQueue
             $useCase->execute();
 
             Log::info('Campaign lookup table sync job completed successfully');
-        } catch (ApiRateLimitException $e) {
-            Log::warning('Campaign lookup table sync rate limited, will retry', [
-                'retry_after' => $e->getRetryAfter(),
+        } catch (ExternalServiceUnavailableException $e) {
+            Log::warning('External service unavailable during campaign lookup table sync, will retry', [
+                'error' => $e->getMessage(),
                 'attempts' => $this->attempts(),
             ]);
 
-            // Release the job back to the queue with exponential backoff delay
-            $backoffDelay = $this->backoff[$this->attempts() - 1] ?? 960;
-            $this->release($backoffDelay);
+            // Use Laravel's built-in retry mechanism with exponential backoff
+            // @TODO REPLACE WITH ExternalServiceUnavailableException retry after
+            $attempt = $this->attempts();
+            $delay = $this->backoff[$attempt - 1] ?? 960;
+            $this->release($delay);
         }
     }
 

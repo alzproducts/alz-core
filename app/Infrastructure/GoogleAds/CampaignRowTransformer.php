@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\GoogleAds;
 
-use App\Domain\AdSpend\Exceptions\InvalidGoogleAdsResponseException;
 use App\Domain\AdSpend\ValueObjects\Campaign;
+use App\Infrastructure\GoogleAds\Exceptions\InvalidGoogleAdsResponseException;
 use Google\Ads\GoogleAds\V22\Services\GoogleAdsRow;
 
 /**

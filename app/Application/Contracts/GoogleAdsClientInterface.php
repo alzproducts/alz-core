@@ -4,10 +4,9 @@ declare(strict_types=1);
 
 namespace App\Application\Contracts;
 
-use App\Domain\AdSpend\Exceptions\ApiRateLimitException;
-use App\Domain\AdSpend\Exceptions\GoogleAdsApiException;
 use App\Domain\AdSpend\ValueObjects\Campaign;
 use App\Domain\AdSpend\ValueObjects\CampaignMetrics;
+use App\Domain\Exceptions\ExternalServiceUnavailableException;
 
 interface GoogleAdsClientInterface
 {
@@ -16,8 +15,7 @@ interface GoogleAdsClientInterface
      *
      * @return array<int, CampaignMetrics>
      *
-     * @throws GoogleAdsApiException
-     * @throws ApiRateLimitException
+     * @throws ExternalServiceUnavailableException
      */
     public function getDailyCampaignMetrics(string $date): array;
 
@@ -26,8 +24,7 @@ interface GoogleAdsClientInterface
      *
      * @return array<int, Campaign>
      *
-     * @throws GoogleAdsApiException
-     * @throws ApiRateLimitException
+     * @throws ExternalServiceUnavailableException
      */
     public function getCampaigns(): array;
 }

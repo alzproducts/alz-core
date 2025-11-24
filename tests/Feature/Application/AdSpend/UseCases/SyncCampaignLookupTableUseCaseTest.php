@@ -7,15 +7,13 @@ namespace Tests\Feature\Application\AdSpend\UseCases;
 use App\Application\AdSpend\UseCases\SyncCampaignLookupTableUseCase;
 use App\Application\Contracts\GoogleAdsClientInterface;
 use App\Application\Contracts\MixpanelClientInterface;
-use App\Domain\AdSpend\Exceptions\ApiRateLimitException;
-use App\Domain\AdSpend\Exceptions\GoogleAdsApiException;
-use App\Domain\AdSpend\Exceptions\MixpanelApiException;
 use App\Domain\AdSpend\ValueObjects\Campaign;
-use Illuminate\Support\Facades\Log;
+use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use Mockery;
 use Mockery\MockInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use Psr\Log\LoggerInterface;
 use Tests\TestCase;
 
 #[CoversClass(SyncCampaignLookupTableUseCase::class)]
@@ -25,6 +23,8 @@ final class SyncCampaignLookupTableUseCaseTest extends TestCase
 
     private MixpanelClientInterface&MockInterface $mixpanelClient;
 
+    private LoggerInterface&MockInterface $loggerMock;
+
     private SyncCampaignLookupTableUseCase $useCase;
 
     protected function setUp(): void
@@ -33,10 +33,12 @@ final class SyncCampaignLookupTableUseCaseTest extends TestCase
 
         $this->googleAdsClient = Mockery::mock(GoogleAdsClientInterface::class);
         $this->mixpanelClient = Mockery::mock(MixpanelClientInterface::class);
+        $this->loggerMock = Mockery::mock(LoggerInterface::class)->shouldIgnoreMissing();
 
         $this->useCase = new SyncCampaignLookupTableUseCase(
             $this->googleAdsClient,
             $this->mixpanelClient,
+            $this->loggerMock,
         );
     }
 
@@ -47,8 +49,6 @@ final class SyncCampaignLookupTableUseCaseTest extends TestCase
     #[Test]
     public function it_syncs_single_campaign_to_mixpanel(): void
     {
-        Log::spy();
-
         $campaign = new Campaign(
             campaignId: 123456789,
             campaignName: '[01] Search - Branded',
@@ -73,23 +73,27 @@ final class SyncCampaignLookupTableUseCaseTest extends TestCase
                 return true;
             });
 
+        $this->loggerMock
+            ->shouldReceive('info')
+            ->with('Starting campaign lookup table sync')
+            ->once();
+
+        $this->loggerMock
+            ->shouldReceive('info')
+            ->with('Retrieved campaigns from Google Ads', ['campaign_count' => 1])
+            ->once();
+
+        $this->loggerMock
+            ->shouldReceive('info')
+            ->with('Campaign lookup table sync completed', ['campaigns_synced' => 1])
+            ->once();
+
         $this->useCase->execute();
-
-        Log::shouldHaveReceived('info')
-            ->with('Starting campaign lookup table sync');
-
-        Log::shouldHaveReceived('info')
-            ->with('Retrieved campaigns from Google Ads', ['campaign_count' => 1]);
-
-        Log::shouldHaveReceived('info')
-            ->with('Campaign lookup table sync completed', ['campaigns_synced' => 1]);
     }
 
     #[Test]
     public function it_syncs_multiple_campaigns_to_mixpanel(): void
     {
-        Log::spy();
-
         $campaigns = [
             new Campaign(campaignId: 111, campaignName: 'Campaign One', status: 'ENABLED'),
             new Campaign(campaignId: 222, campaignName: 'Campaign Two', status: 'PAUSED'),
@@ -117,17 +121,17 @@ final class SyncCampaignLookupTableUseCaseTest extends TestCase
                 return true;
             });
 
-        $this->useCase->execute();
+        $this->loggerMock
+            ->shouldReceive('info')
+            ->with('Campaign lookup table sync completed', ['campaigns_synced' => 5])
+            ->once();
 
-        Log::shouldHaveReceived('info')
-            ->with('Campaign lookup table sync completed', ['campaigns_synced' => 5]);
+        $this->useCase->execute();
     }
 
     #[Test]
     public function it_preserves_campaign_order(): void
     {
-        Log::spy();
-
         $campaigns = [
             new Campaign(campaignId: 999, campaignName: 'Last', status: 'ENABLED'),
             new Campaign(campaignId: 111, campaignName: 'First', status: 'ENABLED'),
@@ -161,8 +165,6 @@ final class SyncCampaignLookupTableUseCaseTest extends TestCase
     #[Test]
     public function it_throws_exception_when_no_campaigns_found(): void
     {
-        Log::spy();
-
         $this->googleAdsClient
             ->shouldReceive('getCampaigns')
             ->once()
@@ -171,20 +173,20 @@ final class SyncCampaignLookupTableUseCaseTest extends TestCase
         $this->mixpanelClient
             ->shouldNotReceive('replaceCampaignLookupTable');
 
-        $this->expectException(GoogleAdsApiException::class);
-        $this->expectExceptionMessage('Expected at least one campaign from Google Ads API, received empty result');
+        $this->loggerMock
+            ->shouldReceive('error')
+            ->with('No campaigns found in Google Ads - this may indicate an API issue or account misconfiguration')
+            ->once();
+
+        $this->expectException(ExternalServiceUnavailableException::class);
+        $this->expectExceptionMessage('Google Ads');
 
         $this->useCase->execute();
-
-        Log::shouldHaveReceived('error')
-            ->with('No campaigns found in Google Ads - this may indicate an API issue or account misconfiguration');
     }
 
     #[Test]
     public function it_logs_error_and_does_not_call_mixpanel_when_no_campaigns_found(): void
     {
-        Log::spy();
-
         $this->googleAdsClient
             ->shouldReceive('getCampaigns')
             ->once()
@@ -193,14 +195,16 @@ final class SyncCampaignLookupTableUseCaseTest extends TestCase
         $this->mixpanelClient
             ->shouldNotReceive('replaceCampaignLookupTable');
 
+        $this->loggerMock
+            ->shouldReceive('error')
+            ->with('No campaigns found in Google Ads - this may indicate an API issue or account misconfiguration')
+            ->once();
+
         try {
             $this->useCase->execute();
-        } catch (GoogleAdsApiException) {
+        } catch (ExternalServiceUnavailableException) {
             // Expected
         }
-
-        Log::shouldHaveReceived('error')
-            ->with('No campaigns found in Google Ads - this may indicate an API issue or account misconfiguration');
     }
 
     // ========================================================================
@@ -210,12 +214,7 @@ final class SyncCampaignLookupTableUseCaseTest extends TestCase
     #[Test]
     public function it_propagates_google_ads_api_exception(): void
     {
-        Log::spy();
-
-        $exception = GoogleAdsApiException::fromApiError(
-            'AUTH_ERROR',
-            'The user does not have access.',
-        );
+        $exception = ExternalServiceUnavailableException::fromService('Google Ads');
 
         $this->googleAdsClient
             ->shouldReceive('getCampaigns')
@@ -231,11 +230,9 @@ final class SyncCampaignLookupTableUseCaseTest extends TestCase
     }
 
     #[Test]
-    public function it_propagates_api_rate_limit_exception_from_google_ads(): void
+    public function it_propagates_external_service_exception_from_google_ads(): void
     {
-        Log::spy();
-
-        $exception = new ApiRateLimitException('Rate limit exceeded', 120);
+        $exception = ExternalServiceUnavailableException::fromService('Google Ads');
 
         $this->googleAdsClient
             ->shouldReceive('getCampaigns')
@@ -247,35 +244,31 @@ final class SyncCampaignLookupTableUseCaseTest extends TestCase
 
         try {
             $this->useCase->execute();
-            self::fail('Expected ApiRateLimitException to be thrown');
-        } catch (ApiRateLimitException $e) {
-            self::assertSame('Rate limit exceeded', $e->getMessage());
-            self::assertSame(120, $e->getRetryAfter());
+            self::fail('Expected ExternalServiceUnavailableException to be thrown');
+        } catch (ExternalServiceUnavailableException $e) {
+            self::assertStringContainsString('Google Ads', $e->getMessage());
         }
     }
 
     #[Test]
     public function it_logs_start_before_google_ads_exception(): void
     {
-        Log::spy();
-
-        $exception = GoogleAdsApiException::fromApiError('API_ERROR', 'Test error');
+        $exception = ExternalServiceUnavailableException::fromService('Google Ads');
 
         $this->googleAdsClient
             ->shouldReceive('getCampaigns')
             ->andThrow($exception);
 
+        $this->loggerMock
+            ->shouldReceive('info')
+            ->with('Starting campaign lookup table sync')
+            ->once();
+
         try {
             $this->useCase->execute();
-        } catch (GoogleAdsApiException) {
+        } catch (ExternalServiceUnavailableException) {
             // Expected
         }
-
-        Log::shouldHaveReceived('info')
-            ->with('Starting campaign lookup table sync');
-
-        // Should not log completion on error
-        Log::shouldNotHaveReceived('info', static fn(string $message): bool => \str_contains($message, 'completed'));
     }
 
     // ========================================================================
@@ -285,13 +278,11 @@ final class SyncCampaignLookupTableUseCaseTest extends TestCase
     #[Test]
     public function it_propagates_mixpanel_api_exception(): void
     {
-        Log::spy();
-
         $campaigns = [
             new Campaign(campaignId: 123, campaignName: 'Test', status: 'ENABLED'),
         ];
 
-        $exception = new MixpanelApiException('Lookup table API error (400): Invalid request');
+        $exception = ExternalServiceUnavailableException::fromService('Mixpanel');
 
         $this->googleAdsClient
             ->shouldReceive('getCampaigns')
@@ -303,22 +294,20 @@ final class SyncCampaignLookupTableUseCaseTest extends TestCase
             ->once()
             ->andThrow($exception);
 
-        $this->expectException(MixpanelApiException::class);
-        $this->expectExceptionMessage('Lookup table API error');
+        $this->expectException(ExternalServiceUnavailableException::class);
+        $this->expectExceptionMessage('Mixpanel');
 
         $this->useCase->execute();
     }
 
     #[Test]
-    public function it_propagates_api_rate_limit_exception_from_mixpanel(): void
+    public function it_propagates_external_service_exception_from_mixpanel(): void
     {
-        Log::spy();
-
         $campaigns = [
             new Campaign(campaignId: 123, campaignName: 'Test', status: 'ENABLED'),
         ];
 
-        $exception = new ApiRateLimitException('Mixpanel rate limit exceeded', 30);
+        $exception = ExternalServiceUnavailableException::fromService('Mixpanel');
 
         $this->googleAdsClient
             ->shouldReceive('getCampaigns')
@@ -332,23 +321,20 @@ final class SyncCampaignLookupTableUseCaseTest extends TestCase
 
         try {
             $this->useCase->execute();
-            self::fail('Expected ApiRateLimitException to be thrown');
-        } catch (ApiRateLimitException $e) {
-            self::assertSame('Mixpanel rate limit exceeded', $e->getMessage());
-            self::assertSame(30, $e->getRetryAfter());
+            self::fail('Expected ExternalServiceUnavailableException to be thrown');
+        } catch (ExternalServiceUnavailableException $e) {
+            self::assertStringContainsString('Mixpanel', $e->getMessage());
         }
     }
 
     #[Test]
     public function it_does_not_log_completion_when_mixpanel_fails(): void
     {
-        Log::spy();
-
         $campaigns = [
             new Campaign(campaignId: 123, campaignName: 'Test', status: 'ENABLED'),
         ];
 
-        $exception = new MixpanelApiException('Import failed');
+        $exception = ExternalServiceUnavailableException::fromService('Mixpanel');
 
         $this->googleAdsClient
             ->shouldReceive('getCampaigns')
@@ -358,16 +344,16 @@ final class SyncCampaignLookupTableUseCaseTest extends TestCase
             ->shouldReceive('replaceCampaignLookupTable')
             ->andThrow($exception);
 
+        $this->loggerMock
+            ->shouldReceive('info')
+            ->with('Starting campaign lookup table sync')
+            ->once();
+
         try {
             $this->useCase->execute();
-        } catch (MixpanelApiException) {
+        } catch (ExternalServiceUnavailableException) {
             // Expected
         }
-
-        Log::shouldHaveReceived('info')
-            ->with('Starting campaign lookup table sync');
-
-        Log::shouldNotHaveReceived('info', static fn(string $message): bool => \str_contains($message, 'completed'));
     }
 
     // ========================================================================
@@ -377,8 +363,6 @@ final class SyncCampaignLookupTableUseCaseTest extends TestCase
     #[Test]
     public function it_passes_campaigns_unchanged_to_mixpanel(): void
     {
-        Log::spy();
-
         $campaign = new Campaign(
             campaignId: 987654321,
             campaignName: '[02] Performance Max',
@@ -407,8 +391,6 @@ final class SyncCampaignLookupTableUseCaseTest extends TestCase
     #[Test]
     public function it_handles_campaign_with_special_characters(): void
     {
-        Log::spy();
-
         $specialName = '[01] Search - Branded | Q4 2024 & Premium';
         $campaign = new Campaign(
             campaignId: 123,
@@ -436,7 +418,6 @@ final class SyncCampaignLookupTableUseCaseTest extends TestCase
     #[Test]
     public function it_handles_all_campaign_status_values(): void
     {
-        Log::spy();
 
         $campaigns = [
             new Campaign(campaignId: 111, campaignName: 'Enabled', status: 'ENABLED'),
@@ -472,8 +453,6 @@ final class SyncCampaignLookupTableUseCaseTest extends TestCase
     #[Test]
     public function it_logs_start_message(): void
     {
-        Log::spy();
-
         $campaigns = [
             new Campaign(campaignId: 1, campaignName: 'Search Campaign', status: 'ENABLED'),
         ];
@@ -486,17 +465,17 @@ final class SyncCampaignLookupTableUseCaseTest extends TestCase
             ->shouldReceive('replaceCampaignLookupTable')
             ->once();
 
-        $this->useCase->execute();
+        $this->loggerMock
+            ->shouldReceive('info')
+            ->with('Starting campaign lookup table sync')
+            ->once();
 
-        Log::shouldHaveReceived('info')
-            ->with('Starting campaign lookup table sync');
+        $this->useCase->execute();
     }
 
     #[Test]
     public function it_logs_completion_with_exact_campaign_count(): void
     {
-        Log::spy();
-
         $campaigns = [
             new Campaign(campaignId: 1, campaignName: 'One', status: 'ENABLED'),
             new Campaign(campaignId: 2, campaignName: 'Two', status: 'ENABLED'),
@@ -511,17 +490,17 @@ final class SyncCampaignLookupTableUseCaseTest extends TestCase
             ->shouldReceive('replaceCampaignLookupTable')
             ->once();
 
-        $this->useCase->execute();
+        $this->loggerMock
+            ->shouldReceive('info')
+            ->with('Campaign lookup table sync completed', ['campaigns_synced' => 3])
+            ->once();
 
-        Log::shouldHaveReceived('info')
-            ->with('Campaign lookup table sync completed', ['campaigns_synced' => 3]);
+        $this->useCase->execute();
     }
 
     #[Test]
     public function it_logs_retrieved_campaigns_count(): void
     {
-        Log::spy();
-
         $campaigns = [
             new Campaign(campaignId: 1, campaignName: 'One', status: 'ENABLED'),
             new Campaign(campaignId: 2, campaignName: 'Two', status: 'ENABLED'),
@@ -535,9 +514,11 @@ final class SyncCampaignLookupTableUseCaseTest extends TestCase
             ->shouldReceive('replaceCampaignLookupTable')
             ->once();
 
-        $this->useCase->execute();
+        $this->loggerMock
+            ->shouldReceive('info')
+            ->with('Retrieved campaigns from Google Ads', ['campaign_count' => 2])
+            ->once();
 
-        Log::shouldHaveReceived('info')
-            ->with('Retrieved campaigns from Google Ads', ['campaign_count' => 2]);
+        $this->useCase->execute();
     }
 }

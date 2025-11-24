@@ -7,10 +7,8 @@ namespace Tests\Feature\Presentation\Jobs;
 use App\Application\AdSpend\UseCases\SyncCampaignLookupTableUseCase;
 use App\Application\Contracts\GoogleAdsClientInterface;
 use App\Application\Contracts\MixpanelClientInterface;
-use App\Domain\AdSpend\Exceptions\ApiRateLimitException;
-use App\Domain\AdSpend\Exceptions\GoogleAdsApiException;
-use App\Domain\AdSpend\Exceptions\MixpanelApiException;
 use App\Domain\AdSpend\ValueObjects\Campaign;
+use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Presentation\Jobs\SyncCampaignLookupTableJob;
 use Illuminate\Contracts\Queue\Job as QueueJobContract;
 use Illuminate\Support\Facades\Log;
@@ -20,6 +18,7 @@ use Mockery\MockInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
+use Psr\Log\LoggerInterface;
 use RuntimeException;
 use Tests\TestCase;
 use Throwable;
@@ -39,7 +38,8 @@ final class SyncCampaignLookupTableJobTest extends TestCase
 
         $this->googleAdsMock = Mockery::mock(GoogleAdsClientInterface::class);
         $this->mixpanelMock = Mockery::mock(MixpanelClientInterface::class);
-        $this->useCase = new SyncCampaignLookupTableUseCase($this->googleAdsMock, $this->mixpanelMock);
+        $loggerMock = Mockery::mock(LoggerInterface::class)->shouldIgnoreMissing();
+        $this->useCase = new SyncCampaignLookupTableUseCase($this->googleAdsMock, $this->mixpanelMock, $loggerMock);
 
         Log::spy();
     }
@@ -91,18 +91,18 @@ final class SyncCampaignLookupTableJobTest extends TestCase
     }
 
     // ========================================================================
-    // ApiRateLimitException Handling
+    // ExternalServiceUnavailableException Handling
     // ========================================================================
 
     #[Test]
-    public function it_catches_api_rate_limit_exception_and_logs_warning(): void
+    public function it_catches_external_service_exception_and_logs_warning(): void
     {
-        $rateLimitException = new ApiRateLimitException('Rate limited', 90);
+        $exception = ExternalServiceUnavailableException::fromService('Google Ads');
 
         $this->googleAdsMock
             ->shouldReceive('getCampaigns')
             ->once()
-            ->andThrow($rateLimitException);
+            ->andThrow($exception);
 
         $job = new SyncCampaignLookupTableJob();
         $this->setJobAttempts($job, 1);
@@ -111,21 +111,24 @@ final class SyncCampaignLookupTableJobTest extends TestCase
         $job->handle($this->useCase);
 
         Log::shouldHaveReceived('warning')
-            ->with('Campaign lookup table sync rate limited, will retry', [
-                'retry_after' => 90,
-                'attempts' => 1,
-            ]);
+            ->with('External service unavailable during campaign lookup table sync, will retry', Mockery::on(
+                static function (array $context): bool {
+                    self::assertSame(1, $context['attempts']);
+                    self::assertArrayHasKey('error', $context);
+
+                    return true;
+                },
+            ));
     }
 
     #[Test]
-    public function it_logs_warning_with_correct_retry_after_value_from_exception(): void
+    public function it_logs_warning_with_correct_attempt_count_from_exception(): void
     {
-        $customRetryAfter = 180;
-        $rateLimitException = new ApiRateLimitException('Rate limited', $customRetryAfter);
+        $exception = ExternalServiceUnavailableException::fromService('Google Ads');
 
         $this->googleAdsMock
             ->shouldReceive('getCampaigns')
-            ->andThrow($rateLimitException);
+            ->andThrow($exception);
 
         $job = new SyncCampaignLookupTableJob();
         $this->setJobAttempts($job, 2);
@@ -133,9 +136,10 @@ final class SyncCampaignLookupTableJobTest extends TestCase
         $job->handle($this->useCase);
 
         Log::shouldHaveReceived('warning')
-            ->with('Campaign lookup table sync rate limited, will retry', Mockery::on(
-                static function (array $context) use ($customRetryAfter): bool {
-                    self::assertSame($customRetryAfter, $context['retry_after']);
+            ->with('External service unavailable during campaign lookup table sync, will retry', Mockery::on(
+                static function (array $context): bool {
+                    self::assertSame(2, $context['attempts']);
+                    self::assertArrayHasKey('error', $context);
 
                     return true;
                 },
@@ -145,11 +149,11 @@ final class SyncCampaignLookupTableJobTest extends TestCase
     #[Test]
     public function it_logs_correct_attempt_count_in_warning(): void
     {
-        $rateLimitException = new ApiRateLimitException('Rate limited', 60);
+        $exception = ExternalServiceUnavailableException::fromService('Google Ads');
 
         $this->googleAdsMock
             ->shouldReceive('getCampaigns')
-            ->andThrow($rateLimitException);
+            ->andThrow($exception);
 
         $job = new SyncCampaignLookupTableJob();
         $this->setJobAttempts($job, 3);
@@ -157,10 +161,14 @@ final class SyncCampaignLookupTableJobTest extends TestCase
         $job->handle($this->useCase);
 
         Log::shouldHaveReceived('warning')
-            ->with('Campaign lookup table sync rate limited, will retry', [
-                'retry_after' => 60,
-                'attempts' => 3,
-            ]);
+            ->with('External service unavailable during campaign lookup table sync, will retry', Mockery::on(
+                static function (array $context): bool {
+                    self::assertSame(3, $context['attempts']);
+                    self::assertArrayHasKey('error', $context);
+
+                    return true;
+                },
+            ));
     }
 
     // ========================================================================
@@ -219,11 +227,11 @@ final class SyncCampaignLookupTableJobTest extends TestCase
     #[DataProvider('releaseDelayProvider')]
     public function it_releases_job_with_correct_backoff_delay_for_each_attempt(int $attempt, int $expectedDelay): void
     {
-        $rateLimitException = new ApiRateLimitException('Rate limited', 60);
+        $exception = ExternalServiceUnavailableException::fromService('Google Ads');
 
         $this->googleAdsMock
             ->shouldReceive('getCampaigns')
-            ->andThrow($rateLimitException);
+            ->andThrow($exception);
 
         $job = new SyncCampaignLookupTableJob();
 
@@ -235,7 +243,7 @@ final class SyncCampaignLookupTableJobTest extends TestCase
         $queueJob->shouldReceive('isDeletedOrReleased')->andReturn(false);
         $job->setJob($queueJob);
 
-        // Should not throw - catches ApiRateLimitException
+        // Should not throw - catches ExternalServiceUnavailableException
         $job->handle($this->useCase);
     }
 
@@ -280,46 +288,10 @@ final class SyncCampaignLookupTableJobTest extends TestCase
     public static function propagatedExceptionProvider(): array
     {
         return [
-            'GoogleAdsApiException propagates' => [
-                GoogleAdsApiException::fromApiError('AUTH_ERROR', 'The user does not have access.'),
-            ],
-            'MixpanelApiException propagates' => [
-                new MixpanelApiException('Invalid lookup table format'),
+            'RuntimeException propagates' => [
+                new RuntimeException('Unexpected error'),
             ],
         ];
-    }
-
-    #[Test]
-    public function it_propagates_google_ads_api_exception_with_correct_message(): void
-    {
-        $exception = GoogleAdsApiException::fromApiError('AUTH_ERROR', 'The user does not have access.');
-
-        $this->googleAdsMock
-            ->shouldReceive('getCampaigns')
-            ->once()
-            ->andThrow($exception);
-
-        $job = new SyncCampaignLookupTableJob();
-
-        $this->expectException(GoogleAdsApiException::class);
-        $this->expectExceptionMessage('Google Ads API error [AUTH_ERROR]: The user does not have access.');
-
-        $job->handle($this->useCase);
-    }
-
-    #[Test]
-    public function it_propagates_mixpanel_api_exception_from_mixpanel_client(): void
-    {
-        $exception = new MixpanelApiException('Lookup table API error (400): Invalid CSV format');
-
-        $this->setupCampaignsForMixpanelError($exception);
-
-        $job = new SyncCampaignLookupTableJob();
-
-        $this->expectException(MixpanelApiException::class);
-        $this->expectExceptionMessage('Lookup table API error');
-
-        $job->handle($this->useCase);
     }
 
     #[Test]
@@ -341,21 +313,19 @@ final class SyncCampaignLookupTableJobTest extends TestCase
     }
 
     #[Test]
-    public function it_logs_start_message_before_exception_propagates(): void
+    public function it_logs_start_message_before_external_service_exception(): void
     {
-        $exception = GoogleAdsApiException::fromApiError('API_ERROR', 'Test error');
+        $exception = new ExternalServiceUnavailableException('Cannot fetch campaigns: Test error');
 
         $this->googleAdsMock
             ->shouldReceive('getCampaigns')
             ->andThrow($exception);
 
         $job = new SyncCampaignLookupTableJob();
+        $this->setJobAttempts($job, 1);
 
-        try {
-            $job->handle($this->useCase);
-        } catch (GoogleAdsApiException) {
-            // Expected
-        }
+        // Job catches exception and releases - doesn't throw
+        $job->handle($this->useCase);
 
         Log::shouldHaveReceived('info')
             ->with('Campaign lookup table sync job starting');
@@ -384,9 +354,9 @@ final class SyncCampaignLookupTableJobTest extends TestCase
     }
 
     #[Test]
-    public function failed_method_logs_google_ads_api_exception_class(): void
+    public function failed_method_logs_external_service_unavailable_from_google_ads(): void
     {
-        $exception = GoogleAdsApiException::fromApiError('QUERY_ERROR', 'Invalid query syntax');
+        $exception = new ExternalServiceUnavailableException('Cannot fetch campaigns: Invalid query syntax');
 
         $job = new SyncCampaignLookupTableJob();
         $this->setJobAttempts($job, 3);
@@ -395,16 +365,16 @@ final class SyncCampaignLookupTableJobTest extends TestCase
 
         Log::shouldHaveReceived('error')
             ->with('Campaign lookup table sync job failed', [
-                'exception' => GoogleAdsApiException::class,
-                'message' => 'Google Ads API error [QUERY_ERROR]: Invalid query syntax',
+                'exception' => ExternalServiceUnavailableException::class,
+                'message' => 'Cannot fetch campaigns: Invalid query syntax',
                 'attempts' => 3,
             ]);
     }
 
     #[Test]
-    public function failed_method_logs_mixpanel_api_exception_class(): void
+    public function failed_method_logs_external_service_unavailable_from_mixpanel(): void
     {
-        $exception = new MixpanelApiException('Import batch failed');
+        $exception = new ExternalServiceUnavailableException('Cannot replace campaign lookup table: Import batch failed');
 
         $job = new SyncCampaignLookupTableJob();
         $this->setJobAttempts($job, 2);
@@ -413,16 +383,16 @@ final class SyncCampaignLookupTableJobTest extends TestCase
 
         Log::shouldHaveReceived('error')
             ->with('Campaign lookup table sync job failed', [
-                'exception' => MixpanelApiException::class,
-                'message' => 'Import batch failed',
+                'exception' => ExternalServiceUnavailableException::class,
+                'message' => 'Cannot replace campaign lookup table: Import batch failed',
                 'attempts' => 2,
             ]);
     }
 
     #[Test]
-    public function failed_method_logs_api_rate_limit_exception_class(): void
+    public function failed_method_logs_external_service_unavailable_rate_limit(): void
     {
-        $exception = new ApiRateLimitException('Rate limit exceeded permanently', 300);
+        $exception = new ExternalServiceUnavailableException('Rate limit exceeded permanently');
 
         $job = new SyncCampaignLookupTableJob();
         $this->setJobAttempts($job, 5);
@@ -431,7 +401,7 @@ final class SyncCampaignLookupTableJobTest extends TestCase
 
         Log::shouldHaveReceived('error')
             ->with('Campaign lookup table sync job failed', [
-                'exception' => ApiRateLimitException::class,
+                'exception' => ExternalServiceUnavailableException::class,
                 'message' => 'Rate limit exceeded permanently',
                 'attempts' => 5,
             ]);
@@ -554,13 +524,13 @@ final class SyncCampaignLookupTableJobTest extends TestCase
     }
 
     /**
-     * Set the job's underlying queue job to mock attempts().
+     * Set the job's underlying queue job to mock attempts() and handle release.
      */
     private function setJobAttempts(SyncCampaignLookupTableJob $job, int $attempts): void
     {
         $queueJob = Mockery::mock(QueueJobContract::class);
         $queueJob->shouldReceive('attempts')->andReturn($attempts);
-        $queueJob->shouldReceive('release')->andReturnNull();
+        $queueJob->shouldReceive('release')->with(Mockery::any())->andReturnNull();
         $queueJob->shouldReceive('isReleased')->andReturn(false);
         $queueJob->shouldReceive('isDeletedOrReleased')->andReturn(false);
 

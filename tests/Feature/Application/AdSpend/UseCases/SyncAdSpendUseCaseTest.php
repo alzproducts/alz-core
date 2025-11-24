@@ -7,15 +7,13 @@ namespace Tests\Feature\Application\AdSpend\UseCases;
 use App\Application\AdSpend\UseCases\SyncAdSpendUseCase;
 use App\Application\Contracts\GoogleAdsClientInterface;
 use App\Application\Contracts\MixpanelClientInterface;
-use App\Domain\AdSpend\Exceptions\ApiRateLimitException;
-use App\Domain\AdSpend\Exceptions\GoogleAdsApiException;
-use App\Domain\AdSpend\Exceptions\MixpanelApiException;
 use App\Domain\AdSpend\ValueObjects\CampaignMetrics;
-use Illuminate\Support\Facades\Log;
+use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use Mockery;
 use Mockery\MockInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use Psr\Log\LoggerInterface;
 use Tests\TestCase;
 
 #[CoversClass(SyncAdSpendUseCase::class)]
@@ -25,6 +23,8 @@ final class SyncAdSpendUseCaseTest extends TestCase
 
     private MixpanelClientInterface&MockInterface $mixpanelClient;
 
+    private LoggerInterface&MockInterface $loggerMock;
+
     private SyncAdSpendUseCase $useCase;
 
     protected function setUp(): void
@@ -33,10 +33,12 @@ final class SyncAdSpendUseCaseTest extends TestCase
 
         $this->googleAdsClient = Mockery::mock(GoogleAdsClientInterface::class);
         $this->mixpanelClient = Mockery::mock(MixpanelClientInterface::class);
+        $this->loggerMock = Mockery::mock(LoggerInterface::class)->shouldIgnoreMissing();
 
         $this->useCase = new SyncAdSpendUseCase(
             $this->googleAdsClient,
             $this->mixpanelClient,
+            $this->loggerMock,
         );
     }
 
@@ -47,8 +49,6 @@ final class SyncAdSpendUseCaseTest extends TestCase
     #[Test]
     public function it_successfully_syncs_single_campaign(): void
     {
-        Log::spy();
-
         $date = '2024-11-18';
         $campaign = $this->createCampaignMetrics(
             campaignId: 123456,
@@ -82,20 +82,22 @@ final class SyncAdSpendUseCaseTest extends TestCase
                 return true;
             });
 
+        $this->loggerMock
+            ->shouldReceive('info')
+            ->with('Starting ad spend sync', ['date' => $date])
+            ->once();
+
+        $this->loggerMock
+            ->shouldReceive('info')
+            ->with('Ad spend sync completed', ['date' => $date, 'campaigns_synced' => 1])
+            ->once();
+
         $this->useCase->execute($date);
-
-        Log::shouldHaveReceived('info')
-            ->with('Starting ad spend sync', ['date' => $date]);
-
-        Log::shouldHaveReceived('info')
-            ->with('Ad spend sync completed', ['date' => $date, 'campaigns_synced' => 1]);
     }
 
     #[Test]
     public function it_successfully_syncs_multiple_campaigns(): void
     {
-        Log::spy();
-
         $date = '2024-11-18';
         $campaigns = [
             $this->createCampaignMetrics(campaignId: 111, campaignName: 'Campaign One', date: $date),
@@ -124,17 +126,17 @@ final class SyncAdSpendUseCaseTest extends TestCase
                 return true;
             });
 
-        $this->useCase->execute($date);
+        $this->loggerMock
+            ->shouldReceive('info')
+            ->with('Ad spend sync completed', ['date' => $date, 'campaigns_synced' => 3])
+            ->once();
 
-        Log::shouldHaveReceived('info')
-            ->with('Ad spend sync completed', ['date' => $date, 'campaigns_synced' => 3]);
+        $this->useCase->execute($date);
     }
 
     #[Test]
     public function it_passes_correct_date_to_google_ads_client(): void
     {
-        Log::spy();
-
         $date = '2024-12-25';
 
         $this->googleAdsClient
@@ -143,11 +145,12 @@ final class SyncAdSpendUseCaseTest extends TestCase
             ->with($date)
             ->andReturn([]);
 
-        $this->useCase->execute($date);
+        $this->loggerMock
+            ->shouldReceive('warning')
+            ->with('No campaigns found for date', ['date' => $date])
+            ->once();
 
-        // Verify date was passed correctly (empty result handled separately)
-        Log::shouldHaveReceived('warning')
-            ->with('No campaigns found for date', ['date' => $date]);
+        $this->useCase->execute($date);
     }
 
     // ========================================================================
@@ -157,8 +160,6 @@ final class SyncAdSpendUseCaseTest extends TestCase
     #[Test]
     public function it_handles_empty_results_from_google_ads(): void
     {
-        Log::spy();
-
         $date = '2024-11-18';
 
         $this->googleAdsClient
@@ -170,22 +171,22 @@ final class SyncAdSpendUseCaseTest extends TestCase
         $this->mixpanelClient
             ->shouldNotReceive('importBatch');
 
+        $this->loggerMock
+            ->shouldReceive('info')
+            ->with('Starting ad spend sync', ['date' => $date])
+            ->once();
+
+        $this->loggerMock
+            ->shouldReceive('warning')
+            ->with('No campaigns found for date', ['date' => $date])
+            ->once();
+
         $this->useCase->execute($date);
-
-        Log::shouldHaveReceived('info')
-            ->with('Starting ad spend sync', ['date' => $date]);
-
-        Log::shouldHaveReceived('warning')
-            ->with('No campaigns found for date', ['date' => $date]);
-
-        Log::shouldNotHaveReceived('info', static fn(string $message): bool => \str_contains($message, 'completed'));
     }
 
     #[Test]
     public function it_does_not_call_mixpanel_when_no_campaigns_found(): void
     {
-        Log::spy();
-
         $date = '2024-11-18';
 
         $this->googleAdsClient
@@ -204,14 +205,11 @@ final class SyncAdSpendUseCaseTest extends TestCase
     // ========================================================================
 
     #[Test]
-    public function it_propagates_google_ads_api_exception(): void
+    public function it_propagates_external_service_unavailable_from_google_ads(): void
     {
-        Log::spy();
-
         $date = '2024-11-18';
-        $exception = GoogleAdsApiException::fromApiError(
-            'AUTH_ERROR',
-            'The user does not have access.',
+        $exception = new ExternalServiceUnavailableException(
+            'Cannot fetch Google Ads metrics: The user does not have access.',
         );
 
         $this->googleAdsClient
@@ -229,12 +227,10 @@ final class SyncAdSpendUseCaseTest extends TestCase
     }
 
     #[Test]
-    public function it_propagates_api_rate_limit_exception_from_google_ads(): void
+    public function it_propagates_external_service_unavailable_from_rate_limit(): void
     {
-        Log::spy();
-
         $date = '2024-11-18';
-        $exception = new ApiRateLimitException('Rate limit exceeded', 120);
+        $exception = new ExternalServiceUnavailableException('Cannot fetch Google Ads metrics: Rate limit exceeded');
 
         $this->googleAdsClient
             ->shouldReceive('getDailyCampaignMetrics')
@@ -245,47 +241,39 @@ final class SyncAdSpendUseCaseTest extends TestCase
         $this->mixpanelClient
             ->shouldNotReceive('importBatch');
 
-        try {
-            $this->useCase->execute($date);
-            self::fail('Expected ApiRateLimitException to be thrown');
-        } catch (ApiRateLimitException $e) {
-            self::assertSame('Rate limit exceeded', $e->getMessage());
-            self::assertSame(120, $e->getRetryAfter());
-        }
+        $this->expectException(ExternalServiceUnavailableException::class);
+        $this->expectExceptionMessage('Cannot fetch Google Ads metrics');
+
+        $this->useCase->execute($date);
     }
 
     #[Test]
     public function it_logs_start_before_google_ads_exception(): void
     {
-        Log::spy();
-
         $date = '2024-11-18';
-        $exception = GoogleAdsApiException::fromApiError('API_ERROR', 'Test error');
+        $exception = new ExternalServiceUnavailableException('Cannot fetch Google Ads metrics: Test error');
 
         $this->googleAdsClient
             ->shouldReceive('getDailyCampaignMetrics')
             ->andThrow($exception);
 
+        $this->loggerMock
+            ->shouldReceive('info')
+            ->with('Starting ad spend sync', ['date' => $date])
+            ->once();
+
         try {
             $this->useCase->execute($date);
-        } catch (GoogleAdsApiException) {
+        } catch (ExternalServiceUnavailableException) {
             // Expected
         }
-
-        Log::shouldHaveReceived('info')
-            ->with('Starting ad spend sync', ['date' => $date]);
-
-        // Should not log completion on error
-        Log::shouldNotHaveReceived('info', static fn(string $message): bool => \str_contains($message, 'completed'));
     }
 
     #[Test]
     public function it_does_not_log_completion_when_google_ads_fails(): void
     {
-        Log::spy();
-
         $date = '2024-11-18';
-        $exception = GoogleAdsApiException::fromApiError('QUERY_ERROR', 'Invalid query');
+        $exception = new ExternalServiceUnavailableException('Cannot fetch Google Ads metrics: Invalid query');
 
         $this->googleAdsClient
             ->shouldReceive('getDailyCampaignMetrics')
@@ -293,13 +281,9 @@ final class SyncAdSpendUseCaseTest extends TestCase
 
         try {
             $this->useCase->execute($date);
-        } catch (GoogleAdsApiException) {
+        } catch (ExternalServiceUnavailableException) {
             // Expected
         }
-
-        Log::shouldNotHaveReceived('info', static fn(string $message): bool => \str_contains($message, 'completed'));
-
-        Log::shouldNotHaveReceived('warning');
     }
 
     // ========================================================================
@@ -307,15 +291,11 @@ final class SyncAdSpendUseCaseTest extends TestCase
     // ========================================================================
 
     #[Test]
-    public function it_propagates_mixpanel_api_exception(): void
+    public function it_propagates_external_service_unavailable_from_mixpanel(): void
     {
-        Log::spy();
-
         $date = '2024-11-18';
         $campaign = $this->createCampaignMetrics(campaignId: 123, date: $date);
-        $exception = MixpanelApiException::fromValidationErrors([
-            ['error' => 'invalid_payload'],
-        ]);
+        $exception = new ExternalServiceUnavailableException('Cannot import to Mixpanel: validation failed for 1 events');
 
         $this->googleAdsClient
             ->shouldReceive('getDailyCampaignMetrics')
@@ -327,20 +307,18 @@ final class SyncAdSpendUseCaseTest extends TestCase
             ->once()
             ->andThrow($exception);
 
-        $this->expectException(MixpanelApiException::class);
-        $this->expectExceptionMessage('Mixpanel validation failed for 1 events');
+        $this->expectException(ExternalServiceUnavailableException::class);
+        $this->expectExceptionMessage('Cannot import to Mixpanel');
 
         $this->useCase->execute($date);
     }
 
     #[Test]
-    public function it_propagates_api_rate_limit_exception_from_mixpanel(): void
+    public function it_propagates_external_service_unavailable_from_mixpanel_rate_limit(): void
     {
-        Log::spy();
-
         $date = '2024-11-18';
         $campaign = $this->createCampaignMetrics(campaignId: 123, date: $date);
-        $exception = new ApiRateLimitException('Mixpanel rate limit exceeded', 30);
+        $exception = new ExternalServiceUnavailableException('Cannot import to Mixpanel: rate limit exceeded');
 
         $this->googleAdsClient
             ->shouldReceive('getDailyCampaignMetrics')
@@ -352,23 +330,18 @@ final class SyncAdSpendUseCaseTest extends TestCase
             ->once()
             ->andThrow($exception);
 
-        try {
-            $this->useCase->execute($date);
-            self::fail('Expected ApiRateLimitException to be thrown');
-        } catch (ApiRateLimitException $e) {
-            self::assertSame('Mixpanel rate limit exceeded', $e->getMessage());
-            self::assertSame(30, $e->getRetryAfter());
-        }
+        $this->expectException(ExternalServiceUnavailableException::class);
+        $this->expectExceptionMessage('Cannot import to Mixpanel');
+
+        $this->useCase->execute($date);
     }
 
     #[Test]
     public function it_does_not_log_completion_when_mixpanel_fails(): void
     {
-        Log::spy();
-
         $date = '2024-11-18';
         $campaign = $this->createCampaignMetrics(campaignId: 123, date: $date);
-        $exception = new MixpanelApiException('Import failed');
+        $exception = new ExternalServiceUnavailableException('Cannot import to Mixpanel: Import failed');
 
         $this->googleAdsClient
             ->shouldReceive('getDailyCampaignMetrics')
@@ -378,16 +351,16 @@ final class SyncAdSpendUseCaseTest extends TestCase
             ->shouldReceive('importCampaigns')
             ->andThrow($exception);
 
+        $this->loggerMock
+            ->shouldReceive('info')
+            ->with('Starting ad spend sync', ['date' => $date])
+            ->once();
+
         try {
             $this->useCase->execute($date);
-        } catch (MixpanelApiException) {
+        } catch (ExternalServiceUnavailableException) {
             // Expected
         }
-
-        Log::shouldHaveReceived('info')
-            ->with('Starting ad spend sync', ['date' => $date]);
-
-        Log::shouldNotHaveReceived('info', static fn(string $message): bool => \str_contains($message, 'completed'));
     }
 
     // ========================================================================
@@ -397,8 +370,6 @@ final class SyncAdSpendUseCaseTest extends TestCase
     #[Test]
     public function it_transforms_campaign_metrics_to_events_correctly(): void
     {
-        Log::spy();
-
         $date = '2024-11-18';
         $campaign = $this->createCampaignMetrics(
             campaignId: 999888,
@@ -440,8 +411,6 @@ final class SyncAdSpendUseCaseTest extends TestCase
     #[Test]
     public function it_preserves_campaign_name_with_special_characters(): void
     {
-        Log::spy();
-
         $date = '2024-11-18';
         $specialCampaignName = '[02] Performance Max - All Products | Q4';
         $campaign = $this->createCampaignMetrics(
@@ -470,8 +439,6 @@ final class SyncAdSpendUseCaseTest extends TestCase
     #[Test]
     public function it_generates_correct_insert_id_format(): void
     {
-        Log::spy();
-
         $date = '2024-11-18';
         $campaign = $this->createCampaignMetrics(campaignId: 123456, date: $date);
 
@@ -497,8 +464,6 @@ final class SyncAdSpendUseCaseTest extends TestCase
     #[Test]
     public function it_converts_date_to_unix_timestamp(): void
     {
-        Log::spy();
-
         $date = '2024-11-18';
 
         $campaign = $this->createCampaignMetrics(campaignId: 123, date: $date);
@@ -524,8 +489,6 @@ final class SyncAdSpendUseCaseTest extends TestCase
     #[Test]
     public function it_maintains_decimal_precision_in_cost_and_conversions(): void
     {
-        Log::spy();
-
         $date = '2024-11-18';
         $campaign = $this->createCampaignMetrics(
             campaignId: 123,
@@ -554,8 +517,6 @@ final class SyncAdSpendUseCaseTest extends TestCase
     #[Test]
     public function it_handles_zero_spend_campaigns(): void
     {
-        Log::spy();
-
         $date = '2024-11-18';
         $campaign = $this->createCampaignMetrics(
             campaignId: 123,
@@ -583,10 +544,12 @@ final class SyncAdSpendUseCaseTest extends TestCase
                 return true;
             });
 
-        $this->useCase->execute($date);
+        $this->loggerMock
+            ->shouldReceive('info')
+            ->with('Ad spend sync completed', ['date' => $date, 'campaigns_synced' => 1])
+            ->once();
 
-        Log::shouldHaveReceived('info')
-            ->with('Ad spend sync completed', ['date' => $date, 'campaigns_synced' => 1]);
+        $this->useCase->execute($date);
     }
 
     // ========================================================================
@@ -596,25 +559,23 @@ final class SyncAdSpendUseCaseTest extends TestCase
     #[Test]
     public function it_logs_start_with_correct_date(): void
     {
-        Log::spy();
-
         $date = '2024-12-31';
 
         $this->googleAdsClient
             ->shouldReceive('getDailyCampaignMetrics')
             ->andReturn([]);
 
-        $this->useCase->execute($date);
+        $this->loggerMock
+            ->shouldReceive('info')
+            ->with('Starting ad spend sync', ['date' => '2024-12-31'])
+            ->once();
 
-        Log::shouldHaveReceived('info')
-            ->with('Starting ad spend sync', ['date' => '2024-12-31']);
+        $this->useCase->execute($date);
     }
 
     #[Test]
     public function it_logs_completion_with_exact_campaign_count(): void
     {
-        Log::spy();
-
         $date = '2024-11-18';
         $campaigns = [
             $this->createCampaignMetrics(campaignId: 1, date: $date),
@@ -632,27 +593,29 @@ final class SyncAdSpendUseCaseTest extends TestCase
             ->shouldReceive('importCampaigns')
             ->once();
 
-        $this->useCase->execute($date);
+        $this->loggerMock
+            ->shouldReceive('info')
+            ->with('Ad spend sync completed', ['date' => $date, 'campaigns_synced' => 5])
+            ->once();
 
-        Log::shouldHaveReceived('info')
-            ->with('Ad spend sync completed', ['date' => $date, 'campaigns_synced' => 5]);
+        $this->useCase->execute($date);
     }
 
     #[Test]
     public function it_logs_warning_with_correct_date_when_empty(): void
     {
-        Log::spy();
-
         $date = '2024-01-01';
 
         $this->googleAdsClient
             ->shouldReceive('getDailyCampaignMetrics')
             ->andReturn([]);
 
-        $this->useCase->execute($date);
+        $this->loggerMock
+            ->shouldReceive('warning')
+            ->with('No campaigns found for date', ['date' => '2024-01-01'])
+            ->once();
 
-        Log::shouldHaveReceived('warning')
-            ->with('No campaigns found for date', ['date' => '2024-01-01']);
+        $this->useCase->execute($date);
     }
 
     // ========================================================================
@@ -662,8 +625,6 @@ final class SyncAdSpendUseCaseTest extends TestCase
     #[Test]
     public function it_preserves_campaign_order_in_transformed_events(): void
     {
-        Log::spy();
-
         $date = '2024-11-18';
         $campaigns = [
             $this->createCampaignMetrics(campaignId: 999, campaignName: 'Campaign Z', date: $date),

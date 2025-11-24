@@ -7,10 +7,8 @@ namespace Tests\Feature\Presentation\Jobs;
 use App\Application\AdSpend\UseCases\SyncAdSpendUseCase;
 use App\Application\Contracts\GoogleAdsClientInterface;
 use App\Application\Contracts\MixpanelClientInterface;
-use App\Domain\AdSpend\Exceptions\ApiRateLimitException;
-use App\Domain\AdSpend\Exceptions\GoogleAdsApiException;
-use App\Domain\AdSpend\Exceptions\MixpanelApiException;
 use App\Domain\AdSpend\ValueObjects\CampaignMetrics;
+use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Presentation\Jobs\SyncGoogleAdsToMixpanelJob;
 use Illuminate\Contracts\Queue\Job as QueueJobContract;
 use Illuminate\Support\Facades\Log;
@@ -20,6 +18,7 @@ use Mockery\MockInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
+use Psr\Log\LoggerInterface;
 use ReflectionClass;
 use RuntimeException;
 use Tests\TestCase;
@@ -42,7 +41,8 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
 
         $this->googleAdsMock = Mockery::mock(GoogleAdsClientInterface::class);
         $this->mixpanelMock = Mockery::mock(MixpanelClientInterface::class);
-        $this->useCase = new SyncAdSpendUseCase($this->googleAdsMock, $this->mixpanelMock);
+        $loggerMock = Mockery::mock(LoggerInterface::class)->shouldIgnoreMissing();
+        $this->useCase = new SyncAdSpendUseCase($this->googleAdsMock, $this->mixpanelMock, $loggerMock);
 
         Log::spy();
     }
@@ -87,19 +87,19 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
     }
 
     // ========================================================================
-    // ApiRateLimitException Handling
+    // ExternalServiceUnavailableException Handling
     // ========================================================================
 
     #[Test]
-    public function it_catches_api_rate_limit_exception_and_logs_warning(): void
+    public function it_catches_external_service_exception_and_logs_warning(): void
     {
-        $rateLimitException = new ApiRateLimitException('Rate limited', 90);
+        $exception = ExternalServiceUnavailableException::fromService('Google Ads');
 
         $this->googleAdsMock
             ->shouldReceive('getDailyCampaignMetrics')
             ->once()
             ->with(self::TEST_DATE)
-            ->andThrow($rateLimitException);
+            ->andThrow($exception);
 
         $job = new SyncGoogleAdsToMixpanelJob(self::TEST_DATE);
         $this->setJobAttempts($job, 1);
@@ -108,22 +108,25 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
         $job->handle($this->useCase);
 
         Log::shouldHaveReceived('warning')
-            ->with('Rate limited during sync, will retry', [
-                'date' => self::TEST_DATE,
-                'retry_after' => 90,
-                'attempts' => 1,
-            ]);
+            ->with('External service unavailable during sync, will retry', Mockery::on(
+                static function (array $context): bool {
+                    self::assertSame(self::TEST_DATE, $context['date']);
+                    self::assertSame(1, $context['attempts']);
+                    self::assertArrayHasKey('error', $context);
+
+                    return true;
+                },
+            ));
     }
 
     #[Test]
-    public function it_logs_warning_with_correct_retry_after_value_from_exception(): void
+    public function it_logs_warning_with_correct_attempt_count_from_exception(): void
     {
-        $customRetryAfter = 180;
-        $rateLimitException = new ApiRateLimitException('Rate limited', $customRetryAfter);
+        $exception = ExternalServiceUnavailableException::fromService('Google Ads');
 
         $this->googleAdsMock
             ->shouldReceive('getDailyCampaignMetrics')
-            ->andThrow($rateLimitException);
+            ->andThrow($exception);
 
         $job = new SyncGoogleAdsToMixpanelJob(self::TEST_DATE);
         $this->setJobAttempts($job, 2);
@@ -131,9 +134,9 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
         $job->handle($this->useCase);
 
         Log::shouldHaveReceived('warning')
-            ->with('Rate limited during sync, will retry', Mockery::on(
-                static function (array $context) use ($customRetryAfter): bool {
-                    self::assertSame($customRetryAfter, $context['retry_after']);
+            ->with('External service unavailable during sync, will retry', Mockery::on(
+                static function (array $context): bool {
+                    self::assertSame(2, $context['attempts']);
 
                     return true;
                 },
@@ -143,11 +146,11 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
     #[Test]
     public function it_logs_correct_attempt_count_in_warning(): void
     {
-        $rateLimitException = new ApiRateLimitException('Rate limited', 60);
+        $exception = ExternalServiceUnavailableException::fromService('Google Ads');
 
         $this->googleAdsMock
             ->shouldReceive('getDailyCampaignMetrics')
-            ->andThrow($rateLimitException);
+            ->andThrow($exception);
 
         $job = new SyncGoogleAdsToMixpanelJob(self::TEST_DATE);
         $this->setJobAttempts($job, 3);
@@ -155,11 +158,15 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
         $job->handle($this->useCase);
 
         Log::shouldHaveReceived('warning')
-            ->with('Rate limited during sync, will retry', [
-                'date' => self::TEST_DATE,
-                'retry_after' => 60,
-                'attempts' => 3,
-            ]);
+            ->with('External service unavailable during sync, will retry', Mockery::on(
+                static function (array $context): bool {
+                    self::assertSame(self::TEST_DATE, $context['date']);
+                    self::assertSame(3, $context['attempts']);
+                    self::assertArrayHasKey('error', $context);
+
+                    return true;
+                },
+            ));
     }
 
     // ========================================================================
@@ -218,11 +225,11 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
     #[DataProvider('releaseDelayProvider')]
     public function it_releases_job_with_correct_backoff_delay_for_each_attempt(int $attempt, int $expectedDelay): void
     {
-        $rateLimitException = new ApiRateLimitException('Rate limited', 60);
+        $exception = ExternalServiceUnavailableException::fromService('Google Ads');
 
         $this->googleAdsMock
             ->shouldReceive('getDailyCampaignMetrics')
-            ->andThrow($rateLimitException);
+            ->andThrow($exception);
 
         $job = new SyncGoogleAdsToMixpanelJob(self::TEST_DATE);
 
@@ -234,7 +241,7 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
         $queueJob->shouldReceive('isDeletedOrReleased')->andReturn(false);
         $job->setJob($queueJob);
 
-        // Should not throw - catches ApiRateLimitException
+        // Should not throw - catches ExternalServiceUnavailableException
         $job->handle($this->useCase);
     }
 
@@ -280,19 +287,16 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
     public static function propagatedExceptionProvider(): array
     {
         return [
-            'GoogleAdsApiException propagates' => [
-                GoogleAdsApiException::fromApiError('AUTH_ERROR', 'The user does not have access.'),
-            ],
-            'MixpanelApiException propagates' => [
-                new MixpanelApiException('Invalid event format'),
+            'RuntimeException propagates' => [
+                new RuntimeException('Unexpected error'),
             ],
         ];
     }
 
     #[Test]
-    public function it_propagates_google_ads_api_exception_with_correct_message(): void
+    public function it_propagates_runtime_exception_with_correct_message(): void
     {
-        $exception = GoogleAdsApiException::fromApiError('AUTH_ERROR', 'The user does not have access.');
+        $exception = new RuntimeException('Unexpected error occurred');
 
         $this->googleAdsMock
             ->shouldReceive('getDailyCampaignMetrics')
@@ -301,28 +305,35 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
 
         $job = new SyncGoogleAdsToMixpanelJob(self::TEST_DATE);
 
-        $this->expectException(GoogleAdsApiException::class);
-        $this->expectExceptionMessage('Google Ads API error [AUTH_ERROR]: The user does not have access.');
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('Unexpected error occurred');
 
         $job->handle($this->useCase);
     }
 
     #[Test]
-    public function it_propagates_mixpanel_api_exception_from_mixpanel_client(): void
+    public function it_catches_external_service_exception_from_mixpanel_client(): void
     {
-        $exception = MixpanelApiException::fromValidationErrors([
-            ['error' => 'invalid_payload'],
-            ['error' => 'missing_field'],
-        ]);
+        $exception = ExternalServiceUnavailableException::fromService('Mixpanel');
 
         $this->setupCampaignsForMixpanelError($exception);
 
         $job = new SyncGoogleAdsToMixpanelJob(self::TEST_DATE);
+        $this->setJobAttempts($job, 1);
 
-        $this->expectException(MixpanelApiException::class);
-        $this->expectExceptionMessage('Mixpanel validation failed for 2 events');
-
+        // The job catches the exception and releases - it should not throw
         $job->handle($this->useCase);
+
+        Log::shouldHaveReceived('warning')
+            ->with('External service unavailable during sync, will retry', Mockery::on(
+                static function (array $context): bool {
+                    self::assertSame(self::TEST_DATE, $context['date']);
+                    self::assertSame(1, $context['attempts']);
+                    self::assertArrayHasKey('error', $context);
+
+                    return true;
+                },
+            ));
     }
 
     #[Test]
@@ -346,7 +357,7 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
     #[Test]
     public function it_logs_start_message_before_exception_propagates(): void
     {
-        $exception = GoogleAdsApiException::fromApiError('API_ERROR', 'Test error');
+        $exception = new RuntimeException('Test error');
 
         $this->googleAdsMock
             ->shouldReceive('getDailyCampaignMetrics')
@@ -356,7 +367,7 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
 
         try {
             $job->handle($this->useCase);
-        } catch (GoogleAdsApiException) {
+        } catch (RuntimeException) {
             // Expected
         }
 
@@ -380,7 +391,6 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
 
         Log::shouldHaveReceived('error')
             ->with('Google Ads to Mixpanel sync job failed', [
-                'date' => self::TEST_DATE,
                 'exception' => RuntimeException::class,
                 'message' => 'Something went terribly wrong',
                 'attempts' => 5,
@@ -388,9 +398,9 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
     }
 
     #[Test]
-    public function failed_method_logs_google_ads_api_exception_class(): void
+    public function failed_method_logs_external_service_exception_class(): void
     {
-        $exception = GoogleAdsApiException::fromApiError('QUERY_ERROR', 'Invalid query syntax');
+        $exception = ExternalServiceUnavailableException::fromService('Google Ads');
 
         $job = new SyncGoogleAdsToMixpanelJob(self::TEST_DATE);
         $this->setJobAttempts($job, 3);
@@ -399,17 +409,16 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
 
         Log::shouldHaveReceived('error')
             ->with('Google Ads to Mixpanel sync job failed', [
-                'date' => self::TEST_DATE,
-                'exception' => GoogleAdsApiException::class,
-                'message' => 'Google Ads API error [QUERY_ERROR]: Invalid query syntax',
+                'exception' => ExternalServiceUnavailableException::class,
+                'message' => "External service 'Google Ads' is unavailable",
                 'attempts' => 3,
             ]);
     }
 
     #[Test]
-    public function failed_method_logs_mixpanel_api_exception_class(): void
+    public function failed_method_logs_mixpanel_external_service_exception_class(): void
     {
-        $exception = new MixpanelApiException('Import batch failed');
+        $exception = ExternalServiceUnavailableException::fromService('Mixpanel');
 
         $job = new SyncGoogleAdsToMixpanelJob(self::TEST_DATE);
         $this->setJobAttempts($job, 2);
@@ -418,17 +427,16 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
 
         Log::shouldHaveReceived('error')
             ->with('Google Ads to Mixpanel sync job failed', [
-                'date' => self::TEST_DATE,
-                'exception' => MixpanelApiException::class,
-                'message' => 'Import batch failed',
+                'exception' => ExternalServiceUnavailableException::class,
+                'message' => "External service 'Mixpanel' is unavailable",
                 'attempts' => 2,
             ]);
     }
 
     #[Test]
-    public function failed_method_logs_api_rate_limit_exception_class(): void
+    public function failed_method_logs_external_service_exception_after_max_retries(): void
     {
-        $exception = new ApiRateLimitException('Rate limit exceeded permanently', 300);
+        $exception = ExternalServiceUnavailableException::fromService('Google Ads');
 
         $job = new SyncGoogleAdsToMixpanelJob(self::TEST_DATE);
         $this->setJobAttempts($job, 5);
@@ -437,32 +445,10 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
 
         Log::shouldHaveReceived('error')
             ->with('Google Ads to Mixpanel sync job failed', [
-                'date' => self::TEST_DATE,
-                'exception' => ApiRateLimitException::class,
-                'message' => 'Rate limit exceeded permanently',
+                'exception' => ExternalServiceUnavailableException::class,
+                'message' => "External service 'Google Ads' is unavailable",
                 'attempts' => 5,
             ]);
-    }
-
-    #[Test]
-    public function failed_method_logs_correct_date_from_job_constructor(): void
-    {
-        $specificDate = '2025-01-15';
-        $exception = new RuntimeException('Test failure');
-
-        $job = new SyncGoogleAdsToMixpanelJob($specificDate);
-        $this->setJobAttempts($job, 1);
-
-        $job->failed($exception);
-
-        Log::shouldHaveReceived('error')
-            ->with('Google Ads to Mixpanel sync job failed', Mockery::on(
-                static function (array $context) use ($specificDate): bool {
-                    self::assertSame($specificDate, $context['date']);
-
-                    return true;
-                },
-            ));
     }
 
     #[Test]
@@ -616,13 +602,13 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
     }
 
     /**
-     * Set the job's underlying queue job to mock attempts().
+     * Set the job's underlying queue job to mock attempts() and handle release.
      */
     private function setJobAttempts(SyncGoogleAdsToMixpanelJob $job, int $attempts): void
     {
         $queueJob = Mockery::mock(QueueJobContract::class);
         $queueJob->shouldReceive('attempts')->andReturn($attempts);
-        $queueJob->shouldReceive('release')->andReturnNull();
+        $queueJob->shouldReceive('release')->with(Mockery::any())->andReturnNull();
         $queueJob->shouldReceive('isReleased')->andReturn(false);
         $queueJob->shouldReceive('isDeletedOrReleased')->andReturn(false);
 

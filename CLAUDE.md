@@ -91,6 +91,26 @@ final class Rating extends Data {
 1. **Cache-first**: Default to caching, remove only when needed
 2. **Queue everything**: Webhooks respond immediately, process async
 3. **Supabase shared**: Same PostgreSQL database as Next.js frontend
+4. **Production uses Octane**: We run long-running daemon processes (Laravel Octane) in production. Be cautious with date/time calculations in queue jobs—always calculate timestamps in `handle()` method, not in constructor, to ensure fresh evaluations on each execution (not stale values from job creation time).
+
+## Exception Handling in Clean Architecture
+
+**Layer Responsibility Summary**:
+- **Domain**: Define business rule violations as exceptions (e.g., `InsufficientStockException`)
+- **Infrastructure**: Catch SDK exceptions, translate to Domain exceptions before leaving layer
+- **Application**: Rarely catches - only for business coordination (batch processing, transactions)
+- **Presentation**: Catches only for delivery mechanism (queue retry, HTTP responses, console output)
+
+**Golden Rules**:
+1. Infrastructure does translation work, Application stays clean
+2. Never catch just to log - Infrastructure logs before translating
+3. Never return empty arrays to hide failures - throw exceptions
+4. Let exceptions bubble unless you have specific reason to catch
+5. For jobs: Use exceptions + Laravel's retry system (don't wrap in Result objects)
+
+**Exception Flow**: `SDK Exception → [Infrastructure translates] → Domain Exception → [Application ignores] → [Presentation handles delivery] → Laravel`
+
+See layer-specific guides for detailed patterns.
 
 ## Modern PHP Standards
 

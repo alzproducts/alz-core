@@ -4,9 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Infrastructure\AdSpend\Mixpanel;
 
-use App\Domain\AdSpend\Exceptions\ApiRateLimitException;
-use App\Domain\AdSpend\Exceptions\MixpanelApiException;
 use App\Domain\AdSpend\ValueObjects\CampaignMetrics;
+use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Infrastructure\Mixpanel\MixpanelClient;
 use Illuminate\Http\Client\Request;
 use Illuminate\Http\Client\RequestException;
@@ -213,20 +212,20 @@ final class MixpanelClientTest extends TestCase
     }
 
     #[Test]
-    public function it_throws_api_rate_limit_exception_on_429(): void
+    public function it_throws_external_service_unavailable_exception_on_429(): void
     {
         Http::fake(['*' => Http::response([], 429)]);
 
         $event = $this->createEvent();
 
-        $this->expectException(ApiRateLimitException::class);
-        $this->expectExceptionMessage('Mixpanel API rate limit exceeded after retries');
+        $this->expectException(ExternalServiceUnavailableException::class);
+        $this->expectExceptionMessage('Cannot import to Mixpanel');
 
         $this->client->importCampaigns([$event]);
     }
 
     #[Test]
-    public function it_extracts_numeric_retry_after_from_header(): void
+    public function it_preserves_original_exception_on_429(): void
     {
         Http::fake([
             '*' => Http::response([], 429, ['Retry-After' => '120']),
@@ -236,110 +235,54 @@ final class MixpanelClientTest extends TestCase
 
         try {
             $this->client->importCampaigns([$event]);
-        } catch (ApiRateLimitException $e) {
-            self::assertSame(120, $e->getRetryAfter());
-
-            return;
-        }
-
-        self::fail('Expected ApiRateLimitException to be thrown');
-    }
-
-    #[Test]
-    public function it_defaults_retry_after_to_60_when_header_missing(): void
-    {
-        Http::fake(['*' => Http::response([], 429)]);
-
-        $event = $this->createEvent();
-
-        try {
-            $this->client->importCampaigns([$event]);
-        } catch (ApiRateLimitException $e) {
-            self::assertSame(60, $e->getRetryAfter());
-
-            return;
-        }
-
-        self::fail('Expected ApiRateLimitException to be thrown');
-    }
-
-    #[Test]
-    public function it_defaults_retry_after_to_60_when_non_numeric(): void
-    {
-        Http::fake([
-            '*' => Http::response([], 429, ['Retry-After' => 'invalid-value']),
-        ]);
-
-        $event = $this->createEvent();
-
-        try {
-            $this->client->importCampaigns([$event]);
-        } catch (ApiRateLimitException $e) {
-            self::assertSame(60, $e->getRetryAfter());
-
-            return;
-        }
-
-        self::fail('Expected ApiRateLimitException to be thrown');
-    }
-
-    #[Test]
-    public function it_preserves_original_exception_in_rate_limit(): void
-    {
-        Http::fake(['*' => Http::response([], 429)]);
-
-        $event = $this->createEvent();
-
-        try {
-            $this->client->importCampaigns([$event]);
-        } catch (ApiRateLimitException $e) {
+        } catch (ExternalServiceUnavailableException $e) {
             self::assertNotNull($e->getPrevious());
             self::assertInstanceOf(RequestException::class, $e->getPrevious());
 
             return;
         }
 
-        self::fail('Expected ApiRateLimitException to be thrown');
+        self::fail('Expected ExternalServiceUnavailableException to be thrown');
     }
 
     #[Test]
-    public function it_throws_mixpanel_api_exception_on_400_bad_request(): void
+    public function it_throws_external_service_unavailable_on_400_bad_request(): void
     {
         Http::fake(['*' => Http::response(['error' => 'Invalid payload'], 400)]);
 
         $event = $this->createEvent();
 
-        $this->expectException(MixpanelApiException::class);
+        $this->expectException(ExternalServiceUnavailableException::class);
 
         $this->client->importCampaigns([$event]);
     }
 
     #[Test]
-    public function it_throws_mixpanel_api_exception_on_401_unauthorized(): void
+    public function it_throws_external_service_unavailable_on_401_unauthorized(): void
     {
         Http::fake(['*' => Http::response([], 401)]);
 
         $event = $this->createEvent();
 
-        $this->expectException(MixpanelApiException::class);
+        $this->expectException(ExternalServiceUnavailableException::class);
 
         $this->client->importCampaigns([$event]);
     }
 
     #[Test]
-    public function it_throws_mixpanel_api_exception_on_5xx(): void
+    public function it_throws_external_service_unavailable_on_5xx(): void
     {
         Http::fake(['*' => Http::response([], 500)]);
 
         $event = $this->createEvent();
 
-        $this->expectException(MixpanelApiException::class);
+        $this->expectException(ExternalServiceUnavailableException::class);
 
         $this->client->importCampaigns([$event]);
     }
 
     #[Test]
-    public function it_preserves_exception_message_in_api_exception(): void
+    public function it_preserves_exception_in_external_service_unavailable(): void
     {
         Http::fake(['*' => Http::response([], 400)]);
 
@@ -347,14 +290,14 @@ final class MixpanelClientTest extends TestCase
 
         try {
             $this->client->importCampaigns([$event]);
-        } catch (MixpanelApiException $e) {
+        } catch (ExternalServiceUnavailableException $e) {
             self::assertNotNull($e->getPrevious());
             self::assertInstanceOf(RequestException::class, $e->getPrevious());
 
             return;
         }
 
-        self::fail('Expected MixpanelApiException to be thrown');
+        self::fail('Expected ExternalServiceUnavailableException to be thrown');
     }
 
     private function createEvent(

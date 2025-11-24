@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Domain\AdSpend\Exceptions;
+namespace App\Infrastructure\Mixpanel\Exceptions;
 
 use RuntimeException;
 

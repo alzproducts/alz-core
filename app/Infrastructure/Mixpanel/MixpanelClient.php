@@ -5,16 +5,18 @@ declare(strict_types=1);
 namespace App\Infrastructure\Mixpanel;
 
 use App\Application\Contracts\MixpanelClientInterface;
-use App\Domain\AdSpend\Exceptions\ApiRateLimitException;
-use App\Domain\AdSpend\Exceptions\MixpanelApiException;
 use App\Domain\AdSpend\ValueObjects\Campaign;
 use App\Domain\AdSpend\ValueObjects\CampaignMetrics;
+use App\Domain\Exceptions\ExternalServiceUnavailableException;
+use App\Infrastructure\Exceptions\ApiRateLimitException;
+use App\Infrastructure\Mixpanel\Exceptions\MixpanelApiException;
 use App\Infrastructure\Support\ApiRetryStrategy;
 use App\Infrastructure\Support\CsvFormatter;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Manages Mixpanel API interactions for events and lookup tables.
@@ -30,8 +32,9 @@ use Illuminate\Support\Facades\Http;
  * - Password: service_account_password
  *
  * Error Handling:
- * - 429 after all retries → ApiRateLimitException
- * - Other 4xx/5xx errors → MixpanelApiException
+ * - Catches SDK exceptions (RequestException, MixpanelApiException)
+ * - Logs technical details with context (using ApiRateLimitException for rate limit detection)
+ * - Translates to Domain exception (ExternalServiceUnavailableException)
  */
 final readonly class MixpanelClient implements MixpanelClientInterface
 {
@@ -51,8 +54,8 @@ final readonly class MixpanelClient implements MixpanelClientInterface
      *
      * @param array<int, CampaignMetrics> $campaigns Domain campaign metrics
      *
-     * @throws MixpanelApiException
-     * @throws ApiRateLimitException|ConnectionException
+     * @throws ExternalServiceUnavailableException
+     * @throws ConnectionException
      */
     public function importCampaigns(array $campaigns): void
     {
@@ -83,18 +86,32 @@ final readonly class MixpanelClient implements MixpanelClientInterface
                 ->post("{$this->mixpanelBaseUrl}/import?project_id={$this->projectId}", $payload)
                 ->throw();
         } catch (RequestException $e) {
-            // Handle rate limiting (429)
+            // Detect rate limit for logging context
+            $rateLimitException = null;
             if ($e->response->status() === 429) {
-                throw new ApiRateLimitException(
+                $rateLimitException = new ApiRateLimitException(
                     'Mixpanel API rate limit exceeded after retries',
                     $this->extractRetryAfter($e->response),
                     $e,
                 );
             }
 
-            // All other errors (4xx/5xx) become MixpanelApiException
-            throw new MixpanelApiException(
-                $e->getMessage(),
+            // Log technical details with context
+            if ($rateLimitException !== null) {
+                Log::warning('Mixpanel rate limited', [
+                    'exception' => $rateLimitException,
+                    'error' => $e->getMessage(),
+                ]);
+            } else {
+                Log::error('Mixpanel API error', [
+                    'status' => $e->response->status(),
+                    'error' => $e->getMessage(),
+                ]);
+            }
+
+            // Translate to Domain exception
+            throw new ExternalServiceUnavailableException(
+                "Cannot import to Mixpanel: {$e->getMessage()}",
                 0,
                 $e,
             );
