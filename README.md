@@ -46,6 +46,20 @@ docker run --rm -u "$(id -u):$(id -g)" -v "$(pwd):/var/www/html" -w /var/www/htm
 
 # Run tests
 ./vendor/bin/sail artisan test
+
+# Generate Google Ads API refresh token (one-time)
+# 1. Add http://localhost to Authorized redirect URIs in Google Cloud Console
+# 2. Open this URL in browser (replace CLIENT_ID with your GOOGLE_ADS_CLIENT_ID):
+#    https://accounts.google.com/o/oauth2/v2/auth?client_id=CLIENT_ID&redirect_uri=http://localhost&response_type=code&scope=https://www.googleapis.com/auth/adwords&access_type=offline&prompt=consent
+# 3. After authorizing, copy the 'code' parameter from the redirect URL
+# 4. Exchange code for refresh token:
+curl -X POST https://oauth2.googleapis.com/token \
+  -d "code=YOUR_AUTH_CODE" \
+  -d "client_id=YOUR_CLIENT_ID" \
+  -d "client_secret=YOUR_CLIENT_SECRET" \
+  -d "redirect_uri=http://localhost" \
+  -d "grant_type=authorization_code"
+# 5. Copy refresh_token from response to .env as GOOGLE_ADS_REFRESH_TOKEN
 ```
 
 ### Daily Development

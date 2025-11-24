@@ -30,6 +30,7 @@
             <file>app/Models/User.php</file>
             <directory suffix="ServiceProvider.php">./app</directory>
             <directory suffix="Exception.php">./app</directory>
+            <directory suffix="Factory.php">./app</directory>
             <file>app/Domain/Review/Rating.php</file>
         </exclude>
     </source>
