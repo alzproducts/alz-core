@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Infrastructure\Responses;
+namespace App\Infrastructure\ReviewsIo\Responses;
 
 use Spatie\LaravelData\Attributes\MapInputName;
 use Spatie\LaravelData\Attributes\Validation\Between;
@@ -35,22 +35,4 @@ final class Rating extends Data
         #[Required, Min(value: 0)]
         public readonly int $numRatings,
     ) {}
-
-    /**
-     * Business rule validation: averageRating requires numRatings > 0
-     *
-     * This rule ensures that ratings only appear when they actually exist,
-     * preventing invalid states like "no reviews but has rating" in the API response.
-     *
-     * @return array<string, array<int, string>>
-     */
-    public static function rules(): array
-    {
-        return [
-            'averageRating' => [
-                'required_if:numRatings,>,0',  // If reviews exist, rating must be present
-                'prohibited_if:numRatings,0',  // If no reviews, rating must be absent
-            ],
-        ];
-    }
 }
