@@ -277,11 +277,18 @@ final class SyncAdSpendUseCaseTest extends TestCase
             ->shouldReceive('getDailyCampaignMetrics')
             ->andThrow($exception);
 
+        $this->loggerMock
+            ->shouldNotReceive('info')
+            ->with('Ad spend sync completed', Mockery::any());
+
         try {
             $this->useCase->execute($date);
         } catch (ExternalServiceUnavailableException) {
-            // Expected
+            // Expected - exception should propagate
         }
+
+        // Mockery will verify shouldNotReceive at teardown
+        self::assertTrue(true);
     }
 
     // ========================================================================
