@@ -8,8 +8,6 @@ use App\Application\Contracts\MixpanelClientInterface;
 use App\Domain\AdSpend\ValueObjects\Campaign;
 use App\Domain\AdSpend\ValueObjects\CampaignMetrics;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
-use App\Infrastructure\Exceptions\ApiRateLimitException;
-use App\Infrastructure\Mixpanel\Exceptions\MixpanelApiException;
 use App\Infrastructure\Support\ApiRetryStrategy;
 use App\Infrastructure\Support\CsvFormatter;
 use Illuminate\Http\Client\ConnectionException;
@@ -86,20 +84,12 @@ final readonly class MixpanelClient implements MixpanelClientInterface
                 ->post("{$this->mixpanelBaseUrl}/import?project_id={$this->projectId}", $payload)
                 ->throw();
         } catch (RequestException $e) {
-            // Detect rate limit for logging context
-            $rateLimitException = null;
+            // Detect rate limit and extract retryAfter if available
+            $retryAfter = null;
             if ($e->response->status() === 429) {
-                $rateLimitException = new ApiRateLimitException(
-                    'Mixpanel API rate limit exceeded after retries',
-                    $this->extractRetryAfter($e->response),
-                    $e,
-                );
-            }
-
-            // Log technical details with context
-            if ($rateLimitException !== null) {
+                $retryAfter = $this->extractRetryAfter($e->response);
                 Log::warning('Mixpanel rate limited', [
-                    'exception' => $rateLimitException,
+                    'retry_after' => $retryAfter,
                     'error' => $e->getMessage(),
                 ]);
             } else {
@@ -109,12 +99,8 @@ final readonly class MixpanelClient implements MixpanelClientInterface
                 ]);
             }
 
-            // Translate to Domain exception
-            throw new ExternalServiceUnavailableException(
-                "Cannot import to Mixpanel: {$e->getMessage()}",
-                0,
-                $e,
-            );
+            // Translate to Domain exception with retryAfter if available
+            throw ExternalServiceUnavailableException::fromService('Mixpanel', $retryAfter, $e);
         }
     }
 
@@ -123,8 +109,8 @@ final readonly class MixpanelClient implements MixpanelClientInterface
      *
      * @param array<int, Campaign> $campaigns
      *
-     * @throws MixpanelApiException
-     * @throws ApiRateLimitException|ConnectionException
+     * @throws ExternalServiceUnavailableException
+     * @throws ConnectionException
      */
     public function replaceCampaignLookupTable(array $campaigns): void
     {
@@ -152,20 +138,23 @@ final readonly class MixpanelClient implements MixpanelClientInterface
                 ->put("{$this->mixpanelBaseUrl}/lookup_tables/{$this->projectId}/{$this->lookupTableId}")
                 ->throw();
         } catch (RequestException $e) {
-            // Handle rate limiting (429)
+            // Detect rate limit and extract retryAfter if available
+            $retryAfter = null;
             if ($e->response->status() === 429) {
-                throw new ApiRateLimitException(
-                    'Mixpanel Lookup Table API rate limit exceeded',
-                    $this->extractRetryAfter($e->response),
-                    $e,
-                );
+                $retryAfter = $this->extractRetryAfter($e->response);
+                Log::warning('Mixpanel Lookup Table rate limited', [
+                    'retry_after' => $retryAfter,
+                    'error' => $e->getMessage(),
+                ]);
+            } else {
+                Log::error('Mixpanel Lookup Table API error', [
+                    'status' => $e->response->status(),
+                    'error' => $e->getMessage(),
+                ]);
             }
 
-            throw new MixpanelApiException(
-                "Mixpanel Lookup Table API error ({$e->response->status()}): {$e->response->body()}",
-                0,
-                $e,
-            );
+            // Translate to Domain exception with retryAfter if available
+            throw ExternalServiceUnavailableException::fromService('Mixpanel', $retryAfter, $e);
         }
     }
 

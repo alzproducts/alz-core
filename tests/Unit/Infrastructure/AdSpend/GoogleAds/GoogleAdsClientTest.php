@@ -241,7 +241,7 @@ final class GoogleAdsClientTest extends TestCase
         $this->serviceClientMock->method('search')->willThrowException($apiException);
 
         $this->expectException(ExternalServiceUnavailableException::class);
-        $this->expectExceptionMessage('Cannot fetch Google Ads metrics');
+        $this->expectExceptionMessage("External service 'Google Ads' is unavailable");
 
         $this->client->getDailyCampaignMetrics('2024-05-10');
     }

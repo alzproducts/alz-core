@@ -70,15 +70,17 @@ final class SyncGoogleAdsToMixpanelJob implements ShouldQueue
         } catch (ExternalServiceUnavailableException $e) {
             Log::warning('External service unavailable during sync, will retry', [
                 'date' => $dateToSync,
-                'error' => $e->getMessage(),
+                'service' => $e->serviceName,
+                'retry_after' => $e->retryAfter ?? 'using backoff',
                 'attempts' => $this->attempts(),
             ]);
 
-            // Use Laravel's built-in retry mechanism with exponential backoff
-            // @TODO REPLACE WITH ExternalServiceUnavailableException retry after
-            $attempt = $this->attempts();
-            $delay = $this->backoff[$attempt - 1] ?? 960;
-            $this->release($delay);
+            // Use API's retry delay if provided, otherwise let Laravel use backoff array
+            if ($e->retryAfter !== null) {
+                $this->release($e->retryAfter);
+            } else {
+                throw $e;
+            }
         }
     }
 
