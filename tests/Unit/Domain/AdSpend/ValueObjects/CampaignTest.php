@@ -50,6 +50,30 @@ final class CampaignTest extends TestCase
     }
 
     #[Test]
+    public function it_accepts_unspecified_status(): void
+    {
+        $campaign = new Campaign(
+            campaignId: 999999999,
+            campaignName: 'Unspecified Campaign',
+            status: 'UNSPECIFIED',
+        );
+
+        $this->assertSame('UNSPECIFIED', $campaign->status);
+    }
+
+    #[Test]
+    public function it_accepts_campaign_id_of_one(): void
+    {
+        $campaign = new Campaign(
+            campaignId: 1,
+            campaignName: 'Boundary Test Campaign',
+            status: 'ENABLED',
+        );
+
+        $this->assertSame(1, $campaign->campaignId);
+    }
+
+    #[Test]
     public function it_rejects_negative_campaign_id(): void
     {
         $this->expectException(InvalidArgumentException::class);
