@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Console\Commands;
+namespace App\Presentation\Console\Commands;
 
 use App\Presentation\Jobs\SyncGoogleAdsToMixpanelJob;
 use Illuminate\Console\Command;
