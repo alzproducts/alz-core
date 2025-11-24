@@ -9,9 +9,11 @@ use App\Application\Contracts\GoogleAdsClientInterface;
 use App\Application\Contracts\MixpanelClientInterface;
 use App\Domain\AdSpend\ValueObjects\CampaignMetrics;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
+use InvalidArgumentException;
 use Mockery;
 use Mockery\MockInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use Psr\Log\LoggerInterface;
 use Tests\TestCase;
@@ -40,6 +42,90 @@ final class SyncAdSpendUseCaseTest extends TestCase
             $this->mixpanelClient,
             $this->loggerMock,
         );
+    }
+
+    // ========================================================================
+    // Date Validation Tests
+    // ========================================================================
+
+    #[Test]
+    #[DataProvider('invalidDateFormatsProvider')]
+    public function it_throws_exception_for_invalid_date_formats(string $invalidDate): void
+    {
+        // Assert
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Date must be in YYYY-MM-DD format.');
+
+        // Act
+        $this->useCase->execute($invalidDate);
+    }
+
+    #[Test]
+    public function it_accepts_valid_yyyy_mm_dd_format(): void
+    {
+        // Arrange
+        $validDate = '2024-11-18';
+
+        $this->googleAdsClient
+            ->shouldReceive('getDailyCampaignMetrics')
+            ->once()
+            ->with($validDate)
+            ->andReturn([]);
+
+        // Act & Assert: Should not throw
+        $this->useCase->execute($validDate);
+    }
+
+    #[Test]
+    #[DataProvider('edgeCaseDateFormatsProvider')]
+    public function it_validates_date_format_before_making_api_calls(string $invalidDate): void
+    {
+        // Arrange: Google Ads client should NEVER be called with invalid dates
+        $this->googleAdsClient
+            ->shouldNotReceive('getDailyCampaignMetrics');
+
+        $this->mixpanelClient
+            ->shouldNotReceive('importCampaigns');
+
+        // Assert
+        $this->expectException(InvalidArgumentException::class);
+
+        // Act
+        $this->useCase->execute($invalidDate);
+    }
+
+    public static function invalidDateFormatsProvider(): array
+    {
+        return [
+            'empty string' => [''],
+            'slash separator' => ['2024/11/18'],
+            'dot separator' => ['2024.11.18'],
+            'US format' => ['11-18-2024'],
+            'European format' => ['18-11-2024'],
+            'no separators' => ['20241118'],
+            'ISO 8601 with time' => ['2024-11-18T00:00:00'],
+            'ISO 8601 with timezone' => ['2024-11-18T00:00:00Z'],
+            'short year' => ['24-11-18'],
+            'single digit month' => ['2024-1-18'],
+            'single digit day' => ['2024-11-1'],
+            'text month' => ['2024-Nov-18'],
+            'extra characters' => ['2024-11-18 '],
+            'leading space' => [' 2024-11-18'],
+            'only year' => ['2024'],
+            'only year and month' => ['2024-11'],
+            'too many digits in year' => ['12024-11-18'],
+        ];
+    }
+
+    public static function edgeCaseDateFormatsProvider(): array
+    {
+        return [
+            'null string' => ['null'],
+            'boolean true' => ['true'],
+            'boolean false' => ['false'],
+            'random text' => ['not-a-date'],
+            'SQL injection attempt' => ["2024'; DROP TABLE--"],
+        ];
     }
 
     // ========================================================================
