@@ -9,6 +9,7 @@ use App\Application\Contracts\GoogleAdsClientInterface;
 use App\Application\Contracts\MixpanelClientInterface;
 use App\Domain\AdSpend\ValueObjects\Campaign;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\UnexpectedApiResultException;
 use Mockery;
 use Mockery\MockInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -178,8 +179,8 @@ final class SyncCampaignLookupTableUseCaseTest extends TestCase
             ->with('No campaigns found in Google Ads - this may indicate an API issue or account misconfiguration')
             ->once();
 
-        $this->expectException(ExternalServiceUnavailableException::class);
-        $this->expectExceptionMessage('Google Ads');
+        $this->expectException(UnexpectedApiResultException::class);
+        $this->expectExceptionMessage('Unexpected result from Google Ads');
 
         $this->useCase->execute();
     }
@@ -202,7 +203,7 @@ final class SyncCampaignLookupTableUseCaseTest extends TestCase
 
         try {
             $this->useCase->execute();
-        } catch (ExternalServiceUnavailableException) {
+        } catch (UnexpectedApiResultException) {
             // Expected
         }
     }
