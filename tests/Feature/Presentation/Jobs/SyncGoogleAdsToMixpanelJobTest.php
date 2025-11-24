@@ -94,7 +94,7 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
     public function it_catches_external_service_exception_and_logs_warning(): void
     {
         // With retryAfter provided, job releases instead of rethrowing
-        $exception = ExternalServiceUnavailableException::fromService('Google Ads', retryAfter: 60);
+        $exception = new ExternalServiceUnavailableException('Google Ads', retryAfter: 60);
 
         $this->googleAdsMock
             ->shouldReceive('getDailyCampaignMetrics')
@@ -125,7 +125,7 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
     public function it_rethrows_exception_when_retry_after_is_null(): void
     {
         // Without retryAfter, exception is rethrown for Laravel to handle backoff
-        $exception = ExternalServiceUnavailableException::fromService('Google Ads');
+        $exception = new ExternalServiceUnavailableException('Google Ads');
 
         $this->googleAdsMock
             ->shouldReceive('getDailyCampaignMetrics')
@@ -142,7 +142,7 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
     #[Test]
     public function it_logs_warning_before_rethrowing_when_retry_after_is_null(): void
     {
-        $exception = ExternalServiceUnavailableException::fromService('Google Ads');
+        $exception = new ExternalServiceUnavailableException('Google Ads');
 
         $this->googleAdsMock
             ->shouldReceive('getDailyCampaignMetrics')
@@ -226,7 +226,7 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
     public function it_releases_job_with_api_provided_retry_after(): void
     {
         // When API provides retryAfter, job releases with that exact value
-        $exception = ExternalServiceUnavailableException::fromService('Google Ads', retryAfter: 180);
+        $exception = new ExternalServiceUnavailableException('Google Ads', retryAfter: 180);
 
         $this->googleAdsMock
             ->shouldReceive('getDailyCampaignMetrics')
@@ -249,7 +249,7 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
     public function it_releases_job_with_correct_backoff_delay_for_each_attempt(int $attempt, int $expectedDelay): void
     {
         // With retryAfter provided, job releases with that value (not backoff array)
-        $exception = ExternalServiceUnavailableException::fromService('Google Ads', retryAfter: $expectedDelay);
+        $exception = new ExternalServiceUnavailableException('Google Ads', retryAfter: $expectedDelay);
 
         $this->googleAdsMock
             ->shouldReceive('getDailyCampaignMetrics')
@@ -339,7 +339,7 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
     public function it_catches_external_service_exception_from_mixpanel_client(): void
     {
         // With retryAfter provided, job releases instead of rethrowing
-        $exception = ExternalServiceUnavailableException::fromService('Mixpanel', retryAfter: 60);
+        $exception = new ExternalServiceUnavailableException('Mixpanel', retryAfter: 60);
 
         $this->setupCampaignsForMixpanelError($exception);
 
@@ -426,7 +426,7 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
     #[Test]
     public function failed_method_logs_external_service_exception_class(): void
     {
-        $exception = ExternalServiceUnavailableException::fromService('Google Ads');
+        $exception = new ExternalServiceUnavailableException('Google Ads');
 
         $job = new SyncGoogleAdsToMixpanelJob(self::TEST_DATE);
         $this->setJobAttempts($job, 3);
@@ -444,7 +444,7 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
     #[Test]
     public function failed_method_logs_mixpanel_external_service_exception_class(): void
     {
-        $exception = ExternalServiceUnavailableException::fromService('Mixpanel');
+        $exception = new ExternalServiceUnavailableException('Mixpanel');
 
         $job = new SyncGoogleAdsToMixpanelJob(self::TEST_DATE);
         $this->setJobAttempts($job, 2);
@@ -462,7 +462,7 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
     #[Test]
     public function failed_method_logs_external_service_exception_after_max_retries(): void
     {
-        $exception = ExternalServiceUnavailableException::fromService('Google Ads');
+        $exception = new ExternalServiceUnavailableException('Google Ads');
 
         $job = new SyncGoogleAdsToMixpanelJob(self::TEST_DATE);
         $this->setJobAttempts($job, 5);

@@ -208,7 +208,7 @@ final class SyncAdSpendUseCaseTest extends TestCase
     public function it_propagates_external_service_unavailable_from_google_ads(): void
     {
         $date = '2024-11-18';
-        $exception = ExternalServiceUnavailableException::fromService('Google Ads');
+        $exception = new ExternalServiceUnavailableException('Google Ads');
 
         $this->googleAdsClient
             ->shouldReceive('getDailyCampaignMetrics')
@@ -228,7 +228,7 @@ final class SyncAdSpendUseCaseTest extends TestCase
     public function it_propagates_external_service_unavailable_from_rate_limit(): void
     {
         $date = '2024-11-18';
-        $exception = ExternalServiceUnavailableException::fromService('Google Ads', retryAfter: 60);
+        $exception = new ExternalServiceUnavailableException('Google Ads', retryAfter: 60);
 
         $this->googleAdsClient
             ->shouldReceive('getDailyCampaignMetrics')
@@ -249,7 +249,7 @@ final class SyncAdSpendUseCaseTest extends TestCase
     public function it_logs_start_before_google_ads_exception(): void
     {
         $date = '2024-11-18';
-        $exception = ExternalServiceUnavailableException::fromService('Google Ads');
+        $exception = new ExternalServiceUnavailableException('Google Ads');
 
         $this->googleAdsClient
             ->shouldReceive('getDailyCampaignMetrics')
@@ -271,7 +271,7 @@ final class SyncAdSpendUseCaseTest extends TestCase
     public function it_does_not_log_completion_when_google_ads_fails(): void
     {
         $date = '2024-11-18';
-        $exception = ExternalServiceUnavailableException::fromService('Google Ads');
+        $exception = new ExternalServiceUnavailableException('Google Ads');
 
         $this->googleAdsClient
             ->shouldReceive('getDailyCampaignMetrics')
@@ -293,7 +293,7 @@ final class SyncAdSpendUseCaseTest extends TestCase
     {
         $date = '2024-11-18';
         $campaign = $this->createCampaignMetrics(campaignId: 123, date: $date);
-        $exception = ExternalServiceUnavailableException::fromService('Mixpanel');
+        $exception = new ExternalServiceUnavailableException('Mixpanel');
 
         $this->googleAdsClient
             ->shouldReceive('getDailyCampaignMetrics')
@@ -316,7 +316,7 @@ final class SyncAdSpendUseCaseTest extends TestCase
     {
         $date = '2024-11-18';
         $campaign = $this->createCampaignMetrics(campaignId: 123, date: $date);
-        $exception = ExternalServiceUnavailableException::fromService('Mixpanel', retryAfter: 60);
+        $exception = new ExternalServiceUnavailableException('Mixpanel', retryAfter: 60);
 
         $this->googleAdsClient
             ->shouldReceive('getDailyCampaignMetrics')
@@ -339,7 +339,7 @@ final class SyncAdSpendUseCaseTest extends TestCase
     {
         $date = '2024-11-18';
         $campaign = $this->createCampaignMetrics(campaignId: 123, date: $date);
-        $exception = ExternalServiceUnavailableException::fromService('Mixpanel');
+        $exception = new ExternalServiceUnavailableException('Mixpanel');
 
         $this->googleAdsClient
             ->shouldReceive('getDailyCampaignMetrics')

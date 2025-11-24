@@ -134,7 +134,7 @@ final readonly class GoogleAdsClient implements GoogleAdsClientInterface
             }
 
             // Translate to Domain exception with retryAfter if available
-            throw ExternalServiceUnavailableException::fromService('Google Ads', $retryAfter, $e);
+            throw new ExternalServiceUnavailableException('Google Ads', $retryAfter, $e);
         }
     }
 
