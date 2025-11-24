@@ -20,7 +20,7 @@ final readonly class SyncCampaignLookupTableUseCase
     public function __construct(
         private GoogleAdsClientInterface $googleAds,
         private MixpanelClientInterface $mixpanel,
-        private readonly LoggerInterface $logger,
+        private LoggerInterface $logger,
     ) {}
 
     /**

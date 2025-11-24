@@ -214,7 +214,7 @@ final class SyncCampaignLookupTableUseCaseTest extends TestCase
     #[Test]
     public function it_propagates_google_ads_api_exception(): void
     {
-        $exception = ExternalServiceUnavailableException::fromService('Google Ads');
+        $exception = new ExternalServiceUnavailableException('Google Ads');
 
         $this->googleAdsClient
             ->shouldReceive('getCampaigns')
@@ -232,7 +232,7 @@ final class SyncCampaignLookupTableUseCaseTest extends TestCase
     #[Test]
     public function it_propagates_external_service_exception_from_google_ads(): void
     {
-        $exception = ExternalServiceUnavailableException::fromService('Google Ads');
+        $exception = new ExternalServiceUnavailableException('Google Ads');
 
         $this->googleAdsClient
             ->shouldReceive('getCampaigns')
@@ -253,7 +253,7 @@ final class SyncCampaignLookupTableUseCaseTest extends TestCase
     #[Test]
     public function it_logs_start_before_google_ads_exception(): void
     {
-        $exception = ExternalServiceUnavailableException::fromService('Google Ads');
+        $exception = new ExternalServiceUnavailableException('Google Ads');
 
         $this->googleAdsClient
             ->shouldReceive('getCampaigns')
@@ -282,7 +282,7 @@ final class SyncCampaignLookupTableUseCaseTest extends TestCase
             new Campaign(campaignId: 123, campaignName: 'Test', status: 'ENABLED'),
         ];
 
-        $exception = ExternalServiceUnavailableException::fromService('Mixpanel');
+        $exception = new ExternalServiceUnavailableException('Mixpanel');
 
         $this->googleAdsClient
             ->shouldReceive('getCampaigns')
@@ -307,7 +307,7 @@ final class SyncCampaignLookupTableUseCaseTest extends TestCase
             new Campaign(campaignId: 123, campaignName: 'Test', status: 'ENABLED'),
         ];
 
-        $exception = ExternalServiceUnavailableException::fromService('Mixpanel');
+        $exception = new ExternalServiceUnavailableException('Mixpanel');
 
         $this->googleAdsClient
             ->shouldReceive('getCampaigns')
@@ -334,7 +334,7 @@ final class SyncCampaignLookupTableUseCaseTest extends TestCase
             new Campaign(campaignId: 123, campaignName: 'Test', status: 'ENABLED'),
         ];
 
-        $exception = ExternalServiceUnavailableException::fromService('Mixpanel');
+        $exception = new ExternalServiceUnavailableException('Mixpanel');
 
         $this->googleAdsClient
             ->shouldReceive('getCampaigns')

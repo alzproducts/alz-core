@@ -24,15 +24,4 @@ final class ExternalServiceUnavailableException extends RuntimeException
     ) {
         parent::__construct("External service '{$serviceName}' is unavailable", 0, $previous);
     }
-
-    /**
-     * Named constructor for fluent API.
-     */
-    public static function fromService(
-        string $serviceName,
-        ?int $retryAfter = null,
-        ?Throwable $previous = null,
-    ): self {
-        return new self($serviceName, $retryAfter, $previous);
-    }
 }

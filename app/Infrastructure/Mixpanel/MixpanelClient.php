@@ -100,7 +100,7 @@ final readonly class MixpanelClient implements MixpanelClientInterface
             }
 
             // Translate to Domain exception with retryAfter if available
-            throw ExternalServiceUnavailableException::fromService('Mixpanel', $retryAfter, $e);
+            throw new ExternalServiceUnavailableException('Mixpanel', $retryAfter, $e);
         }
     }
 
@@ -154,7 +154,7 @@ final readonly class MixpanelClient implements MixpanelClientInterface
             }
 
             // Translate to Domain exception with retryAfter if available
-            throw ExternalServiceUnavailableException::fromService('Mixpanel', $retryAfter, $e);
+            throw new ExternalServiceUnavailableException('Mixpanel', $retryAfter, $e);
         }
     }
 
