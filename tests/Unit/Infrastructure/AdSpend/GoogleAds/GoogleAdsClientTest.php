@@ -4,10 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Infrastructure\AdSpend\GoogleAds;
 
-use App\Domain\AdSpend\Exceptions\ApiRateLimitException;
-use App\Domain\AdSpend\Exceptions\GoogleAdsApiException;
-use App\Domain\AdSpend\Exceptions\InvalidGoogleAdsResponseException;
 use App\Domain\AdSpend\ValueObjects\CampaignMetrics;
+use App\Domain\Exceptions\ExternalServiceUnavailableException;
+use App\Infrastructure\GoogleAds\Exceptions\InvalidGoogleAdsResponseException;
 use App\Infrastructure\GoogleAds\GoogleAdsClient;
 use Google\Ads\GoogleAds\Lib\V22\GoogleAdsClient as SdkGoogleAdsClient;
 use Google\Ads\GoogleAds\V22\Common\Metrics;
@@ -21,7 +20,6 @@ use Google\Rpc\Code;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
-use ReflectionProperty;
 use Tests\TestCase;
 
 #[CoversClass(GoogleAdsClient::class)]
@@ -232,7 +230,7 @@ final class GoogleAdsClientTest extends TestCase
     }
 
     #[Test]
-    public function it_throws_api_rate_limit_exception_on_resource_exhausted(): void
+    public function it_throws_external_service_unavailable_exception_on_resource_exhausted(): void
     {
         $apiException = new ApiException(
             'Rate limit exceeded',
@@ -242,40 +240,14 @@ final class GoogleAdsClientTest extends TestCase
 
         $this->serviceClientMock->method('search')->willThrowException($apiException);
 
-        $this->expectException(ApiRateLimitException::class);
-        $this->expectExceptionMessage('Google Ads API rate limit exceeded');
+        $this->expectException(ExternalServiceUnavailableException::class);
+        $this->expectExceptionMessage('Cannot fetch Google Ads metrics');
 
         $this->client->getDailyCampaignMetrics('2024-05-10');
     }
 
     #[Test]
-    public function it_extracts_retry_after_from_exception_metadata(): void
-    {
-        $apiException = new ApiException(
-            'Rate limit exceeded',
-            Code::RESOURCE_EXHAUSTED,
-            'RESOURCE_EXHAUSTED',
-        );
-        // Mock metadata access via reflection since ApiException doesn't accept metadata param
-        $reflectionProperty = new ReflectionProperty($apiException, 'metadata');
-        $reflectionProperty->setAccessible(true);
-        $reflectionProperty->setValue($apiException, ['retry-after' => '180']);
-
-        $this->serviceClientMock->method('search')->willThrowException($apiException);
-
-        try {
-            $this->client->getDailyCampaignMetrics('2024-05-10');
-        } catch (ApiRateLimitException $e) {
-            self::assertSame(180, $e->getRetryAfter());
-
-            return;
-        }
-
-        self::fail('Expected ApiRateLimitException to be thrown');
-    }
-
-    #[Test]
-    public function it_defaults_retry_after_to_60_when_metadata_missing(): void
+    public function it_preserves_original_exception_in_external_service_unavailable(): void
     {
         $apiException = new ApiException(
             'Rate limit exceeded',
@@ -287,40 +259,18 @@ final class GoogleAdsClientTest extends TestCase
 
         try {
             $this->client->getDailyCampaignMetrics('2024-05-10');
-        } catch (ApiRateLimitException $e) {
-            self::assertSame(60, $e->getRetryAfter());
-
-            return;
-        }
-
-        self::fail('Expected ApiRateLimitException to be thrown');
-    }
-
-    #[Test]
-    public function it_preserves_original_exception_in_rate_limit(): void
-    {
-        $apiException = new ApiException(
-            'Rate limit exceeded',
-            Code::RESOURCE_EXHAUSTED,
-            'RESOURCE_EXHAUSTED',
-        );
-
-        $this->serviceClientMock->method('search')->willThrowException($apiException);
-
-        try {
-            $this->client->getDailyCampaignMetrics('2024-05-10');
-        } catch (ApiRateLimitException $e) {
+        } catch (ExternalServiceUnavailableException $e) {
             self::assertNotNull($e->getPrevious());
             self::assertInstanceOf(ApiException::class, $e->getPrevious());
 
             return;
         }
 
-        self::fail('Expected ApiRateLimitException to be thrown');
+        self::fail('Expected ExternalServiceUnavailableException to be thrown');
     }
 
     #[Test]
-    public function it_throws_google_ads_api_exception_on_other_codes(): void
+    public function it_throws_external_service_unavailable_exception_on_other_codes(): void
     {
         $apiException = new ApiException(
             'Invalid customer ID',
@@ -330,32 +280,9 @@ final class GoogleAdsClientTest extends TestCase
 
         $this->serviceClientMock->method('search')->willThrowException($apiException);
 
-        $this->expectException(GoogleAdsApiException::class);
+        $this->expectException(ExternalServiceUnavailableException::class);
 
         $this->client->getDailyCampaignMetrics('2024-05-10');
-    }
-
-    #[Test]
-    public function it_preserves_exception_code_in_api_exception(): void
-    {
-        $apiException = new ApiException(
-            'Internal server error',
-            Code::INTERNAL,
-            'INTERNAL',
-        );
-
-        $this->serviceClientMock->method('search')->willThrowException($apiException);
-
-        try {
-            $this->client->getDailyCampaignMetrics('2024-05-10');
-        } catch (GoogleAdsApiException $e) {
-            // Verify the error code is in the exception message
-            self::assertStringContainsString('13', $e->getMessage());
-
-            return;
-        }
-
-        self::fail('Expected GoogleAdsApiException to be thrown');
     }
 
     #[Test]

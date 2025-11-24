@@ -4,10 +4,9 @@ declare(strict_types=1);
 
 namespace App\Application\Contracts;
 
-use App\Domain\AdSpend\Exceptions\ApiRateLimitException;
-use App\Domain\AdSpend\Exceptions\MixpanelApiException;
 use App\Domain\AdSpend\ValueObjects\Campaign;
 use App\Domain\AdSpend\ValueObjects\CampaignMetrics;
+use App\Domain\Exceptions\ExternalServiceUnavailableException;
 
 interface MixpanelClientInterface
 {
@@ -19,8 +18,7 @@ interface MixpanelClientInterface
      *
      * @param array<int, CampaignMetrics> $campaigns
      *
-     * @throws MixpanelApiException
-     * @throws ApiRateLimitException
+     * @throws ExternalServiceUnavailableException
      */
     public function importCampaigns(array $campaigns): void;
 
@@ -38,8 +36,7 @@ interface MixpanelClientInterface
      *
      * @param array<int, Campaign> $campaigns All active campaigns from Google Ads
      *
-     * @throws MixpanelApiException
-     * @throws ApiRateLimitException
+     * @throws ExternalServiceUnavailableException
      */
     public function replaceCampaignLookupTable(array $campaigns): void;
 }

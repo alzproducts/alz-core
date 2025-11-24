@@ -6,11 +6,9 @@ namespace App\Application\AdSpend\UseCases;
 
 use App\Application\Contracts\GoogleAdsClientInterface;
 use App\Application\Contracts\MixpanelClientInterface;
-use App\Domain\AdSpend\Exceptions\ApiRateLimitException;
-use App\Domain\AdSpend\Exceptions\GoogleAdsApiException;
-use App\Domain\AdSpend\Exceptions\MixpanelApiException;
-use Illuminate\Support\Facades\Log;
+use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use InvalidArgumentException;
+use Psr\Log\LoggerInterface;
 
 /**
  * Orchestrate ad spend synchronization from Google Ads to Mixpanel.
@@ -23,6 +21,7 @@ final readonly class SyncAdSpendUseCase
     public function __construct(
         private GoogleAdsClientInterface $googleAds,
         private MixpanelClientInterface $mixpanel,
+        private LoggerInterface $logger,
     ) {}
 
     /**
@@ -30,9 +29,7 @@ final readonly class SyncAdSpendUseCase
      *
      * @param string $date Date in YYYY-MM-DD format
      *
-     * @throws GoogleAdsApiException
-     * @throws ApiRateLimitException
-     * @throws MixpanelApiException
+     * @throws ExternalServiceUnavailableException
      * @throws InvalidArgumentException When date format is invalid
      */
     public function execute(string $date): void
@@ -42,14 +39,14 @@ final readonly class SyncAdSpendUseCase
             throw new InvalidArgumentException('Date must be in YYYY-MM-DD format.');
         }
 
-        Log::info('Starting ad spend sync', ['date' => $date]);
+        $this->logger->info('Starting ad spend sync', ['date' => $date]);
 
         // Step 1: Fetch campaign metrics from Google Ads
         $campaigns = $this->googleAds->getDailyCampaignMetrics($date);
 
         // Step 2: Handle empty results
         if ($campaigns === []) {
-            Log::warning('No campaigns found for date', ['date' => $date]);
+            $this->logger->warning('No campaigns found for date', ['date' => $date]);
 
             return;
         }
@@ -58,7 +55,7 @@ final readonly class SyncAdSpendUseCase
         // Infrastructure layer handles internal transformation to Mixpanel event format
         $this->mixpanel->importCampaigns($campaigns);
 
-        Log::info('Ad spend sync completed', [
+        $this->logger->info('Ad spend sync completed', [
             'date' => $date,
             'campaigns_synced' => \count($campaigns),
         ]);

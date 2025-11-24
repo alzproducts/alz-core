@@ -5,11 +5,12 @@ declare(strict_types=1);
 namespace App\Infrastructure\GoogleAds;
 
 use App\Application\Contracts\GoogleAdsClientInterface;
-use App\Domain\AdSpend\Exceptions\ApiRateLimitException;
-use App\Domain\AdSpend\Exceptions\GoogleAdsApiException;
-use App\Domain\AdSpend\Exceptions\InvalidGoogleAdsResponseException;
 use App\Domain\AdSpend\ValueObjects\Campaign;
 use App\Domain\AdSpend\ValueObjects\CampaignMetrics;
+use App\Domain\Exceptions\ExternalServiceUnavailableException;
+use App\Infrastructure\Exceptions\ApiRateLimitException;
+use App\Infrastructure\GoogleAds\Exceptions\GoogleAdsApiException;
+use App\Infrastructure\GoogleAds\Exceptions\InvalidGoogleAdsResponseException;
 use Google\Ads\GoogleAds\Lib\V22\GoogleAdsClient as SdkGoogleAdsClient;
 use Google\Ads\GoogleAds\V22\Services\GoogleAdsRow;
 use Google\Ads\GoogleAds\V22\Services\SearchGoogleAdsRequest;
@@ -17,6 +18,7 @@ use Google\ApiCore\ApiException;
 use Google\ApiCore\PagedListResponse;
 use Google\ApiCore\ValidationException;
 use Google\Rpc\Code;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Fetches daily campaign metrics from Google Ads API.
@@ -28,9 +30,10 @@ use Google\Rpc\Code;
  *
  * Design: Wraps the Google Ads SDK and delegates validation to GoogleAdsRowTransformer.
  * Error Handling:
- * - ApiException with RESOURCE_EXHAUSTED → ApiRateLimitException
- * - ApiException with other codes → GoogleAdsApiException
- * - InvalidGoogleAdsResponseException → passes through (raised by transformer)
+ * - Catches SDK exceptions (GoogleAdsApiException, ApiException, etc.)
+ * - Logs technical details with context
+ * - Translates to Domain exception (ExternalServiceUnavailableException)
+ * - Uses ApiRateLimitException internally for rate limit detection/logging context
  */
 final readonly class GoogleAdsClient implements GoogleAdsClientInterface
 {
@@ -41,8 +44,7 @@ final readonly class GoogleAdsClient implements GoogleAdsClientInterface
 
     /**
      * @return list<CampaignMetrics>
-     * @throws GoogleAdsApiException
-     * @throws ApiRateLimitException
+     * @throws ExternalServiceUnavailableException
      * @throws InvalidGoogleAdsResponseException|ValidationException
      */
     public function getDailyCampaignMetrics(string $date): array
@@ -77,8 +79,7 @@ final readonly class GoogleAdsClient implements GoogleAdsClientInterface
     /**
      * @return list<Campaign>
      *
-     * @throws GoogleAdsApiException
-     * @throws ApiRateLimitException
+     * @throws ExternalServiceUnavailableException
      * @throws InvalidGoogleAdsResponseException|ValidationException
      */
     public function getCampaigns(): array
@@ -110,8 +111,7 @@ final readonly class GoogleAdsClient implements GoogleAdsClientInterface
     /**
      * Execute a GAQL query against Google Ads API with unified error handling.
      *
-     * @throws GoogleAdsApiException
-     * @throws ApiRateLimitException
+     * @throws ExternalServiceUnavailableException
      * @throws ValidationException
      */
     private function search(string $query): PagedListResponse
@@ -126,22 +126,34 @@ final readonly class GoogleAdsClient implements GoogleAdsClientInterface
             // Execute query via Google Ads service client
             return $this->sdkClient->getGoogleAdsServiceClient()->search($request);
         } catch (ApiException $e) {
-            // Handle API rate limiting
+            // Detect rate limit for logging context
+            $rateLimitException = null;
             if ($e->getCode() === Code::RESOURCE_EXHAUSTED) {
-                // Extract retry-after from metadata if available
                 $retryAfter = $this->extractRetryAfter($e);
-
-                throw new ApiRateLimitException(
+                $rateLimitException = new ApiRateLimitException(
                     "Google Ads API rate limit exceeded: {$e->getMessage()}",
                     $retryAfter,
                     $e,
                 );
             }
 
-            // Handle other API errors
-            throw GoogleAdsApiException::fromApiError(
-                (string) $e->getCode(),
-                $e->getMessage(),
+            // Log technical details with context
+            if ($rateLimitException !== null) {
+                Log::warning('Google Ads rate limited', [
+                    'exception' => $rateLimitException,
+                    'error' => $e->getMessage(),
+                ]);
+            } else {
+                Log::error('Google Ads API error', [
+                    'code' => $e->getCode(),
+                    'error' => $e->getMessage(),
+                ]);
+            }
+
+            // Translate to Domain exception
+            throw new ExternalServiceUnavailableException(
+                "Cannot fetch Google Ads metrics: {$e->getMessage()}",
+                0,
                 $e,
             );
         }

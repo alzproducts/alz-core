@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Infrastructure\AdSpend\GoogleAds;
 
-use App\Domain\AdSpend\Exceptions\InvalidGoogleAdsResponseException;
 use App\Domain\AdSpend\ValueObjects\CampaignMetrics;
+use App\Infrastructure\GoogleAds\Exceptions\InvalidGoogleAdsResponseException;
 use App\Infrastructure\GoogleAds\GoogleAdsRowTransformer;
 use Google\Ads\GoogleAds\V22\Common\Metrics;
 use Google\Ads\GoogleAds\V22\Common\Segments;

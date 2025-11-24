@@ -10,6 +10,7 @@ use Arkitect\Expression\ForClasses\NotHaveDependencyOutsideNamespace;
 use Arkitect\Expression\ForClasses\NotResideInTheseNamespaces;
 use Arkitect\Expression\ForClasses\ResideInOneOfTheseNamespaces;
 use Arkitect\Rules\Rule;
+use Webmozart\Assert\Assert;
 
 return static function (Config $config): void {
     $classSet = ClassSet::fromDir(__DIR__ . '/app');
@@ -102,13 +103,12 @@ return static function (Config $config): void {
                                'DateTimeInterface',
                                'DateInterval',
                                'DatePeriod',
-                               'Closure',
                                'RuntimeException',
                                'InvalidArgumentException',
                                'LogicException',
                                'Throwable',
-                               'JsonException',
-                               'Webmozart\Assert\Assert',
+                               'Exception',
+                               Assert::class,
                            ],
                        ),
                    )
@@ -145,12 +145,12 @@ return static function (Config $config): void {
                                'DateTimeInterface',
                                'DateInterval',
                                'DatePeriod',
+                               'Psr\Log\LoggerInterface',
                                'Spatie\LaravelData',
                                'RuntimeException',
                                'InvalidArgumentException',
                                'LogicException',
                                'Throwable',
-                               'Illuminate\Support\Facades\Log',
                            ],
                        ),
                    )
@@ -179,14 +179,13 @@ return static function (Config $config): void {
                                $application,
                                $domain,
                                'Illuminate',
-                               'Illuminate\Support\Collection',
                                'DateTime',
                                'DateTimeImmutable',
                                'DateTimeZone',
                                'DateTimeInterface',
                                'DateInterval',
                                'DatePeriod',
-                               'Webmozart\Assert\Assert',
+                               Assert::class,
                                'RuntimeException',
                                'InvalidArgumentException',
                                'LogicException',
@@ -230,6 +229,11 @@ return static function (Config $config): void {
                                'DateInterval',
                                'DatePeriod',
                                'Throwable',
+                               'Throwable',
+                               'RuntimeException',
+                               'InvalidArgumentException',
+                               'LogicException',
+                               'Exception',
                            ],
                        ),
                    )
