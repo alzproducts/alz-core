@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Domain\Exceptions;
 
-use RuntimeException;
 use Throwable;
 
 /**
@@ -15,7 +14,7 @@ use Throwable;
  * - Service outage (503) → retryAfter null, let Laravel backoff
  * - Network timeout → retryAfter null, let Laravel backoff
  */
-final class ExternalServiceUnavailableException extends RuntimeException
+final class ExternalServiceUnavailableException extends DomainException
 {
     public function __construct(
         public readonly string $serviceName,
