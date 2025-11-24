@@ -97,7 +97,8 @@ final class SyncCampaignLookupTableJobTest extends TestCase
     #[Test]
     public function it_catches_external_service_exception_and_logs_warning(): void
     {
-        $exception = ExternalServiceUnavailableException::fromService('Google Ads');
+        // With retryAfter provided, job releases instead of rethrowing
+        $exception = ExternalServiceUnavailableException::fromService('Google Ads', retryAfter: 60);
 
         $this->googleAdsMock
             ->shouldReceive('getCampaigns')
@@ -113,8 +114,9 @@ final class SyncCampaignLookupTableJobTest extends TestCase
         Log::shouldHaveReceived('warning')
             ->with('External service unavailable during campaign lookup table sync, will retry', Mockery::on(
                 static function (array $context): bool {
+                    self::assertSame('Google Ads', $context['service']);
+                    self::assertSame(60, $context['retry_after']);
                     self::assertSame(1, $context['attempts']);
-                    self::assertArrayHasKey('error', $context);
 
                     return true;
                 },
@@ -122,8 +124,9 @@ final class SyncCampaignLookupTableJobTest extends TestCase
     }
 
     #[Test]
-    public function it_logs_warning_with_correct_attempt_count_from_exception(): void
+    public function it_rethrows_exception_when_retry_after_is_null(): void
     {
+        // Without retryAfter, exception is rethrown for Laravel to handle backoff
         $exception = ExternalServiceUnavailableException::fromService('Google Ads');
 
         $this->googleAdsMock
@@ -133,21 +136,13 @@ final class SyncCampaignLookupTableJobTest extends TestCase
         $job = new SyncCampaignLookupTableJob();
         $this->setJobAttempts($job, 2);
 
+        $this->expectException(ExternalServiceUnavailableException::class);
+
         $job->handle($this->useCase);
-
-        Log::shouldHaveReceived('warning')
-            ->with('External service unavailable during campaign lookup table sync, will retry', Mockery::on(
-                static function (array $context): bool {
-                    self::assertSame(2, $context['attempts']);
-                    self::assertArrayHasKey('error', $context);
-
-                    return true;
-                },
-            ));
     }
 
     #[Test]
-    public function it_logs_correct_attempt_count_in_warning(): void
+    public function it_logs_warning_before_rethrowing_when_retry_after_is_null(): void
     {
         $exception = ExternalServiceUnavailableException::fromService('Google Ads');
 
@@ -158,13 +153,18 @@ final class SyncCampaignLookupTableJobTest extends TestCase
         $job = new SyncCampaignLookupTableJob();
         $this->setJobAttempts($job, 3);
 
-        $job->handle($this->useCase);
+        try {
+            $job->handle($this->useCase);
+        } catch (ExternalServiceUnavailableException) {
+            // Expected
+        }
 
         Log::shouldHaveReceived('warning')
             ->with('External service unavailable during campaign lookup table sync, will retry', Mockery::on(
                 static function (array $context): bool {
+                    self::assertSame('Google Ads', $context['service']);
+                    self::assertSame('using backoff', $context['retry_after']);
                     self::assertSame(3, $context['attempts']);
-                    self::assertArrayHasKey('error', $context);
 
                     return true;
                 },
@@ -227,7 +227,8 @@ final class SyncCampaignLookupTableJobTest extends TestCase
     #[DataProvider('releaseDelayProvider')]
     public function it_releases_job_with_correct_backoff_delay_for_each_attempt(int $attempt, int $expectedDelay): void
     {
-        $exception = ExternalServiceUnavailableException::fromService('Google Ads');
+        // With retryAfter provided, job releases with that value (not backoff array)
+        $exception = ExternalServiceUnavailableException::fromService('Google Ads', retryAfter: $expectedDelay);
 
         $this->googleAdsMock
             ->shouldReceive('getCampaigns')
@@ -315,7 +316,8 @@ final class SyncCampaignLookupTableJobTest extends TestCase
     #[Test]
     public function it_logs_start_message_before_external_service_exception(): void
     {
-        $exception = new ExternalServiceUnavailableException('Cannot fetch campaigns: Test error');
+        // With retryAfter provided, job releases instead of rethrowing
+        $exception = ExternalServiceUnavailableException::fromService('Google Ads', retryAfter: 60);
 
         $this->googleAdsMock
             ->shouldReceive('getCampaigns')
@@ -356,7 +358,7 @@ final class SyncCampaignLookupTableJobTest extends TestCase
     #[Test]
     public function failed_method_logs_external_service_unavailable_from_google_ads(): void
     {
-        $exception = new ExternalServiceUnavailableException('Cannot fetch campaigns: Invalid query syntax');
+        $exception = ExternalServiceUnavailableException::fromService('Google Ads');
 
         $job = new SyncCampaignLookupTableJob();
         $this->setJobAttempts($job, 3);
@@ -366,7 +368,7 @@ final class SyncCampaignLookupTableJobTest extends TestCase
         Log::shouldHaveReceived('error')
             ->with('Campaign lookup table sync job failed', [
                 'exception' => ExternalServiceUnavailableException::class,
-                'message' => 'Cannot fetch campaigns: Invalid query syntax',
+                'message' => "External service 'Google Ads' is unavailable",
                 'attempts' => 3,
             ]);
     }
@@ -374,7 +376,7 @@ final class SyncCampaignLookupTableJobTest extends TestCase
     #[Test]
     public function failed_method_logs_external_service_unavailable_from_mixpanel(): void
     {
-        $exception = new ExternalServiceUnavailableException('Cannot replace campaign lookup table: Import batch failed');
+        $exception = ExternalServiceUnavailableException::fromService('Mixpanel');
 
         $job = new SyncCampaignLookupTableJob();
         $this->setJobAttempts($job, 2);
@@ -384,7 +386,7 @@ final class SyncCampaignLookupTableJobTest extends TestCase
         Log::shouldHaveReceived('error')
             ->with('Campaign lookup table sync job failed', [
                 'exception' => ExternalServiceUnavailableException::class,
-                'message' => 'Cannot replace campaign lookup table: Import batch failed',
+                'message' => "External service 'Mixpanel' is unavailable",
                 'attempts' => 2,
             ]);
     }
@@ -392,7 +394,7 @@ final class SyncCampaignLookupTableJobTest extends TestCase
     #[Test]
     public function failed_method_logs_external_service_unavailable_rate_limit(): void
     {
-        $exception = new ExternalServiceUnavailableException('Rate limit exceeded permanently');
+        $exception = ExternalServiceUnavailableException::fromService('Mixpanel', retryAfter: 60);
 
         $job = new SyncCampaignLookupTableJob();
         $this->setJobAttempts($job, 5);
@@ -402,7 +404,7 @@ final class SyncCampaignLookupTableJobTest extends TestCase
         Log::shouldHaveReceived('error')
             ->with('Campaign lookup table sync job failed', [
                 'exception' => ExternalServiceUnavailableException::class,
-                'message' => 'Rate limit exceeded permanently',
+                'message' => "External service 'Mixpanel' is unavailable",
                 'attempts' => 5,
             ]);
     }

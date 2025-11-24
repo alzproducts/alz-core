@@ -208,9 +208,7 @@ final class SyncAdSpendUseCaseTest extends TestCase
     public function it_propagates_external_service_unavailable_from_google_ads(): void
     {
         $date = '2024-11-18';
-        $exception = new ExternalServiceUnavailableException(
-            'Cannot fetch Google Ads metrics: The user does not have access.',
-        );
+        $exception = ExternalServiceUnavailableException::fromService('Google Ads');
 
         $this->googleAdsClient
             ->shouldReceive('getDailyCampaignMetrics')
@@ -230,7 +228,7 @@ final class SyncAdSpendUseCaseTest extends TestCase
     public function it_propagates_external_service_unavailable_from_rate_limit(): void
     {
         $date = '2024-11-18';
-        $exception = new ExternalServiceUnavailableException('Cannot fetch Google Ads metrics: Rate limit exceeded');
+        $exception = ExternalServiceUnavailableException::fromService('Google Ads', retryAfter: 60);
 
         $this->googleAdsClient
             ->shouldReceive('getDailyCampaignMetrics')
@@ -242,7 +240,7 @@ final class SyncAdSpendUseCaseTest extends TestCase
             ->shouldNotReceive('importBatch');
 
         $this->expectException(ExternalServiceUnavailableException::class);
-        $this->expectExceptionMessage('Cannot fetch Google Ads metrics');
+        $this->expectExceptionMessage("External service 'Google Ads' is unavailable");
 
         $this->useCase->execute($date);
     }
@@ -251,7 +249,7 @@ final class SyncAdSpendUseCaseTest extends TestCase
     public function it_logs_start_before_google_ads_exception(): void
     {
         $date = '2024-11-18';
-        $exception = new ExternalServiceUnavailableException('Cannot fetch Google Ads metrics: Test error');
+        $exception = ExternalServiceUnavailableException::fromService('Google Ads');
 
         $this->googleAdsClient
             ->shouldReceive('getDailyCampaignMetrics')
@@ -273,7 +271,7 @@ final class SyncAdSpendUseCaseTest extends TestCase
     public function it_does_not_log_completion_when_google_ads_fails(): void
     {
         $date = '2024-11-18';
-        $exception = new ExternalServiceUnavailableException('Cannot fetch Google Ads metrics: Invalid query');
+        $exception = ExternalServiceUnavailableException::fromService('Google Ads');
 
         $this->googleAdsClient
             ->shouldReceive('getDailyCampaignMetrics')
@@ -295,7 +293,7 @@ final class SyncAdSpendUseCaseTest extends TestCase
     {
         $date = '2024-11-18';
         $campaign = $this->createCampaignMetrics(campaignId: 123, date: $date);
-        $exception = new ExternalServiceUnavailableException('Cannot import to Mixpanel: validation failed for 1 events');
+        $exception = ExternalServiceUnavailableException::fromService('Mixpanel');
 
         $this->googleAdsClient
             ->shouldReceive('getDailyCampaignMetrics')
@@ -308,7 +306,7 @@ final class SyncAdSpendUseCaseTest extends TestCase
             ->andThrow($exception);
 
         $this->expectException(ExternalServiceUnavailableException::class);
-        $this->expectExceptionMessage('Cannot import to Mixpanel');
+        $this->expectExceptionMessage("External service 'Mixpanel' is unavailable");
 
         $this->useCase->execute($date);
     }
@@ -318,7 +316,7 @@ final class SyncAdSpendUseCaseTest extends TestCase
     {
         $date = '2024-11-18';
         $campaign = $this->createCampaignMetrics(campaignId: 123, date: $date);
-        $exception = new ExternalServiceUnavailableException('Cannot import to Mixpanel: rate limit exceeded');
+        $exception = ExternalServiceUnavailableException::fromService('Mixpanel', retryAfter: 60);
 
         $this->googleAdsClient
             ->shouldReceive('getDailyCampaignMetrics')
@@ -331,7 +329,7 @@ final class SyncAdSpendUseCaseTest extends TestCase
             ->andThrow($exception);
 
         $this->expectException(ExternalServiceUnavailableException::class);
-        $this->expectExceptionMessage('Cannot import to Mixpanel');
+        $this->expectExceptionMessage("External service 'Mixpanel' is unavailable");
 
         $this->useCase->execute($date);
     }
@@ -341,7 +339,7 @@ final class SyncAdSpendUseCaseTest extends TestCase
     {
         $date = '2024-11-18';
         $campaign = $this->createCampaignMetrics(campaignId: 123, date: $date);
-        $exception = new ExternalServiceUnavailableException('Cannot import to Mixpanel: Import failed');
+        $exception = ExternalServiceUnavailableException::fromService('Mixpanel');
 
         $this->googleAdsClient
             ->shouldReceive('getDailyCampaignMetrics')

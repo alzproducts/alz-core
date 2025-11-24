@@ -219,7 +219,7 @@ final class MixpanelClientTest extends TestCase
         $event = $this->createEvent();
 
         $this->expectException(ExternalServiceUnavailableException::class);
-        $this->expectExceptionMessage('Cannot import to Mixpanel');
+        $this->expectExceptionMessage("External service 'Mixpanel' is unavailable");
 
         $this->client->importCampaigns([$event]);
     }

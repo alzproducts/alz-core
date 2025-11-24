@@ -93,7 +93,8 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
     #[Test]
     public function it_catches_external_service_exception_and_logs_warning(): void
     {
-        $exception = ExternalServiceUnavailableException::fromService('Google Ads');
+        // With retryAfter provided, job releases instead of rethrowing
+        $exception = ExternalServiceUnavailableException::fromService('Google Ads', retryAfter: 60);
 
         $this->googleAdsMock
             ->shouldReceive('getDailyCampaignMetrics')
@@ -111,8 +112,9 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
             ->with('External service unavailable during sync, will retry', Mockery::on(
                 static function (array $context): bool {
                     self::assertSame(self::TEST_DATE, $context['date']);
+                    self::assertSame('Google Ads', $context['service']);
+                    self::assertSame(60, $context['retry_after']);
                     self::assertSame(1, $context['attempts']);
-                    self::assertArrayHasKey('error', $context);
 
                     return true;
                 },
@@ -120,8 +122,9 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
     }
 
     #[Test]
-    public function it_logs_warning_with_correct_attempt_count_from_exception(): void
+    public function it_rethrows_exception_when_retry_after_is_null(): void
     {
+        // Without retryAfter, exception is rethrown for Laravel to handle backoff
         $exception = ExternalServiceUnavailableException::fromService('Google Ads');
 
         $this->googleAdsMock
@@ -131,20 +134,13 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
         $job = new SyncGoogleAdsToMixpanelJob(self::TEST_DATE);
         $this->setJobAttempts($job, 2);
 
+        $this->expectException(ExternalServiceUnavailableException::class);
+
         $job->handle($this->useCase);
-
-        Log::shouldHaveReceived('warning')
-            ->with('External service unavailable during sync, will retry', Mockery::on(
-                static function (array $context): bool {
-                    self::assertSame(2, $context['attempts']);
-
-                    return true;
-                },
-            ));
     }
 
     #[Test]
-    public function it_logs_correct_attempt_count_in_warning(): void
+    public function it_logs_warning_before_rethrowing_when_retry_after_is_null(): void
     {
         $exception = ExternalServiceUnavailableException::fromService('Google Ads');
 
@@ -155,14 +151,19 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
         $job = new SyncGoogleAdsToMixpanelJob(self::TEST_DATE);
         $this->setJobAttempts($job, 3);
 
-        $job->handle($this->useCase);
+        try {
+            $job->handle($this->useCase);
+        } catch (ExternalServiceUnavailableException) {
+            // Expected
+        }
 
         Log::shouldHaveReceived('warning')
             ->with('External service unavailable during sync, will retry', Mockery::on(
                 static function (array $context): bool {
                     self::assertSame(self::TEST_DATE, $context['date']);
+                    self::assertSame('Google Ads', $context['service']);
+                    self::assertSame('using backoff', $context['retry_after']);
                     self::assertSame(3, $context['attempts']);
-                    self::assertArrayHasKey('error', $context);
 
                     return true;
                 },
@@ -222,10 +223,33 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
     }
 
     #[Test]
+    public function it_releases_job_with_api_provided_retry_after(): void
+    {
+        // When API provides retryAfter, job releases with that exact value
+        $exception = ExternalServiceUnavailableException::fromService('Google Ads', retryAfter: 180);
+
+        $this->googleAdsMock
+            ->shouldReceive('getDailyCampaignMetrics')
+            ->andThrow($exception);
+
+        $job = new SyncGoogleAdsToMixpanelJob(self::TEST_DATE);
+
+        $queueJob = Mockery::mock(QueueJobContract::class);
+        $queueJob->shouldReceive('attempts')->andReturn(1);
+        $queueJob->shouldReceive('release')->once()->with(180)->andReturnNull();
+        $queueJob->shouldReceive('isReleased')->andReturn(false);
+        $queueJob->shouldReceive('isDeletedOrReleased')->andReturn(false);
+        $job->setJob($queueJob);
+
+        $job->handle($this->useCase);
+    }
+
+    #[Test]
     #[DataProvider('releaseDelayProvider')]
     public function it_releases_job_with_correct_backoff_delay_for_each_attempt(int $attempt, int $expectedDelay): void
     {
-        $exception = ExternalServiceUnavailableException::fromService('Google Ads');
+        // With retryAfter provided, job releases with that value (not backoff array)
+        $exception = ExternalServiceUnavailableException::fromService('Google Ads', retryAfter: $expectedDelay);
 
         $this->googleAdsMock
             ->shouldReceive('getDailyCampaignMetrics')
@@ -314,7 +338,8 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
     #[Test]
     public function it_catches_external_service_exception_from_mixpanel_client(): void
     {
-        $exception = ExternalServiceUnavailableException::fromService('Mixpanel');
+        // With retryAfter provided, job releases instead of rethrowing
+        $exception = ExternalServiceUnavailableException::fromService('Mixpanel', retryAfter: 60);
 
         $this->setupCampaignsForMixpanelError($exception);
 
@@ -328,8 +353,9 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
             ->with('External service unavailable during sync, will retry', Mockery::on(
                 static function (array $context): bool {
                     self::assertSame(self::TEST_DATE, $context['date']);
+                    self::assertSame('Mixpanel', $context['service']);
+                    self::assertSame(60, $context['retry_after']);
                     self::assertSame(1, $context['attempts']);
-                    self::assertArrayHasKey('error', $context);
 
                     return true;
                 },

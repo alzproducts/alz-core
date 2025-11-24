@@ -8,8 +8,6 @@ use App\Application\Contracts\GoogleAdsClientInterface;
 use App\Domain\AdSpend\ValueObjects\Campaign;
 use App\Domain\AdSpend\ValueObjects\CampaignMetrics;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
-use App\Infrastructure\Exceptions\ApiRateLimitException;
-use App\Infrastructure\GoogleAds\Exceptions\GoogleAdsApiException;
 use App\Infrastructure\GoogleAds\Exceptions\InvalidGoogleAdsResponseException;
 use Google\Ads\GoogleAds\Lib\V22\GoogleAdsClient as SdkGoogleAdsClient;
 use Google\Ads\GoogleAds\V22\Services\GoogleAdsRow;
@@ -111,36 +109,21 @@ final readonly class GoogleAdsClient implements GoogleAdsClientInterface
     /**
      * Execute a GAQL query against Google Ads API with unified error handling.
      *
-     * @throws ExternalServiceUnavailableException
-     * @throws ValidationException
      */
     private function search(string $query): PagedListResponse
     {
         try {
-            // Create search request
-            $request = new SearchGoogleAdsRequest();
-            $request->setCustomerId($this->customerId);
-            $request->setQuery($query);
-            $request->setPageSize(10000);
+            $request = $this->createSearchRequest($query);
 
             // Execute query via Google Ads service client
             return $this->sdkClient->getGoogleAdsServiceClient()->search($request);
         } catch (ApiException $e) {
-            // Detect rate limit for logging context
-            $rateLimitException = null;
+            // Detect rate limit and extract retryAfter if available
+            $retryAfter = null;
             if ($e->getCode() === Code::RESOURCE_EXHAUSTED) {
                 $retryAfter = $this->extractRetryAfter($e);
-                $rateLimitException = new ApiRateLimitException(
-                    "Google Ads API rate limit exceeded: {$e->getMessage()}",
-                    $retryAfter,
-                    $e,
-                );
-            }
-
-            // Log technical details with context
-            if ($rateLimitException !== null) {
                 Log::warning('Google Ads rate limited', [
-                    'exception' => $rateLimitException,
+                    'retry_after' => $retryAfter,
                     'error' => $e->getMessage(),
                 ]);
             } else {
@@ -150,12 +133,8 @@ final readonly class GoogleAdsClient implements GoogleAdsClientInterface
                 ]);
             }
 
-            // Translate to Domain exception
-            throw new ExternalServiceUnavailableException(
-                "Cannot fetch Google Ads metrics: {$e->getMessage()}",
-                0,
-                $e,
-            );
+            // Translate to Domain exception with retryAfter if available
+            throw ExternalServiceUnavailableException::fromService('Google Ads', $retryAfter, $e);
         }
     }
 
@@ -182,5 +161,16 @@ final readonly class GoogleAdsClient implements GoogleAdsClientInterface
         }
 
         return $retryAfter;
+    }
+
+    private function createSearchRequest(string $query): SearchGoogleAdsRequest
+    {
+        // Create search request
+        $request = new SearchGoogleAdsRequest();
+        $request->setCustomerId($this->customerId);
+        $request->setQuery($query);
+        $request->setPageSize(10000);
+
+        return $request;
     }
 }
