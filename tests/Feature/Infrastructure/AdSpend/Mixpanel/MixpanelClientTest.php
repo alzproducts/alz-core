@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Infrastructure\AdSpend\Mixpanel;
 
+use App\Domain\AdSpend\ValueObjects\Campaign;
 use App\Domain\AdSpend\ValueObjects\CampaignMetrics;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Infrastructure\Mixpanel\MixpanelClient;
@@ -246,6 +247,106 @@ final class MixpanelClientTest extends TestCase
     }
 
     #[Test]
+    public function it_extracts_retry_after_from_response_header(): void
+    {
+        Http::fake([
+            '*' => Http::response([], 429, ['Retry-After' => '180']),
+        ]);
+
+        $event = $this->createEvent();
+
+        try {
+            $this->client->importCampaigns([$event]);
+        } catch (ExternalServiceUnavailableException $e) {
+            self::assertSame(180, $e->retryAfter);
+
+            return;
+        }
+
+        self::fail('Expected ExternalServiceUnavailableException to be thrown');
+    }
+
+    #[Test]
+    public function it_uses_default_retry_after_when_header_is_missing(): void
+    {
+        Http::fake([
+            '*' => Http::response([], 429), // No Retry-After header
+        ]);
+
+        $event = $this->createEvent();
+
+        try {
+            $this->client->importCampaigns([$event]);
+        } catch (ExternalServiceUnavailableException $e) {
+            self::assertSame(60, $e->retryAfter); // Default value
+
+            return;
+        }
+
+        self::fail('Expected ExternalServiceUnavailableException to be thrown');
+    }
+
+    #[Test]
+    public function it_ignores_zero_retry_after_header(): void
+    {
+        Http::fake([
+            '*' => Http::response([], 429, ['Retry-After' => '0']),
+        ]);
+
+        $event = $this->createEvent();
+
+        try {
+            $this->client->importCampaigns([$event]);
+        } catch (ExternalServiceUnavailableException $e) {
+            self::assertSame(60, $e->retryAfter); // Uses default when 0
+
+            return;
+        }
+
+        self::fail('Expected ExternalServiceUnavailableException to be thrown');
+    }
+
+    #[Test]
+    public function it_ignores_negative_retry_after_header(): void
+    {
+        Http::fake([
+            '*' => Http::response([], 429, ['Retry-After' => '-10']),
+        ]);
+
+        $event = $this->createEvent();
+
+        try {
+            $this->client->importCampaigns([$event]);
+        } catch (ExternalServiceUnavailableException $e) {
+            self::assertSame(60, $e->retryAfter); // Uses default when negative
+
+            return;
+        }
+
+        self::fail('Expected ExternalServiceUnavailableException to be thrown');
+    }
+
+    #[Test]
+    public function it_accepts_retry_after_value_of_one(): void
+    {
+        Http::fake([
+            '*' => Http::response([], 429, ['Retry-After' => '1']),
+        ]);
+
+        $event = $this->createEvent();
+
+        try {
+            $this->client->importCampaigns([$event]);
+        } catch (ExternalServiceUnavailableException $e) {
+            self::assertSame(1, $e->retryAfter); // Boundary: exactly 1 is valid
+
+            return;
+        }
+
+        self::fail('Expected ExternalServiceUnavailableException to be thrown');
+    }
+
+    #[Test]
     public function it_throws_external_service_unavailable_on_400_bad_request(): void
     {
         Http::fake(['*' => Http::response(['error' => 'Invalid payload'], 400)]);
@@ -300,6 +401,249 @@ final class MixpanelClientTest extends TestCase
         self::fail('Expected ExternalServiceUnavailableException to be thrown');
     }
 
+    // ========================================================================
+    // Lookup Table Tests
+    // ========================================================================
+
+    #[Test]
+    public function it_replaces_lookup_table_with_single_campaign(): void
+    {
+        Http::fake(['*' => Http::response([], 200)]);
+
+        $campaign = $this->createCampaign();
+
+        $this->client->replaceCampaignLookupTable([$campaign]);
+
+        Http::assertSent(static function (Request $request): bool {
+            self::assertSame('PUT', $request->method());
+            self::assertStringContainsString('/lookup_tables/', $request->url());
+
+            return true;
+        });
+    }
+
+    #[Test]
+    public function it_replaces_lookup_table_with_multiple_campaigns(): void
+    {
+        Http::fake(['*' => Http::response([], 200)]);
+
+        $campaigns = [
+            $this->createCampaign(campaignId: 111, campaignName: 'Campaign One', status: 'ENABLED'),
+            $this->createCampaign(campaignId: 222, campaignName: 'Campaign Two', status: 'PAUSED'),
+            $this->createCampaign(campaignId: 333, campaignName: 'Campaign Three', status: 'ENABLED'),
+        ];
+
+        $this->client->replaceCampaignLookupTable($campaigns);
+
+        Http::assertSent(static function (Request $request): bool {
+            self::assertSame('PUT', $request->method());
+
+            return true;
+        });
+    }
+
+    #[Test]
+    public function it_posts_to_correct_lookup_table_endpoint(): void
+    {
+        Http::fake(['*' => Http::response([], 200)]);
+
+        $campaign = $this->createCampaign();
+        $this->client->replaceCampaignLookupTable([$campaign]);
+
+        Http::assertSent(static function (Request $request): bool {
+            $expectedUrl = self::BASE_URL . '/lookup_tables/' . self::PROJECT_ID . '/' . self::LOOKUP_TABLE_ID;
+            self::assertSame($expectedUrl, $request->url());
+
+            return true;
+        });
+    }
+
+    #[Test]
+    public function it_uses_put_method_for_lookup_table(): void
+    {
+        Http::fake(['*' => Http::response([], 200)]);
+
+        $campaign = $this->createCampaign();
+        $this->client->replaceCampaignLookupTable([$campaign]);
+
+        Http::assertSent(static function (Request $request): bool {
+            self::assertSame('PUT', $request->method());
+
+            return true;
+        });
+    }
+
+    #[Test]
+    public function it_sends_csv_content_type_for_lookup_table(): void
+    {
+        Http::fake(['*' => Http::response([], 200)]);
+
+        $campaign = $this->createCampaign();
+        $this->client->replaceCampaignLookupTable([$campaign]);
+
+        Http::assertSent(static function (Request $request): bool {
+            $contentTypeHeader = $request->header('Content-Type');
+            self::assertIsArray($contentTypeHeader);
+            self::assertStringContainsString('text/csv', $contentTypeHeader[0]);
+
+            return true;
+        });
+    }
+
+    #[Test]
+    public function it_uses_http_basic_auth_for_lookup_table(): void
+    {
+        Http::fake(['*' => Http::response([], 200)]);
+
+        $campaign = $this->createCampaign();
+        $this->client->replaceCampaignLookupTable([$campaign]);
+
+        Http::assertSent(static function (Request $request): bool {
+            $authHeader = $request->header('Authorization');
+            self::assertIsArray($authHeader);
+            self::assertStringStartsWith('Basic ', $authHeader[0]);
+
+            return true;
+        });
+    }
+
+    #[Test]
+    public function it_formats_campaigns_as_csv_with_headers(): void
+    {
+        Http::fake(['*' => Http::response([], 200)]);
+
+        $campaign = $this->createCampaign(
+            campaignId: 999,
+            campaignName: 'Test Campaign Name',
+            status: 'ENABLED',
+        );
+
+        $this->client->replaceCampaignLookupTable([$campaign]);
+
+        Http::assertSent(static function (Request $request): bool {
+            $body = $request->body();
+            self::assertIsString($body);
+
+            // Verify CSV headers
+            self::assertStringContainsString('utm_campaign,campaign_name,campaign_status', $body);
+
+            // Verify campaign data row
+            self::assertStringContainsString('999,Test Campaign Name,ENABLED', $body);
+
+            return true;
+        });
+    }
+
+    #[Test]
+    public function it_handles_csv_escaping_for_special_characters(): void
+    {
+        Http::fake(['*' => Http::response([], 200)]);
+
+        $campaign = $this->createCampaign(
+            campaignId: 123,
+            campaignName: 'Campaign with "quotes" and, commas',
+            status: 'ENABLED',
+        );
+
+        $this->client->replaceCampaignLookupTable([$campaign]);
+
+        Http::assertSent(static function (Request $request): bool {
+            $body = $request->body();
+            self::assertIsString($body);
+
+            // RFC 4180: Fields containing commas or quotes must be quoted
+            self::assertStringContainsString('"Campaign with ""quotes"" and, commas"', $body);
+
+            return true;
+        });
+    }
+
+    #[Test]
+    public function it_throws_external_service_unavailable_on_lookup_table_429(): void
+    {
+        Http::fake(['*' => Http::response([], 429)]);
+
+        $campaign = $this->createCampaign();
+
+        $this->expectException(ExternalServiceUnavailableException::class);
+        $this->expectExceptionMessage("External service 'Mixpanel' is unavailable");
+
+        $this->client->replaceCampaignLookupTable([$campaign]);
+    }
+
+    #[Test]
+    public function it_throws_external_service_unavailable_on_lookup_table_400(): void
+    {
+        Http::fake(['*' => Http::response(['error' => 'Invalid CSV'], 400)]);
+
+        $campaign = $this->createCampaign();
+
+        $this->expectException(ExternalServiceUnavailableException::class);
+
+        $this->client->replaceCampaignLookupTable([$campaign]);
+    }
+
+    #[Test]
+    public function it_throws_external_service_unavailable_on_lookup_table_5xx(): void
+    {
+        Http::fake(['*' => Http::response([], 500)]);
+
+        $campaign = $this->createCampaign();
+
+        $this->expectException(ExternalServiceUnavailableException::class);
+
+        $this->client->replaceCampaignLookupTable([$campaign]);
+    }
+
+    #[Test]
+    public function it_preserves_exception_in_lookup_table_error(): void
+    {
+        Http::fake(['*' => Http::response([], 400)]);
+
+        $campaign = $this->createCampaign();
+
+        try {
+            $this->client->replaceCampaignLookupTable([$campaign]);
+        } catch (ExternalServiceUnavailableException $e) {
+            self::assertNotNull($e->getPrevious());
+            self::assertInstanceOf(RequestException::class, $e->getPrevious());
+
+            return;
+        }
+
+        self::fail('Expected ExternalServiceUnavailableException to be thrown');
+    }
+
+    #[Test]
+    public function it_formats_multiple_campaigns_as_csv_rows(): void
+    {
+        Http::fake(['*' => Http::response([], 200)]);
+
+        $campaigns = [
+            $this->createCampaign(campaignId: 111, campaignName: 'Campaign One', status: 'ENABLED'),
+            $this->createCampaign(campaignId: 222, campaignName: 'Campaign Two', status: 'PAUSED'),
+            $this->createCampaign(campaignId: 333, campaignName: 'Campaign Three', status: 'REMOVED'),
+        ];
+
+        $this->client->replaceCampaignLookupTable($campaigns);
+
+        Http::assertSent(static function (Request $request): bool {
+            $body = $request->body();
+            self::assertIsString($body);
+
+            // Verify all three campaigns are present
+            self::assertStringContainsString('111,Campaign One,ENABLED', $body);
+            self::assertStringContainsString('222,Campaign Two,PAUSED', $body);
+            self::assertStringContainsString('333,Campaign Three,REMOVED', $body);
+
+            // Count lines: 1 header + 3 data rows = 4 total
+            $lines = \explode("\n", \mb_trim($body));
+            self::assertCount(4, $lines);
+
+            return true;
+        });
+    }
+
     private function createEvent(
         int $campaignId = 123,
         string $campaignName = 'Test Campaign',
@@ -317,6 +661,18 @@ final class MixpanelClientTest extends TestCase
             clicks: $clicks,
             impressions: $impressions,
             conversions: $conversions,
+        );
+    }
+
+    private function createCampaign(
+        int $campaignId = 123,
+        string $campaignName = 'Test Campaign',
+        string $status = 'ENABLED',
+    ): Campaign {
+        return new Campaign(
+            campaignId: $campaignId,
+            campaignName: $campaignName,
+            status: $status,
         );
     }
 }
