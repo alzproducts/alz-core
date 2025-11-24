@@ -298,7 +298,7 @@ return static function (Config $config): void {
     $rules[] = Rule::allClasses()
                    ->that(new ResideInOneOfTheseNamespaces($application))
                    ->should(
-                       new MatchOneOfTheseNames(['*UseCase', '*Service', '*Transformer', '*Formatter', '*Interface']),
+                       new MatchOneOfTheseNames(['*UseCase', '*Service', '*Transformer', '*Formatter', '*Interface', '*DTO', '*Exception']),
                    )
                    ->because(
                        'Application layer classes should be clearly identifiable as use cases, services, transformers, formatters, or interfaces.',
@@ -409,6 +409,71 @@ return static function (Config $config): void {
                    ->should(new NotResideInTheseNamespaces($domain))
                    ->because(
                        'DTOs are data transfer formats for Infrastructure/Application layers. Domain should only contain ValueObjects representing pure business concepts.',
+                   );
+
+    // RULE 9: Organization Rule - All Domain classes must be in subdirectories
+    //
+    // WHY: Clear structure makes concepts discoverable and maintainable.
+    // Every Domain class belongs in a specific folder (ValueObjects, Entities, etc).
+    //
+    // VIOLATION EXAMPLE:
+    // ❌ namespace App\Domain;
+    //    class Order { }  // Loose class at root level
+    //
+    // CORRECT:
+    // ✅ namespace App\Domain\Order\ValueObjects;
+    //    class Order { }  // Organized in subdirectory
+    //
+    // ✅ namespace App\Domain\Exceptions;
+    //    class InsufficientStockException { }  // Or at domain root level
+    //
+    //    namespace App\Domain\Order\Entities;
+    //    class OrderItem { }  // Each concept in its place
+    //
+    $rules[] = Rule::allClasses()
+                   ->that(new ResideInOneOfTheseNamespaces($domain))
+                   ->should(new ResideInOneOfTheseNamespaces(
+                       'App\Domain\ValueObjects',
+                       'App\Domain\*\ValueObjects',
+                       'App\Domain\Entities',
+                       'App\Domain\*\Entities',
+                       'App\Domain\Exceptions',
+                       'App\Domain\*\Exceptions',
+                       'App\Domain\Contracts',
+                   ))
+                   ->because(
+                       'Domain classes must be organized into Value Objects, Entities, Exceptions, '
+                       . 'or Contracts subdirectories for discoverability and maintainability.',
+                   );
+
+    // RULE 10: All Exceptions must end with *Exception suffix
+    //
+    // WHY: Immediate clarity that a class is throwable/catchable.
+    //
+    // VIOLATION EXAMPLE:
+    // ❌ namespace App\Domain\Exceptions;
+    //    class InsufficientStock { }  // Missing Exception suffix
+    //
+    // CORRECT:
+    // ✅ namespace App\Domain\Exceptions;
+    //    class InsufficientStockException { }  // Clear intent
+    //
+    // ✅ namespace App\Domain\AdSpend\Exceptions;
+    //    class InsufficientStockException { }  // Or nested under concept
+    //
+    $rules[] = Rule::allClasses()
+                   ->that(new HaveNameMatching('*Exception'))
+                   ->should(new ResideInOneOfTheseNamespaces(
+                       'App\Domain\Exceptions',
+                       'App\Domain\*\Exceptions',
+                       'App\Application\Exceptions',
+                       'App\Application\*\Exceptions',
+                       'App\Infrastructure\Exceptions',
+                       'App\Infrastructure\*\Exceptions',
+                   ))
+                   ->because(
+                       'All exception classes must reside in Exceptions/ subdirectories '
+                       . 'and end with Exception suffix for clarity and consistency.',
                    );
 
     $config->add($classSet, ...$rules);
