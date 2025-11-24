@@ -132,7 +132,7 @@ final readonly class ReviewsIoClient
         $data = $response->json();
 
         if (!\is_array($data)) {
-            throw ReviewsIoApiException::invalidResponse('Expected array response');
+            throw new ReviewsIoApiException('Reviews.io API invalid response: Expected array response');
         }
 
         try {
@@ -142,8 +142,8 @@ final readonly class ReviewsIoClient
                 'error' => $e->getMessage(),
             ]);
 
-            throw ReviewsIoApiException::invalidResponse(
-                message: 'Reviews.io API returned invalid data structure',
+            throw new ReviewsIoApiException(
+                message: 'Reviews.io API invalid response: Reviews.io API returned invalid data structure',
                 previous: $e,
             );
         }
