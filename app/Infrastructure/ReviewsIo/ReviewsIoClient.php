@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\ReviewsIo;
 
+use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Infrastructure\ReviewsIo\Exceptions\ReviewsIoApiException;
 use App\Infrastructure\ReviewsIo\Responses\Rating;
 use App\Infrastructure\ReviewsIo\Validation\ValidSku;
@@ -14,7 +15,6 @@ use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
 use RuntimeException;
 use Spatie\LaravelData\DataCollection;
@@ -105,8 +105,6 @@ final readonly class ReviewsIoClient
      * @param string|array<string> $skus Single SKU or array of SKUs (max 100)
      *
      * @return DataCollection<int, Rating> Collection of rating data
-     * @throws ValidationException If SKU parameter is invalid
-     * @throws RequestException|ConnectionException If API request fails
      */
     public function getProductRatingBatch(array|string $skus): DataCollection
     {
@@ -123,11 +121,45 @@ final readonly class ReviewsIoClient
         /** @var array<string> $validatedSkus */
         $validatedSkus = $validated['skus'];
 
-        $response = $this->http()
-            ->get('product/rating-batch', [
-                'sku' => \implode(';', $validatedSkus),
-            ])
-            ->throw();
+        try {
+            $response = $this->http()
+                ->get('product/rating-batch', [
+                    'sku' => \implode(';', $validatedSkus),
+                ])
+                ->throw();
+        } catch (RequestException $e) {
+            // Extract retry-after if rate limited
+            $retryAfter = null;
+            if (($e->response !== null) && ($e->response->status() === 429)) {
+                $retryAfterHeader = $e->response->header('Retry-After');
+                // @phpstan-ignore-next-line function.alreadyNarrowedType
+                if ($retryAfterHeader !== null) {
+                    $retryAfter = (int) $retryAfterHeader;
+                }
+
+                Log::error('Reviews.io API request failed', [
+                    'status' => $e->response->status(),
+                    'error' => $e->getMessage(),
+                    'retry_after' => $retryAfter,
+                ]);
+            }
+
+            throw new ExternalServiceUnavailableException(
+                'Reviews.io',
+                $retryAfter,
+                $e,
+            );
+        } catch (ConnectionException $e) {
+            Log::error('Reviews.io API connection failed', [
+                'error' => $e->getMessage(),
+            ]);
+
+            throw new ExternalServiceUnavailableException(
+                'Reviews.io',
+                null,
+                $e,
+            );
+        }
 
         $data = $response->json();
 
