@@ -170,8 +170,9 @@ final readonly class ReviewsIoClient
         try {
             return Rating::collect($data, DataCollection::class);
         } catch (CannotCreateData $e) {
-            Log::warning('Reviews.io API validation failed', [
+            Log::critical('Reviews.io API response validation failed - API contract may have changed', [
                 'error' => $e->getMessage(),
+                'raw_response' => $data,
             ]);
 
             throw new ReviewsIoApiException(
