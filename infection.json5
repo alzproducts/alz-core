@@ -22,7 +22,7 @@
 
     // Performance optimization
     "timeout": 10,
-    "threads": 7,  // M1 Pro/Max: 10 cores → 7 threads (leave 3 for system/Docker/IDE)
+    "threads": 8,  // M1 Pro/Max: 10 cores → 8 threads (leave 2 for system/Docker/IDE)
 
     // Quality thresholds - Set for AI-generated tests
     // First AI test run: expect 65-75% MSI
