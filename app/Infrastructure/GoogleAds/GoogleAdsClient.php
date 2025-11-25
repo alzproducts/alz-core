@@ -9,6 +9,7 @@ use App\Domain\AdSpend\ValueObjects\Campaign;
 use App\Domain\AdSpend\ValueObjects\CampaignMetrics;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Infrastructure\GoogleAds\Exceptions\InvalidGoogleAdsResponseException;
+use App\Infrastructure\Support\RetryAfterParser;
 use Google\Ads\GoogleAds\Lib\V22\GoogleAdsClient as SdkGoogleAdsClient;
 use Google\Ads\GoogleAds\V22\Services\GoogleAdsRow;
 use Google\Ads\GoogleAds\V22\Services\SearchGoogleAdsRequest;
@@ -121,7 +122,11 @@ final readonly class GoogleAdsClient implements GoogleAdsClientInterface
             // Detect rate limit and extract retryAfter if available
             $retryAfter = null;
             if ($e->getCode() === Code::RESOURCE_EXHAUSTED) {
-                $retryAfter = $this->extractRetryAfter($e);
+                $metadata = $e->getMetadata();
+                $retryAfterValue = $metadata['retry-after'] ?? null;
+                $retryAfter = RetryAfterParser::parse(
+                    \is_int($retryAfterValue) || \is_string($retryAfterValue) ? $retryAfterValue : null,
+                );
                 Log::warning('Google Ads rate limited', [
                     'retry_after' => $retryAfter,
                     'error' => $e->getMessage(),
@@ -136,31 +141,6 @@ final readonly class GoogleAdsClient implements GoogleAdsClientInterface
             // Translate to Domain exception with retryAfter if available
             throw new ExternalServiceUnavailableException('Google Ads', $retryAfter, $e);
         }
-    }
-
-    /**
-     * Extract retry-after seconds from API exception metadata.
-     *
-     * Google Ads API includes retry-after information in response metadata
-     * when rate limits are exceeded.
-     */
-    private function extractRetryAfter(ApiException $exception): int
-    {
-        // Default to 60 seconds if metadata is not available
-        $retryAfter = 60;
-
-        // Attempt to extract from exception metadata
-        // Google Ads SDK may include this in the exception's underlying status
-        $metadata = $exception->getMetadata();
-        $retryAfterValue = $metadata['retry-after'] ?? null;
-        if (\is_numeric($retryAfterValue)) {
-            $extracted = (int) $retryAfterValue;
-            if ($extracted > 0) {
-                $retryAfter = $extracted;
-            }
-        }
-
-        return $retryAfter;
     }
 
     private function createSearchRequest(string $query): SearchGoogleAdsRequest

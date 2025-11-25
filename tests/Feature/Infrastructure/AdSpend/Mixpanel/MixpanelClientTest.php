@@ -267,7 +267,7 @@ final class MixpanelClientTest extends TestCase
     }
 
     #[Test]
-    public function it_uses_default_retry_after_when_header_is_missing(): void
+    public function it_returns_null_retry_after_when_header_is_missing(): void
     {
         Http::fake([
             '*' => Http::response([], 429), // No Retry-After header
@@ -278,7 +278,7 @@ final class MixpanelClientTest extends TestCase
         try {
             $this->client->importCampaigns([$event]);
         } catch (ExternalServiceUnavailableException $e) {
-            self::assertSame(60, $e->retryAfter); // Default value
+            self::assertNull($e->retryAfter); // Null when API doesn't specify
 
             return;
         }
@@ -287,7 +287,7 @@ final class MixpanelClientTest extends TestCase
     }
 
     #[Test]
-    public function it_ignores_zero_retry_after_header(): void
+    public function it_returns_null_for_zero_retry_after_header(): void
     {
         Http::fake([
             '*' => Http::response([], 429, ['Retry-After' => '0']),
@@ -298,7 +298,7 @@ final class MixpanelClientTest extends TestCase
         try {
             $this->client->importCampaigns([$event]);
         } catch (ExternalServiceUnavailableException $e) {
-            self::assertSame(60, $e->retryAfter); // Uses default when 0
+            self::assertNull($e->retryAfter); // Zero is invalid per RFC 7231
 
             return;
         }
@@ -307,7 +307,7 @@ final class MixpanelClientTest extends TestCase
     }
 
     #[Test]
-    public function it_ignores_negative_retry_after_header(): void
+    public function it_returns_null_for_negative_retry_after_header(): void
     {
         Http::fake([
             '*' => Http::response([], 429, ['Retry-After' => '-10']),
@@ -318,7 +318,7 @@ final class MixpanelClientTest extends TestCase
         try {
             $this->client->importCampaigns([$event]);
         } catch (ExternalServiceUnavailableException $e) {
-            self::assertSame(60, $e->retryAfter); // Uses default when negative
+            self::assertNull($e->retryAfter); // Negative is invalid per RFC 7231
 
             return;
         }
