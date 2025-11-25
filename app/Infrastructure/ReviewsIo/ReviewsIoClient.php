@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Infrastructure\ReviewsIo;
 
 use App\Application\Contracts\ReviewsIoClientInterface;
-use App\Infrastructure\ReviewsIo\Exceptions\InvalidReviewsIoResponseException;
+use App\Domain\Exceptions\InvalidApiResponseException;
 use App\Infrastructure\ReviewsIo\Responses\Rating;
 use App\Infrastructure\ReviewsIo\Validation\ValidSku;
 use Illuminate\Support\Facades\Log;
@@ -103,14 +103,15 @@ final readonly class ReviewsIoClient implements ReviewsIoClientInterface
      *
      * @return DataCollection<int, T>
      *
-     * @throws InvalidReviewsIoResponseException When response structure is invalid
+     * @throws InvalidApiResponseException When response structure is invalid
      */
     private function parseArrayResponse(mixed $data, string $dtoClass): DataCollection
     {
         if (!\is_array($data)) {
             self::logParsingFailure('Expected array response', $data);
 
-            throw new InvalidReviewsIoResponseException(
+            throw new InvalidApiResponseException(
+                serviceName: self::SERVICE_NAME,
                 message: 'Expected array response',
             );
         }
@@ -120,8 +121,9 @@ final readonly class ReviewsIoClient implements ReviewsIoClientInterface
         } catch (CannotCreateData $e) {
             self::logParsingFailure($e->getMessage(), $data);
 
-            throw new InvalidReviewsIoResponseException(
-                message: 'Reviews.io API returned invalid data structure',
+            throw new InvalidApiResponseException(
+                serviceName: self::SERVICE_NAME,
+                message: 'API returned invalid data structure',
                 previous: $e,
             );
         }

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Application\Contracts;
 
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
-use App\Infrastructure\ReviewsIo\Exceptions\InvalidReviewsIoResponseException;
+use App\Domain\Exceptions\InvalidApiResponseException;
 use App\Infrastructure\ReviewsIo\Responses\Rating;
 use Illuminate\Validation\ValidationException;
 use Spatie\LaravelData\DataCollection;
@@ -32,7 +32,7 @@ interface ReviewsIoClientInterface
      * @return DataCollection<int, Rating> Collection of rating data
      *
      * @throws ExternalServiceUnavailableException When API unavailable or rate limited
-     * @throws InvalidReviewsIoResponseException When response structure is invalid
+     * @throws InvalidApiResponseException When response structure is invalid
      * @throws ValidationException When provided SKUs are invalid
      */
     public function getProductRatingBatch(array|string $skus): DataCollection;
