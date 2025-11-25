@@ -283,20 +283,20 @@ final class ReviewsIoClientTest extends TestCase
     }
 
     #[Test]
-    public function it_throws_validation_exception_for_sku_exceeding_50_characters(): void
+    public function it_throws_validation_exception_for_sku_exceeding_100_characters(): void
     {
-        $longSku = \str_repeat('A', 51);
+        $longSku = \str_repeat('A', 101);
 
         $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('The skus.0 field must not be greater than 50 characters.');
+        $this->expectExceptionMessage('The skus.0 field must not be greater than 100 characters.');
 
         $this->client->getProductRatingBatch([$longSku]);
     }
 
     #[Test]
-    public function it_throws_validation_exception_for_sku_at_exactly_51_characters_boundary(): void
+    public function it_throws_validation_exception_for_sku_at_exactly_101_characters_boundary(): void
     {
-        $boundarySku = \str_repeat('X', 51);
+        $boundarySku = \str_repeat('X', 101);
 
         $this->expectException(ValidationException::class);
 
@@ -304,18 +304,18 @@ final class ReviewsIoClientTest extends TestCase
     }
 
     #[Test]
-    public function it_accepts_sku_at_exactly_50_characters_boundary(): void
+    public function it_accepts_sku_at_exactly_100_characters_boundary(): void
     {
-        $sku50 = \str_repeat('Y', 50);
+        $sku100 = \str_repeat('Y', 100);
 
         Http::fake(['*' => Http::response([
-            ['sku' => $sku50, 'average_rating' => 4.0, 'num_ratings' => 5],
+            ['sku' => $sku100, 'average_rating' => 4.0, 'num_ratings' => 5],
         ])]);
 
-        $result = $this->client->getProductRatingBatch([$sku50]);
+        $result = $this->client->getProductRatingBatch([$sku100]);
 
         $this->assertCount(1, $result);
-        $this->assertSame($sku50, $result[0]->sku);
+        $this->assertSame($sku100, $result[0]->sku);
     }
 
     #[Test]

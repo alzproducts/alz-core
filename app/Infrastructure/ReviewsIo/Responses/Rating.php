@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\ReviewsIo\Responses;
 
+use App\Infrastructure\ReviewsIo\ReviewsIoConfig;
 use Spatie\LaravelData\Attributes\MapInputName;
 use Spatie\LaravelData\Attributes\Validation\Between;
 use Spatie\LaravelData\Attributes\Validation\Max;
@@ -28,7 +29,7 @@ use Spatie\LaravelData\Mappers\SnakeCaseMapper;
 final class Rating extends Data
 {
     public function __construct(
-        #[Required, Min(value: 1), Max(value: 100)]
+        #[Required, Min(value: 1), Max(value: ReviewsIoConfig::MAX_SKU_LENGTH)]
         public readonly string $sku,
         #[Required, Between(min: 0, max: 5)]
         public readonly float $averageRating,

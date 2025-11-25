@@ -24,6 +24,11 @@ final readonly class ReviewsIoConfig
     public const int MAX_BATCH_SIZE = 100;
 
     /**
+     * Maximum length for a single SKU (e-commerce standard).
+     */
+    public const int MAX_SKU_LENGTH = 100;
+
+    /**
      * Delimiter used to separate SKUs in batch requests.
      */
     public const string SKU_DELIMITER = ';';

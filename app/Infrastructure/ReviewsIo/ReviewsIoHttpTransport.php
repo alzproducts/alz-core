@@ -6,6 +6,7 @@ namespace App\Infrastructure\ReviewsIo;
 
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Infrastructure\Support\ApiRetryStrategy;
+use App\Infrastructure\Support\RetryAfterParser;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\RequestException;
@@ -88,8 +89,7 @@ final readonly class ReviewsIoHttpTransport
         $status = $e->response->status();
 
         if ($status === 429) {
-            $headerValue = (int) $e->response->header('Retry-After');
-            $retryAfter = ($headerValue > 0) ? $headerValue : null;
+            $retryAfter = RetryAfterParser::parse($e->response->header('Retry-After'));
 
             Log::warning(self::SERVICE_NAME . ' API rate limited', [
                 'retry_after' => $retryAfter,
