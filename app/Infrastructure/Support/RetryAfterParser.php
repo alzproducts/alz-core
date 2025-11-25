@@ -22,20 +22,23 @@ final class RetryAfterParser
     /**
      * Parse Retry-After header value to seconds.
      *
-     * @param string|null $headerValue Raw header value from HTTP response
+     * @param int|string|null $headerValue Raw header value (string from HTTP, int from SDK metadata)
      * @param int|null $maxSeconds Maximum allowed seconds (prevents unreasonable waits)
      *
      * @return int|null Seconds to wait, or null if invalid/missing
      */
-    public static function parse(?string $headerValue, ?int $maxSeconds = 300): ?int
+    public static function parse(int|string|null $headerValue, ?int $maxSeconds = 300): ?int
     {
         if (($headerValue === null) || ($headerValue === '')) {
             return null;
         }
 
+        // Normalize to string for uniform handling
+        $stringValue = (string) $headerValue;
+
         // Try numeric format first (most common for APIs)
-        if (\is_numeric($headerValue)) {
-            $seconds = (int) $headerValue;
+        if (\is_numeric($stringValue)) {
+            $seconds = (int) $stringValue;
 
             if ($seconds <= 0) {
                 return null;
@@ -50,7 +53,7 @@ final class RetryAfterParser
         }
 
         // Try HTTP-date format (RFC 7231)
-        $timestamp = \strtotime($headerValue);
+        $timestamp = \strtotime($stringValue);
 
         if ($timestamp === false) {
             return null;
