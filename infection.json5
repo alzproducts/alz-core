@@ -4,13 +4,13 @@
     // Source code to mutate
     "source": {
         "directories": [
-            "app/Http/Middleware",
-            "app/Console",
-            "app/Models"
+            "app/Domain",           // Business logic (highest priority for mutation testing)
+            "app/Application",      // Use cases and orchestration
+            "app/Infrastructure",   // API clients, repositories
+            "app/Presentation"      // Controllers, commands, jobs, middleware
         ],
         "excludes": [
-            "app/Providers",
-            "app/Console/Kernel.php"
+            "app/Providers"         // Service providers (framework wiring, not business logic)
         ]
     },
 

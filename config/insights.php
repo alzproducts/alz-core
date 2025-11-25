@@ -148,8 +148,8 @@ return [
         // Framework-required patterns (per-file exclusions)
         ForbiddenSetterSniff::class => [
             'exclude' => [
-                'app/Console/GitHooks/BaseProcessHook.php',
-                'app/Console/GitHooks/BasePreCommitProcessHook.php',
+                'app/DevTools/GitHooks/BaseProcessHook.php',
+                'app/DevTools/GitHooks/BasePreCommitProcessHook.php',
             ],
         ],
 
