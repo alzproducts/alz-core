@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Tests\Feature\Http\Middleware;
+namespace Tests\Feature\Presentation\Http\Middleware;
 
-use App\Http\Middleware\ValidateSupabaseJwt;
+use App\Presentation\Http\Middleware\ValidateSupabaseJwtMiddleware;
 use Firebase\JWT\JWT;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -15,7 +15,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
-#[CoversClass(ValidateSupabaseJwt::class)]
+#[CoversClass(ValidateSupabaseJwtMiddleware::class)]
 final class ValidateSupabaseJwtTest extends TestCase
 {
     /**
@@ -36,7 +36,7 @@ final class ValidateSupabaseJwtTest extends TestCase
         Route::get('/_test/protected-route', static fn(Request $request) => \response()->json([
             'auth_user_id' => $request->get('auth_user_id'),
             'auth_user_email' => $request->get('auth_user_email'),
-        ]))->middleware(ValidateSupabaseJwt::class);
+        ]))->middleware(ValidateSupabaseJwtMiddleware::class);
 
         // Set the JWT secret for the duration of the tests.
         \config(['services.supabase.jwt_secret' => self::TEST_SECRET]);

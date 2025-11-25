@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace App\Http\Middleware;
+namespace App\Presentation\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
 use LogicException;
 use Symfony\Component\HttpFoundation\Response;
 
-final class HorizonBasicAuth
+final class HorizonBasicAuthMiddleware
 {
     public function handle(Request $request, Closure $next): Response
     {

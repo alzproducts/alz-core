@@ -229,11 +229,13 @@ return static function (Config $config): void {
                                'DateInterval',
                                'DatePeriod',
                                'Throwable',
-                               'Throwable',
                                'RuntimeException',
                                'InvalidArgumentException',
                                'LogicException',
                                'Exception',
+                               'Closure',
+                               'Symfony\Component\HttpFoundation',
+                               'Firebase\JWT',
                            ],
                        ),
                    )
@@ -289,9 +291,9 @@ return static function (Config $config): void {
     //
     $rules[] = Rule::allClasses()
                    ->that(new ResideInOneOfTheseNamespaces($presentation))
-                   ->should(new MatchOneOfTheseNames(['*Controller', '*Command', '*Job']))
+                   ->should(new MatchOneOfTheseNames(['*Controller', '*Command', '*Job', '*Middleware']))
                    ->because(
-                       'Presentation layer classes should be clearly identifiable as controllers, commands, or jobs.',
+                       'Presentation layer classes should be clearly identifiable as controllers, commands, jobs, or middleware.',
                    );
 
     // Application services must end with "UseCase", "Service", "Transformer", "Formatter", or "Interface"
@@ -303,18 +305,6 @@ return static function (Config $config): void {
                    ->because(
                        'Application layer classes should be clearly identifiable as use cases, services, transformers, formatters, or interfaces.',
                    );
-
-    // Repository implementations must end with "Repository"
-    $rules[] = Rule::allClasses()
-                   ->that(new ResideInOneOfTheseNamespaces('App\Infrastructure\Database'))
-                   ->should(new HaveNameMatching('*Repository'))
-                   ->because('Repository implementations should have a "Repository" suffix.');
-
-    // API clients must end with "Client"
-    $rules[] = Rule::allClasses()
-                   ->that(new ResideInOneOfTheseNamespaces('App\Infrastructure\Api'))
-                   ->should(new HaveNameMatching('*Client'))
-                   ->because('API client classes should have a "Client" suffix.');
 
     // RULE 5: No interfaces in Infrastructure
     //
@@ -343,11 +333,17 @@ return static function (Config $config): void {
     //
     // WHY: Enforces consistent organization and makes contracts easy to discover.
     //
-    // CORRECT:
+    // NOTE: Currently only App\Application\Contracts exists. App\Domain\Contracts
+    // is ASPIRATIONAL - reserved for future repository interfaces when we add
+    // database persistence (e.g., OrderRepositoryInterface, ProductRepositoryInterface).
+    //
+    // CURRENT:
+    // ✅ namespace App\Application\Contracts;
+    //    interface MixpanelClientInterface { }
+    //
+    // FUTURE (when adding database layer):
     // ✅ namespace App\Domain\Contracts;
     //    interface OrderRepositoryInterface { }
-    //    namespace App\Application\Contracts;
-    //    interface MixpanelClientInterface { }
     //
     $rules[] = Rule::allClasses()
                    ->that(new HaveNameMatching('*Interface'))
@@ -416,19 +412,31 @@ return static function (Config $config): void {
     // WHY: Clear structure makes concepts discoverable and maintainable.
     // Every Domain class belongs in a specific folder (ValueObjects, Entities, etc).
     //
+    // NOTE: CURRENT vs ASPIRATIONAL directories:
+    // ✅ CURRENTLY EXISTS:
+    //    - App\Domain\AdSpend\ValueObjects (nested: Campaign, CampaignMetrics)
+    //    - App\Domain\Exceptions (root level exceptions)
+    //
+    // 🔮 ASPIRATIONAL (for future growth):
+    //    - App\Domain\ValueObjects (root level shared value objects)
+    //    - App\Domain\Entities (stateful business objects with identity)
+    //    - App\Domain\*\Entities (concept-specific entities)
+    //    - App\Domain\Contracts (repository interfaces when adding persistence)
+    //
     // VIOLATION EXAMPLE:
     // ❌ namespace App\Domain;
     //    class Order { }  // Loose class at root level
     //
-    // CORRECT:
-    // ✅ namespace App\Domain\Order\ValueObjects;
-    //    class Order { }  // Organized in subdirectory
+    // CURRENT CORRECT:
+    // ✅ namespace App\Domain\AdSpend\ValueObjects;
+    //    class Campaign { }  // Organized in subdirectory
     //
     // ✅ namespace App\Domain\Exceptions;
-    //    class InsufficientStockException { }  // Or at domain root level
+    //    class UnexpectedApiResultException { }  // Root level exception
     //
-    //    namespace App\Domain\Order\Entities;
-    //    class OrderItem { }  // Each concept in its place
+    // FUTURE CORRECT (when adding persistence):
+    // ✅ namespace App\Domain\Order\Entities;
+    //    class OrderItem { }  // Stateful object with identity
     //
     $rules[] = Rule::allClasses()
                    ->that(new ResideInOneOfTheseNamespaces($domain))

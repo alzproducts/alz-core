@@ -4,10 +4,9 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Exceptions;
 
-use RuntimeException;
 use Throwable;
 
-final class ApiRateLimitException extends RuntimeException
+final class ApiRateLimitException extends ApiException
 {
     public function __construct(
         string $message,

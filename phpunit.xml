@@ -26,7 +26,7 @@
             <directory>app</directory>
         </include>
         <exclude>
-            <directory>app/Console/GitHooks</directory>
+            <directory>app/DevTools/GitHooks</directory>
             <file>app/Models/User.php</file>
             <directory suffix="ServiceProvider.php">./app</directory>
             <directory suffix="Exception.php">./app</directory>

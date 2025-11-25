@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Console\GitHooks;
+namespace App\DevTools\GitHooks;
 
 use Closure;
 use Igorsgm\GitHooks\Contracts\PreCommitHook;
