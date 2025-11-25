@@ -44,6 +44,21 @@ final readonly class ReviewsIoClient implements ReviewsIoClientInterface
     ) {}
 
     /**
+     * Verify API connectivity and authentication.
+     *
+     * Makes a minimal batch request with a placeholder SKU to verify
+     * credentials work. The API will return an empty array for unknown SKUs,
+     * which is fine - we only care that auth succeeds.
+     */
+    public function verifyConnectivity(): void
+    {
+        // Use batch endpoint with a dummy SKU - returns empty array but validates auth
+        $this->transport->get(self::ENDPOINT_RATING_BATCH, [
+            'sku' => 'VERIFY-CONNECTIVITY-HEALTH-CHECK',
+        ]);
+    }
+
+    /**
      * Get product ratings by SKU in batch.
      *
      * Returns a collection of Rating objects indexed by integer keys.
@@ -65,7 +80,7 @@ final readonly class ReviewsIoClient implements ReviewsIoClientInterface
             ['skus' => $skuArray],
             [
                 'skus' => ['required', 'array', 'min:1', 'max:' . ReviewsIoConfig::MAX_BATCH_SIZE],
-                'skus.*' => ['required', 'string', 'min:1', 'max:50', new ValidSku()],
+                'skus.*' => ['required', 'string', 'min:1', 'max:' . ReviewsIoConfig::MAX_SKU_LENGTH, new ValidSku()],
             ],
         )->validate();
 

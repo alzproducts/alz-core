@@ -36,4 +36,14 @@ interface ReviewsIoClientInterface
      * @throws ValidationException When provided SKUs are invalid
      */
     public function getProductRatingBatch(array|string $skus): DataCollection;
+
+    /**
+     * Verify API connectivity and authentication.
+     *
+     * Performs a lightweight request to validate credentials without
+     * business logic side effects. Used for health checks and diagnostics.
+     *
+     * @throws ExternalServiceUnavailableException When API unavailable or auth fails
+     */
+    public function verifyConnectivity(): void;
 }

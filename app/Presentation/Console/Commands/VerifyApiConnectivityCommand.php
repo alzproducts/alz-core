@@ -73,11 +73,10 @@ final class VerifyApiConnectivityCommand extends Command
 
         try {
             $client = \app(ReviewsIoClientInterface::class);
-            // Use a test SKU that won't exist - valid response is an empty array
-            $result = $client->getProductRatingBatch('VERIFY-CONNECTIVITY-TEST');
+            $client->verifyConnectivity();
 
             $this->line('  Authentication: OK');
-            $this->line('  API Response: Valid (returned ' . $result->count() . ' ratings)');
+            $this->line('  API Response: Valid');
 
             return true;
         } catch (Throwable $e) {
