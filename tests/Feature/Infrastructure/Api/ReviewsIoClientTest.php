@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Infrastructure\Api;
 
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
-use App\Infrastructure\ReviewsIo\Exceptions\InvalidReviewsIoResponseException;
+use App\Domain\Exceptions\InvalidApiResponseException;
 use App\Infrastructure\ReviewsIo\Responses\Rating;
 use App\Infrastructure\ReviewsIo\ReviewsIoClient;
 use App\Infrastructure\ReviewsIo\ReviewsIoConfig;
@@ -418,7 +418,7 @@ final class ReviewsIoClientTest extends TestCase
             ['status' => 'error'],  // Missing sku, average_rating
         ])]);
 
-        $this->expectException(InvalidReviewsIoResponseException::class);
+        $this->expectException(InvalidApiResponseException::class);
         $this->expectExceptionMessage('invalid data structure');
 
         $this->client->getProductRatingBatch('TEST-SKU');
