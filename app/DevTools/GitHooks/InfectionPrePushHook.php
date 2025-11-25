@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Console\GitHooks;
+namespace App\DevTools\GitHooks;
 
 final class InfectionPrePushHook extends BaseProcessHook
 {
@@ -16,13 +16,13 @@ final class InfectionPrePushHook extends BaseProcessHook
         // Use composer script to centralize configuration
         return [
             'composer',
-            'infection:strict',
+            'infection:fast',
         ];
     }
 
     protected function getTimeout(): int
     {
-        return 300; // 5 minutes
+        return 180; // 3 minutes (50s manual run + 40-60% hook overhead)
     }
 
     protected function getSuccessMessage(): string

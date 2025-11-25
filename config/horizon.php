@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use App\Http\Middleware\HorizonBasicAuth;
+use App\Presentation\Http\Middleware\HorizonBasicAuthMiddleware;
 use Illuminate\Support\Str;
 
 return [
@@ -89,7 +89,7 @@ return [
     |
     */
 
-    'middleware' => ['web', HorizonBasicAuth::class],
+    'middleware' => ['web', HorizonBasicAuthMiddleware::class],
 
     /*
     |--------------------------------------------------------------------------

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Console\Commands;
+namespace App\Presentation\Console\Commands;
 
 use App\Presentation\Jobs\SyncGoogleAdsToMixpanelJob;
 use Illuminate\Console\Command;
@@ -15,7 +15,10 @@ final class SyncAdSpendCommand extends Command
 
     public function handle(): int
     {
-        $date = $this->option('date');
+        $dateOption = $this->option('date');
+
+        // Type narrowing: option() returns array|bool|string|null
+        $date = \is_string($dateOption) ? $dateOption : null;
 
         // Validate date format if provided
         if (($date !== null) && (\preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) !== 1)) {

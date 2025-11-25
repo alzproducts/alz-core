@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Console\GitHooks;
+namespace App\DevTools\GitHooks;
 
-final class PHPArkitectPrePushHook extends BaseProcessHook
+final class PHPArkitectPreCommitHook extends BasePreCommitProcessHook
 {
     protected string $name = 'PHPArkitect';
 

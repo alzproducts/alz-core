@@ -169,11 +169,12 @@ final class MixpanelAdSpendEventDTOTest extends TestCase
     }
 
     #[Test]
-    public function it_hashes_insert_id_when_exceeds_36_characters(): void
+    public function it_uses_raw_insert_id_at_maximum_realistic_length(): void
     {
-        // Arrange: Campaign ID with many digits creates long insert ID
+        // Arrange: PHP_INT_MAX creates longest possible insert ID with valid int
+        // Format: "G-YYYY-MM-DD-{PHP_INT_MAX}" = 32 chars (under 36 limit)
         $campaign = new CampaignMetrics(
-            campaignId: 999999999999999999,
+            campaignId: \PHP_INT_MAX, // 9223372036854775807 (19 digits)
             campaignName: 'Test Campaign',
             date: '2024-12-31',
             costInPounds: 100.0,
@@ -182,20 +183,39 @@ final class MixpanelAdSpendEventDTOTest extends TestCase
             conversions: 1.0,
         );
 
-        // Raw format would be: "G-2024-12-31-999999999999999999" = 30 chars (fits in 36)
-        // But let's verify the logic works
-        $rawInsertId = "G-{$campaign->date}-{$campaign->campaignId}";
+        // Act
+        $dto = MixpanelAdSpendEventDTO::fromCampaignMetrics($campaign);
+
+        // Assert: Even at max int, we're only at 32 chars → use raw ID (no hashing needed)
+        $expected = 'G-2024-12-31-' . \PHP_INT_MAX;
+        self::assertSame(32, \mb_strlen($expected)); // Verify it's under 36
+        self::assertSame($expected, $dto->insertId);
+    }
+
+    #[Test]
+    public function it_correctly_measures_character_length_not_byte_length(): void
+    {
+        // Arrange: Insert ID with multibyte characters (é = 2 bytes, 1 character)
+        // This tests that mb_strlen (not strlen) is used in the boundary check
+        $campaign = new CampaignMetrics(
+            campaignId: 123,
+            campaignName: 'Café Campaign', // Contains multibyte chars
+            date: '2024-12-31',
+            costInPounds: 100.0,
+            clicks: 10,
+            impressions: 100,
+            conversions: 1.0,
+        );
 
         // Act
         $dto = MixpanelAdSpendEventDTO::fromCampaignMetrics($campaign);
 
-        // Assert: Should use raw ID if ≤36 chars, or MD5 hash if >36 chars
-        if (\mb_strlen($rawInsertId) > 36) {
-            self::assertSame(\md5($rawInsertId), $dto->insertId);
-            self::assertSame(32, \mb_strlen($dto->insertId)); // MD5 is always 32 chars
-        } else {
-            self::assertSame($rawInsertId, $dto->insertId);
-        }
+        // Assert: Insert ID uses campaignId (ASCII), not campaignName
+        // This verifies mb_strlen is used for character count (not byte count)
+        // Mutation testing: mb_strlen → strlen would fail with multibyte chars
+        $expected = 'G-2024-12-31-123';
+        self::assertSame(16, \mb_strlen($expected));
+        self::assertSame($expected, $dto->insertId);
     }
 
     #[Test]

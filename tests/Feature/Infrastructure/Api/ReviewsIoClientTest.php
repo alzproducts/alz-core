@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Infrastructure\Api;
 
-use App\Infrastructure\ReviewsIo\Exceptions\ReviewsIoApiException;
+use App\Domain\Exceptions\ExternalServiceUnavailableException;
+use App\Infrastructure\ReviewsIo\Exceptions\InvalidReviewsIoResponseException;
 use App\Infrastructure\ReviewsIo\Responses\Rating;
 use App\Infrastructure\ReviewsIo\ReviewsIoClient;
 use App\Infrastructure\ReviewsIo\Validation\ValidSku;
@@ -335,7 +336,7 @@ final class ReviewsIoClientTest extends TestCase
     {
         Http::fake(['*' => Http::response(['error' => 'Not Found'], 404)]);
 
-        $this->expectException(RequestException::class);
+        $this->expectException(ExternalServiceUnavailableException::class);
 
         $this->client->getProductRatingBatch(['SKU-404']);
     }
@@ -345,7 +346,7 @@ final class ReviewsIoClientTest extends TestCase
     {
         Http::fake(['*' => Http::response(['error' => 'Internal Server Error'], 500)]);
 
-        $this->expectException(RequestException::class);
+        $this->expectException(ExternalServiceUnavailableException::class);
 
         $this->client->getProductRatingBatch(['SKU-500']);
     }
@@ -355,7 +356,7 @@ final class ReviewsIoClientTest extends TestCase
     {
         Http::fake(['*' => Http::response(['error' => 'Unauthorized'], 401)]);
 
-        $this->expectException(RequestException::class);
+        $this->expectException(ExternalServiceUnavailableException::class);
 
         $this->client->getProductRatingBatch(['SKU-401']);
     }
@@ -368,7 +369,7 @@ final class ReviewsIoClientTest extends TestCase
             'errors' => ['sku' => ['Invalid SKU format']],
         ], 422)]);
 
-        $this->expectException(RequestException::class);
+        $this->expectException(ExternalServiceUnavailableException::class);
 
         $this->client->getProductRatingBatch(['INVALID']);
     }
@@ -378,8 +379,7 @@ final class ReviewsIoClientTest extends TestCase
     {
         Http::fake(static fn() => throw new ConnectionException('Could not resolve host'));
 
-        $this->expectException(ConnectionException::class);
-        $this->expectExceptionMessage('Could not resolve host');
+        $this->expectException(ExternalServiceUnavailableException::class);
 
         $this->client->getProductRatingBatch(['SKU-NETWORK-FAIL']);
     }
@@ -389,7 +389,7 @@ final class ReviewsIoClientTest extends TestCase
     {
         Http::fake(static fn() => throw new ConnectionException('Connection timed out'));
 
-        $this->expectException(ConnectionException::class);
+        $this->expectException(ExternalServiceUnavailableException::class);
 
         $this->client->getProductRatingBatch(['SKU-TIMEOUT']);
     }
@@ -401,7 +401,7 @@ final class ReviewsIoClientTest extends TestCase
             ['status' => 'error'],  // Missing sku, average_rating
         ])]);
 
-        $this->expectException(ReviewsIoApiException::class);
+        $this->expectException(InvalidReviewsIoResponseException::class);
         $this->expectExceptionMessage('invalid data structure');
 
         $this->client->getProductRatingBatch('TEST-SKU');
@@ -417,9 +417,8 @@ final class ReviewsIoClientTest extends TestCase
         // Simulate HTTP 503 error (throws RequestException, not ConnectionException)
         Http::fake(['*' => Http::response(['error' => 'Service Unavailable'], 503)]);
 
-        // RequestException should be thrown immediately without retries
-        // because the retry callback only returns true for ConnectionException
-        $this->expectException(RequestException::class);
+        // RequestException should be translated to ExternalServiceUnavailableException
+        $this->expectException(ExternalServiceUnavailableException::class);
 
         $this->client->getProductRatingBatch('SKU-NO-RETRY');
 
@@ -439,11 +438,10 @@ final class ReviewsIoClientTest extends TestCase
         // This allows ConnectionException to trigger retries when network fails
 
         // We verify the configuration accepts ConnectionException by testing
-        // that ConnectionException is thrown (meaning it would be retried if thrown)
+        // that ConnectionException is translated to ExternalServiceUnavailableException
         Http::fake(static fn() => throw new ConnectionException('Network failure'));
 
-        $this->expectException(ConnectionException::class);
-        $this->expectExceptionMessage('Network failure');
+        $this->expectException(ExternalServiceUnavailableException::class);
 
         $this->client->getProductRatingBatch('SKU-RETRY');
 

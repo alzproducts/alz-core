@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Tests\Feature\Console\Commands;
+namespace Tests\Feature\Presentation\Console\Commands;
 
 use App\Presentation\Jobs\SyncCampaignLookupTableJob;
 use Illuminate\Support\Facades\Queue;

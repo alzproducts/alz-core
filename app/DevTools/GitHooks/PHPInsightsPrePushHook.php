@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Console\GitHooks;
+namespace App\DevTools\GitHooks;
 
 final class PHPInsightsPrePushHook extends BaseProcessHook
 {

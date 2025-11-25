@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\GoogleAds\Exceptions;
 
-use RuntimeException;
+use App\Infrastructure\Exceptions\ApiException;
 
-final class InvalidGoogleAdsResponseException extends RuntimeException
+final class InvalidGoogleAdsResponseException extends ApiException
 {
     /**
      * Thrown when Google Ads API response contains null/missing required fields.
