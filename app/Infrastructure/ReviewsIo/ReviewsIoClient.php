@@ -4,102 +4,50 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\ReviewsIo;
 
-use App\Domain\Exceptions\ExternalServiceUnavailableException;
+use App\Application\Contracts\ReviewsIoClientInterface;
 use App\Infrastructure\ReviewsIo\Exceptions\InvalidReviewsIoResponseException;
-use App\Infrastructure\ReviewsIo\Exceptions\ReviewsIoApiException;
 use App\Infrastructure\ReviewsIo\Responses\Rating;
 use App\Infrastructure\ReviewsIo\Validation\ValidSku;
-use App\Infrastructure\Support\ApiRetryStrategy;
-use Illuminate\Http\Client\ConnectionException;
-use Illuminate\Http\Client\PendingRequest;
-use Illuminate\Http\Client\RequestException;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Validation\ValidationException;
-use InvalidArgumentException;
-use RuntimeException;
 use Spatie\LaravelData\DataCollection;
 use Spatie\LaravelData\Exceptions\CannotCreateData;
 
 /**
- * Reviews.io API Client (Synchronous HTTP)
+ * Reviews.io API Client.
  *
- * Makes blocking HTTP calls to Reviews.io API. Use within Laravel
- * Jobs/Queues for async execution in production.
+ * Handles business logic for Reviews.io API interactions:
+ * - Input validation (SKUs)
+ * - Response parsing and DTO creation
+ * - Domain exception wrapping for parse failures
+ *
+ * HTTP concerns (auth, retry, timeout, exception translation) are delegated
+ * to ReviewsIoHttpTransport, following the separation of concerns principle.
  *
  * Design Philosophy: "Thin SDK"
  * - No caching (implement in Application layer via CachedRatingService)
- * - No business logic (pure HTTP + validation)
+ * - No business logic beyond validation and parsing
  * - Simple error handling (throw on failures)
  *
- * Authentication: Reviews.io API requires credentials via query parameters
- * (header-based auth is not supported per official API documentation).
- *
+ * @template-pattern API Client (Template Pattern)
  * @see https://developer.reviews.io Official API documentation
  */
-final readonly class ReviewsIoClient
+final readonly class ReviewsIoClient implements ReviewsIoClientInterface
 {
-    private const string BASE_URL = 'https://api.reviews.co.uk/';
-    private const int MAX_BATCH_SIZE = 100;
+    private const string SERVICE_NAME = 'Reviews.io';
+
+    private const string ENDPOINT_RATING_BATCH = 'product/rating-batch';
 
     public function __construct(
-        private string $apiKey,
-        private string $storeId,
-        private int $timeout = 30,
-        private int $retryTimes = 3,
-        private int $retryDelay = 100,
-    ) {
-        // Validate configuration when client is instantiated
-        if ($apiKey === '') {
-            throw new RuntimeException('Reviews.io API key cannot be empty');
-        }
-
-        if ($storeId === '') {
-            throw new RuntimeException('Reviews.io store ID cannot be empty');
-        }
-
-        if (($timeout < 1) || ($timeout > 300)) {
-            throw new InvalidArgumentException(
-                "Timeout must be between 1-300 seconds, got {$timeout}",
-            );
-        }
-
-        if (($retryTimes < 0) || ($retryTimes > 10)) {
-            throw new InvalidArgumentException(
-                "Retry times must be between 0-10, got {$retryTimes}",
-            );
-        }
-
-        if (($retryDelay < 0) || ($retryDelay > 5000)) {
-            throw new InvalidArgumentException(
-                "Retry delay must be between 0-5000ms, got {$retryDelay}",
-            );
-        }
-    }
-
-    private function http(): PendingRequest
-    {
-        return Http::baseUrl(self::BASE_URL)
-            // Note: Reviews.io API requires credentials via query parameters.
-            // Header-based authentication (e.g., Authorization: Bearer) is not supported.
-            // See: https://developer.reviews.io/reference/
-            ->withQueryParameters([
-                'apikey' => $this->apiKey,
-                'store' => $this->storeId,
-            ])
-            ->retry(
-                times: $this->retryTimes,
-                sleepMilliseconds: $this->retryDelay,
-                when: ApiRetryStrategy::defaultRetry(),
-            )
-            ->timeout($this->timeout);
-    }
+        private ReviewsIoHttpTransport $transport,
+    ) {}
 
     /**
-     * Get product reviews by SKU in batch.
+     * Get product ratings by SKU in batch.
+     *
      * Returns a collection of Rating objects indexed by integer keys.
      * Example: [0 => Rating(sku: 'FLP-01', averageRating: 4.5, numRatings: 362)]
+     *
      * Note: This method does not cache responses. Implement caching in the
      * Application layer (e.g., CachedRatingService) to avoid unnecessary
      * API calls for frequently accessed product ratings.
@@ -107,10 +55,6 @@ final readonly class ReviewsIoClient
      * @param string|array<string> $skus Single SKU or array of SKUs (max 100)
      *
      * @return DataCollection<int, Rating> Collection of rating data
-     *
-     * @throws ExternalServiceUnavailableException When the Reviews.io API is unavailable or rate limited
-     * @throws InvalidReviewsIoResponseException When the API response structure is invalid
-     * @throws ValidationException When provided SKUs are invalid
      */
     public function getProductRatingBatch(array|string $skus): DataCollection
     {
@@ -119,7 +63,7 @@ final readonly class ReviewsIoClient
         $validated = Validator::make(
             ['skus' => $skuArray],
             [
-                'skus' => ['required', 'array', 'min:1', 'max:' . self::MAX_BATCH_SIZE], // Batch limit
+                'skus' => ['required', 'array', 'min:1', 'max:' . ReviewsIoConfig::MAX_BATCH_SIZE],
                 'skus.*' => ['required', 'string', 'min:1', 'max:50', new ValidSku()],
             ],
         )->validate();
@@ -127,65 +71,54 @@ final readonly class ReviewsIoClient
         /** @var array<string> $validatedSkus */
         $validatedSkus = $validated['skus'];
 
-        try {
-            $response = $this->http()
-                ->get('product/rating-batch', [
-                    'sku' => \implode(';', $validatedSkus),
-                ])
-                ->throw();
-        } catch (RequestException $e) {
-            // Extract retry-after if rate limited
-            $retryAfter = null;
-            if (($e->response !== null) && ($e->response->status() === 429)) {
-                $retryAfterHeader = $e->response->header('Retry-After');
-                // @phpstan-ignore-next-line function.alreadyNarrowedType
-                if ($retryAfterHeader !== null) {
-                    $retryAfter = (int) $retryAfterHeader;
-                }
+        $response = $this->transport->get(self::ENDPOINT_RATING_BATCH, [
+            'sku' => \implode(ReviewsIoConfig::SKU_DELIMITER, $validatedSkus),
+        ]);
 
-                Log::error('Reviews.io API request failed', [
-                    'status' => $e->response->status(),
-                    'error' => $e->getMessage(),
-                    'retry_after' => $retryAfter,
-                ]);
-            }
+        return $this->parseArrayResponse($response->json(), Rating::class);
+    }
 
-            throw new ExternalServiceUnavailableException(
-                'Reviews.io',
-                $retryAfter,
-                $e,
-            );
-        } catch (ConnectionException $e) {
-            Log::error('Reviews.io API connection failed', [
-                'error' => $e->getMessage(),
-            ]);
-
-            throw new ExternalServiceUnavailableException(
-                'Reviews.io',
-                null,
-                $e,
-            );
-        }
-
-        $data = $response->json();
-
+    /**
+     * Parse API response expecting an array of DTOs.
+     *
+     * @template T of \Spatie\LaravelData\Data
+     *
+     * @param class-string<T> $dtoClass
+     *
+     * @return DataCollection<int, T>
+     *
+     * @throws InvalidReviewsIoResponseException When response structure is invalid
+     */
+    private function parseArrayResponse(mixed $data, string $dtoClass): DataCollection
+    {
         if (!\is_array($data)) {
-            throw new ReviewsIoApiException('Reviews.io API invalid response: Expected array response');
-        }
-
-        try {
-            return Rating::collect($data, DataCollection::class);
-        } catch (CannotCreateData $e) {
-            Log::critical('Reviews.io API response validation failed - API contract may have changed', [
-                'error' => $e->getMessage(),
-                'raw_response' => $data,
-            ]);
+            $this->logParsingFailure('Expected array response', $data);
 
             throw new InvalidReviewsIoResponseException(
-                message: 'Reviews.io API invalid response: Reviews.io API returned invalid data structure',
+                message: 'Expected array response',
+            );
+        }
+
+        try {
+            return $dtoClass::collect($data, DataCollection::class);
+        } catch (CannotCreateData $e) {
+            $this->logParsingFailure($e->getMessage(), $data);
+
+            throw new InvalidReviewsIoResponseException(
+                message: 'Reviews.io API returned invalid data structure',
                 previous: $e,
             );
         }
     }
 
+    /**
+     * Log parsing failure with context for debugging API contract changes.
+     */
+    private function logParsingFailure(string $error, mixed $data): void
+    {
+        Log::critical(self::SERVICE_NAME . ' API response validation failed', [
+            'error' => $error,
+            'raw_response' => $data,
+        ]);
+    }
 }

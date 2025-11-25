@@ -8,18 +8,17 @@ use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Infrastructure\ReviewsIo\Exceptions\InvalidReviewsIoResponseException;
 use App\Infrastructure\ReviewsIo\Responses\Rating;
 use App\Infrastructure\ReviewsIo\ReviewsIoClient;
+use App\Infrastructure\ReviewsIo\ReviewsIoConfig;
+use App\Infrastructure\ReviewsIo\ReviewsIoHttpTransport;
 use App\Infrastructure\ReviewsIo\Validation\ValidSku;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
-use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Validation\ValidationException;
-use InvalidArgumentException;
 use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
-use RuntimeException;
 use Spatie\LaravelData\DataCollection;
 use Tests\TestCase;
 
@@ -31,9 +30,12 @@ use Tests\TestCase;
  * - API errors (HTTP 4xx/5xx, network failures)
  * - HTTP client configuration (query params, retry logic)
  * - Data transformation (snake_case → camelCase)
+ *
+ * Note: Constructor validation tests are in ReviewsIoConfigTest.
  */
 #[CoversClass(ValidSku::class)]
 #[CoversClass(ReviewsIoClient::class)]
+#[CoversClass(ReviewsIoHttpTransport::class)]
 final class ReviewsIoClientTest extends TestCase
 {
     private const string TEST_API_KEY = 'test-api-key';
@@ -46,13 +48,28 @@ final class ReviewsIoClientTest extends TestCase
     {
         parent::setUp();
 
-        $this->client = new ReviewsIoClient(
+        $this->client = $this->createClient();
+    }
+
+    /**
+     * Create a ReviewsIoClient with default test configuration.
+     */
+    private function createClient(
+        int $timeout = 30,
+        int $retryTimes = 3,
+        int $retryDelay = 100,
+    ): ReviewsIoClient {
+        $config = new ReviewsIoConfig(
             apiKey: self::TEST_API_KEY,
             storeId: self::TEST_STORE_ID,
-            timeout: 30,
-            retryTimes: 3,
-            retryDelay: 100,
+            timeout: $timeout,
+            retryTimes: $retryTimes,
+            retryDelay: $retryDelay,
         );
+
+        $transport = new ReviewsIoHttpTransport($config);
+
+        return new ReviewsIoClient($transport);
     }
 
     /*
@@ -506,9 +523,7 @@ final class ReviewsIoClientTest extends TestCase
     {
         // Note: Laravel's Http::fake() doesn't expose retry configuration directly
         // This test verifies the client accepts retry parameters without error
-        $client = new ReviewsIoClient(
-            apiKey: self::TEST_API_KEY,
-            storeId: self::TEST_STORE_ID,
+        $client = $this->createClient(
             timeout: 10,
             retryTimes: 5,
             retryDelay: 200,
@@ -522,239 +537,4 @@ final class ReviewsIoClientTest extends TestCase
         $this->assertInstanceOf(DataCollection::class, $result);
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | Constructor Validation Tests
-    |--------------------------------------------------------------------------
-    */
-
-    #[Test]
-    public function it_throws_exception_for_empty_api_key(): void
-    {
-        $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('Reviews.io API key cannot be empty');
-
-        new ReviewsIoClient(
-            apiKey: '', // Empty string
-            storeId: self::TEST_STORE_ID,
-            timeout: 30,
-            retryTimes: 3,
-            retryDelay: 100,
-        );
-    }
-
-    #[Test]
-    public function it_throws_exception_for_empty_store_id(): void
-    {
-        $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('Reviews.io store ID cannot be empty');
-
-        new ReviewsIoClient(
-            apiKey: self::TEST_API_KEY,
-            storeId: '', // Empty string
-            timeout: 30,
-            retryTimes: 3,
-            retryDelay: 100,
-        );
-    }
-
-    #[Test]
-    public function it_accepts_timeout_at_minimum_boundary_of_one_second(): void
-    {
-        $client = new ReviewsIoClient(
-            apiKey: self::TEST_API_KEY,
-            storeId: self::TEST_STORE_ID,
-            timeout: 1, // Minimum boundary
-            retryTimes: 3,
-            retryDelay: 100,
-        );
-
-        Http::fake(['*' => Http::response([])]);
-
-        $result = $client->getProductRatingBatch('SKU');
-
-        $this->assertInstanceOf(DataCollection::class, $result);
-    }
-
-    #[Test]
-    public function it_accepts_timeout_at_maximum_boundary_of_300_seconds(): void
-    {
-        $client = new ReviewsIoClient(
-            apiKey: self::TEST_API_KEY,
-            storeId: self::TEST_STORE_ID,
-            timeout: 300, // Maximum boundary
-            retryTimes: 3,
-            retryDelay: 100,
-        );
-
-        Http::fake(['*' => Http::response([])]);
-
-        $result = $client->getProductRatingBatch('SKU');
-
-        $this->assertInstanceOf(DataCollection::class, $result);
-    }
-
-    #[Test]
-    public function it_throws_exception_for_timeout_below_minimum_boundary(): void
-    {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Timeout must be between 1-300 seconds, got 0');
-
-        new ReviewsIoClient(
-            apiKey: self::TEST_API_KEY,
-            storeId: self::TEST_STORE_ID,
-            timeout: 0, // Below minimum
-            retryTimes: 3,
-            retryDelay: 100,
-        );
-    }
-
-    #[Test]
-    public function it_throws_exception_for_timeout_above_maximum_boundary(): void
-    {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Timeout must be between 1-300 seconds, got 301');
-
-        new ReviewsIoClient(
-            apiKey: self::TEST_API_KEY,
-            storeId: self::TEST_STORE_ID,
-            timeout: 301, // Above maximum
-            retryTimes: 3,
-            retryDelay: 100,
-        );
-    }
-
-    #[Test]
-    public function it_accepts_retry_times_at_minimum_boundary_of_zero(): void
-    {
-        $client = new ReviewsIoClient(
-            apiKey: self::TEST_API_KEY,
-            storeId: self::TEST_STORE_ID,
-            timeout: 30,
-            retryTimes: 0, // Minimum boundary
-            retryDelay: 100,
-        );
-
-        Http::fake(['*' => Http::response([])]);
-
-        $result = $client->getProductRatingBatch('SKU');
-
-        $this->assertInstanceOf(DataCollection::class, $result);
-    }
-
-    #[Test]
-    public function it_accepts_retry_times_at_maximum_boundary_of_10(): void
-    {
-        $client = new ReviewsIoClient(
-            apiKey: self::TEST_API_KEY,
-            storeId: self::TEST_STORE_ID,
-            timeout: 30,
-            retryTimes: 10, // Maximum boundary
-            retryDelay: 100,
-        );
-
-        Http::fake(['*' => Http::response([])]);
-
-        $result = $client->getProductRatingBatch('SKU');
-
-        $this->assertInstanceOf(DataCollection::class, $result);
-    }
-
-    #[Test]
-    public function it_throws_exception_for_retry_times_below_minimum_boundary(): void
-    {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Retry times must be between 0-10, got -1');
-
-        new ReviewsIoClient(
-            apiKey: self::TEST_API_KEY,
-            storeId: self::TEST_STORE_ID,
-            timeout: 30,
-            retryTimes: -1, // Below minimum
-            retryDelay: 100,
-        );
-    }
-
-    #[Test]
-    public function it_throws_exception_for_retry_times_above_maximum_boundary(): void
-    {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Retry times must be between 0-10, got 11');
-
-        new ReviewsIoClient(
-            apiKey: self::TEST_API_KEY,
-            storeId: self::TEST_STORE_ID,
-            timeout: 30,
-            retryTimes: 11, // Above maximum
-            retryDelay: 100,
-        );
-    }
-
-    #[Test]
-    public function it_accepts_retry_delay_at_minimum_boundary_of_zero_milliseconds(): void
-    {
-        $client = new ReviewsIoClient(
-            apiKey: self::TEST_API_KEY,
-            storeId: self::TEST_STORE_ID,
-            timeout: 30,
-            retryTimes: 3,
-            retryDelay: 0, // Minimum boundary
-        );
-
-        Http::fake(['*' => Http::response([])]);
-
-        // Should not throw exception
-        $result = $client->getProductRatingBatch('SKU');
-
-        $this->assertInstanceOf(DataCollection::class, $result);
-    }
-
-    #[Test]
-    public function it_accepts_retry_delay_at_maximum_boundary_of_5000_milliseconds(): void
-    {
-        $client = new ReviewsIoClient(
-            apiKey: self::TEST_API_KEY,
-            storeId: self::TEST_STORE_ID,
-            timeout: 30,
-            retryTimes: 3,
-            retryDelay: 5000, // Maximum boundary
-        );
-
-        Http::fake(['*' => Http::response([])]);
-
-        // Should not throw exception
-        $result = $client->getProductRatingBatch('SKU');
-
-        $this->assertInstanceOf(DataCollection::class, $result);
-    }
-
-    #[Test]
-    public function it_throws_exception_for_retry_delay_below_minimum_boundary(): void
-    {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Retry delay must be between 0-5000ms, got -1');
-
-        new ReviewsIoClient(
-            apiKey: self::TEST_API_KEY,
-            storeId: self::TEST_STORE_ID,
-            timeout: 30,
-            retryTimes: 3,
-            retryDelay: -1, // Below minimum
-        );
-    }
-
-    #[Test]
-    public function it_throws_exception_for_retry_delay_above_maximum_boundary(): void
-    {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Retry delay must be between 0-5000ms, got 5001');
-
-        new ReviewsIoClient(
-            apiKey: self::TEST_API_KEY,
-            storeId: self::TEST_STORE_ID,
-            timeout: 30,
-            retryTimes: 3,
-            retryDelay: 5001, // Above maximum
-        );
-    }
 }
