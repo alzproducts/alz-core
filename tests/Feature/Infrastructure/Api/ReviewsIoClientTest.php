@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Infrastructure\Api;
 
+use App\Application\DTOs\ProductRatingDTO;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\InvalidApiResponseException;
-use App\Infrastructure\ReviewsIo\Responses\Rating;
 use App\Infrastructure\ReviewsIo\ReviewsIoClient;
 use App\Infrastructure\ReviewsIo\ReviewsIoConfig;
 use App\Infrastructure\ReviewsIo\ReviewsIoHttpTransport;
@@ -108,7 +108,7 @@ final class ReviewsIoClientTest extends TestCase
         // Verify response structure and data
         $this->assertInstanceOf(DataCollection::class, $result);
         $this->assertCount(1, $result);
-        $this->assertInstanceOf(Rating::class, $result[0]);
+        $this->assertInstanceOf(ProductRatingDTO::class, $result[0]);
         $this->assertSame('FLP-01', $result[0]->sku);
         $this->assertSame(4.5, $result[0]->averageRating);
         $this->assertSame(362, $result[0]->numRatings);
