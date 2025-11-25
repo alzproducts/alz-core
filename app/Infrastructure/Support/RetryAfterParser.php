@@ -27,7 +27,7 @@ final class RetryAfterParser
      *
      * @return int|null Seconds to wait, or null if invalid/missing
      */
-    public static function parse(?string $headerValue, ?int $maxSeconds = 3600): ?int
+    public static function parse(?string $headerValue, ?int $maxSeconds = 300): ?int
     {
         if (($headerValue === null) || ($headerValue === '')) {
             return null;

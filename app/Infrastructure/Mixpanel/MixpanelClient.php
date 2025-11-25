@@ -10,9 +10,9 @@ use App\Domain\AdSpend\ValueObjects\CampaignMetrics;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Infrastructure\Support\ApiRetryStrategy;
 use App\Infrastructure\Support\CsvFormatter;
+use App\Infrastructure\Support\RetryAfterParser;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
-use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -118,7 +118,7 @@ final readonly class MixpanelClient implements MixpanelClientInterface
             // Detect rate limit and extract retryAfter if available
             $retryAfter = null;
             if ($e->response->status() === 429) {
-                $retryAfter = $this->extractRetryAfter($e->response);
+                $retryAfter = RetryAfterParser::parse($e->response->header('Retry-After'));
                 Log::warning('Mixpanel rate limited', [
                     'retry_after' => $retryAfter,
                     'error' => $e->getMessage(),
@@ -172,7 +172,7 @@ final readonly class MixpanelClient implements MixpanelClientInterface
             // Detect rate limit and extract retryAfter if available
             $retryAfter = null;
             if ($e->response->status() === 429) {
-                $retryAfter = $this->extractRetryAfter($e->response);
+                $retryAfter = RetryAfterParser::parse($e->response->header('Retry-After'));
                 Log::warning('Mixpanel Lookup Table rate limited', [
                     'retry_after' => $retryAfter,
                     'error' => $e->getMessage(),
@@ -188,25 +188,4 @@ final readonly class MixpanelClient implements MixpanelClientInterface
             throw new ExternalServiceUnavailableException('Mixpanel', $retryAfter, $e);
         }
     }
-
-    /**
-     * Extract retry-after seconds from response headers.
-     *
-     * Mixpanel includes Retry-After header when rate limited.
-     */
-    private function extractRetryAfter(Response $response): int
-    {
-        $retryAfter = 60; // Default to 60 seconds
-
-        $retryAfterHeader = $response->header('Retry-After');
-        if (\is_numeric($retryAfterHeader)) {
-            $extracted = (int) $retryAfterHeader;
-            if ($extracted > 0) {
-                $retryAfter = $extracted;
-            }
-        }
-
-        return $retryAfter;
-    }
-
 }

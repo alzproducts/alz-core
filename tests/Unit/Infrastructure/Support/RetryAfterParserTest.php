@@ -73,7 +73,7 @@ final class RetryAfterParserTest extends TestCase
     {
         return [
             'standard value' => ['60', 60],
-            'large value within default cap' => ['3500', 3500],
+            'large value within default cap' => ['250', 250],
             'minimum valid value' => ['1', 1],
             'float-like string truncates to integer' => ['120.7', 120],
         ];
@@ -117,19 +117,19 @@ final class RetryAfterParserTest extends TestCase
     }
 
     #[Test]
-    public function it_uses_default_max_seconds_of_3600(): void
+    public function it_uses_default_max_seconds_of_300(): void
     {
-        // Value exceeding default cap (3600) gets capped
-        $this->assertSame(3600, RetryAfterParser::parse('5000'));
+        // Value exceeding default cap (300) gets capped
+        $this->assertSame(300, RetryAfterParser::parse('5000'));
 
         // Value at exactly default cap returns the value
-        $this->assertSame(3600, RetryAfterParser::parse('3600'));
+        $this->assertSame(300, RetryAfterParser::parse('300'));
 
         // Value 1 over default cap returns cap
-        $this->assertSame(3600, RetryAfterParser::parse('3601'));
+        $this->assertSame(300, RetryAfterParser::parse('301'));
 
         // Value below default cap returns actual value
-        $this->assertSame(3599, RetryAfterParser::parse('3599'));
+        $this->assertSame(299, RetryAfterParser::parse('299'));
     }
 
     /*
@@ -152,12 +152,11 @@ final class RetryAfterParserTest extends TestCase
         $this->assertGreaterThanOrEqual(115, $result);
         $this->assertLessThanOrEqual(120, $result);
 
-        // 1 hour in the future
+        // 1 hour in the future - gets capped to default max (300)
         $date1h = $now->copy()->addHour()->toRfc7231String();
         $result1h = RetryAfterParser::parse($date1h);
         $this->assertNotNull($result1h);
-        $this->assertGreaterThanOrEqual(3595, $result1h);
-        $this->assertLessThanOrEqual(3600, $result1h);
+        $this->assertSame(300, $result1h); // Capped to default maxSeconds
     }
 
     #[Test]
