@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Infrastructure\ReviewsIo;
 
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
+use App\Infrastructure\ReviewsIo\Exceptions\InvalidReviewsIoResponseException;
 use App\Infrastructure\ReviewsIo\Exceptions\ReviewsIoApiException;
 use App\Infrastructure\ReviewsIo\Responses\Rating;
 use App\Infrastructure\ReviewsIo\Validation\ValidSku;
@@ -15,6 +16,7 @@ use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
 use RuntimeException;
 use Spatie\LaravelData\DataCollection;
@@ -105,6 +107,10 @@ final readonly class ReviewsIoClient
      * @param string|array<string> $skus Single SKU or array of SKUs (max 100)
      *
      * @return DataCollection<int, Rating> Collection of rating data
+     *
+     * @throws ExternalServiceUnavailableException When the Reviews.io API is unavailable or rate limited
+     * @throws InvalidReviewsIoResponseException When the API response structure is invalid
+     * @throws ValidationException When provided SKUs are invalid
      */
     public function getProductRatingBatch(array|string $skus): DataCollection
     {
@@ -175,7 +181,7 @@ final readonly class ReviewsIoClient
                 'raw_response' => $data,
             ]);
 
-            throw new ReviewsIoApiException(
+            throw new InvalidReviewsIoResponseException(
                 message: 'Reviews.io API invalid response: Reviews.io API returned invalid data structure',
                 previous: $e,
             );
