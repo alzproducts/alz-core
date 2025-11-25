@@ -199,7 +199,7 @@ test-coverage: ## Run tests with 80% coverage requirement
 
 pest-mutate: ## Run Pest mutation testing
 	@echo "$(MODE)"
-	$(EXEC) -d xdebug.mode=off vendor/bin/pest --mutate --everything --covered-only --min=85 --parallel --processes=7
+	$(EXEC) -d xdebug.mode=off vendor/bin/pest --mutate --everything --covered-only --min=85 --parallel --processes=8
 
 infection: ## Run Infection mutation testing
 	@echo "$(MODE)"

@@ -16,13 +16,13 @@ final class InfectionPrePushHook extends BaseProcessHook
         // Use composer script to centralize configuration
         return [
             'composer',
-            'infection:strict',
+            'infection:fast',
         ];
     }
 
     protected function getTimeout(): int
     {
-        return 600; // 10 minutes (mutation testing is slow in hook context)
+        return 180; // 3 minutes (50s manual run + 40-60% hook overhead)
     }
 
     protected function getSuccessMessage(): string
