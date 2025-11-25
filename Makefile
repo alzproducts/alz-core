@@ -214,9 +214,9 @@ infection-fast: ## Run Infection with cached coverage (fastest)
 	$(EXEC) -d xdebug.mode=coverage vendor/bin/pest --log-junit=build/logs/junit.xml --coverage-xml=build/logs/coverage-xml --coverage-clover=build/logs/clover.xml
 	$(EXEC) -d xdebug.mode=off vendor/bin/infection --coverage=build/logs --skip-initial-tests --no-progress --show-mutations --min-msi=80 --min-covered-msi=85
 
-infection-incremental: ## Run Infection on changed lines only
+infection-incremental: ## Run Infection on changed lines only (vs develop branch)
 	@echo "$(MODE)"
-	$(EXEC) -d xdebug.mode=off vendor/bin/infection --git-diff-lines --git-diff-base=main --no-progress --show-mutations --min-msi=80 --min-covered-msi=85
+	$(EXEC) -d xdebug.mode=off vendor/bin/infection --git-diff-lines --git-diff-base=develop --no-progress --show-mutations --min-msi=80 --min-covered-msi=85
 
 infection-ci: ## Run Infection for CI with GitHub logger
 	@echo "$(MODE)"
