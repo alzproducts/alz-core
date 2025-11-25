@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Tests\Feature\Http\Middleware;
+namespace Tests\Feature\Presentation\Http\Middleware;
 
-use App\Http\Middleware\HorizonBasicAuth;
+use App\Presentation\Http\Middleware\HorizonBasicAuthMiddleware;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Testing\TestResponse;
@@ -16,7 +16,7 @@ use PHPUnit\Framework\Attributes\Test;
 use Symfony\Component\HttpFoundation\Response;
 use Tests\TestCase;
 
-#[CoversClass(HorizonBasicAuth::class)]
+#[CoversClass(HorizonBasicAuthMiddleware::class)]
 class HorizonBasicAuthTest extends TestCase
 {
     /**
@@ -39,7 +39,7 @@ class HorizonBasicAuthTest extends TestCase
 
         // Define a test route that is protected by the middleware.
         // This allows us to test the middleware in a realistic request-response cycle.
-        Route::get('/_test/protected-route', static fn(): Response => \response('Success', 200))->middleware(HorizonBasicAuth::class);
+        Route::get('/_test/protected-route', static fn(): Response => \response('Success', 200))->middleware(HorizonBasicAuthMiddleware::class);
     }
 
     /**
@@ -295,7 +295,7 @@ class HorizonBasicAuthTest extends TestCase
         ]);
 
         // Create a properly authenticated request with Authorization header
-        $middleware = new HorizonBasicAuth();
+        $middleware = new HorizonBasicAuthMiddleware();
         $request = Request::create('/_test', 'GET', [], [], [], [
             'HTTP_AUTHORIZATION' => 'Basic ' . \base64_encode(self::USER . ':' . self::PASS),
         ]);

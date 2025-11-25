@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Http\Middleware;
+namespace App\Presentation\Http\Middleware;
 
 use Closure;
 use Firebase\JWT\JWT;
@@ -13,7 +13,7 @@ use RuntimeException;
 use Symfony\Component\HttpFoundation\Response;
 use Throwable;
 
-final class ValidateSupabaseJwt
+final class ValidateSupabaseJwtMiddleware
 {
     /**
      * Validate Supabase JWT token and attach user information to the request.

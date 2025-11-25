@@ -229,11 +229,13 @@ return static function (Config $config): void {
                                'DateInterval',
                                'DatePeriod',
                                'Throwable',
-                               'Throwable',
                                'RuntimeException',
                                'InvalidArgumentException',
                                'LogicException',
                                'Exception',
+                               'Closure',
+                               'Symfony\Component\HttpFoundation',
+                               'Firebase\JWT',
                            ],
                        ),
                    )
@@ -289,9 +291,9 @@ return static function (Config $config): void {
     //
     $rules[] = Rule::allClasses()
                    ->that(new ResideInOneOfTheseNamespaces($presentation))
-                   ->should(new MatchOneOfTheseNames(['*Controller', '*Command', '*Job']))
+                   ->should(new MatchOneOfTheseNames(['*Controller', '*Command', '*Job', '*Middleware']))
                    ->because(
-                       'Presentation layer classes should be clearly identifiable as controllers, commands, or jobs.',
+                       'Presentation layer classes should be clearly identifiable as controllers, commands, jobs, or middleware.',
                    );
 
     // Application services must end with "UseCase", "Service", "Transformer", "Formatter", or "Interface"
