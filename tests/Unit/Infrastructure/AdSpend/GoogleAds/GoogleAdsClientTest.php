@@ -17,6 +17,8 @@ use Google\Ads\GoogleAds\V22\Services\GoogleAdsRow;
 use Google\ApiCore\ApiException;
 use Google\ApiCore\PagedListResponse;
 use Google\Rpc\Code;
+use Illuminate\Support\Facades\Log;
+use Mockery;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -302,6 +304,50 @@ final class GoogleAdsClientTest extends TestCase
         $this->expectException(InvalidGoogleAdsResponseException::class);
 
         $this->client->getDailyCampaignMetrics('2024-05-10');
+    }
+
+    #[Test]
+    public function it_logs_warning_when_rate_limited(): void
+    {
+        Log::shouldReceive('warning')
+            ->once()
+            ->with('Google Ads rate limited', Mockery::on(static fn($context) => isset($context['retry_after']) && isset($context['error'])));
+
+        $apiException = new ApiException(
+            'Rate limit exceeded',
+            Code::RESOURCE_EXHAUSTED,
+            'RESOURCE_EXHAUSTED',
+        );
+
+        $this->serviceClientMock->method('search')->willThrowException($apiException);
+
+        try {
+            $this->client->getDailyCampaignMetrics('2024-05-10');
+        } catch (ExternalServiceUnavailableException) {
+            // Expected - we're testing logging, not exception handling
+        }
+    }
+
+    #[Test]
+    public function it_logs_error_when_non_rate_limit_api_exception(): void
+    {
+        Log::shouldReceive('error')
+            ->once()
+            ->with('Google Ads API error', Mockery::on(static fn($context) => isset($context['code']) && isset($context['error'])));
+
+        $apiException = new ApiException(
+            'Invalid customer ID',
+            Code::INVALID_ARGUMENT,
+            'INVALID_ARGUMENT',
+        );
+
+        $this->serviceClientMock->method('search')->willThrowException($apiException);
+
+        try {
+            $this->client->getDailyCampaignMetrics('2024-05-10');
+        } catch (ExternalServiceUnavailableException) {
+            // Expected - we're testing logging, not exception handling
+        }
     }
 
     private function createMockGoogleAdsRow(
