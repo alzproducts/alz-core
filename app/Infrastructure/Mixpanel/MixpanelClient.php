@@ -36,6 +36,12 @@ use Illuminate\Support\Facades\Log;
  */
 final readonly class MixpanelClient implements MixpanelClientInterface
 {
+    /**
+     * Mixpanel main API base URL for service account verification.
+     * This is different from the data API URL used for imports.
+     */
+    private const string MIXPANEL_API_URL = 'https://mixpanel.com';
+
     public function __construct(
         private string $mixpanelBaseUrl,
         private string $serviceAccountUsername,
@@ -43,6 +49,31 @@ final readonly class MixpanelClient implements MixpanelClientInterface
         private string $projectId,
         private string $lookupTableId,
     ) {}
+
+    /**
+     * Verify connectivity and authentication with Mixpanel API.
+     *
+     * Calls the /api/app/me endpoint to validate service account credentials.
+     * This endpoint returns the authenticated user/service account details.
+     *
+     * @throws ExternalServiceUnavailableException When API unavailable or credentials invalid
+     */
+    public function verifyConnectivity(): void
+    {
+        try {
+            Http::withBasicAuth($this->serviceAccountUsername, $this->serviceAccountPassword)
+                ->timeout(10)
+                ->get(self::MIXPANEL_API_URL . '/api/app/me')
+                ->throw();
+        } catch (RequestException $e) {
+            Log::error('Mixpanel connectivity verification failed', [
+                'status' => $e->response->status(),
+                'error' => $e->getMessage(),
+            ]);
+
+            throw new ExternalServiceUnavailableException('Mixpanel', previous: $e);
+        }
+    }
 
     /**
      * Import campaign metrics to Mixpanel analytics.

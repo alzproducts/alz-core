@@ -11,6 +11,16 @@ use App\Domain\Exceptions\ExternalServiceUnavailableException;
 interface MixpanelClientInterface
 {
     /**
+     * Verify connectivity and authentication with Mixpanel API.
+     *
+     * Makes a lightweight API call to validate service account credentials
+     * without modifying any data.
+     *
+     * @throws ExternalServiceUnavailableException When API unavailable or credentials invalid
+     */
+    public function verifyConnectivity(): void;
+
+    /**
      * Import campaign metrics to Mixpanel analytics.
      *
      * Accepts Domain layer campaign metrics. Infrastructure implementation
