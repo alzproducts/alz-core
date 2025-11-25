@@ -31,7 +31,7 @@ final class ReviewsIoClientFactory
         }
 
         if (! \is_string($storeId) || ($storeId === '')) {
-            throw new RuntimeException('REVIEWSIO_STORE_ID not configured');
+            throw new RuntimeException('REVIEWSIO_STORE not configured');
         }
 
         $config = new ReviewsIoConfig(
