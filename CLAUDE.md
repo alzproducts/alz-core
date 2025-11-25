@@ -24,6 +24,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Example**: "We need tests for X" → Challenge examines if X actually needs testing or just inflates metrics.
 
+### JetBrains MCP - File Creation
+
+**Do NOT use `mcp__jetbrains__create_new_file`** for creating new files. Use the standard `Write` tool instead.
+
+**Rationale**: The JetBrains MCP `create_new_file` tool has unreliable behavior and doesn't integrate well with the validation hooks.
+
 ## Implementation Logs
 
 When working on a GitHub issue with an associated plan document, maintain an implementation log at `.ai/docs/implementation/issue-{number}-{description}.md`.
