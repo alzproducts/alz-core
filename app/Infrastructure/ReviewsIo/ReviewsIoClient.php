@@ -10,6 +10,7 @@ use App\Infrastructure\ReviewsIo\Responses\Rating;
 use App\Infrastructure\ReviewsIo\Validation\ValidSku;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
+use Spatie\LaravelData\Data;
 use Spatie\LaravelData\DataCollection;
 use Spatie\LaravelData\Exceptions\CannotCreateData;
 
@@ -81,7 +82,7 @@ final readonly class ReviewsIoClient implements ReviewsIoClientInterface
     /**
      * Parse API response expecting an array of DTOs.
      *
-     * @template T of \Spatie\LaravelData\Data
+     * @template T of Data
      *
      * @param class-string<T> $dtoClass
      *
@@ -92,7 +93,7 @@ final readonly class ReviewsIoClient implements ReviewsIoClientInterface
     private function parseArrayResponse(mixed $data, string $dtoClass): DataCollection
     {
         if (!\is_array($data)) {
-            $this->logParsingFailure('Expected array response', $data);
+            self::logParsingFailure('Expected array response', $data);
 
             throw new InvalidReviewsIoResponseException(
                 message: 'Expected array response',
@@ -102,7 +103,7 @@ final readonly class ReviewsIoClient implements ReviewsIoClientInterface
         try {
             return $dtoClass::collect($data, DataCollection::class);
         } catch (CannotCreateData $e) {
-            $this->logParsingFailure($e->getMessage(), $data);
+            self::logParsingFailure($e->getMessage(), $data);
 
             throw new InvalidReviewsIoResponseException(
                 message: 'Reviews.io API returned invalid data structure',
@@ -114,7 +115,7 @@ final readonly class ReviewsIoClient implements ReviewsIoClientInterface
     /**
      * Log parsing failure with context for debugging API contract changes.
      */
-    private function logParsingFailure(string $error, mixed $data): void
+    private static function logParsingFailure(string $error, mixed $data): void
     {
         Log::critical(self::SERVICE_NAME . ' API response validation failed', [
             'error' => $error,
