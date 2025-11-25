@@ -22,7 +22,7 @@ final class InfectionPrePushHook extends BaseProcessHook
 
     protected function getTimeout(): int
     {
-        return 300; // 5 minutes
+        return 600; // 10 minutes (mutation testing is slow in hook context)
     }
 
     protected function getSuccessMessage(): string
