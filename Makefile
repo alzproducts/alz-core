@@ -1,4 +1,4 @@
-.PHONY: help install up down shell migrate fresh pint pint-test test test-coverage pest-mutate test-ai test-mutate lint lint-full fix analyse insights phparkitect stan rector rector-dry-run refactor check check-full infection infection-fast infection-strict infection-incremental infection-ci ide-helper
+.PHONY: help install up down shell migrate fresh pint pint-test test test-coverage pest-mutate test-ai test-mutate lint lint-full fix analyse insights phparkitect deptrac stan rector rector-dry-run refactor check check-full infection infection-fast infection-strict infection-incremental infection-ci ide-helper
 
 # Enable strict shell mode for robust error handling
 SHELL := bash
@@ -141,18 +141,20 @@ pint-test: ## Test code style (dry-run)
 	@echo "$(MODE)"
 	$(EXEC) vendor/bin/pint --test --parallel
 
-lint: ## Run quick lint (Pint + PHPStan + PHPArkitect)
+lint: ## Run quick lint (Pint + PHPStan + PHPArkitect + Deptrac)
 	@echo "$(MODE)"
 	@$(MAKE) pint-test
 	@$(MAKE) analyse
 	@$(MAKE) phparkitect
+	@$(MAKE) deptrac
 
-lint-full: ## Run full linting (Pint + PHPStan + Insights + PHPArkitect)
+lint-full: ## Run full linting (Pint + PHPStan + Insights + PHPArkitect + Deptrac)
 	@echo "$(MODE)"
 	@$(MAKE) pint-test
 	@$(MAKE) analyse
 	@$(MAKE) insights
 	@$(MAKE) phparkitect
+	@$(MAKE) deptrac
 
 fix: ## Auto-fix code style with Pint
 	@echo "$(MODE)"
@@ -169,6 +171,10 @@ insights: ## Run PHP Insights quality check
 phparkitect: ## Run PHPArkitect architecture checks
 	@echo "$(MODE)"
 	$(EXEC) -d xdebug.mode=off vendor/bin/phparkitect check
+
+deptrac: ## Run Deptrac layer dependency analysis
+	@echo "$(MODE)"
+	$(EXEC) -d xdebug.mode=off vendor/bin/deptrac analyse
 
 stan: ## Alias for analyse (PHPStan)
 	@echo "$(MODE)"

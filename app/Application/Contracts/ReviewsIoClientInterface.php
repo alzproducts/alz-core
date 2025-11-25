@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Application\Contracts;
 
+use App\Application\DTOs\ProductRatingDTO;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\InvalidApiResponseException;
-use App\Infrastructure\ReviewsIo\Responses\Rating;
 use Illuminate\Validation\ValidationException;
 use Spatie\LaravelData\DataCollection;
 
@@ -29,7 +29,7 @@ interface ReviewsIoClientInterface
      *
      * @param string|array<string> $skus Single SKU or array of SKUs (max 100)
      *
-     * @return DataCollection<int, Rating> Collection of rating data
+     * @return DataCollection<int, ProductRatingDTO> Collection of rating data
      *
      * @throws ExternalServiceUnavailableException When API unavailable or rate limited
      * @throws InvalidApiResponseException When response structure is invalid

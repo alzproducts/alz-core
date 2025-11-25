@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Infrastructure\ReviewsIo;
 
 use App\Application\Contracts\ReviewsIoClientInterface;
+use App\Application\DTOs\ProductRatingDTO;
 use App\Domain\Exceptions\InvalidApiResponseException;
 use App\Infrastructure\ReviewsIo\Responses\Rating;
 use App\Infrastructure\ReviewsIo\Validation\ValidSku;
@@ -61,8 +62,8 @@ final readonly class ReviewsIoClient implements ReviewsIoClientInterface
     /**
      * Get product ratings by SKU in batch.
      *
-     * Returns a collection of Rating objects indexed by integer keys.
-     * Example: [0 => Rating(sku: 'FLP-01', averageRating: 4.5, numRatings: 362)]
+     * Returns a collection of ProductRatingDTO objects indexed by integer keys.
+     * Example: [0 => ProductRatingDTO(sku: 'FLP-01', averageRating: 4.5, numRatings: 362)]
      *
      * Note: This method does not cache responses. Implement caching in the
      * Application layer (e.g., CachedRatingService) to avoid unnecessary
@@ -70,7 +71,7 @@ final readonly class ReviewsIoClient implements ReviewsIoClientInterface
      *
      * @param string|array<string> $skus Single SKU or array of SKUs (max 100)
      *
-     * @return DataCollection<int, Rating> Collection of rating data
+     * @return DataCollection<int, ProductRatingDTO> Collection of rating data
      */
     public function getProductRatingBatch(array|string $skus): DataCollection
     {
@@ -91,7 +92,13 @@ final readonly class ReviewsIoClient implements ReviewsIoClientInterface
             'sku' => \implode(ReviewsIoConfig::SKU_DELIMITER, $validatedSkus),
         ]);
 
-        return $this->parseArrayResponse($response->json(), Rating::class);
+        // Parse API response into Infrastructure DTOs, then map to Application DTOs
+        $infraRatings = $this->parseArrayResponse($response->json(), Rating::class);
+
+        return ProductRatingDTO::collect(
+            $infraRatings->toArray(),
+            DataCollection::class,
+        );
     }
 
     /**

@@ -1,0 +1,42 @@
+deptrac:
+  paths:
+    - app/
+
+  layers:
+    - name: Domain
+      collectors:
+        - type: classLike
+          value: ^App\\Domain\\.*
+
+    - name: Application
+      collectors:
+        - type: classLike
+          value: ^App\\Application\\.*
+
+    - name: Infrastructure
+      collectors:
+        - type: classLike
+          value: ^App\\Infrastructure\\.*
+
+    - name: Presentation
+      collectors:
+        - type: classLike
+          value: ^App\\Presentation\\.*
+
+  ruleset:
+    # Domain: No external dependencies (self-contained)
+    Domain: ~
+
+    # Application: Only Domain
+    Application:
+      - Domain
+
+    # Infrastructure: Can access Application and Domain
+    Infrastructure:
+      - Application
+      - Domain
+
+    # Presentation: Application and Domain (no direct Infrastructure)
+    Presentation:
+      - Application
+      - Domain

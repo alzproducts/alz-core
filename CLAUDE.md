@@ -234,7 +234,10 @@ Remains active in production, handles untrusted input
 2. **PHPStan Level max** (Static Analysis) - Maximum strictness + 11 ShipMonk rules + bleeding edge
 3. **PHP Insights** (Architecture/Quality) - Complexity, architecture, code quality metrics
 4. **PHPArkitect** (Architecture Enforcement) - Clean Architecture layer boundaries + naming conventions
-5. **Infection** (Mutation Testing) - Validates test quality by catching weak assertions (especially AI-generated tests)
+5. **Deptrac** (Layer Dependencies) - Analyzes `use` statement imports for CA violations
+6. **Infection** (Mutation Testing) - Validates test quality by catching weak assertions (especially AI-generated tests)
+
+**Why both PHPArkitect + Deptrac?** PHPArkitect checks type usage (`new`, `extends`, type hints) but misses `use` imports. Deptrac explicitly analyzes imports. Together they provide complete CA enforcement.
 
 ### Rector (Code Refactoring)
 
@@ -252,8 +255,9 @@ make refactor         # Rector + Pint combo (recommended)
 
 ```bash
 make fix          # Auto-fix code style with Pint
-make lint         # Pre-commit: Pint + PHPStan + PHPArkitect (~5-10s)
+make lint         # Pre-commit: Pint + PHPStan + PHPArkitect + Deptrac (~7s)
 make lint-full    # Pre-push: All linters (~20-30s)
+make deptrac      # Run Deptrac layer dependency analysis
 make check        # Full validation: lint-full + tests
 make test-ai      # Validate AI-generated tests (test + infection)
 ```
