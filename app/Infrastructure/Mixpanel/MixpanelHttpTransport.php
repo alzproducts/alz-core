@@ -73,8 +73,7 @@ final readonly class MixpanelHttpTransport
         } catch (ConnectionException $e) {
             throw $this->handleConnectionException($e);
         } catch (Exception $e) {
-            // Catch-all for unexpected exceptions (Guzzle internals, retry edge cases)
-            // Laravel's PendingRequest::send() declares @throws \Exception
+            // Catch-all for unexpected exceptions from Guzzle/Laravel internals
             throw $this->handleUnexpectedException($e);
         }
     }
@@ -142,10 +141,7 @@ final readonly class MixpanelHttpTransport
     }
 
     /**
-     * Handle unexpected exceptions (Guzzle internals, retry edge cases).
-     *
-     * Laravel's PendingRequest::send() declares @throws \Exception for edge cases.
-     * This catch-all ensures nothing escapes the Infrastructure layer.
+     * Handle unexpected exceptions from Guzzle/Laravel internals.
      */
     private function handleUnexpectedException(Exception $e): ExternalServiceUnavailableException
     {
