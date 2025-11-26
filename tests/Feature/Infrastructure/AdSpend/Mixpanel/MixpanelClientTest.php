@@ -7,6 +7,7 @@ namespace Tests\Feature\Infrastructure\AdSpend\Mixpanel;
 use App\Domain\AdSpend\ValueObjects\Campaign;
 use App\Domain\AdSpend\ValueObjects\CampaignMetrics;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\PayloadSerializationException;
 use App\Infrastructure\Mixpanel\MixpanelClient;
 use App\Infrastructure\Mixpanel\MixpanelConfig;
 use App\Infrastructure\Mixpanel\MixpanelHttpTransport;
@@ -723,6 +724,25 @@ final class MixpanelClientTest extends TestCase
         }
 
         self::fail('Expected ExternalServiceUnavailableException to be thrown');
+    }
+
+    // ========================================================================
+    // Payload Serialization Tests
+    // ========================================================================
+
+    #[Test]
+    public function it_throws_payload_serialization_exception_when_json_encoding_fails(): void
+    {
+        Http::fake(['*' => Http::response([], 200)]);
+
+        // INF passes domain validation (INF >= 0 is true) but fails json_encode
+        // This tests the encodeJson() exception translation path
+        $event = $this->createEvent(cost: \INF);
+
+        $this->expectException(PayloadSerializationException::class);
+        $this->expectExceptionMessage('Mixpanel');
+
+        $this->client->importCampaigns([$event]);
     }
 
     private function createEvent(
