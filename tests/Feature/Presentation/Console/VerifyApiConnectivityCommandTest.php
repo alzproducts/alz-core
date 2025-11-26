@@ -281,7 +281,7 @@ final class VerifyApiConnectivityCommandTest extends TestCase
     {
         $this->artisan('verify:api', ['client' => 'unknown'])
             ->expectsOutput('Unknown client: unknown')
-            ->expectsOutput('Available: reviewsio, mixpanel, googleads, all')
+            ->expectsOutput('Available: reviewsio, mixpanel, googleads, shopwired, all')
             ->assertExitCode(Command::FAILURE);
     }
 
@@ -290,7 +290,7 @@ final class VerifyApiConnectivityCommandTest extends TestCase
     {
         $this->artisan('verify:api', ['client' => ''])
             ->expectsOutput('Unknown client: ')
-            ->expectsOutput('Available: reviewsio, mixpanel, googleads, all')
+            ->expectsOutput('Available: reviewsio, mixpanel, googleads, shopwired, all')
             ->assertExitCode(Command::FAILURE);
     }
 
@@ -300,7 +300,7 @@ final class VerifyApiConnectivityCommandTest extends TestCase
         // 'ReviewsIo' is not valid, only 'reviewsio' is accepted
         $this->artisan('verify:api', ['client' => 'ReviewsIo'])
             ->expectsOutput('Unknown client: ReviewsIo')
-            ->expectsOutput('Available: reviewsio, mixpanel, googleads, all')
+            ->expectsOutput('Available: reviewsio, mixpanel, googleads, shopwired, all')
             ->assertExitCode(Command::FAILURE);
     }
 }
