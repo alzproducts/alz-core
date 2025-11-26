@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Infrastructure\Api;
 
-use App\Application\DTOs\ProductRatingDTO;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\InvalidApiResponseException;
+use App\Domain\Product\ValueObjects\ProductRating;
 use App\Infrastructure\ReviewsIo\ReviewsIoClient;
 use App\Infrastructure\ReviewsIo\ReviewsIoConfig;
 use App\Infrastructure\ReviewsIo\ReviewsIoHttpTransport;
@@ -14,12 +14,11 @@ use App\Infrastructure\ReviewsIo\Validation\ValidSku;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Validation\ValidationException;
+use InvalidArgumentException;
 use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
-use Spatie\LaravelData\DataCollection;
 use Tests\TestCase;
 
 /**
@@ -106,9 +105,9 @@ final class ReviewsIoClientTest extends TestCase
         });
 
         // Verify response structure and data
-        $this->assertInstanceOf(DataCollection::class, $result);
+        $this->assertIsArray($result);
         $this->assertCount(1, $result);
-        $this->assertInstanceOf(ProductRatingDTO::class, $result[0]);
+        $this->assertInstanceOf(ProductRating::class, $result[0]);
         $this->assertSame('FLP-01', $result[0]->sku);
         $this->assertSame(4.5, $result[0]->averageRating);
         $this->assertSame(362, $result[0]->numRatings);
@@ -129,7 +128,7 @@ final class ReviewsIoClientTest extends TestCase
 
         $result = $this->client->getProductRatingBatch(['E2L-PA481101']);
 
-        $this->assertInstanceOf(DataCollection::class, $result);
+        $this->assertIsArray($result);
         $this->assertCount(1, $result);
         $this->assertSame('E2L-PA481101', $result[0]->sku);
         $this->assertSame(4.625, $result[0]->averageRating);
@@ -170,7 +169,7 @@ final class ReviewsIoClientTest extends TestCase
 
         $result = $this->client->getProductRatingBatch(['NONEXISTENT-SKU']);
 
-        $this->assertInstanceOf(DataCollection::class, $result);
+        $this->assertIsArray($result);
         $this->assertCount(0, $result);
     }
 
@@ -233,31 +232,31 @@ final class ReviewsIoClientTest extends TestCase
     */
 
     #[Test]
-    public function it_throws_validation_exception_for_empty_sku_array(): void
+    public function it_throws_invalid_argument_exception_for_empty_sku_array(): void
     {
-        $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('The skus field is required.');
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Invalid SKU(s) provided: skus');
 
         $this->client->getProductRatingBatch([]);
     }
 
     #[Test]
-    public function it_throws_validation_exception_when_exceeding_batch_size_limit_of_100(): void
+    public function it_throws_invalid_argument_exception_when_exceeding_batch_size_limit_of_100(): void
     {
         $skus = \array_fill(0, 101, 'SKU');
 
-        $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('The skus field must not have more than 100 items.');
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Invalid SKU(s) provided: skus');
 
         $this->client->getProductRatingBatch($skus);
     }
 
     #[Test]
     #[DataProvider('invalidSkuProvider')]
-    public function it_throws_validation_exception_for_invalid_sku(string $invalidSku, string $expectedMessage): void
+    public function it_throws_invalid_argument_exception_for_invalid_sku(string $invalidSku): void
     {
-        $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage($expectedMessage);
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Invalid SKU(s) provided: skus.0');
 
         $this->client->getProductRatingBatch([$invalidSku]);
     }
@@ -265,40 +264,41 @@ final class ReviewsIoClientTest extends TestCase
     public static function invalidSkuProvider(): array
     {
         return [
-            'script tag' => ['SKU-<script>', 'The skus.0 contains invalid characters.'],
-            'emoji' => ['SKU-🎉', 'The skus.0 contains invalid characters.'],
-            'ampersand' => ['SKU&123', 'The skus.0 contains invalid characters.'],
-            'percent sign' => ['SKU%OFF', 'The skus.0 contains invalid characters.'],
-            'at sign' => ['SKU@EMAIL', 'The skus.0 contains invalid characters.'],
+            'script tag' => ['SKU-<script>'],
+            'emoji' => ['SKU-🎉'],
+            'ampersand' => ['SKU&123'],
+            'percent sign' => ['SKU%OFF'],
+            'at sign' => ['SKU@EMAIL'],
         ];
     }
 
     #[Test]
-    public function it_throws_validation_exception_for_empty_string_sku(): void
+    public function it_throws_invalid_argument_exception_for_empty_string_sku(): void
     {
-        $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('The skus.0 field is required.');
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Invalid SKU(s) provided: skus.0');
 
         $this->client->getProductRatingBatch(['']);
     }
 
     #[Test]
-    public function it_throws_validation_exception_for_sku_exceeding_100_characters(): void
+    public function it_throws_invalid_argument_exception_for_sku_exceeding_100_characters(): void
     {
         $longSku = \str_repeat('A', 101);
 
-        $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('The skus.0 field must not be greater than 100 characters.');
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Invalid SKU(s) provided: skus.0');
 
         $this->client->getProductRatingBatch([$longSku]);
     }
 
     #[Test]
-    public function it_throws_validation_exception_for_sku_at_exactly_101_characters_boundary(): void
+    public function it_throws_invalid_argument_exception_for_sku_at_exactly_101_characters_boundary(): void
     {
         $boundarySku = \str_repeat('X', 101);
 
-        $this->expectException(ValidationException::class);
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Invalid SKU(s) provided: skus.0');
 
         $this->client->getProductRatingBatch([$boundarySku]);
     }
@@ -319,24 +319,24 @@ final class ReviewsIoClientTest extends TestCase
     }
 
     #[Test]
-    public function it_throws_validation_exception_for_non_string_integer_sku(): void
+    public function it_throws_invalid_argument_exception_for_non_string_integer_sku(): void
     {
         // This tests the 'string' validation rule on 'skus.*'
         // Kills the RemoveArrayItem mutation that removes 'string' from validation
-        $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('The skus.0 field must be a string.');
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Invalid SKU(s) provided: skus.0');
 
         // @phpstan-ignore argument.type
         $this->client->getProductRatingBatch([123]); // Integer instead of string
     }
 
     #[Test]
-    public function it_throws_validation_exception_for_array_containing_null_sku(): void
+    public function it_throws_invalid_argument_exception_for_array_containing_null_sku(): void
     {
         // This tests the 'required' validation rule on 'skus.*'
         // Kills the RemoveArrayItem mutation that removes 'required' from validation
-        $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('The skus.0 field is required.');
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Invalid SKU(s) provided: skus.0');
 
         // @phpstan-ignore argument.type
         $this->client->getProductRatingBatch([null]); // Null SKU in array
@@ -534,7 +534,7 @@ final class ReviewsIoClientTest extends TestCase
         // Should not throw exception
         $result = $client->getProductRatingBatch('SKU');
 
-        $this->assertInstanceOf(DataCollection::class, $result);
+        $this->assertIsArray($result);
     }
 
 }
