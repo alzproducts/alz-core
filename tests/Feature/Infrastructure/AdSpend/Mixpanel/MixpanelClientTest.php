@@ -8,9 +8,12 @@ use App\Domain\AdSpend\ValueObjects\Campaign;
 use App\Domain\AdSpend\ValueObjects\CampaignMetrics;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Infrastructure\Mixpanel\MixpanelClient;
+use App\Infrastructure\Mixpanel\MixpanelConfig;
+use App\Infrastructure\Mixpanel\MixpanelHttpTransport;
 use Illuminate\Http\Client\Request;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
+use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -30,16 +33,22 @@ final class MixpanelClientTest extends TestCase
 
     private const string LOOKUP_TABLE_ID = 'test-lookup-table-id';
 
+    #[Override]
     protected function setUp(): void
     {
         parent::setUp();
-        $this->client = new MixpanelClient(
-            mixpanelBaseUrl: self::BASE_URL,
+
+        $config = new MixpanelConfig(
+            dataApiBaseUrl: self::BASE_URL,
             serviceAccountUsername: self::USERNAME,
             serviceAccountPassword: self::PASSWORD,
             projectId: self::PROJECT_ID,
             lookupTableId: self::LOOKUP_TABLE_ID,
         );
+
+        $transport = new MixpanelHttpTransport($config);
+
+        $this->client = new MixpanelClient($transport, $config);
     }
 
     #[Test]
