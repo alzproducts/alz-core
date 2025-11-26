@@ -23,20 +23,29 @@ deptrac:
         - type: classLike
           value: ^App\\Presentation\\.*
 
+    # Laravel framework classes - used to enforce layer boundaries
+    # Only Infrastructure and Presentation may depend on these
+    - name: LaravelFramework
+      collectors:
+        - type: classLike
+          value: ^Illuminate\\.*
+
   ruleset:
     # Domain: No external dependencies (self-contained)
     Domain: ~
 
-    # Application: Only Domain
+    # Application: Only Domain (NO Laravel framework allowed)
     Application:
       - Domain
 
-    # Infrastructure: Can access Application and Domain
+    # Infrastructure: Can access Application, Domain, and Laravel framework
     Infrastructure:
       - Application
       - Domain
+      - LaravelFramework
 
-    # Presentation: Application and Domain (no direct Infrastructure)
+    # Presentation: Application, Domain, and Laravel framework (no direct Infrastructure)
     Presentation:
       - Application
       - Domain
+      - LaravelFramework
