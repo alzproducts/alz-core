@@ -5,13 +5,11 @@ declare(strict_types=1);
 namespace App\Infrastructure\GoogleAds;
 
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
-use App\Domain\Exceptions\InvalidApiRequestException;
 use App\Infrastructure\Support\RetryAfterParser;
 use Google\Ads\GoogleAds\Lib\V22\GoogleAdsClient as SdkGoogleAdsClient;
 use Google\Ads\GoogleAds\V22\Services\SearchGoogleAdsRequest;
 use Google\ApiCore\ApiException;
 use Google\ApiCore\PagedListResponse;
-use Google\ApiCore\ValidationException;
 use Google\Rpc\Code;
 use Illuminate\Support\Facades\Log;
 
@@ -53,7 +51,6 @@ class GoogleAdsTransport
      * @return PagedListResponse Paginated response from the SDK
      *
      * @throws ExternalServiceUnavailableException When API unavailable or rate limited
-     * @throws InvalidApiRequestException When request validation fails (programming error)
      */
     public function search(string $query): PagedListResponse
     {
@@ -63,8 +60,6 @@ class GoogleAdsTransport
             return $this->sdkClient->getGoogleAdsServiceClient()->search($request);
         } catch (ApiException $e) {
             throw $this->handleApiException($e);
-        } catch (ValidationException $e) {
-            throw $this->handleValidationException($e);
         }
     }
 
@@ -106,21 +101,6 @@ class GoogleAdsTransport
         ]);
 
         return new ExternalServiceUnavailableException(self::SERVICE_NAME, previous: $e);
-    }
-
-    /**
-     * Handle validation exceptions (malformed GAQL, invalid parameters).
-     *
-     * This indicates a programming error - our code constructed an invalid request.
-     * Logged at CRITICAL level because code needs fixing.
-     */
-    private function handleValidationException(ValidationException $e): InvalidApiRequestException
-    {
-        Log::critical(self::SERVICE_NAME . ' API request validation failed', [
-            'error' => $e->getMessage(),
-        ]);
-
-        return new InvalidApiRequestException(self::SERVICE_NAME, $e->getMessage(), $e);
     }
 
     /**
