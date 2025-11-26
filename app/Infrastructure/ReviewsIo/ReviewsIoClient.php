@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace App\Infrastructure\ReviewsIo;
 
 use App\Application\Contracts\ReviewsIoClientInterface;
-use App\Application\DTOs\ProductRatingDTO;
 use App\Domain\Exceptions\InvalidApiResponseException;
+use App\Domain\Product\ValueObjects\ProductRating;
 use App\Infrastructure\ReviewsIo\Responses\Rating;
 use App\Infrastructure\ReviewsIo\Validation\ValidSku;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
+use InvalidArgumentException;
 use Spatie\LaravelData\Data;
 use Spatie\LaravelData\DataCollection;
 use Spatie\LaravelData\Exceptions\CannotCreateData;
@@ -62,8 +64,8 @@ final readonly class ReviewsIoClient implements ReviewsIoClientInterface
     /**
      * Get product ratings by SKU in batch.
      *
-     * Returns a collection of ProductRatingDTO objects indexed by integer keys.
-     * Example: [0 => ProductRatingDTO(sku: 'FLP-01', averageRating: 4.5, numRatings: 362)]
+     * Returns an array of ProductRating value objects indexed by integer keys.
+     * Example: [0 => ProductRating(sku: 'FLP-01', averageRating: 4.5, numRatings: 362)]
      *
      * Note: This method does not cache responses. Implement caching in the
      * Application layer (e.g., CachedRatingService) to avoid unnecessary
@@ -71,19 +73,26 @@ final readonly class ReviewsIoClient implements ReviewsIoClientInterface
      *
      * @param string|array<string> $skus Single SKU or array of SKUs (max 100)
      *
-     * @return DataCollection<int, ProductRatingDTO> Collection of rating data
+     * @return list<ProductRating> Array of rating data
      */
-    public function getProductRatingBatch(array|string $skus): DataCollection
+    public function getProductRatingBatch(array|string $skus): array
     {
         $skuArray = \is_array($skus) ? $skus : [$skus];
 
-        $validated = Validator::make(
-            ['skus' => $skuArray],
-            [
-                'skus' => ['required', 'array', 'min:1', 'max:' . ReviewsIoConfig::MAX_BATCH_SIZE],
-                'skus.*' => ['required', 'string', 'min:1', 'max:' . ReviewsIoConfig::MAX_SKU_LENGTH, new ValidSku()],
-            ],
-        )->validate();
+        try {
+            $validated = Validator::make(
+                ['skus' => $skuArray],
+                [
+                    'skus' => ['required', 'array', 'min:1', 'max:' . ReviewsIoConfig::MAX_BATCH_SIZE],
+                    'skus.*' => ['required', 'string', 'min:1', 'max:' . ReviewsIoConfig::MAX_SKU_LENGTH, new ValidSku()],
+                ],
+            )->validate();
+        } catch (ValidationException $e) {
+            throw new InvalidArgumentException(
+                'Invalid SKU(s) provided: ' . \implode(', ', \array_keys($e->errors())),
+                previous: $e,
+            );
+        }
 
         /** @var array<string> $validatedSkus */
         $validatedSkus = $validated['skus'];
@@ -92,13 +101,16 @@ final readonly class ReviewsIoClient implements ReviewsIoClientInterface
             'sku' => \implode(ReviewsIoConfig::SKU_DELIMITER, $validatedSkus),
         ]);
 
-        // Parse API response into Infrastructure DTOs, then map to Application DTOs
+        // Parse API response into Infrastructure DTOs, then map to Domain VOs
         $infraRatings = $this->parseArrayResponse($response->json(), Rating::class);
 
-        return ProductRatingDTO::collect(
-            $infraRatings->toArray(),
-            DataCollection::class,
-        );
+        /** @var array<int, Rating> $ratingsArray */
+        $ratingsArray = $infraRatings->all();
+
+        return \array_values(\array_map(
+            static fn(Rating $r) => $r->toProductRating(),
+            $ratingsArray,
+        ));
     }
 
     /**
