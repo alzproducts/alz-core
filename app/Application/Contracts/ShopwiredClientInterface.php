@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Application\Contracts;
 
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
+use App\Domain\Order\ValueObjects\PaymentMethod;
 
 /**
  * Contract for Shopwired e-commerce API client.
@@ -26,4 +27,13 @@ interface ShopwiredClientInterface
      * @throws ExternalServiceUnavailableException When API unavailable or auth fails
      */
     public function verifyConnectivity(): void;
+
+    /**
+     * List available payment methods.
+     *
+     * @return list<PaymentMethod>
+     *
+     * @throws ExternalServiceUnavailableException When API unavailable
+     */
+    public function listPaymentMethods(): array;
 }

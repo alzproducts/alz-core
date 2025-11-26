@@ -7,6 +7,7 @@ use Arkitect\CLI\Config;
 use Arkitect\Expression\ForClasses\HaveNameMatching;
 use Arkitect\Expression\ForClasses\MatchOneOfTheseNames;
 use Arkitect\Expression\ForClasses\NotHaveDependencyOutsideNamespace;
+use Arkitect\Expression\ForClasses\NotHaveNameMatching;
 use Arkitect\Expression\ForClasses\NotResideInTheseNamespaces;
 use Arkitect\Expression\ForClasses\ResideInOneOfTheseNamespaces;
 use Arkitect\Rules\Rule;
@@ -146,6 +147,8 @@ return static function (Config $config): void {
                                'DateInterval',
                                'DatePeriod',
                                'Psr\Log\LoggerInterface',
+                               'Psr\SimpleCache\CacheInterface',
+                               'Closure',
                                'Spatie\LaravelData',
                                'RuntimeException',
                                'InvalidArgumentException',
@@ -298,8 +301,14 @@ return static function (Config $config): void {
                    );
 
     // Application services must end with "UseCase", "Service", "Transformer", "Formatter", or "Interface"
+    //
+    // EXCLUSION: CacheTimesTrait is a trait holding shared cache duration constants.
+    // Traits with constants don't fit behavioral naming (*Service, *UseCase) and
+    // Clean Architecture doesn't mandate naming for utility code.
+    //
     $rules[] = Rule::allClasses()
                    ->that(new ResideInOneOfTheseNamespaces($application))
+                   ->andThat(new NotHaveNameMatching('CacheTimesTrait'))
                    ->should(
                        new MatchOneOfTheseNames(['*UseCase', '*Service', '*Transformer', '*Formatter', '*Interface', '*DTO', '*Exception']),
                    )
