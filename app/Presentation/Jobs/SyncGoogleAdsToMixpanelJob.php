@@ -6,6 +6,7 @@ namespace App\Presentation\Jobs;
 
 use App\Application\AdSpend\UseCases\SyncAdSpendUseCase;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\PayloadSerializationException;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -67,6 +68,16 @@ final class SyncGoogleAdsToMixpanelJob implements ShouldQueue
             $useCase->execute($dateToSync);
 
             Log::info('Queued Google Ads to Mixpanel sync completed', ['date' => $dateToSync]);
+        } catch (PayloadSerializationException $e) {
+            // Permanent failure - data integrity issue, retrying won't help
+            Log::critical('Payload serialization failed during sync, failing immediately', [
+                'date' => $dateToSync,
+                'service' => $e->serviceName,
+                'error' => $e->getMessage(),
+                'attempts' => $this->attempts(),
+            ]);
+
+            $this->fail($e);
         } catch (ExternalServiceUnavailableException $e) {
             Log::warning('External service unavailable during sync, will retry', [
                 'date' => $dateToSync,

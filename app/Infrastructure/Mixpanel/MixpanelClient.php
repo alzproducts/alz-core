@@ -8,71 +8,43 @@ use App\Application\Contracts\MixpanelClientInterface;
 use App\Domain\AdSpend\ValueObjects\Campaign;
 use App\Domain\AdSpend\ValueObjects\CampaignMetrics;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
-use App\Infrastructure\Support\ApiRetryStrategy;
+use App\Domain\Exceptions\PayloadSerializationException;
 use App\Infrastructure\Support\CsvFormatter;
-use App\Infrastructure\Support\RetryAfterParser;
-use Illuminate\Http\Client\ConnectionException;
-use Illuminate\Http\Client\RequestException;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use JsonException;
 
 /**
  * Manages Mixpanel API interactions for events and lookup tables.
  *
  * Responsibilities:
- * 1. Send ad spend events to Mixpanel Import API with HTTP Basic Auth
- * 2. Replace campaign lookup table via Lookup Tables API with HTTP Basic Auth
- * 3. Format data and handle API errors
+ * 1. Transform Domain objects to API format
+ * 2. Delegate HTTP operations to transport layer
+ * 3. Construct API endpoints using configuration
  *
- * Authentication: HTTP Basic Auth with Service Account credentials
- * - Applies to both Import Events and Lookup Tables APIs
- * - Username: service_account_username
- * - Password: service_account_password
- *
- * Error Handling:
- * - Catches SDK exceptions (RequestException, MixpanelApiException)
- * - Logs technical details with context (using ApiRateLimitException for rate limit detection)
- * - Translates to Domain exception (ExternalServiceUnavailableException)
+ * HTTP concerns (auth, retry, exception translation) are handled by MixpanelHttpTransport.
  */
 final readonly class MixpanelClient implements MixpanelClientInterface
 {
-    /**
-     * Mixpanel main API base URL for service account verification.
-     * This is different from the data API URL used for imports.
-     */
-    private const string MIXPANEL_API_URL = 'https://mixpanel.com';
-
     public function __construct(
-        private string $mixpanelBaseUrl,
-        private string $serviceAccountUsername,
-        private string $serviceAccountPassword,
-        private string $projectId,
-        private string $lookupTableId,
+        private MixpanelHttpTransport $transport,
+        private MixpanelConfig $config,
     ) {}
 
     /**
      * Verify connectivity and authentication with Mixpanel API.
      *
      * Calls the /api/app/me endpoint to validate service account credentials.
-     * This endpoint returns the authenticated user/service account details.
+     * Uses fail-fast approach (no retry) to detect credential issues immediately.
      *
      * @throws ExternalServiceUnavailableException When API unavailable or credentials invalid
      */
     public function verifyConnectivity(): void
     {
-        try {
-            Http::withBasicAuth($this->serviceAccountUsername, $this->serviceAccountPassword)
-                ->timeout(10)
-                ->get(self::MIXPANEL_API_URL . '/api/app/me')
-                ->throw();
-        } catch (RequestException $e) {
-            Log::error('Mixpanel connectivity verification failed', [
-                'status' => $e->response->status(),
-                'error' => $e->getMessage(),
-            ]);
-
-            throw new ExternalServiceUnavailableException('Mixpanel', previous: $e);
-        }
+        $this->transport->request(
+            method: 'GET',
+            url: MixpanelConfig::MAIN_API_URL . '/api/app/me',
+            retry: false,
+        );
     }
 
     /**
@@ -83,8 +55,7 @@ final readonly class MixpanelClient implements MixpanelClientInterface
      *
      * @param array<int, CampaignMetrics> $campaigns Domain campaign metrics
      *
-     * @throws ExternalServiceUnavailableException
-     * @throws ConnectionException
+     * @throws ExternalServiceUnavailableException When API unavailable or request fails
      */
     public function importCampaigns(array $campaigns): void
     {
@@ -92,47 +63,17 @@ final readonly class MixpanelClient implements MixpanelClientInterface
             return;
         }
 
-        // Transform Domain objects to Infrastructure DTOs
-        $events = \array_map(
-            static fn(CampaignMetrics $campaign): MixpanelAdSpendEventDTO => MixpanelAdSpendEventDTO::fromCampaignMetrics($campaign),
+        $payload = \array_map(
+            static fn(CampaignMetrics $campaign): array => MixpanelAdSpendEventDTO::fromCampaignMetrics($campaign)->toMixpanelFormat(),
             $campaigns,
         );
 
-        // Convert events to Mixpanel format
-        $payload = \array_map(
-            static fn(MixpanelAdSpendEventDTO $event) => $event->toMixpanelFormat(),
-            $events,
+        $this->transport->request(
+            method: 'POST',
+            url: "{$this->config->dataApiBaseUrl}/import?project_id={$this->config->projectId}",
+            body: $this->encodeJson($payload),
+            contentType: 'application/json',
         );
-
-        try {
-            Http::asJson()
-                ->withBasicAuth($this->serviceAccountUsername, $this->serviceAccountPassword)
-                ->retry(
-                    times: 3,
-                    sleepMilliseconds: 100,
-                    when: ApiRetryStrategy::defaultRetry(),
-                )
-                ->post("{$this->mixpanelBaseUrl}/import?project_id={$this->projectId}", $payload)
-                ->throw();
-        } catch (RequestException $e) {
-            // Detect rate limit and extract retryAfter if available
-            $retryAfter = null;
-            if ($e->response->status() === 429) {
-                $retryAfter = RetryAfterParser::parse($e->response->header('Retry-After'));
-                Log::warning('Mixpanel rate limited', [
-                    'retry_after' => $retryAfter,
-                    'error' => $e->getMessage(),
-                ]);
-            } else {
-                Log::error('Mixpanel API error', [
-                    'status' => $e->response->status(),
-                    'error' => $e->getMessage(),
-                ]);
-            }
-
-            // Translate to Domain exception with retryAfter if available
-            throw new ExternalServiceUnavailableException('Mixpanel', $retryAfter, $e);
-        }
     }
 
     /**
@@ -140,15 +81,13 @@ final readonly class MixpanelClient implements MixpanelClientInterface
      *
      * @param array<int, Campaign> $campaigns
      *
-     * @throws ExternalServiceUnavailableException
-     * @throws ConnectionException
+     * @throws ExternalServiceUnavailableException When API unavailable or request fails
      */
     public function replaceCampaignLookupTable(array $campaigns): void
     {
-        // Format campaigns as RFC 4180-compliant CSV
         $headers = ['utm_campaign', 'campaign_name', 'campaign_status'];
         $rows = \array_map(
-            static fn(Campaign $campaign) => [
+            static fn(Campaign $campaign): array => [
                 (string) $campaign->campaignId,
                 $campaign->campaignName,
                 $campaign->status,
@@ -157,35 +96,31 @@ final readonly class MixpanelClient implements MixpanelClientInterface
         );
         $csv = CsvFormatter::format($headers, $rows);
 
-        try {
-            Http::withBasicAuth($this->serviceAccountUsername, $this->serviceAccountPassword)
-                ->withBody($csv, 'text/csv')
-                ->timeout(60)
-                ->retry(
-                    times: 3,
-                    sleepMilliseconds: 100,
-                    when: ApiRetryStrategy::defaultRetry(),
-                )
-                ->put("{$this->mixpanelBaseUrl}/lookup_tables/{$this->projectId}/{$this->lookupTableId}")
-                ->throw();
-        } catch (RequestException $e) {
-            // Detect rate limit and extract retryAfter if available
-            $retryAfter = null;
-            if ($e->response->status() === 429) {
-                $retryAfter = RetryAfterParser::parse($e->response->header('Retry-After'));
-                Log::warning('Mixpanel Lookup Table rate limited', [
-                    'retry_after' => $retryAfter,
-                    'error' => $e->getMessage(),
-                ]);
-            } else {
-                Log::error('Mixpanel Lookup Table API error', [
-                    'status' => $e->response->status(),
-                    'error' => $e->getMessage(),
-                ]);
-            }
+        $this->transport->request(
+            method: 'PUT',
+            url: "{$this->config->dataApiBaseUrl}/lookup_tables/{$this->config->projectId}/{$this->config->lookupTableId}",
+            body: $csv,
+            contentType: 'text/csv',
+        );
+    }
 
-            // Translate to Domain exception with retryAfter if available
-            throw new ExternalServiceUnavailableException('Mixpanel', $retryAfter, $e);
+    /**
+     * Encode payload as JSON with exception translation.
+     *
+     * @param array<int, array<string, mixed>> $payload
+     *
+     * @throws PayloadSerializationException When payload cannot be encoded (data integrity issue)
+     */
+    private function encodeJson(array $payload): string
+    {
+        try {
+            return \json_encode($payload, JSON_THROW_ON_ERROR);
+        } catch (JsonException $e) {
+            Log::error('Mixpanel payload encoding failed', [
+                'error' => $e->getMessage(),
+            ]);
+
+            throw new PayloadSerializationException('Mixpanel', $e->getMessage(), $e);
         }
     }
 }

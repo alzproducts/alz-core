@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Infrastructure\ReviewsIo;
+namespace App\Infrastructure\Mixpanel;
 
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Infrastructure\Support\ApiRetryStrategy;
@@ -16,43 +16,57 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 /**
- * HTTP transport layer for Reviews.io API.
+ * HTTP transport layer for Mixpanel API.
  *
  * Handles all HTTP concerns: authentication, retry logic, timeout configuration,
  * and exception translation. This separation allows the client to focus solely
  * on business logic (validation, response parsing).
  *
  * Key responsibilities:
- * - Configure HTTP client with auth credentials (query params, per Reviews.io API)
- * - Apply retry strategy for transient failures
+ * - Configure HTTP client with Basic Auth credentials
+ * - Apply retry strategy for transient failures (when enabled)
  * - Translate HTTP exceptions to domain exceptions
  * - Log all failures with context before translation
  *
  * @template-pattern API Client HTTP Transport
  */
-final readonly class ReviewsIoHttpTransport
+final readonly class MixpanelHttpTransport
 {
-    private const string SERVICE_NAME = 'Reviews.io';
+    private const string SERVICE_NAME = 'Mixpanel';
 
     public function __construct(
-        private ReviewsIoConfig $config,
+        private MixpanelConfig $config,
     ) {}
 
     /**
-     * Perform GET request to Reviews.io API.
+     * Perform HTTP request to Mixpanel API.
      *
-     * @param string $endpoint API endpoint (relative to base URL)
-     * @param array<string, mixed> $queryParams Additional query parameters
+     * @param string $method HTTP method (GET, POST, PUT, etc.)
+     * @param string $url Full URL to request
+     * @param string|null $body Request body content
+     * @param string|null $contentType Content-Type header value
+     * @param bool $retry Whether to apply retry logic for transient failures
      *
      * @return Response Successful HTTP response
      *
      * @throws ExternalServiceUnavailableException When API unavailable, rate limited, or connection fails
      */
-    public function get(string $endpoint, array $queryParams = []): Response
-    {
+    public function request(
+        string $method,
+        string $url,
+        ?string $body = null,
+        ?string $contentType = null,
+        bool $retry = true,
+    ): Response {
         try {
-            return $this->createRequest()
-                ->get($endpoint, $queryParams)
+            $request = $this->createBaseRequest($retry);
+
+            if (($body !== null) && ($contentType !== null)) {
+                $request = $request->withBody($body, $contentType);
+            }
+
+            return $request
+                ->send($method, $url)
                 ->throw();
         } catch (RequestException $e) {
             throw $this->handleRequestException($e);
@@ -60,27 +74,30 @@ final readonly class ReviewsIoHttpTransport
             throw $this->handleConnectionException($e);
         } catch (Exception $e) {
             // Catch-all for unexpected exceptions (Guzzle internals, retry edge cases)
-            // Laravel's retry() helper can rethrow any Exception from the HTTP callback
+            // Laravel's PendingRequest::send() declares @throws \Exception
             throw $this->handleUnexpectedException($e);
         }
     }
 
     /**
-     * Create configured HTTP request with auth and retry logic.
+     * Create configured HTTP request with auth and optional retry logic.
      */
-    private function createRequest(): PendingRequest
+    private function createBaseRequest(bool $retry): PendingRequest
     {
-        return Http::baseUrl($this->config->baseUrl)
-            ->withQueryParameters([
-                'apikey' => $this->config->apiKey,
-                'store' => $this->config->storeId,
-            ])
-            ->retry(
+        $request = Http::withBasicAuth(
+            $this->config->serviceAccountUsername,
+            $this->config->serviceAccountPassword,
+        )->timeout($this->config->timeout);
+
+        if ($retry) {
+            $request = $request->retry(
                 times: $this->config->retryTimes,
                 sleepMilliseconds: $this->config->retryDelay,
                 when: ApiRetryStrategy::defaultRetry(),
-            )
-            ->timeout($this->config->timeout);
+            );
+        }
+
+        return $request;
     }
 
     /**
@@ -127,7 +144,7 @@ final readonly class ReviewsIoHttpTransport
     /**
      * Handle unexpected exceptions (Guzzle internals, retry edge cases).
      *
-     * Laravel's retry() helper can rethrow any Exception from the HTTP callback.
+     * Laravel's PendingRequest::send() declares @throws \Exception for edge cases.
      * This catch-all ensures nothing escapes the Infrastructure layer.
      */
     private function handleUnexpectedException(Exception $e): ExternalServiceUnavailableException
