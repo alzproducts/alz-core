@@ -19,6 +19,13 @@ use Illuminate\Contracts\Validation\ValidationRule;
  */
 final readonly class ValidSku implements ValidationRule
 {
+    /**
+     * Regex pattern for valid SKU characters.
+     * Allows: alphanumeric, spaces, hyphens, underscores, dots, parentheses, forward slashes.
+     * Security: Rejects HTML tags, ampersands, percent signs, and other injection vectors.
+     */
+    private const string PATTERN = '/^[A-Za-z0-9\s\-_.()\/]+$/';
+
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
         if (!\is_string($value)) {
@@ -27,10 +34,7 @@ final readonly class ValidSku implements ValidationRule
             return;
         }
 
-        // Allow alphanumeric + common e-commerce SKU chars: space, hyphen, underscore,
-        // dot, parentheses, forward slash (e.g., "SKU-01_v2.0(new)/final")
-        // Security: Rejects HTML tags, ampersands, percent signs, and other injection vectors
-        if (\preg_match('/^[A-Za-z0-9\s\-_.()\/]+$/', $value) !== 1) {
+        if (\preg_match(self::PATTERN, $value) !== 1) {
             $fail('The :attribute contains invalid characters.');
         }
     }

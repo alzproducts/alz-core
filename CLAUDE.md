@@ -24,6 +24,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Example**: "We need tests for X" → Challenge examines if X actually needs testing or just inflates metrics.
 
+### JetBrains MCP - File Creation
+
+**Do NOT use `mcp__jetbrains__create_new_file`** for creating new files. Use the standard `Write` tool instead.
+
+**Rationale**: The JetBrains MCP `create_new_file` tool has unreliable behavior and doesn't integrate well with the validation hooks.
+
 ## Implementation Logs
 
 When working on a GitHub issue with an associated plan document, maintain an implementation log at `.ai/docs/implementation/issue-{number}-{description}.md`.
@@ -228,7 +234,25 @@ Remains active in production, handles untrusted input
 2. **PHPStan Level max** (Static Analysis) - Maximum strictness + 11 ShipMonk rules + bleeding edge
 3. **PHP Insights** (Architecture/Quality) - Complexity, architecture, code quality metrics
 4. **PHPArkitect** (Architecture Enforcement) - Clean Architecture layer boundaries + naming conventions
-5. **Infection** (Mutation Testing) - Validates test quality by catching weak assertions (especially AI-generated tests)
+5. **Deptrac** (Layer Dependencies) - Analyzes `use` statement imports for CA violations
+6. **Infection** (Mutation Testing) - Validates test quality by catching weak assertions (especially AI-generated tests)
+
+**Why both PHPArkitect + Deptrac?** PHPArkitect checks type usage (`new`, `extends`, type hints) but misses `use` imports. Deptrac explicitly analyzes imports. Together they provide complete CA enforcement.
+
+### Deptrac Whitelist Enforcement
+
+Deptrac enforces **whitelist-only** external dependencies. Any new Composer package must be:
+1. Added as a layer in `deptrac.yaml` with regex pattern
+2. Explicitly allowed in the target layer's ruleset
+
+**Allowed external packages by layer:**
+
+| Layer | Allowed External Dependencies |
+|-------|-------------------------------|
+| Domain | `Webmozart\Assert` |
+| Application | `Psr\*` interfaces |
+| Infrastructure | Laravel, Spatie\LaravelData, Google\*, Webmozart\Assert |
+| Presentation | Laravel, Symfony\HttpFoundation, Firebase\JWT |
 
 ### Rector (Code Refactoring)
 
@@ -246,8 +270,9 @@ make refactor         # Rector + Pint combo (recommended)
 
 ```bash
 make fix          # Auto-fix code style with Pint
-make lint         # Pre-commit: Pint + PHPStan + PHPArkitect (~5-10s)
+make lint         # Pre-commit: Pint + PHPStan + PHPArkitect + Deptrac (~7s)
 make lint-full    # Pre-push: All linters (~20-30s)
+make deptrac      # Run Deptrac layer dependency analysis
 make check        # Full validation: lint-full + tests
 make test-ai      # Validate AI-generated tests (test + infection)
 ```

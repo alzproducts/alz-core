@@ -267,7 +267,7 @@ final class MixpanelClientTest extends TestCase
     }
 
     #[Test]
-    public function it_uses_default_retry_after_when_header_is_missing(): void
+    public function it_returns_null_retry_after_when_header_is_missing(): void
     {
         Http::fake([
             '*' => Http::response([], 429), // No Retry-After header
@@ -278,7 +278,7 @@ final class MixpanelClientTest extends TestCase
         try {
             $this->client->importCampaigns([$event]);
         } catch (ExternalServiceUnavailableException $e) {
-            self::assertSame(60, $e->retryAfter); // Default value
+            self::assertNull($e->retryAfter); // Null when API doesn't specify
 
             return;
         }
@@ -287,7 +287,7 @@ final class MixpanelClientTest extends TestCase
     }
 
     #[Test]
-    public function it_ignores_zero_retry_after_header(): void
+    public function it_returns_null_for_zero_retry_after_header(): void
     {
         Http::fake([
             '*' => Http::response([], 429, ['Retry-After' => '0']),
@@ -298,7 +298,7 @@ final class MixpanelClientTest extends TestCase
         try {
             $this->client->importCampaigns([$event]);
         } catch (ExternalServiceUnavailableException $e) {
-            self::assertSame(60, $e->retryAfter); // Uses default when 0
+            self::assertNull($e->retryAfter); // Zero is invalid per RFC 7231
 
             return;
         }
@@ -307,7 +307,7 @@ final class MixpanelClientTest extends TestCase
     }
 
     #[Test]
-    public function it_ignores_negative_retry_after_header(): void
+    public function it_returns_null_for_negative_retry_after_header(): void
     {
         Http::fake([
             '*' => Http::response([], 429, ['Retry-After' => '-10']),
@@ -318,7 +318,7 @@ final class MixpanelClientTest extends TestCase
         try {
             $this->client->importCampaigns([$event]);
         } catch (ExternalServiceUnavailableException $e) {
-            self::assertSame(60, $e->retryAfter); // Uses default when negative
+            self::assertNull($e->retryAfter); // Negative is invalid per RFC 7231
 
             return;
         }
@@ -642,6 +642,78 @@ final class MixpanelClientTest extends TestCase
 
             return true;
         });
+    }
+
+    // ========================================================================
+    // Verify Connectivity Tests
+    // ========================================================================
+
+    #[Test]
+    public function it_verifies_connectivity_successfully(): void
+    {
+        Http::fake([
+            'https://mixpanel.com/api/app/me' => Http::response(['user' => 'test'], 200),
+        ]);
+
+        // Should not throw any exception
+        $this->client->verifyConnectivity();
+
+        Http::assertSent(static function (Request $request): bool {
+            self::assertSame('GET', $request->method());
+            self::assertSame('https://mixpanel.com/api/app/me', $request->url());
+
+            // Verify Basic Auth header is sent
+            $authHeader = $request->header('Authorization');
+            self::assertIsArray($authHeader);
+            self::assertStringStartsWith('Basic ', $authHeader[0]);
+
+            return true;
+        });
+    }
+
+    #[Test]
+    public function it_throws_external_service_unavailable_on_connectivity_401(): void
+    {
+        Http::fake([
+            'https://mixpanel.com/api/app/me' => Http::response('Unauthorized', 401),
+        ]);
+
+        $this->expectException(ExternalServiceUnavailableException::class);
+        $this->expectExceptionMessage("External service 'Mixpanel' is unavailable");
+
+        $this->client->verifyConnectivity();
+    }
+
+    #[Test]
+    public function it_throws_external_service_unavailable_on_connectivity_500(): void
+    {
+        Http::fake([
+            'https://mixpanel.com/api/app/me' => Http::response('Internal Server Error', 500),
+        ]);
+
+        $this->expectException(ExternalServiceUnavailableException::class);
+        $this->expectExceptionMessage("External service 'Mixpanel' is unavailable");
+
+        $this->client->verifyConnectivity();
+    }
+
+    #[Test]
+    public function it_preserves_original_exception_on_connectivity_failure(): void
+    {
+        Http::fake([
+            'https://mixpanel.com/api/app/me' => Http::response('Forbidden', 403),
+        ]);
+
+        try {
+            $this->client->verifyConnectivity();
+        } catch (ExternalServiceUnavailableException $e) {
+            self::assertNotNull($e->getPrevious());
+            self::assertInstanceOf(RequestException::class, $e->getPrevious());
+
+            return;
+        }
+
+        self::fail('Expected ExternalServiceUnavailableException to be thrown');
     }
 
     private function createEvent(

@@ -311,7 +311,7 @@ final class GoogleAdsClientTest extends TestCase
     {
         Log::shouldReceive('warning')
             ->once()
-            ->with('Google Ads rate limited', Mockery::on(static fn($context) => isset($context['retry_after']) && isset($context['error'])));
+            ->with('Google Ads rate limited', Mockery::on(static fn($context) => \array_key_exists('retry_after', $context) && isset($context['error'])));
 
         $apiException = new ApiException(
             'Rate limit exceeded',

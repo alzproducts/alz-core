@@ -5,22 +5,20 @@ declare(strict_types=1);
 namespace Tests\Feature\Infrastructure\Api;
 
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
-use App\Infrastructure\ReviewsIo\Exceptions\InvalidReviewsIoResponseException;
-use App\Infrastructure\ReviewsIo\Responses\Rating;
+use App\Domain\Exceptions\InvalidApiResponseException;
+use App\Domain\Product\ValueObjects\ProductRating;
 use App\Infrastructure\ReviewsIo\ReviewsIoClient;
+use App\Infrastructure\ReviewsIo\ReviewsIoConfig;
+use App\Infrastructure\ReviewsIo\ReviewsIoHttpTransport;
 use App\Infrastructure\ReviewsIo\Validation\ValidSku;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
-use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
 use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
-use RuntimeException;
-use Spatie\LaravelData\DataCollection;
 use Tests\TestCase;
 
 /**
@@ -31,9 +29,12 @@ use Tests\TestCase;
  * - API errors (HTTP 4xx/5xx, network failures)
  * - HTTP client configuration (query params, retry logic)
  * - Data transformation (snake_case → camelCase)
+ *
+ * Note: Constructor validation tests are in ReviewsIoConfigTest.
  */
 #[CoversClass(ValidSku::class)]
 #[CoversClass(ReviewsIoClient::class)]
+#[CoversClass(ReviewsIoHttpTransport::class)]
 final class ReviewsIoClientTest extends TestCase
 {
     private const string TEST_API_KEY = 'test-api-key';
@@ -46,13 +47,28 @@ final class ReviewsIoClientTest extends TestCase
     {
         parent::setUp();
 
-        $this->client = new ReviewsIoClient(
+        $this->client = $this->createClient();
+    }
+
+    /**
+     * Create a ReviewsIoClient with default test configuration.
+     */
+    private function createClient(
+        int $timeout = 30,
+        int $retryTimes = 3,
+        int $retryDelay = 100,
+    ): ReviewsIoClient {
+        $config = new ReviewsIoConfig(
             apiKey: self::TEST_API_KEY,
             storeId: self::TEST_STORE_ID,
-            timeout: 30,
-            retryTimes: 3,
-            retryDelay: 100,
+            timeout: $timeout,
+            retryTimes: $retryTimes,
+            retryDelay: $retryDelay,
         );
+
+        $transport = new ReviewsIoHttpTransport($config);
+
+        return new ReviewsIoClient($transport);
     }
 
     /*
@@ -89,9 +105,9 @@ final class ReviewsIoClientTest extends TestCase
         });
 
         // Verify response structure and data
-        $this->assertInstanceOf(DataCollection::class, $result);
+        $this->assertIsArray($result);
         $this->assertCount(1, $result);
-        $this->assertInstanceOf(Rating::class, $result[0]);
+        $this->assertInstanceOf(ProductRating::class, $result[0]);
         $this->assertSame('FLP-01', $result[0]->sku);
         $this->assertSame(4.5, $result[0]->averageRating);
         $this->assertSame(362, $result[0]->numRatings);
@@ -112,7 +128,7 @@ final class ReviewsIoClientTest extends TestCase
 
         $result = $this->client->getProductRatingBatch(['E2L-PA481101']);
 
-        $this->assertInstanceOf(DataCollection::class, $result);
+        $this->assertIsArray($result);
         $this->assertCount(1, $result);
         $this->assertSame('E2L-PA481101', $result[0]->sku);
         $this->assertSame(4.625, $result[0]->averageRating);
@@ -153,7 +169,7 @@ final class ReviewsIoClientTest extends TestCase
 
         $result = $this->client->getProductRatingBatch(['NONEXISTENT-SKU']);
 
-        $this->assertInstanceOf(DataCollection::class, $result);
+        $this->assertIsArray($result);
         $this->assertCount(0, $result);
     }
 
@@ -216,31 +232,31 @@ final class ReviewsIoClientTest extends TestCase
     */
 
     #[Test]
-    public function it_throws_validation_exception_for_empty_sku_array(): void
+    public function it_throws_invalid_argument_exception_for_empty_sku_array(): void
     {
-        $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('The skus field is required.');
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Invalid SKU(s) provided: skus');
 
         $this->client->getProductRatingBatch([]);
     }
 
     #[Test]
-    public function it_throws_validation_exception_when_exceeding_batch_size_limit_of_100(): void
+    public function it_throws_invalid_argument_exception_when_exceeding_batch_size_limit_of_100(): void
     {
         $skus = \array_fill(0, 101, 'SKU');
 
-        $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('The skus field must not have more than 100 items.');
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Invalid SKU(s) provided: skus');
 
         $this->client->getProductRatingBatch($skus);
     }
 
     #[Test]
     #[DataProvider('invalidSkuProvider')]
-    public function it_throws_validation_exception_for_invalid_sku(string $invalidSku, string $expectedMessage): void
+    public function it_throws_invalid_argument_exception_for_invalid_sku(string $invalidSku): void
     {
-        $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage($expectedMessage);
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Invalid SKU(s) provided: skus.0');
 
         $this->client->getProductRatingBatch([$invalidSku]);
     }
@@ -248,78 +264,79 @@ final class ReviewsIoClientTest extends TestCase
     public static function invalidSkuProvider(): array
     {
         return [
-            'script tag' => ['SKU-<script>', 'The skus.0 contains invalid characters.'],
-            'emoji' => ['SKU-🎉', 'The skus.0 contains invalid characters.'],
-            'ampersand' => ['SKU&123', 'The skus.0 contains invalid characters.'],
-            'percent sign' => ['SKU%OFF', 'The skus.0 contains invalid characters.'],
-            'at sign' => ['SKU@EMAIL', 'The skus.0 contains invalid characters.'],
+            'script tag' => ['SKU-<script>'],
+            'emoji' => ['SKU-🎉'],
+            'ampersand' => ['SKU&123'],
+            'percent sign' => ['SKU%OFF'],
+            'at sign' => ['SKU@EMAIL'],
         ];
     }
 
     #[Test]
-    public function it_throws_validation_exception_for_empty_string_sku(): void
+    public function it_throws_invalid_argument_exception_for_empty_string_sku(): void
     {
-        $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('The skus.0 field is required.');
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Invalid SKU(s) provided: skus.0');
 
         $this->client->getProductRatingBatch(['']);
     }
 
     #[Test]
-    public function it_throws_validation_exception_for_sku_exceeding_50_characters(): void
+    public function it_throws_invalid_argument_exception_for_sku_exceeding_100_characters(): void
     {
-        $longSku = \str_repeat('A', 51);
+        $longSku = \str_repeat('A', 101);
 
-        $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('The skus.0 field must not be greater than 50 characters.');
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Invalid SKU(s) provided: skus.0');
 
         $this->client->getProductRatingBatch([$longSku]);
     }
 
     #[Test]
-    public function it_throws_validation_exception_for_sku_at_exactly_51_characters_boundary(): void
+    public function it_throws_invalid_argument_exception_for_sku_at_exactly_101_characters_boundary(): void
     {
-        $boundarySku = \str_repeat('X', 51);
+        $boundarySku = \str_repeat('X', 101);
 
-        $this->expectException(ValidationException::class);
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Invalid SKU(s) provided: skus.0');
 
         $this->client->getProductRatingBatch([$boundarySku]);
     }
 
     #[Test]
-    public function it_accepts_sku_at_exactly_50_characters_boundary(): void
+    public function it_accepts_sku_at_exactly_100_characters_boundary(): void
     {
-        $sku50 = \str_repeat('Y', 50);
+        $sku100 = \str_repeat('Y', 100);
 
         Http::fake(['*' => Http::response([
-            ['sku' => $sku50, 'average_rating' => 4.0, 'num_ratings' => 5],
+            ['sku' => $sku100, 'average_rating' => 4.0, 'num_ratings' => 5],
         ])]);
 
-        $result = $this->client->getProductRatingBatch([$sku50]);
+        $result = $this->client->getProductRatingBatch([$sku100]);
 
         $this->assertCount(1, $result);
-        $this->assertSame($sku50, $result[0]->sku);
+        $this->assertSame($sku100, $result[0]->sku);
     }
 
     #[Test]
-    public function it_throws_validation_exception_for_non_string_integer_sku(): void
+    public function it_throws_invalid_argument_exception_for_non_string_integer_sku(): void
     {
         // This tests the 'string' validation rule on 'skus.*'
         // Kills the RemoveArrayItem mutation that removes 'string' from validation
-        $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('The skus.0 field must be a string.');
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Invalid SKU(s) provided: skus.0');
 
         // @phpstan-ignore argument.type
         $this->client->getProductRatingBatch([123]); // Integer instead of string
     }
 
     #[Test]
-    public function it_throws_validation_exception_for_array_containing_null_sku(): void
+    public function it_throws_invalid_argument_exception_for_array_containing_null_sku(): void
     {
         // This tests the 'required' validation rule on 'skus.*'
         // Kills the RemoveArrayItem mutation that removes 'required' from validation
-        $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('The skus.0 field is required.');
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Invalid SKU(s) provided: skus.0');
 
         // @phpstan-ignore argument.type
         $this->client->getProductRatingBatch([null]); // Null SKU in array
@@ -401,7 +418,7 @@ final class ReviewsIoClientTest extends TestCase
             ['status' => 'error'],  // Missing sku, average_rating
         ])]);
 
-        $this->expectException(InvalidReviewsIoResponseException::class);
+        $this->expectException(InvalidApiResponseException::class);
         $this->expectExceptionMessage('invalid data structure');
 
         $this->client->getProductRatingBatch('TEST-SKU');
@@ -506,9 +523,7 @@ final class ReviewsIoClientTest extends TestCase
     {
         // Note: Laravel's Http::fake() doesn't expose retry configuration directly
         // This test verifies the client accepts retry parameters without error
-        $client = new ReviewsIoClient(
-            apiKey: self::TEST_API_KEY,
-            storeId: self::TEST_STORE_ID,
+        $client = $this->createClient(
             timeout: 10,
             retryTimes: 5,
             retryDelay: 200,
@@ -519,242 +534,92 @@ final class ReviewsIoClientTest extends TestCase
         // Should not throw exception
         $result = $client->getProductRatingBatch('SKU');
 
-        $this->assertInstanceOf(DataCollection::class, $result);
+        $this->assertIsArray($result);
     }
 
     /*
     |--------------------------------------------------------------------------
-    | Constructor Validation Tests
+    | Verify Connectivity Tests
     |--------------------------------------------------------------------------
     */
 
     #[Test]
-    public function it_throws_exception_for_empty_api_key(): void
+    public function it_verifies_connectivity_successfully(): void
     {
-        $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('Reviews.io API key cannot be empty');
-
-        new ReviewsIoClient(
-            apiKey: '', // Empty string
-            storeId: self::TEST_STORE_ID,
-            timeout: 30,
-            retryTimes: 3,
-            retryDelay: 100,
-        );
-    }
-
-    #[Test]
-    public function it_throws_exception_for_empty_store_id(): void
-    {
-        $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('Reviews.io store ID cannot be empty');
-
-        new ReviewsIoClient(
-            apiKey: self::TEST_API_KEY,
-            storeId: '', // Empty string
-            timeout: 30,
-            retryTimes: 3,
-            retryDelay: 100,
-        );
-    }
-
-    #[Test]
-    public function it_accepts_timeout_at_minimum_boundary_of_one_second(): void
-    {
-        $client = new ReviewsIoClient(
-            apiKey: self::TEST_API_KEY,
-            storeId: self::TEST_STORE_ID,
-            timeout: 1, // Minimum boundary
-            retryTimes: 3,
-            retryDelay: 100,
-        );
-
         Http::fake(['*' => Http::response([])]);
 
-        $result = $client->getProductRatingBatch('SKU');
+        // Should not throw any exception
+        $this->client->verifyConnectivity();
 
-        $this->assertInstanceOf(DataCollection::class, $result);
+        Http::assertSent(function (Request $request) {
+            // Verify it uses the rating-batch endpoint with health check SKU
+            $this->assertStringContainsString('product/rating-batch', $request->url());
+            $this->assertStringContainsString('sku=VERIFY-CONNECTIVITY-HEALTH-CHECK', $request->url());
+
+            return true;
+        });
     }
 
     #[Test]
-    public function it_accepts_timeout_at_maximum_boundary_of_300_seconds(): void
+    public function it_throws_exception_when_connectivity_check_fails(): void
     {
-        $client = new ReviewsIoClient(
-            apiKey: self::TEST_API_KEY,
-            storeId: self::TEST_STORE_ID,
-            timeout: 300, // Maximum boundary
-            retryTimes: 3,
-            retryDelay: 100,
-        );
+        Http::fake(['*' => Http::response(['error' => 'Unauthorized'], 401)]);
 
-        Http::fake(['*' => Http::response([])]);
+        $this->expectException(ExternalServiceUnavailableException::class);
 
-        $result = $client->getProductRatingBatch('SKU');
+        $this->client->verifyConnectivity();
+    }
 
-        $this->assertInstanceOf(DataCollection::class, $result);
+    /*
+    |--------------------------------------------------------------------------
+    | Rate Limit (429) Tests
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function it_throws_external_service_unavailable_on_rate_limit(): void
+    {
+        Http::fake(['*' => Http::response([], 429)]);
+
+        $this->expectException(ExternalServiceUnavailableException::class);
+
+        $this->client->getProductRatingBatch('SKU-RATE-LIMITED');
     }
 
     #[Test]
-    public function it_throws_exception_for_timeout_below_minimum_boundary(): void
+    public function it_extracts_retry_after_from_rate_limit_response(): void
     {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Timeout must be between 1-300 seconds, got 0');
+        Http::fake([
+            '*' => Http::response([], 429, ['Retry-After' => '120']),
+        ]);
 
-        new ReviewsIoClient(
-            apiKey: self::TEST_API_KEY,
-            storeId: self::TEST_STORE_ID,
-            timeout: 0, // Below minimum
-            retryTimes: 3,
-            retryDelay: 100,
-        );
+        try {
+            $this->client->getProductRatingBatch('SKU-RATE-LIMITED');
+        } catch (ExternalServiceUnavailableException $e) {
+            $this->assertSame(120, $e->retryAfter);
+
+            return;
+        }
+
+        $this->fail('Expected ExternalServiceUnavailableException to be thrown');
     }
 
     #[Test]
-    public function it_throws_exception_for_timeout_above_maximum_boundary(): void
+    public function it_returns_null_retry_after_when_header_missing_on_rate_limit(): void
     {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Timeout must be between 1-300 seconds, got 301');
+        Http::fake([
+            '*' => Http::response([], 429),
+        ]);
 
-        new ReviewsIoClient(
-            apiKey: self::TEST_API_KEY,
-            storeId: self::TEST_STORE_ID,
-            timeout: 301, // Above maximum
-            retryTimes: 3,
-            retryDelay: 100,
-        );
+        try {
+            $this->client->getProductRatingBatch('SKU-RATE-LIMITED');
+        } catch (ExternalServiceUnavailableException $e) {
+            $this->assertNull($e->retryAfter);
+
+            return;
+        }
+
+        $this->fail('Expected ExternalServiceUnavailableException to be thrown');
     }
 
-    #[Test]
-    public function it_accepts_retry_times_at_minimum_boundary_of_zero(): void
-    {
-        $client = new ReviewsIoClient(
-            apiKey: self::TEST_API_KEY,
-            storeId: self::TEST_STORE_ID,
-            timeout: 30,
-            retryTimes: 0, // Minimum boundary
-            retryDelay: 100,
-        );
-
-        Http::fake(['*' => Http::response([])]);
-
-        $result = $client->getProductRatingBatch('SKU');
-
-        $this->assertInstanceOf(DataCollection::class, $result);
-    }
-
-    #[Test]
-    public function it_accepts_retry_times_at_maximum_boundary_of_10(): void
-    {
-        $client = new ReviewsIoClient(
-            apiKey: self::TEST_API_KEY,
-            storeId: self::TEST_STORE_ID,
-            timeout: 30,
-            retryTimes: 10, // Maximum boundary
-            retryDelay: 100,
-        );
-
-        Http::fake(['*' => Http::response([])]);
-
-        $result = $client->getProductRatingBatch('SKU');
-
-        $this->assertInstanceOf(DataCollection::class, $result);
-    }
-
-    #[Test]
-    public function it_throws_exception_for_retry_times_below_minimum_boundary(): void
-    {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Retry times must be between 0-10, got -1');
-
-        new ReviewsIoClient(
-            apiKey: self::TEST_API_KEY,
-            storeId: self::TEST_STORE_ID,
-            timeout: 30,
-            retryTimes: -1, // Below minimum
-            retryDelay: 100,
-        );
-    }
-
-    #[Test]
-    public function it_throws_exception_for_retry_times_above_maximum_boundary(): void
-    {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Retry times must be between 0-10, got 11');
-
-        new ReviewsIoClient(
-            apiKey: self::TEST_API_KEY,
-            storeId: self::TEST_STORE_ID,
-            timeout: 30,
-            retryTimes: 11, // Above maximum
-            retryDelay: 100,
-        );
-    }
-
-    #[Test]
-    public function it_accepts_retry_delay_at_minimum_boundary_of_zero_milliseconds(): void
-    {
-        $client = new ReviewsIoClient(
-            apiKey: self::TEST_API_KEY,
-            storeId: self::TEST_STORE_ID,
-            timeout: 30,
-            retryTimes: 3,
-            retryDelay: 0, // Minimum boundary
-        );
-
-        Http::fake(['*' => Http::response([])]);
-
-        // Should not throw exception
-        $result = $client->getProductRatingBatch('SKU');
-
-        $this->assertInstanceOf(DataCollection::class, $result);
-    }
-
-    #[Test]
-    public function it_accepts_retry_delay_at_maximum_boundary_of_5000_milliseconds(): void
-    {
-        $client = new ReviewsIoClient(
-            apiKey: self::TEST_API_KEY,
-            storeId: self::TEST_STORE_ID,
-            timeout: 30,
-            retryTimes: 3,
-            retryDelay: 5000, // Maximum boundary
-        );
-
-        Http::fake(['*' => Http::response([])]);
-
-        // Should not throw exception
-        $result = $client->getProductRatingBatch('SKU');
-
-        $this->assertInstanceOf(DataCollection::class, $result);
-    }
-
-    #[Test]
-    public function it_throws_exception_for_retry_delay_below_minimum_boundary(): void
-    {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Retry delay must be between 0-5000ms, got -1');
-
-        new ReviewsIoClient(
-            apiKey: self::TEST_API_KEY,
-            storeId: self::TEST_STORE_ID,
-            timeout: 30,
-            retryTimes: 3,
-            retryDelay: -1, // Below minimum
-        );
-    }
-
-    #[Test]
-    public function it_throws_exception_for_retry_delay_above_maximum_boundary(): void
-    {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Retry delay must be between 0-5000ms, got 5001');
-
-        new ReviewsIoClient(
-            apiKey: self::TEST_API_KEY,
-            storeId: self::TEST_STORE_ID,
-            timeout: 30,
-            retryTimes: 3,
-            retryDelay: 5001, // Above maximum
-        );
-    }
 }
