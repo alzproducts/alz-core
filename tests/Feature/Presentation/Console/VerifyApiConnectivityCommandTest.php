@@ -7,7 +7,7 @@ namespace Tests\Feature\Presentation\Console;
 use App\Application\Contracts\GoogleAdsClientInterface;
 use App\Application\Contracts\MixpanelClientInterface;
 use App\Application\Contracts\ReviewsIoClientInterface;
-use App\Application\Contracts\ShopwiredClientInterface;
+use App\Application\Contracts\Shopwired\ConnectivityClientInterface as ShopwiredConnectivityClient;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Presentation\Console\Commands\VerifyApiConnectivityCommand;
 use Illuminate\Console\Command;
@@ -37,7 +37,7 @@ final class VerifyApiConnectivityCommandTest extends TestCase
 
     private MockInterface&GoogleAdsClientInterface $googleAdsClient;
 
-    private MockInterface&ShopwiredClientInterface $shopwiredClient;
+    private MockInterface&ShopwiredConnectivityClient $shopwiredClient;
 
     #[Override]
     protected function setUp(): void
@@ -47,12 +47,12 @@ final class VerifyApiConnectivityCommandTest extends TestCase
         $this->reviewsIoClient = Mockery::mock(ReviewsIoClientInterface::class);
         $this->mixpanelClient = Mockery::mock(MixpanelClientInterface::class);
         $this->googleAdsClient = Mockery::mock(GoogleAdsClientInterface::class);
-        $this->shopwiredClient = Mockery::mock(ShopwiredClientInterface::class);
+        $this->shopwiredClient = Mockery::mock(ShopwiredConnectivityClient::class);
 
         $this->app->instance(ReviewsIoClientInterface::class, $this->reviewsIoClient);
         $this->app->instance(MixpanelClientInterface::class, $this->mixpanelClient);
         $this->app->instance(GoogleAdsClientInterface::class, $this->googleAdsClient);
-        $this->app->instance(ShopwiredClientInterface::class, $this->shopwiredClient);
+        $this->app->instance(ShopwiredConnectivityClient::class, $this->shopwiredClient);
     }
 
     /*

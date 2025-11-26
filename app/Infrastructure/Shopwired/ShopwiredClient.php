@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Shopwired;
 
-use App\Application\Contracts\ShopwiredClientInterface;
+use App\Application\Contracts\Shopwired\ConnectivityClientInterface;
 use App\Domain\Exceptions\InvalidApiResponseException;
 use Illuminate\Support\Facades\Log;
 use Spatie\LaravelData\Data;
@@ -30,7 +30,7 @@ use Spatie\LaravelData\Exceptions\CannotCreateData;
  * @template-pattern API Client (Template Pattern)
  * @see https://shopwired.readme.io/docs/getting-started Official API documentation
  */
-final readonly class ShopwiredClient implements ShopwiredClientInterface
+final readonly class ShopwiredClient implements ConnectivityClientInterface
 {
     private const string SERVICE_NAME = 'Shopwired';
 
