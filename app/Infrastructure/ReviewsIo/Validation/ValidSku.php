@@ -26,6 +26,7 @@ final readonly class ValidSku implements ValidationRule
      */
     private const string PATTERN = '/^[A-Za-z0-9\s\-_.()\/]+$/';
 
+    /** @noinspection PhpUnusedParameterInspection */
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
         if (!\is_string($value)) {

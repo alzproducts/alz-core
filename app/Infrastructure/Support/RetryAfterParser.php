@@ -26,6 +26,8 @@ final class RetryAfterParser
      * @param int|null $maxSeconds Maximum allowed seconds (prevents unreasonable waits)
      *
      * @return int|null Seconds to wait, or null if invalid/missing
+     * @noinspection MultipleReturnStatementsInspection
+     * @noinspection ParameterDefaultValueIsNotNullInspection
      */
     public static function parse(int|string|null $headerValue, ?int $maxSeconds = 300): ?int
     {
