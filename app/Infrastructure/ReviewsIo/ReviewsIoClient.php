@@ -77,31 +77,12 @@ final readonly class ReviewsIoClient implements ReviewsIoClientInterface
      */
     public function getProductRatingBatch(array|string $skus): array
     {
-        $skuArray = \is_array($skus) ? $skus : [$skus];
-
-        try {
-            $validated = Validator::make(
-                ['skus' => $skuArray],
-                [
-                    'skus' => ['required', 'array', 'min:1', 'max:' . ReviewsIoConfig::MAX_BATCH_SIZE],
-                    'skus.*' => ['required', 'string', 'min:1', 'max:' . ReviewsIoConfig::MAX_SKU_LENGTH, new ValidSku()],
-                ],
-            )->validate();
-        } catch (ValidationException $e) {
-            throw new InvalidArgumentException(
-                'Invalid SKU(s) provided: ' . \implode(', ', \array_keys($e->errors())),
-                previous: $e,
-            );
-        }
-
-        /** @var array<string> $validatedSkus */
-        $validatedSkus = $validated['skus'];
+        $validatedSkus = $this->validateSkus($skus);
 
         $response = $this->transport->get(self::ENDPOINT_RATING_BATCH, [
             'sku' => \implode(ReviewsIoConfig::SKU_DELIMITER, $validatedSkus),
         ]);
 
-        // Parse API response into Infrastructure DTOs, then map to Domain VOs
         $infraRatings = $this->parseArrayResponse($response->json(), Rating::class);
 
         /** @var array<int, Rating> $ratingsArray */
@@ -111,6 +92,62 @@ final readonly class ReviewsIoClient implements ReviewsIoClientInterface
             static fn(Rating $r) => $r->toProductRating(),
             $ratingsArray,
         ));
+    }
+
+    /**
+     * Validate input data and wrap validation failures.
+     *
+     * Executes Laravel validation and translates ValidationException
+     * to InvalidArgumentException with consistent error formatting.
+     *
+     * @param array<string, mixed> $data Data to validate
+     * @param array<string, array<mixed>> $rules Laravel validation rules
+     * @param string $inputDescription Human-readable description for error messages
+     *
+     * @return array<string, mixed> Validated data
+     *
+     * @throws InvalidArgumentException When validation fails
+     */
+    private function validateInput(array $data, array $rules, string $inputDescription): array
+    {
+        try {
+            /** @var array<string, mixed> */
+            return Validator::make($data, $rules)->validate();
+        } catch (ValidationException $e) {
+            throw new InvalidArgumentException(
+                "Invalid {$inputDescription} provided: " . \implode(', ', \array_keys($e->errors())),
+                previous: $e,
+            );
+        }
+    }
+
+    /**
+     * Validate and normalize SKU input.
+     *
+     * Accepts single SKU string or array of SKUs. Validates against
+     * batch size limits, string requirements, and SKU format rules.
+     *
+     * @param string|array<string> $skus Single SKU or array of SKUs
+     *
+     * @return array<string> Validated SKU array
+     *
+     * @throws InvalidArgumentException When SKUs are invalid
+     */
+    private function validateSkus(array|string $skus): array
+    {
+        $skuArray = \is_array($skus) ? $skus : [$skus];
+
+        $validated = $this->validateInput(
+            ['skus' => $skuArray],
+            [
+                'skus' => ['required', 'array', 'min:1', 'max:' . ReviewsIoConfig::MAX_BATCH_SIZE],
+                'skus.*' => ['required', 'string', 'min:1', 'max:' . ReviewsIoConfig::MAX_SKU_LENGTH, new ValidSku()],
+            ],
+            'SKU(s)',
+        );
+
+        /** @var array<string> */
+        return $validated['skus'];
     }
 
     /**
