@@ -22,7 +22,7 @@ final class CampaignRowTransformerTest extends TestCase
         $row = $this->createMockRow(
             campaignId: 123456789,
             campaignName: '[01] Search - Branded',
-            status: 1,
+            status: 2, // SDK: ENABLED = 2
         );
 
         $campaign = CampaignRowTransformer::toCampaign($row);
@@ -38,7 +38,7 @@ final class CampaignRowTransformerTest extends TestCase
         $row = $this->createMockRow(
             campaignId: 987654321,
             campaignName: '[02] Performance Max',
-            status: 2,
+            status: 3, // SDK: PAUSED = 3
         );
 
         $campaign = CampaignRowTransformer::toCampaign($row);
@@ -54,7 +54,7 @@ final class CampaignRowTransformerTest extends TestCase
         $row = $this->createMockRow(
             campaignId: 555555555,
             campaignName: 'Old Campaign',
-            status: 3,
+            status: 4, // SDK: REMOVED = 4
         );
 
         $campaign = CampaignRowTransformer::toCampaign($row);
@@ -97,11 +97,12 @@ final class CampaignRowTransformerTest extends TestCase
 
     public static function allValidStatusEnums(): array
     {
+        // SDK enum values: UNSPECIFIED=0, UNKNOWN=1, ENABLED=2, PAUSED=3, REMOVED=4
         return [
             'UNSPECIFIED (0)' => [0, 'UNSPECIFIED'],
-            'ENABLED (1)' => [1, 'ENABLED'],
-            'PAUSED (2)' => [2, 'PAUSED'],
-            'REMOVED (3)' => [3, 'REMOVED'],
+            'ENABLED (2)' => [2, 'ENABLED'],
+            'PAUSED (3)' => [3, 'PAUSED'],
+            'REMOVED (4)' => [4, 'REMOVED'],
         ];
     }
 
@@ -157,7 +158,7 @@ final class CampaignRowTransformerTest extends TestCase
         $row = $this->createMockRow(
             campaignId: '123456789',
             campaignName: 'Test Campaign',
-            status: 1,
+            status: 2, // SDK: ENABLED = 2
         );
 
         $campaign = CampaignRowTransformer::toCampaign($row);
@@ -173,7 +174,7 @@ final class CampaignRowTransformerTest extends TestCase
         $row = $this->createMockRow(
             campaignId: 123,
             campaignName: $campaignName,
-            status: 1,
+            status: 2, // SDK: ENABLED = 2
         );
 
         $campaign = CampaignRowTransformer::toCampaign($row);
@@ -188,7 +189,7 @@ final class CampaignRowTransformerTest extends TestCase
         $row = $this->createMockRow(
             campaignId: $largeId,
             campaignName: 'Large ID Campaign',
-            status: 1,
+            status: 2, // SDK: ENABLED = 2
         );
 
         $campaign = CampaignRowTransformer::toCampaign($row);
@@ -203,7 +204,7 @@ final class CampaignRowTransformerTest extends TestCase
         $row = $this->createMockRow(
             campaignId: 123,
             campaignName: $specialName,
-            status: 1,
+            status: 2, // SDK: ENABLED = 2
         );
 
         $campaign = CampaignRowTransformer::toCampaign($row);
@@ -218,7 +219,7 @@ final class CampaignRowTransformerTest extends TestCase
         $row = $this->createMockRow(
             campaignId: 123,
             campaignName: $nameWithWhitespace,
-            status: 1,
+            status: 2, // SDK: ENABLED = 2
         );
 
         $campaign = CampaignRowTransformer::toCampaign($row);
@@ -232,7 +233,7 @@ final class CampaignRowTransformerTest extends TestCase
         $row = $this->createMockRow(
             campaignId: 123,
             campaignName: 'Test',
-            status: 1,
+            status: 2, // SDK: ENABLED = 2
         );
 
         $campaign = CampaignRowTransformer::toCampaign($row);

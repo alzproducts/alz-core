@@ -35,14 +35,14 @@ use Illuminate\Support\Facades\Log;
  *
  * @template-pattern API Client SDK Transport
  */
-final readonly class GoogleAdsTransport
+class GoogleAdsTransport
 {
     private const string SERVICE_NAME = 'Google Ads';
     private const int PAGE_SIZE = 10000;
 
     public function __construct(
-        private SdkGoogleAdsClient $sdkClient,
-        private GoogleAdsConfig $config,
+        private readonly SdkGoogleAdsClient $sdkClient,
+        private readonly GoogleAdsConfig $config,
     ) {}
 
     /**
