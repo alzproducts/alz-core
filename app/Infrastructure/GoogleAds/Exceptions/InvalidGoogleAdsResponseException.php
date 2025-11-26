@@ -13,8 +13,8 @@ final class InvalidGoogleAdsResponseException extends ApiException
      * This is a **runtime validation exception** (always active in production),
      * not an assertion (which compile-out).
      *
-     * Distinguishes from GoogleAdsApiException:
-     * - GoogleAdsApiException: API returned error status code
+     * Distinguishes from ExternalServiceUnavailableException:
+     * - ExternalServiceUnavailableException: API error/unavailable (rate limit, network)
      * - InvalidGoogleAdsResponseException: API returned 200 but data invalid
      */
     public static function missingField(string $field, string $context = ''): self

@@ -15,13 +15,13 @@ final class CampaignTest extends TestCase
     public function it_creates_valid_campaign(): void
     {
         $campaign = new Campaign(
-            campaignId: 123456789,
-            campaignName: '[01] Search - Branded',
+            id: 123456789,
+            name: '[01] Search - Branded',
             status: 'ENABLED',
         );
 
-        $this->assertSame(123456789, $campaign->campaignId);
-        $this->assertSame('[01] Search - Branded', $campaign->campaignName);
+        $this->assertSame(123456789, $campaign->id);
+        $this->assertSame('[01] Search - Branded', $campaign->name);
         $this->assertSame('ENABLED', $campaign->status);
     }
 
@@ -29,8 +29,8 @@ final class CampaignTest extends TestCase
     public function it_accepts_paused_status(): void
     {
         $campaign = new Campaign(
-            campaignId: 987654321,
-            campaignName: '[02] Performance Max',
+            id: 987654321,
+            name: '[02] Performance Max',
             status: 'PAUSED',
         );
 
@@ -41,8 +41,8 @@ final class CampaignTest extends TestCase
     public function it_accepts_removed_status(): void
     {
         $campaign = new Campaign(
-            campaignId: 555555555,
-            campaignName: 'Old Campaign',
+            id: 555555555,
+            name: 'Old Campaign',
             status: 'REMOVED',
         );
 
@@ -53,8 +53,8 @@ final class CampaignTest extends TestCase
     public function it_accepts_unspecified_status(): void
     {
         $campaign = new Campaign(
-            campaignId: 999999999,
-            campaignName: 'Unspecified Campaign',
+            id: 999999999,
+            name: 'Unspecified Campaign',
             status: 'UNSPECIFIED',
         );
 
@@ -65,12 +65,12 @@ final class CampaignTest extends TestCase
     public function it_accepts_campaign_id_of_one(): void
     {
         $campaign = new Campaign(
-            campaignId: 1,
-            campaignName: 'Boundary Test Campaign',
+            id: 1,
+            name: 'Boundary Test Campaign',
             status: 'ENABLED',
         );
 
-        $this->assertSame(1, $campaign->campaignId);
+        $this->assertSame(1, $campaign->id);
     }
 
     #[Test]
@@ -79,8 +79,8 @@ final class CampaignTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
 
         new Campaign(
-            campaignId: -1,
-            campaignName: 'Test',
+            id: -1,
+            name: 'Test',
             status: 'ENABLED',
         );
     }
@@ -91,8 +91,8 @@ final class CampaignTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
 
         new Campaign(
-            campaignId: 0,
-            campaignName: 'Test',
+            id: 0,
+            name: 'Test',
             status: 'ENABLED',
         );
     }
@@ -103,8 +103,8 @@ final class CampaignTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
 
         new Campaign(
-            campaignId: 123,
-            campaignName: '',
+            id: 123,
+            name: '',
             status: 'ENABLED',
         );
     }
@@ -115,8 +115,8 @@ final class CampaignTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
 
         new Campaign(
-            campaignId: 123,
-            campaignName: 'Test',
+            id: 123,
+            name: 'Test',
             status: 'INVALID',
         );
     }
@@ -125,8 +125,8 @@ final class CampaignTest extends TestCase
     public function it_is_immutable(): void
     {
         $campaign = new Campaign(
-            campaignId: 123,
-            campaignName: 'Test',
+            id: 123,
+            name: 'Test',
             status: 'ENABLED',
         );
 

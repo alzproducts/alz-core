@@ -210,7 +210,7 @@ final class MixpanelAdSpendEventDTOTest extends TestCase
         // Act
         $dto = MixpanelAdSpendEventDTO::fromCampaignMetrics($campaign);
 
-        // Assert: Insert ID uses campaignId (ASCII), not campaignName
+        // Assert: Insert ID uses id (ASCII), not name
         // This verifies mb_strlen is used for character count (not byte count)
         // Mutation testing: mb_strlen → strlen would fail with multibyte chars
         $expected = 'G-2024-12-31-123';

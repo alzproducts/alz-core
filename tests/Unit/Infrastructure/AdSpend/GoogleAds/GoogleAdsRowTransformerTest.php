@@ -6,7 +6,7 @@ namespace Tests\Unit\Infrastructure\AdSpend\GoogleAds;
 
 use App\Domain\AdSpend\ValueObjects\CampaignMetrics;
 use App\Infrastructure\GoogleAds\Exceptions\InvalidGoogleAdsResponseException;
-use App\Infrastructure\GoogleAds\GoogleAdsRowTransformer;
+use App\Infrastructure\GoogleAds\Transformers\GoogleAdsRowTransformer;
 use Google\Ads\GoogleAds\V22\Common\Metrics;
 use Google\Ads\GoogleAds\V22\Common\Segments;
 use Google\Ads\GoogleAds\V22\Resources\Campaign;

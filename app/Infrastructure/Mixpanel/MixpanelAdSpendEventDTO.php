@@ -87,7 +87,7 @@ final readonly class MixpanelAdSpendEventDTO
     /**
      * Generate deduplication ID for Mixpanel.
      *
-     * Format: "G-{date}-{campaignId}" (e.g., "G-2024-11-18-123456")
+     * Format: "G-{date}-{id}" (e.g., "G-2024-11-18-123456")
      * Hashed to 36 chars max if original exceeds limit.
      *
      * @return string Deduplication ID

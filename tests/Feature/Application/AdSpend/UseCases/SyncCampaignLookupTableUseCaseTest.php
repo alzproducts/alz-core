@@ -51,8 +51,8 @@ final class SyncCampaignLookupTableUseCaseTest extends TestCase
     public function it_syncs_single_campaign_to_mixpanel(): void
     {
         $campaign = new Campaign(
-            campaignId: 123456789,
-            campaignName: '[01] Search - Branded',
+            id: 123456789,
+            name: '[01] Search - Branded',
             status: 'ENABLED',
         );
 
@@ -67,8 +67,8 @@ final class SyncCampaignLookupTableUseCaseTest extends TestCase
             ->withArgs(static function (array $campaigns): bool {
                 self::assertCount(1, $campaigns);
                 self::assertInstanceOf(Campaign::class, $campaigns[0]);
-                self::assertSame(123456789, $campaigns[0]->campaignId);
-                self::assertSame('[01] Search - Branded', $campaigns[0]->campaignName);
+                self::assertSame(123456789, $campaigns[0]->id);
+                self::assertSame('[01] Search - Branded', $campaigns[0]->name);
                 self::assertSame('ENABLED', $campaigns[0]->status);
 
                 return true;
@@ -96,11 +96,11 @@ final class SyncCampaignLookupTableUseCaseTest extends TestCase
     public function it_syncs_multiple_campaigns_to_mixpanel(): void
     {
         $campaigns = [
-            new Campaign(campaignId: 111, campaignName: 'Campaign One', status: 'ENABLED'),
-            new Campaign(campaignId: 222, campaignName: 'Campaign Two', status: 'PAUSED'),
-            new Campaign(campaignId: 333, campaignName: 'Campaign Three', status: 'REMOVED'),
-            new Campaign(campaignId: 444, campaignName: 'Campaign Four', status: 'UNSPECIFIED'),
-            new Campaign(campaignId: 555, campaignName: 'Campaign Five', status: 'ENABLED'),
+            new Campaign(id: 111, name: 'Campaign One', status: 'ENABLED'),
+            new Campaign(id: 222, name: 'Campaign Two', status: 'PAUSED'),
+            new Campaign(id: 333, name: 'Campaign Three', status: 'REMOVED'),
+            new Campaign(id: 444, name: 'Campaign Four', status: 'UNSPECIFIED'),
+            new Campaign(id: 555, name: 'Campaign Five', status: 'ENABLED'),
         ];
 
         $this->googleAdsClient
@@ -113,11 +113,11 @@ final class SyncCampaignLookupTableUseCaseTest extends TestCase
             ->once()
             ->withArgs(static function (array $receivedCampaigns): bool {
                 self::assertCount(5, $receivedCampaigns);
-                self::assertSame(111, $receivedCampaigns[0]->campaignId);
-                self::assertSame(222, $receivedCampaigns[1]->campaignId);
-                self::assertSame(333, $receivedCampaigns[2]->campaignId);
-                self::assertSame(444, $receivedCampaigns[3]->campaignId);
-                self::assertSame(555, $receivedCampaigns[4]->campaignId);
+                self::assertSame(111, $receivedCampaigns[0]->id);
+                self::assertSame(222, $receivedCampaigns[1]->id);
+                self::assertSame(333, $receivedCampaigns[2]->id);
+                self::assertSame(444, $receivedCampaigns[3]->id);
+                self::assertSame(555, $receivedCampaigns[4]->id);
 
                 return true;
             });
@@ -134,9 +134,9 @@ final class SyncCampaignLookupTableUseCaseTest extends TestCase
     public function it_preserves_campaign_order(): void
     {
         $campaigns = [
-            new Campaign(campaignId: 999, campaignName: 'Last', status: 'ENABLED'),
-            new Campaign(campaignId: 111, campaignName: 'First', status: 'ENABLED'),
-            new Campaign(campaignId: 555, campaignName: 'Middle', status: 'ENABLED'),
+            new Campaign(id: 999, name: 'Last', status: 'ENABLED'),
+            new Campaign(id: 111, name: 'First', status: 'ENABLED'),
+            new Campaign(id: 555, name: 'Middle', status: 'ENABLED'),
         ];
 
         $this->googleAdsClient
@@ -149,9 +149,9 @@ final class SyncCampaignLookupTableUseCaseTest extends TestCase
             ->once()
             ->withArgs(static function (array $receivedCampaigns): bool {
                 // Verify order is preserved (not alphabetically sorted)
-                self::assertSame(999, $receivedCampaigns[0]->campaignId);
-                self::assertSame(111, $receivedCampaigns[1]->campaignId);
-                self::assertSame(555, $receivedCampaigns[2]->campaignId);
+                self::assertSame(999, $receivedCampaigns[0]->id);
+                self::assertSame(111, $receivedCampaigns[1]->id);
+                self::assertSame(555, $receivedCampaigns[2]->id);
 
                 return true;
             });
@@ -280,7 +280,7 @@ final class SyncCampaignLookupTableUseCaseTest extends TestCase
     public function it_propagates_mixpanel_api_exception(): void
     {
         $campaigns = [
-            new Campaign(campaignId: 123, campaignName: 'Test', status: 'ENABLED'),
+            new Campaign(id: 123, name: 'Test', status: 'ENABLED'),
         ];
 
         $exception = new ExternalServiceUnavailableException('Mixpanel');
@@ -305,7 +305,7 @@ final class SyncCampaignLookupTableUseCaseTest extends TestCase
     public function it_propagates_external_service_exception_from_mixpanel(): void
     {
         $campaigns = [
-            new Campaign(campaignId: 123, campaignName: 'Test', status: 'ENABLED'),
+            new Campaign(id: 123, name: 'Test', status: 'ENABLED'),
         ];
 
         $exception = new ExternalServiceUnavailableException('Mixpanel');
@@ -332,7 +332,7 @@ final class SyncCampaignLookupTableUseCaseTest extends TestCase
     public function it_does_not_log_completion_when_mixpanel_fails(): void
     {
         $campaigns = [
-            new Campaign(campaignId: 123, campaignName: 'Test', status: 'ENABLED'),
+            new Campaign(id: 123, name: 'Test', status: 'ENABLED'),
         ];
 
         $exception = new ExternalServiceUnavailableException('Mixpanel');
@@ -365,8 +365,8 @@ final class SyncCampaignLookupTableUseCaseTest extends TestCase
     public function it_passes_campaigns_unchanged_to_mixpanel(): void
     {
         $campaign = new Campaign(
-            campaignId: 987654321,
-            campaignName: '[02] Performance Max',
+            id: 987654321,
+            name: '[02] Performance Max',
             status: 'PAUSED',
         );
 
@@ -379,8 +379,8 @@ final class SyncCampaignLookupTableUseCaseTest extends TestCase
             ->shouldReceive('replaceCampaignLookupTable')
             ->once()
             ->withArgs(static function (array $campaigns): bool {
-                self::assertSame(987654321, $campaigns[0]->campaignId);
-                self::assertSame('[02] Performance Max', $campaigns[0]->campaignName);
+                self::assertSame(987654321, $campaigns[0]->id);
+                self::assertSame('[02] Performance Max', $campaigns[0]->name);
                 self::assertSame('PAUSED', $campaigns[0]->status);
 
                 return true;
@@ -394,8 +394,8 @@ final class SyncCampaignLookupTableUseCaseTest extends TestCase
     {
         $specialName = '[01] Search - Branded | Q4 2024 & Premium';
         $campaign = new Campaign(
-            campaignId: 123,
-            campaignName: $specialName,
+            id: 123,
+            name: $specialName,
             status: 'ENABLED',
         );
 
@@ -408,7 +408,7 @@ final class SyncCampaignLookupTableUseCaseTest extends TestCase
             ->shouldReceive('replaceCampaignLookupTable')
             ->once()
             ->withArgs(static function (array $campaigns) use ($specialName): bool {
-                self::assertSame($specialName, $campaigns[0]->campaignName);
+                self::assertSame($specialName, $campaigns[0]->name);
 
                 return true;
             });
@@ -421,10 +421,10 @@ final class SyncCampaignLookupTableUseCaseTest extends TestCase
     {
 
         $campaigns = [
-            new Campaign(campaignId: 111, campaignName: 'Enabled', status: 'ENABLED'),
-            new Campaign(campaignId: 222, campaignName: 'Paused', status: 'PAUSED'),
-            new Campaign(campaignId: 333, campaignName: 'Removed', status: 'REMOVED'),
-            new Campaign(campaignId: 444, campaignName: 'Unspecified', status: 'UNSPECIFIED'),
+            new Campaign(id: 111, name: 'Enabled', status: 'ENABLED'),
+            new Campaign(id: 222, name: 'Paused', status: 'PAUSED'),
+            new Campaign(id: 333, name: 'Removed', status: 'REMOVED'),
+            new Campaign(id: 444, name: 'Unspecified', status: 'UNSPECIFIED'),
         ];
 
         $this->googleAdsClient
@@ -455,7 +455,7 @@ final class SyncCampaignLookupTableUseCaseTest extends TestCase
     public function it_logs_start_message(): void
     {
         $campaigns = [
-            new Campaign(campaignId: 1, campaignName: 'Search Campaign', status: 'ENABLED'),
+            new Campaign(id: 1, name: 'Search Campaign', status: 'ENABLED'),
         ];
 
         $this->googleAdsClient
@@ -478,9 +478,9 @@ final class SyncCampaignLookupTableUseCaseTest extends TestCase
     public function it_logs_completion_with_exact_campaign_count(): void
     {
         $campaigns = [
-            new Campaign(campaignId: 1, campaignName: 'One', status: 'ENABLED'),
-            new Campaign(campaignId: 2, campaignName: 'Two', status: 'ENABLED'),
-            new Campaign(campaignId: 3, campaignName: 'Three', status: 'ENABLED'),
+            new Campaign(id: 1, name: 'One', status: 'ENABLED'),
+            new Campaign(id: 2, name: 'Two', status: 'ENABLED'),
+            new Campaign(id: 3, name: 'Three', status: 'ENABLED'),
         ];
 
         $this->googleAdsClient
@@ -503,8 +503,8 @@ final class SyncCampaignLookupTableUseCaseTest extends TestCase
     public function it_logs_retrieved_campaigns_count(): void
     {
         $campaigns = [
-            new Campaign(campaignId: 1, campaignName: 'One', status: 'ENABLED'),
-            new Campaign(campaignId: 2, campaignName: 'Two', status: 'ENABLED'),
+            new Campaign(id: 1, name: 'One', status: 'ENABLED'),
+            new Campaign(id: 2, name: 'Two', status: 'ENABLED'),
         ];
 
         $this->googleAdsClient

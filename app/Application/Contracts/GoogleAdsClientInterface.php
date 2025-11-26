@@ -11,6 +11,16 @@ use App\Domain\Exceptions\ExternalServiceUnavailableException;
 interface GoogleAdsClientInterface
 {
     /**
+     * Verify connectivity and authentication with Google Ads API.
+     *
+     * Executes a minimal GAQL query to validate OAuth credentials
+     * and API access without fetching significant data.
+     *
+     * @throws ExternalServiceUnavailableException When API unavailable or credentials invalid
+     */
+    public function verifyConnectivity(): void;
+
+    /**
      * Fetch daily campaign metrics for a specific date.
      *
      * @return array<int, CampaignMetrics>
