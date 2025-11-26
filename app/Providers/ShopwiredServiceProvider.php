@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
-use App\Application\Contracts\ShopwiredClientInterface;
+use App\Application\Contracts\Shopwired\ConnectivityClientInterface;
 use App\Infrastructure\Shopwired\ShopwiredClientFactory;
 use Illuminate\Contracts\Support\DeferrableProvider;
 use Illuminate\Support\ServiceProvider;
@@ -31,8 +31,8 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
     public function register(): void
     {
         $this->app->singleton(
-            ShopwiredClientInterface::class,
-            static fn(): ShopwiredClientInterface => ShopwiredClientFactory::create(),
+            ConnectivityClientInterface::class,
+            static fn(): ConnectivityClientInterface => ShopwiredClientFactory::create(),
         );
     }
 
@@ -44,6 +44,6 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
     #[Override]
     public function provides(): array
     {
-        return [ShopwiredClientInterface::class];
+        return [ConnectivityClientInterface::class];
     }
 }

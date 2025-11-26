@@ -2,20 +2,20 @@
 
 declare(strict_types=1);
 
-namespace App\Application\Contracts;
+namespace App\Application\Contracts\Shopwired;
 
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 
 /**
- * Contract for Shopwired e-commerce API client.
+ * Contract for Shopwired API connectivity verification.
  *
  * This interface defines the boundary between Application and Infrastructure
- * for Shopwired API operations. Implementation handles HTTP communication,
- * authentication, and response parsing.
+ * for Shopwired connectivity checks. Used for health checks and diagnostics,
+ * not business operations.
  *
- * @template-pattern API Client Interface
+ * @template-pattern API Connectivity Interface
  */
-interface ShopwiredClientInterface
+interface ConnectivityClientInterface
 {
     /**
      * Verify API connectivity and authentication.

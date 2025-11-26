@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Shopwired;
 
-use App\Application\Contracts\ShopwiredClientInterface;
+use App\Application\Contracts\Shopwired\ConnectivityClientInterface;
 use RuntimeException;
 
 /**
@@ -21,7 +21,7 @@ final class ShopwiredClientFactory
     /**
      * Create a fully configured ShopwiredClient instance.
      */
-    public static function create(): ShopwiredClientInterface
+    public static function create(): ConnectivityClientInterface
     {
         $apiKey = \config('shopwired.api_key');
         $apiSecret = \config('shopwired.api_secret');

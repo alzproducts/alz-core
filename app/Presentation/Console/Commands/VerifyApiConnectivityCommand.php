@@ -7,7 +7,7 @@ namespace App\Presentation\Console\Commands;
 use App\Application\Contracts\GoogleAdsClientInterface;
 use App\Application\Contracts\MixpanelClientInterface;
 use App\Application\Contracts\ReviewsIoClientInterface;
-use App\Application\Contracts\ShopwiredClientInterface;
+use App\Application\Contracts\Shopwired\ConnectivityClientInterface as ShopwiredConnectivityClient;
 use Illuminate\Console\Command;
 use Throwable;
 
@@ -136,7 +136,7 @@ final class VerifyApiConnectivityCommand extends Command
         $this->info('Verifying Shopwired...');
 
         try {
-            $client = \app(ShopwiredClientInterface::class);
+            $client = \app(ShopwiredConnectivityClient::class);
             $client->verifyConnectivity();
 
             $this->line('  Authentication: OK');
