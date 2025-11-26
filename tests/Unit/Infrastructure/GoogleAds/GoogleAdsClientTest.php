@@ -16,6 +16,8 @@ use Google\Ads\GoogleAds\V22\Enums\CampaignStatusEnum\CampaignStatus;
 use Google\Ads\GoogleAds\V22\Resources\Campaign as GoogleCampaign;
 use Google\Ads\GoogleAds\V22\Services\GoogleAdsRow;
 use Google\ApiCore\PagedListResponse;
+use Google\ApiCore\ValidationException;
+use Illuminate\Support\Facades\Log;
 use Mockery;
 use Mockery\MockInterface;
 use Override;
@@ -267,6 +269,78 @@ final class GoogleAdsClientTest extends TestCase
         $this->expectException(ExternalServiceUnavailableException::class);
 
         $this->client->getCampaigns();
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | ValidationException During Iteration Tests
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function it_translates_validation_exception_during_iteration(): void
+    {
+        $validationException = new ValidationException('Invalid page token');
+
+        $response = Mockery::mock(PagedListResponse::class);
+        $response->shouldReceive('iterateAllElements')
+            ->andThrow($validationException);
+
+        $this->mockTransport
+            ->shouldReceive('search')
+            ->andReturn($response);
+
+        $this->expectException(ExternalServiceUnavailableException::class);
+        $this->expectExceptionMessage('Google Ads');
+
+        $this->client->getDailyCampaignMetrics('2024-05-10');
+    }
+
+    #[Test]
+    public function it_logs_error_when_validation_exception_occurs_during_iteration(): void
+    {
+        $validationException = new ValidationException('Serialization error');
+
+        $response = Mockery::mock(PagedListResponse::class);
+        $response->shouldReceive('iterateAllElements')
+            ->andThrow($validationException);
+
+        $this->mockTransport
+            ->shouldReceive('search')
+            ->andReturn($response);
+
+        Log::shouldReceive('error')
+            ->once()
+            ->withArgs(static fn(string $message, array $context): bool => \str_contains($message, 'iteration failed')
+                    && \array_key_exists('error', $context)
+                    && \str_contains($context['error'], 'Serialization error'));
+
+        try {
+            $this->client->getCampaigns();
+        } catch (ExternalServiceUnavailableException) {
+            // Expected
+        }
+    }
+
+    #[Test]
+    public function it_preserves_original_validation_exception_as_previous(): void
+    {
+        $validationException = new ValidationException('Page token expired');
+
+        $response = Mockery::mock(PagedListResponse::class);
+        $response->shouldReceive('iterateAllElements')
+            ->andThrow($validationException);
+
+        $this->mockTransport
+            ->shouldReceive('search')
+            ->andReturn($response);
+
+        try {
+            $this->client->getDailyCampaignMetrics('2024-05-10');
+            $this->fail('Expected ExternalServiceUnavailableException');
+        } catch (ExternalServiceUnavailableException $e) {
+            $this->assertSame($validationException, $e->getPrevious());
+        }
     }
 
     /*

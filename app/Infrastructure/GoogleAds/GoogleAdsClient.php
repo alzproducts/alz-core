@@ -8,11 +8,13 @@ use App\Application\Contracts\GoogleAdsClientInterface;
 use App\Domain\AdSpend\ValueObjects\Campaign;
 use App\Domain\AdSpend\ValueObjects\CampaignMetrics;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
-use App\Domain\Exceptions\InvalidApiRequestException;
 use App\Infrastructure\GoogleAds\Exceptions\InvalidGoogleAdsResponseException;
 use App\Infrastructure\GoogleAds\Transformers\CampaignRowTransformer;
 use App\Infrastructure\GoogleAds\Transformers\GoogleAdsRowTransformer;
 use Google\Ads\GoogleAds\V22\Services\GoogleAdsRow;
+use Google\ApiCore\PagedListResponse;
+use Google\ApiCore\ValidationException;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Google Ads API client for campaign data.
@@ -38,7 +40,6 @@ final readonly class GoogleAdsClient implements GoogleAdsClientInterface
      * @return list<CampaignMetrics>
      *
      * @throws ExternalServiceUnavailableException When API unavailable or rate limited
-     * @throws InvalidApiRequestException When GAQL query is malformed
      * @throws InvalidGoogleAdsResponseException When response structure is invalid
      */
     public function getDailyCampaignMetrics(string $date): array
@@ -57,14 +58,7 @@ final readonly class GoogleAdsClient implements GoogleAdsClientInterface
 
         $response = $this->transport->search($query);
 
-        $metrics = [];
-        foreach ($response->iterateAllElements() as $item) {
-            /** @var GoogleAdsRow $googleAdsRow */
-            $googleAdsRow = $item;
-            $metrics[] = GoogleAdsRowTransformer::toCampaignMetrics($googleAdsRow);
-        }
-
-        return $metrics;
+        return $this->transformRows($response, GoogleAdsRowTransformer::toCampaignMetrics(...));
     }
 
     /**
@@ -73,7 +67,6 @@ final readonly class GoogleAdsClient implements GoogleAdsClientInterface
      * @return list<Campaign>
      *
      * @throws ExternalServiceUnavailableException When API unavailable or rate limited
-     * @throws InvalidApiRequestException When GAQL query is malformed
      * @throws InvalidGoogleAdsResponseException When response structure is invalid
      */
     public function getCampaigns(): array
@@ -89,13 +82,43 @@ final readonly class GoogleAdsClient implements GoogleAdsClientInterface
 
         $response = $this->transport->search($query);
 
-        $campaigns = [];
-        foreach ($response->iterateAllElements() as $item) {
-            /** @var GoogleAdsRow $googleAdsRow */
-            $googleAdsRow = $item;
-            $campaigns[] = CampaignRowTransformer::toCampaign($googleAdsRow);
-        }
+        return $this->transformRows($response, CampaignRowTransformer::toCampaign(...));
+    }
 
-        return $campaigns;
+    /**
+     * Transform paginated response rows using the given transformer.
+     *
+     * Wraps iteration in try/catch to handle ValidationException that can be
+     * thrown during pagination (e.g., invalid page tokens, serialization errors).
+     *
+     * @template T
+     *
+     * @param PagedListResponse                      $response    Paginated SDK response
+     * @param callable(GoogleAdsRow): T              $transformer Row transformer function
+     * @param-immediately-invoked-callable           $transformer
+     *
+     * @return list<T>
+     *
+     * @throws ExternalServiceUnavailableException When iteration fails
+     * @throws InvalidGoogleAdsResponseException When row transformation fails
+     */
+    private function transformRows(PagedListResponse $response, callable $transformer): array
+    {
+        try {
+            $results = [];
+            foreach ($response->iterateAllElements() as $item) {
+                /** @var GoogleAdsRow $row */
+                $row = $item;
+                $results[] = $transformer($row);
+            }
+
+            return $results;
+        } catch (ValidationException $e) {
+            Log::error('Google Ads response iteration failed', [
+                'error' => $e->getMessage(),
+            ]);
+
+            throw new ExternalServiceUnavailableException('Google Ads', previous: $e);
+        }
     }
 }
