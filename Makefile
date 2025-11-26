@@ -1,4 +1,4 @@
-.PHONY: help install up down shell migrate fresh pint pint-test test test-coverage pest-mutate test-ai test-mutate lint lint-sequential lint-full fix analyse insights phparkitect deptrac stan rector rector-dry-run refactor check check-full infection infection-fast infection-strict infection-incremental infection-ci ide-helper
+.PHONY: help install up down shell migrate fresh pint pint-test test test-coverage coverage-html pest-mutate test-ai test-mutate lint lint-sequential lint-full fix analyse insights phparkitect deptrac stan rector rector-dry-run refactor check check-full infection infection-fast infection-strict infection-incremental infection-ci ide-helper
 
 # Enable strict shell mode for robust error handling
 SHELL := bash
@@ -218,6 +218,12 @@ test: ## Run Pest test suite
 test-coverage: ## Run tests with 80% coverage requirement
 	@echo "$(MODE)"
 	$(EXEC) -d xdebug.mode=coverage vendor/bin/pest --coverage --min=75
+
+coverage-html: ## Generate HTML coverage report (open coverage-report/index.html)
+	@echo "$(MODE)"
+	@mkdir -p coverage-report
+	$(EXEC) -d xdebug.mode=coverage vendor/bin/pest --coverage-html=coverage-report
+	@echo "$(GREEN)Coverage report generated: coverage-report/index.html$(NC)"
 
 pest-mutate: ## Run Pest mutation testing
 	@echo "$(MODE)"
