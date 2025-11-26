@@ -381,4 +381,34 @@ final class MixpanelHttpTransportTest extends TestCase
             $this->assertSame(1, $requestCount);
         }
     }
+
+    #[Test]
+    public function it_sends_request_without_body_when_body_is_null(): void
+    {
+        Http::fake(['*' => Http::response([], 200)]);
+
+        $url = self::TEST_DATA_API_BASE_URL . '/api/app/me';
+        $this->transport->request('GET', $url, body: null, contentType: null);
+
+        Http::assertSent(static function (Request $request): bool {
+            // When body is null, the request body should be empty
+            return $request->body() === '';
+        });
+    }
+
+    #[Test]
+    public function it_requires_both_body_and_content_type_to_set_body(): void
+    {
+        Http::fake(['*' => Http::response([], 200)]);
+
+        $url = self::TEST_DATA_API_BASE_URL . '/events';
+
+        // When only body is provided but not contentType, body should not be set
+        $this->transport->request('POST', $url, body: 'some-content', contentType: null);
+
+        Http::assertSent(static function (Request $request): bool {
+            // Body should be empty because contentType was null
+            return $request->body() === '';
+        });
+    }
 }
