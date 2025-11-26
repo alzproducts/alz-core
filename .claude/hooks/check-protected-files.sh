@@ -18,6 +18,7 @@ PROTECTED_FILES=(
     "phpstan.neon"
     "pint.json"
     "config/insights.php"
+    "deptrac.yaml"
 )
 
 # =============================================================================
