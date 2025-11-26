@@ -100,6 +100,7 @@ final class CampaignRowTransformerTest extends TestCase
         // SDK enum values: UNSPECIFIED=0, UNKNOWN=1, ENABLED=2, PAUSED=3, REMOVED=4
         return [
             'UNSPECIFIED (0)' => [0, 'UNSPECIFIED'],
+            'UNKNOWN (1)' => [1, 'UNKNOWN'],
             'ENABLED (2)' => [2, 'ENABLED'],
             'PAUSED (3)' => [3, 'PAUSED'],
             'REMOVED (4)' => [4, 'REMOVED'],
