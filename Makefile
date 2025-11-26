@@ -147,7 +147,7 @@ lint: ## Run parallel lint (Pint + PHPStan + PHPArkitect + Deptrac)
 	@$(EXEC) vendor/bin/pint --test --parallel > /tmp/alz-lint/1-pint.txt 2>&1 & P1=$$!; \
 	 $(EXEC) -d xdebug.mode=off vendor/bin/phpstan analyse > /tmp/alz-lint/2-phpstan.txt 2>&1 & P2=$$!; \
 	 $(EXEC) -d xdebug.mode=off vendor/bin/phparkitect check > /tmp/alz-lint/3-phparkitect.txt 2>&1 & P3=$$!; \
-	 $(EXEC) -d xdebug.mode=off vendor/bin/deptrac analyse > /tmp/alz-lint/4-deptrac.txt 2>&1 & P4=$$!; \
+	 $(EXEC) -d xdebug.mode=off vendor/bin/deptrac analyse --fail-on-uncovered > /tmp/alz-lint/4-deptrac.txt 2>&1 & P4=$$!; \
 	 E1=0; E2=0; E3=0; E4=0; \
 	 wait $$P1 || E1=$$?; wait $$P2 || E2=$$?; wait $$P3 || E3=$$?; wait $$P4 || E4=$$?; \
 	 echo "=== Pint ===" && cat /tmp/alz-lint/1-pint.txt; \
@@ -188,9 +188,9 @@ phparkitect: ## Run PHPArkitect architecture checks
 	@echo "$(MODE)"
 	$(EXEC) -d xdebug.mode=off vendor/bin/phparkitect check
 
-deptrac: ## Run Deptrac layer dependency analysis
+deptrac: ## Run Deptrac layer dependency analysis (strict: fails on uncovered)
 	@echo "$(MODE)"
-	$(EXEC) -d xdebug.mode=off vendor/bin/deptrac analyse
+	$(EXEC) -d xdebug.mode=off vendor/bin/deptrac analyse --fail-on-uncovered
 
 stan: ## Alias for analyse (PHPStan)
 	@echo "$(MODE)"

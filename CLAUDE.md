@@ -239,6 +239,21 @@ Remains active in production, handles untrusted input
 
 **Why both PHPArkitect + Deptrac?** PHPArkitect checks type usage (`new`, `extends`, type hints) but misses `use` imports. Deptrac explicitly analyzes imports. Together they provide complete CA enforcement.
 
+### Deptrac Whitelist Enforcement
+
+Deptrac enforces **whitelist-only** external dependencies. Any new Composer package must be:
+1. Added as a layer in `deptrac.yaml` with regex pattern
+2. Explicitly allowed in the target layer's ruleset
+
+**Allowed external packages by layer:**
+
+| Layer | Allowed External Dependencies |
+|-------|-------------------------------|
+| Domain | `Webmozart\Assert` |
+| Application | `Psr\*` interfaces |
+| Infrastructure | Laravel, Spatie\LaravelData, Google\*, Webmozart\Assert |
+| Presentation | Laravel, Symfony\HttpFoundation, Firebase\JWT |
+
 ### Rector (Code Refactoring)
 
 For PHP/Laravel upgrades and code modernization. **Manual-only** (not in git hooks).
