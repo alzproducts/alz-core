@@ -59,6 +59,7 @@ final class CampaignRowTransformer
     {
         return match ($enumValue) {
             0 => 'UNSPECIFIED',
+            1 => 'UNKNOWN',
             2 => 'ENABLED',
             3 => 'PAUSED',
             4 => 'REMOVED',
