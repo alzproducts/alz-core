@@ -41,7 +41,7 @@ final readonly class ShopwiredHttpTransport
     /**
      * Perform GET request to Shopwired API.
      *
-     * @param string $endpoint API endpoint path (e.g., '/business')
+     * @param string $endpoint API endpoint path (e.g., 'business')
      * @param array<string, mixed> $query Optional query parameters
      * @param bool $retry Whether to apply retry logic for transient failures
      *
@@ -51,13 +51,9 @@ final readonly class ShopwiredHttpTransport
      */
     public function get(string $endpoint, array $query = [], bool $retry = true): Response
     {
-        $url = \mb_rtrim($this->config->baseUrl, '/') . '/' . \mb_ltrim($endpoint, '/');
-
         try {
-            $request = $this->createBaseRequest($retry);
-
-            return $request
-                ->get($url, $query)
+            return $this->createBaseRequest($retry)
+                ->get($endpoint, $query)
                 ->throw();
         } catch (RequestException $e) {
             throw $this->handleRequestException($e);
@@ -75,10 +71,12 @@ final readonly class ShopwiredHttpTransport
      */
     private function createBaseRequest(bool $retry): PendingRequest
     {
-        $request = Http::withBasicAuth(
-            $this->config->apiKey,
-            $this->config->apiSecret,
-        )->timeout($this->config->timeout);
+        $request = Http::baseUrl($this->config->baseUrl)
+            ->withBasicAuth(
+                $this->config->apiKey,
+                $this->config->apiSecret,
+            )
+            ->timeout($this->config->timeout);
 
         if ($retry) {
             $request = $request->retry(
