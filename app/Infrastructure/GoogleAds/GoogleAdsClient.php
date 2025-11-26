@@ -35,6 +35,25 @@ final readonly class GoogleAdsClient implements GoogleAdsClientInterface
     ) {}
 
     /**
+     * Verify connectivity and authentication with Google Ads API.
+     *
+     * Executes a minimal GAQL query (LIMIT 1) to validate OAuth credentials
+     * and API access without fetching significant data.
+     *
+     * @throws ExternalServiceUnavailableException When API unavailable or credentials invalid
+     */
+    public function verifyConnectivity(): void
+    {
+        $query = <<<'GAQL'
+            SELECT campaign.id
+            FROM campaign
+            LIMIT 1
+            GAQL;
+
+        $this->transport->search($query);
+    }
+
+    /**
      * Fetch daily campaign metrics for a specific date.
      *
      * @return list<CampaignMetrics>
