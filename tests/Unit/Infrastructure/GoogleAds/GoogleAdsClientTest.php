@@ -204,8 +204,8 @@ final class GoogleAdsClientTest extends TestCase
 
         $this->assertCount(1, $result);
         $this->assertInstanceOf(Campaign::class, $result[0]);
-        $this->assertSame(456, $result[0]->campaignId);
-        $this->assertSame('Active Campaign', $result[0]->campaignName);
+        $this->assertSame(456, $result[0]->id);
+        $this->assertSame('Active Campaign', $result[0]->name);
         $this->assertSame('ENABLED', $result[0]->status);
     }
 
@@ -221,9 +221,9 @@ final class GoogleAdsClientTest extends TestCase
         $result = $this->client->getCampaigns();
 
         $this->assertCount(3, $result);
-        $this->assertSame(111, $result[0]->campaignId);
-        $this->assertSame(222, $result[1]->campaignId);
-        $this->assertSame(333, $result[2]->campaignId);
+        $this->assertSame(111, $result[0]->id);
+        $this->assertSame(222, $result[1]->id);
+        $this->assertSame(333, $result[2]->id);
         $this->assertSame('ENABLED', $result[0]->status);
         $this->assertSame('PAUSED', $result[1]->status);
     }

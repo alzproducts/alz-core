@@ -88,8 +88,8 @@ final readonly class MixpanelClient implements MixpanelClientInterface
         $headers = ['utm_campaign', 'campaign_name', 'campaign_status'];
         $rows = \array_map(
             static fn(Campaign $campaign): array => [
-                (string) $campaign->campaignId,
-                $campaign->campaignName,
+                (string) $campaign->id,
+                $campaign->name,
                 $campaign->status,
             ],
             $campaigns,

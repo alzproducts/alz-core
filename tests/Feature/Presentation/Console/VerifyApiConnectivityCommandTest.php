@@ -165,9 +165,9 @@ final class VerifyApiConnectivityCommandTest extends TestCase
     public function it_verifies_googleads_with_multiple_campaigns(): void
     {
         $campaigns = [
-            new Campaign(campaignId: 1, campaignName: 'Campaign A', status: 'ENABLED'),
-            new Campaign(campaignId: 2, campaignName: 'Campaign B', status: 'ENABLED'),
-            new Campaign(campaignId: 3, campaignName: 'Campaign C', status: 'PAUSED'),
+            new Campaign(id: 1, name: 'Campaign A', status: 'ENABLED'),
+            new Campaign(id: 2, name: 'Campaign B', status: 'ENABLED'),
+            new Campaign(id: 3, name: 'Campaign C', status: 'PAUSED'),
         ];
 
         $this->googleAdsClient
