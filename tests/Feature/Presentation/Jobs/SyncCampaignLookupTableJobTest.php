@@ -68,8 +68,8 @@ final class SyncCampaignLookupTableJobTest extends TestCase
     public function it_passes_campaigns_to_use_case_for_synchronization(): void
     {
         $campaigns = [
-            new Campaign(campaignId: 111, campaignName: 'Campaign One', status: 'ENABLED'),
-            new Campaign(campaignId: 222, campaignName: 'Campaign Two', status: 'PAUSED'),
+            new Campaign(id: 111, name: 'Campaign One', status: 'ENABLED'),
+            new Campaign(id: 222, name: 'Campaign Two', status: 'PAUSED'),
         ];
 
         $this->googleAdsMock
@@ -491,8 +491,8 @@ final class SyncCampaignLookupTableJobTest extends TestCase
     private function setupSuccessfulSync(): void
     {
         $campaign = new Campaign(
-            campaignId: 123456789,
-            campaignName: '[01] Search - Branded',
+            id: 123456789,
+            name: '[01] Search - Branded',
             status: 'ENABLED',
         );
 
@@ -509,8 +509,8 @@ final class SyncCampaignLookupTableJobTest extends TestCase
     private function setupCampaignsForMixpanelError(Throwable $exception): void
     {
         $campaign = new Campaign(
-            campaignId: 123456789,
-            campaignName: '[01] Search - Branded',
+            id: 123456789,
+            name: '[01] Search - Branded',
             status: 'ENABLED',
         );
 

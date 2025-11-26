@@ -2,10 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Infrastructure\GoogleAds;
+namespace App\Infrastructure\GoogleAds\Transformers;
 
 use App\Domain\AdSpend\ValueObjects\Campaign;
 use App\Infrastructure\GoogleAds\Exceptions\InvalidGoogleAdsResponseException;
+use Google\Ads\GoogleAds\V22\Enums\CampaignStatusEnum\CampaignStatus;
 use Google\Ads\GoogleAds\V22\Services\GoogleAdsRow;
 
 /**
@@ -40,8 +41,8 @@ final class CampaignRowTransformer
 
         // Create domain value object with validated data
         return new Campaign(
-            campaignId: (int) $campaignId,
-            campaignName: $campaignName,
+            id: (int) $campaignId,
+            name: $campaignName,
             status: $statusString,
         );
     }
@@ -49,16 +50,19 @@ final class CampaignRowTransformer
     /**
      * Convert Google Ads CampaignStatus enum to domain status string.
      *
-     * Google Ads API returns campaign status as an enum value (0=UNSPECIFIED, 1=ENABLED, 2=PAUSED, 3=REMOVED).
-     * We map these to the string representations used in the domain layer.
+     * Google Ads API returns campaign status as protobuf enum values:
+     * UNSPECIFIED=0, UNKNOWN=1, ENABLED=2, PAUSED=3, REMOVED=4
+     *
+     * @see CampaignStatus
      */
     private static function getStatusString(int $enumValue): string
     {
         return match ($enumValue) {
-            0 => 'UNSPECIFIED',  // UNSPECIFIED = 0
-            1 => 'ENABLED',       // ENABLED = 1
-            2 => 'PAUSED',        // PAUSED = 2
-            3 => 'REMOVED',       // REMOVED = 3
+            0 => 'UNSPECIFIED',
+            1 => 'UNKNOWN',
+            2 => 'ENABLED',
+            3 => 'PAUSED',
+            4 => 'REMOVED',
             default => throw InvalidGoogleAdsResponseException::invalidValue(
                 'campaign.status',
                 "Unknown campaign status enum value: {$enumValue}",

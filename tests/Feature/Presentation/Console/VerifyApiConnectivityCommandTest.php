@@ -7,7 +7,6 @@ namespace Tests\Feature\Presentation\Console;
 use App\Application\Contracts\GoogleAdsClientInterface;
 use App\Application\Contracts\MixpanelClientInterface;
 use App\Application\Contracts\ReviewsIoClientInterface;
-use App\Domain\AdSpend\ValueObjects\Campaign;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Presentation\Console\Commands\VerifyApiConnectivityCommand;
 use Illuminate\Console\Command;
@@ -146,39 +145,16 @@ final class VerifyApiConnectivityCommandTest extends TestCase
     */
 
     #[Test]
-    public function it_verifies_googleads_with_zero_campaigns(): void
+    public function it_verifies_googleads_successfully(): void
     {
         $this->googleAdsClient
-            ->shouldReceive('getCampaigns')
-            ->once()
-            ->andReturn([]);
+            ->shouldReceive('verifyConnectivity')
+            ->once();
 
         $this->artisan('verify:api', ['client' => 'googleads'])
             ->expectsOutput('Verifying Google Ads...')
             ->expectsOutput('  Authentication: OK')
-            ->expectsOutput('  API Response: Valid (found 0 campaigns)')
-            ->expectsOutput('All API clients verified successfully')
-            ->assertExitCode(Command::SUCCESS);
-    }
-
-    #[Test]
-    public function it_verifies_googleads_with_multiple_campaigns(): void
-    {
-        $campaigns = [
-            new Campaign(campaignId: 1, campaignName: 'Campaign A', status: 'ENABLED'),
-            new Campaign(campaignId: 2, campaignName: 'Campaign B', status: 'ENABLED'),
-            new Campaign(campaignId: 3, campaignName: 'Campaign C', status: 'PAUSED'),
-        ];
-
-        $this->googleAdsClient
-            ->shouldReceive('getCampaigns')
-            ->once()
-            ->andReturn($campaigns);
-
-        $this->artisan('verify:api', ['client' => 'googleads'])
-            ->expectsOutput('Verifying Google Ads...')
-            ->expectsOutput('  Authentication: OK')
-            ->expectsOutput('  API Response: Valid (found 3 campaigns)')
+            ->expectsOutput('  API Response: Valid')
             ->expectsOutput('All API clients verified successfully')
             ->assertExitCode(Command::SUCCESS);
     }
@@ -187,7 +163,7 @@ final class VerifyApiConnectivityCommandTest extends TestCase
     public function it_reports_googleads_failure_with_exception_message(): void
     {
         $this->googleAdsClient
-            ->shouldReceive('getCampaigns')
+            ->shouldReceive('verifyConnectivity')
             ->once()
             ->andThrow(new ExternalServiceUnavailableException('Google Ads'));
 
@@ -217,9 +193,8 @@ final class VerifyApiConnectivityCommandTest extends TestCase
             ->once();
 
         $this->googleAdsClient
-            ->shouldReceive('getCampaigns')
-            ->once()
-            ->andReturn([]);
+            ->shouldReceive('verifyConnectivity')
+            ->once();
 
         $this->artisan('verify:api', ['client' => 'all'])
             ->expectsOutput('Verifying Reviews.io...')
@@ -242,9 +217,8 @@ final class VerifyApiConnectivityCommandTest extends TestCase
             ->andThrow(new ExternalServiceUnavailableException('Mixpanel'));
 
         $this->googleAdsClient
-            ->shouldReceive('getCampaigns')
-            ->once()
-            ->andReturn([]);
+            ->shouldReceive('verifyConnectivity')
+            ->once();
 
         $this->artisan('verify:api', ['client' => 'all'])
             ->expectsOutput('Some API clients failed: mixpanel')
@@ -264,7 +238,7 @@ final class VerifyApiConnectivityCommandTest extends TestCase
             ->once();
 
         $this->googleAdsClient
-            ->shouldReceive('getCampaigns')
+            ->shouldReceive('verifyConnectivity')
             ->once()
             ->andThrow(new ExternalServiceUnavailableException('Google Ads'));
 
@@ -287,7 +261,7 @@ final class VerifyApiConnectivityCommandTest extends TestCase
             ->andThrow(new ExternalServiceUnavailableException('Mixpanel'));
 
         $this->googleAdsClient
-            ->shouldReceive('getCampaigns')
+            ->shouldReceive('verifyConnectivity')
             ->once()
             ->andThrow(new ExternalServiceUnavailableException('Google Ads'));
 

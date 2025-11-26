@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\Infrastructure\AdSpend\GoogleAds;
 
 use App\Domain\AdSpend\ValueObjects\Campaign;
-use App\Infrastructure\GoogleAds\CampaignRowTransformer;
 use App\Infrastructure\GoogleAds\Exceptions\InvalidGoogleAdsResponseException;
+use App\Infrastructure\GoogleAds\Transformers\CampaignRowTransformer;
 use Google\Ads\GoogleAds\V22\Services\GoogleAdsRow;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -22,13 +22,13 @@ final class CampaignRowTransformerTest extends TestCase
         $row = $this->createMockRow(
             campaignId: 123456789,
             campaignName: '[01] Search - Branded',
-            status: 1,
+            status: 2, // SDK: ENABLED = 2
         );
 
         $campaign = CampaignRowTransformer::toCampaign($row);
 
-        $this->assertSame(123456789, $campaign->campaignId);
-        $this->assertSame('[01] Search - Branded', $campaign->campaignName);
+        $this->assertSame(123456789, $campaign->id);
+        $this->assertSame('[01] Search - Branded', $campaign->name);
         $this->assertSame('ENABLED', $campaign->status);
     }
 
@@ -38,13 +38,13 @@ final class CampaignRowTransformerTest extends TestCase
         $row = $this->createMockRow(
             campaignId: 987654321,
             campaignName: '[02] Performance Max',
-            status: 2,
+            status: 3, // SDK: PAUSED = 3
         );
 
         $campaign = CampaignRowTransformer::toCampaign($row);
 
-        $this->assertSame(987654321, $campaign->campaignId);
-        $this->assertSame('[02] Performance Max', $campaign->campaignName);
+        $this->assertSame(987654321, $campaign->id);
+        $this->assertSame('[02] Performance Max', $campaign->name);
         $this->assertSame('PAUSED', $campaign->status);
     }
 
@@ -54,13 +54,13 @@ final class CampaignRowTransformerTest extends TestCase
         $row = $this->createMockRow(
             campaignId: 555555555,
             campaignName: 'Old Campaign',
-            status: 3,
+            status: 4, // SDK: REMOVED = 4
         );
 
         $campaign = CampaignRowTransformer::toCampaign($row);
 
-        $this->assertSame(555555555, $campaign->campaignId);
-        $this->assertSame('Old Campaign', $campaign->campaignName);
+        $this->assertSame(555555555, $campaign->id);
+        $this->assertSame('Old Campaign', $campaign->name);
         $this->assertSame('REMOVED', $campaign->status);
     }
 
@@ -75,8 +75,8 @@ final class CampaignRowTransformerTest extends TestCase
 
         $campaign = CampaignRowTransformer::toCampaign($row);
 
-        $this->assertSame(111111111, $campaign->campaignId);
-        $this->assertSame('Unspecified Campaign', $campaign->campaignName);
+        $this->assertSame(111111111, $campaign->id);
+        $this->assertSame('Unspecified Campaign', $campaign->name);
         $this->assertSame('UNSPECIFIED', $campaign->status);
     }
 
@@ -97,11 +97,13 @@ final class CampaignRowTransformerTest extends TestCase
 
     public static function allValidStatusEnums(): array
     {
+        // SDK enum values: UNSPECIFIED=0, UNKNOWN=1, ENABLED=2, PAUSED=3, REMOVED=4
         return [
             'UNSPECIFIED (0)' => [0, 'UNSPECIFIED'],
-            'ENABLED (1)' => [1, 'ENABLED'],
-            'PAUSED (2)' => [2, 'PAUSED'],
-            'REMOVED (3)' => [3, 'REMOVED'],
+            'UNKNOWN (1)' => [1, 'UNKNOWN'],
+            'ENABLED (2)' => [2, 'ENABLED'],
+            'PAUSED (3)' => [3, 'PAUSED'],
+            'REMOVED (4)' => [4, 'REMOVED'],
         ];
     }
 
@@ -157,13 +159,13 @@ final class CampaignRowTransformerTest extends TestCase
         $row = $this->createMockRow(
             campaignId: '123456789',
             campaignName: 'Test Campaign',
-            status: 1,
+            status: 2, // SDK: ENABLED = 2
         );
 
         $campaign = CampaignRowTransformer::toCampaign($row);
 
-        $this->assertSame(123456789, $campaign->campaignId);
-        $this->assertIsInt($campaign->campaignId);
+        $this->assertSame(123456789, $campaign->id);
+        $this->assertIsInt($campaign->id);
     }
 
     #[Test]
@@ -173,12 +175,12 @@ final class CampaignRowTransformerTest extends TestCase
         $row = $this->createMockRow(
             campaignId: 123,
             campaignName: $campaignName,
-            status: 1,
+            status: 2, // SDK: ENABLED = 2
         );
 
         $campaign = CampaignRowTransformer::toCampaign($row);
 
-        $this->assertSame($campaignName, $campaign->campaignName);
+        $this->assertSame($campaignName, $campaign->name);
     }
 
     #[Test]
@@ -188,12 +190,12 @@ final class CampaignRowTransformerTest extends TestCase
         $row = $this->createMockRow(
             campaignId: $largeId,
             campaignName: 'Large ID Campaign',
-            status: 1,
+            status: 2, // SDK: ENABLED = 2
         );
 
         $campaign = CampaignRowTransformer::toCampaign($row);
 
-        $this->assertSame($largeId, $campaign->campaignId);
+        $this->assertSame($largeId, $campaign->id);
     }
 
     #[Test]
@@ -203,12 +205,12 @@ final class CampaignRowTransformerTest extends TestCase
         $row = $this->createMockRow(
             campaignId: 123,
             campaignName: $specialName,
-            status: 1,
+            status: 2, // SDK: ENABLED = 2
         );
 
         $campaign = CampaignRowTransformer::toCampaign($row);
 
-        $this->assertSame($specialName, $campaign->campaignName);
+        $this->assertSame($specialName, $campaign->name);
     }
 
     #[Test]
@@ -218,12 +220,12 @@ final class CampaignRowTransformerTest extends TestCase
         $row = $this->createMockRow(
             campaignId: 123,
             campaignName: $nameWithWhitespace,
-            status: 1,
+            status: 2, // SDK: ENABLED = 2
         );
 
         $campaign = CampaignRowTransformer::toCampaign($row);
 
-        $this->assertSame($nameWithWhitespace, $campaign->campaignName);
+        $this->assertSame($nameWithWhitespace, $campaign->name);
     }
 
     #[Test]
@@ -232,7 +234,7 @@ final class CampaignRowTransformerTest extends TestCase
         $row = $this->createMockRow(
             campaignId: 123,
             campaignName: 'Test',
-            status: 1,
+            status: 2, // SDK: ENABLED = 2
         );
 
         $campaign = CampaignRowTransformer::toCampaign($row);

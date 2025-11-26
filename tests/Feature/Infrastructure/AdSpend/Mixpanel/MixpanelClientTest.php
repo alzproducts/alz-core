@@ -771,8 +771,8 @@ final class MixpanelClientTest extends TestCase
         string $status = 'ENABLED',
     ): Campaign {
         return new Campaign(
-            campaignId: $campaignId,
-            campaignName: $campaignName,
+            id: $campaignId,
+            name: $campaignName,
             status: $status,
         );
     }
