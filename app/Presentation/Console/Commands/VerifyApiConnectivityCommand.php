@@ -114,10 +114,10 @@ final class VerifyApiConnectivityCommand extends Command
 
         try {
             $client = \app(GoogleAdsClientInterface::class);
-            $campaigns = $client->getCampaigns();
+            $client->verifyConnectivity();
 
             $this->line('  Authentication: OK');
-            $this->line('  API Response: Valid (found ' . \count($campaigns) . ' campaigns)');
+            $this->line('  API Response: Valid');
 
             return true;
         } catch (Throwable $e) {
