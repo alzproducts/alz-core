@@ -12,6 +12,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **When updating**: Add only what's essential. Remove outdated sections. Optimize for LLM parsing speed.
 
+## ⚠️ Important: User Approval Required
+
+**Discuss with user before proceeding** on:
+- Clean Architecture decisions (naming, layer placement, pattern choices)
+- Linting/PHPArkitect failures that aren't obvious syntax errors
+- Any architectural trade-offs or deviations from established patterns
+
+**Rationale**: These decisions shape the codebase long-term. User should make informed choices, not have them silently resolved.
+
 ## Tool Usage
 
 ### zen:challenge - Critical Thinking

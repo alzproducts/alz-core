@@ -7,6 +7,7 @@ namespace App\Infrastructure\Shopwired;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Infrastructure\Support\ApiRetryStrategy;
 use App\Infrastructure\Support\RetryAfterParser;
+use Closure;
 use Exception;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
@@ -44,15 +45,20 @@ final readonly class ShopwiredHttpTransport
      * @param string $endpoint API endpoint path (e.g., 'business')
      * @param array<string, mixed> $query Optional query parameters
      * @param bool $retry Whether to apply retry logic for transient failures
+     * @param RetryStrategy $strategy Retry configuration (only used when $retry is true)
      *
      * @return Response Successful HTTP response
      *
      * @throws ExternalServiceUnavailableException When API unavailable, rate limited, or connection fails
      */
-    public function get(string $endpoint, array $query = [], bool $retry = true): Response
-    {
+    public function get(
+        string $endpoint,
+        array $query = [],
+        bool $retry = true,
+        RetryStrategy $strategy = RetryStrategy::Background,
+    ): Response {
         try {
-            return $this->createBaseRequest($retry)
+            return $this->createBaseRequest($retry, $strategy)
                 ->get($endpoint, $query)
                 ->throw();
         } catch (RequestException $e) {
@@ -68,7 +74,7 @@ final readonly class ShopwiredHttpTransport
     /**
      * Create configured HTTP request with auth and optional retry logic.
      */
-    private function createBaseRequest(bool $retry): PendingRequest
+    private function createBaseRequest(bool $retry, RetryStrategy $strategy): PendingRequest
     {
         $request = Http::baseUrl($this->config->baseUrl)
             ->withBasicAuth(
@@ -79,13 +85,30 @@ final readonly class ShopwiredHttpTransport
 
         if ($retry) {
             $request = $request->retry(
-                times: $this->config->retryTimes,
-                sleepMilliseconds: $this->config->retryDelay,
+                times: $strategy->times(),
+                sleepMilliseconds: $this->buildSleepClosure($strategy),
                 when: ApiRetryStrategy::defaultRetry(),
             );
         }
 
         return $request;
+    }
+
+    /**
+     * Build sleep closure for retry delay calculation.
+     *
+     * @return Closure(int, Exception): int Sleep duration in milliseconds
+     */
+    private function buildSleepClosure(RetryStrategy $strategy): Closure
+    {
+        $baseMs = $strategy->baseDelayMs();
+
+        if (! $strategy->useExponentialBackoff()) {
+            return static fn(int $attempt, Exception $e): int => $baseMs;
+        }
+
+        // Exponential backoff: 500ms → 1s → 2s → 4s → 8s (capped at 16s)
+        return static fn(int $attempt, Exception $e): int => (int) \min($baseMs * (2 ** ($attempt - 1)), 16000);
     }
 
     /**
