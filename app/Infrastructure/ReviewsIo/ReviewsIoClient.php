@@ -90,12 +90,11 @@ final readonly class ReviewsIoClient implements ReviewsIoClientInterface
         /** @var array<int, Rating> $ratingsArray */
         $ratingsArray = $infraRatings->all();
 
-        return $this->mapToProductRatings($ratingsArray);
+        return self::mapToProductRatings($ratingsArray);
     }
 
     /**
      * Validate input data and wrap validation failures.
-     *
      * Executes Laravel validation and translates ValidationException
      * to InvalidArgumentException with consistent error formatting.
      *
@@ -104,9 +103,8 @@ final readonly class ReviewsIoClient implements ReviewsIoClientInterface
      * @param string $inputDescription Human-readable description for error messages
      *
      * @return array<string, mixed> Validated data
-     *
      * @throws InvalidArgumentException When validation fails
-     */
+     * @noinspection PhpSameParameterValueInspection*/
     private function validateInput(array $data, array $rules, string $inputDescription): array
     {
         try {
@@ -151,15 +149,13 @@ final readonly class ReviewsIoClient implements ReviewsIoClientInterface
 
     /**
      * Parse API response expecting an array of DTOs.
-     *
      * @template T of Data
      *
      * @param class-string<T> $dtoClass
      *
      * @return DataCollection<int, T>
-     *
      * @throws InvalidApiResponseException When response structure is invalid
-     */
+     * @noinspection PhpSameParameterValueInspection*/
     private function parseArrayResponse(mixed $data, string $dtoClass): DataCollection
     {
         if (!\is_array($data)) {
@@ -173,7 +169,7 @@ final readonly class ReviewsIoClient implements ReviewsIoClientInterface
 
         try {
             return $dtoClass::collect($data, DataCollection::class);
-        } catch (CannotCreateData $e) {
+        } /** @noinspection PhpRedundantCatchClauseInspection */ catch (CannotCreateData $e) {
             self::logParsingFailure($e->getMessage(), $data);
 
             throw new InvalidApiResponseException(
@@ -206,7 +202,7 @@ final readonly class ReviewsIoClient implements ReviewsIoClientInterface
      *
      * @return list<ProductRating> Valid domain value objects
      */
-    private function mapToProductRatings(array $ratings): array
+    private static function mapToProductRatings(array $ratings): array
     {
         return \array_values(\array_filter(
             \array_map(

@@ -15,7 +15,7 @@ final class HorizonBasicAuthMiddleware
     {
         // Skip auth in local environment only if credentials aren't configured
         // This allows local dev without credentials while enforcing auth in tests/production
-        if (! (\app()->environment('local') && $this->credentialsNotConfigured())) {
+        if (! (\app()->environment('local') && self::credentialsNotConfigured())) {
             $this->validateCredentials($request);
         }
 
@@ -28,19 +28,19 @@ final class HorizonBasicAuthMiddleware
         return $response;
     }
 
-    private function credentialsNotConfigured(): bool
+    private static function credentialsNotConfigured(): bool
     {
         $username = \config('horizon.auth.username');
         $password = \config('horizon.auth.password');
 
-        return (! \is_string($username) || $username === '')
-            && (! \is_string($password) || $password === '');
+        return (! \is_string($username) || ($username === ''))
+            && (! \is_string($password) || ($password === ''));
     }
 
     private function validateCredentials(Request $request): void
     {
-        $username = $this->getConfigValue('username');
-        $password = $this->getConfigValue('password');
+        $username = self::getConfigValue('username');
+        $password = self::getConfigValue('password');
 
         if (! $this->credentialsMatch($username, $password, $request)) {
             \abort(401, 'Unauthorized', [
@@ -49,7 +49,7 @@ final class HorizonBasicAuthMiddleware
         }
     }
 
-    private function getConfigValue(string $key): string
+    private static function getConfigValue(string $key): string
     {
         $value = \config("horizon.auth.{$key}");
 

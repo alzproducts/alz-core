@@ -24,7 +24,7 @@ final class ValidateSupabaseJwtMiddleware
     {
         $token = $request->bearerToken();
 
-        if ($token === null || $token === '') {
+        if (($token === null) || ($token === '')) {
             Log::channel('security')->warning('Missing authorization token', [
                 'event' => 'api.auth.missing_token',
                 'ip' => $request->ip(),
@@ -38,7 +38,7 @@ final class ValidateSupabaseJwtMiddleware
         try {
             $secret = \config('services.supabase.jwt_secret');
 
-            if (!\is_string($secret) || $secret === '') {
+            if (!\is_string($secret) || ($secret === '')) {
                 throw new RuntimeException('SUPABASE_JWT_SECRET not configured');
             }
 
@@ -49,7 +49,7 @@ final class ValidateSupabaseJwtMiddleware
             $userId = $decoded->sub ?? null;
             $userEmail = $decoded->email ?? null;
 
-            if ($userId === null || $userId === '') {
+            if (($userId === null) || ($userId === '')) {
                 throw new RuntimeException('JWT token missing required "sub" claim');
             }
 
