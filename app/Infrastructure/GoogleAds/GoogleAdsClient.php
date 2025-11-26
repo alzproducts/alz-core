@@ -10,6 +10,8 @@ use App\Domain\AdSpend\ValueObjects\CampaignMetrics;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\InvalidApiRequestException;
 use App\Infrastructure\GoogleAds\Exceptions\InvalidGoogleAdsResponseException;
+use App\Infrastructure\GoogleAds\Transformers\CampaignRowTransformer;
+use App\Infrastructure\GoogleAds\Transformers\GoogleAdsRowTransformer;
 use Google\Ads\GoogleAds\V22\Services\GoogleAdsRow;
 
 /**

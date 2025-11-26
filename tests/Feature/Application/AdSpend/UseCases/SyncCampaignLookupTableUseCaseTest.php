@@ -67,8 +67,8 @@ final class SyncCampaignLookupTableUseCaseTest extends TestCase
             ->withArgs(static function (array $campaigns): bool {
                 self::assertCount(1, $campaigns);
                 self::assertInstanceOf(Campaign::class, $campaigns[0]);
-                self::assertSame(123456789, $campaigns[0]->campaignId);
-                self::assertSame('[01] Search - Branded', $campaigns[0]->campaignName);
+                self::assertSame(123456789, $campaigns[0]->id);
+                self::assertSame('[01] Search - Branded', $campaigns[0]->name);
                 self::assertSame('ENABLED', $campaigns[0]->status);
 
                 return true;
@@ -113,11 +113,11 @@ final class SyncCampaignLookupTableUseCaseTest extends TestCase
             ->once()
             ->withArgs(static function (array $receivedCampaigns): bool {
                 self::assertCount(5, $receivedCampaigns);
-                self::assertSame(111, $receivedCampaigns[0]->campaignId);
-                self::assertSame(222, $receivedCampaigns[1]->campaignId);
-                self::assertSame(333, $receivedCampaigns[2]->campaignId);
-                self::assertSame(444, $receivedCampaigns[3]->campaignId);
-                self::assertSame(555, $receivedCampaigns[4]->campaignId);
+                self::assertSame(111, $receivedCampaigns[0]->id);
+                self::assertSame(222, $receivedCampaigns[1]->id);
+                self::assertSame(333, $receivedCampaigns[2]->id);
+                self::assertSame(444, $receivedCampaigns[3]->id);
+                self::assertSame(555, $receivedCampaigns[4]->id);
 
                 return true;
             });
@@ -149,9 +149,9 @@ final class SyncCampaignLookupTableUseCaseTest extends TestCase
             ->once()
             ->withArgs(static function (array $receivedCampaigns): bool {
                 // Verify order is preserved (not alphabetically sorted)
-                self::assertSame(999, $receivedCampaigns[0]->campaignId);
-                self::assertSame(111, $receivedCampaigns[1]->campaignId);
-                self::assertSame(555, $receivedCampaigns[2]->campaignId);
+                self::assertSame(999, $receivedCampaigns[0]->id);
+                self::assertSame(111, $receivedCampaigns[1]->id);
+                self::assertSame(555, $receivedCampaigns[2]->id);
 
                 return true;
             });
@@ -379,8 +379,8 @@ final class SyncCampaignLookupTableUseCaseTest extends TestCase
             ->shouldReceive('replaceCampaignLookupTable')
             ->once()
             ->withArgs(static function (array $campaigns): bool {
-                self::assertSame(987654321, $campaigns[0]->campaignId);
-                self::assertSame('[02] Performance Max', $campaigns[0]->campaignName);
+                self::assertSame(987654321, $campaigns[0]->id);
+                self::assertSame('[02] Performance Max', $campaigns[0]->name);
                 self::assertSame('PAUSED', $campaigns[0]->status);
 
                 return true;
@@ -408,7 +408,7 @@ final class SyncCampaignLookupTableUseCaseTest extends TestCase
             ->shouldReceive('replaceCampaignLookupTable')
             ->once()
             ->withArgs(static function (array $campaigns) use ($specialName): bool {
-                self::assertSame($specialName, $campaigns[0]->campaignName);
+                self::assertSame($specialName, $campaigns[0]->name);
 
                 return true;
             });
