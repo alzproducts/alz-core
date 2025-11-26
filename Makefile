@@ -1,4 +1,4 @@
-.PHONY: help install up down shell migrate fresh pint pint-test test test-coverage pest-mutate test-ai test-mutate lint lint-full fix analyse insights phparkitect deptrac stan rector rector-dry-run refactor check check-full infection infection-fast infection-strict infection-incremental infection-ci ide-helper
+.PHONY: help install up down shell migrate fresh pint pint-test test test-coverage pest-mutate test-ai test-mutate lint lint-sequential lint-full fix analyse insights phparkitect deptrac stan rector rector-dry-run refactor check check-full infection infection-fast infection-strict infection-incremental infection-ci ide-helper
 
 # Enable strict shell mode for robust error handling
 SHELL := bash
@@ -141,7 +141,23 @@ pint-test: ## Test code style (dry-run)
 	@echo "$(MODE)"
 	$(EXEC) vendor/bin/pint --test --parallel
 
-lint: ## Run quick lint (Pint + PHPStan + PHPArkitect + Deptrac)
+lint: ## Run parallel lint (Pint + PHPStan + PHPArkitect + Deptrac)
+	@echo "$(MODE)"
+	@rm -rf /tmp/alz-lint && mkdir -p /tmp/alz-lint
+	@$(EXEC) vendor/bin/pint --test --parallel > /tmp/alz-lint/1-pint.txt 2>&1 & P1=$$!; \
+	 $(EXEC) -d xdebug.mode=off vendor/bin/phpstan analyse > /tmp/alz-lint/2-phpstan.txt 2>&1 & P2=$$!; \
+	 $(EXEC) -d xdebug.mode=off vendor/bin/phparkitect check > /tmp/alz-lint/3-phparkitect.txt 2>&1 & P3=$$!; \
+	 $(EXEC) -d xdebug.mode=off vendor/bin/deptrac analyse > /tmp/alz-lint/4-deptrac.txt 2>&1 & P4=$$!; \
+	 E1=0; E2=0; E3=0; E4=0; \
+	 wait $$P1 || E1=$$?; wait $$P2 || E2=$$?; wait $$P3 || E3=$$?; wait $$P4 || E4=$$?; \
+	 echo "=== Pint ===" && cat /tmp/alz-lint/1-pint.txt; \
+	 echo "=== PHPStan ===" && cat /tmp/alz-lint/2-phpstan.txt; \
+	 echo "=== PHPArkitect ===" && cat /tmp/alz-lint/3-phparkitect.txt; \
+	 echo "=== Deptrac ===" && cat /tmp/alz-lint/4-deptrac.txt; \
+	 rm -rf /tmp/alz-lint; \
+	 [ $$E1 -eq 0 ] && [ $$E2 -eq 0 ] && [ $$E3 -eq 0 ] && [ $$E4 -eq 0 ]
+
+lint-sequential: ## Run sequential lint (Pint + PHPStan + PHPArkitect + Deptrac)
 	@echo "$(MODE)"
 	@$(MAKE) pint-test
 	@$(MAKE) analyse
