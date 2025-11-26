@@ -26,8 +26,8 @@ final class MixpanelAdSpendEventDTOTest extends TestCase
             'insertId' => 'unique-id-12345',
             'timestamp' => 1672531200, // 2023-01-01 00:00:00 UTC
             'source' => 'google_ads',
-            'id' => 101,
-            'name' => 'Winter Sale',
+            'campaignId' => 101,
+            'campaignName' => 'Winter Sale',
             'cost' => 199.99,
             'clicks' => 500,
             'impressions' => 25000,
@@ -51,8 +51,8 @@ final class MixpanelAdSpendEventDTOTest extends TestCase
         self::assertSame($data['insertId'], $event->insertId);
         self::assertSame($data['timestamp'], $event->timestamp);
         self::assertSame($data['source'], $event->source);
-        self::assertSame($data['id'], $event->campaignId);
-        self::assertSame($data['name'], $event->campaignName);
+        self::assertSame($data['campaignId'], $event->campaignId);
+        self::assertSame($data['campaignName'], $event->campaignName);
         self::assertSame($data['cost'], $event->cost);
         self::assertSame($data['clicks'], $event->clicks);
         self::assertSame($data['impressions'], $event->impressions);
