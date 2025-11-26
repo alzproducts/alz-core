@@ -42,6 +42,8 @@ final readonly class ReviewsIoClient implements ReviewsIoClientInterface
 
     private const string ENDPOINT_RATING_BATCH = 'product/rating-batch';
 
+    private const string HEALTH_CHECK_SKU = 'VERIFY-CONNECTIVITY-HEALTH-CHECK';
+
     public function __construct(
         private ReviewsIoHttpTransport $transport,
     ) {}
@@ -57,7 +59,7 @@ final readonly class ReviewsIoClient implements ReviewsIoClientInterface
     {
         // Use batch endpoint with a dummy SKU - returns empty array but validates auth
         $this->transport->get(self::ENDPOINT_RATING_BATCH, [
-            'sku' => 'VERIFY-CONNECTIVITY-HEALTH-CHECK',
+            'sku' => self::HEALTH_CHECK_SKU,
         ]);
     }
 
@@ -88,10 +90,7 @@ final readonly class ReviewsIoClient implements ReviewsIoClientInterface
         /** @var array<int, Rating> $ratingsArray */
         $ratingsArray = $infraRatings->all();
 
-        return \array_values(\array_map(
-            static fn(Rating $r) => $r->toProductRating(),
-            $ratingsArray,
-        ));
+        return $this->mapToProductRatings($ratingsArray);
     }
 
     /**
@@ -194,5 +193,38 @@ final readonly class ReviewsIoClient implements ReviewsIoClientInterface
             'error' => $error,
             'raw_response' => $data,
         ]);
+    }
+
+    /**
+     * Map infrastructure ratings to domain value objects, skipping invalid entries.
+     *
+     * Invalid ratings (those violating domain business rules) are logged and skipped
+     * rather than failing the entire batch. This provides resilience against
+     * unexpected API data while maintaining visibility into data quality issues.
+     *
+     * @param array<int, Rating> $ratings Infrastructure DTOs from API response
+     *
+     * @return list<ProductRating> Valid domain value objects
+     */
+    private function mapToProductRatings(array $ratings): array
+    {
+        return \array_values(\array_filter(
+            \array_map(
+                static function (Rating $rating): ?ProductRating {
+                    try {
+                        return $rating->toProductRating();
+                    } catch (InvalidArgumentException) {
+                        Log::warning(self::SERVICE_NAME . ' API returned invalid rating, skipping', [
+                            'sku' => $rating->sku,
+                            'average_rating' => $rating->averageRating,
+                            'num_ratings' => $rating->numRatings,
+                        ]);
+
+                        return null;
+                    }
+                },
+                $ratings,
+            ),
+        ));
     }
 }
