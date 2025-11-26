@@ -125,7 +125,7 @@ final readonly class GoogleAdsClient implements GoogleAdsClientInterface
                 $metadata = $e->getMetadata();
                 $retryAfterValue = $metadata['retry-after'] ?? null;
                 $retryAfter = RetryAfterParser::parse(
-                    \is_int($retryAfterValue) || \is_string($retryAfterValue) ? $retryAfterValue : null,
+                    (\is_int($retryAfterValue) || \is_string($retryAfterValue)) ? $retryAfterValue : null,
                 );
                 Log::warning('Google Ads rate limited', [
                     'retry_after' => $retryAfter,
