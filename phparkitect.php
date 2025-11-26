@@ -309,6 +309,7 @@ return static function (Config $config): void {
     $rules[] = Rule::allClasses()
                    ->that(new ResideInOneOfTheseNamespaces($application))
                    ->andThat(new NotHaveNameMatching('CacheTimesTrait'))
+                   ->andThat(new NotHaveNameMatching('GracefulCache'))
                    ->should(
                        new MatchOneOfTheseNames(['*UseCase', '*Service', '*Transformer', '*Formatter', '*Interface', '*DTO', '*Exception']),
                    )
