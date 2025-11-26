@@ -6,8 +6,6 @@ namespace App\Infrastructure\Shopwired;
 
 use App\Application\Contracts\ShopwiredClientInterface;
 use App\Domain\Exceptions\InvalidApiResponseException;
-use App\Domain\Order\ValueObjects\PaymentMethod;
-use App\Infrastructure\Shopwired\Responses\PaymentMethod as PaymentMethodDto;
 use Illuminate\Support\Facades\Log;
 use Spatie\LaravelData\Data;
 use Spatie\LaravelData\DataCollection;
@@ -38,8 +36,6 @@ final readonly class ShopwiredClient implements ShopwiredClientInterface
 
     private const string ENDPOINT_BUSINESS = 'business';
 
-    private const string ENDPOINT_PAYMENT_METHODS = 'payment-methods';
-
     public function __construct(
         private ShopwiredHttpTransport $transport,
     ) {}
@@ -57,32 +53,17 @@ final readonly class ShopwiredClient implements ShopwiredClientInterface
     }
 
     /**
-     * List available payment methods.
-     *
-     * @return list<PaymentMethod>
-     */
-    public function listPaymentMethods(): array
-    {
-        $response = $this->transport->get(self::ENDPOINT_PAYMENT_METHODS);
-
-        $dtos = $this->parseArrayResponse($response->json(), PaymentMethodDto::class);
-
-        /** @var array<int, PaymentMethodDto> $dtosArray */
-        $dtosArray = $dtos->all();
-
-        return self::mapToDomainPaymentMethods($dtosArray);
-    }
-
-    /**
      * Parse API response expecting an array of DTOs.
+     *
      * @template T of Data
      *
      * @param class-string<T> $dtoClass
      *
      * @return DataCollection<int, T>
+     *
      * @throws InvalidApiResponseException When response structure is invalid
-     * @noinspection PhpSameParameterValueInspection*/
-    private function parseArrayResponse(mixed $data, string $dtoClass): DataCollection
+     */
+    protected function parseArrayResponse(mixed $data, string $dtoClass): DataCollection
     {
         if (! \is_array($data)) {
             self::logParsingFailure('Expected array response', $data);
@@ -95,7 +76,7 @@ final readonly class ShopwiredClient implements ShopwiredClientInterface
 
         try {
             return $dtoClass::collect($data, DataCollection::class);
-        } /** @noinspection PhpRedundantCatchClauseInspection */ catch (CannotCreateData $e) {
+        } catch (CannotCreateData $e) {
             self::logParsingFailure($e->getMessage(), $data);
 
             throw new InvalidApiResponseException(
@@ -115,20 +96,5 @@ final readonly class ShopwiredClient implements ShopwiredClientInterface
             'error' => $error,
             'raw_response' => $data,
         ]);
-    }
-
-    /**
-     * Map infrastructure DTOs to domain value objects.
-     *
-     * @param array<int, PaymentMethodDto> $dtos
-     *
-     * @return list<PaymentMethod>
-     */
-    private static function mapToDomainPaymentMethods(array $dtos): array
-    {
-        return \array_values(\array_map(
-            static fn(PaymentMethodDto $dto): PaymentMethod => $dto->toDomainPaymentMethod(),
-            $dtos,
-        ));
     }
 }
