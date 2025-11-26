@@ -7,6 +7,7 @@ namespace App\Application\Contracts;
 use App\Domain\AdSpend\ValueObjects\Campaign;
 use App\Domain\AdSpend\ValueObjects\CampaignMetrics;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\PayloadSerializationException;
 
 interface MixpanelClientInterface
 {
@@ -28,7 +29,8 @@ interface MixpanelClientInterface
      *
      * @param array<int, CampaignMetrics> $campaigns
      *
-     * @throws ExternalServiceUnavailableException
+     * @throws ExternalServiceUnavailableException When API unavailable or request fails
+     * @throws PayloadSerializationException When payload cannot be encoded (data integrity issue)
      */
     public function importCampaigns(array $campaigns): void;
 
