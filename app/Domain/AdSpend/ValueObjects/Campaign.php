@@ -9,19 +9,19 @@ use Webmozart\Assert\Assert;
 final readonly class Campaign
 {
     /**
-     * Campaign metadata from Google Ads.
+     * Ad campaign metadata.
      *
-     * @param int $campaignId Google Ads campaign ID
-     * @param string $campaignName Human-readable campaign name
+     * @param int    $id     Campaign ID
+     * @param string $name   Human-readable campaign name
      * @param string $status Campaign status (ENABLED, PAUSED, REMOVED)
      */
     public function __construct(
-        public int $campaignId,
-        public string $campaignName,
+        public int $id,
+        public string $name,
         public string $status,
     ) {
-        Assert::greaterThan($campaignId, 0, 'Campaign ID must be positive');
-        Assert::notEmpty($campaignName, 'Campaign name cannot be empty');
+        Assert::greaterThan($id, 0, 'Campaign ID must be positive');
+        Assert::notEmpty($name, 'Campaign name cannot be empty');
         Assert::inArray($status, ['UNSPECIFIED', 'ENABLED', 'PAUSED', 'REMOVED'], 'Campaign status must be UNSPECIFIED, ENABLED, PAUSED, or REMOVED');
     }
 }

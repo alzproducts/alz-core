@@ -186,11 +186,11 @@ class OrderService
 class CampaignMetrics
 {
     public function __construct(
-        public readonly int $campaignId,
+        public readonly int $id,
         public readonly float $costInDollars,
     ) {
         // Assertions: Developer passed invalid data
-        Assert::greaterThan($campaignId, 0);
+        Assert::greaterThan($id, 0);
         Assert::greaterThanEq($costInDollars, 0);
     }
 }

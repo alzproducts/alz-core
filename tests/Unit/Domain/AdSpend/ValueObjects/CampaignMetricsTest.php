@@ -19,8 +19,8 @@ final class CampaignMetricsTest extends TestCase
     {
         // Arrange
         $data = [
-            'campaignId' => 123,
-            'campaignName' => 'Test Campaign',
+            'id' => 123,
+            'name' => 'Test Campaign',
             'date' => '2023-10-26',
             'costInPounds' => 50.75,
             'clicks' => 100,
@@ -32,8 +32,8 @@ final class CampaignMetricsTest extends TestCase
         $metrics = new CampaignMetrics(...$data);
 
         // Assert
-        self::assertSame($data['campaignId'], $metrics->campaignId);
-        self::assertSame($data['campaignName'], $metrics->campaignName);
+        self::assertSame($data['id'], $metrics->campaignId);
+        self::assertSame($data['name'], $metrics->campaignName);
         self::assertSame($data['date'], $metrics->date);
         self::assertSame($data['costInPounds'], $metrics->costInPounds);
         self::assertSame($data['clicks'], $metrics->clicks);
@@ -75,8 +75,8 @@ final class CampaignMetricsTest extends TestCase
 
         // Arrange: merge invalid data with valid defaults
         $data = \array_merge([
-            'campaignId' => 123,
-            'campaignName' => 'Valid Campaign',
+            'id' => 123,
+            'name' => 'Valid Campaign',
             'date' => '2023-10-26',
             'costInPounds' => 10.0,
             'clicks' => 100,
@@ -94,9 +94,9 @@ final class CampaignMetricsTest extends TestCase
     public static function invalidConstructorArgumentsProvider(): array
     {
         return [
-            'campaignId is zero' => [['campaignId' => 0], 'Campaign ID must be positive'],
-            'campaignId is negative' => [['campaignId' => -1], 'Campaign ID must be positive'],
-            'campaignName is empty' => [['campaignName' => ''], 'Campaign name cannot be empty'],
+            'id is zero' => [['id' => 0], 'Campaign ID must be positive'],
+            'id is negative' => [['id' => -1], 'Campaign ID must be positive'],
+            'name is empty' => [['name' => ''], 'Campaign name cannot be empty'],
             'date is invalid format' => [['date' => '26-10-2023'], 'Date must be YYYY-MM-DD format'],
             'date is not a date string' => [['date' => 'not-a-date'], 'Date must be YYYY-MM-DD format'],
             'costInPounds is negative' => [['costInPounds' => -0.01], 'Cost cannot be negative'],

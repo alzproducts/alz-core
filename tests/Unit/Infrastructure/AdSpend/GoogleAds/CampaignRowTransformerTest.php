@@ -27,8 +27,8 @@ final class CampaignRowTransformerTest extends TestCase
 
         $campaign = CampaignRowTransformer::toCampaign($row);
 
-        $this->assertSame(123456789, $campaign->campaignId);
-        $this->assertSame('[01] Search - Branded', $campaign->campaignName);
+        $this->assertSame(123456789, $campaign->id);
+        $this->assertSame('[01] Search - Branded', $campaign->name);
         $this->assertSame('ENABLED', $campaign->status);
     }
 
@@ -43,8 +43,8 @@ final class CampaignRowTransformerTest extends TestCase
 
         $campaign = CampaignRowTransformer::toCampaign($row);
 
-        $this->assertSame(987654321, $campaign->campaignId);
-        $this->assertSame('[02] Performance Max', $campaign->campaignName);
+        $this->assertSame(987654321, $campaign->id);
+        $this->assertSame('[02] Performance Max', $campaign->name);
         $this->assertSame('PAUSED', $campaign->status);
     }
 
@@ -59,8 +59,8 @@ final class CampaignRowTransformerTest extends TestCase
 
         $campaign = CampaignRowTransformer::toCampaign($row);
 
-        $this->assertSame(555555555, $campaign->campaignId);
-        $this->assertSame('Old Campaign', $campaign->campaignName);
+        $this->assertSame(555555555, $campaign->id);
+        $this->assertSame('Old Campaign', $campaign->name);
         $this->assertSame('REMOVED', $campaign->status);
     }
 
@@ -75,8 +75,8 @@ final class CampaignRowTransformerTest extends TestCase
 
         $campaign = CampaignRowTransformer::toCampaign($row);
 
-        $this->assertSame(111111111, $campaign->campaignId);
-        $this->assertSame('Unspecified Campaign', $campaign->campaignName);
+        $this->assertSame(111111111, $campaign->id);
+        $this->assertSame('Unspecified Campaign', $campaign->name);
         $this->assertSame('UNSPECIFIED', $campaign->status);
     }
 
@@ -163,8 +163,8 @@ final class CampaignRowTransformerTest extends TestCase
 
         $campaign = CampaignRowTransformer::toCampaign($row);
 
-        $this->assertSame(123456789, $campaign->campaignId);
-        $this->assertIsInt($campaign->campaignId);
+        $this->assertSame(123456789, $campaign->id);
+        $this->assertIsInt($campaign->id);
     }
 
     #[Test]
@@ -179,7 +179,7 @@ final class CampaignRowTransformerTest extends TestCase
 
         $campaign = CampaignRowTransformer::toCampaign($row);
 
-        $this->assertSame($campaignName, $campaign->campaignName);
+        $this->assertSame($campaignName, $campaign->name);
     }
 
     #[Test]
@@ -194,7 +194,7 @@ final class CampaignRowTransformerTest extends TestCase
 
         $campaign = CampaignRowTransformer::toCampaign($row);
 
-        $this->assertSame($largeId, $campaign->campaignId);
+        $this->assertSame($largeId, $campaign->id);
     }
 
     #[Test]
@@ -209,7 +209,7 @@ final class CampaignRowTransformerTest extends TestCase
 
         $campaign = CampaignRowTransformer::toCampaign($row);
 
-        $this->assertSame($specialName, $campaign->campaignName);
+        $this->assertSame($specialName, $campaign->name);
     }
 
     #[Test]
@@ -224,7 +224,7 @@ final class CampaignRowTransformerTest extends TestCase
 
         $campaign = CampaignRowTransformer::toCampaign($row);
 
-        $this->assertSame($nameWithWhitespace, $campaign->campaignName);
+        $this->assertSame($nameWithWhitespace, $campaign->name);
     }
 
     #[Test]

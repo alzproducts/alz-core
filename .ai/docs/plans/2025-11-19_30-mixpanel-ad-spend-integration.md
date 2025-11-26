@@ -263,8 +263,8 @@ Google Ads API                    Mixpanel Lookup Tables API
      ▼                                      │
 ┌──────────────────────┐                    │
 │ Campaign             │                    │
-│ - campaignId         │ ──────────────────►│ PUT /lookup-tables/{id}
-│ - campaignName       │    (CSV format)    │ Content-Type: text/csv
+│ - id         │ ──────────────────►│ PUT /lookup-tables/{id}
+│ - name       │    (CSV format)    │ Content-Type: text/csv
 │ - status             │                    │
 └──────────────────────┘                    ▼
                                    ┌─────────────────────────┐
@@ -327,7 +327,7 @@ The following infrastructure from Phases 1 & 2 will be **extended** (not recreat
 #### Implementation Steps
 
 - [ ] **Step 1: Domain Layer** (~1h)
-  - Create `Campaign` value object with `campaignId`, `campaignName`, `status` (similar to existing `CampaignMetrics`)
+  - Create `Campaign` value object with `id`, `name`, `status` (similar to existing `CampaignMetrics`)
   - Create `MixpanelLookupTableClientInterface` with `replaceLookupTable()` method
   - **Modify** existing `GoogleAdsClientInterface` — add `getCampaigns(): array<Campaign>` method
   - Write unit tests for Campaign VO (follow existing `CampaignMetricsTest` patterns)
@@ -553,7 +553,7 @@ The Google Ads API is **loosely-typed** with protobuf-generated classes where al
 ```php
 $campaign = $row->getCampaign();  // Can be null
 $metrics = $row->getMetrics();    // Can be null
-$campaignId = $campaign?->getId(); // Still can be null
+$id = $campaign?->getId(); // Still can be null
 ```
 
 If we put validation in Domain layer, we either:
@@ -674,16 +674,16 @@ use Webmozart\Assert\Assert;
 final readonly class CampaignMetrics
 {
     public function __construct(
-        public int $campaignId,
-        public string $campaignName,
+        public int $id,
+        public string $name,
         public string $date,
         public float $costInpounds,
         public int $clicks,
         public int $impressions,
         public float $conversions,
     ) {
-        Assert::greaterThan($campaignId, 0, 'Campaign ID must be positive');
-        Assert::notEmpty($campaignName, 'Campaign name cannot be empty');
+        Assert::greaterThan($id, 0, 'Campaign ID must be positive');
+        Assert::notEmpty($name, 'Campaign name cannot be empty');
         Assert::regex($date, '/^\d{4}-\d{2}-\d{2}$/', 'Date must be YYYY-MM-DD format');
         Assert::greaterThanEq($costInpounds, 0, 'Cost cannot be negative');
         Assert::greaterThanEq($clicks, 0, 'Clicks cannot be negative');
@@ -719,8 +719,8 @@ final readonly class AdSpendEvent
         public string $insertId,
         public int $timestamp,
         public string $source,
-        public int $campaignId,
-        public string $campaignName,
+        public int $id,
+        public string $name,
         public float $cost,
         public int $clicks,
         public int $impressions,
@@ -749,8 +749,8 @@ final readonly class AdSpendEvent
                 'distinct_id' => '',
                 '$insert_id' => $this->insertId,
                 'source' => $this->source,
-                'campaign_id' => $this->campaignId,
-                'campaign_name' => $this->campaignName,
+                'campaign_id' => $this->id,
+                'campaign_name' => $this->name,
                 'cost' => $this->cost,
                 'clicks' => $this->clicks,
                 'impressions' => $this->impressions,
@@ -939,13 +939,13 @@ final class GoogleAdsRowMapper
         }
 
         // Validate required fields
-        $campaignId = $campaign->getId();
-        if ($campaignId === null) {
+        $id = $campaign->getId();
+        if ($id === null) {
             throw InvalidGoogleAdsResponseException::missingField('id', 'campaign.id');
         }
 
-        $campaignName = $campaign->getName();
-        if ($campaignName === null) {
+        $name = $campaign->getName();
+        if ($name === null) {
             throw InvalidGoogleAdsResponseException::missingField('name', 'campaign.name');
         }
 
@@ -976,8 +976,8 @@ final class GoogleAdsRowMapper
 
         // Create domain value object with validated data
         return new CampaignMetrics(
-            campaignId: (int) $campaignId,
-            campaignName: $campaignName,
+            id: (int) $id,
+            name: $name,
             date: $date,
             costInpounds: $costMicros / 1_000_000,
             clicks: (int) $clicks,
@@ -1315,21 +1315,21 @@ final class AdSpendTransformer
             insertId: $this->generateInsertId($campaign),
             timestamp: strtotime($campaign->date),
             source: 'Google',
-            campaignId: $campaign->campaignId,
-            campaignName: $campaign->campaignName,
+            id: $campaign->id,
+            name: $campaign->name,
             cost: $campaign->costInpounds,
             clicks: $campaign->clicks,
             impressions: $campaign->impressions,
             conversions: $campaign->conversions,
             utmSource: 'google',
             utmMedium: 'cpc',
-            utmCampaign: $this->sanitizeCampaignName($campaign->campaignName),
+            utmCampaign: $this->sanitizeCampaignName($campaign->name),
         );
     }
 
     private function generateInsertId(CampaignMetrics $campaign): string
     {
-        $raw = "G-{$campaign->date}-{$campaign->campaignId}";
+        $raw = "G-{$campaign->date}-{$campaign->id}";
 
         // If too long, hash it
         if (strlen($raw) > 36) {
@@ -1745,8 +1745,8 @@ final class CampaignMetricsTest extends TestCase
     public function it_creates_valid_campaign_metrics(): void
     {
         $metrics = new CampaignMetrics(
-            campaignId: 123456,
-            campaignName: 'Test Campaign',
+            id: 123456,
+            name: 'Test Campaign',
             date: '2024-11-18',
             costInpounds: 125.43,
             clicks: 342,
@@ -1754,7 +1754,7 @@ final class CampaignMetricsTest extends TestCase
             conversions: 12.5,
         );
 
-        $this->assertSame(123456, $metrics->campaignId);
+        $this->assertSame(123456, $metrics->id);
         $this->assertSame(125.43, $metrics->costInpounds);
     }
 
@@ -1764,8 +1764,8 @@ final class CampaignMetricsTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
 
         new CampaignMetrics(
-            campaignId: -1,
-            campaignName: 'Test',
+            id: -1,
+            name: 'Test',
             date: '2024-11-18',
             costInpounds: 0,
             clicks: 0,
@@ -1780,8 +1780,8 @@ final class CampaignMetricsTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
 
         new CampaignMetrics(
-            campaignId: 123,
-            campaignName: 'Test',
+            id: 123,
+            name: 'Test',
             date: '11/18/2024',
             costInpounds: 0,
             clicks: 0,

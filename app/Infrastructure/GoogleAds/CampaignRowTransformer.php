@@ -41,8 +41,8 @@ final class CampaignRowTransformer
 
         // Create domain value object with validated data
         return new Campaign(
-            campaignId: (int) $campaignId,
-            campaignName: $campaignName,
+            id: (int) $campaignId,
+            name: $campaignName,
             status: $statusString,
         );
     }
