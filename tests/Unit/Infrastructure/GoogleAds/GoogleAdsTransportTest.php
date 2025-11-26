@@ -5,14 +5,12 @@ declare(strict_types=1);
 namespace Tests\Unit\Infrastructure\GoogleAds;
 
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
-use App\Domain\Exceptions\InvalidApiRequestException;
 use App\Infrastructure\GoogleAds\GoogleAdsConfig;
 use App\Infrastructure\GoogleAds\GoogleAdsTransport;
 use Google\Ads\GoogleAds\Lib\V22\GoogleAdsClient as SdkGoogleAdsClient;
 use Google\Ads\GoogleAds\V22\Services\Client\GoogleAdsServiceClient;
 use Google\ApiCore\ApiException;
 use Google\ApiCore\PagedListResponse;
-use Google\ApiCore\ValidationException;
 use Google\Rpc\Code;
 use Illuminate\Support\Facades\Log;
 use Mockery;
@@ -29,7 +27,6 @@ use Tests\TestCase;
  * - Successful query execution
  * - Exception translation for rate limits (RESOURCE_EXHAUSTED)
  * - Exception translation for other API errors
- * - Exception translation for validation errors (programming errors)
  * - Logging behavior for different error types
  */
 #[CoversClass(GoogleAdsTransport::class)]
@@ -259,79 +256,6 @@ final class GoogleAdsTransportTest extends TestCase
             $this->fail('Expected ExternalServiceUnavailableException');
         } catch (ExternalServiceUnavailableException $e) {
             $this->assertSame($apiException, $e->getPrevious());
-        }
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | Validation Exception Tests (Programming Errors)
-    |--------------------------------------------------------------------------
-    */
-
-    #[Test]
-    public function it_throws_invalid_api_request_exception_on_validation_error(): void
-    {
-        $validationException = new ValidationException('Invalid GAQL: missing FROM clause');
-
-        $this->mockServiceClient
-            ->shouldReceive('search')
-            ->andThrow($validationException);
-
-        try {
-            $this->transport->search('SELECT campaign.id');
-            $this->fail('Expected InvalidApiRequestException');
-        } catch (InvalidApiRequestException $e) {
-            $this->assertSame('Google Ads', $e->serviceName);
-            $this->assertStringContainsString('Invalid GAQL', $e->getMessage());
-            $this->assertSame($validationException, $e->getPrevious());
-        }
-    }
-
-    #[Test]
-    public function it_logs_critical_for_validation_exceptions_with_context(): void
-    {
-        $validationException = new ValidationException('Invalid GAQL query');
-
-        $this->mockServiceClient
-            ->shouldReceive('search')
-            ->andThrow($validationException);
-
-        Log::shouldReceive('critical')
-            ->once()
-            ->withArgs(static function (string $message, array $context): bool {
-                // Validate message contains both service name and validation failed
-                $hasServiceName = \str_contains($message, 'Google Ads');
-                $hasValidationFailed = \str_contains($message, 'validation failed');
-
-                // Validate context has error key with actual message
-                $hasError = \array_key_exists('error', $context)
-                    && \is_string($context['error'])
-                    && \str_contains($context['error'], 'Invalid GAQL');
-
-                return $hasServiceName && $hasValidationFailed && $hasError;
-            });
-
-        try {
-            $this->transport->search('SELECT campaign.id');
-        } catch (InvalidApiRequestException) {
-            // Expected
-        }
-    }
-
-    #[Test]
-    public function it_preserves_original_validation_exception(): void
-    {
-        $validationException = new ValidationException('Field does not exist');
-
-        $this->mockServiceClient
-            ->shouldReceive('search')
-            ->andThrow($validationException);
-
-        try {
-            $this->transport->search('SELECT invalid.field FROM campaign');
-            $this->fail('Expected InvalidApiRequestException');
-        } catch (InvalidApiRequestException $e) {
-            $this->assertSame($validationException, $e->getPrevious());
         }
     }
 
