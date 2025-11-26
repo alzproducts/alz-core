@@ -186,6 +186,7 @@ return static function (Config $config): void {
                                'DateInterval',
                                'DatePeriod',
                                Assert::class,
+                               'Exception',
                                'RuntimeException',
                                'InvalidArgumentException',
                                'LogicException',

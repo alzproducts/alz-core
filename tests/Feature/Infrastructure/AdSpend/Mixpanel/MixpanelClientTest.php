@@ -7,10 +7,14 @@ namespace Tests\Feature\Infrastructure\AdSpend\Mixpanel;
 use App\Domain\AdSpend\ValueObjects\Campaign;
 use App\Domain\AdSpend\ValueObjects\CampaignMetrics;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\PayloadSerializationException;
 use App\Infrastructure\Mixpanel\MixpanelClient;
+use App\Infrastructure\Mixpanel\MixpanelConfig;
+use App\Infrastructure\Mixpanel\MixpanelHttpTransport;
 use Illuminate\Http\Client\Request;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
+use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -30,16 +34,22 @@ final class MixpanelClientTest extends TestCase
 
     private const string LOOKUP_TABLE_ID = 'test-lookup-table-id';
 
+    #[Override]
     protected function setUp(): void
     {
         parent::setUp();
-        $this->client = new MixpanelClient(
-            mixpanelBaseUrl: self::BASE_URL,
+
+        $config = new MixpanelConfig(
+            dataApiBaseUrl: self::BASE_URL,
             serviceAccountUsername: self::USERNAME,
             serviceAccountPassword: self::PASSWORD,
             projectId: self::PROJECT_ID,
             lookupTableId: self::LOOKUP_TABLE_ID,
         );
+
+        $transport = new MixpanelHttpTransport($config);
+
+        $this->client = new MixpanelClient($transport, $config);
     }
 
     #[Test]
@@ -714,6 +724,25 @@ final class MixpanelClientTest extends TestCase
         }
 
         self::fail('Expected ExternalServiceUnavailableException to be thrown');
+    }
+
+    // ========================================================================
+    // Payload Serialization Tests
+    // ========================================================================
+
+    #[Test]
+    public function it_throws_payload_serialization_exception_when_json_encoding_fails(): void
+    {
+        Http::fake(['*' => Http::response([], 200)]);
+
+        // INF passes domain validation (INF >= 0 is true) but fails json_encode
+        // This tests the encodeJson() exception translation path
+        $event = $this->createEvent(cost: \INF);
+
+        $this->expectException(PayloadSerializationException::class);
+        $this->expectExceptionMessage('Mixpanel');
+
+        $this->client->importCampaigns([$event]);
     }
 
     private function createEvent(

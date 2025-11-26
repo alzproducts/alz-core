@@ -9,6 +9,7 @@ use App\Application\Contracts\GoogleAdsClientInterface;
 use App\Application\Contracts\MixpanelClientInterface;
 use App\Domain\AdSpend\ValueObjects\CampaignMetrics;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\PayloadSerializationException;
 use App\Presentation\Jobs\SyncGoogleAdsToMixpanelJob;
 use Illuminate\Contracts\Queue\Job as QueueJobContract;
 use Illuminate\Support\Facades\Log;
@@ -555,6 +556,61 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
 
         Log::shouldHaveReceived('info')
             ->with('Queued Google Ads to Mixpanel sync starting', ['date' => $expectedDate]);
+    }
+
+    // ========================================================================
+    // PayloadSerializationException Handling
+    // ========================================================================
+
+    #[Test]
+    public function it_fails_immediately_on_payload_serialization_exception(): void
+    {
+        $exception = new PayloadSerializationException('Mixpanel', 'JSON encoding failed');
+
+        $this->setupCampaignsForMixpanelError($exception);
+
+        $job = new SyncGoogleAdsToMixpanelJob(self::TEST_DATE);
+
+        $queueJob = Mockery::mock(QueueJobContract::class);
+        $queueJob->shouldReceive('attempts')->andReturn(1);
+        $queueJob->shouldReceive('fail')->once()->with($exception)->andReturnNull();
+        $queueJob->shouldReceive('isReleased')->andReturn(false);
+        $queueJob->shouldReceive('isDeletedOrReleased')->andReturn(false);
+        $job->setJob($queueJob);
+
+        $job->handle($this->useCase);
+
+        Log::shouldHaveReceived('critical')
+            ->with('Payload serialization failed during sync, failing immediately', Mockery::on(
+                static function (array $context): bool {
+                    self::assertSame(self::TEST_DATE, $context['date']);
+                    self::assertSame('Mixpanel', $context['service']);
+                    self::assertStringContainsString('JSON encoding failed', $context['error']);
+                    self::assertSame(1, $context['attempts']);
+
+                    return true;
+                },
+            ));
+    }
+
+    #[Test]
+    public function it_does_not_retry_on_payload_serialization_exception(): void
+    {
+        $exception = new PayloadSerializationException('Mixpanel', 'Invalid data structure');
+
+        $this->setupCampaignsForMixpanelError($exception);
+
+        $job = new SyncGoogleAdsToMixpanelJob(self::TEST_DATE);
+
+        $queueJob = Mockery::mock(QueueJobContract::class);
+        $queueJob->shouldReceive('attempts')->andReturn(1);
+        $queueJob->shouldReceive('fail')->once()->with($exception)->andReturnNull();
+        $queueJob->shouldReceive('release')->never(); // Should NOT release for retry
+        $queueJob->shouldReceive('isReleased')->andReturn(false);
+        $queueJob->shouldReceive('isDeletedOrReleased')->andReturn(false);
+        $job->setJob($queueJob);
+
+        $job->handle($this->useCase);
     }
 
     // ========================================================================
