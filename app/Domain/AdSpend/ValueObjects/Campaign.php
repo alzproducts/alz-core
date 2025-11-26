@@ -13,7 +13,7 @@ final readonly class Campaign
      *
      * @param int    $id     Campaign ID
      * @param string $name   Human-readable campaign name
-     * @param string $status Campaign status (ENABLED, PAUSED, REMOVED)
+     * @param string $status Campaign status (ENABLED, PAUSED, REMOVED, UNKNOWN, UNSPECIFIED)
      */
     public function __construct(
         public int $id,
@@ -22,6 +22,6 @@ final readonly class Campaign
     ) {
         Assert::greaterThan($id, 0, 'Campaign ID must be positive');
         Assert::notEmpty($name, 'Campaign name cannot be empty');
-        Assert::inArray($status, ['UNSPECIFIED', 'ENABLED', 'PAUSED', 'REMOVED'], 'Campaign status must be UNSPECIFIED, ENABLED, PAUSED, or REMOVED');
+        Assert::inArray($status, ['UNSPECIFIED', 'UNKNOWN', 'ENABLED', 'PAUSED', 'REMOVED'], 'Campaign status must be UNSPECIFIED, UNKNOWN, ENABLED, PAUSED, or REMOVED');
     }
 }
