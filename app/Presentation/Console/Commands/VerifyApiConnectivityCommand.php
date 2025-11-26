@@ -7,6 +7,7 @@ namespace App\Presentation\Console\Commands;
 use App\Application\Contracts\GoogleAdsClientInterface;
 use App\Application\Contracts\MixpanelClientInterface;
 use App\Application\Contracts\ReviewsIoClientInterface;
+use App\Application\Contracts\ShopwiredClientInterface;
 use Illuminate\Console\Command;
 use Throwable;
 
@@ -22,7 +23,7 @@ use Throwable;
 final class VerifyApiConnectivityCommand extends Command
 {
     protected $signature = 'verify:api
-        {client : The API client to verify (reviewsio, mixpanel, googleads, all)}';
+        {client : The API client to verify (reviewsio, mixpanel, googleads, shopwired, all)}';
 
     protected $description = 'Verify connectivity and authentication with external API services';
 
@@ -35,17 +36,19 @@ final class VerifyApiConnectivityCommand extends Command
             'reviewsio' => ['reviewsio' => $this->verifyReviewsIo()],
             'mixpanel' => ['mixpanel' => $this->verifyMixpanel()],
             'googleads' => ['googleads' => $this->verifyGoogleAds()],
+            'shopwired' => ['shopwired' => $this->verifyShopwired()],
             'all' => [
                 'reviewsio' => $this->verifyReviewsIo(),
                 'mixpanel' => $this->verifyMixpanel(),
                 'googleads' => $this->verifyGoogleAds(),
+                'shopwired' => $this->verifyShopwired(),
             ],
             default => null,
         };
 
         if ($results === null) {
             $this->error("Unknown client: {$client}");
-            $this->line('Available: reviewsio, mixpanel, googleads, all');
+            $this->line('Available: reviewsio, mixpanel, googleads, shopwired, all');
 
             return self::FAILURE;
         }
@@ -123,6 +126,26 @@ final class VerifyApiConnectivityCommand extends Command
         } catch (Throwable $e) {
             $this->error('  Failed: ' . $e->getMessage());
             $this->line('  Check: Google Ads OAuth credentials and refresh token');
+
+            return false;
+        }
+    }
+
+    private function verifyShopwired(): bool
+    {
+        $this->info('Verifying Shopwired...');
+
+        try {
+            $client = \app(ShopwiredClientInterface::class);
+            $client->verifyConnectivity();
+
+            $this->line('  Authentication: OK');
+            $this->line('  API Response: Valid');
+
+            return true;
+        } catch (Throwable $e) {
+            $this->error('  Failed: ' . $e->getMessage());
+            $this->line('  Check: SHOPWIRED_API_KEY and SHOPWIRED_API_SECRET in .env');
 
             return false;
         }
