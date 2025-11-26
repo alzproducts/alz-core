@@ -537,4 +537,89 @@ final class ReviewsIoClientTest extends TestCase
         $this->assertIsArray($result);
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | Verify Connectivity Tests
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function it_verifies_connectivity_successfully(): void
+    {
+        Http::fake(['*' => Http::response([])]);
+
+        // Should not throw any exception
+        $this->client->verifyConnectivity();
+
+        Http::assertSent(function (Request $request) {
+            // Verify it uses the rating-batch endpoint with health check SKU
+            $this->assertStringContainsString('product/rating-batch', $request->url());
+            $this->assertStringContainsString('sku=VERIFY-CONNECTIVITY-HEALTH-CHECK', $request->url());
+
+            return true;
+        });
+    }
+
+    #[Test]
+    public function it_throws_exception_when_connectivity_check_fails(): void
+    {
+        Http::fake(['*' => Http::response(['error' => 'Unauthorized'], 401)]);
+
+        $this->expectException(ExternalServiceUnavailableException::class);
+
+        $this->client->verifyConnectivity();
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Rate Limit (429) Tests
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function it_throws_external_service_unavailable_on_rate_limit(): void
+    {
+        Http::fake(['*' => Http::response([], 429)]);
+
+        $this->expectException(ExternalServiceUnavailableException::class);
+
+        $this->client->getProductRatingBatch('SKU-RATE-LIMITED');
+    }
+
+    #[Test]
+    public function it_extracts_retry_after_from_rate_limit_response(): void
+    {
+        Http::fake([
+            '*' => Http::response([], 429, ['Retry-After' => '120']),
+        ]);
+
+        try {
+            $this->client->getProductRatingBatch('SKU-RATE-LIMITED');
+        } catch (ExternalServiceUnavailableException $e) {
+            $this->assertSame(120, $e->retryAfter);
+
+            return;
+        }
+
+        $this->fail('Expected ExternalServiceUnavailableException to be thrown');
+    }
+
+    #[Test]
+    public function it_returns_null_retry_after_when_header_missing_on_rate_limit(): void
+    {
+        Http::fake([
+            '*' => Http::response([], 429),
+        ]);
+
+        try {
+            $this->client->getProductRatingBatch('SKU-RATE-LIMITED');
+        } catch (ExternalServiceUnavailableException $e) {
+            $this->assertNull($e->retryAfter);
+
+            return;
+        }
+
+        $this->fail('Expected ExternalServiceUnavailableException to be thrown');
+    }
+
 }
