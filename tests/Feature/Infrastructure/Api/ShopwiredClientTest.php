@@ -11,6 +11,7 @@ use App\Infrastructure\Shopwired\ShopwiredHttpTransport;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
+use LogicException;
 use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -228,6 +229,21 @@ final class ShopwiredClientTest extends TestCase
         $this->client->verifyConnectivity();
     }
 
+    #[Test]
+    public function it_handles_unexpected_exceptions(): void
+    {
+        // Test the catch-all handler for unexpected exceptions (Guzzle internals, etc.)
+        Http::fake(static fn() => throw new LogicException('Unexpected internal error'));
+
+        try {
+            $this->client->verifyConnectivity();
+            $this->fail('Expected ExternalServiceUnavailableException to be thrown');
+        } catch (ExternalServiceUnavailableException $e) {
+            $this->assertSame('Shopwired', $e->serviceName);
+            $this->assertInstanceOf(LogicException::class, $e->getPrevious());
+        }
+    }
+
     /*
     |--------------------------------------------------------------------------
     | Rate Limit (429) Tests
@@ -290,16 +306,24 @@ final class ShopwiredClientTest extends TestCase
     public function it_does_not_retry_on_verify_connectivity(): void
     {
         // verifyConnectivity uses retry: false for fail-fast behavior
-        // This test verifies that RequestException is thrown immediately (not retried)
+        // Track request count to verify no retry occurs
+        $requestCount = 0;
+        Http::fake(static function () use (&$requestCount) {
+            $requestCount++;
+            if ($requestCount === 1) {
+                throw new ConnectionException('Temporary network failure');
+            }
 
-        Http::fake(['*' => Http::response(['error' => 'Service Unavailable'], 503)]);
+            return Http::response(['business_name' => 'Test Store'], 200);
+        });
 
-        $this->expectException(ExternalServiceUnavailableException::class);
-
-        $this->client->verifyConnectivity();
-
-        // Note: We can't reliably test request count with Http::fake() in parallel tests
-        // The key assertion is that ExternalServiceUnavailableException is thrown immediately
+        try {
+            $this->client->verifyConnectivity();
+            $this->fail('Expected ExternalServiceUnavailableException to be thrown');
+        } catch (ExternalServiceUnavailableException) {
+            // Assert exactly 1 request was made (no retry occurred)
+            $this->assertSame(1, $requestCount);
+        }
     }
 
     /*
