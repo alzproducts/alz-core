@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Application\Contracts\Shopwired\CategoryClientInterface;
 use App\Application\Contracts\Shopwired\ConnectivityClientInterface;
 use App\Infrastructure\Shopwired\ShopwiredClientFactory;
 use Illuminate\Contracts\Support\DeferrableProvider;
@@ -11,28 +12,39 @@ use Illuminate\Support\ServiceProvider;
 use Override;
 
 /**
- * Shopwired API Client Service Provider.
+ * ShopWired API Client Service Provider.
  *
- * Deferred provider for ShopwiredClient - only loads when the service is requested.
+ * Deferred provider for ShopWired endpoint clients - only loads when requested.
  * Configuration validation is handled by the Factory (fail-fast pattern).
+ *
+ * Architecture: All endpoint clients share a single ShopwiredHttpTransport
+ * instance managed by the factory (lazy singleton pattern).
  *
  * @template-pattern API Client Service Provider
  */
 final class ShopwiredServiceProvider extends ServiceProvider implements DeferrableProvider
 {
     /**
-     * Register Shopwired API client.
+     * Register ShopWired API clients.
      *
      * Delegates to ShopwiredClientFactory which handles:
      * - Configuration validation (fail-fast with RuntimeException)
      * - Dependency wiring (Config → Transport → Client)
+     * - Transport singleton management (shared across all clients)
      */
     #[Override]
     public function register(): void
     {
+        // Connectivity client - for API health checks
         $this->app->singleton(
             ConnectivityClientInterface::class,
-            static fn(): ConnectivityClientInterface => ShopwiredClientFactory::create(),
+            static fn(): ConnectivityClientInterface => ShopwiredClientFactory::createConnectivityClient(),
+        );
+
+        // Category client - for category operations
+        $this->app->singleton(
+            CategoryClientInterface::class,
+            static fn(): CategoryClientInterface => ShopwiredClientFactory::createCategoryClient(),
         );
     }
 
@@ -44,6 +56,9 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
     #[Override]
     public function provides(): array
     {
-        return [ConnectivityClientInterface::class];
+        return [
+            ConnectivityClientInterface::class,
+            CategoryClientInterface::class,
+        ];
     }
 }
