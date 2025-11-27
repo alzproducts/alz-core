@@ -27,12 +27,47 @@ final readonly class CategoryClient implements CategoryClientInterface
 
     private const string ENDPOINT_CATEGORIES = 'categories';
 
+    /**
+     * Default embeds for category requests.
+     *
+     * @var list<string>
+     */
+    private const array DEFAULT_EMBEDS = ['parents', 'custom_fields'];
+
+    /**
+     * Default fields for category requests.
+     *
+     * Must include 'customFields' (camelCase) when 'custom_fields' embed is used.
+     * Without explicit fields, customFields data is not returned.
+     *
+     * @var list<string>
+     */
+    private const array DEFAULT_FIELDS = [
+        'id',
+        'createdAt',
+        'title',
+        'description',
+        'description2',
+        'slug',
+        'url',
+        'active',
+        'featured',
+        'tradeOnly',
+        'sortOrder',
+        'metaTitle',
+        'metaKeywords',
+        'metaDescription',
+        'metaNoIndex',
+        'image',
+        'customFields',
+    ];
+
     public function __construct(
         private ShopwiredHttpTransport $transport,
     ) {}
 
     /**
-     * List ALL categories with embedded parents (paginated fetch).
+     * List ALL categories with embedded parents and custom fields (paginated fetch).
      *
      * @param CategorySort|null $sort Sort order (default: API default)
      *
@@ -41,7 +76,8 @@ final readonly class CategoryClient implements CategoryClientInterface
     public function listAllCategories(?CategorySort $sort = null): array
     {
         $params = ShopwiredQueryParams::forBulkFetch()
-            ->withEmbeds(['parents'])
+            ->withEmbeds(self::DEFAULT_EMBEDS)
+            ->withFields(self::DEFAULT_FIELDS)
             ->withSort($sort?->value);
 
         return ShopwiredPaginator::fetchAll(

@@ -334,7 +334,8 @@ final class CategoryClientTest extends TestCase
             ->with('categories', [
                 'count' => 100,
                 'offset' => 0,
-                'embed' => 'parents',
+                'embed' => 'parents,custom_fields',
+                'fields' => 'id,createdAt,title,description,description2,slug,url,active,featured,tradeOnly,sortOrder,metaTitle,metaKeywords,metaDescription,metaNoIndex,image,customFields',
             ])
             ->andReturn($this->mockResponse([]));
 
@@ -368,7 +369,8 @@ final class CategoryClientTest extends TestCase
             ->with('categories', [
                 'count' => 100,
                 'offset' => 0,
-                'embed' => 'parents',
+                'embed' => 'parents,custom_fields',
+                'fields' => 'id,createdAt,title,description,description2,slug,url,active,featured,tradeOnly,sortOrder,metaTitle,metaKeywords,metaDescription,metaNoIndex,image,customFields',
             ])
             ->andReturn($this->mockResponse($payload));
 
@@ -394,13 +396,16 @@ final class CategoryClientTest extends TestCase
             \range(101, 130),
         );
 
+        $expectedFields = 'id,createdAt,title,description,description2,slug,url,active,featured,tradeOnly,sortOrder,metaTitle,metaKeywords,metaDescription,metaNoIndex,image,customFields';
+
         $this->transport
             ->shouldReceive('get')
             ->once()
             ->with('categories', [
                 'count' => 100,
                 'offset' => 0,
-                'embed' => 'parents',
+                'embed' => 'parents,custom_fields',
+                'fields' => $expectedFields,
             ])
             ->andReturn($this->mockResponse($page1));
 
@@ -410,7 +415,8 @@ final class CategoryClientTest extends TestCase
             ->with('categories', [
                 'count' => 100,
                 'offset' => 100,
-                'embed' => 'parents',
+                'embed' => 'parents,custom_fields',
+                'fields' => $expectedFields,
             ])
             ->andReturn($this->mockResponse($page2));
 
@@ -435,13 +441,16 @@ final class CategoryClientTest extends TestCase
         // Page 2: Empty (terminates pagination)
         $page2 = [];
 
+        $expectedFields = 'id,createdAt,title,description,description2,slug,url,active,featured,tradeOnly,sortOrder,metaTitle,metaKeywords,metaDescription,metaNoIndex,image,customFields';
+
         $this->transport
             ->shouldReceive('get')
             ->once()
             ->with('categories', [
                 'count' => 100,
                 'offset' => 0,
-                'embed' => 'parents',
+                'embed' => 'parents,custom_fields',
+                'fields' => $expectedFields,
             ])
             ->andReturn($this->mockResponse($page1));
 
@@ -451,7 +460,8 @@ final class CategoryClientTest extends TestCase
             ->with('categories', [
                 'count' => 100,
                 'offset' => 100,
-                'embed' => 'parents',
+                'embed' => 'parents,custom_fields',
+                'fields' => $expectedFields,
             ])
             ->andReturn($this->mockResponse($page2));
 
