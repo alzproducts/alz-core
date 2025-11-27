@@ -22,7 +22,7 @@ final class CustomerWishlist extends Data
 {
     public function __construct(
         public readonly int $id,
-        public readonly int $token,
-        public readonly bool $isPublic,
+        public readonly string $token,
+        public readonly ?bool $isPublic = null,
     ) {}
 }

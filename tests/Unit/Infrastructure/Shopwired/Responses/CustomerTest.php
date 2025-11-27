@@ -236,8 +236,8 @@ final class CustomerTest extends TestCase
     {
         $payload = $this->completePayload([
             'wishlists' => [
-                ['id' => 1, 'token' => 12345, 'is_public' => true],
-                ['id' => 2, 'token' => 67890, 'is_public' => false],
+                ['id' => 1, 'token' => 'abc12345', 'is_public' => true],
+                ['id' => 2, 'token' => 'xyz67890', 'is_public' => false],
             ],
         ]);
 
@@ -245,7 +245,7 @@ final class CustomerTest extends TestCase
 
         $this->assertCount(2, $customer->wishlists);
         $this->assertSame(1, $customer->wishlists[0]->id);
-        $this->assertSame(12345, $customer->wishlists[0]->token);
+        $this->assertSame('abc12345', $customer->wishlists[0]->token);
         $this->assertTrue($customer->wishlists[0]->isPublic);
         $this->assertSame(2, $customer->wishlists[1]->id);
         $this->assertFalse($customer->wishlists[1]->isPublic);
