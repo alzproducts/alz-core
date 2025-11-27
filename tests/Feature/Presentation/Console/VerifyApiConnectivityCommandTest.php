@@ -7,6 +7,7 @@ namespace Tests\Feature\Presentation\Console;
 use App\Application\Contracts\GoogleAdsClientInterface;
 use App\Application\Contracts\MixpanelClientInterface;
 use App\Application\Contracts\ReviewsIoClientInterface;
+use App\Application\Contracts\Shopwired\ConnectivityClientInterface as ShopwiredConnectivityClient;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Presentation\Console\Commands\VerifyApiConnectivityCommand;
 use Illuminate\Console\Command;
@@ -36,6 +37,8 @@ final class VerifyApiConnectivityCommandTest extends TestCase
 
     private MockInterface&GoogleAdsClientInterface $googleAdsClient;
 
+    private MockInterface&ShopwiredConnectivityClient $shopwiredClient;
+
     #[Override]
     protected function setUp(): void
     {
@@ -44,10 +47,12 @@ final class VerifyApiConnectivityCommandTest extends TestCase
         $this->reviewsIoClient = Mockery::mock(ReviewsIoClientInterface::class);
         $this->mixpanelClient = Mockery::mock(MixpanelClientInterface::class);
         $this->googleAdsClient = Mockery::mock(GoogleAdsClientInterface::class);
+        $this->shopwiredClient = Mockery::mock(ShopwiredConnectivityClient::class);
 
         $this->app->instance(ReviewsIoClientInterface::class, $this->reviewsIoClient);
         $this->app->instance(MixpanelClientInterface::class, $this->mixpanelClient);
         $this->app->instance(GoogleAdsClientInterface::class, $this->googleAdsClient);
+        $this->app->instance(ShopwiredConnectivityClient::class, $this->shopwiredClient);
     }
 
     /*
@@ -177,6 +182,43 @@ final class VerifyApiConnectivityCommandTest extends TestCase
 
     /*
     |--------------------------------------------------------------------------
+    | Shopwired Client Tests
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function it_verifies_shopwired_successfully(): void
+    {
+        $this->shopwiredClient
+            ->shouldReceive('verifyConnectivity')
+            ->once();
+
+        $this->artisan('verify:api', ['client' => 'shopwired'])
+            ->expectsOutput('Verifying Shopwired...')
+            ->expectsOutput('  Authentication: OK')
+            ->expectsOutput('  API Response: Valid')
+            ->expectsOutput('All API clients verified successfully')
+            ->assertExitCode(Command::SUCCESS);
+    }
+
+    #[Test]
+    public function it_reports_shopwired_failure_with_exception_message(): void
+    {
+        $this->shopwiredClient
+            ->shouldReceive('verifyConnectivity')
+            ->once()
+            ->andThrow(new ExternalServiceUnavailableException('Shopwired'));
+
+        $this->artisan('verify:api', ['client' => 'shopwired'])
+            ->expectsOutput('Verifying Shopwired...')
+            ->expectsOutputToContain('Failed:')
+            ->expectsOutput('  Check: SHOPWIRED_API_KEY and SHOPWIRED_API_SECRET in .env')
+            ->expectsOutput('Some API clients failed: shopwired')
+            ->assertExitCode(Command::FAILURE);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
     | All Clients Tests
     |--------------------------------------------------------------------------
     */
@@ -196,10 +238,15 @@ final class VerifyApiConnectivityCommandTest extends TestCase
             ->shouldReceive('verifyConnectivity')
             ->once();
 
+        $this->shopwiredClient
+            ->shouldReceive('verifyConnectivity')
+            ->once();
+
         $this->artisan('verify:api', ['client' => 'all'])
             ->expectsOutput('Verifying Reviews.io...')
             ->expectsOutput('Verifying Mixpanel...')
             ->expectsOutput('Verifying Google Ads...')
+            ->expectsOutput('Verifying Shopwired...')
             ->expectsOutput('All API clients verified successfully')
             ->assertExitCode(Command::SUCCESS);
     }
@@ -217,6 +264,10 @@ final class VerifyApiConnectivityCommandTest extends TestCase
             ->andThrow(new ExternalServiceUnavailableException('Mixpanel'));
 
         $this->googleAdsClient
+            ->shouldReceive('verifyConnectivity')
+            ->once();
+
+        $this->shopwiredClient
             ->shouldReceive('verifyConnectivity')
             ->once();
 
@@ -242,6 +293,10 @@ final class VerifyApiConnectivityCommandTest extends TestCase
             ->once()
             ->andThrow(new ExternalServiceUnavailableException('Google Ads'));
 
+        $this->shopwiredClient
+            ->shouldReceive('verifyConnectivity')
+            ->once();
+
         $this->artisan('verify:api', ['client' => 'all'])
             ->expectsOutput('Some API clients failed: reviewsio, googleads')
             ->assertExitCode(Command::FAILURE);
@@ -265,8 +320,13 @@ final class VerifyApiConnectivityCommandTest extends TestCase
             ->once()
             ->andThrow(new ExternalServiceUnavailableException('Google Ads'));
 
+        $this->shopwiredClient
+            ->shouldReceive('verifyConnectivity')
+            ->once()
+            ->andThrow(new ExternalServiceUnavailableException('Shopwired'));
+
         $this->artisan('verify:api', ['client' => 'all'])
-            ->expectsOutput('Some API clients failed: reviewsio, mixpanel, googleads')
+            ->expectsOutput('Some API clients failed: reviewsio, mixpanel, googleads, shopwired')
             ->assertExitCode(Command::FAILURE);
     }
 
@@ -281,7 +341,7 @@ final class VerifyApiConnectivityCommandTest extends TestCase
     {
         $this->artisan('verify:api', ['client' => 'unknown'])
             ->expectsOutput('Unknown client: unknown')
-            ->expectsOutput('Available: reviewsio, mixpanel, googleads, all')
+            ->expectsOutput('Available: reviewsio, mixpanel, googleads, shopwired, all')
             ->assertExitCode(Command::FAILURE);
     }
 
@@ -290,7 +350,7 @@ final class VerifyApiConnectivityCommandTest extends TestCase
     {
         $this->artisan('verify:api', ['client' => ''])
             ->expectsOutput('Unknown client: ')
-            ->expectsOutput('Available: reviewsio, mixpanel, googleads, all')
+            ->expectsOutput('Available: reviewsio, mixpanel, googleads, shopwired, all')
             ->assertExitCode(Command::FAILURE);
     }
 
@@ -300,7 +360,7 @@ final class VerifyApiConnectivityCommandTest extends TestCase
         // 'ReviewsIo' is not valid, only 'reviewsio' is accepted
         $this->artisan('verify:api', ['client' => 'ReviewsIo'])
             ->expectsOutput('Unknown client: ReviewsIo')
-            ->expectsOutput('Available: reviewsio, mixpanel, googleads, all')
+            ->expectsOutput('Available: reviewsio, mixpanel, googleads, shopwired, all')
             ->assertExitCode(Command::FAILURE);
     }
 }

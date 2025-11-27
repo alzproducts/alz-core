@@ -22,6 +22,7 @@ use PhpCsFixer\Fixer\FunctionNotation\FunctionDeclarationFixer;
 use SlevomatCodingStandard\Sniffs\Classes\ClassStructureSniff;
 use SlevomatCodingStandard\Sniffs\Classes\SuperfluousExceptionNamingSniff;
 use SlevomatCodingStandard\Sniffs\Classes\SuperfluousInterfaceNamingSniff;
+use SlevomatCodingStandard\Sniffs\Classes\SuperfluousTraitNamingSniff;
 use SlevomatCodingStandard\Sniffs\Commenting\DocCommentSpacingSniff;
 use SlevomatCodingStandard\Sniffs\Commenting\UselessFunctionDocCommentSniff;
 use SlevomatCodingStandard\Sniffs\Functions\FunctionLengthSniff;
@@ -82,6 +83,7 @@ return [
 
     'exclude' => [
         'phparkitect.php',  // Config file with intentionally long descriptive strings
+        'examples',         // Legacy code reference (not part of new codebase)
     ],
 
     'add' => [
@@ -94,9 +96,10 @@ return [
         ForbiddenDefineFunctions::class,
         ForbiddenTraits::class,
 
-        // Naming - allow Interface/Exception suffixes (PHP standard convention)
+        // Naming - allow Interface/Exception/Trait suffixes (PHP standard convention)
         SuperfluousInterfaceNamingSniff::class,
         SuperfluousExceptionNamingSniff::class,
+        SuperfluousTraitNamingSniff::class,
 
         // Type hints - handled by PHPStan level 8
         DisallowMixedTypeHintSniff::class,
@@ -143,6 +146,10 @@ return [
         // Function length - allow reasonable method sizes
         FunctionLengthSniff::class => [
             'maxLinesLength' => 50,
+            'exclude' => [
+                // Validation-heavy transformer with unavoidably verbose null checks
+                'app/Infrastructure/GoogleAds/Transformers/GoogleAdsRowTransformer.php',
+            ],
         ],
 
         // Framework-required patterns (per-file exclusions)

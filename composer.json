@@ -26,6 +26,7 @@
     "require-dev": {
         "barryvdh/laravel-ide-helper": "^3.6",
         "deptrac/deptrac": "^4.2",
+        "dg/bypass-finals": "^1.9",
         "driftingly/rector-laravel": "^2.1",
         "fakerphp/faker": "^1.23",
         "igorsgm/laravel-git-hooks": "^2.0",

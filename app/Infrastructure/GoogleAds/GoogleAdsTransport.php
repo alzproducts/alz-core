@@ -31,12 +31,9 @@ use Illuminate\Support\Facades\Log;
  * - Connection pooling
  * - TLS negotiation
  *
- * Note: Not marked `final` because Mockery cannot mock final classes.
- * GoogleAdsClientTest mocks this class directly for unit testing.
- *
  * @template-pattern API Client SDK Transport
  */
-class GoogleAdsTransport
+final readonly class GoogleAdsTransport
 {
     private const string SERVICE_NAME = 'Google Ads';
     private const int PAGE_SIZE = 10000;
