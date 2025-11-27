@@ -7,6 +7,7 @@ declare(strict_types=1);
 namespace App\Infrastructure\Shopwired;
 
 use App\Domain\Exceptions\InvalidApiResponseException;
+use App\Infrastructure\Contracts\DomainConvertible;
 use Illuminate\Support\Facades\Log;
 use Spatie\LaravelData\Data;
 use Spatie\LaravelData\DataCollection;
@@ -92,6 +93,53 @@ trait ShopwiredResponseParserTrait
                 previous: $e,
             );
         }
+    }
+
+    /**
+     * Parse API response and convert single DTO to Domain object.
+     *
+     * Combines parsing and domain conversion in one step for cleaner client code.
+     * The DTO class must implement DomainConvertible.
+     *
+     * @template T of Data&DomainConvertible
+     *
+     * @param class-string<T> $dtoClass
+     *
+     * @throws InvalidApiResponseException When response structure is invalid
+     */
+    private static function parseSingleToDomain(mixed $data, string $dtoClass): object
+    {
+        /** @var T $dto */
+        $dto = self::parseSingleResponse($data, $dtoClass);
+
+        return $dto->toDomain();
+    }
+
+    /**
+     * Parse API response and convert array of DTOs to Domain objects.
+     *
+     * Combines parsing and domain conversion in one step for cleaner client code.
+     * The DTO class must implement DomainConvertible.
+     *
+     * @template T of Data&DomainConvertible
+     *
+     * @param class-string<T> $dtoClass
+     *
+     * @return list<object>
+     *
+     * @throws InvalidApiResponseException When response structure is invalid
+     */
+    private static function parseArrayToDomain(mixed $data, string $dtoClass): array
+    {
+        $dtos = self::parseArrayResponse($data, $dtoClass);
+
+        $result = [];
+        foreach ($dtos as $dto) {
+            /** @var T $dto */
+            $result[] = $dto->toDomain();
+        }
+
+        return $result;
     }
 
     /**

@@ -208,7 +208,7 @@ final readonly class ReviewsIoClient implements ReviewsIoClientInterface
             \array_map(
                 static function (Rating $rating): ?ProductRating {
                     try {
-                        return $rating->toProductRating();
+                        return $rating->toDomain();
                     } catch (InvalidArgumentException) {
                         Log::warning(self::SERVICE_NAME . ' API returned invalid rating, skipping', [
                             'sku' => $rating->sku,

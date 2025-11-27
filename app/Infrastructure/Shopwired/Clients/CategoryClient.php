@@ -52,24 +52,16 @@ final readonly class CategoryClient implements CategoryClientInterface
     {
         $response = $this->transport->get(self::ENDPOINT_CATEGORIES);
 
-        $dtos = self::parseArrayResponse($response->json(), Category::class);
-
-        $result = [];
-        foreach ($dtos as $dto) {
-            $result[] = $dto->toDomain();
-        }
-
-        return $result;
+        /** @var list<DomainCategory> */
+        return self::parseArrayToDomain($response->json(), Category::class);
     }
 
     public function getCategoryById(int $id): DomainCategory
     {
         $response = $this->transport->get(self::ENDPOINT_CATEGORIES . '/' . $id);
 
-        /** @var Category $dto */
-        $dto = self::parseSingleResponse($response->json(), Category::class);
-
-        return $dto->toDomain();
+        /** @var DomainCategory */
+        return self::parseSingleToDomain($response->json(), Category::class);
     }
 
     public function getCategoryCount(): int
@@ -91,13 +83,7 @@ final readonly class CategoryClient implements CategoryClientInterface
             $params->toArray(),
         );
 
-        $dtos = self::parseArrayResponse($response->json(), Category::class);
-
-        $result = [];
-        foreach ($dtos as $dto) {
-            $result[] = $dto->toDomain();
-        }
-
-        return $result;
+        /** @var list<DomainCategory> */
+        return self::parseArrayToDomain($response->json(), Category::class);
     }
 }

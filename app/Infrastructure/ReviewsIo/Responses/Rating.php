@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Infrastructure\ReviewsIo\Responses;
 
 use App\Domain\Product\ValueObjects\ProductRating;
+use App\Infrastructure\Contracts\DomainConvertible;
 use Spatie\LaravelData\Attributes\MapInputName;
 use Spatie\LaravelData\Attributes\Validation\Required;
 use Spatie\LaravelData\Data;
@@ -20,7 +21,7 @@ use Spatie\LaravelData\Mappers\SnakeCaseMapper;
  * is enforced by the Domain ProductRating value object via toProductRating().
  */
 #[MapInputName(SnakeCaseMapper::class)]
-final class Rating extends Data
+final class Rating extends Data implements DomainConvertible
 {
     public function __construct(
         #[Required]
@@ -37,7 +38,7 @@ final class Rating extends Data
      * Maps this Infrastructure DTO to the Domain ProductRating VO,
      * which enforces business invariants.
      */
-    public function toProductRating(): ProductRating
+    public function toDomain(): ProductRating
     {
         return new ProductRating(
             sku: $this->sku,

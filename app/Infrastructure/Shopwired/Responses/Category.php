@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Infrastructure\Shopwired\Responses;
 
 use App\Domain\Catalog\ValueObjects\Category as DomainCategory;
+use App\Infrastructure\Contracts\DomainConvertible;
 use Spatie\LaravelData\Attributes\DataCollectionOf;
 use Spatie\LaravelData\Attributes\MapInputName;
 use Spatie\LaravelData\Data;
@@ -19,7 +20,7 @@ use Spatie\LaravelData\Mappers\SnakeCaseMapper;
  * @see https://shopwired.readme.io/docs/categories
  */
 #[MapInputName(SnakeCaseMapper::class)]
-final class Category extends Data
+final class Category extends Data implements DomainConvertible
 {
     /**
      * @param list<Category> $parents Parent categories (closest first, root last)

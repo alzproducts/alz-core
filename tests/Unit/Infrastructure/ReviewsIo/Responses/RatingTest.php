@@ -90,7 +90,7 @@ final class RatingTest extends TestCase
         ];
 
         $rating = Rating::from($apiResponse);
-        $productRating = $rating->toProductRating();
+        $productRating = $rating->toDomain();
 
         self::assertInstanceOf(ProductRating::class, $productRating);
         self::assertSame('PROD-XYZ', $productRating->sku);
@@ -108,7 +108,7 @@ final class RatingTest extends TestCase
         ];
 
         $rating = Rating::from($apiResponse);
-        $productRating = $rating->toProductRating();
+        $productRating = $rating->toDomain();
 
         self::assertInstanceOf(ProductRating::class, $productRating);
         self::assertSame(0.0, $productRating->averageRating);
@@ -125,7 +125,7 @@ final class RatingTest extends TestCase
         ];
 
         $rating = Rating::from($apiResponse);
-        $productRating = $rating->toProductRating();
+        $productRating = $rating->toDomain();
 
         self::assertSame(5.0, $productRating->averageRating);
     }
@@ -150,7 +150,7 @@ final class RatingTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('SKU cannot be empty');
 
-        $rating->toProductRating();
+        $rating->toDomain();
     }
 
     #[Test]
@@ -167,7 +167,7 @@ final class RatingTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Average rating cannot be negative');
 
-        $rating->toProductRating();
+        $rating->toDomain();
     }
 
     #[Test]
@@ -184,7 +184,7 @@ final class RatingTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Average rating cannot exceed 5');
 
-        $rating->toProductRating();
+        $rating->toDomain();
     }
 
     #[Test]
@@ -201,6 +201,6 @@ final class RatingTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Number of ratings cannot be negative');
 
-        $rating->toProductRating();
+        $rating->toDomain();
     }
 }
