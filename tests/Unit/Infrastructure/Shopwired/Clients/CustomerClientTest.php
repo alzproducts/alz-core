@@ -511,7 +511,18 @@ final class CustomerClientTest extends TestCase
         $this->transport
             ->shouldReceive('get')
             ->once()
-            ->with('customers', ['count' => 1, 'offset' => 0, 'email' => $email])
+            ->with('customers', Mockery::on(function (array $params) use ($email): bool {
+                // Verify essential params
+                $this->assertSame($email, $params['email']);
+                $this->assertSame(1, $params['count']);
+                // Verify embeds and fields are included (consistent with other methods)
+                $this->assertArrayHasKey('embed', $params);
+                $this->assertArrayHasKey('fields', $params);
+                $this->assertStringContainsString('wishlists', $params['embed']);
+                $this->assertStringContainsString('custom_fields', $params['embed']);
+
+                return true;
+            }))
             ->andReturn($this->mockResponse($payload));
 
         $this->client->searchByEmail($email);
@@ -568,6 +579,43 @@ final class CustomerClientTest extends TestCase
 
         $this->assertInstanceOf(DomainCustomer::class, $result);
         $this->assertSame('First', $result->firstName);
+    }
+
+    #[Test]
+    public function search_by_email_returns_null_when_api_returns_different_email(): void
+    {
+        $searchEmail = 'exact@example.com';
+        $returnedEmail = 'similar@example.com'; // API returns a different email
+        $payload = [$this->customerPayload(1, $returnedEmail, 'Wrong', 'Customer')];
+
+        $this->transport
+            ->shouldReceive('get')
+            ->with('customers', Mockery::type('array'))
+            ->andReturn($this->mockResponse($payload));
+
+        $result = $this->client->searchByEmail($searchEmail);
+
+        // Should return null because email doesn't match exactly
+        $this->assertNull($result);
+    }
+
+    #[Test]
+    public function search_by_email_matches_case_insensitively(): void
+    {
+        $searchEmail = 'TEST@EXAMPLE.COM';
+        $returnedEmail = 'test@example.com'; // Same email, different case
+        $payload = [$this->customerPayload(1, $returnedEmail, 'Found', 'Customer')];
+
+        $this->transport
+            ->shouldReceive('get')
+            ->with('customers', Mockery::type('array'))
+            ->andReturn($this->mockResponse($payload));
+
+        $result = $this->client->searchByEmail($searchEmail);
+
+        // Should match case-insensitively
+        $this->assertInstanceOf(DomainCustomer::class, $result);
+        $this->assertSame($returnedEmail, $result->email);
     }
 
     #[Test]
