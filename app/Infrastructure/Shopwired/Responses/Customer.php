@@ -58,8 +58,12 @@ final class Customer extends Data implements DomainConvertible
         public readonly bool $acceptsMarketing,
 
         // Address (flat fields from API)
+        // Note: Explicit mapping needed for numeric suffixes (SnakeCaseMapper doesn't handle them)
+        #[MapInputName('address_line_1')]
         public readonly ?string $addressLine1,
+        #[MapInputName('address_line_2')]
         public readonly ?string $addressLine2,
+        #[MapInputName('address_line_3')]
         public readonly ?string $addressLine3,
         public readonly ?string $city,
         public readonly ?string $province,
