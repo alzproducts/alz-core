@@ -82,6 +82,7 @@ return [
 
     'exclude' => [
         'phparkitect.php',  // Config file with intentionally long descriptive strings
+        'examples',         // Legacy code reference (not part of new codebase)
     ],
 
     'add' => [
