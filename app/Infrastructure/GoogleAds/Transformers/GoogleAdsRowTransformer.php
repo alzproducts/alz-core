@@ -108,7 +108,7 @@ final class GoogleAdsRowTransformer
             campaignId: (int) $campaignId,
             campaignName: $campaignName,
             date: $date,
-            costInPounds: (float) ($costMicros / 1_000_000),
+            costInPounds: (int) $costMicros / 1_000_000,
             clicks: (int) $clicks,
             impressions: (int) $impressions,
             conversions: (float) $conversions,
