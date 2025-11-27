@@ -111,7 +111,8 @@ final readonly class ShopwiredQueryParams implements PaginatableQueryParams
 
     /**
      * Advance offset to next page.
-     */
+     *
+     * @noinspection PhpUnnecessaryStaticReferenceInspection*/
     public function nextPage(): static
     {
         return new self($this->count, $this->offset + $this->count, $this->embeds, $this->sort, $this->fields);

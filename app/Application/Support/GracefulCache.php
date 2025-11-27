@@ -26,9 +26,9 @@ use Throwable;
 final readonly class GracefulCache
 {
     public function __construct(
-        private readonly CacheInterface $cache,
-        private readonly LoggerInterface $logger,
-        private readonly string $serviceName = 'cache',
+        private CacheInterface $cache,
+        private LoggerInterface $logger,
+        private string $serviceName = 'cache',
     ) {}
 
     /**
