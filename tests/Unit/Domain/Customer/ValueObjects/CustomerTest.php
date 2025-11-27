@@ -6,7 +6,6 @@ namespace Tests\Unit\Domain\Customer\ValueObjects;
 
 use App\Domain\Customer\ValueObjects\Customer;
 use App\Domain\Customer\ValueObjects\CustomerAddress;
-use App\Domain\ValueObjects\Country;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -73,7 +72,6 @@ final class CustomerTest extends TestCase
             city: 'London',
             province: null,
             postcode: 'SW1A 1AA',
-            country: new Country(name: 'United Kingdom', iso: 'GB'),
         );
     }
 
@@ -293,7 +291,6 @@ final class CustomerTest extends TestCase
             city: null,  // Missing city
             province: null,
             postcode: null,  // Missing postcode
-            country: null,  // Missing country
         );
 
         $customer = $this->createCustomer(['address' => $incompleteAddress]);
