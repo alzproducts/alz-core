@@ -76,8 +76,7 @@ final class Customer extends Data implements DomainConvertible
         public readonly ?string $notes,
 
         // Embedded objects (optional, require embed param)
-        public readonly ?CustomerCountry $country = null,
-        public readonly ?CustomerState $state = null,
+        // Note: country/state return only IDs from API - ignored until needed
         #[DataCollectionOf(CustomerWishlist::class)]
         public readonly array $wishlists = [],
         public readonly array $customFields = [],
@@ -125,8 +124,6 @@ final class Customer extends Data implements DomainConvertible
             && ($this->city === null)
             && ($this->province === null)
             && ($this->postcode === null)
-            && ($this->country === null)
-            && ($this->state === null)
         ) {
             return null;
         }
@@ -138,8 +135,6 @@ final class Customer extends Data implements DomainConvertible
             city: $this->city,
             province: $this->province,
             postcode: $this->postcode,
-            country: $this->country?->toDomain(),
-            state: $this->state?->toDomain(),
         );
     }
 }

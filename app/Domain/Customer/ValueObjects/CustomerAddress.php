@@ -4,12 +4,10 @@ declare(strict_types=1);
 
 namespace App\Domain\Customer\ValueObjects;
 
-use App\Domain\ValueObjects\Country;
-
 /**
  * Customer Address Value Object.
  *
- * Represents a customer's address with optional country/state embeds.
+ * Represents a customer's address fields.
  */
 final readonly class CustomerAddress
 {
@@ -20,8 +18,6 @@ final readonly class CustomerAddress
         public ?string $city,
         public ?string $province,
         public ?string $postcode,
-        public ?Country $country = null,
-        public ?State $state = null,
     ) {}
 
     /**
@@ -31,8 +27,7 @@ final readonly class CustomerAddress
     {
         return ($this->line1 !== null)
                && ($this->city !== null)
-               && ($this->postcode !== null)
-               && ($this->country !== null);
+               && ($this->postcode !== null);
     }
 
     /**
@@ -45,8 +40,6 @@ final readonly class CustomerAddress
                && ($this->line3 === null)
                && ($this->city === null)
                && ($this->province === null)
-               && ($this->postcode === null)
-               && ($this->country === null)
-               && ($this->state === null);
+               && ($this->postcode === null);
     }
 }

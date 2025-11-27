@@ -5,8 +5,6 @@ declare(strict_types=1);
 namespace Tests\Unit\Domain\Customer\ValueObjects;
 
 use App\Domain\Customer\ValueObjects\CustomerAddress;
-use App\Domain\Customer\ValueObjects\State;
-use App\Domain\ValueObjects\Country;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -39,16 +37,16 @@ final class CustomerAddressTest extends TestCase
         );
 
         $this->assertNull($address->line1);
-        $this->assertNull($address->country);
-        $this->assertNull($address->state);
+        $this->assertNull($address->line2);
+        $this->assertNull($address->line3);
+        $this->assertNull($address->city);
+        $this->assertNull($address->province);
+        $this->assertNull($address->postcode);
     }
 
     #[Test]
     public function it_creates_address_with_all_fields(): void
     {
-        $country = new Country(name: 'United Kingdom', iso: 'GB');
-        $state = new State(name: 'Greater London');
-
         $address = new CustomerAddress(
             line1: '123 Main Street',
             line2: 'Apt 4B',
@@ -56,8 +54,6 @@ final class CustomerAddressTest extends TestCase
             city: 'London',
             province: 'Greater London',
             postcode: 'SW1A 1AA',
-            country: $country,
-            state: $state,
         );
 
         $this->assertSame('123 Main Street', $address->line1);
@@ -66,8 +62,6 @@ final class CustomerAddressTest extends TestCase
         $this->assertSame('London', $address->city);
         $this->assertSame('Greater London', $address->province);
         $this->assertSame('SW1A 1AA', $address->postcode);
-        $this->assertSame($country, $address->country);
-        $this->assertSame($state, $address->state);
     }
 
     /*
@@ -86,7 +80,6 @@ final class CustomerAddressTest extends TestCase
             city: 'London',
             province: null,
             postcode: 'SW1A 1AA',
-            country: new Country(name: 'United Kingdom', iso: 'GB'),
         );
 
         $this->assertTrue($address->isShippable());
@@ -102,7 +95,6 @@ final class CustomerAddressTest extends TestCase
             city: 'London',
             province: null,
             postcode: 'SW1A 1AA',
-            country: new Country(name: 'United Kingdom', iso: 'GB'),
         );
 
         $this->assertFalse($address->isShippable());
@@ -118,7 +110,6 @@ final class CustomerAddressTest extends TestCase
             city: null,
             province: null,
             postcode: 'SW1A 1AA',
-            country: new Country(name: 'United Kingdom', iso: 'GB'),
         );
 
         $this->assertFalse($address->isShippable());
@@ -134,43 +125,9 @@ final class CustomerAddressTest extends TestCase
             city: 'London',
             province: null,
             postcode: null,
-            country: new Country(name: 'United Kingdom', iso: 'GB'),
         );
 
         $this->assertFalse($address->isShippable());
-    }
-
-    #[Test]
-    public function is_shippable_returns_false_when_country_is_null(): void
-    {
-        $address = new CustomerAddress(
-            line1: '123 Main Street',
-            line2: null,
-            line3: null,
-            city: 'London',
-            province: null,
-            postcode: 'SW1A 1AA',
-            country: null,
-        );
-
-        $this->assertFalse($address->isShippable());
-    }
-
-    #[Test]
-    public function is_shippable_does_not_require_state(): void
-    {
-        $address = new CustomerAddress(
-            line1: '123 Main Street',
-            line2: null,
-            line3: null,
-            city: 'London',
-            province: null,
-            postcode: 'SW1A 1AA',
-            country: new Country(name: 'United Kingdom', iso: 'GB'),
-            state: null,
-        );
-
-        $this->assertTrue($address->isShippable());
     }
 
     #[Test]
@@ -183,7 +140,21 @@ final class CustomerAddressTest extends TestCase
             city: 'London',
             province: null,
             postcode: 'SW1A 1AA',
-            country: new Country(name: 'United Kingdom', iso: 'GB'),
+        );
+
+        $this->assertTrue($address->isShippable());
+    }
+
+    #[Test]
+    public function is_shippable_does_not_require_province(): void
+    {
+        $address = new CustomerAddress(
+            line1: '123 Main Street',
+            line2: null,
+            line3: null,
+            city: 'London',
+            province: null,
+            postcode: 'SW1A 1AA',
         );
 
         $this->assertTrue($address->isShippable());
@@ -205,8 +176,6 @@ final class CustomerAddressTest extends TestCase
             city: null,
             province: null,
             postcode: null,
-            country: null,
-            state: null,
         );
 
         $this->assertTrue($address->isEmpty());
@@ -297,39 +266,6 @@ final class CustomerAddressTest extends TestCase
             city: null,
             province: null,
             postcode: 'SW1A 1AA',
-        );
-
-        $this->assertFalse($address->isEmpty());
-    }
-
-    #[Test]
-    public function is_empty_returns_false_when_country_is_set(): void
-    {
-        $address = new CustomerAddress(
-            line1: null,
-            line2: null,
-            line3: null,
-            city: null,
-            province: null,
-            postcode: null,
-            country: new Country(name: 'United Kingdom', iso: 'GB'),
-        );
-
-        $this->assertFalse($address->isEmpty());
-    }
-
-    #[Test]
-    public function is_empty_returns_false_when_state_is_set(): void
-    {
-        $address = new CustomerAddress(
-            line1: null,
-            line2: null,
-            line3: null,
-            city: null,
-            province: null,
-            postcode: null,
-            country: null,
-            state: new State(name: 'Greater London'),
         );
 
         $this->assertFalse($address->isEmpty());

@@ -179,10 +179,7 @@ final class CustomerClientTest extends TestCase
         $this->assertInstanceOf(CustomerAddress::class, $customer->address);
         $this->assertSame('10 Downing St', $customer->address->line1);
         $this->assertSame('London', $customer->address->city);
-        $this->assertNotNull($customer->address->country);
-        $this->assertSame('United Kingdom', $customer->address->country->name);
-        $this->assertNotNull($customer->address->state);
-        $this->assertSame('Greater London', $customer->address->state->name);
+        $this->assertSame('TS1 1ST', $customer->address->postcode);
     }
 
     #[Test]
@@ -308,9 +305,7 @@ final class CustomerClientTest extends TestCase
         $this->assertSame('Suite A', $customer->address->line2);
         $this->assertNull($customer->address->line3);
         $this->assertSame('Industria', $customer->address->city);
-        $this->assertNotNull($customer->address->country);
-        $this->assertSame('France', $customer->address->country->name);
-        $this->assertNull($customer->address->state);
+        $this->assertSame('IN1 2DS', $customer->address->postcode);
     }
 
     #[Test]
