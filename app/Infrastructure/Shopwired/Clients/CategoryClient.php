@@ -6,6 +6,7 @@ namespace App\Infrastructure\Shopwired\Clients;
 
 use App\Application\Contracts\Shopwired\CategoryClientInterface;
 use App\Domain\Catalog\ValueObjects\Category as DomainCategory;
+use App\Infrastructure\Shopwired\Enums\CategorySort;
 use App\Infrastructure\Shopwired\Responses\Category;
 use App\Infrastructure\Shopwired\ShopwiredHttpTransport;
 use App\Infrastructure\Shopwired\ShopwiredPaginator;
@@ -33,11 +34,15 @@ final readonly class CategoryClient implements CategoryClientInterface
     /**
      * List ALL categories with embedded parents (paginated fetch).
      *
+     * @param CategorySort|null $sort Sort order (default: API default)
+     *
      * @return list<DomainCategory>
      */
-    public function listAllCategories(): array
+    public function listAllCategories(?CategorySort $sort = null): array
     {
-        $params = ShopwiredQueryParams::forBulkFetch()->withEmbeds(['parents']);
+        $params = ShopwiredQueryParams::forBulkFetch()
+            ->withEmbeds(['parents'])
+            ->withSort($sort?->value);
 
         return ShopwiredPaginator::fetchAll(
             params: $params,

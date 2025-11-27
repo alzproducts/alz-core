@@ -39,7 +39,7 @@ class ShopwiredHttpTransport
     private const string SERVICE_NAME = 'Shopwired';
 
     public function __construct(
-        private ShopwiredConfig $config,
+        private readonly ShopwiredConfig $config,
     ) {}
 
     /**
