@@ -44,11 +44,6 @@ final class Customer extends Data implements DomainConvertible
         // Classification
         public readonly bool $trade,
         public readonly bool $active,
-        public readonly bool $creditEnabled,
-
-        // Pricing
-        public readonly float $discount,
-        public readonly float $costPriceMultiplier,
 
         // Contact
         public readonly ?string $phone,
@@ -74,6 +69,11 @@ final class Customer extends Data implements DomainConvertible
 
         // Notes
         public readonly ?string $notes,
+
+        // Optional fields (trade-specific, not returned for regular customers)
+        public readonly ?float $discount = null,
+        public readonly ?float $costPriceMultiplier = null,
+        public readonly ?bool $creditEnabled = null,
 
         // Embedded objects (optional, require embed param)
         // Note: country/state return only IDs from API - ignored until needed

@@ -29,11 +29,11 @@ final readonly class Customer
         // Classification
         public bool $isTrade,
         public bool $isActive,
-        public bool $creditEnabled,
+        public ?bool $creditEnabled,
 
-        // Pricing
-        public float $discount,
-        public float $costPriceMultiplier,
+        // Pricing (trade-specific, null for regular customers)
+        public ?float $discount,
+        public ?float $costPriceMultiplier,
 
         // Contact
         public ?string $phone,
@@ -54,8 +54,12 @@ final readonly class Customer
         // Custom fields (embedded key-value pairs)
         public array $customFields = [],
     ) {
-        Assert::greaterThanEq($discount, 0, 'Discount cannot be negative');
-        Assert::greaterThanEq($costPriceMultiplier, 0, 'Cost price multiplier cannot be negative');
+        if ($discount !== null) {
+            Assert::greaterThanEq($discount, 0, 'Discount cannot be negative');
+        }
+        if ($costPriceMultiplier !== null) {
+            Assert::greaterThanEq($costPriceMultiplier, 0, 'Cost price multiplier cannot be negative');
+        }
         Assert::greaterThanEq($rewardPoints, 0, 'Reward points cannot be negative');
     }
 
