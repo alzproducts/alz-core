@@ -22,11 +22,8 @@ use Throwable;
  *
  * Use this for caching that improves performance but isn't required
  * for correctness. The application continues working if cache fails.
- *
- * Note: Not marked `final` because Mockery cannot mock final classes.
- * CachingShopwiredServiceTest mocks this class directly for unit testing.
  */
-class GracefulCache
+final readonly class GracefulCache
 {
     public function __construct(
         private readonly CacheInterface $cache,
