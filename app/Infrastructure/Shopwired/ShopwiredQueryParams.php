@@ -13,6 +13,7 @@ use InvalidArgumentException;
  * - Pagination: count (1-100), offset (0+)
  * - Sorting: sort (endpoint-specific, pass enum->value)
  * - Embeds: embed=parents,children
+ * - Fields: fields=id,title,customFields (selective field retrieval)
  *
  * Fluent interface with immutable "with" methods.
  *
@@ -29,12 +30,14 @@ final readonly class ShopwiredQueryParams
      * @param int $offset Starting position
      * @param list<string> $embeds Related resources to embed
      * @param string|null $sort Sort order (from endpoint-specific enum)
+     * @param list<string> $fields Specific fields to retrieve (empty = all standard fields)
      */
     public function __construct(
         public int $count = self::DEFAULT_COUNT,
         public int $offset = 0,
         public array $embeds = [],
         public ?string $sort = null,
+        public array $fields = [],
     ) {
         if (($count < 1) || ($count > self::MAX_COUNT)) {
             throw new InvalidArgumentException(
@@ -59,12 +62,12 @@ final readonly class ShopwiredQueryParams
 
     public function withCount(int $count): self
     {
-        return new self($count, $this->offset, $this->embeds, $this->sort);
+        return new self($count, $this->offset, $this->embeds, $this->sort, $this->fields);
     }
 
     public function withOffset(int $offset): self
     {
-        return new self($this->count, $offset, $this->embeds, $this->sort);
+        return new self($this->count, $offset, $this->embeds, $this->sort, $this->fields);
     }
 
     /**
@@ -73,7 +76,7 @@ final readonly class ShopwiredQueryParams
     public function withEmbeds(array $embeds): self
     {
         /** @var list<string> $embeds */
-        return new self($this->count, $this->offset, $embeds, $this->sort);
+        return new self($this->count, $this->offset, $embeds, $this->sort, $this->fields);
     }
 
     /**
@@ -83,7 +86,18 @@ final readonly class ShopwiredQueryParams
      */
     public function withSort(?string $sort): self
     {
-        return new self($this->count, $this->offset, $this->embeds, $sort);
+        return new self($this->count, $this->offset, $this->embeds, $sort, $this->fields);
+    }
+
+    /**
+     * Set specific fields to retrieve.
+     *
+     * @param list<string> $fields Field names (e.g., ['id', 'title', 'customFields'])
+     */
+    public function withFields(array $fields): self
+    {
+        /** @var list<string> $fields */
+        return new self($this->count, $this->offset, $this->embeds, $this->sort, $fields);
     }
 
     /**
@@ -91,7 +105,7 @@ final readonly class ShopwiredQueryParams
      */
     public function nextPage(): self
     {
-        return new self($this->count, $this->offset + $this->count, $this->embeds, $this->sort);
+        return new self($this->count, $this->offset + $this->count, $this->embeds, $this->sort, $this->fields);
     }
 
     /**
@@ -112,6 +126,10 @@ final readonly class ShopwiredQueryParams
 
         if ($this->embeds !== []) {
             $query['embed'] = \implode(',', $this->embeds);
+        }
+
+        if ($this->fields !== []) {
+            $query['fields'] = \implode(',', $this->fields);
         }
 
         return $query;

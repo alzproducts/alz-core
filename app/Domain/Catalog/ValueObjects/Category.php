@@ -14,6 +14,7 @@ final readonly class Category
 {
     /**
      * @param list<Category> $parents Parent categories (closest first, root last)
+     * @param array<string, mixed> $customFields Custom field key-value pairs
      */
     public function __construct(
         public string $title,
@@ -31,5 +32,6 @@ final readonly class Category
         public bool $metaNoIndex,
         public ?CategoryImage $image = null,
         public array $parents = [],
+        public array $customFields = [],
     ) {}
 }
