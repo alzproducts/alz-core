@@ -107,6 +107,18 @@ final readonly class CustomerQueryParams implements PaginatableQueryParams
     }
 
     /**
+     * Replace the base query params (for embeds, fields, etc.).
+     */
+    public function withBaseParams(ShopwiredQueryParams $baseParams): self
+    {
+        return new self(
+            baseParams: $baseParams,
+            trade: $this->trade,
+            email: $this->email,
+        );
+    }
+
+    /**
      * Convert to HTTP query array for transport.
      *
      * @return array<string, int|string>
