@@ -1,19 +1,14 @@
 <?php
 
-/** @noinspection PhpRedundantCatchClauseInspection */
-
 declare(strict_types=1);
 
 namespace App\Infrastructure\Shopwired\Clients;
 
 use App\Application\Contracts\Shopwired\CategoryClientInterface;
 use App\Domain\Catalog\ValueObjects\Category as DomainCategory;
-use App\Domain\Exceptions\InvalidApiResponseException;
 use App\Infrastructure\Shopwired\Responses\Category;
 use App\Infrastructure\Shopwired\ShopwiredHttpTransport;
-use Illuminate\Support\Facades\Log;
-use Spatie\LaravelData\DataCollection;
-use Spatie\LaravelData\Exceptions\CannotCreateData;
+use App\Infrastructure\Shopwired\ShopwiredResponseParserTrait;
 
 /**
  * ShopWired Categories API Client.
@@ -25,7 +20,7 @@ use Spatie\LaravelData\Exceptions\CannotCreateData;
  */
 final readonly class CategoryClient implements CategoryClientInterface
 {
-    private const string SERVICE_NAME = 'Shopwired';
+    use ShopwiredResponseParserTrait;
 
     private const string ENDPOINT_CATEGORIES = 'categories';
 
@@ -40,7 +35,7 @@ final readonly class CategoryClient implements CategoryClientInterface
     {
         $response = $this->transport->get(self::ENDPOINT_CATEGORIES);
 
-        $dtos = $this->parseArrayResponse($response->json());
+        $dtos = self::parseArrayResponse($response->json(), Category::class);
 
         $result = [];
         foreach ($dtos as $dto) {
@@ -54,77 +49,16 @@ final readonly class CategoryClient implements CategoryClientInterface
     {
         $response = $this->transport->get(self::ENDPOINT_CATEGORIES . '/' . $id);
 
-        return $this->parseSingleResponse($response->json())->toDomain();
+        /** @var Category $dto */
+        $dto = self::parseSingleResponse($response->json(), Category::class);
+
+        return $dto->toDomain();
     }
 
-    /**
-     * Parse API response expecting an array of Category DTOs.
-     *
-     * @return DataCollection<int, Category>
-     *
-     * @throws InvalidApiResponseException When response structure is invalid
-     */
-    private function parseArrayResponse(mixed $data): DataCollection
+    public function getCategoryCount(): int
     {
-        if (! \is_array($data)) {
-            self::logParsingFailure('Expected array response', $data);
+        $response = $this->transport->get(self::ENDPOINT_CATEGORIES . '/count');
 
-            throw new InvalidApiResponseException(
-                serviceName: self::SERVICE_NAME,
-                message: 'Expected array response',
-            );
-        }
-
-        try {
-            return Category::collect($data, DataCollection::class);
-        } catch (CannotCreateData $e) {
-            self::logParsingFailure($e->getMessage(), $data);
-
-            throw new InvalidApiResponseException(
-                serviceName: self::SERVICE_NAME,
-                message: 'API returned invalid data structure',
-                previous: $e,
-            );
-        }
-    }
-
-    /**
-     * Parse API response expecting a single Category DTO.
-     *
-     * @throws InvalidApiResponseException When response structure is invalid
-     */
-    private function parseSingleResponse(mixed $data): Category
-    {
-        if (! \is_array($data)) {
-            self::logParsingFailure('Expected object response', $data);
-
-            throw new InvalidApiResponseException(
-                serviceName: self::SERVICE_NAME,
-                message: 'Expected object response',
-            );
-        }
-
-        try {
-            return Category::from($data);
-        } catch (CannotCreateData $e) {
-            self::logParsingFailure($e->getMessage(), $data);
-
-            throw new InvalidApiResponseException(
-                serviceName: self::SERVICE_NAME,
-                message: 'API returned invalid data structure',
-                previous: $e,
-            );
-        }
-    }
-
-    /**
-     * Log parsing failure with context for debugging API contract changes.
-     */
-    private static function logParsingFailure(string $error, mixed $data): void
-    {
-        Log::critical(self::SERVICE_NAME . ' API response validation failed', [
-            'error' => $error,
-            'raw_response' => $data,
-        ]);
+        return self::parseCountResponse($response->json());
     }
 }

@@ -33,4 +33,12 @@ interface CategoryClientInterface
      * @throws InvalidApiResponseException When API response structure is invalid
      */
     public function getCategoryById(int $id): Category;
+
+    /**
+     * Get the total count of categories.
+     *
+     * @throws ExternalServiceUnavailableException When API unavailable
+     * @throws InvalidApiResponseException When API response structure is invalid
+     */
+    public function getCategoryCount(): int;
 }
