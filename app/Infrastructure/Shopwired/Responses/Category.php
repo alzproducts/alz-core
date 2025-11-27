@@ -24,6 +24,7 @@ final class Category extends Data implements DomainConvertible
 {
     /**
      * @param list<Category> $parents Parent categories (closest first, root last)
+     * @param array<string, mixed> $customFields Custom field key-value pairs (requires custom_fields embed)
      */
     public function __construct(
         public readonly int $id,
@@ -44,6 +45,7 @@ final class Category extends Data implements DomainConvertible
         public readonly ?CategoryImage $image = null,
         #[DataCollectionOf(Category::class)]
         public readonly array $parents = [],
+        public readonly array $customFields = [],
     ) {}
 
     /**
@@ -70,6 +72,7 @@ final class Category extends Data implements DomainConvertible
                 static fn(Category $parent): DomainCategory => $parent->toDomain(),
                 $this->parents,
             ),
+            customFields: $this->customFields,
         );
     }
 }

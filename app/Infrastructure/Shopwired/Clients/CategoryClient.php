@@ -6,7 +6,6 @@ namespace App\Infrastructure\Shopwired\Clients;
 
 use App\Application\Contracts\Shopwired\CategoryClientInterface;
 use App\Domain\Catalog\ValueObjects\Category as DomainCategory;
-use App\Infrastructure\Shopwired\Enums\CategorySort;
 use App\Infrastructure\Shopwired\Responses\Category;
 use App\Infrastructure\Shopwired\ShopwiredHttpTransport;
 use App\Infrastructure\Shopwired\ShopwiredPaginator;
@@ -27,22 +26,55 @@ final readonly class CategoryClient implements CategoryClientInterface
 
     private const string ENDPOINT_CATEGORIES = 'categories';
 
+    /**
+     * Default embeds for category requests.
+     *
+     * @var list<string>
+     */
+    private const array DEFAULT_EMBEDS = ['parents', 'custom_fields'];
+
+    /**
+     * Default fields for category requests.
+     *
+     * Must include 'customFields' (camelCase) when 'custom_fields' embed is used.
+     * Without explicit fields, customFields data is not returned.
+     *
+     * @var list<string>
+     */
+    private const array DEFAULT_FIELDS = [
+        'id',
+        'createdAt',
+        'title',
+        'description',
+        'description2',
+        'slug',
+        'url',
+        'active',
+        'featured',
+        'tradeOnly',
+        'sortOrder',
+        'metaTitle',
+        'metaKeywords',
+        'metaDescription',
+        'metaNoIndex',
+        'image',
+        'customFields',
+    ];
+
     public function __construct(
         private ShopwiredHttpTransport $transport,
     ) {}
 
     /**
-     * List ALL categories with embedded parents (paginated fetch).
-     *
-     * @param CategorySort|null $sort Sort order (default: API default)
+     * List ALL categories with embedded parents and custom fields (paginated fetch).
      *
      * @return list<DomainCategory>
      */
-    public function listAllCategories(?CategorySort $sort = null): array
+    public function listAllCategories(): array
     {
         $params = ShopwiredQueryParams::forBulkFetch()
-            ->withEmbeds(['parents'])
-            ->withSort($sort?->value);
+            ->withEmbeds(self::DEFAULT_EMBEDS)
+            ->withFields(self::DEFAULT_FIELDS);
 
         return ShopwiredPaginator::fetchAll(
             params: $params,

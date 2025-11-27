@@ -39,8 +39,8 @@ final readonly class GoogleAdsTransport
     private const int PAGE_SIZE = 10000;
 
     public function __construct(
-        private readonly SdkGoogleAdsClient $sdkClient,
-        private readonly GoogleAdsConfig $config,
+        private SdkGoogleAdsClient $sdkClient,
+        private GoogleAdsConfig $config,
     ) {}
 
     /**

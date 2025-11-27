@@ -1,6 +1,7 @@
 <?php
 
-/** @noinspection PhpRedundantCatchClauseInspection */
+/** @noinspection PhpPossiblePolymorphicInvocationInspection - All DTOs are final classes */
+/** @noinspection PhpRedundantCatchClauseInspection - CannotCreateData can be thrown by Spatie Data */
 
 declare(strict_types=1);
 
