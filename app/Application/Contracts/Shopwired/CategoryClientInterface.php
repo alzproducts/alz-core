@@ -17,7 +17,19 @@ use App\Domain\Exceptions\InvalidApiResponseException;
 interface CategoryClientInterface
 {
     /**
-     * List all categories.
+     * List ALL categories with embedded parents (paginated fetch).
+     *
+     * Fetches all pages automatically. Use for complete category tree building/caching.
+     *
+     * @return list<Category>
+     *
+     * @throws ExternalServiceUnavailableException When API unavailable
+     * @throws InvalidApiResponseException When API response structure is invalid
+     */
+    public function listAllCategories(): array;
+
+    /**
+     * List categories (single page).
      *
      * @return list<Category>
      *
