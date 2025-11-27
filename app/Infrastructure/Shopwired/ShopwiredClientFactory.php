@@ -6,7 +6,9 @@ namespace App\Infrastructure\Shopwired;
 
 use App\Application\Contracts\Shopwired\CategoryClientInterface;
 use App\Application\Contracts\Shopwired\ConnectivityClientInterface;
+use App\Application\Contracts\Shopwired\CustomerClientInterface;
 use App\Infrastructure\Shopwired\Clients\CategoryClient;
+use App\Infrastructure\Shopwired\Clients\CustomerClient;
 use RuntimeException;
 
 /**
@@ -39,6 +41,14 @@ final class ShopwiredClientFactory
     public static function createCategoryClient(): CategoryClientInterface
     {
         return new CategoryClient(self::getTransport());
+    }
+
+    /**
+     * Create the customer client for customer operations.
+     */
+    public static function createCustomerClient(): CustomerClientInterface
+    {
+        return new CustomerClient(self::getTransport());
     }
 
     /**

@@ -6,6 +6,7 @@ namespace App\Providers;
 
 use App\Application\Contracts\Shopwired\CategoryClientInterface;
 use App\Application\Contracts\Shopwired\ConnectivityClientInterface;
+use App\Application\Contracts\Shopwired\CustomerClientInterface;
 use App\Infrastructure\Shopwired\ShopwiredClientFactory;
 use Illuminate\Contracts\Support\DeferrableProvider;
 use Illuminate\Support\ServiceProvider;
@@ -46,6 +47,12 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
             CategoryClientInterface::class,
             static fn(): CategoryClientInterface => ShopwiredClientFactory::createCategoryClient(),
         );
+
+        // Customer client - for customer operations
+        $this->app->singleton(
+            CustomerClientInterface::class,
+            static fn(): CustomerClientInterface => ShopwiredClientFactory::createCustomerClient(),
+        );
     }
 
     /**
@@ -59,6 +66,7 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
         return [
             ConnectivityClientInterface::class,
             CategoryClientInterface::class,
+            CustomerClientInterface::class,
         ];
     }
 }
