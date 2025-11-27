@@ -29,12 +29,9 @@ use Illuminate\Support\Facades\Log;
  * - Translate HTTP exceptions to domain exceptions
  * - Log all failures with context before translation
  *
- * Note: Not marked `final` because Mockery cannot mock final classes.
- * CategoryClientTest mocks this class directly for unit testing.
- *
  * @template-pattern API Client HTTP Transport
  */
-class ShopwiredHttpTransport
+final readonly class ShopwiredHttpTransport
 {
     private const string SERVICE_NAME = 'Shopwired';
 
