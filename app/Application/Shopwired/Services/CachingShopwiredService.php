@@ -27,6 +27,8 @@ final readonly class CachingShopwiredService
 
     public const string CACHE_PREFIX = 'shopwired';
 
+    private const string KEY_CATEGORIES_ALL = self::CACHE_PREFIX . ':categories:all';
+
     private const string KEY_CATEGORIES_LIST = self::CACHE_PREFIX . ':categories:list';
 
     private const string KEY_CATEGORY_BY_ID = self::CACHE_PREFIX . ':categories:id:';
@@ -37,9 +39,27 @@ final readonly class CachingShopwiredService
     ) {}
 
     /**
-     * List all categories with caching.
+     * Get all categories with caching (complete paginated result).
+     *
+     * Uses listAllCategories() to fetch all pages and caches the complete list.
+     * Recommended for complete category tree operations.
      *
      * @return list<Category>
+     */
+    public function getAllCategories(): array
+    {
+        return $this->cache->remember(
+            self::KEY_CATEGORIES_ALL,
+            self::ONE_HOUR,
+            fn(): array => $this->categoryClient->listAllCategories(),
+        );
+    }
+
+    /**
+     * List categories with caching (single page).
+     *
+     * @return list<Category>
+     * @noinspection PhpUnused
      */
     public function listCategories(): array
     {
@@ -69,6 +89,7 @@ final readonly class CachingShopwiredService
      */
     public function invalidateCategories(): void
     {
+        $this->cache->forget(self::KEY_CATEGORIES_ALL);
         $this->cache->forget(self::KEY_CATEGORIES_LIST);
         // Individual category caches expire naturally (no ID tracking needed)
     }
