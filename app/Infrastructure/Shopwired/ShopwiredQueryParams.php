@@ -11,6 +11,7 @@ use InvalidArgumentException;
  *
  * Supports all common query params across endpoints:
  * - Pagination: count (1-100), offset (0+)
+ * - Sorting: sort (endpoint-specific, pass enum->value)
  * - Embeds: embed=parents,children
  *
  * Fluent interface with immutable "with" methods.
@@ -27,11 +28,13 @@ final readonly class ShopwiredQueryParams
      * @param int $count Items per page (1-100)
      * @param int $offset Starting position
      * @param list<string> $embeds Related resources to embed
+     * @param string|null $sort Sort order (from endpoint-specific enum)
      */
     public function __construct(
         public int $count = self::DEFAULT_COUNT,
         public int $offset = 0,
         public array $embeds = [],
+        public ?string $sort = null,
     ) {
         if (($count < 1) || ($count > self::MAX_COUNT)) {
             throw new InvalidArgumentException(
@@ -56,12 +59,12 @@ final readonly class ShopwiredQueryParams
 
     public function withCount(int $count): self
     {
-        return new self($count, $this->offset, $this->embeds);
+        return new self($count, $this->offset, $this->embeds, $this->sort);
     }
 
     public function withOffset(int $offset): self
     {
-        return new self($this->count, $offset, $this->embeds);
+        return new self($this->count, $offset, $this->embeds, $this->sort);
     }
 
     /**
@@ -70,7 +73,17 @@ final readonly class ShopwiredQueryParams
     public function withEmbeds(array $embeds): self
     {
         /** @var list<string> $embeds */
-        return new self($this->count, $this->offset, $embeds);
+        return new self($this->count, $this->offset, $embeds, $this->sort);
+    }
+
+    /**
+     * Set sort order from endpoint-specific enum.
+     *
+     * @param string|null $sort The enum value (e.g., CategorySort::CreatedDesc->value)
+     */
+    public function withSort(?string $sort): self
+    {
+        return new self($this->count, $this->offset, $this->embeds, $sort);
     }
 
     /**
@@ -78,7 +91,7 @@ final readonly class ShopwiredQueryParams
      */
     public function nextPage(): self
     {
-        return $this->withOffset($this->offset + $this->count);
+        return new self($this->count, $this->offset + $this->count, $this->embeds, $this->sort);
     }
 
     /**
@@ -92,6 +105,10 @@ final readonly class ShopwiredQueryParams
             'count' => $this->count,
             'offset' => $this->offset,
         ];
+
+        if ($this->sort !== null) {
+            $query['sort'] = $this->sort;
+        }
 
         if ($this->embeds !== []) {
             $query['embed'] = \implode(',', $this->embeds);
