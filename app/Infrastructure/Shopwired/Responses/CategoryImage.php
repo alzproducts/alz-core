@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Infrastructure\Shopwired\Responses;
 
 use App\Domain\Catalog\ValueObjects\CategoryImage as DomainCategoryImage;
+use App\Infrastructure\Contracts\DomainConvertible;
 use Spatie\LaravelData\Data;
 
 /**
@@ -15,7 +16,7 @@ use Spatie\LaravelData\Data;
  *
  * @see Category::$image
  */
-final class CategoryImage extends Data
+final class CategoryImage extends Data implements DomainConvertible
 {
     public function __construct(
         public readonly string $url,
