@@ -81,20 +81,6 @@ final readonly class CustomerQueryParams implements PaginatableQueryParams
     }
 
     /**
-     * Set sort order from CustomerSort enum.
-     *
-     * @param string|null $sort The enum value (e.g., CustomerSort::CreatedDesc->value)
-     */
-    public function withSort(?string $sort): self
-    {
-        return new self(
-            baseParams: $this->baseParams->withSort($sort),
-            trade: $this->trade,
-            email: $this->email,
-        );
-    }
-
-    /**
      * Filter by trade status.
      *
      * @param bool|null $trade true=trade only, false=non-trade only, null=all
