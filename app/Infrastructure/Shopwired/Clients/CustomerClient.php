@@ -160,13 +160,25 @@ final readonly class CustomerClient implements CustomerClientInterface
     }
 
     /**
-     * Search for a customer by exact email match.
+     * Search for a customer by email.
+     *
+     * WARNING: ShopWired's email search behaviour is not guaranteed to be an exact match.
+     * Callers MUST verify the returned customer's email matches the requested email
+     * before using the result. Returns null if no customer found.
+     *
+     * @param string $email Email address to search for
+     * @return DomainCustomer|null Customer if found (verify email match!), null otherwise
      */
     public function searchByEmail(string $email): ?DomainCustomer
     {
-        $params = new CustomerQueryParams()
+        $params = (new CustomerQueryParams())
             ->withEmail($email)
-            ->withCount(1);
+            ->withBaseParams(
+                (new ShopwiredQueryParams())
+                    ->withCount(1)
+                    ->withEmbeds(self::DEFAULT_EMBEDS)
+                    ->withFields(self::DEFAULT_FIELDS),
+            );
 
         $response = $this->transport->get(
             self::ENDPOINT_CUSTOMERS,
@@ -175,8 +187,15 @@ final readonly class CustomerClient implements CustomerClientInterface
 
         $customers = self::parseArrayToDomain($response->json(), Customer::class);
 
-        /** @var DomainCustomer|null */
-        return $customers[0] ?? null;
+        /** @var DomainCustomer|null $customer */
+        $customer = $customers[0] ?? null;
+
+        // Verify exact email match - ShopWired search may not be exact
+        if (($customer !== null) && (\mb_strtolower($customer->email) !== \mb_strtolower($email))) {
+            return null;
+        }
+
+        return $customer;
     }
 
     /**
