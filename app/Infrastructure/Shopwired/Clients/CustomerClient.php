@@ -164,7 +164,7 @@ final readonly class CustomerClient implements CustomerClientInterface
      */
     public function searchByEmail(string $email): ?DomainCustomer
     {
-        $params = (new CustomerQueryParams())
+        $params = new CustomerQueryParams()
             ->withEmail($email)
             ->withCount(1);
 

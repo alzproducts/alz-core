@@ -46,7 +46,8 @@ final readonly class CustomerQueryParams implements PaginatableQueryParams
 
     /**
      * Create new params advanced to the next page.
-     */
+     *
+     * @noinspection PhpUnnecessaryStaticReferenceInspection*/
     public function nextPage(): static
     {
         return new self(
