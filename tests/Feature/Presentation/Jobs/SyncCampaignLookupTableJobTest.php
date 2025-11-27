@@ -9,6 +9,7 @@ use App\Application\Contracts\GoogleAdsClientInterface;
 use App\Application\Contracts\MixpanelClientInterface;
 use App\Domain\AdSpend\ValueObjects\Campaign;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\UnexpectedApiResultException;
 use App\Presentation\Jobs\SyncCampaignLookupTableJob;
 use Illuminate\Contracts\Queue\Job as QueueJobContract;
 use Illuminate\Support\Facades\Log;
@@ -165,6 +166,75 @@ final class SyncCampaignLookupTableJobTest extends TestCase
                     self::assertSame('Google Ads', $context['service']);
                     self::assertSame('using backoff', $context['retry_after']);
                     self::assertSame(3, $context['attempts']);
+
+                    return true;
+                },
+            ));
+    }
+
+    // ========================================================================
+    // UnexpectedApiResultException Handling (Permanent Failures)
+    // ========================================================================
+
+    #[Test]
+    public function it_catches_unexpected_api_result_exception_and_fails_immediately(): void
+    {
+        // Permanent failure - retrying won't help
+        $exception = new UnexpectedApiResultException(
+            serviceName: 'Google Ads',
+            reason: 'Campaign data missing required fields',
+        );
+
+        $this->googleAdsMock
+            ->shouldReceive('getCampaigns')
+            ->once()
+            ->andThrow($exception);
+
+        $job = new SyncCampaignLookupTableJob();
+
+        // Mock the queue job to verify fail is called
+        $queueJob = Mockery::mock(QueueJobContract::class);
+        $queueJob->shouldReceive('attempts')->andReturn(1);
+        $queueJob->shouldReceive('fail')->once()->with($exception);
+        $queueJob->shouldReceive('isReleased')->andReturn(false);
+        $queueJob->shouldReceive('isDeletedOrReleased')->andReturn(false);
+        $job->setJob($queueJob);
+
+        // Should not throw - catches exception and calls fail()
+        $job->handle($this->useCase);
+    }
+
+    #[Test]
+    public function it_logs_critical_when_unexpected_api_result_exception_occurs(): void
+    {
+        $exception = new UnexpectedApiResultException(
+            serviceName: 'Mixpanel',
+            reason: 'Lookup table response malformed',
+        );
+
+        $this->googleAdsMock
+            ->shouldReceive('getCampaigns')
+            ->once()
+            ->andThrow($exception);
+
+        $job = new SyncCampaignLookupTableJob();
+
+        // Mock the queue job
+        $queueJob = Mockery::mock(QueueJobContract::class);
+        $queueJob->shouldReceive('attempts')->andReturn(2);
+        $queueJob->shouldReceive('fail')->once();
+        $queueJob->shouldReceive('isReleased')->andReturn(false);
+        $queueJob->shouldReceive('isDeletedOrReleased')->andReturn(false);
+        $job->setJob($queueJob);
+
+        $job->handle($this->useCase);
+
+        Log::shouldHaveReceived('critical')
+            ->with('Unexpected API result during campaign lookup table sync, failing immediately', Mockery::on(
+                static function (array $context): bool {
+                    self::assertSame('Mixpanel', $context['service']);
+                    self::assertSame('Lookup table response malformed', $context['reason']);
+                    self::assertSame(2, $context['attempts']);
 
                     return true;
                 },

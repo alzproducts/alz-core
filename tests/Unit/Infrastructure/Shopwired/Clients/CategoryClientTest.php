@@ -9,6 +9,7 @@ use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\InvalidApiResponseException;
 use App\Infrastructure\Shopwired\Clients\CategoryClient;
 use App\Infrastructure\Shopwired\ShopwiredHttpTransport;
+use App\Infrastructure\Shopwired\ShopwiredResponseParserTrait;
 use Illuminate\Http\Client\Response;
 use Mockery;
 use Mockery\MockInterface;
@@ -24,6 +25,7 @@ use Tests\TestCase;
  * Covers endpoint routing, response parsing, domain conversion, and pagination.
  */
 #[CoversClass(CategoryClient::class)]
+#[CoversClass(ShopwiredResponseParserTrait::class)]
 final class CategoryClientTest extends TestCase
 {
     private MockInterface&ShopwiredHttpTransport $transport;
@@ -516,5 +518,72 @@ final class CategoryClientTest extends TestCase
         $result = $this->client->getCategoryById(1);
 
         $this->assertNull($result->image);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | CannotCreateData Exception Tests (API Contract Violations)
+    |--------------------------------------------------------------------------
+    | These tests cover the catch(CannotCreateData) paths in ShopwiredResponseParserTrait.
+    | They simulate API contract changes where the response is a valid array
+    | but the structure doesn't match the expected DTO schema.
+    */
+
+    #[Test]
+    public function list_categories_throws_on_malformed_array_items(): void
+    {
+        // Array is valid, but items have wrong structure (missing required 'id' field)
+        $malformedPayload = [
+            ['title' => 'Category Without ID'], // Missing id, created_at, slug, url, etc.
+        ];
+
+        $this->transport
+            ->shouldReceive('get')
+            ->with('categories')
+            ->andReturn($this->mockResponse($malformedPayload));
+
+        $this->expectException(InvalidApiResponseException::class);
+        $this->expectExceptionMessage('API returned invalid data structure');
+
+        $this->client->listCategories();
+    }
+
+    #[Test]
+    public function get_category_by_id_throws_on_malformed_single_response(): void
+    {
+        // Response is array (passes is_array check) but missing required fields
+        $malformedPayload = [
+            'title' => 'Incomplete Category',
+            // Missing: id, created_at, slug, url, active, featured, etc.
+        ];
+
+        $this->transport
+            ->shouldReceive('get')
+            ->with('categories/1')
+            ->andReturn($this->mockResponse($malformedPayload));
+
+        $this->expectException(InvalidApiResponseException::class);
+        $this->expectExceptionMessage('API returned invalid data structure');
+
+        $this->client->getCategoryById(1);
+    }
+
+    #[Test]
+    public function list_all_categories_throws_on_malformed_paginated_response(): void
+    {
+        // First page returns malformed data
+        $malformedPayload = [
+            ['invalid' => 'structure'],
+        ];
+
+        $this->transport
+            ->shouldReceive('get')
+            ->with('categories', Mockery::type('array'))
+            ->andReturn($this->mockResponse($malformedPayload));
+
+        $this->expectException(InvalidApiResponseException::class);
+        $this->expectExceptionMessage('API returned invalid data structure');
+
+        $this->client->listAllCategories();
     }
 }
