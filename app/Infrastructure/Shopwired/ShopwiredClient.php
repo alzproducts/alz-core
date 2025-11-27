@@ -5,11 +5,6 @@ declare(strict_types=1);
 namespace App\Infrastructure\Shopwired;
 
 use App\Application\Contracts\Shopwired\ConnectivityClientInterface;
-use App\Domain\Exceptions\InvalidApiResponseException;
-use Illuminate\Support\Facades\Log;
-use Spatie\LaravelData\Data;
-use Spatie\LaravelData\DataCollection;
-use Spatie\LaravelData\Exceptions\CannotCreateData;
 
 /**
  * Shopwired e-commerce API Client.
@@ -32,8 +27,6 @@ use Spatie\LaravelData\Exceptions\CannotCreateData;
  */
 final readonly class ShopwiredClient implements ConnectivityClientInterface
 {
-    private const string SERVICE_NAME = 'Shopwired';
-
     private const string ENDPOINT_BUSINESS = 'business';
 
     public function __construct(
@@ -52,49 +45,4 @@ final readonly class ShopwiredClient implements ConnectivityClientInterface
         $this->transport->get(self::ENDPOINT_BUSINESS, retry: false);
     }
 
-    /**
-     * Parse API response expecting an array of DTOs.
-     *
-     * @template T of Data
-     *
-     * @param class-string<T> $dtoClass
-     *
-     * @return DataCollection<int, T>
-     *
-     * @throws InvalidApiResponseException When response structure is invalid
-     */
-    protected function parseArrayResponse(mixed $data, string $dtoClass): DataCollection
-    {
-        if (! \is_array($data)) {
-            self::logParsingFailure('Expected array response', $data);
-
-            throw new InvalidApiResponseException(
-                serviceName: self::SERVICE_NAME,
-                message: 'Expected array response',
-            );
-        }
-
-        try {
-            return $dtoClass::collect($data, DataCollection::class);
-        } catch (CannotCreateData $e) {
-            self::logParsingFailure($e->getMessage(), $data);
-
-            throw new InvalidApiResponseException(
-                serviceName: self::SERVICE_NAME,
-                message: 'API returned invalid data structure',
-                previous: $e,
-            );
-        }
-    }
-
-    /**
-     * Log parsing failure with context for debugging API contract changes.
-     */
-    private static function logParsingFailure(string $error, mixed $data): void
-    {
-        Log::critical(self::SERVICE_NAME . ' API response validation failed', [
-            'error' => $error,
-            'raw_response' => $data,
-        ]);
-    }
 }
