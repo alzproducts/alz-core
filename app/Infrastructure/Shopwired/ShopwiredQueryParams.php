@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Shopwired;
 
+use App\Infrastructure\Shopwired\Contracts\PaginatableQueryParams;
 use InvalidArgumentException;
 
 /**
@@ -19,7 +20,7 @@ use InvalidArgumentException;
  *
  * @internal For use within ShopWired infrastructure only
  */
-final readonly class ShopwiredQueryParams
+final readonly class ShopwiredQueryParams implements PaginatableQueryParams
 {
     public const int MAX_COUNT = 100;
 
@@ -50,6 +51,14 @@ final readonly class ShopwiredQueryParams
                 \sprintf('Offset must be non-negative, got %d', $offset),
             );
         }
+    }
+
+    /**
+     * Get the page size (items per page).
+     */
+    public function getCount(): int
+    {
+        return $this->count;
     }
 
     /**
@@ -103,7 +112,7 @@ final readonly class ShopwiredQueryParams
     /**
      * Advance offset to next page.
      */
-    public function nextPage(): self
+    public function nextPage(): static
     {
         return new self($this->count, $this->offset + $this->count, $this->embeds, $this->sort, $this->fields);
     }

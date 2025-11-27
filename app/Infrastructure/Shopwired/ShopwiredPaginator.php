@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Shopwired;
 
+use App\Infrastructure\Shopwired\Contracts\PaginatableQueryParams;
 use Closure;
 
 /**
@@ -23,15 +24,16 @@ final readonly class ShopwiredPaginator
      * Fetch all pages from an endpoint.
      *
      * @template T
+     * @template P of PaginatableQueryParams
      *
-     * @param ShopwiredQueryParams $params Initial query parameters (offset should be 0)
-     * @param Closure(ShopwiredQueryParams): list<T> $fetchPage Callback to fetch one page
+     * @param P $params Initial query parameters (offset should be 0)
+     * @param Closure(P): list<T> $fetchPage Callback to fetch one page
      * @param int|null $knownTotal Optional total count (stops at this count if provided)
      *
      * @return list<T> All items across all pages
      */
     public static function fetchAll(
-        ShopwiredQueryParams $params,
+        PaginatableQueryParams $params,
         Closure $fetchPage,
         ?int $knownTotal = null,
     ): array {
@@ -44,7 +46,7 @@ final readonly class ShopwiredPaginator
             $allItems = [...$allItems, ...$pageItems];
 
             // Stop if we got fewer items than requested (final page)
-            if (\count($pageItems) < $currentParams->count) {
+            if (\count($pageItems) < $currentParams->getCount()) {
                 break;
             }
 
