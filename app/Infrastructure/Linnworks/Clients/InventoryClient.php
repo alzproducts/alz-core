@@ -10,6 +10,7 @@ use App\Domain\Inventory\ValueObjects\StockItem;
 use App\Infrastructure\Linnworks\LinnworksHttpTransport;
 use App\Infrastructure\Linnworks\Responses\SkuStockIdMapping;
 use App\Infrastructure\Linnworks\Responses\StockItem as StockItemResponse;
+use App\Infrastructure\Linnworks\Support\LinnworksResponseParserTrait;
 
 /**
  * Linnworks inventory API client.
@@ -18,7 +19,7 @@ use App\Infrastructure\Linnworks\Responses\StockItem as StockItemResponse;
  */
 final readonly class InventoryClient implements InventoryClientInterface
 {
-    private const string SERVICE_NAME = 'Linnworks';
+    use LinnworksResponseParserTrait;
 
     public function __construct(
         private LinnworksHttpTransport $transport,
@@ -45,13 +46,8 @@ final readonly class InventoryClient implements InventoryClientInterface
             data: ['SKUS' => $skus],
         );
 
-        /** @var array{Items?: list<array{StockItemId: string, SKU: string}>} $data */
-        $data = $response->json();
-
-        return \array_map(
-            static fn(array $item): SkuStockIdMapping => SkuStockIdMapping::from($item),
-            $data['Items'] ?? [],
-        );
+        /** @var list<SkuStockIdMapping> */
+        return self::parseWrappedArray($response->json(), SkuStockIdMapping::class);
     }
 
     /**
@@ -93,6 +89,7 @@ final readonly class InventoryClient implements InventoryClientInterface
             throw new ResourceNotFoundException(self::SERVICE_NAME, 'StockItem', $stockItemId);
         }
 
-        return StockItemResponse::from($data)->toDomain();
+        /** @var StockItem */
+        return self::parseSingleToDomain($data, StockItemResponse::class);
     }
 }
