@@ -199,17 +199,6 @@ final readonly class OrderClient implements OrderClientInterface
     /**
      * @return list<DomainOrder>
      */
-    public function listOrders(): array
-    {
-        $response = $this->transport->get(self::ENDPOINT_ORDERS);
-
-        /** @var list<DomainOrder> */
-        return self::parseArrayToDomain($response->json(), InfraOrder::class);
-    }
-
-    /**
-     * @return list<DomainOrder>
-     */
     public function searchOrders(string $keyword): array
     {
         $response = $this->transport->get(
