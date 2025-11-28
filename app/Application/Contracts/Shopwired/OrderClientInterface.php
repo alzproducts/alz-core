@@ -11,6 +11,7 @@ use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\InvalidApiRequestException;
 use App\Domain\Exceptions\InvalidApiResponseException;
 use App\Domain\Exceptions\ResourceNotFoundException;
+use DateTimeImmutable;
 
 /**
  * ShopWired Orders API client.
@@ -30,15 +31,15 @@ interface OrderClientInterface
      * Fetches all pages automatically. Returns lightweight orders
      * without products/customFields (those fields will be null).
      *
-     * @param int $from Unix timestamp - start of range
-     * @param int $to Unix timestamp - end of range
+     * @param DateTimeImmutable $from Start of range (timezone preserved, converted to timestamp internally)
+     * @param DateTimeImmutable $to End of range (timezone preserved, converted to timestamp internally)
      *
      * @return list<Order> Orders with products=null, customFields=null
      *
      * @throws ExternalServiceUnavailableException When API unavailable
      * @throws InvalidApiResponseException When API response structure is invalid
      */
-    public function listOrdersInRange(int $from, int $to): array;
+    public function listOrdersInRange(DateTimeImmutable $from, DateTimeImmutable $to): array;
 
     /**
      * List orders within a date range - DETAIL mode.
@@ -49,15 +50,15 @@ interface OrderClientInterface
      * Use for syncs requiring complete order data (e.g., Mixpanel daily sync).
      * Heavier payload but avoids N+1 getOrderById calls.
      *
-     * @param int $from Unix timestamp - start of range
-     * @param int $to Unix timestamp - end of range
+     * @param DateTimeImmutable $from Start of range (timezone preserved, converted to timestamp internally)
+     * @param DateTimeImmutable $to End of range (timezone preserved, converted to timestamp internally)
      *
      * @return list<Order> Orders with ALL fields populated
      *
      * @throws ExternalServiceUnavailableException When API unavailable
      * @throws InvalidApiResponseException When API response structure is invalid
      */
-    public function listOrdersInRangeWithDetails(int $from, int $to): array;
+    public function listOrdersInRangeWithDetails(DateTimeImmutable $from, DateTimeImmutable $to): array;
 
     /**
      * Search orders by keyword - STANDARD mode.

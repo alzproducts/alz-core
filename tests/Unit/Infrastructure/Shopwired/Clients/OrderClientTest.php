@@ -11,6 +11,7 @@ use App\Domain\Exceptions\InvalidApiResponseException;
 use App\Infrastructure\Shopwired\Clients\OrderClient;
 use App\Infrastructure\Shopwired\ShopwiredHttpTransport;
 use App\Infrastructure\Shopwired\ShopwiredResponseParserTrait;
+use DateTimeImmutable;
 use Illuminate\Http\Client\Response;
 use Mockery;
 use Mockery\MockInterface;
@@ -531,6 +532,9 @@ final class OrderClientTest extends TestCase
     #[Test]
     public function list_orders_in_range_calls_endpoint_with_standard_params(): void
     {
+        $from = new DateTimeImmutable('@100');
+        $to = new DateTimeImmutable('@200');
+
         $this->transport->shouldReceive('get')
             ->once()
             ->with('orders', Mockery::on(function (array $params): bool {
@@ -544,17 +548,20 @@ final class OrderClientTest extends TestCase
             }))
             ->andReturn($this->mockResponse([]));
 
-        $this->client->listOrdersInRange(100, 200);
+        $this->client->listOrdersInRange($from, $to);
     }
 
     #[Test]
     public function list_orders_in_range_returns_empty_when_no_orders(): void
     {
+        $from = new DateTimeImmutable('@1');
+        $to = new DateTimeImmutable('@100');
+
         $this->transport->shouldReceive('get')
             ->with('orders', Mockery::type('array'))
             ->andReturn($this->mockResponse([]));
 
-        $result = $this->client->listOrdersInRange(1, 100);
+        $result = $this->client->listOrdersInRange($from, $to);
 
         $this->assertSame([], $result);
     }
@@ -562,6 +569,9 @@ final class OrderClientTest extends TestCase
     #[Test]
     public function list_orders_in_range_returns_domain_objects_without_products(): void
     {
+        $from = new DateTimeImmutable('@1');
+        $to = new DateTimeImmutable('@100');
+
         // Paginator stops when count(items) < pageSize, so 2 items stops immediately
         $payload = [
             $this->orderPayload(1, 1001, withDetails: false),
@@ -572,7 +582,7 @@ final class OrderClientTest extends TestCase
             ->with('orders', Mockery::type('array'))
             ->andReturn($this->mockResponse($payload));
 
-        $result = $this->client->listOrdersInRange(1, 100);
+        $result = $this->client->listOrdersInRange($from, $to);
 
         $this->assertCount(2, $result);
         $this->assertInstanceOf(DomainOrder::class, $result[0]);
@@ -586,6 +596,9 @@ final class OrderClientTest extends TestCase
     #[Test]
     public function list_orders_in_range_fetches_multiple_pages(): void
     {
+        $from = new DateTimeImmutable('@1609459200');
+        $to = new DateTimeImmutable('@1612137600');
+
         // Page 1: exactly 100 items (= pageSize) triggers next page fetch
         $page1 = \array_map(
             fn(int $i) => $this->orderPayload($i, 1000 + $i),
@@ -610,7 +623,7 @@ final class OrderClientTest extends TestCase
             ->with('orders', Mockery::on(static fn(array $p): bool => $p['offset'] === 100))
             ->andReturn($this->mockResponse($page2));
 
-        $result = $this->client->listOrdersInRange(1609459200, 1612137600);
+        $result = $this->client->listOrdersInRange($from, $to);
 
         $this->assertCount(130, $result);
         $this->assertSame(1001, $result[0]->reference);
@@ -628,6 +641,9 @@ final class OrderClientTest extends TestCase
     #[Test]
     public function list_orders_in_range_with_details_calls_endpoint_with_detail_params(): void
     {
+        $from = new DateTimeImmutable('@100');
+        $to = new DateTimeImmutable('@200');
+
         $this->transport->shouldReceive('get')
             ->once()
             ->with('orders', Mockery::on(function (array $params): bool {
@@ -642,12 +658,15 @@ final class OrderClientTest extends TestCase
             }))
             ->andReturn($this->mockResponse([]));
 
-        $this->client->listOrdersInRangeWithDetails(100, 200);
+        $this->client->listOrdersInRangeWithDetails($from, $to);
     }
 
     #[Test]
     public function list_orders_in_range_with_details_returns_domain_objects_with_products(): void
     {
+        $from = new DateTimeImmutable('@1');
+        $to = new DateTimeImmutable('@100');
+
         // Single item < pageSize stops pagination immediately
         $payload = [
             $this->orderPayload(1, 1001, withDetails: true),
@@ -658,7 +677,7 @@ final class OrderClientTest extends TestCase
             ->with('orders', Mockery::type('array'))
             ->andReturn($this->mockResponse($payload));
 
-        $result = $this->client->listOrdersInRangeWithDetails(1, 100);
+        $result = $this->client->listOrdersInRangeWithDetails($from, $to);
 
         $this->assertCount(1, $result);
         $order = $result[0];
@@ -674,6 +693,9 @@ final class OrderClientTest extends TestCase
     #[Test]
     public function list_orders_in_range_with_details_converts_nested_objects_correctly(): void
     {
+        $from = new DateTimeImmutable('@1');
+        $to = new DateTimeImmutable('@100');
+
         $payload = [
             $this->orderPayload(1, 1001, withDetails: true, overrides: [
                 'discounts' => [
@@ -691,7 +713,7 @@ final class OrderClientTest extends TestCase
             ->with('orders', Mockery::type('array'))
             ->andReturn($this->mockResponse($payload));
 
-        $result = $this->client->listOrdersInRangeWithDetails(1, 100);
+        $result = $this->client->listOrdersInRangeWithDetails($from, $to);
 
         $order = $result[0];
 
@@ -711,6 +733,9 @@ final class OrderClientTest extends TestCase
     #[Test]
     public function list_orders_in_range_throws_on_malformed_order_data(): void
     {
+        $from = new DateTimeImmutable('@1');
+        $to = new DateTimeImmutable('@100');
+
         $malformedPayload = [
             ['id' => 1, 'reference' => 1001], // Missing most required fields
         ];
@@ -722,6 +747,6 @@ final class OrderClientTest extends TestCase
         $this->expectException(InvalidApiResponseException::class);
         $this->expectExceptionMessage('API returned invalid data structure');
 
-        $this->client->listOrdersInRange(1, 100);
+        $this->client->listOrdersInRange($from, $to);
     }
 }

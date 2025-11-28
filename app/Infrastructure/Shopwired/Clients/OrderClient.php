@@ -15,6 +15,7 @@ use App\Infrastructure\Shopwired\ShopwiredHttpTransport;
 use App\Infrastructure\Shopwired\ShopwiredPaginator;
 use App\Infrastructure\Shopwired\ShopwiredQueryParams;
 use App\Infrastructure\Shopwired\ShopwiredResponseParserTrait;
+use DateTimeImmutable;
 
 /**
  * ShopWired Orders API Client.
@@ -128,11 +129,11 @@ final readonly class OrderClient implements OrderClientInterface
     /**
      * @return list<DomainOrder>
      */
-    public function listOrdersInRangeWithDetails(int $from, int $to): array
+    public function listOrdersInRangeWithDetails(DateTimeImmutable $from, DateTimeImmutable $to): array
     {
         $params = OrderQueryParams::forBulkFetch()
-            ->withFrom($from)
-            ->withTo($to)
+            ->withFrom($from->getTimestamp())
+            ->withTo($to->getTimestamp())
             ->withBaseParams(
                 ShopwiredQueryParams::forBulkFetch()
                     ->withEmbeds(self::DETAIL_EMBEDS)
@@ -148,11 +149,11 @@ final readonly class OrderClient implements OrderClientInterface
     /**
      * @return list<DomainOrder>
      */
-    public function listOrdersInRange(int $from, int $to): array
+    public function listOrdersInRange(DateTimeImmutable $from, DateTimeImmutable $to): array
     {
         $params = OrderQueryParams::forBulkFetch()
-            ->withFrom($from)
-            ->withTo($to)
+            ->withFrom($from->getTimestamp())
+            ->withTo($to->getTimestamp())
             ->withBaseParams(
                 ShopwiredQueryParams::forBulkFetch()
                     ->withEmbeds(self::STANDARD_EMBEDS)
