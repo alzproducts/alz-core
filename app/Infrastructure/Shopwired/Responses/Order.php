@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Shopwired\Responses;
 
+use App\Infrastructure\Shopwired\Enums\PaymentMethodRaw;
 use Spatie\LaravelData\Attributes\DataCollectionOf;
 use Spatie\LaravelData\Attributes\MapInputName;
 use Spatie\LaravelData\Data;
@@ -12,18 +13,14 @@ use Spatie\LaravelData\Mappers\SnakeCaseMapper;
 /**
  * ShopWired API Response: Order.
  *
- * Infrastructure DTO for parsing order data from API responses.
- * Supports both summary (list) and detail (getById) responses.
- *
- * Summary responses have nullable detail fields (products, adminComments, fileArchives).
- * Detail responses have all fields populated.
+ * Two-mode approach:
+ * - Standard: All fields + embeds, NO products, NO customFields
+ * - Detail: Standard + products + customFields
  *
  * Gotchas:
- * - `shipping` is returned as array from API; use shipping[0] when parsing
- * - `preOrder` is a required boolean (not nullable)
- * - `customFields` is an object/assoc array, not a flat array
- *
- * Domain conversion will be added after smoke testing validates parsing.
+ * - `shipping` is returned as array from API; use getFirstShipping()
+ * - Empty arrays (adminComments, fileArchives) return [] not null
+ * - Detail-only fields return null in Standard mode (products, customFields)
  *
  * @see https://shopwired.readme.io/reference/listorders
  */
@@ -31,74 +28,70 @@ use Spatie\LaravelData\Mappers\SnakeCaseMapper;
 final class Order extends Data
 {
     /**
-     * @param list<OrderShipping>|null $shipping API returns as array; typically shipping[0]
+     * @param list<OrderShipping> $shipping API returns as array; use getFirstShipping()
      * @param list<OrderDiscount> $discounts
      * @param list<OrderFee> $fees
      * @param list<OrderRefund> $refunds
      * @param list<OrderPartialPayment> $partialPayments
-     * @param list<OrderProduct>|null $products Null for summary, populated for detail
-     * @param list<OrderAdminComment>|null $adminComments Null for summary, populated for detail
-     * @param list<OrderFileArchive>|null $fileArchives Null for summary, populated for detail
-     * @param array<string, mixed> $customFields Order-level custom fields (key-value pairs)
+     * @param list<OrderAdminComment> $adminComments Returns [] when empty
+     * @param list<OrderFileArchive> $fileArchives Returns [] when empty
+     * @param list<OrderProduct>|null $products Detail-only (null in Standard mode)
+     * @param array<string, mixed>|null $customFields Detail-only (null in Standard mode)
      */
     public function __construct(
-        // Identifiers
-        public readonly ?int $id = null,
-        public readonly ?int $reference = null,
-        public readonly ?string $created = null,
+        // Identifiers (always present)
+        public readonly int $id,
+        public readonly int $reference,
+        public readonly string $created,
 
-        // Status flags
-        public readonly ?bool $archived = null,
-        public readonly ?bool $anonymized = null,
-        public readonly bool $preOrder = false,
+        // Status flags (always present)
+        public readonly bool $archived,
+        public readonly bool $anonymized,
+        public readonly bool $preOrder,
 
-        // URLs
-        public readonly ?string $trackingUrl = null,
-        public readonly ?string $invoiceUrl = null,
+        // Payment (always present)
+        public readonly string $paymentMethod,
 
-        // Payment
-        public readonly ?string $paymentMethod = null,
-        public readonly ?string $transactionId = null,
+        // Totals (always present)
+        public readonly float $total,
+        public readonly float $subTotal,
+        public readonly float $shippingTotal,
+        public readonly float $originalShippingTotal,
+        public readonly float $partialPaymentTotal,
 
-        // Totals
-        public readonly ?float $total = null,
-        public readonly ?float $subTotal = null,
-        public readonly ?float $shippingTotal = null,
-        public readonly ?float $originalShippingTotal = null,
-        public readonly ?float $partialPaymentTotal = null,
+        // Weight (always present)
+        public readonly string $totalWeight,
+        public readonly string $weightUnit,
+        public readonly string $packageWeight,
 
-        // Weight
-        public readonly ?string $totalWeight = null,
-        public readonly ?string $weightUnit = null,
-        public readonly ?string $packageWeight = null,
+        // Customer preferences (always present)
+        public readonly bool $marketing,
+        public readonly string $comments,
 
-        // Customer preferences
-        public readonly ?bool $marketing = null,
-        public readonly ?string $comments = null,
+        // URLs (always present, empty string if not set)
+        public readonly string $trackingUrl,
+        public readonly string $invoiceUrl,
+        public readonly string $transactionId,
 
-        // Dates
-        public readonly ?string $deliveryDate = null,
+        // Source tracking (always present)
+        public readonly int $referrerId,
 
-        // Rewards
-        public readonly ?float $earnedRewardPoints = null,
+        // Rewards (always present)
+        public readonly float $earnedRewardPoints,
 
-        // Calculation flags
-        public readonly ?bool $lineItemVatCalculation = null,
+        // Calculation flags (always present)
+        public readonly bool $lineItemVatCalculation,
 
-        // Source tracking
-        public readonly ?int $referrerId = null,
-        public readonly ?string $customerSource = null,
+        // Nested objects (always present)
+        public readonly OrderStatus $status,
+        public readonly OrderAddress $billingAddress,
+        public readonly OrderAddress $shippingAddress,
+        public readonly OrderTax $tax,
+        public readonly OrderCustomer $customer,
 
-        // Nested objects
-        public readonly ?OrderStatus $status = null,
-        public readonly ?OrderAddress $billingAddress = null,
-        public readonly ?OrderAddress $shippingAddress = null,
-        public readonly ?OrderTax $tax = null,
-        public readonly ?OrderCustomer $customer = null,
-
-        // Nested arrays (always present)
+        // Nested arrays (always present, default to empty)
         #[DataCollectionOf(OrderShipping::class)]
-        public readonly ?array $shipping = null,
+        public readonly array $shipping = [],
         #[DataCollectionOf(OrderDiscount::class)]
         public readonly array $discounts = [],
         #[DataCollectionOf(OrderFee::class)]
@@ -107,17 +100,19 @@ final class Order extends Data
         public readonly array $refunds = [],
         #[DataCollectionOf(OrderPartialPayment::class)]
         public readonly array $partialPayments = [],
+        #[DataCollectionOf(OrderAdminComment::class)]
+        public readonly array $adminComments = [],
+        #[DataCollectionOf(OrderFileArchive::class)]
+        public readonly array $fileArchives = [],
 
-        // Detail-only fields (null for summary requests)
+        // Genuinely nullable (business data may not exist)
+        public readonly ?string $deliveryDate = null,
+        public readonly ?string $customerSource = null,
+
+        // Detail-only fields (null in Standard mode)
         #[DataCollectionOf(OrderProduct::class)]
         public readonly ?array $products = null,
-        #[DataCollectionOf(OrderAdminComment::class)]
-        public readonly ?array $adminComments = null,
-        #[DataCollectionOf(OrderFileArchive::class)]
-        public readonly ?array $fileArchives = null,
-
-        // Custom fields (order-level, key-value pairs)
-        public readonly array $customFields = [],
+        public readonly ?array $customFields = null,
     ) {}
 
     /**
@@ -126,5 +121,34 @@ final class Order extends Data
     public function getFirstShipping(): ?OrderShipping
     {
         return $this->shipping[0] ?? null;
+    }
+
+    public function toDomain(): \App\Domain\Catalog\Order\ValueObjects\Order
+    {
+        return new \App\Domain\Catalog\Order\ValueObjects\Order(
+            reference: $this->reference,
+            total: $this->total,
+            subTotal: $this->subTotal,
+            shippingTotal: $this->shippingTotal,
+            paymentMethod: PaymentMethodRaw::fromApiValue($this->paymentMethod)->toDomain(),
+            comments: $this->comments,
+            marketing: $this->marketing,
+            status: $this->status->toDomain(),
+            customer: $this->customer->toDomain(),
+            shipping: $this->getFirstShipping()?->toDomain(),
+            billingAddress: $this->billingAddress->toDomain(),
+            shippingAddress: $this->shippingAddress->toDomain(),
+            discounts: \array_map(
+                static fn(OrderDiscount $d): \App\Domain\Catalog\Order\ValueObjects\OrderDiscount => $d->toDomain(),
+                $this->discounts,
+            ),
+            products: ($this->products !== null)
+                ? \array_map(
+                    static fn(OrderProduct $p): \App\Domain\Catalog\Order\ValueObjects\OrderProduct => $p->toDomain(),
+                    $this->products,
+                )
+                : null,
+            customFields: $this->customFields,
+        );
     }
 }

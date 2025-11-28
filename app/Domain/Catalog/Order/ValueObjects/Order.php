@@ -13,16 +13,20 @@ use Webmozart\Assert\Assert;
  * Contains business-essential fields only - infrastructure details
  * like tax, fees, refunds stay in Infrastructure DTOs.
  *
- * @property array<int, OrderProduct>|null $products Null for summary, populated for detail
+ * Two-mode approach:
+ * - Standard: products=null, customFields=null (not requested)
+ * - Detail: products=[], customFields=[] (requested, possibly empty)
+ *
+ * @property array<int, OrderProduct>|null $products Null=not requested, []=empty
  * @property array<int, OrderDiscount> $discounts
- * @property array<string, mixed> $customFields
+ * @property array<string, mixed>|null $customFields Null=not requested, []=empty
  */
 final readonly class Order
 {
     /**
-     * @param array<int, OrderProduct>|null $products Null for summary requests, populated for detail
+     * @param array<int, OrderProduct>|null $products Null=Standard mode, array=Detail mode
      * @param array<int, OrderDiscount> $discounts
-     * @param array<string, mixed> $customFields
+     * @param array<string, mixed>|null $customFields Null=Standard mode, array=Detail mode
      */
     public function __construct(
         public int $reference,
@@ -30,16 +34,16 @@ final readonly class Order
         public float $subTotal,
         public float $shippingTotal,
         public PaymentMethod $paymentMethod,
-        public ?string $comments,
+        public string $comments,
         public bool $marketing,
         public OrderStatus $status,
-        public ?OrderCustomer $customer,
+        public OrderCustomer $customer,
         public ?OrderShipping $shipping,
-        public ?OrderAddress $billingAddress,
-        public ?OrderAddress $shippingAddress,
+        public OrderAddress $billingAddress,
+        public OrderAddress $shippingAddress,
         public array $discounts = [],
         public ?array $products = null,
-        public array $customFields = [],
+        public ?array $customFields = null,
     ) {
         Assert::greaterThan($reference, 0, 'Order reference must be positive');
     }
