@@ -216,9 +216,9 @@ final class OrderClientTest extends TestCase
     public function get_order_by_id_calls_correct_endpoint_with_detail_params(): void
     {
         $this->transport
-            ->shouldReceive('get')
+            ->shouldReceive('getResource')
             ->once()
-            ->with('orders/42', Mockery::on(function (array $params): bool {
+            ->with('Order', 42, 'orders', Mockery::on(function (array $params): bool {
                 $this->assertStringContainsString('products', $params['fields']);
                 $this->assertStringContainsString('products', $params['embed']);
 
@@ -234,8 +234,8 @@ final class OrderClientTest extends TestCase
     {
         $payload = $this->orderPayload(42, 1042, true);
         $this->transport
-            ->shouldReceive('get')
-            ->with('orders/42', Mockery::any())
+            ->shouldReceive('getResource')
+            ->with('Order', 42, 'orders', Mockery::any())
             ->andReturn($this->mockResponse($payload));
 
         $order = $this->client->getOrderById(42);
@@ -266,8 +266,8 @@ final class OrderClientTest extends TestCase
     public function get_order_by_id_throws_on_null_response(): void
     {
         $this->transport
-            ->shouldReceive('get')
-            ->with('orders/1', Mockery::any())
+            ->shouldReceive('getResource')
+            ->with('Order', 1, 'orders', Mockery::any())
             ->andReturn($this->mockResponse(null));
 
         $this->expectException(InvalidApiResponseException::class);
@@ -280,8 +280,8 @@ final class OrderClientTest extends TestCase
     {
         $malformedPayload = ['id' => 123]; // Missing required fields
         $this->transport
-            ->shouldReceive('get')
-            ->with('orders/123', Mockery::any())
+            ->shouldReceive('getResource')
+            ->with('Order', 123, 'orders', Mockery::any())
             ->andReturn($this->mockResponse($malformedPayload));
 
         $this->expectException(InvalidApiResponseException::class);
@@ -294,13 +294,13 @@ final class OrderClientTest extends TestCase
     public function get_order_by_id_propagates_transport_exception(): void
     {
         $this->transport
-            ->shouldReceive('get')
-            ->with('orders/404', Mockery::any())
+            ->shouldReceive('getResource')
+            ->with('Order', 500, 'orders', Mockery::any())
             ->andThrow(new ExternalServiceUnavailableException('Shopwired'));
 
         $this->expectException(ExternalServiceUnavailableException::class);
 
-        $this->client->getOrderById(404);
+        $this->client->getOrderById(500);
     }
 
     /*
