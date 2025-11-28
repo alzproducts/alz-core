@@ -56,18 +56,6 @@ interface OrderClientInterface
     public function listOrdersInRangeWithDetails(int $from, int $to): array;
 
     /**
-     * List orders (single page) - STANDARD mode.
-     *
-     * Returns first page of orders without pagination.
-     *
-     * @return list<Order> Orders with products=null, customFields=null
-     *
-     * @throws ExternalServiceUnavailableException When API unavailable
-     * @throws InvalidApiResponseException When API response structure is invalid
-     */
-    public function listOrders(): array;
-
-    /**
      * Search orders by keyword - STANDARD mode.
      *
      * Searches by reference, customer name, email, etc.
