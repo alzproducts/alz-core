@@ -76,6 +76,40 @@ final readonly class ShopwiredHttpTransport
     }
 
     /**
+     * Perform POST request to Shopwired API.
+     *
+     * @param string $endpoint API endpoint path (e.g., 'orders/123/status')
+     * @param array<string, mixed> $data Request body data (sent as JSON)
+     * @param bool $retry Whether to apply retry logic for transient failures
+     * @param RetryStrategy $strategy Retry configuration (only used when $retry is true)
+     *
+     * @return Response Successful HTTP response
+     *
+     * @throws InvalidApiRequestException When request parameters are invalid (400)
+     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
+     * @throws ExternalServiceUnavailableException When API unavailable, rate limited, or connection fails
+     */
+    public function post(
+        string $endpoint,
+        array $data = [],
+        bool $retry = true,
+        RetryStrategy $strategy = RetryStrategy::Background,
+    ): Response {
+        try {
+            return $this->createBaseRequest($retry, $strategy)
+                ->post($endpoint, $data)
+                ->throw();
+        } catch (RequestException $e) {
+            throw $this->handleRequestException($e);
+        } catch (ConnectionException $e) {
+            throw $this->handleConnectionException($e);
+        } catch (Exception $e) {
+            // Catch-all for unexpected exceptions from Guzzle/Laravel internals
+            throw $this->handleUnexpectedException($e);
+        }
+    }
+
+    /**
      * Create configured HTTP request with auth and optional retry logic.
      */
     private function createBaseRequest(bool $retry, RetryStrategy $strategy): PendingRequest
