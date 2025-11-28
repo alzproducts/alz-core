@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\ReviewsIo;
 
+use App\Domain\Exceptions\AuthenticationExpiredException;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\InvalidApiRequestException;
 use App\Infrastructure\Support\ApiRetryStrategy;
 use App\Infrastructure\Support\RetryAfterParser;
 use Exception;
@@ -46,6 +48,8 @@ final readonly class ReviewsIoHttpTransport
      *
      * @return Response Successful HTTP response
      *
+     * @throws InvalidApiRequestException When request parameters are invalid (400)
+     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
      * @throws ExternalServiceUnavailableException When API unavailable, rate limited, or connection fails
      */
     public function get(string $endpoint, array $queryParams = []): Response
@@ -86,13 +90,51 @@ final readonly class ReviewsIoHttpTransport
     /**
      * Handle HTTP request failures (4xx, 5xx responses).
      *
-     * Rate limits (429) logged as WARNING (transient, recoverable).
-     * Other errors logged as ERROR (unexpected failures).
+     * Status code mapping:
+     * - 400: InvalidApiRequestException (programming error, permanent)
+     * - 401/403: AuthenticationExpiredException (credentials issue, permanent)
+     * - 429: ExternalServiceUnavailableException (rate limit, transient)
+     * - 5xx: ExternalServiceUnavailableException (server error, transient)
+     *
+     * Note: 404 Not Found is NOT handled specially - semantics are context-dependent.
+     * Individual client methods should handle "resource not found" cases.
      */
-    private function handleRequestException(RequestException $e): ExternalServiceUnavailableException
+    private function handleRequestException(RequestException $e): ExternalServiceUnavailableException|InvalidApiRequestException|AuthenticationExpiredException
     {
         $status = $e->response->status();
 
+        // 400 Bad Request = our request is malformed (programming error)
+        if ($status === 400) {
+            Log::error(self::SERVICE_NAME . ' API invalid request', [
+                'status' => $status,
+                'error' => $e->getMessage(),
+                'response' => $e->response->json(),
+            ]);
+
+            $message = $e->response->json('message');
+
+            return new InvalidApiRequestException(
+                self::SERVICE_NAME,
+                \is_string($message) ? $message : 'Invalid request parameters',
+                $e,
+            );
+        }
+
+        // 401/403 = authentication/authorization failure (credentials issue)
+        if ($status === 401 || $status === 403) {
+            Log::error(self::SERVICE_NAME . ' API authentication failed', [
+                'status' => $status,
+                'error' => $e->getMessage(),
+            ]);
+
+            return new AuthenticationExpiredException(
+                self::SERVICE_NAME,
+                $status === 401 ? 'Invalid credentials' : 'Insufficient permissions',
+                $e,
+            );
+        }
+
+        // 429 = rate limited (transient, respect Retry-After)
         if ($status === 429) {
             $retryAfter = RetryAfterParser::parse($e->response->header('Retry-After'));
 
@@ -104,6 +146,7 @@ final readonly class ReviewsIoHttpTransport
             return new ExternalServiceUnavailableException(self::SERVICE_NAME, $retryAfter, $e);
         }
 
+        // All other errors (5xx, 404, etc.) = service unavailable
         Log::error(self::SERVICE_NAME . ' API request failed', [
             'status' => $status,
             'error' => $e->getMessage(),
