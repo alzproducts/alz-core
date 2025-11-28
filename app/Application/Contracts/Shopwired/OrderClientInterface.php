@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Application\Contracts\Shopwired;
 
 use App\Domain\Catalog\Order\ValueObjects\Order;
+use App\Domain\Exceptions\AuthenticationExpiredException;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\InvalidApiRequestException;
 use App\Domain\Exceptions\InvalidApiResponseException;
 
 /**
@@ -102,4 +104,23 @@ interface OrderClientInterface
      * @throws InvalidApiResponseException When API response structure is invalid
      */
     public function getOrderCountByStatus(int $statusId): int;
+
+    /**
+     * Update an order's status.
+     *
+     * @param int $orderId Order ID to update
+     * @param int $statusId New status ID
+     * @param bool $notifyCustomer Whether to send status update email to customer
+     * @param string|null $trackingUrl New tracking URL value (null = don't update)
+     *
+     * @throws InvalidApiRequestException When request parameters are invalid
+     * @throws AuthenticationExpiredException When credentials are invalid
+     * @throws ExternalServiceUnavailableException When API unavailable
+     */
+    public function updateOrderStatus(
+        int $orderId,
+        int $statusId,
+        bool $notifyCustomer = false,
+        ?string $trackingUrl = null,
+    ): void;
 }

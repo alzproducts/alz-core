@@ -7,6 +7,7 @@ namespace App\Infrastructure\Shopwired\Clients;
 use App\Application\Contracts\Shopwired\OrderClientInterface;
 use App\Domain\Catalog\Order\ValueObjects\Order as DomainOrder;
 use App\Infrastructure\Shopwired\OrderQueryParams;
+use App\Infrastructure\Shopwired\Requests\OrderStatusUpdateOptions;
 use App\Infrastructure\Shopwired\Responses\Order as InfraOrder;
 use App\Infrastructure\Shopwired\ShopwiredHttpTransport;
 use App\Infrastructure\Shopwired\ShopwiredPaginator;
@@ -208,6 +209,25 @@ final readonly class OrderClient implements OrderClientInterface
 
         /** @var list<DomainOrder> */
         return self::parseWrappedArrayToDomain($response->json(), InfraOrder::class);
+    }
+
+    public function updateOrderStatus(
+        int $orderId,
+        int $statusId,
+        bool $notifyCustomer = false,
+        ?string $trackingUrl = null,
+    ): void {
+        $options = new OrderStatusUpdateOptions(
+            sendEmail: $notifyCustomer,
+            trackingUrl: $trackingUrl,
+        );
+
+        $data = ['status' => $statusId, ...$options->toArray()];
+
+        $this->transport->post(
+            self::ENDPOINT_ORDERS . '/' . $orderId . '/status',
+            $data,
+        );
     }
 
     /**
