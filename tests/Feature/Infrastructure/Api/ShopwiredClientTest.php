@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Infrastructure\Api;
 
+use App\Domain\Exceptions\AuthenticationExpiredException;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\InvalidApiRequestException;
 use App\Infrastructure\Shopwired\ShopwiredClient;
 use App\Infrastructure\Shopwired\ShopwiredConfig;
 use App\Infrastructure\Shopwired\ShopwiredHttpTransport;
@@ -154,11 +156,23 @@ final class ShopwiredClientTest extends TestCase
     */
 
     #[Test]
+    public function it_throws_exception_on_http_400_bad_request(): void
+    {
+        Http::fake(['*' => Http::response(['message' => 'Invalid parameters'], 400)]);
+
+        $this->expectException(InvalidApiRequestException::class);
+        $this->expectExceptionMessage('Invalid parameters');
+
+        $this->client->verifyConnectivity();
+    }
+
+    #[Test]
     public function it_throws_exception_on_http_401_unauthorized(): void
     {
         Http::fake(['*' => Http::response(['error' => 'Unauthorized'], 401)]);
 
-        $this->expectException(ExternalServiceUnavailableException::class);
+        $this->expectException(AuthenticationExpiredException::class);
+        $this->expectExceptionMessage('Invalid credentials');
 
         $this->client->verifyConnectivity();
     }
@@ -168,7 +182,8 @@ final class ShopwiredClientTest extends TestCase
     {
         Http::fake(['*' => Http::response(['error' => 'Forbidden'], 403)]);
 
-        $this->expectException(ExternalServiceUnavailableException::class);
+        $this->expectException(AuthenticationExpiredException::class);
+        $this->expectExceptionMessage('Insufficient permissions');
 
         $this->client->verifyConnectivity();
     }
@@ -351,9 +366,25 @@ final class ShopwiredClientTest extends TestCase
     }
 
     #[Test]
-    public function it_includes_service_name_in_exception(): void
+    public function it_includes_service_name_in_auth_exception(): void
     {
         Http::fake(['*' => Http::response(['error' => 'Unauthorized'], 401)]);
+
+        try {
+            $this->client->verifyConnectivity();
+        } catch (AuthenticationExpiredException $e) {
+            $this->assertSame('Shopwired', $e->serviceName);
+
+            return;
+        }
+
+        $this->fail('Expected AuthenticationExpiredException to be thrown');
+    }
+
+    #[Test]
+    public function it_includes_service_name_in_unavailable_exception(): void
+    {
+        Http::fake(['*' => Http::response(['error' => 'Server Error'], 500)]);
 
         try {
             $this->client->verifyConnectivity();
@@ -364,6 +395,22 @@ final class ShopwiredClientTest extends TestCase
         }
 
         $this->fail('Expected ExternalServiceUnavailableException to be thrown');
+    }
+
+    #[Test]
+    public function it_includes_service_name_in_invalid_request_exception(): void
+    {
+        Http::fake(['*' => Http::response(['message' => 'Bad request'], 400)]);
+
+        try {
+            $this->client->verifyConnectivity();
+        } catch (InvalidApiRequestException $e) {
+            $this->assertSame('Shopwired', $e->serviceName);
+
+            return;
+        }
+
+        $this->fail('Expected InvalidApiRequestException to be thrown');
     }
 
     /*
