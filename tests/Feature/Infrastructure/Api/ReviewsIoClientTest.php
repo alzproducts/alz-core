@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Infrastructure\Api;
 
+use App\Domain\Exceptions\AuthenticationExpiredException;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\InvalidApiRequestException;
 use App\Domain\Exceptions\InvalidApiResponseException;
+use App\Domain\Exceptions\ResourceNotFoundException;
 use App\Domain\Product\ValueObjects\ProductRating;
 use App\Infrastructure\ReviewsIo\ReviewsIoClient;
 use App\Infrastructure\ReviewsIo\ReviewsIoConfig;
@@ -353,7 +356,7 @@ final class ReviewsIoClientTest extends TestCase
     {
         Http::fake(['*' => Http::response(['error' => 'Not Found'], 404)]);
 
-        $this->expectException(ExternalServiceUnavailableException::class);
+        $this->expectException(ResourceNotFoundException::class);
 
         $this->client->getProductRatingBatch(['SKU-404']);
     }
@@ -369,13 +372,36 @@ final class ReviewsIoClientTest extends TestCase
     }
 
     #[Test]
-    public function it_throws_request_exception_on_http_401_unauthorized(): void
+    public function it_throws_exception_on_http_400_bad_request(): void
+    {
+        Http::fake(['*' => Http::response(['message' => 'Invalid parameters'], 400)]);
+
+        $this->expectException(InvalidApiRequestException::class);
+        $this->expectExceptionMessage('Invalid parameters');
+
+        $this->client->getProductRatingBatch(['SKU-400']);
+    }
+
+    #[Test]
+    public function it_throws_exception_on_http_401_unauthorized(): void
     {
         Http::fake(['*' => Http::response(['error' => 'Unauthorized'], 401)]);
 
-        $this->expectException(ExternalServiceUnavailableException::class);
+        $this->expectException(AuthenticationExpiredException::class);
+        $this->expectExceptionMessage('Invalid credentials');
 
         $this->client->getProductRatingBatch(['SKU-401']);
+    }
+
+    #[Test]
+    public function it_throws_exception_on_http_403_forbidden(): void
+    {
+        Http::fake(['*' => Http::response(['error' => 'Forbidden'], 403)]);
+
+        $this->expectException(AuthenticationExpiredException::class);
+        $this->expectExceptionMessage('Insufficient permissions');
+
+        $this->client->getProductRatingBatch(['SKU-403']);
     }
 
     #[Test]
@@ -565,7 +591,7 @@ final class ReviewsIoClientTest extends TestCase
     {
         Http::fake(['*' => Http::response(['error' => 'Unauthorized'], 401)]);
 
-        $this->expectException(ExternalServiceUnavailableException::class);
+        $this->expectException(AuthenticationExpiredException::class);
 
         $this->client->verifyConnectivity();
     }

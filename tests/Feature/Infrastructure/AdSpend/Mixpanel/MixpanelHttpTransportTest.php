@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Infrastructure\AdSpend\Mixpanel;
 
+use App\Domain\Exceptions\AuthenticationExpiredException;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\InvalidApiRequestException;
 use App\Infrastructure\Mixpanel\MixpanelConfig;
 use App\Infrastructure\Mixpanel\MixpanelHttpTransport;
 use Illuminate\Http\Client\ConnectionException;
@@ -247,9 +249,10 @@ final class MixpanelHttpTransportTest extends TestCase
     #[Test]
     public function it_throws_exception_on_400_bad_request(): void
     {
-        Http::fake(['*' => Http::response(['error' => 'bad request'], 400)]);
+        Http::fake(['*' => Http::response(['message' => 'Invalid parameters'], 400)]);
 
-        $this->expectException(ExternalServiceUnavailableException::class);
+        $this->expectException(InvalidApiRequestException::class);
+        $this->expectExceptionMessage('Invalid parameters');
 
         $this->transport->request('POST', self::TEST_DATA_API_BASE_URL . '/import', '{}', 'application/json');
     }
@@ -259,7 +262,19 @@ final class MixpanelHttpTransportTest extends TestCase
     {
         Http::fake(['*' => Http::response(['error' => 'unauthorized'], 401)]);
 
-        $this->expectException(ExternalServiceUnavailableException::class);
+        $this->expectException(AuthenticationExpiredException::class);
+        $this->expectExceptionMessage('Invalid credentials');
+
+        $this->transport->request('GET', self::TEST_DATA_API_BASE_URL . '/api/app/me');
+    }
+
+    #[Test]
+    public function it_throws_exception_on_403_forbidden(): void
+    {
+        Http::fake(['*' => Http::response(['error' => 'forbidden'], 403)]);
+
+        $this->expectException(AuthenticationExpiredException::class);
+        $this->expectExceptionMessage('Insufficient permissions');
 
         $this->transport->request('GET', self::TEST_DATA_API_BASE_URL . '/api/app/me');
     }

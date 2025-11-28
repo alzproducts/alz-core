@@ -7,8 +7,10 @@ namespace App\Infrastructure\Shopwired;
 use App\Application\Contracts\Shopwired\CategoryClientInterface;
 use App\Application\Contracts\Shopwired\ConnectivityClientInterface;
 use App\Application\Contracts\Shopwired\CustomerClientInterface;
+use App\Application\Contracts\Shopwired\OrderClientInterface;
 use App\Infrastructure\Shopwired\Clients\CategoryClient;
 use App\Infrastructure\Shopwired\Clients\CustomerClient;
+use App\Infrastructure\Shopwired\Clients\OrderClient;
 use RuntimeException;
 
 /**
@@ -52,6 +54,14 @@ final class ShopwiredClientFactory
     }
 
     /**
+     * Create the order client for order operations.
+     */
+    public static function createOrderClient(): OrderClientInterface
+    {
+        return new OrderClient(self::getTransport());
+    }
+
+    /**
      * Get the shared HTTP transport (lazy singleton).
      *
      * Creates the transport on first access, reuses for subsequent calls.
@@ -82,8 +92,6 @@ final class ShopwiredClientFactory
             apiKey: $apiKey,
             apiSecret: $apiSecret,
             timeout: self::getIntConfig('timeout', 30),
-            retryTimes: self::getIntConfig('retry_times', 3),
-            retryDelay: self::getIntConfig('retry_delay', 100),
         );
 
         return new ShopwiredHttpTransport($config);

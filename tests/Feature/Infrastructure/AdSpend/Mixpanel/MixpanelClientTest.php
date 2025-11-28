@@ -6,7 +6,9 @@ namespace Tests\Feature\Infrastructure\AdSpend\Mixpanel;
 
 use App\Domain\AdSpend\ValueObjects\Campaign;
 use App\Domain\AdSpend\ValueObjects\CampaignMetrics;
+use App\Domain\Exceptions\AuthenticationExpiredException;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\InvalidApiRequestException;
 use App\Domain\Exceptions\PayloadSerializationException;
 use App\Infrastructure\Mixpanel\MixpanelClient;
 use App\Infrastructure\Mixpanel\MixpanelConfig;
@@ -357,25 +359,27 @@ final class MixpanelClientTest extends TestCase
     }
 
     #[Test]
-    public function it_throws_external_service_unavailable_on_400_bad_request(): void
+    public function it_throws_invalid_api_request_exception_on_400_bad_request(): void
     {
-        Http::fake(['*' => Http::response(['error' => 'Invalid payload'], 400)]);
+        Http::fake(['*' => Http::response(['message' => 'Invalid payload'], 400)]);
 
         $event = $this->createEvent();
 
-        $this->expectException(ExternalServiceUnavailableException::class);
+        $this->expectException(InvalidApiRequestException::class);
+        $this->expectExceptionMessage('Invalid payload');
 
         $this->client->importCampaigns([$event]);
     }
 
     #[Test]
-    public function it_throws_external_service_unavailable_on_401_unauthorized(): void
+    public function it_throws_authentication_expired_exception_on_401_unauthorized(): void
     {
         Http::fake(['*' => Http::response([], 401)]);
 
         $event = $this->createEvent();
 
-        $this->expectException(ExternalServiceUnavailableException::class);
+        $this->expectException(AuthenticationExpiredException::class);
+        $this->expectExceptionMessage('Invalid credentials');
 
         $this->client->importCampaigns([$event]);
     }
@@ -393,7 +397,7 @@ final class MixpanelClientTest extends TestCase
     }
 
     #[Test]
-    public function it_preserves_exception_in_external_service_unavailable(): void
+    public function it_preserves_exception_in_invalid_api_request(): void
     {
         Http::fake(['*' => Http::response([], 400)]);
 
@@ -401,14 +405,14 @@ final class MixpanelClientTest extends TestCase
 
         try {
             $this->client->importCampaigns([$event]);
-        } catch (ExternalServiceUnavailableException $e) {
+        } catch (InvalidApiRequestException $e) {
             self::assertNotNull($e->getPrevious());
             self::assertInstanceOf(RequestException::class, $e->getPrevious());
 
             return;
         }
 
-        self::fail('Expected ExternalServiceUnavailableException to be thrown');
+        self::fail('Expected InvalidApiRequestException to be thrown');
     }
 
     // ========================================================================
@@ -582,13 +586,14 @@ final class MixpanelClientTest extends TestCase
     }
 
     #[Test]
-    public function it_throws_external_service_unavailable_on_lookup_table_400(): void
+    public function it_throws_invalid_api_request_exception_on_lookup_table_400(): void
     {
-        Http::fake(['*' => Http::response(['error' => 'Invalid CSV'], 400)]);
+        Http::fake(['*' => Http::response(['message' => 'Invalid CSV'], 400)]);
 
         $campaign = $this->createCampaign();
 
-        $this->expectException(ExternalServiceUnavailableException::class);
+        $this->expectException(InvalidApiRequestException::class);
+        $this->expectExceptionMessage('Invalid CSV');
 
         $this->client->replaceCampaignLookupTable([$campaign]);
     }
@@ -614,14 +619,14 @@ final class MixpanelClientTest extends TestCase
 
         try {
             $this->client->replaceCampaignLookupTable([$campaign]);
-        } catch (ExternalServiceUnavailableException $e) {
+        } catch (InvalidApiRequestException $e) {
             self::assertNotNull($e->getPrevious());
             self::assertInstanceOf(RequestException::class, $e->getPrevious());
 
             return;
         }
 
-        self::fail('Expected ExternalServiceUnavailableException to be thrown');
+        self::fail('Expected InvalidApiRequestException to be thrown');
     }
 
     #[Test]
@@ -682,14 +687,14 @@ final class MixpanelClientTest extends TestCase
     }
 
     #[Test]
-    public function it_throws_external_service_unavailable_on_connectivity_401(): void
+    public function it_throws_authentication_expired_exception_on_connectivity_401(): void
     {
         Http::fake([
             'https://mixpanel.com/api/app/me' => Http::response('Unauthorized', 401),
         ]);
 
-        $this->expectException(ExternalServiceUnavailableException::class);
-        $this->expectExceptionMessage("External service 'Mixpanel' is unavailable");
+        $this->expectException(AuthenticationExpiredException::class);
+        $this->expectExceptionMessage('Invalid credentials');
 
         $this->client->verifyConnectivity();
     }
@@ -716,14 +721,14 @@ final class MixpanelClientTest extends TestCase
 
         try {
             $this->client->verifyConnectivity();
-        } catch (ExternalServiceUnavailableException $e) {
+        } catch (AuthenticationExpiredException $e) {
             self::assertNotNull($e->getPrevious());
             self::assertInstanceOf(RequestException::class, $e->getPrevious());
 
             return;
         }
 
-        self::fail('Expected ExternalServiceUnavailableException to be thrown');
+        self::fail('Expected AuthenticationExpiredException to be thrown');
     }
 
     // ========================================================================

@@ -7,13 +7,14 @@ namespace App\Providers;
 use App\Application\Contracts\Shopwired\CategoryClientInterface;
 use App\Application\Contracts\Shopwired\ConnectivityClientInterface;
 use App\Application\Contracts\Shopwired\CustomerClientInterface;
+use App\Application\Contracts\Shopwired\OrderClientInterface;
 use App\Infrastructure\Shopwired\ShopwiredClientFactory;
 use Illuminate\Contracts\Support\DeferrableProvider;
 use Illuminate\Support\ServiceProvider;
 use Override;
 
 /**
- * ShopWired API Client Service Provider.
+ * ShopWired API Client
  *
  * Deferred provider for ShopWired endpoint clients - only loads when requested.
  * Configuration validation is handled by the Factory (fail-fast pattern).
@@ -53,6 +54,12 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
             CustomerClientInterface::class,
             static fn(): CustomerClientInterface => ShopwiredClientFactory::createCustomerClient(),
         );
+
+        // Order client - for order operations
+        $this->app->singleton(
+            OrderClientInterface::class,
+            static fn(): OrderClientInterface => ShopwiredClientFactory::createOrderClient(),
+        );
     }
 
     /**
@@ -67,6 +74,7 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
             ConnectivityClientInterface::class,
             CategoryClientInterface::class,
             CustomerClientInterface::class,
+            OrderClientInterface::class,
         ];
     }
 }

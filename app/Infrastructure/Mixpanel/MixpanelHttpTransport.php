@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Mixpanel;
 
+use App\Domain\Exceptions\AuthenticationExpiredException;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\InvalidApiRequestException;
+use App\Domain\Exceptions\ResourceNotFoundException;
 use App\Infrastructure\Support\ApiRetryStrategy;
 use App\Infrastructure\Support\RetryAfterParser;
 use Exception;
@@ -49,6 +52,8 @@ final readonly class MixpanelHttpTransport
      *
      * @return Response Successful HTTP response
      *
+     * @throws InvalidApiRequestException When request parameters are invalid (400)
+     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
      * @throws ExternalServiceUnavailableException When API unavailable, rate limited, or connection fails
      */
     public function request(
@@ -69,7 +74,7 @@ final readonly class MixpanelHttpTransport
                 ->send($method, $url)
                 ->throw();
         } catch (RequestException $e) {
-            throw $this->handleRequestException($e);
+            throw $this->handleRequestException($e, $url);
         } catch (ConnectionException $e) {
             throw $this->handleConnectionException($e);
         } catch (Exception $e) {
@@ -100,28 +105,97 @@ final readonly class MixpanelHttpTransport
     }
 
     /**
-     * Handle HTTP request failures (4xx, 5xx responses).
+     * Route HTTP failures to specific handlers by status code.
      *
-     * Rate limits (429) logged as WARNING (transient, recoverable).
-     * Other errors logged as ERROR (unexpected failures).
+     * @param string $url The URL that was called (for 404 context)
      */
-    private function handleRequestException(RequestException $e): ExternalServiceUnavailableException
+    private function handleRequestException(
+        RequestException $e,
+        string $url,
+    ): InvalidApiRequestException|AuthenticationExpiredException|ResourceNotFoundException|ExternalServiceUnavailableException {
+        return match ($e->response->status()) {
+            400 => $this->handleBadRequest($e),
+            401, 403 => $this->handleAuthenticationFailure($e),
+            404 => $this->handleNotFound($e, $url),
+            429 => $this->handleRateLimit($e),
+            default => $this->handleServerError($e),
+        };
+    }
+
+    /**
+     * Handle 400 Bad Request (malformed request - programming error).
+     */
+    private function handleBadRequest(RequestException $e): InvalidApiRequestException
+    {
+        Log::error(self::SERVICE_NAME . ' API invalid request', [
+            'status' => 400,
+            'error' => $e->getMessage(),
+            'response' => $e->response->json(),
+        ]);
+
+        $message = $e->response->json('message');
+
+        return new InvalidApiRequestException(
+            self::SERVICE_NAME,
+            \is_string($message) ? $message : 'Invalid request parameters',
+            $e,
+        );
+    }
+
+    /**
+     * Handle 401/403 authentication/authorization failures.
+     */
+    private function handleAuthenticationFailure(RequestException $e): AuthenticationExpiredException
     {
         $status = $e->response->status();
 
-        if ($status === 429) {
-            $retryAfter = RetryAfterParser::parse($e->response->header('Retry-After'));
-
-            Log::warning(self::SERVICE_NAME . ' API rate limited', [
-                'retry_after' => $retryAfter,
-                'error' => $e->getMessage(),
-            ]);
-
-            return new ExternalServiceUnavailableException(self::SERVICE_NAME, $retryAfter, $e);
-        }
-
-        Log::error(self::SERVICE_NAME . ' API request failed', [
+        Log::error(self::SERVICE_NAME . ' API authentication failed', [
             'status' => $status,
+            'error' => $e->getMessage(),
+        ]);
+
+        return new AuthenticationExpiredException(
+            self::SERVICE_NAME,
+            $status === 401 ? 'Invalid credentials' : 'Insufficient permissions',
+            $e,
+        );
+    }
+
+    /**
+     * Handle 404 Not Found (resource doesn't exist - permanent).
+     */
+    private function handleNotFound(RequestException $e, string $url): ResourceNotFoundException
+    {
+        Log::warning(self::SERVICE_NAME . ' API resource not found', [
+            'url' => $url,
+            'error' => $e->getMessage(),
+        ]);
+
+        return new ResourceNotFoundException(self::SERVICE_NAME, $url, 'unknown');
+    }
+
+    /**
+     * Handle 429 Rate Limit (transient - respect Retry-After).
+     */
+    private function handleRateLimit(RequestException $e): ExternalServiceUnavailableException
+    {
+        $retryAfter = RetryAfterParser::parse($e->response->header('Retry-After'));
+
+        Log::warning(self::SERVICE_NAME . ' API rate limited', [
+            'retry_after' => $retryAfter,
+            'error' => $e->getMessage(),
+        ]);
+
+        return new ExternalServiceUnavailableException(self::SERVICE_NAME, $retryAfter, $e);
+    }
+
+    /**
+     * Handle 5xx and other server errors (transient).
+     */
+    private function handleServerError(RequestException $e): ExternalServiceUnavailableException
+    {
+        Log::error(self::SERVICE_NAME . ' API request failed', [
+            'status' => $e->response->status(),
             'error' => $e->getMessage(),
         ]);
 
