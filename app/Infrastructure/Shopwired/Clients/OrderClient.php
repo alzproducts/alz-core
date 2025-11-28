@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Shopwired\Clients;
 
+use App\Application\Contracts\Shopwired\OrderClientInterface;
+use App\Domain\Catalog\Order\ValueObjects\Order as DomainOrder;
 use App\Infrastructure\Shopwired\OrderQueryParams;
-use App\Infrastructure\Shopwired\Responses\Order;
+use App\Infrastructure\Shopwired\Responses\Order as InfraOrder;
 use App\Infrastructure\Shopwired\ShopwiredHttpTransport;
 use App\Infrastructure\Shopwired\ShopwiredPaginator;
 use App\Infrastructure\Shopwired\ShopwiredQueryParams;
@@ -22,7 +24,7 @@ use App\Infrastructure\Shopwired\ShopwiredResponseParserTrait;
  *
  * @see https://shopwired.readme.io/reference/listorders
  */
-final readonly class OrderClient
+final readonly class OrderClient implements OrderClientInterface
 {
     use ShopwiredResponseParserTrait;
 
@@ -123,12 +125,7 @@ final readonly class OrderClient
     ) {}
 
     /**
-     * List orders within a date range with DETAIL mode (includes products + customFields).
-     *
-     * Use for syncs requiring complete order data (e.g., Mixpanel daily sync).
-     * Heavier payload but avoids N+1 getOrderById calls.
-     *
-     * @return list<Order> Orders with ALL fields populated
+     * @return list<DomainOrder>
      */
     public function listOrdersInRangeWithDetails(int $from, int $to): array
     {
@@ -141,16 +138,20 @@ final readonly class OrderClient
                     ->withFields(self::DETAIL_FIELDS),
             );
 
-        return ShopwiredPaginator::fetchAll(
+        /** @var list<InfraOrder> $dtos */
+        $dtos = ShopwiredPaginator::fetchAll(
             params: $params,
             fetchPage: fn(OrderQueryParams $p): array => $this->fetchOrderPage($p),
+        );
+
+        return \array_map(
+            static fn(InfraOrder $dto): DomainOrder => $dto->toDomain(),
+            $dtos,
         );
     }
 
     /**
-     * List orders within a date range - STANDARD mode (no products/customFields).
-     *
-     * @return list<Order> Orders with products=null, customFields=null
+     * @return list<DomainOrder>
      */
     public function listOrdersInRange(int $from, int $to): array
     {
@@ -163,16 +164,19 @@ final readonly class OrderClient
                     ->withFields(self::STANDARD_FIELDS),
             );
 
-        return ShopwiredPaginator::fetchAll(
+        /** @var list<InfraOrder> $dtos */
+        $dtos = ShopwiredPaginator::fetchAll(
             params: $params,
             fetchPage: fn(OrderQueryParams $p): array => $this->fetchOrderPage($p),
         );
+
+        return \array_map(
+            static fn(InfraOrder $dto): DomainOrder => $dto->toDomain(),
+            $dtos,
+        );
     }
 
-    /**
-     * Get a single order by ID with ALL fields populated.
-     */
-    public function getOrderById(int $id): Order
+    public function getOrderById(int $id): DomainOrder
     {
         $params = new ShopwiredQueryParams()
             ->withEmbeds(self::DETAIL_EMBEDS)
@@ -183,13 +187,12 @@ final readonly class OrderClient
             $params->toArray(),
         );
 
-        /** @var Order */
-        return self::parseSingleResponse($response->json(), Order::class);
+        /** @var InfraOrder $dto */
+        $dto = self::parseSingleResponse($response->json(), InfraOrder::class);
+
+        return $dto->toDomain();
     }
 
-    /**
-     * Get total order count.
-     */
     public function getOrderCount(): int
     {
         $response = $this->transport->get(self::ENDPOINT_ORDERS . '/count');
@@ -197,10 +200,74 @@ final readonly class OrderClient
         return self::parseCountResponse($response->json());
     }
 
+    public function getOrderCountByStatus(int $statusId): int
+    {
+        $response = $this->transport->get(
+            self::ENDPOINT_ORDERS . '/count',
+            ['status' => $statusId],
+        );
+
+        return self::parseCountResponse($response->json());
+    }
+
     /**
-     * Fetch a single page of orders.
+     * @return list<DomainOrder>
+     */
+    public function listOrders(): array
+    {
+        $params = new ShopwiredQueryParams()
+            ->withEmbeds(self::STANDARD_EMBEDS)
+            ->withFields(self::STANDARD_FIELDS);
+
+        $response = $this->transport->get(
+            self::ENDPOINT_ORDERS,
+            $params->toArray(),
+        );
+
+        $collection = self::parseArrayResponse($response->json(), InfraOrder::class);
+
+        /** @var list<InfraOrder> $dtos */
+        $dtos = $collection->all();
+
+        return \array_map(
+            static fn(InfraOrder $dto): DomainOrder => $dto->toDomain(),
+            $dtos,
+        );
+    }
+
+    /**
+     * @return list<DomainOrder>
+     */
+    public function searchOrders(string $keyword): array
+    {
+        $params = new ShopwiredQueryParams()
+            ->withEmbeds(self::STANDARD_EMBEDS)
+            ->withFields(self::STANDARD_FIELDS);
+
+        $response = $this->transport->get(
+            self::ENDPOINT_ORDERS . '/search',
+            ['keywords' => $keyword, ...$params->toArray()],
+        );
+
+        // Search endpoint returns {totalItems, items} wrapper
+        $data = $response->json();
+        $items = \is_array($data) && isset($data['items']) ? $data['items'] : $data;
+
+        $collection = self::parseArrayResponse($items, InfraOrder::class);
+
+        /** @var list<InfraOrder> $dtos */
+        $dtos = $collection->all();
+
+        return \array_map(
+            static fn(InfraOrder $dto): DomainOrder => $dto->toDomain(),
+            $dtos,
+        );
+    }
+
+    /**
+     * Fetch a single page of orders (returns Infrastructure DTOs for internal use).
      *
-     * @return list<Order>
+     * @return list<InfraOrder>
      */
     private function fetchOrderPage(OrderQueryParams $params): array
     {
@@ -209,9 +276,9 @@ final readonly class OrderClient
             $params->toArray(),
         );
 
-        $collection = self::parseArrayResponse($response->json(), Order::class);
+        $collection = self::parseArrayResponse($response->json(), InfraOrder::class);
 
-        /** @var list<Order> */
+        /** @var list<InfraOrder> */
         return $collection->all();
     }
 }
