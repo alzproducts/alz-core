@@ -144,6 +144,46 @@ trait ShopwiredResponseParserTrait
     }
 
     /**
+     * Parse wrapped API response and convert array of DTOs to Domain objects.
+     *
+     * Some endpoints return items wrapped in an object: {totalItems: n, items: [...]}
+     * This method extracts the items array before parsing.
+     *
+     * @template T of Data&DomainConvertible
+     *
+     * @param string $key The key containing the items array (default: 'items')
+     * @param class-string<T> $dtoClass
+     *
+     * @return list<object>
+     *
+     * @throws InvalidApiResponseException When response structure is invalid
+     */
+    private static function parseWrappedArrayToDomain(mixed $data, string $dtoClass, string $key = 'items'): array
+    {
+        if (! \is_array($data)) {
+            self::logParsingFailure("Expected wrapped response with '{$key}' key", $data);
+
+            throw new InvalidApiResponseException(
+                serviceName: self::SERVICE_NAME,
+                message: "Expected wrapped response with '{$key}' key",
+            );
+        }
+
+        $items = $data[$key] ?? [];
+
+        if (! \is_array($items)) {
+            self::logParsingFailure("Expected '{$key}' to be an array", $data);
+
+            throw new InvalidApiResponseException(
+                serviceName: self::SERVICE_NAME,
+                message: "Expected '{$key}' to be an array",
+            );
+        }
+
+        return self::parseArrayToDomain($items, $dtoClass);
+    }
+
+    /**
      * Parse API response expecting a count object.
      *
      * @throws InvalidApiResponseException When response structure is invalid

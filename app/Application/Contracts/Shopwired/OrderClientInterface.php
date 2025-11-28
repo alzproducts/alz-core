@@ -71,11 +71,14 @@ interface OrderClientInterface
      * Search orders by keyword - STANDARD mode.
      *
      * Searches by reference, customer name, email, etc.
+     * Returns empty array when no orders match the keyword.
      *
      * @warning API search may not be exact match. Callers MUST verify
      * returned orders match expected criteria before use.
      *
-     * @return list<Order> Matching orders with products=null, customFields=null
+     * @param string $keyword Search term (reference, name, email, etc.)
+     *
+     * @return list<Order> Matching orders (empty array if none found), products=null, customFields=null
      *
      * @throws ExternalServiceUnavailableException When API unavailable
      * @throws InvalidApiResponseException When API response structure is invalid

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Shopwired\Responses;
 
+use App\Infrastructure\Contracts\DomainConvertible;
 use App\Infrastructure\Shopwired\Enums\PaymentMethodRaw;
 use Spatie\LaravelData\Attributes\DataCollectionOf;
 use Spatie\LaravelData\Attributes\MapInputName;
@@ -25,7 +26,7 @@ use Spatie\LaravelData\Mappers\SnakeCaseMapper;
  * @see https://shopwired.readme.io/reference/listorders
  */
 #[MapInputName(SnakeCaseMapper::class)]
-final class Order extends Data
+final class Order extends Data implements DomainConvertible
 {
     /**
      * @param list<OrderShipping> $shipping API returns as array; use getFirstShipping()

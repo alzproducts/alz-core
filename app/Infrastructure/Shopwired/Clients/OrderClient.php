@@ -138,15 +138,9 @@ final readonly class OrderClient implements OrderClientInterface
                     ->withFields(self::DETAIL_FIELDS),
             );
 
-        /** @var list<InfraOrder> $dtos */
-        $dtos = ShopwiredPaginator::fetchAll(
+        return ShopwiredPaginator::fetchAll(
             params: $params,
             fetchPage: fn(OrderQueryParams $p): array => $this->fetchOrderPage($p),
-        );
-
-        return \array_map(
-            static fn(InfraOrder $dto): DomainOrder => $dto->toDomain(),
-            $dtos,
         );
     }
 
@@ -164,15 +158,9 @@ final readonly class OrderClient implements OrderClientInterface
                     ->withFields(self::STANDARD_FIELDS),
             );
 
-        /** @var list<InfraOrder> $dtos */
-        $dtos = ShopwiredPaginator::fetchAll(
+        return ShopwiredPaginator::fetchAll(
             params: $params,
             fetchPage: fn(OrderQueryParams $p): array => $this->fetchOrderPage($p),
-        );
-
-        return \array_map(
-            static fn(InfraOrder $dto): DomainOrder => $dto->toDomain(),
-            $dtos,
         );
     }
 
@@ -187,10 +175,8 @@ final readonly class OrderClient implements OrderClientInterface
             $params->toArray(),
         );
 
-        /** @var InfraOrder $dto */
-        $dto = self::parseSingleResponse($response->json(), InfraOrder::class);
-
-        return $dto->toDomain();
+        /** @var DomainOrder */
+        return self::parseSingleToDomain($response->json(), InfraOrder::class);
     }
 
     public function getOrderCount(): int
@@ -215,24 +201,10 @@ final readonly class OrderClient implements OrderClientInterface
      */
     public function listOrders(): array
     {
-        $params = new ShopwiredQueryParams()
-            ->withEmbeds(self::STANDARD_EMBEDS)
-            ->withFields(self::STANDARD_FIELDS);
+        $response = $this->transport->get(self::ENDPOINT_ORDERS);
 
-        $response = $this->transport->get(
-            self::ENDPOINT_ORDERS,
-            $params->toArray(),
-        );
-
-        $collection = self::parseArrayResponse($response->json(), InfraOrder::class);
-
-        /** @var list<InfraOrder> $dtos */
-        $dtos = $collection->all();
-
-        return \array_map(
-            static fn(InfraOrder $dto): DomainOrder => $dto->toDomain(),
-            $dtos,
-        );
+        /** @var list<DomainOrder> */
+        return self::parseArrayToDomain($response->json(), InfraOrder::class);
     }
 
     /**
@@ -240,34 +212,19 @@ final readonly class OrderClient implements OrderClientInterface
      */
     public function searchOrders(string $keyword): array
     {
-        $params = new ShopwiredQueryParams()
-            ->withEmbeds(self::STANDARD_EMBEDS)
-            ->withFields(self::STANDARD_FIELDS);
-
         $response = $this->transport->get(
             self::ENDPOINT_ORDERS . '/search',
-            ['keywords' => $keyword, ...$params->toArray()],
+            ['keywords' => $keyword],
         );
 
-        // Search endpoint returns {totalItems, items} wrapper
-        $data = $response->json();
-        $items = \is_array($data) && isset($data['items']) ? $data['items'] : $data;
-
-        $collection = self::parseArrayResponse($items, InfraOrder::class);
-
-        /** @var list<InfraOrder> $dtos */
-        $dtos = $collection->all();
-
-        return \array_map(
-            static fn(InfraOrder $dto): DomainOrder => $dto->toDomain(),
-            $dtos,
-        );
+        /** @var list<DomainOrder> */
+        return self::parseWrappedArrayToDomain($response->json(), InfraOrder::class);
     }
 
     /**
-     * Fetch a single page of orders (returns Infrastructure DTOs for internal use).
+     * Fetch a single page of orders.
      *
-     * @return list<InfraOrder>
+     * @return list<DomainOrder>
      */
     private function fetchOrderPage(OrderQueryParams $params): array
     {
@@ -276,9 +233,7 @@ final readonly class OrderClient implements OrderClientInterface
             $params->toArray(),
         );
 
-        $collection = self::parseArrayResponse($response->json(), InfraOrder::class);
-
-        /** @var list<InfraOrder> */
-        return $collection->all();
+        /** @var list<DomainOrder> */
+        return self::parseArrayToDomain($response->json(), InfraOrder::class);
     }
 }
