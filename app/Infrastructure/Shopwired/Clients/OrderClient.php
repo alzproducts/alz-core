@@ -50,8 +50,6 @@ final readonly class OrderClient implements OrderClientInterface
         'shippingTotal',
         'originalShippingTotal',
         'partialPaymentTotal',
-        'totalWeight',
-        'weightUnit',
         'packageWeight',
         'marketing',
         'comments',

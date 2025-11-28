@@ -65,8 +65,8 @@ enum PaymentMethodRaw: string
             return $exact;
         }
 
-        // Fallback for unknown Sagepay/Sage Pay variants
-        if (\str_contains($value, 'Sagepay') || \str_contains($value, 'Sage Pay')) {
+        // Fallback for unknown Sagepay/Sage Pay variants (str_starts_with for security)
+        if (\str_starts_with($value, 'Sagepay') || \str_starts_with($value, 'Sage Pay')) {
             return self::SagepayDirect;
         }
 

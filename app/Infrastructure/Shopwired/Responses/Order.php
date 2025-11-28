@@ -60,10 +60,6 @@ final class Order extends Data implements DomainConvertible
         public readonly float $originalShippingTotal,
         public readonly float $partialPaymentTotal,
 
-        // Weight (always present)
-        public readonly string $totalWeight,
-        public readonly string $weightUnit,
-
         // Customer preferences (always present)
         public readonly bool $marketing,
         public readonly string $comments,
