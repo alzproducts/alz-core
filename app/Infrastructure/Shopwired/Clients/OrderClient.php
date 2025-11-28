@@ -14,11 +14,11 @@ use App\Infrastructure\Shopwired\ShopwiredResponseParserTrait;
 /**
  * ShopWired Orders API Client.
  *
- * Handles order retrieval operations from the ShopWired API.
- * HTTP concerns (auth, retry, timeout) are delegated to ShopwiredHttpTransport.
+ * Two-mode approach:
+ * - Standard: All fields + embeds, NO products, NO customFields
+ * - Detail: Standard + products + customFields
  *
- * Note: Returns Infrastructure DTOs directly for smoke testing.
- * Interface and domain conversion will be added after validating parsing.
+ * HTTP concerns (auth, retry, timeout) delegated to ShopwiredHttpTransport.
  *
  * @see https://shopwired.readme.io/reference/listorders
  */
@@ -29,22 +29,19 @@ final readonly class OrderClient
     private const string ENDPOINT_ORDERS = 'orders';
 
     /**
-     * Fields for SUMMARY requests (list endpoints).
-     * Excludes products, adminComments, fileArchives to reduce payload.
+     * Fields for STANDARD requests.
+     * All order data except products and customFields (Detail-only).
      *
      * @var list<string>
      */
-    private const array SUMMARY_FIELDS = [
+    private const array STANDARD_FIELDS = [
         'id',
         'reference',
         'created',
         'archived',
         'anonymized',
         'preOrder',
-        'trackingUrl',
-        'invoiceUrl',
         'paymentMethod',
-        'transactionId',
         'total',
         'subTotal',
         'shippingTotal',
@@ -55,10 +52,13 @@ final readonly class OrderClient
         'packageWeight',
         'marketing',
         'comments',
-        'deliveryDate',
+        'trackingUrl',
+        'invoiceUrl',
+        'transactionId',
+        'referrerId',
         'earnedRewardPoints',
         'lineItemVatCalculation',
-        'referrerId',
+        'deliveryDate',
         'customerSource',
         'status',
         'billingAddress',
@@ -70,28 +70,28 @@ final readonly class OrderClient
         'fees',
         'refunds',
         'partialPayments',
-        'customFields',
-    ];
-
-    /**
-     * Fields for DETAIL requests (getById, listWithDetails).
-     * Includes products, adminComments, fileArchives.
-     *
-     * @var list<string>
-     */
-    private const array DETAIL_FIELDS = [
-        ...self::SUMMARY_FIELDS,
-        'products',
         'adminComments',
         'fileArchives',
     ];
 
     /**
-     * Embeds for order requests.
+     * Fields for DETAIL requests.
+     * Standard + products + customFields.
      *
      * @var list<string>
      */
-    private const array DEFAULT_EMBEDS = [
+    private const array DETAIL_FIELDS = [
+        ...self::STANDARD_FIELDS,
+        'products',
+        'customFields',
+    ];
+
+    /**
+     * Embeds for STANDARD requests.
+     *
+     * @var list<string>
+     */
+    private const array STANDARD_EMBEDS = [
         'status',
         'billing_address',
         'shipping_address',
@@ -102,19 +102,20 @@ final readonly class OrderClient
         'fees',
         'refunds',
         'partial_payments',
-        'custom_fields',
+        'admin_comments',
+        'file_archives',
     ];
 
     /**
-     * Additional embeds for detail requests.
+     * Embeds for DETAIL requests.
+     * Standard + products + custom_fields.
      *
      * @var list<string>
      */
     private const array DETAIL_EMBEDS = [
-        ...self::DEFAULT_EMBEDS,
+        ...self::STANDARD_EMBEDS,
         'products',
-        'admin_comments',
-        'file_archives',
+        'custom_fields',
     ];
 
     public function __construct(
@@ -122,7 +123,7 @@ final readonly class OrderClient
     ) {}
 
     /**
-     * List orders within a date range with FULL details including products.
+     * List orders within a date range with DETAIL mode (includes products + customFields).
      *
      * Use for syncs requiring complete order data (e.g., Mixpanel daily sync).
      * Heavier payload but avoids N+1 getOrderById calls.
@@ -147,9 +148,9 @@ final readonly class OrderClient
     }
 
     /**
-     * List orders within a date range - SUMMARY fields only.
+     * List orders within a date range - STANDARD mode (no products/customFields).
      *
-     * @return list<Order> Orders with nullable detail fields (products=null, etc.)
+     * @return list<Order> Orders with products=null, customFields=null
      */
     public function listOrdersInRange(int $from, int $to): array
     {
@@ -158,8 +159,8 @@ final readonly class OrderClient
             ->withTo($to)
             ->withBaseParams(
                 ShopwiredQueryParams::forBulkFetch()
-                    ->withEmbeds(self::DEFAULT_EMBEDS)
-                    ->withFields(self::SUMMARY_FIELDS),
+                    ->withEmbeds(self::STANDARD_EMBEDS)
+                    ->withFields(self::STANDARD_FIELDS),
             );
 
         return ShopwiredPaginator::fetchAll(
@@ -211,6 +212,6 @@ final readonly class OrderClient
         $collection = self::parseArrayResponse($response->json(), Order::class);
 
         /** @var list<Order> */
-        return $collection->toArray();
+        return $collection->all();
     }
 }

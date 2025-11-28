@@ -62,7 +62,6 @@ final class Order extends Data
         // Weight (always present)
         public readonly string $totalWeight,
         public readonly string $weightUnit,
-        public readonly string $packageWeight,
 
         // Customer preferences (always present)
         public readonly bool $marketing,
@@ -71,7 +70,6 @@ final class Order extends Data
         // URLs (always present, empty string if not set)
         public readonly string $trackingUrl,
         public readonly string $invoiceUrl,
-        public readonly string $transactionId,
 
         // Source tracking (always present)
         public readonly int $referrerId,
@@ -86,8 +84,10 @@ final class Order extends Data
         public readonly OrderStatus $status,
         public readonly OrderAddress $billingAddress,
         public readonly OrderAddress $shippingAddress,
-        public readonly OrderTax $tax,
         public readonly OrderCustomer $customer,
+
+        // Tax (nullable - VAT-exempt orders may not have tax)
+        public readonly ?OrderTax $tax = null,
 
         // Nested arrays (always present, default to empty)
         #[DataCollectionOf(OrderShipping::class)]
@@ -106,8 +106,10 @@ final class Order extends Data
         public readonly array $fileArchives = [],
 
         // Genuinely nullable (business data may not exist)
+        public readonly ?string $packageWeight = null,
         public readonly ?string $deliveryDate = null,
         public readonly ?string $customerSource = null,
+        public readonly ?string $transactionId = null,
 
         // Detail-only fields (null in Standard mode)
         #[DataCollectionOf(OrderProduct::class)]
