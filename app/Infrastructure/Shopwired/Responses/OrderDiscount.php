@@ -11,10 +11,8 @@ use Spatie\LaravelData\Mappers\SnakeCaseMapper;
 /**
  * ShopWired API Response: Order Discount.
  *
- * Infrastructure DTO for parsing discount data from order responses.
- * Includes IDs (voucherId, offerId) needed for Mixpanel tracking.
- *
- * Domain conversion will be added after smoke testing validates parsing.
+ * Always embedded in Standard/Detail modes when discounts exist.
+ * IDs (voucherId, offerId) needed for Mixpanel tracking.
  *
  * @see https://shopwired.readme.io/reference/listorders
  */
@@ -22,11 +20,23 @@ use Spatie\LaravelData\Mappers\SnakeCaseMapper;
 final class OrderDiscount extends Data
 {
     public function __construct(
-        public readonly ?string $name = null,
-        public readonly ?float $value = null,
+        public readonly string $name,
+        public readonly float $value,
         public readonly ?string $type = null,
         public readonly ?string $code = null,
         public readonly ?int $voucherId = null,
         public readonly ?int $offerId = null,
     ) {}
+
+    public function toDomain(): \App\Domain\Catalog\Order\ValueObjects\OrderDiscount
+    {
+        return new \App\Domain\Catalog\Order\ValueObjects\OrderDiscount(
+            name: $this->name,
+            value: $this->value,
+            type: $this->type,
+            code: $this->code,
+            voucherId: $this->voucherId,
+            offerId: $this->offerId,
+        );
+    }
 }
