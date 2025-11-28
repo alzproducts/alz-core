@@ -7,6 +7,7 @@ namespace App\Infrastructure\Shopwired;
 use App\Domain\Exceptions\AuthenticationExpiredException;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\InvalidApiRequestException;
+use App\Domain\Exceptions\ResourceNotFoundException;
 use App\Infrastructure\Support\ApiRetryStrategy;
 use App\Infrastructure\Support\RetryAfterParser;
 use Closure;
@@ -53,6 +54,7 @@ final readonly class ShopwiredHttpTransport
      *
      * @throws InvalidApiRequestException When request parameters are invalid (400)
      * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
+     * @throws ResourceNotFoundException When resource not found (404)
      * @throws ExternalServiceUnavailableException When API unavailable, rate limited, or connection fails
      */
     public function get(
@@ -66,7 +68,7 @@ final readonly class ShopwiredHttpTransport
                 ->get($endpoint, $query)
                 ->throw();
         } catch (RequestException $e) {
-            throw $this->handleRequestException($e);
+            throw $this->handleRequestException($e, $endpoint);
         } catch (ConnectionException $e) {
             throw $this->handleConnectionException($e);
         } catch (Exception $e) {
@@ -87,6 +89,7 @@ final readonly class ShopwiredHttpTransport
      *
      * @throws InvalidApiRequestException When request parameters are invalid (400)
      * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
+     * @throws ResourceNotFoundException When resource not found (404)
      * @throws ExternalServiceUnavailableException When API unavailable, rate limited, or connection fails
      */
     public function post(
@@ -100,12 +103,44 @@ final readonly class ShopwiredHttpTransport
                 ->post($endpoint, $data)
                 ->throw();
         } catch (RequestException $e) {
-            throw $this->handleRequestException($e);
+            throw $this->handleRequestException($e, $endpoint);
         } catch (ConnectionException $e) {
             throw $this->handleConnectionException($e);
         } catch (Exception $e) {
             // Catch-all for unexpected exceptions from Guzzle/Laravel internals
             throw $this->handleUnexpectedException($e);
+        }
+    }
+
+    /**
+     * Fetch a single resource by ID with proper 404 context.
+     *
+     * Use this for single-resource fetches (getOrderById, getCustomerById, etc.)
+     * where 404 should throw ResourceNotFoundException with meaningful context.
+     *
+     * @param string $resourceType Resource type for exception context (e.g., 'Order', 'Customer')
+     * @param int|string $id Resource ID
+     * @param string $endpoint API endpoint path (e.g., 'orders')
+     * @param array<string, mixed> $query Optional query parameters
+     *
+     * @return Response Successful HTTP response
+     *
+     * @throws InvalidApiRequestException When request parameters are invalid (400)
+     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
+     * @throws ResourceNotFoundException When resource not found (404) - with proper context
+     * @throws ExternalServiceUnavailableException When API unavailable, rate limited, or connection fails
+     */
+    public function getResource(
+        string $resourceType,
+        int|string $id,
+        string $endpoint,
+        array $query = [],
+    ): Response {
+        try {
+            return $this->get("{$endpoint}/{$id}", $query);
+        } catch (ResourceNotFoundException $e) {
+            // Re-throw with proper resource context instead of generic endpoint
+            throw new ResourceNotFoundException(self::SERVICE_NAME, $resourceType, $id, $e);
         }
     }
 
@@ -155,14 +190,16 @@ final readonly class ShopwiredHttpTransport
      * Status code mapping:
      * - 400: InvalidApiRequestException (programming error, permanent)
      * - 401/403: AuthenticationExpiredException (credentials issue, permanent)
+     * - 404: ResourceNotFoundException (resource doesn't exist, permanent)
      * - 429: ExternalServiceUnavailableException (rate limit, transient)
      * - 5xx: ExternalServiceUnavailableException (server error, transient)
      *
-     * Note: 404 Not Found is NOT handled specially - semantics are context-dependent.
-     * Individual client methods should handle "resource not found" cases.
+     * @param string $endpoint The endpoint that was called (for 404 context)
      */
-    private function handleRequestException(RequestException $e): ExternalServiceUnavailableException|InvalidApiRequestException|AuthenticationExpiredException
-    {
+    private function handleRequestException(
+        RequestException $e,
+        string $endpoint,
+    ): ExternalServiceUnavailableException|InvalidApiRequestException|AuthenticationExpiredException|ResourceNotFoundException {
         $status = $e->response->status();
 
         // 400 Bad Request = our request is malformed (programming error)
@@ -196,6 +233,16 @@ final readonly class ShopwiredHttpTransport
             );
         }
 
+        // 404 Not Found = resource doesn't exist (permanent, not transient)
+        if ($status === 404) {
+            Log::warning(self::SERVICE_NAME . ' API resource not found', [
+                'endpoint' => $endpoint,
+                'error' => $e->getMessage(),
+            ]);
+
+            return new ResourceNotFoundException(self::SERVICE_NAME, $endpoint, 'unknown');
+        }
+
         // 429 = rate limited (transient, respect Retry-After)
         if ($status === 429) {
             $retryAfter = RetryAfterParser::parse($e->response->header('Retry-After'));
@@ -208,7 +255,7 @@ final readonly class ShopwiredHttpTransport
             return new ExternalServiceUnavailableException(self::SERVICE_NAME, $retryAfter, $e);
         }
 
-        // All other errors (5xx, 404, etc.) = service unavailable
+        // All other errors (5xx, etc.) = service unavailable (transient)
         Log::error(self::SERVICE_NAME . ' API request failed', [
             'status' => $status,
             'error' => $e->getMessage(),

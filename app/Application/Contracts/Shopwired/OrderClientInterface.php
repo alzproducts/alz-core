@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Application\Contracts\Shopwired;
 
 use App\Domain\Catalog\Order\ValueObjects\Order;
+use App\Domain\Catalog\Order\ValueObjects\OrderLifecycleStatus;
 use App\Domain\Exceptions\AuthenticationExpiredException;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\InvalidApiRequestException;
@@ -110,10 +111,10 @@ interface OrderClientInterface
     public function getOrderCountByStatus(int $statusId): int;
 
     /**
-     * Update an order's status.
+     * Update an order's lifecycle status.
      *
      * @param int $orderId Order ID to update
-     * @param int $statusId New status ID
+     * @param OrderLifecycleStatus $status New lifecycle status
      * @param bool $notifyCustomer Whether to send status update email to customer
      * @param string|null $trackingUrl New tracking URL value (null = don't update)
      *
@@ -123,7 +124,7 @@ interface OrderClientInterface
      */
     public function updateOrderStatus(
         int $orderId,
-        int $statusId,
+        OrderLifecycleStatus $status,
         bool $notifyCustomer = false,
         ?string $trackingUrl = null,
     ): void;

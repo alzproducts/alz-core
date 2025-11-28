@@ -6,6 +6,8 @@ namespace App\Infrastructure\Shopwired\Clients;
 
 use App\Application\Contracts\Shopwired\OrderClientInterface;
 use App\Domain\Catalog\Order\ValueObjects\Order as DomainOrder;
+use App\Domain\Catalog\Order\ValueObjects\OrderLifecycleStatus;
+use App\Infrastructure\Shopwired\Mappers\OrderLifecycleStatusMapper;
 use App\Infrastructure\Shopwired\OrderQueryParams;
 use App\Infrastructure\Shopwired\Requests\OrderStatusUpdateOptions;
 use App\Infrastructure\Shopwired\Responses\Order as InfraOrder;
@@ -169,9 +171,11 @@ final readonly class OrderClient implements OrderClientInterface
             ->withEmbeds(self::DETAIL_EMBEDS)
             ->withFields(self::DETAIL_FIELDS);
 
-        $response = $this->transport->get(
-            self::ENDPOINT_ORDERS . '/' . $id,
-            $params->toArray(),
+        $response = $this->transport->getResource(
+            resourceType: 'Order',
+            id: $id,
+            endpoint: self::ENDPOINT_ORDERS,
+            query: $params->toArray(),
         );
 
         /** @var DomainOrder */
@@ -211,7 +215,7 @@ final readonly class OrderClient implements OrderClientInterface
 
     public function updateOrderStatus(
         int $orderId,
-        int $statusId,
+        OrderLifecycleStatus $status,
         bool $notifyCustomer = false,
         ?string $trackingUrl = null,
     ): void {
@@ -220,7 +224,10 @@ final readonly class OrderClient implements OrderClientInterface
             trackingUrl: $trackingUrl,
         );
 
-        $data = ['status' => $statusId, ...$options->toArray()];
+        $data = [
+            'status' => OrderLifecycleStatusMapper::toShopwiredId($status),
+            ...$options->toArray(),
+        ];
 
         $this->transport->post(
             self::ENDPOINT_ORDERS . '/' . $orderId . '/status',
