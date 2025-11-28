@@ -95,35 +95,6 @@ final readonly class LinnworksHttpTransport
     }
 
     /**
-     * Fetch a single resource by ID with proper 404 context.
-     *
-     * @param string $resourceType Resource type for exception context (e.g., 'StockItem')
-     * @param string $id Resource ID (GUID)
-     * @param string $endpoint API endpoint path
-     * @param array<string, mixed> $query Query parameters
-     *
-     * @return Response Successful HTTP response
-     *
-     * @throws InvalidApiRequestException When request parameters are invalid (400)
-     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
-     * @throws ResourceNotFoundException When resource not found (404) - with proper context
-     * @throws ExternalServiceUnavailableException When API unavailable, rate limited, or connection fails
-     */
-    public function getResource(
-        string $resourceType,
-        string $id,
-        string $endpoint,
-        array $query = [],
-    ): Response {
-        try {
-            return $this->get($endpoint, $query);
-        } catch (ResourceNotFoundException $e) {
-            // Re-throw with proper resource context instead of generic endpoint
-            throw new ResourceNotFoundException(self::SERVICE_NAME, $resourceType, $id, $e);
-        }
-    }
-
-    /**
      * Execute request with automatic 401 retry (once).
      *
      * On 401 response:

@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Linnworks\Responses;
 
+use App\Domain\Exceptions\InvalidApiResponseException;
 use App\Domain\Inventory\ValueObjects\StockItem as DomainStockItem;
 use App\Infrastructure\Contracts\DomainConvertible;
 use App\Infrastructure\Linnworks\Support\PascalCaseMapper;
+use DateMalformedStringException;
 use DateTimeImmutable;
 use Spatie\LaravelData\Attributes\MapInputName;
 use Spatie\LaravelData\Data;
@@ -49,6 +51,9 @@ final class StockItem extends Data implements DomainConvertible
         public readonly int $inventoryTrackingType,
     ) {}
 
+    /**
+     * @throws InvalidApiResponseException When date format is invalid
+     */
     public function toDomain(): DomainStockItem
     {
         return new DomainStockItem(
@@ -69,8 +74,30 @@ final class StockItem extends Data implements DomainConvertible
             width: $this->width,
             depth: $this->depth,
             categoryName: $this->categoryName,
-            createdAt: $this->creationDate !== null ? new DateTimeImmutable($this->creationDate) : null,
+            createdAt: $this->parseCreationDate(),
             isComposite: $this->isCompositeParent ?? false,
         );
+    }
+
+    /**
+     * Parse creation date with proper exception handling.
+     *
+     * @throws InvalidApiResponseException When date format is invalid
+     */
+    private function parseCreationDate(): ?DateTimeImmutable
+    {
+        if ($this->creationDate === null) {
+            return null;
+        }
+
+        try {
+            return new DateTimeImmutable($this->creationDate);
+        } catch (DateMalformedStringException $e) {
+            throw new InvalidApiResponseException(
+                'Linnworks',
+                "Invalid date format for creationDate: {$this->creationDate}",
+                $e,
+            );
+        }
     }
 }

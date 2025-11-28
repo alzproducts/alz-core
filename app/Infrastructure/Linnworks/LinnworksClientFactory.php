@@ -23,6 +23,8 @@ use RuntimeException;
  */
 final class LinnworksClientFactory
 {
+    private static ?LinnworksConfig $config = null;
+
     private static ?LinnworksHttpTransport $transport = null;
 
     private static ?LinnworksSessionManager $sessionManager = null;
@@ -44,12 +46,20 @@ final class LinnworksClientFactory
     }
 
     /**
+     * Get the shared config (lazy singleton).
+     */
+    private static function getConfig(): LinnworksConfig
+    {
+        return self::$config ??= self::createConfig();
+    }
+
+    /**
      * Get the shared session manager (lazy singleton).
      */
     private static function getSessionManager(): LinnworksSessionManager
     {
         return self::$sessionManager ??= new LinnworksSessionManager(
-            self::createConfig(),
+            self::getConfig(),
             \app(CacheManager::class),
         );
     }
@@ -59,9 +69,7 @@ final class LinnworksClientFactory
      */
     private static function createTransport(): LinnworksHttpTransport
     {
-        $config = self::createConfig();
-
-        return new LinnworksHttpTransport($config, self::getSessionManager());
+        return new LinnworksHttpTransport(self::getConfig(), self::getSessionManager());
     }
 
     /**
@@ -111,6 +119,7 @@ final class LinnworksClientFactory
      */
     public static function reset(): void
     {
+        self::$config = null;
         self::$transport = null;
         self::$sessionManager = null;
     }

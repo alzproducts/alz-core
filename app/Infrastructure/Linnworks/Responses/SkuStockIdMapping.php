@@ -20,6 +20,7 @@ final class SkuStockIdMapping extends Data
 {
     public function __construct(
         public readonly string $stockItemId,
+        #[MapInputName('SKU')]
         public readonly string $sku,
     ) {}
 }
