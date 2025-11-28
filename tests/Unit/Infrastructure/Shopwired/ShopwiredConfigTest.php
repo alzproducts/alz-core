@@ -17,8 +17,9 @@ use Throwable;
  * ShopwiredConfig Unit Tests.
  *
  * Tests the immutable configuration value object for Shopwired API client.
- * Covers fail-fast validation of credentials and boundary conditions for
- * timeout, retry times, and retry delay parameters.
+ * Covers fail-fast validation of credentials and boundary conditions for timeout.
+ *
+ * Note: Retry behavior is controlled by RetryStrategy enum, not config values.
  */
 #[CoversClass(ShopwiredConfig::class)]
 final class ShopwiredConfigTest extends TestCase
@@ -44,8 +45,6 @@ final class ShopwiredConfigTest extends TestCase
         $this->assertSame(self::TEST_API_SECRET, $config->apiSecret);
         $this->assertSame('https://api.ecommerceapi.uk/v1', $config->baseUrl);
         $this->assertSame(30, $config->timeout);
-        $this->assertSame(3, $config->retryTimes);
-        $this->assertSame(100, $config->retryDelay);
     }
 
     #[Test]
@@ -56,16 +55,12 @@ final class ShopwiredConfigTest extends TestCase
             apiSecret: self::TEST_API_SECRET,
             baseUrl: 'https://custom.api.com/v2',
             timeout: 60,
-            retryTimes: 5,
-            retryDelay: 200,
         );
 
         $this->assertSame(self::TEST_API_KEY, $config->apiKey);
         $this->assertSame(self::TEST_API_SECRET, $config->apiSecret);
         $this->assertSame('https://custom.api.com/v2', $config->baseUrl);
         $this->assertSame(60, $config->timeout);
-        $this->assertSame(5, $config->retryTimes);
-        $this->assertSame(200, $config->retryDelay);
     }
 
     #[Test]
@@ -99,7 +94,7 @@ final class ShopwiredConfigTest extends TestCase
     */
 
     /**
-     * @param array{timeout?: int, retryTimes?: int, retryDelay?: int} $invalidConfig
+     * @param array{timeout?: int} $invalidConfig
      * @param class-string<Throwable> $expectedException
      */
     #[Test]
@@ -116,8 +111,6 @@ final class ShopwiredConfigTest extends TestCase
             'apiKey' => self::TEST_API_KEY,
             'apiSecret' => self::TEST_API_SECRET,
             'timeout' => 30,
-            'retryTimes' => 3,
-            'retryDelay' => 100,
             ...$invalidConfig,
         ];
 
@@ -132,10 +125,6 @@ final class ShopwiredConfigTest extends TestCase
         return [
             'timeout too low' => [['timeout' => 0], InvalidArgumentException::class, 'Timeout must be between 1-300 seconds, got 0'],
             'timeout too high' => [['timeout' => 301], InvalidArgumentException::class, 'Timeout must be between 1-300 seconds, got 301'],
-            'retry times too low' => [['retryTimes' => -1], InvalidArgumentException::class, 'Retry times must be between 0-10, got -1'],
-            'retry times too high' => [['retryTimes' => 11], InvalidArgumentException::class, 'Retry times must be between 0-10, got 11'],
-            'retry delay too low' => [['retryDelay' => -1], InvalidArgumentException::class, 'Retry delay must be between 0-5000ms, got -1'],
-            'retry delay too high' => [['retryDelay' => 5001], InvalidArgumentException::class, 'Retry delay must be between 0-5000ms, got 5001'],
         ];
     }
 
@@ -167,54 +156,6 @@ final class ShopwiredConfigTest extends TestCase
         );
 
         $this->assertSame(300, $config->timeout);
-    }
-
-    #[Test]
-    public function it_accepts_retry_times_at_minimum_boundary_of_zero(): void
-    {
-        $config = new ShopwiredConfig(
-            apiKey: self::TEST_API_KEY,
-            apiSecret: self::TEST_API_SECRET,
-            retryTimes: 0,
-        );
-
-        $this->assertSame(0, $config->retryTimes);
-    }
-
-    #[Test]
-    public function it_accepts_retry_times_at_maximum_boundary_of_10(): void
-    {
-        $config = new ShopwiredConfig(
-            apiKey: self::TEST_API_KEY,
-            apiSecret: self::TEST_API_SECRET,
-            retryTimes: 10,
-        );
-
-        $this->assertSame(10, $config->retryTimes);
-    }
-
-    #[Test]
-    public function it_accepts_retry_delay_at_minimum_boundary_of_zero_milliseconds(): void
-    {
-        $config = new ShopwiredConfig(
-            apiKey: self::TEST_API_KEY,
-            apiSecret: self::TEST_API_SECRET,
-            retryDelay: 0,
-        );
-
-        $this->assertSame(0, $config->retryDelay);
-    }
-
-    #[Test]
-    public function it_accepts_retry_delay_at_maximum_boundary_of_5000_milliseconds(): void
-    {
-        $config = new ShopwiredConfig(
-            apiKey: self::TEST_API_KEY,
-            apiSecret: self::TEST_API_SECRET,
-            retryDelay: 5000,
-        );
-
-        $this->assertSame(5000, $config->retryDelay);
     }
 
     /*

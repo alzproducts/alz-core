@@ -53,17 +53,12 @@ final class ShopwiredClientTest extends TestCase
     /**
      * Create a ShopwiredClient with default test configuration.
      */
-    private function createClient(
-        int $timeout = 30,
-        int $retryTimes = 3,
-        int $retryDelay = 100,
-    ): ShopwiredClient {
+    private function createClient(int $timeout = 30): ShopwiredClient
+    {
         $config = new ShopwiredConfig(
             apiKey: self::TEST_API_KEY,
             apiSecret: self::TEST_API_SECRET,
             timeout: $timeout,
-            retryTimes: $retryTimes,
-            retryDelay: $retryDelay,
         );
 
         $transport = new ShopwiredHttpTransport($config);
@@ -347,24 +342,6 @@ final class ShopwiredClientTest extends TestCase
     | HTTP Client Configuration Tests
     |--------------------------------------------------------------------------
     */
-
-    #[Test]
-    public function it_accepts_custom_retry_parameters(): void
-    {
-        // Verify the client accepts retry parameters without error
-        $client = $this->createClient(
-            timeout: 10,
-            retryTimes: 5,
-            retryDelay: 200,
-        );
-
-        Http::fake(['*' => Http::response(['business_name' => 'Test Store'], 200)]);
-
-        // Should not throw exception
-        $client->verifyConnectivity();
-
-        $this->assertTrue(true); // Explicit assertion that we reached this point
-    }
 
     #[Test]
     public function it_includes_service_name_in_auth_exception(): void
