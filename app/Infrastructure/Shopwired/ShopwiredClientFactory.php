@@ -9,6 +9,7 @@ use App\Application\Contracts\Shopwired\ConnectivityClientInterface;
 use App\Application\Contracts\Shopwired\CustomerClientInterface;
 use App\Infrastructure\Shopwired\Clients\CategoryClient;
 use App\Infrastructure\Shopwired\Clients\CustomerClient;
+use App\Infrastructure\Shopwired\Clients\OrderClient;
 use RuntimeException;
 
 /**
@@ -49,6 +50,17 @@ final class ShopwiredClientFactory
     public static function createCustomerClient(): CustomerClientInterface
     {
         return new CustomerClient(self::getTransport());
+    }
+
+    /**
+     * Create the order client for order operations.
+     *
+     * Note: Returns concrete class (no interface yet).
+     * Interface will be added after Domain VOs are created.
+     */
+    public static function createOrderClient(): OrderClient
+    {
+        return new OrderClient(self::getTransport());
     }
 
     /**
