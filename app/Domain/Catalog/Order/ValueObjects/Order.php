@@ -46,6 +46,9 @@ final readonly class Order
         public ?array $customFields = null,
     ) {
         Assert::greaterThan($reference, 0, 'Order reference must be positive');
+        Assert::greaterThanEq($total, 0, 'Order total cannot be negative');
+        Assert::greaterThanEq($subTotal, 0, 'Order sub-total cannot be negative');
+        Assert::greaterThanEq($shippingTotal, 0, 'Order shipping total cannot be negative');
     }
 
     /**

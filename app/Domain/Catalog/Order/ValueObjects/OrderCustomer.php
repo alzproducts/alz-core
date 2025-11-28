@@ -31,6 +31,7 @@ final readonly class OrderCustomer
         public array $deviceInfo = [],
     ) {
         Assert::greaterThan($id, 0, 'Customer ID must be positive');
+        Assert::range($type, 0, 3, 'Customer type must be between 0 and 3');
     }
 
     /**

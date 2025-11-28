@@ -9,6 +9,7 @@ use App\Domain\Exceptions\AuthenticationExpiredException;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\InvalidApiRequestException;
 use App\Domain\Exceptions\InvalidApiResponseException;
+use App\Domain\Exceptions\ResourceNotFoundException;
 
 /**
  * ShopWired Orders API client.
@@ -80,6 +81,9 @@ interface OrderClientInterface
      *
      * Returns complete order with ALL fields populated.
      *
+     * @param int $id ShopWired order ID (must be positive)
+     *
+     * @throws ResourceNotFoundException When order with given ID does not exist
      * @throws ExternalServiceUnavailableException When API unavailable
      * @throws InvalidApiResponseException When API response structure is invalid
      */

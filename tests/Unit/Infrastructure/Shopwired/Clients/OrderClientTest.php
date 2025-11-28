@@ -87,8 +87,6 @@ final class OrderClientTest extends TestCase
             'shipping_total' => 15.00,
             'original_shipping_total' => 15.00,
             'partial_payment_total' => 0.0,
-            'total_weight' => '1.50',
-            'weight_unit' => 'kg',
             'package_weight' => null,
             'marketing' => true,
             'comments' => 'Leave with neighbour if not in.',
