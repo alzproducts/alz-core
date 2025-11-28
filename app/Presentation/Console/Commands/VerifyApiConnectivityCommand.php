@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Presentation\Console\Commands;
 
 use App\Application\Contracts\GoogleAdsClientInterface;
+use App\Application\Contracts\Linnworks\ConnectivityClientInterface as LinnworksConnectivityClient;
 use App\Application\Contracts\MixpanelClientInterface;
 use App\Application\Contracts\ReviewsIoClientInterface;
 use App\Application\Contracts\Shopwired\ConnectivityClientInterface as ShopwiredConnectivityClient;
@@ -23,7 +24,7 @@ use Throwable;
 final class VerifyApiConnectivityCommand extends Command
 {
     protected $signature = 'verify:api
-        {client : The API client to verify (reviewsio, mixpanel, googleads, shopwired, all)}';
+        {client : The API client to verify (reviewsio, mixpanel, googleads, shopwired, linnworks, all)}';
 
     protected $description = 'Verify connectivity and authentication with external API services';
 
@@ -37,18 +38,20 @@ final class VerifyApiConnectivityCommand extends Command
             'mixpanel' => ['mixpanel' => $this->verifyMixpanel()],
             'googleads' => ['googleads' => $this->verifyGoogleAds()],
             'shopwired' => ['shopwired' => $this->verifyShopwired()],
+            'linnworks' => ['linnworks' => $this->verifyLinnworks()],
             'all' => [
                 'reviewsio' => $this->verifyReviewsIo(),
                 'mixpanel' => $this->verifyMixpanel(),
                 'googleads' => $this->verifyGoogleAds(),
                 'shopwired' => $this->verifyShopwired(),
+                'linnworks' => $this->verifyLinnworks(),
             ],
             default => null,
         };
 
         if ($results === null) {
             $this->error("Unknown client: {$client}");
-            $this->line('Available: reviewsio, mixpanel, googleads, shopwired, all');
+            $this->line('Available: reviewsio, mixpanel, googleads, shopwired, linnworks, all');
 
             return self::FAILURE;
         }
@@ -146,6 +149,26 @@ final class VerifyApiConnectivityCommand extends Command
         } catch (Throwable $e) {
             $this->error('  Failed: ' . $e->getMessage());
             $this->line('  Check: SHOPWIRED_API_KEY and SHOPWIRED_API_SECRET in .env');
+
+            return false;
+        }
+    }
+
+    private function verifyLinnworks(): bool
+    {
+        $this->info('Verifying Linnworks...');
+
+        try {
+            $client = \app(LinnworksConnectivityClient::class);
+            $client->verifyConnectivity();
+
+            $this->line('  Authentication: OK');
+            $this->line('  API Response: Valid');
+
+            return true;
+        } catch (Throwable $e) {
+            $this->error('  Failed: ' . $e->getMessage());
+            $this->line('  Check: LINNWORKS_APPLICATION_ID, LINNWORKS_APPLICATION_SECRET, and LINNWORKS_INSTALLATION_TOKEN in .env');
 
             return false;
         }
