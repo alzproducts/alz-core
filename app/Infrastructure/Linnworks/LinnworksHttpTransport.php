@@ -59,7 +59,7 @@ final readonly class LinnworksHttpTransport
 
         return $this->executeWithAuthRetry(
             static fn(LinnworksSession $session): Response => Http::baseUrl($session->serverUrl)
-                ->withToken($session->token)
+                ->withHeaders(['Authorization' => $session->token])
                 ->timeout($timeout)
                 ->get($endpoint, $query)
                 ->throw(),
@@ -71,7 +71,7 @@ final readonly class LinnworksHttpTransport
      * Perform POST request to Linnworks API.
      *
      * @param string $endpoint API endpoint path
-     * @param array<string, mixed> $data Request body data (sent as JSON)
+     * @param array<string, mixed> $data Request body data (JSON-encoded and sent as form 'request' parameter)
      *
      * @return Response Successful HTTP response
      *
@@ -84,11 +84,15 @@ final readonly class LinnworksHttpTransport
     {
         $timeout = $this->config->timeout;
 
+        // Linnworks API expects form-encoded POST with 'request' containing JSON
+        $formData = $data === [] ? [] : ['request' => \json_encode($data, \JSON_THROW_ON_ERROR)];
+
         return $this->executeWithAuthRetry(
             static fn(LinnworksSession $session): Response => Http::baseUrl($session->serverUrl)
-                ->withToken($session->token)
+                ->withHeaders(['Authorization' => $session->token])
                 ->timeout($timeout)
-                ->post($endpoint, $data)
+                ->asForm()
+                ->post($endpoint, $formData)
                 ->throw(),
             $endpoint,
         );
@@ -158,13 +162,13 @@ final readonly class LinnworksHttpTransport
      */
     private function handleBadRequest(RequestException $e): InvalidApiRequestException
     {
+        $message = $e->response->json('Message');
+
         Log::error(self::SERVICE_NAME . ' API invalid request', [
             'status' => 400,
             'error' => $e->getMessage(),
-            'response' => $e->response->json(),
+            'response_message' => \is_string($message) ? $message : 'No message provided',
         ]);
-
-        $message = $e->response->json('Message');
 
         return new InvalidApiRequestException(
             self::SERVICE_NAME,
