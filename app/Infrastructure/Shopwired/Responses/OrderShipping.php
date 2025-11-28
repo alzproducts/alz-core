@@ -20,10 +20,10 @@ use Spatie\LaravelData\Mappers\SnakeCaseMapper;
 final class OrderShipping extends Data
 {
     public function __construct(
-        public readonly int $id,
         public readonly string $name,
         public readonly float $value,
         public readonly float $vatRate,
+        public readonly ?int $id = null,
     ) {}
 
     public function toDomain(): \App\Domain\Catalog\Order\ValueObjects\OrderShipping
