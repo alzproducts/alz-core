@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Linnworks;
 
+use App\Application\Contracts\Linnworks\ConnectivityClientInterface;
 use App\Application\Contracts\Linnworks\InventoryClientInterface;
+use App\Infrastructure\Linnworks\Clients\ConnectivityClient;
 use App\Infrastructure\Linnworks\Clients\InventoryClient;
 use Illuminate\Cache\CacheManager;
 use RuntimeException;
@@ -28,6 +30,14 @@ final class LinnworksClientFactory
     private static ?LinnworksHttpTransport $transport = null;
 
     private static ?LinnworksSessionManager $sessionManager = null;
+
+    /**
+     * Create the connectivity client for health checks.
+     */
+    public static function createConnectivityClient(): ConnectivityClientInterface
+    {
+        return new ConnectivityClient(self::getSessionManager());
+    }
 
     /**
      * Create the inventory client for stock item operations.

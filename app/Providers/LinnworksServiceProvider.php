@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Application\Contracts\Linnworks\ConnectivityClientInterface;
 use App\Application\Contracts\Linnworks\InventoryClientInterface;
 use App\Infrastructure\Linnworks\LinnworksClientFactory;
 use Illuminate\Contracts\Support\DeferrableProvider;
@@ -36,6 +37,12 @@ final class LinnworksServiceProvider extends ServiceProvider implements Deferrab
     #[Override]
     public function register(): void
     {
+        // Connectivity client - for health checks
+        $this->app->singleton(
+            ConnectivityClientInterface::class,
+            static fn(): ConnectivityClientInterface => LinnworksClientFactory::createConnectivityClient(),
+        );
+
         // Inventory client - for stock item operations
         $this->app->singleton(
             InventoryClientInterface::class,
@@ -52,6 +59,7 @@ final class LinnworksServiceProvider extends ServiceProvider implements Deferrab
     public function provides(): array
     {
         return [
+            ConnectivityClientInterface::class,
             InventoryClientInterface::class,
         ];
     }
