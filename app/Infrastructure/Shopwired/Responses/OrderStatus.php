@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Shopwired\Responses;
 
+use App\Domain\Catalog\Order\ValueObjects\OrderStatusType;
 use Spatie\LaravelData\Attributes\MapInputName;
 use Spatie\LaravelData\Data;
 use Spatie\LaravelData\Mappers\SnakeCaseMapper;
@@ -11,10 +12,8 @@ use Spatie\LaravelData\Mappers\SnakeCaseMapper;
 /**
  * ShopWired API Response: Order Status.
  *
- * Infrastructure DTO for parsing status data from order responses.
- *
- * Note: `type` is an enum with values: paid, unpaid, cancelled, shipped, custom.
- * Domain conversion will be added after smoke testing validates parsing.
+ * Always embedded in Standard/Detail modes - all fields non-nullable.
+ * Type is an enum: paid, unpaid, cancelled, shipped, custom.
  *
  * @see https://shopwired.readme.io/reference/listorders
  */
@@ -22,9 +21,17 @@ use Spatie\LaravelData\Mappers\SnakeCaseMapper;
 final class OrderStatus extends Data
 {
     public function __construct(
-        public readonly ?int $id = null,
-        public readonly ?string $name = null,
-        public readonly ?string $type = null,
-        public readonly ?int $sortOrder = null,
+        public readonly int $id,
+        public readonly string $name,
+        public readonly string $type,
+        public readonly int $sortOrder,
     ) {}
+
+    public function toDomain(): \App\Domain\Catalog\Order\ValueObjects\OrderStatus
+    {
+        return new \App\Domain\Catalog\Order\ValueObjects\OrderStatus(
+            name: OrderStatusType::from($this->name),
+            type: $this->type,
+        );
+    }
 }

@@ -11,13 +11,46 @@ Implement ShopWired Orders API client (`/orders`, `/orders/search`, `/orders/cou
 ### 1. Bounded Context: Catalog Order Only
 This is `Domain\Catalog\Order` - the ShopWired-specific view of an order. It is NOT a "God Object" containing data from all systems. Future bounded contexts (Fulfillment/Linnworks, Accounting/QuickBooks) will have their own domain objects linked by order reference.
 
-### 2. Summary/Detail Pattern (Data Size Optimization)
-Orders can be massive (50+ custom fields per product × 10 products). Two Infrastructure DTOs map to ONE Domain object:
+### 2. Standard/Detail Mode (Simplified Two-Mode Approach)
+Orders can be massive (50+ custom fields per product × 10 products). **Two request modes, one DTO:**
 
-- **`OrderSummary` DTO** → Used by list endpoints → `Order` with nullable detail fields
-- **`OrderDetail` DTO** → Used by getById → `Order` with all fields populated
+| Mode | Fields | Use Case |
+|------|--------|----------|
+| **Standard** | All order fields + embeds, NO products, NO customFields | List operations, basic lookups |
+| **Detail** | Standard + products + customFields (order & product level) | Mixpanel sync, full processing |
 
-The caller always knows which they're requesting. Nullable fields (`?array $products`) distinguish "not fetched" from "empty".
+**Key principles:**
+- We control what we request → we control nullability
+- Always request the same fields per mode → non-nullable types in DTOs
+- No micro-optimization of field selection → simpler code, easier caching
+- Memory optimization via LazyCollections and early filtering, not field selection
+
+**Field constants in OrderClient:**
+```php
+private const array STANDARD_FIELDS = [
+    'id', 'reference', 'created', 'archived', 'anonymized', 'pre_order',
+    'tracking_url', 'invoice_url', 'payment_method', 'transaction_id',
+    'total', 'sub_total', 'shipping_total', 'original_shipping_total',
+    'partial_payment_total', 'total_weight', 'weight_unit', 'package_weight',
+    'marketing', 'comments', 'delivery_date', 'earned_reward_points',
+    'line_item_vat_calculation', 'referrer_id', 'customer_source',
+];
+
+private const array STANDARD_EMBEDS = [
+    'status', 'billing_address', 'shipping_address', 'customer',
+    'shipping', 'discounts', 'fees', 'refunds', 'tax',
+];
+
+private const array DETAIL_FIELDS = [...self::STANDARD_FIELDS, 'custom_fields'];
+private const array DETAIL_EMBEDS = [...self::STANDARD_EMBEDS, 'products', 'admin_comments', 'file_archives'];
+```
+
+**Nullable fields (business data genuinely optional, not request-dependent):**
+- `comments` - Customer may not leave a comment
+- `deliveryDate` - May not be set
+- `trackingUrl`, `invoiceUrl` - May not exist yet
+- `transactionId` - Payment may not be completed
+- `products`, `customFields`, `adminComments`, `fileArchives` - Detail-only (null in Standard mode)
 
 ### 3. No `listAllOrders()` Method
 With 10,000s of orders, fetching all is impractical. Only date-range queries supported.
