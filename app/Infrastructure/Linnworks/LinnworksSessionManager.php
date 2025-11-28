@@ -80,7 +80,7 @@ final class LinnworksSessionManager
             $acquired = $lock->block(self::LOCK_WAIT_SECONDS);
 
             if ($acquired !== true) {
-                throw new LockTimeoutException();
+                throw new LockTimeoutException('Failed to acquire Linnworks session lock');
             }
 
             try {

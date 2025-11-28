@@ -38,19 +38,19 @@ final readonly class InventoryClient implements InventoryClientInterface
      *
      * @return list<SkuStockIdMapping> Mappings found (may be fewer than requested)
      */
-    public function getStockItemIdsBySkus(array $skus): array
+    private function getStockItemIdsBySkus(array $skus): array
     {
         $response = $this->transport->post(
             endpoint: '/api/Inventory/GetStockItemIdsBySKU',
-            data: ['skus' => $skus],
+            data: ['SKUS' => $skus],
         );
 
-        /** @var array{Items: list<array{StockItemId: string, SKU: string}>} $data */
+        /** @var array{Items?: list<array{StockItemId: string, SKU: string}>} $data */
         $data = $response->json();
 
         return \array_map(
             static fn(array $item): SkuStockIdMapping => SkuStockIdMapping::from($item),
-            $data['Items'],
+            $data['Items'] ?? [],
         );
     }
 
