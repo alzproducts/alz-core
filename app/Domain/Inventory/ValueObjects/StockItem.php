@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Domain\Inventory\ValueObjects;
 
-use DateTimeImmutable;
-
 /**
  * Vendor-agnostic stock item value object.
  *
@@ -20,7 +18,7 @@ final readonly class StockItem
     public function __construct(
         public string $sku,
         public string $title,
-        public string $description,
+        public ?string $description,
         public string $barcode,
         public int $quantity,
         public int $available,
@@ -34,8 +32,6 @@ final readonly class StockItem
         public float $height,
         public float $width,
         public float $depth,
-        public string $categoryName,
-        public ?DateTimeImmutable $createdAt,
         public bool $isComposite,
     ) {}
 }
