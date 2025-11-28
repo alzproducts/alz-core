@@ -11,11 +11,8 @@ use Spatie\LaravelData\Mappers\SnakeCaseMapper;
 /**
  * ShopWired API Response: Order Product.
  *
- * Infrastructure DTO for parsing product data from order responses.
- * This is a snapshot of product data at time of purchase (not catalog product).
- *
- * Note: `customFields` is array of {name, value} objects, NOT a flat array.
- * Domain conversion will be added after smoke testing validates parsing.
+ * Detail-only: Only returned when products field is requested.
+ * Snapshot of product data at time of purchase (not catalog product).
  *
  * @see https://shopwired.readme.io/reference/listorders
  */
@@ -23,57 +20,54 @@ use Spatie\LaravelData\Mappers\SnakeCaseMapper;
 final class OrderProduct extends Data
 {
     /**
-     * @param list<array{name: string, value: string}>|null $extras
-     * @param list<array{name: string, value: string}>|null $choices
-     * @param list<array{name: string, value: string}>|null $variation
-     * @param list<array{name: string, sku: string}>|null $bundleProducts
-     * @param list<array{name: string, value: string}>|null $customFields
+     * @param list<array{name: string, value: string}> $variation
+     * @param list<array{name: string, value: string}> $customFields
      */
     public function __construct(
         // Identifiers
-        public readonly ?int $id = null,
-        public readonly ?int $itemId = null,
+        public readonly int $id,
 
         // Product info
-        public readonly ?string $title = null,
-        public readonly ?string $sku = null,
-        public readonly ?string $gtin = null,
-        public readonly ?string $mpn = null,
+        public readonly string $title,
+        public readonly string $sku,
 
         // Pricing
-        public readonly ?float $price = null,
-        public readonly ?float $priceVat = null,
-        public readonly ?float $total = null,
-        public readonly ?float $totalVat = null,
-        public readonly ?float $originalPrice = null,
-        public readonly ?float $costPrice = null,
+        public readonly float $price,
+        public readonly float $priceVat,
+        public readonly float $total,
+        public readonly float $totalVat,
+        public readonly float $originalPrice,
+        public readonly float $costPrice,
 
         // Quantity & Tax
-        public readonly ?int $quantity = null,
-        public readonly ?float $vatRate = null,
+        public readonly int $quantity,
+        public readonly float $vatRate,
 
-        // Physical
-        public readonly ?float $weight = null,
+        // Notes (nullable - may not have comments)
+        public readonly string $comments,
 
-        // Rewards
-        public readonly ?float $rewardPointsEarned = null,
-
-        // Notes
-        public readonly ?string $comments = null,
-        public readonly ?string $warehouseNotes = null,
-
-        // Flags
-        public readonly ?bool $giftVoucher = null,
-        public readonly ?bool $preOrder = null,
-
-        // Customs
-        public readonly ?string $hsCode = null,
-
-        // Nested arrays
-        public readonly ?array $extras = null,
-        public readonly ?array $choices = null,
-        public readonly ?array $variation = null,
-        public readonly ?array $bundleProducts = null,
-        public readonly ?array $customFields = null,
+        // Nested arrays (default to empty)
+        public readonly array $variation = [],
+        public readonly array $customFields = [],
     ) {}
+
+    public function toDomain(): \App\Domain\Catalog\Order\ValueObjects\OrderProduct
+    {
+        return new \App\Domain\Catalog\Order\ValueObjects\OrderProduct(
+            id: $this->id,
+            title: $this->title,
+            sku: $this->sku,
+            price: $this->price,
+            priceVat: $this->priceVat,
+            total: $this->total,
+            totalVat: $this->totalVat,
+            originalPrice: $this->originalPrice,
+            costPrice: $this->costPrice,
+            quantity: $this->quantity,
+            vatRate: $this->vatRate,
+            comments: $this->comments,
+            variation: $this->variation,
+            customFields: $this->customFields,
+        );
+    }
 }

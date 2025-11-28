@@ -33,7 +33,7 @@ final readonly class OrderProduct
         public float $costPrice,
         public int $quantity,
         public float $vatRate,
-        public ?string $comments,
+        public string $comments,
         public array $variation = [],
         public array $customFields = [],
     ) {

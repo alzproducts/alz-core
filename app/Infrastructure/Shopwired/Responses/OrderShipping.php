@@ -11,10 +11,8 @@ use Spatie\LaravelData\Mappers\SnakeCaseMapper;
 /**
  * ShopWired API Response: Order Shipping.
  *
- * Infrastructure DTO for parsing shipping data from order responses.
- * Note: API returns shipping as array; caller must access shipping[0].
- *
- * Domain conversion will be added after smoke testing validates parsing.
+ * Always embedded in Standard/Detail modes - all fields non-nullable.
+ * Note: API returns shipping as array; use Order::getFirstShipping().
  *
  * @see https://shopwired.readme.io/reference/listorders
  */
@@ -22,9 +20,18 @@ use Spatie\LaravelData\Mappers\SnakeCaseMapper;
 final class OrderShipping extends Data
 {
     public function __construct(
-        public readonly ?int $id = null,
-        public readonly ?string $name = null,
-        public readonly ?float $value = null,
-        public readonly ?float $vatRate = null,
+        public readonly int $id,
+        public readonly string $name,
+        public readonly float $value,
+        public readonly float $vatRate,
     ) {}
+
+    public function toDomain(): \App\Domain\Catalog\Order\ValueObjects\OrderShipping
+    {
+        return new \App\Domain\Catalog\Order\ValueObjects\OrderShipping(
+            name: $this->name,
+            value: $this->value,
+            vatRate: $this->vatRate,
+        );
+    }
 }

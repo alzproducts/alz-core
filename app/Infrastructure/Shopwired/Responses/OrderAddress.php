@@ -11,13 +11,11 @@ use Spatie\LaravelData\Mappers\SnakeCaseMapper;
 /**
  * ShopWired API Response: Order Address (billing/shipping).
  *
- * Infrastructure DTO for parsing address data from order responses.
- * Used for both billingAddress and shippingAddress fields.
+ * Always embedded in Standard/Detail modes.
+ * Core address fields are non-nullable; optional contact fields are nullable.
  *
  * Note: Address has BOTH `state` and `province` as separate fields.
  * Numeric suffixes require explicit MapInputName (SnakeCaseMapper doesn't handle them).
- *
- * Domain conversion will be added after smoke testing validates parsing.
  *
  * @see https://shopwired.readme.io/reference/listorders
  */
@@ -25,21 +23,39 @@ use Spatie\LaravelData\Mappers\SnakeCaseMapper;
 final class OrderAddress extends Data
 {
     public function __construct(
-        public readonly ?string $name = null,
-        public readonly ?string $emailAddress = null,
-        public readonly ?string $telephone = null,
-        public readonly ?string $companyName = null,
+        public readonly string $name,
+        public readonly string $emailAddress,
+        public readonly ?string $telephone,
+        public readonly ?string $companyName,
         #[MapInputName('address_line_1')]
-        public readonly ?string $addressLine1 = null,
+        public readonly string $addressLine1,
         #[MapInputName('address_line_2')]
-        public readonly ?string $addressLine2 = null,
+        public readonly ?string $addressLine2,
         #[MapInputName('address_line_3')]
-        public readonly ?string $addressLine3 = null,
-        public readonly ?string $city = null,
-        public readonly ?string $province = null,
-        public readonly ?string $state = null,
-        public readonly ?string $postcode = null,
-        public readonly ?string $country = null,
-        public readonly ?int $countryId = null,
+        public readonly ?string $addressLine3,
+        public readonly string $city,
+        public readonly ?string $province,
+        public readonly ?string $state,
+        public readonly string $postcode,
+        public readonly string $country,
+        public readonly int $countryId,
     ) {}
+
+    public function toDomain(): \App\Domain\Catalog\Order\ValueObjects\OrderAddress
+    {
+        return new \App\Domain\Catalog\Order\ValueObjects\OrderAddress(
+            name: $this->name,
+            emailAddress: $this->emailAddress,
+            telephone: $this->telephone,
+            companyName: $this->companyName,
+            addressLine1: $this->addressLine1,
+            addressLine2: $this->addressLine2,
+            addressLine3: $this->addressLine3,
+            city: $this->city,
+            province: $this->province,
+            state: $this->state,
+            postcode: $this->postcode,
+            country: $this->country,
+        );
+    }
 }

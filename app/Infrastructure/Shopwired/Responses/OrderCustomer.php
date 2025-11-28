@@ -11,11 +11,8 @@ use Spatie\LaravelData\Mappers\SnakeCaseMapper;
 /**
  * ShopWired API Response: Order Customer (embedded reference).
  *
- * Infrastructure DTO for parsing customer reference from order responses.
- * This is a lightweight reference (not full customer data).
- *
- * Note: `type` is a string ('guest' or 'registered'), not an int.
- * Domain conversion will be added after smoke testing validates parsing.
+ * Always embedded in Standard/Detail modes.
+ * Type is int (0-3), semantics unknown - preserved as-is.
  *
  * @see https://shopwired.readme.io/reference/listorders
  */
@@ -23,12 +20,22 @@ use Spatie\LaravelData\Mappers\SnakeCaseMapper;
 final class OrderCustomer extends Data
 {
     /**
-     * @param array<string, mixed>|null $deviceInfo ipAddress, userAgent, facebookBrowserId, facebookClickId
+     * @param array<string, mixed> $deviceInfo Attribution data (ipAddress, userAgent, awinChannel, etc.)
      */
     public function __construct(
-        public readonly ?int $id = null,
-        public readonly ?string $type = null,
-        public readonly ?string $dateOfBirth = null,
-        public readonly ?array $deviceInfo = null,
+        public readonly int $id,
+        public readonly int $type,
+        public readonly ?string $dateOfBirth,
+        public readonly array $deviceInfo = [],
     ) {}
+
+    public function toDomain(): \App\Domain\Catalog\Order\ValueObjects\OrderCustomer
+    {
+        return new \App\Domain\Catalog\Order\ValueObjects\OrderCustomer(
+            id: $this->id,
+            type: $this->type,
+            dateOfBirth: $this->dateOfBirth,
+            deviceInfo: $this->deviceInfo,
+        );
+    }
 }
