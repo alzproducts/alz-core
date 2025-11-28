@@ -9,10 +9,8 @@ use InvalidArgumentException;
 
 /**
  * Raw payment method values from ShopWired API.
- *
  * This enum captures the exact string values returned by the API.
  * Maps to Domain PaymentMethod enum via toDomain() method.
- *
  * When a new payment processor is added, add the case here and
  * update the toDomain() mapping.
  *
@@ -33,7 +31,6 @@ enum PaymentMethodRaw: string
 
     /**
      * Convert to Domain PaymentMethod.
-     *
      * Groups raw API values into business-meaningful categories.
      */
     public function toDomain(): PaymentMethod
@@ -42,12 +39,12 @@ enum PaymentMethodRaw: string
             self::AdminOrder => PaymentMethod::Admin,
             self::PayPal => PaymentMethod::PayPal,
             self::Credit => PaymentMethod::Credit,
-            self::Offline,
-            self::OpayoHosted,
-            self::OpayoDirect,
-            self::OpayoForm,
-            self::SagepayDirect,
-            self::SagepayForm,
+            self::Offline => PaymentMethod::Unknown,
+            self::OpayoHosted => PaymentMethod::Card,
+            self::OpayoDirect => PaymentMethod::Card,
+            self::OpayoForm => PaymentMethod::Card,
+            self::SagepayDirect => PaymentMethod::Card,
+            self::SagepayForm => PaymentMethod::Card,
             self::SagepayHosted => PaymentMethod::Card,
         };
     }
@@ -59,17 +56,7 @@ enum PaymentMethodRaw: string
      */
     public static function fromApiValue(string $value): self
     {
-        // Try exact match first
-        $exact = self::tryFrom($value);
-        if ($exact !== null) {
-            return $exact;
-        }
-
-        // Fallback for unknown Sagepay/Sage Pay variants (str_starts_with for security)
-        if (\str_starts_with($value, 'Sagepay') || \str_starts_with($value, 'Sage Pay')) {
-            return self::SagepayDirect;
-        }
-
-        throw new InvalidArgumentException("Unknown payment method: {$value}");
+        return self::tryFrom($value) ?? throw new InvalidArgumentException("Unknown payment method: {$value}");
     }
+
 }
