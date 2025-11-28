@@ -92,8 +92,6 @@ final class ShopwiredClientFactory
             apiKey: $apiKey,
             apiSecret: $apiSecret,
             timeout: self::getIntConfig('timeout', 30),
-            retryTimes: self::getIntConfig('retry_times', 3),
-            retryDelay: self::getIntConfig('retry_delay', 100),
         );
 
         return new ShopwiredHttpTransport($config);

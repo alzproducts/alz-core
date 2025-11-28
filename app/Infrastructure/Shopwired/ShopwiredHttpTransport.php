@@ -38,6 +38,11 @@ final readonly class ShopwiredHttpTransport
 {
     private const string SERVICE_NAME = 'Shopwired';
 
+    /**
+     * Maximum backoff delay for exponential retry (16 seconds).
+     */
+    private const int MAX_BACKOFF_MS = 16000;
+
     public function __construct(
         private ShopwiredConfig $config,
     ) {}
@@ -180,8 +185,8 @@ final readonly class ShopwiredHttpTransport
             return static fn(int $attempt, Exception $e): int => $baseMs;
         }
 
-        // Exponential backoff: 500ms → 1s → 2s → 4s → 8s (capped at 16s)
-        return static fn(int $attempt, Exception $e): int => (int) \min($baseMs * (2 ** ($attempt - 1)), 16000);
+        // Exponential backoff: 500ms → 1s → 2s → 4s → 8s (capped at MAX_BACKOFF_MS)
+        return static fn(int $attempt, Exception $e): int => (int) \min($baseMs * (2 ** ($attempt - 1)), self::MAX_BACKOFF_MS);
     }
 
     /**
