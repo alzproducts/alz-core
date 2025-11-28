@@ -1,0 +1,86 @@
+[
+    {
+        "id": 73875,
+        "name": "Not Paid",
+        "type": "unpaid",
+        "sortOrder": 1
+    },
+    {
+        "id": 73876,
+        "name": "Part Paid",
+        "type": "custom",
+        "sortOrder": 2
+    },
+    {
+        "id": 73877,
+        "name": "Paid",
+        "type": "paid",
+        "sortOrder": 3
+    },
+    {
+        "id": 73878,
+        "name": "Cancelled",
+        "type": "cancelled",
+        "sortOrder": 4
+    },
+    {
+        "id": 73879,
+        "name": "Dispatched",
+        "type": "shipped",
+        "sortOrder": 5
+    },
+    {
+        "id": 73880,
+        "name": "Completed",
+        "type": "custom",
+        "sortOrder": 6
+    },
+    {
+        "id": 73881,
+        "name": "Part Refunded",
+        "type": "custom",
+        "sortOrder": 7
+    },
+    {
+        "id": 73882,
+        "name": "Refunded",
+        "type": "custom",
+        "sortOrder": 8
+    },
+    {
+        "id": 73883,
+        "name": "Awaiting Payment",
+        "type": "custom",
+        "sortOrder": 9
+    },
+    {
+        "id": 173675,
+        "name": "Outstanding",
+        "type": "custom",
+        "sortOrder": 10
+    },
+    {
+        "id": 173694,
+        "name": "Preorder",
+        "type": "custom",
+        "sortOrder": 11
+    },
+    {
+        "id": 173695,
+        "name": "Overdue",
+        "type": "custom",
+        "sortOrder": 12
+    },
+    {
+        "id": 178012,
+        "name": "Processing",
+        "type": "custom",
+        "sortOrder": 13
+    },
+    {
+        "id": 180255,
+        "name": "Received",
+        "type": "custom",
+        "sortOrder": 14
+    }
+]

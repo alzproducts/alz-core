@@ -1,0 +1,254 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Infrastructure\Shopwired\Clients;
+
+use App\Application\Contracts\Shopwired\OrderClientInterface;
+use App\Domain\Catalog\Order\ValueObjects\Order as DomainOrder;
+use App\Domain\Catalog\Order\ValueObjects\OrderLifecycleStatus;
+use App\Infrastructure\Shopwired\Mappers\OrderLifecycleStatusMapper;
+use App\Infrastructure\Shopwired\OrderQueryParams;
+use App\Infrastructure\Shopwired\Requests\OrderStatusUpdateOptions;
+use App\Infrastructure\Shopwired\Responses\Order as InfraOrder;
+use App\Infrastructure\Shopwired\ShopwiredHttpTransport;
+use App\Infrastructure\Shopwired\ShopwiredPaginator;
+use App\Infrastructure\Shopwired\ShopwiredQueryParams;
+use App\Infrastructure\Shopwired\ShopwiredResponseParserTrait;
+use DateTimeImmutable;
+
+/**
+ * ShopWired Orders API Client.
+ *
+ * Two-mode approach:
+ * - Standard: All fields + embeds, NO products, NO customFields
+ * - Detail: Standard + products + customFields
+ *
+ * HTTP concerns (auth, retry, timeout) delegated to ShopwiredHttpTransport.
+ *
+ * @see https://shopwired.readme.io/reference/listorders
+ */
+final readonly class OrderClient implements OrderClientInterface
+{
+    use ShopwiredResponseParserTrait;
+
+    private const string ENDPOINT_ORDERS = 'orders';
+
+    /**
+     * Fields for STANDARD requests.
+     * All order data except products and customFields (Detail-only).
+     *
+     * @var list<string>
+     */
+    private const array STANDARD_FIELDS = [
+        'id',
+        'reference',
+        'created',
+        'archived',
+        'anonymized',
+        'preOrder',
+        'paymentMethod',
+        'total',
+        'subTotal',
+        'shippingTotal',
+        'originalShippingTotal',
+        'partialPaymentTotal',
+        'packageWeight',
+        'marketing',
+        'comments',
+        'trackingUrl',
+        'invoiceUrl',
+        'transactionId',
+        'referrerId',
+        'earnedRewardPoints',
+        'lineItemVatCalculation',
+        'deliveryDate',
+        'customerSource',
+        'status',
+        'billingAddress',
+        'shippingAddress',
+        'tax',
+        'customer',
+        'shipping',
+        'discounts',
+        'fees',
+        'refunds',
+        'partialPayments',
+        'adminComments',
+        'fileArchives',
+    ];
+
+    /**
+     * Fields for DETAIL requests.
+     * Standard + products + customFields.
+     *
+     * @var list<string>
+     */
+    private const array DETAIL_FIELDS = [
+        ...self::STANDARD_FIELDS,
+        'products',
+        'customFields',
+    ];
+
+    /**
+     * Embeds for STANDARD requests.
+     *
+     * @var list<string>
+     */
+    private const array STANDARD_EMBEDS = [
+        'status',
+        'billing_address',
+        'shipping_address',
+        'tax',
+        'customer',
+        'shipping',
+        'discounts',
+        'fees',
+        'refunds',
+        'partial_payments',
+        'admin_comments',
+        'file_archives',
+    ];
+
+    /**
+     * Embeds for DETAIL requests.
+     * Standard + products + custom_fields.
+     *
+     * @var list<string>
+     */
+    private const array DETAIL_EMBEDS = [
+        ...self::STANDARD_EMBEDS,
+        'products',
+        'custom_fields',
+    ];
+
+    public function __construct(
+        private ShopwiredHttpTransport $transport,
+    ) {}
+
+    /**
+     * @return list<DomainOrder>
+     */
+    public function listOrdersInRangeWithDetails(DateTimeImmutable $from, DateTimeImmutable $to): array
+    {
+        $params = OrderQueryParams::forBulkFetch()
+            ->withFrom($from->getTimestamp())
+            ->withTo($to->getTimestamp())
+            ->withBaseParams(
+                ShopwiredQueryParams::forBulkFetch()
+                    ->withEmbeds(self::DETAIL_EMBEDS)
+                    ->withFields(self::DETAIL_FIELDS),
+            );
+
+        return ShopwiredPaginator::fetchAll(
+            params: $params,
+            fetchPage: fn(OrderQueryParams $p): array => $this->fetchOrderPage($p),
+        );
+    }
+
+    /**
+     * @return list<DomainOrder>
+     */
+    public function listOrdersInRange(DateTimeImmutable $from, DateTimeImmutable $to): array
+    {
+        $params = OrderQueryParams::forBulkFetch()
+            ->withFrom($from->getTimestamp())
+            ->withTo($to->getTimestamp())
+            ->withBaseParams(
+                ShopwiredQueryParams::forBulkFetch()
+                    ->withEmbeds(self::STANDARD_EMBEDS)
+                    ->withFields(self::STANDARD_FIELDS),
+            );
+
+        return ShopwiredPaginator::fetchAll(
+            params: $params,
+            fetchPage: fn(OrderQueryParams $p): array => $this->fetchOrderPage($p),
+        );
+    }
+
+    public function getOrderById(int $id): DomainOrder
+    {
+        $params = new ShopwiredQueryParams()
+            ->withEmbeds(self::DETAIL_EMBEDS)
+            ->withFields(self::DETAIL_FIELDS);
+
+        $response = $this->transport->getResource(
+            resourceType: 'Order',
+            id: $id,
+            endpoint: self::ENDPOINT_ORDERS,
+            query: $params->toArray(),
+        );
+
+        /** @var DomainOrder */
+        return self::parseSingleToDomain($response->json(), InfraOrder::class);
+    }
+
+    public function getOrderCount(): int
+    {
+        $response = $this->transport->get(self::ENDPOINT_ORDERS . '/count');
+
+        return self::parseCountResponse($response->json());
+    }
+
+    public function getOrderCountByStatus(int $statusId): int
+    {
+        $response = $this->transport->get(
+            self::ENDPOINT_ORDERS . '/count',
+            ['status' => $statusId],
+        );
+
+        return self::parseCountResponse($response->json());
+    }
+
+    /**
+     * @return list<DomainOrder>
+     */
+    public function searchOrders(string $keyword): array
+    {
+        $response = $this->transport->get(
+            self::ENDPOINT_ORDERS . '/search',
+            ['keywords' => $keyword],
+        );
+
+        /** @var list<DomainOrder> */
+        return self::parseWrappedArrayToDomain($response->json(), InfraOrder::class);
+    }
+
+    public function updateOrderStatus(
+        int $orderId,
+        OrderLifecycleStatus $status,
+        bool $notifyCustomer = false,
+        ?string $trackingUrl = null,
+    ): void {
+        $options = new OrderStatusUpdateOptions(
+            sendEmail: $notifyCustomer,
+            trackingUrl: $trackingUrl,
+        );
+
+        $data = [
+            'status' => OrderLifecycleStatusMapper::toShopwiredId($status),
+            ...$options->toArray(),
+        ];
+
+        $this->transport->post(
+            self::ENDPOINT_ORDERS . '/' . $orderId . '/status',
+            $data,
+        );
+    }
+
+    /**
+     * Fetch a single page of orders.
+     *
+     * @return list<DomainOrder>
+     */
+    private function fetchOrderPage(OrderQueryParams $params): array
+    {
+        $response = $this->transport->get(
+            self::ENDPOINT_ORDERS,
+            $params->toArray(),
+        );
+
+        /** @var list<DomainOrder> */
+        return self::parseArrayToDomain($response->json(), InfraOrder::class);
+    }
+}
