@@ -7,6 +7,7 @@ namespace App\Infrastructure\Shopwired;
 use App\Application\Contracts\Shopwired\CategoryClientInterface;
 use App\Application\Contracts\Shopwired\ConnectivityClientInterface;
 use App\Application\Contracts\Shopwired\CustomerClientInterface;
+use App\Application\Contracts\Shopwired\OrderClientInterface;
 use App\Infrastructure\Shopwired\Clients\CategoryClient;
 use App\Infrastructure\Shopwired\Clients\CustomerClient;
 use App\Infrastructure\Shopwired\Clients\OrderClient;
@@ -54,11 +55,8 @@ final class ShopwiredClientFactory
 
     /**
      * Create the order client for order operations.
-     *
-     * Note: Returns concrete class (no interface yet).
-     * Interface will be added after Domain VOs are created.
      */
-    public static function createOrderClient(): OrderClient
+    public static function createOrderClient(): OrderClientInterface
     {
         return new OrderClient(self::getTransport());
     }
