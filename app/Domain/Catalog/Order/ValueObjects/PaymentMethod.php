@@ -17,4 +17,5 @@ enum PaymentMethod: string
     case PayPal = 'paypal';
     case Credit = 'credit';
     case Card = 'card';
+    case Unknown = 'unknown';
 }
