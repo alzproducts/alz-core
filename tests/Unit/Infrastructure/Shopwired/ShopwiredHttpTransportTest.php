@@ -11,12 +11,15 @@ use App\Domain\Exceptions\ResourceNotFoundException;
 use App\Infrastructure\Shopwired\RetryStrategy;
 use App\Infrastructure\Shopwired\ShopwiredConfig;
 use App\Infrastructure\Shopwired\ShopwiredHttpTransport;
+use GuzzleHttp\Exception\ConnectException;
+use GuzzleHttp\Psr7\Request as GuzzleRequest;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
+use RuntimeException;
 use Tests\TestCase;
 
 /**
@@ -353,5 +356,149 @@ final class ShopwiredHttpTransportTest extends TestCase
 
             return \is_array($authHeader) && $authHeader[0] === $expectedAuth;
         });
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | poolPost() Tests
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function it_returns_empty_array_for_empty_pool_requests(): void
+    {
+        $responses = $this->transport->poolPost([]);
+
+        $this->assertSame([], $responses);
+    }
+
+    #[Test]
+    public function it_performs_successful_pool_post_requests(): void
+    {
+        Http::fake([
+            '*' => Http::response(['success' => true], 200),
+        ]);
+
+        $requests = [
+            'sku-1' => ['endpoint' => 'stock/1', 'data' => ['quantity' => 10]],
+            'sku-2' => ['endpoint' => 'stock/2', 'data' => ['quantity' => 20]],
+        ];
+
+        $responses = $this->transport->poolPost($requests);
+
+        $this->assertCount(2, $responses);
+        $this->assertArrayHasKey('sku-1', $responses);
+        $this->assertArrayHasKey('sku-2', $responses);
+        $this->assertSame(200, $responses['sku-1']->status());
+        $this->assertSame(200, $responses['sku-2']->status());
+    }
+
+    #[Test]
+    public function it_translates_pool_connection_exception_to_external_service_unavailable(): void
+    {
+        // Pool uses Guzzle's ConnectException internally, which Laravel wraps as ConnectionException
+        Http::fake(static function (): never {
+            throw new ConnectException(
+                'Connection refused',
+                new GuzzleRequest('POST', 'https://api.shopwired.co.uk/stock/1'),
+            );
+        });
+
+        $requests = [
+            'sku-1' => ['endpoint' => 'stock/1', 'data' => ['quantity' => 10]],
+        ];
+
+        try {
+            $this->transport->poolPost($requests);
+            $this->fail('Expected ExternalServiceUnavailableException');
+        } catch (ExternalServiceUnavailableException $e) {
+            $this->assertSame('Shopwired', $e->serviceName);
+        }
+    }
+
+    #[Test]
+    public function it_translates_pool_failed_response_to_domain_exception(): void
+    {
+        Http::fake([
+            '*' => Http::response(['error' => 'Unauthorized'], 401),
+        ]);
+
+        $requests = [
+            'sku-1' => ['endpoint' => 'stock/1', 'data' => ['quantity' => 10]],
+        ];
+
+        $this->expectException(AuthenticationExpiredException::class);
+
+        $this->transport->poolPost($requests);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Unexpected Exception Tests
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function it_translates_unexpected_get_exception_to_external_service_unavailable(): void
+    {
+        Http::fake(static function (): never {
+            throw new RuntimeException('Unexpected Guzzle error');
+        });
+
+        try {
+            $this->transport->get('orders', retry: false);
+            $this->fail('Expected ExternalServiceUnavailableException');
+        } catch (ExternalServiceUnavailableException $e) {
+            $this->assertSame('Shopwired', $e->serviceName);
+        }
+    }
+
+    #[Test]
+    public function it_translates_unexpected_post_exception_to_external_service_unavailable(): void
+    {
+        Http::fake(static function (): never {
+            throw new RuntimeException('Unexpected Guzzle error');
+        });
+
+        try {
+            $this->transport->post('orders/123/status', ['status' => 'shipped'], retry: false);
+            $this->fail('Expected ExternalServiceUnavailableException');
+        } catch (ExternalServiceUnavailableException $e) {
+            $this->assertSame('Shopwired', $e->serviceName);
+        }
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | POST Exception Translation Tests
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function it_translates_post_connection_exception_to_external_service_unavailable(): void
+    {
+        Http::fake(static function (): never {
+            throw new ConnectionException('Connection refused');
+        });
+
+        try {
+            $this->transport->post('orders/123/status', ['status' => 'shipped'], retry: false);
+            $this->fail('Expected ExternalServiceUnavailableException');
+        } catch (ExternalServiceUnavailableException $e) {
+            $this->assertSame('Shopwired', $e->serviceName);
+        }
+    }
+
+    #[Test]
+    public function it_translates_post_400_to_invalid_api_request_exception(): void
+    {
+        Http::fake([
+            '*' => Http::response(['message' => 'Invalid status value'], 400),
+        ]);
+
+        $this->expectException(InvalidApiRequestException::class);
+        $this->expectExceptionMessage('Invalid status value');
+
+        $this->transport->post('orders/123/status', ['status' => 'invalid'], retry: false);
     }
 }

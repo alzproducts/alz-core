@@ -8,9 +8,11 @@ use App\Application\Contracts\Shopwired\CategoryClientInterface;
 use App\Application\Contracts\Shopwired\ConnectivityClientInterface;
 use App\Application\Contracts\Shopwired\CustomerClientInterface;
 use App\Application\Contracts\Shopwired\OrderClientInterface;
+use App\Application\Contracts\Shopwired\StockClientInterface;
 use App\Infrastructure\Shopwired\Clients\CategoryClient;
 use App\Infrastructure\Shopwired\Clients\CustomerClient;
 use App\Infrastructure\Shopwired\Clients\OrderClient;
+use App\Infrastructure\Shopwired\Clients\StockClient;
 use RuntimeException;
 
 /**
@@ -59,6 +61,14 @@ final class ShopwiredClientFactory
     public static function createOrderClient(): OrderClientInterface
     {
         return new OrderClient(self::getTransport());
+    }
+
+    /**
+     * Create the stock client for stock quantity updates.
+     */
+    public static function createStockClient(): StockClientInterface
+    {
+        return new StockClient(self::getTransport());
     }
 
     /**

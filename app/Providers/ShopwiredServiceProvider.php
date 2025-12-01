@@ -8,6 +8,7 @@ use App\Application\Contracts\Shopwired\CategoryClientInterface;
 use App\Application\Contracts\Shopwired\ConnectivityClientInterface;
 use App\Application\Contracts\Shopwired\CustomerClientInterface;
 use App\Application\Contracts\Shopwired\OrderClientInterface;
+use App\Application\Contracts\Shopwired\StockClientInterface;
 use App\Infrastructure\Shopwired\ShopwiredClientFactory;
 use Illuminate\Contracts\Support\DeferrableProvider;
 use Illuminate\Support\ServiceProvider;
@@ -60,6 +61,12 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
             OrderClientInterface::class,
             static fn(): OrderClientInterface => ShopwiredClientFactory::createOrderClient(),
         );
+
+        // Stock client - for stock quantity updates
+        $this->app->singleton(
+            StockClientInterface::class,
+            static fn(): StockClientInterface => ShopwiredClientFactory::createStockClient(),
+        );
     }
 
     /**
@@ -75,6 +82,7 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
             CategoryClientInterface::class,
             CustomerClientInterface::class,
             OrderClientInterface::class,
+            StockClientInterface::class,
         ];
     }
 }
