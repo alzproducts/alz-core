@@ -9,6 +9,7 @@
 /.idea
 /.nova
 /.phpunit.cache
+/coverage-report
 /.rector
 /.rector-cache
 /.vscode
@@ -30,3 +31,6 @@ Thumbs.db
 _ide_helper_models.php
 .phpstorm.meta.php
 /_ide_helper.php
+/.deptrac.cache
+
+/examples

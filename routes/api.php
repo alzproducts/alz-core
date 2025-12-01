@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use App\Http\Middleware\ValidateSupabaseJwt;
+use App\Presentation\Http\Middleware\ValidateSupabaseJwtMiddleware;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -18,7 +18,7 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-Route::middleware(['throttle:api', ValidateSupabaseJwt::class])->group(static function (): void {
+Route::middleware(['throttle:api', ValidateSupabaseJwtMiddleware::class])->group(static function (): void {
 
     // Test route to verify authentication is working
     // @phpstan-ignore-next-line shipmonk.checkedExceptionInCallable (Laravel route closures are framework-managed; exceptions handled by exception handler)

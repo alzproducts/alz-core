@@ -13,7 +13,7 @@ return [
         |
         */
     'api_key'     => env('REVIEWSIO_API_KEY'),
-    'store_id'    => env('REVIEWSIO_STORE_ID'),
+    'store_id'    => env('REVIEWSIO_STORE'),
 
     /*
         |--------------------------------------------------------------------------

@@ -12,6 +12,7 @@
         "ext-pdo_pgsql": "*",
         "ext-swoole": "*",
         "firebase/php-jwt": "*",
+        "googleads/google-ads-php": "^31.1",
         "helpscout/api-laravel": "^2.1",
         "laravel/framework": "^12.0",
         "laravel/horizon": "^5.35",
@@ -24,6 +25,8 @@
     },
     "require-dev": {
         "barryvdh/laravel-ide-helper": "^3.6",
+        "deptrac/deptrac": "^4.2",
+        "dg/bypass-finals": "^1.9",
         "driftingly/rector-laravel": "^2.1",
         "fakerphp/faker": "^1.23",
         "igorsgm/laravel-git-hooks": "^2.0",
@@ -46,6 +49,8 @@
         "phpstan/phpstan-strict-rules": "^2.0",
         "phpstan/phpstan-webmozart-assert": "^2.0",
         "phpunit/phpunit": "^11.5.3",
+        "react/http": "^1.11",
+        "react/socket": "^1.17",
         "rector/rector": "^2.2",
         "shipmonk/phpstan-rules": "^4.2"
     },

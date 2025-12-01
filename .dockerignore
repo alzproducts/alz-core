@@ -115,7 +115,6 @@ vendor/laravel/sail/
 # ------------------------------------------------------------------------------
 package.json
 package-lock.json
-node_modules/
 npm-debug.log
 yarn.lock
 
@@ -131,4 +130,3 @@ database/*.sqlite
 # ------------------------------------------------------------------------------
 .phpunit.cache/
 coverage/
-.phpunit.result.cache

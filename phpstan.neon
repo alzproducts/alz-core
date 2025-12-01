@@ -67,10 +67,21 @@ parameters:
         - identifier: shipmonk.unusedParameter
         # Laravel config files use nullable string concatenation
         - identifier: shipmonk.binaryOperationWithNull
+        # Laravel ShouldQueue contract requires public mutable properties (tries, backoff, etc.)
+        # These are intentionally public and mutable per Laravel's queue job specification
+        -
+            identifier: shipmonk.publicPropertyNotReadonly
+            path: app/Presentation/Jobs/*
         # PHP Insights config references PHP_CodeSniffer classes as config keys (not loaded via Composer autoload)
         -
             message: '#^Class PHP_CodeSniffer\\.*#'
             path: config/insights.php
+        # Google Ads SDK has inaccurate PHPDoc (claims methods return string but they return string|null)
+        # GoogleAdsRowTransformer validates all fields at the boundary, so type checks are necessary
+        # even though PHPStan believes the PhPDoc over reality
+        -
+            message: '#^(Strict comparison using === between|Call to function is_|Result of && is always|Binary operation|Cannot cast|Using / over non-number|Casting to).*#'
+            path: app/Infrastructure/GoogleAds/Transformers/GoogleAdsRowTransformer.php
 
     paths:
         - app/
