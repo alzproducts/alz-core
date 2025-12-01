@@ -1,0 +1,108 @@
+deptrac:
+  paths:
+    - app/
+
+  # PHP built-ins (DateTime, Throwable) don't require explicit layers
+  ignore_uncovered_internal_classes: true
+
+  layers:
+    # === Application Layers (Clean Architecture) ===
+    - name: Domain
+      collectors:
+        - type: classLike
+          value: ^App\\Domain\\.*
+
+    - name: Application
+      collectors:
+        - type: classLike
+          value: ^App\\Application\\.*
+
+    - name: Infrastructure
+      collectors:
+        - type: classLike
+          value: ^App\\Infrastructure\\.*
+
+    - name: Presentation
+      collectors:
+        - type: classLike
+          value: ^App\\Presentation\\.*
+
+    # === External Package Layers (Whitelist) ===
+
+    # Assertion library - pure validation
+    - name: AssertionLibrary
+      collectors:
+        - type: classLike
+          value: ^Webmozart\\Assert\\.*
+
+    # PSR interfaces - framework-agnostic contracts
+    - name: PsrInterfaces
+      collectors:
+        - type: classLike
+          value: ^Psr\\.*
+
+    # Laravel framework
+    - name: LaravelFramework
+      collectors:
+        - type: classLike
+          value: ^Illuminate\\.*
+
+    # Spatie LaravelData - DTOs
+    - name: SpatieData
+      collectors:
+        - type: classLike
+          value: ^Spatie\\LaravelData\\.*
+
+    # Google Ads SDK
+    - name: GoogleAdsSdk
+      collectors:
+        - type: classLike
+          value: ^Google\\.*
+
+    # Symfony HTTP Foundation
+    - name: SymfonyHttp
+      collectors:
+        - type: classLike
+          value: ^Symfony\\Component\\HttpFoundation\\.*
+
+    # Firebase JWT
+    - name: FirebaseJwt
+      collectors:
+        - type: classLike
+          value: ^Firebase\\JWT\\.*
+
+  ruleset:
+    # Domain: Pure business logic + assertions only
+    Domain:
+      - AssertionLibrary
+
+    # Application: Domain + PSR interfaces
+    Application:
+      - Domain
+      - PsrInterfaces
+
+    # Infrastructure: All internal + Laravel, Spatie, Google, Assertions
+    Infrastructure:
+      - Application
+      - Domain
+      - LaravelFramework
+      - SpatieData
+      - GoogleAdsSdk
+      - AssertionLibrary
+
+    # Presentation: Internal + Laravel, Symfony, Firebase
+    Presentation:
+      - Application
+      - Domain
+      - LaravelFramework
+      - SymfonyHttp
+      - FirebaseJwt
+
+    # External layers have no outbound dependencies
+    AssertionLibrary: ~
+    PsrInterfaces: ~
+    LaravelFramework: ~
+    SpatieData: ~
+    GoogleAdsSdk: ~
+    SymfonyHttp: ~
+    FirebaseJwt: ~

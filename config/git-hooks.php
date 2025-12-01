@@ -1,12 +1,12 @@
 <?php
 
 declare(strict_types=1);
-use App\Console\GitHooks\InfectionPrePushHook;
-use App\Console\GitHooks\PestMutatePrePushHook;
-use App\Console\GitHooks\PestPrePushHook;
-use App\Console\GitHooks\PHPArkitectPreCommitHook;
-use App\Console\GitHooks\PHPArkitectPrePushHook;
-use App\Console\GitHooks\PHPInsightsPrePushHook;
+use App\DevTools\GitHooks\InfectionPrePushHook;
+use App\DevTools\GitHooks\PestMutatePrePushHook;
+use App\DevTools\GitHooks\PestPrePushHook;
+use App\DevTools\GitHooks\PHPArkitectPreCommitHook;
+use App\DevTools\GitHooks\PHPArkitectPrePushHook;
+use App\DevTools\GitHooks\PHPInsightsPrePushHook;
 use Igorsgm\GitHooks\Console\Commands\Hooks\LarastanPreCommitHook;
 use Igorsgm\GitHooks\Console\Commands\Hooks\PintPreCommitHook;
 

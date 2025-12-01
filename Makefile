@@ -1,4 +1,4 @@
-.PHONY: help install up down shell migrate fresh pint pint-test test test-coverage pest-mutate test-ai test-mutate lint lint-full fix analyse insights phparkitect stan rector rector-dry-run refactor check check-full infection infection-fast infection-strict infection-incremental infection-ci ide-helper
+.PHONY: help install up down shell migrate fresh pint pint-test test test-coverage coverage-html pest-mutate test-ai test-mutate lint lint-sequential lint-full fix analyse insights phparkitect deptrac stan rector rector-dry-run refactor check check-full infection infection-fast infection-strict infection-incremental infection-ci ide-helper
 
 # Enable strict shell mode for robust error handling
 SHELL := bash
@@ -141,18 +141,36 @@ pint-test: ## Test code style (dry-run)
 	@echo "$(MODE)"
 	$(EXEC) vendor/bin/pint --test --parallel
 
-lint: ## Run quick lint (Pint + PHPStan + PHPArkitect)
+lint: ## Run parallel lint (Pint + PHPStan + PHPArkitect + Deptrac)
+	@echo "$(MODE)"
+	@rm -rf /tmp/alz-lint && mkdir -p /tmp/alz-lint
+	@$(EXEC) vendor/bin/pint --test --parallel > /tmp/alz-lint/1-pint.txt 2>&1 & P1=$$!; \
+	 $(EXEC) -d xdebug.mode=off vendor/bin/phpstan analyse > /tmp/alz-lint/2-phpstan.txt 2>&1 & P2=$$!; \
+	 $(EXEC) -d xdebug.mode=off vendor/bin/phparkitect check > /tmp/alz-lint/3-phparkitect.txt 2>&1 & P3=$$!; \
+	 $(EXEC) -d xdebug.mode=off vendor/bin/deptrac analyse --fail-on-uncovered > /tmp/alz-lint/4-deptrac.txt 2>&1 & P4=$$!; \
+	 E1=0; E2=0; E3=0; E4=0; \
+	 wait $$P1 || E1=$$?; wait $$P2 || E2=$$?; wait $$P3 || E3=$$?; wait $$P4 || E4=$$?; \
+	 echo "=== Pint ===" && cat /tmp/alz-lint/1-pint.txt; \
+	 echo "=== PHPStan ===" && cat /tmp/alz-lint/2-phpstan.txt; \
+	 echo "=== PHPArkitect ===" && cat /tmp/alz-lint/3-phparkitect.txt; \
+	 echo "=== Deptrac ===" && cat /tmp/alz-lint/4-deptrac.txt; \
+	 rm -rf /tmp/alz-lint; \
+	 [ $$E1 -eq 0 ] && [ $$E2 -eq 0 ] && [ $$E3 -eq 0 ] && [ $$E4 -eq 0 ]
+
+lint-sequential: ## Run sequential lint (Pint + PHPStan + PHPArkitect + Deptrac)
 	@echo "$(MODE)"
 	@$(MAKE) pint-test
 	@$(MAKE) analyse
 	@$(MAKE) phparkitect
+	@$(MAKE) deptrac
 
-lint-full: ## Run full linting (Pint + PHPStan + Insights + PHPArkitect)
+lint-full: ## Run full linting (Pint + PHPStan + Insights + PHPArkitect + Deptrac)
 	@echo "$(MODE)"
 	@$(MAKE) pint-test
 	@$(MAKE) analyse
 	@$(MAKE) insights
 	@$(MAKE) phparkitect
+	@$(MAKE) deptrac
 
 fix: ## Auto-fix code style with Pint
 	@echo "$(MODE)"
@@ -169,6 +187,10 @@ insights: ## Run PHP Insights quality check
 phparkitect: ## Run PHPArkitect architecture checks
 	@echo "$(MODE)"
 	$(EXEC) -d xdebug.mode=off vendor/bin/phparkitect check
+
+deptrac: ## Run Deptrac layer dependency analysis (strict: fails on uncovered)
+	@echo "$(MODE)"
+	$(EXEC) -d xdebug.mode=off vendor/bin/deptrac analyse --fail-on-uncovered
 
 stan: ## Alias for analyse (PHPStan)
 	@echo "$(MODE)"
@@ -197,9 +219,15 @@ test-coverage: ## Run tests with 80% coverage requirement
 	@echo "$(MODE)"
 	$(EXEC) -d xdebug.mode=coverage vendor/bin/pest --coverage --min=75
 
+coverage-html: ## Generate HTML coverage report (open coverage-report/index.html)
+	@echo "$(MODE)"
+	@mkdir -p coverage-report
+	$(EXEC) -d xdebug.mode=coverage vendor/bin/pest --coverage-html=coverage-report
+	@echo "$(GREEN)Coverage report generated: coverage-report/index.html$(NC)"
+
 pest-mutate: ## Run Pest mutation testing
 	@echo "$(MODE)"
-	$(EXEC) -d xdebug.mode=off vendor/bin/pest --mutate --everything --covered-only --min=75
+	$(EXEC) -d xdebug.mode=off vendor/bin/pest --mutate --everything --covered-only --min=85 --parallel --processes=8
 
 infection: ## Run Infection mutation testing
 	@echo "$(MODE)"
@@ -207,20 +235,20 @@ infection: ## Run Infection mutation testing
 
 infection-strict: ## Run Infection with strict thresholds
 	@echo "$(MODE)"
-	$(EXEC) -d xdebug.mode=off vendor/bin/infection --no-progress --show-mutations --min-msi=70 --min-covered-msi=80
+	$(EXEC) -d xdebug.mode=off vendor/bin/infection --no-progress --show-mutations --min-msi=80 --min-covered-msi=85
 
 infection-fast: ## Run Infection with cached coverage (fastest)
 	@echo "$(MODE)"
 	$(EXEC) -d xdebug.mode=coverage vendor/bin/pest --log-junit=build/logs/junit.xml --coverage-xml=build/logs/coverage-xml --coverage-clover=build/logs/clover.xml
-	$(EXEC) -d xdebug.mode=off vendor/bin/infection --coverage=build/logs --skip-initial-tests --no-progress --show-mutations --min-msi=70 --min-covered-msi=80
+	$(EXEC) -d xdebug.mode=off vendor/bin/infection --coverage=build/logs --skip-initial-tests --no-progress --show-mutations --min-msi=80 --min-covered-msi=85
 
-infection-incremental: ## Run Infection on changed lines only
+infection-incremental: ## Run Infection on changed lines only (vs develop branch)
 	@echo "$(MODE)"
-	$(EXEC) -d xdebug.mode=off vendor/bin/infection --git-diff-lines --git-diff-base=main --no-progress --show-mutations --min-msi=70 --min-covered-msi=80
+	$(EXEC) -d xdebug.mode=off vendor/bin/infection --git-diff-lines --git-diff-base=develop --no-progress --show-mutations --min-msi=80 --min-covered-msi=85
 
 infection-ci: ## Run Infection for CI with GitHub logger
 	@echo "$(MODE)"
-	$(EXEC) -d xdebug.mode=off vendor/bin/infection --no-progress --logger-github --min-msi=70 --min-covered-msi=80
+	$(EXEC) -d xdebug.mode=off vendor/bin/infection --no-progress --logger-github --min-msi=80 --min-covered-msi=85
 
 test-ai: ## Validate AI-generated tests with mutation testing
 	@echo "$(MODE)"

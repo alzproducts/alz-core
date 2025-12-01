@@ -23,15 +23,30 @@ $this->assertNotNull($result);  // ❌ Doesn't validate actual behavior
 $this->assertEquals('expected-value', $result);  // ✅ Validates correctness
 ```
 
-### Workflow
+### AI Test Generation Workflow
+
+**Step 1**: Use `zen:testgen` MCP to analyze the class and generate test outline
+```
+Use zen:testgen to create tests for App\Infrastructure\Support\RetryAfterParser
+```
+
+**Step 2**: Write tests and iterate until they pass
+```bash
+./vendor/bin/sail artisan test --filter=RetryAfterParser
+```
+
+**Step 3**: Validate test quality with mutation testing
 
 ```bash
-# 1. Ask AI to generate tests
-# 2. Run mutation validation
-./vendor/bin/sail composer test:ai
+# Single file (preferred for iterating on one class):
+./vendor/bin/sail php -d xdebug.mode=off vendor/bin/infection \
+  --filter=RetryAfterParser.php --show-mutations --min-msi=80
 
-# 3. Fix escaped mutants until MSI ≥ 85%
+# Bulk changes (after modifying many files, compares to develop branch):
+./vendor/bin/sail composer infection:incremental
 ```
+
+**Step 4**: Fix escaped mutants until MSI ≥ 80%
 
 ### Expected Results
 
@@ -69,10 +84,11 @@ When Infection reports "escaped mutants":
 ./vendor/bin/sail composer test:mutate       # Tests + Pest Mutate + Infection Strict
 
 # Individual mutation engines
-./vendor/bin/sail composer infection         # Infection only (exploratory)
-./vendor/bin/sail composer infection:strict  # Infection with thresholds (70%/80%)
-./vendor/bin/sail composer pest:mutate       # Pest Mutate with 90% threshold
-./vendor/bin/sail composer infection:ci      # CI mode with GitHub logger
+./vendor/bin/sail composer infection              # Infection only (exploratory)
+./vendor/bin/sail composer infection:strict       # Infection with thresholds (70%/80%)
+./vendor/bin/sail composer infection:incremental  # Changed lines only (vs develop branch)
+./vendor/bin/sail composer pest:mutate            # Pest Mutate with 90% threshold
+./vendor/bin/sail composer infection:ci           # CI mode with GitHub logger
 ```
 
 **Script Breakdown**:
@@ -80,6 +96,7 @@ When Infection reports "escaped mutants":
 - `test:mutate`: **Recommended** - Runs both mutation engines with strict thresholds
 - `infection`: Interactive exploration, no minimum thresholds
 - `infection:strict`: Enforces 70% MSI / 80% Covered MSI (same as git hook)
+- `infection:incremental`: Only mutates changed lines vs develop branch (fast for bulk changes)
 - `pest:mutate`: Enforces 90% minimum score (different mutation strategy)
 
 **Configuration**:
@@ -93,3 +110,48 @@ When Infection reports "escaped mutants":
 - Hooks call composer scripts (centralized config)
 - Disable in `config/git-hooks.php` if too slow
 - See file comments for dual-engine strategy explanation
+
+---
+
+## Code Coverage Strategy
+
+**Test**: Runtime business logic, error paths, transformations, API interactions
+**Exclude**: Boot-time validation, framework boilerplate, deployment config
+
+**Excluded in `phpunit.xml`**:
+- `*Factory.php` - Boot-time config validation (fail-fast at startup)
+- `*ServiceProvider.php`, `*Exception.php` - Framework boilerplate
+
+**Target**: 75% minimum (excludes infrastructure concerns)
+
+---
+
+## Mocking External SDKs with Strict Return Types
+
+**Key lesson**: Third-party SDKs (Google Ads, Firebase, etc.) enforce strict return type checking on mocks. This isn't a limitation—it's a feature preventing production bugs.
+
+**The problem**:
+```php
+// ❌ FAILS - Wrong return type
+$response = $this->getMockBuilder(SearchGoogleAdsResponse::class)->getMock();
+// Error: Method search() declares return type PagedListResponse, not SearchGoogleAdsResponse
+```
+
+**The solution**:
+```php
+// ✅ CORRECT - Mock the actual declared return type
+$response = $this->getMockBuilder(PagedListResponse::class)
+    ->disableOriginalConstructor()
+    ->onlyMethods(['iterateAllElements'])  // ← Real methods use onlyMethods()
+    ->getMock();
+```
+
+**Rules**:
+- **Match declared return types exactly** from the SDK's method signatures
+- **Use `onlyMethods()`** for methods that exist on the real class (not `addMethods()`)
+- **Use Reflection** for accessing protected properties on SDK exceptions:
+  ```php
+  $prop = new ReflectionProperty($exception, 'metadata');
+  $prop->setAccessible(true);
+  $prop->setValue($exception, ['retry-after' => '180']);
+  ```

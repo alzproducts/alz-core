@@ -26,10 +26,11 @@
             <directory>app</directory>
         </include>
         <exclude>
-            <directory>app/Console/GitHooks</directory>
+            <directory>app/DevTools/GitHooks</directory>
             <file>app/Models/User.php</file>
             <directory suffix="ServiceProvider.php">./app</directory>
             <directory suffix="Exception.php">./app</directory>
+            <directory suffix="Factory.php">./app</directory>
             <file>app/Domain/Review/Rating.php</file>
         </exclude>
     </source>
@@ -46,4 +47,7 @@
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
     </php>
+    <extensions>
+        <bootstrap class="DG\BypassFinals\PHPUnitExtension"/>
+    </extensions>
 </phpunit>

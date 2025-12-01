@@ -41,4 +41,8 @@ return [
         'jwt_secret' => env('SUPABASE_JWT_SECRET'),
     ],
 
+    'ad_spend_sync' => [
+        'enabled' => env('AD_SPEND_SYNC_ENABLED', true),
+    ],
+
 ];

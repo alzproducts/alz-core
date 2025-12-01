@@ -3,7 +3,8 @@
     "exclude": [
         "bootstrap/cache",
         "storage",
-        "node_modules"
+        "node_modules",
+        "examples"
     ],
     "rules": {
         "single_quote": true,

@@ -4,13 +4,16 @@
     // Source code to mutate
     "source": {
         "directories": [
-            "app/Http/Middleware",
-            "app/Console",
-            "app/Models"
+            "app/Domain",           // Business logic (highest priority for mutation testing)
+            "app/Application",      // Use cases and orchestration
+            "app/Infrastructure",   // API clients, repositories
+            "app/Presentation"      // Controllers, commands, jobs, middleware
         ],
         "excludes": [
-            "app/Providers",
-            "app/Console/Kernel.php"
+            "app/DevTools/GitHooks",    // Development tools (not business logic)
+            "app/Providers",            // Service providers (framework wiring, not business logic)
+            "app/Models/User.php",      // Framework-generated model
+            "app/Domain/Review/Rating.php"  // Data class (check if still needed)
         ]
     },
 
@@ -19,7 +22,7 @@
 
     // Performance optimization
     "timeout": 10,
-    // threads: auto-detected based on CPU cores
+    "threads": 8,  // M1 Pro/Max: 10 cores → 8 threads (leave 2 for system/Docker/IDE)
 
     // Quality thresholds - Set for AI-generated tests
     // First AI test run: expect 65-75% MSI
