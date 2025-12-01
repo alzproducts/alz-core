@@ -14,10 +14,12 @@ use Closure;
 use Exception;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\Pool;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Throwable;
 
 /**
  * HTTP transport layer for Shopwired API.
@@ -147,6 +149,97 @@ final readonly class ShopwiredHttpTransport
             // Re-throw with proper resource context instead of generic endpoint
             throw new ResourceNotFoundException(self::SERVICE_NAME, $resourceType, $id, $e);
         }
+    }
+
+    /**
+     * Perform concurrent POST requests to Shopwired API.
+     *
+     * Uses Http::pool() for parallel execution of multiple POST requests.
+     * Each request is configured with auth and retry logic. Returns keyed
+     * Response array - caller handles validation of responses.
+     *
+     * @param array<string, array{endpoint: string, data: array<mixed>}> $requests Keyed array of endpoint/data pairs
+     *
+     * @return array<string, Response> Keyed responses matching input keys
+     *
+     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
+     * @throws ExternalServiceUnavailableException When API unavailable, rate limited, or connection fails
+     */
+    public function poolPost(array $requests): array
+    {
+        if ($requests === []) {
+            return [];
+        }
+
+        /**
+         * Pool executes requests concurrently after closure returns.
+         * Connection failures appear as Throwable in results array.
+         *
+         * @var array<string, Response|Throwable> $poolResults
+         *
+         * @phpstan-ignore shipmonk.checkedExceptionInCallable (Pool builds request definitions, doesn't execute HTTP - no exceptions thrown in closure)
+         */
+        $poolResults = Http::pool(fn(Pool $pool): array => $this->buildPoolRequests($pool, $requests));
+
+        // Check for failures and translate exceptions
+        /** @var array<string, Response> $responses */
+        $responses = [];
+
+        foreach ($poolResults as $key => $result) {
+            if ($result instanceof Throwable) {
+                Log::error(self::SERVICE_NAME . ' API pool request failed', [
+                    'key' => $key,
+                    'error' => $result->getMessage(),
+                ]);
+
+                if ($result instanceof ConnectionException) {
+                    throw $this->handleConnectionException($result);
+                }
+
+                throw new ExternalServiceUnavailableException(self::SERVICE_NAME, previous: $result);
+            }
+
+            // At this point $result is guaranteed to be Response
+            if ($result->failed()) {
+                try {
+                    $result->throw();
+                } catch (RequestException $e) {
+                    throw $this->handleRequestException($e, $requests[$key]['endpoint']);
+                }
+            }
+
+            $responses[$key] = $result;
+        }
+
+        return $responses;
+    }
+
+    /**
+     * Build pool request definitions for concurrent execution.
+     *
+     * Note: Pool->post() returns Response (not PendingRequest) because Pool
+     * internally wraps requests and returns Response objects after execution.
+     *
+     * @param array<string, array{endpoint: string, data: array<mixed>}> $requests
+     *
+     * @return array<string, Response>
+     *
+     * @throws ConnectionException Declared for PHPStan - not actually thrown during request building
+     */
+    private function buildPoolRequests(Pool $pool, array $requests): array
+    {
+        $poolRequests = [];
+
+        foreach ($requests as $key => $request) {
+            $poolRequests[$key] = $pool
+                ->as($key)
+                ->baseUrl($this->config->baseUrl)
+                ->withBasicAuth($this->config->apiKey, $this->config->apiSecret)
+                ->timeout($this->config->timeout)
+                ->post($request['endpoint'], $request['data']);
+        }
+
+        return $poolRequests;
     }
 
     /**

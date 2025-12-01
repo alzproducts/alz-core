@@ -203,6 +203,27 @@ trait ShopwiredResponseParserTrait
     }
 
     /**
+     * Parse API response expecting an "updated" count object.
+     *
+     * Used for stock update endpoints that return {"updated": N}.
+     *
+     * @throws InvalidApiResponseException When response structure is invalid
+     */
+    private static function parseUpdatedResponse(mixed $data): int
+    {
+        if (! \is_array($data) || ! isset($data['updated']) || ! \is_int($data['updated'])) {
+            self::logParsingFailure('Expected updated response with integer updated field', $data);
+
+            throw new InvalidApiResponseException(
+                serviceName: self::SERVICE_NAME,
+                message: 'Expected updated response',
+            );
+        }
+
+        return $data['updated'];
+    }
+
+    /**
      * Log parsing failure with context for debugging API contract changes.
      */
     private static function logParsingFailure(string $error, mixed $data): void
