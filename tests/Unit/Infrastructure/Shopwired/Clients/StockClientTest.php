@@ -385,6 +385,7 @@ final class StockClientTest extends TestCase
             'updated is null' => [['updated' => null]],
             'updated is string' => [['updated' => '5']],
             'updated is float' => [['updated' => 5.0]],
+            'updated is negative' => [['updated' => -1]],
         ];
     }
 

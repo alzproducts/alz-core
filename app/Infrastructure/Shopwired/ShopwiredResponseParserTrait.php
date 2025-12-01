@@ -211,8 +211,8 @@ trait ShopwiredResponseParserTrait
      */
     private static function parseUpdatedResponse(mixed $data): int
     {
-        if (! \is_array($data) || ! isset($data['updated']) || ! \is_int($data['updated'])) {
-            self::logParsingFailure('Expected updated response with integer updated field', $data);
+        if (! \is_array($data) || ! isset($data['updated']) || ! \is_int($data['updated']) || ($data['updated'] < 0)) {
+            self::logParsingFailure('Expected updated response with non-negative integer updated field', $data);
 
             throw new InvalidApiResponseException(
                 serviceName: self::SERVICE_NAME,
