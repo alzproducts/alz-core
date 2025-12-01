@@ -50,11 +50,12 @@ final readonly class StockClient implements StockClientInterface
             return;
         }
 
+        /** @var list<list<ItemStockLevel>> $batches */
         $batches = \array_chunk($items, self::BATCH_SIZE);
         $requests = self::buildPoolRequests($batches, self::ENDPOINT_STOCK, self::formatBatchData(...));
         $responses = $this->transport->poolPost($requests);
 
-        $this->validateResponses($responses, \count($items));
+        $this->validateResponses($responses, $items);
     }
 
     /**
@@ -79,10 +80,11 @@ final readonly class StockClient implements StockClientInterface
      * Validate all batch responses and ensure total updated matches expected.
      *
      * @param array<string, Response> $responses
+     * @param list<ItemStockLevel> $items Original items sent for update (for diagnostics)
      *
      * @throws StockUpdateFailedException When updated count doesn't match expected
      */
-    private function validateResponses(array $responses, int $expectedTotal): void
+    private function validateResponses(array $responses, array $items): void
     {
         $totalUpdated = 0;
 
@@ -90,11 +92,14 @@ final readonly class StockClient implements StockClientInterface
             $totalUpdated += self::parseUpdatedResponse($response->json());
         }
 
+        $expectedTotal = \count($items);
+
         if ($totalUpdated !== $expectedTotal) {
             throw new StockUpdateFailedException(
                 expected: $expectedTotal,
                 actual: $totalUpdated,
                 reason: "Expected {$expectedTotal} items updated, but API reported {$totalUpdated}",
+                attemptedItems: $items,
             );
         }
     }
