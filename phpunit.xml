@@ -15,13 +15,16 @@
         <testsuite name="Unit">
             <directory>tests/Unit</directory>
         </testsuite>
+        <testsuite name="Architecture">
+            <file>tests/ArchitectureTest.php</file>
+        </testsuite>
     </testsuites>
     <coverage>
         <report>
             <clover outputFile="build/logs/clover.xml"/>
         </report>
     </coverage>
-    <source>
+    <source ignoreIndirectDeprecations="true">
         <include>
             <directory>app</directory>
         </include>

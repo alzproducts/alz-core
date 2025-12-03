@@ -49,6 +49,10 @@ parameters:
         enforceListReturn:
             enabled: true
 
+        # Report unused trailing closure/arrow function parameters (cleaner code)
+        forbidUnusedClosureParameters:
+            enabled: true
+
         # Encourage using match() construct for enum comparisons
         enforceEnumMatch:
             enabled: true
