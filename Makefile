@@ -227,7 +227,7 @@ coverage-html: ## Generate HTML coverage report (open coverage-report/index.html
 
 pest-mutate: ## Run Pest mutation testing
 	@echo "$(MODE)"
-	$(EXEC) -d xdebug.mode=off vendor/bin/pest --mutate --everything --covered-only --min=85 --parallel --processes=8
+	$(EXEC) -d xdebug.mode=off vendor/bin/pest --mutate --everything --covered-only --min=85 --parallel --processes=9
 
 infection: ## Run Infection mutation testing
 	@echo "$(MODE)"
