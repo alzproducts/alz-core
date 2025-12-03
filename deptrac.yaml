@@ -59,6 +59,12 @@ deptrac:
         - type: classLike
           value: ^Google\\.*
 
+    # Guzzle HTTP (used by Laravel HTTP client for pool/promise types)
+    - name: GuzzleHttp
+      collectors:
+        - type: classLike
+          value: ^GuzzleHttp\\.*
+
     # Symfony HTTP Foundation
     - name: SymfonyHttp
       collectors:
@@ -81,13 +87,14 @@ deptrac:
       - Domain
       - PsrInterfaces
 
-    # Infrastructure: All internal + Laravel, Spatie, Google, Assertions
+    # Infrastructure: All internal + Laravel, Spatie, Google, Guzzle, Assertions
     Infrastructure:
       - Application
       - Domain
       - LaravelFramework
       - SpatieData
       - GoogleAdsSdk
+      - GuzzleHttp
       - AssertionLibrary
 
     # Presentation: Internal + Laravel, Symfony, Firebase
@@ -104,5 +111,6 @@ deptrac:
     LaravelFramework: ~
     SpatieData: ~
     GoogleAdsSdk: ~
+    GuzzleHttp: ~
     SymfonyHttp: ~
     FirebaseJwt: ~
