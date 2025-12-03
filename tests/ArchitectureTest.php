@@ -3,31 +3,26 @@
 declare(strict_types=1);
 
 use App\Infrastructure\Mixpanel\MixpanelAdSpendEventDTO;
+use App\Presentation\Console\Commands\SyncAdSpendCommand;
 
 /**
  * Architecture Tests using Pest 4.
  *
  * These tests enforce codebase-wide standards:
- * - Security checks (no eval, no debug functions)2
- * - Homograph attack detection (suspicious Unicode characters)
- * - PHP best practices (no die/dump/dd/var_dump in production code)
+ * - PHP best practices (no debug functions, deprecated APIs, suspicious chars)
+ * - Security checks (no eval, no md5 for passwords)
  *
- * Note: We skip arch()->preset()->php() because it scans vendor dependencies
- * and triggers deprecation notices from third-party packages (Google Ads SDK).
- * PHPStan at level max already catches most PHP issues.
- *
- * Note: Laravel preset skipped - it conflicts with Clean Architecture
- * (expects app/Console/Commands, we use Presentation/Console/Commands)
+ * Note: Laravel preset skipped - it expects standard Laravel directory structure
+ * (App\Console\Commands, App\Http\Controllers) which conflicts with Clean Architecture
+ * (App\Presentation\Console\Commands, App\Presentation\Http\Controllers).
  */
-// Security preset with exception for ID hashing (not password hashing)
+
+// PHP preset - bans debug functions, deprecated APIs, suspicious Unicode chars
+// Ignore: Console commands legitimately use echo for CLI output
+arch()->preset()->php()
+    ->ignoring(SyncAdSpendCommand::class);
+
+// Security preset - bans eval, insecure hashing for passwords
+// Ignore: MixpanelAdSpendEventDTO uses md5 for ID generation, not password hashing
 arch()->preset()->security()
     ->ignoring(MixpanelAdSpendEventDTO::class);
-
-// PHP best practices - targeted rules without vendor scanning
-arch('no debug functions in production code')
-    ->expect('App')
-    ->not->toUse(['die', 'dd', 'dump', 'var_dump', 'print_r', 'exit']);
-
-arch('no suspicious characters in code')
-    ->expect('App')
-    ->not->toHaveSuspiciousCharacters();
