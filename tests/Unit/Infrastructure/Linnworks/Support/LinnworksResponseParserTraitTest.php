@@ -8,7 +8,7 @@ use App\Domain\Exceptions\InvalidApiResponseException;
 use App\Infrastructure\Contracts\DomainConvertible;
 use App\Infrastructure\Linnworks\Support\LinnworksResponseParserTrait;
 use Illuminate\Support\Facades\Log;
-use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\CoversTrait;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use Spatie\LaravelData\Data;
@@ -23,7 +23,7 @@ use Tests\TestCase;
  * - Error handling for invalid response structures
  * - Critical logging on parsing failures
  */
-#[CoversClass(LinnworksResponseParserTrait::class)]
+#[CoversTrait(LinnworksResponseParserTrait::class)]
 final class LinnworksResponseParserTraitTest extends TestCase
 {
     /*

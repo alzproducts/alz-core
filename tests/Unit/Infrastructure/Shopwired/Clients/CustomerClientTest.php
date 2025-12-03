@@ -15,6 +15,7 @@ use Illuminate\Http\Client\Response;
 use Mockery;
 use Mockery\MockInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\CoversTrait;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -26,7 +27,7 @@ use Tests\TestCase;
  * Covers endpoint routing, response parsing, domain conversion, and pagination.
  */
 #[CoversClass(CustomerClient::class)]
-#[CoversClass(ShopwiredResponseParserTrait::class)]
+#[CoversTrait(ShopwiredResponseParserTrait::class)]
 final class CustomerClientTest extends TestCase
 {
     private MockInterface&ShopwiredHttpTransport $transport;
