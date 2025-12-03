@@ -16,6 +16,7 @@ use Illuminate\Http\Client\Response;
 use Mockery;
 use Mockery\MockInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\CoversTrait;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -30,8 +31,8 @@ use Tests\TestCase;
  * - Error handling for invalid responses
  */
 #[CoversClass(StockClient::class)]
-#[CoversClass(ShopwiredRequestBuilderTrait::class)]
-#[CoversClass(ShopwiredResponseParserTrait::class)]
+#[CoversTrait(ShopwiredRequestBuilderTrait::class)]
+#[CoversTrait(ShopwiredResponseParserTrait::class)]
 final class StockClientTest extends TestCase
 {
     private MockInterface&ShopwiredHttpTransport $transport;

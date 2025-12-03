@@ -12,6 +12,7 @@ use App\Infrastructure\Support\ApiRetryStrategy;
 use App\Infrastructure\Support\RetryAfterParser;
 use Closure;
 use Exception;
+use GuzzleHttp\Promise\PromiseInterface;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Pool;
@@ -72,7 +73,7 @@ final readonly class ShopwiredHttpTransport
     ): Response {
         try {
             return $this->createBaseRequest($retry, $strategy)
-                ->get($endpoint, $query)
+                ->send('GET', $endpoint, ['query' => $query])
                 ->throw();
         } catch (RequestException $e) {
             throw $this->handleRequestException($e, $endpoint);
@@ -107,7 +108,7 @@ final readonly class ShopwiredHttpTransport
     ): Response {
         try {
             return $this->createBaseRequest($retry, $strategy)
-                ->post($endpoint, $data)
+                ->send('POST', $endpoint, ['json' => $data])
                 ->throw();
         } catch (RequestException $e) {
             throw $this->handleRequestException($e, $endpoint);
@@ -217,12 +218,12 @@ final readonly class ShopwiredHttpTransport
     /**
      * Build pool request definitions for concurrent execution.
      *
-     * Note: Pool->post() returns Response (not PendingRequest) because Pool
-     * internally wraps requests and returns Response objects after execution.
+     * Note: Pool->post() returns PromiseInterface|Response at static type level.
+     * After pool execution, these resolve to Response objects.
      *
      * @param array<string, array{endpoint: string, data: array<mixed>}> $requests
      *
-     * @return array<string, Response>
+     * @return array<string, PromiseInterface|Response>
      *
      * @throws ConnectionException Declared for PHPStan - not actually thrown during request building
      */

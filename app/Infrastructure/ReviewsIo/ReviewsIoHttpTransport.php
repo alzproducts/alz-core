@@ -57,7 +57,7 @@ final readonly class ReviewsIoHttpTransport
     {
         try {
             return $this->createRequest()
-                ->get($endpoint, $queryParams)
+                ->send('GET', $endpoint, ['query' => $queryParams])
                 ->throw();
         } catch (RequestException $e) {
             throw $this->handleRequestException($e, $endpoint);
