@@ -65,10 +65,26 @@ See `.ai/docs/implementation/CLAUDE.md` for the full template and guidelines.
 
 **Rationale**: The user maintains full control over git history and commit timing.
 
-## ⚠️ Sail Requirements
+## Development Environment
 
-- **All PHP/Composer commands MUST run through Sail** (never local PHP)
-- **Do NOT run `sail up` or `sail down`** - user manages container lifecycle manually
+**PHP**: Native PHP 8.4 via Homebrew (not Docker/Sail)
+**Services**: PostgreSQL 17 + Redis in Docker (services only)
+**Octane**: Swoole (matches production)
+
+### Quick Reference
+```bash
+docker compose up -d              # Start PostgreSQL + Redis
+make db-setup                     # Create databases (first time)
+php artisan migrate               # Run migrations
+php artisan octane:start --watch  # Dev server with hot reload
+make test                         # Run tests (~5s)
+make lint                         # Run linters
+```
+
+### Why Native PHP?
+- **6x faster** test execution (4.5s vs ~30s with Sail)
+- **2-3x faster** linting and static analysis
+- **Instant** IDE indexing (no Docker volume overhead)
 
 ---
 
@@ -291,8 +307,8 @@ make test-ai      # Validate AI-generated tests (test + infection)
 **ALWAYS try auto-fixing with Pint before manually editing for style issues:**
 
 ```bash
-./vendor/bin/sail php vendor/bin/pint <file-path>  # Auto-fix single file
-make fix                                             # Auto-fix all files
+php vendor/bin/pint <file-path>  # Auto-fix single file
+make fix                         # Auto-fix all files
 ```
 
 Pint can auto-fix ~95% of style issues (trailing newlines, spacing, imports ordering, etc.). Only manually edit code if:

@@ -1,4 +1,4 @@
-.PHONY: help install up down shell migrate fresh pint pint-test test test-coverage coverage-html pest-mutate test-ai test-mutate lint lint-sequential lint-full fix analyse insights phparkitect deptrac stan rector rector-dry-run refactor check check-full infection infection-fast infection-strict infection-incremental infection-ci ide-helper
+.PHONY: help install up down shell db-setup migrate fresh pint pint-test test test-coverage coverage-html pest-mutate test-ai test-mutate lint lint-sequential lint-full fix analyse insights phparkitect deptrac stan rector rector-dry-run refactor check check-full infection infection-fast infection-strict infection-incremental infection-ci ide-helper
 
 # Enable strict shell mode for robust error handling
 SHELL := bash
@@ -227,7 +227,7 @@ coverage-html: ## Generate HTML coverage report (open coverage-report/index.html
 
 pest-mutate: ## Run Pest mutation testing
 	@echo "$(MODE)"
-	$(EXEC) -d xdebug.mode=off vendor/bin/pest --mutate --everything --covered-only --min=85 --parallel --processes=8
+	$(EXEC) -d xdebug.mode=off vendor/bin/pest --mutate --everything --covered-only --min=85 --parallel --processes=9
 
 infection: ## Run Infection mutation testing
 	@echo "$(MODE)"
@@ -262,6 +262,12 @@ test-mutate: ## Run full mutation testing suite
 	@$(MAKE) infection-strict
 
 # Database
+db-setup: ## Create databases (main + testing) in Docker PostgreSQL
+	@echo "$(BLUE)Creating databases...$(NC)"
+	@docker compose exec -T pgsql createdb -U sail alz_core 2>/dev/null || echo "Database alz_core already exists"
+	@docker compose exec -T pgsql createdb -U sail testing 2>/dev/null || echo "Database testing already exists"
+	@echo "$(GREEN)Databases ready$(NC)"
+
 migrate: ## Run database migrations
 	@echo "$(MODE)"
 	$(EXEC) artisan migrate

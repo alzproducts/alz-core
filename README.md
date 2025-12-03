@@ -15,7 +15,7 @@ Backend service for e-commerce webhooks and background jobs. Portfolio piece dem
 - Laravel 12 (backend-only API)
 - PHP 8.4+
 - Laravel Octane with Swoole (application server)
-- PostgreSQL via Supabase (production) / SQLite (development)
+- PostgreSQL via Supabase (production) / Docker PostgreSQL (development)
 - Redis (cache, queues, sessions)
 - Laravel Horizon (queue monitoring)
 - Laravel Telescope (debugging)
@@ -24,8 +24,25 @@ Backend service for e-commerce webhooks and background jobs. Portfolio piece dem
 
 ### Prerequisites
 
-- Docker Desktop (for Laravel Sail)
+- **PHP 8.4+** via Homebrew with extensions: `redis`, `swoole`, `pdo_pgsql`
+- **Docker Desktop** (for PostgreSQL + Redis services)
 - Git
+
+#### macOS PHP Setup
+
+```bash
+# Install PHP 8.4
+brew install php@8.4
+brew link php@8.4 --force
+
+# Install required extensions
+pecl install redis swoole
+
+# Verify
+php -v          # Should show 8.4.x
+php -m | grep redis   # Should show 'redis'
+php -m | grep swoole  # Should show 'swoole'
+```
 
 ### First-Time Setup
 
@@ -34,18 +51,23 @@ Backend service for e-commerce webhooks and background jobs. Portfolio piece dem
 git clone <repo-url>
 cd alz-core
 
-# Install dependencies via Docker (no local PHP needed)
-docker run --rm -u "$(id -u):$(id -g)" -v "$(pwd):/var/www/html" -w /var/www/html \
-    laravelsail/php84-composer:latest composer install --ignore-platform-reqs
+# Install PHP dependencies
+composer install
 
-# Start Sail containers
-./vendor/bin/sail up -d
+# Copy environment file
+cp .env.example .env
+
+# Start Docker services (PostgreSQL + Redis)
+docker compose up -d
+
+# Create databases
+make db-setup
 
 # Run migrations
-./vendor/bin/sail artisan migrate
+php artisan migrate
 
 # Run tests
-./vendor/bin/sail artisan test
+make test
 
 # Generate Google Ads API refresh token (one-time)
 # 1. Add http://localhost to Authorized redirect URIs in Google Cloud Console
@@ -65,28 +87,28 @@ curl -X POST https://oauth2.googleapis.com/token \
 ### Daily Development
 
 ```bash
-# Start services
-./vendor/bin/sail up -d
+# Start Docker services (if not running)
+docker compose up -d
 
 # Start Octane server (in separate terminal)
-./vendor/bin/sail artisan octane:start
+php artisan octane:start
 
 # Or use watch mode (auto-reloads on file changes)
-./vendor/bin/sail artisan octane:start --watch
+php artisan octane:start --watch
 
-# Run tests
+# Run tests (~5 seconds)
 make test
 
 # Run linters (before commit)
 make lint
 
-# Stop services
-./vendor/bin/sail down
+# Stop services (when done)
+docker compose down
 ```
 
 **Important**: Code changes require Octane reload (unless using `--watch` mode):
 ```bash
-./vendor/bin/sail artisan octane:reload
+php artisan octane:reload
 ```
 
 ## Code Quality Standards
