@@ -12,6 +12,7 @@ use App\Infrastructure\Support\RetryAfterParser;
 use Closure;
 use Exception;
 use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
@@ -55,13 +56,9 @@ final readonly class LinnworksHttpTransport
      */
     public function get(string $endpoint, array $query = []): Response
     {
-        $timeout = $this->config->timeout;
-
         return $this->executeWithAuthRetry(
-            static fn(LinnworksSession $session): Response => Http::baseUrl($session->serverUrl)
-                ->withHeaders(['Authorization' => $session->token])
-                ->timeout($timeout)
-                ->get($endpoint, $query)
+            fn(LinnworksSession $session): Response => $this->createBaseRequest($session)
+                ->send('GET', $endpoint, ['query' => $query])
                 ->throw(),
             $endpoint,
         );
@@ -82,17 +79,12 @@ final readonly class LinnworksHttpTransport
      */
     public function post(string $endpoint, array $data = []): Response
     {
-        $timeout = $this->config->timeout;
-
         // Linnworks API expects form-encoded POST with 'request' containing JSON
-        $formData = $data === [] ? [] : ['request' => \json_encode($data, \JSON_THROW_ON_ERROR)];
+        $formData = ($data === []) ? [] : ['request' => \json_encode($data, \JSON_THROW_ON_ERROR)];
 
         return $this->executeWithAuthRetry(
-            static fn(LinnworksSession $session): Response => Http::baseUrl($session->serverUrl)
-                ->withHeaders(['Authorization' => $session->token])
-                ->timeout($timeout)
-                ->asForm()
-                ->post($endpoint, $formData)
+            fn(LinnworksSession $session): Response => $this->createBaseRequest($session)
+                ->send('POST', $endpoint, ['form_params' => $formData])
                 ->throw(),
             $endpoint,
         );
@@ -139,6 +131,16 @@ final readonly class LinnworksHttpTransport
         } catch (Exception $e) {
             throw $this->handleUnexpectedException($e);
         }
+    }
+
+    /**
+     * Create configured HTTP request for a session.
+     */
+    private function createBaseRequest(LinnworksSession $session): PendingRequest
+    {
+        return Http::baseUrl($session->serverUrl)
+            ->withHeaders(['Authorization' => $session->token])
+            ->timeout($this->config->timeout);
     }
 
     /**
@@ -191,7 +193,7 @@ final readonly class LinnworksHttpTransport
 
         return new AuthenticationExpiredException(
             self::SERVICE_NAME,
-            $status === 401 ? 'Invalid credentials' : 'Insufficient permissions',
+            ($status === 401) ? 'Invalid credentials' : 'Insufficient permissions',
             $e,
         );
     }
