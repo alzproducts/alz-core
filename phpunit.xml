@@ -21,7 +21,7 @@
             <clover outputFile="build/logs/clover.xml"/>
         </report>
     </coverage>
-    <source>
+    <source ignoreIndirectDeprecations="true">
         <include>
             <directory>app</directory>
         </include>
