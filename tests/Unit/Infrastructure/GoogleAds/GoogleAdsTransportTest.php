@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Infrastructure\GoogleAds;
 
+use App\Domain\Exceptions\AuthenticationExpiredException;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Infrastructure\GoogleAds\GoogleAdsConfig;
 use App\Infrastructure\GoogleAds\GoogleAdsTransport;
@@ -245,7 +246,7 @@ final class GoogleAdsTransportTest extends TestCase
     #[Test]
     public function it_preserves_original_api_exception(): void
     {
-        $apiException = $this->createApiException(Code::PERMISSION_DENIED);
+        $apiException = $this->createApiException(Code::INTERNAL);
 
         $this->mockServiceClient
             ->shouldReceive('search')
@@ -256,6 +257,95 @@ final class GoogleAdsTransportTest extends TestCase
             $this->fail('Expected ExternalServiceUnavailableException');
         } catch (ExternalServiceUnavailableException $e) {
             $this->assertSame($apiException, $e->getPrevious());
+        }
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Authentication Error Tests
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function it_throws_authentication_exception_on_permission_denied(): void
+    {
+        $apiException = $this->createApiException(Code::PERMISSION_DENIED);
+
+        $this->mockServiceClient
+            ->shouldReceive('search')
+            ->andThrow($apiException);
+
+        $this->expectException(AuthenticationExpiredException::class);
+
+        $this->transport->search('SELECT campaign.id FROM campaign');
+    }
+
+    #[Test]
+    public function it_logs_error_for_authentication_failure_with_context(): void
+    {
+        $apiException = $this->createApiException(Code::PERMISSION_DENIED);
+
+        $this->mockServiceClient
+            ->shouldReceive('search')
+            ->andThrow($apiException);
+
+        Log::shouldReceive('error')
+            ->once()
+            ->withArgs(static function (string $message, array $context): bool {
+                $hasServiceName = \str_contains($message, 'Google Ads');
+                $hasAuthFailed = \str_contains($message, 'authentication failed');
+                $hasCode = \array_key_exists('code', $context) && $context['code'] === Code::PERMISSION_DENIED;
+                $hasError = \array_key_exists('error', $context) && \is_string($context['error']);
+
+                return $hasServiceName && $hasAuthFailed && $hasCode && $hasError;
+            });
+
+        try {
+            $this->transport->search('SELECT campaign.id FROM campaign');
+        } catch (AuthenticationExpiredException) {
+            // Expected
+        }
+    }
+
+    #[Test]
+    public function it_throws_authentication_exception_on_unauthenticated(): void
+    {
+        $apiException = $this->createApiException(Code::UNAUTHENTICATED);
+
+        $this->mockServiceClient
+            ->shouldReceive('search')
+            ->andThrow($apiException);
+
+        $this->expectException(AuthenticationExpiredException::class);
+
+        $this->transport->search('SELECT campaign.id FROM campaign');
+    }
+
+    #[Test]
+    public function it_extracts_google_ads_error_code_from_json_message(): void
+    {
+        $jsonError = \json_encode([
+            'message' => 'The caller does not have permission',
+            'code' => 7,
+            'details' => [[
+                'errors' => [[
+                    'errorCode' => ['authorizationError' => 'DEVELOPER_TOKEN_NOT_APPROVED'],
+                    'message' => 'The developer token is only approved for use with test accounts.',
+                ]],
+            ]],
+        ]);
+
+        $apiException = new ApiException($jsonError, Code::PERMISSION_DENIED, 'PERMISSION_DENIED');
+
+        $this->mockServiceClient
+            ->shouldReceive('search')
+            ->andThrow($apiException);
+
+        try {
+            $this->transport->search('SELECT campaign.id FROM campaign');
+            $this->fail('Expected AuthenticationExpiredException');
+        } catch (AuthenticationExpiredException $e) {
+            $this->assertStringContainsString('DEVELOPER_TOKEN_NOT_APPROVED', $e->getMessage());
         }
     }
 

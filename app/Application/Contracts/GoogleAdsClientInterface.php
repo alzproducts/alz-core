@@ -6,6 +6,7 @@ namespace App\Application\Contracts;
 
 use App\Domain\AdSpend\ValueObjects\Campaign;
 use App\Domain\AdSpend\ValueObjects\CampaignMetrics;
+use App\Domain\Exceptions\AuthenticationExpiredException;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 
 interface GoogleAdsClientInterface
@@ -16,7 +17,8 @@ interface GoogleAdsClientInterface
      * Executes a minimal GAQL query to validate OAuth credentials
      * and API access without fetching significant data.
      *
-     * @throws ExternalServiceUnavailableException When API unavailable or credentials invalid
+     * @throws ExternalServiceUnavailableException When API unavailable or rate limited
+     * @throws AuthenticationExpiredException When credentials invalid or insufficient permissions
      */
     public function verifyConnectivity(): void;
 
@@ -25,7 +27,8 @@ interface GoogleAdsClientInterface
      *
      * @return array<int, CampaignMetrics>
      *
-     * @throws ExternalServiceUnavailableException
+     * @throws ExternalServiceUnavailableException When API unavailable or rate limited
+     * @throws AuthenticationExpiredException When credentials invalid or insufficient permissions
      */
     public function getDailyCampaignMetrics(string $date): array;
 
@@ -34,7 +37,8 @@ interface GoogleAdsClientInterface
      *
      * @return array<int, Campaign>
      *
-     * @throws ExternalServiceUnavailableException
+     * @throws ExternalServiceUnavailableException When API unavailable or rate limited
+     * @throws AuthenticationExpiredException When credentials invalid or insufficient permissions
      */
     public function getCampaigns(): array;
 }
