@@ -13,7 +13,6 @@ use Google\ApiCore\ApiException;
 use Google\ApiCore\PagedListResponse;
 use Google\Rpc\Code;
 use Illuminate\Support\Facades\Log;
-use JsonException;
 
 /**
  * Transport layer for Google Ads SDK.
@@ -53,7 +52,7 @@ final readonly class GoogleAdsTransport
      * @return PagedListResponse Paginated response from the SDK
      *
      * @throws ExternalServiceUnavailableException When API unavailable or rate limited
-     * @throws AuthenticationExpiredException|JsonException When credentials invalid or insufficient permissions
+     * @throws AuthenticationExpiredException When credentials invalid or insufficient permissions
      */
     public function search(string $query): PagedListResponse
     {
@@ -84,7 +83,6 @@ final readonly class GoogleAdsTransport
      * Follows the same pattern as ShopwiredHttpTransport::handleRequestException()
      * but uses gRPC codes instead of HTTP status codes.
      *
-     * @throws JsonException
      */
     private function handleApiException(ApiException $e): AuthenticationExpiredException|ExternalServiceUnavailableException
     {
@@ -113,7 +111,6 @@ final readonly class GoogleAdsTransport
     /**
      * Handle PERMISSION_DENIED/UNAUTHENTICATED - permanent, needs config fix.
      *
-     * @throws JsonException
      */
     private function handleAuthenticationFailure(ApiException $e): AuthenticationExpiredException
     {
