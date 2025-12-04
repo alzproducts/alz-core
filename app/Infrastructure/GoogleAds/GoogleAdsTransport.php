@@ -142,13 +142,12 @@ final readonly class GoogleAdsTransport
 
     /**
      * Extract specific error message from Google Ads API response.
-     * Google Ads errors are nested: message → details → errors[] → errorCode + message
      *
-     * @throws JsonException
+     * Google Ads errors are nested: message → details → errors[] → errorCode + message
      */
     private function extractGoogleAdsErrorMessage(ApiException $e): string
     {
-        $decoded = \json_decode($e->getMessage(), true, 512, JSON_THROW_ON_ERROR);
+        $decoded = \json_decode($e->getMessage(), true);
 
         if (! \is_array($decoded)) {
             return $e->getMessage();
