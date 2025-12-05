@@ -21,17 +21,16 @@ interface ProductSearchFeedProcessorInterface
      * Process a product search feed: fetch, transform, and upload to storage.
      *
      * Fetches the source feed from the given URL, transforms the XML content
-     * (e.g., substituting element values), and uploads the result to the
-     * specified storage disk.
+     * (e.g., substituting element values), and uploads the result to storage.
+     * Storage disk is configured at construction time via dependency injection.
      *
      * @param string $sourceUrl  URL of the source feed to fetch
-     * @param string $outputPath Path within the storage disk for the output file
-     * @param string $disk       Storage disk name (e.g., 's3', 'local')
+     * @param string $outputPath Path within the storage for the output file
      *
      * @return ProductSearchFeedProcessingResult Statistics about the processing operation
      *
      * @throws ExternalServiceUnavailableException When source feed unreachable or storage fails
      * @throws MalformedFeedDataException When source feed XML is malformed or unparseable
      */
-    public function process(string $sourceUrl, string $outputPath, string $disk): ProductSearchFeedProcessingResult;
+    public function process(string $sourceUrl, string $outputPath): ProductSearchFeedProcessingResult;
 }

@@ -46,7 +46,6 @@ final readonly class ProcessProductSearchFeedUseCase
         $result = $this->processor->process(
             sourceUrl: $config['source_url'],
             outputPath: $config['storage_path'],
-            disk: $config['storage_disk'],
         );
 
         $this->logger->info('Product search feed processing completed', [
