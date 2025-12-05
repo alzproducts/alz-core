@@ -77,6 +77,12 @@ deptrac:
         - type: classLike
           value: ^Firebase\\JWT\\.*
 
+    # League Flysystem (filesystem abstraction)
+    - name: LeagueFlysystem
+      collectors:
+        - type: classLike
+          value: ^League\\Flysystem\\.*
+
   ruleset:
     # Domain: Pure business logic + assertions only
     Domain:
@@ -87,7 +93,7 @@ deptrac:
       - Domain
       - PsrInterfaces
 
-    # Infrastructure: All internal + Laravel, Spatie, Google, Guzzle, Assertions
+    # Infrastructure: All internal + Laravel, Spatie, Google, Guzzle, PSR, Flysystem, Assertions
     Infrastructure:
       - Application
       - Domain
@@ -95,6 +101,8 @@ deptrac:
       - SpatieData
       - GoogleAdsSdk
       - GuzzleHttp
+      - PsrInterfaces
+      - LeagueFlysystem
       - AssertionLibrary
 
     # Presentation: Internal + Laravel, Symfony, Firebase
@@ -114,3 +122,4 @@ deptrac:
     GuzzleHttp: ~
     SymfonyHttp: ~
     FirebaseJwt: ~
+    LeagueFlysystem: ~

@@ -198,6 +198,8 @@ return static function (Config $config): void {
                                'Spatie\LaravelData',
                                'Closure',
                                'Google*',
+                               'Psr',
+                               'League\Flysystem',
                            ],
                        ),
                    )
