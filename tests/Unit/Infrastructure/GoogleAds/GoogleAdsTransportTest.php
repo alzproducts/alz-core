@@ -349,6 +349,138 @@ final class GoogleAdsTransportTest extends TestCase
         }
     }
 
+    #[Test]
+    public function it_returns_original_message_when_not_json(): void
+    {
+        $plainTextError = 'Simple text error message';
+        $apiException = new ApiException($plainTextError, Code::PERMISSION_DENIED, 'PERMISSION_DENIED');
+
+        $this->mockServiceClient
+            ->shouldReceive('search')
+            ->andThrow($apiException);
+
+        Log::shouldReceive('error')->once();
+
+        try {
+            $this->transport->search('SELECT campaign.id FROM campaign');
+            $this->fail('Expected AuthenticationExpiredException');
+        } catch (AuthenticationExpiredException $e) {
+            // AuthenticationExpiredException format: "{serviceName}: {message}"
+            $this->assertSame('Google Ads: Simple text error message', $e->getMessage());
+        }
+    }
+
+    #[Test]
+    public function it_uses_top_level_message_when_error_details_missing(): void
+    {
+        $jsonError = \json_encode([
+            'message' => 'Top level error message',
+            'code' => 7,
+            // No 'details' key - simulates partial API response
+        ]);
+
+        $apiException = new ApiException($jsonError, Code::PERMISSION_DENIED, 'PERMISSION_DENIED');
+
+        $this->mockServiceClient
+            ->shouldReceive('search')
+            ->andThrow($apiException);
+
+        Log::shouldReceive('error')->once();
+
+        try {
+            $this->transport->search('SELECT campaign.id FROM campaign');
+            $this->fail('Expected AuthenticationExpiredException');
+        } catch (AuthenticationExpiredException $e) {
+            // AuthenticationExpiredException format: "{serviceName}: {message}"
+            $this->assertSame('Google Ads: Top level error message', $e->getMessage());
+        }
+    }
+
+    #[Test]
+    public function it_falls_back_to_original_when_json_has_no_useful_fields(): void
+    {
+        // JSON that decodes but has no message, details, or top-level message
+        $jsonError = \json_encode(['code' => 7]);
+
+        $apiException = new ApiException($jsonError, Code::PERMISSION_DENIED, 'PERMISSION_DENIED');
+
+        $this->mockServiceClient
+            ->shouldReceive('search')
+            ->andThrow($apiException);
+
+        Log::shouldReceive('error')->once();
+
+        try {
+            $this->transport->search('SELECT campaign.id FROM campaign');
+            $this->fail('Expected AuthenticationExpiredException');
+        } catch (AuthenticationExpiredException $e) {
+            // Falls back to original message; AuthenticationExpiredException format: "{serviceName}: {message}"
+            $this->assertSame('Google Ads: ' . $jsonError, $e->getMessage());
+        }
+    }
+
+    #[Test]
+    public function it_handles_empty_error_code_array(): void
+    {
+        $jsonError = \json_encode([
+            'message' => 'Permission denied',
+            'code' => 7,
+            'details' => [[
+                'errors' => [[
+                    'errorCode' => [], // Empty errorCode array
+                    'message' => 'Detailed error message',
+                ]],
+            ]],
+        ]);
+
+        $apiException = new ApiException($jsonError, Code::PERMISSION_DENIED, 'PERMISSION_DENIED');
+
+        $this->mockServiceClient
+            ->shouldReceive('search')
+            ->andThrow($apiException);
+
+        Log::shouldReceive('error')->once();
+
+        try {
+            $this->transport->search('SELECT campaign.id FROM campaign');
+            $this->fail('Expected AuthenticationExpiredException');
+        } catch (AuthenticationExpiredException $e) {
+            // Should use UNKNOWN when errorCode is empty; AuthenticationExpiredException format: "{serviceName}: {message}"
+            $this->assertSame('Google Ads: UNKNOWN - Detailed error message', $e->getMessage());
+        }
+    }
+
+    #[Test]
+    public function it_handles_non_string_error_message_in_details(): void
+    {
+        $jsonError = \json_encode([
+            'message' => 'Top level fallback',
+            'code' => 7,
+            'details' => [[
+                'errors' => [[
+                    'errorCode' => ['authError' => 'SOME_ERROR'],
+                    'message' => 12345, // Non-string message
+                ]],
+            ]],
+        ]);
+
+        $apiException = new ApiException($jsonError, Code::PERMISSION_DENIED, 'PERMISSION_DENIED');
+
+        $this->mockServiceClient
+            ->shouldReceive('search')
+            ->andThrow($apiException);
+
+        Log::shouldReceive('error')->once();
+
+        try {
+            $this->transport->search('SELECT campaign.id FROM campaign');
+            $this->fail('Expected AuthenticationExpiredException');
+        } catch (AuthenticationExpiredException $e) {
+            // Non-string message is treated as empty, falls back to top-level; format: "{serviceName}: {message}"
+            $this->assertSame('Google Ads: Top level fallback', $e->getMessage());
+        }
+    }
+
     /*
     |--------------------------------------------------------------------------
     | Helper Methods
