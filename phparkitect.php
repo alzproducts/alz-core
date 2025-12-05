@@ -200,6 +200,8 @@ return static function (Config $config): void {
                                'Google*',
                                'Psr',
                                'League\Flysystem',
+                               'XMLReader',
+                               'SimpleXMLElement',
                            ],
                        ),
                    )
