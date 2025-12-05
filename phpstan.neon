@@ -76,6 +76,11 @@ parameters:
         -
             identifier: shipmonk.publicPropertyNotReadonly
             path: app/Presentation/Jobs/*
+        # Laravel service providers use closures/callbacks for deferred binding resolution.
+        # These ARE invoked synchronously when the service is resolved, but ShipMonk can't verify this.
+        -
+            identifier: shipmonk.checkedExceptionInCallable
+            path: app/Providers/*
         # PHP Insights config references PHP_CodeSniffer classes as config keys (not loaded via Composer autoload)
         -
             message: '#^Class PHP_CodeSniffer\\.*#'
