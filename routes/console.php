@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Presentation\Jobs\ProcessProductSearchFeedJob;
 use App\Presentation\Jobs\SyncCampaignLookupTableJob;
 use App\Presentation\Jobs\SyncGoogleAdsToMixpanelJob;
 use Illuminate\Support\Facades\Schedule;
@@ -22,3 +23,11 @@ Schedule::job(new SyncGoogleAdsToMixpanelJob())
     ->onOneServer()
     ->withoutOverlapping(10)
     ->skip(static fn(): bool => (bool) config('services.ad_spend_sync.enabled', true) === false);
+
+// DooFinder product search feed - daily at 1:00 AM UK time
+// Fetches source feed, transforms titles (<title> ← <d_title>), uploads to S3
+Schedule::job(new ProcessProductSearchFeedJob())
+    ->dailyAt('01:00')
+    ->timezone('Europe/London')
+    ->onOneServer()
+    ->withoutOverlapping(30);
