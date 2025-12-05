@@ -71,6 +71,12 @@ deptrac:
         - type: classLike
           value: ^Symfony\\Component\\HttpFoundation\\.*
 
+    # Symfony HTTP Kernel (exceptions, etc.)
+    - name: SymfonyHttpKernel
+      collectors:
+        - type: classLike
+          value: ^Symfony\\Component\\HttpKernel\\.*
+
     # Firebase JWT
     - name: FirebaseJwt
       collectors:
@@ -111,6 +117,7 @@ deptrac:
       - Domain
       - LaravelFramework
       - SymfonyHttp
+      - SymfonyHttpKernel
       - FirebaseJwt
 
     # External layers have no outbound dependencies
@@ -121,5 +128,6 @@ deptrac:
     GoogleAdsSdk: ~
     GuzzleHttp: ~
     SymfonyHttp: ~
+    SymfonyHttpKernel: ~
     FirebaseJwt: ~
     LeagueFlysystem: ~
