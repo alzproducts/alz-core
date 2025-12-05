@@ -7,6 +7,7 @@ namespace App\Application\Contracts;
 use App\Application\Feeds\ProductSearchFeedProcessingResult;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\MalformedFeedDataException;
+use App\Domain\Exceptions\StorageOperationFailedException;
 
 /**
  * Contract for product search feed transformation processing.
@@ -29,8 +30,9 @@ interface ProductSearchFeedProcessorInterface
      *
      * @return ProductSearchFeedProcessingResult Statistics about the processing operation
      *
-     * @throws ExternalServiceUnavailableException When source feed unreachable or storage fails
+     * @throws ExternalServiceUnavailableException When source feed is unreachable
      * @throws MalformedFeedDataException When source feed XML is malformed or unparseable
+     * @throws StorageOperationFailedException When upload to storage fails
      */
     public function process(string $sourceUrl, string $outputPath): ProductSearchFeedProcessingResult;
 }
