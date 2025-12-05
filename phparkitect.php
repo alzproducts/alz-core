@@ -243,6 +243,7 @@ return static function (Config $config): void {
                                'Exception',
                                'Closure',
                                'Symfony\Component\HttpFoundation',
+                               'Symfony\Component\HttpKernel',
                                'Firebase\JWT',
                            ],
                        ),
