@@ -7,6 +7,7 @@ namespace App\Application\Feeds;
 use App\Application\Contracts\ProductSearchFeedProcessorInterface;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\MalformedFeedDataException;
+use App\Domain\Exceptions\StorageOperationFailedException;
 use InvalidArgumentException;
 use Psr\Log\LoggerInterface;
 
@@ -31,8 +32,9 @@ final readonly class ProcessProductSearchFeedUseCase
      * fetch, transform, and upload operations.
      *
      * @throws InvalidArgumentException When required config is missing
-     * @throws ExternalServiceUnavailableException When source feed or storage unavailable
+     * @throws ExternalServiceUnavailableException When source feed is unreachable
      * @throws MalformedFeedDataException When source feed XML is malformed
+     * @throws StorageOperationFailedException When upload to storage fails
      */
     public function execute(): void
     {
