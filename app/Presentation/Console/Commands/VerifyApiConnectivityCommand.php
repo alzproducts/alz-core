@@ -9,6 +9,7 @@ use App\Application\Contracts\Linnworks\ConnectivityClientInterface as Linnworks
 use App\Application\Contracts\MixpanelClientInterface;
 use App\Application\Contracts\ReviewsIoClientInterface;
 use App\Application\Contracts\Shopwired\ConnectivityClientInterface as ShopwiredConnectivityClient;
+use App\Domain\Exceptions\AuthenticationExpiredException;
 use Illuminate\Console\Command;
 use Throwable;
 
@@ -126,6 +127,12 @@ final class VerifyApiConnectivityCommand extends Command
             $this->line('  API Response: Valid');
 
             return true;
+        } catch (AuthenticationExpiredException $e) {
+            $this->error('  Authorization Failed: ' . $e->getMessage());
+            $this->line('  Check: Developer token access level in Google Ads API Center');
+            $this->line('  Hint: Apply for Basic or Standard access at ads.google.com/aw/apicenter');
+
+            return false;
         } catch (Throwable $e) {
             $this->error('  Failed: ' . $e->getMessage());
             $this->line('  Check: Google Ads OAuth credentials and refresh token');
