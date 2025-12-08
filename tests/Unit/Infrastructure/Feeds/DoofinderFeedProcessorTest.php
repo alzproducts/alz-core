@@ -811,6 +811,89 @@ XML;
 
     /*
     |--------------------------------------------------------------------------
+    | Max Redirect Depth
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function it_throws_exception_when_max_redirect_depth_exceeded(): void
+    {
+        // Create a chain of 6 redirects (max is 5)
+        Http::fake([
+            'https://example.com/feed' => Http::response($this->createHtmlWithMetaRefresh('https://redirect1.com/feed')),
+            'https://redirect1.com/feed' => Http::response($this->createHtmlWithMetaRefresh('https://redirect2.com/feed')),
+            'https://redirect2.com/feed' => Http::response($this->createHtmlWithMetaRefresh('https://redirect3.com/feed')),
+            'https://redirect3.com/feed' => Http::response($this->createHtmlWithMetaRefresh('https://redirect4.com/feed')),
+            'https://redirect4.com/feed' => Http::response($this->createHtmlWithMetaRefresh('https://redirect5.com/feed')),
+            'https://redirect5.com/feed' => Http::response($this->createHtmlWithMetaRefresh('https://redirect6.com/feed')),
+        ]);
+
+        $this->mockLogger
+            ->shouldReceive('error')
+            ->once()
+            ->withArgs(static fn(string $message, array $context): bool => \str_contains($message, 'Max redirect depth exceeded')
+                    && $context['service'] === 'Doofinder Feed'
+                    && $context['max_depth'] === 5);
+
+        $this->expectException(ExternalServiceUnavailableException::class);
+
+        $this->processor->process('https://example.com/feed', 'feeds/output.xml');
+    }
+
+    #[Test]
+    public function it_returns_correct_retry_after_when_max_redirect_depth_exceeded(): void
+    {
+        Http::fake([
+            'https://example.com/feed' => Http::response($this->createHtmlWithMetaRefresh('https://redirect1.com/feed')),
+            'https://redirect1.com/feed' => Http::response($this->createHtmlWithMetaRefresh('https://redirect2.com/feed')),
+            'https://redirect2.com/feed' => Http::response($this->createHtmlWithMetaRefresh('https://redirect3.com/feed')),
+            'https://redirect3.com/feed' => Http::response($this->createHtmlWithMetaRefresh('https://redirect4.com/feed')),
+            'https://redirect4.com/feed' => Http::response($this->createHtmlWithMetaRefresh('https://redirect5.com/feed')),
+            'https://redirect5.com/feed' => Http::response($this->createHtmlWithMetaRefresh('https://redirect6.com/feed')),
+        ]);
+
+        try {
+            $this->processor->process('https://example.com/feed', 'feeds/output.xml');
+            $this->fail('Expected ExternalServiceUnavailableException');
+        } catch (ExternalServiceUnavailableException $e) {
+            $this->assertSame('Doofinder Feed', $e->serviceName);
+            $this->assertSame(300, $e->retryAfter);
+        }
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Google Namespace Edge Cases
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function it_does_not_substitute_when_google_namespaced_d_title_is_empty(): void
+    {
+        $xml = $this->createGoogleNamespacedFeedXmlWithEmptyDTitle();
+
+        Http::fake([
+            'https://example.com/feed' => Http::response($xml),
+        ]);
+
+        $uploadedContent = null;
+        $this->mockStorage
+            ->shouldReceive('put')
+            ->once()
+            ->with('feeds/output.xml', Mockery::capture($uploadedContent));
+
+        $result = $this->processor->process('https://example.com/feed', 'feeds/output.xml');
+
+        // First item has d_title, second has empty d_title
+        $this->assertSame(2, $result->itemsProcessed);
+        $this->assertSame(1, $result->titlesSubstituted);
+
+        // Item with empty g:d_title should keep original title
+        $this->assertStringContainsString('original title two', $uploadedContent);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
     | Helper Methods
     |--------------------------------------------------------------------------
     */
@@ -903,5 +986,29 @@ XML;
     </body>
 </html>
 HTML;
+    }
+
+    private function createGoogleNamespacedFeedXmlWithEmptyDTitle(): string
+    {
+        return <<<'XML'
+<?xml version="1.0" encoding="UTF-8"?>
+<rss xmlns:g="http://base.google.com/ns/1.0" version="2.0">
+    <channel>
+        <title>Test Store</title>
+        <item>
+            <link>https://example.com/product-1</link>
+            <g:title>original title one</g:title>
+            <g:price>29.99 GBP</g:price>
+            <g:d_title>Display Title One</g:d_title>
+        </item>
+        <item>
+            <link>https://example.com/product-2</link>
+            <g:title>original title two</g:title>
+            <g:price>49.99 GBP</g:price>
+            <g:d_title></g:d_title>
+        </item>
+    </channel>
+</rss>
+XML;
     }
 }
