@@ -95,6 +95,10 @@ final readonly class DoofinderFeedProcessor implements ProductSearchFeedProcesso
     /**
      * Fetch the source feed XML from the given URL.
      *
+     * Handles meta-refresh redirects (common with e-commerce platforms that serve
+     * feeds via signed S3 URLs). If HTML with meta refresh is returned, extracts
+     * the redirect URL and follows it.
+     *
      * @throws ExternalServiceUnavailableException When feed cannot be fetched
      */
     private function fetchSourceFeed(string $sourceUrl): string
@@ -117,7 +121,22 @@ final readonly class DoofinderFeedProcessor implements ProductSearchFeedProcesso
                 );
             }
 
-            return $response->body();
+            $body = $response->body();
+
+            // Handle meta-refresh redirects (e.g., ShopWired serving via signed S3 URLs)
+            $redirectUrl = self::extractMetaRefreshUrl($body);
+
+            if ($redirectUrl !== null) {
+                $this->logger->debug('Following meta-refresh redirect', [
+                    'service' => self::SERVICE_NAME,
+                    'original_url' => $sourceUrl,
+                    'redirect_url' => $redirectUrl,
+                ]);
+
+                return $this->fetchSourceFeed($redirectUrl);
+            }
+
+            return $body;
         } catch (ConnectionException $e) {
             $this->logger->error('Feed connection failed', [
                 'service' => self::SERVICE_NAME,
@@ -131,6 +150,26 @@ final readonly class DoofinderFeedProcessor implements ProductSearchFeedProcesso
                 previous: $e,
             );
         }
+    }
+
+    /**
+     * Extract redirect URL from HTML meta-refresh tag.
+     *
+     * Matches: <meta http-equiv="refresh" content="0;url='https://...'" />
+     */
+    private static function extractMetaRefreshUrl(string $html): ?string
+    {
+        // Only check if this looks like HTML (not XML feed)
+        if (!\str_starts_with(\mb_trim($html), '<!DOCTYPE') && !\str_starts_with(\mb_trim($html), '<html')) {
+            return null;
+        }
+
+        // Match meta refresh: content="0;url='...'" or content="0;url=..."
+        if (\preg_match('/http-equiv=["\']refresh["\'][^>]*content=["\'][^"\']*url=[\'"]?([^"\'>\s]+)/i', $html, $matches) === 1) {
+            return \html_entity_decode($matches[1], ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        }
+
+        return null;
     }
 
     /**
@@ -304,6 +343,10 @@ final readonly class DoofinderFeedProcessor implements ProductSearchFeedProcesso
     /**
      * Validate the first item has required title and d_title elements.
      *
+     * Note: The feed may have a 'g' namespace for some elements (g:price, g:availability),
+     * but title and d_title are typically non-namespaced. We check non-namespaced first,
+     * then fall back to namespaced versions.
+     *
      * @throws MalformedFeedDataException When required elements are missing
      */
     private function validateFirstItem(string $itemXml): void
@@ -318,66 +361,66 @@ final readonly class DoofinderFeedProcessor implements ProductSearchFeedProcesso
             );
         }
 
-        $namespaces = $item->getNamespaces(true);
-        $gNamespace = $namespaces['g'] ?? null;
-
-        if ($gNamespace !== null) {
-            $gChildren = $item->children($gNamespace);
-
-            if ($gChildren === null) {
-                throw new MalformedFeedDataException(
-                    feedName: self::SERVICE_NAME,
-                    reason: 'First item has no Google namespace elements - expected g:title and g:d_title',
-                );
-            }
-
-            if (!isset($gChildren->title)) {
-                throw new MalformedFeedDataException(
-                    feedName: self::SERVICE_NAME,
-                    reason: 'First item missing required g:title element',
-                );
-            }
-
-            if (!isset($gChildren->d_title)) {
-                throw new MalformedFeedDataException(
-                    feedName: self::SERVICE_NAME,
-                    reason: 'First item missing required g:d_title element - feed may not be configured for title substitution',
-                );
-            }
-
-            $this->logger->debug('Feed structure validated', [
-                'service' => self::SERVICE_NAME,
-                'namespace' => 'g',
-                'sample_title' => (string) $gChildren->title,
-                'sample_d_title' => (string) $gChildren->d_title,
-            ]);
-        } else {
-            // Non-namespaced validation
-            if (!isset($item->title)) {
-                throw new MalformedFeedDataException(
-                    feedName: self::SERVICE_NAME,
-                    reason: 'First item missing required title element',
-                );
-            }
-
-            if (!isset($item->d_title)) {
-                throw new MalformedFeedDataException(
-                    feedName: self::SERVICE_NAME,
-                    reason: 'First item missing required d_title element - feed may not be configured for title substitution',
-                );
-            }
-
+        // Check non-namespaced elements first (most common case)
+        if (isset($item->title, $item->d_title)) {
             $this->logger->debug('Feed structure validated', [
                 'service' => self::SERVICE_NAME,
                 'namespace' => 'none',
                 'sample_title' => (string) $item->title,
                 'sample_d_title' => (string) $item->d_title,
             ]);
+
+            return;
         }
+
+        // Fall back to Google namespace (g:title, g:d_title)
+        $namespaces = $item->getNamespaces(true);
+        $gNamespace = $namespaces['g'] ?? null;
+
+        if ($gNamespace !== null) {
+            $gChildren = $item->children($gNamespace);
+
+            if (($gChildren !== null) && isset($gChildren->title, $gChildren->d_title)) {
+                $this->logger->debug('Feed structure validated', [
+                    'service' => self::SERVICE_NAME,
+                    'namespace' => 'g',
+                    'sample_title' => (string) $gChildren->title,
+                    'sample_d_title' => (string) $gChildren->d_title,
+                ]);
+
+                return;
+            }
+        }
+
+        // Neither found - report what's missing
+        $hasTitleNonNamespaced = isset($item->title);
+        $hasDTitleNonNamespaced = isset($item->d_title);
+
+        if (!$hasTitleNonNamespaced && !$hasDTitleNonNamespaced) {
+            throw new MalformedFeedDataException(
+                feedName: self::SERVICE_NAME,
+                reason: 'First item missing both title and d_title elements',
+            );
+        }
+
+        if (!$hasTitleNonNamespaced) {
+            throw new MalformedFeedDataException(
+                feedName: self::SERVICE_NAME,
+                reason: 'First item missing required title element',
+            );
+        }
+
+        throw new MalformedFeedDataException(
+            feedName: self::SERVICE_NAME,
+            reason: 'First item missing required d_title element - feed may not be configured for title substitution',
+        );
     }
 
     /**
      * Transform a single item element.
+     *
+     * Substitutes <title> content with <d_title> content if both exist.
+     * Checks non-namespaced elements first, then falls back to Google namespace.
      *
      * @return array{0: string, 1: bool} [transformedXml, wasSubstituted]
      */
@@ -395,28 +438,30 @@ final readonly class DoofinderFeedProcessor implements ProductSearchFeedProcesso
 
         $wasSubstituted = false;
 
-        // Check for g:d_title (Google namespace) or d_title
-        $namespaces = $item->getNamespaces(true);
-        $gNamespace = $namespaces['g'] ?? null;
-
-        if ($gNamespace !== null) {
-            $gChildren = $item->children($gNamespace);
-
-            if (($gChildren !== null) && isset($gChildren->d_title, $gChildren->title)) {
-                $displayTitle = (string) $gChildren->d_title;
-
-                if ($displayTitle !== '') {
-                    $gChildren->title = $displayTitle;
-                    $wasSubstituted = true;
-                }
-            }
-        } elseif (isset($item->d_title, $item->title)) {
-            // Try non-namespaced
+        // Check non-namespaced elements first (most common case)
+        if (isset($item->d_title, $item->title)) {
             $displayTitle = (string) $item->d_title;
 
             if ($displayTitle !== '') {
                 $item->title = $displayTitle;
                 $wasSubstituted = true;
+            }
+        } else {
+            // Fall back to Google namespace (g:title, g:d_title)
+            $namespaces = $item->getNamespaces(true);
+            $gNamespace = $namespaces['g'] ?? null;
+
+            if ($gNamespace !== null) {
+                $gChildren = $item->children($gNamespace);
+
+                if (($gChildren !== null) && isset($gChildren->d_title, $gChildren->title)) {
+                    $displayTitle = (string) $gChildren->d_title;
+
+                    if ($displayTitle !== '') {
+                        $gChildren->title = $displayTitle;
+                        $wasSubstituted = true;
+                    }
+                }
             }
         }
 
