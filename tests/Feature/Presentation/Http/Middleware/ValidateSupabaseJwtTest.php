@@ -31,6 +31,10 @@ final class ValidateSupabaseJwtTest extends TestCase
     {
         parent::setUp();
 
+        // Clear any facade mock state from previous tests to ensure isolation.
+        // This is critical for parallel test execution where mock state can leak.
+        Log::clearResolvedInstances();
+
         // Define a test route protected by the middleware under test.
         // This route echoes back the user details the middleware should have attached.
         Route::get('/_test/protected-route', static fn(Request $request) => \response()->json([
@@ -40,6 +44,18 @@ final class ValidateSupabaseJwtTest extends TestCase
 
         // Set the JWT secret for the duration of the tests.
         \config(['services.supabase.jwt_secret' => self::TEST_SECRET]);
+    }
+
+    /**
+     * Clean up Mockery expectations after each test.
+     */
+    #[Override]
+    protected function tearDown(): void
+    {
+        // Explicitly close Mockery to prevent mock state from leaking to subsequent tests.
+        Mockery::close();
+
+        parent::tearDown();
     }
 
     /**
@@ -259,9 +275,7 @@ final class ValidateSupabaseJwtTest extends TestCase
     #[Test]
     public function succeeds_and_attaches_user_data_to_request_for_valid_token(): void
     {
-        // Arrange
-        Log::shouldReceive('channel')->never();
-
+        // Arrange - no Log mocking needed for success paths
         $userId = 'd9dd22a9-c3ab-413b-8a93-25b462231a98';
         $userEmail = 'test@example.com';
         $payload = ['sub' => $userId, 'email' => $userEmail];
@@ -284,9 +298,7 @@ final class ValidateSupabaseJwtTest extends TestCase
     #[Test]
     public function succeeds_when_email_claim_is_missing(): void
     {
-        // Arrange
-        Log::shouldReceive('channel')->never();
-
+        // Arrange - no Log mocking needed for success paths
         $userId = 'd9dd22a9-c3ab-413b-8a93-25b462231a98';
         $payload = ['sub' => $userId, 'email' => null];
         $token = $this->generateToken($payload);

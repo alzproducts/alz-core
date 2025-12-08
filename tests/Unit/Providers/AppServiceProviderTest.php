@@ -6,13 +6,18 @@ namespace Tests\Unit\Providers;
 
 use App\Providers\AppServiceProvider;
 use Override;
-use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use RuntimeException;
 use Tests\TestCase;
 
-#[CoversClass(AppServiceProvider::class)]
+/**
+ * Tests for AppServiceProvider.
+ *
+ * Note: CoversClass attribute removed because AppServiceProvider is excluded from
+ * code coverage in phpunit.xml (boot-time validation, not runtime business logic).
+ * PHPUnit 12 validates CoversClass targets must be in coverage scope.
+ */
 final class AppServiceProviderTest extends TestCase
 {
     private AppServiceProvider $provider;

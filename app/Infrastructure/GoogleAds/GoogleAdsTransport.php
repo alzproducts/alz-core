@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\GoogleAds;
 
+use App\Domain\Exceptions\AuthenticationExpiredException;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Infrastructure\Support\RetryAfterParser;
 use Google\Ads\GoogleAds\Lib\V22\GoogleAdsClient as SdkGoogleAdsClient;
@@ -51,6 +52,7 @@ final readonly class GoogleAdsTransport
      * @return PagedListResponse Paginated response from the SDK
      *
      * @throws ExternalServiceUnavailableException When API unavailable or rate limited
+     * @throws AuthenticationExpiredException When credentials invalid or insufficient permissions
      */
     public function search(string $query): PagedListResponse
     {
@@ -77,30 +79,108 @@ final readonly class GoogleAdsTransport
     }
 
     /**
-     * Handle API exceptions (rate limits, network errors, etc.).
+     * Route API failures to specific handlers by gRPC code.
+     * Follows the same pattern as ShopwiredHttpTransport::handleRequestException()
+     * but uses gRPC codes instead of HTTP status codes.
      *
-     * Rate limits (RESOURCE_EXHAUSTED) logged as WARNING (transient, recoverable).
-     * Other errors logged as ERROR (unexpected failures).
      */
-    private function handleApiException(ApiException $e): ExternalServiceUnavailableException
+    private function handleApiException(ApiException $e): AuthenticationExpiredException|ExternalServiceUnavailableException
     {
-        if ($e->getCode() === Code::RESOURCE_EXHAUSTED) {
-            $retryAfter = $this->extractRetryAfter($e);
+        return match ($e->getCode()) {
+            Code::RESOURCE_EXHAUSTED => $this->handleRateLimit($e),
+            Code::PERMISSION_DENIED, Code::UNAUTHENTICATED => $this->handleAuthenticationFailure($e),
+            default => $this->handleServerError($e),
+        };
+    }
 
-            Log::warning(self::SERVICE_NAME . ' API rate limited', [
-                'retry_after' => $retryAfter,
-                'error' => $e->getMessage(),
-            ]);
+    /**
+     * Handle RESOURCE_EXHAUSTED (rate limit) - transient, respect Retry-After.
+     */
+    private function handleRateLimit(ApiException $e): ExternalServiceUnavailableException
+    {
+        $retryAfter = $this->extractRetryAfter($e);
 
-            return new ExternalServiceUnavailableException(self::SERVICE_NAME, $retryAfter, $e);
-        }
+        Log::warning(self::SERVICE_NAME . ' API rate limited', [
+            'retry_after' => $retryAfter,
+            'error' => $e->getMessage(),
+        ]);
 
+        return new ExternalServiceUnavailableException(self::SERVICE_NAME, $retryAfter, $e);
+    }
+
+    /**
+     * Handle PERMISSION_DENIED/UNAUTHENTICATED - permanent, needs config fix.
+     *
+     */
+    private function handleAuthenticationFailure(ApiException $e): AuthenticationExpiredException
+    {
+        $detailedMessage = $this->extractGoogleAdsErrorMessage($e);
+
+        Log::error(self::SERVICE_NAME . ' API authentication failed', [
+            'code' => $e->getCode(),
+            'error' => $detailedMessage,
+        ]);
+
+        return new AuthenticationExpiredException(self::SERVICE_NAME, $detailedMessage, $e);
+    }
+
+    /**
+     * Handle other API errors (INTERNAL, UNAVAILABLE, etc.) - transient.
+     */
+    private function handleServerError(ApiException $e): ExternalServiceUnavailableException
+    {
         Log::error(self::SERVICE_NAME . ' API error', [
             'code' => $e->getCode(),
             'error' => $e->getMessage(),
         ]);
 
         return new ExternalServiceUnavailableException(self::SERVICE_NAME, previous: $e);
+    }
+
+    /**
+     * Extract specific error message from Google Ads API response.
+     *
+     * Google Ads errors are nested: message → details → errors[] → errorCode + message
+     */
+    private function extractGoogleAdsErrorMessage(ApiException $e): string
+    {
+        $decoded = \json_decode($e->getMessage(), true);
+
+        if (! \is_array($decoded)) {
+            return $e->getMessage();
+        }
+
+        // Use Laravel's data_get for safe nested access
+        /** @var mixed $errorCode */
+        $errorCode = \data_get($decoded, 'details.0.errors.0.errorCode', []);
+        /** @var mixed $errorMessage */
+        $errorMessage = \data_get($decoded, 'details.0.errors.0.message', '');
+
+        // Extract specific code from errorCode map (e.g., {'authorizationError': 'CODE'})
+        $specificCode = 'UNKNOWN';
+        if (\is_array($errorCode) && ($errorCode !== [])) {
+            $firstValue = \reset($errorCode);
+            if (\is_string($firstValue)) {
+                $specificCode = $firstValue;
+            }
+        }
+
+        // Ensure errorMessage is string
+        $errorMessage = \is_string($errorMessage) ? $errorMessage : '';
+
+        if ($errorMessage !== '') {
+            return "{$specificCode} - {$errorMessage}";
+        }
+
+        // Fallback to top-level message
+        /** @var mixed $topMessage */
+        $topMessage = \data_get($decoded, 'message', '');
+
+        if (\is_string($topMessage) && ($topMessage !== '')) {
+            return $topMessage;
+        }
+
+        return $e->getMessage();
     }
 
     /**

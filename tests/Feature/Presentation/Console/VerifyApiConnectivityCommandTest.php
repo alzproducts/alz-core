@@ -9,6 +9,7 @@ use App\Application\Contracts\Linnworks\ConnectivityClientInterface as Linnworks
 use App\Application\Contracts\MixpanelClientInterface;
 use App\Application\Contracts\ReviewsIoClientInterface;
 use App\Application\Contracts\Shopwired\ConnectivityClientInterface as ShopwiredConnectivityClient;
+use App\Domain\Exceptions\AuthenticationExpiredException;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Presentation\Console\Commands\VerifyApiConnectivityCommand;
 use Illuminate\Console\Command;
@@ -185,6 +186,23 @@ final class VerifyApiConnectivityCommandTest extends TestCase
             ->assertExitCode(Command::FAILURE);
     }
 
+    #[Test]
+    public function it_reports_googleads_authentication_failure_with_specific_hints(): void
+    {
+        $this->googleAdsClient
+            ->shouldReceive('verifyConnectivity')
+            ->once()
+            ->andThrow(new AuthenticationExpiredException('Google Ads', 'DEVELOPER_TOKEN_NOT_APPROVED'));
+
+        $this->artisan('verify:api', ['client' => 'googleads'])
+            ->expectsOutput('Verifying Google Ads...')
+            ->expectsOutputToContain('Authorization Failed:')
+            ->expectsOutput('  Check: Developer token access level in Google Ads API Center')
+            ->expectsOutput('  Hint: Apply for Basic or Standard access at ads.google.com/aw/apicenter')
+            ->expectsOutput('Some API clients failed: googleads')
+            ->assertExitCode(Command::FAILURE);
+    }
+
     /*
     |--------------------------------------------------------------------------
     | Shopwired Client Tests
@@ -219,6 +237,43 @@ final class VerifyApiConnectivityCommandTest extends TestCase
             ->expectsOutputToContain('Failed:')
             ->expectsOutput('  Check: SHOPWIRED_API_KEY and SHOPWIRED_API_SECRET in .env')
             ->expectsOutput('Some API clients failed: shopwired')
+            ->assertExitCode(Command::FAILURE);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Linnworks Client Tests
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function it_verifies_linnworks_successfully(): void
+    {
+        $this->linnworksClient
+            ->shouldReceive('verifyConnectivity')
+            ->once();
+
+        $this->artisan('verify:api', ['client' => 'linnworks'])
+            ->expectsOutput('Verifying Linnworks...')
+            ->expectsOutput('  Authentication: OK')
+            ->expectsOutput('  API Response: Valid')
+            ->expectsOutput('All API clients verified successfully')
+            ->assertExitCode(Command::SUCCESS);
+    }
+
+    #[Test]
+    public function it_reports_linnworks_failure_with_exception_message(): void
+    {
+        $this->linnworksClient
+            ->shouldReceive('verifyConnectivity')
+            ->once()
+            ->andThrow(new ExternalServiceUnavailableException('Linnworks'));
+
+        $this->artisan('verify:api', ['client' => 'linnworks'])
+            ->expectsOutput('Verifying Linnworks...')
+            ->expectsOutputToContain('Failed:')
+            ->expectsOutput('  Check: LINNWORKS_APPLICATION_ID, LINNWORKS_APPLICATION_SECRET, and LINNWORKS_INSTALLATION_TOKEN in .env')
+            ->expectsOutput('Some API clients failed: linnworks')
             ->assertExitCode(Command::FAILURE);
     }
 

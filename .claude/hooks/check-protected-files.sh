@@ -19,6 +19,7 @@ PROTECTED_FILES=(
     "pint.json"
     "config/insights.php"
     "deptrac.yaml"
+    "composer.json"
 )
 
 # =============================================================================

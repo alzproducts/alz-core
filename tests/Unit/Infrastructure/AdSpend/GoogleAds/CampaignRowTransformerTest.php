@@ -7,6 +7,7 @@ namespace Tests\Unit\Infrastructure\AdSpend\GoogleAds;
 use App\Domain\AdSpend\ValueObjects\Campaign;
 use App\Infrastructure\GoogleAds\Exceptions\InvalidGoogleAdsResponseException;
 use App\Infrastructure\GoogleAds\Transformers\CampaignRowTransformer;
+use Google\Ads\GoogleAds\V22\Resources\Campaign as GoogleAdsCampaign;
 use Google\Ads\GoogleAds\V22\Services\GoogleAdsRow;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -19,7 +20,7 @@ final class CampaignRowTransformerTest extends TestCase
     #[Test]
     public function it_transforms_row_with_enabled_status(): void
     {
-        $row = $this->createMockRow(
+        $row = $this->createRealRow(
             campaignId: 123456789,
             campaignName: '[01] Search - Branded',
             status: 2, // SDK: ENABLED = 2
@@ -35,7 +36,7 @@ final class CampaignRowTransformerTest extends TestCase
     #[Test]
     public function it_transforms_row_with_paused_status(): void
     {
-        $row = $this->createMockRow(
+        $row = $this->createRealRow(
             campaignId: 987654321,
             campaignName: '[02] Performance Max',
             status: 3, // SDK: PAUSED = 3
@@ -51,7 +52,7 @@ final class CampaignRowTransformerTest extends TestCase
     #[Test]
     public function it_transforms_row_with_removed_status(): void
     {
-        $row = $this->createMockRow(
+        $row = $this->createRealRow(
             campaignId: 555555555,
             campaignName: 'Old Campaign',
             status: 4, // SDK: REMOVED = 4
@@ -67,7 +68,7 @@ final class CampaignRowTransformerTest extends TestCase
     #[Test]
     public function it_transforms_row_with_unspecified_status(): void
     {
-        $row = $this->createMockRow(
+        $row = $this->createRealRow(
             campaignId: 111111111,
             campaignName: 'Unspecified Campaign',
             status: 0,
@@ -84,7 +85,7 @@ final class CampaignRowTransformerTest extends TestCase
     #[DataProvider('allValidStatusEnums')]
     public function it_maps_all_valid_status_enums(int $enumValue, string $expectedStatus): void
     {
-        $row = $this->createMockRow(
+        $row = $this->createRealRow(
             campaignId: 1000,
             campaignName: 'Test Campaign',
             status: $enumValue,
@@ -110,12 +111,8 @@ final class CampaignRowTransformerTest extends TestCase
     #[Test]
     public function it_throws_when_campaign_is_null(): void
     {
-        $row = $this->getMockBuilder(GoogleAdsRow::class)
-            ->disableOriginalConstructor()
-            ->onlyMethods(['getCampaign'])
-            ->getMock();
-
-        $row->method('getCampaign')->willReturn(null);
+        // Real GoogleAdsRow without setCampaign() - getCampaign() returns null by default
+        $row = new GoogleAdsRow();
 
         $this->expectException(InvalidGoogleAdsResponseException::class);
         $this->expectExceptionMessage('campaign');
@@ -126,7 +123,7 @@ final class CampaignRowTransformerTest extends TestCase
     #[Test]
     public function it_throws_on_invalid_status_enum_value(): void
     {
-        $row = $this->createMockRow(
+        $row = $this->createRealRow(
             campaignId: 123,
             campaignName: 'Test',
             status: 99,
@@ -141,7 +138,7 @@ final class CampaignRowTransformerTest extends TestCase
     #[Test]
     public function it_throws_on_negative_status_enum_value(): void
     {
-        $row = $this->createMockRow(
+        $row = $this->createRealRow(
             campaignId: 123,
             campaignName: 'Test',
             status: -1,
@@ -156,7 +153,7 @@ final class CampaignRowTransformerTest extends TestCase
     #[Test]
     public function it_casts_campaign_id_to_int(): void
     {
-        $row = $this->createMockRow(
+        $row = $this->createRealRow(
             campaignId: '123456789',
             campaignName: 'Test Campaign',
             status: 2, // SDK: ENABLED = 2
@@ -172,7 +169,7 @@ final class CampaignRowTransformerTest extends TestCase
     public function it_preserves_campaign_name_unchanged(): void
     {
         $campaignName = '[01] Search - Branded | Special (Characters)';
-        $row = $this->createMockRow(
+        $row = $this->createRealRow(
             campaignId: 123,
             campaignName: $campaignName,
             status: 2, // SDK: ENABLED = 2
@@ -187,7 +184,7 @@ final class CampaignRowTransformerTest extends TestCase
     public function it_handles_large_campaign_ids(): void
     {
         $largeId = PHP_INT_MAX;
-        $row = $this->createMockRow(
+        $row = $this->createRealRow(
             campaignId: $largeId,
             campaignName: 'Large ID Campaign',
             status: 2, // SDK: ENABLED = 2
@@ -202,7 +199,7 @@ final class CampaignRowTransformerTest extends TestCase
     public function it_handles_special_characters_in_campaign_name(): void
     {
         $specialName = 'Campaign With "Quotes" & <Special> [Brackets]';
-        $row = $this->createMockRow(
+        $row = $this->createRealRow(
             campaignId: 123,
             campaignName: $specialName,
             status: 2, // SDK: ENABLED = 2
@@ -217,7 +214,7 @@ final class CampaignRowTransformerTest extends TestCase
     public function it_handles_whitespace_in_campaign_name(): void
     {
         $nameWithWhitespace = "Campaign  With   Multiple   Spaces\nAnd\tTabs";
-        $row = $this->createMockRow(
+        $row = $this->createRealRow(
             campaignId: 123,
             campaignName: $nameWithWhitespace,
             status: 2, // SDK: ENABLED = 2
@@ -231,7 +228,7 @@ final class CampaignRowTransformerTest extends TestCase
     #[Test]
     public function it_returns_campaign_value_object(): void
     {
-        $row = $this->createMockRow(
+        $row = $this->createRealRow(
             campaignId: 123,
             campaignName: 'Test',
             status: 2, // SDK: ENABLED = 2
@@ -243,47 +240,25 @@ final class CampaignRowTransformerTest extends TestCase
     }
 
     /**
-     * Helper method to create a mock GoogleAdsRow with campaign data.
-     * Follows SDK pattern: GoogleAdsRow::getCampaign() returns Campaign object with getter methods.
+     * Helper method to create a real GoogleAdsRow with campaign data.
+     *
+     * Uses actual protobuf objects instead of mocks to avoid segfaults
+     * caused by PHPUnit mocking conflicts with the protobuf C extension.
      *
      * @param int|string $campaignId
      */
-    private function createMockRow(
+    private function createRealRow(
         int|string $campaignId,
         string $campaignName,
         int $status,
     ): GoogleAdsRow {
-        // Create a simple object to represent the Campaign with the required methods
-        $campaign = new class ($campaignId, $campaignName, $status) {
-            public function __construct(
-                private readonly int|string $id,
-                private readonly string $name,
-                private readonly int $statusCode,
-            ) {}
+        $campaign = new GoogleAdsCampaign();
+        $campaign->setId($campaignId);
+        $campaign->setName($campaignName);
+        $campaign->setStatus($status);
 
-            public function getId(): int|string
-            {
-                return $this->id;
-            }
-
-            public function getName(): string
-            {
-                return $this->name;
-            }
-
-            public function getStatus(): int
-            {
-                return $this->statusCode;
-            }
-        };
-
-        // Create mock GoogleAdsRow that returns the campaign object
-        $row = $this->getMockBuilder(GoogleAdsRow::class)
-            ->disableOriginalConstructor()
-            ->onlyMethods(['getCampaign'])
-            ->getMock();
-
-        $row->method('getCampaign')->willReturn($campaign);
+        $row = new GoogleAdsRow();
+        $row->setCampaign($campaign);
 
         return $row;
     }

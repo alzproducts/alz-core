@@ -1,29 +1,6 @@
+# Development Services (PostgreSQL + Redis)
+# PHP runs natively on macOS for performance - see README.md for setup
 services:
-    laravel.test:
-        build:
-            context: './vendor/laravel/sail/runtimes/8.4'
-            dockerfile: Dockerfile
-            args:
-                WWWGROUP: '${WWWGROUP}'
-        image: 'sail-8.4/app'
-        extra_hosts:
-            - 'host.docker.internal:host-gateway'
-        ports:
-            - '${APP_PORT:-80}:80'
-            - '${VITE_PORT:-5173}:${VITE_PORT:-5173}'
-        environment:
-            WWWUSER: '${WWWUSER}'
-            LARAVEL_SAIL: 1
-            XDEBUG_MODE: '${SAIL_XDEBUG_MODE:-off}'
-            XDEBUG_CONFIG: '${SAIL_XDEBUG_CONFIG:-client_host=host.docker.internal}'
-            IGNITION_LOCAL_SITES_PATH: '${PWD}'
-        volumes:
-            - '.:/var/www/html'
-        networks:
-            - sail
-        depends_on:
-            - pgsql
-            - redis
     pgsql:
         image: 'postgres:17-alpine'
         ports:
@@ -35,7 +12,6 @@ services:
             POSTGRES_PASSWORD: '${DB_PASSWORD:-secret}'
         volumes:
             - 'sail-pgsql:/var/lib/postgresql/data'
-            - './vendor/laravel/sail/database/pgsql/create-testing-database.sql:/docker-entrypoint-initdb.d/10-create-testing-database.sql'
         networks:
             - sail
         healthcheck:
@@ -49,6 +25,7 @@ services:
                 - '${DB_USERNAME}'
             retries: 3
             timeout: 5s
+
     redis:
         image: 'redis:alpine'
         ports:
@@ -64,9 +41,12 @@ services:
                 - ping
             retries: 3
             timeout: 5s
+        command: redis-server --appendonly yes
+
 networks:
     sail:
         driver: bridge
+
 volumes:
     sail-pgsql:
         driver: local
