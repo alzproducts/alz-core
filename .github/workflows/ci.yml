@@ -198,7 +198,7 @@ jobs:
             memory_limit=512M
             zend.assertions=1
             opcache.enable_cli=1
-          coverage: ${{ github.event_name == 'pull_request' && 'xdebug' || 'none' }}
+          coverage: ${{ github.event_name == 'pull_request' && 'xdebug' || 'pcov' }}
           tools: composer:v2
 
       - name: Get Composer cache directory
