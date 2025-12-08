@@ -12,6 +12,7 @@ use App\Domain\Exceptions\MalformedFeedDataException;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
 use JsonException;
 use Psr\Log\LoggerInterface;
 use SimpleXMLElement;
@@ -216,7 +217,7 @@ final readonly class DoofinderFeedProcessor implements ProductSearchFeedProcesso
             );
         }
 
-        $tempPath = \sys_get_temp_dir() . '/doofinder-feed-' . \uniqid('', true) . '.xml';
+        $tempPath = \sys_get_temp_dir() . '/doofinder-feed-' . Str::uuid()->toString() . '.xml';
         $statsPath = $tempPath . '.stats';
         $handle = \fopen($tempPath, 'wb');
 
