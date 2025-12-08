@@ -320,7 +320,7 @@ jobs:
           chmod -R 775 storage bootstrap/cache
 
       - name: Run Pest Mutation Testing
-        run: php vendor/bin/pest --mutate --covered-only --min=85 --parallel tests/Unit
+        run: php -d xdebug.mode=off vendor/bin/pest --mutate --everything --covered-only --min=85 --parallel --processes=2 tests/Unit
 
   # Mutation Testing: Infection (5-15 minutes)
   mutation-infection:
@@ -364,5 +364,5 @@ jobs:
           chmod -R 775 storage bootstrap/cache
 
       - name: Run Infection Mutation Testing
-        run: php vendor/bin/infection --no-progress --logger-github --only-covered --min-msi=80 --min-covered-msi=85 --threads=2 --test-framework-options="--testsuite=Unit"
+        run: php -d xdebug.mode=off vendor/bin/infection --no-progress --logger-github --min-msi=80 --min-covered-msi=85 --threads=2 --test-framework-options="--testsuite=Unit"
 
