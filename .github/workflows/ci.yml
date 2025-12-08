@@ -2,7 +2,7 @@ name: Laravel 12 CI Pipeline
 
 on:
   push:
-    branches: [main, develop]
+    branches: [develop]  # Only develop - main is validated via PR before merge
     paths-ignore:
       - '**.md'
       - 'docs/**'
