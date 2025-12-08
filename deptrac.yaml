@@ -71,11 +71,23 @@ deptrac:
         - type: classLike
           value: ^Symfony\\Component\\HttpFoundation\\.*
 
+    # Symfony HTTP Kernel (exceptions, etc.)
+    - name: SymfonyHttpKernel
+      collectors:
+        - type: classLike
+          value: ^Symfony\\Component\\HttpKernel\\.*
+
     # Firebase JWT
     - name: FirebaseJwt
       collectors:
         - type: classLike
           value: ^Firebase\\JWT\\.*
+
+    # League Flysystem (filesystem abstraction)
+    - name: LeagueFlysystem
+      collectors:
+        - type: classLike
+          value: ^League\\Flysystem\\.*
 
   ruleset:
     # Domain: Pure business logic + assertions only
@@ -87,7 +99,7 @@ deptrac:
       - Domain
       - PsrInterfaces
 
-    # Infrastructure: All internal + Laravel, Spatie, Google, Guzzle, Assertions
+    # Infrastructure: All internal + Laravel, Spatie, Google, Guzzle, PSR, Flysystem, Assertions
     Infrastructure:
       - Application
       - Domain
@@ -95,6 +107,8 @@ deptrac:
       - SpatieData
       - GoogleAdsSdk
       - GuzzleHttp
+      - PsrInterfaces
+      - LeagueFlysystem
       - AssertionLibrary
 
     # Presentation: Internal + Laravel, Symfony, Firebase
@@ -103,6 +117,7 @@ deptrac:
       - Domain
       - LaravelFramework
       - SymfonyHttp
+      - SymfonyHttpKernel
       - FirebaseJwt
 
     # External layers have no outbound dependencies
@@ -113,4 +128,6 @@ deptrac:
     GoogleAdsSdk: ~
     GuzzleHttp: ~
     SymfonyHttp: ~
+    SymfonyHttpKernel: ~
     FirebaseJwt: ~
+    LeagueFlysystem: ~
