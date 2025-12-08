@@ -36,6 +36,7 @@ final readonly class DoofinderFeedProcessor implements ProductSearchFeedProcesso
 {
     private const string SERVICE_NAME = 'Doofinder Feed';
     private const int HTTP_TIMEOUT_SECONDS = 120;
+    private const int MAX_REDIRECT_DEPTH = 5;
 
     public function __construct(
         private RemoteStorageInterface $storage,
@@ -57,24 +58,30 @@ final readonly class DoofinderFeedProcessor implements ProductSearchFeedProcesso
         // Release source XML memory before reading temp file
         unset($sourceXml);
 
-        // Read transformed content and upload
-        $transformedXml = \file_get_contents($tempFilePath);
+        try {
+            // Read transformed content and upload
+            $transformedXml = \file_get_contents($tempFilePath);
 
-        if ($transformedXml === false) {
-            throw new MalformedFeedDataException(
-                feedName: self::SERVICE_NAME,
-                reason: "Failed to read transformed feed from temp file: {$tempFilePath}",
-            );
+            if ($transformedXml === false) {
+                throw new MalformedFeedDataException(
+                    feedName: self::SERVICE_NAME,
+                    reason: "Failed to read transformed feed from temp file: {$tempFilePath}",
+                );
+            }
+
+            // Extract stats from temp file metadata (stored as JSON in first line comment)
+            $stats = self::extractStatsFromTempFile($tempFilePath);
+
+            $this->storage->put($outputPath, $transformedXml);
+
+            // Release memory (file cleanup happens in finally)
+            unset($transformedXml);
+        } finally {
+            // Always cleanup temp files, even on failure
+            // safeUnlink is idempotent (stats file may already be deleted by extractStatsFromTempFile)
+            self::safeUnlink($tempFilePath);
+            self::safeUnlink($tempFilePath . '.stats');
         }
-
-        // Extract stats from temp file metadata (stored as JSON in first line comment)
-        $stats = self::extractStatsFromTempFile($tempFilePath);
-
-        $this->storage->put($outputPath, $transformedXml);
-
-        // Cleanup
-        unset($transformedXml);
-        \unlink($tempFilePath);
 
         $durationSeconds = \microtime(true) - $startTime;
 
@@ -99,10 +106,23 @@ final readonly class DoofinderFeedProcessor implements ProductSearchFeedProcesso
      * feeds via signed S3 URLs). If HTML with meta refresh is returned, extracts
      * the redirect URL and follows it.
      *
-     * @throws ExternalServiceUnavailableException When feed cannot be fetched
+     * @throws ExternalServiceUnavailableException When feed cannot be fetched or redirect limit exceeded
      */
-    private function fetchSourceFeed(string $sourceUrl): string
+    private function fetchSourceFeed(string $sourceUrl, int $redirectDepth = 0): string
     {
+        if ($redirectDepth >= self::MAX_REDIRECT_DEPTH) {
+            $this->logger->error('Max redirect depth exceeded', [
+                'service' => self::SERVICE_NAME,
+                'url' => $sourceUrl,
+                'max_depth' => self::MAX_REDIRECT_DEPTH,
+            ]);
+
+            throw new ExternalServiceUnavailableException(
+                serviceName: self::SERVICE_NAME,
+                retryAfter: 300,
+            );
+        }
+
         try {
             $response = Http::timeout(self::HTTP_TIMEOUT_SECONDS)
                 ->get($sourceUrl);
@@ -133,7 +153,7 @@ final readonly class DoofinderFeedProcessor implements ProductSearchFeedProcesso
                     'redirect_url' => $redirectUrl,
                 ]);
 
-                return $this->fetchSourceFeed($redirectUrl);
+                return $this->fetchSourceFeed($redirectUrl, $redirectDepth + 1);
             }
 
             return $body;
