@@ -30,22 +30,16 @@ return [
     | Pre-Push Hooks
     |--------------------------------------------------------------------------
     | Comprehensive checks on entire codebase - runs before pushing to remote
-    | Runs all tests and full code quality analysis (20-30 seconds)
+    | Runs tests + code quality analysis (~30 seconds with native PHP)
     |
-    | DUAL MUTATION TESTING STRATEGY (Defense in Depth):
-    | - PestMutatePrePushHook: Fast Pest mutation engine (~90s, 90% threshold)
-    | - InfectionPrePushHook: Comprehensive Infection engine (~40s, 70%/80% thresholds)
-    |
-    | Both are commented out by default due to ~2 minute overhead.
-    | Uncomment ONE or BOTH for automatic mutation testing before push.
-    | Using both provides maximum test quality validation.
+    | Mutation testing moved to CI (runs in parallel, no added wall time)
     */
     'pre-push' => [
         PestPrePushHook::class,
         PHPInsightsPrePushHook::class,
         PHPArkitectPrePushHook::class,
-        PestMutatePrePushHook::class,  // Pest Mutate: Fast, Pest-native mutations
-        InfectionPrePushHook::class,   // Infection: Mature, comprehensive mutations
+        // PestMutatePrePushHook::class,  // Moved to CI - runs in parallel
+        // InfectionPrePushHook::class,   // Moved to CI - runs in parallel
     ],
 
     /*
@@ -66,9 +60,9 @@ return [
     | Laravel Sail
     |--------------------------------------------------------------------------
     | Enable this to run all commands through Laravel Sail
-    | Required for this project since we use PHP 8.4 in Docker
+    | Disabled by default: native PHP 8.4 is 2-3x faster for git hooks
     */
-    'use_sail' => env('GITHOOKS_USE_SAIL', true),
+    'use_sail' => env('GITHOOKS_USE_SAIL', false),
 
     /*
     |--------------------------------------------------------------------------
