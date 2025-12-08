@@ -115,11 +115,12 @@ final class LinnworksSessionManager
     {
         try {
             $response = Http::timeout($this->config->timeout)
-                ->asForm()
-                ->post(LinnworksConfig::AUTH_URL, [
-                    'applicationId' => $this->config->applicationId,
-                    'applicationSecret' => $this->config->applicationSecret,
-                    'token' => $this->config->installationToken,
+                ->send('POST', LinnworksConfig::AUTH_URL, [
+                    'form_params' => [
+                        'applicationId' => $this->config->applicationId,
+                        'applicationSecret' => $this->config->applicationSecret,
+                        'token' => $this->config->installationToken,
+                    ],
                 ])
                 ->throw();
 

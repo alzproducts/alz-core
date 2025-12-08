@@ -32,18 +32,18 @@ Use zen:testgen to create tests for App\Infrastructure\Support\RetryAfterParser
 
 **Step 2**: Write tests and iterate until they pass
 ```bash
-./vendor/bin/sail artisan test --filter=RetryAfterParser
+php artisan test --filter=RetryAfterParser
 ```
 
 **Step 3**: Validate test quality with mutation testing
 
 ```bash
 # Single file (preferred for iterating on one class):
-./vendor/bin/sail php -d xdebug.mode=off vendor/bin/infection \
+php -d xdebug.mode=off vendor/bin/infection \
   --filter=RetryAfterParser.php --show-mutations --min-msi=80
 
 # Bulk changes (after modifying many files, compares to develop branch):
-./vendor/bin/sail composer infection:incremental
+composer infection:incremental
 ```
 
 **Step 4**: Fix escaped mutants until MSI ≥ 80%
@@ -78,17 +78,17 @@ When Infection reports "escaped mutants":
 
 ```bash
 # Quick validation (single engine)
-./vendor/bin/sail composer test:ai           # Tests + Infection (exploratory, no thresholds)
+make test-ai           # Tests + Infection (exploratory, no thresholds)
 
 # Comprehensive validation (both engines with thresholds)
-./vendor/bin/sail composer test:mutate       # Tests + Pest Mutate + Infection Strict
+make test-mutate       # Tests + Pest Mutate + Infection Strict
 
 # Individual mutation engines
-./vendor/bin/sail composer infection              # Infection only (exploratory)
-./vendor/bin/sail composer infection:strict       # Infection with thresholds (70%/80%)
-./vendor/bin/sail composer infection:incremental  # Changed lines only (vs develop branch)
-./vendor/bin/sail composer pest:mutate            # Pest Mutate with 90% threshold
-./vendor/bin/sail composer infection:ci           # CI mode with GitHub logger
+make infection              # Infection only (exploratory)
+make infection-strict       # Infection with thresholds (80%/85%)
+make infection-incremental  # Changed lines only (vs develop branch)
+make pest-mutate            # Pest Mutate with 85% threshold
+make infection-ci           # CI mode with GitHub logger
 ```
 
 **Script Breakdown**:

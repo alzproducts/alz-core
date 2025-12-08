@@ -19,10 +19,13 @@
 
     // Test framework configuration (Pest runs on PHPUnit)
     "testFramework": "phpunit",
+    "phpUnit": {
+        "customPath": "vendor/bin/phpunit"
+    },
 
     // Performance optimization
     "timeout": 10,
-    "threads": 8,  // M1 Pro/Max: 10 cores → 8 threads (leave 2 for system/Docker/IDE)
+    "threads": 9,  // 10 cores → 9 threads (leave 1 for system responsiveness)
 
     // Quality thresholds - Set for AI-generated tests
     // First AI test run: expect 65-75% MSI
