@@ -279,12 +279,12 @@ jobs:
         run: composer audit --format=json
 
   # Mutation Testing: Pest Mutate (5-15 minutes)
-  # Only runs on develop branch - main receives already-validated code from develop
+  # Only runs on PRs to develop - direct pushes skip mutation testing for quick fixes
   mutation-pest:
     name: Pest Mutation Testing
     runs-on: ubuntu-24.04
     timeout-minutes: 30
-    if: github.base_ref == 'develop' || github.ref == 'refs/heads/develop'
+    if: github.base_ref == 'develop'
 
     steps:
       - name: Checkout code
@@ -325,12 +325,12 @@ jobs:
         run: php -d xdebug.mode=off vendor/bin/pest --mutate --everything --covered-only --min=85 --parallel --processes=2 tests/Unit
 
   # Mutation Testing: Infection (5-15 minutes)
-  # Only runs on develop branch - main receives already-validated code from develop
+  # Only runs on PRs to develop - direct pushes skip mutation testing for quick fixes
   mutation-infection:
     name: Infection Mutation Testing
     runs-on: ubuntu-24.04
     timeout-minutes: 30
-    if: github.base_ref == 'develop' || github.ref == 'refs/heads/develop'
+    if: github.base_ref == 'develop'
 
     steps:
       - name: Checkout code
