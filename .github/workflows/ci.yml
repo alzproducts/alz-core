@@ -364,5 +364,5 @@ jobs:
           chmod -R 775 storage bootstrap/cache
 
       - name: Run Infection Mutation Testing
-        run: php vendor/bin/infection --no-progress --logger-github --min-msi=80 --min-covered-msi=85 --threads=2 --test-framework-options="tests/Unit"
+        run: php vendor/bin/infection --no-progress --logger-github --min-msi=80 --min-covered-msi=85 --threads=2 --test-framework-options="--testsuite=Unit"
 
