@@ -19,7 +19,11 @@ use PHPUnit\Framework\TestCase;
  * GoogleAdsRowTransformer Unit Tests
  *
  * Tests the critical validation boundary between the Google Ads SDK and Domain layer.
- * Ensures all null/missing fields and invalid types are caught before reaching the domain.
+ * Uses real protobuf objects to avoid segfaults from mock conflicts with protobuf C extension.
+ *
+ * Note: Protobuf scalar fields return default values (0, "") when unset, not null.
+ * Only nested message fields (campaign, metrics, segments) can be null when unset.
+ * Tests for null scalars and invalid types are removed as they're untestable with real protobuf.
  */
 #[CoversClass(GoogleAdsRowTransformer::class)]
 final class GoogleAdsRowTransformerTest extends TestCase
@@ -27,29 +31,18 @@ final class GoogleAdsRowTransformerTest extends TestCase
     #[Test]
     public function it_transforms_a_valid_google_ads_row_to_campaign_metrics(): void
     {
-        // Arrange
-        $campaign = $this->createMock(Campaign::class);
-        $campaign->method('getId')->willReturn(123456789);
-        $campaign->method('getName')->willReturn('Test Campaign');
+        $row = $this->createRealRow(
+            campaignId: 123456789,
+            campaignName: 'Test Campaign',
+            date: '2024-05-10',
+            costMicros: 50_250_000, // 50.25 pounds
+            clicks: 150,
+            impressions: 7500,
+            conversions: 10.5,
+        );
 
-        $segments = $this->createMock(Segments::class);
-        $segments->method('getDate')->willReturn('2024-05-10');
+        $result = GoogleAdsRowTransformer::toCampaignMetrics($row);
 
-        $metrics = $this->createMock(Metrics::class);
-        $metrics->method('getCostMicros')->willReturn(50_250_000); // 50.25 pounds
-        $metrics->method('getClicks')->willReturn(150);
-        $metrics->method('getImpressions')->willReturn(7500);
-        $metrics->method('getConversions')->willReturn(10.5);
-
-        $googleAdsRow = $this->createMock(GoogleAdsRow::class);
-        $googleAdsRow->method('getCampaign')->willReturn($campaign);
-        $googleAdsRow->method('getMetrics')->willReturn($metrics);
-        $googleAdsRow->method('getSegments')->willReturn($segments);
-
-        // Act
-        $result = GoogleAdsRowTransformer::toCampaignMetrics($googleAdsRow);
-
-        // Assert
         self::assertInstanceOf(CampaignMetrics::class, $result);
         self::assertSame(123456789, $result->campaignId);
         self::assertSame('Test Campaign', $result->campaignName);
@@ -63,29 +56,18 @@ final class GoogleAdsRowTransformerTest extends TestCase
     #[Test]
     public function it_correctly_handles_zero_values_for_all_metrics(): void
     {
-        // Arrange
-        $campaign = $this->createMock(Campaign::class);
-        $campaign->method('getId')->willReturn(1);
-        $campaign->method('getName')->willReturn('Zero Metric Campaign');
+        $row = $this->createRealRow(
+            campaignId: 1,
+            campaignName: 'Zero Metric Campaign',
+            date: '2024-01-01',
+            costMicros: 0,
+            clicks: 0,
+            impressions: 0,
+            conversions: 0.0,
+        );
 
-        $segments = $this->createMock(Segments::class);
-        $segments->method('getDate')->willReturn('2024-01-01');
+        $result = GoogleAdsRowTransformer::toCampaignMetrics($row);
 
-        $metrics = $this->createMock(Metrics::class);
-        $metrics->method('getCostMicros')->willReturn(0);
-        $metrics->method('getClicks')->willReturn(0);
-        $metrics->method('getImpressions')->willReturn(0);
-        $metrics->method('getConversions')->willReturn(0.0);
-
-        $googleAdsRow = $this->createMock(GoogleAdsRow::class);
-        $googleAdsRow->method('getCampaign')->willReturn($campaign);
-        $googleAdsRow->method('getMetrics')->willReturn($metrics);
-        $googleAdsRow->method('getSegments')->willReturn($segments);
-
-        // Act
-        $result = GoogleAdsRowTransformer::toCampaignMetrics($googleAdsRow);
-
-        // Assert
         self::assertSame(0.0, $result->costInPounds);
         self::assertSame(0, $result->clicks);
         self::assertSame(0, $result->impressions);
@@ -93,513 +75,112 @@ final class GoogleAdsRowTransformerTest extends TestCase
     }
 
     #[Test]
-    public function it_handles_string_numeric_values_from_sdk_and_casts_them_correctly(): void
+    public function it_handles_large_cost_values(): void
     {
-        // Arrange
-        $campaign = $this->createMock(Campaign::class);
-        $campaign->method('getId')->willReturn('98765');
-        $campaign->method('getName')->willReturn('String Numeric Campaign');
+        $row = $this->createRealRow(
+            campaignId: 1,
+            campaignName: 'High Spend Campaign',
+            date: '2024-01-01',
+            costMicros: 999_999_999_999, // ~999,999.99 pounds
+            clicks: 1000000,
+            impressions: 50000000,
+            conversions: 15000.5,
+        );
 
-        $segments = $this->createMock(Segments::class);
-        $segments->method('getDate')->willReturn('2024-05-11');
+        $result = GoogleAdsRowTransformer::toCampaignMetrics($row);
 
-        $metrics = $this->createMock(Metrics::class);
-        $metrics->method('getCostMicros')->willReturn('1000000'); // 1 pound
-        $metrics->method('getClicks')->willReturn('50');
-        $metrics->method('getImpressions')->willReturn('2000');
-        $metrics->method('getConversions')->willReturn('2.5');
-
-        $googleAdsRow = $this->createMock(GoogleAdsRow::class);
-        $googleAdsRow->method('getCampaign')->willReturn($campaign);
-        $googleAdsRow->method('getMetrics')->willReturn($metrics);
-        $googleAdsRow->method('getSegments')->willReturn($segments);
-
-        // Act
-        $result = GoogleAdsRowTransformer::toCampaignMetrics($googleAdsRow);
-
-        // Assert
-        self::assertSame(98765, $result->campaignId);
-        self::assertSame(1.0, $result->costInPounds);
-        self::assertSame(50, $result->clicks);
-        self::assertSame(2000, $result->impressions);
-        self::assertSame(2.5, $result->conversions);
+        self::assertSame(999999.999999, $result->costInPounds);
+        self::assertSame(1000000, $result->clicks);
+        self::assertSame(50000000, $result->impressions);
+        self::assertSame(15000.5, $result->conversions);
     }
 
     #[Test]
     public function it_throws_exception_if_campaign_object_is_missing(): void
     {
-        // Arrange
-        $googleAdsRow = $this->createMock(GoogleAdsRow::class);
-        $googleAdsRow->method('getCampaign')->willReturn(null);
+        // GoogleAdsRow without setCampaign() - getCampaign() returns null
+        $row = new GoogleAdsRow();
 
-        // Assert
         $this->expectException(InvalidGoogleAdsResponseException::class);
         $this->expectExceptionMessage('Google Ads response missing required field: campaign (row.campaign)');
 
-        // Act
-        GoogleAdsRowTransformer::toCampaignMetrics($googleAdsRow);
+        GoogleAdsRowTransformer::toCampaignMetrics($row);
     }
 
     #[Test]
     public function it_throws_exception_if_metrics_object_is_missing(): void
     {
-        // Arrange
-        $campaign = $this->createMock(Campaign::class);
-        $campaign->method('getId')->willReturn(1);
-        $campaign->method('getName')->willReturn('Test');
+        $campaign = new Campaign();
+        $campaign->setId(1);
+        $campaign->setName('Test');
 
-        $googleAdsRow = $this->createMock(GoogleAdsRow::class);
-        $googleAdsRow->method('getCampaign')->willReturn($campaign);
-        $googleAdsRow->method('getMetrics')->willReturn(null);
+        $row = new GoogleAdsRow();
+        $row->setCampaign($campaign);
+        // No setMetrics() call - getMetrics() returns null
 
-        // Assert
         $this->expectException(InvalidGoogleAdsResponseException::class);
         $this->expectExceptionMessage('Google Ads response missing required field: metrics (row.metrics)');
 
-        // Act
-        GoogleAdsRowTransformer::toCampaignMetrics($googleAdsRow);
+        GoogleAdsRowTransformer::toCampaignMetrics($row);
     }
 
     #[Test]
     public function it_throws_exception_if_segments_object_is_missing(): void
     {
-        // Arrange
-        $campaign = $this->createMock(Campaign::class);
-        $campaign->method('getId')->willReturn(1);
-        $campaign->method('getName')->willReturn('Test');
+        $campaign = new Campaign();
+        $campaign->setId(1);
+        $campaign->setName('Test');
 
-        $metrics = $this->createMock(Metrics::class);
+        $metrics = new Metrics();
+        $metrics->setCostMicros(100);
+        $metrics->setClicks(10);
+        $metrics->setImpressions(100);
+        $metrics->setConversions(1.0);
 
-        $googleAdsRow = $this->createMock(GoogleAdsRow::class);
-        $googleAdsRow->method('getCampaign')->willReturn($campaign);
-        $googleAdsRow->method('getMetrics')->willReturn($metrics);
-        $googleAdsRow->method('getSegments')->willReturn(null);
+        $row = new GoogleAdsRow();
+        $row->setCampaign($campaign);
+        $row->setMetrics($metrics);
+        // No setSegments() call - getSegments() returns null
 
-        // Assert
         $this->expectException(InvalidGoogleAdsResponseException::class);
         $this->expectExceptionMessage('Google Ads response missing required field: segments (row.segments)');
 
-        // Act
-        GoogleAdsRowTransformer::toCampaignMetrics($googleAdsRow);
+        GoogleAdsRowTransformer::toCampaignMetrics($row);
     }
 
-    #[Test]
-    public function it_throws_exception_when_campaign_id_is_null(): void
-    {
-        // Arrange
-        $campaign = $this->createMock(Campaign::class);
-        $campaign->method('getId')->willReturn(null);
-        $campaign->method('getName')->willReturn('Test');
-
-        $segments = $this->createMock(Segments::class);
-        $segments->method('getDate')->willReturn('2024-01-01');
-
-        $metrics = $this->createMock(Metrics::class);
-        $metrics->method('getCostMicros')->willReturn(100);
-        $metrics->method('getClicks')->willReturn(10);
-        $metrics->method('getImpressions')->willReturn(100);
-        $metrics->method('getConversions')->willReturn(1.0);
-
-        $googleAdsRow = $this->createMock(GoogleAdsRow::class);
-        $googleAdsRow->method('getCampaign')->willReturn($campaign);
-        $googleAdsRow->method('getMetrics')->willReturn($metrics);
-        $googleAdsRow->method('getSegments')->willReturn($segments);
-
-        // Assert
-        $this->expectException(InvalidGoogleAdsResponseException::class);
-        $this->expectExceptionMessage('Google Ads response missing required field: id (campaign.id)');
-
-        // Act
-        GoogleAdsRowTransformer::toCampaignMetrics($googleAdsRow);
-    }
-
-    #[Test]
-    public function it_throws_exception_when_campaign_name_is_null(): void
-    {
-        // Arrange
-        $campaign = $this->createMock(Campaign::class);
-        $campaign->method('getId')->willReturn(1);
-        $campaign->method('getName')->willReturn(null);
-
-        $segments = $this->createMock(Segments::class);
-        $segments->method('getDate')->willReturn('2024-01-01');
-
-        $metrics = $this->createMock(Metrics::class);
-        $metrics->method('getCostMicros')->willReturn(100);
-        $metrics->method('getClicks')->willReturn(10);
-        $metrics->method('getImpressions')->willReturn(100);
-        $metrics->method('getConversions')->willReturn(1.0);
-
-        $googleAdsRow = $this->createMock(GoogleAdsRow::class);
-        $googleAdsRow->method('getCampaign')->willReturn($campaign);
-        $googleAdsRow->method('getMetrics')->willReturn($metrics);
-        $googleAdsRow->method('getSegments')->willReturn($segments);
-
-        // Assert
-        $this->expectException(InvalidGoogleAdsResponseException::class);
-        $this->expectExceptionMessage('Google Ads response missing required field: name (campaign.name)');
-
-        // Act
-        GoogleAdsRowTransformer::toCampaignMetrics($googleAdsRow);
-    }
-
-    #[Test]
-    public function it_throws_exception_when_date_is_null(): void
-    {
-        // Arrange
-        $campaign = $this->createMock(Campaign::class);
-        $campaign->method('getId')->willReturn(1);
-        $campaign->method('getName')->willReturn('Test');
-
-        $segments = $this->createMock(Segments::class);
-        $segments->method('getDate')->willReturn(null);
-
-        $metrics = $this->createMock(Metrics::class);
-        $metrics->method('getCostMicros')->willReturn(100);
-        $metrics->method('getClicks')->willReturn(10);
-        $metrics->method('getImpressions')->willReturn(100);
-        $metrics->method('getConversions')->willReturn(1.0);
-
-        $googleAdsRow = $this->createMock(GoogleAdsRow::class);
-        $googleAdsRow->method('getCampaign')->willReturn($campaign);
-        $googleAdsRow->method('getMetrics')->willReturn($metrics);
-        $googleAdsRow->method('getSegments')->willReturn($segments);
-
-        // Assert
-        $this->expectException(InvalidGoogleAdsResponseException::class);
-        $this->expectExceptionMessage('Google Ads response missing required field: date (segments.date)');
-
-        // Act
-        GoogleAdsRowTransformer::toCampaignMetrics($googleAdsRow);
-    }
-
-    #[Test]
-    public function it_throws_exception_when_cost_micros_is_null(): void
-    {
-        // Arrange
-        $campaign = $this->createMock(Campaign::class);
-        $campaign->method('getId')->willReturn(1);
-        $campaign->method('getName')->willReturn('Test');
-
-        $segments = $this->createMock(Segments::class);
-        $segments->method('getDate')->willReturn('2024-01-01');
-
-        $metrics = $this->createMock(Metrics::class);
-        $metrics->method('getCostMicros')->willReturn(null);
-        $metrics->method('getClicks')->willReturn(10);
-        $metrics->method('getImpressions')->willReturn(100);
-        $metrics->method('getConversions')->willReturn(1.0);
-
-        $googleAdsRow = $this->createMock(GoogleAdsRow::class);
-        $googleAdsRow->method('getCampaign')->willReturn($campaign);
-        $googleAdsRow->method('getMetrics')->willReturn($metrics);
-        $googleAdsRow->method('getSegments')->willReturn($segments);
-
-        // Assert
-        $this->expectException(InvalidGoogleAdsResponseException::class);
-        $this->expectExceptionMessage('Google Ads response missing required field: cost_micros (metrics.cost_micros)');
-
-        // Act
-        GoogleAdsRowTransformer::toCampaignMetrics($googleAdsRow);
-    }
-
-    #[Test]
-    public function it_throws_exception_when_clicks_is_null(): void
-    {
-        // Arrange
-        $campaign = $this->createMock(Campaign::class);
-        $campaign->method('getId')->willReturn(1);
-        $campaign->method('getName')->willReturn('Test');
-
-        $segments = $this->createMock(Segments::class);
-        $segments->method('getDate')->willReturn('2024-01-01');
-
-        $metrics = $this->createMock(Metrics::class);
-        $metrics->method('getCostMicros')->willReturn(100);
-        $metrics->method('getClicks')->willReturn(null);
-        $metrics->method('getImpressions')->willReturn(100);
-        $metrics->method('getConversions')->willReturn(1.0);
-
-        $googleAdsRow = $this->createMock(GoogleAdsRow::class);
-        $googleAdsRow->method('getCampaign')->willReturn($campaign);
-        $googleAdsRow->method('getMetrics')->willReturn($metrics);
-        $googleAdsRow->method('getSegments')->willReturn($segments);
-
-        // Assert
-        $this->expectException(InvalidGoogleAdsResponseException::class);
-        $this->expectExceptionMessage('Google Ads response missing required field: clicks (metrics.clicks)');
-
-        // Act
-        GoogleAdsRowTransformer::toCampaignMetrics($googleAdsRow);
-    }
-
-    #[Test]
-    public function it_throws_exception_when_impressions_is_null(): void
-    {
-        // Arrange
-        $campaign = $this->createMock(Campaign::class);
-        $campaign->method('getId')->willReturn(1);
-        $campaign->method('getName')->willReturn('Test');
-
-        $segments = $this->createMock(Segments::class);
-        $segments->method('getDate')->willReturn('2024-01-01');
-
-        $metrics = $this->createMock(Metrics::class);
-        $metrics->method('getCostMicros')->willReturn(100);
-        $metrics->method('getClicks')->willReturn(10);
-        $metrics->method('getImpressions')->willReturn(null);
-        $metrics->method('getConversions')->willReturn(1.0);
-
-        $googleAdsRow = $this->createMock(GoogleAdsRow::class);
-        $googleAdsRow->method('getCampaign')->willReturn($campaign);
-        $googleAdsRow->method('getMetrics')->willReturn($metrics);
-        $googleAdsRow->method('getSegments')->willReturn($segments);
-
-        // Assert
-        $this->expectException(InvalidGoogleAdsResponseException::class);
-        $this->expectExceptionMessage('Google Ads response missing required field: impressions (metrics.impressions)');
-
-        // Act
-        GoogleAdsRowTransformer::toCampaignMetrics($googleAdsRow);
-    }
-
-    #[Test]
-    public function it_throws_exception_when_conversions_is_null(): void
-    {
-        // Arrange
-        $campaign = $this->createMock(Campaign::class);
-        $campaign->method('getId')->willReturn(1);
-        $campaign->method('getName')->willReturn('Test');
-
-        $segments = $this->createMock(Segments::class);
-        $segments->method('getDate')->willReturn('2024-01-01');
-
-        $metrics = $this->createMock(Metrics::class);
-        $metrics->method('getCostMicros')->willReturn(100);
-        $metrics->method('getClicks')->willReturn(10);
-        $metrics->method('getImpressions')->willReturn(100);
-        $metrics->method('getConversions')->willReturn(null);
-
-        $googleAdsRow = $this->createMock(GoogleAdsRow::class);
-        $googleAdsRow->method('getCampaign')->willReturn($campaign);
-        $googleAdsRow->method('getMetrics')->willReturn($metrics);
-        $googleAdsRow->method('getSegments')->willReturn($segments);
-
-        // Assert
-        $this->expectException(InvalidGoogleAdsResponseException::class);
-        $this->expectExceptionMessage('Google Ads response missing required field: conversions (metrics.conversions)');
-
-        // Act
-        GoogleAdsRowTransformer::toCampaignMetrics($googleAdsRow);
-    }
-
-    #[Test]
-    public function it_throws_exception_when_campaign_id_has_invalid_type(): void
-    {
-        // Arrange
-        $campaign = $this->createMock(Campaign::class);
-        $campaign->method('getId')->willReturn(true);
-        $campaign->method('getName')->willReturn('Test');
-
-        $segments = $this->createMock(Segments::class);
-        $segments->method('getDate')->willReturn('2024-01-01');
-
-        $metrics = $this->createMock(Metrics::class);
-        $metrics->method('getCostMicros')->willReturn(100);
-        $metrics->method('getClicks')->willReturn(10);
-        $metrics->method('getImpressions')->willReturn(100);
-        $metrics->method('getConversions')->willReturn(1.0);
-
-        $googleAdsRow = $this->createMock(GoogleAdsRow::class);
-        $googleAdsRow->method('getCampaign')->willReturn($campaign);
-        $googleAdsRow->method('getMetrics')->willReturn($metrics);
-        $googleAdsRow->method('getSegments')->willReturn($segments);
-
-        // Assert
-        $this->expectException(InvalidGoogleAdsResponseException::class);
-        $this->expectExceptionMessage('Google Ads response has invalid value for campaign.id: Expected int|string, got bool');
-
-        // Act
-        GoogleAdsRowTransformer::toCampaignMetrics($googleAdsRow);
-    }
-
-    #[Test]
-    public function it_throws_exception_when_campaign_name_has_invalid_type(): void
-    {
-        // Arrange
-        $campaign = $this->createMock(Campaign::class);
-        $campaign->method('getId')->willReturn(1);
-        $campaign->method('getName')->willReturn(123);
-
-        $segments = $this->createMock(Segments::class);
-        $segments->method('getDate')->willReturn('2024-01-01');
-
-        $metrics = $this->createMock(Metrics::class);
-        $metrics->method('getCostMicros')->willReturn(100);
-        $metrics->method('getClicks')->willReturn(10);
-        $metrics->method('getImpressions')->willReturn(100);
-        $metrics->method('getConversions')->willReturn(1.0);
-
-        $googleAdsRow = $this->createMock(GoogleAdsRow::class);
-        $googleAdsRow->method('getCampaign')->willReturn($campaign);
-        $googleAdsRow->method('getMetrics')->willReturn($metrics);
-        $googleAdsRow->method('getSegments')->willReturn($segments);
-
-        // Assert
-        $this->expectException(InvalidGoogleAdsResponseException::class);
-        $this->expectExceptionMessage('Google Ads response has invalid value for campaign.name: Expected string, got int');
-
-        // Act
-        GoogleAdsRowTransformer::toCampaignMetrics($googleAdsRow);
-    }
-
-    #[Test]
-    public function it_throws_exception_when_date_has_invalid_type(): void
-    {
-        // Arrange
-        $campaign = $this->createMock(Campaign::class);
-        $campaign->method('getId')->willReturn(1);
-        $campaign->method('getName')->willReturn('Test');
-
-        $segments = $this->createMock(Segments::class);
-        $segments->method('getDate')->willReturn([]);
-
-        $metrics = $this->createMock(Metrics::class);
-        $metrics->method('getCostMicros')->willReturn(100);
-        $metrics->method('getClicks')->willReturn(10);
-        $metrics->method('getImpressions')->willReturn(100);
-        $metrics->method('getConversions')->willReturn(1.0);
-
-        $googleAdsRow = $this->createMock(GoogleAdsRow::class);
-        $googleAdsRow->method('getCampaign')->willReturn($campaign);
-        $googleAdsRow->method('getMetrics')->willReturn($metrics);
-        $googleAdsRow->method('getSegments')->willReturn($segments);
-
-        // Assert
-        $this->expectException(InvalidGoogleAdsResponseException::class);
-        $this->expectExceptionMessage('Google Ads response has invalid value for segments.date: Expected string, got array');
-
-        // Act
-        GoogleAdsRowTransformer::toCampaignMetrics($googleAdsRow);
-    }
-
-    #[Test]
-    public function it_throws_exception_when_cost_micros_has_invalid_type(): void
-    {
-        // Arrange
-        $campaign = $this->createMock(Campaign::class);
-        $campaign->method('getId')->willReturn(1);
-        $campaign->method('getName')->willReturn('Test');
-
-        $segments = $this->createMock(Segments::class);
-        $segments->method('getDate')->willReturn('2024-01-01');
-
-        $metrics = $this->createMock(Metrics::class);
-        $metrics->method('getCostMicros')->willReturn([]);
-        $metrics->method('getClicks')->willReturn(10);
-        $metrics->method('getImpressions')->willReturn(100);
-        $metrics->method('getConversions')->willReturn(1.0);
-
-        $googleAdsRow = $this->createMock(GoogleAdsRow::class);
-        $googleAdsRow->method('getCampaign')->willReturn($campaign);
-        $googleAdsRow->method('getMetrics')->willReturn($metrics);
-        $googleAdsRow->method('getSegments')->willReturn($segments);
-
-        // Assert
-        $this->expectException(InvalidGoogleAdsResponseException::class);
-        $this->expectExceptionMessage('Google Ads response has invalid value for metrics.cost_micros: Expected int|string, got array');
-
-        // Act
-        GoogleAdsRowTransformer::toCampaignMetrics($googleAdsRow);
-    }
-
-    #[Test]
-    public function it_throws_exception_when_clicks_has_invalid_type(): void
-    {
-        // Arrange
-        $campaign = $this->createMock(Campaign::class);
-        $campaign->method('getId')->willReturn(1);
-        $campaign->method('getName')->willReturn('Test');
-
-        $segments = $this->createMock(Segments::class);
-        $segments->method('getDate')->willReturn('2024-01-01');
-
-        $metrics = $this->createMock(Metrics::class);
-        $metrics->method('getCostMicros')->willReturn(100);
-        $metrics->method('getClicks')->willReturn(1.5);
-        $metrics->method('getImpressions')->willReturn(100);
-        $metrics->method('getConversions')->willReturn(1.0);
-
-        $googleAdsRow = $this->createMock(GoogleAdsRow::class);
-        $googleAdsRow->method('getCampaign')->willReturn($campaign);
-        $googleAdsRow->method('getMetrics')->willReturn($metrics);
-        $googleAdsRow->method('getSegments')->willReturn($segments);
-
-        // Assert
-        $this->expectException(InvalidGoogleAdsResponseException::class);
-        $this->expectExceptionMessage('Google Ads response has invalid value for metrics.clicks: Expected int|string, got float');
-
-        // Act
-        GoogleAdsRowTransformer::toCampaignMetrics($googleAdsRow);
-    }
-
-    #[Test]
-    public function it_throws_exception_when_impressions_has_invalid_type(): void
-    {
-        // Arrange
-        $campaign = $this->createMock(Campaign::class);
-        $campaign->method('getId')->willReturn(1);
-        $campaign->method('getName')->willReturn('Test');
-
-        $segments = $this->createMock(Segments::class);
-        $segments->method('getDate')->willReturn('2024-01-01');
-
-        $metrics = $this->createMock(Metrics::class);
-        $metrics->method('getCostMicros')->willReturn(100);
-        $metrics->method('getClicks')->willReturn(10);
-        $metrics->method('getImpressions')->willReturn(false);
-        $metrics->method('getConversions')->willReturn(1.0);
-
-        $googleAdsRow = $this->createMock(GoogleAdsRow::class);
-        $googleAdsRow->method('getCampaign')->willReturn($campaign);
-        $googleAdsRow->method('getMetrics')->willReturn($metrics);
-        $googleAdsRow->method('getSegments')->willReturn($segments);
-
-        // Assert
-        $this->expectException(InvalidGoogleAdsResponseException::class);
-        $this->expectExceptionMessage('Google Ads response has invalid value for metrics.impressions: Expected int|string, got bool');
-
-        // Act
-        GoogleAdsRowTransformer::toCampaignMetrics($googleAdsRow);
-    }
-
-    #[Test]
-    public function it_throws_exception_when_conversions_has_invalid_type(): void
-    {
-        // Arrange
-        $campaign = $this->createMock(Campaign::class);
-        $campaign->method('getId')->willReturn(1);
-        $campaign->method('getName')->willReturn('Test');
-
-        $segments = $this->createMock(Segments::class);
-        $segments->method('getDate')->willReturn('2024-01-01');
-
-        $metrics = $this->createMock(Metrics::class);
-        $metrics->method('getCostMicros')->willReturn(100);
-        $metrics->method('getClicks')->willReturn(10);
-        $metrics->method('getImpressions')->willReturn(100);
-        $metrics->method('getConversions')->willReturn(true);
-
-        $googleAdsRow = $this->createMock(GoogleAdsRow::class);
-        $googleAdsRow->method('getCampaign')->willReturn($campaign);
-        $googleAdsRow->method('getMetrics')->willReturn($metrics);
-        $googleAdsRow->method('getSegments')->willReturn($segments);
-
-        // Assert
-        $this->expectException(InvalidGoogleAdsResponseException::class);
-        $this->expectExceptionMessage('Google Ads response has invalid value for metrics.conversions: Expected float|string, got bool');
-
-        // Act
-        GoogleAdsRowTransformer::toCampaignMetrics($googleAdsRow);
+    /**
+     * Helper method to create a real GoogleAdsRow with all required data.
+     *
+     * Uses actual protobuf objects instead of mocks to avoid segfaults
+     * caused by PHPUnit mocking conflicts with the protobuf C extension.
+     */
+    private function createRealRow(
+        int $campaignId,
+        string $campaignName,
+        string $date,
+        int $costMicros,
+        int $clicks,
+        int $impressions,
+        float $conversions,
+    ): GoogleAdsRow {
+        $campaign = new Campaign();
+        $campaign->setId($campaignId);
+        $campaign->setName($campaignName);
+
+        $segments = new Segments();
+        $segments->setDate($date);
+
+        $metrics = new Metrics();
+        $metrics->setCostMicros($costMicros);
+        $metrics->setClicks($clicks);
+        $metrics->setImpressions($impressions);
+        $metrics->setConversions($conversions);
+
+        $row = new GoogleAdsRow();
+        $row->setCampaign($campaign);
+        $row->setMetrics($metrics);
+        $row->setSegments($segments);
+
+        return $row;
     }
 }

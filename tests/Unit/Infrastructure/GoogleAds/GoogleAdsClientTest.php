@@ -33,8 +33,8 @@ use Tests\TestCase;
  * - Response transformation to domain value objects
  * - Exception propagation from transport layer
  *
- * Note: Exception translation tests are in GoogleAdsTransportTest.
- * This class focuses on query construction and transformation.
+ * Note: Uses real protobuf objects instead of mocks to avoid segfaults
+ * from mock conflicts with protobuf C extension.
  */
 #[CoversClass(GoogleAdsClient::class)]
 final class GoogleAdsClientTest extends TestCase
@@ -60,7 +60,7 @@ final class GoogleAdsClientTest extends TestCase
     #[Test]
     public function it_returns_campaign_metrics_for_single_result(): void
     {
-        $row = $this->createMockCampaignMetricsRow(
+        $row = $this->createRealCampaignMetricsRow(
             campaignId: 123,
             campaignName: 'Test Campaign',
             costMicros: 50_250_000,
@@ -88,7 +88,7 @@ final class GoogleAdsClientTest extends TestCase
     #[Test]
     public function it_returns_campaign_metrics_for_multiple_results(): void
     {
-        $row1 = $this->createMockCampaignMetricsRow(
+        $row1 = $this->createRealCampaignMetricsRow(
             campaignId: 111,
             campaignName: 'Campaign 1',
             costMicros: 10_000_000,
@@ -97,7 +97,7 @@ final class GoogleAdsClientTest extends TestCase
             conversions: 5.0,
             date: '2024-05-10',
         );
-        $row2 = $this->createMockCampaignMetricsRow(
+        $row2 = $this->createRealCampaignMetricsRow(
             campaignId: 222,
             campaignName: 'Campaign 2',
             costMicros: 20_000_000,
@@ -106,7 +106,7 @@ final class GoogleAdsClientTest extends TestCase
             conversions: 10.0,
             date: '2024-05-10',
         );
-        $row3 = $this->createMockCampaignMetricsRow(
+        $row3 = $this->createRealCampaignMetricsRow(
             campaignId: 333,
             campaignName: 'Campaign 3',
             costMicros: 30_000_000,
@@ -194,7 +194,7 @@ final class GoogleAdsClientTest extends TestCase
     #[Test]
     public function it_returns_campaigns_for_single_result(): void
     {
-        $row = $this->createMockCampaignRow(
+        $row = $this->createRealCampaignRow(
             campaignId: 456,
             campaignName: 'Active Campaign',
             status: CampaignStatus::ENABLED,
@@ -214,9 +214,9 @@ final class GoogleAdsClientTest extends TestCase
     #[Test]
     public function it_returns_campaigns_for_multiple_results(): void
     {
-        $row1 = $this->createMockCampaignRow(111, 'Campaign A', CampaignStatus::ENABLED);
-        $row2 = $this->createMockCampaignRow(222, 'Campaign B', CampaignStatus::PAUSED);
-        $row3 = $this->createMockCampaignRow(333, 'Campaign C', CampaignStatus::ENABLED);
+        $row1 = $this->createRealCampaignRow(111, 'Campaign A', CampaignStatus::ENABLED);
+        $row2 = $this->createRealCampaignRow(222, 'Campaign B', CampaignStatus::PAUSED);
+        $row3 = $this->createRealCampaignRow(333, 'Campaign C', CampaignStatus::ENABLED);
 
         $this->mockTransportSearch($this->createPagedResponse([$row1, $row2, $row3]));
 
@@ -363,6 +363,8 @@ final class GoogleAdsClientTest extends TestCase
     /**
      * Create a mock PagedListResponse with given rows.
      *
+     * PagedListResponse is from Google ApiCore (not protobuf), so it's safe to mock.
+     *
      * @param list<GoogleAdsRow> $rows
      */
     private function createPagedResponse(array $rows): PagedListResponse&MockInterface
@@ -374,9 +376,12 @@ final class GoogleAdsClientTest extends TestCase
     }
 
     /**
-     * Create a mock GoogleAdsRow for campaign metrics.
+     * Create a real GoogleAdsRow for campaign metrics.
+     *
+     * Uses actual protobuf objects instead of mocks to avoid segfaults
+     * from mock conflicts with protobuf C extension.
      */
-    private function createMockCampaignMetricsRow(
+    private function createRealCampaignMetricsRow(
         int $campaignId,
         string $campaignName,
         int $costMicros,
@@ -384,43 +389,46 @@ final class GoogleAdsClientTest extends TestCase
         int $impressions,
         float $conversions,
         string $date,
-    ): GoogleAdsRow&MockInterface {
-        $campaign = Mockery::mock(GoogleCampaign::class);
-        $campaign->shouldReceive('getId')->andReturn($campaignId);
-        $campaign->shouldReceive('getName')->andReturn($campaignName);
+    ): GoogleAdsRow {
+        $campaign = new GoogleCampaign();
+        $campaign->setId($campaignId);
+        $campaign->setName($campaignName);
 
-        $metrics = Mockery::mock(Metrics::class);
-        $metrics->shouldReceive('getCostMicros')->andReturn($costMicros);
-        $metrics->shouldReceive('getClicks')->andReturn($clicks);
-        $metrics->shouldReceive('getImpressions')->andReturn($impressions);
-        $metrics->shouldReceive('getConversions')->andReturn($conversions);
+        $metrics = new Metrics();
+        $metrics->setCostMicros($costMicros);
+        $metrics->setClicks($clicks);
+        $metrics->setImpressions($impressions);
+        $metrics->setConversions($conversions);
 
-        $segments = Mockery::mock(Segments::class);
-        $segments->shouldReceive('getDate')->andReturn($date);
+        $segments = new Segments();
+        $segments->setDate($date);
 
-        $row = Mockery::mock(GoogleAdsRow::class);
-        $row->shouldReceive('getCampaign')->andReturn($campaign);
-        $row->shouldReceive('getMetrics')->andReturn($metrics);
-        $row->shouldReceive('getSegments')->andReturn($segments);
+        $row = new GoogleAdsRow();
+        $row->setCampaign($campaign);
+        $row->setMetrics($metrics);
+        $row->setSegments($segments);
 
         return $row;
     }
 
     /**
-     * Create a mock GoogleAdsRow for campaign list.
+     * Create a real GoogleAdsRow for campaign list.
+     *
+     * Uses actual protobuf objects instead of mocks to avoid segfaults
+     * from mock conflicts with protobuf C extension.
      */
-    private function createMockCampaignRow(
+    private function createRealCampaignRow(
         int $campaignId,
         string $campaignName,
         int $status,
-    ): GoogleAdsRow&MockInterface {
-        $campaign = Mockery::mock(GoogleCampaign::class);
-        $campaign->shouldReceive('getId')->andReturn($campaignId);
-        $campaign->shouldReceive('getName')->andReturn($campaignName);
-        $campaign->shouldReceive('getStatus')->andReturn($status);
+    ): GoogleAdsRow {
+        $campaign = new GoogleCampaign();
+        $campaign->setId($campaignId);
+        $campaign->setName($campaignName);
+        $campaign->setStatus($status);
 
-        $row = Mockery::mock(GoogleAdsRow::class);
-        $row->shouldReceive('getCampaign')->andReturn($campaign);
+        $row = new GoogleAdsRow();
+        $row->setCampaign($campaign);
 
         return $row;
     }
