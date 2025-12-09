@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Infrastructure\Mixpanel;
 
 use App\Application\Contracts\MixpanelClientInterface;
+use App\Domain\AdSpend\Enums\AdSource;
 use App\Domain\AdSpend\ValueObjects\Campaign;
 use App\Domain\AdSpend\ValueObjects\CampaignMetrics;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
@@ -55,17 +56,18 @@ final readonly class MixpanelClient implements MixpanelClientInterface
      * them to Infrastructure DTO for Mixpanel API formatting.
      *
      * @param array<int, CampaignMetrics> $campaigns Domain campaign metrics
+     * @param AdSource $source The ad network these campaigns originate from
      *
      * @throws ExternalServiceUnavailableException When API unavailable or request fails
      */
-    public function importCampaigns(array $campaigns): void
+    public function importCampaigns(array $campaigns, AdSource $source): void
     {
         if (\count($campaigns) === 0) {
             return;
         }
 
         $payload = \array_map(
-            static fn(CampaignMetrics $campaign): array => MixpanelAdSpendEventDTO::fromCampaignMetrics($campaign)->toMixpanelFormat(),
+            static fn(CampaignMetrics $campaign): array => MixpanelAdSpendEventDTO::fromCampaignMetrics($campaign, $source)->toMixpanelFormat(),
             $campaigns,
         );
 

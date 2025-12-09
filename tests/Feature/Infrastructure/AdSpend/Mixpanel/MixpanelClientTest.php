@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Infrastructure\AdSpend\Mixpanel;
 
+use App\Domain\AdSpend\Enums\AdSource;
 use App\Domain\AdSpend\ValueObjects\Campaign;
 use App\Domain\AdSpend\ValueObjects\CampaignMetrics;
 use App\Domain\Exceptions\AuthenticationExpiredException;
@@ -64,7 +65,7 @@ final class MixpanelClientTest extends TestCase
 
         $event = $this->createEvent();
 
-        $this->client->importCampaigns([$event]);
+        $this->client->importCampaigns([$event], AdSource::Google);
 
         Http::assertSent(static function (Request $request): bool {
             self::assertSame('POST', $request->method());
@@ -85,7 +86,7 @@ final class MixpanelClientTest extends TestCase
             $this->createEvent(campaignId: 333),
         ];
 
-        $this->client->importCampaigns($events);
+        $this->client->importCampaigns($events, AdSource::Google);
 
         Http::assertSent(static function (Request $request): bool {
             self::assertSame('POST', $request->method());
@@ -101,7 +102,7 @@ final class MixpanelClientTest extends TestCase
     {
         Http::fake(['*' => Http::response([], 200)]);
 
-        $this->client->importCampaigns([]);
+        $this->client->importCampaigns([], AdSource::Google);
 
         Http::assertNothingSent();
     }
@@ -112,7 +113,7 @@ final class MixpanelClientTest extends TestCase
         Http::fake(['*' => Http::response([], 200)]);
 
         $event = $this->createEvent();
-        $this->client->importCampaigns([$event]);
+        $this->client->importCampaigns([$event], AdSource::Google);
 
         Http::assertSent(static function (Request $request): bool {
             $expectedUrl = self::BASE_URL . '/import?project_id=' . self::PROJECT_ID;
@@ -128,7 +129,7 @@ final class MixpanelClientTest extends TestCase
         Http::fake(['*' => Http::response([], 200)]);
 
         $event = $this->createEvent();
-        $this->client->importCampaigns([$event]);
+        $this->client->importCampaigns([$event], AdSource::Google);
 
         Http::assertSent(static function (Request $request): bool {
             self::assertSame('POST', $request->method());
@@ -143,7 +144,7 @@ final class MixpanelClientTest extends TestCase
         Http::fake(['*' => Http::response([], 200)]);
 
         $event = $this->createEvent();
-        $this->client->importCampaigns([$event]);
+        $this->client->importCampaigns([$event], AdSource::Google);
 
         Http::assertSent(static function (Request $request): bool {
             $contentTypeHeader = $request->header('Content-Type');
@@ -160,7 +161,7 @@ final class MixpanelClientTest extends TestCase
         Http::fake(['*' => Http::response([], 200)]);
 
         $event = $this->createEvent();
-        $this->client->importCampaigns([$event]);
+        $this->client->importCampaigns([$event], AdSource::Google);
 
         Http::assertSent(static function (Request $request): bool {
             $authHeader = $request->header('Authorization');
@@ -177,7 +178,7 @@ final class MixpanelClientTest extends TestCase
         Http::fake(['*' => Http::response([], 200)]);
 
         $event = $this->createEvent();
-        $this->client->importCampaigns([$event]);
+        $this->client->importCampaigns([$event], AdSource::Google);
 
         Http::assertSent(static function (Request $request): bool {
             $payload = $request->data();
@@ -203,7 +204,7 @@ final class MixpanelClientTest extends TestCase
             conversions: 2.5,
         );
 
-        $this->client->importCampaigns([$event]);
+        $this->client->importCampaigns([$event], AdSource::Google);
 
         Http::assertSent(static function (Request $request): bool {
             $payload = $request->data();
@@ -237,7 +238,7 @@ final class MixpanelClientTest extends TestCase
         $this->expectException(ExternalServiceUnavailableException::class);
         $this->expectExceptionMessage("External service 'Mixpanel' is unavailable");
 
-        $this->client->importCampaigns([$event]);
+        $this->client->importCampaigns([$event], AdSource::Google);
     }
 
     #[Test]
@@ -250,7 +251,7 @@ final class MixpanelClientTest extends TestCase
         $event = $this->createEvent();
 
         try {
-            $this->client->importCampaigns([$event]);
+            $this->client->importCampaigns([$event], AdSource::Google);
         } catch (ExternalServiceUnavailableException $e) {
             self::assertNotNull($e->getPrevious());
             self::assertInstanceOf(RequestException::class, $e->getPrevious());
@@ -271,7 +272,7 @@ final class MixpanelClientTest extends TestCase
         $event = $this->createEvent();
 
         try {
-            $this->client->importCampaigns([$event]);
+            $this->client->importCampaigns([$event], AdSource::Google);
         } catch (ExternalServiceUnavailableException $e) {
             self::assertSame(180, $e->retryAfter);
 
@@ -291,7 +292,7 @@ final class MixpanelClientTest extends TestCase
         $event = $this->createEvent();
 
         try {
-            $this->client->importCampaigns([$event]);
+            $this->client->importCampaigns([$event], AdSource::Google);
         } catch (ExternalServiceUnavailableException $e) {
             self::assertNull($e->retryAfter); // Null when API doesn't specify
 
@@ -311,7 +312,7 @@ final class MixpanelClientTest extends TestCase
         $event = $this->createEvent();
 
         try {
-            $this->client->importCampaigns([$event]);
+            $this->client->importCampaigns([$event], AdSource::Google);
         } catch (ExternalServiceUnavailableException $e) {
             self::assertNull($e->retryAfter); // Zero is invalid per RFC 7231
 
@@ -331,7 +332,7 @@ final class MixpanelClientTest extends TestCase
         $event = $this->createEvent();
 
         try {
-            $this->client->importCampaigns([$event]);
+            $this->client->importCampaigns([$event], AdSource::Google);
         } catch (ExternalServiceUnavailableException $e) {
             self::assertNull($e->retryAfter); // Negative is invalid per RFC 7231
 
@@ -351,7 +352,7 @@ final class MixpanelClientTest extends TestCase
         $event = $this->createEvent();
 
         try {
-            $this->client->importCampaigns([$event]);
+            $this->client->importCampaigns([$event], AdSource::Google);
         } catch (ExternalServiceUnavailableException $e) {
             self::assertSame(1, $e->retryAfter); // Boundary: exactly 1 is valid
 
@@ -371,7 +372,7 @@ final class MixpanelClientTest extends TestCase
         $this->expectException(InvalidApiRequestException::class);
         $this->expectExceptionMessage('Invalid payload');
 
-        $this->client->importCampaigns([$event]);
+        $this->client->importCampaigns([$event], AdSource::Google);
     }
 
     #[Test]
@@ -384,7 +385,7 @@ final class MixpanelClientTest extends TestCase
         $this->expectException(AuthenticationExpiredException::class);
         $this->expectExceptionMessage('Invalid credentials');
 
-        $this->client->importCampaigns([$event]);
+        $this->client->importCampaigns([$event], AdSource::Google);
     }
 
     #[Test]
@@ -396,7 +397,7 @@ final class MixpanelClientTest extends TestCase
 
         $this->expectException(ExternalServiceUnavailableException::class);
 
-        $this->client->importCampaigns([$event]);
+        $this->client->importCampaigns([$event], AdSource::Google);
     }
 
     #[Test]
@@ -407,7 +408,7 @@ final class MixpanelClientTest extends TestCase
         $event = $this->createEvent();
 
         try {
-            $this->client->importCampaigns([$event]);
+            $this->client->importCampaigns([$event], AdSource::Google);
         } catch (InvalidApiRequestException $e) {
             self::assertNotNull($e->getPrevious());
             self::assertInstanceOf(RequestException::class, $e->getPrevious());
@@ -750,7 +751,7 @@ final class MixpanelClientTest extends TestCase
         $this->expectException(PayloadSerializationException::class);
         $this->expectExceptionMessage('Mixpanel');
 
-        $this->client->importCampaigns([$event]);
+        $this->client->importCampaigns([$event], AdSource::Google);
     }
 
     private function createEvent(

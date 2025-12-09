@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Application\Contracts;
 
+use App\Domain\AdSpend\Enums\AdSource;
 use App\Domain\AdSpend\ValueObjects\Campaign;
 use App\Domain\AdSpend\ValueObjects\CampaignMetrics;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
@@ -28,11 +29,12 @@ interface MixpanelClientInterface
      * handles internal transformation to Mixpanel event format.
      *
      * @param array<int, CampaignMetrics> $campaigns
+     * @param AdSource $source The ad network these campaigns originate from
      *
      * @throws ExternalServiceUnavailableException When API unavailable or request fails
      * @throws PayloadSerializationException When payload cannot be encoded (data integrity issue)
      */
-    public function importCampaigns(array $campaigns): void;
+    public function importCampaigns(array $campaigns, AdSource $source): void;
 
     /**
      * Replace the campaign lookup table with latest campaign data.
