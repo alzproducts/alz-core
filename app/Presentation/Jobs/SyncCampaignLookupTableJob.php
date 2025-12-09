@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Presentation\Jobs;
 
 use App\Application\AdSpend\UseCases\SyncCampaignLookupTableUseCase;
+use App\Domain\Exceptions\AuthenticationExpiredException;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\UnexpectedApiResultException;
 use Illuminate\Bus\Queueable;
@@ -60,6 +61,15 @@ final class SyncCampaignLookupTableJob implements ShouldQueue
             Log::critical('Unexpected API result during campaign lookup table sync, failing immediately', [
                 'service' => $e->serviceName,
                 'reason' => $e->reason,
+                'attempts' => $this->attempts(),
+            ]);
+
+            $this->fail($e);
+        } catch (AuthenticationExpiredException $e) {
+            // Permanent failure - credentials need fixing, don't waste retries
+            Log::critical('Authentication failed during campaign lookup table sync, failing immediately', [
+                'service' => $e->serviceName,
+                'message' => $e->getMessage(),
                 'attempts' => $this->attempts(),
             ]);
 
