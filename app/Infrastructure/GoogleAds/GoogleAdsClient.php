@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Infrastructure\GoogleAds;
 
 use App\Application\Contracts\GoogleAdsClientInterface;
+use App\Domain\AdSpend\Enums\AdSource;
 use App\Domain\AdSpend\ValueObjects\Campaign;
 use App\Domain\AdSpend\ValueObjects\CampaignMetrics;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
@@ -33,6 +34,11 @@ final readonly class GoogleAdsClient implements GoogleAdsClientInterface
     public function __construct(
         private GoogleAdsTransport $transport,
     ) {}
+
+    public function getSource(): AdSource
+    {
+        return AdSource::Google;
+    }
 
     /**
      * Verify connectivity and authentication with Google Ads API.
