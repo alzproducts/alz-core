@@ -37,7 +37,6 @@ use Illuminate\Support\Facades\Log;
 final readonly class GoogleAdsTransport
 {
     private const string SERVICE_NAME = 'Google Ads';
-    private const int PAGE_SIZE = 10000;
 
     public function __construct(
         private SdkGoogleAdsClient $sdkClient,
@@ -73,7 +72,7 @@ final readonly class GoogleAdsTransport
         $request = new SearchGoogleAdsRequest();
         $request->setCustomerId($this->config->customerId);
         $request->setQuery($query);
-        $request->setPageSize(self::PAGE_SIZE);
+        // Note: Page size is fixed at 10000 by the API; explicit setting not supported
 
         return $request;
     }
