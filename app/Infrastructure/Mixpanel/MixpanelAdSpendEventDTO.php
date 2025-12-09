@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Mixpanel;
 
+use App\Domain\AdSpend\Enums\AdSource;
 use App\Domain\AdSpend\ValueObjects\CampaignMetrics;
 use Webmozart\Assert\Assert;
 
@@ -37,21 +38,22 @@ final readonly class MixpanelAdSpendEventDTO
      * Infrastructure-specific DTO for Mixpanel API formatting.
      *
      * @param CampaignMetrics $campaign Domain object with campaign metrics
+     * @param AdSource $source The ad network these metrics originate from
      * @return self Infrastructure DTO ready for Mixpanel import
      */
-    public static function fromCampaignMetrics(CampaignMetrics $campaign): self
+    public static function fromCampaignMetrics(CampaignMetrics $campaign, AdSource $source): self
     {
         return new self(
-            insertId: self::generateInsertId($campaign),
+            insertId: self::generateInsertId($campaign, $source),
             timestamp: (int) \strtotime($campaign->date . ' UTC'),
-            source: 'Google',
+            source: $source->value,
             campaignId: $campaign->campaignId,
             campaignName: $campaign->campaignName,
             cost: $campaign->costInPounds,
             clicks: $campaign->clicks,
             impressions: $campaign->impressions,
             conversions: $campaign->conversions,
-            utmSource: 'google',
+            utmSource: $source->utmSource(),
             utmMedium: 'cpc',
             utmCampaign: $campaign->campaignName,
         );
@@ -87,14 +89,15 @@ final readonly class MixpanelAdSpendEventDTO
     /**
      * Generate deduplication ID for Mixpanel.
      *
-     * Format: "G-{date}-{id}" (e.g., "G-2024-11-18-123456")
+     * Format: "{prefix}-{date}-{id}" (e.g., "G-2024-11-18-123456" for Google)
      * Hashed to 36 chars max if original exceeds limit.
      *
      * @return string Deduplication ID
      */
-    private static function generateInsertId(CampaignMetrics $campaign): string
+    private static function generateInsertId(CampaignMetrics $campaign, AdSource $source): string
     {
-        $raw = "G-{$campaign->date}-{$campaign->campaignId}";
+        $prefix = $source->prefix();
+        $raw = "{$prefix}-{$campaign->date}-{$campaign->campaignId}";
 
         // Mixpanel $insert_id limit: 36 characters
         if (\mb_strlen($raw) > 36) {

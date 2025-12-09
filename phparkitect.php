@@ -461,12 +461,14 @@ return static function (Config $config): void {
                        'App\Domain\*\ValueObjects',
                        'App\Domain\Entities',
                        'App\Domain\*\Entities',
+                       'App\Domain\Enums',
+                       'App\Domain\*\Enums',
                        'App\Domain\Exceptions',
                        'App\Domain\*\Exceptions',
                        'App\Domain\Contracts',
                    ))
                    ->because(
-                       'Domain classes must be organized into Value Objects, Entities, Exceptions, '
+                       'Domain classes must be organized into Value Objects, Entities, Enums, Exceptions, '
                        . 'or Contracts subdirectories for discoverability and maintainability.',
                    );
 

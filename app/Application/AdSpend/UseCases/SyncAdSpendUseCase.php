@@ -6,6 +6,7 @@ namespace App\Application\AdSpend\UseCases;
 
 use App\Application\Contracts\GoogleAdsClientInterface;
 use App\Application\Contracts\MixpanelClientInterface;
+use App\Domain\AdSpend\Enums\AdSource;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use InvalidArgumentException;
 use Psr\Log\LoggerInterface;
@@ -53,7 +54,7 @@ final readonly class SyncAdSpendUseCase
 
         // Step 3: Import campaign metrics to Mixpanel
         // Infrastructure layer handles internal transformation to Mixpanel event format
-        $this->mixpanel->importCampaigns($campaigns);
+        $this->mixpanel->importCampaigns($campaigns, AdSource::Google);
 
         $this->logger->info('Ad spend sync completed', [
             'date' => $date,
