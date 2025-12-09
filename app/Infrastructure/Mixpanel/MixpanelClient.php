@@ -98,7 +98,7 @@ final readonly class MixpanelClient implements MixpanelClientInterface
 
         $this->transport->request(
             method: 'PUT',
-            url: "{$this->config->dataApiBaseUrl}/lookup_tables/{$this->config->projectId}/{$this->config->lookupTableId}",
+            url: "{$this->config->dataApiBaseUrl}/lookup-tables/{$this->config->lookupTableId}?project_id={$this->config->projectId}",
             body: $csv,
             contentType: 'text/csv',
         );

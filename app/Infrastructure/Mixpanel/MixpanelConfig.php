@@ -16,7 +16,7 @@ use RuntimeException;
  *
  * Mixpanel uses two base URLs:
  * - Main API (mixpanel.com): Authentication and account endpoints
- * - Data API (api.mixpanel.com): Event ingestion and lookup tables
+ * - Data API (api-eu.mixpanel.com): Event ingestion and lookup tables
  *
  * @template-pattern API Client Config Value Object
  */
@@ -30,7 +30,7 @@ final readonly class MixpanelConfig
     /**
      * Default Mixpanel Data API base URL.
      */
-    public const string DEFAULT_DATA_API_URL = 'https://api.mixpanel.com';
+    public const string DEFAULT_DATA_API_URL = 'https://api-eu.mixpanel.com';
 
     /**
      * Maximum allowed timeout in seconds.
