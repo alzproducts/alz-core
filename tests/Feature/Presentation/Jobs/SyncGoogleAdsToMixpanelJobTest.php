@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace Tests\Feature\Presentation\Jobs;
 
 use App\Application\AdSpend\UseCases\SyncAdSpendUseCase;
-use App\Application\Contracts\GoogleAdsClientInterface;
+use App\Application\Contracts\AdSpendClientInterface;
 use App\Application\Contracts\MixpanelClientInterface;
+use App\Domain\AdSpend\Enums\AdSource;
 use App\Domain\AdSpend\ValueObjects\CampaignMetrics;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\PayloadSerializationException;
 use App\Presentation\Jobs\SyncGoogleAdsToMixpanelJob;
+use DateTimeImmutable;
 use Illuminate\Contracts\Queue\Job as QueueJobContract;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Queue;
@@ -28,7 +30,7 @@ use Throwable;
 #[CoversClass(SyncGoogleAdsToMixpanelJob::class)]
 final class SyncGoogleAdsToMixpanelJobTest extends TestCase
 {
-    private GoogleAdsClientInterface&MockInterface $googleAdsMock;
+    private AdSpendClientInterface&MockInterface $adClientMock;
 
     private MixpanelClientInterface&MockInterface $mixpanelMock;
 
@@ -40,10 +42,11 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
     {
         parent::setUp();
 
-        $this->googleAdsMock = Mockery::mock(GoogleAdsClientInterface::class);
+        $this->adClientMock = Mockery::mock(AdSpendClientInterface::class);
+        $this->adClientMock->shouldReceive('getSource')->andReturn(AdSource::Google)->byDefault();
         $this->mixpanelMock = Mockery::mock(MixpanelClientInterface::class);
         $loggerMock = Mockery::mock(LoggerInterface::class)->shouldIgnoreMissing();
-        $this->useCase = new SyncAdSpendUseCase($this->googleAdsMock, $this->mixpanelMock, $loggerMock);
+        $this->useCase = new SyncAdSpendUseCase($this->adClientMock, $this->mixpanelMock, $loggerMock);
 
         Log::spy();
     }
@@ -57,7 +60,7 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
     {
         $this->setupSuccessfulSync(self::TEST_DATE);
 
-        $job = new SyncGoogleAdsToMixpanelJob(self::TEST_DATE);
+        $job = new SyncGoogleAdsToMixpanelJob(new DateTimeImmutable(self::TEST_DATE));
 
         $job->handle($this->useCase);
 
@@ -73,13 +76,13 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
     {
         $specificDate = '2024-12-31';
 
-        $this->googleAdsMock
+        $this->adClientMock
             ->shouldReceive('getDailyCampaignMetrics')
             ->once()
             ->with($specificDate)
             ->andReturn([]);
 
-        $job = new SyncGoogleAdsToMixpanelJob($specificDate);
+        $job = new SyncGoogleAdsToMixpanelJob(new DateTimeImmutable($specificDate));
 
         $job->handle($this->useCase);
 
@@ -97,13 +100,13 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
         // With retryAfter provided, job releases instead of rethrowing
         $exception = new ExternalServiceUnavailableException('Google Ads', retryAfter: 60);
 
-        $this->googleAdsMock
+        $this->adClientMock
             ->shouldReceive('getDailyCampaignMetrics')
             ->once()
             ->with(self::TEST_DATE)
             ->andThrow($exception);
 
-        $job = new SyncGoogleAdsToMixpanelJob(self::TEST_DATE);
+        $job = new SyncGoogleAdsToMixpanelJob(new DateTimeImmutable(self::TEST_DATE));
         $this->setJobAttempts($job, 1);
 
         // The job catches the exception and releases - it should not throw
@@ -128,11 +131,11 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
         // Without retryAfter, exception is rethrown for Laravel to handle backoff
         $exception = new ExternalServiceUnavailableException('Google Ads');
 
-        $this->googleAdsMock
+        $this->adClientMock
             ->shouldReceive('getDailyCampaignMetrics')
             ->andThrow($exception);
 
-        $job = new SyncGoogleAdsToMixpanelJob(self::TEST_DATE);
+        $job = new SyncGoogleAdsToMixpanelJob(new DateTimeImmutable(self::TEST_DATE));
         $this->setJobAttempts($job, 2);
 
         $this->expectException(ExternalServiceUnavailableException::class);
@@ -145,11 +148,11 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
     {
         $exception = new ExternalServiceUnavailableException('Google Ads');
 
-        $this->googleAdsMock
+        $this->adClientMock
             ->shouldReceive('getDailyCampaignMetrics')
             ->andThrow($exception);
 
-        $job = new SyncGoogleAdsToMixpanelJob(self::TEST_DATE);
+        $job = new SyncGoogleAdsToMixpanelJob(new DateTimeImmutable(self::TEST_DATE));
         $this->setJobAttempts($job, 3);
 
         try {
@@ -179,7 +182,7 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
     #[DataProvider('backoffDelayProvider')]
     public function it_calculates_correct_backoff_delay_for_each_attempt(int $attempt, int $expectedDelay): void
     {
-        $job = new SyncGoogleAdsToMixpanelJob(self::TEST_DATE);
+        $job = new SyncGoogleAdsToMixpanelJob(new DateTimeImmutable(self::TEST_DATE));
 
         // Test the backoff array directly
         $calculatedDelay = $job->backoff[$attempt - 1] ?? 960;
@@ -204,7 +207,7 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
     #[Test]
     public function it_uses_fallback_backoff_delay_when_attempts_exceed_backoff_array_size(): void
     {
-        $job = new SyncGoogleAdsToMixpanelJob(self::TEST_DATE);
+        $job = new SyncGoogleAdsToMixpanelJob(new DateTimeImmutable(self::TEST_DATE));
 
         // Attempt 6 should fall back to 960 (the last value)
         $calculatedDelay = $job->backoff[6 - 1] ?? 960;
@@ -215,7 +218,7 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
     #[Test]
     public function it_uses_fallback_backoff_delay_for_very_high_attempt_number(): void
     {
-        $job = new SyncGoogleAdsToMixpanelJob(self::TEST_DATE);
+        $job = new SyncGoogleAdsToMixpanelJob(new DateTimeImmutable(self::TEST_DATE));
 
         // Attempt 100 should fall back to 960
         $calculatedDelay = $job->backoff[100 - 1] ?? 960;
@@ -229,11 +232,11 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
         // When API provides retryAfter, job releases with that exact value
         $exception = new ExternalServiceUnavailableException('Google Ads', retryAfter: 180);
 
-        $this->googleAdsMock
+        $this->adClientMock
             ->shouldReceive('getDailyCampaignMetrics')
             ->andThrow($exception);
 
-        $job = new SyncGoogleAdsToMixpanelJob(self::TEST_DATE);
+        $job = new SyncGoogleAdsToMixpanelJob(new DateTimeImmutable(self::TEST_DATE));
 
         $queueJob = Mockery::mock(QueueJobContract::class);
         $queueJob->shouldReceive('attempts')->andReturn(1);
@@ -252,11 +255,11 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
         // With retryAfter provided, job releases with that value (not backoff array)
         $exception = new ExternalServiceUnavailableException('Google Ads', retryAfter: $expectedDelay);
 
-        $this->googleAdsMock
+        $this->adClientMock
             ->shouldReceive('getDailyCampaignMetrics')
             ->andThrow($exception);
 
-        $job = new SyncGoogleAdsToMixpanelJob(self::TEST_DATE);
+        $job = new SyncGoogleAdsToMixpanelJob(new DateTimeImmutable(self::TEST_DATE));
 
         // Mock the queue job to verify release is called with exact delay
         $queueJob = Mockery::mock(QueueJobContract::class);
@@ -293,13 +296,13 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
     #[DataProvider('propagatedExceptionProvider')]
     public function it_allows_non_rate_limit_api_exceptions_to_propagate(Throwable $exception): void
     {
-        $this->googleAdsMock
+        $this->adClientMock
             ->shouldReceive('getDailyCampaignMetrics')
             ->once()
             ->with(self::TEST_DATE)
             ->andThrow($exception);
 
-        $job = new SyncGoogleAdsToMixpanelJob(self::TEST_DATE);
+        $job = new SyncGoogleAdsToMixpanelJob(new DateTimeImmutable(self::TEST_DATE));
 
         $this->expectException($exception::class);
 
@@ -323,12 +326,12 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
     {
         $exception = new RuntimeException('Unexpected error occurred');
 
-        $this->googleAdsMock
+        $this->adClientMock
             ->shouldReceive('getDailyCampaignMetrics')
             ->once()
             ->andThrow($exception);
 
-        $job = new SyncGoogleAdsToMixpanelJob(self::TEST_DATE);
+        $job = new SyncGoogleAdsToMixpanelJob(new DateTimeImmutable(self::TEST_DATE));
 
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('Unexpected error occurred');
@@ -344,7 +347,7 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
 
         $this->setupCampaignsForMixpanelError($exception);
 
-        $job = new SyncGoogleAdsToMixpanelJob(self::TEST_DATE);
+        $job = new SyncGoogleAdsToMixpanelJob(new DateTimeImmutable(self::TEST_DATE));
         $this->setJobAttempts($job, 1);
 
         // The job catches the exception and releases - it should not throw
@@ -368,12 +371,12 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
     {
         $exception = new RuntimeException('Unexpected error occurred');
 
-        $this->googleAdsMock
+        $this->adClientMock
             ->shouldReceive('getDailyCampaignMetrics')
             ->once()
             ->andThrow($exception);
 
-        $job = new SyncGoogleAdsToMixpanelJob(self::TEST_DATE);
+        $job = new SyncGoogleAdsToMixpanelJob(new DateTimeImmutable(self::TEST_DATE));
 
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('Unexpected error occurred');
@@ -386,11 +389,11 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
     {
         $exception = new RuntimeException('Test error');
 
-        $this->googleAdsMock
+        $this->adClientMock
             ->shouldReceive('getDailyCampaignMetrics')
             ->andThrow($exception);
 
-        $job = new SyncGoogleAdsToMixpanelJob(self::TEST_DATE);
+        $job = new SyncGoogleAdsToMixpanelJob(new DateTimeImmutable(self::TEST_DATE));
 
         try {
             $job->handle($this->useCase);
@@ -411,7 +414,7 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
     {
         $exception = new RuntimeException('Something went terribly wrong');
 
-        $job = new SyncGoogleAdsToMixpanelJob(self::TEST_DATE);
+        $job = new SyncGoogleAdsToMixpanelJob(new DateTimeImmutable(self::TEST_DATE));
         $this->setJobAttempts($job, 5);
 
         $job->failed($exception);
@@ -429,7 +432,7 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
     {
         $exception = new ExternalServiceUnavailableException('Google Ads');
 
-        $job = new SyncGoogleAdsToMixpanelJob(self::TEST_DATE);
+        $job = new SyncGoogleAdsToMixpanelJob(new DateTimeImmutable(self::TEST_DATE));
         $this->setJobAttempts($job, 3);
 
         $job->failed($exception);
@@ -447,7 +450,7 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
     {
         $exception = new ExternalServiceUnavailableException('Mixpanel');
 
-        $job = new SyncGoogleAdsToMixpanelJob(self::TEST_DATE);
+        $job = new SyncGoogleAdsToMixpanelJob(new DateTimeImmutable(self::TEST_DATE));
         $this->setJobAttempts($job, 2);
 
         $job->failed($exception);
@@ -465,7 +468,7 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
     {
         $exception = new ExternalServiceUnavailableException('Google Ads');
 
-        $job = new SyncGoogleAdsToMixpanelJob(self::TEST_DATE);
+        $job = new SyncGoogleAdsToMixpanelJob(new DateTimeImmutable(self::TEST_DATE));
         $this->setJobAttempts($job, 5);
 
         $job->failed($exception);
@@ -483,7 +486,7 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
     {
         $exception = new RuntimeException('First attempt failure');
 
-        $job = new SyncGoogleAdsToMixpanelJob(self::TEST_DATE);
+        $job = new SyncGoogleAdsToMixpanelJob(new DateTimeImmutable(self::TEST_DATE));
         $this->setJobAttempts($job, 1);
 
         $job->failed($exception);
@@ -505,7 +508,7 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
     #[Test]
     public function it_has_correct_default_tries_configuration(): void
     {
-        $job = new SyncGoogleAdsToMixpanelJob(self::TEST_DATE);
+        $job = new SyncGoogleAdsToMixpanelJob(new DateTimeImmutable(self::TEST_DATE));
 
         self::assertSame(5, $job->tries);
     }
@@ -513,7 +516,7 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
     #[Test]
     public function it_has_correct_default_backoff_configuration(): void
     {
-        $job = new SyncGoogleAdsToMixpanelJob(self::TEST_DATE);
+        $job = new SyncGoogleAdsToMixpanelJob(new DateTimeImmutable(self::TEST_DATE));
 
         self::assertSame([60, 120, 240, 480, 960], $job->backoff);
     }
@@ -521,7 +524,7 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
     #[Test]
     public function it_has_exactly_five_backoff_values(): void
     {
-        $job = new SyncGoogleAdsToMixpanelJob(self::TEST_DATE);
+        $job = new SyncGoogleAdsToMixpanelJob(new DateTimeImmutable(self::TEST_DATE));
 
         self::assertCount(5, $job->backoff);
     }
@@ -529,7 +532,7 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
     #[Test]
     public function backoff_values_are_exponentially_increasing(): void
     {
-        $job = new SyncGoogleAdsToMixpanelJob(self::TEST_DATE);
+        $job = new SyncGoogleAdsToMixpanelJob(new DateTimeImmutable(self::TEST_DATE));
 
         // Each value should be double the previous (exponential backoff)
         self::assertSame(60, $job->backoff[0]);
@@ -544,13 +547,13 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
     {
         $expectedDate = '2024-06-15';
 
-        $this->googleAdsMock
+        $this->adClientMock
             ->shouldReceive('getDailyCampaignMetrics')
             ->once()
             ->with($expectedDate)
             ->andReturn([]);
 
-        $job = new SyncGoogleAdsToMixpanelJob($expectedDate);
+        $job = new SyncGoogleAdsToMixpanelJob(new DateTimeImmutable($expectedDate));
 
         $job->handle($this->useCase);
 
@@ -569,7 +572,7 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
 
         $this->setupCampaignsForMixpanelError($exception);
 
-        $job = new SyncGoogleAdsToMixpanelJob(self::TEST_DATE);
+        $job = new SyncGoogleAdsToMixpanelJob(new DateTimeImmutable(self::TEST_DATE));
 
         $queueJob = Mockery::mock(QueueJobContract::class);
         $queueJob->shouldReceive('attempts')->andReturn(1);
@@ -600,7 +603,7 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
 
         $this->setupCampaignsForMixpanelError($exception);
 
-        $job = new SyncGoogleAdsToMixpanelJob(self::TEST_DATE);
+        $job = new SyncGoogleAdsToMixpanelJob(new DateTimeImmutable(self::TEST_DATE));
 
         $queueJob = Mockery::mock(QueueJobContract::class);
         $queueJob->shouldReceive('attempts')->andReturn(1);
@@ -622,14 +625,18 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
     {
         Queue::fake();
 
-        SyncGoogleAdsToMixpanelJob::dispatch(self::TEST_DATE);
+        $testDate = new DateTimeImmutable(self::TEST_DATE);
+        SyncGoogleAdsToMixpanelJob::dispatch($testDate);
 
-        Queue::assertPushed(SyncGoogleAdsToMixpanelJob::class, static function (SyncGoogleAdsToMixpanelJob $job): bool {
+        Queue::assertPushed(SyncGoogleAdsToMixpanelJob::class, static function (SyncGoogleAdsToMixpanelJob $job) use ($testDate): bool {
             // Access private property via reflection to verify date
             $reflection = new ReflectionClass($job);
             $property = $reflection->getProperty('date');
 
-            return $property->getValue($job) === self::TEST_DATE;
+            $jobDate = $property->getValue($job);
+
+            return $jobDate instanceof DateTimeImmutable
+                && $jobDate->format('Y-m-d') === $testDate->format('Y-m-d');
         });
     }
 
@@ -649,7 +656,7 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
             conversions: 5.0,
         );
 
-        $this->googleAdsMock
+        $this->adClientMock
             ->shouldReceive('getDailyCampaignMetrics')
             ->once()
             ->with($date)
@@ -672,7 +679,7 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
             conversions: 5.0,
         );
 
-        $this->googleAdsMock
+        $this->adClientMock
             ->shouldReceive('getDailyCampaignMetrics')
             ->once()
             ->andReturn([$campaign]);

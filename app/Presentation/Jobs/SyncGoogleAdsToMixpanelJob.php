@@ -8,6 +8,7 @@ use App\Application\AdSpend\UseCases\SyncAdSpendUseCase;
 use App\Domain\Exceptions\AuthenticationExpiredException;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\PayloadSerializationException;
+use DateTimeImmutable;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -43,9 +44,9 @@ final class SyncGoogleAdsToMixpanelJob implements ShouldQueue
      */
     public array $backoff = [60, 120, 240, 480, 960];
 
-    private readonly ?string $date;
+    private readonly ?DateTimeImmutable $date;
 
-    public function __construct(?string $date = null)
+    public function __construct(?DateTimeImmutable $date = null)
     {
         // Store the date parameter if provided (for manual testing with specific dates)
         $this->date = $date;
@@ -61,18 +62,19 @@ final class SyncGoogleAdsToMixpanelJob implements ShouldQueue
         // Calculate the date at execution time, not at job instantiation.
         // This ensures the job works correctly with both schedule:run (cron-based)
         // and schedule:work (long-running daemon like Octane).
-        $dateToSync = $this->date ?? \now()->subDay()->format('Y-m-d');
+        $dateToSync = $this->date ?? new DateTimeImmutable('yesterday');
+        $dateString = $dateToSync->format('Y-m-d');
 
-        Log::info('Queued Google Ads to Mixpanel sync starting', ['date' => $dateToSync]);
+        Log::info('Queued Google Ads to Mixpanel sync starting', ['date' => $dateString]);
 
         try {
             $useCase->execute($dateToSync);
 
-            Log::info('Queued Google Ads to Mixpanel sync completed', ['date' => $dateToSync]);
+            Log::info('Queued Google Ads to Mixpanel sync completed', ['date' => $dateString]);
         } catch (PayloadSerializationException $e) {
             // Permanent failure - data integrity issue, retrying won't help
             Log::critical('Payload serialization failed during sync, failing immediately', [
-                'date' => $dateToSync,
+                'date' => $dateString,
                 'service' => $e->serviceName,
                 'error' => $e->getMessage(),
                 'attempts' => $this->attempts(),
@@ -82,7 +84,7 @@ final class SyncGoogleAdsToMixpanelJob implements ShouldQueue
         } catch (AuthenticationExpiredException $e) {
             // Permanent failure - credentials need fixing, don't waste retries
             Log::critical('Authentication failed during sync, failing immediately', [
-                'date' => $dateToSync,
+                'date' => $dateString,
                 'service' => $e->serviceName,
                 'message' => $e->getMessage(),
                 'attempts' => $this->attempts(),
@@ -91,7 +93,7 @@ final class SyncGoogleAdsToMixpanelJob implements ShouldQueue
             $this->fail($e);
         } catch (ExternalServiceUnavailableException $e) {
             Log::warning('External service unavailable during sync, will retry', [
-                'date' => $dateToSync,
+                'date' => $dateString,
                 'service' => $e->serviceName,
                 'retry_after' => $e->retryAfter ?? 'using backoff',
                 'attempts' => $this->attempts(),
