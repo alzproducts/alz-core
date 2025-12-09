@@ -9,6 +9,7 @@ use App\Application\Contracts\AdSpendClientInterface;
 use App\Application\Contracts\MixpanelClientInterface;
 use App\Domain\AdSpend\Enums\AdSource;
 use App\Domain\AdSpend\ValueObjects\CampaignMetrics;
+use App\Domain\Exceptions\AuthenticationExpiredException;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\PayloadSerializationException;
 use App\Domain\ValueObjects\DateRange;
@@ -627,6 +628,93 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
         $job->setJob($queueJob);
 
         $job->handle($this->useCase);
+    }
+
+    // ========================================================================
+    // AuthenticationExpiredException Handling
+    // ========================================================================
+
+    #[Test]
+    public function it_fails_immediately_on_authentication_expired_exception(): void
+    {
+        $exception = new AuthenticationExpiredException('Google Ads');
+
+        $this->adClientMock
+            ->shouldReceive('getCampaignMetricsByDateRange')
+            ->once()
+            ->andThrow($exception);
+
+        $job = new SyncGoogleAdsToMixpanelJob(new DateTimeImmutable(self::TEST_DATE), new DateTimeImmutable(self::TEST_DATE));
+
+        $queueJob = Mockery::mock(QueueJobContract::class);
+        $queueJob->shouldReceive('attempts')->andReturn(1);
+        $queueJob->shouldReceive('fail')->once()->with($exception)->andReturnNull();
+        $queueJob->shouldReceive('isReleased')->andReturn(false);
+        $queueJob->shouldReceive('isDeletedOrReleased')->andReturn(false);
+        $job->setJob($queueJob);
+
+        $job->handle($this->useCase);
+
+        Log::shouldHaveReceived('critical')
+            ->with('Authentication failed during sync, failing immediately', Mockery::on(
+                static function (array $context): bool {
+                    self::assertSame(self::TEST_DATE, $context['from']);
+                    self::assertSame(self::TEST_DATE, $context['to']);
+                    self::assertSame('Google Ads', $context['service']);
+                    self::assertStringContainsString('Google Ads', $context['message']);
+                    self::assertSame(1, $context['attempts']);
+
+                    return true;
+                },
+            ));
+    }
+
+    #[Test]
+    public function it_does_not_retry_on_authentication_expired_exception(): void
+    {
+        $exception = new AuthenticationExpiredException('Mixpanel');
+
+        $this->setupCampaignsForMixpanelError($exception);
+
+        $job = new SyncGoogleAdsToMixpanelJob(new DateTimeImmutable(self::TEST_DATE), new DateTimeImmutable(self::TEST_DATE));
+
+        $queueJob = Mockery::mock(QueueJobContract::class);
+        $queueJob->shouldReceive('attempts')->andReturn(2);
+        $queueJob->shouldReceive('fail')->once()->with($exception)->andReturnNull();
+        $queueJob->shouldReceive('release')->never(); // Should NOT release for retry
+        $queueJob->shouldReceive('isReleased')->andReturn(false);
+        $queueJob->shouldReceive('isDeletedOrReleased')->andReturn(false);
+        $job->setJob($queueJob);
+
+        $job->handle($this->useCase);
+    }
+
+    #[Test]
+    public function it_logs_critical_with_service_name_on_auth_failure_from_mixpanel(): void
+    {
+        $exception = new AuthenticationExpiredException('Mixpanel');
+
+        $this->setupCampaignsForMixpanelError($exception);
+
+        $job = new SyncGoogleAdsToMixpanelJob(new DateTimeImmutable(self::TEST_DATE), new DateTimeImmutable(self::TEST_DATE));
+
+        $queueJob = Mockery::mock(QueueJobContract::class);
+        $queueJob->shouldReceive('attempts')->andReturn(1);
+        $queueJob->shouldReceive('fail')->once()->with($exception)->andReturnNull();
+        $queueJob->shouldReceive('isReleased')->andReturn(false);
+        $queueJob->shouldReceive('isDeletedOrReleased')->andReturn(false);
+        $job->setJob($queueJob);
+
+        $job->handle($this->useCase);
+
+        Log::shouldHaveReceived('critical')
+            ->with('Authentication failed during sync, failing immediately', Mockery::on(
+                static function (array $context): bool {
+                    self::assertSame('Mixpanel', $context['service']);
+
+                    return true;
+                },
+            ));
     }
 
     // ========================================================================

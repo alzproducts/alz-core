@@ -7,8 +7,10 @@ namespace Tests\Feature\Infrastructure\AdSpend\Mixpanel;
 use App\Domain\Exceptions\AuthenticationExpiredException;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\InvalidApiRequestException;
+use App\Domain\Exceptions\ResourceNotFoundException;
 use App\Infrastructure\Mixpanel\MixpanelConfig;
 use App\Infrastructure\Mixpanel\MixpanelHttpTransport;
+use Exception;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
 use Illuminate\Http\Client\RequestException;
@@ -281,6 +283,39 @@ final class MixpanelHttpTransportTest extends TestCase
     }
 
     #[Test]
+    public function it_throws_exception_on_404_not_found(): void
+    {
+        Http::fake(['*' => Http::response(['error' => 'not found'], 404)]);
+
+        $url = self::TEST_DATA_API_BASE_URL . '/lookup_tables/missing-table';
+
+        try {
+            $this->transport->request('GET', $url);
+            $this->fail('Expected ResourceNotFoundException');
+        } catch (ResourceNotFoundException $e) {
+            $this->assertSame('Mixpanel', $e->serviceName);
+            $this->assertSame($url, $e->resourceType);
+            $this->assertSame('unknown', $e->resourceId);
+        }
+    }
+
+    #[Test]
+    public function it_logs_warning_for_404_not_found(): void
+    {
+        Http::fake(['*' => Http::response(['error' => 'not found'], 404)]);
+        Log::shouldReceive('warning')
+            ->once()
+            ->withArgs(static fn(string $message, array $context): bool => \str_contains($message, 'resource not found')
+                    && $context['url'] === self::TEST_DATA_API_BASE_URL . '/lookup_tables/missing-table');
+
+        try {
+            $this->transport->request('GET', self::TEST_DATA_API_BASE_URL . '/lookup_tables/missing-table');
+        } catch (ResourceNotFoundException) {
+            // Expected
+        }
+    }
+
+    #[Test]
     public function it_throws_exception_on_500_server_error(): void
     {
         Http::fake(['*' => Http::response(['error' => 'server error'], 500)]);
@@ -426,5 +461,49 @@ final class MixpanelHttpTransportTest extends TestCase
             // Body should be empty because contentType was null
             return $request->body() === '';
         });
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Unexpected Exception Tests
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function it_handles_unexpected_exceptions_from_http_internals(): void
+    {
+        $unexpectedException = new Exception('Unexpected Guzzle internal error');
+
+        Http::fake(static function () use ($unexpectedException): never {
+            throw $unexpectedException;
+        });
+
+        try {
+            $this->transport->request('GET', self::TEST_DATA_API_BASE_URL . '/api/app/me');
+            $this->fail('Expected ExternalServiceUnavailableException');
+        } catch (ExternalServiceUnavailableException $e) {
+            $this->assertSame('Mixpanel', $e->serviceName);
+            $this->assertSame($unexpectedException, $e->getPrevious());
+        }
+    }
+
+    #[Test]
+    public function it_logs_error_for_unexpected_exceptions(): void
+    {
+        Http::fake(static function (): never {
+            throw new Exception('Unexpected internal error');
+        });
+
+        Log::shouldReceive('error')
+            ->once()
+            ->withArgs(static fn(string $message, array $context): bool => \str_contains($message, 'unexpected error')
+                    && $context['exception'] === 'Exception'
+                    && \str_contains($context['error'], 'Unexpected internal error'));
+
+        try {
+            $this->transport->request('GET', self::TEST_DATA_API_BASE_URL . '/api/app/me');
+        } catch (ExternalServiceUnavailableException) {
+            // Expected
+        }
     }
 }

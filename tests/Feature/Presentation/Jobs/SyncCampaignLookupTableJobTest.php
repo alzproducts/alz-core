@@ -7,6 +7,7 @@ namespace Tests\Feature\Presentation\Jobs;
 use App\Application\Contracts\LookupTableProviderInterface;
 use App\Application\Contracts\MixpanelClientInterface;
 use App\Application\Mixpanel\UseCases\SyncLookupTableUseCase;
+use App\Domain\Exceptions\AuthenticationExpiredException;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\UnexpectedApiResultException;
 use App\Presentation\Jobs\SyncCampaignLookupTableJob;
@@ -239,6 +240,91 @@ final class SyncCampaignLookupTableJobTest extends TestCase
                     self::assertSame('Mixpanel', $context['service']);
                     self::assertSame('Lookup table response malformed', $context['reason']);
                     self::assertSame(2, $context['attempts']);
+
+                    return true;
+                },
+            ));
+    }
+
+    // ========================================================================
+    // AuthenticationExpiredException Handling
+    // ========================================================================
+
+    #[Test]
+    public function it_fails_immediately_on_authentication_expired_exception(): void
+    {
+        $exception = new AuthenticationExpiredException('Google Ads');
+
+        $this->providerMock
+            ->shouldReceive('fetchRows')
+            ->once()
+            ->andThrow($exception);
+
+        $job = new SyncCampaignLookupTableJob();
+
+        $queueJob = Mockery::mock(QueueJobContract::class);
+        $queueJob->shouldReceive('attempts')->andReturn(1);
+        $queueJob->shouldReceive('fail')->once()->with($exception)->andReturnNull();
+        $queueJob->shouldReceive('isReleased')->andReturn(false);
+        $queueJob->shouldReceive('isDeletedOrReleased')->andReturn(false);
+        $job->setJob($queueJob);
+
+        $job->handle($this->useCase);
+
+        Log::shouldHaveReceived('critical')
+            ->with('Authentication failed during campaign lookup table sync, failing immediately', Mockery::on(
+                static function (array $context): bool {
+                    self::assertSame('Google Ads', $context['service']);
+                    self::assertStringContainsString('Google Ads', $context['message']);
+                    self::assertSame(1, $context['attempts']);
+
+                    return true;
+                },
+            ));
+    }
+
+    #[Test]
+    public function it_does_not_retry_on_authentication_expired_exception(): void
+    {
+        $exception = new AuthenticationExpiredException('Mixpanel');
+
+        $this->setupSuccessfulFetchForMixpanelError($exception);
+
+        $job = new SyncCampaignLookupTableJob();
+
+        $queueJob = Mockery::mock(QueueJobContract::class);
+        $queueJob->shouldReceive('attempts')->andReturn(2);
+        $queueJob->shouldReceive('fail')->once()->with($exception)->andReturnNull();
+        $queueJob->shouldReceive('release')->never(); // Should NOT release for retry
+        $queueJob->shouldReceive('isReleased')->andReturn(false);
+        $queueJob->shouldReceive('isDeletedOrReleased')->andReturn(false);
+        $job->setJob($queueJob);
+
+        $job->handle($this->useCase);
+    }
+
+    #[Test]
+    public function it_logs_critical_with_service_name_on_auth_failure_from_mixpanel(): void
+    {
+        $exception = new AuthenticationExpiredException('Mixpanel');
+
+        $this->setupSuccessfulFetchForMixpanelError($exception);
+
+        $job = new SyncCampaignLookupTableJob();
+
+        $queueJob = Mockery::mock(QueueJobContract::class);
+        $queueJob->shouldReceive('attempts')->andReturn(1);
+        $queueJob->shouldReceive('fail')->once()->with($exception)->andReturnNull();
+        $queueJob->shouldReceive('isReleased')->andReturn(false);
+        $queueJob->shouldReceive('isDeletedOrReleased')->andReturn(false);
+        $job->setJob($queueJob);
+
+        $job->handle($this->useCase);
+
+        Log::shouldHaveReceived('critical')
+            ->with('Authentication failed during campaign lookup table sync, failing immediately', Mockery::on(
+                static function (array $context): bool {
+                    self::assertSame('Mixpanel', $context['service']);
 
                     return true;
                 },
@@ -576,6 +662,26 @@ final class SyncCampaignLookupTableJobTest extends TestCase
         $this->mixpanelMock
             ->shouldReceive('replaceLookupTable')
             ->once();
+    }
+
+    /**
+     * Setup provider to return rows, then Mixpanel throws exception.
+     */
+    private function setupSuccessfulFetchForMixpanelError(Throwable $exception): void
+    {
+        $rows = [
+            ['123456789', '[01] Search - Branded', 'ENABLED'],
+        ];
+
+        $this->providerMock
+            ->shouldReceive('fetchRows')
+            ->once()
+            ->andReturn($rows);
+
+        $this->mixpanelMock
+            ->shouldReceive('replaceLookupTable')
+            ->once()
+            ->andThrow($exception);
     }
 
     /**

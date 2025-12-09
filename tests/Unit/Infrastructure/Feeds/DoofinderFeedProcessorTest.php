@@ -28,6 +28,14 @@ use Tests\TestCase;
  * - Namespace handling (non-namespaced and g: prefixed)
  * - Validation of feed structure
  * - Error handling for HTTP and XML failures
+ *
+ * Coverage Note:
+ * Some defensive error handlers (lines 66-71, 222-231, 303-310, 330-346) are untestable
+ * without production code changes. These protect against filesystem failures between
+ * write and read operations in the same process (e.g., file_get_contents returning false
+ * immediately after file_put_contents succeeded). The processor hardcodes sys_get_temp_dir()
+ * which prevents vfsStream interception. Testing would require injecting the temp directory
+ * path via constructor, which changes the production API for marginal test benefit.
  */
 #[CoversClass(DoofinderFeedProcessor::class)]
 final class DoofinderFeedProcessorTest extends TestCase
