@@ -8,7 +8,7 @@ return [
     | API Configuration
     |--------------------------------------------------------------------------
     */
-    'base_url' => env('MIXPANEL_BASE_URL', 'https://api.mixpanel.com'),
+    'base_url' => env('MIXPANEL_BASE_URL', 'https://api-eu.mixpanel.com'),
     'project_id' => env('MIXPANEL_PROJECT_ID'),
     'utm_campaign_lookup_table_id' => env('MIXPANEL_UTM_CAMPAIGN_LOOKUP_TABLE_ID'),
 

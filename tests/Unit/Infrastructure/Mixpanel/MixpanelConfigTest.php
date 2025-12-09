@@ -382,6 +382,6 @@ final class MixpanelConfigTest extends TestCase
     #[Test]
     public function it_exposes_default_data_api_url_constant(): void
     {
-        $this->assertSame('https://api.mixpanel.com', MixpanelConfig::DEFAULT_DATA_API_URL);
+        $this->assertSame('https://api-eu.mixpanel.com', MixpanelConfig::DEFAULT_DATA_API_URL);
     }
 }

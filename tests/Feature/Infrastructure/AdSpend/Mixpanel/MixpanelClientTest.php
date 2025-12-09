@@ -26,7 +26,7 @@ final class MixpanelClientTest extends TestCase
 {
     private MixpanelClient $client;
 
-    private const string BASE_URL = 'https://api.mixpanel.com';
+    private const string BASE_URL = 'https://api-eu.mixpanel.com';
 
     private const string PROJECT_ID = 'test-project-123';
 
@@ -430,7 +430,7 @@ final class MixpanelClientTest extends TestCase
 
         Http::assertSent(static function (Request $request): bool {
             self::assertSame('PUT', $request->method());
-            self::assertStringContainsString('/lookup_tables/', $request->url());
+            self::assertStringContainsString('/lookup-tables/', $request->url());
 
             return true;
         });
@@ -465,7 +465,7 @@ final class MixpanelClientTest extends TestCase
         $this->client->replaceCampaignLookupTable([$campaign]);
 
         Http::assertSent(static function (Request $request): bool {
-            $expectedUrl = self::BASE_URL . '/lookup_tables/' . self::PROJECT_ID . '/' . self::LOOKUP_TABLE_ID;
+            $expectedUrl = self::BASE_URL . '/lookup-tables/' . self::LOOKUP_TABLE_ID . '?project_id=' . self::PROJECT_ID;
             self::assertSame($expectedUrl, $request->url());
 
             return true;

@@ -37,7 +37,7 @@ final class MixpanelHttpTransportTest extends TestCase
     private const string TEST_PASSWORD = 'test-password';
     private const string TEST_PROJECT_ID = 'test-project';
     private const string TEST_LOOKUP_TABLE_ID = 'test-lookup';
-    private const string TEST_DATA_API_BASE_URL = 'https://test.api.mixpanel.com';
+    private const string TEST_DATA_API_BASE_URL = 'https://test.api-eu.mixpanel.com';
     private const int TEST_TIMEOUT_SECONDS = 5;
     private const int TEST_RETRY_TIMES = 1;
     private const int TEST_RETRY_DELAY_MS = 10;
