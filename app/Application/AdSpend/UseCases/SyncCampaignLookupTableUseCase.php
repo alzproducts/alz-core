@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Application\AdSpend\UseCases;
 
-use App\Application\Contracts\GoogleAdsClientInterface;
+use App\Application\Contracts\AdSpendClientInterface;
 use App\Application\Contracts\MixpanelClientInterface;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\UnexpectedApiResultException;
@@ -19,7 +19,7 @@ use Psr\Log\LoggerInterface;
 final readonly class SyncCampaignLookupTableUseCase
 {
     public function __construct(
-        private GoogleAdsClientInterface $googleAds,
+        private AdSpendClientInterface $adClient,
         private MixpanelClientInterface $mixpanel,
         private LoggerInterface $logger,
     ) {}
@@ -38,8 +38,8 @@ final readonly class SyncCampaignLookupTableUseCase
     {
         $this->logger->info('Starting campaign lookup table sync');
 
-        // Step 1: Fetch campaigns from Google Ads
-        $campaigns = $this->googleAds->getCampaigns();
+        // Step 1: Fetch campaigns from ad source
+        $campaigns = $this->adClient->getCampaigns();
 
         $this->logger->info('Retrieved campaigns from Google Ads', [
             'campaign_count' => \count($campaigns),

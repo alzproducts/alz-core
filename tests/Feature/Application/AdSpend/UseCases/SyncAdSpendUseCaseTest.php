@@ -10,6 +10,7 @@ use App\Application\Contracts\MixpanelClientInterface;
 use App\Domain\AdSpend\Enums\AdSource;
 use App\Domain\AdSpend\ValueObjects\CampaignMetrics;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
+use App\Domain\ValueObjects\DateRange;
 use DateTimeImmutable;
 use Mockery;
 use Mockery\MockInterface;
@@ -65,9 +66,9 @@ final class SyncAdSpendUseCaseTest extends TestCase
         );
 
         $this->adClient
-            ->shouldReceive('getDailyCampaignMetrics')
+            ->shouldReceive('getCampaignMetricsByDateRange')
             ->once()
-            ->with($dateString)
+            ->with(Mockery::on(static fn(DateRange $range): bool => $range->from->format('Y-m-d') === $dateString && $range->to->format('Y-m-d') === $dateString))
             ->andReturn([$campaign]);
 
         $this->mixpanelClient
@@ -88,15 +89,15 @@ final class SyncAdSpendUseCaseTest extends TestCase
 
         $this->loggerMock
             ->shouldReceive('info')
-            ->with('Starting ad spend sync', ['date' => $dateString, 'source' => 'Google'])
+            ->with('Starting ad spend sync', ['from' => $dateString, 'to' => $dateString, 'source' => 'Google'])
             ->once();
 
         $this->loggerMock
             ->shouldReceive('info')
-            ->with('Ad spend sync completed', ['date' => $dateString, 'source' => 'Google', 'campaigns_synced' => 1])
+            ->with('Ad spend sync completed', ['from' => $dateString, 'to' => $dateString, 'source' => 'Google', 'campaigns_synced' => 1])
             ->once();
 
-        $this->useCase->execute($date);
+        $this->useCase->execute(DateRange::singleDay($date));
     }
 
     #[Test]
@@ -111,9 +112,9 @@ final class SyncAdSpendUseCaseTest extends TestCase
         ];
 
         $this->adClient
-            ->shouldReceive('getDailyCampaignMetrics')
+            ->shouldReceive('getCampaignMetricsByDateRange')
             ->once()
-            ->with($dateString)
+            ->with(Mockery::on(static fn(DateRange $range): bool => $range->from->format('Y-m-d') === $dateString && $range->to->format('Y-m-d') === $dateString))
             ->andReturn($campaigns);
 
         $this->mixpanelClient
@@ -133,30 +134,30 @@ final class SyncAdSpendUseCaseTest extends TestCase
 
         $this->loggerMock
             ->shouldReceive('info')
-            ->with('Ad spend sync completed', ['date' => $dateString, 'source' => 'Google', 'campaigns_synced' => 3])
+            ->with('Ad spend sync completed', ['from' => $dateString, 'to' => $dateString, 'source' => 'Google', 'campaigns_synced' => 3])
             ->once();
 
-        $this->useCase->execute($date);
+        $this->useCase->execute(DateRange::singleDay($date));
     }
 
     #[Test]
-    public function it_passes_correct_date_to_ad_client(): void
+    public function it_passes_correct_date_range_to_ad_client(): void
     {
         $date = new DateTimeImmutable('2024-12-25');
         $dateString = '2024-12-25';
 
         $this->adClient
-            ->shouldReceive('getDailyCampaignMetrics')
+            ->shouldReceive('getCampaignMetricsByDateRange')
             ->once()
-            ->with($dateString)
+            ->with(Mockery::on(static fn(DateRange $range): bool => $range->from->format('Y-m-d') === $dateString && $range->to->format('Y-m-d') === $dateString))
             ->andReturn([]);
 
         $this->loggerMock
             ->shouldReceive('warning')
-            ->with('No campaigns found for date', ['date' => $dateString, 'source' => 'Google'])
+            ->with('No campaigns found for date range', ['from' => $dateString, 'to' => $dateString, 'source' => 'Google'])
             ->once();
 
-        $this->useCase->execute($date);
+        $this->useCase->execute(DateRange::singleDay($date));
     }
 
     // ========================================================================
@@ -170,9 +171,9 @@ final class SyncAdSpendUseCaseTest extends TestCase
         $dateString = '2024-11-18';
 
         $this->adClient
-            ->shouldReceive('getDailyCampaignMetrics')
+            ->shouldReceive('getCampaignMetricsByDateRange')
             ->once()
-            ->with($dateString)
+            ->with(Mockery::on(static fn(DateRange $range): bool => $range->from->format('Y-m-d') === $dateString && $range->to->format('Y-m-d') === $dateString))
             ->andReturn([]);
 
         $this->mixpanelClient
@@ -180,15 +181,15 @@ final class SyncAdSpendUseCaseTest extends TestCase
 
         $this->loggerMock
             ->shouldReceive('info')
-            ->with('Starting ad spend sync', ['date' => $dateString, 'source' => 'Google'])
+            ->with('Starting ad spend sync', ['from' => $dateString, 'to' => $dateString, 'source' => 'Google'])
             ->once();
 
         $this->loggerMock
             ->shouldReceive('warning')
-            ->with('No campaigns found for date', ['date' => $dateString, 'source' => 'Google'])
+            ->with('No campaigns found for date range', ['from' => $dateString, 'to' => $dateString, 'source' => 'Google'])
             ->once();
 
-        $this->useCase->execute($date);
+        $this->useCase->execute(DateRange::singleDay($date));
     }
 
     #[Test]
@@ -198,15 +199,15 @@ final class SyncAdSpendUseCaseTest extends TestCase
         $dateString = '2024-11-18';
 
         $this->adClient
-            ->shouldReceive('getDailyCampaignMetrics')
+            ->shouldReceive('getCampaignMetricsByDateRange')
             ->once()
-            ->with($dateString)
+            ->with(Mockery::on(static fn(DateRange $range): bool => $range->from->format('Y-m-d') === $dateString && $range->to->format('Y-m-d') === $dateString))
             ->andReturn([]);
 
         $this->mixpanelClient
             ->shouldNotReceive('importBatch');
 
-        $this->useCase->execute($date);
+        $this->useCase->execute(DateRange::singleDay($date));
     }
 
     // ========================================================================
@@ -221,9 +222,9 @@ final class SyncAdSpendUseCaseTest extends TestCase
         $exception = new ExternalServiceUnavailableException('Google Ads');
 
         $this->adClient
-            ->shouldReceive('getDailyCampaignMetrics')
+            ->shouldReceive('getCampaignMetricsByDateRange')
             ->once()
-            ->with($dateString)
+            ->with(Mockery::on(static fn(DateRange $range): bool => $range->from->format('Y-m-d') === $dateString && $range->to->format('Y-m-d') === $dateString))
             ->andThrow($exception);
 
         $this->mixpanelClient
@@ -231,7 +232,7 @@ final class SyncAdSpendUseCaseTest extends TestCase
 
         $this->expectExceptionObject($exception);
 
-        $this->useCase->execute($date);
+        $this->useCase->execute(DateRange::singleDay($date));
     }
 
     #[Test]
@@ -242,9 +243,9 @@ final class SyncAdSpendUseCaseTest extends TestCase
         $exception = new ExternalServiceUnavailableException('Google Ads', retryAfter: 60);
 
         $this->adClient
-            ->shouldReceive('getDailyCampaignMetrics')
+            ->shouldReceive('getCampaignMetricsByDateRange')
             ->once()
-            ->with($dateString)
+            ->with(Mockery::on(static fn(DateRange $range): bool => $range->from->format('Y-m-d') === $dateString && $range->to->format('Y-m-d') === $dateString))
             ->andThrow($exception);
 
         $this->mixpanelClient
@@ -253,7 +254,7 @@ final class SyncAdSpendUseCaseTest extends TestCase
         $this->expectException(ExternalServiceUnavailableException::class);
         $this->expectExceptionMessage("External service 'Google Ads' is unavailable");
 
-        $this->useCase->execute($date);
+        $this->useCase->execute(DateRange::singleDay($date));
     }
 
     #[Test]
@@ -264,16 +265,16 @@ final class SyncAdSpendUseCaseTest extends TestCase
         $exception = new ExternalServiceUnavailableException('Google Ads');
 
         $this->adClient
-            ->shouldReceive('getDailyCampaignMetrics')
+            ->shouldReceive('getCampaignMetricsByDateRange')
             ->andThrow($exception);
 
         $this->loggerMock
             ->shouldReceive('info')
-            ->with('Starting ad spend sync', ['date' => $dateString, 'source' => 'Google'])
+            ->with('Starting ad spend sync', ['from' => $dateString, 'to' => $dateString, 'source' => 'Google'])
             ->once();
 
         try {
-            $this->useCase->execute($date);
+            $this->useCase->execute(DateRange::singleDay($date));
         } catch (ExternalServiceUnavailableException) {
             // Expected
         }
@@ -286,7 +287,7 @@ final class SyncAdSpendUseCaseTest extends TestCase
         $exception = new ExternalServiceUnavailableException('Google Ads');
 
         $this->adClient
-            ->shouldReceive('getDailyCampaignMetrics')
+            ->shouldReceive('getCampaignMetricsByDateRange')
             ->andThrow($exception);
 
         $this->loggerMock
@@ -294,7 +295,7 @@ final class SyncAdSpendUseCaseTest extends TestCase
             ->with('Ad spend sync completed', Mockery::any());
 
         try {
-            $this->useCase->execute($date);
+            $this->useCase->execute(DateRange::singleDay($date));
         } catch (ExternalServiceUnavailableException) {
             // Expected - exception should propagate
         }
@@ -316,7 +317,7 @@ final class SyncAdSpendUseCaseTest extends TestCase
         $exception = new ExternalServiceUnavailableException('Mixpanel');
 
         $this->adClient
-            ->shouldReceive('getDailyCampaignMetrics')
+            ->shouldReceive('getCampaignMetricsByDateRange')
             ->once()
             ->andReturn([$campaign]);
 
@@ -328,7 +329,7 @@ final class SyncAdSpendUseCaseTest extends TestCase
         $this->expectException(ExternalServiceUnavailableException::class);
         $this->expectExceptionMessage("External service 'Mixpanel' is unavailable");
 
-        $this->useCase->execute($date);
+        $this->useCase->execute(DateRange::singleDay($date));
     }
 
     #[Test]
@@ -340,7 +341,7 @@ final class SyncAdSpendUseCaseTest extends TestCase
         $exception = new ExternalServiceUnavailableException('Mixpanel', retryAfter: 60);
 
         $this->adClient
-            ->shouldReceive('getDailyCampaignMetrics')
+            ->shouldReceive('getCampaignMetricsByDateRange')
             ->once()
             ->andReturn([$campaign]);
 
@@ -352,7 +353,7 @@ final class SyncAdSpendUseCaseTest extends TestCase
         $this->expectException(ExternalServiceUnavailableException::class);
         $this->expectExceptionMessage("External service 'Mixpanel' is unavailable");
 
-        $this->useCase->execute($date);
+        $this->useCase->execute(DateRange::singleDay($date));
     }
 
     #[Test]
@@ -364,7 +365,7 @@ final class SyncAdSpendUseCaseTest extends TestCase
         $exception = new ExternalServiceUnavailableException('Mixpanel');
 
         $this->adClient
-            ->shouldReceive('getDailyCampaignMetrics')
+            ->shouldReceive('getCampaignMetricsByDateRange')
             ->andReturn([$campaign]);
 
         $this->mixpanelClient
@@ -373,11 +374,11 @@ final class SyncAdSpendUseCaseTest extends TestCase
 
         $this->loggerMock
             ->shouldReceive('info')
-            ->with('Starting ad spend sync', ['date' => $dateString, 'source' => 'Google'])
+            ->with('Starting ad spend sync', ['from' => $dateString, 'to' => $dateString, 'source' => 'Google'])
             ->once();
 
         try {
-            $this->useCase->execute($date);
+            $this->useCase->execute(DateRange::singleDay($date));
         } catch (ExternalServiceUnavailableException) {
             // Expected
         }
@@ -403,7 +404,7 @@ final class SyncAdSpendUseCaseTest extends TestCase
         );
 
         $this->adClient
-            ->shouldReceive('getDailyCampaignMetrics')
+            ->shouldReceive('getCampaignMetricsByDateRange')
             ->andReturn([$campaign]);
 
         $this->mixpanelClient
@@ -426,7 +427,7 @@ final class SyncAdSpendUseCaseTest extends TestCase
                 return true;
             });
 
-        $this->useCase->execute($date);
+        $this->useCase->execute(DateRange::singleDay($date));
     }
 
     #[Test]
@@ -442,7 +443,7 @@ final class SyncAdSpendUseCaseTest extends TestCase
         );
 
         $this->adClient
-            ->shouldReceive('getDailyCampaignMetrics')
+            ->shouldReceive('getCampaignMetricsByDateRange')
             ->andReturn([$campaign]);
 
         $this->mixpanelClient
@@ -455,7 +456,7 @@ final class SyncAdSpendUseCaseTest extends TestCase
                 return true;
             });
 
-        $this->useCase->execute($date);
+        $this->useCase->execute(DateRange::singleDay($date));
     }
 
     #[Test]
@@ -466,7 +467,7 @@ final class SyncAdSpendUseCaseTest extends TestCase
         $campaign = $this->createCampaignMetrics(campaignId: 123456, date: $dateString);
 
         $this->adClient
-            ->shouldReceive('getDailyCampaignMetrics')
+            ->shouldReceive('getCampaignMetricsByDateRange')
             ->andReturn([$campaign]);
 
         $this->mixpanelClient
@@ -481,7 +482,7 @@ final class SyncAdSpendUseCaseTest extends TestCase
                 return true;
             });
 
-        $this->useCase->execute($date);
+        $this->useCase->execute(DateRange::singleDay($date));
     }
 
     #[Test]
@@ -493,7 +494,7 @@ final class SyncAdSpendUseCaseTest extends TestCase
         $campaign = $this->createCampaignMetrics(campaignId: 123, date: $dateString);
 
         $this->adClient
-            ->shouldReceive('getDailyCampaignMetrics')
+            ->shouldReceive('getCampaignMetricsByDateRange')
             ->andReturn([$campaign]);
 
         $this->mixpanelClient
@@ -507,7 +508,7 @@ final class SyncAdSpendUseCaseTest extends TestCase
                 return true;
             });
 
-        $this->useCase->execute($date);
+        $this->useCase->execute(DateRange::singleDay($date));
     }
 
     #[Test]
@@ -523,7 +524,7 @@ final class SyncAdSpendUseCaseTest extends TestCase
         );
 
         $this->adClient
-            ->shouldReceive('getDailyCampaignMetrics')
+            ->shouldReceive('getCampaignMetricsByDateRange')
             ->andReturn([$campaign]);
 
         $this->mixpanelClient
@@ -536,7 +537,7 @@ final class SyncAdSpendUseCaseTest extends TestCase
                 return true;
             });
 
-        $this->useCase->execute($date);
+        $this->useCase->execute(DateRange::singleDay($date));
     }
 
     #[Test]
@@ -555,7 +556,7 @@ final class SyncAdSpendUseCaseTest extends TestCase
         );
 
         $this->adClient
-            ->shouldReceive('getDailyCampaignMetrics')
+            ->shouldReceive('getCampaignMetricsByDateRange')
             ->andReturn([$campaign]);
 
         $this->mixpanelClient
@@ -572,10 +573,10 @@ final class SyncAdSpendUseCaseTest extends TestCase
 
         $this->loggerMock
             ->shouldReceive('info')
-            ->with('Ad spend sync completed', ['date' => $dateString, 'source' => 'Google', 'campaigns_synced' => 1])
+            ->with('Ad spend sync completed', ['from' => $dateString, 'to' => $dateString, 'source' => 'Google', 'campaigns_synced' => 1])
             ->once();
 
-        $this->useCase->execute($date);
+        $this->useCase->execute(DateRange::singleDay($date));
     }
 
     // ========================================================================
@@ -583,21 +584,21 @@ final class SyncAdSpendUseCaseTest extends TestCase
     // ========================================================================
 
     #[Test]
-    public function it_logs_start_with_correct_date(): void
+    public function it_logs_start_with_correct_date_range(): void
     {
         $date = new DateTimeImmutable('2024-12-31');
         $dateString = '2024-12-31';
 
         $this->adClient
-            ->shouldReceive('getDailyCampaignMetrics')
+            ->shouldReceive('getCampaignMetricsByDateRange')
             ->andReturn([]);
 
         $this->loggerMock
             ->shouldReceive('info')
-            ->with('Starting ad spend sync', ['date' => $dateString, 'source' => 'Google'])
+            ->with('Starting ad spend sync', ['from' => $dateString, 'to' => $dateString, 'source' => 'Google'])
             ->once();
 
-        $this->useCase->execute($date);
+        $this->useCase->execute(DateRange::singleDay($date));
     }
 
     #[Test]
@@ -614,7 +615,7 @@ final class SyncAdSpendUseCaseTest extends TestCase
         ];
 
         $this->adClient
-            ->shouldReceive('getDailyCampaignMetrics')
+            ->shouldReceive('getCampaignMetricsByDateRange')
             ->andReturn($campaigns);
 
         $this->mixpanelClient
@@ -623,28 +624,28 @@ final class SyncAdSpendUseCaseTest extends TestCase
 
         $this->loggerMock
             ->shouldReceive('info')
-            ->with('Ad spend sync completed', ['date' => $dateString, 'source' => 'Google', 'campaigns_synced' => 5])
+            ->with('Ad spend sync completed', ['from' => $dateString, 'to' => $dateString, 'source' => 'Google', 'campaigns_synced' => 5])
             ->once();
 
-        $this->useCase->execute($date);
+        $this->useCase->execute(DateRange::singleDay($date));
     }
 
     #[Test]
-    public function it_logs_warning_with_correct_date_when_empty(): void
+    public function it_logs_warning_with_correct_date_range_when_empty(): void
     {
         $date = new DateTimeImmutable('2024-01-01');
         $dateString = '2024-01-01';
 
         $this->adClient
-            ->shouldReceive('getDailyCampaignMetrics')
+            ->shouldReceive('getCampaignMetricsByDateRange')
             ->andReturn([]);
 
         $this->loggerMock
             ->shouldReceive('warning')
-            ->with('No campaigns found for date', ['date' => $dateString, 'source' => 'Google'])
+            ->with('No campaigns found for date range', ['from' => $dateString, 'to' => $dateString, 'source' => 'Google'])
             ->once();
 
-        $this->useCase->execute($date);
+        $this->useCase->execute(DateRange::singleDay($date));
     }
 
     // ========================================================================
@@ -663,7 +664,7 @@ final class SyncAdSpendUseCaseTest extends TestCase
         ];
 
         $this->adClient
-            ->shouldReceive('getDailyCampaignMetrics')
+            ->shouldReceive('getCampaignMetricsByDateRange')
             ->andReturn($campaigns);
 
         $this->mixpanelClient
@@ -678,7 +679,7 @@ final class SyncAdSpendUseCaseTest extends TestCase
                 return true;
             });
 
-        $this->useCase->execute($date);
+        $this->useCase->execute(DateRange::singleDay($date));
     }
 
     // ========================================================================
