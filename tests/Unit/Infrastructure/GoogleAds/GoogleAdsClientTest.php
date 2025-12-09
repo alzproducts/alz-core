@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Infrastructure\GoogleAds;
 
+use App\Domain\AdSpend\Enums\AdSource;
 use App\Domain\AdSpend\ValueObjects\Campaign;
 use App\Domain\AdSpend\ValueObjects\CampaignMetrics;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
@@ -51,6 +52,56 @@ final class GoogleAdsClientTest extends TestCase
 
         $this->mockTransport = Mockery::mock(GoogleAdsTransport::class);
         $this->client = new GoogleAdsClient($this->mockTransport);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | getSource Tests
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function it_returns_google_as_ad_source(): void
+    {
+        $this->assertSame(AdSource::Google, $this->client->getSource());
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | verifyConnectivity Tests
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function it_verifies_connectivity_by_executing_limit_1_query(): void
+    {
+        $this->mockTransport
+            ->shouldReceive('search')
+            ->once()
+            ->withArgs(static fn(string $query): bool => \str_contains($query, 'SELECT campaign.id')
+                    && \str_contains($query, 'FROM campaign')
+                    && \str_contains($query, 'LIMIT 1'))
+            ->andReturn($this->createPagedResponse([]));
+
+        $this->client->verifyConnectivity();
+
+        // Assert: No exception thrown means connectivity verified
+        $this->assertTrue(true);
+    }
+
+    #[Test]
+    public function it_propagates_external_service_unavailable_on_connectivity_failure(): void
+    {
+        $exception = new ExternalServiceUnavailableException('Google Ads', 60);
+
+        $this->mockTransport
+            ->shouldReceive('search')
+            ->andThrow($exception);
+
+        $this->expectException(ExternalServiceUnavailableException::class);
+        $this->expectExceptionMessage("External service 'Google Ads' is unavailable");
+
+        $this->client->verifyConnectivity();
     }
 
     /*
