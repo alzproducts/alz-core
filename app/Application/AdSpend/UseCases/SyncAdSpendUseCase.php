@@ -4,23 +4,22 @@ declare(strict_types=1);
 
 namespace App\Application\AdSpend\UseCases;
 
-use App\Application\Contracts\GoogleAdsClientInterface;
+use App\Application\Contracts\AdSpendClientInterface;
 use App\Application\Contracts\MixpanelClientInterface;
-use App\Domain\AdSpend\Enums\AdSource;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
-use InvalidArgumentException;
+use DateTimeImmutable;
 use Psr\Log\LoggerInterface;
 
 /**
- * Orchestrate ad spend synchronization from Google Ads to Mixpanel.
+ * Orchestrate ad spend synchronization from any ad source to Mixpanel.
  *
- * Coordinates the complete workflow: fetch campaign metrics from Google Ads API,
- * transform to Mixpanel events, and import to Mixpanel.
+ * Uses Strategy pattern: works with any AdSpendClientInterface implementation
+ * (Google Ads, Bing Ads, Facebook Ads) without modification.
  */
 final readonly class SyncAdSpendUseCase
 {
     public function __construct(
-        private GoogleAdsClientInterface $googleAds,
+        private AdSpendClientInterface $adClient,
         private MixpanelClientInterface $mixpanel,
         private LoggerInterface $logger,
     ) {}
@@ -28,36 +27,38 @@ final readonly class SyncAdSpendUseCase
     /**
      * Synchronize ad spend data for a specific date.
      *
-     * @param string $date Date in YYYY-MM-DD format
-     *
      * @throws ExternalServiceUnavailableException
-     * @throws InvalidArgumentException When date format is invalid
      */
-    public function execute(string $date): void
+    public function execute(DateTimeImmutable $date): void
     {
-        // Validate date format before API calls
-        if (\preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) !== 1) {
-            throw new InvalidArgumentException('Date must be in YYYY-MM-DD format.');
-        }
+        $dateString = $date->format('Y-m-d');
+        $source = $this->adClient->getSource();
 
-        $this->logger->info('Starting ad spend sync', ['date' => $date]);
+        $this->logger->info('Starting ad spend sync', [
+            'date' => $dateString,
+            'source' => $source->value,
+        ]);
 
-        // Step 1: Fetch campaign metrics from Google Ads
-        $campaigns = $this->googleAds->getDailyCampaignMetrics($date);
+        // Step 1: Fetch campaign metrics from ad source
+        $campaigns = $this->adClient->getDailyCampaignMetrics($dateString);
 
         // Step 2: Handle empty results
         if ($campaigns === []) {
-            $this->logger->warning('No campaigns found for date', ['date' => $date]);
+            $this->logger->warning('No campaigns found for date', [
+                'date' => $dateString,
+                'source' => $source->value,
+            ]);
 
             return;
         }
 
         // Step 3: Import campaign metrics to Mixpanel
         // Infrastructure layer handles internal transformation to Mixpanel event format
-        $this->mixpanel->importCampaigns($campaigns, AdSource::Google);
+        $this->mixpanel->importCampaigns($campaigns, $source);
 
         $this->logger->info('Ad spend sync completed', [
-            'date' => $date,
+            'date' => $dateString,
+            'source' => $source->value,
             'campaigns_synced' => \count($campaigns),
         ]);
     }
