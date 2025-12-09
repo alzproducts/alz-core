@@ -6,6 +6,7 @@ namespace App\Application\Contracts;
 
 use App\Domain\AdSpend\Enums\AdSource;
 use App\Domain\AdSpend\ValueObjects\CampaignMetrics;
+use App\Domain\Exceptions\AuthenticationExpiredException;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\PayloadSerializationException;
 
@@ -49,6 +50,7 @@ interface MixpanelClientInterface
      * @param array<int, array<int, string>> $rows Pre-transformed data rows
      *
      * @throws ExternalServiceUnavailableException When API unavailable or request fails
+     * @throws AuthenticationExpiredException When credentials invalid or expired
      */
     public function replaceLookupTable(string $tableKey, array $headers, array $rows): void;
 }

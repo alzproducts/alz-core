@@ -6,6 +6,7 @@ namespace App\Application\Mixpanel\UseCases;
 
 use App\Application\Contracts\LookupTableProviderInterface;
 use App\Application\Contracts\MixpanelClientInterface;
+use App\Domain\Exceptions\AuthenticationExpiredException;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\UnexpectedApiResultException;
 use Psr\Log\LoggerInterface;
@@ -30,6 +31,7 @@ final readonly class SyncLookupTableUseCase
      *
      * @throws ExternalServiceUnavailableException When external APIs are unavailable
      * @throws UnexpectedApiResultException When provider returns empty results
+     * @throws AuthenticationExpiredException When source or destination credentials invalid
      */
     public function execute(): void
     {
