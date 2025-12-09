@@ -25,7 +25,8 @@ final class MixpanelConfigTest extends TestCase
     private const string TEST_SERVICE_ACCOUNT_USERNAME = 'test-username';
     private const string TEST_SERVICE_ACCOUNT_PASSWORD = 'test-password';
     private const string TEST_PROJECT_ID = 'test-project-id-123';
-    private const string TEST_LOOKUP_TABLE_ID = 'test-lookup-table-id-456';
+    /** @var array<string, string> */
+    private const array TEST_LOOKUP_TABLE_IDS = ['utm_campaigns' => 'test-lookup-table-id-456'];
 
     /*
     |--------------------------------------------------------------------------
@@ -41,14 +42,14 @@ final class MixpanelConfigTest extends TestCase
             serviceAccountUsername: self::TEST_SERVICE_ACCOUNT_USERNAME,
             serviceAccountPassword: self::TEST_SERVICE_ACCOUNT_PASSWORD,
             projectId: self::TEST_PROJECT_ID,
-            lookupTableId: self::TEST_LOOKUP_TABLE_ID,
+            lookupTableIds: self::TEST_LOOKUP_TABLE_IDS,
         );
 
         $this->assertSame(MixpanelConfig::DEFAULT_DATA_API_URL, $config->dataApiBaseUrl);
         $this->assertSame(self::TEST_SERVICE_ACCOUNT_USERNAME, $config->serviceAccountUsername);
         $this->assertSame(self::TEST_SERVICE_ACCOUNT_PASSWORD, $config->serviceAccountPassword);
         $this->assertSame(self::TEST_PROJECT_ID, $config->projectId);
-        $this->assertSame(self::TEST_LOOKUP_TABLE_ID, $config->lookupTableId);
+        $this->assertSame(self::TEST_LOOKUP_TABLE_IDS, $config->lookupTableIds);
         $this->assertSame(30, $config->timeout);
         $this->assertSame(3, $config->retryTimes);
         $this->assertSame(100, $config->retryDelay);
@@ -66,7 +67,7 @@ final class MixpanelConfigTest extends TestCase
             serviceAccountUsername: self::TEST_SERVICE_ACCOUNT_USERNAME,
             serviceAccountPassword: self::TEST_SERVICE_ACCOUNT_PASSWORD,
             projectId: self::TEST_PROJECT_ID,
-            lookupTableId: self::TEST_LOOKUP_TABLE_ID,
+            lookupTableIds: self::TEST_LOOKUP_TABLE_IDS,
             timeout: $customTimeout,
             retryTimes: $customRetryTimes,
             retryDelay: $customRetryDelay,
@@ -76,7 +77,7 @@ final class MixpanelConfigTest extends TestCase
         $this->assertSame(self::TEST_SERVICE_ACCOUNT_USERNAME, $config->serviceAccountUsername);
         $this->assertSame(self::TEST_SERVICE_ACCOUNT_PASSWORD, $config->serviceAccountPassword);
         $this->assertSame(self::TEST_PROJECT_ID, $config->projectId);
-        $this->assertSame(self::TEST_LOOKUP_TABLE_ID, $config->lookupTableId);
+        $this->assertSame(self::TEST_LOOKUP_TABLE_IDS, $config->lookupTableIds);
         $this->assertSame($customTimeout, $config->timeout);
         $this->assertSame($customRetryTimes, $config->retryTimes);
         $this->assertSame($customRetryDelay, $config->retryDelay);
@@ -99,7 +100,7 @@ final class MixpanelConfigTest extends TestCase
             serviceAccountUsername: self::TEST_SERVICE_ACCOUNT_USERNAME,
             serviceAccountPassword: self::TEST_SERVICE_ACCOUNT_PASSWORD,
             projectId: self::TEST_PROJECT_ID,
-            lookupTableId: self::TEST_LOOKUP_TABLE_ID,
+            lookupTableIds: self::TEST_LOOKUP_TABLE_IDS,
         );
     }
 
@@ -114,7 +115,7 @@ final class MixpanelConfigTest extends TestCase
             serviceAccountUsername: '',
             serviceAccountPassword: self::TEST_SERVICE_ACCOUNT_PASSWORD,
             projectId: self::TEST_PROJECT_ID,
-            lookupTableId: self::TEST_LOOKUP_TABLE_ID,
+            lookupTableIds: self::TEST_LOOKUP_TABLE_IDS,
         );
     }
 
@@ -129,7 +130,7 @@ final class MixpanelConfigTest extends TestCase
             serviceAccountUsername: self::TEST_SERVICE_ACCOUNT_USERNAME,
             serviceAccountPassword: '',
             projectId: self::TEST_PROJECT_ID,
-            lookupTableId: self::TEST_LOOKUP_TABLE_ID,
+            lookupTableIds: self::TEST_LOOKUP_TABLE_IDS,
         );
     }
 
@@ -144,24 +145,12 @@ final class MixpanelConfigTest extends TestCase
             serviceAccountUsername: self::TEST_SERVICE_ACCOUNT_USERNAME,
             serviceAccountPassword: self::TEST_SERVICE_ACCOUNT_PASSWORD,
             projectId: '',
-            lookupTableId: self::TEST_LOOKUP_TABLE_ID,
+            lookupTableIds: self::TEST_LOOKUP_TABLE_IDS,
         );
     }
 
-    #[Test]
-    public function it_throws_exception_for_empty_lookup_table_id(): void
-    {
-        $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('Mixpanel lookup table ID cannot be empty');
-
-        new MixpanelConfig(
-            dataApiBaseUrl: self::TEST_DATA_API_BASE_URL,
-            serviceAccountUsername: self::TEST_SERVICE_ACCOUNT_USERNAME,
-            serviceAccountPassword: self::TEST_SERVICE_ACCOUNT_PASSWORD,
-            projectId: self::TEST_PROJECT_ID,
-            lookupTableId: '',
-        );
-    }
+    // Note: Lookup table array validation tests are in MixpanelClientFactoryTest
+    // Factory validates type + non-empty before passing to Config
 
     /*
     |--------------------------------------------------------------------------
@@ -177,7 +166,7 @@ final class MixpanelConfigTest extends TestCase
             serviceAccountUsername: self::TEST_SERVICE_ACCOUNT_USERNAME,
             serviceAccountPassword: self::TEST_SERVICE_ACCOUNT_PASSWORD,
             projectId: self::TEST_PROJECT_ID,
-            lookupTableId: self::TEST_LOOKUP_TABLE_ID,
+            lookupTableIds: self::TEST_LOOKUP_TABLE_IDS,
             timeout: 1,
         );
 
@@ -192,7 +181,7 @@ final class MixpanelConfigTest extends TestCase
             serviceAccountUsername: self::TEST_SERVICE_ACCOUNT_USERNAME,
             serviceAccountPassword: self::TEST_SERVICE_ACCOUNT_PASSWORD,
             projectId: self::TEST_PROJECT_ID,
-            lookupTableId: self::TEST_LOOKUP_TABLE_ID,
+            lookupTableIds: self::TEST_LOOKUP_TABLE_IDS,
             timeout: 300,
         );
 
@@ -210,7 +199,7 @@ final class MixpanelConfigTest extends TestCase
             serviceAccountUsername: self::TEST_SERVICE_ACCOUNT_USERNAME,
             serviceAccountPassword: self::TEST_SERVICE_ACCOUNT_PASSWORD,
             projectId: self::TEST_PROJECT_ID,
-            lookupTableId: self::TEST_LOOKUP_TABLE_ID,
+            lookupTableIds: self::TEST_LOOKUP_TABLE_IDS,
             timeout: 0,
         );
     }
@@ -226,7 +215,7 @@ final class MixpanelConfigTest extends TestCase
             serviceAccountUsername: self::TEST_SERVICE_ACCOUNT_USERNAME,
             serviceAccountPassword: self::TEST_SERVICE_ACCOUNT_PASSWORD,
             projectId: self::TEST_PROJECT_ID,
-            lookupTableId: self::TEST_LOOKUP_TABLE_ID,
+            lookupTableIds: self::TEST_LOOKUP_TABLE_IDS,
             timeout: 301,
         );
     }
@@ -245,7 +234,7 @@ final class MixpanelConfigTest extends TestCase
             serviceAccountUsername: self::TEST_SERVICE_ACCOUNT_USERNAME,
             serviceAccountPassword: self::TEST_SERVICE_ACCOUNT_PASSWORD,
             projectId: self::TEST_PROJECT_ID,
-            lookupTableId: self::TEST_LOOKUP_TABLE_ID,
+            lookupTableIds: self::TEST_LOOKUP_TABLE_IDS,
             retryTimes: 0,
         );
 
@@ -260,7 +249,7 @@ final class MixpanelConfigTest extends TestCase
             serviceAccountUsername: self::TEST_SERVICE_ACCOUNT_USERNAME,
             serviceAccountPassword: self::TEST_SERVICE_ACCOUNT_PASSWORD,
             projectId: self::TEST_PROJECT_ID,
-            lookupTableId: self::TEST_LOOKUP_TABLE_ID,
+            lookupTableIds: self::TEST_LOOKUP_TABLE_IDS,
             retryTimes: 10,
         );
 
@@ -278,7 +267,7 @@ final class MixpanelConfigTest extends TestCase
             serviceAccountUsername: self::TEST_SERVICE_ACCOUNT_USERNAME,
             serviceAccountPassword: self::TEST_SERVICE_ACCOUNT_PASSWORD,
             projectId: self::TEST_PROJECT_ID,
-            lookupTableId: self::TEST_LOOKUP_TABLE_ID,
+            lookupTableIds: self::TEST_LOOKUP_TABLE_IDS,
             retryTimes: -1,
         );
     }
@@ -294,7 +283,7 @@ final class MixpanelConfigTest extends TestCase
             serviceAccountUsername: self::TEST_SERVICE_ACCOUNT_USERNAME,
             serviceAccountPassword: self::TEST_SERVICE_ACCOUNT_PASSWORD,
             projectId: self::TEST_PROJECT_ID,
-            lookupTableId: self::TEST_LOOKUP_TABLE_ID,
+            lookupTableIds: self::TEST_LOOKUP_TABLE_IDS,
             retryTimes: 11,
         );
     }
@@ -313,7 +302,7 @@ final class MixpanelConfigTest extends TestCase
             serviceAccountUsername: self::TEST_SERVICE_ACCOUNT_USERNAME,
             serviceAccountPassword: self::TEST_SERVICE_ACCOUNT_PASSWORD,
             projectId: self::TEST_PROJECT_ID,
-            lookupTableId: self::TEST_LOOKUP_TABLE_ID,
+            lookupTableIds: self::TEST_LOOKUP_TABLE_IDS,
             retryDelay: 0,
         );
 
@@ -328,7 +317,7 @@ final class MixpanelConfigTest extends TestCase
             serviceAccountUsername: self::TEST_SERVICE_ACCOUNT_USERNAME,
             serviceAccountPassword: self::TEST_SERVICE_ACCOUNT_PASSWORD,
             projectId: self::TEST_PROJECT_ID,
-            lookupTableId: self::TEST_LOOKUP_TABLE_ID,
+            lookupTableIds: self::TEST_LOOKUP_TABLE_IDS,
             retryDelay: 5000,
         );
 
@@ -346,7 +335,7 @@ final class MixpanelConfigTest extends TestCase
             serviceAccountUsername: self::TEST_SERVICE_ACCOUNT_USERNAME,
             serviceAccountPassword: self::TEST_SERVICE_ACCOUNT_PASSWORD,
             projectId: self::TEST_PROJECT_ID,
-            lookupTableId: self::TEST_LOOKUP_TABLE_ID,
+            lookupTableIds: self::TEST_LOOKUP_TABLE_IDS,
             retryDelay: -1,
         );
     }
@@ -362,7 +351,7 @@ final class MixpanelConfigTest extends TestCase
             serviceAccountUsername: self::TEST_SERVICE_ACCOUNT_USERNAME,
             serviceAccountPassword: self::TEST_SERVICE_ACCOUNT_PASSWORD,
             projectId: self::TEST_PROJECT_ID,
-            lookupTableId: self::TEST_LOOKUP_TABLE_ID,
+            lookupTableIds: self::TEST_LOOKUP_TABLE_IDS,
             retryDelay: 5001,
         );
     }

@@ -35,7 +35,7 @@ final class MixpanelClientFactory
         $projectId = \config('mixpanel.project_id');
         $serviceAccountUsername = \config('mixpanel.service_account_username');
         $serviceAccountPassword = \config('mixpanel.service_account_password');
-        $lookupTableId = \config('mixpanel.utm_campaign_lookup_table_id');
+        $lookupTableIds = \config('mixpanel.lookup_tables');
         $timeout = \config('mixpanel.timeout');
         $retryTimes = \config('mixpanel.retry_times');
         $retryDelay = \config('mixpanel.retry_delay');
@@ -52,9 +52,15 @@ final class MixpanelClientFactory
         if (!\is_string($serviceAccountPassword)) {
             throw new RuntimeException('MIXPANEL_SERVICE_ACCOUNT_PASSWORD not configured');
         }
-        if (!\is_string($lookupTableId)) {
-            throw new RuntimeException('MIXPANEL_UTM_CAMPAIGN_LOOKUP_TABLE_ID not configured');
+        if (!\is_array($lookupTableIds) || $lookupTableIds === []) {
+            throw new RuntimeException('mixpanel.lookup_tables must be a non-empty array');
         }
+        foreach ($lookupTableIds as $key => $tableId) {
+            if (!\is_string($tableId) || $tableId === '') {
+                throw new RuntimeException("Lookup table '{$key}' must be a non-empty string");
+            }
+        }
+        /** @var array<string, string> $lookupTableIds */
         if (!\is_int($timeout)) {
             throw new RuntimeException('MIXPANEL_TIMEOUT must be an integer');
         }
@@ -70,7 +76,7 @@ final class MixpanelClientFactory
             serviceAccountUsername: $serviceAccountUsername,
             serviceAccountPassword: $serviceAccountPassword,
             projectId: $projectId,
-            lookupTableId: $lookupTableId,
+            lookupTableIds: $lookupTableIds,
             timeout: $timeout,
             retryTimes: $retryTimes,
             retryDelay: $retryDelay,

@@ -36,7 +36,8 @@ final class MixpanelHttpTransportTest extends TestCase
     private const string TEST_USERNAME = 'test-user';
     private const string TEST_PASSWORD = 'test-password';
     private const string TEST_PROJECT_ID = 'test-project';
-    private const string TEST_LOOKUP_TABLE_ID = 'test-lookup';
+    /** @var array<string, string> */
+    private const array TEST_LOOKUP_TABLE_IDS = ['utm_campaigns' => 'test-lookup'];
     private const string TEST_DATA_API_BASE_URL = 'https://test.api-eu.mixpanel.com';
     private const int TEST_TIMEOUT_SECONDS = 5;
     private const int TEST_RETRY_TIMES = 1;
@@ -55,7 +56,7 @@ final class MixpanelHttpTransportTest extends TestCase
             serviceAccountUsername: self::TEST_USERNAME,
             serviceAccountPassword: self::TEST_PASSWORD,
             projectId: self::TEST_PROJECT_ID,
-            lookupTableId: self::TEST_LOOKUP_TABLE_ID,
+            lookupTableIds: self::TEST_LOOKUP_TABLE_IDS,
             timeout: self::TEST_TIMEOUT_SECONDS,
             retryTimes: self::TEST_RETRY_TIMES,
             retryDelay: self::TEST_RETRY_DELAY_MS,

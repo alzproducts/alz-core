@@ -52,7 +52,7 @@ final readonly class MixpanelConfig
      * @param string $serviceAccountUsername Service account username for Basic Auth
      * @param string $serviceAccountPassword Service account password for Basic Auth
      * @param string $projectId Mixpanel project identifier
-     * @param string $lookupTableId Lookup table identifier for campaign data
+     * @param array<string, string> $lookupTableIds Lookup table identifiers keyed by name
      * @param int $timeout Request timeout in seconds (1-300)
      * @param int $retryTimes Number of retry attempts (0-10)
      * @param int $retryDelay Delay between retries in milliseconds (0-5000)
@@ -65,7 +65,7 @@ final readonly class MixpanelConfig
         public string $serviceAccountUsername,
         public string $serviceAccountPassword,
         public string $projectId,
-        public string $lookupTableId,
+        public array $lookupTableIds,
         public int $timeout = 30,
         public int $retryTimes = 3,
         public int $retryDelay = 100,
@@ -86,9 +86,7 @@ final readonly class MixpanelConfig
             throw new RuntimeException('Mixpanel project ID cannot be empty');
         }
 
-        if ($lookupTableId === '') {
-            throw new RuntimeException('Mixpanel lookup table ID cannot be empty');
-        }
+        // Note: lookupTableIds validated by MixpanelClientFactory (type + non-empty)
 
         if (($timeout < 1) || ($timeout > self::MAX_TIMEOUT_SECONDS)) {
             throw new InvalidArgumentException(

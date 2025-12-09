@@ -10,6 +10,7 @@ use App\Domain\AdSpend\ValueObjects\CampaignMetrics;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\PayloadSerializationException;
 use App\Infrastructure\Support\CsvFormatter;
+use Closure;
 use Illuminate\Support\Facades\Log;
 use JsonException;
 
@@ -85,20 +86,38 @@ final readonly class MixpanelClient implements MixpanelClientInterface
      */
     public function replaceCampaignLookupTable(array $campaigns): void
     {
-        $headers = ['utm_campaign', 'campaign_name', 'campaign_status'];
-        $rows = \array_map(
-            static fn(Campaign $campaign): array => [
+        $this->replaceLookupTable(
+            tableName: 'utm_campaigns',
+            headers: ['utm_campaign', 'campaign_name', 'campaign_status'],
+            rowMapper: static fn(Campaign $campaign): array => [
                 (string) $campaign->id,
                 $campaign->name,
                 $campaign->status,
             ],
-            $campaigns,
+            items: $campaigns,
         );
+    }
+
+    /**
+     * Replace a lookup table with new data.
+     *
+     * @template T
+     *
+     * @param string $tableName Key in config lookup_tables array
+     * @param array<int, string> $headers CSV column headers
+     * @param Closure(T): array<int, string> $rowMapper Maps each item to a CSV row
+     * @param array<int, T> $items Items to transform into rows
+     *
+     * @throws ExternalServiceUnavailableException When API unavailable or request fails
+     */
+    private function replaceLookupTable(string $tableName, array $headers, Closure $rowMapper, array $items): void
+    {
+        $rows = \array_map($rowMapper, $items);
         $csv = CsvFormatter::format($headers, $rows);
 
         $this->transport->request(
             method: 'PUT',
-            url: "{$this->config->dataApiBaseUrl}/lookup-tables/{$this->config->lookupTableId}?project_id={$this->config->projectId}",
+            url: "{$this->config->dataApiBaseUrl}/lookup-tables/{$this->config->lookupTableIds[$tableName]}?project_id={$this->config->projectId}",
             body: $csv,
             contentType: 'text/csv',
         );

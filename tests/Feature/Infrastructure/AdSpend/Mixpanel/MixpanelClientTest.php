@@ -36,6 +36,9 @@ final class MixpanelClientTest extends TestCase
 
     private const string LOOKUP_TABLE_ID = 'test-lookup-table-id';
 
+    /** @var array<string, string> */
+    private const array LOOKUP_TABLE_IDS = ['utm_campaigns' => self::LOOKUP_TABLE_ID];
+
     #[Override]
     protected function setUp(): void
     {
@@ -46,7 +49,7 @@ final class MixpanelClientTest extends TestCase
             serviceAccountUsername: self::USERNAME,
             serviceAccountPassword: self::PASSWORD,
             projectId: self::PROJECT_ID,
-            lookupTableId: self::LOOKUP_TABLE_ID,
+            lookupTableIds: self::LOOKUP_TABLE_IDS,
         );
 
         $transport = new MixpanelHttpTransport($config);
