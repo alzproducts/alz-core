@@ -5,10 +5,11 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Application\AdSpend\UseCases\SyncAdSpendUseCase;
-use App\Application\AdSpend\UseCases\SyncCampaignLookupTableUseCase;
 use App\Application\Contracts\GoogleAdsClientInterface;
 use App\Application\Contracts\MixpanelClientInterface;
+use App\Application\Mixpanel\UseCases\SyncLookupTableUseCase;
 use App\Infrastructure\GoogleAds\GoogleAdsClientFactory;
+use App\Infrastructure\Mixpanel\LookupTables\CampaignLookupTableProvider;
 use App\Presentation\Jobs\SyncCampaignLookupTableJob;
 use App\Presentation\Jobs\SyncGoogleAdsToMixpanelJob;
 use Illuminate\Contracts\Container\BindingResolutionException;
@@ -60,15 +61,17 @@ final class GoogleAdsServiceProvider extends ServiceProvider implements Deferrab
                 ),
             );
 
-        // Contextual binding: SyncCampaignLookupTableJob gets SyncCampaignLookupTableUseCase with Google client
+        // Contextual binding: SyncCampaignLookupTableJob gets SyncLookupTableUseCase with CampaignLookupTableProvider
         $this->app->when(SyncCampaignLookupTableJob::class)
-            ->needs(SyncCampaignLookupTableUseCase::class)
+            ->needs(SyncLookupTableUseCase::class)
             ->give(
                 /**
                  * @throws BindingResolutionException
                  */
-                static fn(Container $app): SyncCampaignLookupTableUseCase => new SyncCampaignLookupTableUseCase(
-                    $app->make(GoogleAdsClientInterface::class),
+                static fn(Container $app): SyncLookupTableUseCase => new SyncLookupTableUseCase(
+                    new CampaignLookupTableProvider(
+                        $app->make(GoogleAdsClientInterface::class),
+                    ),
                     $app->make(MixpanelClientInterface::class),
                     $app->make(LoggerInterface::class),
                 ),

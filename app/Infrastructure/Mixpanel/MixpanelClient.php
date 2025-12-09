@@ -6,12 +6,10 @@ namespace App\Infrastructure\Mixpanel;
 
 use App\Application\Contracts\MixpanelClientInterface;
 use App\Domain\AdSpend\Enums\AdSource;
-use App\Domain\AdSpend\ValueObjects\Campaign;
 use App\Domain\AdSpend\ValueObjects\CampaignMetrics;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\PayloadSerializationException;
 use App\Infrastructure\Support\CsvFormatter;
-use Closure;
 use Illuminate\Support\Facades\Log;
 use JsonException;
 
@@ -80,46 +78,27 @@ final readonly class MixpanelClient implements MixpanelClientInterface
     }
 
     /**
-     * Replace the campaign lookup table with latest campaign data.
-     *
-     * @param array<int, Campaign> $campaigns
-     *
-     * @throws ExternalServiceUnavailableException When API unavailable or request fails
-     */
-    public function replaceCampaignLookupTable(array $campaigns): void
-    {
-        $this->replaceLookupTable(
-            tableName: 'utm_campaigns',
-            headers: ['utm_campaign', 'campaign_name', 'campaign_status'],
-            rowMapper: static fn(Campaign $campaign): array => [
-                (string) $campaign->id,
-                $campaign->name,
-                $campaign->status,
-            ],
-            items: $campaigns,
-        );
-    }
-
-    /**
      * Replace a lookup table with new data.
      *
-     * @template T
+     * Sends CSV data to Mixpanel Lookup Tables API. The table is identified
+     * by $tableKey, which must exist in MixpanelConfig::$lookupTableIds.
      *
-     * @param string $tableName Key in config lookup_tables array
+     * Note: Mixpanel only supports full replacement (PUT), not incremental updates.
+     * Rate limit: 100 calls per 24 hours (hourly syncs recommended).
+     *
+     * @param string $tableKey Key in MixpanelConfig::$lookupTableIds (e.g., 'utm_campaigns')
      * @param array<int, string> $headers CSV column headers
-     * @param Closure(T): array<int, string> $rowMapper Maps each item to a CSV row
-     * @param array<int, T> $items Items to transform into rows
+     * @param array<int, array<int, string>> $rows Pre-transformed data rows
      *
      * @throws ExternalServiceUnavailableException When API unavailable or request fails
      */
-    private function replaceLookupTable(string $tableName, array $headers, Closure $rowMapper, array $items): void
+    public function replaceLookupTable(string $tableKey, array $headers, array $rows): void
     {
-        $rows = \array_map($rowMapper, $items);
         $csv = CsvFormatter::format($headers, $rows);
 
         $this->transport->request(
             method: 'PUT',
-            url: "{$this->config->dataApiBaseUrl}/lookup-tables/{$this->config->lookupTableIds[$tableName]}?project_id={$this->config->projectId}",
+            url: "{$this->config->dataApiBaseUrl}/lookup-tables/{$this->config->lookupTableIds[$tableKey]}?project_id={$this->config->projectId}",
             body: $csv,
             contentType: 'text/csv',
         );

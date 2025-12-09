@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Presentation\Jobs;
 
-use App\Application\AdSpend\UseCases\SyncCampaignLookupTableUseCase;
+use App\Application\Mixpanel\UseCases\SyncLookupTableUseCase;
 use App\Domain\Exceptions\AuthenticationExpiredException;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\UnexpectedApiResultException;
@@ -48,7 +48,7 @@ final class SyncCampaignLookupTableJob implements ShouldQueue
      *
      * @throws ExternalServiceUnavailableException When external APIs unavailable - will retry
      */
-    public function handle(SyncCampaignLookupTableUseCase $useCase): void
+    public function handle(SyncLookupTableUseCase $useCase): void
     {
         Log::info('Campaign lookup table sync job starting');
 
