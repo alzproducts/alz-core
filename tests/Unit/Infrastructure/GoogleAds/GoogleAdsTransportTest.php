@@ -71,12 +71,12 @@ final class GoogleAdsTransportTest extends TestCase
     {
         $mockResponse = Mockery::mock(PagedListResponse::class);
 
+        // Note: Page size is fixed by the API at 10000, no explicit setting needed
         $this->mockServiceClient
             ->shouldReceive('search')
             ->once()
             ->withArgs(static fn($request) => $request->getCustomerId() === '1234567890'
-                    && \str_contains($request->getQuery(), 'SELECT campaign.id')
-                    && $request->getPageSize() === 10000)
+                    && \str_contains($request->getQuery(), 'SELECT campaign.id'))
             ->andReturn($mockResponse);
 
         $query = 'SELECT campaign.id FROM campaign';
