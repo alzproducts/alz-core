@@ -12,6 +12,7 @@ use App\Domain\Exceptions\PayloadSerializationException;
 use App\Infrastructure\Support\CsvFormatter;
 use Illuminate\Support\Facades\Log;
 use JsonException;
+use Webmozart\Assert\Assert;
 
 /**
  * Manages Mixpanel API interactions for events and lookup tables.
@@ -94,6 +95,12 @@ final readonly class MixpanelClient implements MixpanelClientInterface
      */
     public function replaceLookupTable(string $tableKey, array $headers, array $rows): void
     {
+        Assert::keyExists(
+            $this->config->lookupTableIds,
+            $tableKey,
+            "Unknown lookup table key: {$tableKey}. Available keys: " . \implode(', ', \array_keys($this->config->lookupTableIds)),
+        );
+
         $csv = CsvFormatter::format($headers, $rows);
 
         $this->transport->request(
