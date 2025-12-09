@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Presentation\Jobs;
 
 use App\Application\AdSpend\UseCases\SyncAdSpendUseCase;
+use App\Domain\Exceptions\AuthenticationExpiredException;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\PayloadSerializationException;
 use Illuminate\Bus\Queueable;
@@ -74,6 +75,16 @@ final class SyncGoogleAdsToMixpanelJob implements ShouldQueue
                 'date' => $dateToSync,
                 'service' => $e->serviceName,
                 'error' => $e->getMessage(),
+                'attempts' => $this->attempts(),
+            ]);
+
+            $this->fail($e);
+        } catch (AuthenticationExpiredException $e) {
+            // Permanent failure - credentials need fixing, don't waste retries
+            Log::critical('Authentication failed during sync, failing immediately', [
+                'date' => $dateToSync,
+                'service' => $e->serviceName,
+                'message' => $e->getMessage(),
                 'attempts' => $this->attempts(),
             ]);
 
