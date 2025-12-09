@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Infrastructure\AdSpend\Mixpanel;
 
-use App\Domain\AdSpend\ValueObjects\Campaign;
+use App\Domain\AdSpend\Enums\AdSource;
 use App\Domain\AdSpend\ValueObjects\CampaignMetrics;
 use App\Domain\Exceptions\AuthenticationExpiredException;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
@@ -26,7 +26,7 @@ final class MixpanelClientTest extends TestCase
 {
     private MixpanelClient $client;
 
-    private const string BASE_URL = 'https://api.mixpanel.com';
+    private const string BASE_URL = 'https://api-eu.mixpanel.com';
 
     private const string PROJECT_ID = 'test-project-123';
 
@@ -35,6 +35,9 @@ final class MixpanelClientTest extends TestCase
     private const string PASSWORD = 'test-password';
 
     private const string LOOKUP_TABLE_ID = 'test-lookup-table-id';
+
+    /** @var array<string, string> */
+    private const array LOOKUP_TABLE_IDS = ['utm_campaigns' => self::LOOKUP_TABLE_ID];
 
     #[Override]
     protected function setUp(): void
@@ -46,7 +49,7 @@ final class MixpanelClientTest extends TestCase
             serviceAccountUsername: self::USERNAME,
             serviceAccountPassword: self::PASSWORD,
             projectId: self::PROJECT_ID,
-            lookupTableId: self::LOOKUP_TABLE_ID,
+            lookupTableIds: self::LOOKUP_TABLE_IDS,
         );
 
         $transport = new MixpanelHttpTransport($config);
@@ -61,7 +64,7 @@ final class MixpanelClientTest extends TestCase
 
         $event = $this->createEvent();
 
-        $this->client->importCampaigns([$event]);
+        $this->client->importCampaigns([$event], AdSource::Google);
 
         Http::assertSent(static function (Request $request): bool {
             self::assertSame('POST', $request->method());
@@ -82,7 +85,7 @@ final class MixpanelClientTest extends TestCase
             $this->createEvent(campaignId: 333),
         ];
 
-        $this->client->importCampaigns($events);
+        $this->client->importCampaigns($events, AdSource::Google);
 
         Http::assertSent(static function (Request $request): bool {
             self::assertSame('POST', $request->method());
@@ -98,7 +101,7 @@ final class MixpanelClientTest extends TestCase
     {
         Http::fake(['*' => Http::response([], 200)]);
 
-        $this->client->importCampaigns([]);
+        $this->client->importCampaigns([], AdSource::Google);
 
         Http::assertNothingSent();
     }
@@ -109,7 +112,7 @@ final class MixpanelClientTest extends TestCase
         Http::fake(['*' => Http::response([], 200)]);
 
         $event = $this->createEvent();
-        $this->client->importCampaigns([$event]);
+        $this->client->importCampaigns([$event], AdSource::Google);
 
         Http::assertSent(static function (Request $request): bool {
             $expectedUrl = self::BASE_URL . '/import?project_id=' . self::PROJECT_ID;
@@ -125,7 +128,7 @@ final class MixpanelClientTest extends TestCase
         Http::fake(['*' => Http::response([], 200)]);
 
         $event = $this->createEvent();
-        $this->client->importCampaigns([$event]);
+        $this->client->importCampaigns([$event], AdSource::Google);
 
         Http::assertSent(static function (Request $request): bool {
             self::assertSame('POST', $request->method());
@@ -140,7 +143,7 @@ final class MixpanelClientTest extends TestCase
         Http::fake(['*' => Http::response([], 200)]);
 
         $event = $this->createEvent();
-        $this->client->importCampaigns([$event]);
+        $this->client->importCampaigns([$event], AdSource::Google);
 
         Http::assertSent(static function (Request $request): bool {
             $contentTypeHeader = $request->header('Content-Type');
@@ -157,7 +160,7 @@ final class MixpanelClientTest extends TestCase
         Http::fake(['*' => Http::response([], 200)]);
 
         $event = $this->createEvent();
-        $this->client->importCampaigns([$event]);
+        $this->client->importCampaigns([$event], AdSource::Google);
 
         Http::assertSent(static function (Request $request): bool {
             $authHeader = $request->header('Authorization');
@@ -174,7 +177,7 @@ final class MixpanelClientTest extends TestCase
         Http::fake(['*' => Http::response([], 200)]);
 
         $event = $this->createEvent();
-        $this->client->importCampaigns([$event]);
+        $this->client->importCampaigns([$event], AdSource::Google);
 
         Http::assertSent(static function (Request $request): bool {
             $payload = $request->data();
@@ -200,7 +203,7 @@ final class MixpanelClientTest extends TestCase
             conversions: 2.5,
         );
 
-        $this->client->importCampaigns([$event]);
+        $this->client->importCampaigns([$event], AdSource::Google);
 
         Http::assertSent(static function (Request $request): bool {
             $payload = $request->data();
@@ -234,7 +237,7 @@ final class MixpanelClientTest extends TestCase
         $this->expectException(ExternalServiceUnavailableException::class);
         $this->expectExceptionMessage("External service 'Mixpanel' is unavailable");
 
-        $this->client->importCampaigns([$event]);
+        $this->client->importCampaigns([$event], AdSource::Google);
     }
 
     #[Test]
@@ -247,7 +250,7 @@ final class MixpanelClientTest extends TestCase
         $event = $this->createEvent();
 
         try {
-            $this->client->importCampaigns([$event]);
+            $this->client->importCampaigns([$event], AdSource::Google);
         } catch (ExternalServiceUnavailableException $e) {
             self::assertNotNull($e->getPrevious());
             self::assertInstanceOf(RequestException::class, $e->getPrevious());
@@ -268,7 +271,7 @@ final class MixpanelClientTest extends TestCase
         $event = $this->createEvent();
 
         try {
-            $this->client->importCampaigns([$event]);
+            $this->client->importCampaigns([$event], AdSource::Google);
         } catch (ExternalServiceUnavailableException $e) {
             self::assertSame(180, $e->retryAfter);
 
@@ -288,7 +291,7 @@ final class MixpanelClientTest extends TestCase
         $event = $this->createEvent();
 
         try {
-            $this->client->importCampaigns([$event]);
+            $this->client->importCampaigns([$event], AdSource::Google);
         } catch (ExternalServiceUnavailableException $e) {
             self::assertNull($e->retryAfter); // Null when API doesn't specify
 
@@ -308,7 +311,7 @@ final class MixpanelClientTest extends TestCase
         $event = $this->createEvent();
 
         try {
-            $this->client->importCampaigns([$event]);
+            $this->client->importCampaigns([$event], AdSource::Google);
         } catch (ExternalServiceUnavailableException $e) {
             self::assertNull($e->retryAfter); // Zero is invalid per RFC 7231
 
@@ -328,7 +331,7 @@ final class MixpanelClientTest extends TestCase
         $event = $this->createEvent();
 
         try {
-            $this->client->importCampaigns([$event]);
+            $this->client->importCampaigns([$event], AdSource::Google);
         } catch (ExternalServiceUnavailableException $e) {
             self::assertNull($e->retryAfter); // Negative is invalid per RFC 7231
 
@@ -348,7 +351,7 @@ final class MixpanelClientTest extends TestCase
         $event = $this->createEvent();
 
         try {
-            $this->client->importCampaigns([$event]);
+            $this->client->importCampaigns([$event], AdSource::Google);
         } catch (ExternalServiceUnavailableException $e) {
             self::assertSame(1, $e->retryAfter); // Boundary: exactly 1 is valid
 
@@ -368,7 +371,7 @@ final class MixpanelClientTest extends TestCase
         $this->expectException(InvalidApiRequestException::class);
         $this->expectExceptionMessage('Invalid payload');
 
-        $this->client->importCampaigns([$event]);
+        $this->client->importCampaigns([$event], AdSource::Google);
     }
 
     #[Test]
@@ -381,7 +384,7 @@ final class MixpanelClientTest extends TestCase
         $this->expectException(AuthenticationExpiredException::class);
         $this->expectExceptionMessage('Invalid credentials');
 
-        $this->client->importCampaigns([$event]);
+        $this->client->importCampaigns([$event], AdSource::Google);
     }
 
     #[Test]
@@ -393,7 +396,7 @@ final class MixpanelClientTest extends TestCase
 
         $this->expectException(ExternalServiceUnavailableException::class);
 
-        $this->client->importCampaigns([$event]);
+        $this->client->importCampaigns([$event], AdSource::Google);
     }
 
     #[Test]
@@ -404,7 +407,7 @@ final class MixpanelClientTest extends TestCase
         $event = $this->createEvent();
 
         try {
-            $this->client->importCampaigns([$event]);
+            $this->client->importCampaigns([$event], AdSource::Google);
         } catch (InvalidApiRequestException $e) {
             self::assertNotNull($e->getPrevious());
             self::assertInstanceOf(RequestException::class, $e->getPrevious());
@@ -420,34 +423,36 @@ final class MixpanelClientTest extends TestCase
     // ========================================================================
 
     #[Test]
-    public function it_replaces_lookup_table_with_single_campaign(): void
+    public function it_replaces_lookup_table_with_single_row(): void
     {
         Http::fake(['*' => Http::response([], 200)]);
 
-        $campaign = $this->createCampaign();
+        $headers = ['utm_campaign', 'campaign_name', 'campaign_status'];
+        $rows = [['123', 'Test Campaign', 'ENABLED']];
 
-        $this->client->replaceCampaignLookupTable([$campaign]);
+        $this->client->replaceLookupTable('utm_campaigns', $headers, $rows);
 
         Http::assertSent(static function (Request $request): bool {
             self::assertSame('PUT', $request->method());
-            self::assertStringContainsString('/lookup_tables/', $request->url());
+            self::assertStringContainsString('/lookup-tables/', $request->url());
 
             return true;
         });
     }
 
     #[Test]
-    public function it_replaces_lookup_table_with_multiple_campaigns(): void
+    public function it_replaces_lookup_table_with_multiple_rows(): void
     {
         Http::fake(['*' => Http::response([], 200)]);
 
-        $campaigns = [
-            $this->createCampaign(campaignId: 111, campaignName: 'Campaign One', status: 'ENABLED'),
-            $this->createCampaign(campaignId: 222, campaignName: 'Campaign Two', status: 'PAUSED'),
-            $this->createCampaign(campaignId: 333, campaignName: 'Campaign Three', status: 'ENABLED'),
+        $headers = ['utm_campaign', 'campaign_name', 'campaign_status'];
+        $rows = [
+            ['111', 'Campaign One', 'ENABLED'],
+            ['222', 'Campaign Two', 'PAUSED'],
+            ['333', 'Campaign Three', 'ENABLED'],
         ];
 
-        $this->client->replaceCampaignLookupTable($campaigns);
+        $this->client->replaceLookupTable('utm_campaigns', $headers, $rows);
 
         Http::assertSent(static function (Request $request): bool {
             self::assertSame('PUT', $request->method());
@@ -461,11 +466,13 @@ final class MixpanelClientTest extends TestCase
     {
         Http::fake(['*' => Http::response([], 200)]);
 
-        $campaign = $this->createCampaign();
-        $this->client->replaceCampaignLookupTable([$campaign]);
+        $headers = ['utm_campaign', 'campaign_name', 'campaign_status'];
+        $rows = [['123', 'Test Campaign', 'ENABLED']];
+
+        $this->client->replaceLookupTable('utm_campaigns', $headers, $rows);
 
         Http::assertSent(static function (Request $request): bool {
-            $expectedUrl = self::BASE_URL . '/lookup_tables/' . self::PROJECT_ID . '/' . self::LOOKUP_TABLE_ID;
+            $expectedUrl = self::BASE_URL . '/lookup-tables/' . self::LOOKUP_TABLE_ID . '?project_id=' . self::PROJECT_ID;
             self::assertSame($expectedUrl, $request->url());
 
             return true;
@@ -477,8 +484,10 @@ final class MixpanelClientTest extends TestCase
     {
         Http::fake(['*' => Http::response([], 200)]);
 
-        $campaign = $this->createCampaign();
-        $this->client->replaceCampaignLookupTable([$campaign]);
+        $headers = ['utm_campaign', 'campaign_name', 'campaign_status'];
+        $rows = [['123', 'Test Campaign', 'ENABLED']];
+
+        $this->client->replaceLookupTable('utm_campaigns', $headers, $rows);
 
         Http::assertSent(static function (Request $request): bool {
             self::assertSame('PUT', $request->method());
@@ -492,8 +501,10 @@ final class MixpanelClientTest extends TestCase
     {
         Http::fake(['*' => Http::response([], 200)]);
 
-        $campaign = $this->createCampaign();
-        $this->client->replaceCampaignLookupTable([$campaign]);
+        $headers = ['utm_campaign', 'campaign_name', 'campaign_status'];
+        $rows = [['123', 'Test Campaign', 'ENABLED']];
+
+        $this->client->replaceLookupTable('utm_campaigns', $headers, $rows);
 
         Http::assertSent(static function (Request $request): bool {
             $contentTypeHeader = $request->header('Content-Type');
@@ -509,8 +520,10 @@ final class MixpanelClientTest extends TestCase
     {
         Http::fake(['*' => Http::response([], 200)]);
 
-        $campaign = $this->createCampaign();
-        $this->client->replaceCampaignLookupTable([$campaign]);
+        $headers = ['utm_campaign', 'campaign_name', 'campaign_status'];
+        $rows = [['123', 'Test Campaign', 'ENABLED']];
+
+        $this->client->replaceLookupTable('utm_campaigns', $headers, $rows);
 
         Http::assertSent(static function (Request $request): bool {
             $authHeader = $request->header('Authorization');
@@ -522,17 +535,14 @@ final class MixpanelClientTest extends TestCase
     }
 
     #[Test]
-    public function it_formats_campaigns_as_csv_with_headers(): void
+    public function it_formats_rows_as_csv_with_headers(): void
     {
         Http::fake(['*' => Http::response([], 200)]);
 
-        $campaign = $this->createCampaign(
-            campaignId: 999,
-            campaignName: 'Test Campaign Name',
-            status: 'ENABLED',
-        );
+        $headers = ['utm_campaign', 'campaign_name', 'campaign_status'];
+        $rows = [['999', 'Test Campaign Name', 'ENABLED']];
 
-        $this->client->replaceCampaignLookupTable([$campaign]);
+        $this->client->replaceLookupTable('utm_campaigns', $headers, $rows);
 
         Http::assertSent(static function (Request $request): bool {
             $body = $request->body();
@@ -541,7 +551,7 @@ final class MixpanelClientTest extends TestCase
             // Verify CSV headers
             self::assertStringContainsString('utm_campaign,campaign_name,campaign_status', $body);
 
-            // Verify campaign data row
+            // Verify data row
             self::assertStringContainsString('999,Test Campaign Name,ENABLED', $body);
 
             return true;
@@ -553,13 +563,10 @@ final class MixpanelClientTest extends TestCase
     {
         Http::fake(['*' => Http::response([], 200)]);
 
-        $campaign = $this->createCampaign(
-            campaignId: 123,
-            campaignName: 'Campaign with "quotes" and, commas',
-            status: 'ENABLED',
-        );
+        $headers = ['utm_campaign', 'campaign_name', 'campaign_status'];
+        $rows = [['123', 'Campaign with "quotes" and, commas', 'ENABLED']];
 
-        $this->client->replaceCampaignLookupTable([$campaign]);
+        $this->client->replaceLookupTable('utm_campaigns', $headers, $rows);
 
         Http::assertSent(static function (Request $request): bool {
             $body = $request->body();
@@ -577,12 +584,13 @@ final class MixpanelClientTest extends TestCase
     {
         Http::fake(['*' => Http::response([], 429)]);
 
-        $campaign = $this->createCampaign();
+        $headers = ['utm_campaign', 'campaign_name', 'campaign_status'];
+        $rows = [['123', 'Test Campaign', 'ENABLED']];
 
         $this->expectException(ExternalServiceUnavailableException::class);
         $this->expectExceptionMessage("External service 'Mixpanel' is unavailable");
 
-        $this->client->replaceCampaignLookupTable([$campaign]);
+        $this->client->replaceLookupTable('utm_campaigns', $headers, $rows);
     }
 
     #[Test]
@@ -590,12 +598,13 @@ final class MixpanelClientTest extends TestCase
     {
         Http::fake(['*' => Http::response(['message' => 'Invalid CSV'], 400)]);
 
-        $campaign = $this->createCampaign();
+        $headers = ['utm_campaign', 'campaign_name', 'campaign_status'];
+        $rows = [['123', 'Test Campaign', 'ENABLED']];
 
         $this->expectException(InvalidApiRequestException::class);
         $this->expectExceptionMessage('Invalid CSV');
 
-        $this->client->replaceCampaignLookupTable([$campaign]);
+        $this->client->replaceLookupTable('utm_campaigns', $headers, $rows);
     }
 
     #[Test]
@@ -603,11 +612,12 @@ final class MixpanelClientTest extends TestCase
     {
         Http::fake(['*' => Http::response([], 500)]);
 
-        $campaign = $this->createCampaign();
+        $headers = ['utm_campaign', 'campaign_name', 'campaign_status'];
+        $rows = [['123', 'Test Campaign', 'ENABLED']];
 
         $this->expectException(ExternalServiceUnavailableException::class);
 
-        $this->client->replaceCampaignLookupTable([$campaign]);
+        $this->client->replaceLookupTable('utm_campaigns', $headers, $rows);
     }
 
     #[Test]
@@ -615,10 +625,11 @@ final class MixpanelClientTest extends TestCase
     {
         Http::fake(['*' => Http::response([], 400)]);
 
-        $campaign = $this->createCampaign();
+        $headers = ['utm_campaign', 'campaign_name', 'campaign_status'];
+        $rows = [['123', 'Test Campaign', 'ENABLED']];
 
         try {
-            $this->client->replaceCampaignLookupTable([$campaign]);
+            $this->client->replaceLookupTable('utm_campaigns', $headers, $rows);
         } catch (InvalidApiRequestException $e) {
             self::assertNotNull($e->getPrevious());
             self::assertInstanceOf(RequestException::class, $e->getPrevious());
@@ -630,23 +641,24 @@ final class MixpanelClientTest extends TestCase
     }
 
     #[Test]
-    public function it_formats_multiple_campaigns_as_csv_rows(): void
+    public function it_formats_multiple_rows_as_csv(): void
     {
         Http::fake(['*' => Http::response([], 200)]);
 
-        $campaigns = [
-            $this->createCampaign(campaignId: 111, campaignName: 'Campaign One', status: 'ENABLED'),
-            $this->createCampaign(campaignId: 222, campaignName: 'Campaign Two', status: 'PAUSED'),
-            $this->createCampaign(campaignId: 333, campaignName: 'Campaign Three', status: 'REMOVED'),
+        $headers = ['utm_campaign', 'campaign_name', 'campaign_status'];
+        $rows = [
+            ['111', 'Campaign One', 'ENABLED'],
+            ['222', 'Campaign Two', 'PAUSED'],
+            ['333', 'Campaign Three', 'REMOVED'],
         ];
 
-        $this->client->replaceCampaignLookupTable($campaigns);
+        $this->client->replaceLookupTable('utm_campaigns', $headers, $rows);
 
         Http::assertSent(static function (Request $request): bool {
             $body = $request->body();
             self::assertIsString($body);
 
-            // Verify all three campaigns are present
+            // Verify all three rows are present
             self::assertStringContainsString('111,Campaign One,ENABLED', $body);
             self::assertStringContainsString('222,Campaign Two,PAUSED', $body);
             self::assertStringContainsString('333,Campaign Three,REMOVED', $body);
@@ -747,7 +759,7 @@ final class MixpanelClientTest extends TestCase
         $this->expectException(PayloadSerializationException::class);
         $this->expectExceptionMessage('Mixpanel');
 
-        $this->client->importCampaigns([$event]);
+        $this->client->importCampaigns([$event], AdSource::Google);
     }
 
     private function createEvent(
@@ -770,15 +782,4 @@ final class MixpanelClientTest extends TestCase
         );
     }
 
-    private function createCampaign(
-        int $campaignId = 123,
-        string $campaignName = 'Test Campaign',
-        string $status = 'ENABLED',
-    ): Campaign {
-        return new Campaign(
-            id: $campaignId,
-            name: $campaignName,
-            status: $status,
-        );
-    }
 }

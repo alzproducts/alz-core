@@ -5,13 +5,14 @@ declare(strict_types=1);
 namespace App\Infrastructure\Mixpanel;
 
 use App\Application\Contracts\MixpanelClientInterface;
-use App\Domain\AdSpend\ValueObjects\Campaign;
+use App\Domain\AdSpend\Enums\AdSource;
 use App\Domain\AdSpend\ValueObjects\CampaignMetrics;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\PayloadSerializationException;
 use App\Infrastructure\Support\CsvFormatter;
 use Illuminate\Support\Facades\Log;
 use JsonException;
+use Webmozart\Assert\Assert;
 
 /**
  * Manages Mixpanel API interactions for events and lookup tables.
@@ -54,17 +55,18 @@ final readonly class MixpanelClient implements MixpanelClientInterface
      * them to Infrastructure DTO for Mixpanel API formatting.
      *
      * @param array<int, CampaignMetrics> $campaigns Domain campaign metrics
+     * @param AdSource $source The ad network these campaigns originate from
      *
      * @throws ExternalServiceUnavailableException When API unavailable or request fails
      */
-    public function importCampaigns(array $campaigns): void
+    public function importCampaigns(array $campaigns, AdSource $source): void
     {
         if (\count($campaigns) === 0) {
             return;
         }
 
         $payload = \array_map(
-            static fn(CampaignMetrics $campaign): array => MixpanelAdSpendEventDTO::fromCampaignMetrics($campaign)->toMixpanelFormat(),
+            static fn(CampaignMetrics $campaign): array => MixpanelAdSpendEventDTO::fromCampaignMetrics($campaign, $source)->toMixpanelFormat(),
             $campaigns,
         );
 
@@ -77,28 +79,33 @@ final readonly class MixpanelClient implements MixpanelClientInterface
     }
 
     /**
-     * Replace the campaign lookup table with latest campaign data.
+     * Replace a lookup table with new data.
      *
-     * @param array<int, Campaign> $campaigns
+     * Sends CSV data to Mixpanel Lookup Tables API. The table is identified
+     * by $tableKey, which must exist in MixpanelConfig::$lookupTableIds.
+     *
+     * Note: Mixpanel only supports full replacement (PUT), not incremental updates.
+     * Rate limit: 100 calls per 24 hours (hourly syncs recommended).
+     *
+     * @param string $tableKey Key in MixpanelConfig::$lookupTableIds (e.g., 'utm_campaigns')
+     * @param array<int, string> $headers CSV column headers
+     * @param array<int, array<int, string>> $rows Pre-transformed data rows
      *
      * @throws ExternalServiceUnavailableException When API unavailable or request fails
      */
-    public function replaceCampaignLookupTable(array $campaigns): void
+    public function replaceLookupTable(string $tableKey, array $headers, array $rows): void
     {
-        $headers = ['utm_campaign', 'campaign_name', 'campaign_status'];
-        $rows = \array_map(
-            static fn(Campaign $campaign): array => [
-                (string) $campaign->id,
-                $campaign->name,
-                $campaign->status,
-            ],
-            $campaigns,
+        Assert::keyExists(
+            $this->config->lookupTableIds,
+            $tableKey,
+            "Unknown lookup table key: {$tableKey}. Available keys: " . \implode(', ', \array_keys($this->config->lookupTableIds)),
         );
+
         $csv = CsvFormatter::format($headers, $rows);
 
         $this->transport->request(
             method: 'PUT',
-            url: "{$this->config->dataApiBaseUrl}/lookup_tables/{$this->config->projectId}/{$this->config->lookupTableId}",
+            url: "{$this->config->dataApiBaseUrl}/lookup-tables/{$this->config->lookupTableIds[$tableKey]}?project_id={$this->config->projectId}",
             body: $csv,
             contentType: 'text/csv',
         );

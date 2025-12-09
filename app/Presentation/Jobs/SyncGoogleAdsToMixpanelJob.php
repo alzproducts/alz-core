@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace App\Presentation\Jobs;
 
 use App\Application\AdSpend\UseCases\SyncAdSpendUseCase;
+use App\Domain\Exceptions\AuthenticationExpiredException;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\PayloadSerializationException;
+use App\Domain\ValueObjects\DateRange;
+use DateTimeImmutable;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -42,13 +45,10 @@ final class SyncGoogleAdsToMixpanelJob implements ShouldQueue
      */
     public array $backoff = [60, 120, 240, 480, 960];
 
-    private readonly ?string $date;
-
-    public function __construct(?string $date = null)
-    {
-        // Store the date parameter if provided (for manual testing with specific dates)
-        $this->date = $date;
-    }
+    public function __construct(
+        private readonly DateTimeImmutable $from,
+        private readonly DateTimeImmutable $to,
+    ) {}
 
     /**
      * Execute the job.
@@ -57,30 +57,48 @@ final class SyncGoogleAdsToMixpanelJob implements ShouldQueue
      */
     public function handle(SyncAdSpendUseCase $useCase): void
     {
-        // Calculate the date at execution time, not at job instantiation.
-        // This ensures the job works correctly with both schedule:run (cron-based)
-        // and schedule:work (long-running daemon like Octane).
-        $dateToSync = $this->date ?? \now()->subDay()->format('Y-m-d');
+        $dateRange = new DateRange($this->from, $this->to);
+        $fromString = $this->from->format('Y-m-d');
+        $toString = $this->to->format('Y-m-d');
 
-        Log::info('Queued Google Ads to Mixpanel sync starting', ['date' => $dateToSync]);
+        Log::info('Queued Google Ads to Mixpanel sync starting', [
+            'from' => $fromString,
+            'to' => $toString,
+        ]);
 
         try {
-            $useCase->execute($dateToSync);
+            $useCase->execute($dateRange);
 
-            Log::info('Queued Google Ads to Mixpanel sync completed', ['date' => $dateToSync]);
+            Log::info('Queued Google Ads to Mixpanel sync completed', [
+                'from' => $fromString,
+                'to' => $toString,
+            ]);
         } catch (PayloadSerializationException $e) {
             // Permanent failure - data integrity issue, retrying won't help
             Log::critical('Payload serialization failed during sync, failing immediately', [
-                'date' => $dateToSync,
+                'from' => $fromString,
+                'to' => $toString,
                 'service' => $e->serviceName,
                 'error' => $e->getMessage(),
                 'attempts' => $this->attempts(),
             ]);
 
             $this->fail($e);
+        } catch (AuthenticationExpiredException $e) {
+            // Permanent failure - credentials need fixing, don't waste retries
+            Log::critical('Authentication failed during sync, failing immediately', [
+                'from' => $fromString,
+                'to' => $toString,
+                'service' => $e->serviceName,
+                'message' => $e->getMessage(),
+                'attempts' => $this->attempts(),
+            ]);
+
+            $this->fail($e);
         } catch (ExternalServiceUnavailableException $e) {
             Log::warning('External service unavailable during sync, will retry', [
-                'date' => $dateToSync,
+                'from' => $fromString,
+                'to' => $toString,
                 'service' => $e->serviceName,
                 'retry_after' => $e->retryAfter ?? 'using backoff',
                 'attempts' => $this->attempts(),
@@ -101,6 +119,8 @@ final class SyncGoogleAdsToMixpanelJob implements ShouldQueue
     public function failed(Throwable $exception): void
     {
         Log::error('Google Ads to Mixpanel sync job failed', [
+            'from' => $this->from->format('Y-m-d'),
+            'to' => $this->to->format('Y-m-d'),
             'exception' => $exception::class,
             'message' => $exception->getMessage(),
             'attempts' => $this->attempts(),

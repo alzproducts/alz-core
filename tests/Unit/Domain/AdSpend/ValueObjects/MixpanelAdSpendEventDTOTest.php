@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Domain\AdSpend\ValueObjects;
 
+use App\Domain\AdSpend\Enums\AdSource;
 use App\Domain\AdSpend\ValueObjects\CampaignMetrics;
 use App\Infrastructure\Mixpanel\MixpanelAdSpendEventDTO;
 use InvalidArgumentException;
@@ -151,7 +152,7 @@ final class MixpanelAdSpendEventDTOTest extends TestCase
         );
 
         // Act
-        $dto = MixpanelAdSpendEventDTO::fromCampaignMetrics($campaign);
+        $dto = MixpanelAdSpendEventDTO::fromCampaignMetrics($campaign, AdSource::Google);
 
         // Assert
         self::assertSame('G-2024-06-15-12345', $dto->insertId);
@@ -184,7 +185,7 @@ final class MixpanelAdSpendEventDTOTest extends TestCase
         );
 
         // Act
-        $dto = MixpanelAdSpendEventDTO::fromCampaignMetrics($campaign);
+        $dto = MixpanelAdSpendEventDTO::fromCampaignMetrics($campaign, AdSource::Google);
 
         // Assert: Even at max int, we're only at 32 chars → use raw ID (no hashing needed)
         $expected = 'G-2024-12-31-' . \PHP_INT_MAX;
@@ -208,7 +209,7 @@ final class MixpanelAdSpendEventDTOTest extends TestCase
         );
 
         // Act
-        $dto = MixpanelAdSpendEventDTO::fromCampaignMetrics($campaign);
+        $dto = MixpanelAdSpendEventDTO::fromCampaignMetrics($campaign, AdSource::Google);
 
         // Assert: Insert ID uses id (ASCII), not name
         // This verifies mb_strlen is used for character count (not byte count)
@@ -286,8 +287,8 @@ final class MixpanelAdSpendEventDTOTest extends TestCase
         );
 
         // Act
-        $dto1 = MixpanelAdSpendEventDTO::fromCampaignMetrics($campaign1);
-        $dto2 = MixpanelAdSpendEventDTO::fromCampaignMetrics($campaign2);
+        $dto1 = MixpanelAdSpendEventDTO::fromCampaignMetrics($campaign1, AdSource::Google);
+        $dto2 = MixpanelAdSpendEventDTO::fromCampaignMetrics($campaign2, AdSource::Google);
 
         // Assert: Same campaign ID + date = same insert ID (for deduplication)
         self::assertSame($dto1->insertId, $dto2->insertId);
@@ -319,8 +320,8 @@ final class MixpanelAdSpendEventDTOTest extends TestCase
         );
 
         // Act
-        $dto1 = MixpanelAdSpendEventDTO::fromCampaignMetrics($campaign1);
-        $dto2 = MixpanelAdSpendEventDTO::fromCampaignMetrics($campaign2);
+        $dto1 = MixpanelAdSpendEventDTO::fromCampaignMetrics($campaign1, AdSource::Google);
+        $dto2 = MixpanelAdSpendEventDTO::fromCampaignMetrics($campaign2, AdSource::Google);
 
         // Assert: Different campaign ID = different insert ID
         self::assertNotSame($dto1->insertId, $dto2->insertId);
@@ -353,8 +354,8 @@ final class MixpanelAdSpendEventDTOTest extends TestCase
         );
 
         // Act
-        $dto1 = MixpanelAdSpendEventDTO::fromCampaignMetrics($campaign1);
-        $dto2 = MixpanelAdSpendEventDTO::fromCampaignMetrics($campaign2);
+        $dto1 = MixpanelAdSpendEventDTO::fromCampaignMetrics($campaign1, AdSource::Google);
+        $dto2 = MixpanelAdSpendEventDTO::fromCampaignMetrics($campaign2, AdSource::Google);
 
         // Assert: Different date = different insert ID
         self::assertNotSame($dto1->insertId, $dto2->insertId);
