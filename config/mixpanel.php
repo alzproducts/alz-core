@@ -8,9 +8,17 @@ return [
     | API Configuration
     |--------------------------------------------------------------------------
     */
-    'base_url' => env('MIXPANEL_BASE_URL', 'https://api.mixpanel.com'),
+    'base_url' => env('MIXPANEL_BASE_URL', 'https://api-eu.mixpanel.com'),
     'project_id' => env('MIXPANEL_PROJECT_ID'),
-    'utm_campaign_lookup_table_id' => env('MIXPANEL_UTM_CAMPAIGN_LOOKUP_TABLE_ID'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Lookup Tables (production IDs as defaults, env override for testing)
+    |--------------------------------------------------------------------------
+    */
+    'lookup_tables' => [
+        'utm_campaigns' => env('MIXPANEL_LOOKUP_TABLE_UTM_CAMPAIGNS', '321195e7-7672-4d3b-9f05-0265b5133bb6'),
+    ],
 
     /*
     |--------------------------------------------------------------------------

@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Infrastructure\GoogleAds;
 
+use App\Domain\AdSpend\Enums\AdSource;
 use App\Domain\AdSpend\ValueObjects\Campaign;
 use App\Domain\AdSpend\ValueObjects\CampaignMetrics;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\InvalidApiRequestException;
+use App\Domain\ValueObjects\DateRange;
 use App\Infrastructure\GoogleAds\GoogleAdsClient;
 use App\Infrastructure\GoogleAds\GoogleAdsTransport;
+use DateTimeImmutable;
 use Google\Ads\GoogleAds\V22\Common\Metrics;
 use Google\Ads\GoogleAds\V22\Common\Segments;
 use Google\Ads\GoogleAds\V22\Enums\CampaignStatusEnum\CampaignStatus;
@@ -53,7 +56,57 @@ final class GoogleAdsClientTest extends TestCase
 
     /*
     |--------------------------------------------------------------------------
-    | getDailyCampaignMetrics Tests
+    | getSource Tests
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function it_returns_google_as_ad_source(): void
+    {
+        $this->assertSame(AdSource::Google, $this->client->getSource());
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | verifyConnectivity Tests
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function it_verifies_connectivity_by_executing_limit_1_query(): void
+    {
+        $this->mockTransport
+            ->shouldReceive('search')
+            ->once()
+            ->withArgs(static fn(string $query): bool => \str_contains($query, 'SELECT campaign.id')
+                    && \str_contains($query, 'FROM campaign')
+                    && \str_contains($query, 'LIMIT 1'))
+            ->andReturn($this->createPagedResponse([]));
+
+        $this->client->verifyConnectivity();
+
+        // Assert: No exception thrown means connectivity verified
+        $this->assertTrue(true);
+    }
+
+    #[Test]
+    public function it_propagates_external_service_unavailable_on_connectivity_failure(): void
+    {
+        $exception = new ExternalServiceUnavailableException('Google Ads', 60);
+
+        $this->mockTransport
+            ->shouldReceive('search')
+            ->andThrow($exception);
+
+        $this->expectException(ExternalServiceUnavailableException::class);
+        $this->expectExceptionMessage("External service 'Google Ads' is unavailable");
+
+        $this->client->verifyConnectivity();
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | getCampaignMetricsByDateRange Tests
     |--------------------------------------------------------------------------
     */
 
@@ -72,7 +125,7 @@ final class GoogleAdsClientTest extends TestCase
 
         $this->mockTransportSearch($this->createPagedResponse([$row]));
 
-        $result = $this->client->getDailyCampaignMetrics('2024-05-10');
+        $result = $this->client->getCampaignMetricsByDateRange(DateRange::singleDay(new DateTimeImmutable('2024-05-10')));
 
         $this->assertCount(1, $result);
         $this->assertInstanceOf(CampaignMetrics::class, $result[0]);
@@ -118,7 +171,7 @@ final class GoogleAdsClientTest extends TestCase
 
         $this->mockTransportSearch($this->createPagedResponse([$row1, $row2, $row3]));
 
-        $result = $this->client->getDailyCampaignMetrics('2024-05-10');
+        $result = $this->client->getCampaignMetricsByDateRange(DateRange::singleDay(new DateTimeImmutable('2024-05-10')));
 
         $this->assertCount(3, $result);
         $this->assertSame(111, $result[0]->campaignId);
@@ -131,18 +184,18 @@ final class GoogleAdsClientTest extends TestCase
     {
         $this->mockTransportSearch($this->createPagedResponse([]));
 
-        $result = $this->client->getDailyCampaignMetrics('2024-05-10');
+        $result = $this->client->getCampaignMetricsByDateRange(DateRange::singleDay(new DateTimeImmutable('2024-05-10')));
 
         $this->assertSame([], $result);
     }
 
     #[Test]
-    public function it_constructs_gaql_query_with_correct_date(): void
+    public function it_constructs_gaql_query_with_correct_date_range(): void
     {
         $this->mockTransport
             ->shouldReceive('search')
             ->once()
-            ->withArgs(static fn(string $query): bool => \str_contains($query, "WHERE segments.date = '2024-05-10'")
+            ->withArgs(static fn(string $query): bool => \str_contains($query, "WHERE segments.date BETWEEN '2024-05-10' AND '2024-05-10'")
                     && \str_contains($query, 'SELECT campaign.id')
                     && \str_contains($query, 'campaign.name')
                     && \str_contains($query, 'metrics.cost_micros')
@@ -152,7 +205,7 @@ final class GoogleAdsClientTest extends TestCase
                     && \str_contains($query, 'FROM campaign'))
             ->andReturn($this->createPagedResponse([]));
 
-        $this->client->getDailyCampaignMetrics('2024-05-10');
+        $this->client->getCampaignMetricsByDateRange(DateRange::singleDay(new DateTimeImmutable('2024-05-10')));
     }
 
     #[Test]
@@ -167,7 +220,7 @@ final class GoogleAdsClientTest extends TestCase
         $this->expectException(ExternalServiceUnavailableException::class);
         $this->expectExceptionMessage("External service 'Google Ads' is unavailable");
 
-        $this->client->getDailyCampaignMetrics('2024-05-10');
+        $this->client->getCampaignMetricsByDateRange(DateRange::singleDay(new DateTimeImmutable('2024-05-10')));
     }
 
     #[Test]
@@ -182,7 +235,7 @@ final class GoogleAdsClientTest extends TestCase
         $this->expectException(InvalidApiRequestException::class);
         $this->expectExceptionMessage('Invalid GAQL query');
 
-        $this->client->getDailyCampaignMetrics('2024-05-10');
+        $this->client->getCampaignMetricsByDateRange(DateRange::singleDay(new DateTimeImmutable('2024-05-10')));
     }
 
     /*
@@ -293,7 +346,7 @@ final class GoogleAdsClientTest extends TestCase
         $this->expectException(ExternalServiceUnavailableException::class);
         $this->expectExceptionMessage('Google Ads');
 
-        $this->client->getDailyCampaignMetrics('2024-05-10');
+        $this->client->getCampaignMetricsByDateRange(DateRange::singleDay(new DateTimeImmutable('2024-05-10')));
     }
 
     #[Test]
@@ -336,7 +389,7 @@ final class GoogleAdsClientTest extends TestCase
             ->andReturn($response);
 
         try {
-            $this->client->getDailyCampaignMetrics('2024-05-10');
+            $this->client->getCampaignMetricsByDateRange(DateRange::singleDay(new DateTimeImmutable('2024-05-10')));
             $this->fail('Expected ExternalServiceUnavailableException');
         } catch (ExternalServiceUnavailableException $e) {
             $this->assertSame($validationException, $e->getPrevious());

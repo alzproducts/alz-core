@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace App\Application\Contracts;
 
-use App\Domain\AdSpend\ValueObjects\Campaign;
+use App\Domain\AdSpend\Enums\AdSource;
 use App\Domain\AdSpend\ValueObjects\CampaignMetrics;
+use App\Domain\Exceptions\AuthenticationExpiredException;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\PayloadSerializationException;
 
@@ -28,27 +29,28 @@ interface MixpanelClientInterface
      * handles internal transformation to Mixpanel event format.
      *
      * @param array<int, CampaignMetrics> $campaigns
+     * @param AdSource $source The ad network these campaigns originate from
      *
      * @throws ExternalServiceUnavailableException When API unavailable or request fails
      * @throws PayloadSerializationException When payload cannot be encoded (data integrity issue)
      */
-    public function importCampaigns(array $campaigns): void;
+    public function importCampaigns(array $campaigns, AdSource $source): void;
 
     /**
-     * Replace the campaign lookup table with latest campaign data.
+     * Replace a lookup table with new data.
      *
-     * Syncs campaign ID→name mappings to Mixpanel Lookup Tables for UTM resolution.
-     * Sends CSV with utm_campaign as join key:
-     *
-     * utm_campaign,campaign_name,campaign_status
-     * 123456789,"[01] Search - Branded",ENABLED
+     * Sends CSV data to Mixpanel Lookup Tables API. The table is identified
+     * by $tableKey, which must exist in the implementation's configuration.
      *
      * Note: Mixpanel only supports full replacement (PUT), not incremental updates.
      * Rate limit: 100 calls per 24 hours (hourly syncs recommended).
      *
-     * @param array<int, Campaign> $campaigns All active campaigns from Google Ads
+     * @param string $tableKey Lookup table identifier (e.g., 'utm_campaigns')
+     * @param array<int, string> $headers CSV column headers
+     * @param array<int, array<int, string>> $rows Pre-transformed data rows
      *
-     * @throws ExternalServiceUnavailableException
+     * @throws ExternalServiceUnavailableException When API unavailable or request fails
+     * @throws AuthenticationExpiredException When credentials invalid or expired
      */
-    public function replaceCampaignLookupTable(array $campaigns): void;
+    public function replaceLookupTable(string $tableKey, array $headers, array $rows): void;
 }
