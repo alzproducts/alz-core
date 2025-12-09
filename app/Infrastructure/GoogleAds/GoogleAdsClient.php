@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace App\Infrastructure\GoogleAds;
 
 use App\Application\Contracts\GoogleAdsClientInterface;
+use App\Domain\AdSpend\Enums\AdSource;
 use App\Domain\AdSpend\ValueObjects\Campaign;
 use App\Domain\AdSpend\ValueObjects\CampaignMetrics;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
+use App\Domain\ValueObjects\DateRange;
 use App\Infrastructure\GoogleAds\Exceptions\InvalidGoogleAdsResponseException;
 use App\Infrastructure\GoogleAds\Transformers\CampaignRowTransformer;
 use App\Infrastructure\GoogleAds\Transformers\GoogleAdsRowTransformer;
@@ -34,6 +36,11 @@ final readonly class GoogleAdsClient implements GoogleAdsClientInterface
         private GoogleAdsTransport $transport,
     ) {}
 
+    public function getSource(): AdSource
+    {
+        return AdSource::Google;
+    }
+
     /**
      * Verify connectivity and authentication with Google Ads API.
      *
@@ -54,15 +61,18 @@ final readonly class GoogleAdsClient implements GoogleAdsClientInterface
     }
 
     /**
-     * Fetch daily campaign metrics for a specific date.
+     * Fetch campaign metrics for a date range.
      *
      * @return list<CampaignMetrics>
      *
      * @throws ExternalServiceUnavailableException When API unavailable or rate limited
      * @throws InvalidGoogleAdsResponseException When response structure is invalid
      */
-    public function getDailyCampaignMetrics(string $date): array
+    public function getCampaignMetricsByDateRange(DateRange $range): array
     {
+        $fromDate = $range->from->format('Y-m-d');
+        $toDate = $range->to->format('Y-m-d');
+
         $query = <<<GAQL
             SELECT campaign.id,
                    campaign.name,
@@ -72,7 +82,7 @@ final readonly class GoogleAdsClient implements GoogleAdsClientInterface
                    metrics.conversions,
                    segments.date
             FROM campaign
-            WHERE segments.date = '{$date}'
+            WHERE segments.date BETWEEN '{$fromDate}' AND '{$toDate}'
             GAQL;
 
         $response = $this->transport->search($query);

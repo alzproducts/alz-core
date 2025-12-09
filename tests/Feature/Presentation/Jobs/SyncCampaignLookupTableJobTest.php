@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Presentation\Jobs;
 
-use App\Application\AdSpend\UseCases\SyncCampaignLookupTableUseCase;
-use App\Application\Contracts\GoogleAdsClientInterface;
+use App\Application\Contracts\LookupTableProviderInterface;
 use App\Application\Contracts\MixpanelClientInterface;
-use App\Domain\AdSpend\ValueObjects\Campaign;
+use App\Application\Mixpanel\UseCases\SyncLookupTableUseCase;
+use App\Domain\Exceptions\AuthenticationExpiredException;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\UnexpectedApiResultException;
 use App\Presentation\Jobs\SyncCampaignLookupTableJob;
@@ -27,20 +27,25 @@ use Throwable;
 #[CoversClass(SyncCampaignLookupTableJob::class)]
 final class SyncCampaignLookupTableJobTest extends TestCase
 {
-    private GoogleAdsClientInterface&MockInterface $googleAdsMock;
+    private LookupTableProviderInterface&MockInterface $providerMock;
 
     private MixpanelClientInterface&MockInterface $mixpanelMock;
 
-    private SyncCampaignLookupTableUseCase $useCase;
+    private SyncLookupTableUseCase $useCase;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        $this->googleAdsMock = Mockery::mock(GoogleAdsClientInterface::class);
+        $this->providerMock = Mockery::mock(LookupTableProviderInterface::class);
         $this->mixpanelMock = Mockery::mock(MixpanelClientInterface::class);
         $loggerMock = Mockery::mock(LoggerInterface::class)->shouldIgnoreMissing();
-        $this->useCase = new SyncCampaignLookupTableUseCase($this->googleAdsMock, $this->mixpanelMock, $loggerMock);
+        $this->useCase = new SyncLookupTableUseCase($this->providerMock, $this->mixpanelMock, $loggerMock);
+
+        // Setup default provider metadata
+        $this->providerMock->shouldReceive('getTableKey')->andReturn('utm_campaigns')->byDefault();
+        $this->providerMock->shouldReceive('getSourceName')->andReturn('Google Ads')->byDefault();
+        $this->providerMock->shouldReceive('getHeaders')->andReturn(['utm_campaign', 'campaign_name', 'campaign_status'])->byDefault();
 
         Log::spy();
     }
@@ -66,22 +71,22 @@ final class SyncCampaignLookupTableJobTest extends TestCase
     }
 
     #[Test]
-    public function it_passes_campaigns_to_use_case_for_synchronization(): void
+    public function it_passes_rows_to_use_case_for_synchronization(): void
     {
-        $campaigns = [
-            new Campaign(id: 111, name: 'Campaign One', status: 'ENABLED'),
-            new Campaign(id: 222, name: 'Campaign Two', status: 'PAUSED'),
+        $rows = [
+            ['111', 'Campaign One', 'ENABLED'],
+            ['222', 'Campaign Two', 'PAUSED'],
         ];
 
-        $this->googleAdsMock
-            ->shouldReceive('getCampaigns')
+        $this->providerMock
+            ->shouldReceive('fetchRows')
             ->once()
-            ->andReturn($campaigns);
+            ->andReturn($rows);
 
         $this->mixpanelMock
-            ->shouldReceive('replaceCampaignLookupTable')
+            ->shouldReceive('replaceLookupTable')
             ->once()
-            ->with($campaigns);
+            ->with('utm_campaigns', ['utm_campaign', 'campaign_name', 'campaign_status'], $rows);
 
         $job = new SyncCampaignLookupTableJob();
 
@@ -101,8 +106,8 @@ final class SyncCampaignLookupTableJobTest extends TestCase
         // With retryAfter provided, job releases instead of rethrowing
         $exception = new ExternalServiceUnavailableException('Google Ads', retryAfter: 60);
 
-        $this->googleAdsMock
-            ->shouldReceive('getCampaigns')
+        $this->providerMock
+            ->shouldReceive('fetchRows')
             ->once()
             ->andThrow($exception);
 
@@ -130,8 +135,8 @@ final class SyncCampaignLookupTableJobTest extends TestCase
         // Without retryAfter, exception is rethrown for Laravel to handle backoff
         $exception = new ExternalServiceUnavailableException('Google Ads');
 
-        $this->googleAdsMock
-            ->shouldReceive('getCampaigns')
+        $this->providerMock
+            ->shouldReceive('fetchRows')
             ->andThrow($exception);
 
         $job = new SyncCampaignLookupTableJob();
@@ -147,8 +152,8 @@ final class SyncCampaignLookupTableJobTest extends TestCase
     {
         $exception = new ExternalServiceUnavailableException('Google Ads');
 
-        $this->googleAdsMock
-            ->shouldReceive('getCampaigns')
+        $this->providerMock
+            ->shouldReceive('fetchRows')
             ->andThrow($exception);
 
         $job = new SyncCampaignLookupTableJob();
@@ -185,8 +190,8 @@ final class SyncCampaignLookupTableJobTest extends TestCase
             reason: 'Campaign data missing required fields',
         );
 
-        $this->googleAdsMock
-            ->shouldReceive('getCampaigns')
+        $this->providerMock
+            ->shouldReceive('fetchRows')
             ->once()
             ->andThrow($exception);
 
@@ -212,8 +217,8 @@ final class SyncCampaignLookupTableJobTest extends TestCase
             reason: 'Lookup table response malformed',
         );
 
-        $this->googleAdsMock
-            ->shouldReceive('getCampaigns')
+        $this->providerMock
+            ->shouldReceive('fetchRows')
             ->once()
             ->andThrow($exception);
 
@@ -235,6 +240,91 @@ final class SyncCampaignLookupTableJobTest extends TestCase
                     self::assertSame('Mixpanel', $context['service']);
                     self::assertSame('Lookup table response malformed', $context['reason']);
                     self::assertSame(2, $context['attempts']);
+
+                    return true;
+                },
+            ));
+    }
+
+    // ========================================================================
+    // AuthenticationExpiredException Handling
+    // ========================================================================
+
+    #[Test]
+    public function it_fails_immediately_on_authentication_expired_exception(): void
+    {
+        $exception = new AuthenticationExpiredException('Google Ads');
+
+        $this->providerMock
+            ->shouldReceive('fetchRows')
+            ->once()
+            ->andThrow($exception);
+
+        $job = new SyncCampaignLookupTableJob();
+
+        $queueJob = Mockery::mock(QueueJobContract::class);
+        $queueJob->shouldReceive('attempts')->andReturn(1);
+        $queueJob->shouldReceive('fail')->once()->with($exception)->andReturnNull();
+        $queueJob->shouldReceive('isReleased')->andReturn(false);
+        $queueJob->shouldReceive('isDeletedOrReleased')->andReturn(false);
+        $job->setJob($queueJob);
+
+        $job->handle($this->useCase);
+
+        Log::shouldHaveReceived('critical')
+            ->with('Authentication failed during campaign lookup table sync, failing immediately', Mockery::on(
+                static function (array $context): bool {
+                    self::assertSame('Google Ads', $context['service']);
+                    self::assertStringContainsString('Google Ads', $context['message']);
+                    self::assertSame(1, $context['attempts']);
+
+                    return true;
+                },
+            ));
+    }
+
+    #[Test]
+    public function it_does_not_retry_on_authentication_expired_exception(): void
+    {
+        $exception = new AuthenticationExpiredException('Mixpanel');
+
+        $this->setupSuccessfulFetchForMixpanelError($exception);
+
+        $job = new SyncCampaignLookupTableJob();
+
+        $queueJob = Mockery::mock(QueueJobContract::class);
+        $queueJob->shouldReceive('attempts')->andReturn(2);
+        $queueJob->shouldReceive('fail')->once()->with($exception)->andReturnNull();
+        $queueJob->shouldReceive('release')->never(); // Should NOT release for retry
+        $queueJob->shouldReceive('isReleased')->andReturn(false);
+        $queueJob->shouldReceive('isDeletedOrReleased')->andReturn(false);
+        $job->setJob($queueJob);
+
+        $job->handle($this->useCase);
+    }
+
+    #[Test]
+    public function it_logs_critical_with_service_name_on_auth_failure_from_mixpanel(): void
+    {
+        $exception = new AuthenticationExpiredException('Mixpanel');
+
+        $this->setupSuccessfulFetchForMixpanelError($exception);
+
+        $job = new SyncCampaignLookupTableJob();
+
+        $queueJob = Mockery::mock(QueueJobContract::class);
+        $queueJob->shouldReceive('attempts')->andReturn(1);
+        $queueJob->shouldReceive('fail')->once()->with($exception)->andReturnNull();
+        $queueJob->shouldReceive('isReleased')->andReturn(false);
+        $queueJob->shouldReceive('isDeletedOrReleased')->andReturn(false);
+        $job->setJob($queueJob);
+
+        $job->handle($this->useCase);
+
+        Log::shouldHaveReceived('critical')
+            ->with('Authentication failed during campaign lookup table sync, failing immediately', Mockery::on(
+                static function (array $context): bool {
+                    self::assertSame('Mixpanel', $context['service']);
 
                     return true;
                 },
@@ -300,8 +390,8 @@ final class SyncCampaignLookupTableJobTest extends TestCase
         // With retryAfter provided, job releases with that value (not backoff array)
         $exception = new ExternalServiceUnavailableException('Google Ads', retryAfter: $expectedDelay);
 
-        $this->googleAdsMock
-            ->shouldReceive('getCampaigns')
+        $this->providerMock
+            ->shouldReceive('fetchRows')
             ->andThrow($exception);
 
         $job = new SyncCampaignLookupTableJob();
@@ -341,8 +431,8 @@ final class SyncCampaignLookupTableJobTest extends TestCase
     #[DataProvider('propagatedExceptionProvider')]
     public function it_allows_non_rate_limit_api_exceptions_to_propagate(Throwable $exception): void
     {
-        $this->googleAdsMock
-            ->shouldReceive('getCampaigns')
+        $this->providerMock
+            ->shouldReceive('fetchRows')
             ->once()
             ->andThrow($exception);
 
@@ -370,8 +460,8 @@ final class SyncCampaignLookupTableJobTest extends TestCase
     {
         $exception = new RuntimeException('Unexpected error occurred');
 
-        $this->googleAdsMock
-            ->shouldReceive('getCampaigns')
+        $this->providerMock
+            ->shouldReceive('fetchRows')
             ->once()
             ->andThrow($exception);
 
@@ -389,8 +479,8 @@ final class SyncCampaignLookupTableJobTest extends TestCase
         // With retryAfter provided, job releases instead of rethrowing
         $exception = new ExternalServiceUnavailableException('Google Ads', retryAfter: 60);
 
-        $this->googleAdsMock
-            ->shouldReceive('getCampaigns')
+        $this->providerMock
+            ->shouldReceive('fetchRows')
             ->andThrow($exception);
 
         $job = new SyncCampaignLookupTableJob();
@@ -560,37 +650,36 @@ final class SyncCampaignLookupTableJobTest extends TestCase
 
     private function setupSuccessfulSync(): void
     {
-        $campaign = new Campaign(
-            id: 123456789,
-            name: '[01] Search - Branded',
-            status: 'ENABLED',
-        );
+        $rows = [
+            ['123456789', '[01] Search - Branded', 'ENABLED'],
+        ];
 
-        $this->googleAdsMock
-            ->shouldReceive('getCampaigns')
+        $this->providerMock
+            ->shouldReceive('fetchRows')
             ->once()
-            ->andReturn([$campaign]);
+            ->andReturn($rows);
 
         $this->mixpanelMock
-            ->shouldReceive('replaceCampaignLookupTable')
+            ->shouldReceive('replaceLookupTable')
             ->once();
     }
 
-    private function setupCampaignsForMixpanelError(Throwable $exception): void
+    /**
+     * Setup provider to return rows, then Mixpanel throws exception.
+     */
+    private function setupSuccessfulFetchForMixpanelError(Throwable $exception): void
     {
-        $campaign = new Campaign(
-            id: 123456789,
-            name: '[01] Search - Branded',
-            status: 'ENABLED',
-        );
+        $rows = [
+            ['123456789', '[01] Search - Branded', 'ENABLED'],
+        ];
 
-        $this->googleAdsMock
-            ->shouldReceive('getCampaigns')
+        $this->providerMock
+            ->shouldReceive('fetchRows')
             ->once()
-            ->andReturn([$campaign]);
+            ->andReturn($rows);
 
         $this->mixpanelMock
-            ->shouldReceive('replaceCampaignLookupTable')
+            ->shouldReceive('replaceLookupTable')
             ->once()
             ->andThrow($exception);
     }
