@@ -14,6 +14,7 @@
         "ext-soap": "*",
         "ext-swoole": "*",
         "ext-xmlreader": "*",
+        "ext-zip": "*",
         "firebase/php-jwt": "*",
         "googleads/google-ads-php": "^31.1",
         "helpscout/api-laravel": "^2.1",

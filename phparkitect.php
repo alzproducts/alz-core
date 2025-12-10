@@ -203,6 +203,7 @@ return static function (Config $config): void {
                                'SoapClient',
                                'SoapFault',
                                'SoapVar',
+                               'ZipArchive',
                                'Psr',
                                'League\Flysystem',
                                'XMLReader',
