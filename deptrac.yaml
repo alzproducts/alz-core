@@ -59,6 +59,12 @@ deptrac:
         - type: classLike
           value: ^Google\\.*
 
+    # Bing Ads (Microsoft Advertising) SDK
+    - name: BingAdsSdk
+      collectors:
+        - type: classLike
+          value: ^Microsoft\\BingAds\\.*
+
     # Guzzle HTTP (used by Laravel HTTP client for pool/promise types)
     - name: GuzzleHttp
       collectors:
@@ -99,13 +105,14 @@ deptrac:
       - Domain
       - PsrInterfaces
 
-    # Infrastructure: All internal + Laravel, Spatie, Google, Guzzle, PSR, Flysystem, Assertions
+    # Infrastructure: All internal + Laravel, Spatie, Google, Bing, Guzzle, PSR, Flysystem, Assertions
     Infrastructure:
       - Application
       - Domain
       - LaravelFramework
       - SpatieData
       - GoogleAdsSdk
+      - BingAdsSdk
       - GuzzleHttp
       - PsrInterfaces
       - LeagueFlysystem
@@ -126,6 +133,7 @@ deptrac:
     LaravelFramework: ~
     SpatieData: ~
     GoogleAdsSdk: ~
+    BingAdsSdk: ~
     GuzzleHttp: ~
     SymfonyHttp: ~
     SymfonyHttpKernel: ~
