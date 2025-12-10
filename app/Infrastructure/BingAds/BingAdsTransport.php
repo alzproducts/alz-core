@@ -6,6 +6,7 @@ namespace App\Infrastructure\BingAds;
 
 use App\Domain\Exceptions\AuthenticationExpiredException;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
+use Exception;
 use Illuminate\Support\Facades\Log;
 use Microsoft\BingAds\Auth\ApiEnvironment;
 use Microsoft\BingAds\Auth\AuthorizationData;
@@ -76,12 +77,12 @@ final class BingAdsTransport
      */
     public function getAccount(): object
     {
-        $service = $this->createCustomerManagementService();
-
-        $request = new GetAccountRequest();
-        $request->AccountId = (int) $this->config->accountId;
-
         try {
+            $service = $this->createCustomerManagementService();
+
+            $request = new GetAccountRequest();
+            $request->AccountId = (int) $this->config->accountId;
+
             /** @var SoapClient $soapClient */
             $soapClient = $service->GetService();
 
@@ -91,11 +92,16 @@ final class BingAdsTransport
             return $response->Account;
         } catch (SoapFault $e) {
             throw $this->handleSoapFault($e);
+        } catch (Exception $e) {
+            // SDK initialization errors (WSDL loading, network issues)
+            throw $this->handleServerError($e);
         }
     }
 
     /**
      * Create a Customer Management service client with fresh OAuth token.
+     *
+     * @throws Exception When WSDL loading or SDK initialization fails
      */
     private function createCustomerManagementService(): ServiceClient
     {
@@ -234,11 +240,14 @@ final class BingAdsTransport
     }
 
     /**
-     * Handle other SOAP errors - transient.
+     * Handle server/SDK errors - transient.
+     *
+     * Handles both SOAP faults and SDK initialization errors (WSDL loading, network issues).
      */
-    private function handleServerError(SoapFault $e): ExternalServiceUnavailableException
+    private function handleServerError(Exception $e): ExternalServiceUnavailableException
     {
-        Log::error(self::SERVICE_NAME . ' SOAP error', [
+        Log::error(self::SERVICE_NAME . ' error', [
+            'type' => $e::class,
             'code' => $e->getCode(),
             'error' => $e->getMessage(),
         ]);
