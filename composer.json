@@ -11,6 +11,7 @@
         "ext-pdo": "*",
         "ext-pdo_pgsql": "*",
         "ext-simplexml": "*",
+        "ext-soap": "*",
         "ext-swoole": "*",
         "ext-xmlreader": "*",
         "firebase/php-jwt": "*",
