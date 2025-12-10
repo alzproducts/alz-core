@@ -4,14 +4,16 @@ declare(strict_types=1);
 
 namespace App\Application\Contracts;
 
+use App\Domain\AdSpend\ValueObjects\Campaign;
 use App\Domain\Exceptions\AuthenticationExpiredException;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 
 /**
  * Google Ads-specific client interface.
  *
- * Extends the generic AdSpendClientInterface with connectivity verification.
- * Used for Google Ads-specific resolution (e.g., VerifyApiConnectivityCommand).
+ * Extends the generic AdSpendClientInterface with Google-specific operations:
+ * - Connectivity verification
+ * - Campaign listing (for Mixpanel lookup tables)
  */
 interface GoogleAdsClientInterface extends AdSpendClientInterface
 {
@@ -22,4 +24,16 @@ interface GoogleAdsClientInterface extends AdSpendClientInterface
      * @throws AuthenticationExpiredException When credentials invalid or insufficient permissions
      */
     public function verifyConnectivity(): void;
+
+    /**
+     * Fetch all active campaigns.
+     *
+     * Used for Mixpanel campaign lookup tables.
+     *
+     * @return array<int, Campaign>
+     *
+     * @throws ExternalServiceUnavailableException When API unavailable or rate limited
+     * @throws AuthenticationExpiredException When credentials invalid or insufficient permissions
+     */
+    public function getCampaigns(): array;
 }

@@ -6,10 +6,9 @@ namespace App\Infrastructure\BingAds;
 
 use App\Application\Contracts\BingAdsClientInterface;
 use App\Domain\AdSpend\Enums\AdSource;
-use App\Domain\AdSpend\ValueObjects\Campaign;
 use App\Domain\AdSpend\ValueObjects\CampaignMetrics;
 use App\Domain\ValueObjects\DateRange;
-use BadMethodCallException;
+use App\Infrastructure\BingAds\Transformers\BingAdsCsvTransformer;
 
 /**
  * Bing Ads (Microsoft Advertising) API client for campaign data.
@@ -17,8 +16,7 @@ use BadMethodCallException;
  * Responsibilities:
  * 1. Provide ad source identification
  * 2. Verify connectivity
- * 3. Fetch campaign metrics (Stage 5)
- * 4. Fetch campaigns (Stage 5)
+ * 3. Fetch campaign metrics via async reporting API
  *
  * Design: Pure business logic - delegates all SDK interaction to BingAdsTransport.
  * Exception handling is done in the transport layer.
@@ -51,28 +49,21 @@ final readonly class BingAdsClient implements BingAdsClientInterface
     /**
      * Fetch campaign metrics for a date range.
      *
-     * @return list<CampaignMetrics>
+     * Uses Bing Ads async Reporting API:
+     * 1. Transport submits report request and polls for completion
+     * 2. Transport downloads ZIP and extracts CSV
+     * 3. Transformer parses CSV into domain value objects
      *
-     * @throws BadMethodCallException Not yet implemented (Stage 5)
+     * @return list<CampaignMetrics>
      */
     public function getCampaignMetricsByDateRange(DateRange $range): array
     {
-        throw new BadMethodCallException(
-            'getCampaignMetricsByDateRange not yet implemented. See Stage 5 of implementation plan.',
-        );
-    }
+        $csv = $this->transport->getCampaignPerformanceReportCsv($range);
 
-    /**
-     * Fetch all active campaigns.
-     *
-     * @return list<Campaign>
-     *
-     * @throws BadMethodCallException Not yet implemented (Stage 5)
-     */
-    public function getCampaigns(): array
-    {
-        throw new BadMethodCallException(
-            'getCampaigns not yet implemented. See Stage 5 of implementation plan.',
-        );
+        if ($csv === null) {
+            return [];
+        }
+
+        return BingAdsCsvTransformer::toCampaignMetrics($csv);
     }
 }
