@@ -6,6 +6,8 @@ namespace App\Infrastructure\BingAds;
 
 use App\Domain\Exceptions\AuthenticationExpiredException;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
+use App\Domain\ValueObjects\DateRange;
+use DateTimeImmutable;
 use Exception;
 use Illuminate\Support\Facades\Log;
 use Microsoft\BingAds\Auth\ApiEnvironment;
@@ -15,8 +17,20 @@ use Microsoft\BingAds\Auth\OAuthTokens;
 use Microsoft\BingAds\Auth\ServiceClient;
 use Microsoft\BingAds\Auth\ServiceClientType;
 use Microsoft\BingAds\V13\CustomerManagement\GetAccountRequest;
+use Microsoft\BingAds\V13\Reporting\AccountThroughCampaignReportScope;
+use Microsoft\BingAds\V13\Reporting\CampaignPerformanceReportColumn;
+use Microsoft\BingAds\V13\Reporting\CampaignPerformanceReportRequest;
+use Microsoft\BingAds\V13\Reporting\Date;
+use Microsoft\BingAds\V13\Reporting\PollGenerateReportRequest;
+use Microsoft\BingAds\V13\Reporting\ReportAggregation;
+use Microsoft\BingAds\V13\Reporting\ReportFormat;
+use Microsoft\BingAds\V13\Reporting\ReportRequestStatusType;
+use Microsoft\BingAds\V13\Reporting\ReportTime;
+use Microsoft\BingAds\V13\Reporting\SubmitGenerateReportRequest;
+use RuntimeException;
 use SoapClient;
 use SoapFault;
+use SoapVar;
 
 /**
  * Transport layer for Bing Ads SDK.
@@ -58,6 +72,34 @@ final class BingAdsTransport
         207, // QuotaExceeded
     ];
 
+    /**
+     * Columns to include in campaign performance reports.
+     * These map to CampaignMetrics domain value object fields.
+     *
+     * @var list<string>
+     */
+    private const array REPORT_COLUMNS = [
+        CampaignPerformanceReportColumn::CampaignId,
+        CampaignPerformanceReportColumn::CampaignName,
+        CampaignPerformanceReportColumn::TimePeriod,
+        CampaignPerformanceReportColumn::Spend,
+        CampaignPerformanceReportColumn::Clicks,
+        CampaignPerformanceReportColumn::Impressions,
+        CampaignPerformanceReportColumn::Conversions,
+    ];
+
+    /**
+     * Polling interval in seconds between status checks.
+     * Microsoft recommends 2-15 minute intervals for large reports.
+     */
+    private const int POLL_INTERVAL_SECONDS = 10;
+
+    /**
+     * Maximum polling attempts before timeout.
+     * 30 attempts × 10 seconds = 5 minutes max wait.
+     */
+    private const int MAX_POLL_ATTEMPTS = 30;
+
     public function __construct(
         private readonly BingAdsSessionManager $sessionManager,
         private readonly BingAdsConfig $config,
@@ -96,6 +138,200 @@ final class BingAdsTransport
             // SDK initialization errors (WSDL loading, network issues)
             throw $this->handleServerError($e);
         }
+    }
+
+    /**
+     * Request a campaign performance report for a date range.
+     *
+     * Submits the report request, polls until complete, and returns the download URL.
+     * The URL is valid for approximately 5 minutes after this method returns.
+     *
+     * @return string|null Download URL for ZIP file, or null if report has no data
+     *
+     * @throws AuthenticationExpiredException When credentials invalid
+     * @throws ExternalServiceUnavailableException When API unavailable or report generation fails
+     */
+    public function requestCampaignPerformanceReport(DateRange $range): ?string
+    {
+        try {
+            $service = $this->createReportingService();
+
+            /** @var SoapClient $soapClient */
+            $soapClient = $service->GetService();
+
+            // Submit report request
+            $reportRequestId = $this->submitReport($soapClient, $range);
+
+            Log::info(self::SERVICE_NAME . ' report submitted', [
+                'requestId' => $reportRequestId,
+                'from' => $range->from->format('Y-m-d'),
+                'to' => $range->to->format('Y-m-d'),
+            ]);
+
+            // Poll for completion
+            return self::pollUntilComplete($soapClient, $reportRequestId);
+        } /** @noinspection PhpRedundantCatchClauseInspection */ catch (SoapFault $e) {
+            throw $this->handleSoapFault($e);
+        } catch (Exception $e) {
+            throw $this->handleServerError($e);
+        }
+    }
+
+    /**
+     * Submit a campaign performance report request.
+     *
+     * @return string Report request ID for polling
+     */
+    private function submitReport(SoapClient $soapClient, DateRange $range): string
+    {
+        $reportRequest = $this->buildCampaignPerformanceReportRequest($range);
+
+        $submitRequest = new SubmitGenerateReportRequest();
+        // @phpstan-ignore assign.propertyType (SDK PHPDoc says ReportRequest but SOAP requires SoapVar wrapper)
+        $submitRequest->ReportRequest = $reportRequest;
+
+        /** @var object{ReportRequestId: string} $response */
+        $response = $soapClient->SubmitGenerateReport($submitRequest);
+
+        return $response->ReportRequestId;
+    }
+
+    /**
+     * Build a CampaignPerformanceReportRequest with daily aggregation.
+     *
+     * Must wrap in SoapVar for proper SOAP serialization of derived type.
+     */
+    private function buildCampaignPerformanceReportRequest(DateRange $range): SoapVar
+    {
+        // SDK properties are untyped but PHPDoc claims enum types - all assignments below are valid at runtime
+        $report = new CampaignPerformanceReportRequest();
+        $report->Format = ReportFormat::Csv; // @phpstan-ignore assign.propertyType
+        $report->ReportName = 'Campaign Performance Report';
+        $report->ReturnOnlyCompleteData = true;
+        $report->Aggregation = ReportAggregation::Daily; // @phpstan-ignore assign.propertyType
+
+        // Scope to configured account
+        $report->Scope = new AccountThroughCampaignReportScope();
+        $report->Scope->AccountIds = [(int) $this->config->accountId];
+        $report->Scope->Campaigns = null; // @phpstan-ignore assign.propertyType
+
+        // Custom date range
+        $report->Time = new ReportTime();
+        $report->Time->CustomDateRangeStart = $this->createReportDate($range->from);
+        $report->Time->CustomDateRangeEnd = $this->createReportDate($range->to);
+
+        // Columns for CampaignMetrics
+        $report->Columns = self::REPORT_COLUMNS; // @phpstan-ignore assign.propertyType
+
+        // Wrap in SoapVar for SOAP inheritance serialization
+        return new SoapVar(
+            $report,
+            SOAP_ENC_OBJECT,
+            'CampaignPerformanceReportRequest',
+            'https://bingads.microsoft.com/Reporting/v13',
+        );
+    }
+
+    /**
+     * Create a Bing Ads Date object from DateTimeImmutable.
+     */
+    private function createReportDate(DateTimeImmutable $dateTime): Date
+    {
+        $date = new Date();
+        $date->Day = (int) $dateTime->format('d');
+        $date->Month = (int) $dateTime->format('m');
+        $date->Year = (int) $dateTime->format('Y');
+
+        return $date;
+    }
+
+    /**
+     * Poll for report completion.
+     *
+     * @return string|null Download URL, or null if report has no data
+     *
+     * @throws ExternalServiceUnavailableException When report generation fails or times out
+     */
+    private static function pollUntilComplete(SoapClient $soapClient, string $reportRequestId): ?string
+    {
+        $pollRequest = new PollGenerateReportRequest();
+        $pollRequest->ReportRequestId = $reportRequestId;
+
+        for ($attempt = 1; $attempt <= self::MAX_POLL_ATTEMPTS; $attempt++) {
+            // Wait before polling (except first attempt)
+            if ($attempt > 1) {
+                \sleep(self::POLL_INTERVAL_SECONDS);
+            }
+
+            /** @var object{ReportRequestStatus: object{Status: string, ReportDownloadUrl: ?string}} $response */
+            $response = $soapClient->PollGenerateReport($pollRequest);
+
+            $status = $response->ReportRequestStatus->Status;
+
+            if ($status === ReportRequestStatusType::Success) {
+                $downloadUrl = $response->ReportRequestStatus->ReportDownloadUrl;
+
+                Log::info(self::SERVICE_NAME . ' report ready', [
+                    'requestId' => $reportRequestId,
+                    'hasData' => $downloadUrl !== null,
+                    'attempts' => $attempt,
+                ]);
+
+                // URL can be null if report has no data for the date range
+                return $downloadUrl;
+            }
+
+            if ($status === ReportRequestStatusType::Error) {
+                Log::error(self::SERVICE_NAME . ' report generation failed', [
+                    'requestId' => $reportRequestId,
+                    'attempts' => $attempt,
+                ]);
+
+                throw new ExternalServiceUnavailableException(
+                    self::SERVICE_NAME,
+                    previous: new RuntimeException('Report generation failed'),
+                );
+            }
+
+            // Status is Pending - continue polling
+            Log::debug(self::SERVICE_NAME . ' report pending', [
+                'requestId' => $reportRequestId,
+                'attempt' => $attempt,
+            ]);
+        }
+
+        // Exceeded max attempts
+        Log::warning(self::SERVICE_NAME . ' report polling timeout', [
+            'requestId' => $reportRequestId,
+            'attempts' => self::MAX_POLL_ATTEMPTS,
+        ]);
+
+        throw new ExternalServiceUnavailableException(
+            self::SERVICE_NAME,
+            retryAfter: 60,
+            previous: new RuntimeException('Report generation timed out'),
+        );
+    }
+
+    /**
+     * Create a Reporting service client with fresh OAuth token.
+     *
+     * @throws Exception When WSDL loading or SDK initialization fails
+     */
+    private function createReportingService(): ServiceClient
+    {
+        $session = $this->sessionManager->getSession();
+        $authorizationData = $this->buildAuthorizationData($session);
+
+        $environment = ($this->config->environment === 'Production')
+            ? ApiEnvironment::Production
+            : ApiEnvironment::Sandbox;
+
+        return new ServiceClient(
+            ServiceClientType::ReportingVersion13,
+            $authorizationData,
+            $environment,
+        );
     }
 
     /**
