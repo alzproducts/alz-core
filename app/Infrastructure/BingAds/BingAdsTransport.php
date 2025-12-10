@@ -9,6 +9,8 @@ use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Domain\ValueObjects\DateRange;
 use DateTimeImmutable;
 use Exception;
+use Illuminate\Http\Client\RequestException;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Microsoft\BingAds\Auth\ApiEnvironment;
 use Microsoft\BingAds\Auth\AuthorizationData;
@@ -31,6 +33,7 @@ use RuntimeException;
 use SoapClient;
 use SoapFault;
 use SoapVar;
+use ZipArchive;
 
 /**
  * Transport layer for Bing Ads SDK.
@@ -100,6 +103,11 @@ final class BingAdsTransport
      */
     private const int MAX_POLL_ATTEMPTS = 30;
 
+    /**
+     * HTTP timeout for downloading report ZIP files.
+     */
+    private const int DOWNLOAD_TIMEOUT_SECONDS = 120;
+
     public function __construct(
         private readonly BingAdsSessionManager $sessionManager,
         private readonly BingAdsConfig $config,
@@ -141,17 +149,16 @@ final class BingAdsTransport
     }
 
     /**
-     * Request a campaign performance report for a date range.
+     * Get campaign performance report as CSV content.
      *
-     * Submits the report request, polls until complete, and returns the download URL.
-     * The URL is valid for approximately 5 minutes after this method returns.
+     * Handles the full async flow: submit → poll → download ZIP → extract CSV.
      *
-     * @return string|null Download URL for ZIP file, or null if report has no data
+     * @return string|null CSV content, or null if report has no data for date range
      *
      * @throws AuthenticationExpiredException When credentials invalid
      * @throws ExternalServiceUnavailableException When API unavailable or report generation fails
      */
-    public function requestCampaignPerformanceReport(DateRange $range): ?string
+    public function getCampaignPerformanceReportCsv(DateRange $range): ?string
     {
         try {
             $service = $this->createReportingService();
@@ -169,7 +176,16 @@ final class BingAdsTransport
             ]);
 
             // Poll for completion
-            return self::pollUntilComplete($soapClient, $reportRequestId);
+            $downloadUrl = self::pollUntilComplete($soapClient, $reportRequestId);
+
+            if ($downloadUrl === null) {
+                return null; // No data for date range
+            }
+
+            // Download and extract
+            $zipContent = $this->downloadReport($downloadUrl);
+
+            return self::extractCsvFromZip($zipContent);
         } /** @noinspection PhpRedundantCatchClauseInspection */ catch (SoapFault $e) {
             throw $this->handleSoapFault($e);
         } catch (Exception $e) {
@@ -311,6 +327,76 @@ final class BingAdsTransport
             retryAfter: 60,
             previous: new RuntimeException('Report generation timed out'),
         );
+    }
+
+    /**
+     * Download report ZIP from temporary URL.
+     *
+     * @throws RequestException When download fails
+     */
+    private function downloadReport(string $url): string
+    {
+        $response = Http::timeout(self::DOWNLOAD_TIMEOUT_SECONDS)
+            ->send('GET', $url)
+            ->throw();
+
+        $content = $response->body();
+
+        Log::info(self::SERVICE_NAME . ' report downloaded', [
+            'size' => \mb_strlen($content),
+        ]);
+
+        return $content;
+    }
+
+    /**
+     * Extract CSV content from ZIP data.
+     *
+     * @throws RuntimeException When ZIP is invalid or contains no CSV
+     */
+    private static function extractCsvFromZip(string $zipContent): string
+    {
+        $tempFile = \tempnam(\sys_get_temp_dir(), 'bing_report_');
+
+        if ($tempFile === false) {
+            throw new RuntimeException('Failed to create temporary file');
+        }
+
+        try {
+            if (\file_put_contents($tempFile, $zipContent) === false) {
+                throw new RuntimeException('Failed to write ZIP content');
+            }
+
+            $zip = new ZipArchive();
+            $result = $zip->open($tempFile);
+
+            if ($result !== true) {
+                throw new RuntimeException("Failed to open ZIP (error: {$result})");
+            }
+
+            try {
+                // Find CSV file in archive
+                for ($i = 0; $i < $zip->numFiles; $i++) {
+                    $filename = $zip->getNameIndex($i);
+
+                    if ($filename !== false && \str_ends_with(\mb_strtolower($filename), '.csv')) {
+                        $csv = $zip->getFromName($filename);
+
+                        if ($csv === false) {
+                            throw new RuntimeException("Failed to read CSV: {$filename}");
+                        }
+
+                        return $csv;
+                    }
+                }
+
+                throw new RuntimeException('No CSV file found in ZIP');
+            } finally {
+                $zip->close();
+            }
+        } finally {
+            @\unlink($tempFile);
+        }
     }
 
     /**
