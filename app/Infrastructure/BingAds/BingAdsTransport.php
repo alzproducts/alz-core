@@ -9,6 +9,7 @@ use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Domain\ValueObjects\DateRange;
 use DateTimeImmutable;
 use Exception;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -333,6 +334,7 @@ final class BingAdsTransport
      * Download report ZIP from temporary URL.
      *
      * @throws RequestException When download fails
+     * @throws ConnectionException
      */
     private function downloadReport(string $url): string
     {
@@ -353,6 +355,7 @@ final class BingAdsTransport
      * Extract CSV content from ZIP data.
      *
      * @throws RuntimeException When ZIP is invalid or contains no CSV
+     * @noinspection PhpInconsistentReturnPointsInspection
      */
     private static function extractCsvFromZip(string $zipContent): string
     {
@@ -379,7 +382,7 @@ final class BingAdsTransport
                 for ($i = 0; $i < $zip->numFiles; $i++) {
                     $filename = $zip->getNameIndex($i);
 
-                    if ($filename !== false && \str_ends_with(\mb_strtolower($filename), '.csv')) {
+                    if (($filename !== false) && \str_ends_with(\mb_strtolower($filename), '.csv')) {
                         $csv = $zip->getFromName($filename);
 
                         if ($csv === false) {
@@ -395,7 +398,7 @@ final class BingAdsTransport
                 $zip->close();
             }
         } finally {
-            @\unlink($tempFile);
+            \unlink($tempFile);
         }
     }
 
