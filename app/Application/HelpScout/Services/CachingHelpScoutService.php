@@ -84,7 +84,7 @@ final readonly class CachingHelpScoutService
     }
 
     /**
-     * Get todo conversations for an agent (tagged with assigned tag).
+     * Get to-do conversations for an agent (tagged with assigned tag).
      *
      * @return array<int, Conversation>
      */
