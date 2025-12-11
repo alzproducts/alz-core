@@ -71,11 +71,14 @@ final readonly class BingAdsCsvTransformer
         $metrics = [];
 
         // Process data rows (everything after header)
+        $campaignIdIndex = $columnMap[self::COL_CAMPAIGN_ID];
+
         for ($i = $headerIndex + 1, $iMax = \count($lines); $i < $iMax; $i++) {
             $row = $lines[$i];
 
-            // Skip empty rows
-            if (($row === []) || ($row === [''])) {
+            // Skip empty rows and footer rows (copyright notice, etc.)
+            // A valid data row must have a numeric CampaignId in the expected column
+            if (!self::isDataRow($row, $campaignIdIndex)) {
                 continue;
             }
 
@@ -116,6 +119,22 @@ final readonly class BingAdsCsvTransformer
         \fclose($stream);
 
         return $lines;
+    }
+
+    /**
+     * Check if a row is a valid data row (not empty, not footer).
+     *
+     * @param list<string> $row
+     */
+    private static function isDataRow(array $row, int $campaignIdIndex): bool
+    {
+        // Row must have enough columns
+        if (!isset($row[$campaignIdIndex])) {
+            return false;
+        }
+
+        // CampaignId must be numeric (filters out copyright footer, empty rows)
+        return \is_numeric($row[$campaignIdIndex]);
     }
 
     /**
