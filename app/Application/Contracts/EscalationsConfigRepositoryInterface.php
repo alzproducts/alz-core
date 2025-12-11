@@ -7,6 +7,8 @@ declare(strict_types=1);
 namespace App\Application\Contracts;
 
 use App\Domain\CustomerService\ValueObjects\EscalationsConfig;
+use App\Domain\Exceptions\ConfigurationNotFoundException;
+use App\Domain\Exceptions\ExternalServiceUnavailableException;
 
 /**
  * Repository for loading escalation configuration.
@@ -16,7 +18,8 @@ interface EscalationsConfigRepositoryInterface
     /**
      * Get the current escalations configuration.
      *
-     * Returns null if no configuration is found or disabled.
+     * @throws ConfigurationNotFoundException When config is missing or disabled
+     * @throws ExternalServiceUnavailableException When database is unavailable
      */
     public function get(): EscalationsConfig;
 }
