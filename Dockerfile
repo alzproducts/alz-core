@@ -13,7 +13,7 @@ FROM serversideup/php:8.4-cli AS builder
 # Switch to root for installation
 USER root
 
-# Install build dependencies for Swoole compilation
+# Install build dependencies for Swoole compilation and PHP extensions
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     autoconf \
@@ -24,11 +24,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev \
     libzip-dev \
     libpng-dev \
+    libxml2-dev \
     git \
     unzip \
     && rm -rf /var/lib/apt/lists/*
 
-# Install PHP extensions required by Laravel 12
+# Install PHP extensions required by Laravel 12 and dependencies
+# - soap: Required by microsoft/bingads SDK (SOAP-based API)
+# - zip: Required for Bing Ads report processing (ZIP archives)
 RUN docker-php-ext-install -j$(nproc) \
     pdo \
     pdo_pgsql \
@@ -36,7 +39,8 @@ RUN docker-php-ext-install -j$(nproc) \
     pcntl \
     zip \
     bcmath \
-    opcache
+    opcache \
+    soap
 
 # Install Swoole via PECL
 # Using latest version for PHP 8.4 compatibility (installs 6.1.2 as of Jan 2025)
@@ -75,11 +79,13 @@ USER root
 
 # Install runtime dependencies only (no build tools)
 # Note: Debian Trixie package names (libzip5, libpng16-16t64, etc.)
+# - libxml2: Required by ext-soap (Bing Ads SDK)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq5 \
     libzip5 \
     libpng16-16t64 \
     libcurl4t64 \
+    libxml2 \
     curl \
     tini \
     && rm -rf /var/lib/apt/lists/*
