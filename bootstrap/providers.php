@@ -12,6 +12,7 @@ use App\Providers\ProductSearchFeedServiceProvider;
 use App\Providers\ReviewsIoServiceProvider;
 use App\Providers\ShopwiredServiceProvider;
 use App\Providers\StorageServiceProvider;
+use App\Providers\SupabaseServiceProvider;
 use App\Providers\TelescopeServiceProvider;
 
 return [
@@ -24,6 +25,7 @@ return [
     ReviewsIoServiceProvider::class,
     ShopwiredServiceProvider::class,
     StorageServiceProvider::class,
+    SupabaseServiceProvider::class,
     HorizonServiceProvider::class,
     ...app()->environment('local') ? [TelescopeServiceProvider::class] : [],
 ];
