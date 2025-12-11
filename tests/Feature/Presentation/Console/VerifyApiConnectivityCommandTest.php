@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Presentation\Console;
 
+use App\Application\Contracts\BingAdsClientInterface;
 use App\Application\Contracts\GoogleAdsClientInterface;
 use App\Application\Contracts\Linnworks\ConnectivityClientInterface as LinnworksConnectivityClient;
 use App\Application\Contracts\MixpanelClientInterface;
@@ -39,6 +40,8 @@ final class VerifyApiConnectivityCommandTest extends TestCase
 
     private MockInterface&GoogleAdsClientInterface $googleAdsClient;
 
+    private MockInterface&BingAdsClientInterface $bingAdsClient;
+
     private MockInterface&ShopwiredConnectivityClient $shopwiredClient;
 
     private MockInterface&LinnworksConnectivityClient $linnworksClient;
@@ -51,12 +54,14 @@ final class VerifyApiConnectivityCommandTest extends TestCase
         $this->reviewsIoClient = Mockery::mock(ReviewsIoClientInterface::class);
         $this->mixpanelClient = Mockery::mock(MixpanelClientInterface::class);
         $this->googleAdsClient = Mockery::mock(GoogleAdsClientInterface::class);
+        $this->bingAdsClient = Mockery::mock(BingAdsClientInterface::class);
         $this->shopwiredClient = Mockery::mock(ShopwiredConnectivityClient::class);
         $this->linnworksClient = Mockery::mock(LinnworksConnectivityClient::class);
 
         $this->app->instance(ReviewsIoClientInterface::class, $this->reviewsIoClient);
         $this->app->instance(MixpanelClientInterface::class, $this->mixpanelClient);
         $this->app->instance(GoogleAdsClientInterface::class, $this->googleAdsClient);
+        $this->app->instance(BingAdsClientInterface::class, $this->bingAdsClient);
         $this->app->instance(ShopwiredConnectivityClient::class, $this->shopwiredClient);
         $this->app->instance(LinnworksConnectivityClient::class, $this->linnworksClient);
     }
@@ -205,6 +210,59 @@ final class VerifyApiConnectivityCommandTest extends TestCase
 
     /*
     |--------------------------------------------------------------------------
+    | Bing Ads Client Tests
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function it_verifies_bingads_successfully(): void
+    {
+        $this->bingAdsClient
+            ->shouldReceive('verifyConnectivity')
+            ->once();
+
+        $this->artisan('verify:api', ['client' => 'bingads'])
+            ->expectsOutput('Verifying Bing Ads...')
+            ->expectsOutput('  Authentication: OK')
+            ->expectsOutput('  Currency: GBP ✓')
+            ->expectsOutput('All API clients verified successfully')
+            ->assertExitCode(Command::SUCCESS);
+    }
+
+    #[Test]
+    public function it_reports_bingads_failure_with_exception_message(): void
+    {
+        $this->bingAdsClient
+            ->shouldReceive('verifyConnectivity')
+            ->once()
+            ->andThrow(new ExternalServiceUnavailableException('Bing Ads'));
+
+        $this->artisan('verify:api', ['client' => 'bingads'])
+            ->expectsOutput('Verifying Bing Ads...')
+            ->expectsOutputToContain('Failed:')
+            ->expectsOutput('  Check: BING_ADS_* credentials in .env')
+            ->expectsOutput('Some API clients failed: bingads')
+            ->assertExitCode(Command::FAILURE);
+    }
+
+    #[Test]
+    public function it_reports_bingads_authentication_failure_with_specific_hints(): void
+    {
+        $this->bingAdsClient
+            ->shouldReceive('verifyConnectivity')
+            ->once()
+            ->andThrow(new AuthenticationExpiredException('Bing Ads'));
+
+        $this->artisan('verify:api', ['client' => 'bingads'])
+            ->expectsOutput('Verifying Bing Ads...')
+            ->expectsOutputToContain('Authorization Failed:')
+            ->expectsOutput('  Check: Azure AD app permissions and OAuth credentials')
+            ->expectsOutput('Some API clients failed: bingads')
+            ->assertExitCode(Command::FAILURE);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
     | Shopwired Client Tests
     |--------------------------------------------------------------------------
     */
@@ -298,6 +356,10 @@ final class VerifyApiConnectivityCommandTest extends TestCase
             ->shouldReceive('verifyConnectivity')
             ->once();
 
+        $this->bingAdsClient
+            ->shouldReceive('verifyConnectivity')
+            ->once();
+
         $this->shopwiredClient
             ->shouldReceive('verifyConnectivity')
             ->once();
@@ -310,6 +372,7 @@ final class VerifyApiConnectivityCommandTest extends TestCase
             ->expectsOutput('Verifying Reviews.io...')
             ->expectsOutput('Verifying Mixpanel...')
             ->expectsOutput('Verifying Google Ads...')
+            ->expectsOutput('Verifying Bing Ads...')
             ->expectsOutput('Verifying Shopwired...')
             ->expectsOutput('Verifying Linnworks...')
             ->expectsOutput('All API clients verified successfully')
@@ -329,6 +392,10 @@ final class VerifyApiConnectivityCommandTest extends TestCase
             ->andThrow(new ExternalServiceUnavailableException('Mixpanel'));
 
         $this->googleAdsClient
+            ->shouldReceive('verifyConnectivity')
+            ->once();
+
+        $this->bingAdsClient
             ->shouldReceive('verifyConnectivity')
             ->once();
 
@@ -362,6 +429,10 @@ final class VerifyApiConnectivityCommandTest extends TestCase
             ->once()
             ->andThrow(new ExternalServiceUnavailableException('Google Ads'));
 
+        $this->bingAdsClient
+            ->shouldReceive('verifyConnectivity')
+            ->once();
+
         $this->shopwiredClient
             ->shouldReceive('verifyConnectivity')
             ->once();
@@ -393,6 +464,11 @@ final class VerifyApiConnectivityCommandTest extends TestCase
             ->once()
             ->andThrow(new ExternalServiceUnavailableException('Google Ads'));
 
+        $this->bingAdsClient
+            ->shouldReceive('verifyConnectivity')
+            ->once()
+            ->andThrow(new ExternalServiceUnavailableException('Bing Ads'));
+
         $this->shopwiredClient
             ->shouldReceive('verifyConnectivity')
             ->once()
@@ -404,7 +480,7 @@ final class VerifyApiConnectivityCommandTest extends TestCase
             ->andThrow(new ExternalServiceUnavailableException('Linnworks'));
 
         $this->artisan('verify:api', ['client' => 'all'])
-            ->expectsOutput('Some API clients failed: reviewsio, mixpanel, googleads, shopwired, linnworks')
+            ->expectsOutput('Some API clients failed: reviewsio, mixpanel, googleads, bingads, shopwired, linnworks')
             ->assertExitCode(Command::FAILURE);
     }
 
