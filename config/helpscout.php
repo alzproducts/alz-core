@@ -4,6 +4,39 @@ declare(strict_types=1);
 
 return [
 
+    /*
+    |--------------------------------------------------------------------------
+    | Mailboxes
+    |--------------------------------------------------------------------------
+    |
+    | HelpScout mailbox IDs used throughout the system.
+    |
+    */
+    'mailboxes' => [
+        'support' => 11667,
+        'purchase_orders' => 29767,
+        'suppliers_purchasing' => 55362,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | HTTP Settings
+    |--------------------------------------------------------------------------
+    */
+    'timeout_seconds' => 30,
+    'retry_attempts' => 3,
+
+    /*
+    |--------------------------------------------------------------------------
+    | Local Testing
+    |--------------------------------------------------------------------------
+    |
+    | Email address to use when bypassing auth for local testing.
+    | Only used when X-Local-Bypass header is present in local environment.
+    |
+    */
+    'local_test_email' => env('HS_LOCAL_TEST_EMAIL'),
+
     'auth' => [
         /*
         |--------------------------------------------------------------------------
