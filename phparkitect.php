@@ -209,6 +209,7 @@ return static function (Config $config): void {
                                'League\Flysystem',
                                'XMLReader',
                                'SimpleXMLElement',
+                               'PDOException',
                            ],
                        ),
                    )

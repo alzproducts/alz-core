@@ -14,6 +14,7 @@ use App\Domain\CustomerService\Exceptions\CustomerServiceAgentNotFoundException;
 use App\Domain\CustomerService\ValueObjects\Conversation;
 use App\Domain\CustomerService\ValueObjects\EscalationsConfig;
 use App\Domain\CustomerService\ValueObjects\Mailbox;
+use App\Domain\Exceptions\ConfigurationNotFoundException;
 
 /**
  * Caching decorator for HelpScout API operations.
@@ -121,6 +122,8 @@ final readonly class CachingHelpScoutService
 
     /**
      * Get escalations configuration with caching.
+     *
+     * @throws ConfigurationNotFoundException When config missing or disabled
      */
     public function getEscalationsConfig(): EscalationsConfig
     {
