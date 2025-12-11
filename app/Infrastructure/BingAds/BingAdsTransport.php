@@ -1,5 +1,7 @@
 <?php
 
+/** @noinspection PhpUndefinedMethodInspection */
+
 declare(strict_types=1);
 
 namespace App\Infrastructure\BingAds;
@@ -359,6 +361,7 @@ final class BingAdsTransport
      */
     private static function extractCsvFromZip(string $zipContent): string
     {
+        // ZipArchive requires file path, can't read from string directly
         $tempFile = \tempnam(\sys_get_temp_dir(), 'bing_report_');
 
         if ($tempFile === false) {
