@@ -9,17 +9,17 @@ namespace App\Domain\CustomerService\Exceptions;
 use App\Domain\Exceptions\DomainException;
 
 /**
- * Thrown when a user's email cannot be matched to a customer service account.
+ * Thrown when an authenticated user has no matching support agent account.
  *
  * This indicates the authenticated user doesn't have a corresponding
- * account in the customer service platform.
+ * agent account in the customer service platform.
  *
  * Use cases:
  * - User exists in auth system but not in customer service platform
  * - Email mismatch between systems
  * - New employee not yet provisioned
  */
-final class CustomerServiceUserNotFoundException extends DomainException
+final class CustomerServiceAgentNotFoundException extends DomainException
 {
     public function __construct(
         public readonly string $email,
