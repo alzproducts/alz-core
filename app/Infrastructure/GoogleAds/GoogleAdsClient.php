@@ -91,7 +91,10 @@ final readonly class GoogleAdsClient implements GoogleAdsClientInterface
     }
 
     /**
-     * Fetch all active campaigns.
+     * Fetch all campaigns (including paused/removed for lookup table completeness).
+     *
+     * Includes all statuses because Mixpanel lookup tables are fully replaced on sync.
+     * Excluding removed campaigns would break historical report name resolution.
      *
      * @return list<Campaign>
      *
@@ -105,7 +108,6 @@ final readonly class GoogleAdsClient implements GoogleAdsClientInterface
                    campaign.name,
                    campaign.status
             FROM campaign
-            WHERE campaign.status != 'REMOVED'
             ORDER BY campaign.id
             GAQL;
 
