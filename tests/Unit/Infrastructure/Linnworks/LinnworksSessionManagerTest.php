@@ -14,6 +14,7 @@ use Illuminate\Cache\CacheManager;
 use Illuminate\Contracts\Cache\Lock;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Mockery;
 use Mockery\MockInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -346,6 +347,119 @@ final class LinnworksSessionManagerTest extends TestCase
                 // Should be max(1, negative) = 1
                 return $key === 'linnworks:session' && $ttl >= 1;
             });
+
+        $this->manager->getSession();
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Log Assertion Tests (Mutation Testing)
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function it_logs_authentication_failure_with_service_name_and_context(): void
+    {
+        $this->cache->shouldReceive('get')
+            ->with('linnworks:session')
+            ->andReturn(null, null);
+
+        $this->setupLockMock(acquires: true);
+
+        Http::fake([
+            LinnworksConfig::AUTH_URL => Http::response(['error' => 'Unauthorized'], 401),
+        ]);
+
+        Log::shouldReceive('error')
+            ->once()
+            ->with(
+                Mockery::on(static fn(string $msg): bool => \str_contains($msg, 'Linnworks') && \str_contains($msg, 'authentication failed')),
+                Mockery::on(static fn(array $ctx): bool => isset($ctx['status']) && $ctx['status'] === 401
+                        && isset($ctx['error'])),
+            );
+
+        try {
+            $this->manager->getSession();
+        } catch (AuthenticationExpiredException) {
+            // Expected
+        }
+    }
+
+    #[Test]
+    public function it_logs_auth_endpoint_error_with_service_name_and_status(): void
+    {
+        $this->cache->shouldReceive('get')
+            ->with('linnworks:session')
+            ->andReturn(null, null);
+
+        $this->setupLockMock(acquires: true);
+
+        Http::fake([
+            LinnworksConfig::AUTH_URL => Http::response(['error' => 'Server Error'], 500),
+        ]);
+
+        Log::shouldReceive('error')
+            ->once()
+            ->with(
+                Mockery::on(static fn(string $msg): bool => \str_contains($msg, 'Linnworks') && \str_contains($msg, 'auth endpoint error')),
+                Mockery::on(static fn(array $ctx): bool => isset($ctx['status']) && $ctx['status'] === 500
+                        && isset($ctx['error'])),
+            );
+
+        try {
+            $this->manager->getSession();
+        } catch (ExternalServiceUnavailableException) {
+            // Expected
+        }
+    }
+
+    #[Test]
+    public function it_logs_connection_error_with_service_name_and_message(): void
+    {
+        $this->cache->shouldReceive('get')
+            ->with('linnworks:session')
+            ->andReturn(null, null);
+
+        $this->setupLockMock(acquires: true);
+
+        Http::fake(static function (): never {
+            throw new ConnectionException('Connection refused');
+        });
+
+        Log::shouldReceive('error')
+            ->once()
+            ->with(
+                Mockery::on(static fn(string $msg): bool => \str_contains($msg, 'Linnworks') && \str_contains($msg, 'auth connection failed')),
+                Mockery::on(static fn(array $ctx): bool => isset($ctx['error']) && \str_contains($ctx['error'], 'Connection refused')),
+            );
+
+        try {
+            $this->manager->getSession();
+        } catch (ExternalServiceUnavailableException) {
+            // Expected
+        }
+    }
+
+    #[Test]
+    public function it_logs_warning_when_lock_times_out(): void
+    {
+        $this->cache->shouldReceive('get')
+            ->with('linnworks:session')
+            ->andReturn(null);
+
+        // Lock times out
+        $this->setupLockMock(acquires: false);
+
+        $this->setupSuccessfulAuthResponse();
+
+        $this->cache->shouldReceive('put')->once();
+
+        Log::shouldReceive('warning')
+            ->once()
+            ->with(
+                Mockery::on(static fn(string $msg): bool => \str_contains($msg, 'Linnworks') && \str_contains($msg, 'lock timeout')),
+                Mockery::on(static fn(array $ctx): bool => isset($ctx['lock_wait_seconds'])),
+            );
 
         $this->manager->getSession();
     }

@@ -15,11 +15,13 @@ use Illuminate\Contracts\Cache\Lock;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Mockery;
 use Mockery\MockInterface;
 use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use RuntimeException;
 use Tests\TestCase;
 
 /**
@@ -293,6 +295,113 @@ final class BingAdsSessionManagerTest extends TestCase
         $this->expectExceptionMessage("External service 'Bing Ads' is unavailable");
 
         $this->manager->getSession();
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Log Assertion Tests (Mutation Testing)
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function it_logs_authentication_failure_with_service_name_and_context(): void
+    {
+        Http::fake([
+            'login.microsoftonline.com/*' => Http::response([
+                'error' => 'invalid_grant',
+                'error_description' => 'Refresh token is expired',
+            ], 400),
+        ]);
+
+        $this->setupRefreshScenario();
+
+        Log::shouldReceive('error')
+            ->once()
+            ->with(
+                Mockery::on(static fn(string $msg): bool => \str_contains($msg, 'Bing Ads') && \str_contains($msg, 'OAuth authentication failed')),
+                Mockery::on(static fn(array $ctx): bool => isset($ctx['status']) && $ctx['status'] === 400
+                        && isset($ctx['error'])
+                        && \array_key_exists('response', $ctx)),
+            );
+
+        try {
+            $this->manager->getSession();
+        } catch (AuthenticationExpiredException) {
+            // Expected
+        }
+    }
+
+    #[Test]
+    public function it_logs_oauth_endpoint_error_with_service_name_and_status(): void
+    {
+        Http::fake([
+            'login.microsoftonline.com/*' => Http::response([
+                'error' => 'server_error',
+            ], 500),
+        ]);
+
+        $this->setupRefreshScenario();
+
+        Log::shouldReceive('error')
+            ->once()
+            ->with(
+                Mockery::on(static fn(string $msg): bool => \str_contains($msg, 'Bing Ads') && \str_contains($msg, 'OAuth endpoint error')),
+                Mockery::on(static fn(array $ctx): bool => isset($ctx['status']) && $ctx['status'] === 500
+                        && isset($ctx['error'])),
+            );
+
+        try {
+            $this->manager->getSession();
+        } catch (ExternalServiceUnavailableException) {
+            // Expected
+        }
+    }
+
+    #[Test]
+    public function it_logs_connection_error_with_service_name_and_message(): void
+    {
+        Http::fake(static function (): never {
+            throw new ConnectionException('Connection timed out');
+        });
+
+        $this->setupRefreshScenario();
+
+        Log::shouldReceive('error')
+            ->once()
+            ->with(
+                Mockery::on(static fn(string $msg): bool => \str_contains($msg, 'Bing Ads') && \str_contains($msg, 'OAuth connection failed')),
+                Mockery::on(static fn(array $ctx): bool => isset($ctx['error']) && \str_contains($ctx['error'], 'Connection timed out')),
+            );
+
+        try {
+            $this->manager->getSession();
+        } catch (ExternalServiceUnavailableException) {
+            // Expected
+        }
+    }
+
+    #[Test]
+    public function it_logs_unexpected_error_with_service_name_and_exception_class(): void
+    {
+        Http::fake(static function (): never {
+            throw new RuntimeException('Unexpected error');
+        });
+
+        $this->setupRefreshScenario();
+
+        Log::shouldReceive('error')
+            ->once()
+            ->with(
+                Mockery::on(static fn(string $msg): bool => \str_contains($msg, 'Bing Ads') && \str_contains($msg, 'OAuth unexpected error')),
+                Mockery::on(static fn(array $ctx): bool => isset($ctx['exception']) && $ctx['exception'] === RuntimeException::class
+                        && isset($ctx['error'])),
+            );
+
+        try {
+            $this->manager->getSession();
+        } catch (ExternalServiceUnavailableException) {
+            // Expected
+        }
     }
 
     /*
