@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Mixpanel\LookupTables;
 
-use App\Application\Contracts\AdSpendClientInterface;
+use App\Application\Contracts\GoogleAdsClientInterface;
 use App\Application\Contracts\LookupTableProviderInterface;
 use App\Domain\AdSpend\ValueObjects\Campaign;
 
@@ -17,7 +17,7 @@ use App\Domain\AdSpend\ValueObjects\Campaign;
 final readonly class CampaignLookupTableProvider implements LookupTableProviderInterface
 {
     public function __construct(
-        private AdSpendClientInterface $adClient,
+        private GoogleAdsClientInterface $googleAdsClient,
     ) {}
 
     public function getTableKey(): string
@@ -43,7 +43,7 @@ final readonly class CampaignLookupTableProvider implements LookupTableProviderI
      */
     public function fetchRows(): array
     {
-        $campaigns = $this->adClient->getCampaigns();
+        $campaigns = $this->googleAdsClient->getCampaigns();
 
         return \array_map(
             static fn(Campaign $campaign): array => [

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Infrastructure\Mixpanel\LookupTables;
 
-use App\Application\Contracts\AdSpendClientInterface;
+use App\Application\Contracts\GoogleAdsClientInterface;
 use App\Domain\AdSpend\ValueObjects\Campaign;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Infrastructure\Mixpanel\LookupTables\CampaignLookupTableProvider;
@@ -17,7 +17,7 @@ use Tests\TestCase;
 #[CoversClass(CampaignLookupTableProvider::class)]
 final class CampaignLookupTableProviderTest extends TestCase
 {
-    private AdSpendClientInterface&MockInterface $adClient;
+    private GoogleAdsClientInterface&MockInterface $googleAdsClient;
 
     private CampaignLookupTableProvider $provider;
 
@@ -25,8 +25,8 @@ final class CampaignLookupTableProviderTest extends TestCase
     {
         parent::setUp();
 
-        $this->adClient = Mockery::mock(AdSpendClientInterface::class);
-        $this->provider = new CampaignLookupTableProvider($this->adClient);
+        $this->googleAdsClient = Mockery::mock(GoogleAdsClientInterface::class);
+        $this->provider = new CampaignLookupTableProvider($this->googleAdsClient);
     }
 
     // ========================================================================
@@ -67,7 +67,7 @@ final class CampaignLookupTableProviderTest extends TestCase
             status: 'ENABLED',
         );
 
-        $this->adClient
+        $this->googleAdsClient
             ->shouldReceive('getCampaigns')
             ->once()
             ->andReturn([$campaign]);
@@ -87,7 +87,7 @@ final class CampaignLookupTableProviderTest extends TestCase
             new Campaign(id: 333, name: 'Campaign Three', status: 'REMOVED'),
         ];
 
-        $this->adClient
+        $this->googleAdsClient
             ->shouldReceive('getCampaigns')
             ->once()
             ->andReturn($campaigns);
@@ -109,7 +109,7 @@ final class CampaignLookupTableProviderTest extends TestCase
             new Campaign(id: 555, name: 'Middle', status: 'ENABLED'),
         ];
 
-        $this->adClient
+        $this->googleAdsClient
             ->shouldReceive('getCampaigns')
             ->once()
             ->andReturn($campaigns);
@@ -130,7 +130,7 @@ final class CampaignLookupTableProviderTest extends TestCase
             status: 'ENABLED',
         );
 
-        $this->adClient
+        $this->googleAdsClient
             ->shouldReceive('getCampaigns')
             ->once()
             ->andReturn([$campaign]);
@@ -144,7 +144,7 @@ final class CampaignLookupTableProviderTest extends TestCase
     #[Test]
     public function it_returns_empty_array_when_no_campaigns(): void
     {
-        $this->adClient
+        $this->googleAdsClient
             ->shouldReceive('getCampaigns')
             ->once()
             ->andReturn([]);
@@ -165,7 +165,7 @@ final class CampaignLookupTableProviderTest extends TestCase
             new Campaign(id: 5, name: 'Unknown', status: 'UNKNOWN'),
         ];
 
-        $this->adClient
+        $this->googleAdsClient
             ->shouldReceive('getCampaigns')
             ->once()
             ->andReturn($campaigns);
@@ -189,7 +189,7 @@ final class CampaignLookupTableProviderTest extends TestCase
             status: 'ENABLED',
         );
 
-        $this->adClient
+        $this->googleAdsClient
             ->shouldReceive('getCampaigns')
             ->once()
             ->andReturn([$campaign]);
@@ -208,7 +208,7 @@ final class CampaignLookupTableProviderTest extends TestCase
     {
         $exception = new ExternalServiceUnavailableException('Google Ads');
 
-        $this->adClient
+        $this->googleAdsClient
             ->shouldReceive('getCampaigns')
             ->once()
             ->andThrow($exception);

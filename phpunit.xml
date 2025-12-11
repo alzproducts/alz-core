@@ -35,6 +35,8 @@
             <directory suffix="Exception.php">./app</directory>
             <directory suffix="Factory.php">./app</directory>
             <file>app/Domain/Review/Rating.php</file>
+            <!-- SOAP transport - tested via smoke tests, mocking is brittle -->
+            <file>app/Infrastructure/BingAds/BingAdsTransport.php</file>
         </exclude>
     </source>
     <php>

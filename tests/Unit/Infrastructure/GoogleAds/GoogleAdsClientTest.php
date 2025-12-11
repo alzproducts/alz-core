@@ -303,7 +303,6 @@ final class GoogleAdsClientTest extends TestCase
                     && \str_contains($query, 'campaign.name')
                     && \str_contains($query, 'campaign.status')
                     && \str_contains($query, 'FROM campaign')
-                    && \str_contains($query, "WHERE campaign.status != 'REMOVED'")
                     && \str_contains($query, 'ORDER BY campaign.id'))
             ->andReturn($this->createPagedResponse([]));
 
