@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "a07f7ad5bf74c16b0c64b2441d1506e3",
+    "content-hash": "1d5b829fef1be4e7ad06178c25635f04",
     "packages": [
         {
             "name": "aws/aws-crt-php",
@@ -3202,6 +3202,57 @@
                 }
             ],
             "time": "2025-11-18T12:17:23+00:00"
+        },
+        {
+            "name": "microsoft/bingads",
+            "version": "v13.0.25.2",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/BingAds/BingAds-PHP-SDK.git",
+                "reference": "e9333fecbb9ad3478b87a099598622096c214b54"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/BingAds/BingAds-PHP-SDK/zipball/e9333fecbb9ad3478b87a099598622096c214b54",
+                "reference": "e9333fecbb9ad3478b87a099598622096c214b54",
+                "shasum": ""
+            },
+            "require": {
+                "ext-curl": "*",
+                "ext-openssl": "*",
+                "ext-soap": "*",
+                "php": ">=7.1"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Microsoft\\BingAds\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "Apache-2.0"
+            ],
+            "authors": [
+                {
+                    "name": "Microsoft",
+                    "homepage": "https://github.com/BingAds/BingAds-PHP-SDK/graphs/contributors"
+                }
+            ],
+            "description": "This project provides the PHP client library for the SOAP-based Bing Ads API at Microsoft.",
+            "homepage": "https://github.com/BingAds/BingAds-PHP-SDK",
+            "keywords": [
+                "bing ads",
+                "bingads",
+                "microsoft advertising",
+                "php",
+                "sdk"
+            ],
+            "support": {
+                "issues": "https://github.com/BingAds/BingAds-PHP-SDK/issues",
+                "source": "https://github.com/BingAds/BingAds-PHP-SDK/tree/v13.0.25.2"
+            },
+            "time": "2025-09-15T03:02:48+00:00"
         },
         {
             "name": "monolog/monolog",
@@ -15934,7 +15985,9 @@
         "ext-pcntl": "*",
         "ext-pdo": "*",
         "ext-pdo_pgsql": "*",
-        "ext-swoole": "*"
+        "ext-simplexml": "*",
+        "ext-swoole": "*",
+        "ext-xmlreader": "*"
     },
     "platform-dev": {},
     "platform-overrides": {

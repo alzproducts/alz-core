@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Application\Contracts;
 
 use App\Domain\AdSpend\Enums\AdSource;
-use App\Domain\AdSpend\ValueObjects\Campaign;
 use App\Domain\AdSpend\ValueObjects\CampaignMetrics;
 use App\Domain\Exceptions\AuthenticationExpiredException;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
@@ -33,14 +32,4 @@ interface AdSpendClientInterface
      * @throws AuthenticationExpiredException When credentials invalid or insufficient permissions
      */
     public function getCampaignMetricsByDateRange(DateRange $range): array;
-
-    /**
-     * Fetch all active campaigns.
-     *
-     * @return array<int, Campaign>
-     *
-     * @throws ExternalServiceUnavailableException When API unavailable or rate limited
-     * @throws AuthenticationExpiredException When credentials invalid or insufficient permissions
-     */
-    public function getCampaigns(): array;
 }

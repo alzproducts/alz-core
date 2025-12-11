@@ -16,6 +16,8 @@ use GuzzleHttp\Psr7\Request as GuzzleRequest;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
+use Mockery;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -500,5 +502,228 @@ final class ShopwiredHttpTransportTest extends TestCase
         $this->expectExceptionMessage('Invalid status value');
 
         $this->transport->post('orders/123/status', ['status' => 'invalid'], retry: false);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Logging Tests (Mutation Testing Coverage)
+    |--------------------------------------------------------------------------
+    | These tests verify that error handlers log with service name and context.
+    | They kill ConcatOperandRemoval and ArrayItemRemoval mutations.
+    */
+
+    #[Test]
+    public function it_logs_400_error_with_service_name_and_context(): void
+    {
+        Http::fake([
+            '*' => Http::response(['message' => 'Bad request'], 400),
+        ]);
+
+        Log::shouldReceive('error')
+            ->once()
+            ->with(
+                Mockery::on(static fn(string $msg): bool => \str_contains($msg, 'Shopwired') && \str_contains($msg, 'invalid request')),
+                Mockery::on(
+                    static fn(array $ctx): bool => isset($ctx['status']) && $ctx['status'] === 400
+                        && isset($ctx['error'], $ctx['response']),
+                ),
+            );
+
+        try {
+            $this->transport->get('orders', retry: false);
+        } catch (InvalidApiRequestException) {
+            // Expected
+        }
+    }
+
+    #[Test]
+    public function it_logs_401_error_with_service_name_and_context(): void
+    {
+        Http::fake([
+            '*' => Http::response(['error' => 'Unauthorized'], 401),
+        ]);
+
+        Log::shouldReceive('error')
+            ->once()
+            ->with(
+                Mockery::on(static fn(string $msg): bool => \str_contains($msg, 'Shopwired') && \str_contains($msg, 'authentication')),
+                Mockery::on(static fn(array $ctx): bool => isset($ctx['status']) && $ctx['status'] === 401
+                        && isset($ctx['error'])),
+            );
+
+        try {
+            $this->transport->get('orders', retry: false);
+        } catch (AuthenticationExpiredException) {
+            // Expected
+        }
+    }
+
+    #[Test]
+    public function it_logs_403_error_with_service_name_and_context(): void
+    {
+        Http::fake([
+            '*' => Http::response(['error' => 'Forbidden'], 403),
+        ]);
+
+        Log::shouldReceive('error')
+            ->once()
+            ->with(
+                Mockery::on(static fn(string $msg): bool => \str_contains($msg, 'Shopwired') && \str_contains($msg, 'authentication')),
+                Mockery::on(static fn(array $ctx): bool => isset($ctx['status']) && $ctx['status'] === 403
+                        && isset($ctx['error'])),
+            );
+
+        try {
+            $this->transport->get('orders', retry: false);
+        } catch (AuthenticationExpiredException) {
+            // Expected
+        }
+    }
+
+    #[Test]
+    public function it_logs_404_warning_with_service_name_and_context(): void
+    {
+        Http::fake([
+            '*' => Http::response(['error' => 'Not Found'], 404),
+        ]);
+
+        Log::shouldReceive('warning')
+            ->once()
+            ->with(
+                Mockery::on(static fn(string $msg): bool => \str_contains($msg, 'Shopwired') && \str_contains($msg, 'not found')),
+                Mockery::on(static fn(array $ctx): bool => isset($ctx['endpoint'])
+                        && isset($ctx['error'])),
+            );
+
+        try {
+            $this->transport->get('orders/999', retry: false);
+        } catch (ResourceNotFoundException) {
+            // Expected
+        }
+    }
+
+    #[Test]
+    public function it_logs_429_warning_with_service_name_and_retry_after(): void
+    {
+        Http::fake([
+            '*' => Http::response(['error' => 'Rate limited'], 429, ['Retry-After' => '120']),
+        ]);
+
+        Log::shouldReceive('warning')
+            ->once()
+            ->with(
+                Mockery::on(static fn(string $msg): bool => \str_contains($msg, 'Shopwired') && \str_contains($msg, 'rate limited')),
+                Mockery::on(static fn(array $ctx): bool => isset($ctx['retry_after']) && $ctx['retry_after'] === 120
+                        && isset($ctx['error'])),
+            );
+
+        try {
+            $this->transport->get('orders', retry: false);
+        } catch (ExternalServiceUnavailableException) {
+            // Expected
+        }
+    }
+
+    #[Test]
+    public function it_logs_5xx_error_with_service_name_and_status(): void
+    {
+        Http::fake([
+            '*' => Http::response(['error' => 'Internal error'], 500),
+        ]);
+
+        Log::shouldReceive('error')
+            ->once()
+            ->with(
+                Mockery::on(static fn(string $msg): bool => \str_contains($msg, 'Shopwired') && \str_contains($msg, 'request failed')),
+                Mockery::on(static fn(array $ctx): bool => isset($ctx['status']) && $ctx['status'] === 500
+                        && isset($ctx['error'])),
+            );
+
+        try {
+            $this->transport->get('orders', retry: false);
+        } catch (ExternalServiceUnavailableException) {
+            // Expected
+        }
+    }
+
+    #[Test]
+    public function it_logs_connection_error_with_service_name_and_message(): void
+    {
+        Http::fake(static function (): never {
+            throw new ConnectionException('Connection timed out');
+        });
+
+        Log::shouldReceive('error')
+            ->once()
+            ->with(
+                Mockery::on(static fn(string $msg): bool => \str_contains($msg, 'Shopwired') && \str_contains($msg, 'connection failed')),
+                Mockery::on(static fn(array $ctx): bool => isset($ctx['error']) && \str_contains($ctx['error'], 'Connection timed out')),
+            );
+
+        try {
+            $this->transport->get('orders', retry: false);
+        } catch (ExternalServiceUnavailableException) {
+            // Expected
+        }
+    }
+
+    #[Test]
+    public function it_logs_unexpected_error_with_service_name_and_exception_class(): void
+    {
+        Http::fake(static function (): never {
+            throw new RuntimeException('Something unexpected');
+        });
+
+        Log::shouldReceive('error')
+            ->once()
+            ->with(
+                Mockery::on(static fn(string $msg): bool => \str_contains($msg, 'Shopwired') && \str_contains($msg, 'unexpected')),
+                Mockery::on(static fn(array $ctx): bool => isset($ctx['exception']) && $ctx['exception'] === RuntimeException::class
+                        && isset($ctx['error'])),
+            );
+
+        try {
+            $this->transport->get('orders', retry: false);
+        } catch (ExternalServiceUnavailableException) {
+            // Expected
+        }
+    }
+
+    #[Test]
+    public function it_logs_pool_failure_with_service_name_and_key(): void
+    {
+        // Pool uses Guzzle's ConnectException internally
+        Http::fake(static function (): never {
+            throw new ConnectException(
+                'Pool connection failed',
+                new GuzzleRequest('POST', 'https://api.shopwired.co.uk/stock/1'),
+            );
+        });
+
+        // Pool failure logs twice: once for pool error (with key), then handleConnectionException logs again
+        Log::shouldReceive('error')
+            ->once()
+            ->with(
+                Mockery::on(static fn(string $msg): bool => \str_contains($msg, 'Shopwired') && \str_contains($msg, 'pool')),
+                Mockery::on(static fn(array $ctx): bool => isset($ctx['key']) && $ctx['key'] === 'sku-1'
+                        && isset($ctx['error'])),
+            );
+
+        Log::shouldReceive('error')
+            ->once()
+            ->with(
+                Mockery::on(static fn(string $msg): bool => \str_contains($msg, 'Shopwired') && \str_contains($msg, 'connection failed')),
+                Mockery::on(static fn(array $ctx): bool => isset($ctx['error'])),
+            );
+
+        $requests = [
+            'sku-1' => ['endpoint' => 'stock/1', 'data' => ['quantity' => 10]],
+        ];
+
+        try {
+            $this->transport->poolPost($requests);
+        } catch (ExternalServiceUnavailableException) {
+            // Expected
+        }
     }
 }

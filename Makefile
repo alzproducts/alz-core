@@ -231,24 +231,24 @@ pest-mutate: ## Run Pest mutation testing
 
 infection: ## Run Infection mutation testing
 	@echo "$(MODE)"
-	$(EXEC) -d xdebug.mode=off vendor/bin/infection --no-progress --show-mutations
+	$(EXEC) -d xdebug.mode=off vendor/bin/infection --no-progress --show-mutations --test-framework-options="--testsuite=Unit"
 
 infection-strict: ## Run Infection with strict thresholds
 	@echo "$(MODE)"
-	$(EXEC) -d xdebug.mode=off vendor/bin/infection --no-progress --show-mutations --min-msi=80 --min-covered-msi=85
+	$(EXEC) -d xdebug.mode=off vendor/bin/infection --no-progress --show-mutations --min-msi=80 --min-covered-msi=85 --test-framework-options="--testsuite=Unit"
 
 infection-fast: ## Run Infection with cached coverage (fastest)
 	@echo "$(MODE)"
-	$(EXEC) -d xdebug.mode=coverage vendor/bin/pest --log-junit=build/logs/junit.xml --coverage-xml=build/logs/coverage-xml --coverage-clover=build/logs/clover.xml
-	$(EXEC) -d xdebug.mode=off vendor/bin/infection --coverage=build/logs --skip-initial-tests --no-progress --show-mutations --min-msi=80 --min-covered-msi=85
+	$(EXEC) -d xdebug.mode=coverage vendor/bin/pest --testsuite=Unit --log-junit=build/logs/junit.xml --coverage-xml=build/logs/coverage-xml --coverage-clover=build/logs/clover.xml
+	$(EXEC) -d xdebug.mode=off vendor/bin/infection --coverage=build/logs --skip-initial-tests --no-progress --show-mutations --min-msi=80 --min-covered-msi=85 --test-framework-options="--testsuite=Unit"
 
 infection-incremental: ## Run Infection on changed lines only (vs develop branch)
 	@echo "$(MODE)"
-	$(EXEC) -d xdebug.mode=off vendor/bin/infection --git-diff-lines --git-diff-base=develop --no-progress --show-mutations --min-msi=80 --min-covered-msi=85
+	$(EXEC) -d xdebug.mode=off vendor/bin/infection --git-diff-lines --git-diff-base=develop --no-progress --show-mutations --min-msi=80 --min-covered-msi=85 --test-framework-options="--testsuite=Unit"
 
 infection-ci: ## Run Infection for CI with GitHub logger
 	@echo "$(MODE)"
-	$(EXEC) -d xdebug.mode=off vendor/bin/infection --no-progress --logger-github --min-msi=80 --min-covered-msi=85
+	$(EXEC) -d xdebug.mode=off vendor/bin/infection --no-progress --logger-github --min-msi=80 --min-covered-msi=85 --test-framework-options="--testsuite=Unit"
 
 test-ai: ## Validate AI-generated tests with mutation testing
 	@echo "$(MODE)"
