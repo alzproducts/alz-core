@@ -11,8 +11,10 @@
         "ext-pdo": "*",
         "ext-pdo_pgsql": "*",
         "ext-simplexml": "*",
+        "ext-soap": "*",
         "ext-swoole": "*",
         "ext-xmlreader": "*",
+        "ext-zip": "*",
         "firebase/php-jwt": "*",
         "googleads/google-ads-php": "^31.1",
         "helpscout/api-laravel": "^2.1",
@@ -22,6 +24,7 @@
         "laravel/sanctum": "^4.2",
         "laravel/tinker": "^2.10.1",
         "league/flysystem-aws-s3-v3": "^3.0",
+        "microsoft/bingads": "^13.0",
         "predis/predis": "^3.2",
         "spatie/laravel-data": "^4.18",
         "webmozart/assert": "^1.11"

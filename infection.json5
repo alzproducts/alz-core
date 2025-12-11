@@ -13,7 +13,8 @@
             "app/DevTools/GitHooks",    // Development tools (not business logic)
             "app/Providers",            // Service providers (framework wiring, not business logic)
             "app/Models/User.php",      // Framework-generated model
-            "app/Domain/Review/Rating.php"  // Data class (check if still needed)
+            "app/Domain/Review/Rating.php",  // Data class (check if still needed)
+            "app/Infrastructure/BingAds/BingAdsTransport.php"  // SOAP transport - tested via smoke tests
         ]
     },
 
