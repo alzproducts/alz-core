@@ -200,6 +200,7 @@ return static function (Config $config): void {
                                'Closure',
                                'Google*',
                                'Microsoft*',
+                               'HelpScout*',
                                'SoapClient',
                                'SoapFault',
                                'SoapVar',
