@@ -103,7 +103,7 @@ final readonly class BingAdsCsvTransformer
         \rewind($stream);
 
         while (true) {
-            $row = \fgetcsv($stream);
+            $row = \fgetcsv($stream, null, ',', '"', '');
 
             if ($row === false) {
                 break;
