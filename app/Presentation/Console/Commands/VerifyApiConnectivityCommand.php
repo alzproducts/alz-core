@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Presentation\Console\Commands;
 
+use App\Application\Contracts\BingAdsClientInterface;
 use App\Application\Contracts\GoogleAdsClientInterface;
 use App\Application\Contracts\Linnworks\ConnectivityClientInterface as LinnworksConnectivityClient;
 use App\Application\Contracts\MixpanelClientInterface;
@@ -25,7 +26,7 @@ use Throwable;
 final class VerifyApiConnectivityCommand extends Command
 {
     protected $signature = 'verify:api
-        {client : The API client to verify (reviewsio, mixpanel, googleads, shopwired, linnworks, all)}';
+        {client : The API client to verify (reviewsio, mixpanel, googleads, shopwired, linnworks, bingads, all)}';
 
     protected $description = 'Verify connectivity and authentication with external API services';
 
@@ -38,12 +39,14 @@ final class VerifyApiConnectivityCommand extends Command
             'reviewsio' => ['reviewsio' => $this->verifyReviewsIo()],
             'mixpanel' => ['mixpanel' => $this->verifyMixpanel()],
             'googleads' => ['googleads' => $this->verifyGoogleAds()],
+            'bingads' => ['bingads' => $this->verifyBingAds()],
             'shopwired' => ['shopwired' => $this->verifyShopwired()],
             'linnworks' => ['linnworks' => $this->verifyLinnworks()],
             'all' => [
                 'reviewsio' => $this->verifyReviewsIo(),
                 'mixpanel' => $this->verifyMixpanel(),
                 'googleads' => $this->verifyGoogleAds(),
+                'bingads' => $this->verifyBingAds(),
                 'shopwired' => $this->verifyShopwired(),
                 'linnworks' => $this->verifyLinnworks(),
             ],
@@ -52,7 +55,7 @@ final class VerifyApiConnectivityCommand extends Command
 
         if ($results === null) {
             $this->error("Unknown client: {$client}");
-            $this->line('Available: reviewsio, mixpanel, googleads, shopwired, linnworks, all');
+            $this->line('Available: reviewsio, mixpanel, googleads, bingads, shopwired, linnworks, all');
 
             return self::FAILURE;
         }
@@ -136,6 +139,31 @@ final class VerifyApiConnectivityCommand extends Command
         } catch (Throwable $e) {
             $this->error('  Failed: ' . $e->getMessage());
             $this->line('  Check: Google Ads OAuth credentials and refresh token');
+
+            return false;
+        }
+    }
+
+    private function verifyBingAds(): bool
+    {
+        $this->info('Verifying Bing Ads...');
+
+        try {
+            $client = \app(BingAdsClientInterface::class);
+            $client->verifyConnectivity();
+
+            $this->line('  Authentication: OK');
+            $this->line('  Currency: GBP ✓');
+
+            return true;
+        } catch (AuthenticationExpiredException $e) {
+            $this->error('  Authorization Failed: ' . $e->getMessage());
+            $this->line('  Check: Azure AD app permissions and OAuth credentials');
+
+            return false;
+        } catch (Throwable $e) {
+            $this->error('  Failed: ' . $e->getMessage());
+            $this->line('  Check: BING_ADS_* credentials in .env');
 
             return false;
         }
