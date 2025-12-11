@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Presentation\Jobs\ProcessProductSearchFeedJob;
+use App\Presentation\Jobs\SyncBingAdsToMixpanelJob;
 use App\Presentation\Jobs\SyncCampaignLookupTableJob;
 use App\Presentation\Jobs\SyncGoogleAdsToMixpanelJob;
 use Illuminate\Support\Facades\Schedule;
@@ -56,6 +57,46 @@ Schedule::call(static function (): void {
     ->timezone('UTC')
     ->onOneServer()
     ->withoutOverlapping(120);
+
+// ============================================================================
+// Bing Ads Sync: 3-tier resilience strategy (same pattern as Google Ads)
+// Staggered 5-30 min after Google to spread API load
+// ============================================================================
+
+// DAILY: Yesterday only (operational visibility)
+Schedule::call(static function (): void {
+    $yesterday = new DateTimeImmutable('yesterday');
+    SyncBingAdsToMixpanelJob::dispatch($yesterday, $yesterday);
+})
+    ->name('sync-bing-ads-daily')
+    ->dailyAt('08:05')
+    ->timezone('Europe/London')
+    ->onOneServer()
+    ->withoutOverlapping(15); // Extended for Bing async reporting
+
+// WEEKLY: Last 14 days (catch-up with 1 failure tolerance)
+Schedule::call(static function (): void {
+    $to = new DateTimeImmutable('yesterday');
+    $from = new DateTimeImmutable('-15 days');
+    SyncBingAdsToMixpanelJob::dispatch($from, $to);
+})
+    ->name('sync-bing-ads-weekly')
+    ->weeklyOn(0, '06:30')
+    ->timezone('UTC')
+    ->onOneServer()
+    ->withoutOverlapping(90); // Extended for Bing async reporting
+
+// MONTHLY: Previous 2 calendar months (ultimate safety net)
+Schedule::call(static function (): void {
+    $from = new DateTimeImmutable('first day of -2 months');
+    $to = new DateTimeImmutable('last day of previous month');
+    SyncBingAdsToMixpanelJob::dispatch($from, $to);
+})
+    ->name('sync-bing-ads-monthly')
+    ->lastDayOfMonth('04:30')
+    ->timezone('UTC')
+    ->onOneServer()
+    ->withoutOverlapping(180); // Extended for Bing async reporting (2 months of data)
 
 // DooFinder product search feed - daily at 1:00 AM UK time
 // Fetches source feed, transforms titles (<title> ← <d_title>), uploads to S3
