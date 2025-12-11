@@ -43,25 +43,25 @@ final readonly class HelpScoutConfig
     private const int MAX_RETRY_ATTEMPTS = 10;
 
     /**
-     * @param array<string, int> $monitoredMailboxes Mailbox IDs for escalation monitoring ['support' => id, 'purchase_orders' => id]
+     * @param array<string, int> $mailboxes Mailbox IDs ['support' => id, 'purchase_orders' => id, ...]
      * @param string|null $localTestEmail Email to use for local testing bypass
      * @param int $timeoutSeconds HTTP timeout in seconds (1-120)
      * @param int $retryAttempts Number of retry attempts for transient failures (1-10)
      *
-     * @throws RuntimeException When monitored mailboxes are not configured
+     * @throws RuntimeException When mailboxes are not configured
      * @throws InvalidArgumentException When parameters are invalid
      */
     public function __construct(
-        public array $monitoredMailboxes,
+        public array $mailboxes,
         public ?string $localTestEmail = null,
         public int $timeoutSeconds = self::DEFAULT_TIMEOUT_SECONDS,
         public int $retryAttempts = self::DEFAULT_RETRY_ATTEMPTS,
     ) {
-        if ($monitoredMailboxes === []) {
-            throw new RuntimeException('At least one HelpScout monitored mailbox must be configured');
+        if ($mailboxes === []) {
+            throw new RuntimeException('At least one HelpScout mailbox must be configured');
         }
 
-        foreach ($monitoredMailboxes as $name => $id) {
+        foreach ($mailboxes as $name => $id) {
             if ($name === '') {
                 throw new InvalidArgumentException('Mailbox name must be a non-empty string');
             }
@@ -93,16 +93,16 @@ final readonly class HelpScoutConfig
      */
     public function getMailboxId(string $name): int
     {
-        if (!isset($this->monitoredMailboxes[$name])) {
+        if (!isset($this->mailboxes[$name])) {
             throw new InvalidArgumentException(
                 \sprintf(
                     "Mailbox '%s' not configured. Available: %s",
                     $name,
-                    \implode(', ', \array_keys($this->monitoredMailboxes)),
+                    \implode(', ', \array_keys($this->mailboxes)),
                 ),
             );
         }
 
-        return $this->monitoredMailboxes[$name];
+        return $this->mailboxes[$name];
     }
 }
