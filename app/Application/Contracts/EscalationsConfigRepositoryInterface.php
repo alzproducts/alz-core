@@ -18,5 +18,5 @@ interface EscalationsConfigRepositoryInterface
      *
      * Returns null if no configuration is found or disabled.
      */
-    public function get(): ?EscalationsConfig;
+    public function get(): EscalationsConfig;
 }
