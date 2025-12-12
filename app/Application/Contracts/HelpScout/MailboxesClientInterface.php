@@ -16,7 +16,7 @@ interface MailboxesClientInterface
     /**
      * Get all mailboxes.
      *
-     * @return array<int, Mailbox>
+     * @return list<Mailbox>
      *
      * @throws ExternalServiceUnavailableException When API unavailable
      * @throws InvalidApiResponseException When API response structure is invalid

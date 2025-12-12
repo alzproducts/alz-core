@@ -77,7 +77,7 @@ final readonly class CachingHelpScoutService
     /**
      * Get conversations assigned to an agent.
      *
-     * @return array<int, Conversation>
+     * @return list<Conversation>
      */
     public function getAssignedConversations(int $agentId, string $status = 'active'): array
     {
@@ -87,7 +87,7 @@ final readonly class CachingHelpScoutService
     /**
      * Get to-do conversations for an agent (tagged with assigned tag).
      *
-     * @return array<int, Conversation>
+     * @return list<Conversation>
      */
     public function getTodosForAgent(int $agentId): array
     {
@@ -99,7 +99,7 @@ final readonly class CachingHelpScoutService
     /**
      * Get conversations tagged as negative reviews.
      *
-     * @return array<int, Conversation>
+     * @return list<Conversation>
      */
     public function getNegativeReviewConversations(string $tag = 'negative-feedback'): array
     {
@@ -109,7 +109,7 @@ final readonly class CachingHelpScoutService
     /**
      * Get all mailboxes with caching.
      *
-     * @return array<int, Mailbox>
+     * @return list<Mailbox>
      */
     public function getMailboxes(): array
     {

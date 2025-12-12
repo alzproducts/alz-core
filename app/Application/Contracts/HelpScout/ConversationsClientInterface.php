@@ -16,7 +16,7 @@ interface ConversationsClientInterface
     /**
      * Get conversations assigned to a specific agent.
      *
-     * @return array<int, Conversation>
+     * @return list<Conversation>
      *
      * @throws ExternalServiceUnavailableException When API unavailable
      * @throws InvalidApiResponseException When API response structure is invalid
@@ -26,7 +26,7 @@ interface ConversationsClientInterface
     /**
      * Get conversations with a specific tag for an agent.
      *
-     * @return array<int, Conversation>
+     * @return list<Conversation>
      *
      * @throws ExternalServiceUnavailableException When API unavailable
      * @throws InvalidApiResponseException When API response structure is invalid
@@ -36,7 +36,7 @@ interface ConversationsClientInterface
     /**
      * Get conversations with a specific tag (unfiltered by agent).
      *
-     * @return array<int, Conversation>
+     * @return list<Conversation>
      *
      * @throws ExternalServiceUnavailableException When API unavailable
      * @throws InvalidApiResponseException When API response structure is invalid
@@ -49,7 +49,7 @@ interface ConversationsClientInterface
      * @param int $mailboxId Mailbox ID to query
      * @param string $waitingSinceQuery ISO 8601 datetime string
      *
-     * @return array<int, Conversation>
+     * @return list<Conversation>
      *
      * @throws ExternalServiceUnavailableException When API unavailable
      * @throws InvalidApiResponseException When API response structure is invalid
