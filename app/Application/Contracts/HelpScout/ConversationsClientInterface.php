@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Application\Contracts\HelpScout;
 
+use App\Application\HelpScout\Queries\ConversationQueryParams;
 use App\Domain\CustomerService\ValueObjects\Conversation;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\InvalidApiResponseException;
@@ -14,45 +15,14 @@ use App\Domain\Exceptions\InvalidApiResponseException;
 interface ConversationsClientInterface
 {
     /**
-     * Get conversations assigned to a specific agent.
+     * Get conversations based on query parameters.
+     *
+     * Builds HelpScout API query from params and returns Domain value objects.
      *
      * @return list<Conversation>
      *
      * @throws ExternalServiceUnavailableException When API unavailable
      * @throws InvalidApiResponseException When API response structure is invalid
      */
-    public function getAssignedTo(int $agentId, string $status = 'active'): array;
-
-    /**
-     * Get conversations with a specific tag for an agent.
-     *
-     * @return list<Conversation>
-     *
-     * @throws ExternalServiceUnavailableException When API unavailable
-     * @throws InvalidApiResponseException When API response structure is invalid
-     */
-    public function getWithTagForAgent(int $agentId, string $tag): array;
-
-    /**
-     * Get conversations with a specific tag (unfiltered by agent).
-     *
-     * @return list<Conversation>
-     *
-     * @throws ExternalServiceUnavailableException When API unavailable
-     * @throws InvalidApiResponseException When API response structure is invalid
-     */
-    public function getWithTag(string $tag, string $status = 'active'): array;
-
-    /**
-     * Get conversations waiting since a specific time (for escalations).
-     *
-     * @param int $mailboxId Mailbox ID to query
-     * @param string $waitingSinceQuery ISO 8601 datetime string
-     *
-     * @return list<Conversation>
-     *
-     * @throws ExternalServiceUnavailableException When API unavailable
-     * @throws InvalidApiResponseException When API response structure is invalid
-     */
-    public function getWaitingSince(int $mailboxId, string $waitingSinceQuery): array;
+    public function getConversations(ConversationQueryParams $params): array;
 }

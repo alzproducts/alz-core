@@ -324,10 +324,10 @@ return static function (Config $config): void {
                    ->andThat(new NotHaveNameMatching('CacheTimesTrait'))
                    ->andThat(new NotHaveNameMatching('GracefulCache'))
                    ->should(
-                       new MatchOneOfTheseNames(['*UseCase', '*Service', '*Transformer', '*Formatter', '*Interface', '*DTO', '*Exception', '*Result']),
+                       new MatchOneOfTheseNames(['*UseCase', '*Service', '*Transformer', '*Formatter', '*Interface', '*DTO', '*Exception', '*Result', '*Params']),
                    )
                    ->because(
-                       'Application layer classes should be clearly identifiable as use cases, services, transformers, formatters, or interfaces.',
+                       'Application layer classes should be clearly identifiable as use cases, services, transformers, formatters, interfaces, or parameter objects.',
                    );
 
     // RULE 5: No interfaces in Infrastructure
