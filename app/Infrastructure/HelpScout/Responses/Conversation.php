@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\HelpScout\Responses;
 
+use App\Domain\CustomerService\ValueObjects\Conversation as DomainConversation;
+use App\Domain\Exceptions\InvalidApiResponseException;
+use DateMalformedStringException;
+use DateTimeImmutable;
 use Spatie\LaravelData\Attributes\DataCollectionOf;
 use Spatie\LaravelData\Data;
 
@@ -39,4 +43,38 @@ final class Conversation extends Data
         public readonly ?int $threads,
     ) {}
 
+    /**
+     * Transform to Domain value object.
+     *
+     * @throws InvalidApiResponseException When date format is invalid
+     */
+    public function toDomain(): DomainConversation
+    {
+        try {
+            $createdAt = new DateTimeImmutable($this->createdAt);
+            $customerWaitingSince = ($this->customerWaitingSince !== null)
+                ? new DateTimeImmutable($this->customerWaitingSince->time)
+                : null;
+        } catch (DateMalformedStringException $e) {
+            throw new InvalidApiResponseException(
+                serviceName: 'HelpScout',
+                message: "Invalid date format in conversation {$this->id}",
+                previous: $e,
+            );
+        }
+
+        return new DomainConversation(
+            id: $this->id,
+            number: $this->number,
+            subject: $this->subject,
+            status: $this->status,
+            mailboxId: $this->mailboxId ?? 0,
+            createdAt: $createdAt,
+            customerWaitingSince: $customerWaitingSince,
+            snooze: $this->snooze?->toDomain(),
+            tags: \array_values(\array_map(static fn(Tag $t) => $t->toDomain(), $this->tags ?? [])),
+            customer: $this->primaryCustomer?->toDomain(),
+            assignee: $this->assignee?->toDomain(),
+        );
+    }
 }

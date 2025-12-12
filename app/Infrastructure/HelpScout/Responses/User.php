@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\HelpScout\Responses;
 
+use App\Domain\CustomerService\ValueObjects\SupportAgent;
 use Spatie\LaravelData\Data;
 
 /**
@@ -33,5 +34,18 @@ final class User extends Data
         }
 
         return \strcasecmp($this->email, $email) === 0;
+    }
+
+    /**
+     * Transform to Domain value object.
+     */
+    public function toDomain(): SupportAgent
+    {
+        return new SupportAgent(
+            id: $this->id,
+            email: $this->email ?? '',
+            firstName: $this->firstName ?? '',
+            lastName: $this->lastName ?? '',
+        );
     }
 }

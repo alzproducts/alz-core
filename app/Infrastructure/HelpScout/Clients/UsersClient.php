@@ -43,7 +43,7 @@ final readonly class UsersClient implements AgentsClientInterface
             'users',
             User::class,
             static fn(User $user): bool => $user->matchesEmail($email),
-            self::toDomain(...),
+            static fn(User $user): SupportAgent => $user->toDomain(),
         );
     }
 
@@ -60,20 +60,7 @@ final readonly class UsersClient implements AgentsClientInterface
             $this->transport->get(self::ENDPOINT),
             'users',
             User::class,
-            self::toDomain(...),
-        );
-    }
-
-    /**
-     * Transform Infrastructure DTO to Domain value object.
-     */
-    private static function toDomain(User $user): SupportAgent
-    {
-        return new SupportAgent(
-            id: $user->id,
-            email: $user->email ?? '',
-            firstName: $user->firstName ?? '',
-            lastName: $user->lastName ?? '',
+            static fn(User $user): SupportAgent => $user->toDomain(),
         );
     }
 }

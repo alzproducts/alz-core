@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\HelpScout\Responses;
 
+use App\Domain\CustomerService\ValueObjects\ConversationAssignee;
 use Spatie\LaravelData\Data;
 
 /**
@@ -18,4 +19,17 @@ final class Assignee extends Data
         public readonly ?string $email,
         public readonly ?string $photoUrl,
     ) {}
+
+    /**
+     * Transform to Domain value object.
+     */
+    public function toDomain(): ConversationAssignee
+    {
+        return new ConversationAssignee(
+            id: $this->id,
+            firstName: $this->firstName ?? '',
+            lastName: $this->lastName ?? '',
+            photoUrl: $this->photoUrl,
+        );
+    }
 }

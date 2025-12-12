@@ -63,6 +63,7 @@ trait HelpScoutResponseParser
      * @param Response $response HTTP response from transport
      * @param string $key The embedded resource key (e.g., 'mailboxes', 'users')
      * @param class-string<TDto> $dtoClass Infrastructure DTO class
+     * @param-immediately-invoked-callable $toDomain
      * @param Closure(TDto): TDomain $toDomain Transformer to Domain value object
      *
      * @return list<TDomain>
