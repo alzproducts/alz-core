@@ -8,7 +8,7 @@ use App\Application\Contracts\HelpScout\MailboxesClientInterface;
 use App\Domain\CustomerService\ValueObjects\Mailbox as DomainMailbox;
 use App\Infrastructure\HelpScout\HelpScoutHttpTransport;
 use App\Infrastructure\HelpScout\HelpScoutResponseParser;
-use App\Infrastructure\HelpScout\Responses\Mailbox;
+use App\Infrastructure\HelpScout\Responses\MailboxResponse;
 
 /**
  * HelpScout Mailboxes API Client.
@@ -40,8 +40,8 @@ final readonly class MailboxesClient implements MailboxesClientInterface
         return $this->parseEmbeddedCollectionToDomain(
             $this->transport->get(self::ENDPOINT),
             'mailboxes',
-            Mailbox::class,
-            static fn(Mailbox $m): DomainMailbox => $m->toDomain(),
+            MailboxResponse::class,
+            static fn(MailboxResponse $m): DomainMailbox => $m->toDomain(),
         );
     }
 }

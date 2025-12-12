@@ -6,8 +6,8 @@ namespace Tests\Unit\Infrastructure\Shopwired\Responses;
 
 use App\Domain\Catalog\ValueObjects\Category as DomainCategory;
 use App\Domain\Catalog\ValueObjects\CategoryImage as DomainCategoryImage;
-use App\Infrastructure\Shopwired\Responses\Category;
-use App\Infrastructure\Shopwired\Responses\CategoryImage;
+use App\Infrastructure\Shopwired\Responses\CategoryImageResponse;
+use App\Infrastructure\Shopwired\Responses\CategoryResponse;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -18,7 +18,7 @@ use Tests\TestCase;
  * Tests the Spatie Data DTO for parsing ShopWired category API responses.
  * Verifies snake_case mapping, nullable handling, nested objects, and domain conversion.
  */
-#[CoversClass(Category::class)]
+#[CoversClass(CategoryResponse::class)]
 final class CategoryTest extends TestCase
 {
     /*
@@ -104,7 +104,7 @@ final class CategoryTest extends TestCase
             'meta_no_index' => true,
         ]);
 
-        $dto = Category::from($payload);
+        $dto = CategoryResponse::from($payload);
 
         $this->assertSame('2024-06-15T14:30:00+00:00', $dto->createdAt);
         $this->assertTrue($dto->tradeOnly);
@@ -123,7 +123,7 @@ final class CategoryTest extends TestCase
             'sort_order' => 100,
         ]);
 
-        $dto = Category::from($payload);
+        $dto = CategoryResponse::from($payload);
 
         $this->assertSame(999, $dto->id);
         $this->assertSame(100, $dto->sortOrder);
@@ -139,7 +139,7 @@ final class CategoryTest extends TestCase
             'meta_no_index' => true,
         ]);
 
-        $dto = Category::from($payload);
+        $dto = CategoryResponse::from($payload);
 
         $this->assertFalse($dto->active);
         $this->assertTrue($dto->featured);
@@ -156,7 +156,7 @@ final class CategoryTest extends TestCase
             'url' => 'https://shop.example.com/c/gaming-accessories',
         ]);
 
-        $dto = Category::from($payload);
+        $dto = CategoryResponse::from($payload);
 
         $this->assertSame('Gaming Accessories', $dto->title);
         $this->assertSame('gaming-accessories', $dto->slug);
@@ -177,7 +177,7 @@ final class CategoryTest extends TestCase
             'description2' => null,
         ]);
 
-        $dto = Category::from($payload);
+        $dto = CategoryResponse::from($payload);
 
         $this->assertNull($dto->description);
         $this->assertNull($dto->description2);
@@ -192,7 +192,7 @@ final class CategoryTest extends TestCase
             'meta_keywords' => null,
         ]);
 
-        $dto = Category::from($payload);
+        $dto = CategoryResponse::from($payload);
 
         $this->assertNull($dto->metaTitle);
         $this->assertNull($dto->metaDescription);
@@ -210,7 +210,7 @@ final class CategoryTest extends TestCase
             'meta_keywords' => 'seo, keywords',
         ]);
 
-        $dto = Category::from($payload);
+        $dto = CategoryResponse::from($payload);
 
         $this->assertSame('Main description', $dto->description);
         $this->assertSame('Secondary description', $dto->description2);
@@ -232,9 +232,9 @@ final class CategoryTest extends TestCase
             'image' => ['url' => 'https://cdn.example.com/categories/electronics.jpg'],
         ]);
 
-        $dto = Category::from($payload);
+        $dto = CategoryResponse::from($payload);
 
-        $this->assertInstanceOf(CategoryImage::class, $dto->image);
+        $this->assertInstanceOf(CategoryImageResponse::class, $dto->image);
         $this->assertSame('https://cdn.example.com/categories/electronics.jpg', $dto->image->url);
     }
 
@@ -243,7 +243,7 @@ final class CategoryTest extends TestCase
     {
         $payload = $this->completePayload(['image' => null]);
 
-        $dto = Category::from($payload);
+        $dto = CategoryResponse::from($payload);
 
         $this->assertNull($dto->image);
     }
@@ -259,7 +259,7 @@ final class CategoryTest extends TestCase
     {
         $payload = $this->completePayload(['parents' => []]);
 
-        $dto = Category::from($payload);
+        $dto = CategoryResponse::from($payload);
 
         $this->assertSame([], $dto->parents);
     }
@@ -273,10 +273,10 @@ final class CategoryTest extends TestCase
 
         $payload = $this->completePayload(['parents' => [$parentPayload]]);
 
-        $dto = Category::from($payload);
+        $dto = CategoryResponse::from($payload);
 
         $this->assertCount(1, $dto->parents);
-        $this->assertInstanceOf(Category::class, $dto->parents[0]);
+        $this->assertInstanceOf(CategoryResponse::class, $dto->parents[0]);
         $this->assertSame('Root Category', $dto->parents[0]->title);
         $this->assertSame(1, $dto->parents[0]->id);
     }
@@ -298,7 +298,7 @@ final class CategoryTest extends TestCase
             'parents' => [$parent, $grandparent],
         ]);
 
-        $dto = Category::from($payload);
+        $dto = CategoryResponse::from($payload);
 
         $this->assertCount(2, $dto->parents);
         $this->assertSame('Electronics', $dto->parents[0]->title);
@@ -314,7 +314,7 @@ final class CategoryTest extends TestCase
 
         $payload = $this->completePayload(['parents' => [$parentPayload]]);
 
-        $dto = Category::from($payload);
+        $dto = CategoryResponse::from($payload);
 
         $this->assertNotNull($dto->parents[0]->image);
         $this->assertSame('https://cdn.example.com/parent.jpg', $dto->parents[0]->image->url);
@@ -329,7 +329,7 @@ final class CategoryTest extends TestCase
     #[Test]
     public function to_domain_returns_domain_category(): void
     {
-        $dto = Category::from($this->completePayload());
+        $dto = CategoryResponse::from($this->completePayload());
 
         $domain = $dto->toDomain();
 
@@ -349,7 +349,7 @@ final class CategoryTest extends TestCase
             'meta_description' => 'Meta Description',
             'meta_keywords' => 'Meta Keywords',
         ]);
-        $dto = Category::from($payload);
+        $dto = CategoryResponse::from($payload);
 
         $domain = $dto->toDomain();
 
@@ -372,7 +372,7 @@ final class CategoryTest extends TestCase
             'trade_only' => true,
             'meta_no_index' => true,
         ]);
-        $dto = Category::from($payload);
+        $dto = CategoryResponse::from($payload);
 
         $domain = $dto->toDomain();
 
@@ -386,7 +386,7 @@ final class CategoryTest extends TestCase
     public function to_domain_maps_sort_order(): void
     {
         $payload = $this->completePayload(['sort_order' => 42]);
-        $dto = Category::from($payload);
+        $dto = CategoryResponse::from($payload);
 
         $domain = $dto->toDomain();
 
@@ -396,7 +396,7 @@ final class CategoryTest extends TestCase
     #[Test]
     public function to_domain_preserves_null_values(): void
     {
-        $dto = Category::from($this->minimalPayload());
+        $dto = CategoryResponse::from($this->minimalPayload());
 
         $domain = $dto->toDomain();
 
@@ -420,7 +420,7 @@ final class CategoryTest extends TestCase
         $payload = $this->completePayload([
             'image' => ['url' => 'https://cdn.example.com/test.jpg'],
         ]);
-        $dto = Category::from($payload);
+        $dto = CategoryResponse::from($payload);
 
         $domain = $dto->toDomain();
 
@@ -432,7 +432,7 @@ final class CategoryTest extends TestCase
     public function to_domain_keeps_null_image_as_null(): void
     {
         $payload = $this->completePayload(['image' => null]);
-        $dto = Category::from($payload);
+        $dto = CategoryResponse::from($payload);
 
         $domain = $dto->toDomain();
 
@@ -449,7 +449,7 @@ final class CategoryTest extends TestCase
     public function to_domain_converts_empty_parents_to_empty_array(): void
     {
         $payload = $this->completePayload(['parents' => []]);
-        $dto = Category::from($payload);
+        $dto = CategoryResponse::from($payload);
 
         $domain = $dto->toDomain();
 
@@ -463,7 +463,7 @@ final class CategoryTest extends TestCase
         $parentPayload['title'] = 'Parent Category';
 
         $payload = $this->completePayload(['parents' => [$parentPayload]]);
-        $dto = Category::from($payload);
+        $dto = CategoryResponse::from($payload);
 
         $domain = $dto->toDomain();
 
@@ -482,7 +482,7 @@ final class CategoryTest extends TestCase
         $parent['title'] = 'Parent';
 
         $payload = $this->completePayload(['parents' => [$parent, $grandparent]]);
-        $dto = Category::from($payload);
+        $dto = CategoryResponse::from($payload);
 
         $domain = $dto->toDomain();
 
@@ -499,7 +499,7 @@ final class CategoryTest extends TestCase
         $parentPayload['image'] = ['url' => 'https://cdn.example.com/parent-image.jpg'];
 
         $payload = $this->completePayload(['parents' => [$parentPayload]]);
-        $dto = Category::from($payload);
+        $dto = CategoryResponse::from($payload);
 
         $domain = $dto->toDomain();
 
@@ -511,7 +511,7 @@ final class CategoryTest extends TestCase
     #[Test]
     public function to_domain_creates_new_instance_each_call(): void
     {
-        $dto = Category::from($this->completePayload());
+        $dto = CategoryResponse::from($this->completePayload());
 
         $domain1 = $dto->toDomain();
         $domain2 = $dto->toDomain();
@@ -589,7 +589,7 @@ final class CategoryTest extends TestCase
             'parents' => [$parentPayload, $grandparentPayload],
         ];
 
-        $dto = Category::from($categoryPayload);
+        $dto = CategoryResponse::from($categoryPayload);
         $domain = $dto->toDomain();
 
         // Verify main category

@@ -8,7 +8,7 @@ use App\Application\Contracts\HelpScout\AgentsClientInterface;
 use App\Domain\CustomerService\ValueObjects\SupportAgent;
 use App\Infrastructure\HelpScout\HelpScoutHttpTransport;
 use App\Infrastructure\HelpScout\HelpScoutResponseParser;
-use App\Infrastructure\HelpScout\Responses\User;
+use App\Infrastructure\HelpScout\Responses\UserResponse;
 
 /**
  * HelpScout Users API Client.
@@ -41,9 +41,9 @@ final readonly class UsersClient implements AgentsClientInterface
         return $this->findDomainInEmbeddedCollection(
             $this->transport->get(self::ENDPOINT),
             'users',
-            User::class,
-            static fn(User $user): bool => $user->matchesEmail($email),
-            static fn(User $user): SupportAgent => $user->toDomain(),
+            UserResponse::class,
+            static fn(UserResponse $user): bool => $user->matchesEmail($email),
+            static fn(UserResponse $user): SupportAgent => $user->toDomain(),
         );
     }
 
@@ -59,8 +59,8 @@ final readonly class UsersClient implements AgentsClientInterface
         return $this->parseEmbeddedCollectionToDomain(
             $this->transport->get(self::ENDPOINT),
             'users',
-            User::class,
-            static fn(User $user): SupportAgent => $user->toDomain(),
+            UserResponse::class,
+            static fn(UserResponse $user): SupportAgent => $user->toDomain(),
         );
     }
 }

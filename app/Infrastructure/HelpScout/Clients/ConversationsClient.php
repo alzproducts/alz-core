@@ -8,7 +8,7 @@ use App\Application\Contracts\HelpScout\ConversationsClientInterface;
 use App\Domain\CustomerService\ValueObjects\Conversation as DomainConversation;
 use App\Infrastructure\HelpScout\HelpScoutHttpTransport;
 use App\Infrastructure\HelpScout\HelpScoutResponseParser;
-use App\Infrastructure\HelpScout\Responses\Conversation;
+use App\Infrastructure\HelpScout\Responses\ConversationResponse;
 
 /**
  * HelpScout Conversations API Client.
@@ -99,8 +99,8 @@ final readonly class ConversationsClient implements ConversationsClientInterface
         return $this->parseEmbeddedCollectionToDomain(
             $this->transport->get(self::ENDPOINT, $params),
             'conversations',
-            Conversation::class,
-            static fn(Conversation $c): DomainConversation => $c->toDomain(),
+            ConversationResponse::class,
+            static fn(ConversationResponse $c): DomainConversation => $c->toDomain(),
         );
     }
 }

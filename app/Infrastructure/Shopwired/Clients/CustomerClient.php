@@ -7,7 +7,7 @@ namespace App\Infrastructure\Shopwired\Clients;
 use App\Application\Contracts\Shopwired\CustomerClientInterface;
 use App\Domain\Customer\ValueObjects\Customer as DomainCustomer;
 use App\Infrastructure\Shopwired\CustomerQueryParams;
-use App\Infrastructure\Shopwired\Responses\Customer;
+use App\Infrastructure\Shopwired\Responses\CustomerResponse;
 use App\Infrastructure\Shopwired\ShopwiredHttpTransport;
 use App\Infrastructure\Shopwired\ShopwiredPaginator;
 use App\Infrastructure\Shopwired\ShopwiredQueryParams;
@@ -131,7 +131,7 @@ final readonly class CustomerClient implements CustomerClientInterface
         $response = $this->transport->get(self::ENDPOINT_CUSTOMERS);
 
         /** @var list<DomainCustomer> */
-        return self::parseArrayToDomain($response->json(), Customer::class);
+        return self::parseArrayToDomain($response->json(), CustomerResponse::class);
     }
 
     public function getCustomerById(int $id): DomainCustomer
@@ -139,7 +139,7 @@ final readonly class CustomerClient implements CustomerClientInterface
         $response = $this->transport->get(self::ENDPOINT_CUSTOMERS . '/' . $id);
 
         /** @var DomainCustomer */
-        return self::parseSingleToDomain($response->json(), Customer::class);
+        return self::parseSingleToDomain($response->json(), CustomerResponse::class);
     }
 
     public function getCustomerCount(): int
@@ -185,7 +185,7 @@ final readonly class CustomerClient implements CustomerClientInterface
             $params->toArray(),
         );
 
-        $customers = self::parseArrayToDomain($response->json(), Customer::class);
+        $customers = self::parseArrayToDomain($response->json(), CustomerResponse::class);
 
         /** @var DomainCustomer|null $customer */
         $customer = $customers[0] ?? null;
@@ -211,6 +211,6 @@ final readonly class CustomerClient implements CustomerClientInterface
         );
 
         /** @var list<DomainCustomer> */
-        return self::parseArrayToDomain($response->json(), Customer::class);
+        return self::parseArrayToDomain($response->json(), CustomerResponse::class);
     }
 }

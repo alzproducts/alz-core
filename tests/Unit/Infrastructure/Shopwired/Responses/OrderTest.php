@@ -13,13 +13,13 @@ use App\Domain\Catalog\Order\ValueObjects\OrderShipping as DomainOrderShipping;
 use App\Domain\Catalog\Order\ValueObjects\OrderStatus as DomainOrderStatus;
 use App\Domain\Catalog\Order\ValueObjects\OrderStatusType;
 use App\Domain\Catalog\Order\ValueObjects\PaymentMethod;
-use App\Infrastructure\Shopwired\Responses\Order;
-use App\Infrastructure\Shopwired\Responses\OrderAddress;
-use App\Infrastructure\Shopwired\Responses\OrderCustomer;
-use App\Infrastructure\Shopwired\Responses\OrderDiscount;
-use App\Infrastructure\Shopwired\Responses\OrderProduct;
-use App\Infrastructure\Shopwired\Responses\OrderShipping;
-use App\Infrastructure\Shopwired\Responses\OrderStatus;
+use App\Infrastructure\Shopwired\Responses\OrderAddressResponse;
+use App\Infrastructure\Shopwired\Responses\OrderCustomerResponse;
+use App\Infrastructure\Shopwired\Responses\OrderDiscountResponse;
+use App\Infrastructure\Shopwired\Responses\OrderProductResponse;
+use App\Infrastructure\Shopwired\Responses\OrderResponse;
+use App\Infrastructure\Shopwired\Responses\OrderShippingResponse;
+use App\Infrastructure\Shopwired\Responses\OrderStatusResponse;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -30,13 +30,13 @@ use Tests\TestCase;
  * Tests the Spatie Data DTO for parsing ShopWired order API responses.
  * Verifies snake_case mapping, nested object parsing, and domain conversion.
  */
-#[CoversClass(Order::class)]
-#[CoversClass(OrderAddress::class)]
-#[CoversClass(OrderCustomer::class)]
-#[CoversClass(OrderDiscount::class)]
-#[CoversClass(OrderProduct::class)]
-#[CoversClass(OrderShipping::class)]
-#[CoversClass(OrderStatus::class)]
+#[CoversClass(OrderResponse::class)]
+#[CoversClass(OrderAddressResponse::class)]
+#[CoversClass(OrderCustomerResponse::class)]
+#[CoversClass(OrderDiscountResponse::class)]
+#[CoversClass(OrderProductResponse::class)]
+#[CoversClass(OrderShippingResponse::class)]
+#[CoversClass(OrderStatusResponse::class)]
 final class OrderTest extends TestCase
 {
     /*
@@ -203,7 +203,7 @@ final class OrderTest extends TestCase
     #[Test]
     public function from_parses_complete_order_payload(): void
     {
-        $dto = Order::from($this->completePayload());
+        $dto = OrderResponse::from($this->completePayload());
 
         $this->assertSame(12345, $dto->id);
         $this->assertSame(67890, $dto->reference);
@@ -220,9 +220,9 @@ final class OrderTest extends TestCase
     #[Test]
     public function from_parses_nested_status(): void
     {
-        $dto = Order::from($this->completePayload());
+        $dto = OrderResponse::from($this->completePayload());
 
-        $this->assertInstanceOf(OrderStatus::class, $dto->status);
+        $this->assertInstanceOf(OrderStatusResponse::class, $dto->status);
         $this->assertSame(1, $dto->status->id);
         $this->assertSame('Paid', $dto->status->name);
         $this->assertSame('paid', $dto->status->type);
@@ -232,23 +232,23 @@ final class OrderTest extends TestCase
     #[Test]
     public function from_parses_nested_addresses(): void
     {
-        $dto = Order::from($this->completePayload());
+        $dto = OrderResponse::from($this->completePayload());
 
-        $this->assertInstanceOf(OrderAddress::class, $dto->billingAddress);
+        $this->assertInstanceOf(OrderAddressResponse::class, $dto->billingAddress);
         $this->assertSame('John Doe', $dto->billingAddress->name);
         $this->assertSame('john@example.com', $dto->billingAddress->emailAddress);
         $this->assertSame('123 Test Street', $dto->billingAddress->addressLine1);
 
-        $this->assertInstanceOf(OrderAddress::class, $dto->shippingAddress);
+        $this->assertInstanceOf(OrderAddressResponse::class, $dto->shippingAddress);
         $this->assertSame('Jane Doe', $dto->shippingAddress->name);
     }
 
     #[Test]
     public function from_parses_nested_customer(): void
     {
-        $dto = Order::from($this->completePayload());
+        $dto = OrderResponse::from($this->completePayload());
 
-        $this->assertInstanceOf(OrderCustomer::class, $dto->customer);
+        $this->assertInstanceOf(OrderCustomerResponse::class, $dto->customer);
         $this->assertSame(999, $dto->customer->id);
         $this->assertSame(1, $dto->customer->type);
         $this->assertSame('1990-05-15', $dto->customer->dateOfBirth);
@@ -257,10 +257,10 @@ final class OrderTest extends TestCase
     #[Test]
     public function from_parses_shipping_array(): void
     {
-        $dto = Order::from($this->completePayload());
+        $dto = OrderResponse::from($this->completePayload());
 
         $this->assertCount(1, $dto->shipping);
-        $this->assertInstanceOf(OrderShipping::class, $dto->shipping[0]);
+        $this->assertInstanceOf(OrderShippingResponse::class, $dto->shipping[0]);
         $this->assertSame('Standard Delivery', $dto->shipping[0]->name);
         $this->assertSame(10.00, $dto->shipping[0]->value);
         $this->assertSame(20.0, $dto->shipping[0]->vatRate);
@@ -282,10 +282,10 @@ final class OrderTest extends TestCase
             ],
         ]);
 
-        $dto = Order::from($payload);
+        $dto = OrderResponse::from($payload);
 
         $this->assertCount(2, $dto->discounts);
-        $this->assertInstanceOf(OrderDiscount::class, $dto->discounts[0]);
+        $this->assertInstanceOf(OrderDiscountResponse::class, $dto->discounts[0]);
         $this->assertSame('SAVE10', $dto->discounts[0]->name);
         $this->assertSame(10.00, $dto->discounts[0]->value);
         $this->assertSame('percentage', $dto->discounts[0]->type);
@@ -310,10 +310,10 @@ final class OrderTest extends TestCase
             ],
         ]);
 
-        $dto = Order::from($payload);
+        $dto = OrderResponse::from($payload);
 
         $this->assertCount(2, $dto->products);
-        $this->assertInstanceOf(OrderProduct::class, $dto->products[0]);
+        $this->assertInstanceOf(OrderProductResponse::class, $dto->products[0]);
         $this->assertSame(1001, $dto->products[0]->id);
         $this->assertSame('Test Product', $dto->products[0]->title);
         $this->assertSame('TEST-SKU-001', $dto->products[0]->sku);
@@ -324,7 +324,7 @@ final class OrderTest extends TestCase
     #[Test]
     public function from_handles_null_products_in_standard_mode(): void
     {
-        $dto = Order::from($this->completePayload(['products' => null]));
+        $dto = OrderResponse::from($this->completePayload(['products' => null]));
 
         $this->assertNull($dto->products);
     }
@@ -345,7 +345,7 @@ final class OrderTest extends TestCase
             ],
         ]);
 
-        $dto = Order::from($payload);
+        $dto = OrderResponse::from($payload);
 
         $this->assertSame('Express', $dto->getFirstShipping()?->name);
     }
@@ -355,7 +355,7 @@ final class OrderTest extends TestCase
     {
         $payload = $this->completePayload(['shipping' => []]);
 
-        $dto = Order::from($payload);
+        $dto = OrderResponse::from($payload);
 
         $this->assertNull($dto->getFirstShipping());
     }
@@ -369,7 +369,7 @@ final class OrderTest extends TestCase
     #[Test]
     public function to_domain_returns_domain_order(): void
     {
-        $dto = Order::from($this->completePayload());
+        $dto = OrderResponse::from($this->completePayload());
 
         $domain = $dto->toDomain();
 
@@ -379,7 +379,7 @@ final class OrderTest extends TestCase
     #[Test]
     public function to_domain_maps_scalar_fields(): void
     {
-        $dto = Order::from($this->completePayload());
+        $dto = OrderResponse::from($this->completePayload());
 
         $domain = $dto->toDomain();
 
@@ -394,7 +394,7 @@ final class OrderTest extends TestCase
     #[Test]
     public function to_domain_converts_payment_method(): void
     {
-        $dto = Order::from($this->completePayload(['payment_method' => 'Opayo Hosted']));
+        $dto = OrderResponse::from($this->completePayload(['payment_method' => 'Opayo Hosted']));
 
         $domain = $dto->toDomain();
 
@@ -404,7 +404,7 @@ final class OrderTest extends TestCase
     #[Test]
     public function to_domain_converts_status(): void
     {
-        $dto = Order::from($this->completePayload());
+        $dto = OrderResponse::from($this->completePayload());
 
         $domain = $dto->toDomain();
 
@@ -416,7 +416,7 @@ final class OrderTest extends TestCase
     #[Test]
     public function to_domain_converts_customer(): void
     {
-        $dto = Order::from($this->completePayload());
+        $dto = OrderResponse::from($this->completePayload());
 
         $domain = $dto->toDomain();
 
@@ -428,7 +428,7 @@ final class OrderTest extends TestCase
     #[Test]
     public function to_domain_converts_shipping(): void
     {
-        $dto = Order::from($this->completePayload());
+        $dto = OrderResponse::from($this->completePayload());
 
         $domain = $dto->toDomain();
 
@@ -440,7 +440,7 @@ final class OrderTest extends TestCase
     #[Test]
     public function to_domain_handles_empty_shipping(): void
     {
-        $dto = Order::from($this->completePayload(['shipping' => []]));
+        $dto = OrderResponse::from($this->completePayload(['shipping' => []]));
 
         $domain = $dto->toDomain();
 
@@ -450,7 +450,7 @@ final class OrderTest extends TestCase
     #[Test]
     public function to_domain_converts_addresses(): void
     {
-        $dto = Order::from($this->completePayload());
+        $dto = OrderResponse::from($this->completePayload());
 
         $domain = $dto->toDomain();
 
@@ -468,7 +468,7 @@ final class OrderTest extends TestCase
         $payload = $this->completePayload([
             'discounts' => [$this->discountPayload()],
         ]);
-        $dto = Order::from($payload);
+        $dto = OrderResponse::from($payload);
 
         $domain = $dto->toDomain();
 
@@ -484,7 +484,7 @@ final class OrderTest extends TestCase
         $payload = $this->completePayload([
             'products' => [$this->productPayload()],
         ]);
-        $dto = Order::from($payload);
+        $dto = OrderResponse::from($payload);
 
         $domain = $dto->toDomain();
 
@@ -496,7 +496,7 @@ final class OrderTest extends TestCase
     #[Test]
     public function to_domain_keeps_null_products_in_standard_mode(): void
     {
-        $dto = Order::from($this->completePayload(['products' => null]));
+        $dto = OrderResponse::from($this->completePayload(['products' => null]));
 
         $domain = $dto->toDomain();
 
@@ -507,7 +507,7 @@ final class OrderTest extends TestCase
     public function to_domain_preserves_custom_fields(): void
     {
         $customFields = ['field1' => 'value1', 'field2' => 'value2'];
-        $dto = Order::from($this->completePayload(['custom_fields' => $customFields]));
+        $dto = OrderResponse::from($this->completePayload(['custom_fields' => $customFields]));
 
         $domain = $dto->toDomain();
 

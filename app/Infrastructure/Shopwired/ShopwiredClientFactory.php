@@ -109,7 +109,8 @@ final class ShopwiredClientFactory
 
     /**
      * Get integer config value with fallback.
-     */
+     *
+     * @noinspection PhpSameParameterValueInspection*/
     private static function getIntConfig(string $key, int $default): int
     {
         $value = \config("shopwired.{$key}");

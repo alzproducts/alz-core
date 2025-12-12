@@ -6,7 +6,7 @@ namespace Tests\Unit\Infrastructure\Shopwired\Responses;
 
 use App\Domain\Customer\ValueObjects\Customer as DomainCustomer;
 use App\Domain\Customer\ValueObjects\CustomerAddress;
-use App\Infrastructure\Shopwired\Responses\Customer;
+use App\Infrastructure\Shopwired\Responses\CustomerResponse;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use ReflectionClass;
@@ -18,7 +18,7 @@ use Tests\TestCase;
  * Tests the Spatie Data DTO for parsing ShopWired customer API responses.
  * Verifies snake_case mapping, numeric suffix handling, and domain conversion.
  */
-#[CoversClass(Customer::class)]
+#[CoversClass(CustomerResponse::class)]
 final class CustomerTest extends TestCase
 {
     /*
@@ -120,7 +120,7 @@ final class CustomerTest extends TestCase
     {
         $payload = $this->completePayload();
 
-        $customer = Customer::from($payload);
+        $customer = CustomerResponse::from($payload);
 
         $this->assertSame(123, $customer->id);
         $this->assertSame('2024-03-15T14:30:00+00:00', $customer->createdAt);
@@ -134,7 +134,7 @@ final class CustomerTest extends TestCase
     {
         $payload = $this->completePayload();
 
-        $customer = Customer::from($payload);
+        $customer = CustomerResponse::from($payload);
 
         // These require explicit #[MapInputName] attributes
         $this->assertSame('10 Downing Street', $customer->addressLine1);
@@ -154,7 +154,7 @@ final class CustomerTest extends TestCase
             'auto_created' => false,
         ]);
 
-        $customer = Customer::from($payload);
+        $customer = CustomerResponse::from($payload);
 
         $this->assertTrue($customer->trade);
         $this->assertFalse($customer->active);
@@ -172,7 +172,7 @@ final class CustomerTest extends TestCase
             'cost_price_multiplier' => 0.65,
         ]);
 
-        $customer = Customer::from($payload);
+        $customer = CustomerResponse::from($payload);
 
         $this->assertSame(25.75, $customer->discount);
         $this->assertSame(0.65, $customer->costPriceMultiplier);
@@ -183,7 +183,7 @@ final class CustomerTest extends TestCase
     {
         $payload = $this->minimalPayload();
 
-        $customer = Customer::from($payload);
+        $customer = CustomerResponse::from($payload);
 
         $this->assertNull($customer->tradeGroupId);
         $this->assertNull($customer->companyName);
@@ -199,7 +199,7 @@ final class CustomerTest extends TestCase
     {
         $payload = $this->minimalPayload();
 
-        $customer = Customer::from($payload);
+        $customer = CustomerResponse::from($payload);
 
         $this->assertNull($customer->addressLine1);
         $this->assertNull($customer->addressLine2);
@@ -216,7 +216,7 @@ final class CustomerTest extends TestCase
             'custom_fields' => ['key1' => 'value1', 'nested' => ['a' => 1]],
         ]);
 
-        $customer = Customer::from($payload);
+        $customer = CustomerResponse::from($payload);
 
         $this->assertSame(['key1' => 'value1', 'nested' => ['a' => 1]], $customer->customFields);
     }
@@ -226,7 +226,7 @@ final class CustomerTest extends TestCase
     {
         $payload = $this->completePayload(['wishlists' => []]);
 
-        $customer = Customer::from($payload);
+        $customer = CustomerResponse::from($payload);
 
         $this->assertSame([], $customer->wishlists);
     }
@@ -241,7 +241,7 @@ final class CustomerTest extends TestCase
             ],
         ]);
 
-        $customer = Customer::from($payload);
+        $customer = CustomerResponse::from($payload);
 
         $this->assertCount(2, $customer->wishlists);
         $this->assertSame(1, $customer->wishlists[0]->id);
@@ -260,7 +260,7 @@ final class CustomerTest extends TestCase
     #[Test]
     public function to_domain_returns_domain_customer(): void
     {
-        $customer = Customer::from($this->completePayload());
+        $customer = CustomerResponse::from($this->completePayload());
 
         $domain = $customer->toDomain();
 
@@ -270,7 +270,7 @@ final class CustomerTest extends TestCase
     #[Test]
     public function to_domain_maps_identity_fields(): void
     {
-        $customer = Customer::from($this->completePayload());
+        $customer = CustomerResponse::from($this->completePayload());
 
         $domain = $customer->toDomain();
 
@@ -283,7 +283,7 @@ final class CustomerTest extends TestCase
     #[Test]
     public function to_domain_transforms_boolean_field_names(): void
     {
-        $customer = Customer::from($this->completePayload([
+        $customer = CustomerResponse::from($this->completePayload([
             'trade' => true,
             'active' => false,
         ]));
@@ -299,7 +299,7 @@ final class CustomerTest extends TestCase
     #[Test]
     public function to_domain_maps_pricing_fields(): void
     {
-        $customer = Customer::from($this->completePayload());
+        $customer = CustomerResponse::from($this->completePayload());
 
         $domain = $customer->toDomain();
 
@@ -310,7 +310,7 @@ final class CustomerTest extends TestCase
     #[Test]
     public function to_domain_maps_contact_fields(): void
     {
-        $customer = Customer::from($this->completePayload());
+        $customer = CustomerResponse::from($this->completePayload());
 
         $domain = $customer->toDomain();
 
@@ -324,7 +324,7 @@ final class CustomerTest extends TestCase
     #[Test]
     public function to_domain_maps_loyalty_and_notes(): void
     {
-        $customer = Customer::from($this->completePayload());
+        $customer = CustomerResponse::from($this->completePayload());
 
         $domain = $customer->toDomain();
 
@@ -335,7 +335,7 @@ final class CustomerTest extends TestCase
     #[Test]
     public function to_domain_preserves_custom_fields(): void
     {
-        $customer = Customer::from($this->completePayload([
+        $customer = CustomerResponse::from($this->completePayload([
             'custom_fields' => ['tier' => 'platinum'],
         ]));
 
@@ -347,7 +347,7 @@ final class CustomerTest extends TestCase
     #[Test]
     public function to_domain_builds_address_from_flat_fields(): void
     {
-        $customer = Customer::from($this->completePayload());
+        $customer = CustomerResponse::from($this->completePayload());
 
         $domain = $customer->toDomain();
 
@@ -364,7 +364,7 @@ final class CustomerTest extends TestCase
     #[Test]
     public function to_domain_returns_null_address_when_all_fields_null(): void
     {
-        $customer = Customer::from($this->minimalPayload());
+        $customer = CustomerResponse::from($this->minimalPayload());
 
         $domain = $customer->toDomain();
 
@@ -379,7 +379,7 @@ final class CustomerTest extends TestCase
         $payload['postcode'] = 'AB1 2CD';
         // city, province, line2, line3 remain null
 
-        $customer = Customer::from($payload);
+        $customer = CustomerResponse::from($payload);
         $domain = $customer->toDomain();
 
         $this->assertNotNull($domain->address);
@@ -396,7 +396,7 @@ final class CustomerTest extends TestCase
         $payload['city'] = 'Manchester';
         // all other address fields remain null
 
-        $customer = Customer::from($payload);
+        $customer = CustomerResponse::from($payload);
         $domain = $customer->toDomain();
 
         $this->assertNotNull($domain->address);
@@ -411,7 +411,7 @@ final class CustomerTest extends TestCase
         $payload['address_line_2'] = 'Apartment 5';
         // line1 and all other address fields remain null
 
-        $customer = Customer::from($payload);
+        $customer = CustomerResponse::from($payload);
         $domain = $customer->toDomain();
 
         $this->assertNotNull($domain->address);
@@ -426,7 +426,7 @@ final class CustomerTest extends TestCase
         $payload['address_line_3'] = 'Building C';
         // line1, line2 and all other address fields remain null
 
-        $customer = Customer::from($payload);
+        $customer = CustomerResponse::from($payload);
         $domain = $customer->toDomain();
 
         $this->assertNotNull($domain->address);
@@ -442,7 +442,7 @@ final class CustomerTest extends TestCase
         $payload['province'] = 'Yorkshire';
         // all other address fields remain null
 
-        $customer = Customer::from($payload);
+        $customer = CustomerResponse::from($payload);
         $domain = $customer->toDomain();
 
         $this->assertNotNull($domain->address);
@@ -456,7 +456,7 @@ final class CustomerTest extends TestCase
         $payload['postcode'] = 'AB1 2CD';
         // all other address fields remain null
 
-        $customer = Customer::from($payload);
+        $customer = CustomerResponse::from($payload);
         $domain = $customer->toDomain();
 
         $this->assertNotNull($domain->address);
@@ -466,7 +466,7 @@ final class CustomerTest extends TestCase
     #[Test]
     public function to_domain_creates_new_instance_each_call(): void
     {
-        $customer = Customer::from($this->completePayload());
+        $customer = CustomerResponse::from($this->completePayload());
 
         $domain1 = $customer->toDomain();
         $domain2 = $customer->toDomain();
@@ -478,7 +478,7 @@ final class CustomerTest extends TestCase
     #[Test]
     public function to_domain_does_not_include_infrastructure_only_fields(): void
     {
-        $customer = Customer::from($this->completePayload());
+        $customer = CustomerResponse::from($this->completePayload());
 
         $domain = $customer->toDomain();
 
@@ -504,7 +504,7 @@ final class CustomerTest extends TestCase
             ],
         ]);
 
-        $customer = Customer::from($payload);
+        $customer = CustomerResponse::from($payload);
         $domain = $customer->toDomain();
 
         // DTO has wishlists
