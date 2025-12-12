@@ -24,7 +24,7 @@ interface AgentsClientInterface
     /**
      * Get all support agents.
      *
-     * @return array<int, SupportAgent>
+     * @return list<SupportAgent>
      *
      * @throws ExternalServiceUnavailableException When API unavailable
      * @throws InvalidApiResponseException When API response structure is invalid

@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Infrastructure\HelpScout;
 
 use App\Domain\Exceptions\InvalidApiResponseException;
+use Closure;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Log;
 use Spatie\LaravelData\Data;
 use Spatie\LaravelData\DataCollection;
@@ -47,6 +49,70 @@ trait HelpScoutResponseParser
 
         /** @var array<T> */
         return $this->parseArrayResponse($embedded, $dtoClass)->all();
+    }
+
+    /**
+     * Parse embedded collection and transform to Domain value objects.
+     *
+     * Combines parsing and domain transformation in one call.
+     * Use this when the client interface expects Domain objects.
+     *
+     * @template TDto of Data
+     * @template TDomain
+     *
+     * @param Response $response HTTP response from transport
+     * @param string $key The embedded resource key (e.g., 'mailboxes', 'users')
+     * @param class-string<TDto> $dtoClass Infrastructure DTO class
+     * @param Closure(TDto): TDomain $toDomain Transformer to Domain value object
+     *
+     * @return list<TDomain>
+     *
+     * @throws InvalidApiResponseException When response structure is invalid
+     */
+    private function parseEmbeddedCollectionToDomain(
+        Response $response,
+        string $key,
+        string $dtoClass,
+        Closure $toDomain,
+    ): array {
+        /** @var array<TDto> $dtos */
+        $dtos = $this->parseEmbeddedCollection($response->json(), $key, $dtoClass);
+
+        return \array_values(\array_map($toDomain, $dtos));
+    }
+
+    /**
+     * Find single item in embedded collection and transform to Domain value object.
+     *
+     * Returns null if no item matches. Use for lookup-by-field operations.
+     *
+     * @template TDto of Data
+     * @template TDomain
+     *
+     * @param Response $response HTTP response from transport
+     * @param string $key The embedded resource key
+     * @param class-string<TDto> $dtoClass Target DTO class
+     * @param Closure(TDto): bool $predicate Matcher function
+     * @param Closure(TDto): TDomain $toDomain Transformer to Domain value object
+     *
+     * @return TDomain|null
+     *
+     * @throws InvalidApiResponseException When response structure is invalid
+     */
+    private function findDomainInEmbeddedCollection(
+        Response $response,
+        string $key,
+        string $dtoClass,
+        Closure $predicate,
+        Closure $toDomain,
+    ): mixed {
+        /** @var array<TDto> $items */
+        $items = $this->parseEmbeddedCollection($response->json(), $key, $dtoClass);
+
+        /** @var TDto|null $found */
+        $found = \array_find($items, $predicate);
+
+        return ($found !== null) ? $toDomain($found) : null;
     }
 
     /**

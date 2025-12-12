@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\HelpScout\Clients;
 
+use App\Application\Contracts\HelpScout\AgentsClientInterface;
+use App\Domain\CustomerService\ValueObjects\SupportAgent;
 use App\Infrastructure\HelpScout\HelpScoutHttpTransport;
 use App\Infrastructure\HelpScout\HelpScoutResponseParser;
 use App\Infrastructure\HelpScout\Responses\User;
@@ -11,11 +13,12 @@ use App\Infrastructure\HelpScout\Responses\User;
 /**
  * HelpScout Users API Client.
  *
- * Handles user queries for the account.
+ * Handles user queries for the account. Transforms Infrastructure DTOs
+ * to Domain value objects at the boundary.
  *
  * @see https://developer.helpscout.com/mailbox-api/endpoints/users/
  */
-final readonly class UsersClient
+final readonly class UsersClient implements AgentsClientInterface
 {
     use HelpScoutResponseParser;
 
@@ -33,28 +36,44 @@ final readonly class UsersClient
      *
      * @see https://developer.helpscout.com/mailbox-api/endpoints/users/list/
      */
-    public function findByEmail(string $email): ?User
+    public function findByEmail(string $email): ?SupportAgent
     {
-        $response = $this->transport->get(self::ENDPOINT);
-
-        /** @var array<User> $users */
-        $users = $this->parseEmbeddedCollection($response->json(), 'users', User::class);
-
-        return \array_find($users, static fn(User $user): bool => $user->matchesEmail($email));
+        return $this->findDomainInEmbeddedCollection(
+            $this->transport->get(self::ENDPOINT),
+            'users',
+            User::class,
+            static fn(User $user): bool => $user->matchesEmail($email),
+            self::toDomain(...),
+        );
     }
 
     /**
      * Get all users for the account.
      *
-     * @return array<User>
+     * @return list<SupportAgent>
      *
      * @see https://developer.helpscout.com/mailbox-api/endpoints/users/list/
      */
     public function list(): array
     {
-        $response = $this->transport->get(self::ENDPOINT);
+        return $this->parseEmbeddedCollectionToDomain(
+            $this->transport->get(self::ENDPOINT),
+            'users',
+            User::class,
+            self::toDomain(...),
+        );
+    }
 
-        /** @var array<User> */
-        return $this->parseEmbeddedCollection($response->json(), 'users', User::class);
+    /**
+     * Transform Infrastructure DTO to Domain value object.
+     */
+    private static function toDomain(User $user): SupportAgent
+    {
+        return new SupportAgent(
+            id: $user->id,
+            email: $user->email ?? '',
+            firstName: $user->firstName ?? '',
+            lastName: $user->lastName ?? '',
+        );
     }
 }
