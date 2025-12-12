@@ -15,12 +15,12 @@ use Spatie\LaravelData\Data;
 final class ConversationsResponse extends Data
 {
     /**
-     * @param array<Conversation> $conversations
+     * @param array<ConversationResponse> $conversations
      */
     public function __construct(
-        #[DataCollectionOf(Conversation::class)]
+        #[DataCollectionOf(ConversationResponse::class)]
         public readonly array $conversations,
-        public readonly Page $page,
+        public readonly PageResponse $page,
     ) {}
 
 }

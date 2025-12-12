@@ -65,6 +65,8 @@ See `.ai/docs/implementation/CLAUDE.md` for the full template and guidelines.
 
 **Rationale**: The user maintains full control over git history and commit timing.
 
+**Always use `git mv`** when moving/renaming files. Preserves history; delete + create loses it.
+
 ## Development Environment
 
 **PHP**: Native PHP 8.4 via Homebrew (not Docker/Sail)

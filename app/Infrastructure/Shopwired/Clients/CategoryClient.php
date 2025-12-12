@@ -6,7 +6,7 @@ namespace App\Infrastructure\Shopwired\Clients;
 
 use App\Application\Contracts\Shopwired\CategoryClientInterface;
 use App\Domain\Catalog\ValueObjects\Category as DomainCategory;
-use App\Infrastructure\Shopwired\Responses\Category;
+use App\Infrastructure\Shopwired\Responses\CategoryResponse;
 use App\Infrastructure\Shopwired\ShopwiredHttpTransport;
 use App\Infrastructure\Shopwired\ShopwiredPaginator;
 use App\Infrastructure\Shopwired\ShopwiredQueryParams;
@@ -90,7 +90,7 @@ final readonly class CategoryClient implements CategoryClientInterface
         $response = $this->transport->get(self::ENDPOINT_CATEGORIES);
 
         /** @var list<DomainCategory> */
-        return self::parseArrayToDomain($response->json(), Category::class);
+        return self::parseArrayToDomain($response->json(), CategoryResponse::class);
     }
 
     public function getCategoryById(int $id): DomainCategory
@@ -98,7 +98,7 @@ final readonly class CategoryClient implements CategoryClientInterface
         $response = $this->transport->get(self::ENDPOINT_CATEGORIES . '/' . $id);
 
         /** @var DomainCategory */
-        return self::parseSingleToDomain($response->json(), Category::class);
+        return self::parseSingleToDomain($response->json(), CategoryResponse::class);
     }
 
     public function getCategoryCount(): int
@@ -121,6 +121,6 @@ final readonly class CategoryClient implements CategoryClientInterface
         );
 
         /** @var list<DomainCategory> */
-        return self::parseArrayToDomain($response->json(), Category::class);
+        return self::parseArrayToDomain($response->json(), CategoryResponse::class);
     }
 }

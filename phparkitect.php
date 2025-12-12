@@ -431,6 +431,43 @@ return static function (Config $config): void {
                        'DTOs are data transfer formats for Infrastructure/Application layers. Domain should only contain ValueObjects representing pure business concepts.',
                    );
 
+    // RULE 8b: Classes in DTOs/ directories must have *DTO suffix
+    //
+    // WHY: Enforces consistent naming for Data Transfer Objects.
+    //
+    // VIOLATION EXAMPLE:
+    // ❌ namespace App\Infrastructure\Mixpanel\DTOs;
+    //    class AdSpendEvent { }  // Missing DTO suffix
+    //
+    // CORRECT:
+    // ✅ namespace App\Infrastructure\Mixpanel\DTOs;
+    //    class AdSpendEventDTO { }  // Clear intent
+    //
+    $rules[] = Rule::allClasses()
+                   ->that(new ResideInOneOfTheseNamespaces('App\*\DTOs'))
+                   ->should(new HaveNameMatching('*DTO'))
+                   ->because('Classes in DTOs/ directories must have "DTO" suffix for clarity.');
+
+    // RULE 8c: Classes in Responses/ directories must have *Response suffix
+    //
+    // WHY: Distinguishes API response parsing classes from other types.
+    // Response classes parse external API JSON into typed objects with toDomain() methods.
+    //
+    // VIOLATION EXAMPLE:
+    // ❌ namespace App\Infrastructure\HelpScout\Responses;
+    //    class Conversation { }  // Missing Response suffix
+    //
+    // CORRECT:
+    // ✅ namespace App\Infrastructure\HelpScout\Responses;
+    //    class ConversationResponse { }  // Clear intent
+    //
+    $rules[] = Rule::allClasses()
+                   ->that(new ResideInOneOfTheseNamespaces('App\Infrastructure\*\Responses'))
+                   ->should(new HaveNameMatching('*Response'))
+                   ->because(
+                       'API response classes should have "Response" suffix to distinguish them from Domain objects.',
+                   );
+
     // RULE 9: Organization Rule - All Domain classes must be in subdirectories
     //
     // WHY: Clear structure makes concepts discoverable and maintainable.

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Infrastructure\Shopwired\Responses;
 
 use App\Domain\Catalog\ValueObjects\CategoryImage as DomainCategoryImage;
-use App\Infrastructure\Shopwired\Responses\CategoryImage;
+use App\Infrastructure\Shopwired\Responses\CategoryImageResponse;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -16,7 +16,7 @@ use Tests\TestCase;
  * Tests the Spatie Data DTO for parsing ShopWired category image responses.
  * Verifies API response parsing and domain object conversion.
  */
-#[CoversClass(CategoryImage::class)]
+#[CoversClass(CategoryImageResponse::class)]
 final class CategoryImageTest extends TestCase
 {
     /*
@@ -30,7 +30,7 @@ final class CategoryImageTest extends TestCase
     {
         $payload = ['url' => 'https://cdn.shopwired.com/images/category-123.jpg'];
 
-        $dto = CategoryImage::from($payload);
+        $dto = CategoryImageResponse::from($payload);
 
         $this->assertSame('https://cdn.shopwired.com/images/category-123.jpg', $dto->url);
     }
@@ -40,7 +40,7 @@ final class CategoryImageTest extends TestCase
     {
         $payload = ['url' => 'https://example.com/path/to/image.png?v=123&size=large'];
 
-        $dto = CategoryImage::from($payload);
+        $dto = CategoryImageResponse::from($payload);
 
         $this->assertSame('https://example.com/path/to/image.png?v=123&size=large', $dto->url);
     }
@@ -54,7 +54,7 @@ final class CategoryImageTest extends TestCase
     #[Test]
     public function to_domain_returns_domain_category_image(): void
     {
-        $dto = new CategoryImage(url: 'https://cdn.example.com/image.jpg');
+        $dto = new CategoryImageResponse(url: 'https://cdn.example.com/image.jpg');
 
         $domain = $dto->toDomain();
 
@@ -65,7 +65,7 @@ final class CategoryImageTest extends TestCase
     public function to_domain_preserves_url_value(): void
     {
         $expectedUrl = 'https://cdn.shopwired.com/categories/electronics.webp';
-        $dto = new CategoryImage(url: $expectedUrl);
+        $dto = new CategoryImageResponse(url: $expectedUrl);
 
         $domain = $dto->toDomain();
 
@@ -75,7 +75,7 @@ final class CategoryImageTest extends TestCase
     #[Test]
     public function to_domain_creates_new_instance_each_call(): void
     {
-        $dto = new CategoryImage(url: 'https://cdn.example.com/image.jpg');
+        $dto = new CategoryImageResponse(url: 'https://cdn.example.com/image.jpg');
 
         $domain1 = $dto->toDomain();
         $domain2 = $dto->toDomain();
