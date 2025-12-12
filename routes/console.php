@@ -10,8 +10,8 @@ use Illuminate\Support\Facades\Schedule;
 
 // Campaign lookup table sync - runs BEFORE ad spend sync (7:55 AM UTC)
 Schedule::job(new SyncCampaignLookupTableJob())
-    ->dailyAt('07:55')
-    ->timezone('UTC')
+    ->twiceDaily(first: 7, second: 19)
+    ->timezone('Europe/London')
     ->onOneServer()
     ->withoutOverlapping(10);
 
