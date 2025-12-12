@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Infrastructure\HelpScout\Responses;
 
 use App\Domain\CustomerService\ValueObjects\ConversationCustomer;
+use App\Infrastructure\Contracts\DomainConvertible;
 use Spatie\LaravelData\Data;
 
 /**
@@ -13,7 +14,7 @@ use Spatie\LaravelData\Data;
  * Note: HelpScout uses 'first' and 'last' instead of 'firstName' and 'lastName'
  * in the primaryCustomer object (unlike other user objects).
  */
-final class CustomerResponse extends Data
+final class CustomerResponse extends Data implements DomainConvertible
 {
     public function __construct(
         public readonly int $id,

@@ -25,8 +25,6 @@ use App\Infrastructure\HelpScout\Responses\ConversationResponse;
  */
 final readonly class ConversationsClient implements ConversationsClientInterface
 {
-    use HelpScoutResponseParser;
-
     private const string ENDPOINT = '/conversations';
 
     public function __construct(
@@ -51,11 +49,11 @@ final readonly class ConversationsClient implements ConversationsClientInterface
             $apiParams['query'] = "(customerWaitingSince.time:[* TO {$params->waitingSince}])";
         }
 
-        return $this->parseEmbeddedCollectionToDomain(
+        /** @var list<DomainConversation> */
+        return HelpScoutResponseParser::parseEmbeddedCollectionToDomain(
             $this->transport->get(self::ENDPOINT, $apiParams),
             'conversations',
             ConversationResponse::class,
-            static fn(ConversationResponse $c): DomainConversation => $c->toDomain(),
         );
     }
 }

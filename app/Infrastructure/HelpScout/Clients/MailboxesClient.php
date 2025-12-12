@@ -20,8 +20,6 @@ use App\Infrastructure\HelpScout\Responses\MailboxResponse;
  */
 final readonly class MailboxesClient implements MailboxesClientInterface
 {
-    use HelpScoutResponseParser;
-
     private const string ENDPOINT = '/mailboxes';
 
     public function __construct(
@@ -37,11 +35,11 @@ final readonly class MailboxesClient implements MailboxesClientInterface
      */
     public function list(): array
     {
-        return $this->parseEmbeddedCollectionToDomain(
+        /** @var list<DomainMailbox> */
+        return HelpScoutResponseParser::parseEmbeddedCollectionToDomain(
             $this->transport->get(self::ENDPOINT),
             'mailboxes',
             MailboxResponse::class,
-            static fn(MailboxResponse $m): DomainMailbox => $m->toDomain(),
         );
     }
 }
