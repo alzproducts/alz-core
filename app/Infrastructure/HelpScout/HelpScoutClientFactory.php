@@ -4,10 +4,14 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\HelpScout;
 
+use App\Application\Contracts\HelpScout\AgentsClientInterface;
+use App\Application\Contracts\HelpScout\ConversationsClientInterface;
+use App\Application\Contracts\HelpScout\MailboxesClientInterface;
 use App\Infrastructure\HelpScout\Clients\ConversationsClient;
 use App\Infrastructure\HelpScout\Clients\MailboxesClient;
 use App\Infrastructure\HelpScout\Clients\UsersClient;
 use HelpScout\Api\ApiClient;
+use HelpScout\Api\ApiClientFactory as SdkClientFactory;
 use RuntimeException;
 
 /**
@@ -15,23 +19,75 @@ use RuntimeException;
  *
  * Centralizes configuration validation and dependency wiring.
  * The factory reads from Laravel config and constructs the full
- * dependency chain: Config → Transport → Client.
+ * dependency chain: Config → SDK Client → Transport → Client.
+ *
+ * Architecture: All endpoint clients share a single HelpScoutHttpTransport
+ * instance that handles authentication, retry logic, and timeout.
  *
  * @template-pattern API Client Factory
  */
 final class HelpScoutClientFactory
 {
+    private static ?HelpScoutHttpTransport $transport = null;
+
     /**
-     * Create the shared HTTP transport with validated config.
-     *
-     * The transport handles authentication via the SDK's OAuth2 client
-     * and provides the HTTP layer for all endpoint clients.
+     * Create the conversations client.
      */
-    public static function createTransport(ApiClient $sdkClient): HelpScoutHttpTransport
+    public static function createConversationsClient(): ConversationsClientInterface
+    {
+        return new ConversationsClient(self::getTransport());
+    }
+
+    /**
+     * Create the mailboxes client.
+     */
+    public static function createMailboxesClient(): MailboxesClientInterface
+    {
+        return new MailboxesClient(self::getTransport());
+    }
+
+    /**
+     * Create the users/agents client.
+     */
+    public static function createUsersClient(): AgentsClientInterface
+    {
+        return new UsersClient(self::getTransport());
+    }
+
+    /**
+     * Get the shared HTTP transport (lazy singleton).
+     *
+     * Creates the transport on first access, reuses for subsequent calls.
+     * This ensures all clients share the same transport instance.
+     */
+    private static function getTransport(): HelpScoutHttpTransport
+    {
+        return self::$transport ??= self::createTransport();
+    }
+
+    /**
+     * Create the HTTP transport with validated configuration.
+     */
+    private static function createTransport(): HelpScoutHttpTransport
     {
         $config = self::createConfig();
+        $sdkClient = self::createSdkClient();
 
         return new HelpScoutHttpTransport($config, $sdkClient);
+    }
+
+    /**
+     * Create the HelpScout SDK client for OAuth2 authentication.
+     *
+     * We use the SDK solely for token management; actual API calls
+     * go through direct HTTP for full field support.
+     */
+    private static function createSdkClient(): ApiClient
+    {
+        /** @var array<string, mixed> $authConfig */
+        $authConfig = \config('helpscout.auth', []);
+
+        return SdkClientFactory::createClient($authConfig);
     }
 
     /**
@@ -39,11 +95,11 @@ final class HelpScoutClientFactory
      *
      * @throws RuntimeException When mailboxes configuration is missing or invalid
      */
-    public static function createConfig(): HelpScoutConfig
+    private static function createConfig(): HelpScoutConfig
     {
         $mailboxes = \config('helpscout.mailboxes');
 
-        if (!\is_array($mailboxes) || $mailboxes === []) {
+        if (!\is_array($mailboxes) || ($mailboxes === [])) {
             throw new RuntimeException('helpscout.mailboxes not configured');
         }
 
@@ -68,37 +124,14 @@ final class HelpScoutClientFactory
     }
 
     /**
-     * Create ConversationsClient with the given transport.
-     */
-    public static function createConversationsClient(HelpScoutHttpTransport $transport): ConversationsClient
-    {
-        return new ConversationsClient($transport);
-    }
-
-    /**
-     * Create MailboxesClient with the given transport.
-     */
-    public static function createMailboxesClient(HelpScoutHttpTransport $transport): MailboxesClient
-    {
-        return new MailboxesClient($transport);
-    }
-
-    /**
-     * Create UsersClient with the given transport.
-     */
-    public static function createUsersClient(HelpScoutHttpTransport $transport): UsersClient
-    {
-        return new UsersClient($transport);
-    }
-
-    /**
      * Get nullable string config value.
-     */
+     *
+     * @noinspection PhpSameParameterValueInspection*/
     private static function getNullableString(string $key): ?string
     {
         $value = \config($key);
 
-        if ($value === null || $value === '') {
+        if (($value === null) || ($value === '')) {
             return null;
         }
 
@@ -113,5 +146,15 @@ final class HelpScoutClientFactory
         $value = \config($key);
 
         return \is_int($value) ? $value : $default;
+    }
+
+    /**
+     * Reset the factory state (for testing only).
+     *
+     * @internal
+     */
+    public static function reset(): void
+    {
+        self::$transport = null;
     }
 }
