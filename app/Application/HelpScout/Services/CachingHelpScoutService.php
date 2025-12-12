@@ -8,6 +8,8 @@ use App\Application\Contracts\EscalationsConfigRepositoryInterface;
 use App\Application\Contracts\HelpScout\AgentsClientInterface;
 use App\Application\Contracts\HelpScout\ConversationsClientInterface;
 use App\Application\Contracts\HelpScout\MailboxesClientInterface;
+use App\Application\HelpScout\Queries\ConversationQueryParams;
+use App\Application\HelpScout\Support\MailboxEnrichmentService;
 use App\Application\Support\CacheTimesTrait;
 use App\Application\Support\GracefulCache;
 use App\Domain\CustomerService\Exceptions\CustomerServiceAgentNotFoundException;
@@ -46,6 +48,7 @@ final readonly class CachingHelpScoutService
         private AgentsClientInterface $agentsClient,
         private MailboxesClientInterface $mailboxesClient,
         private EscalationsConfigRepositoryInterface $escalationsConfigRepository,
+        private MailboxEnrichmentService $enricher,
         private GracefulCache $cache,
     ) {}
 
@@ -75,35 +78,27 @@ final readonly class CachingHelpScoutService
     }
 
     /**
-     * Get conversations assigned to an agent.
+     * Get conversations with caching and mailbox enrichment.
      *
      * @return list<Conversation>
      */
-    public function getAssignedConversations(int $agentId, string $status = 'active'): array
+    public function getConversations(ConversationQueryParams $params): array
     {
-        return $this->conversationsClient->getAssignedTo($agentId, $status);
+        return $this->cache->remember(
+            $params->getCacheKey(),
+            $params->ttlSeconds,
+            fn(): array => $this->enricher->enrich(
+                $this->conversationsClient->getConversations($params),
+            ),
+        );
     }
 
     /**
-     * Get to-do conversations for an agent (tagged with assigned tag).
-     *
-     * @return list<Conversation>
+     * Invalidate cached conversations for given params.
      */
-    public function getTodosForAgent(int $agentId): array
+    public function invalidateConversations(ConversationQueryParams $params): void
     {
-        $config = $this->getEscalationsConfig();
-
-        return $this->conversationsClient->getWithTagForAgent($agentId, $config->assignedTag);
-    }
-
-    /**
-     * Get conversations tagged as negative reviews.
-     *
-     * @return list<Conversation>
-     */
-    public function getNegativeReviewConversations(string $tag = 'negative-feedback'): array
-    {
-        return $this->conversationsClient->getWithTag($tag);
+        $this->cache->forget($params->getCacheKey());
     }
 
     /**
@@ -132,16 +127,6 @@ final readonly class CachingHelpScoutService
             self::FIVE_MINUTES,
             fn(): EscalationsConfig => $this->escalationsConfigRepository->get(),
         );
-    }
-
-    /**
-     * Invalidate agent email cache (e.g., when agent email changes).
-     */
-    public function invalidateAgentCache(string $email): void
-    {
-        $normalizedEmail = \mb_strtolower(\mb_trim($email));
-        $cacheKey = self::KEY_AGENT_BY_EMAIL . \hash('xxh3', $normalizedEmail);
-        $this->cache->forget($cacheKey);
     }
 
     /**

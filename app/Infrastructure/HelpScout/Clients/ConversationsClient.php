@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Infrastructure\HelpScout\Clients;
 
 use App\Application\Contracts\HelpScout\ConversationsClientInterface;
+use App\Application\HelpScout\Queries\ConversationQueryParams;
 use App\Domain\CustomerService\ValueObjects\Conversation as DomainConversation;
 use App\Infrastructure\HelpScout\HelpScoutHttpTransport;
 use App\Infrastructure\HelpScout\HelpScoutResponseParser;
@@ -33,71 +34,25 @@ final readonly class ConversationsClient implements ConversationsClientInterface
     ) {}
 
     /**
-     * Get conversations assigned to a specific agent.
+     * Get conversations based on query parameters.
      *
      * @return list<DomainConversation>
      */
-    public function getAssignedTo(int $agentId, string $status = 'active'): array
+    public function getConversations(ConversationQueryParams $params): array
     {
-        return $this->searchToDomain([
-            'assigned' => $agentId,
-            'status' => $status,
-        ]);
-    }
+        $apiParams = \array_filter([
+            'assigned' => $params->agentId,
+            'status' => $params->status ?? 'active',
+            'tag' => $params->tag,
+            'mailbox' => $params->mailboxId,
+        ], static fn(mixed $v): bool => $v !== null);
 
-    /**
-     * Get conversations with a specific tag for an agent.
-     *
-     * @return list<DomainConversation>
-     */
-    public function getWithTagForAgent(int $agentId, string $tag): array
-    {
-        return $this->searchToDomain([
-            'assigned' => $agentId,
-            'tag' => $tag,
-            'status' => 'active',
-        ]);
-    }
+        if ($params->waitingSince !== null) {
+            $apiParams['query'] = "(customerWaitingSince.time:[* TO {$params->waitingSince}])";
+        }
 
-    /**
-     * Get conversations with a specific tag (unfiltered by agent).
-     *
-     * @return list<DomainConversation>
-     */
-    public function getWithTag(string $tag, string $status = 'active'): array
-    {
-        return $this->searchToDomain(\compact('tag', 'status'));
-    }
-
-    /**
-     * Get conversations in a mailbox waiting since a specific time.
-     *
-     * Used for escalation queries (late responses).
-     *
-     * @return list<DomainConversation>
-     */
-    public function getWaitingSince(int $mailboxId, string $waitingSinceQuery): array
-    {
-        return $this->searchToDomain([
-            'mailbox' => $mailboxId,
-            'status' => 'active',
-            'query' => "(customerWaitingSince.time:[* TO {$waitingSinceQuery}])",
-        ]);
-    }
-
-    /**
-     * Search conversations and transform to Domain value objects.
-     *
-     * @param array<string, mixed> $params Query parameters for the HelpScout conversations API
-     *
-     * @return list<DomainConversation>
-     *
-     * @see https://developer.helpscout.com/mailbox-api/endpoints/conversations/list/
-     */
-    private function searchToDomain(array $params): array
-    {
         return $this->parseEmbeddedCollectionToDomain(
-            $this->transport->get(self::ENDPOINT, $params),
+            $this->transport->get(self::ENDPOINT, $apiParams),
             'conversations',
             ConversationResponse::class,
             static fn(ConversationResponse $c): DomainConversation => $c->toDomain(),
