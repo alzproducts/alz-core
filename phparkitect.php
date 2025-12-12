@@ -315,14 +315,16 @@ return static function (Config $config): void {
 
     // Application services must end with "UseCase", "Service", "Transformer", "Formatter", or "Interface"
     //
-    // EXCLUSION: CacheTimesTrait is a trait holding shared cache duration constants.
-    // Traits with constants don't fit behavioral naming (*Service, *UseCase) and
-    // Clean Architecture doesn't mandate naming for utility code.
+    // EXCLUSIONS:
+    // - CacheTimesTrait: Trait holding shared cache duration constants
+    // - GracefulCache: Utility class for graceful cache operations
+    // - Enums subdirectories: Type-safe enums don't need behavioral naming
     //
     $rules[] = Rule::allClasses()
                    ->that(new ResideInOneOfTheseNamespaces($application))
                    ->andThat(new NotHaveNameMatching('CacheTimesTrait'))
                    ->andThat(new NotHaveNameMatching('GracefulCache'))
+                   ->andThat(new NotResideInTheseNamespaces('App\Application\HelpScout\Queries\Conversation\Enums'))
                    ->should(
                        new MatchOneOfTheseNames(['*UseCase', '*Service', '*Transformer', '*Formatter', '*Interface', '*DTO', '*Exception', '*Result', '*Params']),
                    )

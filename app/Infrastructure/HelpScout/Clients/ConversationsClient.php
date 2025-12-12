@@ -43,11 +43,10 @@ final readonly class ConversationsClient implements ConversationsClientInterface
             'status' => $params->status ?? 'active',
             'tag' => $params->tag,
             'mailbox' => $params->mailboxId,
+            'query' => $params->query,
+            'sortField' => $params->sortField?->value,
+            'sortOrder' => $params->sortOrder?->value,
         ], static fn(mixed $v): bool => $v !== null);
-
-        if ($params->waitingSince !== null) {
-            $apiParams['query'] = "(customerWaitingSince.time:[* TO {$params->waitingSince}])";
-        }
 
         /** @var list<DomainConversation> */
         return HelpScoutResponseParser::parseEmbeddedCollectionToDomain(
