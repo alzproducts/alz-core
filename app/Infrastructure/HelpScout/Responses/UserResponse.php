@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Infrastructure\HelpScout\Responses;
 
 use App\Domain\CustomerService\ValueObjects\SupportAgent;
+use App\Infrastructure\Contracts\DomainConvertible;
 use Spatie\LaravelData\Data;
 
 /**
@@ -12,7 +13,7 @@ use Spatie\LaravelData\Data;
  *
  * Used for user mapping: Supabase email → HelpScout user ID.
  */
-final class UserResponse extends Data
+final class UserResponse extends Data implements DomainConvertible
 {
     public function __construct(
         public readonly int $id,

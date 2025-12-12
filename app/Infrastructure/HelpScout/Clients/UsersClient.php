@@ -20,8 +20,6 @@ use App\Infrastructure\HelpScout\Responses\UserResponse;
  */
 final readonly class UsersClient implements AgentsClientInterface
 {
-    use HelpScoutResponseParser;
-
     private const string ENDPOINT = '/users';
 
     public function __construct(
@@ -38,12 +36,12 @@ final readonly class UsersClient implements AgentsClientInterface
      */
     public function findByEmail(string $email): ?SupportAgent
     {
-        return $this->findDomainInEmbeddedCollection(
+        /** @var SupportAgent|null */
+        return HelpScoutResponseParser::findDomainInEmbeddedCollection(
             $this->transport->get(self::ENDPOINT),
             'users',
             UserResponse::class,
             static fn(UserResponse $user): bool => $user->matchesEmail($email),
-            static fn(UserResponse $user): SupportAgent => $user->toDomain(),
         );
     }
 
@@ -56,11 +54,11 @@ final readonly class UsersClient implements AgentsClientInterface
      */
     public function list(): array
     {
-        return $this->parseEmbeddedCollectionToDomain(
+        /** @var list<SupportAgent> */
+        return HelpScoutResponseParser::parseEmbeddedCollectionToDomain(
             $this->transport->get(self::ENDPOINT),
             'users',
             UserResponse::class,
-            static fn(UserResponse $user): SupportAgent => $user->toDomain(),
         );
     }
 }

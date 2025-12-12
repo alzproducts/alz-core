@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Infrastructure\HelpScout;
 
 use App\Domain\Exceptions\InvalidApiResponseException;
+use App\Infrastructure\Contracts\DomainConvertible;
 use Closure;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Log;
@@ -16,11 +17,11 @@ use Spatie\LaravelData\Exceptions\CannotCreateData;
  * Response parsing utilities for HelpScout API responses.
  *
  * HelpScout uses HAL format with `_embedded.{resource}` structure.
- * This trait provides reusable methods for parsing these responses.
+ * This class provides static methods for parsing these responses.
  *
  * @see https://developer.helpscout.com/mailbox-api/ HAL format documentation
  */
-trait HelpScoutResponseParser
+final class HelpScoutResponseParser
 {
     private const string SERVICE_NAME = 'HelpScout';
 
@@ -40,46 +41,45 @@ trait HelpScoutResponseParser
      *
      * @throws InvalidApiResponseException When response structure is invalid
      */
-    private function parseEmbeddedCollection(mixed $json, string $key, string $dtoClass): array
+    public static function parseEmbeddedCollection(mixed $json, string $key, string $dtoClass): array
     {
-        $this->validateArrayResponse($json, $key);
+        self::validateArrayResponse($json, $key);
 
         /** @var array<mixed> $json */
-        $embedded = $this->extractEmbedded($json, $key);
+        $embedded = self::extractEmbedded($json, $key);
 
         /** @var array<T> */
-        return $this->parseArrayResponse($embedded, $dtoClass)->all();
+        return self::parseArrayResponse($embedded, $dtoClass)->all();
     }
 
     /**
      * Parse embedded collection and transform to Domain value objects.
      *
-     * Combines parsing and domain transformation in one call.
+     * Uses DomainConvertible interface - DTOs must implement toDomain().
      * Use this when the client interface expects Domain objects.
      *
-     * @template TDto of Data
-     * @template TDomain
+     * @template TDto of Data&DomainConvertible
      *
      * @param Response $response HTTP response from transport
      * @param string $key The embedded resource key (e.g., 'mailboxes', 'users')
-     * @param class-string<TDto> $dtoClass Infrastructure DTO class
-     * @param-immediately-invoked-callable $toDomain
-     * @param Closure(TDto): TDomain $toDomain Transformer to Domain value object
+     * @param class-string<TDto> $dtoClass Infrastructure DTO class implementing DomainConvertible
      *
-     * @return list<TDomain>
+     * @return list<object>
      *
      * @throws InvalidApiResponseException When response structure is invalid
      */
-    private function parseEmbeddedCollectionToDomain(
+    public static function parseEmbeddedCollectionToDomain(
         Response $response,
         string $key,
         string $dtoClass,
-        Closure $toDomain,
     ): array {
         /** @var array<TDto> $dtos */
-        $dtos = $this->parseEmbeddedCollection($response->json(), $key, $dtoClass);
+        $dtos = self::parseEmbeddedCollection($response->json(), $key, $dtoClass);
 
-        return \array_values(\array_map($toDomain, $dtos));
+        return \array_values(\array_map(
+            static fn(DomainConvertible $dto): object => $dto->toDomain(),
+            $dtos,
+        ));
     }
 
     /**
@@ -87,33 +87,28 @@ trait HelpScoutResponseParser
      *
      * Returns null if no item matches. Use for lookup-by-field operations.
      *
-     * @template TDto of Data
-     * @template TDomain
+     * @template TDto of Data&DomainConvertible
      *
      * @param Response $response HTTP response from transport
      * @param string $key The embedded resource key
-     * @param class-string<TDto> $dtoClass Target DTO class
+     * @param class-string<TDto> $dtoClass Target DTO class implementing DomainConvertible
      * @param Closure(TDto): bool $predicate Matcher function
-     * @param Closure(TDto): TDomain $toDomain Transformer to Domain value object
      *
-     * @return TDomain|null
      *
      * @throws InvalidApiResponseException When response structure is invalid
      */
-    private function findDomainInEmbeddedCollection(
+    public static function findDomainInEmbeddedCollection(
         Response $response,
         string $key,
         string $dtoClass,
         Closure $predicate,
-        Closure $toDomain,
-    ): mixed {
+    ): ?object {
         /** @var array<TDto> $items */
-        $items = $this->parseEmbeddedCollection($response->json(), $key, $dtoClass);
+        $items = self::parseEmbeddedCollection($response->json(), $key, $dtoClass);
 
-        /** @var TDto|null $found */
         $found = \array_find($items, $predicate);
 
-        return ($found !== null) ? $toDomain($found) : null;
+        return ($found instanceof DomainConvertible) ? $found->toDomain() : null;
     }
 
     /**
@@ -121,7 +116,7 @@ trait HelpScoutResponseParser
      *
      * @throws InvalidApiResponseException When response is not an array
      */
-    private function validateArrayResponse(mixed $json, string $context): void
+    private static function validateArrayResponse(mixed $json, string $context): void
     {
         if (!\is_array($json)) {
             self::logParsingFailure("Expected array response for {$context}", $json);
@@ -143,7 +138,7 @@ trait HelpScoutResponseParser
      *
      * @throws InvalidApiResponseException When embedded structure is missing
      */
-    private function extractEmbedded(array $json, string $key): array
+    private static function extractEmbedded(array $json, string $key): array
     {
         /** @var array<string, mixed>|null $embeddedRoot */
         $embeddedRoot = $json['_embedded'] ?? null;
@@ -184,7 +179,7 @@ trait HelpScoutResponseParser
      *
      * @throws InvalidApiResponseException When response structure is invalid
      */
-    private function parseArrayResponse(array $data, string $dtoClass): DataCollection
+    private static function parseArrayResponse(array $data, string $dtoClass): DataCollection
     {
         try {
             return $dtoClass::collect($data, DataCollection::class);
