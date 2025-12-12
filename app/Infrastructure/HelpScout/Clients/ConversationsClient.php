@@ -4,24 +4,25 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\HelpScout\Clients;
 
-use App\Domain\Exceptions\InvalidApiResponseException;
+use App\Application\Contracts\HelpScout\ConversationsClientInterface;
+use App\Domain\CustomerService\ValueObjects\Conversation as DomainConversation;
 use App\Infrastructure\HelpScout\HelpScoutHttpTransport;
 use App\Infrastructure\HelpScout\HelpScoutResponseParser;
 use App\Infrastructure\HelpScout\Responses\Conversation;
-use App\Infrastructure\HelpScout\Responses\ConversationsResponse;
-use App\Infrastructure\HelpScout\Responses\Page;
 
 /**
  * HelpScout Conversations API Client.
  *
  * Handles conversation queries with various filters:
- * - By assignee (user's inbox)
+ * - By assignee (agent's inbox)
  * - By tag (to-do, negative reviews, etc.)
  * - By waiting time (escalations)
  *
+ * Transforms Infrastructure DTOs to Domain value objects at the boundary.
+ *
  * @see https://developer.helpscout.com/mailbox-api/endpoints/conversations/
  */
-final readonly class ConversationsClient
+final readonly class ConversationsClient implements ConversationsClientInterface
 {
     use HelpScoutResponseParser;
 
@@ -32,57 +33,40 @@ final readonly class ConversationsClient
     ) {}
 
     /**
-     * Search conversations with custom query parameters.
+     * Get conversations assigned to a specific agent.
      *
-     * @param array<string, mixed> $params Query parameters for the HelpScout conversations API
-     *
-     * @see https://developer.helpscout.com/mailbox-api/endpoints/conversations/list/
+     * @return list<DomainConversation>
      */
-    public function search(array $params = []): ConversationsResponse
+    public function getAssignedTo(int $agentId, string $status = 'active'): array
     {
-        $response = $this->transport->get(self::ENDPOINT, $params);
-
-        return $this->parseConversationsResponse($response->json());
-    }
-
-    /**
-     * Get conversations assigned to a specific user.
-     *
-     * @param int $userId HelpScout user ID
-     * @param string $status Conversation status filter (active, pending, closed, spam, etc.)
-     */
-    public function getAssignedTo(int $userId, string $status = 'active'): ConversationsResponse
-    {
-        return $this->search([
-            'assigned' => $userId,
+        return $this->searchToDomain([
+            'assigned' => $agentId,
             'status' => $status,
         ]);
     }
 
     /**
-     * Get conversations with a specific tag assigned to a user.
+     * Get conversations with a specific tag for an agent.
      *
-     * @param int $userId HelpScout user ID
-     * @param string $tag Tag name to filter by
+     * @return list<DomainConversation>
      */
-    public function getWithTagForUser(int $userId, string $tag): ConversationsResponse
+    public function getWithTagForAgent(int $agentId, string $tag): array
     {
-        return $this->search([
-            'assigned' => $userId,
+        return $this->searchToDomain([
+            'assigned' => $agentId,
             'tag' => $tag,
             'status' => 'active',
         ]);
     }
 
     /**
-     * Get conversations with a specific tag (unfiltered by user).
+     * Get conversations with a specific tag (unfiltered by agent).
      *
-     * @param string $tag Tag name to filter by
-     * @param string $status Conversation status filter
+     * @return list<DomainConversation>
      */
-    public function getWithTag(string $tag, string $status = 'active'): ConversationsResponse
+    public function getWithTag(string $tag, string $status = 'active'): array
     {
-        return $this->search(\compact('tag', 'status'));
+        return $this->searchToDomain(\compact('tag', 'status'));
     }
 
     /**
@@ -90,12 +74,11 @@ final readonly class ConversationsClient
      *
      * Used for escalation queries (late responses).
      *
-     * @param int $mailboxId Mailbox ID to query
-     * @param string $waitingSinceQuery ISO 8601 datetime string for customerWaitingSince filter
+     * @return list<DomainConversation>
      */
-    public function getWaitingSince(int $mailboxId, string $waitingSinceQuery): ConversationsResponse
+    public function getWaitingSince(int $mailboxId, string $waitingSinceQuery): array
     {
-        return $this->search([
+        return $this->searchToDomain([
             'mailbox' => $mailboxId,
             'status' => 'active',
             'query' => "(customerWaitingSince.time:[* TO {$waitingSinceQuery}])",
@@ -103,36 +86,21 @@ final readonly class ConversationsClient
     }
 
     /**
-     * Parse HelpScout conversations response with embedded structure.
+     * Search conversations and transform to Domain value objects.
      *
-     * HelpScout returns conversations in `_embedded.conversations` with pagination in `page`.
+     * @param array<string, mixed> $params Query parameters for the HelpScout conversations API
+     *
+     * @return list<DomainConversation>
+     *
+     * @see https://developer.helpscout.com/mailbox-api/endpoints/conversations/list/
      */
-    private function parseConversationsResponse(mixed $data): ConversationsResponse
+    private function searchToDomain(array $params): array
     {
-        $this->validateArrayResponse($data, 'conversations');
-
-        /** @var array<mixed> $data */
-        $embedded = $this->extractEmbedded($data, 'conversations');
-
-        /** @var array<string, mixed>|null $pageData */
-        $pageData = $data['page'] ?? null;
-
-        if ($pageData === null) {
-            self::logParsingFailure('Missing page in response', $data);
-
-            throw new InvalidApiResponseException(
-                serviceName: self::SERVICE_NAME,
-                message: 'Missing page in response',
-            );
-        }
-
-        /** @var array<Conversation> $conversations */
-        $conversations = $this->parseArrayResponse($embedded, Conversation::class)->all();
-        $page = Page::from($pageData);
-
-        return new ConversationsResponse(
-            conversations: $conversations,
-            page: $page,
+        return $this->parseEmbeddedCollectionToDomain(
+            $this->transport->get(self::ENDPOINT, $params),
+            'conversations',
+            Conversation::class,
+            static fn(Conversation $c): DomainConversation => $c->toDomain(),
         );
     }
 }

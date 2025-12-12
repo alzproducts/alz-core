@@ -16,7 +16,7 @@ use Webmozart\Assert\Assert;
 final readonly class Conversation
 {
     /**
-     * @param array<int, ConversationTag> $tags
+     * @param list<ConversationTag> $tags
      */
     public function __construct(
         public int $id,

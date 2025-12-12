@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\HelpScout\Responses;
 
+use App\Domain\CustomerService\ValueObjects\ConversationCustomer;
 use Spatie\LaravelData\Data;
 
 /**
@@ -21,4 +22,17 @@ final class Customer extends Data
         public readonly ?string $last,
         public readonly ?string $email,
     ) {}
+
+    /**
+     * Transform to Domain value object.
+     */
+    public function toDomain(): ConversationCustomer
+    {
+        return new ConversationCustomer(
+            id: $this->id,
+            firstName: $this->first,
+            lastName: $this->last,
+            email: $this->email,
+        );
+    }
 }

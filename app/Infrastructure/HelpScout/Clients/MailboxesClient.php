@@ -41,20 +41,7 @@ final readonly class MailboxesClient implements MailboxesClientInterface
             $this->transport->get(self::ENDPOINT),
             'mailboxes',
             Mailbox::class,
-            self::toDomain(...),
-        );
-    }
-
-    /**
-     * Transform Infrastructure DTO to Domain value object.
-     */
-    private static function toDomain(Mailbox $mailbox): DomainMailbox
-    {
-        return new DomainMailbox(
-            id: $mailbox->id,
-            name: $mailbox->name,
-            email: $mailbox->email,
-            slug: $mailbox->slug ?? '',
+            static fn(Mailbox $m): DomainMailbox => $m->toDomain(),
         );
     }
 }
