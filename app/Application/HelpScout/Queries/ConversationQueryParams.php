@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Application\HelpScout\Queries;
 
+use App\Application\HelpScout\Queries\Conversation\Enums\SortField;
+use App\Application\HelpScout\Queries\Conversation\Enums\SortOrder;
+
 /**
  * Value object encapsulating conversation query parameters.
  *
@@ -23,13 +26,16 @@ final readonly class ConversationQueryParams
         public ?string $status = null,
         public ?string $tag = null,
         public ?int $mailboxId = null,
-        public ?string $waitingSince = null,
+        public ?string $query = null,
+        public ?SortField $sortField = null,
+        public ?SortOrder $sortOrder = null,
     ) {}
 
     /**
      * Generate cache key from parameters.
      *
      * Filters null values and builds deterministic key string.
+     * Query strings are hashed to avoid overly long cache keys.
      */
     public function getCacheKey(): string
     {
@@ -38,7 +44,9 @@ final readonly class ConversationQueryParams
             'status' => $this->status,
             'tag' => $this->tag,
             'mailbox' => $this->mailboxId,
-            'since' => $this->waitingSince,
+            'query' => ($this->query !== null) ? \hash('xxh3', $this->query) : null,
+            'sort' => $this->sortField?->value,
+            'order' => $this->sortOrder?->value,
         ], static fn(mixed $v): bool => $v !== null);
 
         $paramString = ($params !== []) ? (':' . \http_build_query($params)) : '';
@@ -93,18 +101,100 @@ final readonly class ConversationQueryParams
     }
 
     /**
-     * Create params for waiting-since query (used by escalations).
+     * Create params for late priority conversations (escalations).
+     *
+     * Filters by mailbox, priority tags, and waiting time threshold.
+     * Excludes conversations with excluded tags.
      *
      * @param int $mailboxId HelpScout mailbox ID
-     * @param string $since ISO 8601 datetime for customer waiting threshold
+     * @param list<string> $priorityTags Tags indicating priority conversations
+     * @param list<string> $excludedTags Tags to exclude from results
+     * @param int $thresholdHours Hours threshold for "late" status
      */
-    public static function waitingSince(int $mailboxId, string $since): self
+    public static function latePriority(
+        int $mailboxId,
+        array $priorityTags,
+        array $excludedTags,
+        int $thresholdHours,
+    ): self {
+        return new self(
+            queryName: 'late-priority',
+            ttlSeconds: self::DEFAULT_TTL_SECONDS,
+            status: 'active',
+            tag: \implode(',', $priorityTags),
+            mailboxId: $mailboxId,
+            query: self::buildWaitingQuery($thresholdHours, $excludedTags),
+            sortField: SortField::WaitingSince,
+            sortOrder: SortOrder::Asc,
+        );
+    }
+
+    /**
+     * Create params for late standard conversations (escalations).
+     *
+     * Filters by mailbox and waiting time threshold.
+     * Excludes conversations with excluded tags.
+     *
+     * @param int $mailboxId HelpScout mailbox ID
+     * @param list<string> $excludedTags Tags to exclude from results
+     * @param int $thresholdHours Hours threshold for "late" status
+     */
+    public static function lateStandard(
+        int $mailboxId,
+        array $excludedTags,
+        int $thresholdHours,
+    ): self {
+        return new self(
+            queryName: 'late-standard',
+            ttlSeconds: self::DEFAULT_TTL_SECONDS,
+            status: 'active',
+            mailboxId: $mailboxId,
+            query: self::buildWaitingQuery($thresholdHours, $excludedTags),
+            sortField: SortField::WaitingSince,
+            sortOrder: SortOrder::Asc,
+        );
+    }
+
+    /**
+     * Create params for manually assigned conversations (escalations).
+     *
+     * Filters by assigned tag across all mailboxes.
+     *
+     * @param string $assignedTag Tag indicating manual assignment
+     */
+    public static function manuallyAssigned(string $assignedTag): self
     {
         return new self(
-            queryName: 'waiting-since',
+            queryName: 'manually-assigned',
             ttlSeconds: self::DEFAULT_TTL_SECONDS,
-            mailboxId: $mailboxId,
-            waitingSince: $since,
+            status: 'active',
+            tag: $assignedTag,
+            sortField: SortField::WaitingSince,
+            sortOrder: SortOrder::Asc,
         );
+    }
+
+    /**
+     * Build HelpScout query string for waiting time filtering with tag exclusions.
+     *
+     * @param int $thresholdHours Hours threshold
+     * @param list<string> $excludedTags Tags to exclude
+     *
+     * @return string HelpScout query syntax
+     */
+    private static function buildWaitingQuery(int $thresholdHours, array $excludedTags): string
+    {
+        $timeFilter = "waitingSince:[* TO NOW-{$thresholdHours}HOUR]";
+
+        if ($excludedTags === []) {
+            return "({$timeFilter})";
+        }
+
+        $exclusions = \array_map(
+            static fn(string $tag): string => "-tag:\"{$tag}\"",
+            $excludedTags,
+        );
+
+        return "({$timeFilter} AND " . \implode(' AND ', $exclusions) . ')';
     }
 }
