@@ -128,30 +128,4 @@ final readonly class CachingHelpScoutService
             fn(): EscalationsConfig => $this->escalationsConfigRepository->get(),
         );
     }
-
-    /**
-     * Invalidate mailboxes cache.
-     */
-    public function invalidateMailboxes(): void
-    {
-        $this->cache->forget(self::KEY_MAILBOXES);
-    }
-
-    /**
-     * Invalidate escalations config cache.
-     */
-    public function invalidateEscalationsConfig(): void
-    {
-        $this->cache->forget(self::KEY_ESCALATION_CONFIG);
-    }
-
-    /**
-     * Invalidate all HelpScout caches.
-     */
-    public function invalidateAll(): void
-    {
-        $this->invalidateMailboxes();
-        $this->invalidateEscalationsConfig();
-        // Agent caches expire naturally (no email tracking needed)
-    }
 }
