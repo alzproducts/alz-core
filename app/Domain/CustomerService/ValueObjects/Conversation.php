@@ -30,9 +30,33 @@ final readonly class Conversation
         public array $tags,
         public ?ConversationCustomer $customer,
         public ?ConversationAssignee $assignee,
+        public ?string $mailboxName = null,
     ) {
         Assert::greaterThan($id, 0, 'Conversation ID must be positive');
         Assert::greaterThan($number, 0, 'Conversation number must be positive');
         Assert::notEmpty($subject, 'Conversation subject cannot be empty');
+    }
+
+    /**
+     * Create a copy with the mailbox name set.
+     *
+     * Used by Application layer to enrich conversations with mailbox metadata.
+     */
+    public function withMailboxName(?string $name): self
+    {
+        return new self(
+            id: $this->id,
+            number: $this->number,
+            subject: $this->subject,
+            status: $this->status,
+            mailboxId: $this->mailboxId,
+            createdAt: $this->createdAt,
+            customerWaitingSince: $this->customerWaitingSince,
+            snooze: $this->snooze,
+            tags: $this->tags,
+            customer: $this->customer,
+            assignee: $this->assignee,
+            mailboxName: $name,
+        );
     }
 }
