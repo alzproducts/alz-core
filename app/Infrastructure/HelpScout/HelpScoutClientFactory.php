@@ -13,6 +13,7 @@ use App\Infrastructure\HelpScout\Clients\UsersClient;
 use HelpScout\Api\ApiClient;
 use HelpScout\Api\ApiClientFactory as SdkClientFactory;
 use Illuminate\Contracts\Concurrency\Driver as ConcurrencyDriver;
+use Illuminate\Support\Facades\Config;
 use RuntimeException;
 
 /**
@@ -88,7 +89,8 @@ final class HelpScoutClientFactory
         /** @var array<string, mixed> $authConfig */
         $authConfig = \config('helpscout.auth', []);
 
-        return SdkClientFactory::createClient($authConfig);
+        // SDK expects config wrapped in 'auth' key
+        return SdkClientFactory::createClient(['auth' => $authConfig]);
     }
 
     /**
@@ -118,35 +120,9 @@ final class HelpScoutClientFactory
 
         return new HelpScoutConfig(
             mailboxes: $validatedMailboxes,
-            localTestEmail: self::getNullableString('helpscout.local_test_email'),
-            timeoutSeconds: self::getIntConfig('helpscout.timeout_seconds', 30),
-            retryAttempts: self::getIntConfig('helpscout.retry_attempts', 3),
+            timeoutSeconds: Config::integer('helpscout.timeout_seconds', 30),
+            retryAttempts: Config::integer('helpscout.retry_attempts', 3),
         );
-    }
-
-    /**
-     * Get nullable string config value.
-     *
-     * @noinspection PhpSameParameterValueInspection*/
-    private static function getNullableString(string $key): ?string
-    {
-        $value = \config($key);
-
-        if (($value === null) || ($value === '')) {
-            return null;
-        }
-
-        return \is_string($value) ? $value : null;
-    }
-
-    /**
-     * Get integer config value with fallback.
-     */
-    private static function getIntConfig(string $key, int $default): int
-    {
-        $value = \config($key);
-
-        return \is_int($value) ? $value : $default;
     }
 
     /**

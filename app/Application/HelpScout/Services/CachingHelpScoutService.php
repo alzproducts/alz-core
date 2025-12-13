@@ -64,7 +64,7 @@ final readonly class CachingHelpScoutService
         $normalizedEmail = \mb_strtolower(\mb_trim($email));
         $cacheKey = self::KEY_AGENT_BY_EMAIL . \hash('xxh3', $normalizedEmail);
 
-        $agentId = $this->cache->remember(
+        $agentId = $this->cache->rememberInt(
             $cacheKey,
             self::SEVEN_DAYS,
             fn(): ?int => $this->agentsClient->findByEmail($normalizedEmail)?->id,

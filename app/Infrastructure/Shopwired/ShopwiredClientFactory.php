@@ -13,6 +13,7 @@ use App\Infrastructure\Shopwired\Clients\CategoryClient;
 use App\Infrastructure\Shopwired\Clients\CustomerClient;
 use App\Infrastructure\Shopwired\Clients\OrderClient;
 use App\Infrastructure\Shopwired\Clients\StockClient;
+use Illuminate\Support\Facades\Config;
 use RuntimeException;
 
 /**
@@ -101,21 +102,10 @@ final class ShopwiredClientFactory
         $config = new ShopwiredConfig(
             apiKey: $apiKey,
             apiSecret: $apiSecret,
-            timeout: self::getIntConfig('timeout', 30),
+            timeout: Config::integer('shopwired.timeout', 30),
         );
 
         return new ShopwiredHttpTransport($config);
-    }
-
-    /**
-     * Get integer config value with fallback.
-     *
-     * @noinspection PhpSameParameterValueInspection*/
-    private static function getIntConfig(string $key, int $default): int
-    {
-        $value = \config("shopwired.{$key}");
-
-        return \is_int($value) ? $value : $default;
     }
 
     /**

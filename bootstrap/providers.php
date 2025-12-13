@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Providers\AppServiceProvider;
 use App\Providers\BingAdsServiceProvider;
 use App\Providers\GoogleAdsServiceProvider;
+use App\Providers\HelpScoutServiceProvider;
 use App\Providers\HorizonServiceProvider;
 use App\Providers\LinnworksServiceProvider;
 use App\Providers\MixpanelServiceProvider;
@@ -19,6 +20,7 @@ return [
     AppServiceProvider::class,
     BingAdsServiceProvider::class,
     GoogleAdsServiceProvider::class,
+    HelpScoutServiceProvider::class,
     LinnworksServiceProvider::class,
     MixpanelServiceProvider::class,
     ProductSearchFeedServiceProvider::class,

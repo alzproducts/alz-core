@@ -36,17 +36,6 @@ return [
     */
     'negative_reviews_tag' => 'negative-review',
 
-    /*
-    |--------------------------------------------------------------------------
-    | Local Testing
-    |--------------------------------------------------------------------------
-    |
-    | Email address to use when bypassing auth for local testing.
-    | Only used when X-Local-Bypass header is present in local environment.
-    |
-    */
-    'local_test_email' => env('HS_LOCAL_TEST_EMAIL'),
-
     'auth' => [
         /*
         |--------------------------------------------------------------------------
@@ -59,7 +48,7 @@ return [
         | are `client_credentials`, `legacy_token`, or simply null.
         |
         */
-        'type' => env('HS_AUTH_TYPE'),
+        'type' => env('HELPSCOUT_AUTH_TYPE'),
 
         /*
         |--------------------------------------------------------------------------
@@ -71,7 +60,7 @@ return [
         | `client_credentials` grant.
         |
         */
-        'appId' => env('HS_APP_ID', ''),
+        'appId' => env('HELPSCOUT_APP_ID', ''),
 
         /*
         |--------------------------------------------------------------------------
@@ -82,7 +71,7 @@ return [
         | is required if you are using the `client_credentials` grant.
         |
         */
-        'appSecret' => env('HS_APP_SECRET', ''),
+        'appSecret' => env('HELPSCOUT_APP_SECRET', ''),
 
         /*
         |--------------------------------------------------------------------------
@@ -94,7 +83,7 @@ return [
         | use are using the `legacy_token` auth credentials
         |
         */
-        'clientId' => env('HS_CLIENT_ID', ''),
+        'clientId' => env('HELPSCOUT_CLIENT_ID', ''),
 
         /*
         |--------------------------------------------------------------------------
@@ -106,7 +95,7 @@ return [
         | the `legacy_token` auth credentials.
         |
         */
-        'apiKey' => env('HS_API_KEY', ''),
+        'apiKey' => env('HELPSCOUT_API_KEY', ''),
     ],
 
 ];
