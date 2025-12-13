@@ -79,7 +79,8 @@ docker compose up -d              # Start PostgreSQL + Redis
 make db-setup                     # Create databases (first time)
 php artisan migrate               # Run migrations
 php artisan octane:start --watch  # Dev server with hot reload
-make test                         # Run tests (~5s)
+make test-unit                    # Run unit tests (~5s, no external deps)
+make test                         # Run all tests (unit + integration)
 make lint                         # Run linters
 ```
 

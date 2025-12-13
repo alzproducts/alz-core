@@ -66,7 +66,10 @@ make db-setup
 # Run migrations
 php artisan migrate
 
-# Run tests
+# Run unit tests (fast, no external deps)
+make test-unit
+
+# Run all tests including integration
 make test
 
 # Generate Google Ads API refresh token (one-time)
@@ -96,7 +99,10 @@ php artisan octane:start
 # Or use watch mode (auto-reloads on file changes)
 php artisan octane:start --watch
 
-# Run tests (~5 seconds)
+# Run unit tests (~5 seconds, recommended)
+make test-unit
+
+# Run all tests including integration
 make test
 
 # Run linters (before commit)
