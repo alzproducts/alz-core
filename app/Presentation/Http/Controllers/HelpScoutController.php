@@ -6,6 +6,7 @@ namespace App\Presentation\Http\Controllers;
 
 use App\Application\HelpScout\Queries\ConversationQueryParams;
 use App\Application\HelpScout\Services\CachingHelpScoutService;
+use App\Application\HelpScout\UseCases\GetConversationsUseCase;
 use App\Application\HelpScout\UseCases\GetEscalationsUseCase;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -26,6 +27,7 @@ final readonly class HelpScoutController
 {
     public function __construct(
         private CachingHelpScoutService $service,
+        private GetConversationsUseCase $getConversations,
     ) {}
 
     /**
@@ -33,10 +35,10 @@ final readonly class HelpScoutController
      */
     public function assigned(Request $request): JsonResponse
     {
-        $params = self::createAssignedParams($this->resolveAgentId($request));
+        $params = ConversationQueryParams::assigned($this->resolveAgentId($request));
 
         return new JsonResponse([
-            'data' => $this->service->getConversations($params),
+            'data' => $this->getConversations->execute($params),
         ]);
     }
 
@@ -45,12 +47,10 @@ final readonly class HelpScoutController
      */
     public function refreshAssigned(Request $request): JsonResponse
     {
-        $params = self::createAssignedParams($this->resolveAgentId($request));
-
-        $this->service->invalidateConversations($params);
+        $params = ConversationQueryParams::assigned($this->resolveAgentId($request));
 
         return new JsonResponse([
-            'data' => $this->service->getConversations($params),
+            'data' => $this->getConversations->execute($params, forceRefresh: true),
         ]);
     }
 
@@ -62,7 +62,7 @@ final readonly class HelpScoutController
         $params = ConversationQueryParams::todos($this->resolveAgentId($request));
 
         return new JsonResponse([
-            'data' => $this->service->getConversations($params),
+            'data' => $this->getConversations->execute($params),
         ]);
     }
 
@@ -73,10 +73,8 @@ final readonly class HelpScoutController
     {
         $params = ConversationQueryParams::todos($this->resolveAgentId($request));
 
-        $this->service->invalidateConversations($params);
-
         return new JsonResponse([
-            'data' => $this->service->getConversations($params),
+            'data' => $this->getConversations->execute($params, forceRefresh: true),
         ]);
     }
 
@@ -85,10 +83,10 @@ final readonly class HelpScoutController
      */
     public function negativeReviews(): JsonResponse
     {
-        $params = self::createNegativeReviewsParams();
+        $params = ConversationQueryParams::negativeReviews();
 
         return new JsonResponse([
-            'data' => $this->service->getConversations($params),
+            'data' => $this->getConversations->execute($params),
         ]);
     }
 
@@ -97,12 +95,10 @@ final readonly class HelpScoutController
      */
     public function refreshNegativeReviews(): JsonResponse
     {
-        $params = self::createNegativeReviewsParams();
-
-        $this->service->invalidateConversations($params);
+        $params = ConversationQueryParams::negativeReviews();
 
         return new JsonResponse([
-            'data' => $this->service->getConversations($params),
+            'data' => $this->getConversations->execute($params, forceRefresh: true),
         ]);
     }
 
@@ -127,22 +123,6 @@ final readonly class HelpScoutController
         return new JsonResponse([
             'data' => $useCase->execute(forceRefresh: true),
         ]);
-    }
-
-    /**
-     * Create params for assigned conversations query.
-     */
-    private static function createAssignedParams(int $agentId): ConversationQueryParams
-    {
-        return ConversationQueryParams::assigned($agentId);
-    }
-
-    /**
-     * Create params for negative reviews query.
-     */
-    private static function createNegativeReviewsParams(): ConversationQueryParams
-    {
-        return ConversationQueryParams::negativeReviews();
     }
 
     /**
