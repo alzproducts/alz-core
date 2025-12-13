@@ -12,6 +12,7 @@ use App\Domain\Exceptions\InvalidApiResponseException;
 use App\Infrastructure\HelpScout\HelpScoutHttpTransport;
 use App\Infrastructure\HelpScout\HelpScoutResponseParser;
 use App\Infrastructure\HelpScout\Responses\ConversationResponse;
+use Closure;
 use Illuminate\Contracts\Concurrency\Driver as ConcurrencyDriver;
 use Override;
 
@@ -46,7 +47,7 @@ final readonly class ConversationsClient implements ConversationsClientInterface
     {
         $apiParams = \array_filter([
             'assigned' => $params->agentId,
-            'status' => $params->status ?? 'active',
+            'status' => $params->status,
             'tag' => $params->tag,
             'mailbox' => $params->mailboxId,
             'query' => $params->query,
@@ -87,14 +88,26 @@ final readonly class ConversationsClient implements ConversationsClientInterface
             return [$this->getConversations($queries[0])];
         }
 
-        $closures = \array_map(
-            fn(ConversationQueryParams $p): array => $this->getConversations($p),
-            $queries,
-        );
+        $closures = [];
+
+        foreach ($queries as $query) {
+            $closures[] = $this->createQueryClosure($query);
+        }
 
         /** @var list<list<DomainConversation>> $results */
         $results = $this->concurrency->run($closures);
 
         return $results;
+    }
+
+    /**
+     * Create a closure for parallel query execution.
+     *
+     * @return Closure(): list<DomainConversation>
+     */
+    private function createQueryClosure(ConversationQueryParams $query): Closure
+    {
+        // @phpstan-ignore-next-line shipmonk.checkedExceptionInCallable (Closures passed to ConcurrencyDriver::run() - exceptions propagate via IPC)
+        return fn(): array => $this->getConversations($query);
     }
 }

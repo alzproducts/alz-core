@@ -350,6 +350,8 @@ If a linter reports an issue, fix the code—don't suppress it. Only bypass when
 2. Known false positive in framework/package (document why)
 3. Temporary external dependency issue (add TODO)
 
+**For common linting errors** (e.g., `shipmonk.checkedExceptionInCallable`), see `.ai/docs/guides/common-linting-errors.md` for ranked solutions.
+
 ---
 
 *See README.md for project overview and setup. See tests/CLAUDE.md for testing guidance.*

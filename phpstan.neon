@@ -65,6 +65,12 @@ parameters:
         forbidArithmeticOperationOnNonNumber:
             enabled: true
 
+        # Laravel Concurrency serializes closures to child processes but propagates exceptions via IPC.
+        # From exception-handling perspective, it behaves like immediate invocation.
+        forbidCheckedExceptionInCallable:
+            allowedCheckedExceptionCallables:
+                'Illuminate\Contracts\Concurrency\Driver::run': 0
+
     # Ignore overly strict ShipMonk rules not suitable for Laravel
     ignoreErrors:
         # Laravel often requires unused closure parameters (Gate::define signatures, factory states, etc.)

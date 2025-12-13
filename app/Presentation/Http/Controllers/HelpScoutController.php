@@ -7,7 +7,6 @@ namespace App\Presentation\Http\Controllers;
 use App\Application\HelpScout\Queries\ConversationQueryParams;
 use App\Application\HelpScout\Services\CachingHelpScoutService;
 use App\Application\HelpScout\UseCases\GetEscalationsUseCase;
-use App\Domain\CustomerService\ValueObjects\EscalationsConfig;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -60,10 +59,7 @@ final readonly class HelpScoutController
      */
     public function todos(Request $request): JsonResponse
     {
-        $params = self::createTodosParams(
-            $this->resolveAgentId($request),
-            $this->service->getEscalationsConfig(),
-        );
+        $params = ConversationQueryParams::todos($this->resolveAgentId($request));
 
         return new JsonResponse([
             'data' => $this->service->getConversations($params),
@@ -75,10 +71,7 @@ final readonly class HelpScoutController
      */
     public function refreshTodos(Request $request): JsonResponse
     {
-        $params = self::createTodosParams(
-            $this->resolveAgentId($request),
-            $this->service->getEscalationsConfig(),
-        );
+        $params = ConversationQueryParams::todos($this->resolveAgentId($request));
 
         $this->service->invalidateConversations($params);
 
@@ -145,22 +138,11 @@ final readonly class HelpScoutController
     }
 
     /**
-     * Create params for todos query.
-     */
-    private static function createTodosParams(int $agentId, EscalationsConfig $config): ConversationQueryParams
-    {
-        return ConversationQueryParams::todos($agentId, $config->assignedTag);
-    }
-
-    /**
      * Create params for negative reviews query.
      */
     private static function createNegativeReviewsParams(): ConversationQueryParams
     {
-        /** @var string $tag */
-        $tag = \config('helpscout.negative_reviews_tag', '');
-
-        return ConversationQueryParams::negativeReviews($tag);
+        return ConversationQueryParams::negativeReviews();
     }
 
     /**
