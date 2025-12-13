@@ -33,6 +33,7 @@ final class ConversationResponse extends Data implements DomainConvertible
         public readonly ?int $folderId,
         public readonly string $createdAt,
         public readonly ?string $updatedAt,
+        public readonly ?string $userUpdatedAt,
         public readonly ?string $closedAt,
         public readonly ?CustomerResponse $primaryCustomer,
         public readonly ?AssigneeResponse $assignee,
@@ -53,6 +54,12 @@ final class ConversationResponse extends Data implements DomainConvertible
     {
         try {
             $createdAt = new DateTimeImmutable($this->createdAt);
+            $updatedAt = ($this->updatedAt !== null)
+                ? new DateTimeImmutable($this->updatedAt)
+                : null;
+            $userUpdatedAt = ($this->userUpdatedAt !== null)
+                ? new DateTimeImmutable($this->userUpdatedAt)
+                : null;
             $customerWaitingSince = ($this->customerWaitingSince !== null)
                 ? new DateTimeImmutable($this->customerWaitingSince->time)
                 : null;
@@ -71,6 +78,8 @@ final class ConversationResponse extends Data implements DomainConvertible
             status: $this->status,
             mailboxId: $this->mailboxId ?? 0,
             createdAt: $createdAt,
+            updatedAt: $updatedAt,
+            userUpdatedAt: $userUpdatedAt,
             customerWaitingSince: $customerWaitingSince,
             snooze: $this->snooze?->toDomain(),
             tags: \array_values(\array_map(static fn(TagResponse $t) => $t->toDomain(), $this->tags ?? [])),
