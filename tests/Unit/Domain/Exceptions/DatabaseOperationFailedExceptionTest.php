@@ -6,12 +6,15 @@ namespace Tests\Unit\Domain\Exceptions;
 
 use App\Domain\Exceptions\DatabaseOperationFailedException;
 use App\Domain\Exceptions\DomainException;
-use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use RuntimeException;
 use Tests\TestCase;
 
-#[CoversClass(DatabaseOperationFailedException::class)]
+/**
+ * Tests for DatabaseOperationFailedException.
+ *
+ * Note: No #[CoversClass] attribute because exception classes are excluded from coverage in phpunit.xml.
+ */
 final class DatabaseOperationFailedExceptionTest extends TestCase
 {
     #[Test]

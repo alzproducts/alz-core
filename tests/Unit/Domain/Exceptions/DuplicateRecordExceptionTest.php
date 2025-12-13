@@ -6,12 +6,15 @@ namespace Tests\Unit\Domain\Exceptions;
 
 use App\Domain\Exceptions\DomainException;
 use App\Domain\Exceptions\DuplicateRecordException;
-use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use RuntimeException;
 use Tests\TestCase;
 
-#[CoversClass(DuplicateRecordException::class)]
+/**
+ * Tests for DuplicateRecordException.
+ *
+ * Note: No #[CoversClass] attribute because exception classes are excluded from coverage in phpunit.xml.
+ */
 final class DuplicateRecordExceptionTest extends TestCase
 {
     #[Test]
