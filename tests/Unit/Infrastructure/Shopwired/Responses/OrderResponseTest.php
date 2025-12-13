@@ -37,7 +37,7 @@ use Tests\TestCase;
 #[CoversClass(OrderProductResponse::class)]
 #[CoversClass(OrderShippingResponse::class)]
 #[CoversClass(OrderStatusResponse::class)]
-final class OrderTest extends TestCase
+final class OrderResponseTest extends TestCase
 {
     /*
     |--------------------------------------------------------------------------
