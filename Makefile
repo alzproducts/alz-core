@@ -1,4 +1,4 @@
-.PHONY: help install up down shell db-setup migrate fresh pint pint-test test test-coverage coverage-html pest-mutate test-ai test-mutate lint lint-sequential lint-full fix analyse insights phparkitect deptrac stan rector rector-dry-run refactor check check-full infection infection-fast infection-strict infection-incremental infection-ci ide-helper
+.PHONY: help install up down shell db-setup migrate fresh pint pint-test test test-unit test-feature test-coverage coverage-html pest-mutate test-ai test-mutate lint lint-sequential lint-full fix analyse insights phparkitect deptrac stan rector rector-dry-run refactor check check-full infection infection-fast infection-strict infection-incremental infection-ci ide-helper
 
 # Enable strict shell mode for robust error handling
 SHELL := bash
@@ -214,6 +214,14 @@ refactor: ## Run Rector + Pint combo
 test: ## Run Pest test suite
 	@echo "$(MODE)"
 	$(EXEC) vendor/bin/pest --parallel --fail-on-deprecation
+
+test-unit: ## Run unit tests only (fast, no external deps)
+	@echo "$(MODE)"
+	$(EXEC) vendor/bin/pest --testsuite=Unit --parallel --fail-on-deprecation
+
+test-feature: ## Run feature/integration tests only
+	@echo "$(MODE)"
+	$(EXEC) vendor/bin/pest --testsuite=Feature --parallel --fail-on-deprecation
 
 test-coverage: ## Run tests with 80% coverage requirement
 	@echo "$(MODE)"
