@@ -6,6 +6,7 @@ namespace App\Presentation\Http\Controllers;
 
 use App\Application\HelpScout\Queries\ConversationQueryParams;
 use App\Application\HelpScout\Services\CachingHelpScoutService;
+use App\Application\HelpScout\UseCases\GetEscalationsUseCase;
 use App\Domain\CustomerService\ValueObjects\EscalationsConfig;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -20,6 +21,7 @@ use Illuminate\Http\Request;
  * - assigned: Conversations assigned to the authenticated agent
  * - todos: Tagged conversations requiring agent action
  * - negative-reviews: Conversations with negative feedback tag
+ * - escalations: Late and manually assigned conversations across mailboxes
  */
 final readonly class HelpScoutController
 {
@@ -108,6 +110,29 @@ final readonly class HelpScoutController
 
         return new JsonResponse([
             'data' => $this->service->getConversations($params),
+        ]);
+    }
+
+    /**
+     * Get escalated conversations across mailboxes.
+     *
+     * Aggregates late priority, late standard, and manually assigned
+     * conversations from Support and Purchase Orders mailboxes.
+     */
+    public function escalations(GetEscalationsUseCase $useCase): JsonResponse
+    {
+        return new JsonResponse([
+            'data' => $useCase->execute(),
+        ]);
+    }
+
+    /**
+     * Refresh escalations cache and return fresh data.
+     */
+    public function refreshEscalations(GetEscalationsUseCase $useCase): JsonResponse
+    {
+        return new JsonResponse([
+            'data' => $useCase->executeWithInvalidation(),
         ]);
     }
 

@@ -210,6 +210,7 @@ return static function (Config $config): void {
                                'XMLReader',
                                'SimpleXMLElement',
                                'PDOException',
+                               'Override',
                            ],
                        ),
                    )

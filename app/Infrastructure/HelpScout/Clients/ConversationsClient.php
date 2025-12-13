@@ -7,9 +7,13 @@ namespace App\Infrastructure\HelpScout\Clients;
 use App\Application\Contracts\HelpScout\ConversationsClientInterface;
 use App\Application\HelpScout\Queries\ConversationQueryParams;
 use App\Domain\CustomerService\ValueObjects\Conversation as DomainConversation;
+use App\Domain\Exceptions\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\InvalidApiResponseException;
 use App\Infrastructure\HelpScout\HelpScoutHttpTransport;
 use App\Infrastructure\HelpScout\HelpScoutResponseParser;
 use App\Infrastructure\HelpScout\Responses\ConversationResponse;
+use Illuminate\Contracts\Concurrency\Driver as ConcurrencyDriver;
+use Override;
 
 /**
  * HelpScout Conversations API Client.
@@ -29,6 +33,7 @@ final readonly class ConversationsClient implements ConversationsClientInterface
 
     public function __construct(
         private HelpScoutHttpTransport $transport,
+        private ConcurrencyDriver $concurrency,
     ) {}
 
     /**
@@ -36,6 +41,7 @@ final readonly class ConversationsClient implements ConversationsClientInterface
      *
      * @return list<DomainConversation>
      */
+    #[Override]
     public function getConversations(ConversationQueryParams $params): array
     {
         $apiParams = \array_filter([
@@ -54,5 +60,41 @@ final readonly class ConversationsClient implements ConversationsClientInterface
             'conversations',
             ConversationResponse::class,
         );
+    }
+
+    /**
+     * Get conversations for multiple queries in parallel.
+     *
+     * Uses Laravel's Concurrency driver for parallel execution.
+     * Falls back to sequential execution for single queries.
+     *
+     * @param list<ConversationQueryParams> $queries
+     *
+     * @return list<list<DomainConversation>> Results indexed same as input queries
+     *
+     * @throws ExternalServiceUnavailableException When HelpScout API is unavailable
+     * @throws InvalidApiResponseException When API response structure changes
+     */
+    #[Override]
+    public function getConversationsBatch(array $queries): array
+    {
+        if ($queries === []) {
+            return [];
+        }
+
+        // Single query doesn't need concurrency overhead
+        if (\count($queries) === 1) {
+            return [$this->getConversations($queries[0])];
+        }
+
+        $closures = \array_map(
+            fn(ConversationQueryParams $p): array => $this->getConversations($p),
+            $queries,
+        );
+
+        /** @var list<list<DomainConversation>> $results */
+        $results = $this->concurrency->run($closures);
+
+        return $results;
     }
 }

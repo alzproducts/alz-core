@@ -45,5 +45,8 @@ Route::middleware(['throttle:api', ValidateSupabaseJwtMiddleware::class])->group
 
         Route::get('/negative-reviews', [HelpScoutController::class, 'negativeReviews']);
         Route::post('/negative-reviews/refresh', [HelpScoutController::class, 'refreshNegativeReviews']);
+
+        Route::get('/escalations', [HelpScoutController::class, 'escalations']);
+        Route::post('/escalations/refresh', [HelpScoutController::class, 'refreshEscalations']);
     });
 });
