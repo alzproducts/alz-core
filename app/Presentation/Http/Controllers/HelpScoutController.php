@@ -132,7 +132,7 @@ final readonly class HelpScoutController
     public function refreshEscalations(GetEscalationsUseCase $useCase): JsonResponse
     {
         return new JsonResponse([
-            'data' => $useCase->executeWithInvalidation(),
+            'data' => $useCase->execute(forceRefresh: true),
         ]);
     }
 

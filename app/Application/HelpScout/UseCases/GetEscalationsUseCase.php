@@ -34,28 +34,19 @@ final readonly class GetEscalationsUseCase
     /**
      * Execute escalations queries and return sorted, deduplicated results.
      *
-     * @return list<Conversation>
-     */
-    public function execute(): array
-    {
-        $config = $this->helpScout->getEscalationsConfig();
-        $queries = $this->buildQueries($config);
-
-        return $this->executeAndProcess($queries, $config);
-    }
-
-    /**
-     * Execute with cache invalidation for manual refresh.
+     * @param bool $forceRefresh Invalidate cache before fetching (for manual refresh)
      *
      * @return list<Conversation>
      */
-    public function executeWithInvalidation(): array
+    public function execute(bool $forceRefresh = false): array
     {
         $config = $this->helpScout->getEscalationsConfig();
         $queries = $this->buildQueries($config);
 
-        foreach ($queries as $params) {
-            $this->helpScout->invalidateConversations($params);
+        if ($forceRefresh) {
+            foreach ($queries as $params) {
+                $this->helpScout->invalidateConversations($params);
+            }
         }
 
         return $this->executeAndProcess($queries, $config);
