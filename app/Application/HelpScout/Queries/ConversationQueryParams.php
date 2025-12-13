@@ -58,15 +58,14 @@ final readonly class ConversationQueryParams
      * Create params for assigned conversations query.
      *
      * @param int $agentId HelpScout agent ID
-     * @param string $status Conversation status filter (default: 'active')
      */
-    public static function assigned(int $agentId, string $status = 'active'): self
+    public static function assigned(int $agentId): self
     {
         return new self(
             queryName: 'assigned',
             ttlSeconds: self::DEFAULT_TTL_SECONDS,
             agentId: $agentId,
-            status: $status,
+            status: 'active,pending',
         );
     }
 
@@ -74,29 +73,28 @@ final readonly class ConversationQueryParams
      * Create params for todos query (agent + tag).
      *
      * @param int $agentId HelpScout agent ID
-     * @param string $tag Tag from EscalationsConfig->assignedTag
      */
-    public static function todos(int $agentId, string $tag): self
+    public static function todos(int $agentId): self
     {
         return new self(
             queryName: 'todos',
             ttlSeconds: self::DEFAULT_TTL_SECONDS,
             agentId: $agentId,
-            tag: $tag,
+            status: 'active,pending,closed',
+            tag: 'server to-do',
         );
     }
 
     /**
      * Create params for negative reviews query.
-     *
-     * @param string $tag Configurable tag for negative feedback conversations
      */
-    public static function negativeReviews(string $tag): self
+    public static function negativeReviews(): self
     {
         return new self(
             queryName: 'negative-reviews',
             ttlSeconds: self::DEFAULT_TTL_SECONDS,
-            tag: $tag,
+            status: 'active',
+            tag: 'feedback-review-negative',
         );
     }
 
