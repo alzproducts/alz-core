@@ -71,6 +71,42 @@ final readonly class GracefulCache
     }
 
     /**
+     * Get a value from cache.
+     *
+     * Degrades gracefully - read failures return null (treated as cache miss).
+     */
+    public function get(string $key): mixed
+    {
+        try {
+            return $this->cache->get($key);
+        } catch (Throwable $e) {
+            $this->logger->warning("{$this->serviceName} cache read failed", [
+                'key' => $key,
+                'exception' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
+
+    /**
+     * Put a value in cache with TTL.
+     *
+     * Degrades gracefully - write failures are logged but don't throw.
+     */
+    public function put(string $key, mixed $value, int $ttl): void
+    {
+        try {
+            $this->cache->set($key, $value, $ttl);
+        } catch (Throwable $e) {
+            $this->logger->warning("{$this->serviceName} cache write failed", [
+                'key' => $key,
+                'exception' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    /**
      * Remove a value from cache.
      *
      * Degrades gracefully - deletion failures are logged but don't throw.

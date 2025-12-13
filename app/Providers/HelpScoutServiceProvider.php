@@ -7,8 +7,13 @@ namespace App\Providers;
 use App\Application\Contracts\HelpScout\AgentsClientInterface;
 use App\Application\Contracts\HelpScout\ConversationsClientInterface;
 use App\Application\Contracts\HelpScout\MailboxesClientInterface;
+use App\Application\HelpScout\Services\CachingHelpScoutService;
+use App\Application\HelpScout\UseCases\GetEscalationsUseCase;
 use App\Infrastructure\HelpScout\HelpScoutClientFactory;
+use Illuminate\Contracts\Concurrency\Driver as ConcurrencyDriver;
+use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Contracts\Support\DeferrableProvider;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\ServiceProvider;
 use Override;
 
@@ -39,7 +44,9 @@ final class HelpScoutServiceProvider extends ServiceProvider implements Deferrab
     {
         $this->app->singleton(
             ConversationsClientInterface::class,
-            static fn(): ConversationsClientInterface => HelpScoutClientFactory::createConversationsClient(),
+            static fn(Application $app): ConversationsClientInterface => HelpScoutClientFactory::createConversationsClient(
+                $app->make(ConcurrencyDriver::class),
+            ),
         );
 
         $this->app->singleton(
@@ -50,6 +57,15 @@ final class HelpScoutServiceProvider extends ServiceProvider implements Deferrab
         $this->app->singleton(
             AgentsClientInterface::class,
             static fn(): AgentsClientInterface => HelpScoutClientFactory::createUsersClient(),
+        );
+
+        $this->app->bind(
+            GetEscalationsUseCase::class,
+            static fn(Application $app): GetEscalationsUseCase => new GetEscalationsUseCase(
+                $app->make(CachingHelpScoutService::class),
+                Config::integer('helpscout.mailboxes.support'),
+                Config::integer('helpscout.mailboxes.purchase_orders'),
+            ),
         );
     }
 
@@ -65,6 +81,7 @@ final class HelpScoutServiceProvider extends ServiceProvider implements Deferrab
             ConversationsClientInterface::class,
             MailboxesClientInterface::class,
             AgentsClientInterface::class,
+            GetEscalationsUseCase::class,
         ];
     }
 }

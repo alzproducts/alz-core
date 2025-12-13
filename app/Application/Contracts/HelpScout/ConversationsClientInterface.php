@@ -25,4 +25,19 @@ interface ConversationsClientInterface
      * @throws InvalidApiResponseException When API response structure is invalid
      */
     public function getConversations(ConversationQueryParams $params): array;
+
+    /**
+     * Get conversations for multiple queries in parallel.
+     *
+     * Executes multiple conversation queries concurrently for performance.
+     * Returns nested arrays to preserve query-result association for caching.
+     *
+     * @param list<ConversationQueryParams> $queries
+     *
+     * @return list<list<Conversation>> Results indexed same as input queries
+     *
+     * @throws ExternalServiceUnavailableException When API unavailable
+     * @throws InvalidApiResponseException When API response structure is invalid
+     */
+    public function getConversationsBatch(array $queries): array;
 }

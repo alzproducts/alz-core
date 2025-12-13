@@ -94,6 +94,62 @@ final readonly class CachingHelpScoutService
     }
 
     /**
+     * Get conversations for multiple queries with caching and parallel fetching.
+     *
+     * Checks cache for each query, fetches uncached queries in parallel,
+     * then enriches and caches results. Returns a flat list of all conversations.
+     *
+     * @param list<ConversationQueryParams> $queries
+     *
+     * @return list<Conversation>
+     */
+    public function getConversationsBatch(array $queries): array
+    {
+        if ($queries === []) {
+            return [];
+        }
+
+        // Check cache for each query
+        $results = [];
+        $uncachedQueries = [];
+        $uncachedIndices = [];
+
+        foreach ($queries as $index => $params) {
+            $cached = $this->cache->get($params->getCacheKey());
+
+            if ($cached !== null) {
+                /** @var list<Conversation> $cached */
+                $results[$index] = $cached;
+            } else {
+                $uncachedQueries[] = $params;
+                $uncachedIndices[] = $index;
+            }
+        }
+
+        // Fetch uncached queries in parallel
+        if ($uncachedQueries !== []) {
+            $fetched = $this->conversationsClient->getConversationsBatch($uncachedQueries);
+
+            foreach ($fetched as $i => $conversations) {
+                $originalIndex = $uncachedIndices[$i];
+                $params = $uncachedQueries[$i];
+
+                // Enrich and cache
+                $enriched = $this->enricher->enrich($conversations);
+                $this->cache->put($params->getCacheKey(), $enriched, $params->ttlSeconds);
+
+                $results[$originalIndex] = $enriched;
+            }
+        }
+
+        // Sort by original index and flatten
+        \ksort($results);
+
+        /** @var list<Conversation> */
+        return \array_merge(...\array_values($results));
+    }
+
+    /**
      * Invalidate cached conversations for given params.
      */
     public function invalidateConversations(ConversationQueryParams $params): void
