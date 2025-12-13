@@ -17,7 +17,7 @@ use Tests\TestCase;
  * Verifies API response parsing and domain object conversion.
  */
 #[CoversClass(CategoryImageResponse::class)]
-final class CategoryImageTest extends TestCase
+final class CategoryImageResponseTest extends TestCase
 {
     /*
     |--------------------------------------------------------------------------

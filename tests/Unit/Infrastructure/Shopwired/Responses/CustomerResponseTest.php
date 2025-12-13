@@ -19,7 +19,7 @@ use Tests\TestCase;
  * Verifies snake_case mapping, numeric suffix handling, and domain conversion.
  */
 #[CoversClass(CustomerResponse::class)]
-final class CustomerTest extends TestCase
+final class CustomerResponseTest extends TestCase
 {
     /*
     |--------------------------------------------------------------------------

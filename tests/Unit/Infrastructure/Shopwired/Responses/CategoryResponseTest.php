@@ -19,7 +19,7 @@ use Tests\TestCase;
  * Verifies snake_case mapping, nullable handling, nested objects, and domain conversion.
  */
 #[CoversClass(CategoryResponse::class)]
-final class CategoryTest extends TestCase
+final class CategoryResponseTest extends TestCase
 {
     /*
     |--------------------------------------------------------------------------

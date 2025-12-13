@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Tests\Unit\Infrastructure\AdSpend\GoogleAds;
+namespace Tests\Unit\Infrastructure\GoogleAds\Transformers;
 
 use App\Domain\AdSpend\ValueObjects\Campaign;
 use App\Infrastructure\GoogleAds\Exceptions\InvalidGoogleAdsResponseException;
