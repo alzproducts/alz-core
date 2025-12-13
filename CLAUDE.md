@@ -254,7 +254,15 @@ Remains active in production, handles untrusted input
 
 ## Code Quality & Linting
 
-**CRITICAL**: We maintain strict code quality standards with four linters + mutation testing:
+**CRITICAL**: We maintain strict code quality standards with four linters + mutation testing.
+
+### ⚠️ Auto-Linting Hook
+
+**`make lint` runs automatically** via Claude Code hook when you stop responding. **Do NOT manually run `make lint`** unless:
+- You need to verify fixes mid-task before stopping
+- You're debugging a specific linting issue
+
+**Rationale**: Reduces redundant lint runs. The hook catches issues before user sees your response.
 
 ### Linters Configured
 1. **Laravel Pint** (Code Style) - PER (PHP Evolving Recommendation) preset with strict rules
