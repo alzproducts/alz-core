@@ -44,7 +44,6 @@ final readonly class HelpScoutConfig
 
     /**
      * @param array<string, int> $mailboxes Mailbox IDs ['support' => id, 'purchase_orders' => id, ...]
-     * @param string|null $localTestEmail Email to use for local testing bypass
      * @param int $timeoutSeconds HTTP timeout in seconds (1-120)
      * @param int $retryAttempts Number of retry attempts for transient failures (1-10)
      *
@@ -53,7 +52,6 @@ final readonly class HelpScoutConfig
      */
     public function __construct(
         public array $mailboxes,
-        public ?string $localTestEmail = null,
         public int $timeoutSeconds = self::DEFAULT_TIMEOUT_SECONDS,
         public int $retryAttempts = self::DEFAULT_RETRY_ATTEMPTS,
     ) {
