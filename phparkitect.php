@@ -327,10 +327,10 @@ return static function (Config $config): void {
                    ->andThat(new NotHaveNameMatching('GracefulCache'))
                    ->andThat(new NotResideInTheseNamespaces('App\Application\HelpScout\Queries\Conversation\Enums'))
                    ->should(
-                       new MatchOneOfTheseNames(['*UseCase', '*Service', '*Transformer', '*Formatter', '*Interface', '*DTO', '*Exception', '*Result', '*Params']),
+                       new MatchOneOfTheseNames(['*UseCase', '*Service', '*Transformer', '*Formatter', '*Sorter', '*Interface', '*DTO', '*Exception', '*Result', '*Params']),
                    )
                    ->because(
-                       'Application layer classes should be clearly identifiable as use cases, services, transformers, formatters, interfaces, or parameter objects.',
+                       'Application layer classes should be clearly identifiable as use cases, services, transformers, formatters, sorters, interfaces, or parameter objects.',
                    );
 
     // RULE 5: No interfaces in Infrastructure
