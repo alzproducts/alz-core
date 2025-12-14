@@ -168,6 +168,26 @@ final class UserResponseTest extends TestCase
         $this->assertSame('support@example.com', $domainAgent->email);
         $this->assertSame('Jane', $domainAgent->firstName);
         $this->assertSame('Smith', $domainAgent->lastName);
+        $this->assertSame('user', $domainAgent->role);
+    }
+
+    #[Test]
+    public function it_converts_to_domain_support_agent_with_null_role(): void
+    {
+        $apiResponse = [
+            'id' => 12345,
+            'email' => 'support@example.com',
+            'firstName' => 'Jane',
+            'lastName' => 'Smith',
+            'photoUrl' => null,
+            'role' => null,
+            'timezone' => null,
+        ];
+
+        $userResponse = UserResponse::from($apiResponse);
+        $domainAgent = $userResponse->toDomain();
+
+        $this->assertNull($domainAgent->role);
     }
 
     #[Test]

@@ -16,6 +16,7 @@ use App\Domain\CustomerService\Exceptions\CustomerServiceAgentNotFoundException;
 use App\Domain\CustomerService\ValueObjects\Conversation;
 use App\Domain\CustomerService\ValueObjects\EscalationsConfig;
 use App\Domain\CustomerService\ValueObjects\Mailbox;
+use App\Domain\CustomerService\ValueObjects\SupportAgent;
 use App\Domain\Exceptions\ConfigurationNotFoundException;
 
 /**
@@ -26,7 +27,7 @@ use App\Domain\Exceptions\ConfigurationNotFoundException;
  * that degrades gracefully on backend failures.
  *
  * Cache Strategy:
- * - Agent mappings: 7 days TTL (user→agent rarely changes)
+ * - Agent profiles: 7 days TTL (user→agent rarely changes)
  * - Mailboxes: 7 days TTL (rarely changes)
  * - Conversations: 5 minutes TTL (frequently updated)
  * - Escalation config: 5 minutes TTL (admin-configurable)
@@ -37,7 +38,7 @@ final readonly class CachingHelpScoutService
 
     public const string CACHE_PREFIX = 'helpscout';
 
-    private const string KEY_AGENT_BY_EMAIL = self::CACHE_PREFIX . ':agent:email:';
+    private const string KEY_AGENT_PROFILE = self::CACHE_PREFIX . ':agent:profile:';
 
     private const string KEY_MAILBOXES = self::CACHE_PREFIX . ':mailboxes';
 
@@ -53,28 +54,29 @@ final readonly class CachingHelpScoutService
     ) {}
 
     /**
-     * Resolve authenticated user email to HelpScout agent ID.
+     * Get agent profile by email with caching.
      *
-     * Normalizes email to lowercase and caches the mapping for 7 days.
+     * Returns the full SupportAgent including role information.
+     * Cached for 7 days (profile data rarely changes).
      *
      * @throws CustomerServiceAgentNotFoundException When no agent matches email
      */
-    public function resolveAgentId(string $email): int
+    public function getAgentProfile(string $email): SupportAgent
     {
         $normalizedEmail = \mb_strtolower(\mb_trim($email));
-        $cacheKey = self::KEY_AGENT_BY_EMAIL . \hash('xxh3', $normalizedEmail);
+        $cacheKey = self::KEY_AGENT_PROFILE . \hash('xxh3', $normalizedEmail);
 
-        $agentId = $this->cache->rememberInt(
+        $agent = $this->cache->remember(
             $cacheKey,
             self::SEVEN_DAYS,
-            fn(): ?int => $this->agentsClient->findByEmail($normalizedEmail)?->id,
+            fn(): ?SupportAgent => $this->agentsClient->findByEmail($normalizedEmail),
         );
 
-        if ($agentId === null) {
+        if ($agent === null) {
             throw new CustomerServiceAgentNotFoundException($normalizedEmail);
         }
 
-        return $agentId;
+        return $agent;
     }
 
     /**

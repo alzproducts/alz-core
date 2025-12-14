@@ -83,4 +83,45 @@ final class SupportAgentTest extends TestCase
             lastName: 'Agent',
         );
     }
+
+    #[Test]
+    public function it_creates_agent_with_role(): void
+    {
+        $agent = new SupportAgent(
+            id: 12345,
+            email: 'agent@example.com',
+            firstName: 'John',
+            lastName: 'Doe',
+            role: 'admin',
+        );
+
+        $this->assertSame('admin', $agent->role);
+    }
+
+    #[Test]
+    public function it_creates_agent_without_role(): void
+    {
+        $agent = new SupportAgent(
+            id: 12345,
+            email: 'agent@example.com',
+            firstName: 'John',
+            lastName: 'Doe',
+        );
+
+        $this->assertNull($agent->role);
+    }
+
+    #[Test]
+    public function it_accepts_null_role_explicitly(): void
+    {
+        $agent = new SupportAgent(
+            id: 12345,
+            email: 'agent@example.com',
+            firstName: 'John',
+            lastName: 'Doe',
+            role: null,
+        );
+
+        $this->assertNull($agent->role);
+    }
 }

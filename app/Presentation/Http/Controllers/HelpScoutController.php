@@ -126,6 +126,29 @@ final readonly class HelpScoutController
     }
 
     /**
+     * Get authenticated user's HelpScout profile.
+     *
+     * Returns agent details (name, email, role) for connection status display.
+     */
+    public function profile(Request $request): JsonResponse
+    {
+        /** @var string $email */
+        $email = $request->input('auth_user_email');
+
+        $agent = $this->service->getAgentProfile($email);
+
+        return new JsonResponse([
+            'data' => [
+                'id' => $agent->id,
+                'email' => $agent->email,
+                'firstName' => $agent->firstName,
+                'lastName' => $agent->lastName,
+                'role' => $agent->role,
+            ],
+        ]);
+    }
+
+    /**
      * Resolve HelpScout agent ID from authenticated user email.
      */
     private function resolveAgentId(Request $request): int
@@ -133,6 +156,6 @@ final readonly class HelpScoutController
         /** @var string $email */
         $email = $request->input('auth_user_email');
 
-        return $this->service->resolveAgentId($email);
+        return $this->service->getAgentProfile($email)->id;
     }
 }

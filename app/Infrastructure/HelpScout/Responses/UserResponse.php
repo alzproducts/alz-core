@@ -47,6 +47,7 @@ final class UserResponse extends Data implements DomainConvertible
             email: $this->email ?? '',
             firstName: $this->firstName ?? '',
             lastName: $this->lastName ?? '',
+            role: $this->role,
         );
     }
 }
