@@ -6,7 +6,7 @@ namespace Tests\Unit\Domain\AdSpend\ValueObjects;
 
 use App\Domain\AdSpend\Enums\AdSource;
 use App\Domain\AdSpend\ValueObjects\CampaignMetrics;
-use App\Infrastructure\Mixpanel\MixpanelAdSpendEventDTO;
+use App\Infrastructure\Mixpanel\DTOs\MixpanelAdSpendEventDTO;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;

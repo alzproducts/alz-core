@@ -9,6 +9,7 @@ use App\Application\Contracts\Linnworks\InventoryClientInterface;
 use App\Infrastructure\Linnworks\Clients\ConnectivityClient;
 use App\Infrastructure\Linnworks\Clients\InventoryClient;
 use Illuminate\Cache\CacheManager;
+use Illuminate\Support\Facades\Config;
 use RuntimeException;
 
 /**
@@ -107,19 +108,9 @@ final class LinnworksClientFactory
             applicationId: $applicationId,
             applicationSecret: $applicationSecret,
             installationToken: $installationToken,
-            timeout: self::getIntConfig('timeout', 30),
-            cacheTtlBuffer: self::getIntConfig('cache_ttl_buffer', 300),
+            timeout: Config::integer('linnworks.timeout', 30),
+            cacheTtlBuffer: Config::integer('linnworks.cache_ttl_buffer', 300),
         );
-    }
-
-    /**
-     * Get integer config value with fallback.
-     */
-    private static function getIntConfig(string $key, int $default): int
-    {
-        $value = \config("linnworks.{$key}");
-
-        return \is_int($value) ? $value : $default;
     }
 
     /**

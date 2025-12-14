@@ -440,29 +440,20 @@ class DatabaseConnectivityTest extends TestCase
             );
         }
 
-        // Act: Query for Supabase Auth tables (created by Next.js)
-        $authTables = DB::select(
-            "SELECT table_name
-             FROM information_schema.tables
-             WHERE table_schema = 'auth'
-             ORDER BY table_name",
+        // Act: Query config.dashboard table (shared with Next.js frontend)
+        // Note: auth schema is restricted via pooler, so we check accessible tables
+        $configExists = DB::selectOne(
+            "SELECT EXISTS (
+                SELECT 1 FROM information_schema.tables
+                WHERE table_schema = 'config'
+                AND table_name = 'dashboard'
+            ) AS exists",
         );
 
-        // Assert: Supabase auth schema exists
-        $this->assertNotEmpty(
-            $authTables,
-            'Supabase should have auth schema with tables from Next.js',
-        );
-
-        // Verify at least users table exists (core Supabase Auth table)
-        $tableNames = \array_map(
-            static fn(object $table): mixed => $table->table_name,
-            $authTables,
-        );
-        $this->assertContains(
-            'users',
-            $tableNames,
-            'Supabase auth.users table should exist (created by Next.js)',
+        // Assert: config.dashboard table exists (shared with Next.js frontend)
+        $this->assertTrue(
+            (bool) $configExists->exists,
+            'Supabase should have config.dashboard table (shared with Next.js)',
         );
     }
 }

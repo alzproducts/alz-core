@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 use App\Infrastructure\BingAds\BingAdsTransport;
-use App\Infrastructure\Mixpanel\MixpanelAdSpendEventDTO;
+use App\Infrastructure\Mixpanel\DTOs\MixpanelAdSpendEventDTO;
 
 /**
  * Architecture Tests using Pest 4.

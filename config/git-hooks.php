@@ -29,8 +29,8 @@ return [
     |--------------------------------------------------------------------------
     | Pre-Push Hooks
     |--------------------------------------------------------------------------
-    | Comprehensive checks on entire codebase - runs before pushing to remote
-    | Runs tests + code quality analysis (~30 seconds with native PHP)
+    | Runs unit tests + code quality analysis (~15 seconds with native PHP)
+    | Integration/feature tests run in CI only (avoids flaky network deps)
     |
     | Mutation testing moved to CI (runs in parallel, no added wall time)
     */
