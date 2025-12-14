@@ -71,6 +71,61 @@ final readonly class GracefulCache
     }
 
     /**
+     * Get integer value from cache or execute callback and cache result.
+     *
+     * Redis serializes integers as strings. This method ensures type-safe
+     * integer retrieval by casting the cached value back to int.
+     *
+     * @param-immediately-invoked-callable $callback
+     *
+     * @param Closure(): ?int $callback
+     */
+    public function rememberInt(string $key, int $ttl, Closure $callback): ?int
+    {
+        $value = $this->remember($key, $ttl, $callback);
+
+        // Redis serializes integers as strings (Laravel issue #31345)
+        // @phpstan-ignore cast.useless
+        return ($value === null) ? null : (int) $value;
+    }
+
+    /**
+     * Get a value from cache.
+     *
+     * Degrades gracefully - read failures return null (treated as cache miss).
+     */
+    public function get(string $key): mixed
+    {
+        try {
+            return $this->cache->get($key);
+        } catch (Throwable $e) {
+            $this->logger->warning("{$this->serviceName} cache read failed", [
+                'key' => $key,
+                'exception' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
+
+    /**
+     * Put a value in cache with TTL.
+     *
+     * Degrades gracefully - write failures are logged but don't throw.
+     */
+    public function put(string $key, mixed $value, int $ttl): void
+    {
+        try {
+            $this->cache->set($key, $value, $ttl);
+        } catch (Throwable $e) {
+            $this->logger->warning("{$this->serviceName} cache write failed", [
+                'key' => $key,
+                'exception' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    /**
      * Remove a value from cache.
      *
      * Degrades gracefully - deletion failures are logged but don't throw.

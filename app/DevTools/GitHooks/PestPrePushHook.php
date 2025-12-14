@@ -13,12 +13,12 @@ final class PestPrePushHook extends BaseProcessHook
      */
     protected function getProcessCommand(): array
     {
-        return ['composer', 'test'];
+        return ['make', 'test-unit'];
     }
 
     protected function getTimeout(): int
     {
-        return 300; // 5 minutes
+        return 60; // 1 minute (unit tests only, ~5s typical)
     }
 
     protected function getSuccessMessage(): string

@@ -65,6 +65,8 @@ See `.ai/docs/implementation/CLAUDE.md` for the full template and guidelines.
 
 **Rationale**: The user maintains full control over git history and commit timing.
 
+**Always use `git mv`** when moving/renaming files. Preserves history; delete + create loses it.
+
 ## Development Environment
 
 **PHP**: Native PHP 8.4 via Homebrew (not Docker/Sail)
@@ -77,7 +79,8 @@ docker compose up -d              # Start PostgreSQL + Redis
 make db-setup                     # Create databases (first time)
 php artisan migrate               # Run migrations
 php artisan octane:start --watch  # Dev server with hot reload
-make test                         # Run tests (~5s)
+make test-unit                    # Run unit tests (~5s, no external deps)
+make test                         # Run all tests (unit + integration)
 make lint                         # Run linters
 ```
 
@@ -252,7 +255,15 @@ Remains active in production, handles untrusted input
 
 ## Code Quality & Linting
 
-**CRITICAL**: We maintain strict code quality standards with four linters + mutation testing:
+**CRITICAL**: We maintain strict code quality standards with four linters + mutation testing.
+
+### ⚠️ Auto-Linting Hook
+
+**`make lint` runs automatically** via Claude Code hook when you stop responding. **Do NOT manually run `make lint`** unless:
+- You need to verify fixes mid-task before stopping
+- You're debugging a specific linting issue
+
+**Rationale**: Reduces redundant lint runs. The hook catches issues before user sees your response.
 
 ### Linters Configured
 1. **Laravel Pint** (Code Style) - PER (PHP Evolving Recommendation) preset with strict rules
@@ -347,6 +358,8 @@ If a linter reports an issue, fix the code—don't suppress it. Only bypass when
 1. User explicitly approves
 2. Known false positive in framework/package (document why)
 3. Temporary external dependency issue (add TODO)
+
+**For common linting errors** (e.g., `shipmonk.checkedExceptionInCallable`), see `.ai/docs/guides/common-linting-errors.md` for ranked solutions.
 
 ---
 

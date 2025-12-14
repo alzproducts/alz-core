@@ -9,6 +9,7 @@ use App\Domain\AdSpend\Enums\AdSource;
 use App\Domain\AdSpend\ValueObjects\CampaignMetrics;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\PayloadSerializationException;
+use App\Infrastructure\Mixpanel\DTOs\MixpanelAdSpendEventDTO;
 use App\Infrastructure\Support\CsvFormatter;
 use Illuminate\Support\Facades\Log;
 use JsonException;

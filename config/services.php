@@ -39,6 +39,10 @@ return [
 
     'supabase' => [
         'jwt_secret' => env('SUPABASE_JWT_SECRET'),
+        // Secret for X-Local-Bypass header (must match exactly to bypass)
+        'local_bypass_secret' => env('SUPABASE_LOCAL_BYPASS_SECRET'),
+        // Email to use when bypassing JWT auth for local testing
+        'local_test_email' => env('SUPABASE_LOCAL_TEST_EMAIL'),
     ],
 
     'ad_spend_sync' => [

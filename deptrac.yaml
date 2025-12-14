@@ -65,6 +65,12 @@ deptrac:
         - type: classLike
           value: ^Microsoft\\BingAds\\.*
 
+    # HelpScout API SDK
+    - name: HelpScoutSdk
+      collectors:
+        - type: classLike
+          value: ^HelpScout\\.*
+
     # Guzzle HTTP (used by Laravel HTTP client for pool/promise types)
     - name: GuzzleHttp
       collectors:
@@ -113,6 +119,7 @@ deptrac:
       - SpatieData
       - GoogleAdsSdk
       - BingAdsSdk
+      - HelpScoutSdk
       - GuzzleHttp
       - PsrInterfaces
       - LeagueFlysystem
@@ -134,6 +141,7 @@ deptrac:
     SpatieData: ~
     GoogleAdsSdk: ~
     BingAdsSdk: ~
+    HelpScoutSdk: ~
     GuzzleHttp: ~
     SymfonyHttp: ~
     SymfonyHttpKernel: ~

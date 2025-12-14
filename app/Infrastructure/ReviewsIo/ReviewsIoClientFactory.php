@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Infrastructure\ReviewsIo;
 
 use App\Application\Contracts\ReviewsIoClientInterface;
+use Illuminate\Support\Facades\Config;
 use RuntimeException;
 
 /**
@@ -37,9 +38,9 @@ final class ReviewsIoClientFactory
         $config = new ReviewsIoConfig(
             apiKey: $apiKey,
             storeId: $storeId,
-            timeout: self::getIntConfig('timeout', 30),
-            retryTimes: self::getIntConfig('retry_times', 3),
-            retryDelay: self::getIntConfig('retry_delay', 100),
+            timeout: Config::integer('reviewsio.timeout', 30),
+            retryTimes: Config::integer('reviewsio.retry_times', 3),
+            retryDelay: Config::integer('reviewsio.retry_delay', 100),
         );
 
         $transport = new ReviewsIoHttpTransport($config);
@@ -47,13 +48,4 @@ final class ReviewsIoClientFactory
         return new ReviewsIoClient($transport);
     }
 
-    /**
-     * Get integer config value with fallback.
-     */
-    private static function getIntConfig(string $key, int $default): int
-    {
-        $value = \config("reviewsio.{$key}");
-
-        return \is_int($value) ? $value : $default;
-    }
 }
