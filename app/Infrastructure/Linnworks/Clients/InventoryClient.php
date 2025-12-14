@@ -8,8 +8,8 @@ use App\Application\Contracts\Linnworks\InventoryClientInterface;
 use App\Domain\Exceptions\ResourceNotFoundException;
 use App\Domain\Inventory\ValueObjects\StockItem;
 use App\Infrastructure\Linnworks\LinnworksHttpTransport;
-use App\Infrastructure\Linnworks\Responses\SkuStockIdMapping;
-use App\Infrastructure\Linnworks\Responses\StockItem as StockItemResponse;
+use App\Infrastructure\Linnworks\Responses\SkuStockIdMappingResponse;
+use App\Infrastructure\Linnworks\Responses\StockItemResponse;
 use App\Infrastructure\Linnworks\Support\LinnworksResponseParserTrait;
 
 /**
@@ -37,7 +37,7 @@ final readonly class InventoryClient implements InventoryClientInterface
      *
      * @param list<string> $skus List of SKUs to look up
      *
-     * @return list<SkuStockIdMapping> Mappings found (may be fewer than requested)
+     * @return list<SkuStockIdMappingResponse> Mappings found (may be fewer than requested)
      */
     private function getStockItemIdsBySkus(array $skus): array
     {
@@ -46,8 +46,8 @@ final readonly class InventoryClient implements InventoryClientInterface
             data: ['SKUS' => $skus],
         );
 
-        /** @var list<SkuStockIdMapping> */
-        return self::parseWrappedArray($response->json(), SkuStockIdMapping::class);
+        /** @var list<SkuStockIdMappingResponse> */
+        return self::parseWrappedArray($response->json(), SkuStockIdMappingResponse::class);
     }
 
     /**
@@ -61,7 +61,7 @@ final readonly class InventoryClient implements InventoryClientInterface
 
         $match = \array_find(
             $mappings,
-            static fn(SkuStockIdMapping $mapping): bool => $mapping->sku === $sku,
+            static fn(SkuStockIdMappingResponse $mapping): bool => $mapping->sku === $sku,
         );
 
         if ($match === null) {

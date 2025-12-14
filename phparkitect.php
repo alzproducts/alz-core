@@ -200,6 +200,7 @@ return static function (Config $config): void {
                                'Closure',
                                'Google*',
                                'Microsoft*',
+                               'HelpScout*',
                                'SoapClient',
                                'SoapFault',
                                'SoapVar',
@@ -208,6 +209,8 @@ return static function (Config $config): void {
                                'League\Flysystem',
                                'XMLReader',
                                'SimpleXMLElement',
+                               'PDOException',
+                               'Override',
                            ],
                        ),
                    )
@@ -313,19 +316,21 @@ return static function (Config $config): void {
 
     // Application services must end with "UseCase", "Service", "Transformer", "Formatter", or "Interface"
     //
-    // EXCLUSION: CacheTimesTrait is a trait holding shared cache duration constants.
-    // Traits with constants don't fit behavioral naming (*Service, *UseCase) and
-    // Clean Architecture doesn't mandate naming for utility code.
+    // EXCLUSIONS:
+    // - CacheTimesTrait: Trait holding shared cache duration constants
+    // - GracefulCache: Utility class for graceful cache operations
+    // - Enums subdirectories: Type-safe enums don't need behavioral naming
     //
     $rules[] = Rule::allClasses()
                    ->that(new ResideInOneOfTheseNamespaces($application))
                    ->andThat(new NotHaveNameMatching('CacheTimesTrait'))
                    ->andThat(new NotHaveNameMatching('GracefulCache'))
+                   ->andThat(new NotResideInTheseNamespaces('App\Application\HelpScout\Queries\Conversation\Enums'))
                    ->should(
-                       new MatchOneOfTheseNames(['*UseCase', '*Service', '*Transformer', '*Formatter', '*Interface', '*DTO', '*Exception', '*Result']),
+                       new MatchOneOfTheseNames(['*UseCase', '*Service', '*Transformer', '*Formatter', '*Sorter', '*Interface', '*DTO', '*Exception', '*Result', '*Params']),
                    )
                    ->because(
-                       'Application layer classes should be clearly identifiable as use cases, services, transformers, formatters, or interfaces.',
+                       'Application layer classes should be clearly identifiable as use cases, services, transformers, formatters, sorters, interfaces, or parameter objects.',
                    );
 
     // RULE 5: No interfaces in Infrastructure
@@ -427,6 +432,43 @@ return static function (Config $config): void {
                    ->should(new NotResideInTheseNamespaces($domain))
                    ->because(
                        'DTOs are data transfer formats for Infrastructure/Application layers. Domain should only contain ValueObjects representing pure business concepts.',
+                   );
+
+    // RULE 8b: Classes in DTOs/ directories must have *DTO suffix
+    //
+    // WHY: Enforces consistent naming for Data Transfer Objects.
+    //
+    // VIOLATION EXAMPLE:
+    // ❌ namespace App\Infrastructure\Mixpanel\DTOs;
+    //    class AdSpendEvent { }  // Missing DTO suffix
+    //
+    // CORRECT:
+    // ✅ namespace App\Infrastructure\Mixpanel\DTOs;
+    //    class AdSpendEventDTO { }  // Clear intent
+    //
+    $rules[] = Rule::allClasses()
+                   ->that(new ResideInOneOfTheseNamespaces('App\*\DTOs'))
+                   ->should(new HaveNameMatching('*DTO'))
+                   ->because('Classes in DTOs/ directories must have "DTO" suffix for clarity.');
+
+    // RULE 8c: Classes in Responses/ directories must have *Response suffix
+    //
+    // WHY: Distinguishes API response parsing classes from other types.
+    // Response classes parse external API JSON into typed objects with toDomain() methods.
+    //
+    // VIOLATION EXAMPLE:
+    // ❌ namespace App\Infrastructure\HelpScout\Responses;
+    //    class Conversation { }  // Missing Response suffix
+    //
+    // CORRECT:
+    // ✅ namespace App\Infrastructure\HelpScout\Responses;
+    //    class ConversationResponse { }  // Clear intent
+    //
+    $rules[] = Rule::allClasses()
+                   ->that(new ResideInOneOfTheseNamespaces('App\Infrastructure\*\Responses'))
+                   ->should(new HaveNameMatching('*Response'))
+                   ->because(
+                       'API response classes should have "Response" suffix to distinguish them from Domain objects.',
                    );
 
     // RULE 9: Organization Rule - All Domain classes must be in subdirectories

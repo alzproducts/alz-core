@@ -7,7 +7,7 @@ namespace App\Infrastructure\ReviewsIo;
 use App\Application\Contracts\ReviewsIoClientInterface;
 use App\Domain\Exceptions\InvalidApiResponseException;
 use App\Domain\Product\ValueObjects\ProductRating;
-use App\Infrastructure\ReviewsIo\Responses\Rating;
+use App\Infrastructure\ReviewsIo\Responses\RatingResponse;
 use App\Infrastructure\ReviewsIo\Validation\ValidSku;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
@@ -85,9 +85,9 @@ final readonly class ReviewsIoClient implements ReviewsIoClientInterface
             'sku' => \implode(ReviewsIoConfig::SKU_DELIMITER, $validatedSkus),
         ]);
 
-        $infraRatings = $this->parseArrayResponse($response->json(), Rating::class);
+        $infraRatings = $this->parseArrayResponse($response->json(), RatingResponse::class);
 
-        /** @var array<int, Rating> $ratingsArray */
+        /** @var array<int, RatingResponse> $ratingsArray */
         $ratingsArray = $infraRatings->all();
 
         return self::mapToProductRatings($ratingsArray);
@@ -198,7 +198,7 @@ final readonly class ReviewsIoClient implements ReviewsIoClientInterface
      * rather than failing the entire batch. This provides resilience against
      * unexpected API data while maintaining visibility into data quality issues.
      *
-     * @param array<int, Rating> $ratings Infrastructure DTOs from API response
+     * @param array<int, RatingResponse> $ratings Infrastructure DTOs from API response
      *
      * @return list<ProductRating> Valid domain value objects
      */
@@ -206,7 +206,7 @@ final readonly class ReviewsIoClient implements ReviewsIoClientInterface
     {
         return \array_values(\array_filter(
             \array_map(
-                static function (Rating $rating): ?ProductRating {
+                static function (RatingResponse $rating): ?ProductRating {
                     try {
                         return $rating->toDomain();
                     } catch (InvalidArgumentException) {
