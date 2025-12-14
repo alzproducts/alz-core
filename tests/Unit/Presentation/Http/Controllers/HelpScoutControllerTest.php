@@ -9,6 +9,7 @@ use App\Application\HelpScout\Services\CachingHelpScoutService;
 use App\Application\HelpScout\UseCases\GetConversationsUseCase;
 use App\Application\HelpScout\UseCases\GetEscalationsUseCase;
 use App\Domain\CustomerService\ValueObjects\Conversation;
+use App\Domain\CustomerService\ValueObjects\SupportAgent;
 use App\Presentation\Http\Controllers\HelpScoutController;
 use DateTimeImmutable;
 use Illuminate\Http\JsonResponse;
@@ -51,11 +52,12 @@ final class HelpScoutControllerTest extends TestCase
     public function assigned_resolves_agent_id_from_request(): void
     {
         $request = $this->createRequestWithEmail('agent@example.com');
+        $agent = $this->createSupportAgent(12345, 'agent@example.com');
 
-        $this->mockService->expects('resolveAgentId')
+        $this->mockService->expects('getAgentProfile')
             ->with('agent@example.com')
             ->once()
-            ->andReturn(12345);
+            ->andReturn($agent);
 
         $this->mockGetConversations->expects('execute')
             ->andReturn([]);
@@ -67,9 +69,10 @@ final class HelpScoutControllerTest extends TestCase
     public function assigned_delegates_to_use_case_with_assigned_params(): void
     {
         $request = $this->createRequestWithEmail('agent@example.com');
+        $agent = $this->createSupportAgent(12345, 'agent@example.com');
 
-        $this->mockService->expects('resolveAgentId')
-            ->andReturn(12345);
+        $this->mockService->expects('getAgentProfile')
+            ->andReturn($agent);
 
         $capturedParams = null;
         $this->mockGetConversations->expects('execute')
@@ -91,9 +94,10 @@ final class HelpScoutControllerTest extends TestCase
     {
         $request = $this->createRequestWithEmail('agent@example.com');
         $conversations = [$this->createConversation(1)];
+        $agent = $this->createSupportAgent(12345, 'agent@example.com');
 
-        $this->mockService->expects('resolveAgentId')
-            ->andReturn(12345);
+        $this->mockService->expects('getAgentProfile')
+            ->andReturn($agent);
 
         $this->mockGetConversations->expects('execute')
             ->andReturn($conversations);
@@ -116,9 +120,10 @@ final class HelpScoutControllerTest extends TestCase
     public function refresh_assigned_passes_force_refresh_true(): void
     {
         $request = $this->createRequestWithEmail('agent@example.com');
+        $agent = $this->createSupportAgent(12345, 'agent@example.com');
 
-        $this->mockService->expects('resolveAgentId')
-            ->andReturn(12345);
+        $this->mockService->expects('getAgentProfile')
+            ->andReturn($agent);
 
         $this->mockGetConversations->expects('execute')
             ->withArgs(static fn(ConversationQueryParams $params, bool $forceRefresh): bool => $forceRefresh === true)
@@ -138,11 +143,12 @@ final class HelpScoutControllerTest extends TestCase
     public function todos_resolves_agent_id_from_request(): void
     {
         $request = $this->createRequestWithEmail('agent@example.com');
+        $agent = $this->createSupportAgent(12345, 'agent@example.com');
 
-        $this->mockService->expects('resolveAgentId')
+        $this->mockService->expects('getAgentProfile')
             ->with('agent@example.com')
             ->once()
-            ->andReturn(12345);
+            ->andReturn($agent);
 
         $this->mockGetConversations->expects('execute')
             ->andReturn([]);
@@ -154,9 +160,10 @@ final class HelpScoutControllerTest extends TestCase
     public function todos_delegates_to_use_case_with_todos_params(): void
     {
         $request = $this->createRequestWithEmail('agent@example.com');
+        $agent = $this->createSupportAgent(12345, 'agent@example.com');
 
-        $this->mockService->expects('resolveAgentId')
-            ->andReturn(12345);
+        $this->mockService->expects('getAgentProfile')
+            ->andReturn($agent);
 
         $capturedParams = null;
         $this->mockGetConversations->expects('execute')
@@ -177,9 +184,10 @@ final class HelpScoutControllerTest extends TestCase
     public function todos_returns_json_response_with_data(): void
     {
         $request = $this->createRequestWithEmail('agent@example.com');
+        $agent = $this->createSupportAgent(12345, 'agent@example.com');
 
-        $this->mockService->expects('resolveAgentId')
-            ->andReturn(12345);
+        $this->mockService->expects('getAgentProfile')
+            ->andReturn($agent);
 
         $this->mockGetConversations->expects('execute')
             ->andReturn([]);
@@ -201,9 +209,10 @@ final class HelpScoutControllerTest extends TestCase
     public function refresh_todos_passes_force_refresh_true(): void
     {
         $request = $this->createRequestWithEmail('agent@example.com');
+        $agent = $this->createSupportAgent(12345, 'agent@example.com');
 
-        $this->mockService->expects('resolveAgentId')
-            ->andReturn(12345);
+        $this->mockService->expects('getAgentProfile')
+            ->andReturn($agent);
 
         $this->mockGetConversations->expects('execute')
             ->withArgs(static fn(ConversationQueryParams $params, bool $forceRefresh): bool => $forceRefresh === true)
@@ -326,6 +335,64 @@ final class HelpScoutControllerTest extends TestCase
 
     /*
     |--------------------------------------------------------------------------
+    | profile() Tests
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function profile_gets_agent_profile_from_service(): void
+    {
+        $request = $this->createRequestWithEmail('agent@example.com');
+        $agent = $this->createSupportAgent(12345, 'agent@example.com', 'admin');
+
+        $this->mockService->expects('getAgentProfile')
+            ->with('agent@example.com')
+            ->once()
+            ->andReturn($agent);
+
+        $this->controller->profile($request);
+    }
+
+    #[Test]
+    public function profile_returns_json_response_with_agent_data(): void
+    {
+        $request = $this->createRequestWithEmail('agent@example.com');
+        $agent = $this->createSupportAgent(12345, 'agent@example.com', 'admin');
+
+        $this->mockService->expects('getAgentProfile')
+            ->andReturn($agent);
+
+        $response = $this->controller->profile($request);
+
+        $this->assertInstanceOf(JsonResponse::class, $response);
+        $this->assertSame(200, $response->getStatusCode());
+
+        $data = $response->getData(assoc: true);
+        $this->assertArrayHasKey('data', $data);
+        $this->assertSame(12345, $data['data']['id']);
+        $this->assertSame('agent@example.com', $data['data']['email']);
+        $this->assertSame('Test', $data['data']['firstName']);
+        $this->assertSame('Agent', $data['data']['lastName']);
+        $this->assertSame('admin', $data['data']['role']);
+    }
+
+    #[Test]
+    public function profile_returns_null_role_when_agent_has_no_role(): void
+    {
+        $request = $this->createRequestWithEmail('agent@example.com');
+        $agent = $this->createSupportAgent(12345, 'agent@example.com', null);
+
+        $this->mockService->expects('getAgentProfile')
+            ->andReturn($agent);
+
+        $response = $this->controller->profile($request);
+
+        $data = $response->getData(assoc: true);
+        $this->assertNull($data['data']['role']);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
     | Test Helpers
     |--------------------------------------------------------------------------
     */
@@ -336,6 +403,17 @@ final class HelpScoutControllerTest extends TestCase
         $request->merge(['auth_user_email' => $email]);
 
         return $request;
+    }
+
+    private function createSupportAgent(int $id, string $email, ?string $role = null): SupportAgent
+    {
+        return new SupportAgent(
+            id: $id,
+            email: $email,
+            firstName: 'Test',
+            lastName: 'Agent',
+            role: $role,
+        );
     }
 
     private function createConversation(int $id): Conversation

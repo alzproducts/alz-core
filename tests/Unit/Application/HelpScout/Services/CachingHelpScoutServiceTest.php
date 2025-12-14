@@ -65,83 +65,92 @@ final class CachingHelpScoutServiceTest extends TestCase
 
     /*
     |--------------------------------------------------------------------------
-    | resolveAgentId() Tests
+    | getAgentProfile() Tests
     |--------------------------------------------------------------------------
     */
 
     #[Test]
-    public function resolve_agent_id_returns_cached_id(): void
+    public function get_agent_profile_returns_cached_profile(): void
     {
-        $this->mockCache->expects('rememberInt')
+        $agent = $this->createSupportAgent(12345, 'agent@example.com', 'admin');
+
+        $this->mockCache->expects('remember')
             ->with(
-                Mockery::pattern('/^helpscout:agent:email:/'),
+                Mockery::pattern('/^helpscout:agent:profile:/'),
                 604800, // 7 days
                 Mockery::type(Closure::class),
             )
             ->once()
-            ->andReturn(12345);
+            ->andReturn($agent);
 
-        $result = $this->service->resolveAgentId('agent@example.com');
+        $result = $this->service->getAgentProfile('agent@example.com');
 
-        $this->assertSame(12345, $result);
+        $this->assertSame(12345, $result->id);
+        $this->assertSame('agent@example.com', $result->email);
+        $this->assertSame('admin', $result->role);
     }
 
     #[Test]
-    public function resolve_agent_id_normalizes_email_to_lowercase(): void
+    public function get_agent_profile_normalizes_email_to_lowercase(): void
     {
         $normalizedKeyHash = \hash('xxh3', 'agent@example.com');
-        $expectedKey = "helpscout:agent:email:{$normalizedKeyHash}";
+        $expectedKey = "helpscout:agent:profile:{$normalizedKeyHash}";
 
-        $this->mockCache->expects('rememberInt')
+        $agent = $this->createSupportAgent(12345, 'agent@example.com');
+
+        $this->mockCache->expects('remember')
             ->with($expectedKey, Mockery::any(), Mockery::type(Closure::class))
             ->once()
-            ->andReturn(12345);
+            ->andReturn($agent);
 
-        $this->service->resolveAgentId('AGENT@EXAMPLE.COM');
+        $this->service->getAgentProfile('AGENT@EXAMPLE.COM');
     }
 
     #[Test]
-    public function resolve_agent_id_trims_email(): void
+    public function get_agent_profile_trims_email(): void
     {
         $normalizedKeyHash = \hash('xxh3', 'agent@example.com');
-        $expectedKey = "helpscout:agent:email:{$normalizedKeyHash}";
+        $expectedKey = "helpscout:agent:profile:{$normalizedKeyHash}";
 
-        $this->mockCache->expects('rememberInt')
+        $agent = $this->createSupportAgent(12345, 'agent@example.com');
+
+        $this->mockCache->expects('remember')
             ->with($expectedKey, Mockery::any(), Mockery::type(Closure::class))
             ->once()
-            ->andReturn(12345);
+            ->andReturn($agent);
 
-        $this->service->resolveAgentId('  agent@example.com  ');
+        $this->service->getAgentProfile('  agent@example.com  ');
     }
 
     #[Test]
-    public function resolve_agent_id_throws_when_agent_not_found(): void
+    public function get_agent_profile_throws_when_agent_not_found(): void
     {
-        $this->mockCache->expects('rememberInt')
+        $this->mockCache->expects('remember')
             ->andReturn(null);
 
         $this->expectException(CustomerServiceAgentNotFoundException::class);
         $this->expectExceptionMessage('unknown@example.com');
 
-        $this->service->resolveAgentId('unknown@example.com');
+        $this->service->getAgentProfile('unknown@example.com');
     }
 
     #[Test]
-    public function resolve_agent_id_calls_agents_client_via_cache(): void
+    public function get_agent_profile_calls_agents_client_via_cache(): void
     {
-        $agent = $this->createSupportAgent(99999, 'found@example.com');
+        $agent = $this->createSupportAgent(99999, 'found@example.com', 'user');
 
         $this->mockAgentsClient->expects('findByEmail')
             ->with('found@example.com')
             ->once()
             ->andReturn($agent);
 
-        $this->mockCache->expects('rememberInt')
-            ->andReturnUsing(static fn(string $key, int $ttl, Closure $callback): ?int => $callback());
+        $this->mockCache->expects('remember')
+            ->andReturnUsing(static fn(string $key, int $ttl, Closure $callback): ?SupportAgent => $callback());
 
-        $result = $this->service->resolveAgentId('found@example.com');
+        $result = $this->service->getAgentProfile('found@example.com');
 
-        $this->assertSame(99999, $result);
+        $this->assertSame(99999, $result->id);
+        $this->assertSame('user', $result->role);
     }
 
     /*
@@ -375,13 +384,14 @@ final class CachingHelpScoutServiceTest extends TestCase
     |--------------------------------------------------------------------------
     */
 
-    private function createSupportAgent(int $id, string $email): SupportAgent
+    private function createSupportAgent(int $id, string $email, ?string $role = null): SupportAgent
     {
         return new SupportAgent(
             id: $id,
             email: $email,
             firstName: 'Test',
             lastName: 'Agent',
+            role: $role,
         );
     }
 

@@ -16,6 +16,7 @@ final readonly class SupportAgent
         public string $email,
         public string $firstName,
         public string $lastName,
+        public ?string $role = null,
     ) {
         Assert::greaterThan($id, 0, 'Agent ID must be positive');
         Assert::notEmpty($email, 'Agent email cannot be empty');

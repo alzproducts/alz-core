@@ -49,4 +49,17 @@ Route::middleware(['throttle:api', ValidateSupabaseJwtMiddleware::class])->group
         Route::get('/escalations', [HelpScoutController::class, 'escalations']);
         Route::post('/escalations/refresh', [HelpScoutController::class, 'refreshEscalations']);
     });
+
+    /*
+    /*
+    |--------------------------------------------------------------------------
+    | HelpScout User Endpoints
+    |--------------------------------------------------------------------------
+    |
+    | User identity and connection status for settings page.
+    |
+    */
+    Route::prefix('helpscout/user')->group(static function (): void {
+        Route::get('/profile', [HelpScoutController::class, 'profile']);
+    });
 });
