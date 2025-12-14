@@ -77,6 +77,11 @@ When Infection reports "escaped mutants":
 ### Commands
 
 ```bash
+# Run tests
+make test-unit         # Unit tests only (~5s, no external deps, recommended)
+make test              # All tests (unit + integration)
+make test-feature      # Integration tests only
+
 # Quick validation (single engine)
 make test-ai           # Tests + Infection (exploratory, no thresholds)
 

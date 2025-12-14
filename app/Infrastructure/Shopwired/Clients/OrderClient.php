@@ -10,7 +10,7 @@ use App\Domain\Catalog\Order\ValueObjects\OrderLifecycleStatus;
 use App\Infrastructure\Shopwired\Mappers\OrderLifecycleStatusMapper;
 use App\Infrastructure\Shopwired\OrderQueryParams;
 use App\Infrastructure\Shopwired\Requests\OrderStatusUpdateOptions;
-use App\Infrastructure\Shopwired\Responses\Order as InfraOrder;
+use App\Infrastructure\Shopwired\Responses\OrderResponse;
 use App\Infrastructure\Shopwired\ShopwiredHttpTransport;
 use App\Infrastructure\Shopwired\ShopwiredPaginator;
 use App\Infrastructure\Shopwired\ShopwiredQueryParams;
@@ -180,7 +180,7 @@ final readonly class OrderClient implements OrderClientInterface
         );
 
         /** @var DomainOrder */
-        return self::parseSingleToDomain($response->json(), InfraOrder::class);
+        return self::parseSingleToDomain($response->json(), OrderResponse::class);
     }
 
     public function getOrderCount(): int
@@ -211,7 +211,7 @@ final readonly class OrderClient implements OrderClientInterface
         );
 
         /** @var list<DomainOrder> */
-        return self::parseWrappedArrayToDomain($response->json(), InfraOrder::class);
+        return self::parseWrappedArrayToDomain($response->json(), OrderResponse::class);
     }
 
     public function updateOrderStatus(
@@ -249,6 +249,6 @@ final readonly class OrderClient implements OrderClientInterface
         );
 
         /** @var list<DomainOrder> */
-        return self::parseArrayToDomain($response->json(), InfraOrder::class);
+        return self::parseArrayToDomain($response->json(), OrderResponse::class);
     }
 }
