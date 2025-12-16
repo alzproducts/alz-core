@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Linnworks;
 
+use App\Domain\Exceptions\InvalidConfigurationException;
 use InvalidArgumentException;
-use RuntimeException;
 
 /**
  * Immutable configuration for Linnworks API client.
@@ -40,7 +40,7 @@ final readonly class LinnworksConfig
      * @param int $timeout Request timeout in seconds (1-300)
      * @param int $cacheTtlBuffer Seconds to subtract from session TTL as safety margin (0-3600)
      *
-     * @throws RuntimeException When required credentials are empty
+     * @throws InvalidConfigurationException When required credentials are empty
      * @throws InvalidArgumentException When numeric parameters are out of bounds
      */
     public function __construct(
@@ -51,15 +51,15 @@ final readonly class LinnworksConfig
         public int $cacheTtlBuffer = 300,
     ) {
         if ($applicationId === '') {
-            throw new RuntimeException('Linnworks application ID cannot be empty');
+            throw new InvalidConfigurationException('linnworks.application_id', 'Linnworks application ID cannot be empty');
         }
 
         if ($applicationSecret === '') {
-            throw new RuntimeException('Linnworks application secret cannot be empty');
+            throw new InvalidConfigurationException('linnworks.application_secret', 'Linnworks application secret cannot be empty');
         }
 
         if ($installationToken === '') {
-            throw new RuntimeException('Linnworks installation token cannot be empty');
+            throw new InvalidConfigurationException('linnworks.installation_token', 'Linnworks installation token cannot be empty');
         }
 
         if ($timeout < 1 || $timeout > self::MAX_TIMEOUT_SECONDS) {

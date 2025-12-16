@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Infrastructure\Mixpanel;
 
 use App\Application\Contracts\MixpanelClientInterface;
-use RuntimeException;
+use App\Domain\Exceptions\InvalidConfigurationException;
 
 /**
  * Factory for creating MixpanelClient with all dependencies.
@@ -41,34 +41,34 @@ final class MixpanelClientFactory
         $retryDelay = \config('mixpanel.retry_delay');
 
         if (!\is_string($baseUrl)) {
-            throw new RuntimeException('MIXPANEL_BASE_URL not configured');
+            throw new InvalidConfigurationException('MIXPANEL_BASE_URL');
         }
         if (!\is_string($projectId)) {
-            throw new RuntimeException('MIXPANEL_PROJECT_ID not configured');
+            throw new InvalidConfigurationException('MIXPANEL_PROJECT_ID');
         }
         if (!\is_string($serviceAccountUsername)) {
-            throw new RuntimeException('MIXPANEL_SERVICE_ACCOUNT_USERNAME not configured');
+            throw new InvalidConfigurationException('MIXPANEL_SERVICE_ACCOUNT_USERNAME');
         }
         if (!\is_string($serviceAccountPassword)) {
-            throw new RuntimeException('MIXPANEL_SERVICE_ACCOUNT_PASSWORD not configured');
+            throw new InvalidConfigurationException('MIXPANEL_SERVICE_ACCOUNT_PASSWORD');
         }
         if (!\is_array($lookupTableIds) || $lookupTableIds === []) {
-            throw new RuntimeException('mixpanel.lookup_tables must be a non-empty array');
+            throw new InvalidConfigurationException('mixpanel.lookup_tables', 'mixpanel.lookup_tables must be a non-empty array');
         }
         foreach ($lookupTableIds as $key => $tableId) {
             if (!\is_string($tableId) || $tableId === '') {
-                throw new RuntimeException("Lookup table '{$key}' must be a non-empty string");
+                throw new InvalidConfigurationException("mixpanel.lookup_tables.{$key}", "Lookup table '{$key}' must be a non-empty string");
             }
         }
         /** @var array<string, string> $lookupTableIds */
         if (!\is_int($timeout)) {
-            throw new RuntimeException('MIXPANEL_TIMEOUT must be an integer');
+            throw new InvalidConfigurationException('MIXPANEL_TIMEOUT', 'MIXPANEL_TIMEOUT must be an integer');
         }
         if (!\is_int($retryTimes)) {
-            throw new RuntimeException('MIXPANEL_RETRY_TIMES must be an integer');
+            throw new InvalidConfigurationException('MIXPANEL_RETRY_TIMES', 'MIXPANEL_RETRY_TIMES must be an integer');
         }
         if (!\is_int($retryDelay)) {
-            throw new RuntimeException('MIXPANEL_RETRY_DELAY must be an integer');
+            throw new InvalidConfigurationException('MIXPANEL_RETRY_DELAY', 'MIXPANEL_RETRY_DELAY must be an integer');
         }
 
         return new MixpanelConfig(

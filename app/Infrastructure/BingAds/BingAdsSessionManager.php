@@ -4,11 +4,12 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\BingAds;
 
+use App\Application\Contracts\LockableCacheInterface;
 use App\Domain\Exceptions\AuthenticationExpiredException;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\InvalidApiResponseException;
+use DateTimeImmutable;
 use Exception;
-use Illuminate\Cache\CacheManager;
-use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
@@ -18,7 +19,7 @@ use Illuminate\Support\Facades\Log;
  * Manages Bing Ads session lifecycle: OAuth token refresh, caching, and atomic locking.
  *
  * Key responsibilities:
- * - Cache lookup and storage (Redis)
+ * - Cache lookup and storage via LockableCache (graceful degradation)
  * - Atomic locks for concurrent authentication prevention (thundering herd)
  * - Microsoft OAuth2 token refresh calls
  * - TTL management with configurable buffer
@@ -32,32 +33,36 @@ final class BingAdsSessionManager
 {
     private const string SERVICE_NAME = 'Bing Ads';
     private const string CACHE_KEY = 'bingads:session';
-    private const string LOCK_KEY = 'bingads:session:lock';
-    private const int LOCK_TIMEOUT_SECONDS = 30;
-    private const int LOCK_WAIT_SECONDS = 10;
+    private const int DEFAULT_TTL_SECONDS = 3600;
     private const int REQUEST_TIMEOUT_SECONDS = 30;
     private const int TTL_BUFFER_SECONDS = 60;
 
     public function __construct(
         private readonly BingAdsConfig $config,
-        private readonly CacheManager $cache,
+        private readonly LockableCacheInterface $cache,
     ) {}
 
     /**
      * Get a valid session (cache-first, refreshes token if needed).
      *
+     * Uses LockableCache for:
+     * - Thundering herd prevention (atomic locks)
+     * - Graceful degradation on cache failures
+     * - Double-check pattern after lock acquisition
+     *
      * @throws AuthenticationExpiredException When credentials are invalid
      * @throws ExternalServiceUnavailableException When OAuth endpoint unavailable
+     * @throws InvalidApiResponseException When OAuth response missing required fields
      */
     public function getSession(): BingAdsSession
     {
-        $cached = $this->cache->get(self::CACHE_KEY);
-
-        if (($cached instanceof BingAdsSession) && !$cached->isExpired()) {
-            return $cached;
-        }
-
-        return $this->refreshWithLock();
+        /** @var BingAdsSession */
+        return $this->cache->remember(
+            self::CACHE_KEY,
+            fn(): BingAdsSession => $this->refreshToken(),
+            self::DEFAULT_TTL_SECONDS,
+            static fn(mixed $cached): bool => ($cached instanceof BingAdsSession) && !$cached->isExpired(),
+        );
     }
 
     /**
@@ -69,52 +74,11 @@ final class BingAdsSessionManager
     }
 
     /**
-     * Refresh OAuth token with atomic lock to prevent thundering herd.
-     *
-     * When multiple requests hit an expired session simultaneously,
-     * only one will perform token refresh while others wait.
+     * Call Microsoft OAuth2 token endpoint.
      *
      * @throws AuthenticationExpiredException When credentials are invalid
      * @throws ExternalServiceUnavailableException When OAuth endpoint unavailable
-     */
-    private function refreshWithLock(): BingAdsSession
-    {
-        $lock = $this->cache->lock(self::LOCK_KEY, self::LOCK_TIMEOUT_SECONDS);
-
-        try {
-            $acquired = $lock->block(self::LOCK_WAIT_SECONDS);
-
-            if ($acquired !== true) {
-                throw new LockTimeoutException('Failed to acquire Bing Ads session lock');
-            }
-
-            try {
-                // Double-check after acquiring lock (another request may have refreshed)
-                $cached = $this->cache->get(self::CACHE_KEY);
-
-                if (($cached instanceof BingAdsSession) && !$cached->isExpired()) {
-                    return $cached;
-                }
-
-                return $this->refreshToken();
-            } finally {
-                $lock->release();
-            }
-        } catch (LockTimeoutException) {
-            Log::warning(self::SERVICE_NAME . ' session lock timeout, attempting direct refresh', [
-                'lock_wait_seconds' => self::LOCK_WAIT_SECONDS,
-            ]);
-
-            // Fallback: refresh directly if lock acquisition fails
-            return $this->refreshToken();
-        }
-    }
-
-    /**
-     * Call Microsoft OAuth2 token endpoint and cache the session.
-     *
-     * @throws AuthenticationExpiredException When credentials are invalid
-     * @throws ExternalServiceUnavailableException When OAuth endpoint unavailable
+     * @throws InvalidApiResponseException When OAuth response missing required fields
      */
     private function refreshToken(): BingAdsSession
     {
@@ -134,11 +98,7 @@ final class BingAdsSessionManager
             /** @var array<string, mixed> $data */
             $data = $response->json();
 
-            $session = BingAdsSession::fromOAuthResponse($data, self::TTL_BUFFER_SECONDS);
-
-            $this->cacheSession($session);
-
-            return $session;
+            return self::createSessionFromOAuth($data);
         } catch (RequestException $e) {
             $this->handleOAuthRequestException($e);
         } catch (ConnectionException $e) {
@@ -159,12 +119,38 @@ final class BingAdsSessionManager
     }
 
     /**
-     * Cache the session with calculated TTL.
+     * Parse OAuth response and create session with TTL buffer.
+     *
+     * OAuth response parsing and TTL policy belong here (at the boundary),
+     * not in the BingAdsSession value object which stays pure.
+     *
+     * @param array<string, mixed> $response OAuth token response
+     *
+     * @throws InvalidApiResponseException When response missing required fields
      */
-    private function cacheSession(BingAdsSession $session): void
+    private static function createSessionFromOAuth(array $response): BingAdsSession
     {
-        $ttl = $session->expiresAt->getTimestamp() - \time();
-        $this->cache->put(self::CACHE_KEY, $session, \max(1, $ttl));
+        $accessToken = $response['access_token'] ?? null;
+        $expiresIn = $response['expires_in'] ?? null;
+
+        if (!\is_string($accessToken) || ($accessToken === '')) {
+            throw new InvalidApiResponseException(
+                self::SERVICE_NAME,
+                'OAuth response missing valid access_token',
+            );
+        }
+
+        if (!\is_int($expiresIn) || ($expiresIn <= 0)) {
+            throw new InvalidApiResponseException(
+                self::SERVICE_NAME,
+                'OAuth response missing valid expires_in',
+            );
+        }
+
+        $effectiveTtl = \max(1, $expiresIn - self::TTL_BUFFER_SECONDS);
+        $expiresAt = new DateTimeImmutable("+{$effectiveTtl} seconds");
+
+        return new BingAdsSession($accessToken, $expiresAt);
     }
 
     /**

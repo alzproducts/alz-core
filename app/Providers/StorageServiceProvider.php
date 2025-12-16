@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Application\Contracts\RemoteStorageInterface;
+use App\Domain\Exceptions\InvalidConfigurationException;
 use App\Infrastructure\Storage\S3StorageClient;
 use Illuminate\Contracts\Filesystem\Factory as FilesystemFactory;
 use Illuminate\Contracts\Foundation\Application;
@@ -12,7 +13,6 @@ use Illuminate\Contracts\Support\DeferrableProvider;
 use Illuminate\Support\ServiceProvider;
 use Override;
 use Psr\Log\LoggerInterface;
-use RuntimeException;
 
 /**
  * Storage Service Provider.
@@ -32,8 +32,9 @@ final class StorageServiceProvider extends ServiceProvider implements Deferrable
                 $disk = \config('filesystems.remote');
 
                 if (!\is_string($disk) || ($disk === '')) {
-                    throw new RuntimeException(
-                        'Remote storage disk not configured (filesystems.remote)',
+                    throw new InvalidConfigurationException(
+                        'filesystems.remote',
+                        'Remote storage disk not configured',
                     );
                 }
 

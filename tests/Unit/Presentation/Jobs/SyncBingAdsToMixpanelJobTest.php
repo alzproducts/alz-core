@@ -190,6 +190,8 @@ final class SyncBingAdsToMixpanelJobTest extends TestCase
             ->with($exception);
         $job->shouldReceive('attempts')->andReturn(1);
 
+        $this->expectException(PayloadSerializationException::class);
+
         $job->handle($this->mockUseCase);
     }
 
@@ -215,6 +217,8 @@ final class SyncBingAdsToMixpanelJobTest extends TestCase
             ->with($exception);
         $job->shouldNotReceive('release'); // Should NOT release for retry
         $job->shouldReceive('attempts')->andReturn(1);
+
+        $this->expectException(PayloadSerializationException::class);
 
         $job->handle($this->mockUseCase);
     }
@@ -253,6 +257,8 @@ final class SyncBingAdsToMixpanelJobTest extends TestCase
             ->with($exception);
         $job->shouldReceive('attempts')->andReturn(1);
 
+        $this->expectException(AuthenticationExpiredException::class);
+
         $job->handle($this->mockUseCase);
     }
 
@@ -278,6 +284,8 @@ final class SyncBingAdsToMixpanelJobTest extends TestCase
             ->with($exception);
         $job->shouldNotReceive('release'); // Should NOT release for retry
         $job->shouldReceive('attempts')->andReturn(2);
+
+        $this->expectException(AuthenticationExpiredException::class);
 
         $job->handle($this->mockUseCase);
     }

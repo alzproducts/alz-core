@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Infrastructure\HelpScout;
 
+use App\Domain\Exceptions\InvalidConfigurationException;
 use App\Infrastructure\HelpScout\HelpScoutConfig;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
-use RuntimeException;
 use Tests\TestCase;
 
 #[CoversClass(HelpScoutConfig::class)]
@@ -82,7 +82,7 @@ final class HelpScoutConfigTest extends TestCase
     #[Test]
     public function it_throws_runtime_exception_when_mailboxes_empty(): void
     {
-        $this->expectException(RuntimeException::class);
+        $this->expectException(InvalidConfigurationException::class);
         $this->expectExceptionMessage('At least one HelpScout mailbox must be configured');
 
         new HelpScoutConfig(mailboxes: []);

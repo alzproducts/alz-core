@@ -71,6 +71,35 @@ parameters:
             allowedCheckedExceptionCallables:
                 'Illuminate\Contracts\Concurrency\Driver::run': 0
 
+    # Checked exception enforcement - require @throws documentation
+    # See: https://phpstan.org/blog/bring-your-exceptions-under-control
+    # TEMPORARILY DISABLED: Re-enable after completing @throws documentation work
+    # TODO: Issue #73 Stage 2 - Add proper @throws tags throughout codebase
+    exceptions:
+        check:
+            missingCheckedExceptionInThrows: false  # Temporarily disabled
+            tooWideThrowType: false  # Temporarily disabled
+        uncheckedExceptionClasses:
+            # LogicException family - programming errors, fix the code not catch it
+            # Note: Our DomainException extends RuntimeException (intentionally - domain
+            # exceptions ARE runtime conditions). We do NOT mark RuntimeException unchecked
+            # because that would make all Domain exceptions unchecked.
+            - LogicException
+            - InvalidArgumentException
+            - BadMethodCallException
+            - BadFunctionCallException
+            - DomainException  # PHP's built-in \DomainException, NOT our App\Domain\Exceptions\DomainException
+            - LengthException
+            - OutOfBoundsException
+            - OutOfRangeException
+            - OverflowException
+            - RangeException
+            - UnderflowException
+            - UnexpectedValueException
+            # PHPUnit - test-only exceptions
+            - PHPUnit\Framework\AssertionFailedError
+            - PHPUnit\Framework\Exception
+
     # Ignore overly strict ShipMonk rules not suitable for Laravel
     ignoreErrors:
         # Laravel often requires unused closure parameters (Gate::define signatures, factory states, etc.)

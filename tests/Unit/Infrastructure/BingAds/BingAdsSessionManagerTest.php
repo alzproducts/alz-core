@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Infrastructure\BingAds;
 
+use App\Application\Contracts\LockableCacheInterface;
 use App\Domain\Exceptions\AuthenticationExpiredException;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Infrastructure\BingAds\BingAdsConfig;
 use App\Infrastructure\BingAds\BingAdsSession;
 use App\Infrastructure\BingAds\BingAdsSessionManager;
+use Closure;
 use DateTimeImmutable;
-use Illuminate\Cache\CacheManager;
-use Illuminate\Contracts\Cache\Lock;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
@@ -28,16 +28,18 @@ use Tests\TestCase;
  * BingAdsSessionManager Unit Tests.
  *
  * Tests OAuth session management including:
- * - Cache lookup and storage
- * - Atomic locking for concurrent requests
+ * - Cache delegation to LockableCacheInterface
  * - OAuth token refresh
  * - Error handling and exception translation
+ *
+ * Note: Lock contention tests are now in LockableCacheTest since the manager
+ * delegates locking to LockableCache via the remember() method.
  */
 #[CoversClass(BingAdsSessionManager::class)]
 final class BingAdsSessionManagerTest extends TestCase
 {
     private BingAdsConfig $config;
-    private CacheManager&MockInterface $mockCache;
+    private LockableCacheInterface&MockInterface $mockCache;
     private BingAdsSessionManager $manager;
 
     #[Override]
@@ -54,34 +56,63 @@ final class BingAdsSessionManagerTest extends TestCase
             customerId: '87654321',
         );
 
-        $this->mockCache = Mockery::mock(CacheManager::class);
+        $this->mockCache = Mockery::mock(LockableCacheInterface::class);
         $this->manager = new BingAdsSessionManager($this->config, $this->mockCache);
     }
 
     /*
     |--------------------------------------------------------------------------
-    | Cache Hit Tests
+    | Cache Delegation Tests
     |--------------------------------------------------------------------------
     */
 
     #[Test]
-    public function it_returns_cached_session_when_valid(): void
+    public function it_delegates_to_cache_remember_with_correct_parameters(): void
     {
-        $cachedSession = new BingAdsSession('cached-token', new DateTimeImmutable('+1 hour'));
+        $expectedSession = new BingAdsSession('cached-token', new DateTimeImmutable('+1 hour'));
 
         $this->mockCache
-            ->shouldReceive('get')
+            ->shouldReceive('remember')
             ->once()
-            ->with('bingads:session')
-            ->andReturn($cachedSession);
+            ->withArgs(static function (string $key, Closure $factory, int $ttl, ?Closure $validator): bool {
+                // Verify key
+                if ($key !== 'bingads:session') {
+                    return false;
+                }
+
+                // Verify TTL (default 3600)
+                if ($ttl !== 3600) {
+                    return false;
+                }
+
+                // Verify validator accepts valid session
+                $validSession = new BingAdsSession('token', new DateTimeImmutable('+1 hour'));
+                if ($validator !== null && !$validator($validSession)) {
+                    return false;
+                }
+
+                // Verify validator rejects expired session
+                $expiredSession = new BingAdsSession('token', new DateTimeImmutable('-1 second'));
+                if ($validator !== null && $validator($expiredSession)) {
+                    return false;
+                }
+
+                // Verify validator rejects non-session
+                return ! ($validator !== null && $validator('not-a-session'))
+
+
+
+                ;
+            })
+            ->andReturn($expectedSession);
 
         $result = $this->manager->getSession();
 
-        $this->assertSame($cachedSession, $result);
+        $this->assertSame($expectedSession, $result);
     }
 
     #[Test]
-    public function it_refreshes_when_cached_session_is_expired(): void
+    public function it_executes_oauth_refresh_when_factory_is_called(): void
     {
         Http::fake([
             'login.microsoftonline.com/*' => Http::response([
@@ -90,59 +121,22 @@ final class BingAdsSessionManagerTest extends TestCase
             ]),
         ]);
 
-        $expiredSession = new BingAdsSession('expired-token', new DateTimeImmutable('-1 second'));
-        $mockLock = $this->createMockLock();
-
         $this->mockCache
-            ->shouldReceive('get')
-            ->with('bingads:session')
-            ->andReturn($expiredSession, null); // First call returns expired, second (after lock) returns null
-
-        $this->mockCache
-            ->shouldReceive('lock')
-            ->with('bingads:session:lock', 30)
-            ->andReturn($mockLock);
-
-        $this->mockCache
-            ->shouldReceive('put')
+            ->shouldReceive('remember')
             ->once()
-            ->withArgs(static fn(string $key, BingAdsSession $session, int $ttl): bool => $key === 'bingads:session'
-                    && $session->accessToken === 'new-token'
-                    && $ttl > 0);
+            ->withArgs(function (string $key, Closure $factory, int $ttl, ?Closure $validator): bool {
+                // Execute the factory to trigger OAuth call
+                $session = $factory();
+                $this->assertInstanceOf(BingAdsSession::class, $session);
+                $this->assertSame('new-token', $session->accessToken);
+
+                return true;
+            })
+            ->andReturnUsing(static fn($key, $factory) => $factory());
 
         $result = $this->manager->getSession();
 
         $this->assertSame('new-token', $result->accessToken);
-    }
-
-    #[Test]
-    public function it_refreshes_when_cache_is_empty(): void
-    {
-        Http::fake([
-            'login.microsoftonline.com/*' => Http::response([
-                'access_token' => 'fresh-token',
-                'expires_in' => 3600,
-            ]),
-        ]);
-
-        $mockLock = $this->createMockLock();
-
-        $this->mockCache
-            ->shouldReceive('get')
-            ->with('bingads:session')
-            ->andReturn(null, null); // Both calls return null
-
-        $this->mockCache
-            ->shouldReceive('lock')
-            ->andReturn($mockLock);
-
-        $this->mockCache
-            ->shouldReceive('put')
-            ->once();
-
-        $result = $this->manager->getSession();
-
-        $this->assertSame('fresh-token', $result->accessToken);
     }
 
     #[Test]
@@ -155,57 +149,14 @@ final class BingAdsSessionManagerTest extends TestCase
             ]),
         ]);
 
-        $mockLock = $this->createMockLock();
-
         $this->mockCache
-            ->shouldReceive('get')
-            ->with('bingads:session')
-            ->andReturn(null, null);
-
-        $this->mockCache
-            ->shouldReceive('lock')
-            ->andReturn($mockLock);
-
-        $this->mockCache
-            ->shouldReceive('put')
-            ->once();
+            ->shouldReceive('remember')
+            ->andReturnUsing(static fn($key, $factory) => $factory());
 
         $this->manager->getSession();
 
-        // Verify request was sent to OAuth endpoint
         Http::assertSent(static fn(Request $request): bool => \str_contains($request->url(), 'login.microsoftonline.com')
                 && $request->method() === 'POST');
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | Lock Contention Tests
-    |--------------------------------------------------------------------------
-    */
-
-    #[Test]
-    public function it_returns_fresh_session_when_another_request_refreshed_during_lock(): void
-    {
-        $freshSession = new BingAdsSession('fresh-token', new DateTimeImmutable('+1 hour'));
-        $mockLock = $this->createMockLock();
-
-        $this->mockCache
-            ->shouldReceive('get')
-            ->with('bingads:session')
-            ->andReturn(null, $freshSession); // Second call (after lock) returns fresh session
-
-        $this->mockCache
-            ->shouldReceive('lock')
-            ->andReturn($mockLock);
-
-        // No HTTP call should be made - another request already refreshed
-        Http::fake([
-            '*' => Http::response([], 500), // Would fail if called
-        ]);
-
-        $result = $this->manager->getSession();
-
-        $this->assertSame($freshSession, $result);
     }
 
     /*
@@ -224,7 +175,7 @@ final class BingAdsSessionManagerTest extends TestCase
             ], 400),
         ]);
 
-        $this->setupRefreshScenario();
+        $this->setupFactoryExecution();
 
         $this->expectException(AuthenticationExpiredException::class);
         $this->expectExceptionMessage('Invalid credentials or refresh token expired');
@@ -241,7 +192,7 @@ final class BingAdsSessionManagerTest extends TestCase
             ], 401),
         ]);
 
-        $this->setupRefreshScenario();
+        $this->setupFactoryExecution();
 
         $this->expectException(AuthenticationExpiredException::class);
         $this->expectExceptionMessage('Invalid credentials or refresh token expired');
@@ -258,7 +209,7 @@ final class BingAdsSessionManagerTest extends TestCase
             ], 403),
         ]);
 
-        $this->setupRefreshScenario();
+        $this->setupFactoryExecution();
 
         $this->expectException(AuthenticationExpiredException::class);
 
@@ -274,7 +225,7 @@ final class BingAdsSessionManagerTest extends TestCase
             ], 500),
         ]);
 
-        $this->setupRefreshScenario();
+        $this->setupFactoryExecution();
 
         $this->expectException(ExternalServiceUnavailableException::class);
         $this->expectExceptionMessage("External service 'Bing Ads' is unavailable");
@@ -289,7 +240,7 @@ final class BingAdsSessionManagerTest extends TestCase
             throw new ConnectionException('Connection timed out');
         });
 
-        $this->setupRefreshScenario();
+        $this->setupFactoryExecution();
 
         $this->expectException(ExternalServiceUnavailableException::class);
         $this->expectExceptionMessage("External service 'Bing Ads' is unavailable");
@@ -313,7 +264,7 @@ final class BingAdsSessionManagerTest extends TestCase
             ], 400),
         ]);
 
-        $this->setupRefreshScenario();
+        $this->setupFactoryExecution();
 
         Log::shouldReceive('error')
             ->once()
@@ -340,7 +291,7 @@ final class BingAdsSessionManagerTest extends TestCase
             ], 500),
         ]);
 
-        $this->setupRefreshScenario();
+        $this->setupFactoryExecution();
 
         Log::shouldReceive('error')
             ->once()
@@ -364,7 +315,7 @@ final class BingAdsSessionManagerTest extends TestCase
             throw new ConnectionException('Connection timed out');
         });
 
-        $this->setupRefreshScenario();
+        $this->setupFactoryExecution();
 
         Log::shouldReceive('error')
             ->once()
@@ -387,7 +338,7 @@ final class BingAdsSessionManagerTest extends TestCase
             throw new RuntimeException('Unexpected error');
         });
 
-        $this->setupRefreshScenario();
+        $this->setupFactoryExecution();
 
         Log::shouldReceive('error')
             ->once()
@@ -411,7 +362,7 @@ final class BingAdsSessionManagerTest extends TestCase
     */
 
     #[Test]
-    public function it_clears_cache_on_invalidate(): void
+    public function it_delegates_invalidate_to_cache_forget(): void
     {
         $this->mockCache
             ->shouldReceive('forget')
@@ -431,31 +382,12 @@ final class BingAdsSessionManagerTest extends TestCase
     */
 
     /**
-     * Create a mock lock that successfully acquires and releases.
+     * Setup cache mock to execute factory (triggers OAuth call).
      */
-    private function createMockLock(): Lock&MockInterface
+    private function setupFactoryExecution(): void
     {
-        $lock = Mockery::mock(Lock::class);
-        $lock->shouldReceive('block')->with(10)->andReturn(true);
-        $lock->shouldReceive('release');
-
-        return $lock;
-    }
-
-    /**
-     * Setup cache mock for refresh scenarios (empty cache, acquire lock).
-     */
-    private function setupRefreshScenario(): void
-    {
-        $mockLock = $this->createMockLock();
-
         $this->mockCache
-            ->shouldReceive('get')
-            ->with('bingads:session')
-            ->andReturn(null, null);
-
-        $this->mockCache
-            ->shouldReceive('lock')
-            ->andReturn($mockLock);
+            ->shouldReceive('remember')
+            ->andReturnUsing(static fn($key, $factory) => $factory());
     }
 }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Providers\AppServiceProvider;
 use App\Providers\BingAdsServiceProvider;
+use App\Providers\CacheServiceProvider;
 use App\Providers\GoogleAdsServiceProvider;
 use App\Providers\HelpScoutServiceProvider;
 use App\Providers\HorizonServiceProvider;
@@ -19,6 +20,7 @@ use App\Providers\TelescopeServiceProvider;
 return [
     AppServiceProvider::class,
     BingAdsServiceProvider::class,
+    CacheServiceProvider::class,
     GoogleAdsServiceProvider::class,
     HelpScoutServiceProvider::class,
     LinnworksServiceProvider::class,
