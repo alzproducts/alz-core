@@ -18,6 +18,8 @@ use App\Domain\CustomerService\ValueObjects\EscalationsConfig;
 use App\Domain\CustomerService\ValueObjects\Mailbox;
 use App\Domain\CustomerService\ValueObjects\SupportAgent;
 use App\Domain\Exceptions\ConfigurationNotFoundException;
+use App\Domain\Exceptions\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\InvalidApiResponseException;
 
 /**
  * Caching decorator for HelpScout API operations.
@@ -60,6 +62,8 @@ final readonly class CachingHelpScoutService
      * Cached for 7 days (profile data rarely changes).
      *
      * @throws CustomerServiceAgentNotFoundException When no agent matches email
+     * @throws ExternalServiceUnavailableException When API unavailable
+     * @throws InvalidApiResponseException When API response structure is invalid
      */
     public function getAgentProfile(string $email): SupportAgent
     {
@@ -83,6 +87,9 @@ final readonly class CachingHelpScoutService
      * Get conversations with caching and mailbox enrichment.
      *
      * @return list<Conversation>
+     *
+     * @throws ExternalServiceUnavailableException When API unavailable
+     * @throws InvalidApiResponseException When API response structure is invalid
      */
     public function getConversations(ConversationQueryParams $params): array
     {
@@ -104,6 +111,9 @@ final readonly class CachingHelpScoutService
      * @param list<ConversationQueryParams> $queries
      *
      * @return list<Conversation>
+     *
+     * @throws ExternalServiceUnavailableException When API unavailable
+     * @throws InvalidApiResponseException When API response structure is invalid
      */
     public function getConversationsBatch(array $queries): array
     {
@@ -163,6 +173,9 @@ final readonly class CachingHelpScoutService
      * Get all mailboxes with caching.
      *
      * @return list<Mailbox>
+     *
+     * @throws ExternalServiceUnavailableException When API unavailable
+     * @throws InvalidApiResponseException When API response structure is invalid
      */
     public function getMailboxes(): array
     {
@@ -177,6 +190,7 @@ final readonly class CachingHelpScoutService
      * Get escalations configuration with caching.
      *
      * @throws ConfigurationNotFoundException When config missing or disabled
+     * @throws ExternalServiceUnavailableException When database unavailable
      */
     public function getEscalationsConfig(): EscalationsConfig
     {

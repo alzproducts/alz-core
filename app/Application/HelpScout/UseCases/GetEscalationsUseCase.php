@@ -9,6 +9,9 @@ use App\Application\HelpScout\Services\CachingHelpScoutService;
 use App\Application\HelpScout\Support\ConversationSorter;
 use App\Domain\CustomerService\ValueObjects\Conversation;
 use App\Domain\CustomerService\ValueObjects\EscalationsConfig;
+use App\Domain\Exceptions\ConfigurationNotFoundException;
+use App\Domain\Exceptions\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\InvalidApiResponseException;
 
 /**
  * Orchestrates escalation queries across mailboxes.
@@ -37,6 +40,10 @@ final readonly class GetEscalationsUseCase
      * @param bool $forceRefresh Invalidate cache before fetching (for manual refresh)
      *
      * @return list<Conversation>
+     *
+     * @throws ConfigurationNotFoundException When escalations config missing or disabled
+     * @throws ExternalServiceUnavailableException When API or database unavailable
+     * @throws InvalidApiResponseException When API response structure is invalid
      */
     public function execute(bool $forceRefresh = false): array
     {
@@ -101,6 +108,9 @@ final readonly class GetEscalationsUseCase
      * @param list<ConversationQueryParams> $queries
      *
      * @return list<Conversation>
+     *
+     * @throws ExternalServiceUnavailableException When API unavailable
+     * @throws InvalidApiResponseException When API response structure is invalid
      */
     private function executeAndProcess(array $queries, EscalationsConfig $config): array
     {

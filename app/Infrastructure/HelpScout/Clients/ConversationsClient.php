@@ -7,7 +7,9 @@ namespace App\Infrastructure\HelpScout\Clients;
 use App\Application\Contracts\HelpScout\ConversationsClientInterface;
 use App\Application\HelpScout\Queries\ConversationQueryParams;
 use App\Domain\CustomerService\ValueObjects\Conversation as DomainConversation;
+use App\Domain\Exceptions\AuthenticationExpiredException;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\InvalidApiRequestException;
 use App\Domain\Exceptions\InvalidApiResponseException;
 use App\Infrastructure\HelpScout\HelpScoutHttpTransport;
 use App\Infrastructure\HelpScout\HelpScoutResponseParser;
@@ -41,6 +43,11 @@ final readonly class ConversationsClient implements ConversationsClientInterface
      * Get conversations based on query parameters.
      *
      * @return list<DomainConversation>
+     *
+     * @throws AuthenticationExpiredException When credentials invalid/expired
+     * @throws ExternalServiceUnavailableException When API unavailable
+     * @throws InvalidApiRequestException When request parameters invalid
+     * @throws InvalidApiResponseException When API response structure is invalid
      */
     #[Override]
     public function getConversations(ConversationQueryParams $params): array
@@ -73,7 +80,9 @@ final readonly class ConversationsClient implements ConversationsClientInterface
      *
      * @return list<list<DomainConversation>> Results indexed same as input queries
      *
+     * @throws AuthenticationExpiredException When credentials invalid/expired
      * @throws ExternalServiceUnavailableException When HelpScout API is unavailable
+     * @throws InvalidApiRequestException When request parameters invalid
      * @throws InvalidApiResponseException When API response structure changes
      */
     #[Override]
