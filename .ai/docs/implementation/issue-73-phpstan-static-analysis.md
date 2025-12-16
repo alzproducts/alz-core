@@ -12,7 +12,25 @@ Comprehensive static analysis improvements including PHPStan checked exception e
 
 ## Decision Log
 
-### 2025-12-17
+### 2025-12-17 (Session 2)
+
+- **Decision**: Complete HelpScout integration `@throws` documentation as first batch
+- **Why**: Self-contained integration spanning Infrastructure → Application layers, establishes pattern for remaining batches
+- **Files Modified**: 8 files (UsersClient, MailboxesClient, ConversationsClient, HelpScoutHttpTransport, CachingHelpScoutService, MailboxEnrichmentService, GetEscalationsUseCase, GetConversationsUseCase)
+
+- **Decision**: Document all 4 HelpScout exceptions throughout the chain
+- **Why**: Transport layer throws AuthenticationExpiredException, ExternalServiceUnavailableException, InvalidApiRequestException, InvalidApiResponseException - all must propagate up
+- **Tradeoff**: Verbose but accurate documentation
+
+- **Decision**: Add `@throws RuntimeException` to HelpScoutHttpTransport.createRequest()
+- **Why**: SDK's getAuthHeader() can throw RuntimeException on token refresh failure - must be documented
+- **Tradeoff**: RuntimeException is unchecked but still needs @throws for clarity
+
+- **Decision**: Add `@throws` to private methods that throw/propagate
+- **Why**: PHPStan's checked exception rules apply to private methods too (executeAndProcess, getMailboxNameMap)
+- **Tradeoff**: More documentation overhead
+
+### 2025-12-17 (Session 1)
 
 - **Decision**: Create `LockableCacheInterface` with `@param-immediately-invoked-callable` annotation
 - **Why**: Enables PHPStan to understand exception propagation from closures without requiring `@throws Exception` on cache methods
@@ -69,7 +87,8 @@ Comprehensive static analysis improvements including PHPStan checked exception e
 - [x] Refactored LinnworksSessionManager to use LockableCacheInterface
 - [x] Updated session manager tests
 - [x] Temporarily disabled checked exception rules
-- [ ] Remaining @throws propagation (~176 errors) - deferred to Stage 2
+- [x] **HelpScout @throws batch** (21 errors → 0) - complete
+- [ ] Remaining @throws propagation (~150 errors) - in progress
 
 ### Stages 2-6: Not Started
 - [ ] Stage 2: Missing PHPStan parameters
@@ -86,6 +105,7 @@ Comprehensive static analysis improvements including PHPStan checked exception e
 | Session 1 | 185 | After Factory and Config updates |
 | Session 2 | 176 | After Service Provider and Middleware updates |
 | Session 3 | 0 | Temporarily disabled checked exception rules, all other errors fixed |
+| Session 4 | 171 | Re-enabled checked exceptions, HelpScout batch complete |
 
 ## Deviations from Plan
 
