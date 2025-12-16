@@ -4,6 +4,30 @@ This guide documents frequently encountered linting errors and their solutions, 
 
 ---
 
+## General Troubleshooting
+
+### Ignoring Errors on PHPDoc Annotation Lines
+
+When PHPStan reports errors on `@throws`, `@param`, `@return`, or other PHPDoc tags (not on actual code), use `@phpstan-ignore-next-line` **within the docblock**:
+
+```php
+/**
+ * @phpstan-ignore-next-line some.rule.identifier (reason why it's safe)
+ * @throws SomeException Description
+ */
+```
+
+**Key behavior (PHPStan v2+):**
+- `@phpstan-ignore-next-line` within a docblock → ignores errors on the **next annotation line**
+- `@phpstan-ignore-next-line` at the **end** of a docblock → ignores errors on the **code line** (method signature)
+
+This is intentional PHPStan v2 behavior. See [PHPStan Issue #12153](https://github.com/phpstan/phpstan/issues/12153) for details.
+
+**References:**
+- [PHPStan Ignoring Errors](https://phpstan.org/user-guide/ignoring-errors)
+
+---
+
 ## shipmonk.checkedExceptionInCallable
 
 ### What It Means
@@ -184,6 +208,49 @@ Does entire directory follow same pattern?
     → YES: Add path-based ignore in phpstan.neon → DONE
     → NO: Refactor code to avoid checked exceptions in closure
 ```
+
+---
+
+## shipmonk.nonNormalizedType
+
+### What It Means
+
+ShipMonk flags `@throws` declarations listing both specific exceptions and their parent types as "non-normalized". The rule considers listing `ConnectionException` alongside `Exception` redundant since catching `Exception` catches all subtypes.
+
+**Typical error message:**
+```
+Found non-normalized type (ConnectionException | Exception) for throws: ConnectionException is a subtype of Exception.
+```
+
+### When It Triggers
+
+- Documenting `@throws SpecificException` and `@throws Exception` in the same docblock
+- The specific exception extends the generic one (directly or indirectly)
+
+### Solution
+
+When you intentionally document all specific exception types for caller clarity (even though a parent type is also listed), use `@phpstan-ignore-next-line` within the docblock before each specific `@throws` line:
+
+```php
+/**
+ * @phpstan-ignore-next-line shipmonk.nonNormalizedType (specific exceptions documented for caller clarity)
+ * @throws ConnectionException When connection fails
+ * @phpstan-ignore-next-line shipmonk.nonNormalizedType
+ * @throws RequestException When HTTP response indicates error
+ * @throws Exception When unexpected error occurs
+ */
+private function downloadData(): string
+```
+
+**Key points:**
+- Each `@phpstan-ignore-next-line` suppresses the error on the following `@throws` line
+- Only needed for specific exceptions that have the parent type also listed
+- `@throws Exception` at the end doesn't need an ignore (it's the "normalized" parent)
+
+See [General Troubleshooting](#ignoring-errors-on-phpdoc-annotation-lines) for the underlying PHPStan v2 behavior.
+
+**Related codebase files:**
+- `app/Infrastructure/BingAds/BingAdsTransport.php` - Pattern example
 
 ---
 

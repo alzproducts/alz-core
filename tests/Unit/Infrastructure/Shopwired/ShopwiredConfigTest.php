@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Infrastructure\Shopwired;
 
+use App\Domain\Exceptions\InvalidConfigurationException;
 use App\Infrastructure\Shopwired\ShopwiredConfig;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
-use RuntimeException;
 use Tests\TestCase;
 use Throwable;
 
@@ -66,7 +66,7 @@ final class ShopwiredConfigTest extends TestCase
     #[Test]
     public function it_throws_exception_for_empty_api_key(): void
     {
-        $this->expectException(RuntimeException::class);
+        $this->expectException(InvalidConfigurationException::class);
         $this->expectExceptionMessage('Shopwired API key cannot be empty');
 
         new ShopwiredConfig(
@@ -78,7 +78,7 @@ final class ShopwiredConfigTest extends TestCase
     #[Test]
     public function it_throws_exception_for_empty_api_secret(): void
     {
-        $this->expectException(RuntimeException::class);
+        $this->expectException(InvalidConfigurationException::class);
         $this->expectExceptionMessage('Shopwired API secret cannot be empty');
 
         new ShopwiredConfig(

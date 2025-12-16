@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Presentation\Http\Middleware;
 
+use App\Domain\Exceptions\InvalidConfigurationException;
 use Closure;
 use Firebase\JWT\JWT;
 use Firebase\JWT\Key;
@@ -49,7 +50,7 @@ final class ValidateSupabaseJwtMiddleware
             $secret = \config('services.supabase.jwt_secret');
 
             if (!\is_string($secret) || ($secret === '')) {
-                throw new RuntimeException('SUPABASE_JWT_SECRET not configured');
+                throw new InvalidConfigurationException('services.supabase.jwt_secret', 'SUPABASE_JWT_SECRET not configured');
             }
 
             // Validate and decode JWT using HS256 algorithm (Supabase default)

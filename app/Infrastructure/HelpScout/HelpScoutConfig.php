@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\HelpScout;
 
+use App\Domain\Exceptions\InvalidConfigurationException;
 use InvalidArgumentException;
-use RuntimeException;
 
 /**
  * Immutable configuration for HelpScout API client.
@@ -47,7 +47,7 @@ final readonly class HelpScoutConfig
      * @param int $timeoutSeconds HTTP timeout in seconds (1-120)
      * @param int $retryAttempts Number of retry attempts for transient failures (1-10)
      *
-     * @throws RuntimeException When mailboxes are not configured
+     * @throws InvalidConfigurationException When mailboxes are not configured
      * @throws InvalidArgumentException When parameters are invalid
      */
     public function __construct(
@@ -56,7 +56,7 @@ final readonly class HelpScoutConfig
         public int $retryAttempts = self::DEFAULT_RETRY_ATTEMPTS,
     ) {
         if ($mailboxes === []) {
-            throw new RuntimeException('At least one HelpScout mailbox must be configured');
+            throw new InvalidConfigurationException('helpscout.mailboxes', 'At least one HelpScout mailbox must be configured');
         }
 
         foreach ($mailboxes as $name => $id) {

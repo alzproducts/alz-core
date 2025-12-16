@@ -7,15 +7,18 @@ namespace App\Domain\Exceptions;
 use Throwable;
 
 /**
- * Thrown when an API request fails validation before being sent.
+ * Thrown when the API rejects our request (e.g., 400 Bad Request).
  *
  * Use cases:
  * - Malformed query syntax (e.g., invalid GAQL)
  * - Invalid parameter values or types
  * - SDK-level validation failures
+ * - Request data serialization failures (e.g., json_encode)
+ * - User-provided data rejected by API validation
  *
- * This is a programming error - our code constructed an invalid request.
- * Should NOT retry (permanent until code changes).
+ * May indicate a programming error OR invalid user input that couldn't
+ * be validated locally (APIs don't document all validation rules).
+ * Should NOT retry (permanent until request is corrected).
  *
  * @see InvalidApiResponseException For malformed responses from the API
  * @see ExternalServiceUnavailableException For transient failures (rate limits, outages)

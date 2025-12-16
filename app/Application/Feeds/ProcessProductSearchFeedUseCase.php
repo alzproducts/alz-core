@@ -6,9 +6,9 @@ namespace App\Application\Feeds;
 
 use App\Application\Contracts\ProductSearchFeedProcessorInterface;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\InvalidConfigurationException;
 use App\Domain\Exceptions\MalformedFeedDataException;
 use App\Domain\Exceptions\StorageOperationFailedException;
-use InvalidArgumentException;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -31,7 +31,7 @@ final readonly class ProcessProductSearchFeedUseCase
      * Validates configuration, then delegates to the processor for
      * fetch, transform, and upload operations.
      *
-     * @throws InvalidArgumentException When required config is missing
+     * @throws InvalidConfigurationException When required config is missing
      * @throws ExternalServiceUnavailableException When source feed is unreachable
      * @throws MalformedFeedDataException When source feed XML is malformed
      * @throws StorageOperationFailedException When upload to storage fails
@@ -62,7 +62,7 @@ final readonly class ProcessProductSearchFeedUseCase
      *
      * @return array{source_url: string, storage_path: string, storage_disk: string}
      *
-     * @throws InvalidArgumentException When required config is missing or invalid
+     * @throws InvalidConfigurationException When required config is missing or invalid
      */
     private static function validateConfig(): array
     {
@@ -70,14 +70,20 @@ final readonly class ProcessProductSearchFeedUseCase
         $config = \config('feeds.doofinder');
 
         if (!\is_array($config)) {
-            throw new InvalidArgumentException('Product search feed configuration is missing (feeds.doofinder)');
+            throw new InvalidConfigurationException(
+                'feeds.doofinder',
+                'Product search feed configuration is missing',
+            );
         }
 
         $required = ['source_url', 'storage_path', 'storage_disk'];
 
         foreach ($required as $key) {
             if (!isset($config[$key]) || !\is_string($config[$key]) || ($config[$key] === '')) {
-                throw new InvalidArgumentException("Product search feed config missing required key: {$key}");
+                throw new InvalidConfigurationException(
+                    "feeds.doofinder.{$key}",
+                    "Product search feed config missing required key: {$key}",
+                );
             }
         }
 

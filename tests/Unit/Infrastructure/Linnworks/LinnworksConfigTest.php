@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Infrastructure\Linnworks;
 
+use App\Domain\Exceptions\InvalidConfigurationException;
 use App\Infrastructure\Linnworks\LinnworksConfig;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
-use RuntimeException;
 use Tests\TestCase;
 use Throwable;
 
@@ -70,7 +70,7 @@ final class LinnworksConfigTest extends TestCase
     #[Test]
     public function it_throws_exception_for_empty_application_id(): void
     {
-        $this->expectException(RuntimeException::class);
+        $this->expectException(InvalidConfigurationException::class);
         $this->expectExceptionMessage('Linnworks application ID cannot be empty');
 
         new LinnworksConfig(
@@ -83,7 +83,7 @@ final class LinnworksConfigTest extends TestCase
     #[Test]
     public function it_throws_exception_for_empty_application_secret(): void
     {
-        $this->expectException(RuntimeException::class);
+        $this->expectException(InvalidConfigurationException::class);
         $this->expectExceptionMessage('Linnworks application secret cannot be empty');
 
         new LinnworksConfig(
@@ -96,7 +96,7 @@ final class LinnworksConfigTest extends TestCase
     #[Test]
     public function it_throws_exception_for_empty_installation_token(): void
     {
-        $this->expectException(RuntimeException::class);
+        $this->expectException(InvalidConfigurationException::class);
         $this->expectExceptionMessage('Linnworks installation token cannot be empty');
 
         new LinnworksConfig(

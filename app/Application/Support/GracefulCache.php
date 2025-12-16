@@ -5,9 +5,10 @@ declare(strict_types=1);
 namespace App\Application\Support;
 
 use Closure;
+use Exception;
 use Psr\Log\LoggerInterface;
+use Psr\SimpleCache\CacheException;
 use Psr\SimpleCache\CacheInterface;
-use Throwable;
 
 /**
  * Cache wrapper with graceful degradation on failures.
@@ -49,7 +50,7 @@ final readonly class GracefulCache
                 /** @var T $cached */
                 return $cached;
             }
-        } catch (Throwable $e) {
+        } catch (CacheException|Exception $e) {
             $this->logger->warning("{$this->serviceName} cache read failed", [
                 'key' => $key,
                 'exception' => $e->getMessage(),
@@ -60,7 +61,7 @@ final readonly class GracefulCache
 
         try {
             $this->cache->set($key, $value, $ttl);
-        } catch (Throwable $e) {
+        } catch (CacheException|Exception $e) {
             $this->logger->warning("{$this->serviceName} cache write failed", [
                 'key' => $key,
                 'exception' => $e->getMessage(),
@@ -72,14 +73,13 @@ final readonly class GracefulCache
 
     /**
      * Get integer value from cache or execute callback and cache result.
-     *
      * Redis serializes integers as strings. This method ensures type-safe
      * integer retrieval by casting the cached value back to int.
-     *
      * @param-immediately-invoked-callable $callback
      *
      * @param Closure(): ?int $callback
-     */
+     *
+     * @noinspection PhpUnused*/
     public function rememberInt(string $key, int $ttl, Closure $callback): ?int
     {
         $value = $this->remember($key, $ttl, $callback);
@@ -98,7 +98,7 @@ final readonly class GracefulCache
     {
         try {
             return $this->cache->get($key);
-        } catch (Throwable $e) {
+        } catch (CacheException|Exception $e) {
             $this->logger->warning("{$this->serviceName} cache read failed", [
                 'key' => $key,
                 'exception' => $e->getMessage(),
@@ -117,7 +117,7 @@ final readonly class GracefulCache
     {
         try {
             $this->cache->set($key, $value, $ttl);
-        } catch (Throwable $e) {
+        } catch (CacheException|Exception $e) {
             $this->logger->warning("{$this->serviceName} cache write failed", [
                 'key' => $key,
                 'exception' => $e->getMessage(),
@@ -135,7 +135,7 @@ final readonly class GracefulCache
     {
         try {
             $this->cache->delete($key);
-        } catch (Throwable $e) {
+        } catch (CacheException|Exception $e) {
             $this->logger->warning("{$this->serviceName} cache invalidation failed", [
                 'key' => $key,
                 'exception' => $e->getMessage(),

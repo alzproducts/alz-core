@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Providers;
 
+use App\Domain\Exceptions\InvalidConfigurationException;
 use App\Providers\AppServiceProvider;
 use Override;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
-use RuntimeException;
 use Tests\TestCase;
 
 /**
@@ -142,7 +142,7 @@ final class AppServiceProviderTest extends TestCase
         $this->setupProductionEnvironment([$missingKey => null]);
 
         // Assert
-        $this->expectException(RuntimeException::class);
+        $this->expectException(InvalidConfigurationException::class);
         $this->expectExceptionMessage($expectedMessageFragment);
         $this->expectExceptionMessage('Production deployment blocked');
         // Verify complete message structure to kill concatenation mutations
@@ -179,7 +179,7 @@ final class AppServiceProviderTest extends TestCase
         $this->setupProductionEnvironment([$emptyKey => $emptyValue]);
 
         // Assert
-        $this->expectException(RuntimeException::class);
+        $this->expectException(InvalidConfigurationException::class);
         $this->expectExceptionMessage('Production deployment blocked');
 
         // Act
@@ -206,7 +206,7 @@ final class AppServiceProviderTest extends TestCase
         $this->setupProductionEnvironment(['app.key' => $invalidKey]);
 
         // Assert
-        $this->expectException(RuntimeException::class);
+        $this->expectException(InvalidConfigurationException::class);
         $this->expectExceptionMessage('SECURITY: APP_KEY is too short or invalid.');
         // Verify complete message structure to kill concatenation mutations
         $this->expectExceptionMessage("Run 'php artisan key:generate' to create a secure key.");
@@ -237,7 +237,7 @@ final class AppServiceProviderTest extends TestCase
         ]);
 
         // Assert
-        $this->expectException(RuntimeException::class);
+        $this->expectException(InvalidConfigurationException::class);
         $this->expectExceptionMessage('Application encryption key (APP_KEY)');
         $this->expectExceptionMessage('Database host (DB_HOST)');
         $this->expectExceptionMessage('Supabase JWT secret (SUPABASE_JWT_SECRET)');

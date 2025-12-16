@@ -94,6 +94,7 @@ final class SyncBingAdsToMixpanelJob implements ShouldQueue
             ]);
 
             $this->fail($e);
+            throw $e;
         } catch (AuthenticationExpiredException $e) {
             // Permanent failure - credentials need fixing, don't waste retries
             Log::critical('Authentication failed during Bing Ads sync, failing immediately', [
@@ -105,6 +106,7 @@ final class SyncBingAdsToMixpanelJob implements ShouldQueue
             ]);
 
             $this->fail($e);
+            throw $e;
         } catch (ExternalServiceUnavailableException $e) {
             Log::warning('External service unavailable during Bing Ads sync, will retry', [
                 'from' => $fromString,
@@ -120,6 +122,20 @@ final class SyncBingAdsToMixpanelJob implements ShouldQueue
             } else {
                 throw $e;
             }
+        } catch (Throwable $e) {
+            // Unexpected exception = code needs updating
+            // Fail immediately - don't waste retries on unknown errors
+            Log::critical('Unexpected exception in Bing Ads sync - code update required', [
+                'job' => static::class,
+                'exception' => $e::class,
+                'message' => $e->getMessage(),
+                'from' => $fromString,
+                'to' => $toString,
+                'attempts' => $this->attempts(),
+            ]);
+
+            $this->fail($e);
+            throw $e;
         }
     }
 

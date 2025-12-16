@@ -7,6 +7,8 @@ namespace App\Infrastructure\BingAds;
 use App\Application\Contracts\BingAdsClientInterface;
 use App\Domain\AdSpend\Enums\AdSource;
 use App\Domain\AdSpend\ValueObjects\CampaignMetrics;
+use App\Domain\Exceptions\AuthenticationExpiredException;
+use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Domain\ValueObjects\DateRange;
 use App\Infrastructure\BingAds\Transformers\BingAdsCsvTransformer;
 
@@ -39,6 +41,9 @@ final readonly class BingAdsClient implements BingAdsClientInterface
      *
      * Retrieves account details to validate OAuth credentials
      * and confirm API access is working.
+     *
+     * @throws AuthenticationExpiredException When credentials invalid
+     * @throws ExternalServiceUnavailableException When API unavailable
      */
     public function verifyConnectivity(): void
     {
@@ -55,6 +60,10 @@ final readonly class BingAdsClient implements BingAdsClientInterface
      * 3. Transformer parses CSV into domain value objects
      *
      * @return list<CampaignMetrics>
+     *
+     * @throws AuthenticationExpiredException When credentials invalid
+     * @throws ExternalServiceUnavailableException When API unavailable
+     * @throws Exceptions\InvalidBingAdsResponseException When CSV format is invalid
      */
     public function getCampaignMetricsByDateRange(DateRange $range): array
     {

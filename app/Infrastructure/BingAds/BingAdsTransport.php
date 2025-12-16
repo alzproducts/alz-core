@@ -191,7 +191,11 @@ final class BingAdsTransport
             return self::extractCsvFromZip($zipContent);
         } /** @noinspection PhpRedundantCatchClauseInspection */ catch (SoapFault $e) {
             throw $this->handleSoapFault($e);
+        } catch (AuthenticationExpiredException|ExternalServiceUnavailableException $e) {
+            // Domain exceptions from pollUntilComplete() - pass through, don't double-wrap
+            throw $e;
         } catch (Exception $e) {
+            // SDK init, HTTP, or ZIP errors - translate to Domain
             throw $this->handleServerError($e);
         }
     }
@@ -200,6 +204,8 @@ final class BingAdsTransport
      * Submit a campaign performance report request.
      *
      * @return string Report request ID for polling
+     *
+     * @throws SoapFault When SOAP call fails
      */
     private function submitReport(SoapClient $soapClient, DateRange $range): string
     {
@@ -269,6 +275,7 @@ final class BingAdsTransport
      *
      * @return string|null Download URL, or null if report has no data
      *
+     * @throws SoapFault When SOAP call fails
      * @throws ExternalServiceUnavailableException When report generation fails or times out
      */
     private static function pollUntilComplete(SoapClient $soapClient, string $reportRequestId): ?string
@@ -335,8 +342,13 @@ final class BingAdsTransport
     /**
      * Download report ZIP from temporary URL.
      *
-     * @throws RequestException When download fails
-     * @throws ConnectionException
+     * @phpstan-ignore-next-line shipmonk.nonNormalizedType (specific exceptions documented for caller clarity)
+     * @throws ConnectionException When connection fails
+     * @phpstan-ignore-next-line shipmonk.nonNormalizedType
+     * @throws RequestException When HTTP response indicates error (4xx/5xx)
+     * @phpstan-ignore-next-line shipmonk.nonNormalizedType
+     * @throws RuntimeException When PendingRequest fails internally
+     * @throws Exception When HTTP client encounters unexpected error
      */
     private function downloadReport(string $url): string
     {
