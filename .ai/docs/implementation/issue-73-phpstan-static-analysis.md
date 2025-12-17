@@ -12,6 +12,47 @@ Comprehensive static analysis improvements including PHPStan checked exception e
 
 ## Decision Log
 
+### 2025-12-18 (Stage 3: Recommended Extensions)
+
+- **Decision**: Install `spaze/phpstan-disallowed-calls` with 4 rulesets
+- **Rulesets**: disallowed-dangerous-calls, disallowed-execution-calls, disallowed-insecure-calls, disallowed-loose-calls
+- **Why**: Prevents security vulnerabilities (exec, shell_exec), type coercion bugs (in_array without strict), and dangerous functions
+
+- **Decision**: Install `tomasvotruba/cognitive-complexity` with thresholds (function=10, class=50)
+- **Why**: Enforces readable, maintainable functions. SonarQube default is 15, we chose stricter.
+- **Refactors Required**: 5 methods exceeded threshold
+
+- **Decision**: Extract `DoofinderItemTransformer` from `DoofinderFeedProcessor`
+- **Why**: CC 15→7 achieved by separating item transformation logic (field formatting, validation helpers)
+- **Pattern**: Single Responsibility - processor handles orchestration, transformer handles data mapping
+
+- **Decision**: Extract validation helpers in `GoogleAdsRowTransformer::toCampaignMetrics()`
+- **Why**: CC 22→10 by extracting `validateNestedObjects()`, `validateStringField()`, `validateIntField()`, `validateFloatField()`
+- **Pattern**: Each field validation becomes a single-purpose method
+
+- **Decision**: Extract config validators in `MixpanelClientFactory::createConfig()`
+- **Why**: CC 11→10 by extracting `requireString()`, `requireInt()`, `requireLookupTables()`
+- **Pattern**: Type-specific validation methods reduce nested conditionals
+
+- **Decision**: Extract SOAP extractors in `BingAdsTransport::extractErrorCode()`
+- **Why**: CC 11→10 by extracting `extractFromApiFaultDetail()`, `extractFromAdApiFaultDetail()`
+- **Lesson**: PHPDoc type annotations are lexically scoped - extracted methods need their own `@param` object shape annotations
+
+- **Decision**: Extract `handlePoolResult()` in `ShopwiredHttpTransport::poolPost()`
+- **Why**: CC 11→10 by separating result handling (error translation, logging) from iteration logic
+
+- **Decision**: Install `tomasvotruba/type-coverage` with 99% thresholds
+- **Why**: Codebase already at 99%+ coverage (return, param, property). Threshold prevents regression.
+- **No errors**: Confirms disciplined typing throughout
+
+- **Decision**: Install `staabm/phpstan-todo-by` for TODO expiration enforcement
+- **Why**: Prevents TODO accumulation. Future TODOs must have expiration dates.
+- **Cleanup**: Removed obsolete "Issue #73 Stage 2" TODO (Stage 2 complete)
+
+- **Lesson**: Test with `make lint` not just `phpstan analyse app/`
+- **Why**: Full lint includes config/, routes/, database/ - baseline patterns needed for those paths
+- **Tradeoff**: Running subset analysis during dev can miss issues caught by full lint
+
 ### 2025-12-18 (Stage 2: Missing PHPStan Parameters)
 
 - **Decision**: Add 4 strict PHPStan parameters
@@ -154,8 +195,19 @@ Comprehensive static analysis improvements including PHPStan checked exception e
 - [x] Fixed 14 offset access errors (asserts, refactoring, InvalidConfigurationException)
 - **Total**: 24 errors → 0 errors
 
-### Stages 3-6: Not Started
-- [ ] Stage 3: Recommended extensions (spaze, cognitive-complexity, type-coverage, todo-by)
+### Stage 3: Recommended Extensions — COMPLETE
+- [x] Installed `spaze/phpstan-disallowed-calls` (4 security/quality rulesets)
+- [x] Installed `tomasvotruba/cognitive-complexity` (function=10, class=50)
+- [x] Refactored 5 methods exceeding CC threshold:
+  - DoofinderFeedProcessor (extracted DoofinderItemTransformer)
+  - GoogleAdsRowTransformer::toCampaignMetrics() (CC 22→10)
+  - MixpanelClientFactory::createConfig() (CC 11→10)
+  - BingAdsTransport::extractErrorCode() (CC 11→10)
+  - ShopwiredHttpTransport::poolPost() (CC 11→10)
+- [x] Installed `tomasvotruba/type-coverage` (99% thresholds - already passing)
+- [x] Installed `staabm/phpstan-todo-by` (removed obsolete Stage 2 TODO)
+
+### Stages 4-6: Not Started
 - [ ] Stage 4: Optional strict extensions (thecodingmachine, symplify)
 - [ ] Stage 5: TLint Laravel conventions
 - [ ] Stage 6: Psalm taint analysis
@@ -172,6 +224,7 @@ Comprehensive static analysis improvements including PHPStan checked exception e
 | Session 5 | 146 | Linnworks + Mixpanel batches complete (25 errors fixed) |
 | Session 6 | 0 | **All @throws complete** - 59 remaining errors fixed, migrations excluded |
 | Stage 2 | 24→0 | **Missing parameters enabled** - 4 strict checks, 24 violations fixed |
+| Stage 3 | 5→0 | **Extensions added** - 4 packages, 5 CC refactors, 99% type coverage confirmed |
 
 ## Deviations from Plan
 

@@ -59,7 +59,9 @@
         "rector/rector": "^2.2",
         "shipmonk/phpstan-rules": "^4.2",
         "spaze/phpstan-disallowed-calls": "^4.7",
-        "tomasvotruba/cognitive-complexity": "^1.0"
+        "staabm/phpstan-todo-by": "^0.3.3",
+        "tomasvotruba/cognitive-complexity": "^1.0",
+        "tomasvotruba/type-coverage": "^2.1"
     },
     "autoload": {
         "psr-4": {
