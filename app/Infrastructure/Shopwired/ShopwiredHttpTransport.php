@@ -20,6 +20,7 @@ use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use LogicException;
 use RuntimeException;
 use Throwable;
 
@@ -222,7 +223,9 @@ final readonly class ShopwiredHttpTransport
         }
 
         if ($result->failed()) {
-            \assert(\array_key_exists($key, $requests), 'Pool result key must exist in original requests');
+            if (!\array_key_exists($key, $requests)) {
+                throw new LogicException('Pool result key must exist in original requests');
+            }
 
             try {
                 $result->throw();

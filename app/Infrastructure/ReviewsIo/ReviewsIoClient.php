@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
+use LogicException;
 use RuntimeException;
 use Spatie\LaravelData\Data;
 use Spatie\LaravelData\DataCollection;
@@ -167,7 +168,9 @@ final readonly class ReviewsIoClient implements ReviewsIoClientInterface
         );
 
         // After validation passes, 'skus' is guaranteed to exist (required rule)
-        \assert(\array_key_exists('skus', $validated), 'Validated data must contain skus key');
+        if (!\array_key_exists('skus', $validated)) {
+            throw new LogicException('Validated data must contain skus key');
+        }
 
         /** @var array<string> */
         return $validated['skus'];
