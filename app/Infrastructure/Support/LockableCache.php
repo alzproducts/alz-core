@@ -38,7 +38,7 @@ final readonly class LockableCache implements LockableCacheInterface
     {
         try {
             $this->cache->forget($key);
-        } catch (Throwable $e) {
+        } catch (Throwable $e) { // @ignoreException - graceful degradation: cache expires naturally
             $this->logInfrastructureFailure('delete', $key, $e);
         }
     }
@@ -130,7 +130,7 @@ final readonly class LockableCache implements LockableCacheInterface
     {
         try {
             return $this->cache->get($key);
-        } catch (Throwable $e) {
+        } catch (Throwable $e) { // @ignoreException - graceful degradation: treat as cache miss
             $this->logInfrastructureFailure('read', $key, $e);
 
             return null;
@@ -144,7 +144,7 @@ final readonly class LockableCache implements LockableCacheInterface
     {
         try {
             $this->cache->put($key, $value, $ttl);
-        } catch (Throwable $e) {
+        } catch (Throwable $e) { // @ignoreException - graceful degradation: silent failure is acceptable
             $this->logInfrastructureFailure('write', $key, $e);
         }
     }
@@ -172,7 +172,7 @@ final readonly class LockableCache implements LockableCacheInterface
 
                 return null;
             }
-        } catch (Throwable $e) {
+        } catch (Throwable $e) { // @ignoreException - graceful degradation: proceed without lock protection
             $this->logInfrastructureFailure('lock', $key, $e);
 
             return null;

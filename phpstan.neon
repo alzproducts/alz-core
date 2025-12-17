@@ -18,6 +18,8 @@ includes:
     - vendor/tomasvotruba/type-coverage/config/extension.neon
     # Stage 3: Enforce expiration dates on TO-DO comments
     - vendor/staabm/phpstan-todo-by/extension.neon
+    # Stage 4: Strict exception and superglobal rules (kcs fork of thecodingmachine for PHPStan 2.x)
+    - vendor/kcs/phpstan-strict-rules/phpstan-strict-rules.neon
 
 parameters:
     level: max

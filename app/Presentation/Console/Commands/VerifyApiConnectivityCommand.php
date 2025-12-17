@@ -89,7 +89,7 @@ final class VerifyApiConnectivityCommand extends Command
             $this->line('  API Response: Valid');
 
             return true;
-        } catch (Throwable $e) {
+        } catch (Throwable $e) { // @ignoreException - connectivity test: report failure to user
             $this->error('  Failed: ' . $e->getMessage());
             $this->line('  Check: REVIEWSIO_API_KEY and REVIEWSIO_STORE in .env');
 
@@ -110,7 +110,7 @@ final class VerifyApiConnectivityCommand extends Command
             $this->line('  API Response: Valid');
 
             return true;
-        } catch (Throwable $e) {
+        } catch (Throwable $e) { // @ignoreException - connectivity test: report failure to user
             $this->error('  Failed: ' . $e->getMessage());
             $this->line('  Check: MIXPANEL_* credentials in .env');
 
@@ -136,7 +136,7 @@ final class VerifyApiConnectivityCommand extends Command
             $this->line('  Hint: Apply for Basic or Standard access at ads.google.com/aw/apicenter');
 
             return false;
-        } catch (Throwable $e) {
+        } catch (Throwable $e) { // @ignoreException - connectivity test: report failure to user
             $this->error('  Failed: ' . $e->getMessage());
             $this->line('  Check: Google Ads OAuth credentials and refresh token');
 
@@ -161,7 +161,7 @@ final class VerifyApiConnectivityCommand extends Command
             $this->line('  Check: Azure AD app permissions and OAuth credentials');
 
             return false;
-        } catch (Throwable $e) {
+        } catch (Throwable $e) { // @ignoreException - connectivity test: report failure to user
             $this->error('  Failed: ' . $e->getMessage());
             $this->line('  Check: BING_ADS_* credentials in .env');
 
@@ -181,7 +181,7 @@ final class VerifyApiConnectivityCommand extends Command
             $this->line('  API Response: Valid');
 
             return true;
-        } catch (Throwable $e) {
+        } catch (Throwable $e) { // @ignoreException - connectivity test: report failure to user
             $this->error('  Failed: ' . $e->getMessage());
             $this->line('  Check: SHOPWIRED_API_KEY and SHOPWIRED_API_SECRET in .env');
 
@@ -201,7 +201,7 @@ final class VerifyApiConnectivityCommand extends Command
             $this->line('  API Response: Valid');
 
             return true;
-        } catch (Throwable $e) {
+        } catch (Throwable $e) { // @ignoreException - connectivity test: report failure to user
             $this->error('  Failed: ' . $e->getMessage());
             $this->line('  Check: LINNWORKS_APPLICATION_ID, LINNWORKS_APPLICATION_SECRET, and LINNWORKS_INSTALLATION_TOKEN in .env');
 

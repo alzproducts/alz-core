@@ -50,7 +50,7 @@ final readonly class GracefulCache
                 /** @var T $cached */
                 return $cached;
             }
-        } catch (CacheException|Exception $e) {
+        } catch (CacheException|Exception $e) { // @ignoreException - graceful degradation: treat as cache miss
             $this->logger->warning("{$this->serviceName} cache read failed", [
                 'key' => $key,
                 'exception' => $e->getMessage(),
@@ -61,7 +61,7 @@ final readonly class GracefulCache
 
         try {
             $this->cache->set($key, $value, $ttl);
-        } catch (CacheException|Exception $e) {
+        } catch (CacheException|Exception $e) { // @ignoreException - graceful degradation: return fresh data anyway
             $this->logger->warning("{$this->serviceName} cache write failed", [
                 'key' => $key,
                 'exception' => $e->getMessage(),
@@ -98,7 +98,7 @@ final readonly class GracefulCache
     {
         try {
             return $this->cache->get($key);
-        } catch (CacheException|Exception $e) {
+        } catch (CacheException|Exception $e) { // @ignoreException - graceful degradation: treat as cache miss
             $this->logger->warning("{$this->serviceName} cache read failed", [
                 'key' => $key,
                 'exception' => $e->getMessage(),
@@ -117,7 +117,7 @@ final readonly class GracefulCache
     {
         try {
             $this->cache->set($key, $value, $ttl);
-        } catch (CacheException|Exception $e) {
+        } catch (CacheException|Exception $e) { // @ignoreException - graceful degradation: silent failure is acceptable
             $this->logger->warning("{$this->serviceName} cache write failed", [
                 'key' => $key,
                 'exception' => $e->getMessage(),
@@ -135,7 +135,7 @@ final readonly class GracefulCache
     {
         try {
             $this->cache->delete($key);
-        } catch (CacheException|Exception $e) {
+        } catch (CacheException|Exception $e) { // @ignoreException - graceful degradation: cache expires naturally
             $this->logger->warning("{$this->serviceName} cache invalidation failed", [
                 'key' => $key,
                 'exception' => $e->getMessage(),

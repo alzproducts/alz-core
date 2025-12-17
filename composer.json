@@ -37,6 +37,7 @@
         "fakerphp/faker": "^1.23",
         "igorsgm/laravel-git-hooks": "^2.0",
         "infection/infection": "^0.31.7",
+        "kcs/phpstan-strict-rules": "^2.1",
         "larastan/larastan": "^3.0",
         "laravel/pail": "^1.2",
         "laravel/pint": "^1.24",
