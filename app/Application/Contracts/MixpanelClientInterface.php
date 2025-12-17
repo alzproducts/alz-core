@@ -8,6 +8,7 @@ use App\Domain\AdSpend\Enums\AdSource;
 use App\Domain\AdSpend\ValueObjects\CampaignMetrics;
 use App\Domain\Exceptions\AuthenticationExpiredException;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\InvalidApiRequestException;
 use App\Domain\Exceptions\PayloadSerializationException;
 
 interface MixpanelClientInterface
@@ -18,7 +19,9 @@ interface MixpanelClientInterface
      * Makes a lightweight API call to validate service account credentials
      * without modifying any data.
      *
-     * @throws ExternalServiceUnavailableException When API unavailable or credentials invalid
+     * @throws AuthenticationExpiredException When credentials invalid/expired
+     * @throws InvalidApiRequestException When request parameters are invalid
+     * @throws ExternalServiceUnavailableException When API unavailable
      */
     public function verifyConnectivity(): void;
 
@@ -31,6 +34,8 @@ interface MixpanelClientInterface
      * @param array<int, CampaignMetrics> $campaigns
      * @param AdSource $source The ad network these campaigns originate from
      *
+     * @throws AuthenticationExpiredException When credentials invalid/expired
+     * @throws InvalidApiRequestException When request parameters are invalid
      * @throws ExternalServiceUnavailableException When API unavailable or request fails
      * @throws PayloadSerializationException When payload cannot be encoded (data integrity issue)
      */
@@ -49,8 +54,9 @@ interface MixpanelClientInterface
      * @param array<int, string> $headers CSV column headers
      * @param array<int, array<int, string>> $rows Pre-transformed data rows
      *
+     * @throws AuthenticationExpiredException When credentials invalid/expired
+     * @throws InvalidApiRequestException When request parameters are invalid
      * @throws ExternalServiceUnavailableException When API unavailable or request fails
-     * @throws AuthenticationExpiredException When credentials invalid or expired
      */
     public function replaceLookupTable(string $tableKey, array $headers, array $rows): void;
 }

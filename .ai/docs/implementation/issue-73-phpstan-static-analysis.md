@@ -12,6 +12,20 @@ Comprehensive static analysis improvements including PHPStan checked exception e
 
 ## Decision Log
 
+### 2025-12-17 (Session 3)
+
+- **Decision**: Linnworks batch - removed stale `@phpstan-ignore` directives
+- **Why**: After proper `@throws` were added in previous session, the `missingType.checkedException` ignores on lines 65 and 107 of `LinnworksHttpTransport.php` became orphaned (PHPStan errors for ignoring non-existent errors)
+- **Files Modified**: 1 file (LinnworksHttpTransport.php)
+
+- **Decision**: Mixpanel batch - change 404 handler from `ResourceNotFoundException` to `InvalidApiRequestException`
+- **Why**: Mixpanel endpoints are fixed URLs (not dynamic resource identifiers). A 404 means we called a wrong endpoint — a programming error, semantically equivalent to 400.
+- **Tradeoff**: Differs from Linnworks/ShopWired pattern, but semantically correct for this API.
+
+- **Decision**: Add `@throws RuntimeException` to private `createBaseRequest()` only
+- **Why**: Existing `catch (Exception $e)` block already catches and translates to `ExternalServiceUnavailableException`. No change needed to public API.
+- **Files Modified**: 8 files (MixpanelHttpTransport, MixpanelClient, MixpanelClientInterface, LookupTableProviderInterface, CampaignLookupTableProvider, SyncAdSpendUseCase, SyncLookupTableUseCase)
+
 ### 2025-12-17 (Session 2)
 
 - **Decision**: Complete HelpScout integration `@throws` documentation as first batch
@@ -88,7 +102,9 @@ Comprehensive static analysis improvements including PHPStan checked exception e
 - [x] Updated session manager tests
 - [x] Temporarily disabled checked exception rules
 - [x] **HelpScout @throws batch** (21 errors → 0) - complete
-- [ ] Remaining @throws propagation (~150 errors) - in progress
+- [x] **Linnworks batch** - removed stale @phpstan-ignore directives
+- [x] **Mixpanel @throws batch** (12 errors → 0) - complete
+- [ ] Remaining @throws propagation - pending
 
 ### Stages 2-6: Not Started
 - [ ] Stage 2: Missing PHPStan parameters
@@ -106,6 +122,7 @@ Comprehensive static analysis improvements including PHPStan checked exception e
 | Session 2 | 176 | After Service Provider and Middleware updates |
 | Session 3 | 0 | Temporarily disabled checked exception rules, all other errors fixed |
 | Session 4 | 171 | Re-enabled checked exceptions, HelpScout batch complete |
+| Session 5 | 146 | Linnworks + Mixpanel batches complete (25 errors fixed) |
 
 ## Deviations from Plan
 
