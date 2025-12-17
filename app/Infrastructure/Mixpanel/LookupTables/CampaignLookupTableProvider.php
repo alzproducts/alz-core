@@ -7,6 +7,8 @@ namespace App\Infrastructure\Mixpanel\LookupTables;
 use App\Application\Contracts\GoogleAdsClientInterface;
 use App\Application\Contracts\LookupTableProviderInterface;
 use App\Domain\AdSpend\ValueObjects\Campaign;
+use App\Domain\Exceptions\AuthenticationExpiredException;
+use App\Domain\Exceptions\ExternalServiceUnavailableException;
 
 /**
  * Provides campaign lookup table data from Google Ads.
@@ -40,6 +42,9 @@ final readonly class CampaignLookupTableProvider implements LookupTableProviderI
 
     /**
      * @return array<int, array<int, string>>
+     *
+     * @throws AuthenticationExpiredException When Google Ads credentials invalid/expired
+     * @throws ExternalServiceUnavailableException When Google Ads API is unavailable
      */
     public function fetchRows(): array
     {
