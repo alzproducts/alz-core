@@ -16,7 +16,7 @@ includes:
     - vendor/tomasvotruba/cognitive-complexity/config/extension.neon
     # Stage 3: Type declaration coverage enforcement
     - vendor/tomasvotruba/type-coverage/config/extension.neon
-    # Stage 3: Enforce expiration dates on TODO comments
+    # Stage 3: Enforce expiration dates on TO-DO comments
     - vendor/staabm/phpstan-todo-by/extension.neon
 
 parameters:
