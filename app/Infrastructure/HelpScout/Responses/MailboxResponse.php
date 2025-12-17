@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace App\Infrastructure\HelpScout\Responses;
 
 use App\Domain\CustomerService\ValueObjects\Mailbox as DomainMailbox;
-use App\Infrastructure\Contracts\DomainConvertible;
+use App\Infrastructure\Contracts\DomainConvertibleInterface;
 use Spatie\LaravelData\Data;
 
 /**
  * HelpScout mailbox information.
  */
-final class MailboxResponse extends Data implements DomainConvertible
+final class MailboxResponse extends Data implements DomainConvertibleInterface
 {
     public function __construct(
         public readonly int $id,

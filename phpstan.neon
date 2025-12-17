@@ -20,6 +20,12 @@ includes:
     - vendor/staabm/phpstan-todo-by/extension.neon
     # Stage 4: Strict exception and superglobal rules (kcs fork of thecodingmachine for PHPStan 2.x)
     - vendor/kcs/phpstan-strict-rules/phpstan-strict-rules.neon
+    # Stage 4: Symplify clean architecture and naming rules
+    # Services must be included before rules (PHPStan auto-discovery loads after manual includes)
+    - vendor/symplify/phpstan-rules/config/services/services.neon
+    - vendor/symplify/phpstan-rules/config/static-rules.neon
+    - vendor/symplify/phpstan-rules/config/naming-rules.neon
+    # Note: Skip code-complexity-rules.neon (overlaps with tomasvotruba/cognitive-complexity)
 
 parameters:
     level: max
@@ -178,6 +184,18 @@ parameters:
         -
             identifier: missingType.checkedException
             path: database/migrations/*
+        # Stage 4: Symplify rule exceptions for Laravel/PHP conventions
+        # Symplify expects "Abstract*" prefix but we use "Base*" for partial implementations
+        # and our exceptions extend from abstract base classes per Clean Architecture
+        - identifier: symplify.explicitAbstractPrefixName
+        # Symplify expects singular "Exception" namespace but PHP/Laravel convention uses "Exceptions" (plural)
+        - identifier: symplify.requireExceptionNamespace
+        # Symplify requires explicit parameter names on all attributes, but Spatie Data
+        # and other libraries use positional arguments: #[MapInputName(SnakeCaseMapper::class)]
+        - identifier: symplify.requireAttributeName
+        # Static constant access like self::SUCCESS, Model::class, Command::FAILURE is idiomatic PHP.
+        # Symplify's concern about "constants changing" doesn't apply to class constants.
+        - identifier: symplify.forbiddenStaticClassConstFetch
     paths:
         - app/
         - bootstrap/

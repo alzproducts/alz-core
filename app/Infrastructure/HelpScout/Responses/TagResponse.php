@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace App\Infrastructure\HelpScout\Responses;
 
 use App\Domain\CustomerService\ValueObjects\ConversationTag;
-use App\Infrastructure\Contracts\DomainConvertible;
+use App\Infrastructure\Contracts\DomainConvertibleInterface;
 use Spatie\LaravelData\Data;
 
 /**
  * Tag attached to a HelpScout conversation.
  */
-final class TagResponse extends Data implements DomainConvertible
+final class TagResponse extends Data implements DomainConvertibleInterface
 {
     public function __construct(
         public readonly int $id,

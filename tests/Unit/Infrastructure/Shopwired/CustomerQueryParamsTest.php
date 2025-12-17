@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Infrastructure\Shopwired;
 
-use App\Infrastructure\Shopwired\Contracts\PaginatableQueryParams;
+use App\Infrastructure\Shopwired\Contracts\PaginatableQueryParamsInterface;
 use App\Infrastructure\Shopwired\CustomerQueryParams;
 use App\Infrastructure\Shopwired\ShopwiredQueryParams;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -41,7 +41,7 @@ final class CustomerQueryParamsTest extends TestCase
     {
         $params = new CustomerQueryParams();
 
-        $this->assertInstanceOf(PaginatableQueryParams::class, $params);
+        $this->assertInstanceOf(PaginatableQueryParamsInterface::class, $params);
     }
 
     #[Test]

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Shopwired;
 
-use App\Infrastructure\Shopwired\Contracts\PaginatableQueryParams;
+use App\Infrastructure\Shopwired\Contracts\PaginatableQueryParamsInterface;
 
 /**
  * Immutable value object for ShopWired Order API query parameters.
@@ -17,7 +17,7 @@ use App\Infrastructure\Shopwired\Contracts\PaginatableQueryParams;
  *
  * @internal For use within ShopWired infrastructure only
  */
-final readonly class OrderQueryParams implements PaginatableQueryParams
+final readonly class OrderQueryParams implements PaginatableQueryParamsInterface
 {
     /**
      * @param ShopwiredQueryParams $baseParams Core pagination/sorting params

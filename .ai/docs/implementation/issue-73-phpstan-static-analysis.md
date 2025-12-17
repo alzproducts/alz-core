@@ -12,6 +12,40 @@ Comprehensive static analysis improvements including PHPStan checked exception e
 
 ## Decision Log
 
+### 2025-12-18 (Stage 4: Optional Strict Packages)
+
+- **Decision**: Install `kcs/phpstan-strict-rules` instead of `thecodingmachine/phpstan-strict-rules`
+- **Why**: kcs is the PHPStan 2.x compatible fork. thecodingmachine/phpstan-strict-rules is abandoned and incompatible.
+- **Rules enforced**: `MustRethrowRule` (checked exceptions in catch blocks must be re-thrown or marked with `// @ignoreException`)
+
+- **Decision**: Use `// @ignoreException` comments instead of `@throws` for intentional exception swallowing
+- **Why**: kcs pattern for documenting intentional exception handling. 16 catch blocks across codebase use this pattern.
+- **Files Modified**: BingAdsTransport, ConfigCommandHookRegistry, DoofinderItemTransformer, GoogleAdsRowTransformer, LinnworksHttpTransport, LockableCache, MixpanelHttpTransport, ShopwiredHttpTransport, HelpScoutHttpTransport, JobRateLimiter
+- **Tradeoff**: Comment-based enforcement vs explicit @throws documentation
+
+- **Decision**: Install `symplify/phpstan-rules` with explicit services include
+- **Why**: Services must be loaded before rules (PHPStan auto-discovery loads after manual includes)
+- **Config**: Included `services.neon`, `static-rules.neon`, `naming-rules.neon`. Skipped `code-complexity-rules.neon` (overlaps with tomasvotruba/cognitive-complexity)
+
+- **Decision**: Disable 4 symplify rules incompatible with Laravel/PHP conventions
+- **Rules disabled**:
+  - `symplify.explicitAbstractPrefixName` — PHP convention doesn't mandate "Abstract" prefix
+  - `symplify.requireExceptionNamespace` — We use Domain-specific exception namespaces, not `Exception/`
+  - `symplify.requireAttributeName` — PHP attributes don't require "Attribute" suffix
+  - `symplify.forbiddenStaticClassConstFetch` — Valid uses in immutable DTOs (e.g., `self::MAX_COUNT`)
+- **Tradeoff**: Less strict naming but follows PHP/Laravel ecosystem conventions
+
+- **Decision**: Rename internal interfaces to consistently use "Interface" suffix
+- **Why**: Codebase convention is all interfaces have "Interface" suffix. Consistency over mixed naming.
+- **Renamed**:
+  - `DomainConvertible` → `DomainConvertibleInterface`
+  - `PaginatableQueryParams` → `PaginatableQueryParamsInterface`
+- **Files Modified**: 18 files (interfaces + all implementers)
+
+- **Decision**: Add PHPArkitect exceptions for Infrastructure-internal interfaces
+- **Why**: `DomainConvertibleInterface` and `PaginatableQueryParamsInterface` are internal contracts (`@internal`) for Infrastructure layer only. They don't cross layer boundaries, so the "interfaces in Domain/Application" rule doesn't apply.
+- **Modified**: `phparkitect.php` Rules 5 and 6 to allow these specific interfaces
+
 ### 2025-12-18 (Stage 3: Recommended Extensions)
 
 - **Decision**: Install `spaze/phpstan-disallowed-calls` with 4 rulesets
@@ -207,8 +241,15 @@ Comprehensive static analysis improvements including PHPStan checked exception e
 - [x] Installed `tomasvotruba/type-coverage` (99% thresholds - already passing)
 - [x] Installed `staabm/phpstan-todo-by` (removed obsolete Stage 2 TODO)
 
-### Stages 4-6: Not Started
-- [ ] Stage 4: Optional strict extensions (thecodingmachine, symplify)
+### Stage 4: Optional Strict Packages — COMPLETE
+- [x] Installed `kcs/phpstan-strict-rules` (PHPStan 2.x fork of thecodingmachine)
+- [x] Added `// @ignoreException` comments to 16 intentional exception swallowing catch blocks
+- [x] Installed `symplify/phpstan-rules` (services + static-rules + naming-rules)
+- [x] Disabled 4 symplify rules incompatible with Laravel/PHP conventions
+- [x] Renamed 2 interfaces for consistent "Interface" suffix
+- [x] Updated PHPArkitect rules to allow Infrastructure-internal interfaces
+
+### Stages 5-6: Not Started
 - [ ] Stage 5: TLint Laravel conventions
 - [ ] Stage 6: Psalm taint analysis
 
@@ -225,6 +266,7 @@ Comprehensive static analysis improvements including PHPStan checked exception e
 | Session 6 | 0 | **All @throws complete** - 59 remaining errors fixed, migrations excluded |
 | Stage 2 | 24→0 | **Missing parameters enabled** - 4 strict checks, 24 violations fixed |
 | Stage 3 | 5→0 | **Extensions added** - 4 packages, 5 CC refactors, 99% type coverage confirmed |
+| Stage 4 | 89→0 | **Strict packages** - kcs + symplify, 16 @ignoreException, 4 rules disabled, 2 interfaces renamed |
 
 ## Deviations from Plan
 
@@ -232,6 +274,8 @@ Comprehensive static analysis improvements including PHPStan checked exception e
 - Plan suggested excluding migrations/DevTools - instead choosing to add @throws (more correct)
 - Created `LockableCacheInterface` and `LockableCache` - emerged from session manager refactoring, provides thundering herd protection pattern
 - Temporarily disabled checked exception rules - allows committing Stage 1 progress while @throws work continues in Stage 2
+- Stage 4: Used `kcs/phpstan-strict-rules` instead of `thecodingmachine/phpstan-strict-rules` - thecodingmachine is abandoned, kcs is the PHPStan 2.x fork
+- Stage 4: Renamed internal interfaces to add "Interface" suffix - plan didn't anticipate this, emerged from symplify naming rule conflict
 
 ## Blockers / Open Questions
 
