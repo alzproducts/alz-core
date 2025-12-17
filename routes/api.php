@@ -22,7 +22,7 @@ use Illuminate\Support\Facades\Route;
 Route::middleware(['throttle:api', ValidateSupabaseJwtMiddleware::class])->group(static function (): void {
 
     // Test route to verify authentication is working
-    Route::get('/user', static fn(Request $request): array => [
+    Route::get('user', static fn(Request $request): array => [
         'user_id' => $request->input('auth_user_id'),
         'email' => $request->input('auth_user_email'),
     ]);
@@ -37,20 +37,19 @@ Route::middleware(['throttle:api', ValidateSupabaseJwtMiddleware::class])->group
     |
     */
     Route::prefix('helpscout/conversations')->group(static function (): void {
-        Route::get('/assigned', [HelpScoutController::class, 'assigned']);
-        Route::post('/assigned/refresh', [HelpScoutController::class, 'refreshAssigned']);
+        Route::get('assigned', [HelpScoutController::class, 'assigned']);
+        Route::post('assigned/refresh', [HelpScoutController::class, 'refreshAssigned']);
 
-        Route::get('/todos', [HelpScoutController::class, 'todos']);
-        Route::post('/todos/refresh', [HelpScoutController::class, 'refreshTodos']);
+        Route::get('todos', [HelpScoutController::class, 'todos']);
+        Route::post('todos/refresh', [HelpScoutController::class, 'refreshTodos']);
 
-        Route::get('/negative-reviews', [HelpScoutController::class, 'negativeReviews']);
-        Route::post('/negative-reviews/refresh', [HelpScoutController::class, 'refreshNegativeReviews']);
+        Route::get('negative-reviews', [HelpScoutController::class, 'negativeReviews']);
+        Route::post('negative-reviews/refresh', [HelpScoutController::class, 'refreshNegativeReviews']);
 
-        Route::get('/escalations', [HelpScoutController::class, 'escalations']);
-        Route::post('/escalations/refresh', [HelpScoutController::class, 'refreshEscalations']);
+        Route::get('escalations', [HelpScoutController::class, 'escalations']);
+        Route::post('escalations/refresh', [HelpScoutController::class, 'refreshEscalations']);
     });
 
-    /*
     /*
     |--------------------------------------------------------------------------
     | HelpScout User Endpoints
@@ -60,6 +59,6 @@ Route::middleware(['throttle:api', ValidateSupabaseJwtMiddleware::class])->group
     |
     */
     Route::prefix('helpscout/user')->group(static function (): void {
-        Route::get('/profile', [HelpScoutController::class, 'profile']);
+        Route::get('profile', [HelpScoutController::class, 'profile']);
     });
 });

@@ -33,8 +33,9 @@ use Tests\TestCase;
 #[CoversClass(SyncBingAdsToMixpanelJob::class)]
 final class SyncBingAdsToMixpanelJobTest extends TestCase
 {
-    private SyncAdSpendUseCase&MockInterface $mockUseCase;
     private const string TEST_DATE = '2024-11-20';
+
+    private SyncAdSpendUseCase&MockInterface $mockUseCase;
 
     #[Override]
     protected function setUp(): void

@@ -1,4 +1,4 @@
-.PHONY: help install up down shell db-setup migrate fresh pint pint-test test test-unit test-feature test-coverage coverage-html pest-mutate test-ai test-mutate lint lint-sequential lint-full fix analyse insights phparkitect deptrac stan rector rector-dry-run refactor check check-full infection infection-fast infection-strict infection-incremental infection-ci ide-helper
+.PHONY: help install up down shell db-setup migrate fresh pint pint-test test test-unit test-feature test-coverage coverage-html pest-mutate test-ai test-mutate lint lint-sequential lint-full fix analyse insights phparkitect deptrac tlint tlint-full stan rector rector-dry-run refactor check check-full infection infection-fast infection-strict infection-incremental infection-ci ide-helper
 
 # Enable strict shell mode for robust error handling
 SHELL := bash
@@ -141,36 +141,40 @@ pint-test: ## Test code style (dry-run)
 	@echo "$(MODE)"
 	$(EXEC) vendor/bin/pint --test --parallel
 
-lint: ## Run parallel lint (Pint + PHPStan + PHPArkitect + Deptrac)
+lint: ## Run parallel lint (Pint + PHPStan + PHPArkitect + Deptrac + TLint-fast)
 	@echo "$(MODE)"
 	@rm -rf /tmp/alz-lint && mkdir -p /tmp/alz-lint
 	@$(EXEC) vendor/bin/pint --test --parallel > /tmp/alz-lint/1-pint.txt 2>&1 & P1=$$!; \
 	 $(EXEC) -d xdebug.mode=off vendor/bin/phpstan analyse > /tmp/alz-lint/2-phpstan.txt 2>&1 & P2=$$!; \
 	 $(EXEC) -d xdebug.mode=off vendor/bin/phparkitect check > /tmp/alz-lint/3-phparkitect.txt 2>&1 & P3=$$!; \
 	 $(EXEC) -d xdebug.mode=off vendor/bin/deptrac analyse --fail-on-uncovered > /tmp/alz-lint/4-deptrac.txt 2>&1 & P4=$$!; \
-	 E1=0; E2=0; E3=0; E4=0; \
-	 wait $$P1 || E1=$$?; wait $$P2 || E2=$$?; wait $$P3 || E3=$$?; wait $$P4 || E4=$$?; \
+	 (vendor/bin/tlint lint app/ && vendor/bin/tlint lint routes/) > /tmp/alz-lint/5-tlint.txt 2>&1 & P5=$$!; \
+	 E1=0; E2=0; E3=0; E4=0; E5=0; \
+	 wait $$P1 || E1=$$?; wait $$P2 || E2=$$?; wait $$P3 || E3=$$?; wait $$P4 || E4=$$?; wait $$P5 || E5=$$?; \
 	 echo "=== Pint ===" && cat /tmp/alz-lint/1-pint.txt; \
 	 echo "=== PHPStan ===" && cat /tmp/alz-lint/2-phpstan.txt; \
 	 echo "=== PHPArkitect ===" && cat /tmp/alz-lint/3-phparkitect.txt; \
 	 echo "=== Deptrac ===" && cat /tmp/alz-lint/4-deptrac.txt; \
+	 echo "=== TLint ===" && cat /tmp/alz-lint/5-tlint.txt; \
 	 rm -rf /tmp/alz-lint; \
-	 [ $$E1 -eq 0 ] && [ $$E2 -eq 0 ] && [ $$E3 -eq 0 ] && [ $$E4 -eq 0 ]
+	 [ $$E1 -eq 0 ] && [ $$E2 -eq 0 ] && [ $$E3 -eq 0 ] && [ $$E4 -eq 0 ] && [ $$E5 -eq 0 ]
 
-lint-sequential: ## Run sequential lint (Pint + PHPStan + PHPArkitect + Deptrac)
+lint-sequential: ## Run sequential lint (Pint + PHPStan + PHPArkitect + Deptrac + TLint)
 	@echo "$(MODE)"
 	@$(MAKE) pint-test
 	@$(MAKE) analyse
 	@$(MAKE) phparkitect
 	@$(MAKE) deptrac
+	@$(MAKE) tlint
 
-lint-full: ## Run full linting (Pint + PHPStan + Insights + PHPArkitect + Deptrac)
+lint-full: ## Run full linting (Pint + PHPStan + Insights + PHPArkitect + Deptrac + TLint-full)
 	@echo "$(MODE)"
 	@$(MAKE) pint-test
 	@$(MAKE) analyse
 	@$(MAKE) insights
 	@$(MAKE) phparkitect
 	@$(MAKE) deptrac
+	@$(MAKE) tlint-full
 
 fix: ## Auto-fix code style with Pint
 	@echo "$(MODE)"
@@ -191,6 +195,14 @@ phparkitect: ## Run PHPArkitect architecture checks
 deptrac: ## Run Deptrac layer dependency analysis (strict: fails on uncovered)
 	@echo "$(MODE)"
 	$(EXEC) -d xdebug.mode=off vendor/bin/deptrac analyse --fail-on-uncovered
+
+tlint: ## Run TLint on app/ + routes/ (fast, ~2s)
+	@echo "$(MODE)"
+	vendor/bin/tlint lint app/ && vendor/bin/tlint lint routes/
+
+tlint-full: ## Run TLint on entire codebase (~7s)
+	@echo "$(MODE)"
+	vendor/bin/tlint
 
 stan: ## Alias for analyse (PHPStan)
 	@echo "$(MODE)"

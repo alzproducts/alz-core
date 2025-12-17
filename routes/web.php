@@ -18,7 +18,7 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-Route::get('/feeds/{prefix}-{guid}.xml', [FeedController::class, 'show'])
+Route::get('feeds/{prefix}-{guid}.xml', [FeedController::class, 'show'])
     ->name('feeds.show')
     ->where(['prefix' => '[a-z0-9]+', 'guid' => '[a-f0-9]{32}']);
 

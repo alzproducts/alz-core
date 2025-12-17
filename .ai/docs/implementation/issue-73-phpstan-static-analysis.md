@@ -12,6 +12,40 @@ Comprehensive static analysis improvements including PHPStan checked exception e
 
 ## Decision Log
 
+### 2025-12-18 (Stage 5: TLint Laravel Conventions)
+
+- **Decision**: Install `tightenco/tlint` v9.5.0 with Laravel preset
+- **Why**: Enforces Laravel-specific coding conventions not covered by Pint (e.g., no leading slashes on routes, no `env()` outside config)
+- **Config**: `tlint.json` with Laravel preset, excluded auto-generated files (IDE helpers, rector cache, storage)
+
+- **Decision**: Use Laravel preset instead of Tighten preset
+- **Why**: Less opinionated. Tighten preset enforces their company conventions (e.g., one-line returns), Laravel preset focuses on framework best practices.
+- **Tradeoff**: Fewer rules enforced, but more aligned with broader Laravel community
+
+- **Decision**: Exclude auto-generated and cache files from TLint scanning
+- **Excluded**:
+  - `_ide_helper.php`, `_ide_helper_models.php`, `.phpstorm.meta.php` — IDE helper generated files
+  - `storage/` — Laravel storage directory
+  - `.rector-cache/` — Rector cache files
+  - `database/migrations/` — Migration boilerplate (standard Laravel convention)
+  - `examples/` — Example files not part of main codebase
+- **Why**: These files are auto-generated or follow different conventions
+
+- **Violations Fixed**:
+  - `NoLeadingSlashesOnRoutePaths`: Removed leading `/` from 11 route paths in `routes/api.php` and `routes/web.php`
+  - `OneLineBetweenClassVisibilityChanges`: Fixed 2 test files with missing blank lines between visibility groups
+  - Class member ordering: Moved constants before properties in `CustomerClientTest.php` and `SyncBingAdsToMixpanelJobTest.php`
+- **Files Modified**: `routes/api.php`, `routes/web.php`, `CustomerClientTest.php`, `SyncBingAdsToMixpanelJobTest.php`
+
+- **Decision**: Integrate TLint into parallel `make lint` pipeline with dual-speed targets
+- **Why**: Full TLint scan (~7s on 570 files) is too slow for pre-commit; `tests/` directory alone takes 4.4s
+- **Performance Optimization**:
+  - `make tlint` — Fast (~2.6s): Scans only `app/` + `routes/` (main code + route conventions)
+  - `make tlint-full` — Thorough (~7s): Scans entire codebase (config, bootstrap, tests, etc.)
+- **Integration**: `lint` uses fast version; `lint-full` uses thorough version
+- **Git Hook**: Created `TLintPrePushHook` class to run full TLint scan on pre-push
+- **Tradeoff**: Pre-commit won't catch TLint issues in tests/config, but pre-push will
+
 ### 2025-12-18 (Stage 4: Optional Strict Packages)
 
 - **Decision**: Install `kcs/phpstan-strict-rules` instead of `thecodingmachine/phpstan-strict-rules`
@@ -249,9 +283,18 @@ Comprehensive static analysis improvements including PHPStan checked exception e
 - [x] Renamed 2 interfaces for consistent "Interface" suffix
 - [x] Updated PHPArkitect rules to allow Infrastructure-internal interfaces
 
-### Stages 5-6: Not Started
-- [ ] Stage 5: TLint Laravel conventions
-- [ ] Stage 6: Psalm taint analysis
+### Stage 5: TLint Laravel Conventions — COMPLETE
+- [x] Installed `tightenco/tlint` v9.5.0
+- [x] Created `tlint.json` with Laravel preset and exclusions
+- [x] Fixed 11 `NoLeadingSlashesOnRoutePaths` violations in route files
+- [x] Fixed `OneLineBetweenClassVisibilityChanges` in 2 test files
+- [x] Integrated TLint into Makefile with dual-speed targets:
+  - `tlint` (fast ~2.6s) for pre-commit via `make lint`
+  - `tlint-full` (~7s) for pre-push via `make lint-full`
+- [x] Created `TLintPrePushHook` class for git pre-push integration
+
+### Stage 6: Not Started
+- [ ] Psalm taint analysis
 
 ## PHPStan Error Count
 
@@ -267,6 +310,7 @@ Comprehensive static analysis improvements including PHPStan checked exception e
 | Stage 2 | 24→0 | **Missing parameters enabled** - 4 strict checks, 24 violations fixed |
 | Stage 3 | 5→0 | **Extensions added** - 4 packages, 5 CC refactors, 99% type coverage confirmed |
 | Stage 4 | 89→0 | **Strict packages** - kcs + symplify, 16 @ignoreException, 4 rules disabled, 2 interfaces renamed |
+| Stage 5 | — | **TLint added** - 11 route fixes, 2 test file fixes, integrated into Makefile |
 
 ## Deviations from Plan
 
