@@ -211,6 +211,69 @@ Does entire directory follow same pattern?
 
 ---
 
+## missingType.checkedException (with @param-immediately-invoked-callable)
+
+### What It Means
+
+PHPStan reports that a method throws checked exceptions that aren't documented in its `@throws` tag. However, when using `@param-immediately-invoked-callable` on a closure parameter, PHPStan correctly attributes the closure's exceptions to the calling method—but it **cannot trace through the callee's catch blocks** to see that those exceptions are already handled.
+
+This creates a false positive: PHPStan thinks exceptions escape uncaught when they're actually caught and translated inside the method that invokes the closure.
+
+**Typical error message:**
+```
+Method App\Infrastructure\Linnworks\LinnworksHttpTransport::get() throws checked
+exception Exception but it's missing from the PHPDoc @throws tag.
+```
+
+### When It Triggers
+
+- You use `@param-immediately-invoked-callable` to satisfy ShipMonk's `forbidCheckedExceptionInCallable`
+- The method accepting the closure has comprehensive exception handling
+- PHPStan attributes the closure's exceptions to the caller but doesn't see they're caught
+
+**Without** `@param-immediately-invoked-callable`: You get `shipmonk.checkedExceptionInCallable`
+**With** `@param-immediately-invoked-callable`: You get `missingType.checkedException`
+
+This is a **PHPStan limitation**, not a code design problem.
+
+### Solution: Inline `@phpstan-ignore` with Multiple Identifiers
+
+Use a comment on the line **before** the closure definition, listing the identifier once per exception type:
+
+```php
+return $this->executeWithAuthRetry(
+    // @phpstan-ignore missingType.checkedException, missingType.checkedException, missingType.checkedException
+    fn(LinnworksSession $session): Response => $this->createBaseRequest($session)
+        ->send('GET', $endpoint, ['query' => $query])
+        ->throw(),
+    $endpoint,
+);
+```
+
+**Critical detail**: If there are **N exceptions** on the same line (e.g., `RuntimeException`, `RequestException`, `Exception`), you must list `missingType.checkedException` **N times** in the comma-separated list.
+
+### Why Not Add @throws?
+
+Adding `@throws Exception` or `@throws RequestException` to the public method would:
+1. **Lie to callers** - these exceptions ARE caught internally
+2. **Defeat the purpose** - the whole point of exception translation is clean domain exceptions at boundaries
+3. **Propagate the problem** - callers would then need to handle exceptions that can never escape
+
+### Line Positioning Rules
+
+From [PHPStan documentation](https://phpstan.org/user-guide/ignoring-errors):
+- **Standalone comment** (only whitespace on line) → targets the **next** line
+- **Inline comment** (same line as code) → targets the **same** line
+
+For multi-line arrow functions, place the ignore comment on its own line immediately before the `fn()` line.
+
+### Codebase Examples
+
+- `app/Infrastructure/Linnworks/LinnworksHttpTransport.php:65` - GET method
+- `app/Infrastructure/Linnworks/LinnworksHttpTransport.php:107` - POST method
+
+---
+
 ## shipmonk.nonNormalizedType
 
 ### What It Means

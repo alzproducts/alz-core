@@ -5,7 +5,12 @@ declare(strict_types=1);
 namespace App\Infrastructure\Linnworks\Clients;
 
 use App\Application\Contracts\Linnworks\ConnectivityClientInterface;
+use App\Domain\Exceptions\AuthenticationExpiredException;
+use App\Domain\Exceptions\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\InvalidApiResponseException;
 use App\Infrastructure\Linnworks\LinnworksSessionManager;
+use DateMalformedStringException;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Linnworks connectivity verification client.
@@ -21,9 +26,28 @@ final readonly class ConnectivityClient implements ConnectivityClientInterface
         private LinnworksSessionManager $sessionManager,
     ) {}
 
+    /**
+     * Verify API connectivity and authentication.
+     *
+     * @throws AuthenticationExpiredException When credentials are invalid
+     * @throws ExternalServiceUnavailableException When API unavailable
+     * @throws InvalidApiResponseException When session response contains malformed data
+     */
     public function verifyConnectivity(): void
     {
-        // Session authentication validates credentials and obtains server URL
-        $this->sessionManager->getSession();
+        try {
+            // Session authentication validates credentials and obtains server URL
+            $this->sessionManager->getSession();
+        } catch (DateMalformedStringException $e) {
+            Log::critical('Linnworks session contains malformed date', [
+                'error' => $e->getMessage(),
+            ]);
+
+            throw new InvalidApiResponseException(
+                'Linnworks',
+                'Session response contains malformed date: ' . $e->getMessage(),
+                $e,
+            );
+        }
     }
 }

@@ -5,6 +5,10 @@ declare(strict_types=1);
 namespace App\Infrastructure\Linnworks\Clients;
 
 use App\Application\Contracts\Linnworks\InventoryClientInterface;
+use App\Domain\Exceptions\AuthenticationExpiredException;
+use App\Domain\Exceptions\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\InvalidApiRequestException;
+use App\Domain\Exceptions\InvalidApiResponseException;
 use App\Domain\Exceptions\ResourceNotFoundException;
 use App\Domain\Inventory\ValueObjects\StockItem;
 use App\Infrastructure\Linnworks\LinnworksHttpTransport;
@@ -25,6 +29,13 @@ final readonly class InventoryClient implements InventoryClientInterface
         private LinnworksHttpTransport $transport,
     ) {}
 
+    /**
+     * @throws ResourceNotFoundException When item doesn't exist
+     * @throws AuthenticationExpiredException When credentials are invalid
+     * @throws ExternalServiceUnavailableException When API is unavailable
+     * @throws InvalidApiRequestException When request parameters are invalid
+     * @throws InvalidApiResponseException When API response structure is invalid
+     */
     public function getStockItemBySku(string $sku): StockItem
     {
         $stockItemId = $this->resolveStockItemId($sku);
@@ -38,6 +49,12 @@ final readonly class InventoryClient implements InventoryClientInterface
      * @param list<string> $skus List of SKUs to look up
      *
      * @return list<SkuStockIdMappingResponse> Mappings found (may be fewer than requested)
+     *
+     * @throws AuthenticationExpiredException When credentials are invalid
+     * @throws ExternalServiceUnavailableException When API is unavailable
+     * @throws InvalidApiRequestException When request parameters are invalid
+     * @throws InvalidApiResponseException When API response structure is invalid
+     * @throws ResourceNotFoundException When resource not found
      */
     private function getStockItemIdsBySkus(array $skus): array
     {
@@ -54,6 +71,10 @@ final readonly class InventoryClient implements InventoryClientInterface
      * Resolve a single SKU to its StockItemId.
      *
      * @throws ResourceNotFoundException When SKU doesn't exist in Linnworks
+     * @throws AuthenticationExpiredException When credentials are invalid
+     * @throws ExternalServiceUnavailableException When API is unavailable
+     * @throws InvalidApiRequestException When request parameters are invalid
+     * @throws InvalidApiResponseException When API response structure is invalid
      */
     private function resolveStockItemId(string $sku): string
     {
@@ -75,6 +96,10 @@ final readonly class InventoryClient implements InventoryClientInterface
      * Fetch full stock item details by StockItemId.
      *
      * @throws ResourceNotFoundException When item doesn't exist
+     * @throws AuthenticationExpiredException When credentials are invalid
+     * @throws ExternalServiceUnavailableException When API is unavailable
+     * @throws InvalidApiRequestException When request parameters are invalid
+     * @throws InvalidApiResponseException When API response structure is invalid
      */
     private function fetchStockItemById(string $stockItemId): StockItem
     {
