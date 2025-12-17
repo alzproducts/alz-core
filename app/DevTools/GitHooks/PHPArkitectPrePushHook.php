@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\DevTools\GitHooks;
 
-final class PHPArkitectPrePushHook extends BaseProcessHook
+final class PHPArkitectPrePushHook extends AbstractProcessHook
 {
     public function getName(): string
     {
