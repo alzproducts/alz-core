@@ -14,6 +14,10 @@ includes:
     - vendor/spaze/phpstan-disallowed-calls/disallowed-loose-calls.neon
     # Stage 3: Cognitive complexity analysis
     - vendor/tomasvotruba/cognitive-complexity/config/extension.neon
+    # Stage 3: Type declaration coverage enforcement
+    - vendor/tomasvotruba/type-coverage/config/extension.neon
+    # Stage 3: Enforce expiration dates on TODO comments
+    - vendor/staabm/phpstan-todo-by/extension.neon
 
 parameters:
     level: max
@@ -81,7 +85,6 @@ parameters:
 
     # Checked exception enforcement - require @throws documentation
     # See: https://phpstan.org/blog/bring-your-exceptions-under-control
-    # TODO: Issue #73 Stage 2 - Add proper @throws tags throughout codebase
     exceptions:
         check:
             missingCheckedExceptionInThrows: true
@@ -117,6 +120,13 @@ parameters:
     cognitive_complexity:
         class: 50
         function: 10
+
+    # Stage 3: Type declaration coverage enforcement
+    # Ensures minimum type coverage across the codebase (set high, will reveal current stats if below)
+    type_coverage:
+        return: 99
+        param: 99
+        property: 99
 
     # Ignore overly strict ShipMonk rules not suitable for Laravel
     ignoreErrors:
