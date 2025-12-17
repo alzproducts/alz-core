@@ -47,6 +47,9 @@ final class SyncCampaignLookupTableJob implements ShouldQueue
      * Execute the job: synchronize campaign lookup table.
      *
      * @throws ExternalServiceUnavailableException When external APIs unavailable - will retry
+     * @throws UnexpectedApiResultException When API returns unexpected data (permanent failure)
+     * @throws AuthenticationExpiredException When API credentials invalid (permanent failure)
+     * @throws Throwable When unexpected errors occur - indicates code update required
      */
     public function handle(SyncLookupTableUseCase $useCase): void
     {

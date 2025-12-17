@@ -64,6 +64,9 @@ final class SyncBingAdsToMixpanelJob implements ShouldQueue
      * Execute the job.
      *
      * @throws ExternalServiceUnavailableException When external APIs unavailable - will retry
+     * @throws PayloadSerializationException When data serialization fails (permanent failure)
+     * @throws AuthenticationExpiredException When API credentials invalid (permanent failure)
+     * @throws Throwable When unexpected errors occur - indicates code update required
      */
     public function handle(SyncAdSpendUseCase $useCase): void
     {

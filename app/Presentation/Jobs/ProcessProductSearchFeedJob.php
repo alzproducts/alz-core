@@ -54,6 +54,7 @@ final class ProcessProductSearchFeedJob implements ShouldQueue
      *
      * @throws ExternalServiceUnavailableException When source feed unavailable - will retry
      * @throws StorageOperationFailedException When S3 upload fails - will retry
+     * @throws Throwable When unexpected errors occur - indicates code update required
      */
     public function handle(ProcessProductSearchFeedUseCase $useCase): void
     {
