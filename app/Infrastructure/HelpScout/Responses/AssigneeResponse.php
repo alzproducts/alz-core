@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace App\Infrastructure\HelpScout\Responses;
 
 use App\Domain\CustomerService\ValueObjects\ConversationAssignee;
-use App\Infrastructure\Contracts\DomainConvertible;
+use App\Infrastructure\Contracts\DomainConvertibleInterface;
 use Spatie\LaravelData\Data;
 
 /**
  * Assignee (HelpScout team member) information from a conversation.
  */
-final class AssigneeResponse extends Data implements DomainConvertible
+final class AssigneeResponse extends Data implements DomainConvertibleInterface
 {
     public function __construct(
         public readonly int $id,

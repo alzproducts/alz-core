@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Infrastructure\Linnworks\Support;
 
 use App\Domain\Exceptions\InvalidApiResponseException;
-use App\Infrastructure\Contracts\DomainConvertible;
+use App\Infrastructure\Contracts\DomainConvertibleInterface;
 use App\Infrastructure\Linnworks\Support\LinnworksResponseParserTrait;
 use Illuminate\Support\Facades\Log;
 use PHPUnit\Framework\Attributes\CoversTrait;
@@ -280,7 +280,7 @@ final class TestDomainObject
 /**
  * DTO with toDomain() for testing parseSingleToDomain.
  */
-final class TestDomainConvertibleDTO extends Data implements DomainConvertible
+final class TestDomainConvertibleDTO extends Data implements DomainConvertibleInterface
 {
     public function __construct(
         public readonly string $id,

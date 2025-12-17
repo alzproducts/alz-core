@@ -8,7 +8,7 @@ use App\Domain\Catalog\Order\ValueObjects\Order;
 use App\Domain\Catalog\Order\ValueObjects\OrderDiscount;
 use App\Domain\Catalog\Order\ValueObjects\OrderProduct;
 use App\Domain\Exceptions\InvalidApiResponseException;
-use App\Infrastructure\Contracts\DomainConvertible;
+use App\Infrastructure\Contracts\DomainConvertibleInterface;
 use App\Infrastructure\Shopwired\Enums\PaymentMethodRaw;
 use Spatie\LaravelData\Attributes\DataCollectionOf;
 use Spatie\LaravelData\Attributes\MapInputName;
@@ -31,7 +31,7 @@ use TypeError;
  * @see https://shopwired.readme.io/reference/listorders
  */
 #[MapInputName(SnakeCaseMapper::class)]
-final class OrderResponse extends Data implements DomainConvertible
+final class OrderResponse extends Data implements DomainConvertibleInterface
 {
     /**
      * @param list<OrderShippingResponse> $shipping API returns as array; use getFirstShipping()

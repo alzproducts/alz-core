@@ -61,6 +61,7 @@
         "shipmonk/phpstan-rules": "^4.2",
         "spaze/phpstan-disallowed-calls": "^4.7",
         "staabm/phpstan-todo-by": "^0.3.3",
+        "symplify/phpstan-rules": "^14.9",
         "tomasvotruba/cognitive-complexity": "^1.0",
         "tomasvotruba/type-coverage": "^2.1"
     },
