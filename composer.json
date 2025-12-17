@@ -57,7 +57,8 @@
         "react/http": "^1.11",
         "react/socket": "^1.17",
         "rector/rector": "^2.2",
-        "shipmonk/phpstan-rules": "^4.2"
+        "shipmonk/phpstan-rules": "^4.2",
+        "spaze/phpstan-disallowed-calls": "^4.7"
     },
     "autoload": {
         "psr-4": {

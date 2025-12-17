@@ -271,7 +271,7 @@ final readonly class DoofinderFeedProcessor implements ProductSearchFeedProcesso
                 } elseif ($reader->nodeType === XMLReader::END_ELEMENT) {
                     \fwrite($handle, "</{$reader->localName}>");
                 } elseif (($reader->nodeType === XMLReader::TEXT) || ($reader->nodeType === XMLReader::CDATA)) {
-                    \fwrite($handle, \htmlspecialchars($reader->value, ENT_XML1, 'UTF-8'));
+                    \fwrite($handle, \htmlspecialchars($reader->value, ENT_XML1 | ENT_QUOTES, 'UTF-8'));
                 } elseif ($reader->nodeType === XMLReader::XML_DECLARATION) {
                     \fwrite($handle, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
                 }
@@ -519,7 +519,7 @@ final readonly class DoofinderFeedProcessor implements ProductSearchFeedProcesso
 
         if ($reader->hasAttributes) {
             while ($reader->moveToNextAttribute()) {
-                $tag .= ' ' . $reader->name . '="' . \htmlspecialchars($reader->value, ENT_XML1, 'UTF-8') . '"';
+                $tag .= ' ' . $reader->name . '="' . \htmlspecialchars($reader->value, ENT_XML1 | ENT_QUOTES, 'UTF-8') . '"';
             }
             $reader->moveToElement();
         }

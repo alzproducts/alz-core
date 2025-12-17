@@ -100,8 +100,9 @@ final readonly class MixpanelAdSpendEventDTO
         $raw = "{$prefix}-{$campaign->date}-{$campaign->campaignId}";
 
         // Mixpanel $insert_id limit: 36 characters
+        // Use SHA-256 (truncated to 32 chars) for deterministic ID generation
         if (\mb_strlen($raw) > 36) {
-            return \md5($raw);
+            return \mb_substr(\hash('sha256', $raw), 0, 32);
         }
 
         return $raw;
