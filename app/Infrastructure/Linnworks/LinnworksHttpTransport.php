@@ -20,6 +20,7 @@ use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use JsonException;
+use RuntimeException;
 
 /**
  * HTTP transport layer for Linnworks API.
@@ -181,6 +182,8 @@ final readonly class LinnworksHttpTransport
 
     /**
      * Create configured HTTP request for a session.
+     *
+     * @throws RuntimeException When HTTP client configuration fails
      */
     private function createBaseRequest(LinnworksSession $session): PendingRequest
     {

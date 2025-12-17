@@ -8,6 +8,7 @@ use App\Application\Contracts\LockableCacheInterface;
 use App\Domain\Exceptions\AuthenticationExpiredException;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use DateMalformedStringException;
+use Exception;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
@@ -37,7 +38,6 @@ final class LinnworksSessionManager
 
     /**
      * Get a valid session (cache-first, authenticates if needed).
-     *
      * Uses LockableCache for:
      * - Thundering herd prevention (atomic locks)
      * - Graceful degradation on cache failures
@@ -46,7 +46,7 @@ final class LinnworksSessionManager
      * @throws AuthenticationExpiredException When credentials are invalid
      * @throws ExternalServiceUnavailableException When auth endpoint unavailable
      * @throws DateMalformedStringException When date parsing fails
-     */
+     * @noinspection PhpDocRedundantThrowsInspection*/
     public function getSession(): LinnworksSession
     {
         /** @var LinnworksSession */
@@ -54,7 +54,7 @@ final class LinnworksSessionManager
             self::CACHE_KEY,
             fn(): LinnworksSession => $this->authenticate(),
             self::DEFAULT_TTL_SECONDS,
-            static fn(mixed $cached): bool => $cached instanceof LinnworksSession && !$cached->isExpired(),
+            static fn(mixed $cached): bool => ($cached instanceof LinnworksSession) && !$cached->isExpired(),
         );
     }
 
@@ -94,9 +94,19 @@ final class LinnworksSessionManager
                 $this->config->cacheTtlBuffer,
             );
         } catch (RequestException $e) {
-            return $this->handleAuthRequestException($e);
+            $this->handleAuthRequestException($e);
         } catch (ConnectionException $e) {
             Log::error(self::SERVICE_NAME . ' auth connection failed', [
+                'error' => $e->getMessage(),
+            ]);
+
+            throw new ExternalServiceUnavailableException(self::SERVICE_NAME, previous: $e);
+        } catch (DateMalformedStringException $e) {
+            // Let this propagate - transport layer translates to InvalidApiResponseException
+            throw $e;
+        } catch (Exception $e) {
+            Log::error(self::SERVICE_NAME . ' auth unexpected error', [
+                'exception' => $e::class,
                 'error' => $e->getMessage(),
             ]);
 
