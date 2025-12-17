@@ -8,6 +8,7 @@ use App\Application\Contracts\LockableCacheInterface;
 use App\Domain\Exceptions\AuthenticationExpiredException;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\InvalidApiResponseException;
+use DateMalformedStringException;
 use DateTimeImmutable;
 use Exception;
 use Illuminate\Http\Client\ConnectionException;
@@ -127,6 +128,7 @@ final class BingAdsSessionManager
      * @param array<string, mixed> $response OAuth token response
      *
      * @throws InvalidApiResponseException When response missing required fields
+     * @throws DateMalformedStringException When date string parsing fails (should never happen with relative format)
      */
     private static function createSessionFromOAuth(array $response): BingAdsSession
     {

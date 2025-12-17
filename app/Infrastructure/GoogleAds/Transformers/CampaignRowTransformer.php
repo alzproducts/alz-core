@@ -54,6 +54,8 @@ final class CampaignRowTransformer
      * UNSPECIFIED=0, UNKNOWN=1, ENABLED=2, PAUSED=3, REMOVED=4
      *
      * @see CampaignStatus
+     *
+     * @throws InvalidGoogleAdsResponseException When status enum value is unrecognized
      */
     private static function getStatusString(int $enumValue): string
     {

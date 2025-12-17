@@ -8,6 +8,7 @@ use App\Application\Contracts\GoogleAdsClientInterface;
 use App\Domain\AdSpend\Enums\AdSource;
 use App\Domain\AdSpend\ValueObjects\Campaign;
 use App\Domain\AdSpend\ValueObjects\CampaignMetrics;
+use App\Domain\Exceptions\AuthenticationExpiredException;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Domain\ValueObjects\DateRange;
 use App\Infrastructure\GoogleAds\Exceptions\InvalidGoogleAdsResponseException;
@@ -47,7 +48,8 @@ final readonly class GoogleAdsClient implements GoogleAdsClientInterface
      * Executes a minimal GAQL query (LIMIT 1) to validate OAuth credentials
      * and API access without fetching significant data.
      *
-     * @throws ExternalServiceUnavailableException When API unavailable or credentials invalid
+     * @throws ExternalServiceUnavailableException When API unavailable
+     * @throws AuthenticationExpiredException When OAuth credentials invalid or expired
      */
     public function verifyConnectivity(): void
     {
@@ -65,6 +67,7 @@ final readonly class GoogleAdsClient implements GoogleAdsClientInterface
      *
      * @return list<CampaignMetrics>
      *
+     * @throws AuthenticationExpiredException When OAuth credentials invalid or expired
      * @throws ExternalServiceUnavailableException When API unavailable or rate limited
      * @throws InvalidGoogleAdsResponseException When response structure is invalid
      */
@@ -98,6 +101,7 @@ final readonly class GoogleAdsClient implements GoogleAdsClientInterface
      *
      * @return list<Campaign>
      *
+     * @throws AuthenticationExpiredException When OAuth credentials invalid or expired
      * @throws ExternalServiceUnavailableException When API unavailable or rate limited
      * @throws InvalidGoogleAdsResponseException When response structure is invalid
      */
