@@ -20,6 +20,7 @@ PROTECTED_FILES=(
     "config/insights.php"
     "deptrac.yaml"
     "composer.json"
+    "tlint.json"
 )
 
 # =============================================================================

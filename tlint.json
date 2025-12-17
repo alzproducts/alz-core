@@ -1,0 +1,13 @@
+{
+    "preset": "laravel",
+    "disabled": [],
+    "excluded": [
+        "examples/",
+        "database/migrations/",
+        "storage/",
+        ".rector-cache/",
+        "_ide_helper.php",
+        "_ide_helper_models.php",
+        ".phpstorm.meta.php"
+    ]
+}
