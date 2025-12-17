@@ -18,12 +18,7 @@ abstract class BasePreCommitProcessHook implements PreCommitHook
 {
     protected Command $command;
 
-    protected string $name;
-
-    public function getName(): ?string
-    {
-        return $this->name;
-    }
+    abstract public function getName(): string;
 
     protected function getCommand(): Command
     {
@@ -41,7 +36,7 @@ abstract class BasePreCommitProcessHook implements PreCommitHook
      */
     public function handle(ChangedFiles $files, Closure $next): mixed
     {
-        $hookName = $this->getName() ?? 'Hook';
+        $hookName = $this->getName();
         $this->command->info("Running {$hookName}...");
 
         $process = new Process($this->getProcessCommand());

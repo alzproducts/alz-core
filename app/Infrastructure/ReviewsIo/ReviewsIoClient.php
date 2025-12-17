@@ -166,6 +166,9 @@ final readonly class ReviewsIoClient implements ReviewsIoClientInterface
             'SKU(s)',
         );
 
+        // After validation passes, 'skus' is guaranteed to exist (required rule)
+        \assert(\array_key_exists('skus', $validated), 'Validated data must contain skus key');
+
         /** @var array<string> */
         return $validated['skus'];
     }
@@ -176,7 +179,7 @@ final readonly class ReviewsIoClient implements ReviewsIoClientInterface
      *
      * @param class-string<T> $dtoClass
      *
-     * @return DataCollection<int, T>
+     * @return DataCollection<int|string, T>
      * @throws InvalidApiResponseException When response structure is invalid
      * @noinspection PhpSameParameterValueInspection*/
     private function parseArrayResponse(mixed $data, string $dtoClass): DataCollection

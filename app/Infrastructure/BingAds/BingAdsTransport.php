@@ -525,9 +525,9 @@ final class BingAdsTransport
         // @phpstan-ignore-next-line (SOAP detail has dynamic structure with nested properties)
         if (isset($detail->ApiFaultDetail->OperationErrors->OperationError)) {
             $operationError = $detail->ApiFaultDetail->OperationErrors->OperationError;
-            $error = \is_array($operationError) ? $operationError[0] : $operationError;
+            $error = \is_array($operationError) ? ($operationError[0] ?? null) : $operationError;
 
-            if (isset($error->Code)) {
+            if ($error !== null && isset($error->Code)) {
                 return (int) $error->Code; // @phpstan-ignore cast.useless (PHPDoc says int but runtime may differ)
             }
         }
@@ -536,9 +536,9 @@ final class BingAdsTransport
         // @phpstan-ignore-next-line (SOAP detail has dynamic structure with nested properties)
         if (isset($detail->AdApiFaultDetail->Errors->AdApiError)) {
             $adApiError = $detail->AdApiFaultDetail->Errors->AdApiError;
-            $error = \is_array($adApiError) ? $adApiError[0] : $adApiError;
+            $error = \is_array($adApiError) ? ($adApiError[0] ?? null) : $adApiError;
 
-            if (isset($error->Code)) {
+            if ($error !== null && isset($error->Code)) {
                 return (int) $error->Code; // @phpstan-ignore cast.useless (PHPDoc says int but runtime may differ)
             }
         }

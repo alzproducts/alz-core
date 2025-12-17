@@ -6,7 +6,10 @@ namespace App\DevTools\GitHooks;
 
 final class PHPInsightsPrePushHook extends BaseProcessHook
 {
-    protected string $name = 'PHP Insights';
+    public function getName(): string
+    {
+        return 'PHP Insights';
+    }
 
     /**
      * @return list<string>

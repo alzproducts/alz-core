@@ -99,8 +99,19 @@ parameters:
             - PHPUnit\Framework\AssertionFailedError
             - PHPUnit\Framework\Exception
 
+    # Additional strict checks (Stage 2 - Issue #73)
+    checkUninitializedProperties: true
+    checkBenevolentUnionTypes: true
+    reportPossiblyNonexistentGeneralArrayOffset: true
+    reportPossiblyNonexistentConstantArrayOffset: true
+
     # Ignore overly strict ShipMonk rules not suitable for Laravel
     ignoreErrors:
+        # GitHooks framework injects Command via setCommand() before handle() is called.
+        # PHPStan cannot verify this framework contract, so we suppress the false positive.
+        -
+            identifier: property.uninitialized
+            path: app/DevTools/GitHooks/Base*Hook.php
         # Laravel often requires unused closure parameters (Gate::define signatures, factory states, etc.)
         - identifier: shipmonk.unusedParameter
         # Laravel config files use nullable string concatenation
