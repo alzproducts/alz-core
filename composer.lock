@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "5abe954ecd9f4246dcfcd734f3c51ff4",
+    "content-hash": "581e44cba4f4ee9fba62263286eeb11a",
     "packages": [
         {
             "name": "aws/aws-crt-php",
@@ -10406,6 +10406,67 @@
                 "source": "https://github.com/jsonrainbow/json-schema/tree/6.6.3"
             },
             "time": "2025-12-02T10:21:33+00:00"
+        },
+        {
+            "name": "kcs/phpstan-strict-rules",
+            "version": "v2.1.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/alekitto/phpstan-strict-rules.git",
+                "reference": "b50b5b0674e2ce1ce9e1275683b7b758e2c511aa"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/alekitto/phpstan-strict-rules/zipball/b50b5b0674e2ce1ce9e1275683b7b758e2c511aa",
+                "reference": "b50b5b0674e2ce1ce9e1275683b7b758e2c511aa",
+                "shasum": ""
+            },
+            "require": {
+                "php": "^7.4 || ^8.0",
+                "phpstan/phpstan": "^2.0"
+            },
+            "provide": {
+                "thecodingmachine/phpstan-strict-rules": "2.0"
+            },
+            "require-dev": {
+                "php-coveralls/php-coveralls": "^2.1",
+                "phpunit/phpunit": "^9.5"
+            },
+            "type": "phpstan-extension",
+            "extra": {
+                "phpstan": {
+                    "includes": [
+                        "phpstan-strict-rules.neon"
+                    ]
+                },
+                "branch-alias": {
+                    "dev-master": "2.0-dev"
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "TheCodingMachine\\PHPStan\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "David Négrier",
+                    "email": "d.negrier@thecodingmachine.com"
+                },
+                {
+                    "name": "Alessandro Chitolina",
+                    "email": "alekitto@gmail.com"
+                }
+            ],
+            "description": "A set of additional rules for PHPStan based on best practices followed at TheCodingMachine",
+            "support": {
+                "source": "https://github.com/alekitto/phpstan-strict-rules/tree/v2.1.0"
+            },
+            "time": "2025-09-28T09:26:55+00:00"
         },
         {
             "name": "larastan/larastan",
