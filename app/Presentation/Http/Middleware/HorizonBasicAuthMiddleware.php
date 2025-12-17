@@ -5,12 +5,18 @@ declare(strict_types=1);
 namespace App\Presentation\Http\Middleware;
 
 use Closure;
+use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\Request;
 use LogicException;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 final class HorizonBasicAuthMiddleware
 {
+    /**
+     * @throws HttpResponseException When authentication fails
+     * @throws HttpException When authentication fails or config invalid
+     */
     public function handle(Request $request, Closure $next): Response
     {
         // Skip auth in local environment only if credentials aren't configured
@@ -37,6 +43,10 @@ final class HorizonBasicAuthMiddleware
             && (! \is_string($password) || ($password === ''));
     }
 
+    /**
+     * @throws HttpResponseException When credentials fail validation
+     * @throws HttpException When credentials fail validation or config missing
+     */
     private function validateCredentials(Request $request): void
     {
         $username = self::getConfigValue('username');
@@ -49,6 +59,10 @@ final class HorizonBasicAuthMiddleware
         }
     }
 
+    /**
+     * @throws HttpResponseException When config value missing or invalid
+     * @throws HttpException When config value missing or invalid
+     */
     private static function getConfigValue(string $key): string
     {
         $value = \config("horizon.auth.{$key}");

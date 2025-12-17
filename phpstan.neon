@@ -73,12 +73,11 @@ parameters:
 
     # Checked exception enforcement - require @throws documentation
     # See: https://phpstan.org/blog/bring-your-exceptions-under-control
-    # TEMPORARILY DISABLED: Re-enable after completing @throws documentation work
     # TODO: Issue #73 Stage 2 - Add proper @throws tags throughout codebase
     exceptions:
         check:
-            missingCheckedExceptionInThrows: false  # Temporarily disabled
-            tooWideThrowType: false  # Temporarily disabled
+            missingCheckedExceptionInThrows: true
+            tooWideThrowType: true
         uncheckedExceptionClasses:
             # LogicException family - programming errors, fix the code not catch it
             # Note: Our DomainException extends RuntimeException (intentionally - domain
@@ -121,10 +120,28 @@ parameters:
         -
             identifier: shipmonk.checkedExceptionInCallable
             path: routes/*
+        # Http facade can throw generic RuntimeException from Laravel/Guzzle internals.
+        # Domain exceptions extend RuntimeException, so documenting both creates "non-normalized type".
+        # Both must be documented: domain exceptions for business logic, RuntimeException for infrastructure.
+        -
+            identifier: shipmonk.nonNormalizedType
+            paths:
+                - app/Infrastructure/Shopwired/ShopwiredHttpTransport.php
+                - app/Infrastructure/Shopwired/Clients/StockClient.php
+                - app/Application/Contracts/Shopwired/StockClientInterface.php
+                - app/Infrastructure/ReviewsIo/ReviewsIoClient.php
+                - app/Infrastructure/Feeds/DoofinderFeedProcessor.php
+                - app/Presentation/Http/Controllers/FeedController.php
+                - app/Presentation/Jobs/*
         # PHP Insights config references PHP_CodeSniffer classes as config keys (not loaded via Composer autoload)
         -
             message: '#^Class PHP_CodeSniffer\\.*#'
             path: config/insights.php
+        # Migration files are deployment scripts - exception documentation adds no value
+        # If migrations fail, deployment fails and we investigate. No caller catches these.
+        -
+            identifier: missingType.checkedException
+            path: database/migrations/*
         # Google Ads SDK has inaccurate PHPDoc (claims methods return string but they return string|null)
         # GoogleAdsRowTransformer validates all fields at the boundary, so type checks are necessary
         # even though PHPStan believes the PhPDoc over reality

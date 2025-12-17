@@ -359,7 +359,17 @@ If a linter reports an issue, fix the code—don't suppress it. Only bypass when
 2. Known false positive in framework/package (document why)
 3. Temporary external dependency issue (add TODO)
 
-**For common linting errors** (e.g., `shipmonk.checkedExceptionInCallable`), see `.ai/docs/guides/common-linting-errors.md` for ranked solutions.
+### 📖 Stubborn Linting Issues
+
+**When encountering persistent linting errors**, consult [`.ai/docs/guides/common-linting-errors.md`](.ai/docs/guides/common-linting-errors.md) for ranked solutions. This guide covers:
+- `shipmonk.checkedExceptionInCallable` — checked exceptions in closures
+- `missingType.checkedException` — false positives with `@param-immediately-invoked-callable`
+- `shipmonk.nonNormalizedType` — parent/child exception hierarchies in `@throws`
+
+**Always check this guide before:**
+- Using `@phpstan-ignore` annotations
+- Adding entries to `phpstan.neon` ignoreErrors
+- Asking the user how to resolve a linting error
 
 ---
 
