@@ -7,12 +7,14 @@ namespace App\Infrastructure\Shopwired\Responses;
 use App\Domain\Catalog\Order\ValueObjects\Order;
 use App\Domain\Catalog\Order\ValueObjects\OrderDiscount;
 use App\Domain\Catalog\Order\ValueObjects\OrderProduct;
+use App\Domain\Exceptions\InvalidApiResponseException;
 use App\Infrastructure\Contracts\DomainConvertible;
 use App\Infrastructure\Shopwired\Enums\PaymentMethodRaw;
 use Spatie\LaravelData\Attributes\DataCollectionOf;
 use Spatie\LaravelData\Attributes\MapInputName;
 use Spatie\LaravelData\Data;
 use Spatie\LaravelData\Mappers\SnakeCaseMapper;
+use TypeError;
 
 /**
  * ShopWired API Response: Order.
@@ -125,6 +127,10 @@ final class OrderResponse extends Data implements DomainConvertible
         return $this->shipping[0] ?? null;
     }
 
+    /**
+     * @throws InvalidApiResponseException When nested status has unknown enum value
+     * @throws TypeError When nested status type mismatches (should not occur with proper Spatie Data parsing)
+     */
     public function toDomain(): Order
     {
         return new Order(
