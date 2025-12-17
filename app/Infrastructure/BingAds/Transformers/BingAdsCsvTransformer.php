@@ -67,13 +67,17 @@ final readonly class BingAdsCsvTransformer
             throw InvalidBingAdsResponseException::malformedCsv('Could not find header row with expected columns');
         }
 
+        \assert(\array_key_exists($headerIndex, $lines), 'Header index must exist in lines');
         $columnMap = self::buildColumnMap($lines[$headerIndex]);
         $metrics = [];
 
         // Process data rows (everything after header)
+        // buildColumnMap() validates COL_CAMPAIGN_ID exists or throws
+        \assert(\array_key_exists(self::COL_CAMPAIGN_ID, $columnMap), 'CampaignId must exist in column map');
         $campaignIdIndex = $columnMap[self::COL_CAMPAIGN_ID];
 
         for ($i = $headerIndex + 1, $iMax = \count($lines); $i < $iMax; $i++) {
+            \assert(\array_key_exists($i, $lines), 'Row index must exist in lines');
             $row = $lines[$i];
 
             // Skip empty rows and footer rows (copyright notice, etc.)
@@ -227,6 +231,7 @@ final readonly class BingAdsCsvTransformer
      */
     private static function getRequiredValue(array $row, array $columnMap, string $column, int $lineNumber): string
     {
+        \assert(\array_key_exists($column, $columnMap), "Column {$column} must exist in column map");
         $index = $columnMap[$column];
 
         if (!isset($row[$index])) {

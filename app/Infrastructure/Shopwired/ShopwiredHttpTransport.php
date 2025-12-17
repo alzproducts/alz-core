@@ -206,6 +206,9 @@ final readonly class ShopwiredHttpTransport
 
             // At this point $result is guaranteed to be Response
             if ($result->failed()) {
+                // Pool keys match request keys - pool results are keyed by as() calls in buildPoolRequests()
+                \assert(\array_key_exists($key, $requests), 'Pool result key must exist in original requests');
+
                 try {
                     $result->throw();
                 } catch (RequestException $e) {

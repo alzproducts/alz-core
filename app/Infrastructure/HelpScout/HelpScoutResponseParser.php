@@ -175,7 +175,7 @@ final class HelpScoutResponseParser
      * @param array<mixed> $data Raw array data from API
      * @param class-string<T> $dtoClass Target DTO class
      *
-     * @return DataCollection<int, T>
+     * @return DataCollection<int|string, T>
      *
      * @throws InvalidApiResponseException When response structure is invalid
      */

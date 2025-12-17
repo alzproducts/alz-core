@@ -6,7 +6,10 @@ namespace App\DevTools\GitHooks;
 
 final class PestPrePushHook extends BaseProcessHook
 {
-    protected string $name = 'Pest Tests';
+    public function getName(): string
+    {
+        return 'Pest Tests';
+    }
 
     /**
      * @return list<string>

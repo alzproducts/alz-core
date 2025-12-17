@@ -12,6 +12,40 @@ Comprehensive static analysis improvements including PHPStan checked exception e
 
 ## Decision Log
 
+### 2025-12-18 (Stage 2: Missing PHPStan Parameters)
+
+- **Decision**: Add 4 strict PHPStan parameters
+- **Parameters**:
+  - `checkUninitializedProperties: true` — Report typed properties not initialized in constructor
+  - `checkBenevolentUnionTypes: true` — Stricter handling of `array-key`, `array<mixed>` etc.
+  - `reportPossiblyNonexistentGeneralArrayOffset: true` — Report `$arr[$key]` where key might not exist
+  - `reportPossiblyNonexistentConstantArrayOffset: true` — Report `$arr['key']` where 'key' might not exist
+- **Initial Errors**: 24
+
+- **Decision**: Use abstract methods instead of properties for DevTools GitHooks `$name`
+- **Why**: Properties with framework injection (`setCommand()` called by Laravel) can't satisfy `checkUninitializedProperties`. Abstract method pattern is cleaner and PHPStan-friendly.
+- **Files Modified**: BasePreCommitProcessHook, BaseProcessHook, and 6 child hook classes
+
+- **Decision**: Add `ignoreErrors` for DevTools `$command` property
+- **Why**: Laravel's Command framework injects `$command` via `setCommand()` before `handle()`. PHPStan can't verify this framework contract. Added identifier-based ignore for `property.uninitialized` in `app/DevTools/GitHooks/Base*Hook.php`.
+- **Tradeoff**: Single, narrow suppress for verified framework behavior
+
+- **Decision**: Fix DataCollection generics from `int` to `int|string`
+- **Why**: `Spatie\LaravelData\DataCollection::all()` returns `array<int|string, T>` not `array<int, T>`. PHPStan's `checkBenevolentUnionTypes` catches this inaccuracy.
+- **Files Modified**: ShopwiredResponseParserTrait, HelpScoutResponseParser, ReviewsIoClient
+
+- **Decision**: Use `assert()` for invariant offset access checks
+- **Why**: User chose asserts — "if it fails in prod it's a LogicException anyway". PHP `assert()` compiles out in production (`zend.assertions=-1`) but documents code contracts for PHPStan.
+- **Files Modified**: CachingHelpScoutService, BingAdsTransport, BingAdsCsvTransformer, ReviewsIoClient, ShopwiredHttpTransport
+
+- **Decision**: Use `InvalidConfigurationException` for MixpanelClient tableKey validation
+- **Why**: `replaceLookupTable()` receives a `$tableKey` that must exist in `lookupTableIds` config. This is a configuration error (missing lookup table ID), not a runtime failure.
+- **Tradeoff**: Changed from `Assert::keyExists` (throws InvalidArgumentException) to explicit check with domain exception
+
+- **Decision**: Refactor ProcessProductSearchFeedUseCase config validation for PHPStan
+- **Why**: Cascading `is_string()` checks don't narrow types for PHPStan. Extracted values to variables first, then validated.
+- **Tradeoff**: More verbose but PHPStan-safe
+
 ### 2025-12-17 (Session 3)
 
 - **Decision**: Linnworks batch - removed stale `@phpstan-ignore` directives
@@ -113,8 +147,14 @@ Comprehensive static analysis improvements including PHPStan checked exception e
   - UserFactory
   - Migrations excluded via phpstan.neon (deployment scripts, no value in documenting)
 
-### Stages 2-6: Not Started
-- [ ] Stage 2: Missing PHPStan parameters
+### Stage 2: Missing PHPStan Parameters — COMPLETE
+- [x] Added 4 strict parameters to phpstan.neon
+- [x] Fixed 4 uninitialized property errors (DevTools GitHooks)
+- [x] Fixed 6 DataCollection generic errors (int → int|string)
+- [x] Fixed 14 offset access errors (asserts, refactoring, InvalidConfigurationException)
+- **Total**: 24 errors → 0 errors
+
+### Stages 3-6: Not Started
 - [ ] Stage 3: Recommended extensions (spaze, cognitive-complexity, type-coverage, todo-by)
 - [ ] Stage 4: Optional strict extensions (thecodingmachine, symplify)
 - [ ] Stage 5: TLint Laravel conventions
@@ -131,6 +171,7 @@ Comprehensive static analysis improvements including PHPStan checked exception e
 | Session 4 | 171 | Re-enabled checked exceptions, HelpScout batch complete |
 | Session 5 | 146 | Linnworks + Mixpanel batches complete (25 errors fixed) |
 | Session 6 | 0 | **All @throws complete** - 59 remaining errors fixed, migrations excluded |
+| Stage 2 | 24→0 | **Missing parameters enabled** - 4 strict checks, 24 violations fixed |
 
 ## Deviations from Plan
 

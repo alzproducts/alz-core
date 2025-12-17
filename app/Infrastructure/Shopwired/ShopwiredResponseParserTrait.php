@@ -33,7 +33,7 @@ trait ShopwiredResponseParserTrait
      *
      * @param class-string<T> $dtoClass
      *
-     * @return DataCollection<int, T>
+     * @return DataCollection<int|string, T>
      *
      * @throws InvalidApiResponseException When response structure is invalid
      */

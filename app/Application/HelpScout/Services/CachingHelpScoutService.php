@@ -143,6 +143,8 @@ final readonly class CachingHelpScoutService
             $fetched = $this->conversationsClient->getConversationsBatch($uncachedQueries);
 
             foreach ($fetched as $i => $conversations) {
+                \assert(\array_key_exists($i, $uncachedIndices), 'Batch response indices must match request indices');
+                \assert(\array_key_exists($i, $uncachedQueries), 'Batch response indices must match request indices');
                 $originalIndex = $uncachedIndices[$i];
                 $params = $uncachedQueries[$i];
 
