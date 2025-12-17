@@ -58,7 +58,8 @@
         "react/socket": "^1.17",
         "rector/rector": "^2.2",
         "shipmonk/phpstan-rules": "^4.2",
-        "spaze/phpstan-disallowed-calls": "^4.7"
+        "spaze/phpstan-disallowed-calls": "^4.7",
+        "tomasvotruba/cognitive-complexity": "^1.0"
     },
     "autoload": {
         "psr-4": {
