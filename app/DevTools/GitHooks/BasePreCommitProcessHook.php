@@ -11,6 +11,7 @@ use Igorsgm\GitHooks\Contracts\PreCommitHook;
 use Igorsgm\GitHooks\Exceptions\HookFailException;
 use Igorsgm\GitHooks\Git\ChangedFiles;
 use Illuminate\Console\Command;
+use Symfony\Component\Process\Exception\RuntimeException as ProcessRuntimeException;
 use Symfony\Component\Process\Process;
 
 abstract class BasePreCommitProcessHook implements PreCommitHook
@@ -35,7 +36,8 @@ abstract class BasePreCommitProcessHook implements PreCommitHook
     }
 
     /**
-     * @throws HookFailException
+     * @throws HookFailException When the hook command fails
+     * @throws ProcessRuntimeException When process execution fails (command not found, etc.)
      */
     public function handle(ChangedFiles $files, Closure $next): mixed
     {

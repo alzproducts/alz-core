@@ -6,6 +6,7 @@ namespace App\Presentation\Http\Controllers;
 
 use Illuminate\Filesystem\FilesystemManager;
 use Illuminate\Http\RedirectResponse;
+use RuntimeException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
@@ -29,7 +30,7 @@ final readonly class FeedController
      * Example: /feeds/doofinder-a1b2c3d4e5f6789012345678abcdef12.xml
      *
      * @throws NotFoundHttpException When feed config not found or file doesn't exist
-     * @throws \RuntimeException When storage driver doesn't support temporary URLs (config error)
+     * @throws RuntimeException When storage driver doesn't support temporary URLs (config error)
      */
     public function show(string $prefix, string $guid): RedirectResponse
     {
