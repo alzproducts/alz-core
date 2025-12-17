@@ -142,7 +142,7 @@ parameters:
         # PHPStan cannot verify this framework contract, so we suppress the false positive.
         -
             identifier: property.uninitialized
-            path: app/DevTools/GitHooks/Base*Hook.php
+            path: app/DevTools/GitHooks/Abstract*Hook.php
         # Laravel often requires unused closure parameters (Gate::define signatures, factory states, etc.)
         - identifier: shipmonk.unusedParameter
         # Laravel config files use nullable string concatenation
@@ -185,9 +185,15 @@ parameters:
             identifier: missingType.checkedException
             path: database/migrations/*
         # Stage 4: Symplify rule exceptions for Laravel/PHP conventions
-        # Symplify expects "Abstract*" prefix but we use "Base*" for partial implementations
-        # and our exceptions extend from abstract base classes per Clean Architecture
-        - identifier: symplify.explicitAbstractPrefixName
+        # Layer base exceptions follow PHP convention: named after layer, not "Abstract*" prefix
+        # Examples: Symfony's HttpException, Laravel's ModelNotFoundException
+        -
+            identifier: symplify.explicitAbstractPrefixName
+            paths:
+                - app/Application/Exceptions/ApplicationException.php
+                - app/Domain/Exceptions/DomainException.php
+                - app/Infrastructure/Exceptions/InfrastructureException.php
+                - app/Infrastructure/Exceptions/ApiException.php
         # Symplify expects singular "Exception" namespace but PHP/Laravel convention uses "Exceptions" (plural)
         - identifier: symplify.requireExceptionNamespace
         # Symplify requires explicit parameter names on all attributes, but Spatie Data

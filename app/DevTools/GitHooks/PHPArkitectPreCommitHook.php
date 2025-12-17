@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\DevTools\GitHooks;
 
-final class PHPArkitectPreCommitHook extends BasePreCommitProcessHook
+final class PHPArkitectPreCommitHook extends AbstractPreCommitProcessHook
 {
     public function getName(): string
     {

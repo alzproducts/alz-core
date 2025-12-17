@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\DevTools\GitHooks;
 
-final class PestPrePushHook extends BaseProcessHook
+final class PestPrePushHook extends AbstractProcessHook
 {
     public function getName(): string
     {
