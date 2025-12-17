@@ -62,6 +62,7 @@ final readonly class LinnworksHttpTransport
     public function get(string $endpoint, array $query = []): Response
     {
         return $this->executeWithAuthRetry(
+            // @phpstan-ignore missingType.checkedException, missingType.checkedException, missingType.checkedException (false positive: closure exceptions caught in executeWithAuthRetry)
             fn(LinnworksSession $session): Response => $this->createBaseRequest($session)
                 ->send('GET', $endpoint, ['query' => $query])
                 ->throw(),
@@ -103,6 +104,7 @@ final readonly class LinnworksHttpTransport
         }
 
         return $this->executeWithAuthRetry(
+            // @phpstan-ignore missingType.checkedException, missingType.checkedException, missingType.checkedException (false positive: closure exceptions caught in executeWithAuthRetry)
             fn(LinnworksSession $session): Response => $this->createBaseRequest($session)
                 ->send('POST', $endpoint, ['form_params' => $formData])
                 ->throw(),
