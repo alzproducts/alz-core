@@ -20,6 +20,7 @@ use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use RuntimeException;
 use Throwable;
 
 /**
@@ -163,8 +164,11 @@ final readonly class ShopwiredHttpTransport
      *
      * @return array<string, Response> Keyed responses matching input keys
      *
+     * @throws InvalidApiRequestException When request parameters are invalid (400)
      * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
+     * @throws ResourceNotFoundException When resource not found (404)
      * @throws ExternalServiceUnavailableException When API unavailable, rate limited, or connection fails
+     * @throws RuntimeException When HTTP pool initialization fails (Laravel/Guzzle internals)
      */
     public function poolPost(array $requests): array
     {
@@ -245,6 +249,8 @@ final readonly class ShopwiredHttpTransport
 
     /**
      * Create configured HTTP request with auth and optional retry logic.
+     *
+     * @throws RuntimeException When HTTP client configuration fails (caught by public methods)
      */
     private function createBaseRequest(bool $retry, RetryStrategy $strategy): PendingRequest
     {

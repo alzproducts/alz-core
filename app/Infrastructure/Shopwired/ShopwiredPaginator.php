@@ -28,6 +28,7 @@ final readonly class ShopwiredPaginator
      *
      * @param P $params Initial query parameters (offset should be 0)
      * @param Closure(P): list<T> $fetchPage Callback to fetch one page
+     * @param-immediately-invoked-callable $fetchPage
      * @param int|null $knownTotal Optional total count (stops at this count if provided)
      *
      * @return list<T> All items across all pages

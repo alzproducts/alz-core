@@ -289,10 +289,42 @@ Found non-normalized type (ConnectionException | Exception) for throws: Connecti
 
 - Documenting `@throws SpecificException` and `@throws Exception` in the same docblock
 - The specific exception extends the generic one (directly or indirectly)
+- **Common case:** Domain exceptions (extending `RuntimeException`) listed alongside `\RuntimeException`
 
-### Solution
+### Solutions (Best → Worst)
 
-When you intentionally document all specific exception types for caller clarity (even though a parent type is also listed), use `@phpstan-ignore-next-line` within the docblock before each specific `@throws` line:
+---
+
+#### 1. Path-based Ignores in phpstan.neon (Best for Multiple Files)
+
+**When to use:** Multiple files have the same issue, typically when documenting both domain exceptions AND their parent `RuntimeException`.
+
+Our domain exceptions extend `RuntimeException` (intentionally - domain exceptions ARE runtime conditions). When a method can also throw generic `RuntimeException` from infrastructure (e.g., `Http::pool()` from Guzzle), both must be documented for completeness.
+
+**Example from phpstan.neon:**
+```yaml
+ignoreErrors:
+  # Http::pool() can throw generic RuntimeException from Laravel/Guzzle internals.
+  # Domain exceptions extend RuntimeException, so documenting both creates "non-normalized type".
+  # Both must be documented: domain exceptions for business logic, RuntimeException for infrastructure.
+  -
+    identifier: shipmonk.nonNormalizedType
+    paths:
+      - app/Infrastructure/Shopwired/ShopwiredHttpTransport.php
+      - app/Infrastructure/Shopwired/Clients/StockClient.php
+      - app/Application/Contracts/Shopwired/StockClientInterface.php
+```
+
+**Why it's best for this case:**
+- Keeps docblocks clean (no `@phpstan-ignore-next-line` on every `@throws`)
+- Documents reasoning in one central location
+- PHPStan doesn't support block-level ignore (`@phpstan-ignore-start`/`@phpstan-ignore-end`)—it's a [requested feature](https://github.com/phpstan/phpstan/issues/4452)
+
+---
+
+#### 2. Inline `@phpstan-ignore-next-line` (Best for Single Files)
+
+**When to use:** One-off case with few `@throws` annotations.
 
 ```php
 /**
@@ -309,11 +341,29 @@ private function downloadData(): string
 - Each `@phpstan-ignore-next-line` suppresses the error on the following `@throws` line
 - Only needed for specific exceptions that have the parent type also listed
 - `@throws Exception` at the end doesn't need an ignore (it's the "normalized" parent)
+- **Becomes verbose with 5+ exceptions**—consider path-based ignore instead
 
 See [General Troubleshooting](#ignoring-errors-on-phpdoc-annotation-lines) for the underlying PHPStan v2 behavior.
 
+---
+
+### Decision Tree
+
+```
+Multiple @throws with parent-child relationship
+    ↓
+How many files affected?
+    → Multiple files: Use path-based ignore in phpstan.neon → DONE
+    → Single file: ↓
+
+How many @throws need ignoring?
+    → 1-3: Use @phpstan-ignore-next-line before each → DONE
+    → 4+: Consider path-based ignore for cleaner docblocks → DONE
+```
+
 **Related codebase files:**
-- `app/Infrastructure/BingAds/BingAdsTransport.php` - Pattern example
+- `app/Infrastructure/BingAds/BingAdsTransport.php` - Inline ignore pattern
+- `phpstan.neon` - Path-based ignore for ShopWired poolPost RuntimeException
 
 ---
 

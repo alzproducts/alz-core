@@ -6,6 +6,11 @@ namespace App\Infrastructure\Shopwired\Clients;
 
 use App\Application\Contracts\Shopwired\CategoryClientInterface;
 use App\Domain\Catalog\ValueObjects\Category as DomainCategory;
+use App\Domain\Exceptions\AuthenticationExpiredException;
+use App\Domain\Exceptions\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\InvalidApiRequestException;
+use App\Domain\Exceptions\InvalidApiResponseException;
+use App\Domain\Exceptions\ResourceNotFoundException;
 use App\Infrastructure\Shopwired\Responses\CategoryResponse;
 use App\Infrastructure\Shopwired\ShopwiredHttpTransport;
 use App\Infrastructure\Shopwired\ShopwiredPaginator;
@@ -69,6 +74,12 @@ final readonly class CategoryClient implements CategoryClientInterface
      * List ALL categories with embedded parents and custom fields (paginated fetch).
      *
      * @return list<DomainCategory>
+     *
+     * @throws InvalidApiRequestException When request parameters are invalid (400)
+     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
+     * @throws ResourceNotFoundException When resource not found (404)
+     * @throws ExternalServiceUnavailableException When API unavailable or connection fails
+     * @throws InvalidApiResponseException When response parsing fails (API contract violation)
      */
     public function listAllCategories(): array
     {
@@ -84,6 +95,12 @@ final readonly class CategoryClient implements CategoryClientInterface
 
     /**
      * @return list<DomainCategory>
+     *
+     * @throws InvalidApiRequestException When request parameters are invalid (400)
+     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
+     * @throws ResourceNotFoundException When resource not found (404)
+     * @throws ExternalServiceUnavailableException When API unavailable or connection fails
+     * @throws InvalidApiResponseException When response parsing fails (API contract violation)
      */
     public function listCategories(): array
     {
@@ -93,6 +110,13 @@ final readonly class CategoryClient implements CategoryClientInterface
         return self::parseArrayToDomain($response->json(), CategoryResponse::class);
     }
 
+    /**
+     * @throws InvalidApiRequestException When request parameters are invalid (400)
+     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
+     * @throws ResourceNotFoundException When category not found (404)
+     * @throws ExternalServiceUnavailableException When API unavailable or connection fails
+     * @throws InvalidApiResponseException When response parsing fails (API contract violation)
+     */
     public function getCategoryById(int $id): DomainCategory
     {
         $response = $this->transport->get(self::ENDPOINT_CATEGORIES . '/' . $id);
@@ -101,6 +125,13 @@ final readonly class CategoryClient implements CategoryClientInterface
         return self::parseSingleToDomain($response->json(), CategoryResponse::class);
     }
 
+    /**
+     * @throws InvalidApiRequestException When request parameters are invalid (400)
+     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
+     * @throws ResourceNotFoundException When resource not found (404)
+     * @throws ExternalServiceUnavailableException When API unavailable or connection fails
+     * @throws InvalidApiResponseException When response parsing fails (API contract violation)
+     */
     public function getCategoryCount(): int
     {
         $response = $this->transport->get(self::ENDPOINT_CATEGORIES . '/count');
@@ -112,6 +143,12 @@ final readonly class CategoryClient implements CategoryClientInterface
      * Fetch a single page of categories.
      *
      * @return list<DomainCategory>
+     *
+     * @throws InvalidApiRequestException When request parameters are invalid (400)
+     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
+     * @throws ResourceNotFoundException When resource not found (404)
+     * @throws ExternalServiceUnavailableException When API unavailable or connection fails
+     * @throws InvalidApiResponseException When response parsing fails (API contract violation)
      */
     private function fetchCategoryPage(ShopwiredQueryParams $params): array
     {
