@@ -92,6 +92,8 @@ final readonly class BingAdsCsvTransformer
      * Parse CSV content into array of rows.
      *
      * @return list<list<string>>
+     *
+     * @throws InvalidBingAdsResponseException When temp stream creation fails
      */
     private static function parseLines(string $csvContent): array
     {

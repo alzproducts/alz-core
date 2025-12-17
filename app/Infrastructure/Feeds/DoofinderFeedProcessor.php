@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use JsonException;
 use Psr\Log\LoggerInterface;
+use RuntimeException;
 use SimpleXMLElement;
 use Throwable;
 use Webmozart\Assert\Assert;
@@ -44,6 +45,11 @@ final readonly class DoofinderFeedProcessor implements ProductSearchFeedProcesso
         private LoggerInterface $logger,
     ) {}
 
+    /**
+     * {@inheritDoc}
+     *
+     * @throws RuntimeException When HTTP client encounters unexpected errors (Guzzle internals, SSL, etc.)
+     */
     public function process(string $sourceUrl, string $outputPath): ProductSearchFeedProcessingResult
     {
         $startTime = \microtime(true);
@@ -108,6 +114,7 @@ final readonly class DoofinderFeedProcessor implements ProductSearchFeedProcesso
      * the redirect URL and follows it.
      *
      * @throws ExternalServiceUnavailableException When feed cannot be fetched or redirect limit exceeded
+     * @throws RuntimeException When HTTP client cannot be resolved (container misconfiguration)
      */
     private function fetchSourceFeed(string $sourceUrl, int $redirectDepth = 0): string
     {
@@ -444,6 +451,8 @@ final readonly class DoofinderFeedProcessor implements ProductSearchFeedProcesso
      * Checks non-namespaced elements first, then falls back to Google namespace.
      *
      * @return array{0: string, 1: bool} [transformedXml, wasSubstituted]
+     *
+     * @throws MalformedFeedDataException When item XML is invalid or cannot be serialized
      */
     private static function transformItem(string $itemXml): array
     {
