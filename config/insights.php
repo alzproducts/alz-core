@@ -20,6 +20,8 @@ use PhpCsFixer\Fixer\ClassNotation\ClassDefinitionFixer;
 use PhpCsFixer\Fixer\ClassNotation\OrderedClassElementsFixer;
 use PhpCsFixer\Fixer\FunctionNotation\FunctionDeclarationFixer;
 use SlevomatCodingStandard\Sniffs\Classes\ClassStructureSniff;
+use SlevomatCodingStandard\Sniffs\Classes\ForbiddenPublicPropertySniff;
+use SlevomatCodingStandard\Sniffs\Classes\SuperfluousAbstractClassNamingSniff;
 use SlevomatCodingStandard\Sniffs\Classes\SuperfluousExceptionNamingSniff;
 use SlevomatCodingStandard\Sniffs\Classes\SuperfluousInterfaceNamingSniff;
 use SlevomatCodingStandard\Sniffs\Classes\SuperfluousTraitNamingSniff;
@@ -96,7 +98,8 @@ return [
         ForbiddenDefineFunctions::class,
         ForbiddenTraits::class,
 
-        // Naming - allow Interface/Exception/Trait suffixes (PHP standard convention)
+        // Naming - allow Interface/Exception/Trait/Abstract prefixes/suffixes (PHP standard convention)
+        SuperfluousAbstractClassNamingSniff::class,
         SuperfluousInterfaceNamingSniff::class,
         SuperfluousExceptionNamingSniff::class,
         SuperfluousTraitNamingSniff::class,
@@ -155,8 +158,15 @@ return [
         // Framework-required patterns (per-file exclusions)
         ForbiddenSetterSniff::class => [
             'exclude' => [
-                'app/DevTools/GitHooks/BaseProcessHook.php',
-                'app/DevTools/GitHooks/BasePreCommitProcessHook.php',
+                'app/DevTools/GitHooks/AbstractProcessHook.php',
+                'app/DevTools/GitHooks/AbstractPreCommitProcessHook.php',
+            ],
+        ],
+
+        // Laravel Job classes require public $tries, $backoff, $timeout properties (queue contract)
+        ForbiddenPublicPropertySniff::class => [
+            'exclude' => [
+                'app/Presentation/Jobs/*',
             ],
         ],
 
