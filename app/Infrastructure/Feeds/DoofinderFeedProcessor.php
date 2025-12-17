@@ -16,7 +16,6 @@ use Illuminate\Support\Str;
 use JsonException;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
-use SimpleXMLElement;
 use Throwable;
 use Webmozart\Assert\Assert;
 use XMLReader;
@@ -43,6 +42,7 @@ final readonly class DoofinderFeedProcessor implements ProductSearchFeedProcesso
     public function __construct(
         private RemoteStorageInterface $storage,
         private LoggerInterface $logger,
+        private DoofinderItemTransformer $itemTransformer,
     ) {}
 
     /**
@@ -214,8 +214,51 @@ final readonly class DoofinderFeedProcessor implements ProductSearchFeedProcesso
      */
     private function transformFeedToTempFile(string $sourceXml): string
     {
+        $reader = $this->createXmlReader($sourceXml);
+        $tempPath = \sys_get_temp_dir() . '/doofinder-feed-' . Str::uuid()->toString() . '.xml';
+        $handle = $this->openTempFile($tempPath, $reader);
+
+        $itemsProcessed = 0;
+        $titlesSubstituted = 0;
+        $isFirstItem = true;
+
         try {
-            $reader = XMLReader::fromString($sourceXml, encoding: 'UTF-8');
+            while ($reader->read()) {
+                $result = $this->processNode($reader, $handle, $isFirstItem);
+
+                if ($result !== null) {
+                    [$isFirstItem, $wasSubstituted] = $result;
+                    $itemsProcessed++;
+
+                    if ($wasSubstituted) {
+                        $titlesSubstituted++;
+                    }
+                }
+            }
+
+            $this->validateFeedNotEmpty($isFirstItem);
+        } catch (Throwable $e) {
+            $this->cleanupOnError($handle, $reader, $tempPath);
+            throw $this->wrapException($e);
+        }
+
+        \fclose($handle);
+        $reader->close();
+
+        self::writeProcessingStats($tempPath, $itemsProcessed, $titlesSubstituted);
+
+        return $tempPath;
+    }
+
+    /**
+     * Create XMLReader from source XML string.
+     *
+     * @throws MalformedFeedDataException When XML cannot be parsed
+     */
+    private function createXmlReader(string $sourceXml): XMLReader
+    {
+        try {
+            return XMLReader::fromString($sourceXml, encoding: 'UTF-8');
         } catch (Throwable $e) {
             throw new MalformedFeedDataException(
                 feedName: self::SERVICE_NAME,
@@ -223,9 +266,17 @@ final readonly class DoofinderFeedProcessor implements ProductSearchFeedProcesso
                 previous: $e,
             );
         }
+    }
 
-        $tempPath = \sys_get_temp_dir() . '/doofinder-feed-' . Str::uuid()->toString() . '.xml';
-        $statsPath = $tempPath . '.stats';
+    /**
+     * Open temp file for writing, closing reader on failure.
+     *
+     * @return resource File handle
+     *
+     * @throws MalformedFeedDataException When temp file cannot be created
+     */
+    private function openTempFile(string $tempPath, XMLReader $reader): mixed
+    {
         $handle = \fopen($tempPath, 'wb');
 
         if ($handle === false) {
@@ -237,74 +288,132 @@ final readonly class DoofinderFeedProcessor implements ProductSearchFeedProcesso
             );
         }
 
-        $itemsProcessed = 0;
-        $titlesSubstituted = 0;
-        $isFirstItem = true;
+        return $handle;
+    }
 
-        try {
-            while ($reader->read()) {
-                if (($reader->nodeType === XMLReader::ELEMENT) && ($reader->localName === 'item')) {
-                    $itemXml = $reader->readOuterXml();
-
-                    if ($itemXml === '') {
-                        continue;
-                    }
-
-                    // Validate first item structure before processing any items
-                    if ($isFirstItem) {
-                        $this->validateFirstItem($itemXml);
-                        $isFirstItem = false;
-                    }
-
-                    [$transformedItem, $wasSubstituted] = self::transformItem($itemXml);
-                    \fwrite($handle, $transformedItem);
-                    $itemsProcessed++;
-
-                    if ($wasSubstituted) {
-                        $titlesSubstituted++;
-                    }
-
-                    // Skip to next sibling (readOuterXml doesn't advance cursor past element)
-                    $reader->next();
-                } elseif ($reader->nodeType === XMLReader::ELEMENT) {
-                    \fwrite($handle, self::getOpeningTag($reader));
-                } elseif ($reader->nodeType === XMLReader::END_ELEMENT) {
-                    \fwrite($handle, "</{$reader->localName}>");
-                } elseif (($reader->nodeType === XMLReader::TEXT) || ($reader->nodeType === XMLReader::CDATA)) {
-                    \fwrite($handle, \htmlspecialchars($reader->value, ENT_XML1 | ENT_QUOTES, 'UTF-8'));
-                } elseif ($reader->nodeType === XMLReader::XML_DECLARATION) {
-                    \fwrite($handle, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
-                }
-            }
-
-            // Validate feed wasn't empty
-            if ($isFirstItem) {
-                throw new MalformedFeedDataException(
-                    feedName: self::SERVICE_NAME,
-                    reason: 'Feed contains no items - cannot process empty feed',
-                );
-            }
-        } catch (Throwable $e) {
-            \fclose($handle);
-            $reader->close();
-            self::safeUnlink($tempPath);
-            self::safeUnlink($statsPath);
-
-            if ($e instanceof MalformedFeedDataException) {
-                throw $e;
-            }
-
-            throw new MalformedFeedDataException(
-                feedName: self::SERVICE_NAME,
-                reason: "XML processing error: {$e->getMessage()}",
-                previous: $e,
-            );
+    /**
+     * Process a single XML node during streaming.
+     *
+     * @param resource $handle File handle for output
+     * @return array{0: bool, 1: bool}|null [isFirstItem, wasSubstituted] for items, null for other nodes
+     *
+     * @throws MalformedFeedDataException When item transformation fails
+     */
+    private function processNode(XMLReader $reader, mixed $handle, bool $isFirstItem): ?array
+    {
+        // Handle item elements specially (transformation + validation)
+        if ($reader->nodeType === XMLReader::ELEMENT && $reader->localName === 'item') {
+            return $this->processItemNode($reader, $handle, $isFirstItem);
         }
 
+        // Write non-item nodes directly using match
+        $this->writeNonItemNode($reader, $handle);
+
+        return null;
+    }
+
+    /**
+     * Process an item element: validate, transform, and write.
+     *
+     * @param resource $handle File handle for output
+     * @return array{0: bool, 1: bool} [isFirstItem (always false after), wasSubstituted]
+     *
+     * @throws MalformedFeedDataException When item validation or transformation fails
+     */
+    private function processItemNode(XMLReader $reader, mixed $handle, bool $isFirstItem): array
+    {
+        $itemXml = $reader->readOuterXml();
+
+        if ($itemXml === '') {
+            return [$isFirstItem, false];
+        }
+
+        if ($isFirstItem) {
+            $this->itemTransformer->validateFirstItem($itemXml);
+        }
+
+        [$transformedItem, $wasSubstituted] = $this->itemTransformer->transform($itemXml);
+        \fwrite($handle, $transformedItem);
+
+        // Skip to next sibling (readOuterXml doesn't advance cursor past element)
+        $reader->next();
+
+        return [false, $wasSubstituted];
+    }
+
+    /**
+     * Write non-item XML node to output handle using match dispatch.
+     *
+     * @param resource $handle File handle for output
+     */
+    private function writeNonItemNode(XMLReader $reader, mixed $handle): void
+    {
+        // Match returns fwrite result (int|false) or null - intentionally unused
+        $bytesWritten = match ($reader->nodeType) {
+            XMLReader::ELEMENT => \fwrite($handle, self::getOpeningTag($reader)),
+            XMLReader::END_ELEMENT => \fwrite($handle, "</{$reader->localName}>"),
+            XMLReader::TEXT, XMLReader::CDATA => \fwrite($handle, \htmlspecialchars($reader->value, ENT_XML1 | ENT_QUOTES, 'UTF-8')),
+            XMLReader::XML_DECLARATION => \fwrite($handle, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"),
+            default => null,
+        };
+
+        // Silence unused variable warning - we don't need the byte count
+        unset($bytesWritten);
+    }
+
+    /**
+     * Validate that the feed contained at least one item.
+     *
+     * @throws MalformedFeedDataException When feed is empty
+     */
+    private function validateFeedNotEmpty(bool $isFirstItem): void
+    {
+        if ($isFirstItem) {
+            throw new MalformedFeedDataException(
+                feedName: self::SERVICE_NAME,
+                reason: 'Feed contains no items - cannot process empty feed',
+            );
+        }
+    }
+
+    /**
+     * Clean up resources on error.
+     *
+     * @param resource $handle File handle to close
+     */
+    private function cleanupOnError(mixed $handle, XMLReader $reader, string $tempPath): void
+    {
         \fclose($handle);
         $reader->close();
+        self::safeUnlink($tempPath);
+        self::safeUnlink($tempPath . '.stats');
+    }
 
-        // Write stats to separate file for retrieval
+    /**
+     * Wrap non-domain exceptions in MalformedFeedDataException.
+     */
+    private function wrapException(Throwable $e): MalformedFeedDataException
+    {
+        if ($e instanceof MalformedFeedDataException) {
+            return $e;
+        }
+
+        return new MalformedFeedDataException(
+            feedName: self::SERVICE_NAME,
+            reason: "XML processing error: {$e->getMessage()}",
+            previous: $e,
+        );
+    }
+
+    /**
+     * Write processing stats to a JSON file.
+     *
+     * @throws MalformedFeedDataException When stats cannot be encoded
+     */
+    private static function writeProcessingStats(string $tempPath, int $itemsProcessed, int $titlesSubstituted): void
+    {
+        $statsPath = $tempPath . '.stats';
+
         try {
             $statsJson = \json_encode(\compact('itemsProcessed', 'titlesSubstituted'), JSON_THROW_ON_ERROR);
         } catch (JsonException $e) {
@@ -318,8 +427,6 @@ final readonly class DoofinderFeedProcessor implements ProductSearchFeedProcesso
         }
 
         \file_put_contents($statsPath, $statsJson);
-
-        return $tempPath;
     }
 
     /**
@@ -366,148 +473,6 @@ final readonly class DoofinderFeedProcessor implements ProductSearchFeedProcesso
         if (\file_exists($path)) {
             \unlink($path);
         }
-    }
-
-    /**
-     * Validate the first item has required title and d_title elements.
-     *
-     * Note: The feed may have a 'g' namespace for some elements (g:price, g:availability),
-     * but title and d_title are typically non-namespaced. We check non-namespaced first,
-     * then fall back to namespaced versions.
-     *
-     * @throws MalformedFeedDataException When required elements are missing
-     */
-    private function validateFirstItem(string $itemXml): void
-    {
-        try {
-            $item = new SimpleXMLElement($itemXml);
-        } catch (Throwable $e) {
-            throw new MalformedFeedDataException(
-                feedName: self::SERVICE_NAME,
-                reason: 'First item XML is malformed: ' . $e->getMessage(),
-                previous: $e,
-            );
-        }
-
-        // Check non-namespaced elements first (most common case)
-        if (isset($item->title, $item->d_title)) {
-            $this->logger->debug('Feed structure validated', [
-                'service' => self::SERVICE_NAME,
-                'namespace' => 'none',
-                'sample_title' => (string) $item->title,
-                'sample_d_title' => (string) $item->d_title,
-            ]);
-
-            return;
-        }
-
-        // Fall back to Google namespace (g:title, g:d_title)
-        $namespaces = $item->getNamespaces(true);
-        $gNamespace = $namespaces['g'] ?? null;
-
-        if ($gNamespace !== null) {
-            $gChildren = $item->children($gNamespace);
-
-            if (($gChildren !== null) && isset($gChildren->title, $gChildren->d_title)) {
-                $this->logger->debug('Feed structure validated', [
-                    'service' => self::SERVICE_NAME,
-                    'namespace' => 'g',
-                    'sample_title' => (string) $gChildren->title,
-                    'sample_d_title' => (string) $gChildren->d_title,
-                ]);
-
-                return;
-            }
-        }
-
-        // Neither found - report what's missing
-        $hasTitleNonNamespaced = isset($item->title);
-        $hasDTitleNonNamespaced = isset($item->d_title);
-
-        if (!$hasTitleNonNamespaced && !$hasDTitleNonNamespaced) {
-            throw new MalformedFeedDataException(
-                feedName: self::SERVICE_NAME,
-                reason: 'First item missing both title and d_title elements',
-            );
-        }
-
-        if (!$hasTitleNonNamespaced) {
-            throw new MalformedFeedDataException(
-                feedName: self::SERVICE_NAME,
-                reason: 'First item missing required title element',
-            );
-        }
-
-        throw new MalformedFeedDataException(
-            feedName: self::SERVICE_NAME,
-            reason: 'First item missing required d_title element - feed may not be configured for title substitution',
-        );
-    }
-
-    /**
-     * Transform a single item element.
-     *
-     * Substitutes <title> content with <d_title> content if both exist.
-     * Checks non-namespaced elements first, then falls back to Google namespace.
-     *
-     * @return array{0: string, 1: bool} [transformedXml, wasSubstituted]
-     *
-     * @throws MalformedFeedDataException When item XML is invalid or cannot be serialized
-     */
-    private static function transformItem(string $itemXml): array
-    {
-        try {
-            $item = new SimpleXMLElement($itemXml);
-        } catch (Throwable $e) {
-            throw new MalformedFeedDataException(
-                feedName: self::SERVICE_NAME,
-                reason: "Invalid item XML: {$e->getMessage()}",
-                previous: $e,
-            );
-        }
-
-        $wasSubstituted = false;
-
-        // Check non-namespaced elements first (most common case)
-        if (isset($item->d_title, $item->title)) {
-            $displayTitle = (string) $item->d_title;
-
-            if ($displayTitle !== '') {
-                $item->title = $displayTitle;
-                $wasSubstituted = true;
-            }
-        } else {
-            // Fall back to Google namespace (g:title, g:d_title)
-            $namespaces = $item->getNamespaces(true);
-            $gNamespace = $namespaces['g'] ?? null;
-
-            if ($gNamespace !== null) {
-                $gChildren = $item->children($gNamespace);
-
-                if (($gChildren !== null) && isset($gChildren->d_title, $gChildren->title)) {
-                    $displayTitle = (string) $gChildren->d_title;
-
-                    if ($displayTitle !== '') {
-                        $gChildren->title = $displayTitle;
-                        $wasSubstituted = true;
-                    }
-                }
-            }
-        }
-
-        $result = $item->asXML();
-
-        if ($result === false) {
-            throw new MalformedFeedDataException(
-                feedName: self::SERVICE_NAME,
-                reason: 'Failed to serialize transformed item',
-            );
-        }
-
-        // Remove XML declaration that SimpleXML adds
-        $result = \preg_replace('/^<\?xml[^?]*\?>\s*/i', '', $result);
-
-        return [$result ?? '', $wasSubstituted];
     }
 
     /**
