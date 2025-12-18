@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace App\DevTools\GitHooks;
 
-final class PHPArkitectPrePushHook extends BaseProcessHook
+final class PHPArkitectPrePushHook extends AbstractProcessHook
 {
-    protected string $name = 'PHPArkitect';
+    public function getName(): string
+    {
+        return 'PHPArkitect';
+    }
 
     /**
      * @return list<string>

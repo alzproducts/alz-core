@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\BingAds;
 
+use App\Domain\Exceptions\InvalidConfigurationException;
 use InvalidArgumentException;
-use RuntimeException;
 
 /**
  * Immutable configuration for Bing Ads (Microsoft Advertising) API client.
@@ -44,7 +44,6 @@ final readonly class BingAdsConfig
      * @param int $reportPollIntervalSeconds Seconds between report status polls (1-120)
      * @param int $reportPollMaxAttempts Maximum report poll attempts before timeout (1-100)
      *
-     * @throws RuntimeException When required credentials are empty
      * @throws InvalidArgumentException When parameters are invalid
      */
     public function __construct(
@@ -59,27 +58,27 @@ final readonly class BingAdsConfig
         public int $reportPollMaxAttempts = 30,
     ) {
         if ($clientId === '') {
-            throw new RuntimeException('Bing Ads client ID cannot be empty');
+            throw new InvalidConfigurationException('bing-ads.client_id', 'Bing Ads client ID cannot be empty');
         }
 
         if ($clientSecret === '') {
-            throw new RuntimeException('Bing Ads client secret cannot be empty');
+            throw new InvalidConfigurationException('bing-ads.client_secret', 'Bing Ads client secret cannot be empty');
         }
 
         if ($refreshToken === '') {
-            throw new RuntimeException('Bing Ads refresh token cannot be empty');
+            throw new InvalidConfigurationException('bing-ads.refresh_token', 'Bing Ads refresh token cannot be empty');
         }
 
         if ($developerToken === '') {
-            throw new RuntimeException('Bing Ads developer token cannot be empty');
+            throw new InvalidConfigurationException('bing-ads.developer_token', 'Bing Ads developer token cannot be empty');
         }
 
         if ($accountId === '') {
-            throw new RuntimeException('Bing Ads account ID cannot be empty');
+            throw new InvalidConfigurationException('bing-ads.account_id', 'Bing Ads account ID cannot be empty');
         }
 
         if ($customerId === '') {
-            throw new RuntimeException('Bing Ads customer ID cannot be empty');
+            throw new InvalidConfigurationException('bing-ads.customer_id', 'Bing Ads customer ID cannot be empty');
         }
 
         if (!\in_array($environment, ['Production', 'Sandbox'], true)) {

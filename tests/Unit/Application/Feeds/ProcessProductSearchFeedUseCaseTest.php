@@ -8,10 +8,10 @@ use App\Application\Contracts\ProductSearchFeedProcessorInterface;
 use App\Application\Feeds\ProcessProductSearchFeedUseCase;
 use App\Application\Feeds\ProductSearchFeedProcessingResult;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\InvalidConfigurationException;
 use App\Domain\Exceptions\MalformedFeedDataException;
 use App\Domain\Exceptions\StorageOperationFailedException;
 use Illuminate\Support\Facades\Config;
-use InvalidArgumentException;
 use Mockery;
 use Mockery\MockInterface;
 use Override;
@@ -119,7 +119,7 @@ final class ProcessProductSearchFeedUseCaseTest extends TestCase
     {
         Config::set('feeds.doofinder', null);
 
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(InvalidConfigurationException::class);
         $this->expectExceptionMessage('Product search feed configuration is missing');
 
         $this->useCase->execute();
@@ -130,7 +130,7 @@ final class ProcessProductSearchFeedUseCaseTest extends TestCase
     {
         Config::set('feeds.doofinder', 'invalid');
 
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(InvalidConfigurationException::class);
         $this->expectExceptionMessage('Product search feed configuration is missing');
 
         $this->useCase->execute();
@@ -144,7 +144,7 @@ final class ProcessProductSearchFeedUseCaseTest extends TestCase
             'storage_disk' => 's3',
         ]);
 
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(InvalidConfigurationException::class);
         $this->expectExceptionMessage('missing required key: source_url');
 
         $this->useCase->execute();
@@ -158,7 +158,7 @@ final class ProcessProductSearchFeedUseCaseTest extends TestCase
             'storage_disk' => 's3',
         ]);
 
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(InvalidConfigurationException::class);
         $this->expectExceptionMessage('missing required key: storage_path');
 
         $this->useCase->execute();
@@ -172,7 +172,7 @@ final class ProcessProductSearchFeedUseCaseTest extends TestCase
             'storage_path' => 'feeds/output.xml',
         ]);
 
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(InvalidConfigurationException::class);
         $this->expectExceptionMessage('missing required key: storage_disk');
 
         $this->useCase->execute();
@@ -183,7 +183,7 @@ final class ProcessProductSearchFeedUseCaseTest extends TestCase
     {
         Config::set('feeds.doofinder.source_url', '');
 
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(InvalidConfigurationException::class);
         $this->expectExceptionMessage('missing required key: source_url');
 
         $this->useCase->execute();
@@ -194,7 +194,7 @@ final class ProcessProductSearchFeedUseCaseTest extends TestCase
     {
         Config::set('feeds.doofinder.storage_path', '');
 
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(InvalidConfigurationException::class);
         $this->expectExceptionMessage('missing required key: storage_path');
 
         $this->useCase->execute();
@@ -205,7 +205,7 @@ final class ProcessProductSearchFeedUseCaseTest extends TestCase
     {
         Config::set('feeds.doofinder.source_url', 123);
 
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(InvalidConfigurationException::class);
         $this->expectExceptionMessage('missing required key: source_url');
 
         $this->useCase->execute();

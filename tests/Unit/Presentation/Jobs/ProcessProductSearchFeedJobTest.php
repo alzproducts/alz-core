@@ -103,7 +103,8 @@ final class ProcessProductSearchFeedJobTest extends TestCase
 
         Log::shouldReceive('critical')
             ->once()
-            ->withArgs(static fn(string $message, array $context): bool => $message === 'Product search feed processing failed permanently'
+            ->withArgs(static fn(string $message, array $context): bool => $message === 'Unexpected exception in product feed job - code update required'
+                    && \str_contains($context['job'], 'ProcessProductSearchFeedJob')
                     && $context['exception'] === InvalidArgumentException::class
                     && $context['message'] === 'Invalid source URL provided'
                     && \array_key_exists('attempts', $context));
@@ -114,6 +115,8 @@ final class ProcessProductSearchFeedJobTest extends TestCase
             ->once()
             ->with($exception);
         $job->shouldReceive('attempts')->andReturn(1);
+
+        $this->expectException(InvalidArgumentException::class);
 
         $job->handle($this->mockUseCase);
     }
@@ -141,7 +144,8 @@ final class ProcessProductSearchFeedJobTest extends TestCase
 
         Log::shouldReceive('critical')
             ->once()
-            ->withArgs(static fn(string $message, array $context): bool => $message === 'Product search feed processing failed permanently'
+            ->withArgs(static fn(string $message, array $context): bool => $message === 'Unexpected exception in product feed job - code update required'
+                    && \str_contains($context['job'], 'ProcessProductSearchFeedJob')
                     && $context['exception'] === MalformedFeedDataException::class
                     && \str_contains($context['message'], 'Missing required title element')
                     && \array_key_exists('attempts', $context));
@@ -151,6 +155,8 @@ final class ProcessProductSearchFeedJobTest extends TestCase
             ->once()
             ->with($exception);
         $job->shouldReceive('attempts')->andReturn(1);
+
+        $this->expectException(MalformedFeedDataException::class);
 
         $job->handle($this->mockUseCase);
     }

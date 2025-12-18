@@ -30,6 +30,15 @@ use Tests\TestCase;
 #[CoversTrait(ShopwiredResponseParserTrait::class)]
 final class CustomerClientTest extends TestCase
 {
+    private const array DEFAULT_BULK_EMBEDS = ['country', 'state', 'wishlists', 'custom_fields'];
+
+    private const array DEFAULT_BULK_FIELDS = [
+        'id', 'createdAt', 'tradeGroupId', 'adminCreated', 'autoCreated', 'email', 'firstName', 'lastName',
+        'companyName', 'trade', 'active', 'creditEnabled', 'discount', 'costPriceMultiplier', 'phone',
+        'mobilePhone', 'website', 'vatNumber', 'acceptsMarketing', 'addressLine1', 'addressLine2', 'addressLine3',
+        'city', 'province', 'postcode', 'rewardPoints', 'notes', 'country', 'state', 'wishlists', 'customFields',
+    ];
+
     private MockInterface&ShopwiredHttpTransport $transport;
 
     private CustomerClient $client;
@@ -639,15 +648,6 @@ final class CustomerClientTest extends TestCase
     | listAllCustomers() Tests - Pagination
     |--------------------------------------------------------------------------
     */
-
-    private const array DEFAULT_BULK_EMBEDS = ['country', 'state', 'wishlists', 'custom_fields'];
-
-    private const array DEFAULT_BULK_FIELDS = [
-        'id', 'createdAt', 'tradeGroupId', 'adminCreated', 'autoCreated', 'email', 'firstName', 'lastName',
-        'companyName', 'trade', 'active', 'creditEnabled', 'discount', 'costPriceMultiplier', 'phone',
-        'mobilePhone', 'website', 'vatNumber', 'acceptsMarketing', 'addressLine1', 'addressLine2', 'addressLine3',
-        'city', 'province', 'postcode', 'rewardPoints', 'notes', 'country', 'state', 'wishlists', 'customFields',
-    ];
 
     #[Test]
     public function list_all_customers_sends_correct_pagination_params(): void

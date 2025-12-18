@@ -6,7 +6,7 @@ namespace App\Infrastructure\HelpScout\Responses;
 
 use App\Domain\CustomerService\ValueObjects\Conversation as DomainConversation;
 use App\Domain\Exceptions\InvalidApiResponseException;
-use App\Infrastructure\Contracts\DomainConvertible;
+use App\Infrastructure\Contracts\DomainConvertibleInterface;
 use DateMalformedStringException;
 use DateTimeImmutable;
 use Spatie\LaravelData\Attributes\DataCollectionOf;
@@ -18,7 +18,7 @@ use Spatie\LaravelData\Data;
  * Parsed from HelpScout API JSON. Uses camelCase property names
  * to match the API response directly.
  */
-final class ConversationResponse extends Data implements DomainConvertible
+final class ConversationResponse extends Data implements DomainConvertibleInterface
 {
     /**
      * @param array<TagResponse>|null $tags

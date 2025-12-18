@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace App\DevTools\GitHooks;
 
-final class PestMutatePrePushHook extends BaseProcessHook
+final class PestMutatePrePushHook extends AbstractProcessHook
 {
-    protected string $name = 'Pest Mutation Tests';
+    public function getName(): string
+    {
+        return 'Pest Mutation Tests';
+    }
 
     /**
      * @return list<string>

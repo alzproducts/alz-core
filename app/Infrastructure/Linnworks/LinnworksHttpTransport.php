@@ -7,9 +7,11 @@ namespace App\Infrastructure\Linnworks;
 use App\Domain\Exceptions\AuthenticationExpiredException;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\InvalidApiRequestException;
+use App\Domain\Exceptions\InvalidApiResponseException;
 use App\Domain\Exceptions\ResourceNotFoundException;
 use App\Infrastructure\Support\RetryAfterParser;
 use Closure;
+use DateMalformedStringException;
 use Exception;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
@@ -17,6 +19,8 @@ use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use JsonException;
+use RuntimeException;
 
 /**
  * HTTP transport layer for Linnworks API.
@@ -50,6 +54,7 @@ final readonly class LinnworksHttpTransport
      * @return Response Successful HTTP response
      *
      * @throws InvalidApiRequestException When request parameters are invalid (400)
+     * @throws InvalidApiResponseException When session data is malformed (API contract violation)
      * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
      * @throws ResourceNotFoundException When resource not found (404)
      * @throws ExternalServiceUnavailableException When API unavailable, rate limited, or connection fails
@@ -57,6 +62,7 @@ final readonly class LinnworksHttpTransport
     public function get(string $endpoint, array $query = []): Response
     {
         return $this->executeWithAuthRetry(
+            // @phpstan-ignore missingType.checkedException, missingType.checkedException, missingType.checkedException (false positive: closure exceptions caught in executeWithAuthRetry)
             fn(LinnworksSession $session): Response => $this->createBaseRequest($session)
                 ->send('GET', $endpoint, ['query' => $query])
                 ->throw(),
@@ -72,7 +78,8 @@ final readonly class LinnworksHttpTransport
      *
      * @return Response Successful HTTP response
      *
-     * @throws InvalidApiRequestException When request parameters are invalid (400)
+     * @throws InvalidApiRequestException When request parameters are invalid (400) or data not serializable
+     * @throws InvalidApiResponseException When session data is malformed (API contract violation)
      * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
      * @throws ResourceNotFoundException When resource not found (404)
      * @throws ExternalServiceUnavailableException When API unavailable, rate limited, or connection fails
@@ -80,9 +87,24 @@ final readonly class LinnworksHttpTransport
     public function post(string $endpoint, array $data = []): Response
     {
         // Linnworks API expects form-encoded POST with 'request' containing JSON
-        $formData = ($data === []) ? [] : ['request' => \json_encode($data, \JSON_THROW_ON_ERROR)];
+        try {
+            $formData = ($data === []) ? [] : ['request' => \json_encode($data, \JSON_THROW_ON_ERROR)];
+        } catch (JsonException $e) {
+            // Programming error: caller passed unserializable data
+            Log::error(self::SERVICE_NAME . ' failed to serialize request data', [
+                'endpoint' => $endpoint,
+                'error' => $e->getMessage(),
+            ]);
+
+            throw new InvalidApiRequestException(
+                self::SERVICE_NAME,
+                'Request data could not be serialized: ' . $e->getMessage(),
+                $e,
+            );
+        }
 
         return $this->executeWithAuthRetry(
+            // @phpstan-ignore missingType.checkedException, missingType.checkedException, missingType.checkedException (false positive: closure exceptions caught in executeWithAuthRetry)
             fn(LinnworksSession $session): Response => $this->createBaseRequest($session)
                 ->send('POST', $endpoint, ['form_params' => $formData])
                 ->throw(),
@@ -102,13 +124,27 @@ final readonly class LinnworksHttpTransport
      * @param Closure(LinnworksSession): Response $request
      *
      * @throws InvalidApiRequestException When request parameters are invalid (400)
+     * @throws InvalidApiResponseException When session data is malformed (API contract violation)
      * @throws AuthenticationExpiredException When credentials invalid/expired (401/403 after retry)
      * @throws ResourceNotFoundException When resource not found (404)
      * @throws ExternalServiceUnavailableException When API unavailable
      */
     private function executeWithAuthRetry(Closure $request, string $endpoint): Response
     {
-        $session = $this->sessionManager->getSession();
+        try {
+            $session = $this->sessionManager->getSession();
+        } catch (DateMalformedStringException $e) {
+            // Session data from Linnworks API has malformed date - API contract violation
+            Log::critical(self::SERVICE_NAME . ' session contains malformed date', [
+                'error' => $e->getMessage(),
+            ]);
+
+            throw new InvalidApiResponseException(
+                self::SERVICE_NAME,
+                'Session response contains malformed date: ' . $e->getMessage(),
+                $e,
+            );
+        }
 
         try {
             return $request($session);
@@ -116,7 +152,20 @@ final readonly class LinnworksHttpTransport
             if ($e->response->status() === 401) {
                 // Invalidate and retry once
                 $this->sessionManager->invalidate();
-                $session = $this->sessionManager->getSession();
+
+                try {
+                    $session = $this->sessionManager->getSession();
+                } catch (DateMalformedStringException $dateException) {
+                    Log::critical(self::SERVICE_NAME . ' session contains malformed date after refresh', [
+                        'error' => $dateException->getMessage(),
+                    ]);
+
+                    throw new InvalidApiResponseException(
+                        self::SERVICE_NAME,
+                        'Session response contains malformed date: ' . $dateException->getMessage(),
+                        $dateException,
+                    );
+                }
 
                 try {
                     return $request($session);
@@ -135,6 +184,8 @@ final readonly class LinnworksHttpTransport
 
     /**
      * Create configured HTTP request for a session.
+     *
+     * @throws RuntimeException When HTTP client configuration fails
      */
     private function createBaseRequest(LinnworksSession $session): PendingRequest
     {

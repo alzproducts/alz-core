@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\GoogleAds;
 
-use RuntimeException;
+use App\Domain\Exceptions\InvalidConfigurationException;
 
 /**
  * Immutable configuration for Google Ads API client.
@@ -28,7 +28,6 @@ final readonly class GoogleAdsConfig
      * @param string $customerId Google Ads customer ID (without hyphens)
      * @param string|null $loginCustomerId Manager account ID for delegated access (MCC)
      *
-     * @throws RuntimeException When required credentials are empty
      */
     public function __construct(
         public string $clientId,
@@ -39,27 +38,27 @@ final readonly class GoogleAdsConfig
         public ?string $loginCustomerId = null,
     ) {
         if ($clientId === '') {
-            throw new RuntimeException('Google Ads client ID cannot be empty');
+            throw new InvalidConfigurationException('google-ads.client_id', 'Google Ads client ID cannot be empty');
         }
 
         if ($clientSecret === '') {
-            throw new RuntimeException('Google Ads client secret cannot be empty');
+            throw new InvalidConfigurationException('google-ads.client_secret', 'Google Ads client secret cannot be empty');
         }
 
         if ($refreshToken === '') {
-            throw new RuntimeException('Google Ads refresh token cannot be empty');
+            throw new InvalidConfigurationException('google-ads.refresh_token', 'Google Ads refresh token cannot be empty');
         }
 
         if ($developerToken === '') {
-            throw new RuntimeException('Google Ads developer token cannot be empty');
+            throw new InvalidConfigurationException('google-ads.developer_token', 'Google Ads developer token cannot be empty');
         }
 
         if ($customerId === '') {
-            throw new RuntimeException('Google Ads customer ID cannot be empty');
+            throw new InvalidConfigurationException('google-ads.customer_id', 'Google Ads customer ID cannot be empty');
         }
 
         if ($loginCustomerId === '') {
-            throw new RuntimeException('Google Ads login customer ID cannot be empty when provided');
+            throw new InvalidConfigurationException('google-ads.login_customer_id', 'Google Ads login customer ID cannot be empty when provided');
         }
     }
 }

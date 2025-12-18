@@ -47,6 +47,9 @@ final class SyncCampaignLookupTableJob implements ShouldQueue
      * Execute the job: synchronize campaign lookup table.
      *
      * @throws ExternalServiceUnavailableException When external APIs unavailable - will retry
+     * @throws UnexpectedApiResultException When API returns unexpected data (permanent failure)
+     * @throws AuthenticationExpiredException When API credentials invalid (permanent failure)
+     * @throws Throwable When unexpected errors occur - indicates code update required
      */
     public function handle(SyncLookupTableUseCase $useCase): void
     {
@@ -65,6 +68,7 @@ final class SyncCampaignLookupTableJob implements ShouldQueue
             ]);
 
             $this->fail($e);
+            throw $e;
         } catch (AuthenticationExpiredException $e) {
             // Permanent failure - credentials need fixing, don't waste retries
             Log::critical('Authentication failed during campaign lookup table sync, failing immediately', [
@@ -74,6 +78,7 @@ final class SyncCampaignLookupTableJob implements ShouldQueue
             ]);
 
             $this->fail($e);
+            throw $e;
         } catch (ExternalServiceUnavailableException $e) {
             Log::warning('External service unavailable during campaign lookup table sync, will retry', [
                 'service' => $e->serviceName,
@@ -87,6 +92,18 @@ final class SyncCampaignLookupTableJob implements ShouldQueue
             } else {
                 throw $e;
             }
+        } catch (Throwable $e) {
+            // Unexpected exception = code needs updating
+            // Fail immediately - don't waste retries on unknown errors
+            Log::critical('Unexpected exception in campaign lookup sync - code update required', [
+                'job' => static::class,
+                'exception' => $e::class,
+                'message' => $e->getMessage(),
+                'attempts' => $this->attempts(),
+            ]);
+
+            $this->fail($e);
+            throw $e;
         }
     }
 

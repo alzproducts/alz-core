@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Infrastructure\ReviewsIo;
 
+use App\Domain\Exceptions\InvalidConfigurationException;
 use App\Infrastructure\ReviewsIo\ReviewsIoConfig;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
-use RuntimeException;
 use Tests\TestCase;
 
 /**
@@ -49,7 +49,7 @@ final class ReviewsIoConfigTest extends TestCase
     #[Test]
     public function it_throws_exception_for_empty_api_key(): void
     {
-        $this->expectException(RuntimeException::class);
+        $this->expectException(InvalidConfigurationException::class);
         $this->expectExceptionMessage('Reviews.io API key cannot be empty');
 
         new ReviewsIoConfig(
@@ -61,7 +61,7 @@ final class ReviewsIoConfigTest extends TestCase
     #[Test]
     public function it_throws_exception_for_empty_store_id(): void
     {
-        $this->expectException(RuntimeException::class);
+        $this->expectException(InvalidConfigurationException::class);
         $this->expectExceptionMessage('Reviews.io store ID cannot be empty');
 
         new ReviewsIoConfig(

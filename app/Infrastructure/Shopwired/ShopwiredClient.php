@@ -5,6 +5,10 @@ declare(strict_types=1);
 namespace App\Infrastructure\Shopwired;
 
 use App\Application\Contracts\Shopwired\ConnectivityClientInterface;
+use App\Domain\Exceptions\AuthenticationExpiredException;
+use App\Domain\Exceptions\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\InvalidApiRequestException;
+use App\Domain\Exceptions\ResourceNotFoundException;
 
 /**
  * Shopwired e-commerce API Client.
@@ -39,6 +43,11 @@ final readonly class ShopwiredClient implements ConnectivityClientInterface
      * Calls the /business endpoint to verify credentials work.
      * Returns 200 with business info on success.
      * Retry is disabled for connectivity checks (fail fast).
+     *
+     * @throws InvalidApiRequestException When request parameters are invalid (400)
+     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
+     * @throws ResourceNotFoundException When resource not found (404)
+     * @throws ExternalServiceUnavailableException When API unavailable or connection fails
      */
     public function verifyConnectivity(): void
     {

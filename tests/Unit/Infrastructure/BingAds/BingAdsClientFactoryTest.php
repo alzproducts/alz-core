@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Infrastructure\BingAds;
 
+use App\Domain\Exceptions\InvalidConfigurationException;
 use App\Infrastructure\BingAds\BingAdsClientFactory;
-use Illuminate\Cache\CacheManager;
+use App\Infrastructure\BingAds\BingAdsSessionManager;
 use Illuminate\Support\Facades\Config;
+use Mockery;
+use Mockery\MockInterface;
 use Override;
 use PHPUnit\Framework\Attributes\Test;
-use RuntimeException;
 use Tests\TestCase;
 
 /**
@@ -23,14 +25,14 @@ use Tests\TestCase;
  */
 final class BingAdsClientFactoryTest extends TestCase
 {
-    private CacheManager $cache;
+    private BingAdsSessionManager&MockInterface $sessionManager;
 
     #[Override]
     protected function setUp(): void
     {
         parent::setUp();
 
-        $this->cache = $this->app->make(CacheManager::class);
+        $this->sessionManager = Mockery::mock(BingAdsSessionManager::class);
     }
 
     /*
@@ -44,10 +46,10 @@ final class BingAdsClientFactoryTest extends TestCase
     {
         Config::set('bing-ads.client_id', null);
 
-        $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('BING_ADS_CLIENT_ID not configured');
+        $this->expectException(InvalidConfigurationException::class);
+        $this->expectExceptionMessage("Required configuration 'BING_ADS_CLIENT_ID' is missing or invalid");
 
-        BingAdsClientFactory::create($this->cache);
+        BingAdsClientFactory::create($this->sessionManager);
     }
 
     #[Test]
@@ -56,10 +58,10 @@ final class BingAdsClientFactoryTest extends TestCase
         Config::set('bing-ads.client_id', 'valid-id');
         Config::set('bing-ads.client_secret', null);
 
-        $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('BING_ADS_CLIENT_SECRET not configured');
+        $this->expectException(InvalidConfigurationException::class);
+        $this->expectExceptionMessage("Required configuration 'BING_ADS_CLIENT_SECRET' is missing or invalid");
 
-        BingAdsClientFactory::create($this->cache);
+        BingAdsClientFactory::create($this->sessionManager);
     }
 
     #[Test]
@@ -69,10 +71,10 @@ final class BingAdsClientFactoryTest extends TestCase
         Config::set('bing-ads.client_secret', 'valid-secret');
         Config::set('bing-ads.refresh_token', null);
 
-        $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('BING_ADS_REFRESH_TOKEN not configured');
+        $this->expectException(InvalidConfigurationException::class);
+        $this->expectExceptionMessage("Required configuration 'BING_ADS_REFRESH_TOKEN' is missing or invalid");
 
-        BingAdsClientFactory::create($this->cache);
+        BingAdsClientFactory::create($this->sessionManager);
     }
 
     #[Test]
@@ -83,10 +85,10 @@ final class BingAdsClientFactoryTest extends TestCase
         Config::set('bing-ads.refresh_token', 'valid-token');
         Config::set('bing-ads.developer_token', null);
 
-        $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('BING_ADS_DEVELOPER_TOKEN not configured');
+        $this->expectException(InvalidConfigurationException::class);
+        $this->expectExceptionMessage("Required configuration 'BING_ADS_DEVELOPER_TOKEN' is missing or invalid");
 
-        BingAdsClientFactory::create($this->cache);
+        BingAdsClientFactory::create($this->sessionManager);
     }
 
     #[Test]
@@ -98,10 +100,10 @@ final class BingAdsClientFactoryTest extends TestCase
         Config::set('bing-ads.developer_token', 'valid-dev-token');
         Config::set('bing-ads.account_id', null);
 
-        $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('BING_ADS_ACCOUNT_ID not configured');
+        $this->expectException(InvalidConfigurationException::class);
+        $this->expectExceptionMessage("Required configuration 'BING_ADS_ACCOUNT_ID' is missing or invalid");
 
-        BingAdsClientFactory::create($this->cache);
+        BingAdsClientFactory::create($this->sessionManager);
     }
 
     #[Test]
@@ -114,10 +116,10 @@ final class BingAdsClientFactoryTest extends TestCase
         Config::set('bing-ads.account_id', 'valid-account');
         Config::set('bing-ads.customer_id', null);
 
-        $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('BING_ADS_CUSTOMER_ID not configured');
+        $this->expectException(InvalidConfigurationException::class);
+        $this->expectExceptionMessage("Required configuration 'BING_ADS_CUSTOMER_ID' is missing or invalid");
 
-        BingAdsClientFactory::create($this->cache);
+        BingAdsClientFactory::create($this->sessionManager);
     }
 
     #[Test]
@@ -131,10 +133,10 @@ final class BingAdsClientFactoryTest extends TestCase
         Config::set('bing-ads.customer_id', 'valid-customer');
         Config::set('bing-ads.environment', 123); // Not a string
 
-        $this->expectException(RuntimeException::class);
+        $this->expectException(InvalidConfigurationException::class);
         $this->expectExceptionMessage('BING_ADS_ENVIRONMENT must be a string');
 
-        BingAdsClientFactory::create($this->cache);
+        BingAdsClientFactory::create($this->sessionManager);
     }
 
     #[Test]
@@ -149,10 +151,10 @@ final class BingAdsClientFactoryTest extends TestCase
         Config::set('bing-ads.environment', 'Production');
         Config::set('bing-ads.report_poll_interval_seconds', '10'); // String, not int
 
-        $this->expectException(RuntimeException::class);
+        $this->expectException(InvalidConfigurationException::class);
         $this->expectExceptionMessage('BING_ADS_REPORT_POLL_INTERVAL must be an integer');
 
-        BingAdsClientFactory::create($this->cache);
+        BingAdsClientFactory::create($this->sessionManager);
     }
 
     #[Test]
@@ -168,10 +170,10 @@ final class BingAdsClientFactoryTest extends TestCase
         Config::set('bing-ads.report_poll_interval_seconds', 10);
         Config::set('bing-ads.report_poll_max_attempts', '30'); // String, not int
 
-        $this->expectException(RuntimeException::class);
+        $this->expectException(InvalidConfigurationException::class);
         $this->expectExceptionMessage('BING_ADS_REPORT_POLL_MAX_ATTEMPTS must be an integer');
 
-        BingAdsClientFactory::create($this->cache);
+        BingAdsClientFactory::create($this->sessionManager);
     }
 
     /*

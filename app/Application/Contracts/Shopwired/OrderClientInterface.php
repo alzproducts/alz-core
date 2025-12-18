@@ -36,8 +36,11 @@ interface OrderClientInterface
      *
      * @return list<Order> Orders with products=null, customFields=null
      *
-     * @throws ExternalServiceUnavailableException When API unavailable
-     * @throws InvalidApiResponseException When API response structure is invalid
+     * @throws InvalidApiRequestException When request parameters are invalid (400)
+     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
+     * @throws ResourceNotFoundException When resource not found (404)
+     * @throws ExternalServiceUnavailableException When API unavailable or connection fails
+     * @throws InvalidApiResponseException When response parsing fails (API contract violation)
      */
     public function listOrdersInRange(DateTimeImmutable $from, DateTimeImmutable $to): array;
 
@@ -55,8 +58,11 @@ interface OrderClientInterface
      *
      * @return list<Order> Orders with ALL fields populated
      *
-     * @throws ExternalServiceUnavailableException When API unavailable
-     * @throws InvalidApiResponseException When API response structure is invalid
+     * @throws InvalidApiRequestException When request parameters are invalid (400)
+     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
+     * @throws ResourceNotFoundException When resource not found (404)
+     * @throws ExternalServiceUnavailableException When API unavailable or connection fails
+     * @throws InvalidApiResponseException When response parsing fails (API contract violation)
      */
     public function listOrdersInRangeWithDetails(DateTimeImmutable $from, DateTimeImmutable $to): array;
 
@@ -73,8 +79,11 @@ interface OrderClientInterface
      *
      * @return list<Order> Matching orders (empty array if none found), products=null, customFields=null
      *
-     * @throws ExternalServiceUnavailableException When API unavailable
-     * @throws InvalidApiResponseException When API response structure is invalid
+     * @throws InvalidApiRequestException When request parameters are invalid (400)
+     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
+     * @throws ResourceNotFoundException When resource not found (404)
+     * @throws ExternalServiceUnavailableException When API unavailable or connection fails
+     * @throws InvalidApiResponseException When response parsing fails (API contract violation)
      */
     public function searchOrders(string $keyword): array;
 
@@ -85,17 +94,22 @@ interface OrderClientInterface
      *
      * @param int $id ShopWired order ID (must be positive)
      *
-     * @throws ResourceNotFoundException When order with given ID does not exist
-     * @throws ExternalServiceUnavailableException When API unavailable
-     * @throws InvalidApiResponseException When API response structure is invalid
+     * @throws InvalidApiRequestException When request parameters are invalid (400)
+     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
+     * @throws ResourceNotFoundException When order not found (404)
+     * @throws ExternalServiceUnavailableException When API unavailable or connection fails
+     * @throws InvalidApiResponseException When response parsing fails (API contract violation)
      */
     public function getOrderById(int $id): Order;
 
     /**
      * Get total order count.
      *
-     * @throws ExternalServiceUnavailableException When API unavailable
-     * @throws InvalidApiResponseException When API response structure is invalid
+     * @throws InvalidApiRequestException When request parameters are invalid (400)
+     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
+     * @throws ResourceNotFoundException When resource not found (404)
+     * @throws ExternalServiceUnavailableException When API unavailable or connection fails
+     * @throws InvalidApiResponseException When response parsing fails (API contract violation)
      */
     public function getOrderCount(): int;
 
@@ -106,8 +120,11 @@ interface OrderClientInterface
      *
      * @param int $statusId Status ID from ShopWired (e.g., 1 for "Paid")
      *
-     * @throws ExternalServiceUnavailableException When API unavailable
-     * @throws InvalidApiResponseException When API response structure is invalid
+     * @throws InvalidApiRequestException When request parameters are invalid (400)
+     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
+     * @throws ResourceNotFoundException When resource not found (404)
+     * @throws ExternalServiceUnavailableException When API unavailable or connection fails
+     * @throws InvalidApiResponseException When response parsing fails (API contract violation)
      */
     public function getOrderCountByStatus(int $statusId): int;
 
@@ -119,9 +136,10 @@ interface OrderClientInterface
      * @param bool $notifyCustomer Whether to send status update email to customer
      * @param string|null $trackingUrl New tracking URL value (null = don't update)
      *
-     * @throws InvalidApiRequestException When request parameters are invalid
-     * @throws AuthenticationExpiredException When credentials are invalid
-     * @throws ExternalServiceUnavailableException When API unavailable
+     * @throws InvalidApiRequestException When request parameters are invalid (400)
+     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
+     * @throws ResourceNotFoundException When order not found (404)
+     * @throws ExternalServiceUnavailableException When API unavailable or connection fails
      */
     public function updateOrderStatus(
         int $orderId,

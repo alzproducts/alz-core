@@ -20,6 +20,8 @@ use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use LogicException;
+use RuntimeException;
 use Throwable;
 
 /**
@@ -163,8 +165,11 @@ final readonly class ShopwiredHttpTransport
      *
      * @return array<string, Response> Keyed responses matching input keys
      *
+     * @throws InvalidApiRequestException When request parameters are invalid (400)
      * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
+     * @throws ResourceNotFoundException When resource not found (404)
      * @throws ExternalServiceUnavailableException When API unavailable, rate limited, or connection fails
+     * @throws RuntimeException When HTTP pool initialization fails (Laravel/Guzzle internals)
      */
     public function poolPost(array $requests): array
     {
@@ -182,37 +187,54 @@ final readonly class ShopwiredHttpTransport
          */
         $poolResults = Http::pool(fn(Pool $pool): array => $this->buildPoolRequests($pool, $requests));
 
-        // Check for failures and translate exceptions
         /** @var array<string, Response> $responses */
         $responses = [];
 
         foreach ($poolResults as $key => $result) {
-            if ($result instanceof Throwable) {
-                Log::error(self::SERVICE_NAME . ' API pool request failed', [
-                    'key' => $key,
-                    'error' => $result->getMessage(),
-                ]);
-
-                if ($result instanceof ConnectionException) {
-                    throw $this->handleConnectionException($result);
-                }
-
-                throw new ExternalServiceUnavailableException(self::SERVICE_NAME, previous: $result);
-            }
-
-            // At this point $result is guaranteed to be Response
-            if ($result->failed()) {
-                try {
-                    $result->throw();
-                } catch (RequestException $e) {
-                    throw $this->handleRequestException($e, $requests[$key]['endpoint']);
-                }
-            }
-
-            $responses[$key] = $result;
+            $responses[$key] = $this->handlePoolResult($key, $result, $requests);
         }
 
         return $responses;
+    }
+
+    /**
+     * Handle a single pool result, translating failures to exceptions.
+     *
+     * @param array<string, array{endpoint: string, data: array<mixed>}> $requests Original requests for error context
+     *
+     * @throws InvalidApiRequestException When request parameters are invalid (400)
+     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
+     * @throws ResourceNotFoundException When resource not found (404)
+     * @throws ExternalServiceUnavailableException When API unavailable or connection fails
+     */
+    private function handlePoolResult(string $key, Response|Throwable $result, array $requests): Response
+    {
+        if ($result instanceof Throwable) {
+            Log::error(self::SERVICE_NAME . ' API pool request failed', [
+                'key' => $key,
+                'error' => $result->getMessage(),
+            ]);
+
+            if ($result instanceof ConnectionException) {
+                throw $this->handleConnectionException($result);
+            }
+
+            throw new ExternalServiceUnavailableException(self::SERVICE_NAME, previous: $result);
+        }
+
+        if ($result->failed()) {
+            if (!\array_key_exists($key, $requests)) {
+                throw new LogicException('Pool result key must exist in original requests');
+            }
+
+            try {
+                $result->throw();
+            } catch (RequestException $e) {
+                throw $this->handleRequestException($e, $requests[$key]['endpoint']);
+            }
+        }
+
+        return $result;
     }
 
     /**
@@ -245,6 +267,8 @@ final readonly class ShopwiredHttpTransport
 
     /**
      * Create configured HTTP request with auth and optional retry logic.
+     *
+     * @throws RuntimeException When HTTP client configuration fails (caught by public methods)
      */
     private function createBaseRequest(bool $retry, RetryStrategy $strategy): PendingRequest
     {

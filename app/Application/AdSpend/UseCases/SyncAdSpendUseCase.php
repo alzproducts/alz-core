@@ -6,7 +6,10 @@ namespace App\Application\AdSpend\UseCases;
 
 use App\Application\Contracts\AdSpendClientInterface;
 use App\Application\Contracts\MixpanelClientInterface;
+use App\Domain\Exceptions\AuthenticationExpiredException;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\InvalidApiRequestException;
+use App\Domain\Exceptions\PayloadSerializationException;
 use App\Domain\ValueObjects\DateRange;
 use Psr\Log\LoggerInterface;
 
@@ -27,7 +30,10 @@ final readonly class SyncAdSpendUseCase
     /**
      * Synchronize ad spend data for a date range.
      *
-     * @throws ExternalServiceUnavailableException
+     * @throws AuthenticationExpiredException When ad client or Mixpanel credentials invalid/expired
+     * @throws InvalidApiRequestException When request parameters are invalid
+     * @throws ExternalServiceUnavailableException When ad client or Mixpanel API unavailable
+     * @throws PayloadSerializationException When Mixpanel payload cannot be encoded
      */
     public function execute(DateRange $dateRange): void
     {

@@ -7,7 +7,6 @@ namespace Tests\Feature\Infrastructure\AdSpend\Mixpanel;
 use App\Domain\Exceptions\AuthenticationExpiredException;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\InvalidApiRequestException;
-use App\Domain\Exceptions\ResourceNotFoundException;
 use App\Infrastructure\Mixpanel\MixpanelConfig;
 use App\Infrastructure\Mixpanel\MixpanelHttpTransport;
 use Exception;
@@ -291,26 +290,25 @@ final class MixpanelHttpTransportTest extends TestCase
 
         try {
             $this->transport->request('GET', $url);
-            $this->fail('Expected ResourceNotFoundException');
-        } catch (ResourceNotFoundException $e) {
+            $this->fail('Expected InvalidApiRequestException');
+        } catch (InvalidApiRequestException $e) {
             $this->assertSame('Mixpanel', $e->serviceName);
-            $this->assertSame($url, $e->resourceType);
-            $this->assertSame('unknown', $e->resourceId);
+            $this->assertStringContainsString($url, $e->getMessage());
         }
     }
 
     #[Test]
-    public function it_logs_warning_for_404_not_found(): void
+    public function it_logs_error_for_404_not_found(): void
     {
         Http::fake(['*' => Http::response(['error' => 'not found'], 404)]);
-        Log::shouldReceive('warning')
+        Log::shouldReceive('error')
             ->once()
-            ->withArgs(static fn(string $message, array $context): bool => \str_contains($message, 'resource not found')
+            ->withArgs(static fn(string $message, array $context): bool => \str_contains($message, 'endpoint not found')
                     && $context['url'] === self::TEST_DATA_API_BASE_URL . '/lookup_tables/missing-table');
 
         try {
             $this->transport->request('GET', self::TEST_DATA_API_BASE_URL . '/lookup_tables/missing-table');
-        } catch (ResourceNotFoundException) {
+        } catch (InvalidApiRequestException) {
             // Expected
         }
     }

@@ -2,6 +2,21 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## ⚠️ Important: Stop Hooks
+
+**Account-level stop hooks run automatically when you finish responding.** These hooks execute:
+- `make fix` — Auto-fix code style issues
+- `make lint` — Run all linters (Pint, PHPStan, PHPArkitect, Deptrac, TLint)
+- `make test` — Run full test suite
+
+**Hooks run in a loop**: If failures occur, fix the issues and stop again—hooks will re-run automatically.
+
+**Do NOT manually run these commands** during normal usage. Only run them if:
+- You need to verify a fix mid-task before stopping
+- You're debugging an issue that didn't originate from a stop hook
+
+---
+
 ## Documentation Philosophy
 
 **Keep this file succinct.** Use minimal format to convey maximum information:
@@ -257,14 +272,6 @@ Remains active in production, handles untrusted input
 
 **CRITICAL**: We maintain strict code quality standards with four linters + mutation testing.
 
-### ⚠️ Auto-Linting Hook
-
-**`make lint` runs automatically** via Claude Code hook when you stop responding. **Do NOT manually run `make lint`** unless:
-- You need to verify fixes mid-task before stopping
-- You're debugging a specific linting issue
-
-**Rationale**: Reduces redundant lint runs. The hook catches issues before user sees your response.
-
 ### Linters Configured
 1. **Laravel Pint** (Code Style) - PER (PHP Evolving Recommendation) preset with strict rules
 2. **PHPStan Level max** (Static Analysis) - Maximum strictness + 11 ShipMonk rules + bleeding edge
@@ -359,7 +366,17 @@ If a linter reports an issue, fix the code—don't suppress it. Only bypass when
 2. Known false positive in framework/package (document why)
 3. Temporary external dependency issue (add TODO)
 
-**For common linting errors** (e.g., `shipmonk.checkedExceptionInCallable`), see `.ai/docs/guides/common-linting-errors.md` for ranked solutions.
+### 📖 Stubborn Linting Issues
+
+**When encountering persistent linting errors**, consult [`.ai/docs/guides/common-linting-errors.md`](.ai/docs/guides/common-linting-errors.md) for ranked solutions. This guide covers:
+- `shipmonk.checkedExceptionInCallable` — checked exceptions in closures
+- `missingType.checkedException` — false positives with `@param-immediately-invoked-callable`
+- `shipmonk.nonNormalizedType` — parent/child exception hierarchies in `@throws`
+
+**Always check this guide before:**
+- Using `@phpstan-ignore` annotations
+- Adding entries to `phpstan.neon` ignoreErrors
+- Asking the user how to resolve a linting error
 
 ---
 

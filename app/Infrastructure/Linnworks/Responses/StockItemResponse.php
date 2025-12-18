@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Infrastructure\Linnworks\Responses;
 
 use App\Domain\Inventory\ValueObjects\StockItem as DomainStockItem;
-use App\Infrastructure\Contracts\DomainConvertible;
+use App\Infrastructure\Contracts\DomainConvertibleInterface;
 use App\Infrastructure\Linnworks\Support\PascalCaseMapper;
 use Spatie\LaravelData\Attributes\MapInputName;
 use Spatie\LaravelData\Data;
@@ -21,7 +21,7 @@ use Spatie\LaravelData\Data;
  * @template-pattern Infrastructure Response DTO
  */
 #[MapInputName(PascalCaseMapper::class)]
-final class StockItemResponse extends Data implements DomainConvertible
+final class StockItemResponse extends Data implements DomainConvertibleInterface
 {
     public function __construct(
         public readonly string $stockItemId,

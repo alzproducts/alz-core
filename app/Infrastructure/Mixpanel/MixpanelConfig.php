@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Mixpanel;
 
+use App\Domain\Exceptions\InvalidConfigurationException;
 use InvalidArgumentException;
-use RuntimeException;
 
 /**
  * Immutable configuration for Mixpanel API client.
@@ -57,7 +57,6 @@ final readonly class MixpanelConfig
      * @param int $retryTimes Number of retry attempts (0-10)
      * @param int $retryDelay Delay between retries in milliseconds (0-5000)
      *
-     * @throws RuntimeException When required credentials are empty
      * @throws InvalidArgumentException When numeric parameters are out of bounds
      */
     public function __construct(
@@ -71,19 +70,19 @@ final readonly class MixpanelConfig
         public int $retryDelay = 100,
     ) {
         if ($dataApiBaseUrl === '') {
-            throw new RuntimeException('Mixpanel data API base URL cannot be empty');
+            throw new InvalidConfigurationException('mixpanel.base_url', 'Mixpanel data API base URL cannot be empty');
         }
 
         if ($serviceAccountUsername === '') {
-            throw new RuntimeException('Mixpanel service account username cannot be empty');
+            throw new InvalidConfigurationException('mixpanel.service_account_username', 'Mixpanel service account username cannot be empty');
         }
 
         if ($serviceAccountPassword === '') {
-            throw new RuntimeException('Mixpanel service account password cannot be empty');
+            throw new InvalidConfigurationException('mixpanel.service_account_password', 'Mixpanel service account password cannot be empty');
         }
 
         if ($projectId === '') {
-            throw new RuntimeException('Mixpanel project ID cannot be empty');
+            throw new InvalidConfigurationException('mixpanel.project_id', 'Mixpanel project ID cannot be empty');
         }
 
         // Note: lookupTableIds validated by MixpanelClientFactory (type + non-empty)

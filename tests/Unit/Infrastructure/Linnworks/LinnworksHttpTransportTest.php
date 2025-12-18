@@ -7,12 +7,15 @@ namespace Tests\Unit\Infrastructure\Linnworks;
 use App\Domain\Exceptions\AuthenticationExpiredException;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\InvalidApiRequestException;
+use App\Domain\Exceptions\InvalidApiResponseException;
 use App\Domain\Exceptions\ResourceNotFoundException;
 use App\Infrastructure\Linnworks\LinnworksConfig;
 use App\Infrastructure\Linnworks\LinnworksHttpTransport;
 use App\Infrastructure\Linnworks\LinnworksSession;
 use App\Infrastructure\Linnworks\LinnworksSessionManager;
+use DateMalformedStringException;
 use DateTimeImmutable;
+use Exception;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
@@ -398,5 +401,113 @@ final class LinnworksHttpTransportTest extends TestCase
 
         $this->assertSame(200, $response->status());
         $this->assertSame(2, $callCount);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | JSON Serialization Failure Tests
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function it_throws_invalid_api_request_exception_when_post_data_not_serializable(): void
+    {
+        // Create an object that cannot be JSON serialized (resource or recursive)
+        $resource = \fopen('php://memory', 'r');
+        $unserializableData = ['file' => $resource];
+
+        try {
+            $this->transport->post('/api/Inventory/UpdateStock', $unserializableData);
+            $this->fail('Expected InvalidApiRequestException');
+        } catch (InvalidApiRequestException $e) {
+            $this->assertSame('Linnworks', $e->serviceName);
+            $this->assertStringContainsString('could not be serialized', $e->getMessage());
+        } finally {
+            \fclose($resource);
+        }
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Session Date Malformation Tests
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function it_throws_invalid_api_response_exception_when_session_has_malformed_date(): void
+    {
+        $this->sessionManager = Mockery::mock(LinnworksSessionManager::class);
+        $this->sessionManager->shouldReceive('getSession')
+            ->once()
+            ->andThrow(new DateMalformedStringException('Invalid date format in session'));
+
+        $config = new LinnworksConfig(
+            applicationId: 'test-app-id',
+            applicationSecret: 'test-app-secret',
+            installationToken: 'test-install-token',
+        );
+        $transport = new LinnworksHttpTransport($config, $this->sessionManager);
+
+        try {
+            $transport->get('/api/Inventory/GetStockItem');
+            $this->fail('Expected InvalidApiResponseException');
+        } catch (InvalidApiResponseException $e) {
+            $this->assertSame('Linnworks', $e->serviceName);
+            $this->assertStringContainsString('malformed date', $e->getMessage());
+        }
+    }
+
+    #[Test]
+    public function it_throws_invalid_api_response_exception_when_session_refresh_has_malformed_date(): void
+    {
+        // First request returns 401, then session refresh throws DateMalformedStringException
+        Http::fake([
+            '*' => Http::response(['error' => 'Unauthorized'], 401),
+        ]);
+
+        $this->sessionManager = Mockery::mock(LinnworksSessionManager::class);
+        $this->sessionManager->shouldReceive('getSession')
+            ->once()
+            ->andReturn($this->session);
+        $this->sessionManager->shouldReceive('invalidate')->once();
+        $this->sessionManager->shouldReceive('getSession')
+            ->once()
+            ->andThrow(new DateMalformedStringException('Invalid date after refresh'));
+
+        $config = new LinnworksConfig(
+            applicationId: 'test-app-id',
+            applicationSecret: 'test-app-secret',
+            installationToken: 'test-install-token',
+        );
+        $transport = new LinnworksHttpTransport($config, $this->sessionManager);
+
+        try {
+            $transport->get('/api/Inventory/GetStockItem');
+            $this->fail('Expected InvalidApiResponseException');
+        } catch (InvalidApiResponseException $e) {
+            $this->assertSame('Linnworks', $e->serviceName);
+            $this->assertStringContainsString('malformed date', $e->getMessage());
+        }
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Unexpected Exception Tests
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function it_translates_unexpected_exception_to_external_service_unavailable(): void
+    {
+        Http::fake(static function (): never {
+            throw new Exception('Unexpected Guzzle internal error');
+        });
+
+        try {
+            $this->transport->get('/api/Inventory/GetStockItem');
+            $this->fail('Expected ExternalServiceUnavailableException');
+        } catch (ExternalServiceUnavailableException $e) {
+            $this->assertSame('Linnworks', $e->serviceName);
+        }
     }
 }

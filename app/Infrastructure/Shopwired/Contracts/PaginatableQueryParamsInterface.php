@@ -17,7 +17,7 @@ namespace App\Infrastructure\Shopwired\Contracts;
  *
  * @internal For use within ShopWired infrastructure only
  */
-interface PaginatableQueryParams
+interface PaginatableQueryParamsInterface
 {
     /**
      * Get the page size (items per page).

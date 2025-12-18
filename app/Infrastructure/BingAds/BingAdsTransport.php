@@ -191,7 +191,11 @@ final class BingAdsTransport
             return self::extractCsvFromZip($zipContent);
         } /** @noinspection PhpRedundantCatchClauseInspection */ catch (SoapFault $e) {
             throw $this->handleSoapFault($e);
+        } catch (AuthenticationExpiredException|ExternalServiceUnavailableException $e) {
+            // Domain exceptions from pollUntilComplete() - pass through, don't double-wrap
+            throw $e;
         } catch (Exception $e) {
+            // SDK init, HTTP, or ZIP errors - translate to Domain
             throw $this->handleServerError($e);
         }
     }
@@ -200,6 +204,8 @@ final class BingAdsTransport
      * Submit a campaign performance report request.
      *
      * @return string Report request ID for polling
+     *
+     * @throws SoapFault When SOAP call fails
      */
     private function submitReport(SoapClient $soapClient, DateRange $range): string
     {
@@ -269,6 +275,7 @@ final class BingAdsTransport
      *
      * @return string|null Download URL, or null if report has no data
      *
+     * @throws SoapFault When SOAP call fails
      * @throws ExternalServiceUnavailableException When report generation fails or times out
      */
     private static function pollUntilComplete(SoapClient $soapClient, string $reportRequestId): ?string
@@ -335,8 +342,13 @@ final class BingAdsTransport
     /**
      * Download report ZIP from temporary URL.
      *
-     * @throws RequestException When download fails
-     * @throws ConnectionException
+     * @phpstan-ignore-next-line shipmonk.nonNormalizedType (specific exceptions documented for caller clarity)
+     * @throws ConnectionException When connection fails
+     * @phpstan-ignore-next-line shipmonk.nonNormalizedType
+     * @throws RequestException When HTTP response indicates error (4xx/5xx)
+     * @phpstan-ignore-next-line shipmonk.nonNormalizedType
+     * @throws RuntimeException When PendingRequest fails internally
+     * @throws Exception When HTTP client encounters unexpected error
      */
     private function downloadReport(string $url): string
     {
@@ -494,41 +506,53 @@ final class BingAdsTransport
      */
     private static function extractErrorCode(SoapFault $e): ?int
     {
-        // SOAP fault detail is untyped - structure varies by error type
-        if (!isset($e->detail)) {
+        if (!isset($e->detail) || !\is_object($e->detail)) {
             return null;
         }
 
-        /**
-         * SOAP fault detail is untyped stdClass with dynamic structure.
-         *
-         * @var object{
-         *     ApiFaultDetail?: object{OperationErrors?: object{OperationError?: object{Code?: int}|array<int, object{Code?: int}>}},
-         *     AdApiFaultDetail?: object{Errors?: object{AdApiError?: object{Code?: int}|array<int, object{Code?: int}>}}
-         * } $detail
-         */
-        $detail = $e->detail;
+        return self::extractFromApiFaultDetail($e->detail)
+            ?? self::extractFromAdApiFaultDetail($e->detail);
+    }
 
-        // ApiFaultDetail structure (operation-level errors)
+    /**
+     * Extract error code from ApiFaultDetail structure (operation-level errors).
+     *
+     * @param object{ApiFaultDetail?: object{OperationErrors?: object{OperationError?: object{Code?: int}|array<int, object{Code?: int}>}}} $detail
+     */
+    private static function extractFromApiFaultDetail(object $detail): ?int
+    {
         // @phpstan-ignore-next-line (SOAP detail has dynamic structure with nested properties)
-        if (isset($detail->ApiFaultDetail->OperationErrors->OperationError)) {
-            $operationError = $detail->ApiFaultDetail->OperationErrors->OperationError;
-            $error = \is_array($operationError) ? $operationError[0] : $operationError;
-
-            if (isset($error->Code)) {
-                return (int) $error->Code; // @phpstan-ignore cast.useless (PHPDoc says int but runtime may differ)
-            }
+        if (!isset($detail->ApiFaultDetail->OperationErrors->OperationError)) {
+            return null;
         }
 
-        // AdApiFaultDetail structure (API-level errors)
-        // @phpstan-ignore-next-line (SOAP detail has dynamic structure with nested properties)
-        if (isset($detail->AdApiFaultDetail->Errors->AdApiError)) {
-            $adApiError = $detail->AdApiFaultDetail->Errors->AdApiError;
-            $error = \is_array($adApiError) ? $adApiError[0] : $adApiError;
+        $operationError = $detail->ApiFaultDetail->OperationErrors->OperationError;
+        $error = \is_array($operationError) ? ($operationError[0] ?? null) : $operationError;
 
-            if (isset($error->Code)) {
-                return (int) $error->Code; // @phpstan-ignore cast.useless (PHPDoc says int but runtime may differ)
-            }
+        if ($error !== null && isset($error->Code)) {
+            return (int) $error->Code; // @phpstan-ignore cast.useless (PHPDoc says int but runtime may differ)
+        }
+
+        return null;
+    }
+
+    /**
+     * Extract error code from AdApiFaultDetail structure (API-level errors).
+     *
+     * @param object{AdApiFaultDetail?: object{Errors?: object{AdApiError?: object{Code?: int}|array<int, object{Code?: int}>}}} $detail
+     */
+    private static function extractFromAdApiFaultDetail(object $detail): ?int
+    {
+        // @phpstan-ignore-next-line (SOAP detail has dynamic structure with nested properties)
+        if (!isset($detail->AdApiFaultDetail->Errors->AdApiError)) {
+            return null;
+        }
+
+        $adApiError = $detail->AdApiFaultDetail->Errors->AdApiError;
+        $error = \is_array($adApiError) ? ($adApiError[0] ?? null) : $adApiError;
+
+        if ($error !== null && isset($error->Code)) {
+            return (int) $error->Code; // @phpstan-ignore cast.useless (PHPDoc says int but runtime may differ)
         }
 
         return null;

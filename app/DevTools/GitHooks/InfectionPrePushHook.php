@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace App\DevTools\GitHooks;
 
-final class InfectionPrePushHook extends BaseProcessHook
+final class InfectionPrePushHook extends AbstractProcessHook
 {
-    protected string $name = 'Infection Mutation Tests';
+    public function getName(): string
+    {
+        return 'Infection Mutation Tests';
+    }
 
     /**
      * @return list<string>
