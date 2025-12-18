@@ -208,14 +208,15 @@ parameters:
     tmpDir: storage/framework/phpstan
 
     # Exclude generated/vendor code and tests
+    # Paths marked with (?) are optional - may not exist in all environments (e.g., CI)
     excludePaths:
         - bootstrap/cache/
         - storage/
         - vendor/
         - tests/
-        - node_modules/
-        - examples/
+        - node_modules (?)
+        - examples (?)
         - database/migrations/
-        - .rector-cache/
-        - build/
-        - coverage-report/
+        - .rector-cache (?)
+        - build (?)
+        - coverage-report (?)

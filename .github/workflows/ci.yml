@@ -292,7 +292,8 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ env.PHP_VERSION }}
-          extensions: mbstring, xml, ctype, json, bcmath, soap
+          # Psalm requires: dom, simplexml, tokenizer (in addition to standard extensions)
+          extensions: mbstring, xml, ctype, json, bcmath, soap, dom, simplexml, tokenizer
           coverage: none
           tools: composer:v2
 
