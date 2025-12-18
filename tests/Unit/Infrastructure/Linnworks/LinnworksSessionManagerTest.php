@@ -16,12 +16,14 @@ use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use InvalidArgumentException;
 use Mockery;
 use Mockery\MockInterface;
 use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
+use RuntimeException;
 use Tests\TestCase;
 
 /**
@@ -337,6 +339,70 @@ final class LinnworksSessionManagerTest extends TestCase
             $this->manager->getSession();
         } catch (ExternalServiceUnavailableException) {
             // Expected
+        }
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Unexpected Exception Handling Tests
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function it_throws_service_unavailable_for_unexpected_exception(): void
+    {
+        Http::fake(static function (): never {
+            throw new RuntimeException('Unexpected internal error');
+        });
+
+        $this->setupFactoryExecution();
+
+        $this->expectException(ExternalServiceUnavailableException::class);
+        $this->expectExceptionMessage("External service 'Linnworks' is unavailable");
+
+        $this->manager->getSession();
+    }
+
+    #[Test]
+    public function it_logs_unexpected_error_with_exception_class_name(): void
+    {
+        Http::fake(static function (): never {
+            throw new RuntimeException('Something went wrong');
+        });
+
+        $this->setupFactoryExecution();
+
+        Log::shouldReceive('error')
+            ->once()
+            ->with(
+                Mockery::on(static fn(string $msg): bool => \str_contains($msg, 'Linnworks') && \str_contains($msg, 'auth unexpected error')),
+                Mockery::on(static fn(array $ctx): bool => isset($ctx['exception']) && $ctx['exception'] === 'RuntimeException'
+                        && isset($ctx['error']) && \str_contains($ctx['error'], 'Something went wrong')),
+            );
+
+        try {
+            $this->manager->getSession();
+        } catch (ExternalServiceUnavailableException) {
+            // Expected
+        }
+    }
+
+    #[Test]
+    public function it_preserves_unexpected_exception_as_previous(): void
+    {
+        $unexpectedException = new InvalidArgumentException('Bad argument');
+
+        Http::fake(static function () use ($unexpectedException): never {
+            throw $unexpectedException;
+        });
+
+        $this->setupFactoryExecution();
+
+        try {
+            $this->manager->getSession();
+            $this->fail('Expected ExternalServiceUnavailableException');
+        } catch (ExternalServiceUnavailableException $e) {
+            $this->assertSame($unexpectedException, $e->getPrevious());
         }
     }
 
