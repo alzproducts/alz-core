@@ -321,7 +321,7 @@ jobs:
         run: composer install --no-interaction --prefer-dist --no-progress --ignore-platform-req=ext-swoole
 
       - name: Run Psalm taint analysis
-        run: composer run psalm
+        run: make psalm-ci
 
   # Mutation Testing: Pest Mutate (5-15 minutes)
   # Only runs on PRs to develop - direct pushes skip mutation testing for quick fixes
