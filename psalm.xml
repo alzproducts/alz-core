@@ -12,16 +12,15 @@
     <projectFiles>
         <directory name="app/"/>
         <ignoreFiles>
+            <!-- Only list directories that always exist -->
+            <!-- Optional dirs (node_modules, examples, .rector-cache, build, coverage-report) -->
+            <!-- are omitted - Psalm validates paths exist, breaking CI if they don't -->
+            <!-- Since we only analyze app/, these ignores are just belt-and-suspenders anyway -->
             <directory name="vendor/"/>
             <directory name="bootstrap/cache/"/>
             <directory name="storage/"/>
-            <directory name="node_modules/"/>
-            <directory name="examples/"/>
             <directory name="tests/"/>
             <directory name="database/migrations/"/>
-            <directory name=".rector-cache/"/>
-            <directory name="build/"/>
-            <directory name="coverage-report/"/>
         </ignoreFiles>
     </projectFiles>
 
