@@ -289,4 +289,195 @@ final class GracefulCacheTest extends TestCase
         self::assertNull($result2);
         self::assertSame(2, $callbackExecutionCount, 'Callback should be called again because stored null is treated as a miss.');
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | get() Tests
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function get_returns_cached_value(): void
+    {
+        $key = 'get-test-key';
+        $expectedValue = 'cached-value';
+
+        $this->cacheMock->expects(self::once())
+            ->method('get')
+            ->with($key)
+            ->willReturn($expectedValue);
+
+        $this->loggerMock->expects(self::never())->method('warning');
+
+        $result = $this->gracefulCache->get($key);
+
+        self::assertSame($expectedValue, $result);
+    }
+
+    #[Test]
+    public function get_returns_null_on_cache_miss(): void
+    {
+        $key = 'miss-key';
+
+        $this->cacheMock->expects(self::once())
+            ->method('get')
+            ->with($key)
+            ->willReturn(null);
+
+        $this->loggerMock->expects(self::never())->method('warning');
+
+        $result = $this->gracefulCache->get($key);
+
+        self::assertNull($result);
+    }
+
+    #[Test]
+    public function get_returns_null_and_logs_on_cache_read_failure(): void
+    {
+        $key = 'fail-key';
+        $exception = new RuntimeException('Cache read error');
+
+        $this->cacheMock->expects(self::once())
+            ->method('get')
+            ->with($key)
+            ->willThrowException($exception);
+
+        $this->loggerMock->expects(self::once())
+            ->method('warning')
+            ->with('cache cache read failed', [
+                'key' => $key,
+                'exception' => $exception->getMessage(),
+            ]);
+
+        $result = $this->gracefulCache->get($key);
+
+        self::assertNull($result);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | put() Tests
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function put_stores_value_in_cache(): void
+    {
+        $key = 'put-key';
+        $value = 'put-value';
+        $ttl = 300;
+
+        $this->cacheMock->expects(self::once())
+            ->method('set')
+            ->with($key, $value, $ttl);
+
+        $this->loggerMock->expects(self::never())->method('warning');
+
+        $this->gracefulCache->put($key, $value, $ttl);
+    }
+
+    #[Test]
+    public function put_logs_warning_but_does_not_throw_on_cache_write_failure(): void
+    {
+        $key = 'put-fail-key';
+        $value = 'some-value';
+        $ttl = 600;
+        $exception = new RuntimeException('Cache write error');
+
+        $this->cacheMock->expects(self::once())
+            ->method('set')
+            ->with($key, $value, $ttl)
+            ->willThrowException($exception);
+
+        $this->loggerMock->expects(self::once())
+            ->method('warning')
+            ->with('cache cache write failed', [
+                'key' => $key,
+                'exception' => $exception->getMessage(),
+            ]);
+
+        // Should not throw - test passes if completes
+        $this->gracefulCache->put($key, $value, $ttl);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | rememberInt() Tests
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function remember_int_returns_cached_integer(): void
+    {
+        $key = 'int-key';
+
+        $this->cacheMock->expects(self::once())
+            ->method('get')
+            ->with($key)
+            ->willReturn(42);
+
+        $this->loggerMock->expects(self::never())->method('warning');
+
+        $result = $this->gracefulCache->rememberInt($key, 60, static fn() => 99);
+
+        self::assertSame(42, $result);
+        self::assertIsInt($result);
+    }
+
+    #[Test]
+    public function remember_int_casts_string_to_integer(): void
+    {
+        // Redis serializes integers as strings
+        $key = 'string-int-key';
+
+        $this->cacheMock->expects(self::once())
+            ->method('get')
+            ->with($key)
+            ->willReturn('123'); // String from Redis
+
+        $result = $this->gracefulCache->rememberInt($key, 60, static fn() => 999);
+
+        self::assertSame(123, $result);
+        self::assertIsInt($result);
+    }
+
+    #[Test]
+    public function remember_int_returns_null_when_callback_returns_null(): void
+    {
+        $key = 'null-int-key';
+
+        $this->cacheMock->expects(self::once())
+            ->method('get')
+            ->with($key)
+            ->willReturn(null);
+
+        $this->cacheMock->expects(self::once())
+            ->method('set')
+            ->with($key, null, 60);
+
+        $result = $this->gracefulCache->rememberInt($key, 60, static fn() => null);
+
+        self::assertNull($result);
+    }
+
+    #[Test]
+    public function remember_int_executes_callback_on_cache_miss(): void
+    {
+        $key = 'miss-int-key';
+        $expectedValue = 777;
+
+        $this->cacheMock->expects(self::once())
+            ->method('get')
+            ->with($key)
+            ->willReturn(null);
+
+        $this->cacheMock->expects(self::once())
+            ->method('set')
+            ->with($key, $expectedValue, 120);
+
+        $result = $this->gracefulCache->rememberInt($key, 120, static fn() => $expectedValue);
+
+        self::assertSame($expectedValue, $result);
+        self::assertIsInt($result);
+    }
 }

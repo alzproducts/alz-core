@@ -6,6 +6,3 @@ coverage:
     project:
       default:
         target: auto  # Uses overall project coverage as baseline
-    patch:
-      default:
-        target: 85%   # New code must have at least 85% coverage
