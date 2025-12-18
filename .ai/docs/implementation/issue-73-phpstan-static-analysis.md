@@ -2,15 +2,36 @@
 
 **GitHub Issue**: #73
 **Plan Document**: /Users/tom/.claude/plans/cheeky-seeking-barto.md
-**Status**: In Progress
+**Status**: Complete
 **Started**: 2025-12-16
-**Completed**: —
+**Completed**: 2025-12-18
 
 ## Overview
 
 Comprehensive static analysis improvements including PHPStan checked exception enforcement, missing parameters, recommended extensions, TLint for Laravel conventions, and Psalm for taint analysis. Single PR with all 6 stages, fixing all violations (no baseline).
 
 ## Decision Log
+
+### 2025-12-18 (Stage 6: Psalm Taint Analysis)
+
+- **Decision**: Upgrade Psalm from 6.5.0 to 6.14.2
+- **Why**: Original installation was blocked at 6.5.0 due to `platform.php: 8.4.0` in composer.json. Psalm 6.14.2 requires ~8.4.3.
+- **Fix**: Updated platform constraint from 8.4.0 to 8.4.3
+
+- **Decision**: Use `PHP_INI_SCAN_DIR=/dev/null` workaround for ARM64 macOS segfaults
+- **Why**: Psalm's PsalmRestarter deliberately enables JIT (opcache.jit=1205, 128MB buffer). On ARM64 macOS with PHP 8.4, PCRE JIT after fork() causes segmentation faults (exit code 11).
+- **Root Cause**: Not a Psalm bug, but interaction between: ARM64 + macOS + PHP 8.4 + PCRE JIT + process forking
+- **Solution**: `PHP_INI_SCAN_DIR=/dev/null` prevents loading ini files, disabling opcache entirely
+- **Cross-platform**: Workaround is harmless on Linux x86_64 (CI) - applied universally for consistency
+- **Reference**: https://github.com/vimeo/psalm/issues/11310
+
+- **Decision**: Enable Laravel plugin (psalm/plugin-laravel)
+- **Why**: Provides Laravel-specific type stubs for Facades, Collections, etc. Improves type inference from 99.0459% to 99.0492%
+- **Tradeoff**: Runtime increases from ~11s to ~46s (plugin scans more files), but comprehensive Laravel type safety justifies cost
+
+- **Decision**: Integrate Psalm into `make lint-full` target
+- **Why**: User preference for comprehensive local validation. CI already runs Psalm in parallel, so no impact there.
+- **Runtime Impact**: lint-full increases by ~46s (with Laravel plugin)
 
 ### 2025-12-18 (Stage 5: TLint Laravel Conventions)
 
@@ -293,8 +314,15 @@ Comprehensive static analysis improvements including PHPStan checked exception e
   - `tlint-full` (~7s) for pre-push via `make lint-full`
 - [x] Created `TLintPrePushHook` class for git pre-push integration
 
-### Stage 6: Not Started
-- [ ] Psalm taint analysis
+### Stage 6: Psalm Taint Analysis — COMPLETE
+- [x] Installed Psalm 6.14.2 (upgraded from 6.5.0)
+- [x] Updated `composer.json` platform constraint: 8.4.0 → 8.4.3
+- [x] Created `psalm.xml` config (errorLevel 3, taint analysis, Laravel plugin)
+- [x] Fixed ARM64 macOS segfault with `PHP_INI_SCAN_DIR=/dev/null` workaround
+- [x] Added Makefile targets: `psalm`, `psalm-baseline`
+- [x] Integrated Psalm into `lint-full` target
+- [x] Added CI workflow job: `taint-analysis`
+- [x] Psalm passes: "No errors found!" (99.05% type inference)
 
 ## PHPStan Error Count
 
@@ -311,6 +339,7 @@ Comprehensive static analysis improvements including PHPStan checked exception e
 | Stage 3 | 5→0 | **Extensions added** - 4 packages, 5 CC refactors, 99% type coverage confirmed |
 | Stage 4 | 89→0 | **Strict packages** - kcs + symplify, 16 @ignoreException, 4 rules disabled, 2 interfaces renamed |
 | Stage 5 | — | **TLint added** - 11 route fixes, 2 test file fixes, integrated into Makefile |
+| Stage 6 | 0 | **Psalm taint analysis** - 6.14.2, Laravel plugin, ARM64 workaround, CI integration |
 
 ## Deviations from Plan
 
@@ -320,6 +349,7 @@ Comprehensive static analysis improvements including PHPStan checked exception e
 - Temporarily disabled checked exception rules - allows committing Stage 1 progress while @throws work continues in Stage 2
 - Stage 4: Used `kcs/phpstan-strict-rules` instead of `thecodingmachine/phpstan-strict-rules` - thecodingmachine is abandoned, kcs is the PHPStan 2.x fork
 - Stage 4: Renamed internal interfaces to add "Interface" suffix - plan didn't anticipate this, emerged from symplify naming rule conflict
+- Stage 6: Required ARM64 macOS workaround (`PHP_INI_SCAN_DIR=/dev/null`) - not anticipated in plan, discovered during debugging segfaults
 
 ## Blockers / Open Questions
 
@@ -337,19 +367,29 @@ Comprehensive static analysis improvements including PHPStan checked exception e
 ## PR Notes
 
 ### What
-Enable PHPStan checked exception enforcement and standardize exception usage across configuration validation.
+Comprehensive static analysis improvements across 6 stages:
+1. **Checked Exception Enforcement** - PHPStan `@throws` documentation throughout
+2. **Strict PHPStan Parameters** - Uninitialized properties, benevolent unions, array offset checks
+3. **Recommended Extensions** - Disallowed calls, cognitive complexity, type coverage, TODO expiration
+4. **Strict Packages** - kcs/phpstan-strict-rules, symplify/phpstan-rules
+5. **TLint Laravel Conventions** - Route paths, class ordering, Laravel-specific checks
+6. **Psalm Taint Analysis** - Security vulnerability detection (SQL injection, XSS, shell injection)
 
 ### Why
-- Catch missing @throws at compile time, not runtime
-- Distinguish config errors (deployment) from runtime errors (transient)
-- Prepare codebase for additional static analysis tools
+- Catch type errors and missing exception documentation at compile time
+- Prevent security vulnerabilities via taint tracking
+- Enforce architectural boundaries (Clean Architecture via Deptrac/PHPArkitect)
+- Maintain code quality standards (complexity, naming, Laravel conventions)
 
 ### Key Decisions
-- `InvalidConfigurationException` extends LogicException (unchecked)
-- Config validation uses InvalidConfigurationException
-- Parameter bounds validation keeps InvalidArgumentException
-- User input validation keeps RuntimeException
+- `InvalidConfigurationException` extends LogicException (unchecked) for config validation
+- ARM64 macOS workaround for Psalm: `PHP_INI_SCAN_DIR=/dev/null` (PCRE JIT segfault)
+- Laravel plugin enabled for Psalm (46s runtime, but complete Laravel type coverage)
+- Psalm in lint-full for comprehensive local validation
 
 ### Testing
 - All Config unit tests updated for new exception type
-- Service Provider tests to be updated
+- `make lint` passes (Pint + PHPStan + PHPArkitect + Deptrac + TLint)
+- `make lint-full` passes (adds Insights + Psalm)
+- `make test` passes
+- CI workflow includes `taint-analysis` job

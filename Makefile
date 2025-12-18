@@ -1,4 +1,4 @@
-.PHONY: help install up down shell db-setup migrate fresh pint pint-test test test-unit test-feature test-coverage coverage-html pest-mutate test-ai test-mutate lint lint-sequential lint-full fix analyse insights phparkitect deptrac tlint tlint-full stan rector rector-dry-run refactor check check-full infection infection-fast infection-strict infection-incremental infection-ci ide-helper
+.PHONY: help install up down shell db-setup migrate fresh pint pint-test test test-unit test-feature test-coverage coverage-html pest-mutate test-ai test-mutate lint lint-sequential lint-full fix analyse insights phparkitect deptrac tlint tlint-full psalm psalm-baseline stan rector rector-dry-run refactor check check-full infection infection-fast infection-strict infection-incremental infection-ci ide-helper
 
 # Enable strict shell mode for robust error handling
 SHELL := bash
@@ -167,7 +167,7 @@ lint-sequential: ## Run sequential lint (Pint + PHPStan + PHPArkitect + Deptrac 
 	@$(MAKE) deptrac
 	@$(MAKE) tlint
 
-lint-full: ## Run full linting (Pint + PHPStan + Insights + PHPArkitect + Deptrac + TLint-full)
+lint-full: ## Run full linting (Pint + PHPStan + Insights + PHPArkitect + Deptrac + TLint + Psalm)
 	@echo "$(MODE)"
 	@$(MAKE) pint-test
 	@$(MAKE) analyse
@@ -175,6 +175,7 @@ lint-full: ## Run full linting (Pint + PHPStan + Insights + PHPArkitect + Deptra
 	@$(MAKE) phparkitect
 	@$(MAKE) deptrac
 	@$(MAKE) tlint-full
+	@$(MAKE) psalm
 
 fix: ## Auto-fix code style with Pint
 	@echo "$(MODE)"
@@ -203,6 +204,17 @@ tlint: ## Run TLint on app/ + routes/ (fast, ~2s)
 tlint-full: ## Run TLint on entire codebase (~7s)
 	@echo "$(MODE)"
 	vendor/bin/tlint
+
+psalm: ## Run Psalm taint analysis (security scan)
+	@echo "$(MODE)"
+	@# Disable opcache to prevent JIT-related segfaults on ARM64 macOS (PHP 8.4+)
+	@# See: https://github.com/vimeo/psalm/issues/11310
+	PHP_INI_SCAN_DIR=/dev/null $(EXEC) -d xdebug.mode=off vendor/bin/psalm --taint-analysis
+
+psalm-baseline: ## Generate Psalm baseline for existing issues
+	@echo "$(MODE)"
+	@# Disable opcache to prevent JIT-related segfaults on ARM64 macOS (PHP 8.4+)
+	PHP_INI_SCAN_DIR=/dev/null $(EXEC) -d xdebug.mode=off vendor/bin/psalm --taint-analysis --set-baseline=psalm-baseline.xml
 
 stan: ## Alias for analyse (PHPStan)
 	@echo "$(MODE)"

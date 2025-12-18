@@ -1,0 +1,31 @@
+<?xml version="1.0"?>
+<psalm
+    errorLevel="3"
+    resolveFromConfigFile="true"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns="https://getpsalm.org/schema/config"
+    xsi:schemaLocation="https://getpsalm.org/schema/config vendor/vimeo/psalm/config.xsd"
+    findUnusedBaselineEntry="true"
+    findUnusedCode="false"
+    cacheDirectory="storage/framework/psalm"
+>
+    <projectFiles>
+        <directory name="app/"/>
+        <ignoreFiles>
+            <directory name="vendor/"/>
+            <directory name="bootstrap/cache/"/>
+            <directory name="storage/"/>
+            <directory name="node_modules/"/>
+            <directory name="examples/"/>
+            <directory name="tests/"/>
+            <directory name="database/migrations/"/>
+            <directory name=".rector-cache/"/>
+            <directory name="build/"/>
+            <directory name="coverage-report/"/>
+        </ignoreFiles>
+    </projectFiles>
+
+    <plugins>
+        <pluginClass class="Psalm\LaravelPlugin\Plugin"/>
+    </plugins>
+</psalm>
