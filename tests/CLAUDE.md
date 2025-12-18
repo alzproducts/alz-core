@@ -140,9 +140,13 @@ make infection-ci           # CI mode with GitHub logger
 ```bash
 make test-domain-coverage   # Domain with 90% threshold
 make test-app-coverage      # Application with 70% threshold
-make infection-domain       # Domain mutation testing (85%+ MSI)
-make infection-app          # App Services/Transformers (70%+ MSI)
+make infection-domain       # Domain mutation testing (85%+ MSI) - uses Infection
+make mutate-app             # Application mutation testing (70%+) - uses Pest mutate
 ```
+
+**Why different engines per layer?**
+- **Domain (Infection)**: File-path filtering works well for flat structure; more mature mutators
+- **Application (Pest mutate)**: Namespace-based filtering (`--class=App\\Application`) handles nested feature directories naturally
 
 ---
 

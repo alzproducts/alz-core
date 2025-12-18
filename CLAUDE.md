@@ -372,7 +372,7 @@ Fix escaped mutants until both pass.
 - `make test-domain-coverage` — Domain with 90% threshold
 - `make test-app-coverage` — Application with 70% threshold
 - `make infection-domain` — Domain mutation testing (85%+ MSI)
-- `make infection-app` — Application Services/Transformers mutation testing (70%+ MSI)
+- `make mutate-app` — Application mutation testing (70%+, uses Pest mutate)
 
 ### ⚠️ IMPORTANT: Bypassing Linters
 

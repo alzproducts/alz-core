@@ -372,9 +372,9 @@ jobs:
       - name: Run Infection on Domain Layer
         run: make infection-domain
 
-  # Application Layer: 70%+ MSI - Services/Transformers only (orchestration excluded)
+  # Application Layer: 70%+ mutation score - Uses Pest mutate (namespace-based filtering)
   mutation-application:
-    name: Mutation Testing (Application - 70%+ MSI)
+    name: Mutation Testing (Application - 70%+ Pest)
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     if: github.base_ref == 'develop'
@@ -414,6 +414,6 @@ jobs:
           php artisan key:generate
           chmod -R 775 storage bootstrap/cache
 
-      - name: Run Infection on Application Layer
-        run: make infection-app
+      - name: Run Pest mutation testing on Application Layer
+        run: make mutate-app
 
