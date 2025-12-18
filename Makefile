@@ -1,4 +1,4 @@
-.PHONY: help install up down shell db-setup migrate fresh pint pint-test test test-unit test-feature test-coverage coverage-html pest-mutate test-ai test-mutate lint lint-sequential lint-full fix analyse insights phparkitect deptrac tlint tlint-full psalm psalm-baseline stan rector rector-dry-run refactor check check-full infection infection-fast infection-strict infection-incremental infection-ci ide-helper
+.PHONY: help install up down shell db-setup migrate fresh pint pint-test test test-unit test-feature test-coverage coverage-html pest-mutate test-ai test-mutate lint lint-sequential lint-full fix analyse insights phparkitect deptrac tlint tlint-full psalm psalm-ci psalm-baseline stan rector rector-dry-run refactor check check-full infection infection-fast infection-strict infection-incremental infection-ci ide-helper
 
 # Enable strict shell mode for robust error handling
 SHELL := bash
@@ -205,15 +205,23 @@ tlint-full: ## Run TLint on entire codebase (~7s)
 	@echo "$(MODE)"
 	vendor/bin/tlint
 
-psalm: ## Run Psalm taint analysis (security scan)
+psalm: ## Run Psalm taint analysis (local macOS only - use psalm-ci in CI)
 	@echo "$(MODE)"
-	@# Disable opcache to prevent JIT-related segfaults on ARM64 macOS (PHP 8.4+)
+	@# PHP_INI_SCAN_DIR=/dev/null prevents JIT segfaults on ARM64 macOS (PHP 8.4+)
 	@# See: https://github.com/vimeo/psalm/issues/11310
+	@# WARNING: This breaks CI because shivammathur/setup-php loads extensions via scan dir.
+	@# Use 'make psalm-ci' in GitHub Actions instead.
 	PHP_INI_SCAN_DIR=/dev/null $(EXEC) -d xdebug.mode=off vendor/bin/psalm --taint-analysis
+
+psalm-ci: ## Run Psalm taint analysis (CI only - extensions loaded via ini scan dir)
+	@echo "$(MODE)"
+	@# CI version: extensions are pre-loaded by shivammathur/setup-php
+	@# Do NOT use PHP_INI_SCAN_DIR=/dev/null here - it breaks extension loading
+	$(EXEC) -d xdebug.mode=off vendor/bin/psalm --taint-analysis
 
 psalm-baseline: ## Generate Psalm baseline for existing issues
 	@echo "$(MODE)"
-	@# Disable opcache to prevent JIT-related segfaults on ARM64 macOS (PHP 8.4+)
+	@# Uses same PHP_INI_SCAN_DIR workaround as psalm target (local use only)
 	PHP_INI_SCAN_DIR=/dev/null $(EXEC) -d xdebug.mode=off vendor/bin/psalm --taint-analysis --set-baseline=psalm-baseline.xml
 
 stan: ## Alias for analyse (PHPStan)
