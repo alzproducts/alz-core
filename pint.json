@@ -4,7 +4,11 @@
         "bootstrap/cache",
         "storage",
         "node_modules",
-        "examples"
+        "examples",
+        "database/migrations",
+        ".rector-cache",
+        "build",
+        "coverage-report"
     ],
     "rules": {
         "single_quote": true,

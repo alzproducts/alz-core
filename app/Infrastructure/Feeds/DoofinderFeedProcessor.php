@@ -10,14 +10,12 @@ use App\Application\Feeds\ProductSearchFeedProcessingResult;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\MalformedFeedDataException;
 use Illuminate\Http\Client\ConnectionException;
-use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use JsonException;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
 use Throwable;
-use Webmozart\Assert\Assert;
 use XMLReader;
 
 /**
@@ -134,7 +132,6 @@ final readonly class DoofinderFeedProcessor implements ProductSearchFeedProcesso
         try {
             $response = Http::timeout(self::HTTP_TIMEOUT_SECONDS)
                 ->get($sourceUrl);
-            Assert::isInstanceOf($response, Response::class);
 
             if ($response->failed()) {
                 $this->logger->error('Feed fetch failed', [

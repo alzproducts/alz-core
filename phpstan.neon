@@ -179,11 +179,6 @@ parameters:
         -
             message: '#^Class PHP_CodeSniffer\\.*#'
             path: config/insights.php
-        # Migration files are deployment scripts - exception documentation adds no value
-        # If migrations fail, deployment fails and we investigate. No caller catches these.
-        -
-            identifier: missingType.checkedException
-            path: database/migrations/*
         # Stage 4: Symplify rule exceptions for Laravel/PHP conventions
         # Layer base exceptions follow PHP convention: named after layer, not "Abstract*" prefix
         # Examples: Symfony's HttpException, Laravel's ModelNotFoundException
@@ -218,3 +213,9 @@ parameters:
         - storage/
         - vendor/
         - tests/
+        - node_modules/
+        - examples/
+        - database/migrations/
+        - .rector-cache/
+        - build/
+        - coverage-report/

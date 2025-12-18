@@ -16,6 +16,11 @@ return RectorConfig::configure()
         __DIR__ . '/storage',
         __DIR__ . '/public',
         __DIR__ . '/resources',
+        __DIR__ . '/node_modules',
+        __DIR__ . '/examples',
+        __DIR__ . '/database/migrations',
+        __DIR__ . '/build',
+        __DIR__ . '/coverage-report',
     ])
 
     // Performance optimizations

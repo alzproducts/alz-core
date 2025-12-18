@@ -2,10 +2,15 @@
     "preset": "laravel",
     "disabled": [],
     "excluded": [
+        "vendor/",
+        "bootstrap/cache/",
+        "storage/",
+        "node_modules/",
         "examples/",
         "database/migrations/",
-        "storage/",
         ".rector-cache/",
+        "build/",
+        "coverage-report/",
         "_ide_helper.php",
         "_ide_helper_models.php",
         ".phpstorm.meta.php"
