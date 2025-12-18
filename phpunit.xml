@@ -37,8 +37,6 @@
             <file>app/Domain/Review/Rating.php</file>
             <!-- SOAP transport - tested via smoke tests, mocking is brittle -->
             <file>app/Infrastructure/BingAds/BingAdsTransport.php</file>
-            <!-- Query parameter bags - pure data containers with no logic -->
-            <directory suffix="QueryParams.php">./app</directory>
         </exclude>
     </source>
     <php>
