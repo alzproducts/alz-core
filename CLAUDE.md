@@ -357,6 +357,23 @@ vendor/bin/pest --mutate --class=App\\Domain\\YourClass --min=85
 ```
 Fix escaped mutants until both pass.
 
+### Testing Strategy by Layer
+
+**Reference**: See `tests/TestingStrategy.md` for full guidance.
+
+| Layer | Coverage | Mutation | Test Type |
+|-------|----------|----------|-----------|
+| Domain | 90%+ | MSI 85%+ | Unit (no mocks) |
+| Application | 70%+ | Services only (70%+) | Unit + Integration |
+| Infrastructure | — | — | Integration only |
+| Presentation | — | — | Feature/smoke |
+
+**Commands**:
+- `make test-domain-coverage` — Domain with 90% threshold
+- `make test-app-coverage` — Application with 70% threshold
+- `make infection-domain` — Domain mutation testing (85%+ MSI)
+- `make infection-app` — Application Services/Transformers mutation testing (70%+ MSI)
+
 ### ⚠️ IMPORTANT: Bypassing Linters
 
 **NEVER bypass linting rules** (`@phpstan-ignore`, `@psalm-suppress`, baseline files, etc.) **without explicit user approval.**

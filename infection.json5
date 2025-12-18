@@ -1,20 +1,19 @@
 {
     "$schema": "vendor/infection/infection/resources/schema.json",
 
-    // Source code to mutate
+    // Source code to mutate - Layer-specific per tests/TestingStrategy.md
+    // Domain: 85%+ MSI (strict) - pure business logic, highest value
+    // Application Services/Transformers: 70%+ MSI - real business logic
+    // Infrastructure/Presentation: Excluded (glue code, low ROI)
+    // UseCases/Jobs: Excluded (orchestration, minimal testable logic)
     "source": {
         "directories": [
-            "app/Domain",           // Business logic (highest priority for mutation testing)
-            "app/Application",      // Use cases and orchestration
-            "app/Infrastructure",   // API clients, repositories
-            "app/Presentation"      // Controllers, commands, jobs, middleware
+            "app/Domain",                    // 85%+ MSI (strict)
+            "app/Application/Services",      // 70%+ MSI
+            "app/Application/Transformers"   // 70%+ MSI
         ],
         "excludes": [
-            "app/DevTools/GitHooks",    // Development tools (not business logic)
-            "app/Providers",            // Service providers (framework wiring, not business logic)
-            "app/Models/User.php",      // Framework-generated model
-            "app/Domain/Review/Rating.php",  // Data class (check if still needed)
-            "app/Infrastructure/BingAds/BingAdsTransport.php"  // SOAP transport - tested via smoke tests
+            "app/Domain/Review/Rating.php"   // Data class
         ]
     },
 
