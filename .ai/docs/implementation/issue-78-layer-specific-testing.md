@@ -19,34 +19,45 @@ The codebase currently has uniform 80% coverage across all layers. Clean Archite
 | Parallel CI mutation jobs | Faster feedback, net-neutral job count |
 | Codecov components (not flags) | Components for code areas, flags for test types |
 | Delete unused hook classes | Dead code cleanup - git history preserves |
+| Separate PHPUnit configs per layer | `--coverage-filter` is additive to `<source>`, cannot narrow scope |
+| Move misplaced test to Infrastructure | `MixpanelAdSpendEventDTOTest` was in Domain but tests Infrastructure class |
 
 ## Files Modified
 
-- [ ] `phpunit.xml` - Add Domain + Application test suites
-- [ ] `Makefile` - Add layer-specific targets
-- [ ] `composer.json` - Add delegating scripts
-- [ ] `infection.json5` - Narrow to Domain + App/Services + App/Transformers
-- [ ] `codecov.yml` - Add component-level coverage
-- [ ] `.github/workflows/ci.yml` - Layer-specific mutation jobs
-- [ ] `config/git-hooks.php` - Remove dead imports/comments
-- [ ] `CLAUDE.md` - Add testing strategy section
-- [ ] `tests/CLAUDE.md` - Add layer reference
+- [x] `phpunit.xml` - Add Domain + Application test suites
+- [x] `Makefile` - Add layer-specific targets + use `--configuration` flag
+- [x] `composer.json` - Add delegating scripts
+- [x] `infection.json5` - Narrow to Domain + App/Services + App/Transformers
+- [x] `codecov.yml` - Add component-level coverage
+- [x] `.github/workflows/ci.yml` - Layer-specific mutation jobs
+- [x] `config/git-hooks.php` - Remove dead imports/comments
+- [x] `CLAUDE.md` - Add testing strategy section
+- [x] `tests/CLAUDE.md` - Add layer reference
+
+## Files Created
+
+- [x] `phpunit-domain.xml` - Domain-only `<source>` directive for 90% coverage
+- [x] `phpunit-app.xml` - Application-only `<source>` directive for 70% coverage
 
 ## Files Deleted
 
-- [ ] `app/DevTools/GitHooks/InfectionPrePushHook.php`
-- [ ] `app/DevTools/GitHooks/PestMutatePrePushHook.php`
+- [x] `app/DevTools/GitHooks/InfectionPrePushHook.php`
+- [x] `app/DevTools/GitHooks/PestMutatePrePushHook.php`
+
+## Files Moved
+
+- [x] `MixpanelAdSpendEventDTOTest.php`: `tests/Unit/Domain/` → `tests/Unit/Infrastructure/Mixpanel/DTOs/`
 
 ## Verification Checklist
 
-- [ ] `make test-domain` runs Domain tests
-- [ ] `make test-domain-coverage` enforces 90% threshold
-- [ ] `make test-app` runs Application tests
-- [ ] `make test-app-coverage` enforces 70% threshold
-- [ ] `make infection-domain` runs with 85% MSI threshold
-- [ ] `make infection-app` runs with 70% MSI threshold
-- [ ] CI workflow YAML is valid
-- [ ] `make lint` passes
+- [x] `make test-domain` runs Domain tests (300 tests, 2.02s)
+- [x] `make test-app` runs Application tests (210 tests, 1.95s)
+- [x] `make test-domain-coverage` enforces 90% threshold — **100.0%** ✓
+- [x] `make test-app-coverage` enforces 70% threshold — **99.2%** ✓
+- [ ] `make infection-domain` runs with 85% MSI threshold (run via stop hooks)
+- [ ] `make infection-app` runs with 70% MSI threshold (run via stop hooks)
+- [ ] CI workflow YAML is valid (verified by stop hooks)
+- [ ] `make lint` passes (verified by stop hooks)
 
 ## PR Notes
 
@@ -60,11 +71,13 @@ Implement layer-specific testing policies per `tests/TestingStrategy.md`:
 ### Changes
 
 - Add `Domain` and `Application` PHPUnit test suites
+- Create `phpunit-domain.xml` and `phpunit-app.xml` for layer-scoped coverage
 - Narrow Infection scope to Domain + App/Services + App/Transformers
 - Add Makefile targets: `test-domain`, `test-domain-coverage`, `test-app`, `test-app-coverage`, `infection-domain`, `infection-app`
 - Update CI with parallel layer-specific mutation jobs
 - Add Codecov component-level reporting
 - Dead code cleanup: remove unused mutation hook classes
+- Move misplaced `MixpanelAdSpendEventDTOTest` from Domain to Infrastructure
 
 ### Test Plan
 

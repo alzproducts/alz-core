@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!-- Domain Layer Coverage Config | Scope: app/Domain (90%+ target) -->
 <phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
          bootstrap="vendor/autoload.php"
@@ -9,42 +10,23 @@
          failOnWarning="true"
 >
     <testsuites>
-        <testsuite name="Feature">
-            <directory>tests/Feature</directory>
-        </testsuite>
-        <testsuite name="Unit">
-            <directory>tests/Unit</directory>
-        </testsuite>
-        <testsuite name="Architecture">
-            <file>tests/ArchitectureTest.php</file>
-        </testsuite>
-        <!-- Layer-specific suites for targeted coverage/mutation testing -->
         <testsuite name="Domain">
             <directory>tests/Unit/Domain</directory>
-        </testsuite>
-        <testsuite name="Application">
-            <directory>tests/Unit/Application</directory>
-            <directory>tests/Feature/Application</directory>
         </testsuite>
     </testsuites>
     <coverage>
         <report>
-            <clover outputFile="build/logs/clover.xml"/>
+            <clover outputFile="build/logs/clover-domain.xml"/>
         </report>
     </coverage>
     <source ignoreIndirectDeprecations="true">
         <include>
-            <directory>app</directory>
+            <directory>app/Domain</directory>
         </include>
         <exclude>
-            <directory>app/DevTools/GitHooks</directory>
-            <file>app/Models/User.php</file>
-            <directory suffix="ServiceProvider.php">./app</directory>
-            <directory suffix="Exception.php">./app</directory>
-            <directory suffix="Factory.php">./app</directory>
+            <directory suffix="Exception.php">./app/Domain</directory>
+            <directory suffix="Factory.php">./app/Domain</directory>
             <file>app/Domain/Review/Rating.php</file>
-            <!-- SOAP transport - tested via smoke tests, mocking is brittle -->
-            <file>app/Infrastructure/BingAds/BingAdsTransport.php</file>
         </exclude>
     </source>
     <php>

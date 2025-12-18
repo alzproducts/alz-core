@@ -5,7 +5,20 @@ coverage:
   status:
     project:
       default:
-        target: 80%
+        target: 75%  # Overall (lower since Infra/Presentation have no targets)
     patch:
       default:
-        target: 80%
+        target: 70%
+
+# Components show coverage by code area in Codecov dashboard
+# See: https://docs.codecov.com/docs/components
+component_management:
+  individual_components:
+    - component_id: domain
+      name: Domain Layer
+      paths:
+        - app/Domain/**
+    - component_id: application
+      name: Application Layer
+      paths:
+        - app/Application/**

@@ -1,4 +1,4 @@
-.PHONY: help install up down shell db-setup migrate fresh pint pint-test test test-unit test-feature test-coverage coverage-html pest-mutate test-ai test-mutate lint lint-sequential lint-full fix analyse insights phparkitect deptrac tlint tlint-full psalm psalm-ci psalm-baseline stan rector rector-dry-run refactor check check-full infection infection-fast infection-strict infection-incremental infection-ci ide-helper
+.PHONY: help install up down shell db-setup migrate fresh pint pint-test test test-unit test-feature test-coverage coverage-html pest-mutate test-ai test-mutate lint lint-sequential lint-full fix analyse insights phparkitect deptrac tlint tlint-full psalm psalm-ci psalm-baseline stan rector rector-dry-run refactor check check-full infection infection-fast infection-strict infection-incremental infection-ci ide-helper test-domain test-domain-coverage test-app test-app-coverage infection-domain infection-app
 
 # Enable strict shell mode for robust error handling
 SHELL := bash
@@ -255,6 +255,23 @@ test-feature: ## Run feature/integration tests only
 	@echo "$(MODE)"
 	$(EXEC) vendor/bin/pest --testsuite=Feature --parallel --fail-on-deprecation
 
+# Layer-specific test targets (see tests/TestingStrategy.md)
+test-domain: ## Run Domain layer tests (90%+ coverage target)
+	@echo "$(MODE)"
+	$(EXEC) vendor/bin/pest --testsuite=Domain --parallel --fail-on-deprecation
+
+test-domain-coverage: ## Run Domain tests with 90% coverage (Domain code only)
+	@echo "$(MODE)"
+	$(EXEC) -d xdebug.mode=coverage vendor/bin/pest --configuration=phpunit-domain.xml --coverage --min=90
+
+test-app: ## Run Application layer tests (70%+ coverage target)
+	@echo "$(MODE)"
+	$(EXEC) vendor/bin/pest --testsuite=Application --parallel --fail-on-deprecation
+
+test-app-coverage: ## Run Application tests with 70% coverage (App code only)
+	@echo "$(MODE)"
+	$(EXEC) -d xdebug.mode=coverage vendor/bin/pest --configuration=phpunit-app.xml --coverage --min=70
+
 test-coverage: ## Run tests with 80% coverage requirement
 	@echo "$(MODE)"
 	$(EXEC) -d xdebug.mode=coverage vendor/bin/pest --coverage --min=75
@@ -289,6 +306,20 @@ infection-incremental: ## Run Infection on changed lines only (vs develop branch
 infection-ci: ## Run Infection for CI with GitHub logger
 	@echo "$(MODE)"
 	$(EXEC) -d xdebug.mode=off vendor/bin/infection --no-progress --logger-github --min-msi=80 --min-covered-msi=85 --test-framework-options="--testsuite=Unit"
+
+# Layer-specific mutation testing (see tests/TestingStrategy.md)
+infection-domain: ## Run Infection on Domain layer only (85%+ MSI)
+	@echo "$(MODE)"
+	$(EXEC) -d xdebug.mode=off vendor/bin/infection \
+		--filter=app/Domain --min-msi=85 --min-covered-msi=90 \
+		--no-progress --show-mutations --test-framework-options="--testsuite=Domain"
+
+infection-app: ## Run Infection on Application Services/Transformers (70%+ MSI)
+	@echo "$(MODE)"
+	$(EXEC) -d xdebug.mode=off vendor/bin/infection \
+		--filter="app/Application/(Services|Transformers)" \
+		--min-msi=70 --min-covered-msi=80 \
+		--no-progress --show-mutations --test-framework-options="--testsuite=Application"
 
 test-ai: ## Validate AI-generated tests with mutation testing
 	@echo "$(MODE)"
