@@ -317,10 +317,9 @@ infection-domain: ## Run Infection on Domain layer only (85%+ MSI)
 mutate-app: ## Run Pest mutation testing on Application layer (70%+ min score)
 	@echo "$(MODE)"
 	$(EXEC) -d xdebug.mode=off vendor/bin/pest --mutate \
-		--class='App\\Application' \
-		--ignore='App\\Application\\Contracts' \
-		--ignore='App\\Application\\Exceptions' \
-		--covered-only --min=70 --parallel --processes=9
+		--path=app/Application \
+		--everything --min=70 --parallel --processes=9 \
+		--testsuite=Unit --ignore-min-score-on-zero-mutations
 
 test-ai: ## Validate AI-generated tests with mutation testing
 	@echo "$(MODE)"

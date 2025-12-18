@@ -146,7 +146,7 @@ make mutate-app             # Application mutation testing (70%+) - uses Pest mu
 
 **Why different engines per layer?**
 - **Domain (Infection)**: File-path filtering works well for flat structure; more mature mutators
-- **Application (Pest mutate)**: Namespace-based filtering (`--class=App\\Application`) handles nested feature directories naturally
+- **Application (Pest mutate)**: Path-based filtering (`--path=app/Application`) handles nested feature directories naturally; `--class` filter is bypassed when `--everything` is used
 
 ---
 
