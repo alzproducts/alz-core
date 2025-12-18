@@ -314,12 +314,13 @@ infection-domain: ## Run Infection on Domain layer only (85%+ MSI)
 		--filter=app/Domain --min-msi=85 --min-covered-msi=90 \
 		--no-progress --show-mutations --test-framework-options="--testsuite=Domain"
 
-infection-app: ## Run Infection on Application Services/Transformers (70%+ MSI)
+mutate-app: ## Run Pest mutation testing on Application layer (70%+ min score)
 	@echo "$(MODE)"
-	$(EXEC) -d xdebug.mode=off vendor/bin/infection \
-		--filter="app/Application/(Services|Transformers)" \
-		--min-msi=70 --min-covered-msi=80 \
-		--no-progress --show-mutations --test-framework-options="--testsuite=Application"
+	$(EXEC) -d xdebug.mode=off vendor/bin/pest --mutate \
+		--class='App\\Application' \
+		--ignore='App\\Application\\Contracts' \
+		--ignore='App\\Application\\Exceptions' \
+		--covered-only --min=70 --parallel --processes=9
 
 test-ai: ## Validate AI-generated tests with mutation testing
 	@echo "$(MODE)"
