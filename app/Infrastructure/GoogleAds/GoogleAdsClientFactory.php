@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace App\Infrastructure\GoogleAds;
 
 use App\Application\Contracts\GoogleAdsClientInterface;
+use App\Domain\Exceptions\InvalidConfigurationException;
 use Google\Ads\GoogleAds\Lib\OAuth2TokenBuilder;
 use Google\Ads\GoogleAds\Lib\V22\GoogleAdsClient as SdkGoogleAdsClient;
 use Google\Ads\GoogleAds\Lib\V22\GoogleAdsClientBuilder;
-use RuntimeException;
 
 /**
  * Factory for creating GoogleAdsClient with all dependencies.
@@ -43,22 +43,22 @@ final class GoogleAdsClientFactory
         $loginCustomerId = \config('google-ads.login_customer_id');
 
         if (!\is_string($clientId)) {
-            throw new RuntimeException('GOOGLE_ADS_CLIENT_ID not configured');
+            throw new InvalidConfigurationException('GOOGLE_ADS_CLIENT_ID');
         }
         if (!\is_string($clientSecret)) {
-            throw new RuntimeException('GOOGLE_ADS_CLIENT_SECRET not configured');
+            throw new InvalidConfigurationException('GOOGLE_ADS_CLIENT_SECRET');
         }
         if (!\is_string($refreshToken)) {
-            throw new RuntimeException('GOOGLE_ADS_REFRESH_TOKEN not configured');
+            throw new InvalidConfigurationException('GOOGLE_ADS_REFRESH_TOKEN');
         }
         if (!\is_string($developerToken)) {
-            throw new RuntimeException('GOOGLE_ADS_DEVELOPER_TOKEN not configured');
+            throw new InvalidConfigurationException('GOOGLE_ADS_DEVELOPER_TOKEN');
         }
         if (!\is_string($customerId)) {
-            throw new RuntimeException('GOOGLE_ADS_CUSTOMER_ID not configured');
+            throw new InvalidConfigurationException('GOOGLE_ADS_CUSTOMER_ID');
         }
         if (($loginCustomerId !== null) && !\is_string($loginCustomerId)) {
-            throw new RuntimeException('GOOGLE_ADS_LOGIN_CUSTOMER_ID must be a string when provided');
+            throw new InvalidConfigurationException('GOOGLE_ADS_LOGIN_CUSTOMER_ID', 'GOOGLE_ADS_LOGIN_CUSTOMER_ID must be a string when provided');
         }
 
         return new GoogleAdsConfig(

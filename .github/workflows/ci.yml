@@ -278,6 +278,51 @@ jobs:
       - name: Run Composer audit
         run: composer audit --format=json
 
+  # Psalm Taint Analysis (60-90 seconds)
+  taint-analysis:
+    name: Psalm Taint Analysis (Security)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP ${{ env.PHP_VERSION }}
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          # Psalm requires: dom, simplexml, tokenizer (in addition to standard extensions)
+          extensions: mbstring, xml, ctype, json, bcmath, soap, dom, simplexml, tokenizer
+          coverage: none
+          tools: composer:v2
+
+      - name: Get Composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+
+      - name: Cache Psalm results
+        uses: actions/cache@v4
+        with:
+          path: storage/framework/psalm
+          key: psalm-${{ hashFiles('**/*.php') }}-${{ hashFiles('composer.lock') }}
+          restore-keys: |
+            psalm-${{ hashFiles('**/*.php') }}-
+            psalm-
+
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress --ignore-platform-req=ext-swoole
+
+      - name: Run Psalm taint analysis
+        run: make psalm-ci
+
   # Mutation Testing: Pest Mutate (5-15 minutes)
   # Only runs on PRs to develop - direct pushes skip mutation testing for quick fixes
   mutation-pest:

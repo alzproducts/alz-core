@@ -8,7 +8,7 @@ declare(strict_types=1);
 namespace App\Infrastructure\Shopwired;
 
 use App\Domain\Exceptions\InvalidApiResponseException;
-use App\Infrastructure\Contracts\DomainConvertible;
+use App\Infrastructure\Contracts\DomainConvertibleInterface;
 use Illuminate\Support\Facades\Log;
 use Spatie\LaravelData\Data;
 use Spatie\LaravelData\DataCollection;
@@ -33,7 +33,7 @@ trait ShopwiredResponseParserTrait
      *
      * @param class-string<T> $dtoClass
      *
-     * @return DataCollection<int, T>
+     * @return DataCollection<int|string, T>
      *
      * @throws InvalidApiResponseException When response structure is invalid
      */
@@ -102,7 +102,7 @@ trait ShopwiredResponseParserTrait
      * Combines parsing and domain conversion in one step for cleaner client code.
      * The DTO class must implement DomainConvertible.
      *
-     * @template T of Data&DomainConvertible
+     * @template T of Data&DomainConvertibleInterface
      *
      * @param class-string<T> $dtoClass
      *
@@ -122,7 +122,7 @@ trait ShopwiredResponseParserTrait
      * Combines parsing and domain conversion in one step for cleaner client code.
      * The DTO class must implement DomainConvertible.
      *
-     * @template T of Data&DomainConvertible
+     * @template T of Data&DomainConvertibleInterface
      *
      * @param class-string<T> $dtoClass
      *
@@ -149,7 +149,7 @@ trait ShopwiredResponseParserTrait
      * Some endpoints return items wrapped in an object: {totalItems: n, items: [...]}
      * This method extracts the items array before parsing.
      *
-     * @template T of Data&DomainConvertible
+     * @template T of Data&DomainConvertibleInterface
      *
      * @param string $key The key containing the items array (default: 'items')
      * @param class-string<T> $dtoClass

@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace App\Application\Contracts\Shopwired;
 
 use App\Domain\Customer\ValueObjects\Customer;
+use App\Domain\Exceptions\AuthenticationExpiredException;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\InvalidApiRequestException;
 use App\Domain\Exceptions\InvalidApiResponseException;
+use App\Domain\Exceptions\ResourceNotFoundException;
 
 /**
  * ShopWired Customers API client.
@@ -23,8 +26,11 @@ interface CustomerClientInterface
      *
      * @return list<Customer>
      *
-     * @throws ExternalServiceUnavailableException When API unavailable
-     * @throws InvalidApiResponseException When API response structure is invalid
+     * @throws InvalidApiRequestException When request parameters are invalid (400)
+     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
+     * @throws ResourceNotFoundException When resource not found (404)
+     * @throws ExternalServiceUnavailableException When API unavailable or connection fails
+     * @throws InvalidApiResponseException When response parsing fails (API contract violation)
      */
     public function listAllCustomers(): array;
 
@@ -35,8 +41,11 @@ interface CustomerClientInterface
      *
      * @return list<Customer>
      *
-     * @throws ExternalServiceUnavailableException When API unavailable
-     * @throws InvalidApiResponseException When API response structure is invalid
+     * @throws InvalidApiRequestException When request parameters are invalid (400)
+     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
+     * @throws ResourceNotFoundException When resource not found (404)
+     * @throws ExternalServiceUnavailableException When API unavailable or connection fails
+     * @throws InvalidApiResponseException When response parsing fails (API contract violation)
      */
     public function listAllTradeCustomers(): array;
 
@@ -45,32 +54,44 @@ interface CustomerClientInterface
      *
      * @return list<Customer>
      *
-     * @throws ExternalServiceUnavailableException When API unavailable
-     * @throws InvalidApiResponseException When API response structure is invalid
+     * @throws InvalidApiRequestException When request parameters are invalid (400)
+     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
+     * @throws ResourceNotFoundException When resource not found (404)
+     * @throws ExternalServiceUnavailableException When API unavailable or connection fails
+     * @throws InvalidApiResponseException When response parsing fails (API contract violation)
      */
     public function listCustomers(): array;
 
     /**
      * Get a single customer by ID.
      *
-     * @throws ExternalServiceUnavailableException When API unavailable
-     * @throws InvalidApiResponseException When API response structure is invalid
+     * @throws InvalidApiRequestException When request parameters are invalid (400)
+     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
+     * @throws ResourceNotFoundException When customer not found (404)
+     * @throws ExternalServiceUnavailableException When API unavailable or connection fails
+     * @throws InvalidApiResponseException When response parsing fails (API contract violation)
      */
     public function getCustomerById(int $id): Customer;
 
     /**
      * Get the total count of customers.
      *
-     * @throws ExternalServiceUnavailableException When API unavailable
-     * @throws InvalidApiResponseException When API response structure is invalid
+     * @throws InvalidApiRequestException When request parameters are invalid (400)
+     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
+     * @throws ResourceNotFoundException When resource not found (404)
+     * @throws ExternalServiceUnavailableException When API unavailable or connection fails
+     * @throws InvalidApiResponseException When response parsing fails (API contract violation)
      */
     public function getCustomerCount(): int;
 
     /**
      * Get the total count of trade customers only.
      *
-     * @throws ExternalServiceUnavailableException When API unavailable
-     * @throws InvalidApiResponseException When API response structure is invalid
+     * @throws InvalidApiRequestException When request parameters are invalid (400)
+     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
+     * @throws ResourceNotFoundException When resource not found (404)
+     * @throws ExternalServiceUnavailableException When API unavailable or connection fails
+     * @throws InvalidApiResponseException When response parsing fails (API contract violation)
      */
     public function getTradeCustomerCount(): int;
 
@@ -80,8 +101,11 @@ interface CustomerClientInterface
      * Returns null if no customer found with that email.
      * Assumes email uniqueness (returns first match).
      *
-     * @throws ExternalServiceUnavailableException When API unavailable
-     * @throws InvalidApiResponseException When API response structure is invalid
+     * @throws InvalidApiRequestException When request parameters are invalid (400)
+     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
+     * @throws ResourceNotFoundException When resource not found (404)
+     * @throws ExternalServiceUnavailableException When API unavailable or connection fails
+     * @throws InvalidApiResponseException When response parsing fails (API contract violation)
      */
     public function searchByEmail(string $email): ?Customer;
 }

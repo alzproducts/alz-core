@@ -7,6 +7,7 @@ namespace App\Providers;
 use App\Application\Contracts\ProductSearchFeedProcessorInterface;
 use App\Application\Contracts\RemoteStorageInterface;
 use App\Infrastructure\Feeds\DoofinderFeedProcessor;
+use App\Infrastructure\Feeds\DoofinderItemTransformer;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Contracts\Support\DeferrableProvider;
 use Illuminate\Support\ServiceProvider;
@@ -29,6 +30,7 @@ final class ProductSearchFeedServiceProvider extends ServiceProvider implements 
             static fn(Application $app): ProductSearchFeedProcessorInterface => new DoofinderFeedProcessor(
                 storage: $app->make(RemoteStorageInterface::class),
                 logger: $app->make(LoggerInterface::class),
+                itemTransformer: new DoofinderItemTransformer($app->make(LoggerInterface::class)),
             ),
         );
     }

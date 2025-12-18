@@ -33,8 +33,9 @@ use Tests\TestCase;
 #[CoversClass(SyncBingAdsToMixpanelJob::class)]
 final class SyncBingAdsToMixpanelJobTest extends TestCase
 {
-    private SyncAdSpendUseCase&MockInterface $mockUseCase;
     private const string TEST_DATE = '2024-11-20';
+
+    private SyncAdSpendUseCase&MockInterface $mockUseCase;
 
     #[Override]
     protected function setUp(): void
@@ -190,6 +191,8 @@ final class SyncBingAdsToMixpanelJobTest extends TestCase
             ->with($exception);
         $job->shouldReceive('attempts')->andReturn(1);
 
+        $this->expectException(PayloadSerializationException::class);
+
         $job->handle($this->mockUseCase);
     }
 
@@ -215,6 +218,8 @@ final class SyncBingAdsToMixpanelJobTest extends TestCase
             ->with($exception);
         $job->shouldNotReceive('release'); // Should NOT release for retry
         $job->shouldReceive('attempts')->andReturn(1);
+
+        $this->expectException(PayloadSerializationException::class);
 
         $job->handle($this->mockUseCase);
     }
@@ -253,6 +258,8 @@ final class SyncBingAdsToMixpanelJobTest extends TestCase
             ->with($exception);
         $job->shouldReceive('attempts')->andReturn(1);
 
+        $this->expectException(AuthenticationExpiredException::class);
+
         $job->handle($this->mockUseCase);
     }
 
@@ -278,6 +285,8 @@ final class SyncBingAdsToMixpanelJobTest extends TestCase
             ->with($exception);
         $job->shouldNotReceive('release'); // Should NOT release for retry
         $job->shouldReceive('attempts')->andReturn(2);
+
+        $this->expectException(AuthenticationExpiredException::class);
 
         $job->handle($this->mockUseCase);
     }
@@ -415,6 +424,72 @@ final class SyncBingAdsToMixpanelJobTest extends TestCase
         } catch (ExternalServiceUnavailableException) {
             // Expected
         }
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Unexpected Exception Tests
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function it_fails_immediately_on_unexpected_exception(): void
+    {
+        $exception = new RuntimeException('Unexpected database error');
+
+        $this->mockUseCase
+            ->shouldReceive('execute')
+            ->once()
+            ->andThrow($exception);
+
+        Log::shouldReceive('info')->once();
+
+        Log::shouldReceive('critical')
+            ->once()
+            ->withArgs(static fn(string $message, array $context): bool => \str_contains($message, 'Unexpected exception')
+                    && $context['exception'] === RuntimeException::class);
+
+        $job = Mockery::mock(SyncBingAdsToMixpanelJob::class, [
+            new DateTimeImmutable(self::TEST_DATE),
+            new DateTimeImmutable(self::TEST_DATE),
+        ])->makePartial();
+        $job->shouldReceive('fail')
+            ->once()
+            ->with($exception);
+        $job->shouldReceive('attempts')->andReturn(1);
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('Unexpected database error');
+
+        $job->handle($this->mockUseCase);
+    }
+
+    #[Test]
+    public function it_does_not_retry_on_unexpected_exception(): void
+    {
+        $exception = new RuntimeException('Unknown error');
+
+        $this->mockUseCase
+            ->shouldReceive('execute')
+            ->once()
+            ->andThrow($exception);
+
+        Log::shouldReceive('info')->once();
+        Log::shouldReceive('critical')->once();
+
+        $job = Mockery::mock(SyncBingAdsToMixpanelJob::class, [
+            new DateTimeImmutable(self::TEST_DATE),
+            new DateTimeImmutable(self::TEST_DATE),
+        ])->makePartial();
+        $job->shouldReceive('fail')
+            ->once()
+            ->with($exception);
+        $job->shouldNotReceive('release'); // Should NOT release for retry
+        $job->shouldReceive('attempts')->andReturn(2);
+
+        $this->expectException(RuntimeException::class);
+
+        $job->handle($this->mockUseCase);
     }
 
     /*

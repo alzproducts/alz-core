@@ -17,6 +17,7 @@ use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use RuntimeException;
 
 /**
  * HTTP transport layer for Reviews.io API.
@@ -51,6 +52,7 @@ final readonly class ReviewsIoHttpTransport
      *
      * @throws InvalidApiRequestException When request parameters are invalid (400)
      * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
+     * @throws ResourceNotFoundException When requested resource not found (404)
      * @throws ExternalServiceUnavailableException When API unavailable, rate limited, or connection fails
      */
     public function get(string $endpoint, array $queryParams = []): Response
@@ -72,6 +74,8 @@ final readonly class ReviewsIoHttpTransport
 
     /**
      * Create configured HTTP request with auth and retry logic.
+     *
+     * @throws RuntimeException When HTTP factory cannot be resolved (container misconfiguration)
      */
     private function createRequest(): PendingRequest
     {
@@ -140,7 +144,7 @@ final readonly class ReviewsIoHttpTransport
 
         return new AuthenticationExpiredException(
             self::SERVICE_NAME,
-            $status === 401 ? 'Invalid credentials' : 'Insufficient permissions',
+            ($status === 401) ? 'Invalid credentials' : 'Insufficient permissions',
             $e,
         );
     }

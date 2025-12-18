@@ -6,6 +6,9 @@ namespace App\Infrastructure\GoogleAds\Transformers;
 
 use App\Domain\AdSpend\ValueObjects\CampaignMetrics;
 use App\Infrastructure\GoogleAds\Exceptions\InvalidGoogleAdsResponseException;
+use Google\Ads\GoogleAds\V22\Common\Metrics;
+use Google\Ads\GoogleAds\V22\Common\Segments;
+use Google\Ads\GoogleAds\V22\Resources\Campaign;
 use Google\Ads\GoogleAds\V22\Services\GoogleAdsRow;
 
 /**
@@ -26,11 +29,34 @@ use Google\Ads\GoogleAds\V22\Services\GoogleAdsRow;
 final class GoogleAdsRowTransformer
 {
     /**
-     * @throws InvalidGoogleAdsResponseException
+     * Transform a Google Ads API row into a domain CampaignMetrics object.
+     *
+     * @throws InvalidGoogleAdsResponseException When required fields are missing or invalid
      */
     public static function toCampaignMetrics(GoogleAdsRow $row): CampaignMetrics
     {
-        // Validate nested objects exist
+        [$campaign, $metrics, $segments] = self::validateNestedObjects($row);
+
+        return new CampaignMetrics(
+            campaignId: self::validateIntField($campaign->getId(), 'campaign.id'),
+            campaignName: self::validateStringField($campaign->getName(), 'campaign.name'),
+            date: self::validateStringField($segments->getDate(), 'segments.date'),
+            costInPounds: self::validateIntField($metrics->getCostMicros(), 'metrics.cost_micros') / 1_000_000,
+            clicks: self::validateIntField($metrics->getClicks(), 'metrics.clicks'),
+            impressions: self::validateIntField($metrics->getImpressions(), 'metrics.impressions'),
+            conversions: self::validateFloatField($metrics->getConversions(), 'metrics.conversions'),
+        );
+    }
+
+    /**
+     * Validate and extract nested objects from the row.
+     *
+     * @return array{0: Campaign, 1: Metrics, 2: Segments}
+     *
+     * @throws InvalidGoogleAdsResponseException When campaign, metrics, or segments are missing
+     */
+    private static function validateNestedObjects(GoogleAdsRow $row): array
+    {
         $campaign = $row->getCampaign();
         if ($campaign === null) {
             throw InvalidGoogleAdsResponseException::missingField('campaign', 'row.campaign');
@@ -46,72 +72,64 @@ final class GoogleAdsRowTransformer
             throw InvalidGoogleAdsResponseException::missingField('segments', 'row.segments');
         }
 
-        // Validate required fields with type checking at boundary
-        $campaignId = $campaign->getId();
-        if ($campaignId === null) {
-            throw InvalidGoogleAdsResponseException::missingField('id', 'campaign.id');
-        }
-        if (!\is_int($campaignId) && !\is_string($campaignId)) {
-            throw InvalidGoogleAdsResponseException::invalidValue('campaign.id', 'Expected int|string, got ' . \get_debug_type($campaignId));
+        return [$campaign, $metrics, $segments];
+    }
+
+    /**
+     * Validate a string field from the API response.
+     *
+     * @throws InvalidGoogleAdsResponseException When value is null or not a string
+     */
+    private static function validateStringField(mixed $value, string $field): string
+    {
+        if ($value === null) {
+            throw InvalidGoogleAdsResponseException::missingField($field, $field);
         }
 
-        $campaignName = $campaign->getName();
-        if ($campaignName === null) {
-            throw InvalidGoogleAdsResponseException::missingField('name', 'campaign.name');
-        }
-        if (!\is_string($campaignName)) {
-            throw InvalidGoogleAdsResponseException::invalidValue('campaign.name', 'Expected string, got ' . \get_debug_type($campaignName));
+        if (!\is_string($value)) {
+            throw InvalidGoogleAdsResponseException::invalidValue($field, 'Expected string, got ' . \get_debug_type($value));
         }
 
-        $date = $segments->getDate();
-        if ($date === null) {
-            throw InvalidGoogleAdsResponseException::missingField('date', 'segments.date');
-        }
-        if (!\is_string($date)) {
-            throw InvalidGoogleAdsResponseException::invalidValue('segments.date', 'Expected string, got ' . \get_debug_type($date));
+        return $value;
+    }
+
+    /**
+     * Validate an integer field from the API response.
+     *
+     * Google Ads API may return integers as strings (protobuf int64 encoding).
+     *
+     * @throws InvalidGoogleAdsResponseException When value is null or not int|string
+     */
+    private static function validateIntField(mixed $value, string $field): int
+    {
+        if ($value === null) {
+            throw InvalidGoogleAdsResponseException::missingField($field, $field);
         }
 
-        $costMicros = $metrics->getCostMicros();
-        if ($costMicros === null) {
-            throw InvalidGoogleAdsResponseException::missingField('cost_micros', 'metrics.cost_micros');
-        }
-        if (!\is_int($costMicros) && !\is_string($costMicros)) {
-            throw InvalidGoogleAdsResponseException::invalidValue('metrics.cost_micros', 'Expected int|string, got ' . \get_debug_type($costMicros));
+        if (!\is_int($value) && !\is_string($value)) {
+            throw InvalidGoogleAdsResponseException::invalidValue($field, 'Expected int|string, got ' . \get_debug_type($value));
         }
 
-        $clicks = $metrics->getClicks();
-        if ($clicks === null) {
-            throw InvalidGoogleAdsResponseException::missingField('clicks', 'metrics.clicks');
-        }
-        if (!\is_int($clicks) && !\is_string($clicks)) {
-            throw InvalidGoogleAdsResponseException::invalidValue('metrics.clicks', 'Expected int|string, got ' . \get_debug_type($clicks));
+        return (int) $value;
+    }
+
+    /**
+     * Validate a float field from the API response.
+     *
+     * Google Ads API may return floats as strings (protobuf encoding).
+     *
+     * @throws InvalidGoogleAdsResponseException When value is null or not float|string
+     */
+    private static function validateFloatField(mixed $value, string $field): float
+    {
+        if ($value === null) {
+            throw InvalidGoogleAdsResponseException::missingField($field, $field);
         }
 
-        $impressions = $metrics->getImpressions();
-        if ($impressions === null) {
-            throw InvalidGoogleAdsResponseException::missingField('impressions', 'metrics.impressions');
-        }
-        if (!\is_int($impressions) && !\is_string($impressions)) {
-            throw InvalidGoogleAdsResponseException::invalidValue('metrics.impressions', 'Expected int|string, got ' . \get_debug_type($impressions));
+        if (!\is_float($value) && !\is_string($value)) {
+            throw InvalidGoogleAdsResponseException::invalidValue($field, 'Expected float|string, got ' . \get_debug_type($value));
         }
 
-        $conversions = $metrics->getConversions();
-        if ($conversions === null) {
-            throw InvalidGoogleAdsResponseException::missingField('conversions', 'metrics.conversions');
-        }
-        if (!\is_float($conversions) && !\is_string($conversions)) {
-            throw InvalidGoogleAdsResponseException::invalidValue('metrics.conversions', 'Expected float|string, got ' . \get_debug_type($conversions));
-        }
-
-        // Create domain value object with validated data
-        return new CampaignMetrics(
-            campaignId: (int) $campaignId,
-            campaignName: $campaignName,
-            date: $date,
-            costInPounds: (int) $costMicros / 1_000_000,
-            clicks: (int) $clicks,
-            impressions: (int) $impressions,
-            conversions: (float) $conversions,
-        );
+        return (float) $value;
     }
 }

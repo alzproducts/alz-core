@@ -6,6 +6,8 @@ namespace App\Application\Contracts\Linnworks;
 
 use App\Domain\Exceptions\AuthenticationExpiredException;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\InvalidApiRequestException;
+use App\Domain\Exceptions\InvalidApiResponseException;
 use App\Domain\Exceptions\ResourceNotFoundException;
 use App\Domain\Inventory\ValueObjects\StockItem;
 
@@ -24,6 +26,8 @@ interface InventoryClientInterface
      * @throws ResourceNotFoundException When item doesn't exist
      * @throws AuthenticationExpiredException When credentials are invalid
      * @throws ExternalServiceUnavailableException When API is unavailable
+     * @throws InvalidApiRequestException When request parameters are invalid
+     * @throws InvalidApiResponseException When API response structure is invalid
      */
     public function getStockItemBySku(string $sku): StockItem;
 }

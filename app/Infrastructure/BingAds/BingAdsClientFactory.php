@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace App\Infrastructure\BingAds;
 
 use App\Application\Contracts\BingAdsClientInterface;
-use Illuminate\Cache\CacheManager;
+use App\Domain\Exceptions\AuthenticationExpiredException;
+use App\Domain\Exceptions\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\InvalidConfigurationException;
+use App\Domain\Exceptions\UnexpectedApiResultException;
 use Microsoft\BingAds\V13\CustomerManagement\CurrencyCode;
-use RuntimeException;
 
 /**
  * Factory for creating BingAdsClient with all dependencies.
@@ -20,10 +22,14 @@ use RuntimeException;
  */
 final class BingAdsClientFactory
 {
-    public static function create(CacheManager $cache): BingAdsClientInterface
+    /**
+     * @throws UnexpectedApiResultException When account currency is not GBP
+     * @throws AuthenticationExpiredException When credentials invalid
+     * @throws ExternalServiceUnavailableException When API unavailable
+     */
+    public static function create(BingAdsSessionManager $sessionManager): BingAdsClientInterface
     {
         $config = self::createConfig();
-        $sessionManager = new BingAdsSessionManager($config, $cache);
         $transport = new BingAdsTransport($sessionManager, $config);
 
         self::validateCurrency($transport);
@@ -50,31 +56,31 @@ final class BingAdsClientFactory
         $pollMaxAttempts = \config('bing-ads.report_poll_max_attempts', 30);
 
         if (!\is_string($clientId)) {
-            throw new RuntimeException('BING_ADS_CLIENT_ID not configured');
+            throw new InvalidConfigurationException('BING_ADS_CLIENT_ID');
         }
         if (!\is_string($clientSecret)) {
-            throw new RuntimeException('BING_ADS_CLIENT_SECRET not configured');
+            throw new InvalidConfigurationException('BING_ADS_CLIENT_SECRET');
         }
         if (!\is_string($refreshToken)) {
-            throw new RuntimeException('BING_ADS_REFRESH_TOKEN not configured');
+            throw new InvalidConfigurationException('BING_ADS_REFRESH_TOKEN');
         }
         if (!\is_string($developerToken)) {
-            throw new RuntimeException('BING_ADS_DEVELOPER_TOKEN not configured');
+            throw new InvalidConfigurationException('BING_ADS_DEVELOPER_TOKEN');
         }
         if (!\is_string($accountId)) {
-            throw new RuntimeException('BING_ADS_ACCOUNT_ID not configured');
+            throw new InvalidConfigurationException('BING_ADS_ACCOUNT_ID');
         }
         if (!\is_string($customerId)) {
-            throw new RuntimeException('BING_ADS_CUSTOMER_ID not configured');
+            throw new InvalidConfigurationException('BING_ADS_CUSTOMER_ID');
         }
         if (!\is_string($environment)) {
-            throw new RuntimeException('BING_ADS_ENVIRONMENT must be a string');
+            throw new InvalidConfigurationException('BING_ADS_ENVIRONMENT', 'BING_ADS_ENVIRONMENT must be a string');
         }
         if (!\is_int($pollInterval)) {
-            throw new RuntimeException('BING_ADS_REPORT_POLL_INTERVAL must be an integer');
+            throw new InvalidConfigurationException('BING_ADS_REPORT_POLL_INTERVAL', 'BING_ADS_REPORT_POLL_INTERVAL must be an integer');
         }
         if (!\is_int($pollMaxAttempts)) {
-            throw new RuntimeException('BING_ADS_REPORT_POLL_MAX_ATTEMPTS must be an integer');
+            throw new InvalidConfigurationException('BING_ADS_REPORT_POLL_MAX_ATTEMPTS', 'BING_ADS_REPORT_POLL_MAX_ATTEMPTS must be an integer');
         }
 
         return new BingAdsConfig(
@@ -98,7 +104,9 @@ final class BingAdsClientFactory
      *
      * Note: SDK PHPDoc says CurrencyCode is a class, but at runtime it's a string.
      *
-     * @throws RuntimeException When account currency is not GBP
+     * @throws UnexpectedApiResultException When account currency is not GBP
+     * @throws AuthenticationExpiredException When credentials invalid
+     * @throws ExternalServiceUnavailableException When API unavailable
      */
     private static function validateCurrency(BingAdsTransport $transport): void
     {
@@ -106,10 +114,10 @@ final class BingAdsClientFactory
 
         // Account is stdClass with CurrencyCode as string (e.g., 'GBP')
         if ($account->CurrencyCode !== CurrencyCode::GBP) {
-            throw new RuntimeException(
+            throw new UnexpectedApiResultException(
+                'Bing Ads',
                 \sprintf(
-                    'Bing Ads account currency must be GBP, got %s. '
-                    . 'Our domain model assumes costs are in British pounds.',
+                    'Account currency must be GBP, got %s. Our domain model assumes costs are in British pounds.',
                     $account->CurrencyCode,
                 ),
             );

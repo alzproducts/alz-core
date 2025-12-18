@@ -6,6 +6,7 @@ namespace App\Application\Contracts\Linnworks;
 
 use App\Domain\Exceptions\AuthenticationExpiredException;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\InvalidApiResponseException;
 
 /**
  * Contract for Linnworks API connectivity verification.
@@ -26,6 +27,7 @@ interface ConnectivityClientInterface
      *
      * @throws AuthenticationExpiredException When credentials are invalid
      * @throws ExternalServiceUnavailableException When API unavailable
+     * @throws InvalidApiResponseException When session response contains malformed data
      */
     public function verifyConnectivity(): void;
 }

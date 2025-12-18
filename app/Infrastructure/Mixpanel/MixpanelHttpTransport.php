@@ -7,7 +7,6 @@ namespace App\Infrastructure\Mixpanel;
 use App\Domain\Exceptions\AuthenticationExpiredException;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\InvalidApiRequestException;
-use App\Domain\Exceptions\ResourceNotFoundException;
 use App\Infrastructure\Support\ApiRetryStrategy;
 use App\Infrastructure\Support\RetryAfterParser;
 use Exception;
@@ -17,6 +16,7 @@ use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use RuntimeException;
 
 /**
  * HTTP transport layer for Mixpanel API.
@@ -85,6 +85,8 @@ final readonly class MixpanelHttpTransport
 
     /**
      * Create configured HTTP request with auth and optional retry logic.
+     *
+     * @throws RuntimeException When HTTP client configuration fails
      */
     private function createBaseRequest(bool $retry): PendingRequest
     {
@@ -112,7 +114,7 @@ final readonly class MixpanelHttpTransport
     private function handleRequestException(
         RequestException $e,
         string $url,
-    ): InvalidApiRequestException|AuthenticationExpiredException|ResourceNotFoundException|ExternalServiceUnavailableException {
+    ): InvalidApiRequestException|AuthenticationExpiredException|ExternalServiceUnavailableException {
         return match ($e->response->status()) {
             400 => $this->handleBadRequest($e),
             401, 403 => $this->handleAuthenticationFailure($e),
@@ -162,16 +164,23 @@ final readonly class MixpanelHttpTransport
     }
 
     /**
-     * Handle 404 Not Found (resource doesn't exist - permanent).
+     * Handle 404 Not Found (invalid endpoint - programming error).
+     *
+     * Mixpanel endpoints are fixed URLs, so 404 indicates a wrong endpoint was called.
      */
-    private function handleNotFound(RequestException $e, string $url): ResourceNotFoundException
+    private function handleNotFound(RequestException $e, string $url): InvalidApiRequestException
     {
-        Log::warning(self::SERVICE_NAME . ' API resource not found', [
+        Log::error(self::SERVICE_NAME . ' API endpoint not found', [
             'url' => $url,
+            'status' => 404,
             'error' => $e->getMessage(),
         ]);
 
-        return new ResourceNotFoundException(self::SERVICE_NAME, $url, 'unknown');
+        return new InvalidApiRequestException(
+            self::SERVICE_NAME,
+            "Endpoint not found: {$url}",
+            $e,
+        );
     }
 
     /**

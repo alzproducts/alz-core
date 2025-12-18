@@ -8,6 +8,8 @@ use App\Application\Contracts\HelpScout\MailboxesClientInterface;
 use App\Application\Support\CacheTimesTrait;
 use App\Application\Support\GracefulCache;
 use App\Domain\CustomerService\ValueObjects\Conversation;
+use App\Domain\Exceptions\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\InvalidApiResponseException;
 
 /**
  * Enriches conversations with mailbox names.
@@ -32,6 +34,9 @@ final readonly class MailboxEnrichmentService
      * @param list<Conversation> $conversations
      *
      * @return list<Conversation>
+     *
+     * @throws ExternalServiceUnavailableException When API unavailable
+     * @throws InvalidApiResponseException When API response structure is invalid
      */
     public function enrich(array $conversations): array
     {
@@ -51,6 +56,9 @@ final readonly class MailboxEnrichmentService
      * Get mailbox ID → name mapping (cached for 7 days).
      *
      * @return array<int, string>
+     *
+     * @throws ExternalServiceUnavailableException When API unavailable
+     * @throws InvalidApiResponseException When API response structure is invalid
      */
     private function getMailboxNameMap(): array
     {

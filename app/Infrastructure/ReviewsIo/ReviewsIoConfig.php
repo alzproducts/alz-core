@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\ReviewsIo;
 
+use App\Domain\Exceptions\InvalidConfigurationException;
 use InvalidArgumentException;
-use RuntimeException;
 
 /**
  * Immutable configuration for Reviews.io API client.
@@ -61,7 +61,7 @@ final readonly class ReviewsIoConfig
      * @param int $retryTimes Number of retry attempts (0-10)
      * @param int $retryDelay Delay between retries in milliseconds (0-5000)
      *
-     * @throws RuntimeException When required credentials are empty
+     * @throws InvalidConfigurationException When required credentials are empty
      * @throws InvalidArgumentException When numeric parameters are out of bounds
      */
     public function __construct(
@@ -73,11 +73,11 @@ final readonly class ReviewsIoConfig
         public int $retryDelay = 100,
     ) {
         if ($apiKey === '') {
-            throw new RuntimeException('Reviews.io API key cannot be empty');
+            throw new InvalidConfigurationException('reviews_io.api_key', 'Reviews.io API key cannot be empty');
         }
 
         if ($storeId === '') {
-            throw new RuntimeException('Reviews.io store ID cannot be empty');
+            throw new InvalidConfigurationException('reviews_io.store_id', 'Reviews.io store ID cannot be empty');
         }
 
         if (($timeout < 1) || ($timeout > self::MAX_TIMEOUT_SECONDS)) {

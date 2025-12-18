@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Infrastructure\ReviewsIo\Responses;
 
 use App\Domain\Product\ValueObjects\ProductRating;
-use App\Infrastructure\Contracts\DomainConvertible;
+use App\Infrastructure\Contracts\DomainConvertibleInterface;
 use Spatie\LaravelData\Attributes\MapInputName;
 use Spatie\LaravelData\Attributes\Validation\Required;
 use Spatie\LaravelData\Data;
@@ -21,7 +21,7 @@ use Spatie\LaravelData\Mappers\SnakeCaseMapper;
  * is enforced by the Domain ProductRating value object via toProductRating().
  */
 #[MapInputName(SnakeCaseMapper::class)]
-final class RatingResponse extends Data implements DomainConvertible
+final class RatingResponse extends Data implements DomainConvertibleInterface
 {
     public function __construct(
         #[Required]

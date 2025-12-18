@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace App\Application\Contracts\Shopwired;
 
 use App\Domain\Catalog\ValueObjects\Category;
+use App\Domain\Exceptions\AuthenticationExpiredException;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\InvalidApiRequestException;
 use App\Domain\Exceptions\InvalidApiResponseException;
+use App\Domain\Exceptions\ResourceNotFoundException;
 
 /**
  * ShopWired Categories API client.
@@ -23,8 +26,11 @@ interface CategoryClientInterface
      *
      * @return list<Category>
      *
-     * @throws ExternalServiceUnavailableException When API unavailable
-     * @throws InvalidApiResponseException When API response structure is invalid
+     * @throws InvalidApiRequestException When request parameters are invalid (400)
+     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
+     * @throws ResourceNotFoundException When resource not found (404)
+     * @throws ExternalServiceUnavailableException When API unavailable or connection fails
+     * @throws InvalidApiResponseException When response parsing fails (API contract violation)
      */
     public function listAllCategories(): array;
 
@@ -33,24 +39,33 @@ interface CategoryClientInterface
      *
      * @return list<Category>
      *
-     * @throws ExternalServiceUnavailableException When API unavailable
-     * @throws InvalidApiResponseException When API response structure is invalid
+     * @throws InvalidApiRequestException When request parameters are invalid (400)
+     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
+     * @throws ResourceNotFoundException When resource not found (404)
+     * @throws ExternalServiceUnavailableException When API unavailable or connection fails
+     * @throws InvalidApiResponseException When response parsing fails (API contract violation)
      */
     public function listCategories(): array;
 
     /**
      * Get a single category by ID.
      *
-     * @throws ExternalServiceUnavailableException When API unavailable
-     * @throws InvalidApiResponseException When API response structure is invalid
+     * @throws InvalidApiRequestException When request parameters are invalid (400)
+     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
+     * @throws ResourceNotFoundException When category not found (404)
+     * @throws ExternalServiceUnavailableException When API unavailable or connection fails
+     * @throws InvalidApiResponseException When response parsing fails (API contract violation)
      */
     public function getCategoryById(int $id): Category;
 
     /**
      * Get the total count of categories.
      *
-     * @throws ExternalServiceUnavailableException When API unavailable
-     * @throws InvalidApiResponseException When API response structure is invalid
+     * @throws InvalidApiRequestException When request parameters are invalid (400)
+     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
+     * @throws ResourceNotFoundException When resource not found (404)
+     * @throws ExternalServiceUnavailableException When API unavailable or connection fails
+     * @throws InvalidApiResponseException When response parsing fails (API contract violation)
      */
     public function getCategoryCount(): int;
 }

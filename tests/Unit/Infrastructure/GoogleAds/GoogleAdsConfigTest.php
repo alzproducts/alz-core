@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Infrastructure\GoogleAds;
 
+use App\Domain\Exceptions\InvalidConfigurationException;
 use App\Infrastructure\GoogleAds\GoogleAdsConfig;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
-use RuntimeException;
 use Tests\TestCase;
 
 #[CoversClass(GoogleAdsConfig::class)]
@@ -50,7 +50,7 @@ final class GoogleAdsConfigTest extends TestCase
     #[Test]
     public function it_throws_when_client_id_is_empty(): void
     {
-        $this->expectException(RuntimeException::class);
+        $this->expectException(InvalidConfigurationException::class);
         $this->expectExceptionMessage('Google Ads client ID cannot be empty');
 
         new GoogleAdsConfig(
@@ -65,7 +65,7 @@ final class GoogleAdsConfigTest extends TestCase
     #[Test]
     public function it_throws_when_client_secret_is_empty(): void
     {
-        $this->expectException(RuntimeException::class);
+        $this->expectException(InvalidConfigurationException::class);
         $this->expectExceptionMessage('Google Ads client secret cannot be empty');
 
         new GoogleAdsConfig(
@@ -80,7 +80,7 @@ final class GoogleAdsConfigTest extends TestCase
     #[Test]
     public function it_throws_when_refresh_token_is_empty(): void
     {
-        $this->expectException(RuntimeException::class);
+        $this->expectException(InvalidConfigurationException::class);
         $this->expectExceptionMessage('Google Ads refresh token cannot be empty');
 
         new GoogleAdsConfig(
@@ -95,7 +95,7 @@ final class GoogleAdsConfigTest extends TestCase
     #[Test]
     public function it_throws_when_developer_token_is_empty(): void
     {
-        $this->expectException(RuntimeException::class);
+        $this->expectException(InvalidConfigurationException::class);
         $this->expectExceptionMessage('Google Ads developer token cannot be empty');
 
         new GoogleAdsConfig(
@@ -110,7 +110,7 @@ final class GoogleAdsConfigTest extends TestCase
     #[Test]
     public function it_throws_when_customer_id_is_empty(): void
     {
-        $this->expectException(RuntimeException::class);
+        $this->expectException(InvalidConfigurationException::class);
         $this->expectExceptionMessage('Google Ads customer ID cannot be empty');
 
         new GoogleAdsConfig(
@@ -125,7 +125,7 @@ final class GoogleAdsConfigTest extends TestCase
     #[Test]
     public function it_throws_when_login_customer_id_is_empty_string(): void
     {
-        $this->expectException(RuntimeException::class);
+        $this->expectException(InvalidConfigurationException::class);
         $this->expectExceptionMessage('Google Ads login customer ID cannot be empty when provided');
 
         new GoogleAdsConfig(

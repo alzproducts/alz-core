@@ -7,12 +7,14 @@
     "license": "proprietary",
     "require": {
         "php": "^8.4",
+        "ext-dom": "*",
         "ext-pcntl": "*",
         "ext-pdo": "*",
         "ext-pdo_pgsql": "*",
         "ext-simplexml": "*",
         "ext-soap": "*",
         "ext-swoole": "*",
+        "ext-tokenizer": "*",
         "ext-xmlreader": "*",
         "ext-zip": "*",
         "firebase/php-jwt": "*",
@@ -30,13 +32,14 @@
         "webmozart/assert": "^1.11"
     },
     "require-dev": {
-        "barryvdh/laravel-ide-helper": "^3.6",
+        "barryvdh/laravel-ide-helper": "~3.5.4",
         "deptrac/deptrac": "^4.2",
         "dg/bypass-finals": "^1.9",
         "driftingly/rector-laravel": "^2.1",
         "fakerphp/faker": "^1.23",
         "igorsgm/laravel-git-hooks": "^2.0",
         "infection/infection": "^0.31.7",
+        "kcs/phpstan-strict-rules": "^2.1",
         "larastan/larastan": "^3.0",
         "laravel/pail": "^1.2",
         "laravel/pint": "^1.24",
@@ -54,10 +57,18 @@
         "phpstan/phpstan-strict-rules": "^2.0",
         "phpstan/phpstan-webmozart-assert": "^2.0",
         "phpunit/phpunit": "^12.0",
+        "psalm/plugin-laravel": "^3.0",
         "react/http": "^1.11",
         "react/socket": "^1.17",
         "rector/rector": "^2.2",
-        "shipmonk/phpstan-rules": "^4.2"
+        "shipmonk/phpstan-rules": "^4.2",
+        "spaze/phpstan-disallowed-calls": "^4.7",
+        "staabm/phpstan-todo-by": "^0.3.3",
+        "symplify/phpstan-rules": "^14.9",
+        "tightenco/tlint": "*",
+        "tomasvotruba/cognitive-complexity": "^1.0",
+        "tomasvotruba/type-coverage": "^2.1",
+        "vimeo/psalm": "^6.14"
     },
     "autoload": {
         "psr-4": {
@@ -115,7 +126,10 @@
         "ide-helper": "make ide-helper",
         "rector": "make rector",
         "rector:dry-run": "make rector-dry-run",
-        "refactor": "make refactor"
+        "refactor": "make refactor",
+        "psalm": "make psalm",
+        "psalm:ci": "make psalm-ci",
+        "psalm:baseline": "make psalm-baseline"
     },
     "extra": {
         "laravel": {
@@ -133,7 +147,7 @@
             "infection/extension-installer": true
         },
         "platform": {
-            "php": "8.4.0"
+            "php": "8.4.3"
         }
     },
     "minimum-stability": "stable",

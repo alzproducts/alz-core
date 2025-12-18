@@ -205,8 +205,12 @@ final class SyncCampaignLookupTableJobTest extends TestCase
         $queueJob->shouldReceive('isDeletedOrReleased')->andReturn(false);
         $job->setJob($queueJob);
 
-        // Should not throw - catches exception and calls fail()
-        $job->handle($this->useCase);
+        try {
+            $job->handle($this->useCase);
+            self::fail('Expected UnexpectedApiResultException was not thrown');
+        } catch (UnexpectedApiResultException) {
+            // Expected - jobs now rethrow after fail()
+        }
     }
 
     #[Test]
@@ -232,7 +236,12 @@ final class SyncCampaignLookupTableJobTest extends TestCase
         $queueJob->shouldReceive('isDeletedOrReleased')->andReturn(false);
         $job->setJob($queueJob);
 
-        $job->handle($this->useCase);
+        try {
+            $job->handle($this->useCase);
+            self::fail('Expected UnexpectedApiResultException was not thrown');
+        } catch (UnexpectedApiResultException) {
+            // Expected - jobs now rethrow after fail()
+        }
 
         Log::shouldHaveReceived('critical')
             ->with('Unexpected API result during campaign lookup table sync, failing immediately', Mockery::on(
@@ -269,7 +278,12 @@ final class SyncCampaignLookupTableJobTest extends TestCase
         $queueJob->shouldReceive('isDeletedOrReleased')->andReturn(false);
         $job->setJob($queueJob);
 
-        $job->handle($this->useCase);
+        try {
+            $job->handle($this->useCase);
+            self::fail('Expected AuthenticationExpiredException was not thrown');
+        } catch (AuthenticationExpiredException) {
+            // Expected - jobs now rethrow after fail()
+        }
 
         Log::shouldHaveReceived('critical')
             ->with('Authentication failed during campaign lookup table sync, failing immediately', Mockery::on(
@@ -300,7 +314,12 @@ final class SyncCampaignLookupTableJobTest extends TestCase
         $queueJob->shouldReceive('isDeletedOrReleased')->andReturn(false);
         $job->setJob($queueJob);
 
-        $job->handle($this->useCase);
+        try {
+            $job->handle($this->useCase);
+            self::fail('Expected AuthenticationExpiredException was not thrown');
+        } catch (AuthenticationExpiredException) {
+            // Expected - jobs now rethrow after fail()
+        }
     }
 
     #[Test]
@@ -319,7 +338,12 @@ final class SyncCampaignLookupTableJobTest extends TestCase
         $queueJob->shouldReceive('isDeletedOrReleased')->andReturn(false);
         $job->setJob($queueJob);
 
-        $job->handle($this->useCase);
+        try {
+            $job->handle($this->useCase);
+            self::fail('Expected AuthenticationExpiredException was not thrown');
+        } catch (AuthenticationExpiredException) {
+            // Expected - jobs now rethrow after fail()
+        }
 
         Log::shouldHaveReceived('critical')
             ->with('Authentication failed during campaign lookup table sync, failing immediately', Mockery::on(

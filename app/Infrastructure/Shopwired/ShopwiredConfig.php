@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Shopwired;
 
+use App\Domain\Exceptions\InvalidConfigurationException;
 use InvalidArgumentException;
-use RuntimeException;
 
 /**
  * Immutable configuration for Shopwired API client.
@@ -37,7 +37,7 @@ final readonly class ShopwiredConfig
      * @param string $baseUrl API base URL (defaults to production)
      * @param int $timeout Request timeout in seconds (1-300)
      *
-     * @throws RuntimeException When required credentials are empty
+     * @throws InvalidConfigurationException When required credentials are empty
      * @throws InvalidArgumentException When timeout is out of bounds
      */
     public function __construct(
@@ -47,11 +47,11 @@ final readonly class ShopwiredConfig
         public int $timeout = 30,
     ) {
         if ($apiKey === '') {
-            throw new RuntimeException('Shopwired API key cannot be empty');
+            throw new InvalidConfigurationException('shopwired.api_key', 'Shopwired API key cannot be empty');
         }
 
         if ($apiSecret === '') {
-            throw new RuntimeException('Shopwired API secret cannot be empty');
+            throw new InvalidConfigurationException('shopwired.api_secret', 'Shopwired API secret cannot be empty');
         }
 
         if (($timeout < 1) || ($timeout > self::MAX_TIMEOUT_SECONDS)) {

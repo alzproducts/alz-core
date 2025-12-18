@@ -7,6 +7,11 @@ namespace App\Infrastructure\Shopwired\Clients;
 use App\Application\Contracts\Shopwired\OrderClientInterface;
 use App\Domain\Catalog\Order\ValueObjects\Order as DomainOrder;
 use App\Domain\Catalog\Order\ValueObjects\OrderLifecycleStatus;
+use App\Domain\Exceptions\AuthenticationExpiredException;
+use App\Domain\Exceptions\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\InvalidApiRequestException;
+use App\Domain\Exceptions\InvalidApiResponseException;
+use App\Domain\Exceptions\ResourceNotFoundException;
 use App\Infrastructure\Shopwired\Mappers\OrderLifecycleStatusMapper;
 use App\Infrastructure\Shopwired\OrderQueryParams;
 use App\Infrastructure\Shopwired\Requests\OrderStatusUpdateOptions;
@@ -128,6 +133,12 @@ final readonly class OrderClient implements OrderClientInterface
 
     /**
      * @return list<DomainOrder>
+     *
+     * @throws InvalidApiRequestException When request parameters are invalid (400)
+     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
+     * @throws ResourceNotFoundException When resource not found (404)
+     * @throws ExternalServiceUnavailableException When API unavailable or connection fails
+     * @throws InvalidApiResponseException When response parsing fails (API contract violation)
      */
     public function listOrdersInRangeWithDetails(DateTimeImmutable $from, DateTimeImmutable $to): array
     {
@@ -148,6 +159,12 @@ final readonly class OrderClient implements OrderClientInterface
 
     /**
      * @return list<DomainOrder>
+     *
+     * @throws InvalidApiRequestException When request parameters are invalid (400)
+     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
+     * @throws ResourceNotFoundException When resource not found (404)
+     * @throws ExternalServiceUnavailableException When API unavailable or connection fails
+     * @throws InvalidApiResponseException When response parsing fails (API contract violation)
      */
     public function listOrdersInRange(DateTimeImmutable $from, DateTimeImmutable $to): array
     {
@@ -166,6 +183,13 @@ final readonly class OrderClient implements OrderClientInterface
         );
     }
 
+    /**
+     * @throws InvalidApiRequestException When request parameters are invalid (400)
+     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
+     * @throws ResourceNotFoundException When order not found (404)
+     * @throws ExternalServiceUnavailableException When API unavailable or connection fails
+     * @throws InvalidApiResponseException When response parsing fails (API contract violation)
+     */
     public function getOrderById(int $id): DomainOrder
     {
         $params = new ShopwiredQueryParams()
@@ -183,6 +207,13 @@ final readonly class OrderClient implements OrderClientInterface
         return self::parseSingleToDomain($response->json(), OrderResponse::class);
     }
 
+    /**
+     * @throws InvalidApiRequestException When request parameters are invalid (400)
+     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
+     * @throws ResourceNotFoundException When resource not found (404)
+     * @throws ExternalServiceUnavailableException When API unavailable or connection fails
+     * @throws InvalidApiResponseException When response parsing fails (API contract violation)
+     */
     public function getOrderCount(): int
     {
         $response = $this->transport->get(self::ENDPOINT_ORDERS . '/count');
@@ -190,6 +221,13 @@ final readonly class OrderClient implements OrderClientInterface
         return self::parseCountResponse($response->json());
     }
 
+    /**
+     * @throws InvalidApiRequestException When request parameters are invalid (400)
+     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
+     * @throws ResourceNotFoundException When resource not found (404)
+     * @throws ExternalServiceUnavailableException When API unavailable or connection fails
+     * @throws InvalidApiResponseException When response parsing fails (API contract violation)
+     */
     public function getOrderCountByStatus(int $statusId): int
     {
         $response = $this->transport->get(
@@ -202,6 +240,12 @@ final readonly class OrderClient implements OrderClientInterface
 
     /**
      * @return list<DomainOrder>
+     *
+     * @throws InvalidApiRequestException When request parameters are invalid (400)
+     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
+     * @throws ResourceNotFoundException When resource not found (404)
+     * @throws ExternalServiceUnavailableException When API unavailable or connection fails
+     * @throws InvalidApiResponseException When response parsing fails (API contract violation)
      */
     public function searchOrders(string $keyword): array
     {
@@ -214,6 +258,12 @@ final readonly class OrderClient implements OrderClientInterface
         return self::parseWrappedArrayToDomain($response->json(), OrderResponse::class);
     }
 
+    /**
+     * @throws InvalidApiRequestException When request parameters are invalid (400)
+     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
+     * @throws ResourceNotFoundException When order not found (404)
+     * @throws ExternalServiceUnavailableException When API unavailable or connection fails
+     */
     public function updateOrderStatus(
         int $orderId,
         OrderLifecycleStatus $status,
@@ -240,6 +290,12 @@ final readonly class OrderClient implements OrderClientInterface
      * Fetch a single page of orders.
      *
      * @return list<DomainOrder>
+     *
+     * @throws InvalidApiRequestException When request parameters are invalid (400)
+     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
+     * @throws ResourceNotFoundException When resource not found (404)
+     * @throws ExternalServiceUnavailableException When API unavailable or connection fails
+     * @throws InvalidApiResponseException When response parsing fails (API contract violation)
      */
     private function fetchOrderPage(OrderQueryParams $params): array
     {

@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Infrastructure\BingAds;
 
+use App\Domain\Exceptions\InvalidConfigurationException;
 use App\Infrastructure\BingAds\BingAdsConfig;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
-use RuntimeException;
 
 /**
  * BingAdsConfig Unit Tests.
@@ -101,7 +101,7 @@ final class BingAdsConfigTest extends TestCase
     #[Test]
     public function it_throws_when_client_id_is_empty(): void
     {
-        $this->expectException(RuntimeException::class);
+        $this->expectException(InvalidConfigurationException::class);
         $this->expectExceptionMessage('Bing Ads client ID cannot be empty');
 
         new BingAdsConfig(
@@ -117,7 +117,7 @@ final class BingAdsConfigTest extends TestCase
     #[Test]
     public function it_throws_when_client_secret_is_empty(): void
     {
-        $this->expectException(RuntimeException::class);
+        $this->expectException(InvalidConfigurationException::class);
         $this->expectExceptionMessage('Bing Ads client secret cannot be empty');
 
         new BingAdsConfig(
@@ -133,7 +133,7 @@ final class BingAdsConfigTest extends TestCase
     #[Test]
     public function it_throws_when_refresh_token_is_empty(): void
     {
-        $this->expectException(RuntimeException::class);
+        $this->expectException(InvalidConfigurationException::class);
         $this->expectExceptionMessage('Bing Ads refresh token cannot be empty');
 
         new BingAdsConfig(
@@ -149,7 +149,7 @@ final class BingAdsConfigTest extends TestCase
     #[Test]
     public function it_throws_when_developer_token_is_empty(): void
     {
-        $this->expectException(RuntimeException::class);
+        $this->expectException(InvalidConfigurationException::class);
         $this->expectExceptionMessage('Bing Ads developer token cannot be empty');
 
         new BingAdsConfig(
@@ -165,7 +165,7 @@ final class BingAdsConfigTest extends TestCase
     #[Test]
     public function it_throws_when_account_id_is_empty(): void
     {
-        $this->expectException(RuntimeException::class);
+        $this->expectException(InvalidConfigurationException::class);
         $this->expectExceptionMessage('Bing Ads account ID cannot be empty');
 
         new BingAdsConfig(
@@ -181,7 +181,7 @@ final class BingAdsConfigTest extends TestCase
     #[Test]
     public function it_throws_when_customer_id_is_empty(): void
     {
-        $this->expectException(RuntimeException::class);
+        $this->expectException(InvalidConfigurationException::class);
         $this->expectExceptionMessage('Bing Ads customer ID cannot be empty');
 
         new BingAdsConfig(
