@@ -9,6 +9,7 @@ use App\Application\Feeds\ProductSearchFeedProcessingResult;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\MalformedFeedDataException;
 use App\Infrastructure\Feeds\DoofinderFeedProcessor;
+use App\Infrastructure\Feeds\DoofinderItemTransformer;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use Mockery;
@@ -42,6 +43,7 @@ final class DoofinderFeedProcessorTest extends TestCase
 {
     private RemoteStorageInterface&MockInterface $mockStorage;
     private LoggerInterface&MockInterface $mockLogger;
+    private DoofinderItemTransformer $itemTransformer;
     private DoofinderFeedProcessor $processor;
 
     #[Override]
@@ -53,9 +55,12 @@ final class DoofinderFeedProcessorTest extends TestCase
         $this->mockLogger = Mockery::mock(LoggerInterface::class);
         $this->mockLogger->shouldReceive('info', 'debug', 'error')->byDefault();
 
+        $this->itemTransformer = new DoofinderItemTransformer($this->mockLogger);
+
         $this->processor = new DoofinderFeedProcessor(
             $this->mockStorage,
             $this->mockLogger,
+            $this->itemTransformer,
         );
     }
 

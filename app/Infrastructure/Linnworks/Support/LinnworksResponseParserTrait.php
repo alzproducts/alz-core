@@ -8,7 +8,7 @@ declare(strict_types=1);
 namespace App\Infrastructure\Linnworks\Support;
 
 use App\Domain\Exceptions\InvalidApiResponseException;
-use App\Infrastructure\Contracts\DomainConvertible;
+use App\Infrastructure\Contracts\DomainConvertibleInterface;
 use Illuminate\Support\Facades\Log;
 use Spatie\LaravelData\Data;
 use Spatie\LaravelData\Exceptions\CannotCreateData;
@@ -82,7 +82,7 @@ trait LinnworksResponseParserTrait
     /**
      * Parse single response and convert to Domain object.
      *
-     * @template T of Data&DomainConvertible
+     * @template T of Data&DomainConvertibleInterface
      *
      * @param class-string<T> $dtoClass
      *

@@ -17,7 +17,6 @@ use App\Infrastructure\ReviewsIo\Validation\ValidSku;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
-use InvalidArgumentException;
 use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -237,7 +236,7 @@ final class ReviewsIoClientTest extends TestCase
     #[Test]
     public function it_throws_invalid_argument_exception_for_empty_sku_array(): void
     {
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(InvalidApiRequestException::class);
         $this->expectExceptionMessage('Invalid SKU(s) provided: skus');
 
         $this->client->getProductRatingBatch([]);
@@ -248,7 +247,7 @@ final class ReviewsIoClientTest extends TestCase
     {
         $skus = \array_fill(0, 101, 'SKU');
 
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(InvalidApiRequestException::class);
         $this->expectExceptionMessage('Invalid SKU(s) provided: skus');
 
         $this->client->getProductRatingBatch($skus);
@@ -258,7 +257,7 @@ final class ReviewsIoClientTest extends TestCase
     #[DataProvider('invalidSkuProvider')]
     public function it_throws_invalid_argument_exception_for_invalid_sku(string $invalidSku): void
     {
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(InvalidApiRequestException::class);
         $this->expectExceptionMessage('Invalid SKU(s) provided: skus.0');
 
         $this->client->getProductRatingBatch([$invalidSku]);
@@ -278,7 +277,7 @@ final class ReviewsIoClientTest extends TestCase
     #[Test]
     public function it_throws_invalid_argument_exception_for_empty_string_sku(): void
     {
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(InvalidApiRequestException::class);
         $this->expectExceptionMessage('Invalid SKU(s) provided: skus.0');
 
         $this->client->getProductRatingBatch(['']);
@@ -289,7 +288,7 @@ final class ReviewsIoClientTest extends TestCase
     {
         $longSku = \str_repeat('A', 101);
 
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(InvalidApiRequestException::class);
         $this->expectExceptionMessage('Invalid SKU(s) provided: skus.0');
 
         $this->client->getProductRatingBatch([$longSku]);
@@ -300,7 +299,7 @@ final class ReviewsIoClientTest extends TestCase
     {
         $boundarySku = \str_repeat('X', 101);
 
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(InvalidApiRequestException::class);
         $this->expectExceptionMessage('Invalid SKU(s) provided: skus.0');
 
         $this->client->getProductRatingBatch([$boundarySku]);
@@ -326,7 +325,7 @@ final class ReviewsIoClientTest extends TestCase
     {
         // This tests the 'string' validation rule on 'skus.*'
         // Kills the RemoveArrayItem mutation that removes 'string' from validation
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(InvalidApiRequestException::class);
         $this->expectExceptionMessage('Invalid SKU(s) provided: skus.0');
 
         // @phpstan-ignore argument.type
@@ -338,7 +337,7 @@ final class ReviewsIoClientTest extends TestCase
     {
         // This tests the 'required' validation rule on 'skus.*'
         // Kills the RemoveArrayItem mutation that removes 'required' from validation
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(InvalidApiRequestException::class);
         $this->expectExceptionMessage('Invalid SKU(s) provided: skus.0');
 
         // @phpstan-ignore argument.type

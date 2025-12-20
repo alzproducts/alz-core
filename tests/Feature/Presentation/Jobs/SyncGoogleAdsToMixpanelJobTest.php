@@ -594,7 +594,12 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
         $queueJob->shouldReceive('isDeletedOrReleased')->andReturn(false);
         $job->setJob($queueJob);
 
-        $job->handle($this->useCase);
+        try {
+            $job->handle($this->useCase);
+            self::fail('Expected PayloadSerializationException was not thrown');
+        } catch (PayloadSerializationException) {
+            // Expected - jobs now rethrow after fail()
+        }
 
         Log::shouldHaveReceived('critical')
             ->with('Payload serialization failed during sync, failing immediately', Mockery::on(
@@ -627,7 +632,12 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
         $queueJob->shouldReceive('isDeletedOrReleased')->andReturn(false);
         $job->setJob($queueJob);
 
-        $job->handle($this->useCase);
+        try {
+            $job->handle($this->useCase);
+            self::fail('Expected PayloadSerializationException was not thrown');
+        } catch (PayloadSerializationException) {
+            // Expected - jobs now rethrow after fail()
+        }
     }
 
     // ========================================================================
@@ -653,7 +663,12 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
         $queueJob->shouldReceive('isDeletedOrReleased')->andReturn(false);
         $job->setJob($queueJob);
 
-        $job->handle($this->useCase);
+        try {
+            $job->handle($this->useCase);
+            self::fail('Expected AuthenticationExpiredException was not thrown');
+        } catch (AuthenticationExpiredException) {
+            // Expected - jobs now rethrow after fail()
+        }
 
         Log::shouldHaveReceived('critical')
             ->with('Authentication failed during sync, failing immediately', Mockery::on(
@@ -686,7 +701,12 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
         $queueJob->shouldReceive('isDeletedOrReleased')->andReturn(false);
         $job->setJob($queueJob);
 
-        $job->handle($this->useCase);
+        try {
+            $job->handle($this->useCase);
+            self::fail('Expected AuthenticationExpiredException was not thrown');
+        } catch (AuthenticationExpiredException) {
+            // Expected - jobs now rethrow after fail()
+        }
     }
 
     #[Test]
@@ -705,7 +725,12 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
         $queueJob->shouldReceive('isDeletedOrReleased')->andReturn(false);
         $job->setJob($queueJob);
 
-        $job->handle($this->useCase);
+        try {
+            $job->handle($this->useCase);
+            self::fail('Expected AuthenticationExpiredException was not thrown');
+        } catch (AuthenticationExpiredException) {
+            // Expected - jobs now rethrow after fail()
+        }
 
         Log::shouldHaveReceived('critical')
             ->with('Authentication failed during sync, failing immediately', Mockery::on(

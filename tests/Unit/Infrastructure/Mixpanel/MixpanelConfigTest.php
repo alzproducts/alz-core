@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Infrastructure\Mixpanel;
 
+use App\Domain\Exceptions\InvalidConfigurationException;
 use App\Infrastructure\Mixpanel\MixpanelConfig;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
-use RuntimeException;
 use Tests\TestCase;
 
 /**
@@ -92,7 +92,7 @@ final class MixpanelConfigTest extends TestCase
     #[Test]
     public function it_throws_exception_for_empty_data_api_base_url(): void
     {
-        $this->expectException(RuntimeException::class);
+        $this->expectException(InvalidConfigurationException::class);
         $this->expectExceptionMessage('Mixpanel data API base URL cannot be empty');
 
         new MixpanelConfig(
@@ -107,7 +107,7 @@ final class MixpanelConfigTest extends TestCase
     #[Test]
     public function it_throws_exception_for_empty_service_account_username(): void
     {
-        $this->expectException(RuntimeException::class);
+        $this->expectException(InvalidConfigurationException::class);
         $this->expectExceptionMessage('Mixpanel service account username cannot be empty');
 
         new MixpanelConfig(
@@ -122,7 +122,7 @@ final class MixpanelConfigTest extends TestCase
     #[Test]
     public function it_throws_exception_for_empty_service_account_password(): void
     {
-        $this->expectException(RuntimeException::class);
+        $this->expectException(InvalidConfigurationException::class);
         $this->expectExceptionMessage('Mixpanel service account password cannot be empty');
 
         new MixpanelConfig(
@@ -137,7 +137,7 @@ final class MixpanelConfigTest extends TestCase
     #[Test]
     public function it_throws_exception_for_empty_project_id(): void
     {
-        $this->expectException(RuntimeException::class);
+        $this->expectException(InvalidConfigurationException::class);
         $this->expectExceptionMessage('Mixpanel project ID cannot be empty');
 
         new MixpanelConfig(

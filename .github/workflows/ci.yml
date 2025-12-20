@@ -278,12 +278,60 @@ jobs:
       - name: Run Composer audit
         run: composer audit --format=json
 
-  # Mutation Testing: Pest Mutate (5-15 minutes)
-  # Only runs on PRs to develop - direct pushes skip mutation testing for quick fixes
-  mutation-pest:
-    name: Pest Mutation Testing
+  # Psalm Taint Analysis (60-90 seconds)
+  taint-analysis:
+    name: Psalm Taint Analysis (Security)
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP ${{ env.PHP_VERSION }}
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          # Psalm requires: dom, simplexml, tokenizer (in addition to standard extensions)
+          extensions: mbstring, xml, ctype, json, bcmath, soap, dom, simplexml, tokenizer
+          coverage: none
+          tools: composer:v2
+
+      - name: Get Composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+
+      - name: Cache Psalm results
+        uses: actions/cache@v4
+        with:
+          path: storage/framework/psalm
+          key: psalm-${{ hashFiles('**/*.php') }}-${{ hashFiles('composer.lock') }}
+          restore-keys: |
+            psalm-${{ hashFiles('**/*.php') }}-
+            psalm-
+
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress --ignore-platform-req=ext-swoole
+
+      - name: Run Psalm taint analysis
+        run: make psalm-ci
+
+  # Layer-Specific Mutation Testing (see tests/TestingStrategy.md)
+  # Only runs on PRs to develop - direct pushes skip mutation testing for quick fixes
+  # Jobs run in parallel for faster feedback
+
+  # Domain Layer: 90%+ MSI (strict) - pure business logic, highest value
+  mutation-domain:
+    name: Mutation Testing (Domain - 90%+ MSI)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     if: github.base_ref == 'develop'
 
     steps:
@@ -321,15 +369,14 @@ jobs:
           php artisan key:generate
           chmod -R 775 storage bootstrap/cache
 
-      - name: Run Pest Mutation Testing
-        run: php -d xdebug.mode=off vendor/bin/pest --mutate --everything --covered-only --min=85 --parallel --processes=2 tests/Unit
+      - name: Run Pest Mutate on Domain Layer
+        run: make mutate-domain
 
-  # Mutation Testing: Infection (5-15 minutes)
-  # Only runs on PRs to develop - direct pushes skip mutation testing for quick fixes
-  mutation-infection:
-    name: Infection Mutation Testing
+  # Application Layer: 70%+ mutation score - Uses Pest mutate (namespace-based filtering)
+  mutation-application:
+    name: Mutation Testing (Application - 70%+ Pest)
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 20
     if: github.base_ref == 'develop'
 
     steps:
@@ -367,6 +414,6 @@ jobs:
           php artisan key:generate
           chmod -R 775 storage bootstrap/cache
 
-      - name: Run Infection Mutation Testing
-        run: php -d xdebug.mode=off vendor/bin/infection --no-progress --logger-github --min-msi=80 --min-covered-msi=85 --threads=2 --test-framework-options="--testsuite=Unit"
+      - name: Run Pest mutation testing on Application Layer
+        run: make mutate-app
 

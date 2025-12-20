@@ -6,13 +6,16 @@ namespace App\Providers;
 
 use App\Application\AdSpend\UseCases\SyncAdSpendUseCase;
 use App\Application\Contracts\BingAdsClientInterface;
+use App\Application\Contracts\LockableCacheInterface;
 use App\Application\Contracts\MixpanelClientInterface;
 use App\Infrastructure\BingAds\BingAdsClientFactory;
+use App\Infrastructure\BingAds\BingAdsConfig;
+use App\Infrastructure\BingAds\BingAdsSessionManager;
 use App\Presentation\Jobs\SyncBingAdsToMixpanelJob;
-use Illuminate\Cache\CacheManager;
 use Illuminate\Contracts\Container\BindingResolutionException;
 use Illuminate\Contracts\Container\Container;
 use Illuminate\Contracts\Support\DeferrableProvider;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\ServiceProvider;
 use Override;
 use Psr\Log\LoggerInterface;
@@ -43,11 +46,20 @@ final class BingAdsServiceProvider extends ServiceProvider implements Deferrable
     #[Override]
     public function register(): void
     {
+        // BingAdsSessionManager with contextual LockableCacheInterface
+        $this->app->singleton(
+            BingAdsSessionManager::class,
+            static fn(Container $app): BingAdsSessionManager => new BingAdsSessionManager(
+                self::createConfig(),
+                $app->make(LockableCacheInterface::class),
+            ),
+        );
+
         // Singleton binding for BingAdsClientInterface (used by VerifyApiConnectivityCommand)
         $this->app->singleton(
             BingAdsClientInterface::class,
             static fn(Container $app): BingAdsClientInterface => BingAdsClientFactory::create(
-                $app->make(CacheManager::class),
+                $app->make(BingAdsSessionManager::class),
             ),
         );
 
@@ -76,6 +88,27 @@ final class BingAdsServiceProvider extends ServiceProvider implements Deferrable
     {
         return [
             BingAdsClientInterface::class,
+            BingAdsSessionManager::class,
         ];
+    }
+
+    /**
+     * Create BingAdsConfig from Laravel configuration.
+     *
+     * BingAdsConfig constructor handles validation (fail-fast for invalid config).
+     */
+    private static function createConfig(): BingAdsConfig
+    {
+        return new BingAdsConfig(
+            clientId: Config::string('bing-ads.client_id', ''),
+            clientSecret: Config::string('bing-ads.client_secret', ''),
+            refreshToken: Config::string('bing-ads.refresh_token', ''),
+            developerToken: Config::string('bing-ads.developer_token', ''),
+            accountId: Config::string('bing-ads.account_id', ''),
+            customerId: Config::string('bing-ads.customer_id', ''),
+            environment: Config::string('bing-ads.environment', 'Production'),
+            reportPollIntervalSeconds: Config::integer('bing-ads.report_poll_interval_seconds', 10),
+            reportPollMaxAttempts: Config::integer('bing-ads.report_poll_max_attempts', 30),
+        );
     }
 }

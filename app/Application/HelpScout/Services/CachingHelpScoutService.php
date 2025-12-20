@@ -18,6 +18,9 @@ use App\Domain\CustomerService\ValueObjects\EscalationsConfig;
 use App\Domain\CustomerService\ValueObjects\Mailbox;
 use App\Domain\CustomerService\ValueObjects\SupportAgent;
 use App\Domain\Exceptions\ConfigurationNotFoundException;
+use App\Domain\Exceptions\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\InvalidApiResponseException;
+use LogicException;
 
 /**
  * Caching decorator for HelpScout API operations.
@@ -60,6 +63,8 @@ final readonly class CachingHelpScoutService
      * Cached for 7 days (profile data rarely changes).
      *
      * @throws CustomerServiceAgentNotFoundException When no agent matches email
+     * @throws ExternalServiceUnavailableException When API unavailable
+     * @throws InvalidApiResponseException When API response structure is invalid
      */
     public function getAgentProfile(string $email): SupportAgent
     {
@@ -83,6 +88,9 @@ final readonly class CachingHelpScoutService
      * Get conversations with caching and mailbox enrichment.
      *
      * @return list<Conversation>
+     *
+     * @throws ExternalServiceUnavailableException When API unavailable
+     * @throws InvalidApiResponseException When API response structure is invalid
      */
     public function getConversations(ConversationQueryParams $params): array
     {
@@ -104,6 +112,9 @@ final readonly class CachingHelpScoutService
      * @param list<ConversationQueryParams> $queries
      *
      * @return list<Conversation>
+     *
+     * @throws ExternalServiceUnavailableException When API unavailable
+     * @throws InvalidApiResponseException When API response structure is invalid
      */
     public function getConversationsBatch(array $queries): array
     {
@@ -131,17 +142,7 @@ final readonly class CachingHelpScoutService
         // Fetch uncached queries in parallel
         if ($uncachedQueries !== []) {
             $fetched = $this->conversationsClient->getConversationsBatch($uncachedQueries);
-
-            foreach ($fetched as $i => $conversations) {
-                $originalIndex = $uncachedIndices[$i];
-                $params = $uncachedQueries[$i];
-
-                // Enrich and cache
-                $enriched = $this->enricher->enrich($conversations);
-                $this->cache->put($params->getCacheKey(), $enriched, $params->ttlSeconds);
-
-                $results[$originalIndex] = $enriched;
-            }
+            $results += $this->processFetchedBatch($fetched, $uncachedQueries, $uncachedIndices);
         }
 
         // Sort by original index and flatten
@@ -149,6 +150,42 @@ final readonly class CachingHelpScoutService
 
         /** @var list<Conversation> */
         return \array_merge(...\array_values($results));
+    }
+
+    /**
+     * Process fetched batch results: validate, enrich, cache, and return indexed results.
+     *
+     * @param array<int, list<Conversation>> $fetched
+     * @param list<ConversationQueryParams> $uncachedQueries
+     * @param list<int> $uncachedIndices
+     *
+     * @return array<int, list<Conversation>>
+     *
+     * @throws ExternalServiceUnavailableException When API unavailable during enrichment
+     * @throws InvalidApiResponseException When API response structure is invalid
+     */
+    private function processFetchedBatch(
+        array $fetched,
+        array $uncachedQueries,
+        array $uncachedIndices,
+    ): array {
+        $results = [];
+
+        foreach ($fetched as $i => $conversations) {
+            if (!\array_key_exists($i, $uncachedIndices) || !\array_key_exists($i, $uncachedQueries)) {
+                throw new LogicException('Batch response indices must match request indices');
+            }
+            $originalIndex = $uncachedIndices[$i];
+            $params = $uncachedQueries[$i];
+
+            // Enrich and cache
+            $enriched = $this->enricher->enrich($conversations);
+            $this->cache->put($params->getCacheKey(), $enriched, $params->ttlSeconds);
+
+            $results[$originalIndex] = $enriched;
+        }
+
+        return $results;
     }
 
     /**
@@ -163,6 +200,9 @@ final readonly class CachingHelpScoutService
      * Get all mailboxes with caching.
      *
      * @return list<Mailbox>
+     *
+     * @throws ExternalServiceUnavailableException When API unavailable
+     * @throws InvalidApiResponseException When API response structure is invalid
      */
     public function getMailboxes(): array
     {
@@ -177,6 +217,7 @@ final readonly class CachingHelpScoutService
      * Get escalations configuration with caching.
      *
      * @throws ConfigurationNotFoundException When config missing or disabled
+     * @throws ExternalServiceUnavailableException When database unavailable
      */
     public function getEscalationsConfig(): EscalationsConfig
     {

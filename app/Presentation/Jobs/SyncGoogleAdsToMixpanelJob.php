@@ -54,6 +54,9 @@ final class SyncGoogleAdsToMixpanelJob implements ShouldQueue
      * Execute the job.
      *
      * @throws ExternalServiceUnavailableException When external APIs unavailable - will retry
+     * @throws PayloadSerializationException When data serialization fails (permanent failure)
+     * @throws AuthenticationExpiredException When API credentials invalid (permanent failure)
+     * @throws Throwable When unexpected errors occur - indicates code update required
      */
     public function handle(SyncAdSpendUseCase $useCase): void
     {
@@ -84,6 +87,7 @@ final class SyncGoogleAdsToMixpanelJob implements ShouldQueue
             ]);
 
             $this->fail($e);
+            throw $e;
         } catch (AuthenticationExpiredException $e) {
             // Permanent failure - credentials need fixing, don't waste retries
             Log::critical('Authentication failed during sync, failing immediately', [
@@ -95,6 +99,7 @@ final class SyncGoogleAdsToMixpanelJob implements ShouldQueue
             ]);
 
             $this->fail($e);
+            throw $e;
         } catch (ExternalServiceUnavailableException $e) {
             Log::warning('External service unavailable during sync, will retry', [
                 'from' => $fromString,
@@ -110,6 +115,20 @@ final class SyncGoogleAdsToMixpanelJob implements ShouldQueue
             } else {
                 throw $e;
             }
+        } catch (Throwable $e) {
+            // Unexpected exception = code needs updating
+            // Fail immediately - don't waste retries on unknown errors
+            Log::critical('Unexpected exception in Google Ads sync - code update required', [
+                'job' => self::class,
+                'exception' => $e::class,
+                'message' => $e->getMessage(),
+                'from' => $fromString,
+                'to' => $toString,
+                'attempts' => $this->attempts(),
+            ]);
+
+            $this->fail($e);
+            throw $e;
         }
     }
 

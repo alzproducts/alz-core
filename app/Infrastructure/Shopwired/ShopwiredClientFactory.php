@@ -9,12 +9,12 @@ use App\Application\Contracts\Shopwired\ConnectivityClientInterface;
 use App\Application\Contracts\Shopwired\CustomerClientInterface;
 use App\Application\Contracts\Shopwired\OrderClientInterface;
 use App\Application\Contracts\Shopwired\StockClientInterface;
+use App\Domain\Exceptions\InvalidConfigurationException;
 use App\Infrastructure\Shopwired\Clients\CategoryClient;
 use App\Infrastructure\Shopwired\Clients\CustomerClient;
 use App\Infrastructure\Shopwired\Clients\OrderClient;
 use App\Infrastructure\Shopwired\Clients\StockClient;
 use Illuminate\Support\Facades\Config;
-use RuntimeException;
 
 /**
  * Factory for creating ShopWired API clients.
@@ -91,12 +91,12 @@ final class ShopwiredClientFactory
         $apiKey = \config('shopwired.api_key');
         $apiSecret = \config('shopwired.api_secret');
 
-        if (! \is_string($apiKey) || ($apiKey === '')) {
-            throw new RuntimeException('SHOPWIRED_API_KEY not configured');
+        if (!\is_string($apiKey) || ($apiKey === '')) {
+            throw new InvalidConfigurationException('SHOPWIRED_API_KEY');
         }
 
-        if (! \is_string($apiSecret) || ($apiSecret === '')) {
-            throw new RuntimeException('SHOPWIRED_API_SECRET not configured');
+        if (!\is_string($apiSecret) || ($apiSecret === '')) {
+            throw new InvalidConfigurationException('SHOPWIRED_API_SECRET');
         }
 
         $config = new ShopwiredConfig(

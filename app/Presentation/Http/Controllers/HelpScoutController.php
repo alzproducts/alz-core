@@ -8,6 +8,10 @@ use App\Application\HelpScout\Queries\ConversationQueryParams;
 use App\Application\HelpScout\Services\CachingHelpScoutService;
 use App\Application\HelpScout\UseCases\GetConversationsUseCase;
 use App\Application\HelpScout\UseCases\GetEscalationsUseCase;
+use App\Domain\CustomerService\Exceptions\CustomerServiceAgentNotFoundException;
+use App\Domain\Exceptions\ConfigurationNotFoundException;
+use App\Domain\Exceptions\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\InvalidApiResponseException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -32,6 +36,10 @@ final readonly class HelpScoutController
 
     /**
      * Get conversations assigned to the authenticated agent.
+     *
+     * @throws CustomerServiceAgentNotFoundException When agent email not found in HelpScout
+     * @throws ExternalServiceUnavailableException When HelpScout API unavailable
+     * @throws InvalidApiResponseException When API response structure is invalid
      */
     public function assigned(Request $request): JsonResponse
     {
@@ -44,6 +52,10 @@ final readonly class HelpScoutController
 
     /**
      * Refresh assigned conversations cache and return fresh data.
+     *
+     * @throws CustomerServiceAgentNotFoundException When agent email not found in HelpScout
+     * @throws ExternalServiceUnavailableException When HelpScout API unavailable
+     * @throws InvalidApiResponseException When API response structure is invalid
      */
     public function refreshAssigned(Request $request): JsonResponse
     {
@@ -56,6 +68,10 @@ final readonly class HelpScoutController
 
     /**
      * Get tagged conversations (todos) for the authenticated agent.
+     *
+     * @throws CustomerServiceAgentNotFoundException When agent email not found in HelpScout
+     * @throws ExternalServiceUnavailableException When HelpScout API unavailable
+     * @throws InvalidApiResponseException When API response structure is invalid
      */
     public function todos(Request $request): JsonResponse
     {
@@ -68,6 +84,10 @@ final readonly class HelpScoutController
 
     /**
      * Refresh todos cache and return fresh data.
+     *
+     * @throws CustomerServiceAgentNotFoundException When agent email not found in HelpScout
+     * @throws ExternalServiceUnavailableException When HelpScout API unavailable
+     * @throws InvalidApiResponseException When API response structure is invalid
      */
     public function refreshTodos(Request $request): JsonResponse
     {
@@ -80,6 +100,9 @@ final readonly class HelpScoutController
 
     /**
      * Get conversations tagged with negative feedback.
+     *
+     * @throws ExternalServiceUnavailableException When HelpScout API unavailable
+     * @throws InvalidApiResponseException When API response structure is invalid
      */
     public function negativeReviews(): JsonResponse
     {
@@ -92,6 +115,9 @@ final readonly class HelpScoutController
 
     /**
      * Refresh negative reviews cache and return fresh data.
+     *
+     * @throws ExternalServiceUnavailableException When HelpScout API unavailable
+     * @throws InvalidApiResponseException When API response structure is invalid
      */
     public function refreshNegativeReviews(): JsonResponse
     {
@@ -107,6 +133,10 @@ final readonly class HelpScoutController
      *
      * Aggregates late priority, late standard, and manually assigned
      * conversations from Support and Purchase Orders mailboxes.
+     *
+     * @throws ConfigurationNotFoundException When escalations config missing or disabled
+     * @throws ExternalServiceUnavailableException When HelpScout API or database unavailable
+     * @throws InvalidApiResponseException When API response structure is invalid
      */
     public function escalations(GetEscalationsUseCase $useCase): JsonResponse
     {
@@ -117,6 +147,10 @@ final readonly class HelpScoutController
 
     /**
      * Refresh escalations cache and return fresh data.
+     *
+     * @throws ConfigurationNotFoundException When escalations config missing or disabled
+     * @throws ExternalServiceUnavailableException When HelpScout API or database unavailable
+     * @throws InvalidApiResponseException When API response structure is invalid
      */
     public function refreshEscalations(GetEscalationsUseCase $useCase): JsonResponse
     {
@@ -129,6 +163,10 @@ final readonly class HelpScoutController
      * Get authenticated user's HelpScout profile.
      *
      * Returns agent details (name, email, role) for connection status display.
+     *
+     * @throws CustomerServiceAgentNotFoundException When agent email not found in HelpScout
+     * @throws ExternalServiceUnavailableException When HelpScout API unavailable
+     * @throws InvalidApiResponseException When API response structure is invalid
      */
     public function profile(Request $request): JsonResponse
     {
@@ -150,6 +188,10 @@ final readonly class HelpScoutController
 
     /**
      * Resolve HelpScout agent ID from authenticated user email.
+     *
+     * @throws CustomerServiceAgentNotFoundException When agent email not found in HelpScout
+     * @throws ExternalServiceUnavailableException When HelpScout API unavailable
+     * @throws InvalidApiResponseException When API response structure is invalid
      */
     private function resolveAgentId(Request $request): int
     {

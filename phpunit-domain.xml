@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Domain Layer Coverage Config | Scope: app/Domain (90%+ target) -->
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+         bootstrap="vendor/autoload.php"
+         colors="true"
+         failOnDeprecation="true"
+         failOnPhpunitDeprecation="false"
+         failOnNotice="true"
+         failOnWarning="true"
+>
+    <testsuites>
+        <testsuite name="Domain">
+            <directory>tests/Unit/Domain</directory>
+        </testsuite>
+    </testsuites>
+    <coverage>
+        <report>
+            <clover outputFile="build/logs/clover-domain.xml"/>
+        </report>
+    </coverage>
+    <source ignoreIndirectDeprecations="true">
+        <include>
+            <directory>app/Domain</directory>
+        </include>
+        <exclude>
+            <directory suffix="Exception.php">./app/Domain</directory>
+            <directory suffix="Factory.php">./app/Domain</directory>
+            <file>app/Domain/Review/Rating.php</file>
+        </exclude>
+    </source>
+    <php>
+        <env name="APP_ENV" value="testing"/>
+        <env name="APP_MAINTENANCE_DRIVER" value="file"/>
+        <env name="BCRYPT_ROUNDS" value="4"/>
+        <env name="CACHE_STORE" value="array"/>
+        <env name="MAIL_MAILER" value="array"/>
+        <env name="QUEUE_CONNECTION" value="sync"/>
+        <env name="SESSION_DRIVER" value="array"/>
+        <env name="PULSE_ENABLED" value="false"/>
+        <env name="TELESCOPE_ENABLED" value="false"/>
+        <env name="NIGHTWATCH_ENABLED" value="false"/>
+    </php>
+    <extensions>
+        <bootstrap class="DG\BypassFinals\PHPUnitExtension"/>
+    </extensions>
+</phpunit>

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Shopwired;
 
-use App\Infrastructure\Shopwired\Contracts\PaginatableQueryParams;
+use App\Infrastructure\Shopwired\Contracts\PaginatableQueryParamsInterface;
 use InvalidArgumentException;
 
 /**
@@ -20,7 +20,7 @@ use InvalidArgumentException;
  *
  * @internal For use within ShopWired infrastructure only
  */
-final readonly class ShopwiredQueryParams implements PaginatableQueryParams
+final readonly class ShopwiredQueryParams implements PaginatableQueryParamsInterface
 {
     public const int MAX_COUNT = 100;
 

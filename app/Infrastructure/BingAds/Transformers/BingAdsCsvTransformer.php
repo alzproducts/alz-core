@@ -6,6 +6,7 @@ namespace App\Infrastructure\BingAds\Transformers;
 
 use App\Domain\AdSpend\ValueObjects\CampaignMetrics;
 use App\Infrastructure\BingAds\Exceptions\InvalidBingAdsResponseException;
+use LogicException;
 
 /**
  * Transforms Bing Ads CSV report data into domain value objects.
@@ -67,13 +68,23 @@ final readonly class BingAdsCsvTransformer
             throw InvalidBingAdsResponseException::malformedCsv('Could not find header row with expected columns');
         }
 
+        if (!\array_key_exists($headerIndex, $lines)) {
+            throw new LogicException('Header index must exist in lines');
+        }
         $columnMap = self::buildColumnMap($lines[$headerIndex]);
         $metrics = [];
 
         // Process data rows (everything after header)
+        // buildColumnMap() validates COL_CAMPAIGN_ID exists or throws
+        if (!\array_key_exists(self::COL_CAMPAIGN_ID, $columnMap)) {
+            throw new LogicException('CampaignId must exist in column map');
+        }
         $campaignIdIndex = $columnMap[self::COL_CAMPAIGN_ID];
 
         for ($i = $headerIndex + 1, $iMax = \count($lines); $i < $iMax; $i++) {
+            if (!\array_key_exists($i, $lines)) {
+                throw new LogicException('Row index must exist in lines');
+            }
             $row = $lines[$i];
 
             // Skip empty rows and footer rows (copyright notice, etc.)
@@ -92,6 +103,8 @@ final readonly class BingAdsCsvTransformer
      * Parse CSV content into array of rows.
      *
      * @return list<list<string>>
+     *
+     * @throws InvalidBingAdsResponseException When temp stream creation fails
      */
     private static function parseLines(string $csvContent): array
     {
@@ -225,6 +238,9 @@ final readonly class BingAdsCsvTransformer
      */
     private static function getRequiredValue(array $row, array $columnMap, string $column, int $lineNumber): string
     {
+        if (!\array_key_exists($column, $columnMap)) {
+            throw new LogicException("Column {$column} must exist in column map");
+        }
         $index = $columnMap[$column];
 
         if (!isset($row[$index])) {

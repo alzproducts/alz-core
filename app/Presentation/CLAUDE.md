@@ -75,6 +75,15 @@ class SyncGoogleAdsToMixpanelJob implements ShouldQueue
 - Custom retry delay (use API's Retry-After)
 - Permanent failures (auth expired - don't retry)
 
+### Required: Final Throwable Catch
+
+All jobs MUST end with `catch (\Throwable)` that:
+1. Logs critical (unexpected exception = code needs updating)
+2. Calls `$this->fail($e)` for standard jobs (skip for business-critical jobs that should retry)
+3. Rethrows with `throw $e` (safe - Laravel checks `hasFailed()` to prevent double-processing)
+
+See existing jobs in `app/Presentation/Jobs/` for implementation examples.
+
 ## Controllers: Global Exception Handler (Preferred)
 ```php
 // bootstrap/app.php

@@ -8,6 +8,7 @@ use App\Application\Contracts\LookupTableProviderInterface;
 use App\Application\Contracts\MixpanelClientInterface;
 use App\Domain\Exceptions\AuthenticationExpiredException;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\InvalidApiRequestException;
 use App\Domain\Exceptions\UnexpectedApiResultException;
 use Psr\Log\LoggerInterface;
 
@@ -29,9 +30,10 @@ final readonly class SyncLookupTableUseCase
     /**
      * Synchronize lookup table from provider to Mixpanel.
      *
+     * @throws AuthenticationExpiredException When source or destination credentials invalid
+     * @throws InvalidApiRequestException When request parameters are invalid
      * @throws ExternalServiceUnavailableException When external APIs are unavailable
      * @throws UnexpectedApiResultException When provider returns empty results
-     * @throws AuthenticationExpiredException When source or destination credentials invalid
      */
     public function execute(): void
     {

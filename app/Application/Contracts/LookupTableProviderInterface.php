@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Application\Contracts;
 
+use App\Domain\Exceptions\AuthenticationExpiredException;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 
 /**
@@ -44,6 +45,7 @@ interface LookupTableProviderInterface
      *
      * @return array<int, array<int, string>>
      *
+     * @throws AuthenticationExpiredException When credentials invalid/expired
      * @throws ExternalServiceUnavailableException When the data source is unavailable
      */
     public function fetchRows(): array;

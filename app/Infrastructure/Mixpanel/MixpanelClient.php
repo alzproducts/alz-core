@@ -7,13 +7,15 @@ namespace App\Infrastructure\Mixpanel;
 use App\Application\Contracts\MixpanelClientInterface;
 use App\Domain\AdSpend\Enums\AdSource;
 use App\Domain\AdSpend\ValueObjects\CampaignMetrics;
+use App\Domain\Exceptions\AuthenticationExpiredException;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\InvalidApiRequestException;
+use App\Domain\Exceptions\InvalidConfigurationException;
 use App\Domain\Exceptions\PayloadSerializationException;
 use App\Infrastructure\Mixpanel\DTOs\MixpanelAdSpendEventDTO;
 use App\Infrastructure\Support\CsvFormatter;
 use Illuminate\Support\Facades\Log;
 use JsonException;
-use Webmozart\Assert\Assert;
 
 /**
  * Manages Mixpanel API interactions for events and lookup tables.
@@ -38,7 +40,9 @@ final readonly class MixpanelClient implements MixpanelClientInterface
      * Calls the /api/app/me endpoint to validate service account credentials.
      * Uses fail-fast approach (no retry) to detect credential issues immediately.
      *
-     * @throws ExternalServiceUnavailableException When API unavailable or credentials invalid
+     * @throws AuthenticationExpiredException When credentials invalid/expired
+     * @throws InvalidApiRequestException When request parameters are invalid
+     * @throws ExternalServiceUnavailableException When API unavailable
      */
     public function verifyConnectivity(): void
     {
@@ -58,7 +62,10 @@ final readonly class MixpanelClient implements MixpanelClientInterface
      * @param array<int, CampaignMetrics> $campaigns Domain campaign metrics
      * @param AdSource $source The ad network these campaigns originate from
      *
+     * @throws AuthenticationExpiredException When credentials invalid/expired
+     * @throws InvalidApiRequestException When request parameters are invalid
      * @throws ExternalServiceUnavailableException When API unavailable or request fails
+     * @throws PayloadSerializationException When payload cannot be encoded
      */
     public function importCampaigns(array $campaigns, AdSource $source): void
     {
@@ -92,21 +99,26 @@ final readonly class MixpanelClient implements MixpanelClientInterface
      * @param array<int, string> $headers CSV column headers
      * @param array<int, array<int, string>> $rows Pre-transformed data rows
      *
+     * @throws AuthenticationExpiredException When credentials invalid/expired
+     * @throws InvalidApiRequestException When request parameters are invalid
+     * @throws InvalidConfigurationException When tableKey is not configured
      * @throws ExternalServiceUnavailableException When API unavailable or request fails
      */
     public function replaceLookupTable(string $tableKey, array $headers, array $rows): void
     {
-        Assert::keyExists(
-            $this->config->lookupTableIds,
-            $tableKey,
-            "Unknown lookup table key: {$tableKey}. Available keys: " . \implode(', ', \array_keys($this->config->lookupTableIds)),
-        );
+        if (!\array_key_exists($tableKey, $this->config->lookupTableIds)) {
+            throw new InvalidConfigurationException(
+                "mixpanel.lookup_table_ids.{$tableKey}",
+                "Unknown lookup table key: {$tableKey}. Available keys: " . \implode(', ', \array_keys($this->config->lookupTableIds)),
+            );
+        }
 
+        $tableId = $this->config->lookupTableIds[$tableKey];
         $csv = CsvFormatter::format($headers, $rows);
 
         $this->transport->request(
             method: 'PUT',
-            url: "{$this->config->dataApiBaseUrl}/lookup-tables/{$this->config->lookupTableIds[$tableKey]}?project_id={$this->config->projectId}",
+            url: "{$this->config->dataApiBaseUrl}/lookup-tables/{$tableId}?project_id={$this->config->projectId}",
             body: $csv,
             contentType: 'text/csv',
         );

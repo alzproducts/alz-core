@@ -12,7 +12,7 @@ namespace App\Infrastructure\Contracts;
  *
  * @internal For use within Infrastructure layer only
  */
-interface DomainConvertible
+interface DomainConvertibleInterface
 {
     /**
      * Convert this DTO to its corresponding Domain object.

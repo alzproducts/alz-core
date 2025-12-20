@@ -6,6 +6,11 @@ namespace App\Infrastructure\Shopwired\Clients;
 
 use App\Application\Contracts\Shopwired\CustomerClientInterface;
 use App\Domain\Customer\ValueObjects\Customer as DomainCustomer;
+use App\Domain\Exceptions\AuthenticationExpiredException;
+use App\Domain\Exceptions\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\InvalidApiRequestException;
+use App\Domain\Exceptions\InvalidApiResponseException;
+use App\Domain\Exceptions\ResourceNotFoundException;
 use App\Infrastructure\Shopwired\CustomerQueryParams;
 use App\Infrastructure\Shopwired\Responses\CustomerResponse;
 use App\Infrastructure\Shopwired\ShopwiredHttpTransport;
@@ -84,6 +89,12 @@ final readonly class CustomerClient implements CustomerClientInterface
      * List ALL customers with embedded data (paginated fetch).
      *
      * @return list<DomainCustomer>
+     *
+     * @throws InvalidApiRequestException When request parameters are invalid (400)
+     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
+     * @throws ResourceNotFoundException When resource not found (404)
+     * @throws ExternalServiceUnavailableException When API unavailable or connection fails
+     * @throws InvalidApiResponseException When response parsing fails (API contract violation)
      */
     public function listAllCustomers(): array
     {
@@ -105,6 +116,12 @@ final readonly class CustomerClient implements CustomerClientInterface
      * List ALL trade customers with embedded data (paginated fetch).
      *
      * @return list<DomainCustomer>
+     *
+     * @throws InvalidApiRequestException When request parameters are invalid (400)
+     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
+     * @throws ResourceNotFoundException When resource not found (404)
+     * @throws ExternalServiceUnavailableException When API unavailable or connection fails
+     * @throws InvalidApiResponseException When response parsing fails (API contract violation)
      */
     public function listAllTradeCustomers(): array
     {
@@ -125,6 +142,12 @@ final readonly class CustomerClient implements CustomerClientInterface
 
     /**
      * @return list<DomainCustomer>
+     *
+     * @throws InvalidApiRequestException When request parameters are invalid (400)
+     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
+     * @throws ResourceNotFoundException When resource not found (404)
+     * @throws ExternalServiceUnavailableException When API unavailable or connection fails
+     * @throws InvalidApiResponseException When response parsing fails (API contract violation)
      */
     public function listCustomers(): array
     {
@@ -134,6 +157,13 @@ final readonly class CustomerClient implements CustomerClientInterface
         return self::parseArrayToDomain($response->json(), CustomerResponse::class);
     }
 
+    /**
+     * @throws InvalidApiRequestException When request parameters are invalid (400)
+     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
+     * @throws ResourceNotFoundException When customer not found (404)
+     * @throws ExternalServiceUnavailableException When API unavailable or connection fails
+     * @throws InvalidApiResponseException When response parsing fails (API contract violation)
+     */
     public function getCustomerById(int $id): DomainCustomer
     {
         $response = $this->transport->get(self::ENDPOINT_CUSTOMERS . '/' . $id);
@@ -142,6 +172,13 @@ final readonly class CustomerClient implements CustomerClientInterface
         return self::parseSingleToDomain($response->json(), CustomerResponse::class);
     }
 
+    /**
+     * @throws InvalidApiRequestException When request parameters are invalid (400)
+     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
+     * @throws ResourceNotFoundException When resource not found (404)
+     * @throws ExternalServiceUnavailableException When API unavailable or connection fails
+     * @throws InvalidApiResponseException When response parsing fails (API contract violation)
+     */
     public function getCustomerCount(): int
     {
         $response = $this->transport->get(self::ENDPOINT_CUSTOMERS . '/count');
@@ -149,6 +186,13 @@ final readonly class CustomerClient implements CustomerClientInterface
         return self::parseCountResponse($response->json());
     }
 
+    /**
+     * @throws InvalidApiRequestException When request parameters are invalid (400)
+     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
+     * @throws ResourceNotFoundException When resource not found (404)
+     * @throws ExternalServiceUnavailableException When API unavailable or connection fails
+     * @throws InvalidApiResponseException When response parsing fails (API contract violation)
+     */
     public function getTradeCustomerCount(): int
     {
         $response = $this->transport->get(
@@ -168,13 +212,19 @@ final readonly class CustomerClient implements CustomerClientInterface
      *
      * @param string $email Email address to search for
      * @return DomainCustomer|null Customer if found (verify email match!), null otherwise
+     *
+     * @throws InvalidApiRequestException When request parameters are invalid (400)
+     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
+     * @throws ResourceNotFoundException When resource not found (404)
+     * @throws ExternalServiceUnavailableException When API unavailable or connection fails
+     * @throws InvalidApiResponseException When response parsing fails (API contract violation)
      */
     public function searchByEmail(string $email): ?DomainCustomer
     {
-        $params = (new CustomerQueryParams())
+        $params = new CustomerQueryParams()
             ->withEmail($email)
             ->withBaseParams(
-                (new ShopwiredQueryParams())
+                new ShopwiredQueryParams()
                     ->withCount(1)
                     ->withEmbeds(self::DEFAULT_EMBEDS)
                     ->withFields(self::DEFAULT_FIELDS),
@@ -202,6 +252,12 @@ final readonly class CustomerClient implements CustomerClientInterface
      * Fetch a single page of customers.
      *
      * @return list<DomainCustomer>
+     *
+     * @throws InvalidApiRequestException When request parameters are invalid (400)
+     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
+     * @throws ResourceNotFoundException When resource not found (404)
+     * @throws ExternalServiceUnavailableException When API unavailable or connection fails
+     * @throws InvalidApiResponseException When response parsing fails (API contract violation)
      */
     private function fetchCustomerPage(CustomerQueryParams $params): array
     {

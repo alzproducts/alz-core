@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Domain\Exceptions\InvalidConfigurationException;
 use Illuminate\Support\ServiceProvider;
 use Override;
-use RuntimeException;
 
 /**
  * Application Service Provider
@@ -31,10 +31,7 @@ final class AppServiceProvider extends ServiceProvider
      * Register application services.
      */
     #[Override]
-    public function register(): void
-    {
-        //
-    }
+    public function register(): void {}
 
     /**
      * Bootstrap any application services.
@@ -81,7 +78,8 @@ final class AppServiceProvider extends ServiceProvider
         if ($missing !== []) {
             $list = \implode("\n  - ", $missing);
 
-            throw new RuntimeException(
+            throw new InvalidConfigurationException(
+                'production.required',
                 "SECURITY: Production deployment blocked. The following required configuration values are not set:\n\n  - {$list}\n\nApplication cannot start safely. Please configure these variables in your deployment environment.",
             );
         }
@@ -89,7 +87,8 @@ final class AppServiceProvider extends ServiceProvider
         // Additional validation: APP_KEY must be properly formatted (base64 encoded)
         $appKey = \config('app.key');
         if (! \is_string($appKey) || (\mb_strlen($appKey) < 32)) {
-            throw new RuntimeException(
+            throw new InvalidConfigurationException(
+                'app.key',
                 "SECURITY: APP_KEY is too short or invalid. Run 'php artisan key:generate' to create a secure key.",
             );
         }

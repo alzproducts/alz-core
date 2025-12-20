@@ -6,7 +6,6 @@ namespace App\Presentation\Jobs;
 
 use App\Application\Feeds\ProcessProductSearchFeedUseCase;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
-use App\Domain\Exceptions\MalformedFeedDataException;
 use App\Domain\Exceptions\StorageOperationFailedException;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -14,7 +13,6 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
-use InvalidArgumentException;
 use Throwable;
 
 /**
@@ -56,6 +54,7 @@ final class ProcessProductSearchFeedJob implements ShouldQueue
      *
      * @throws ExternalServiceUnavailableException When source feed unavailable - will retry
      * @throws StorageOperationFailedException When S3 upload fails - will retry
+     * @throws Throwable When unexpected errors occur - indicates code update required
      */
     public function handle(ProcessProductSearchFeedUseCase $useCase): void
     {
@@ -65,15 +64,6 @@ final class ProcessProductSearchFeedJob implements ShouldQueue
             $useCase->execute();
 
             Log::info('Product search feed processing job completed');
-        } catch (InvalidArgumentException|MalformedFeedDataException $e) {
-            // Permanent failures - configuration or data issues, retrying won't help
-            Log::critical('Product search feed processing failed permanently', [
-                'exception' => $e::class,
-                'message' => $e->getMessage(),
-                'attempts' => $this->attempts(),
-            ]);
-
-            $this->fail($e);
         } catch (ExternalServiceUnavailableException $e) {
             Log::warning('Source feed unavailable, will retry', [
                 'service' => $e->serviceName,
@@ -94,6 +84,18 @@ final class ProcessProductSearchFeedJob implements ShouldQueue
             ]);
 
             // Let Laravel retry with backoff
+            throw $e;
+        } catch (Throwable $e) {
+            // Unexpected exception = code needs updating
+            // Fail immediately - don't waste retries on unknown errors
+            Log::critical('Unexpected exception in product feed job - code update required', [
+                'job' => self::class,
+                'exception' => $e::class,
+                'message' => $e->getMessage(),
+                'attempts' => $this->attempts(),
+            ]);
+
+            $this->fail($e);
             throw $e;
         }
     }

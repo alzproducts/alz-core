@@ -8,6 +8,9 @@ use App\Application\Contracts\DatabaseClientInterface;
 use App\Application\Contracts\EscalationsConfigRepositoryInterface;
 use App\Domain\CustomerService\ValueObjects\EscalationsConfig;
 use App\Domain\Exceptions\ConfigurationNotFoundException;
+use App\Domain\Exceptions\DatabaseOperationFailedException;
+use App\Domain\Exceptions\DuplicateRecordException;
+use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use Illuminate\Database\ConnectionInterface;
 use JsonException;
 
@@ -30,7 +33,12 @@ final readonly class EscalationsConfigRepository implements EscalationsConfigRep
     ) {}
 
     /**
-     * @throws ConfigurationNotFoundException|JsonException When config missing or disabled
+     * @throws ConfigurationNotFoundException When config missing or disabled
+     * @throws JsonException When settings JSON is invalid
+     * @throws DatabaseOperationFailedException When query fails permanently
+     * @throws DuplicateRecordException When unique constraint violated
+     * @throws ExternalServiceUnavailableException When database temporarily unavailable
+     *
      * @noinspection UnknownColumnInspection
      */
     public function get(): EscalationsConfig

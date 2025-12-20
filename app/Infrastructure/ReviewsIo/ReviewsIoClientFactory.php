@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Infrastructure\ReviewsIo;
 
 use App\Application\Contracts\ReviewsIoClientInterface;
+use App\Domain\Exceptions\InvalidConfigurationException;
 use Illuminate\Support\Facades\Config;
-use RuntimeException;
 
 /**
  * Factory for creating ReviewsIoClient with all dependencies.
@@ -27,12 +27,12 @@ final class ReviewsIoClientFactory
         $apiKey = \config('reviewsio.api_key');
         $storeId = \config('reviewsio.store_id');
 
-        if (! \is_string($apiKey) || ($apiKey === '')) {
-            throw new RuntimeException('REVIEWSIO_API_KEY not configured');
+        if (!\is_string($apiKey) || ($apiKey === '')) {
+            throw new InvalidConfigurationException('REVIEWSIO_API_KEY');
         }
 
-        if (! \is_string($storeId) || ($storeId === '')) {
-            throw new RuntimeException('REVIEWSIO_STORE not configured');
+        if (!\is_string($storeId) || ($storeId === '')) {
+            throw new InvalidConfigurationException('REVIEWSIO_STORE');
         }
 
         $config = new ReviewsIoConfig(

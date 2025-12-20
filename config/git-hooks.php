@@ -1,12 +1,12 @@
 <?php
 
 declare(strict_types=1);
-use App\DevTools\GitHooks\InfectionPrePushHook;
-use App\DevTools\GitHooks\PestMutatePrePushHook;
+
 use App\DevTools\GitHooks\PestPrePushHook;
 use App\DevTools\GitHooks\PHPArkitectPreCommitHook;
 use App\DevTools\GitHooks\PHPArkitectPrePushHook;
 use App\DevTools\GitHooks\PHPInsightsPrePushHook;
+use App\DevTools\GitHooks\TLintPrePushHook;
 use Igorsgm\GitHooks\Console\Commands\Hooks\LarastanPreCommitHook;
 use Igorsgm\GitHooks\Console\Commands\Hooks\PintPreCommitHook;
 
@@ -38,8 +38,7 @@ return [
         PestPrePushHook::class,
         PHPInsightsPrePushHook::class,
         PHPArkitectPrePushHook::class,
-        // PestMutatePrePushHook::class,  // Moved to CI - runs in parallel
-        // InfectionPrePushHook::class,   // Moved to CI - runs in parallel
+        TLintPrePushHook::class,
     ],
 
     /*

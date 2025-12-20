@@ -7,6 +7,7 @@ namespace App\Infrastructure\HelpScout;
 use App\Application\Contracts\HelpScout\AgentsClientInterface;
 use App\Application\Contracts\HelpScout\ConversationsClientInterface;
 use App\Application\Contracts\HelpScout\MailboxesClientInterface;
+use App\Domain\Exceptions\InvalidConfigurationException;
 use App\Infrastructure\HelpScout\Clients\ConversationsClient;
 use App\Infrastructure\HelpScout\Clients\MailboxesClient;
 use App\Infrastructure\HelpScout\Clients\UsersClient;
@@ -14,7 +15,6 @@ use HelpScout\Api\ApiClient;
 use HelpScout\Api\ApiClientFactory as SdkClientFactory;
 use Illuminate\Contracts\Concurrency\Driver as ConcurrencyDriver;
 use Illuminate\Support\Facades\Config;
-use RuntimeException;
 
 /**
  * Factory for creating HelpScout API clients with all dependencies.
@@ -95,15 +95,13 @@ final class HelpScoutClientFactory
 
     /**
      * Create configured HelpScoutConfig from Laravel config.
-     *
-     * @throws RuntimeException When mailboxes configuration is missing or invalid
      */
     private static function createConfig(): HelpScoutConfig
     {
         $mailboxes = \config('helpscout.mailboxes');
 
         if (!\is_array($mailboxes) || ($mailboxes === [])) {
-            throw new RuntimeException('helpscout.mailboxes not configured');
+            throw new InvalidConfigurationException('helpscout.mailboxes');
         }
 
         /** @var array<string, int> $validatedMailboxes */
@@ -111,7 +109,8 @@ final class HelpScoutClientFactory
 
         foreach ($mailboxes as $name => $id) {
             if (!\is_string($name) || !\is_int($id)) {
-                throw new RuntimeException(
+                throw new InvalidConfigurationException(
+                    'helpscout.mailboxes',
                     \sprintf('Invalid mailbox config: expected string => int, got %s => %s', \gettype($name), \gettype($id)),
                 );
             }

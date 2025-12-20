@@ -350,6 +350,36 @@ CSV;
         BingAdsCsvTransformer::toCampaignMetrics($csv);
     }
 
+    #[Test]
+    public function it_throws_when_data_row_has_missing_values(): void
+    {
+        // Row has CampaignId but is missing later columns
+        $csv = <<<'CSV'
+CampaignId,CampaignName,TimePeriod,Spend,Clicks,Impressions,Conversions
+123,Test Campaign
+CSV;
+
+        $this->expectException(InvalidBingAdsResponseException::class);
+        $this->expectExceptionMessage('Missing value at line');
+
+        BingAdsCsvTransformer::toCampaignMetrics($csv);
+    }
+
+    #[Test]
+    public function it_throws_when_row_has_truncated_columns(): void
+    {
+        // Has numeric CampaignId but missing conversions column
+        $csv = <<<'CSV'
+CampaignId,CampaignName,TimePeriod,Spend,Clicks,Impressions,Conversions
+456,Truncated,2024-05-10,10.00,10,100
+CSV;
+
+        $this->expectException(InvalidBingAdsResponseException::class);
+        $this->expectExceptionMessage('Missing value at line 2');
+
+        BingAdsCsvTransformer::toCampaignMetrics($csv);
+    }
+
     /*
     |--------------------------------------------------------------------------
     | Special Character Handling Tests

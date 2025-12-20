@@ -6,10 +6,13 @@ namespace Tests\Unit\Infrastructure\Linnworks\Clients;
 
 use App\Domain\Exceptions\AuthenticationExpiredException;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\InvalidApiResponseException;
 use App\Infrastructure\Linnworks\Clients\ConnectivityClient;
 use App\Infrastructure\Linnworks\LinnworksSession;
 use App\Infrastructure\Linnworks\LinnworksSessionManager;
+use DateMalformedStringException;
 use DateTimeImmutable;
+use Illuminate\Support\Facades\Log;
 use Mockery;
 use Mockery\MockInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -117,6 +120,83 @@ final class ConnectivityClientTest extends TestCase
         } catch (ExternalServiceUnavailableException $e) {
             $this->assertSame('Linnworks', $e->serviceName);
             $this->assertSame(120, $e->retryAfter);
+        }
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | DateMalformedStringException Tests
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function it_translates_date_malformed_exception_to_invalid_api_response(): void
+    {
+        $dateException = new DateMalformedStringException('Invalid date format: not-a-date');
+
+        $this->sessionManager->shouldReceive('getSession')
+            ->once()
+            ->andThrow($dateException);
+
+        $this->expectException(InvalidApiResponseException::class);
+        $this->expectExceptionMessage('Session response contains malformed date');
+
+        $this->client->verifyConnectivity();
+    }
+
+    #[Test]
+    public function it_logs_critical_when_date_is_malformed(): void
+    {
+        $dateException = new DateMalformedStringException('Invalid date format: garbage');
+
+        $this->sessionManager->shouldReceive('getSession')
+            ->once()
+            ->andThrow($dateException);
+
+        Log::shouldReceive('critical')
+            ->once()
+            ->with(
+                'Linnworks session contains malformed date',
+                Mockery::on(static fn(array $ctx): bool => isset($ctx['error']) && \str_contains($ctx['error'], 'garbage')),
+            );
+
+        try {
+            $this->client->verifyConnectivity();
+        } catch (InvalidApiResponseException) {
+            // Expected
+        }
+    }
+
+    #[Test]
+    public function it_includes_service_name_in_invalid_api_response_exception(): void
+    {
+        $this->sessionManager->shouldReceive('getSession')
+            ->once()
+            ->andThrow(new DateMalformedStringException('Bad date'));
+
+        try {
+            $this->client->verifyConnectivity();
+            $this->fail('Expected InvalidApiResponseException');
+        } catch (InvalidApiResponseException $e) {
+            $this->assertSame('Linnworks', $e->serviceName);
+            $this->assertStringContainsString('malformed date', $e->getMessage());
+        }
+    }
+
+    #[Test]
+    public function it_preserves_original_exception_as_previous(): void
+    {
+        $originalException = new DateMalformedStringException('Original error');
+
+        $this->sessionManager->shouldReceive('getSession')
+            ->once()
+            ->andThrow($originalException);
+
+        try {
+            $this->client->verifyConnectivity();
+            $this->fail('Expected InvalidApiResponseException');
+        } catch (InvalidApiResponseException $e) {
+            $this->assertSame($originalException, $e->getPrevious());
         }
     }
 }
