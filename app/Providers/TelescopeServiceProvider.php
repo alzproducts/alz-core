@@ -10,6 +10,7 @@ use Laravel\Telescope\IncomingEntry;
 use Laravel\Telescope\Telescope;
 use Laravel\Telescope\TelescopeApplicationServiceProvider;
 use Override;
+use RuntimeException;
 
 class TelescopeServiceProvider extends TelescopeApplicationServiceProvider
 {
@@ -55,6 +56,8 @@ class TelescopeServiceProvider extends TelescopeApplicationServiceProvider
      * Register the Telescope gate.
      *
      * This gate determines who can access Telescope in non-local environments.
+     *
+     * @throws RuntimeException When gate registration fails
      */
     #[Override]
     protected function gate(): void

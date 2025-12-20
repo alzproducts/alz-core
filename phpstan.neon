@@ -6,6 +6,26 @@ includes:
     - vendor/phpstan/phpstan-mockery/extension.neon
     - vendor/shipmonk/phpstan-rules/rules.neon
     - vendor/phpstan/phpstan/conf/bleedingEdge.neon
+    # Stage 3: Disallowed dangerous/execution/insecure/loose calls
+    - vendor/spaze/phpstan-disallowed-calls/extension.neon
+    - vendor/spaze/phpstan-disallowed-calls/disallowed-dangerous-calls.neon
+    - vendor/spaze/phpstan-disallowed-calls/disallowed-execution-calls.neon
+    - vendor/spaze/phpstan-disallowed-calls/disallowed-insecure-calls.neon
+    - vendor/spaze/phpstan-disallowed-calls/disallowed-loose-calls.neon
+    # Stage 3: Cognitive complexity analysis
+    - vendor/tomasvotruba/cognitive-complexity/config/extension.neon
+    # Stage 3: Type declaration coverage enforcement
+    - vendor/tomasvotruba/type-coverage/config/extension.neon
+    # Stage 3: Enforce expiration dates on TO-DO comments
+    - vendor/staabm/phpstan-todo-by/extension.neon
+    # Stage 4: Strict exception and superglobal rules (kcs fork of thecodingmachine for PHPStan 2.x)
+    - vendor/kcs/phpstan-strict-rules/phpstan-strict-rules.neon
+    # Stage 4: Symplify clean architecture and naming rules
+    # Services must be included before rules (PHPStan auto-discovery loads after manual includes)
+    - vendor/symplify/phpstan-rules/config/services/services.neon
+    - vendor/symplify/phpstan-rules/config/static-rules.neon
+    - vendor/symplify/phpstan-rules/config/naming-rules.neon
+    # Note: Skip code-complexity-rules.neon (overlaps with tomasvotruba/cognitive-complexity)
 
 parameters:
     level: max
@@ -71,8 +91,58 @@ parameters:
             allowedCheckedExceptionCallables:
                 'Illuminate\Contracts\Concurrency\Driver::run': 0
 
+    # Checked exception enforcement - require @throws documentation
+    # See: https://phpstan.org/blog/bring-your-exceptions-under-control
+    exceptions:
+        check:
+            missingCheckedExceptionInThrows: true
+            tooWideThrowType: true
+        uncheckedExceptionClasses:
+            # LogicException family - programming errors, fix the code not catch it
+            # Note: Our DomainException extends RuntimeException (intentionally - domain
+            # exceptions ARE runtime conditions). We do NOT mark RuntimeException unchecked
+            # because that would make all Domain exceptions unchecked.
+            - LogicException
+            - InvalidArgumentException
+            - BadMethodCallException
+            - BadFunctionCallException
+            - DomainException  # PHP's built-in \DomainException, NOT our App\Domain\Exceptions\DomainException
+            - LengthException
+            - OutOfBoundsException
+            - OutOfRangeException
+            - OverflowException
+            - RangeException
+            - UnderflowException
+            - UnexpectedValueException
+            # PHPUnit - test-only exceptions
+            - PHPUnit\Framework\AssertionFailedError
+            - PHPUnit\Framework\Exception
+
+    # Additional strict checks (Stage 2 - Issue #73)
+    checkUninitializedProperties: true
+    checkBenevolentUnionTypes: true
+    reportPossiblyNonexistentGeneralArrayOffset: true
+    reportPossiblyNonexistentConstantArrayOffset: true
+
+    # Stage 3: Cognitive complexity limits (stricter than SonarQube's default of 15)
+    cognitive_complexity:
+        class: 50
+        function: 10
+
+    # Stage 3: Type declaration coverage enforcement
+    # Ensures minimum type coverage across the codebase (set high, will reveal current stats if below)
+    type_coverage:
+        return: 99
+        param: 99
+        property: 99
+
     # Ignore overly strict ShipMonk rules not suitable for Laravel
     ignoreErrors:
+        # GitHooks framework injects Command via setCommand() before handle() is called.
+        # PHPStan cannot verify this framework contract, so we suppress the false positive.
+        -
+            identifier: property.uninitialized
+            path: app/DevTools/GitHooks/Abstract*Hook.php
         # Laravel often requires unused closure parameters (Gate::define signatures, factory states, etc.)
         - identifier: shipmonk.unusedParameter
         # Laravel config files use nullable string concatenation
@@ -92,17 +162,38 @@ parameters:
         -
             identifier: shipmonk.checkedExceptionInCallable
             path: routes/*
+        # Http facade can throw generic RuntimeException from Laravel/Guzzle internals.
+        # Domain exceptions extend RuntimeException, so documenting both creates "non-normalized type".
+        # Both must be documented: domain exceptions for business logic, RuntimeException for infrastructure.
+        -
+            identifier: shipmonk.nonNormalizedType
+            paths:
+                - app/Infrastructure/Shopwired/ShopwiredHttpTransport.php
+                - app/Infrastructure/Shopwired/Clients/StockClient.php
+                - app/Application/Contracts/Shopwired/StockClientInterface.php
+                - app/Infrastructure/ReviewsIo/ReviewsIoClient.php
+                - app/Infrastructure/Feeds/DoofinderFeedProcessor.php
+                - app/Presentation/Http/Controllers/FeedController.php
+                - app/Presentation/Jobs/*
         # PHP Insights config references PHP_CodeSniffer classes as config keys (not loaded via Composer autoload)
         -
             message: '#^Class PHP_CodeSniffer\\.*#'
             path: config/insights.php
-        # Google Ads SDK has inaccurate PHPDoc (claims methods return string but they return string|null)
-        # GoogleAdsRowTransformer validates all fields at the boundary, so type checks are necessary
-        # even though PHPStan believes the PhPDoc over reality
+        # Stage 4: Symplify rule exceptions for Laravel/PHP conventions
+        # Layer base exceptions follow PHP convention: named after layer, not "Abstract*" prefix
+        # Examples: Symfony's HttpException, Laravel's ModelNotFoundException
         -
-            message: '#^(Strict comparison using === between|Call to function is_|Result of && is always|Binary operation|Cannot cast|Using / over non-number|Casting to).*#'
-            path: app/Infrastructure/GoogleAds/Transformers/GoogleAdsRowTransformer.php
-
+            identifier: symplify.explicitAbstractPrefixName
+            paths:
+                - app/Application/Exceptions/ApplicationException.php
+                - app/Domain/Exceptions/DomainException.php
+                - app/Infrastructure/Exceptions/InfrastructureException.php
+                - app/Infrastructure/Exceptions/ApiException.php
+        # Symplify expects singular "Exception" namespace but PHP/Laravel convention uses "Exceptions" (plural)
+        - identifier: symplify.requireExceptionNamespace
+        # Symplify requires explicit parameter names on all attributes, but Spatie Data
+        # and other libraries use positional arguments: #[MapInputName(SnakeCaseMapper::class)]
+        - identifier: symplify.requireAttributeName
     paths:
         - app/
         - bootstrap/
@@ -114,8 +205,15 @@ parameters:
     tmpDir: storage/framework/phpstan
 
     # Exclude generated/vendor code and tests
+    # Paths marked with (?) are optional - may not exist in all environments (e.g., CI)
     excludePaths:
         - bootstrap/cache/
         - storage/
         - vendor/
         - tests/
+        - node_modules (?)
+        - examples (?)
+        - database/migrations/
+        - .rector-cache (?)
+        - build (?)
+        - coverage-report (?)

@@ -107,8 +107,8 @@ return static function (Config $config): void {
                                'RuntimeException',
                                'InvalidArgumentException',
                                'LogicException',
-                               'Throwable',
                                'Exception',
+                               'Throwable',
                                Assert::class,
                            ],
                        ),
@@ -151,9 +151,10 @@ return static function (Config $config): void {
                                'Closure',
                                'Spatie\LaravelData',
                                'RuntimeException',
-                               'InvalidArgumentException',
                                'LogicException',
+                               'Exception',
                                'Throwable',
+                               'Psr\SimpleCache\CacheException',
                            ],
                        ),
                    )
@@ -193,7 +194,6 @@ return static function (Config $config): void {
                                'RuntimeException',
                                'InvalidArgumentException',
                                'LogicException',
-                               'BadMethodCallException',
                                'Throwable',
                                'JsonException',
                                'Spatie\LaravelData',
@@ -245,11 +245,11 @@ return static function (Config $config): void {
                                'DateTimeInterface',
                                'DateInterval',
                                'DatePeriod',
-                               'Throwable',
                                'RuntimeException',
                                'InvalidArgumentException',
                                'LogicException',
                                'Exception',
+                               'Throwable',
                                'Closure',
                                'Symfony\Component\HttpFoundation',
                                'Symfony\Component\HttpKernel',
@@ -338,6 +338,11 @@ return static function (Config $config): void {
     // WHY: Infrastructure implements contracts, doesn't define them.
     // Public interfaces belong in Domain or Application layers.
     //
+    // EXCEPTION: Internal Infrastructure contracts (marked @internal) for:
+    // - DomainConvertibleInterface: Marks DTOs that can convert to Domain objects
+    // - PaginatableQueryParamsInterface: Marks query params supporting pagination
+    // These are internal implementation patterns, not cross-layer contracts.
+    //
     // VIOLATION EXAMPLE:
     // ❌ namespace App\Infrastructure\Database;
     //    interface OrderRepositoryInterface { }  // Wrong layer!
@@ -351,6 +356,8 @@ return static function (Config $config): void {
     //
     $rules[] = Rule::allClasses()
                    ->that(new HaveNameMatching('*Interface'))
+                   ->andThat(new NotHaveNameMatching('DomainConvertibleInterface'))
+                   ->andThat(new NotHaveNameMatching('PaginatableQueryParamsInterface'))
                    ->should(new NotResideInTheseNamespaces($infrastructure))
                    ->because(
                        'Public interfaces belong in Domain or Application layers. Infrastructure implements contracts defined by higher layers.',
@@ -363,6 +370,9 @@ return static function (Config $config): void {
     // NOTE: Currently only App\Application\Contracts exists. App\Domain\Contracts
     // is ASPIRATIONAL - reserved for future repository interfaces when we add
     // database persistence (e.g., OrderRepositoryInterface, ProductRepositoryInterface).
+    //
+    // EXCEPTION: Internal Infrastructure contracts are allowed in Infrastructure\Contracts
+    // and Infrastructure\*\Contracts for internal implementation patterns.
     //
     // CURRENT:
     // ✅ namespace App\Application\Contracts;
@@ -378,6 +388,8 @@ return static function (Config $config): void {
                        new ResideInOneOfTheseNamespaces(
                            'App\Domain\Contracts',
                            'App\Application\Contracts',
+                           'App\Infrastructure\Contracts',
+                           'App\Infrastructure\*\Contracts',
                        ),
                    )
                    ->because('Interfaces must be organized in Contracts subdirectories for easy discovery.');

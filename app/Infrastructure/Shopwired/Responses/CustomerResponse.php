@@ -6,7 +6,7 @@ namespace App\Infrastructure\Shopwired\Responses;
 
 use App\Domain\Customer\ValueObjects\Customer as DomainCustomer;
 use App\Domain\Customer\ValueObjects\CustomerAddress;
-use App\Infrastructure\Contracts\DomainConvertible;
+use App\Infrastructure\Contracts\DomainConvertibleInterface;
 use Spatie\LaravelData\Attributes\DataCollectionOf;
 use Spatie\LaravelData\Attributes\MapInputName;
 use Spatie\LaravelData\Data;
@@ -21,7 +21,7 @@ use Spatie\LaravelData\Mappers\SnakeCaseMapper;
  * @see https://shopwired.readme.io/reference/listcustomers
  */
 #[MapInputName(SnakeCaseMapper::class)]
-final class CustomerResponse extends Data implements DomainConvertible
+final class CustomerResponse extends Data implements DomainConvertibleInterface
 {
     /**
      * @param list<CustomerWishlistResponse> $wishlists Customer wishlists (embedded, not converted to domain)

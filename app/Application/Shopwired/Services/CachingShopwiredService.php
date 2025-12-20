@@ -8,6 +8,11 @@ use App\Application\Contracts\Shopwired\CategoryClientInterface;
 use App\Application\Support\CacheTimesTrait;
 use App\Application\Support\GracefulCache;
 use App\Domain\Catalog\ValueObjects\Category;
+use App\Domain\Exceptions\AuthenticationExpiredException;
+use App\Domain\Exceptions\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\InvalidApiRequestException;
+use App\Domain\Exceptions\InvalidApiResponseException;
+use App\Domain\Exceptions\ResourceNotFoundException;
 
 /**
  * Caching decorator for ShopWired API operations.
@@ -45,6 +50,12 @@ final readonly class CachingShopwiredService
      * Recommended for complete category tree operations.
      *
      * @return list<Category>
+     *
+     * @throws InvalidApiRequestException When request parameters are invalid (400)
+     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
+     * @throws ResourceNotFoundException When resource not found (404)
+     * @throws ExternalServiceUnavailableException When API unavailable or connection fails
+     * @throws InvalidApiResponseException When response parsing fails (API contract violation)
      */
     public function getAllCategories(): array
     {
@@ -59,6 +70,13 @@ final readonly class CachingShopwiredService
      * List categories with caching (single page).
      *
      * @return list<Category>
+     *
+     * @throws InvalidApiRequestException When request parameters are invalid (400)
+     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
+     * @throws ResourceNotFoundException When resource not found (404)
+     * @throws ExternalServiceUnavailableException When API unavailable or connection fails
+     * @throws InvalidApiResponseException When response parsing fails (API contract violation)
+     *
      * @noinspection PhpUnused
      */
     public function listCategories(): array
@@ -72,6 +90,12 @@ final readonly class CachingShopwiredService
 
     /**
      * Get a single category by ID with caching.
+     *
+     * @throws InvalidApiRequestException When request parameters are invalid (400)
+     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
+     * @throws ResourceNotFoundException When category not found (404)
+     * @throws ExternalServiceUnavailableException When API unavailable or connection fails
+     * @throws InvalidApiResponseException When response parsing fails (API contract violation)
      */
     public function getCategoryById(int $id): Category
     {

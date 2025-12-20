@@ -17,6 +17,7 @@ use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use RuntimeException;
 
 /**
  * HTTP transport layer for HelpScout API.
@@ -68,6 +69,8 @@ final readonly class HelpScoutHttpTransport
      *
      * Uses the SDK's authenticator to get the OAuth2 bearer token,
      * which handles token refresh automatically.
+     *
+     * @throws RuntimeException When SDK fails to provide auth header (token refresh failure)
      */
     private function createRequest(): PendingRequest
     {

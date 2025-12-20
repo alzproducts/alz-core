@@ -20,10 +20,13 @@ use PhpCsFixer\Fixer\ClassNotation\ClassDefinitionFixer;
 use PhpCsFixer\Fixer\ClassNotation\OrderedClassElementsFixer;
 use PhpCsFixer\Fixer\FunctionNotation\FunctionDeclarationFixer;
 use SlevomatCodingStandard\Sniffs\Classes\ClassStructureSniff;
+use SlevomatCodingStandard\Sniffs\Classes\ForbiddenPublicPropertySniff;
+use SlevomatCodingStandard\Sniffs\Classes\SuperfluousAbstractClassNamingSniff;
 use SlevomatCodingStandard\Sniffs\Classes\SuperfluousExceptionNamingSniff;
 use SlevomatCodingStandard\Sniffs\Classes\SuperfluousInterfaceNamingSniff;
 use SlevomatCodingStandard\Sniffs\Classes\SuperfluousTraitNamingSniff;
 use SlevomatCodingStandard\Sniffs\Commenting\DocCommentSpacingSniff;
+use SlevomatCodingStandard\Sniffs\Commenting\InlineDocCommentDeclarationSniff;
 use SlevomatCodingStandard\Sniffs\Commenting\UselessFunctionDocCommentSniff;
 use SlevomatCodingStandard\Sniffs\Functions\FunctionLengthSniff;
 use SlevomatCodingStandard\Sniffs\Namespaces\AlphabeticallySortedUsesSniff;
@@ -32,6 +35,7 @@ use SlevomatCodingStandard\Sniffs\TypeHints\DisallowMixedTypeHintSniff;
 use SlevomatCodingStandard\Sniffs\TypeHints\ParameterTypeHintSniff;
 use SlevomatCodingStandard\Sniffs\TypeHints\PropertyTypeHintSniff;
 use SlevomatCodingStandard\Sniffs\TypeHints\ReturnTypeHintSniff;
+use SlevomatCodingStandard\Sniffs\TypeHints\UselessConstantTypeHintSniff;
 
 return [
 
@@ -82,8 +86,16 @@ return [
     */
 
     'exclude' => [
+        'vendor',
+        'bootstrap/cache',
+        'storage',
+        'node_modules',
+        'examples',
+        'database/migrations',
+        '.rector-cache',
+        'build',
+        'coverage-report',
         'phparkitect.php',  // Config file with intentionally long descriptive strings
-        'examples',         // Legacy code reference (not part of new codebase)
     ],
 
     'add' => [
@@ -96,7 +108,8 @@ return [
         ForbiddenDefineFunctions::class,
         ForbiddenTraits::class,
 
-        // Naming - allow Interface/Exception/Trait suffixes (PHP standard convention)
+        // Naming - allow Interface/Exception/Trait/Abstract prefixes/suffixes (PHP standard convention)
+        SuperfluousAbstractClassNamingSniff::class,
         SuperfluousInterfaceNamingSniff::class,
         SuperfluousExceptionNamingSniff::class,
         SuperfluousTraitNamingSniff::class,
@@ -106,6 +119,10 @@ return [
         ParameterTypeHintSniff::class,
         PropertyTypeHintSniff::class,
         ReturnTypeHintSniff::class,
+        UselessConstantTypeHintSniff::class,    // PHPStan requires these for type inference
+
+        // Doc comments - PHPStan conflicts (requires specific inline formats)
+        InlineDocCommentDeclarationSniff::class,
 
         // Style - let Pint handle ALL style (PSR-12)
         AlphabeticallySortedUsesSniff::class,
@@ -149,14 +166,23 @@ return [
             'exclude' => [
                 // Validation-heavy transformer with unavoidably verbose null checks
                 'app/Infrastructure/GoogleAds/Transformers/GoogleAdsRowTransformer.php',
+                // Job exception handling pattern requires multiple catch blocks
+                'app/Presentation/Jobs',
             ],
         ],
 
         // Framework-required patterns (per-file exclusions)
         ForbiddenSetterSniff::class => [
             'exclude' => [
-                'app/DevTools/GitHooks/BaseProcessHook.php',
-                'app/DevTools/GitHooks/BasePreCommitProcessHook.php',
+                'app/DevTools/GitHooks/AbstractProcessHook.php',
+                'app/DevTools/GitHooks/AbstractPreCommitProcessHook.php',
+            ],
+        ],
+
+        // Laravel Job classes require public $tries, $backoff, $timeout properties (queue contract)
+        ForbiddenPublicPropertySniff::class => [
+            'exclude' => [
+                'app/Presentation/Jobs',
             ],
         ],
 

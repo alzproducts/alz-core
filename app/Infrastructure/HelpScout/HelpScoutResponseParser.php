@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Infrastructure\HelpScout;
 
 use App\Domain\Exceptions\InvalidApiResponseException;
-use App\Infrastructure\Contracts\DomainConvertible;
+use App\Infrastructure\Contracts\DomainConvertibleInterface;
 use Closure;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Log;
@@ -58,7 +58,7 @@ final class HelpScoutResponseParser
      * Uses DomainConvertible interface - DTOs must implement toDomain().
      * Use this when the client interface expects Domain objects.
      *
-     * @template TDto of Data&DomainConvertible
+     * @template TDto of Data&DomainConvertibleInterface
      *
      * @param Response $response HTTP response from transport
      * @param string $key The embedded resource key (e.g., 'mailboxes', 'users')
@@ -77,7 +77,7 @@ final class HelpScoutResponseParser
         $dtos = self::parseEmbeddedCollection($response->json(), $key, $dtoClass);
 
         return \array_values(\array_map(
-            static fn(DomainConvertible $dto): object => $dto->toDomain(),
+            static fn(DomainConvertibleInterface $dto): object => $dto->toDomain(),
             $dtos,
         ));
     }
@@ -87,7 +87,7 @@ final class HelpScoutResponseParser
      *
      * Returns null if no item matches. Use for lookup-by-field operations.
      *
-     * @template TDto of Data&DomainConvertible
+     * @template TDto of Data&DomainConvertibleInterface
      *
      * @param Response $response HTTP response from transport
      * @param string $key The embedded resource key
@@ -108,7 +108,7 @@ final class HelpScoutResponseParser
 
         $found = \array_find($items, $predicate);
 
-        return ($found instanceof DomainConvertible) ? $found->toDomain() : null;
+        return ($found instanceof DomainConvertibleInterface) ? $found->toDomain() : null;
     }
 
     /**
@@ -175,7 +175,7 @@ final class HelpScoutResponseParser
      * @param array<mixed> $data Raw array data from API
      * @param class-string<T> $dtoClass Target DTO class
      *
-     * @return DataCollection<int, T>
+     * @return DataCollection<int|string, T>
      *
      * @throws InvalidApiResponseException When response structure is invalid
      */

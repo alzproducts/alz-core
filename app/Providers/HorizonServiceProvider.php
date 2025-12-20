@@ -7,6 +7,7 @@ namespace App\Providers;
 use Illuminate\Support\Facades\Gate;
 use Laravel\Horizon\HorizonApplicationServiceProvider;
 use Override;
+use RuntimeException;
 
 final class HorizonServiceProvider extends HorizonApplicationServiceProvider
 {
@@ -17,6 +18,8 @@ final class HorizonServiceProvider extends HorizonApplicationServiceProvider
      * Access is controlled via HorizonBasicAuth middleware, so we allow all
      * requests regardless of Laravel authentication status ($user = null).
      * BasicAuth has already verified credentials before this gate is checked.
+     *
+     * @throws RuntimeException When gate registration fails
      */
     #[Override]
     protected function gate(): void

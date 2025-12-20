@@ -7,22 +7,18 @@ declare(strict_types=1);
 namespace App\DevTools\GitHooks;
 
 use Closure;
-use Igorsgm\GitHooks\Contracts\PreCommitHook;
+use Igorsgm\GitHooks\Contracts\PrePushHook;
 use Igorsgm\GitHooks\Exceptions\HookFailException;
-use Igorsgm\GitHooks\Git\ChangedFiles;
+use Igorsgm\GitHooks\Git\Log;
 use Illuminate\Console\Command;
+use Symfony\Component\Process\Exception\RuntimeException as ProcessRuntimeException;
 use Symfony\Component\Process\Process;
 
-abstract class BasePreCommitProcessHook implements PreCommitHook
+abstract class AbstractProcessHook implements PrePushHook
 {
     protected Command $command;
 
-    protected string $name;
-
-    public function getName(): ?string
-    {
-        return $this->name;
-    }
+    abstract public function getName(): string;
 
     protected function getCommand(): Command
     {
@@ -35,11 +31,12 @@ abstract class BasePreCommitProcessHook implements PreCommitHook
     }
 
     /**
-     * @throws HookFailException
+     * @throws HookFailException When the hook command fails
+     * @throws ProcessRuntimeException When process execution fails (command not found, etc.)
      */
-    public function handle(ChangedFiles $files, Closure $next): mixed
+    public function handle(Log $log, Closure $next): mixed
     {
-        $hookName = $this->getName() ?? 'Hook';
+        $hookName = $this->getName();
         $this->command->info("Running {$hookName}...");
 
         $process = new Process($this->getProcessCommand());
@@ -60,7 +57,7 @@ abstract class BasePreCommitProcessHook implements PreCommitHook
 
         $this->command->info('✓ ' . $this->getSuccessMessage());
 
-        return $next($files);
+        return $next($log);
     }
 
     /**

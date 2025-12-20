@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace App\DevTools\GitHooks;
 
-final class PHPInsightsPrePushHook extends BaseProcessHook
+final class PHPInsightsPrePushHook extends AbstractProcessHook
 {
-    protected string $name = 'PHP Insights';
+    public function getName(): string
+    {
+        return 'PHP Insights';
+    }
 
     /**
      * @return list<string>

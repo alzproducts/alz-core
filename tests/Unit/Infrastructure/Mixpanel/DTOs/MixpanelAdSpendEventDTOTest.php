@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Tests\Unit\Domain\AdSpend\ValueObjects;
+namespace Tests\Unit\Infrastructure\Mixpanel\DTOs;
 
 use App\Domain\AdSpend\Enums\AdSource;
 use App\Domain\AdSpend\ValueObjects\CampaignMetrics;

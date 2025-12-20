@@ -5,7 +5,11 @@ declare(strict_types=1);
 namespace App\Infrastructure\ReviewsIo;
 
 use App\Application\Contracts\ReviewsIoClientInterface;
+use App\Domain\Exceptions\AuthenticationExpiredException;
+use App\Domain\Exceptions\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\InvalidApiRequestException;
 use App\Domain\Exceptions\InvalidApiResponseException;
+use App\Domain\Exceptions\ResourceNotFoundException;
 use App\Domain\Product\ValueObjects\ProductRating;
 use App\Infrastructure\ReviewsIo\Responses\RatingResponse;
 use App\Infrastructure\ReviewsIo\Validation\ValidSku;
@@ -13,6 +17,8 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
+use LogicException;
+use RuntimeException;
 use Spatie\LaravelData\Data;
 use Spatie\LaravelData\DataCollection;
 use Spatie\LaravelData\Exceptions\CannotCreateData;
@@ -54,6 +60,11 @@ final readonly class ReviewsIoClient implements ReviewsIoClientInterface
      * Makes a minimal batch request with a placeholder SKU to verify
      * credentials work. The API will return an empty array for unknown SKUs,
      * which is fine - we only care that auth succeeds.
+     *
+     * @throws AuthenticationExpiredException When credentials invalid/expired
+     * @throws ExternalServiceUnavailableException When API unavailable or rate limited
+     * @throws InvalidApiRequestException When request parameters are invalid
+     * @throws ResourceNotFoundException When endpoint not found (404)
      */
     public function verifyConnectivity(): void
     {
@@ -76,6 +87,13 @@ final readonly class ReviewsIoClient implements ReviewsIoClientInterface
      * @param string|array<string> $skus Single SKU or array of SKUs (max 100)
      *
      * @return list<ProductRating> Array of rating data
+     *
+     * @throws AuthenticationExpiredException When credentials invalid/expired
+     * @throws ExternalServiceUnavailableException When API unavailable or rate limited
+     * @throws InvalidApiRequestException When request parameters are invalid
+     * @throws InvalidApiResponseException When response structure is invalid
+     * @throws ResourceNotFoundException When endpoint not found (404)
+     * @throws RuntimeException When validator cananot be resolved (container misconfiguration)
      */
     public function getProductRatingBatch(array|string $skus): array
     {
@@ -96,24 +114,29 @@ final readonly class ReviewsIoClient implements ReviewsIoClientInterface
     /**
      * Validate input data and wrap validation failures.
      * Executes Laravel validation and translates ValidationException
-     * to InvalidArgumentException with consistent error formatting.
+     * to InvalidApiRequestException with consistent error formatting.
      *
      * @param array<string, mixed> $data Data to validate
      * @param array<string, array<mixed>> $rules Laravel validation rules
      * @param string $inputDescription Human-readable description for error messages
      *
      * @return array<string, mixed> Validated data
-     * @throws InvalidArgumentException When validation fails
-     * @noinspection PhpSameParameterValueInspection*/
+     *
+     * @throws InvalidApiRequestException When validation fails (pre-flight API request validation)
+     * @throws RuntimeException When validator cannot be resolved (container misconfiguration)
+     *
+     * @noinspection PhpSameParameterValueInspection
+     */
     private function validateInput(array $data, array $rules, string $inputDescription): array
     {
         try {
             /** @var array<string, mixed> */
             return Validator::make($data, $rules)->validate();
         } catch (ValidationException $e) {
-            throw new InvalidArgumentException(
+            throw new InvalidApiRequestException(
+                self::SERVICE_NAME,
                 "Invalid {$inputDescription} provided: " . \implode(', ', \array_keys($e->errors())),
-                previous: $e,
+                $e,
             );
         }
     }
@@ -128,7 +151,8 @@ final readonly class ReviewsIoClient implements ReviewsIoClientInterface
      *
      * @return array<string> Validated SKU array
      *
-     * @throws InvalidArgumentException When SKUs are invalid
+     * @throws InvalidApiRequestException When SKUs are invalid
+     * @throws RuntimeException When validator cannot be resolved (container misconfiguration)
      */
     private function validateSkus(array|string $skus): array
     {
@@ -143,6 +167,11 @@ final readonly class ReviewsIoClient implements ReviewsIoClientInterface
             'SKU(s)',
         );
 
+        // After validation passes, 'skus' is guaranteed to exist (required rule)
+        if (!\array_key_exists('skus', $validated)) {
+            throw new LogicException('Validated data must contain skus key');
+        }
+
         /** @var array<string> */
         return $validated['skus'];
     }
@@ -153,7 +182,7 @@ final readonly class ReviewsIoClient implements ReviewsIoClientInterface
      *
      * @param class-string<T> $dtoClass
      *
-     * @return DataCollection<int, T>
+     * @return DataCollection<int|string, T>
      * @throws InvalidApiResponseException When response structure is invalid
      * @noinspection PhpSameParameterValueInspection*/
     private function parseArrayResponse(mixed $data, string $dtoClass): DataCollection

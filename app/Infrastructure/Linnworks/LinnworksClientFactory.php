@@ -6,11 +6,10 @@ namespace App\Infrastructure\Linnworks;
 
 use App\Application\Contracts\Linnworks\ConnectivityClientInterface;
 use App\Application\Contracts\Linnworks\InventoryClientInterface;
+use App\Domain\Exceptions\InvalidConfigurationException;
 use App\Infrastructure\Linnworks\Clients\ConnectivityClient;
 use App\Infrastructure\Linnworks\Clients\InventoryClient;
-use Illuminate\Cache\CacheManager;
 use Illuminate\Support\Facades\Config;
-use RuntimeException;
 
 /**
  * Factory for creating Linnworks API clients.
@@ -66,13 +65,12 @@ final class LinnworksClientFactory
 
     /**
      * Get the shared session manager (lazy singleton).
+     *
+     * Resolves from container to get contextual LockableCacheInterface binding.
      */
     private static function getSessionManager(): LinnworksSessionManager
     {
-        return self::$sessionManager ??= new LinnworksSessionManager(
-            self::getConfig(),
-            \app(CacheManager::class),
-        );
+        return self::$sessionManager ??= \app(LinnworksSessionManager::class);
     }
 
     /**
@@ -93,15 +91,15 @@ final class LinnworksClientFactory
         $installationToken = \config('linnworks.installation_token');
 
         if (!\is_string($applicationId) || ($applicationId === '')) {
-            throw new RuntimeException('LINNWORKS_APPLICATION_ID not configured');
+            throw new InvalidConfigurationException('LINNWORKS_APPLICATION_ID');
         }
 
         if (!\is_string($applicationSecret) || ($applicationSecret === '')) {
-            throw new RuntimeException('LINNWORKS_APPLICATION_SECRET not configured');
+            throw new InvalidConfigurationException('LINNWORKS_APPLICATION_SECRET');
         }
 
         if (!\is_string($installationToken) || ($installationToken === '')) {
-            throw new RuntimeException('LINNWORKS_INSTALLATION_TOKEN not configured');
+            throw new InvalidConfigurationException('LINNWORKS_INSTALLATION_TOKEN');
         }
 
         return new LinnworksConfig(

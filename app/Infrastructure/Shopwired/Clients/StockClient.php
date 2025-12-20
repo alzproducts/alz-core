@@ -5,12 +5,18 @@ declare(strict_types=1);
 namespace App\Infrastructure\Shopwired\Clients;
 
 use App\Application\Contracts\Shopwired\StockClientInterface;
+use App\Domain\Exceptions\AuthenticationExpiredException;
+use App\Domain\Exceptions\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\InvalidApiRequestException;
+use App\Domain\Exceptions\InvalidApiResponseException;
+use App\Domain\Exceptions\ResourceNotFoundException;
 use App\Domain\Exceptions\StockUpdateFailedException;
 use App\Domain\Inventory\ValueObjects\ItemStockLevel;
 use App\Infrastructure\Shopwired\ShopwiredHttpTransport;
 use App\Infrastructure\Shopwired\ShopwiredRequestBuilderTrait;
 use App\Infrastructure\Shopwired\ShopwiredResponseParserTrait;
 use Illuminate\Http\Client\Response;
+use RuntimeException;
 
 /**
  * ShopWired Stock API Client.
@@ -43,6 +49,14 @@ final readonly class StockClient implements StockClientInterface
 
     /**
      * @param list<ItemStockLevel> $items
+     *
+     * @throws InvalidApiRequestException When request parameters are invalid (400)
+     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
+     * @throws ResourceNotFoundException When resource not found (404)
+     * @throws ExternalServiceUnavailableException When API unavailable or connection fails
+     * @throws InvalidApiResponseException When response parsing fails (API contract violation)
+     * @throws StockUpdateFailedException When updated count doesn't match expected
+     * @throws RuntimeException When HTTP pool initialization fails (Laravel/Guzzle internals)
      */
     public function updateStockQuantity(array $items): void
     {
@@ -82,6 +96,7 @@ final readonly class StockClient implements StockClientInterface
      * @param array<string, Response> $responses
      * @param list<ItemStockLevel> $items Original items sent for update (for diagnostics)
      *
+     * @throws InvalidApiResponseException When response parsing fails (API contract violation)
      * @throws StockUpdateFailedException When updated count doesn't match expected
      */
     private function validateResponses(array $responses, array $items): void

@@ -6,8 +6,12 @@ namespace App\Application\Contracts\Shopwired;
 
 use App\Domain\Exceptions\AuthenticationExpiredException;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\InvalidApiRequestException;
+use App\Domain\Exceptions\InvalidApiResponseException;
+use App\Domain\Exceptions\ResourceNotFoundException;
 use App\Domain\Exceptions\StockUpdateFailedException;
 use App\Domain\Inventory\ValueObjects\ItemStockLevel;
+use RuntimeException;
 
 /**
  * ShopWired Stock API client.
@@ -31,9 +35,13 @@ interface StockClientInterface
      *
      * @param list<ItemStockLevel> $items Items to update (empty = no-op)
      *
+     * @throws InvalidApiRequestException When request parameters are invalid (400)
+     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
+     * @throws ResourceNotFoundException When resource not found (404)
+     * @throws ExternalServiceUnavailableException When API unavailable or connection fails
+     * @throws InvalidApiResponseException When response parsing fails (API contract violation)
      * @throws StockUpdateFailedException When updated count doesn't match expected
-     * @throws AuthenticationExpiredException When credentials are invalid
-     * @throws ExternalServiceUnavailableException When API unavailable
+     * @throws RuntimeException When HTTP pool initialization fails (Laravel/Guzzle internals)
      */
     public function updateStockQuantity(array $items): void;
 }
