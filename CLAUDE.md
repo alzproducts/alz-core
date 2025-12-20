@@ -17,6 +17,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ---
 
+## ⚠️ Important: Use Make Commands
+
+**ALWAYS use Makefile commands instead of direct tool invocations.**
+
+- ✅ `make test` — Pre-approved, runs without user intervention
+- ❌ `php vendor/bin/pest` — Requires manual user approval every time
+
+**Rationale**: Make commands are whitelisted in the allow-list. Direct commands require user approval, slowing down workflow.
+
+**Run `make help`** to see all available targets.
+
+---
+
 ## Documentation Philosophy
 
 **Keep this file succinct.** Use minimal format to convey maximum information:
