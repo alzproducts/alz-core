@@ -8,7 +8,6 @@ use App\Application\Contracts\Linnworks\ConnectivityClientInterface;
 use App\Application\Contracts\Linnworks\InventoryClientInterface;
 use App\Infrastructure\Linnworks\LinnworksClientFactory;
 use Illuminate\Contracts\Support\DeferrableProvider;
-use Illuminate\Support\Facades\Config;
 use Illuminate\Support\ServiceProvider;
 use Override;
 

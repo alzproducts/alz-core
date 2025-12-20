@@ -54,7 +54,7 @@ final class CsvFormatter
             $value = \str_replace('"', '""', $value);
 
             // Wrap in quotes
-            return "\"$value\"";
+            return "\"{$value}\"";
         }
 
         return $value;

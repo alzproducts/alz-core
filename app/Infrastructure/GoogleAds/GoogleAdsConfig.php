@@ -27,7 +27,6 @@ final readonly class GoogleAdsConfig
      * @param string $developerToken Google Ads API developer token
      * @param string $customerId Google Ads customer ID (without hyphens)
      * @param string|null $loginCustomerId Manager account ID for delegated access (MCC)
-     *
      */
     public function __construct(
         public string $clientId,

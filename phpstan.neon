@@ -194,9 +194,6 @@ parameters:
         # Symplify requires explicit parameter names on all attributes, but Spatie Data
         # and other libraries use positional arguments: #[MapInputName(SnakeCaseMapper::class)]
         - identifier: symplify.requireAttributeName
-        # Static constant access like self::SUCCESS, Model::class, Command::FAILURE is idiomatic PHP.
-        # Symplify's concern about "constants changing" doesn't apply to class constants.
-        - identifier: symplify.forbiddenStaticClassConstFetch
     paths:
         - app/
         - bootstrap/

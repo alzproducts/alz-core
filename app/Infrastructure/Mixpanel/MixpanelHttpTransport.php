@@ -158,7 +158,7 @@ final readonly class MixpanelHttpTransport
 
         return new AuthenticationExpiredException(
             self::SERVICE_NAME,
-            ($status === 401) ? 'Invalid credentials' : 'Insufficient permissions',
+            $status === 401 ? 'Invalid credentials' : 'Insufficient permissions',
             $e,
         );
     }
