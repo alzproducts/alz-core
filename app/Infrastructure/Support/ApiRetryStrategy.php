@@ -30,7 +30,6 @@ final class ApiRetryStrategy
      * - Client errors (4xx) except 429
      * - Invalid requests (401, 403, 404, etc.)
      * - Authentication failures (401)
-     *
      */
     public static function defaultRetry(): Closure
     {

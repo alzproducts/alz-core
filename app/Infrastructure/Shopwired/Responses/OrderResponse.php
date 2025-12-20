@@ -150,7 +150,7 @@ final class OrderResponse extends Data implements DomainConvertibleInterface
                 static fn(OrderDiscountResponse $d): OrderDiscount => $d->toDomain(),
                 $this->discounts,
             ),
-            products: ($this->products !== null)
+            products: $this->products !== null
                 ? \array_map(
                     static fn(OrderProductResponse $p): OrderProduct => $p->toDomain(),
                     $this->products,

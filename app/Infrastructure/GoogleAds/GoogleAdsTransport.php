@@ -81,7 +81,6 @@ final readonly class GoogleAdsTransport
      * Route API failures to specific handlers by gRPC code.
      * Follows the same pattern as ShopwiredHttpTransport::handleRequestException()
      * but uses gRPC codes instead of HTTP status codes.
-     *
      */
     private function handleApiException(ApiException $e): AuthenticationExpiredException|ExternalServiceUnavailableException
     {
@@ -109,7 +108,6 @@ final readonly class GoogleAdsTransport
 
     /**
      * Handle PERMISSION_DENIED/UNAUTHENTICATED - permanent, needs config fix.
-     *
      */
     private function handleAuthenticationFailure(ApiException $e): AuthenticationExpiredException
     {

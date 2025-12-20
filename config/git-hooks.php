@@ -2,8 +2,6 @@
 
 declare(strict_types=1);
 
-use App\DevTools\GitHooks\InfectionPrePushHook;
-use App\DevTools\GitHooks\PestMutatePrePushHook;
 use App\DevTools\GitHooks\PestPrePushHook;
 use App\DevTools\GitHooks\PHPArkitectPreCommitHook;
 use App\DevTools\GitHooks\PHPArkitectPrePushHook;
@@ -41,8 +39,6 @@ return [
         PHPInsightsPrePushHook::class,
         PHPArkitectPrePushHook::class,
         TLintPrePushHook::class,
-        // PestMutatePrePushHook::class,  // Moved to CI - runs in parallel
-        // InfectionPrePushHook::class,   // Moved to CI - runs in parallel
     ],
 
     /*

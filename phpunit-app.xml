@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Application Layer Coverage Config | Scope: app/Application (70%+ target) -->
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+         bootstrap="vendor/autoload.php"
+         colors="true"
+         failOnDeprecation="true"
+         failOnPhpunitDeprecation="false"
+         failOnNotice="true"
+         failOnWarning="true"
+>
+    <testsuites>
+        <testsuite name="Application">
+            <directory>tests/Unit/Application</directory>
+            <directory>tests/Feature/Application</directory>
+        </testsuite>
+    </testsuites>
+    <coverage>
+        <report>
+            <clover outputFile="build/logs/clover-app.xml"/>
+        </report>
+    </coverage>
+    <source ignoreIndirectDeprecations="true">
+        <include>
+            <directory>app/Application</directory>
+        </include>
+        <exclude>
+            <directory suffix="ServiceProvider.php">./app/Application</directory>
+            <directory suffix="Exception.php">./app/Application</directory>
+            <directory suffix="Factory.php">./app/Application</directory>
+        </exclude>
+    </source>
+    <php>
+        <env name="APP_ENV" value="testing"/>
+        <env name="APP_MAINTENANCE_DRIVER" value="file"/>
+        <env name="BCRYPT_ROUNDS" value="4"/>
+        <env name="CACHE_STORE" value="array"/>
+        <env name="MAIL_MAILER" value="array"/>
+        <env name="QUEUE_CONNECTION" value="sync"/>
+        <env name="SESSION_DRIVER" value="array"/>
+        <env name="PULSE_ENABLED" value="false"/>
+        <env name="TELESCOPE_ENABLED" value="false"/>
+        <env name="NIGHTWATCH_ENABLED" value="false"/>
+    </php>
+    <extensions>
+        <bootstrap class="DG\BypassFinals\PHPUnitExtension"/>
+    </extensions>
+</phpunit>

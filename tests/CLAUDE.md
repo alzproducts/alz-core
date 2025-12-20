@@ -2,6 +2,8 @@
 
 This file provides testing guidance for this Laravel project.
 
+**For layer-specific testing policies, see `tests/TestingStrategy.md`.**
+
 ## MUTATION TESTING: AI Test Quality Validation
 
 **Primary Purpose**: Catch weak assertions in AI-generated tests.
@@ -120,6 +122,8 @@ make infection-ci           # CI mode with GitHub logger
 
 ## Code Coverage Strategy
 
+**For layer-specific policies, see `tests/TestingStrategy.md`.**
+
 **Test**: Runtime business logic, error paths, transformations, API interactions
 **Exclude**: Boot-time validation, framework boilerplate, deployment config
 
@@ -127,7 +131,20 @@ make infection-ci           # CI mode with GitHub logger
 - `*Factory.php` - Boot-time config validation (fail-fast at startup)
 - `*ServiceProvider.php`, `*Exception.php` - Framework boilerplate
 
-**Target**: 75% minimum (excludes infrastructure concerns)
+**Layer-Specific Targets**:
+- Domain: 90%+ coverage, 85%+ MSI
+- Application Services/Transformers: 70%+ coverage, 70%+ MSI
+- Infrastructure/Presentation: No mutation testing (low ROI)
+
+**Commands**:
+```bash
+make test-domain-coverage   # Domain with 90% threshold
+make test-app-coverage      # Application with 70% threshold
+make mutate-domain          # Domain mutation testing (90%+) - uses Pest mutate
+make mutate-app             # Application mutation testing (70%+) - uses Pest mutate
+```
+
+**Note**: Both layers use Pest mutate. Infection 0.31.9 is incompatible with PHPUnit 12.5.x (GitHub issue #2698). We'll revisit when Infection is fixed.
 
 ---
 

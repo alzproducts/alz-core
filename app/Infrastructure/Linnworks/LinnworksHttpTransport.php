@@ -88,7 +88,7 @@ final readonly class LinnworksHttpTransport
     {
         // Linnworks API expects form-encoded POST with 'request' containing JSON
         try {
-            $formData = ($data === []) ? [] : ['request' => \json_encode($data, \JSON_THROW_ON_ERROR)];
+            $formData = $data === [] ? [] : ['request' => \json_encode($data, \JSON_THROW_ON_ERROR)];
         } catch (JsonException $e) {
             // Programming error: caller passed unserializable data
             Log::error(self::SERVICE_NAME . ' failed to serialize request data', [
@@ -244,7 +244,7 @@ final readonly class LinnworksHttpTransport
 
         return new AuthenticationExpiredException(
             self::SERVICE_NAME,
-            ($status === 401) ? 'Invalid credentials' : 'Insufficient permissions',
+            $status === 401 ? 'Invalid credentials' : 'Insufficient permissions',
             $e,
         );
     }

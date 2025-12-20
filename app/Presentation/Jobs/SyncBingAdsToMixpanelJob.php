@@ -129,7 +129,7 @@ final class SyncBingAdsToMixpanelJob implements ShouldQueue
             // Unexpected exception = code needs updating
             // Fail immediately - don't waste retries on unknown errors
             Log::critical('Unexpected exception in Bing Ads sync - code update required', [
-                'job' => static::class,
+                'job' => self::class,
                 'exception' => $e::class,
                 'message' => $e->getMessage(),
                 'from' => $fromString,
