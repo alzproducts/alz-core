@@ -26,6 +26,7 @@ use SlevomatCodingStandard\Sniffs\Classes\SuperfluousExceptionNamingSniff;
 use SlevomatCodingStandard\Sniffs\Classes\SuperfluousInterfaceNamingSniff;
 use SlevomatCodingStandard\Sniffs\Classes\SuperfluousTraitNamingSniff;
 use SlevomatCodingStandard\Sniffs\Commenting\DocCommentSpacingSniff;
+use SlevomatCodingStandard\Sniffs\Commenting\InlineDocCommentDeclarationSniff;
 use SlevomatCodingStandard\Sniffs\Commenting\UselessFunctionDocCommentSniff;
 use SlevomatCodingStandard\Sniffs\Functions\FunctionLengthSniff;
 use SlevomatCodingStandard\Sniffs\Namespaces\AlphabeticallySortedUsesSniff;
@@ -34,6 +35,7 @@ use SlevomatCodingStandard\Sniffs\TypeHints\DisallowMixedTypeHintSniff;
 use SlevomatCodingStandard\Sniffs\TypeHints\ParameterTypeHintSniff;
 use SlevomatCodingStandard\Sniffs\TypeHints\PropertyTypeHintSniff;
 use SlevomatCodingStandard\Sniffs\TypeHints\ReturnTypeHintSniff;
+use SlevomatCodingStandard\Sniffs\TypeHints\UselessConstantTypeHintSniff;
 
 return [
 
@@ -117,6 +119,10 @@ return [
         ParameterTypeHintSniff::class,
         PropertyTypeHintSniff::class,
         ReturnTypeHintSniff::class,
+        UselessConstantTypeHintSniff::class,    // PHPStan requires these for type inference
+
+        // Doc comments - PHPStan conflicts (requires specific inline formats)
+        InlineDocCommentDeclarationSniff::class,
 
         // Style - let Pint handle ALL style (PSR-12)
         AlphabeticallySortedUsesSniff::class,
@@ -160,6 +166,8 @@ return [
             'exclude' => [
                 // Validation-heavy transformer with unavoidably verbose null checks
                 'app/Infrastructure/GoogleAds/Transformers/GoogleAdsRowTransformer.php',
+                // Job exception handling pattern requires multiple catch blocks
+                'app/Presentation/Jobs',
             ],
         ],
 
@@ -174,7 +182,7 @@ return [
         // Laravel Job classes require public $tries, $backoff, $timeout properties (queue contract)
         ForbiddenPublicPropertySniff::class => [
             'exclude' => [
-                'app/Presentation/Jobs/*',
+                'app/Presentation/Jobs',
             ],
         ],
 

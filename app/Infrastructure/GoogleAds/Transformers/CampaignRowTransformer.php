@@ -16,7 +16,6 @@ use Google\Ads\GoogleAds\V22\Services\GoogleAdsRow;
  * 1. All null/missing fields are caught BEFORE domain layer
  * 2. Data validation is production-safe (uses exceptions, not assertions)
  * 3. Campaign metadata is extracted and validated
- *
  */
 final class CampaignRowTransformer
 {
