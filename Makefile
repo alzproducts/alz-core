@@ -1,4 +1,4 @@
-.PHONY: help install up down shell db-setup migrate fresh pint pint-test test test-quick test-coverage coverage-html pest-mutate test-ai test-mutate lint lint-sequential lint-full fix analyse insights phparkitect deptrac tlint tlint-full psalm psalm-ci psalm-baseline stan rector rector-dry-run refactor check check-full infection infection-fast infection-strict infection-incremental infection-ci ide-helper test-domain test-domain-coverage test-app test-app-coverage infection-domain mutate-app
+.PHONY: help install up down shell db-setup migrate fresh pint pint-test test test-quick test-coverage coverage-html pest-mutate test-ai test-mutate lint lint-sequential lint-full fix analyse insights phparkitect deptrac tlint tlint-full psalm psalm-ci psalm-baseline stan rector rector-dry-run refactor check check-full infection infection-fast infection-strict infection-incremental infection-ci ide-helper test-domain test-domain-coverage test-app test-app-coverage mutate-domain mutate-app
 
 # Enable strict shell mode for robust error handling
 SHELL := bash
@@ -303,11 +303,16 @@ infection-ci: ## Run Infection for CI with GitHub logger
 	$(EXEC) -d xdebug.mode=off vendor/bin/infection --no-progress --logger-github --min-msi=80 --min-covered-msi=85 --test-framework-options="--testsuite=Unit"
 
 # Layer-specific mutation testing (see tests/TestingStrategy.md)
-infection-domain: ## Run Infection on Domain layer only (85%+ MSI)
+# NOTE: Infection 0.31.9 is broken with PHPUnit 12.5.x (GitHub issue #2698)
+# Using Pest mutate for both layers until Infection is fixed.
+
+mutate-domain: ## Run Pest mutation testing on Domain layer (90%+ min score)
 	@echo "$(MODE)"
-	$(EXEC) -d xdebug.mode=off vendor/bin/infection \
-		--filter=app/Domain --min-msi=85 --min-covered-msi=90 \
-		--no-progress --show-mutations --test-framework-options="--testsuite=Domain"
+	$(EXEC) -d xdebug.mode=off vendor/bin/pest --mutate \
+		--path=app/Domain \
+		--ignore=app/Domain/Exceptions \
+		--everything --min=90 --parallel --processes=9 \
+		--testsuite=Domain --ignore-min-score-on-zero-mutations
 
 mutate-app: ## Run Pest mutation testing on Application layer (70%+ min score)
 	@echo "$(MODE)"

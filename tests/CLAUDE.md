@@ -140,13 +140,11 @@ make infection-ci           # CI mode with GitHub logger
 ```bash
 make test-domain-coverage   # Domain with 90% threshold
 make test-app-coverage      # Application with 70% threshold
-make infection-domain       # Domain mutation testing (85%+ MSI) - uses Infection
+make mutate-domain          # Domain mutation testing (90%+) - uses Pest mutate
 make mutate-app             # Application mutation testing (70%+) - uses Pest mutate
 ```
 
-**Why different engines per layer?**
-- **Domain (Infection)**: File-path filtering works well for flat structure; more mature mutators
-- **Application (Pest mutate)**: Path-based filtering (`--path=app/Application`) handles nested feature directories naturally; `--class` filter is bypassed when `--everything` is used
+**Note**: Both layers use Pest mutate. Infection 0.31.9 is incompatible with PHPUnit 12.5.x (GitHub issue #2698). We'll revisit when Infection is fixed.
 
 ---
 

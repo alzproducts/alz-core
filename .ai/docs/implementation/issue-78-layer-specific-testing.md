@@ -21,6 +21,7 @@ The codebase currently has uniform 80% coverage across all layers. Clean Archite
 | Delete unused hook classes | Dead code cleanup - git history preserves |
 | Separate PHPUnit configs per layer | `--coverage-filter` is additive to `<source>`, cannot narrow scope |
 | Move misplaced test to Infrastructure | `MixpanelAdSpendEventDTOTest` was in Domain but tests Infrastructure class |
+| Switch Domain mutation to Pest mutate | Infection 0.31.9 broken with PHPUnit 12.5.x (GitHub #2698) |
 
 ## Files Modified
 
@@ -54,10 +55,11 @@ The codebase currently has uniform 80% coverage across all layers. Clean Archite
 - [x] `make test-app` runs Application tests (210 tests, 1.95s)
 - [x] `make test-domain-coverage` enforces 90% threshold — **100.0%** ✓
 - [x] `make test-app-coverage` enforces 70% threshold — **99.2%** ✓
-- [ ] `make infection-domain` runs with 85% MSI threshold (run via stop hooks)
-- [ ] `make infection-app` runs with 70% MSI threshold (run via stop hooks)
-- [ ] CI workflow YAML is valid (verified by stop hooks)
-- [ ] `make lint` passes (verified by stop hooks)
+- [x] `make mutate-domain` runs with 90% MSI threshold — **99.43%** ✓
+- [x] `make mutate-app` runs with 70% MSI threshold ✓
+- [x] CI workflow YAML is valid ✓
+- [x] `make lint` passes ✓
+- [x] `make test` passes (1941 tests) ✓
 
 ## PR Notes
 
@@ -73,7 +75,7 @@ Implement layer-specific testing policies per `tests/TestingStrategy.md`:
 - Add `Domain` and `Application` PHPUnit test suites
 - Create `phpunit-domain.xml` and `phpunit-app.xml` for layer-scoped coverage
 - Narrow Infection scope to Domain + App/Services + App/Transformers
-- Add Makefile targets: `test-domain`, `test-domain-coverage`, `test-app`, `test-app-coverage`, `infection-domain`, `infection-app`
+- Add Makefile targets: `test-domain`, `test-domain-coverage`, `test-app`, `test-app-coverage`, `mutate-domain`, `mutate-app`
 - Update CI with parallel layer-specific mutation jobs
 - Add Codecov component-level reporting
 - Dead code cleanup: remove unused mutation hook classes
@@ -81,9 +83,10 @@ Implement layer-specific testing policies per `tests/TestingStrategy.md`:
 
 ### Test Plan
 
-- [ ] Run `make test-domain-coverage` locally
-- [ ] Run `make test-app-coverage` locally
-- [ ] Run `make infection-domain` locally
+- [x] Run `make test-domain-coverage` locally — **100.0%** ✓
+- [x] Run `make test-app-coverage` locally — **99.2%** ✓
+- [x] Run `make mutate-domain` locally — **99.43%** ✓
+- [x] Run `make mutate-app` locally — passed ✓
 - [ ] Verify CI runs both mutation jobs on PR
 
 ---

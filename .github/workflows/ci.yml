@@ -327,9 +327,9 @@ jobs:
   # Only runs on PRs to develop - direct pushes skip mutation testing for quick fixes
   # Jobs run in parallel for faster feedback
 
-  # Domain Layer: 85%+ MSI (strict) - pure business logic, highest value
+  # Domain Layer: 90%+ MSI (strict) - pure business logic, highest value
   mutation-domain:
-    name: Mutation Testing (Domain - 85%+ MSI)
+    name: Mutation Testing (Domain - 90%+ MSI)
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     if: github.base_ref == 'develop'
@@ -369,8 +369,8 @@ jobs:
           php artisan key:generate
           chmod -R 775 storage bootstrap/cache
 
-      - name: Run Infection on Domain Layer
-        run: make infection-domain
+      - name: Run Pest Mutate on Domain Layer
+        run: make mutate-domain
 
   # Application Layer: 70%+ mutation score - Uses Pest mutate (namespace-based filtering)
   mutation-application:
