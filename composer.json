@@ -111,7 +111,6 @@
         "stan": "@analyse",
         "check": "make check",
         "test": "make test",
-        "test:unit": "make test-unit",
         "test:feature": "make test-feature",
         "test:coverage": "make test-coverage",
         "test:domain": "make test-domain",
