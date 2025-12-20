@@ -323,12 +323,15 @@ jobs:
       - name: Run Psalm taint analysis
         run: make psalm-ci
 
-  # Mutation Testing: Pest Mutate (5-15 minutes)
+  # Layer-Specific Mutation Testing (see tests/TestingStrategy.md)
   # Only runs on PRs to develop - direct pushes skip mutation testing for quick fixes
-  mutation-pest:
-    name: Pest Mutation Testing
+  # Jobs run in parallel for faster feedback
+
+  # Domain Layer: 90%+ MSI (strict) - pure business logic, highest value
+  mutation-domain:
+    name: Mutation Testing (Domain - 90%+ MSI)
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 20
     if: github.base_ref == 'develop'
 
     steps:
@@ -366,15 +369,14 @@ jobs:
           php artisan key:generate
           chmod -R 775 storage bootstrap/cache
 
-      - name: Run Pest Mutation Testing
-        run: php -d xdebug.mode=off vendor/bin/pest --mutate --everything --covered-only --min=85 --parallel --processes=2 tests/Unit
+      - name: Run Pest Mutate on Domain Layer
+        run: make mutate-domain
 
-  # Mutation Testing: Infection (5-15 minutes)
-  # Only runs on PRs to develop - direct pushes skip mutation testing for quick fixes
-  mutation-infection:
-    name: Infection Mutation Testing
+  # Application Layer: 70%+ mutation score - Uses Pest mutate (namespace-based filtering)
+  mutation-application:
+    name: Mutation Testing (Application - 70%+ Pest)
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 20
     if: github.base_ref == 'develop'
 
     steps:
@@ -412,6 +414,6 @@ jobs:
           php artisan key:generate
           chmod -R 775 storage bootstrap/cache
 
-      - name: Run Infection Mutation Testing
-        run: php -d xdebug.mode=off vendor/bin/infection --no-progress --logger-github --min-msi=80 --min-covered-msi=85 --threads=2 --test-framework-options="--testsuite=Unit"
+      - name: Run Pest mutation testing on Application Layer
+        run: make mutate-app
 

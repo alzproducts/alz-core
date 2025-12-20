@@ -17,6 +17,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ---
 
+## ⚠️ Important: Use Make Commands
+
+**ALWAYS use Makefile commands instead of direct tool invocations.**
+
+- ✅ `make test` — Pre-approved, runs without user intervention
+- ❌ `php vendor/bin/pest` — Requires manual user approval every time
+
+**Rationale**: Make commands are whitelisted in the allow-list. Direct commands require user approval, slowing down workflow.
+
+**Run `make help`** to see all available targets.
+
+---
+
 ## Documentation Philosophy
 
 **Keep this file succinct.** Use minimal format to convey maximum information:
@@ -356,6 +369,23 @@ vendor/bin/infection --filter=YourClass.php --min-msi=80
 vendor/bin/pest --mutate --class=App\\Domain\\YourClass --min=85
 ```
 Fix escaped mutants until both pass.
+
+### Testing Strategy by Layer
+
+**Reference**: See `tests/TestingStrategy.md` for full guidance.
+
+| Layer | Coverage | Mutation | Test Type |
+|-------|----------|----------|-----------|
+| Domain | 90%+ | MSI 85%+ | Unit (no mocks) |
+| Application | 70%+ | Services only (70%+) | Unit + Integration |
+| Infrastructure | — | — | Integration only |
+| Presentation | — | — | Feature/smoke |
+
+**Commands**:
+- `make test-domain-coverage` — Domain with 90% threshold
+- `make test-app-coverage` — Application with 70% threshold
+- `make mutate-domain` — Domain mutation testing (90%+, uses Pest mutate)
+- `make mutate-app` — Application mutation testing (70%+, uses Pest mutate)
 
 ### ⚠️ IMPORTANT: Bypassing Linters
 
