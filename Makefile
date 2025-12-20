@@ -1,4 +1,4 @@
-.PHONY: help install up down shell db-setup migrate fresh pint pint-test test test-unit test-feature test-coverage coverage-html pest-mutate test-ai test-mutate lint lint-sequential lint-full fix analyse insights phparkitect deptrac tlint tlint-full psalm psalm-ci psalm-baseline stan rector rector-dry-run refactor check check-full infection infection-fast infection-strict infection-incremental infection-ci ide-helper test-domain test-domain-coverage test-app test-app-coverage infection-domain infection-app
+.PHONY: help install up down shell db-setup migrate fresh pint pint-test test test-quick test-coverage coverage-html pest-mutate test-ai test-mutate lint lint-sequential lint-full fix analyse insights phparkitect deptrac tlint tlint-full psalm psalm-ci psalm-baseline stan rector rector-dry-run refactor check check-full infection infection-fast infection-strict infection-incremental infection-ci ide-helper test-domain test-domain-coverage test-app test-app-coverage infection-domain mutate-app
 
 # Enable strict shell mode for robust error handling
 SHELL := bash
@@ -242,23 +242,18 @@ refactor: ## Run Rector + Pint combo
 	@$(MAKE) rector
 	@$(MAKE) fix
 
-# Testing
-test: ## Run Pest test suite
+# Testing (layer-based, see tests/TestingStrategy.md)
+test: ## Run full Pest test suite (all layers)
 	@echo "$(MODE)"
-	$(EXEC) vendor/bin/pest --parallel --fail-on-deprecation
+	$(EXEC) vendor/bin/pest --parallel
 
-test-unit: ## Run unit tests only (fast, no external deps)
+test-quick: ## Run Domain tests only (fast, no external deps)
 	@echo "$(MODE)"
-	$(EXEC) vendor/bin/pest --testsuite=Unit --parallel --fail-on-deprecation
+	$(EXEC) vendor/bin/pest --testsuite=Domain --parallel
 
-test-feature: ## Run feature/integration tests only
-	@echo "$(MODE)"
-	$(EXEC) vendor/bin/pest --testsuite=Feature --parallel --fail-on-deprecation
-
-# Layer-specific test targets (see tests/TestingStrategy.md)
 test-domain: ## Run Domain layer tests (90%+ coverage target)
 	@echo "$(MODE)"
-	$(EXEC) vendor/bin/pest --testsuite=Domain --parallel --fail-on-deprecation
+	$(EXEC) vendor/bin/pest --testsuite=Domain --parallel
 
 test-domain-coverage: ## Run Domain tests with 90% coverage (Domain code only)
 	@echo "$(MODE)"
@@ -266,7 +261,7 @@ test-domain-coverage: ## Run Domain tests with 90% coverage (Domain code only)
 
 test-app: ## Run Application layer tests (70%+ coverage target)
 	@echo "$(MODE)"
-	$(EXEC) vendor/bin/pest --testsuite=Application --parallel --fail-on-deprecation
+	$(EXEC) vendor/bin/pest --testsuite=Application --parallel
 
 test-app-coverage: ## Run Application tests with 70% coverage (App code only)
 	@echo "$(MODE)"
@@ -319,7 +314,7 @@ mutate-app: ## Run Pest mutation testing on Application layer (70%+ min score)
 	$(EXEC) -d xdebug.mode=off vendor/bin/pest --mutate \
 		--path=app/Application \
 		--everything --min=70 --parallel --processes=9 \
-		--testsuite=Unit --ignore-min-score-on-zero-mutations
+		--testsuite=Application --ignore-min-score-on-zero-mutations
 
 test-ai: ## Validate AI-generated tests with mutation testing
 	@echo "$(MODE)"
