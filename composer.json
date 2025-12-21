@@ -28,6 +28,7 @@
         "league/flysystem-aws-s3-v3": "^3.0",
         "microsoft/bingads": "^13.0",
         "predis/predis": "^3.2",
+        "sentry/sentry-laravel": "^4.0",
         "spatie/laravel-data": "^4.18",
         "webmozart/assert": "^1.11"
     },

@@ -30,6 +30,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ---
 
+## Git Branching Strategy
+
+- **Base branch**: `develop` (not `main`)
+- **Feature branches**: `feature/{issue-number}-{description}` → merge to `develop`
+- **PRs**: Always target `develop`
+
+---
+
 ## Documentation Philosophy
 
 **Keep this file succinct.** Use minimal format to convey maximum information:

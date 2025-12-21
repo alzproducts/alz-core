@@ -101,6 +101,12 @@ deptrac:
         - type: classLike
           value: ^League\\Flysystem\\.*
 
+    # Sentry SDK (error monitoring)
+    - name: SentrySdk
+      collectors:
+        - type: classLike
+          value: ^Sentry\\.*
+
   ruleset:
     # Domain: Pure business logic + assertions only
     Domain:
@@ -111,7 +117,7 @@ deptrac:
       - Domain
       - PsrInterfaces
 
-    # Infrastructure: All internal + Laravel, Spatie, Google, Bing, Guzzle, PSR, Flysystem, Assertions
+    # Infrastructure: All internal + Laravel, Spatie, Google, Bing, Guzzle, PSR, Flysystem, Assertions, Sentry, Symfony
     Infrastructure:
       - Application
       - Domain
@@ -124,8 +130,10 @@ deptrac:
       - PsrInterfaces
       - LeagueFlysystem
       - AssertionLibrary
+      - SentrySdk
+      - SymfonyHttp
 
-    # Presentation: Internal + Laravel, Symfony, Firebase
+    # Presentation: Internal + Laravel, Symfony, Firebase, Sentry
     Presentation:
       - Application
       - Domain
@@ -133,6 +141,7 @@ deptrac:
       - SymfonyHttp
       - SymfonyHttpKernel
       - FirebaseJwt
+      - SentrySdk
 
     # External layers have no outbound dependencies
     AssertionLibrary: ~
@@ -147,3 +156,4 @@ deptrac:
     SymfonyHttpKernel: ~
     FirebaseJwt: ~
     LeagueFlysystem: ~
+    SentrySdk: ~
