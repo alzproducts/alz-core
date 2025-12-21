@@ -11,6 +11,7 @@ use App\Application\Contracts\HelpScout\MailboxesClientInterface;
 use App\Application\HelpScout\Queries\ConversationQueryParams;
 use App\Application\HelpScout\Support\MailboxEnrichmentService;
 use App\Application\Support\CacheTimesTrait;
+use App\Application\Support\EmailAliasResolver;
 use App\Application\Support\GracefulCache;
 use App\Domain\CustomerService\Exceptions\CustomerServiceAgentNotFoundException;
 use App\Domain\CustomerService\ValueObjects\Conversation;
@@ -54,6 +55,7 @@ final readonly class CachingHelpScoutService
         private EscalationsConfigRepositoryInterface $escalationsConfigRepository,
         private MailboxEnrichmentService $enricher,
         private GracefulCache $cache,
+        private EmailAliasResolver $emailResolver,
     ) {}
 
     /**
@@ -68,17 +70,17 @@ final readonly class CachingHelpScoutService
      */
     public function getAgentProfile(string $email): SupportAgent
     {
-        $normalizedEmail = \mb_strtolower(\mb_trim($email));
-        $cacheKey = self::KEY_AGENT_PROFILE . \hash('xxh3', $normalizedEmail);
+        $resolvedEmail = $this->emailResolver->resolve($email);
+        $cacheKey = self::KEY_AGENT_PROFILE . \hash('xxh3', $resolvedEmail);
 
         $agent = $this->cache->remember(
             $cacheKey,
             self::SEVEN_DAYS,
-            fn(): ?SupportAgent => $this->agentsClient->findByEmail($normalizedEmail),
+            fn(): ?SupportAgent => $this->agentsClient->findByEmail($resolvedEmail),
         );
 
         if ($agent === null) {
-            throw new CustomerServiceAgentNotFoundException($normalizedEmail);
+            throw new CustomerServiceAgentNotFoundException($resolvedEmail);
         }
 
         return $agent;

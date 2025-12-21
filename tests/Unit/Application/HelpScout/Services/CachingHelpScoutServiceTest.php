@@ -11,6 +11,7 @@ use App\Application\Contracts\HelpScout\MailboxesClientInterface;
 use App\Application\HelpScout\Queries\ConversationQueryParams;
 use App\Application\HelpScout\Services\CachingHelpScoutService;
 use App\Application\HelpScout\Support\MailboxEnrichmentService;
+use App\Application\Support\EmailAliasResolver;
 use App\Application\Support\GracefulCache;
 use App\Domain\CustomerService\Exceptions\CustomerServiceAgentNotFoundException;
 use App\Domain\CustomerService\ValueObjects\Conversation;
@@ -40,6 +41,8 @@ final class CachingHelpScoutServiceTest extends TestCase
 
     private GracefulCache&MockInterface $mockCache;
 
+    private EmailAliasResolver $emailResolver;
+
     private CachingHelpScoutService $service;
 
     protected function setUp(): void
@@ -52,6 +55,7 @@ final class CachingHelpScoutServiceTest extends TestCase
         $this->mockEscalationsConfigRepository = Mockery::mock(EscalationsConfigRepositoryInterface::class);
         $this->mockEnricher = Mockery::mock(MailboxEnrichmentService::class);
         $this->mockCache = Mockery::mock(GracefulCache::class);
+        $this->emailResolver = new EmailAliasResolver([]);
 
         $this->service = new CachingHelpScoutService(
             $this->mockConversationsClient,
@@ -60,6 +64,7 @@ final class CachingHelpScoutServiceTest extends TestCase
             $this->mockEscalationsConfigRepository,
             $this->mockEnricher,
             $this->mockCache,
+            $this->emailResolver,
         );
     }
 
@@ -151,6 +156,41 @@ final class CachingHelpScoutServiceTest extends TestCase
 
         $this->assertSame(99999, $result->id);
         $this->assertSame('user', $result->role);
+    }
+
+    #[Test]
+    public function get_agent_profile_resolves_email_alias_before_lookup(): void
+    {
+        // Create service with alias resolver configured
+        $resolver = new EmailAliasResolver([
+            'user.alias@example.com' => 'user@example.com',
+        ]);
+        $service = new CachingHelpScoutService(
+            $this->mockConversationsClient,
+            $this->mockAgentsClient,
+            $this->mockMailboxesClient,
+            $this->mockEscalationsConfigRepository,
+            $this->mockEnricher,
+            $this->mockCache,
+            $resolver,
+        );
+
+        $agent = $this->createSupportAgent(12345, 'user@example.com', 'admin');
+
+        // Expect the resolved email to be used for lookup
+        $this->mockAgentsClient->expects('findByEmail')
+            ->with('user@example.com')
+            ->once()
+            ->andReturn($agent);
+
+        $this->mockCache->expects('remember')
+            ->andReturnUsing(static fn(string $key, int $ttl, Closure $callback): ?SupportAgent => $callback());
+
+        // Call with the aliased email
+        $result = $service->getAgentProfile('user.alias@example.com');
+
+        $this->assertSame(12345, $result->id);
+        $this->assertSame('user@example.com', $result->email);
     }
 
     /*
