@@ -9,6 +9,7 @@ use App\Application\Contracts\HelpScout\ConversationsClientInterface;
 use App\Application\Contracts\HelpScout\MailboxesClientInterface;
 use App\Application\HelpScout\Services\CachingHelpScoutService;
 use App\Application\HelpScout\UseCases\GetEscalationsUseCase;
+use App\Application\Support\EmailAliasResolver;
 use App\Infrastructure\HelpScout\HelpScoutClientFactory;
 use Illuminate\Concurrency\ConcurrencyManager;
 use Illuminate\Contracts\Concurrency\Driver;
@@ -71,6 +72,16 @@ final class HelpScoutServiceProvider extends ServiceProvider implements Deferrab
                 Config::integer('helpscout.mailboxes.purchase_orders'),
             ),
         );
+
+        // Contextual binding: CachingHelpScoutService gets HelpScout-specific email aliases
+        $this->app->when(CachingHelpScoutService::class)
+            ->needs(EmailAliasResolver::class)
+            ->give(static function (): EmailAliasResolver {
+                /** @var array<string, string> $aliases */
+                $aliases = Config::array('helpscout.email_aliases', []);
+
+                return new EmailAliasResolver($aliases);
+            });
     }
 
     /**
@@ -86,6 +97,7 @@ final class HelpScoutServiceProvider extends ServiceProvider implements Deferrab
             MailboxesClientInterface::class,
             AgentsClientInterface::class,
             GetEscalationsUseCase::class,
+            EmailAliasResolver::class,
         ];
     }
 }
