@@ -36,6 +36,22 @@ return [
     */
     'negative_reviews_tag' => 'negative-review',
 
+    /*
+    |--------------------------------------------------------------------------
+    | Email Aliases
+    |--------------------------------------------------------------------------
+    |
+    | Maps authenticated user emails to HelpScout account emails.
+    | Use when JWT/auth email differs from HelpScout registration.
+    |
+    */
+    'email_aliases' => (static function (): array {
+        $from = (string) env('EMAIL_SECONDARY', '');
+        $to = (string) env('EMAIL_PRIMARY', '');
+
+        return $from !== '' && $to !== '' ? [$from => $to] : [];
+    })(),
+
     'auth' => [
         /*
         |--------------------------------------------------------------------------

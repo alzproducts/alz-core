@@ -1,14 +1,37 @@
 # Codecov configuration
 # https://docs.codecov.com/docs/codecov-yaml
+#
+# Strategy aligned with tests/TestingStrategy.md:
+# - Domain: 90%+ coverage, strict mutation testing
+# - Application: 70%+ coverage, mutation testing for services
+# - Infrastructure/Presentation: No coverage targets (integration/smoke tests only)
 
 coverage:
   status:
     project:
       default:
         target: 75%  # Overall (lower since Infra/Presentation have no targets)
+
+    # Layer-specific patch coverage (only Domain and Application enforced)
+    # See: tests/TestingStrategy.md for rationale
     patch:
-      default:
+      domain:
+        target: 90%
+        paths:
+          - app/Domain/**
+      application:
         target: 70%
+        paths:
+          - app/Application/**
+      # Infrastructure and Presentation intentionally excluded from patch checks
+      # These layers use integration/smoke tests, not unit test coverage metrics
+
+# Ignore paths that should never trigger coverage failures
+ignore:
+  - "app/DevTools/**"
+  - "app/Providers/**"
+  - "**/*Exception.php"
+  - "**/*Factory.php"
 
 # Components show coverage by code area in Codecov dashboard
 # See: https://docs.codecov.com/docs/components
@@ -22,3 +45,13 @@ component_management:
       name: Application Layer
       paths:
         - app/Application/**
+    - component_id: infrastructure
+      name: Infrastructure Layer
+      paths:
+        - app/Infrastructure/**
+    - component_id: presentation
+      name: Presentation Layer
+      paths:
+        - app/Presentation/**
+        - app/Http/**
+        - app/Console/**
