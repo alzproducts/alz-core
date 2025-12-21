@@ -10,6 +10,7 @@ use Illuminate\Http\Exceptions\ThrottleRequestsException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
+use Sentry\Laravel\Integration;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withCommands([
@@ -55,6 +56,9 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->trustProxies(at: '*');
     })
     ->withExceptions(static function (Exceptions $exceptions): void {
+        // Hook Sentry into Laravel's exception handler to capture all unhandled exceptions
+        Integration::handles($exceptions);
+
         // Log rate limit violations using render() instead of reportable()
         // because ThrottleRequestsException is thrown in middleware and bypasses reportable callbacks
         $exceptions->render(static function (ThrottleRequestsException $e, Request $request): null {
