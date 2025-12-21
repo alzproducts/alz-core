@@ -62,6 +62,7 @@ final class AppServiceProviderTest extends TestCase
             'horizon.auth.username' => 'user',
             'horizon.auth.password' => 'password',
             'services.supabase.jwt_secret' => 'secret',
+            'sentry.dsn' => 'https://test@sentry.io/123',
             'reviewsio.api_key' => 'test-api-key',
             'reviewsio.store_id' => 'test-store',
         ];
@@ -168,6 +169,7 @@ final class AppServiceProviderTest extends TestCase
             'missing horizon user' => ['horizon.auth.username', 'Horizon dashboard username (HORIZON_USER)'],
             'missing horizon password' => ['horizon.auth.password', 'Horizon dashboard password (HORIZON_PASSWORD)'],
             'missing supabase secret' => ['services.supabase.jwt_secret', 'Supabase JWT secret (SUPABASE_JWT_SECRET)'],
+            'missing sentry dsn' => ['sentry.dsn', 'Sentry DSN (SENTRY_LARAVEL_DSN)'],
         ];
     }
 

@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Infrastructure\Sentry\SentryUserContextMiddleware;
 use App\Presentation\Http\Controllers\HelpScoutController;
 use App\Presentation\Http\Middleware\HandleHelpScoutExceptionsMiddleware;
 use App\Presentation\Http\Middleware\ValidateSupabaseJwtMiddleware;
@@ -20,7 +21,11 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-Route::middleware(['throttle:api', ValidateSupabaseJwtMiddleware::class])->group(static function (): void {
+Route::middleware([
+    'throttle:api',
+    ValidateSupabaseJwtMiddleware::class,
+    SentryUserContextMiddleware::class, // Must be AFTER JWT middleware
+])->group(static function (): void {
 
     // Test route to verify authentication is working
     Route::get('user', static fn(Request $request): array => [
