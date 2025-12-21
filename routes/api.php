@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Presentation\Http\Controllers\HelpScoutController;
+use App\Presentation\Http\Middleware\HandleHelpScoutExceptionsMiddleware;
 use App\Presentation\Http\Middleware\ValidateSupabaseJwtMiddleware;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -36,29 +37,31 @@ Route::middleware(['throttle:api', ValidateSupabaseJwtMiddleware::class])->group
     | GET endpoints return cached data; POST /refresh invalidates + fetches fresh.
     |
     */
-    Route::prefix('helpscout/conversations')->group(static function (): void {
-        Route::get('assigned', [HelpScoutController::class, 'assigned']);
-        Route::post('assigned/refresh', [HelpScoutController::class, 'refreshAssigned']);
+    Route::prefix('helpscout')->middleware(HandleHelpScoutExceptionsMiddleware::class)->group(static function (): void {
+        Route::prefix('conversations')->group(static function (): void {
+            Route::get('assigned', [HelpScoutController::class, 'assigned']);
+            Route::post('assigned/refresh', [HelpScoutController::class, 'refreshAssigned']);
 
-        Route::get('todos', [HelpScoutController::class, 'todos']);
-        Route::post('todos/refresh', [HelpScoutController::class, 'refreshTodos']);
+            Route::get('todos', [HelpScoutController::class, 'todos']);
+            Route::post('todos/refresh', [HelpScoutController::class, 'refreshTodos']);
 
-        Route::get('negative-reviews', [HelpScoutController::class, 'negativeReviews']);
-        Route::post('negative-reviews/refresh', [HelpScoutController::class, 'refreshNegativeReviews']);
+            Route::get('negative-reviews', [HelpScoutController::class, 'negativeReviews']);
+            Route::post('negative-reviews/refresh', [HelpScoutController::class, 'refreshNegativeReviews']);
 
-        Route::get('escalations', [HelpScoutController::class, 'escalations']);
-        Route::post('escalations/refresh', [HelpScoutController::class, 'refreshEscalations']);
-    });
+            Route::get('escalations', [HelpScoutController::class, 'escalations']);
+            Route::post('escalations/refresh', [HelpScoutController::class, 'refreshEscalations']);
+        });
 
-    /*
-    |--------------------------------------------------------------------------
-    | HelpScout User Endpoints
-    |--------------------------------------------------------------------------
-    |
-    | User identity and connection status for settings page.
-    |
-    */
-    Route::prefix('helpscout/user')->group(static function (): void {
-        Route::get('profile', [HelpScoutController::class, 'profile']);
+        /*
+        |--------------------------------------------------------------------------
+        | HelpScout User Endpoints
+        |--------------------------------------------------------------------------
+        |
+        | User identity and connection status for settings page.
+        |
+        */
+        Route::prefix('user')->group(static function (): void {
+            Route::get('profile', [HelpScoutController::class, 'profile']);
+        });
     });
 });
