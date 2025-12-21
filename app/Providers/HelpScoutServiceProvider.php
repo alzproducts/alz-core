@@ -97,7 +97,6 @@ final class HelpScoutServiceProvider extends ServiceProvider implements Deferrab
             MailboxesClientInterface::class,
             AgentsClientInterface::class,
             GetEscalationsUseCase::class,
-            EmailAliasResolver::class,
         ];
     }
 }
