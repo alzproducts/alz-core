@@ -28,11 +28,14 @@ final class SentryUserContextMiddleware
         $userId = $request->input('auth_user_id');
         $userEmail = $request->input('auth_user_email');
 
-        if ($userId !== null) {
-            configureScope(static function (Scope $scope) use ($userId, $userEmail): void {
+        // Type-narrow from mixed (JWT middleware sets these as strings)
+        if (\is_string($userId) && $userId !== '') {
+            $userEmailString = \is_string($userEmail) ? $userEmail : null;
+
+            configureScope(static function (Scope $scope) use ($userId, $userEmailString): void {
                 $scope->setUser([
                     'id' => $userId,
-                    'email' => $userEmail,
+                    'email' => $userEmailString,
                 ]);
             });
         }

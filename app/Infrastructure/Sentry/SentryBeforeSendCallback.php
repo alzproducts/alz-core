@@ -19,16 +19,21 @@ use Sentry\EventHint;
  */
 final class SentryBeforeSendCallback
 {
-    /** @var array<class-string> */
+    /**
+     * Exceptions throttled to 10% sampling rate.
+     *
+     * Uses `instanceof` check, so subclasses of these exceptions
+     * are also throttled (e.g., a custom ServiceDownException extending
+     * ExternalServiceUnavailableException would be sampled at 10%).
+     *
+     * @var array<class-string>
+     */
     private const array THROTTLED_EXCEPTIONS = [
         ExternalServiceUnavailableException::class,
         ApiRateLimitException::class,
         ThrottleRequestsException::class,
     ];
 
-    /**
-     * @throws RandomException
-     */
     public function __invoke(Event $event, ?EventHint $hint): ?Event
     {
         $exception = $hint?->exception;
@@ -36,7 +41,12 @@ final class SentryBeforeSendCallback
         foreach (self::THROTTLED_EXCEPTIONS as $class) {
             if ($exception instanceof $class) {
                 // Sample 10% of transient failures
-                return \random_int(1, 10) === 1 ? $event : null;
+                // Fail-open: if CSPRNG is unavailable, send all events
+                try {
+                    return \random_int(1, 10) === 1 ? $event : null;
+                } catch (RandomException) {
+                    return $event;
+                }
             }
         }
 
