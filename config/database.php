@@ -44,7 +44,11 @@ return [
             'charset' => env('DB_CHARSET', 'utf8'),
             'prefix' => '',
             'prefix_indexes' => true,
-            'search_path' => 'public',
+            // Multi-schema search path for Supabase database
+            // Tables are organized across schemas: public (profiles), access (roles/permissions), config (dashboard), utils (helpers)
+            // Note: Tables in non-public schemas still need explicit schema prefix in Eloquent models (e.g., 'access.roles')
+            // The search_path primarily helps with unqualified function calls and type resolution
+            'search_path' => 'public,access,config,utils',
             'sslmode' => env('DB_SSLMODE', 'require'),
         ],
 
