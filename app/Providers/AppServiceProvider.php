@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Domain\Exceptions\InvalidConfigurationException;
+use App\Infrastructure\Sentry\SentryBeforeSendCallback;
 use Illuminate\Support\ServiceProvider;
 use Override;
+use Sentry\SentrySdk;
 
 /**
  * Application Service Provider
@@ -31,7 +33,16 @@ final class AppServiceProvider extends ServiceProvider
      * Register application services.
      */
     #[Override]
-    public function register(): void {}
+    public function register(): void
+    {
+        // Set Sentry before_send callback before Sentry initializes
+        // (must be in register(), not boot(), to run before Sentry's ServiceProvider)
+        $this->app->booting(static function (): void {
+            if (\class_exists(SentrySdk::class)) {
+                \config(['sentry.before_send' => new SentryBeforeSendCallback()]);
+            }
+        });
+    }
 
     /**
      * Bootstrap any application services.
@@ -63,6 +74,7 @@ final class AppServiceProvider extends ServiceProvider
             'horizon.auth.username' => 'Horizon dashboard username (HORIZON_USER)',
             'horizon.auth.password' => 'Horizon dashboard password (HORIZON_PASSWORD)',
             'services.supabase.jwt_secret' => 'Supabase JWT secret (SUPABASE_JWT_SECRET)',
+            'sentry.dsn' => 'Sentry DSN (SENTRY_LARAVEL_DSN)',
         ];
 
         $missing = [];
@@ -93,5 +105,4 @@ final class AppServiceProvider extends ServiceProvider
             );
         }
     }
-
 }

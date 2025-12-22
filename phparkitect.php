@@ -211,6 +211,9 @@ return static function (Config $config): void {
                                'SimpleXMLElement',
                                'PDOException',
                                'Override',
+                               'Sentry*',
+                               'Symfony\Component\HttpFoundation',
+                               'Random\RandomException',
                            ],
                        ),
                    )
