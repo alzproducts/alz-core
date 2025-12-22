@@ -11,8 +11,6 @@ use App\Application\HelpScout\Services\CachingHelpScoutService;
 use App\Application\HelpScout\UseCases\GetEscalationsUseCase;
 use App\Application\Support\EmailAliasResolver;
 use App\Infrastructure\HelpScout\HelpScoutClientFactory;
-use Illuminate\Concurrency\ConcurrencyManager;
-use Illuminate\Contracts\Concurrency\Driver;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Contracts\Support\DeferrableProvider;
 use Illuminate\Support\Facades\Config;
@@ -46,12 +44,7 @@ final class HelpScoutServiceProvider extends ServiceProvider implements Deferrab
     {
         $this->app->singleton(
             ConversationsClientInterface::class,
-            static function (Application $app): ConversationsClientInterface {
-                /** @var Driver $driver */
-                $driver = $app->make(ConcurrencyManager::class)->driver();
-
-                return HelpScoutClientFactory::createConversationsClient($driver);
-            },
+            static fn(): ConversationsClientInterface => HelpScoutClientFactory::createConversationsClient(),
         );
 
         $this->app->singleton(
