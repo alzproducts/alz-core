@@ -37,10 +37,14 @@ final class ValidateSupabaseJwtTest extends TestCase
 
         // Define a test route protected by the middleware under test.
         // This route echoes back the user details the middleware should have attached.
-        Route::get('/_test/protected-route', static fn(Request $request) => \response()->json([
-            'auth_user_id' => $request->get('auth_user_id'),
-            'auth_user_email' => $request->get('auth_user_email'),
-        ]))->middleware(ValidateSupabaseJwtMiddleware::class);
+        Route::get('/_test/protected-route', static function (Request $request) {
+            $user = $request->attributes->get('authenticated_user');
+
+            return \response()->json([
+                'auth_user_id' => $user?->id,
+                'auth_user_email' => $user?->email,
+            ]);
+        })->middleware(ValidateSupabaseJwtMiddleware::class);
 
         // Set the JWT secret for the duration of the tests.
         \config(['services.supabase.jwt_secret' => self::TEST_SECRET]);
@@ -74,6 +78,7 @@ final class ValidateSupabaseJwtTest extends TestCase
             'role' => 'authenticated',
             'sub' => 'd9dd22a9-c3ab-413b-8a93-25b462231a98',
             'email' => 'test@example.com',
+            'aal' => 'aal2', // MFA verified (required for API access)
         ];
 
         return JWT::encode(\array_merge($defaultPayload, $payload), $secret, 'HS256');
@@ -248,7 +253,7 @@ final class ValidateSupabaseJwtTest extends TestCase
             ->once()
             ->with(
                 'Invalid JWT token',
-                Mockery::on(static fn(array $context): bool => $context['error'] === 'JWT token missing required "sub" claim'
+                Mockery::on(static fn(array $context): bool => \str_contains($context['error'], "required claim 'sub' is missing")
                     && \array_key_exists('event', $context)
                     && \array_key_exists('ip', $context)
                     && \array_key_exists('path', $context)
@@ -293,25 +298,36 @@ final class ValidateSupabaseJwtTest extends TestCase
     }
 
     /**
-     * Test that authentication succeeds even when the email claim is missing (optional claim).
+     * Test that authentication fails when the email claim is missing (required claim).
      */
     #[Test]
-    public function succeeds_when_email_claim_is_missing(): void
+    public function returns_unauthorized_if_email_claim_is_missing(): void
     {
-        // Arrange - no Log mocking needed for success paths
-        $userId = 'd9dd22a9-c3ab-413b-8a93-25b462231a98';
-        $payload = ['sub' => $userId, 'email' => null];
+        // Arrange
+        $logger = Mockery::mock();
+        $logger->shouldReceive('warning')
+            ->once()
+            ->with(
+                'Invalid JWT token',
+                Mockery::on(static fn(array $context): bool => \str_contains($context['error'], "required claim 'email' is missing")
+                    && \array_key_exists('event', $context)
+                    && \array_key_exists('ip', $context)
+                    && \array_key_exists('path', $context)
+                    && \array_key_exists('user_agent', $context)),
+            );
+
+        Log::shouldReceive('channel')
+            ->with('security')
+            ->andReturn($logger);
+
+        $payload = ['email' => null];
         $token = $this->generateToken($payload);
 
         // Act
         $response = $this->withToken($token)->getJson('/_test/protected-route');
 
         // Assert
-        $response->assertStatus(200)
-            ->assertJson([
-                'auth_user_id' => $userId,
-                'auth_user_email' => null,
-            ]);
+        $response->assertStatus(401)->assertJson(['error' => 'Unauthorized']);
     }
 
     /**
@@ -345,7 +361,7 @@ final class ValidateSupabaseJwtTest extends TestCase
     }
 
     /**
-     * Test that empty string sub claim is rejected (kills EmptyStringToNotEmpty mutation on line 52).
+     * Test that empty string sub claim is rejected (kills EmptyStringToNotEmpty mutation).
      */
     #[Test]
     public function returns_unauthorized_if_sub_claim_is_empty_string(): void
@@ -356,7 +372,7 @@ final class ValidateSupabaseJwtTest extends TestCase
             ->once()
             ->with(
                 'Invalid JWT token',
-                Mockery::on(static fn(array $context): bool => $context['error'] === 'JWT token missing required "sub" claim'
+                Mockery::on(static fn(array $context): bool => \str_contains($context['error'], "claim 'sub' cannot be empty")
                     && \array_key_exists('event', $context)
                     && \array_key_exists('ip', $context)
                     && \array_key_exists('path', $context)
