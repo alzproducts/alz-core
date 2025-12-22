@@ -55,6 +55,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Linting/PHPArkitect failures that aren't obvious syntax errors
 - Any architectural trade-offs or deviations from established patterns
 
+**Use `AskUserQuestion` tool** when presenting options or seeking decisions.
+
 **Rationale**: These decisions shape the codebase long-term. User should make informed choices, not have them silently resolved.
 
 ## Tool Usage
