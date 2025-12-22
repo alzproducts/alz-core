@@ -12,6 +12,7 @@ use App\Infrastructure\HelpScout\HelpScoutHttpTransport;
 use HelpScout\Api\ApiClient;
 use HelpScout\Api\Http\Authenticator;
 use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -46,7 +47,10 @@ final class HelpScoutHttpTransportTest extends TestCase
         $this->mockSdkClient = Mockery::mock(ApiClient::class);
         $this->mockSdkClient->allows('getAuthenticator')->andReturn($mockAuthenticator);
 
-        $this->transport = new HelpScoutHttpTransport($this->config, $this->mockSdkClient);
+        // Use the real HttpFactory - Http::fake() will intercept requests
+        $httpFactory = $this->app->make(HttpFactory::class);
+
+        $this->transport = new HelpScoutHttpTransport($this->config, $this->mockSdkClient, $httpFactory);
     }
 
     /*

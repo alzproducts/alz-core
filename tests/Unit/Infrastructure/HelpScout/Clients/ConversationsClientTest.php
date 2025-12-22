@@ -8,8 +8,6 @@ use App\Application\HelpScout\Queries\ConversationQueryParams;
 use App\Domain\CustomerService\ValueObjects\Conversation;
 use App\Infrastructure\HelpScout\Clients\ConversationsClient;
 use App\Infrastructure\HelpScout\HelpScoutHttpTransport;
-use DateTimeImmutable;
-use Illuminate\Contracts\Concurrency\Driver as ConcurrencyDriver;
 use Illuminate\Http\Client\Response;
 use Mockery;
 use Mockery\MockInterface;
@@ -22,8 +20,6 @@ final class ConversationsClientTest extends TestCase
 {
     private HelpScoutHttpTransport&MockInterface $mockTransport;
 
-    private ConcurrencyDriver&MockInterface $mockConcurrency;
-
     private ConversationsClient $client;
 
     protected function setUp(): void
@@ -31,12 +27,8 @@ final class ConversationsClientTest extends TestCase
         parent::setUp();
 
         $this->mockTransport = Mockery::mock(HelpScoutHttpTransport::class);
-        $this->mockConcurrency = Mockery::mock(ConcurrencyDriver::class);
 
-        $this->client = new ConversationsClient(
-            $this->mockTransport,
-            $this->mockConcurrency,
-        );
+        $this->client = new ConversationsClient($this->mockTransport);
     }
 
     /*
@@ -216,8 +208,8 @@ final class ConversationsClientTest extends TestCase
             ->once()
             ->andReturn($mockResponse);
 
-        // Concurrency driver should NOT be called for single query
-        $this->mockConcurrency->shouldNotReceive('run');
+        // poolGet should NOT be called for single query - uses direct get() instead
+        $this->mockTransport->shouldNotReceive('poolGet');
 
         $queries = [ConversationQueryParams::assigned(agentId: 12345)];
         $result = $this->client->getConversationsBatch($queries);
@@ -228,15 +220,22 @@ final class ConversationsClientTest extends TestCase
     }
 
     #[Test]
-    public function get_conversations_batch_uses_concurrency_for_multiple_queries(): void
+    public function get_conversations_batch_uses_pool_for_multiple_queries(): void
     {
-        $conversations1 = [$this->buildDomainConversation(1, 'Query 1 Result')];
-        $conversations2 = [$this->buildDomainConversation(2, 'Query 2 Result')];
+        // Build mock responses for each query
+        $mockResponse1 = $this->createMockResponse($this->conversationsApiResponse([
+            $this->conversationPayload(1, 'Query 1 Result'),
+        ]));
+        $mockResponse2 = $this->createMockResponse($this->conversationsApiResponse([
+            $this->conversationPayload(2, 'Query 2 Result'),
+        ]));
 
-        $this->mockConcurrency->expects('run')
-            ->with(Mockery::on(static fn(array $closures) => \count($closures) === 2))
+        // poolGet receives keyed request params and returns keyed responses
+        $this->mockTransport->expects('poolGet')
+            ->with(Mockery::on(static fn(array $requests) => \count($requests) === 2
+                    && isset($requests['0'], $requests['1'])))
             ->once()
-            ->andReturn([$conversations1, $conversations2]);
+            ->andReturn(['0' => $mockResponse1, '1' => $mockResponse2]);
 
         $queries = [
             ConversationQueryParams::assigned(agentId: 111),
@@ -312,24 +311,5 @@ final class ConversationsClientTest extends TestCase
             'preview' => null,
             'threads' => null,
         ];
-    }
-
-    private function buildDomainConversation(int $id, string $subject): Conversation
-    {
-        return new Conversation(
-            id: $id,
-            number: 1000 + $id,
-            subject: $subject,
-            status: 'active',
-            mailboxId: 100,
-            createdAt: new DateTimeImmutable('2024-12-14T10:00:00Z'),
-            updatedAt: null,
-            userUpdatedAt: null,
-            customerWaitingSince: null,
-            snooze: null,
-            tags: [],
-            customer: null,
-            assignee: null,
-        );
     }
 }
