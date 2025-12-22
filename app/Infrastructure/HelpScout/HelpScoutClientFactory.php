@@ -13,7 +13,7 @@ use App\Infrastructure\HelpScout\Clients\MailboxesClient;
 use App\Infrastructure\HelpScout\Clients\UsersClient;
 use HelpScout\Api\ApiClient;
 use HelpScout\Api\ApiClientFactory as SdkClientFactory;
-use Illuminate\Contracts\Concurrency\Driver as ConcurrencyDriver;
+use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Support\Facades\Config;
 
 /**
@@ -35,9 +35,9 @@ final class HelpScoutClientFactory
     /**
      * Create the conversations client.
      */
-    public static function createConversationsClient(ConcurrencyDriver $concurrency): ConversationsClientInterface
+    public static function createConversationsClient(): ConversationsClientInterface
     {
-        return new ConversationsClient(self::getTransport(), $concurrency);
+        return new ConversationsClient(self::getTransport());
     }
 
     /**
@@ -74,8 +74,9 @@ final class HelpScoutClientFactory
     {
         $config = self::createConfig();
         $sdkClient = self::createSdkClient();
+        $httpFactory = \app(HttpFactory::class);
 
-        return new HelpScoutHttpTransport($config, $sdkClient);
+        return new HelpScoutHttpTransport($config, $sdkClient, $httpFactory);
     }
 
     /**
