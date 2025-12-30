@@ -4,6 +4,26 @@ declare(strict_types=1);
 
 use Illuminate\Support\Str;
 
+// Base PostgreSQL config shared across all connections
+// Only the driver differs between pgsql (standard), pgsql_rls (user-scoped), and pgsql_admin (bypasses RLS)
+$basePostgres = [
+    'url' => env('DB_URL'),
+    'host' => env('DB_HOST', '127.0.0.1'),
+    'port' => env('DB_PORT', '5432'),
+    'database' => env('DB_DATABASE', 'laravel'),
+    'username' => env('DB_USERNAME', 'root'),
+    'password' => env('DB_PASSWORD', ''),
+    'charset' => env('DB_CHARSET', 'utf8'),
+    'prefix' => '',
+    'prefix_indexes' => true,
+    // Multi-schema search path for Supabase database
+    // Tables are organized across schemas: public (profiles), access (roles/permissions), config (dashboard), utils (helpers)
+    // Note: Tables in non-public schemas still need explicit schema prefix in Eloquent models (e.g., 'access.roles')
+    // The search_path primarily helps with unqualified function calls and type resolution
+    'search_path' => 'public,access,config,utils',
+    'sslmode' => env('DB_SSLMODE', 'require'),
+];
+
 return [
 
     /*
@@ -33,24 +53,16 @@ return [
 
     'connections' => [
 
-        'pgsql' => [
-            'driver' => 'pgsql',
-            'url' => env('DB_URL'),
-            'host' => env('DB_HOST', '127.0.0.1'),
-            'port' => env('DB_PORT', '5432'),
-            'database' => env('DB_DATABASE', 'laravel'),
-            'username' => env('DB_USERNAME', 'root'),
-            'password' => env('DB_PASSWORD', ''),
-            'charset' => env('DB_CHARSET', 'utf8'),
-            'prefix' => '',
-            'prefix_indexes' => true,
-            // Multi-schema search path for Supabase database
-            // Tables are organized across schemas: public (profiles), access (roles/permissions), config (dashboard), utils (helpers)
-            // Note: Tables in non-public schemas still need explicit schema prefix in Eloquent models (e.g., 'access.roles')
-            // The search_path primarily helps with unqualified function calls and type resolution
-            'search_path' => 'public,access,config,utils',
-            'sslmode' => env('DB_SSLMODE', 'require'),
-        ],
+        // Standard PostgreSQL connection (no RLS context management)
+        'pgsql' => ['driver' => 'pgsql', ...$basePostgres],
+
+        // RLS-enforced: sets user context from Laravel Context facade
+        // Use for user-initiated requests where data should be scoped to the authenticated user
+        'pgsql_rls' => ['driver' => 'pgsql_rls', ...$basePostgres],
+
+        // Admin connection: BYPASSES RLS - use only for service/admin operations
+        // WARNING: All queries have unrestricted access to data across all users
+        'pgsql_admin' => ['driver' => 'pgsql_admin', ...$basePostgres],
 
     ],
 
