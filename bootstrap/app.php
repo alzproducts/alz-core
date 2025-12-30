@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Presentation\Http\Middleware\EnsureUserApprovedMiddleware;
+use App\Presentation\Http\Middleware\SetRlsContextMiddleware;
 use App\Presentation\Http\Middleware\ValidateSupabaseJwtMiddleware;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Foundation\Application;
@@ -57,11 +58,12 @@ return Application::configure(basePath: dirname(__DIR__))
         // goes through their proxy - direct access to the container is not possible
         $middleware->trustProxies(at: '*');
 
-        // Supabase Auth: JWT validation + user approval check
+        // Supabase Auth: JWT validation + user approval check + RLS context
         // Apply to all protected API routes
         $middleware->appendToGroup('auth.supabase', [
             ValidateSupabaseJwtMiddleware::class,
             EnsureUserApprovedMiddleware::class,
+            SetRlsContextMiddleware::class, // Sets Context('rls_user_id') for pgsql_rls connection
         ]);
     })
     ->withExceptions(static function (Exceptions $exceptions): void {
