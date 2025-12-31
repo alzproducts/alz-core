@@ -161,7 +161,7 @@ final class ValidateSupabaseJwtMiddleware
         /** @var string $testEmail */
         $testEmail = \config('services.supabase.local_test_email');
 
-        $testUserId = \config('services.supabase.local_test_user_id', 'local-test-user');
+        $testUserId = \config('services.supabase.local_test_user_id', '00000000-0000-0000-0000-000000000001');
         $testApproved = \config('services.supabase.local_test_approved', true);
         $testRole = \config('services.supabase.local_test_role', 'admin');
         $testDepartments = \config('services.supabase.local_test_departments');
@@ -177,7 +177,7 @@ final class ValidateSupabaseJwtMiddleware
 
         // Create AuthenticatedUser from config values
         $authenticatedUser = new AuthenticatedUser(
-            id: \is_string($testUserId) ? $testUserId : 'local-test-user',
+            id: \is_string($testUserId) ? $testUserId : '00000000-0000-0000-0000-000000000001',
             email: $testEmail,
             isApproved: (bool) $testApproved,
             roleName: \is_string($testRole) ? $testRole : null,
