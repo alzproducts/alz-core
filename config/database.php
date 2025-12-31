@@ -85,6 +85,7 @@ return [
 
     'migrations' => [
         'table' => 'migrations',
+        'connection' => 'pgsql', // Migrations don't need RLS context; use raw connection
         'update_date_on_publish' => true,
     ],
 
