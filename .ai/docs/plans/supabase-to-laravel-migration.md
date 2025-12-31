@@ -306,22 +306,100 @@ app/Infrastructure/Persistence/
 │   ├── AuthAllowedDomainModel.php
 │   ├── AuthAllowedEmailModel.php
 │   ├── UserApiKeyModel.php
+│   ├── SystemCacheModel.php
 │   └── Access/
 │       ├── RoleModel.php
 │       ├── PermissionModel.php
 │       ├── DepartmentModel.php
-│       ├── UserRoleModel.php
-│       └── ...
+│       └── UserPermissionModel.php  (only pivot with meaningful extra columns)
+├── Config/
+│   └── DashboardConfigModel.php
 ├── Repositories/
 │   └── EloquentProfileRepository.php
 └── Concerns/
     └── HasAuditFields.php
 ```
 
-### Model Pattern
+### Eloquent Model Conventions
+
+These conventions ensure consistency and avoid over-engineering:
+
+#### 1. Mass Assignment (`$fillable` / `$guarded`)
+
+**Don't define `$fillable` or `$guarded` by default.** Add only when needed.
+
+- Mass assignment protection only applies to `create([...])`, `fill([...])`, `update([...])`
+- Direct property assignment (`$model->name = 'foo'`) ignores these settings
+- Reading from DB (`find()`, `where()->get()`) ignores these settings
+- Laravel throws clear `MassAssignmentException` if you forget - add then
+
+#### 2. Timestamps
+
+**Always set `$timestamps = false`** - PostgreSQL triggers manage `created_at`/`updated_at`.
+
+#### 3. Primary Key Configuration
+
+| PK Type | Properties to set |
+|---------|-------------------|
+| UUID | `use HasUuids`, `$incrementing = false`, `$keyType = 'string'` |
+| Auto-increment int | `$incrementing = true` (default), `$keyType = 'int'` (default) |
+| Custom string | `$primaryKey = 'key'`, `$incrementing = false`, `$keyType = 'string'` |
+
+#### 4. Schema Prefixes
+
+Non-public schema tables need explicit table names:
+```php
+protected $table = 'access.roles';
+protected $table = 'config.dashboard';
+```
+
+#### 5. Casts
+
+Use `casts()` method for type conversion:
+```php
+protected function casts(): array
+{
+    return [
+        'is_approved' => 'boolean',
+        'settings' => 'array',  // JSON columns
+        'created_at' => 'immutable_datetime',  // Prefer immutable for safety
+    ];
+}
+```
+
+#### 6. Relationships
+
+**Define all relationships upfront** - they're self-documenting, zero runtime cost if unused, and immediately available when needed.
+
+#### 7. PHPDoc `@property` Annotations
+
+**Include `@property` annotations** for all columns:
+- Enables IDE autocompletion
+- Catches typos at development time
+- PHPStan knows the types
+- Can be regenerated with `php artisan ide-helper:models`
+
+#### 8. Pivot Table Models
+
+**Only create models for pivots with meaningful extra columns:**
+
+| Table | Extra Columns | Create Model? |
+|-------|---------------|---------------|
+| `user_permissions` | `expires_at`, `reason` | ✅ Yes |
+| `user_roles` | audit fields only | ❌ No (use `belongsToMany`) |
+| `user_departments` | audit fields only | ❌ No |
+| `role_permissions` | audit fields only | ❌ No |
+| `department_permissions` | audit fields only | ❌ No |
+
+### Model Pattern Example
 
 ```php
-// app/Infrastructure/Persistence/Models/ProfileModel.php
+/**
+ * @property string $id
+ * @property string $first_name
+ * @property bool $is_approved
+ * @property \Carbon\CarbonImmutable|null $created_at
+ */
 final class ProfileModel extends Model
 {
     use HasUuids;
@@ -329,9 +407,20 @@ final class ProfileModel extends Model
     protected $table = 'profiles';
     public $incrementing = false;
     protected $keyType = 'string';
+    public $timestamps = false;  // PostgreSQL triggers handle this
 
-    // Note: profiles.id = auth.users.id (Supabase-managed)
-    // Profile creation happens via Supabase trigger, not Laravel
+    protected function casts(): array
+    {
+        return [
+            'is_approved' => 'boolean',
+            'created_at' => 'immutable_datetime',
+            'updated_at' => 'immutable_datetime',
+        ];
+    }
+
+    // Relationships defined upfront for documentation
+    public function userRole(): HasOne { ... }
+    public function departments(): HasManyThrough { ... }
 }
 ```
 
