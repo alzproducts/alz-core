@@ -5,7 +5,7 @@ declare(strict_types=1);
 use Illuminate\Support\Str;
 
 // Base PostgreSQL config shared across all connections
-// Only the driver differs between pgsql (standard), pgsql_rls (user-scoped), and pgsql_admin (bypasses RLS)
+// All use standard 'pgsql' driver; RLS enforcement via beforeExecuting callbacks in RlsDatabaseServiceProvider
 $basePostgres = [
     'url' => env('DB_URL'),
     'host' => env('DB_HOST', '127.0.0.1'),
@@ -38,7 +38,10 @@ return [
     |
     */
 
-    'default' => env('DB_CONNECTION', 'pgsql'),
+    // Default to RLS-enforced connection for security-by-default
+    // API routes automatically get user-scoped data access
+    // Use DB::connection('pgsql_admin') explicitly for service/admin operations
+    'default' => env('DB_CONNECTION', 'pgsql_rls'),
 
     /*
     |--------------------------------------------------------------------------
@@ -54,15 +57,18 @@ return [
     'connections' => [
 
         // Standard PostgreSQL connection (no RLS context management)
+        // Used for migrations, seeders, and framework operations
         'pgsql' => ['driver' => 'pgsql', ...$basePostgres],
 
-        // RLS-enforced: sets user context from Laravel Context facade
+        // RLS-enforced: requires user context set by SetRlsContextMiddleware
+        // beforeExecuting callback throws if Context::get('rls_user_id') is missing
         // Use for user-initiated requests where data should be scoped to the authenticated user
-        'pgsql_rls' => ['driver' => 'pgsql_rls', ...$basePostgres],
+        'pgsql_rls' => ['driver' => 'pgsql', ...$basePostgres],
 
         // Admin connection: BYPASSES RLS - use only for service/admin operations
+        // beforeExecuting callback clears any stale session variables (Octane safety)
         // WARNING: All queries have unrestricted access to data across all users
-        'pgsql_admin' => ['driver' => 'pgsql_admin', ...$basePostgres],
+        'pgsql_admin' => ['driver' => 'pgsql', ...$basePostgres],
 
     ],
 
