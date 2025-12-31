@@ -21,9 +21,11 @@ use RuntimeException;
  * The middleware (SetRlsContextMiddleware) sets the PostgreSQL session variable once per request.
  * These callbacks act as safety guards, not the primary mechanism.
  *
- * Console commands (migrate, tinker, queue workers) bypass the RLS guard since they
- * run without HTTP middleware context. Jobs needing user-scoped queries should
- * explicitly set Context::add('rls_user_id', $userId) before using pgsql_rls.
+ * SECURITY: pgsql_rls ALWAYS requires user context - no exceptions.
+ * - HTTP requests: SetRlsContextMiddleware sets context automatically
+ * - Queue jobs: Must explicitly set Context::add('rls_user_id', $userId) before queries
+ * - Migrations/seeders: Use 'pgsql' connection (configured in database.php)
+ * - Admin operations: Use 'pgsql_admin' connection explicitly
  *
  * @see SetRlsContextMiddleware
  */
@@ -31,25 +33,21 @@ final class RlsDatabaseServiceProvider extends ServiceProvider
 {
     public function boot(): void
     {
-        // Guard: pgsql_rls requires user context to be set by middleware
-        // Skip for console commands (migrate, tinker, queue workers) - they have no middleware context
-        DB::connection('pgsql_rls')->beforeExecuting(function (
+        // Guard: pgsql_rls ALWAYS requires user context - secure by default
+        // No console bypass: queue workers must explicitly set context or use different connection
+        DB::connection('pgsql_rls')->beforeExecuting(static function (
             string $query,
             array $bindings,
             Connection $connection,
         ): void {
-            // Console commands bypass RLS guard - authorization handled at dispatch level
-            // Jobs needing user scope should explicitly set Context::add('rls_user_id', $userId)
-            if ($this->app->runningInConsole()) {
-                return;
-            }
-
             $userId = Context::get('rls_user_id');
 
             if ($userId === null) {
                 throw new RuntimeException(
-                    'RLS user context not set. Ensure SetRlsContextMiddleware runs before database queries. '
-                    . 'For admin operations, use DB::connection(\'pgsql_admin\') explicitly.',
+                    'RLS user context not set. Either:'
+                    . ' (1) Set Context::add(\'rls_user_id\', $userId) before queries, or'
+                    . ' (2) Use DB::connection(\'pgsql\') for migrations/seeders, or'
+                    . ' (3) Use DB::connection(\'pgsql_admin\') for admin operations.',
                 );
             }
         });
