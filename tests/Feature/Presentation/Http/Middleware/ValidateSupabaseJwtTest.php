@@ -392,4 +392,45 @@ final class ValidateSupabaseJwtTest extends TestCase
         // Assert
         $response->assertStatus(401)->assertJson(['error' => 'Unauthorized']);
     }
+
+    /**
+     * Test that a valid token without MFA (AAL1) is rejected with 403.
+     *
+     * This ensures backend enforces MFA even if an attacker bypasses the frontend.
+     * AAL1 = password only, AAL2 = MFA verified (required).
+     */
+    #[Test]
+    public function returns_forbidden_if_mfa_is_not_verified(): void
+    {
+        // Arrange
+        $logger = Mockery::mock();
+        $logger->shouldReceive('warning')
+            ->once()
+            ->with(
+                'MFA not verified - AAL2 required',
+                Mockery::on(static fn(array $context): bool => $context['event'] === 'api.auth.mfa_required'
+                    && $context['aal_level'] === 'aal1'
+                    && \array_key_exists('user_id', $context)
+                    && \array_key_exists('email', $context)
+                    && \array_key_exists('ip', $context)
+                    && \array_key_exists('path', $context)),
+            );
+
+        Log::shouldReceive('channel')
+            ->with('security')
+            ->andReturn($logger);
+
+        // Token with AAL1 (password only, no MFA)
+        $token = $this->generateToken(['aal' => 'aal1']);
+
+        // Act
+        $response = $this->withToken($token)->getJson('/_test/protected-route');
+
+        // Assert
+        $response->assertStatus(403)
+            ->assertJson([
+                'error' => 'MFA verification required',
+                'code' => 'MFA_REQUIRED',
+            ]);
+    }
 }
