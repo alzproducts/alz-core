@@ -12,6 +12,7 @@ use App\Providers\LinnworksServiceProvider;
 use App\Providers\MixpanelServiceProvider;
 use App\Providers\ProductSearchFeedServiceProvider;
 use App\Providers\ReviewsIoServiceProvider;
+use App\Providers\RlsDatabaseServiceProvider;
 use App\Providers\ShopwiredServiceProvider;
 use App\Providers\StorageServiceProvider;
 use App\Providers\SupabaseServiceProvider;
@@ -27,6 +28,7 @@ return [
     MixpanelServiceProvider::class,
     ProductSearchFeedServiceProvider::class,
     ReviewsIoServiceProvider::class,
+    RlsDatabaseServiceProvider::class,
     ShopwiredServiceProvider::class,
     StorageServiceProvider::class,
     SupabaseServiceProvider::class,

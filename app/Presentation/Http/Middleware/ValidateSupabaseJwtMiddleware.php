@@ -4,13 +4,14 @@ declare(strict_types=1);
 
 namespace App\Presentation\Http\Middleware;
 
+use App\Domain\Access\ValueObjects\AuthenticatedUser;
 use App\Domain\Exceptions\InvalidConfigurationException;
+use App\Presentation\Http\Auth\SupabaseJwtParser;
 use Closure;
 use Firebase\JWT\JWT;
 use Firebase\JWT\Key;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
-use RuntimeException;
 use Symfony\Component\HttpFoundation\Response;
 use Throwable;
 
@@ -23,6 +24,11 @@ final class ValidateSupabaseJwtMiddleware
 
     /**
      * Validate Supabase JWT token and attach user information to the request.
+     *
+     * Security checks performed:
+     * 1. Token presence and validity (signature, expiration)
+     * 2. MFA enforcement (AAL2 required - prevents bypassing frontend MFA)
+     * 3. Custom claims extraction (is_approved, role_name, departments for authorization)
      *
      * @param Closure(Request): Response $next
      */
@@ -56,19 +62,36 @@ final class ValidateSupabaseJwtMiddleware
             // Validate and decode JWT using HS256 algorithm (Supabase default)
             $decoded = JWT::decode($token, new Key($secret, 'HS256'));
 
-            // Extract user information from JWT claims
-            $userId = $decoded->sub ?? null;
-            $userEmail = $decoded->email ?? null;
+            // Parse and validate JWT claims (throws InvalidJwtClaimsException if malformed)
+            $claims = SupabaseJwtParser::fromDecodedJwt($decoded);
 
-            if (($userId === null) || ($userId === '')) {
-                throw new RuntimeException('JWT token missing required "sub" claim');
+            // =================================================================
+            // CRITICAL SECURITY: MFA Enforcement
+            // =================================================================
+            // Frontend enforces MFA via Supabase Auth AAL level check.
+            // We MUST also enforce AAL2 to prevent API-only access bypass.
+            // Without this, an attacker with a valid AAL1 token could bypass
+            // the frontend and access the API without completing MFA.
+            // =================================================================
+            if (!$claims->isMfaVerified()) {
+                Log::channel('security')->warning('MFA not verified - AAL2 required', [
+                    'event' => 'api.auth.mfa_required',
+                    'user_id' => $claims->userId,
+                    'email' => $claims->email,
+                    'aal_level' => $claims->aal,
+                    'ip' => $request->ip(),
+                    'path' => $request->path(),
+                ]);
+
+                return \response()->json([
+                    'error' => 'MFA verification required',
+                    'code' => 'MFA_REQUIRED',
+                ], 403);
             }
 
-            // Attach user information to request for use in controllers
-            $request->merge([
-                'auth_user_id' => $userId,
-                'auth_user_email' => $userEmail,
-            ]);
+            // Convert to domain value object and attach to request
+            $authenticatedUser = $claims->toAuthenticatedUser();
+            $request->attributes->set('authenticated_user', $authenticatedUser);
 
             return $next($request);
 
@@ -128,7 +151,8 @@ final class ValidateSupabaseJwtMiddleware
     /**
      * Handle local bypass authentication.
      *
-     * Attaches fake user credentials from config for local testing.
+     * Creates an AuthenticatedUser from config for local testing.
+     * Uses the same request attribute as real JWT auth for consistent downstream handling.
      *
      * @param Closure(Request): Response $next
      */
@@ -137,18 +161,30 @@ final class ValidateSupabaseJwtMiddleware
         /** @var string $testEmail */
         $testEmail = \config('services.supabase.local_test_email');
 
+        $testUserId = \config('services.supabase.local_test_user_id', '00000000-0000-0000-0000-000000000001');
+        $testApproved = \config('services.supabase.local_test_approved', true);
+        $testRole = \config('services.supabase.local_test_role', 'admin');
+        $testDepartments = \config('services.supabase.local_test_departments');
+
         Log::channel('security')->debug('Local auth bypass activated', [
             'event' => 'api.auth.local_bypass',
             'ip' => $request->ip(),
             'path' => $request->path(),
             'test_email' => $testEmail,
+            'test_user_id' => $testUserId,
+            'test_role' => $testRole,
         ]);
 
-        // Attach fake user credentials for local testing
-        $request->merge([
-            'auth_user_id' => 'local-test-user',
-            'auth_user_email' => $testEmail,
-        ]);
+        // Create AuthenticatedUser from config values
+        $authenticatedUser = new AuthenticatedUser(
+            id: \is_string($testUserId) ? $testUserId : '00000000-0000-0000-0000-000000000001',
+            email: $testEmail,
+            isApproved: (bool) $testApproved,
+            roleName: \is_string($testRole) ? $testRole : null,
+            departmentsSummary: \is_string($testDepartments) ? $testDepartments : null,
+        );
+
+        $request->attributes->set('authenticated_user', $authenticatedUser);
 
         return $next($request);
     }

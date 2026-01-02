@@ -55,6 +55,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Linting/PHPArkitect failures that aren't obvious syntax errors
 - Any architectural trade-offs or deviations from established patterns
 
+**Use `AskUserQuestion` tool** when presenting options or seeking decisions.
+
 **Rationale**: These decisions shape the codebase long-term. User should make informed choices, not have them silently resolved.
 
 ## Tool Usage
@@ -197,6 +199,7 @@ final class Rating extends Data {
 2. **Queue everything**: Webhooks respond immediately, process async
 3. **Supabase shared**: Same PostgreSQL database as Next.js frontend
 4. **Production uses Octane**: We run long-running daemon processes (Laravel Octane) in production. Be cautious with date/time calculations in queue jobs—always calculate timestamps in `handle()` method, not in constructor, to ensure fresh evaluations on each execution (not stale values from job creation time).
+5. **Enforce over warn**: When reviewing security controls, prefer enforcement (fail-fast) over warnings. If a security boundary can be enforced, do that instead of logging a warning that might be ignored.
 
 ## Exception Handling in Clean Architecture
 
