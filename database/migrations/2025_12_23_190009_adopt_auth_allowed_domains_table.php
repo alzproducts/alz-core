@@ -41,7 +41,7 @@ return new class extends Migration {
         // Matches source exactly: column order preserved
         DB::statement(<<<'SQL'
             CREATE TABLE public.auth_allowed_domains (
-                id uuid NOT NULL DEFAULT uuid_generate_v4(),
+                id uuid NOT NULL DEFAULT gen_random_uuid(),
                 domain text NOT NULL,
                 added_by uuid,
                 created_at timestamp with time zone DEFAULT now()
