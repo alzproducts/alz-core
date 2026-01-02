@@ -21,7 +21,7 @@ return new class extends Migration {
         if (! $this->tableExists('config', 'dashboard')) {
             DB::statement(<<<'SQL'
                 CREATE TABLE config.dashboard (
-                    id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+                    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
                     table_name text UNIQUE NOT NULL,
                     settings jsonb NOT NULL DEFAULT '{}',
                     enabled boolean DEFAULT true,
