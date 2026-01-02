@@ -39,6 +39,9 @@ final class ProfileModel extends Model
 
     protected $keyType = 'string';
 
+    // Timestamps managed by Supabase database triggers, not Eloquent.
+    // The profiles table has created_at/updated_at columns, but they are
+    // maintained by PostgreSQL triggers in the Supabase schema.
     public $timestamps = false;
 
     /**
