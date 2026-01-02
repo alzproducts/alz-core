@@ -8,18 +8,19 @@ use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Test;
+use RuntimeException;
 use Tests\TestCase;
 
 /**
  * Integration tests for RLS-aware PostgreSQL connections.
  *
  * Tests verify that:
- * - `pgsql_rls` allows queries in console context (migrations, tinker, jobs)
+ * - `pgsql_rls` throws RuntimeException when user context is missing (secure by default)
  * - `pgsql_rls` works correctly when user context is set
  * - `pgsql_admin` connection bypasses RLS and clears stale claims
  *
- * Note: Guard behavior in HTTP context (throwing when context missing) is
- * tested via Feature tests that exercise the full middleware chain.
+ * SECURITY: pgsql_rls ALWAYS requires user context - no exceptions.
+ * Use 'pgsql' connection for migrations/seeders, 'pgsql_admin' for admin operations.
  *
  * COVERAGE NOTE:
  * These are integration tests validating database connection behavior.
@@ -38,16 +39,17 @@ class RlsConnectionTest extends TestCase
     }
 
     #[Test]
-    public function pgsql_rls_connection_allows_queries_in_console_context(): void
+    public function pgsql_rls_connection_throws_when_user_context_missing(): void
     {
-        // Console context (default in tests) should bypass the guard
-        // This allows migrations, tinker, and queue workers to function
+        // SECURITY: pgsql_rls ALWAYS requires user context - no exceptions.
+        // This prevents accidental data access without proper RLS enforcement.
+        // Use 'pgsql' for migrations/seeders, 'pgsql_admin' for admin operations.
         Context::flush(); // Ensure no user context
 
-        $result = DB::connection('pgsql_rls')->select('SELECT 1 as value');
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('RLS user context not set');
 
-        $this->assertIsArray($result);
-        $this->assertSame(1, $result[0]->value);
+        DB::connection('pgsql_rls')->select('SELECT 1 as value');
     }
 
     #[Test]
