@@ -514,6 +514,31 @@ final class ValidateSupabaseJwtTest extends TestCase
     }
 
     /**
+     * Test that empty string departments_summary returns null.
+     * This documents the edge case where Supabase sends an empty string.
+     */
+    #[Test]
+    public function succeeds_with_empty_string_departments_summary(): void
+    {
+        // Arrange
+        $payload = [
+            'app_metadata' => (object) [
+                'departments_summary' => '',
+            ],
+        ];
+        $token = $this->generateToken($payload);
+
+        // Act
+        $response = $this->withToken($token)->getJson('/_test/protected-route');
+
+        // Assert
+        $response->assertStatus(200)
+            ->assertJson([
+                'departments' => null,
+            ]);
+    }
+
+    /**
      * Test that departments_summary with invalid type (integer) is rejected.
      */
     #[Test]
