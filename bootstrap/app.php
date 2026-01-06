@@ -2,6 +2,9 @@
 
 declare(strict_types=1);
 
+use App\Presentation\Http\Middleware\EnsureUserApprovedMiddleware;
+use App\Presentation\Http\Middleware\SetRlsContextMiddleware;
+use App\Presentation\Http\Middleware\ValidateSupabaseJwtMiddleware;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -54,6 +57,14 @@ return Application::configure(basePath: dirname(__DIR__))
         // This is safe because Railway's network is isolated and all traffic
         // goes through their proxy - direct access to the container is not possible
         $middleware->trustProxies(at: '*');
+
+        // Supabase Auth: JWT validation + user approval check + RLS context
+        // Apply to all protected API routes
+        $middleware->appendToGroup('auth.supabase', [
+            ValidateSupabaseJwtMiddleware::class,
+            EnsureUserApprovedMiddleware::class,
+            SetRlsContextMiddleware::class, // Sets Context('rls_user_id') for pgsql_rls connection
+        ]);
     })
     ->withExceptions(static function (Exceptions $exceptions): void {
         // Hook Sentry into Laravel's exception handler to capture all unhandled exceptions

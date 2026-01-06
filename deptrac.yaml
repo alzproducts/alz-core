@@ -107,6 +107,12 @@ deptrac:
         - type: classLike
           value: ^Sentry\\.*
 
+    # Carbon date/time library (Laravel dependency)
+    - name: CarbonDateTime
+      collectors:
+        - type: classLike
+          value: ^Carbon\\.*
+
   ruleset:
     # Domain: Pure business logic + assertions only
     Domain:
@@ -117,7 +123,7 @@ deptrac:
       - Domain
       - PsrInterfaces
 
-    # Infrastructure: All internal + Laravel, Spatie, Google, Bing, Guzzle, PSR, Flysystem, Assertions, Sentry, Symfony
+    # Infrastructure: All internal + Laravel, Spatie, Google, Bing, Guzzle, PSR, Flysystem, Assertions, Sentry, Symfony, Carbon
     Infrastructure:
       - Application
       - Domain
@@ -132,6 +138,7 @@ deptrac:
       - AssertionLibrary
       - SentrySdk
       - SymfonyHttp
+      - CarbonDateTime
 
     # Presentation: Internal + Laravel, Symfony, Firebase, Sentry
     Presentation:
@@ -157,3 +164,4 @@ deptrac:
     FirebaseJwt: ~
     LeagueFlysystem: ~
     SentrySdk: ~
+    CarbonDateTime: ~

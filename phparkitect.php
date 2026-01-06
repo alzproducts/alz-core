@@ -254,6 +254,7 @@ return static function (Config $config): void {
                                'Exception',
                                'Throwable',
                                'Closure',
+                               'stdClass',
                                'Symfony\Component\HttpFoundation',
                                'Symfony\Component\HttpKernel',
                                'Firebase\JWT',
@@ -312,9 +313,10 @@ return static function (Config $config): void {
     //
     $rules[] = Rule::allClasses()
                    ->that(new ResideInOneOfTheseNamespaces($presentation))
-                   ->should(new MatchOneOfTheseNames(['*Controller', '*Command', '*Job', '*Middleware']))
+                   ->andThat(new NotHaveNameMatching('*Exception'))
+                   ->should(new MatchOneOfTheseNames(['*Controller', '*Command', '*Job', '*Middleware', '*Parser']))
                    ->because(
-                       'Presentation layer classes should be clearly identifiable as controllers, commands, jobs, or middleware.',
+                       'Presentation layer classes should be clearly identifiable as controllers, commands, jobs, middleware, or parsers.',
                    );
 
     // Application services must end with "UseCase", "Service", "Transformer", "Formatter", or "Interface"
@@ -559,6 +561,7 @@ return static function (Config $config): void {
                        'App\Application\*\Exceptions',
                        'App\Infrastructure\Exceptions',
                        'App\Infrastructure\*\Exceptions',
+                       'App\Presentation\*\Exceptions',
                    ))
                    ->because(
                        'All exception classes must reside in Exceptions/ subdirectories '
