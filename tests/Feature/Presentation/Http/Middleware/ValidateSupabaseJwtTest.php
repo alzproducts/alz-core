@@ -43,6 +43,7 @@ final class ValidateSupabaseJwtTest extends TestCase
             return \response()->json([
                 'auth_user_id' => $user?->id,
                 'auth_user_email' => $user?->email,
+                'departments' => $user?->departments,
             ]);
         })->middleware(ValidateSupabaseJwtMiddleware::class);
 
@@ -432,5 +433,181 @@ final class ValidateSupabaseJwtTest extends TestCase
                 'error' => 'MFA verification required',
                 'code' => 'MFA_REQUIRED',
             ]);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // departments_summary Claim Tests (Issue #95)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Test that departments_summary as comma-separated string is parsed to array.
+     * This is the legacy format from Supabase.
+     */
+    #[Test]
+    public function succeeds_with_departments_summary_as_string(): void
+    {
+        // Arrange
+        $payload = [
+            'app_metadata' => (object) [
+                'departments_summary' => 'Sales,Marketing,Support',
+            ],
+        ];
+        $token = $this->generateToken($payload);
+
+        // Act
+        $response = $this->withToken($token)->getJson('/_test/protected-route');
+
+        // Assert
+        $response->assertStatus(200)
+            ->assertJson([
+                'departments' => ['Sales', 'Marketing', 'Support'],
+            ]);
+    }
+
+    /**
+     * Test that departments_summary as array is passed through correctly.
+     * This is the new format from Supabase.
+     */
+    #[Test]
+    public function succeeds_with_departments_summary_as_array(): void
+    {
+        // Arrange
+        $payload = [
+            'app_metadata' => (object) [
+                'departments_summary' => ['Sales', 'Marketing', 'Support'],
+            ],
+        ];
+        $token = $this->generateToken($payload);
+
+        // Act
+        $response = $this->withToken($token)->getJson('/_test/protected-route');
+
+        // Assert
+        $response->assertStatus(200)
+            ->assertJson([
+                'departments' => ['Sales', 'Marketing', 'Support'],
+            ]);
+    }
+
+    /**
+     * Test that empty departments_summary array returns null.
+     */
+    #[Test]
+    public function succeeds_with_empty_departments_summary_array(): void
+    {
+        // Arrange
+        $payload = [
+            'app_metadata' => (object) [
+                'departments_summary' => [],
+            ],
+        ];
+        $token = $this->generateToken($payload);
+
+        // Act
+        $response = $this->withToken($token)->getJson('/_test/protected-route');
+
+        // Assert
+        $response->assertStatus(200)
+            ->assertJson([
+                'departments' => null,
+            ]);
+    }
+
+    /**
+     * Test that empty string departments_summary returns null.
+     * This documents the edge case where Supabase sends an empty string.
+     */
+    #[Test]
+    public function succeeds_with_empty_string_departments_summary(): void
+    {
+        // Arrange
+        $payload = [
+            'app_metadata' => (object) [
+                'departments_summary' => '',
+            ],
+        ];
+        $token = $this->generateToken($payload);
+
+        // Act
+        $response = $this->withToken($token)->getJson('/_test/protected-route');
+
+        // Assert
+        $response->assertStatus(200)
+            ->assertJson([
+                'departments' => null,
+            ]);
+    }
+
+    /**
+     * Test that departments_summary with invalid type (integer) is rejected.
+     */
+    #[Test]
+    public function returns_unauthorized_if_departments_summary_has_invalid_type(): void
+    {
+        // Arrange
+        $logger = Mockery::mock();
+        $logger->shouldReceive('warning')
+            ->once()
+            ->with(
+                'Invalid JWT token',
+                Mockery::on(static fn(array $context): bool => \str_contains($context['error'], 'expected string or array of strings')
+                    && \str_contains($context['error'], 'app_metadata.departments_summary')
+                    && \array_key_exists('event', $context)
+                    && \array_key_exists('ip', $context)
+                    && \array_key_exists('path', $context)),
+            );
+
+        Log::shouldReceive('channel')
+            ->with('security')
+            ->andReturn($logger);
+
+        $payload = [
+            'app_metadata' => (object) [
+                'departments_summary' => 12345, // Invalid: integer
+            ],
+        ];
+        $token = $this->generateToken($payload);
+
+        // Act
+        $response = $this->withToken($token)->getJson('/_test/protected-route');
+
+        // Assert
+        $response->assertStatus(401)->assertJson(['error' => 'Unauthorized']);
+    }
+
+    /**
+     * Test that departments_summary array with non-string elements is rejected.
+     */
+    #[Test]
+    public function returns_unauthorized_if_departments_summary_array_has_non_string_elements(): void
+    {
+        // Arrange
+        $logger = Mockery::mock();
+        $logger->shouldReceive('warning')
+            ->once()
+            ->with(
+                'Invalid JWT token',
+                Mockery::on(static fn(array $context): bool => \str_contains($context['error'], 'array with non-string elements')
+                    && \array_key_exists('event', $context)
+                    && \array_key_exists('ip', $context)
+                    && \array_key_exists('path', $context)),
+            );
+
+        Log::shouldReceive('channel')
+            ->with('security')
+            ->andReturn($logger);
+
+        $payload = [
+            'app_metadata' => (object) [
+                'departments_summary' => ['Sales', 123, 'Support'], // Invalid: contains integer
+            ],
+        ];
+        $token = $this->generateToken($payload);
+
+        // Act
+        $response = $this->withToken($token)->getJson('/_test/protected-route');
+
+        // Assert
+        $response->assertStatus(401)->assertJson(['error' => 'Unauthorized']);
     }
 }

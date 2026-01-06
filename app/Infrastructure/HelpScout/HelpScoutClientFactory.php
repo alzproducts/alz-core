@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace App\Infrastructure\HelpScout;
 
 use App\Application\Contracts\HelpScout\AgentsClientInterface;
+use App\Application\Contracts\HelpScout\ConnectivityClientInterface;
 use App\Application\Contracts\HelpScout\ConversationsClientInterface;
 use App\Application\Contracts\HelpScout\MailboxesClientInterface;
 use App\Domain\Exceptions\InvalidConfigurationException;
+use App\Infrastructure\HelpScout\Clients\ConnectivityClient;
 use App\Infrastructure\HelpScout\Clients\ConversationsClient;
 use App\Infrastructure\HelpScout\Clients\MailboxesClient;
 use App\Infrastructure\HelpScout\Clients\UsersClient;
@@ -54,6 +56,14 @@ final class HelpScoutClientFactory
     public static function createUsersClient(): AgentsClientInterface
     {
         return new UsersClient(self::getTransport());
+    }
+
+    /**
+     * Create the connectivity client for health checks.
+     */
+    public static function createConnectivityClient(): ConnectivityClientInterface
+    {
+        return new ConnectivityClient(self::getTransport());
     }
 
     /**
