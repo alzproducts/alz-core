@@ -28,14 +28,14 @@ final class AuthenticatedUserTest extends TestCase
             email: self::VALID_EMAIL,
             isApproved: true,
             roleName: 'admin',
-            departmentsSummary: 'Sales, Marketing',
+            departments: ['Sales', 'Marketing'],
         );
 
         $this->assertSame(self::VALID_UUID, $user->id);
         $this->assertSame(self::VALID_EMAIL, $user->email);
         $this->assertTrue($user->isApproved);
         $this->assertSame('admin', $user->roleName);
-        $this->assertSame('Sales, Marketing', $user->departmentsSummary);
+        $this->assertSame(['Sales', 'Marketing'], $user->departments);
     }
 
     public function testConstructsWithMinimalRequiredParameters(): void
@@ -50,7 +50,7 @@ final class AuthenticatedUserTest extends TestCase
         $this->assertSame(self::VALID_EMAIL, $user->email);
         $this->assertFalse($user->isApproved);
         $this->assertNull($user->roleName);
-        $this->assertNull($user->departmentsSummary);
+        $this->assertNull($user->departments);
     }
 
     #[DataProvider('invalidUuidProvider')]

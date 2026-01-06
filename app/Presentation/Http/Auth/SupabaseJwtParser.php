@@ -24,19 +24,22 @@ use stdClass;
  *   "app_metadata": {        // Optional: Custom claims from Edge Function
  *     "is_approved": bool,
  *     "role_name": string,
- *     "departments_summary": string
+ *     "departments_summary": string | string[]  // Normalized to array internally
  *   }
  * }
  */
 final readonly class SupabaseJwtParser
 {
+    /**
+     * @param list<string>|null $departments
+     */
     private function __construct(
         public string $userId,
         public string $email,
         public string $aal,
         public bool $isApproved,
         public ?string $roleName,
-        public ?string $departmentsSummary,
+        public ?array $departments,
     ) {}
 
     /**
@@ -58,7 +61,7 @@ final readonly class SupabaseJwtParser
         $email = $decoded->email;
 
         $aal = self::extractAal($decoded);
-        [$isApproved, $roleName, $departmentsSummary] = self::extractAppMetadata($decoded);
+        [$isApproved, $roleName, $departments] = self::extractAppMetadata($decoded);
 
         return new self(
             userId: $userId,
@@ -66,7 +69,7 @@ final readonly class SupabaseJwtParser
             aal: $aal,
             isApproved: $isApproved,
             roleName: $roleName,
-            departmentsSummary: $departmentsSummary,
+            departments: $departments,
         );
     }
 
@@ -92,7 +95,7 @@ final readonly class SupabaseJwtParser
     /**
      * Extract app_metadata claims from JWT.
      *
-     * @return array{bool, ?string, ?string} [isApproved, roleName, departmentsSummary]
+     * @return array{bool, ?string, list<string>|null} [isApproved, roleName, departments]
      *
      * @throws InvalidJwtClaimsException
      */
@@ -115,7 +118,7 @@ final readonly class SupabaseJwtParser
         return [
             isset($appMetadata->is_approved) && $appMetadata->is_approved === true,
             self::extractOptionalString($appMetadata, 'role_name', 'app_metadata.role_name'),
-            self::extractOptionalString($appMetadata, 'departments_summary', 'app_metadata.departments_summary'),
+            self::extractDepartments($appMetadata),
         ];
     }
 
@@ -138,6 +141,66 @@ final readonly class SupabaseJwtParser
     }
 
     /**
+     * Extract departments from app_metadata.
+     * Accepts either a comma-separated string or an array of strings.
+     *
+     * @return list<string>|null
+     *
+     * @throws InvalidJwtClaimsException
+     */
+    private static function extractDepartments(stdClass $appMetadata): ?array
+    {
+        if (!isset($appMetadata->departments_summary)) {
+            return null;
+        }
+
+        $value = $appMetadata->departments_summary;
+
+        if (\is_string($value)) {
+            return $value === '' ? null : \explode(',', $value);
+        }
+
+        if (\is_array($value)) {
+            return self::validateStringArray($value, 'app_metadata.departments_summary');
+        }
+
+        throw InvalidJwtClaimsException::invalidType(
+            'app_metadata.departments_summary',
+            'string or array of strings',
+            \gettype($value),
+        );
+    }
+
+    /**
+     * Validate and normalize an array to ensure all elements are strings.
+     *
+     * @param array<mixed> $value
+     *
+     * @return list<string>|null
+     *
+     * @throws InvalidJwtClaimsException
+     */
+    private static function validateStringArray(array $value, string $claimPath): ?array
+    {
+        if ($value === []) {
+            return null;
+        }
+
+        foreach ($value as $element) {
+            if (!\is_string($element)) {
+                throw InvalidJwtClaimsException::invalidType(
+                    $claimPath,
+                    'string or array of strings',
+                    'array with non-string elements',
+                );
+            }
+        }
+
+        /** @var list<string> $value */
+        return $value;
+    }
+
+    /**
      * Check if MFA has been verified (AAL2).
      */
     public function isMfaVerified(): bool
@@ -155,7 +218,7 @@ final readonly class SupabaseJwtParser
             email: $this->email,
             isApproved: $this->isApproved,
             roleName: $this->roleName,
-            departmentsSummary: $this->departmentsSummary,
+            departments: $this->departments,
         );
     }
 
