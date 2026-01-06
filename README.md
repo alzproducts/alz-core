@@ -15,7 +15,7 @@ Backend service for e-commerce webhooks and background jobs. Portfolio piece dem
 - Laravel 12 (backend-only API)
 - PHP 8.4+
 - Laravel Octane with Swoole (application server)
-- PostgreSQL via Supabase (production) / Docker PostgreSQL (development)
+- PostgreSQL via Supabase (production + local dev)
 - Redis (cache, queues, sessions)
 - Laravel Horizon (queue monitoring)
 - Laravel Telescope (debugging)
@@ -25,8 +25,15 @@ Backend service for e-commerce webhooks and background jobs. Portfolio piece dem
 ### Prerequisites
 
 - **PHP 8.4+** via Homebrew with extensions: `redis`, `swoole`, `pdo_pgsql`
-- **Docker Desktop** (for PostgreSQL + Redis services)
+- **Docker Desktop** (for Redis)
+- **Node.js + pnpm** (for Supabase CLI in alz-admin)
+- **alz-admin** repo cloned (contains Supabase config)
 - Git
+
+**Shell configuration** (add to `~/.zshrc`):
+```bash
+export ALZ_ADMIN=/path/to/alz-admin
+```
 
 #### macOS PHP Setup
 
@@ -57,64 +64,50 @@ composer install
 # Copy environment file
 cp .env.example .env
 
-# Start Docker services (PostgreSQL + Redis)
-docker compose up -d
+# Start Supabase (PostgreSQL, Auth, Storage)
+make supabase-start
 
-# Create databases
-make db-setup
+# Start Redis
+make redis
 
 # Run migrations
 php artisan migrate
 
-# Run unit tests (fast, no external deps)
-make test-unit
-
-# Run all tests including integration
+# Verify tests pass
 make test
-
-# Generate Google Ads API refresh token (one-time)
-# 1. Add http://localhost to Authorized redirect URIs in Google Cloud Console
-# 2. Open this URL in browser (replace CLIENT_ID with your GOOGLE_ADS_CLIENT_ID):
-#    https://accounts.google.com/o/oauth2/v2/auth?client_id=CLIENT_ID&redirect_uri=http://localhost&response_type=code&scope=https://www.googleapis.com/auth/adwords&access_type=offline&prompt=consent
-# 3. After authorizing, copy the 'code' parameter from the redirect URL
-# 4. Exchange code for refresh token:
-curl -X POST https://oauth2.googleapis.com/token \
-  -d "code=YOUR_AUTH_CODE" \
-  -d "client_id=YOUR_CLIENT_ID" \
-  -d "client_secret=YOUR_CLIENT_SECRET" \
-  -d "redirect_uri=http://localhost" \
-  -d "grant_type=authorization_code"
-# 5. Copy refresh_token from response to .env as GOOGLE_ADS_REFRESH_TOKEN
 ```
 
 ### Daily Development
 
 ```bash
-# Start Docker services (if not running)
-docker compose up -d
+# Start Supabase (if not running)
+make supabase-start
 
-# Start Octane server (in separate terminal)
-php artisan octane:start
+# Start Redis (if not running)
+make redis
 
-# Or use watch mode (auto-reloads on file changes)
+# Start Octane server with hot reload
 php artisan octane:start --watch
 
-# Run unit tests (~5 seconds, recommended)
-make test-unit
+# In another terminal: start queue worker
+php artisan queue:listen -v
 
-# Run all tests including integration
-make test
-
-# Run linters (before commit)
-make lint
-
-# Stop services (when done)
-docker compose down
+# Optional: start edge functions (for auth flows)
+make supabase-functions
 ```
 
-**Important**: Code changes require Octane reload (unless using `--watch` mode):
+**Database Commands**:
 ```bash
-php artisan octane:reload
+make supabase-status   # Check if Supabase is running
+make db-reset          # Reset DB (migrate:fresh)
+make supabase-stop     # Stop Supabase when done
+```
+
+**Testing & Linting**:
+```bash
+make test              # Run all tests
+make test-quick        # Domain tests only (~5s)
+make lint              # Run linters (before commit)
 ```
 
 ## Code Quality Standards
