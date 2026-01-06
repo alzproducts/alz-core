@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Application\Contracts\HelpScout\AgentsClientInterface;
+use App\Application\Contracts\HelpScout\ConnectivityClientInterface;
 use App\Application\Contracts\HelpScout\ConversationsClientInterface;
 use App\Application\Contracts\HelpScout\MailboxesClientInterface;
 use App\Application\HelpScout\Services\CachingHelpScoutService;
@@ -57,6 +58,11 @@ final class HelpScoutServiceProvider extends ServiceProvider implements Deferrab
             static fn(): AgentsClientInterface => HelpScoutClientFactory::createUsersClient(),
         );
 
+        $this->app->singleton(
+            ConnectivityClientInterface::class,
+            static fn(): ConnectivityClientInterface => HelpScoutClientFactory::createConnectivityClient(),
+        );
+
         $this->app->bind(
             GetEscalationsUseCase::class,
             static fn(Application $app): GetEscalationsUseCase => new GetEscalationsUseCase(
@@ -89,6 +95,7 @@ final class HelpScoutServiceProvider extends ServiceProvider implements Deferrab
             ConversationsClientInterface::class,
             MailboxesClientInterface::class,
             AgentsClientInterface::class,
+            ConnectivityClientInterface::class,
             GetEscalationsUseCase::class,
         ];
     }

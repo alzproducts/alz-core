@@ -6,6 +6,7 @@ namespace App\Presentation\Console\Commands;
 
 use App\Application\Contracts\BingAdsClientInterface;
 use App\Application\Contracts\GoogleAdsClientInterface;
+use App\Application\Contracts\HelpScout\ConnectivityClientInterface as HelpScoutConnectivityClient;
 use App\Application\Contracts\Linnworks\ConnectivityClientInterface as LinnworksConnectivityClient;
 use App\Application\Contracts\MixpanelClientInterface;
 use App\Application\Contracts\ReviewsIoClientInterface;
@@ -26,7 +27,7 @@ use Throwable;
 final class VerifyApiConnectivityCommand extends Command
 {
     protected $signature = 'verify:api
-        {client : The API client to verify (reviewsio, mixpanel, googleads, shopwired, linnworks, bingads, all)}';
+        {client : The API client to verify (reviewsio, mixpanel, googleads, shopwired, linnworks, bingads, helpscout, all)}';
 
     protected $description = 'Verify connectivity and authentication with external API services';
 
@@ -42,6 +43,7 @@ final class VerifyApiConnectivityCommand extends Command
             'bingads' => ['bingads' => $this->verifyBingAds()],
             'shopwired' => ['shopwired' => $this->verifyShopwired()],
             'linnworks' => ['linnworks' => $this->verifyLinnworks()],
+            'helpscout' => ['helpscout' => $this->verifyHelpScout()],
             'all' => [
                 'reviewsio' => $this->verifyReviewsIo(),
                 'mixpanel' => $this->verifyMixpanel(),
@@ -49,13 +51,14 @@ final class VerifyApiConnectivityCommand extends Command
                 'bingads' => $this->verifyBingAds(),
                 'shopwired' => $this->verifyShopwired(),
                 'linnworks' => $this->verifyLinnworks(),
+                'helpscout' => $this->verifyHelpScout(),
             ],
             default => null,
         };
 
         if ($results === null) {
             $this->error("Unknown client: {$client}");
-            $this->line('Available: reviewsio, mixpanel, googleads, bingads, shopwired, linnworks, all');
+            $this->line('Available: reviewsio, mixpanel, googleads, bingads, shopwired, linnworks, helpscout, all');
 
             return self::FAILURE;
         }
@@ -204,6 +207,31 @@ final class VerifyApiConnectivityCommand extends Command
         } catch (Throwable $e) { // @ignoreException - connectivity test: report failure to user
             $this->error('  Failed: ' . $e->getMessage());
             $this->line('  Check: LINNWORKS_APPLICATION_ID, LINNWORKS_APPLICATION_SECRET, and LINNWORKS_INSTALLATION_TOKEN in .env');
+
+            return false;
+        }
+    }
+
+    private function verifyHelpScout(): bool
+    {
+        $this->info('Verifying HelpScout...');
+
+        try {
+            $client = \app(HelpScoutConnectivityClient::class);
+            $client->verifyConnectivity();
+
+            $this->line('  Authentication: OK');
+            $this->line('  API Response: Valid');
+
+            return true;
+        } catch (AuthenticationExpiredException $e) {
+            $this->error('  Authorization Failed: ' . $e->getMessage());
+            $this->line('  Check: HELPSCOUT_APP_ID and HELPSCOUT_APP_SECRET in .env');
+
+            return false;
+        } catch (Throwable $e) { // @ignoreException - connectivity test: report failure to user
+            $this->error('  Failed: ' . $e->getMessage());
+            $this->line('  Check: HELPSCOUT_APP_ID and HELPSCOUT_APP_SECRET in .env');
 
             return false;
         }
