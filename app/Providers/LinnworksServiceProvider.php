@@ -6,8 +6,13 @@ namespace App\Providers;
 
 use App\Application\Contracts\Linnworks\ConnectivityClientInterface;
 use App\Application\Contracts\Linnworks\InventoryClientInterface;
+use App\Application\Contracts\LockableCacheInterface;
 use App\Infrastructure\Linnworks\LinnworksClientFactory;
+use App\Infrastructure\Linnworks\LinnworksConfig;
+use App\Infrastructure\Linnworks\LinnworksSessionManager;
+use Illuminate\Contracts\Container\Container;
 use Illuminate\Contracts\Support\DeferrableProvider;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\ServiceProvider;
 use Override;
 
@@ -37,6 +42,15 @@ final class LinnworksServiceProvider extends ServiceProvider implements Deferrab
     #[Override]
     public function register(): void
     {
+        // LinnworksSessionManager with contextual LockableCacheInterface
+        $this->app->singleton(
+            LinnworksSessionManager::class,
+            static fn(Container $app): LinnworksSessionManager => new LinnworksSessionManager(
+                self::createConfig(),
+                $app->make(LockableCacheInterface::class),
+            ),
+        );
+
         // Connectivity client - for health checks
         $this->app->singleton(
             ConnectivityClientInterface::class,
@@ -61,6 +75,23 @@ final class LinnworksServiceProvider extends ServiceProvider implements Deferrab
         return [
             ConnectivityClientInterface::class,
             InventoryClientInterface::class,
+            LinnworksSessionManager::class,
         ];
+    }
+
+    /**
+     * Create LinnworksConfig from Laravel configuration.
+     *
+     * LinnworksConfig constructor handles validation (fail-fast for invalid config).
+     */
+    private static function createConfig(): LinnworksConfig
+    {
+        return new LinnworksConfig(
+            applicationId: Config::string('linnworks.application_id', ''),
+            applicationSecret: Config::string('linnworks.application_secret', ''),
+            installationToken: Config::string('linnworks.installation_token', ''),
+            timeout: Config::integer('linnworks.timeout', 30),
+            cacheTtlBuffer: Config::integer('linnworks.cache_ttl_buffer', 300),
+        );
     }
 }
