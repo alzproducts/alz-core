@@ -1,4 +1,4 @@
-.PHONY: help install up down shell db-setup migrate fresh pint pint-test test test-quick test-coverage coverage-html pest-mutate test-ai test-mutate lint lint-sequential lint-full fix analyse insights phparkitect deptrac tlint tlint-full psalm psalm-ci psalm-baseline stan rector rector-dry-run refactor check check-full infection infection-fast infection-strict infection-incremental infection-ci ide-helper test-domain test-domain-coverage test-app test-app-coverage mutate-domain mutate-app
+.PHONY: help install up down shell db-setup migrate fresh db-reset pint pint-test test test-quick test-coverage coverage-html pest-mutate test-ai test-mutate lint lint-sequential lint-full fix analyse insights phparkitect deptrac tlint tlint-full psalm psalm-ci psalm-baseline stan rector rector-dry-run refactor check check-full infection infection-fast infection-strict infection-incremental infection-ci ide-helper test-domain test-domain-coverage test-app test-app-coverage mutate-domain mutate-app supabase-start supabase-functions supabase-stop supabase-status redis
 
 # Enable strict shell mode for robust error handling
 SHELL := bash
@@ -346,6 +346,44 @@ migrate: ## Run database migrations
 fresh: ## Fresh database with seeders
 	@echo "$(MODE)"
 	$(EXEC) artisan migrate:fresh --seed
+
+db-reset: ## Reset database (migrate:fresh without seed)
+	@echo "$(MODE)"
+	$(EXEC) artisan migrate:fresh
+
+# =============================================================================
+# Supabase (Local Development)
+# =============================================================================
+# Requires ALZ_ADMIN env var pointing to alz-admin project
+# Add to ~/.zshrc: export ALZ_ADMIN=/path/to/alz-admin
+
+supabase-start: ## Start Supabase services (PostgreSQL, Auth, Storage)
+ifndef ALZ_ADMIN
+	$(error ALZ_ADMIN not set. Add to ~/.zshrc: export ALZ_ADMIN=/path/to/alz-admin)
+endif
+ifneq ($(CI),true)
+	@cd $(ALZ_ADMIN) && (pnpm exec supabase status 2>/dev/null | grep -qi "running\|started" && echo "Supabase already running" || pnpm exec supabase start)
+endif
+
+supabase-functions: ## Start Supabase Edge Functions dev server (long-running)
+ifndef ALZ_ADMIN
+	$(error ALZ_ADMIN not set. Add to ~/.zshrc: export ALZ_ADMIN=/path/to/alz-admin)
+endif
+	cd $(ALZ_ADMIN) && pnpm exec supabase functions serve --no-verify-jwt
+
+supabase-stop: ## Stop Supabase services
+ifdef ALZ_ADMIN
+	cd $(ALZ_ADMIN) && pnpm exec supabase stop
+endif
+
+supabase-status: ## Check Supabase status
+ifdef ALZ_ADMIN
+	cd $(ALZ_ADMIN) && pnpm exec supabase status
+endif
+
+# Redis (Docker - used alongside Supabase PostgreSQL)
+redis: ## Start Redis only (not PostgreSQL from compose.yaml)
+	docker compose up -d redis
 
 # IDE Helper
 ide-helper: ## Generate IDE helper files
