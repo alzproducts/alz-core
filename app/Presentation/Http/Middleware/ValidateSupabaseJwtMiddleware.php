@@ -181,11 +181,33 @@ final class ValidateSupabaseJwtMiddleware
             email: $testEmail,
             isApproved: (bool) $testApproved,
             roleName: \is_string($testRole) ? $testRole : null,
-            departmentsSummary: \is_string($testDepartments) ? $testDepartments : null,
+            departments: self::parseDepartmentsConfig($testDepartments),
         );
 
         $request->attributes->set('authenticated_user', $authenticatedUser);
 
         return $next($request);
+    }
+
+    /**
+     * Parse departments config value to array format.
+     *
+     * @return list<string>|null
+     */
+    private static function parseDepartmentsConfig(mixed $value): ?array
+    {
+        if (\is_array($value)) {
+            if ($value === []) {
+                return null;
+            }
+            /** @var list<string> */
+            return \array_values($value);
+        }
+
+        if (\is_string($value) && $value !== '') {
+            return \explode(',', $value);
+        }
+
+        return null;
     }
 }

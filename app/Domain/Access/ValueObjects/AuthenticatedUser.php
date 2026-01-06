@@ -38,14 +38,14 @@ final readonly class AuthenticatedUser
      * @param string $email User's email address
      * @param bool $isApproved Whether admin has approved this user (see class docblock)
      * @param string|null $roleName User's assigned role (e.g., 'admin', 'staff')
-     * @param string|null $departmentsSummary Comma-separated department names for display
+     * @param list<string>|null $departments List of department names the user belongs to
      */
     public function __construct(
         public string $id,
         public string $email,
         public bool $isApproved,
         public ?string $roleName = null,
-        public ?string $departmentsSummary = null,
+        public ?array $departments = null,
     ) {
         Assert::uuid($id, 'User ID must be a valid UUID');
         Assert::email($email, 'User email must be valid');
