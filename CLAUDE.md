@@ -108,16 +108,18 @@ See `.ai/docs/implementation/CLAUDE.md` for the full template and guidelines.
 ## Development Environment
 
 **PHP**: Native PHP 8.4 via Homebrew (not Docker/Sail)
-**Services**: PostgreSQL 17 + Redis in Docker (services only)
+**Database**: Supabase PostgreSQL (local dev) or Docker PostgreSQL (CI)
+**Services**: Redis in Docker
 **Octane**: Swoole (matches production)
 
 ### Quick Reference
 ```bash
-docker compose up -d              # Start PostgreSQL + Redis
-make db-setup                     # Create databases (first time)
+make supabase-reset               # Full Supabase reset with test users
+make supabase-seed-users          # Seed test users only
+make redis                        # Start Redis (Docker)
 php artisan migrate               # Run migrations
 php artisan octane:start --watch  # Dev server with hot reload
-make test-unit                    # Run unit tests (~5s, no external deps)
+make test-quick                   # Run unit tests (~5s, no external deps)
 make test                         # Run all tests (unit + integration)
 make lint                         # Run linters
 ```
