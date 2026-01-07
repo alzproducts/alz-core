@@ -158,8 +158,9 @@ final class ValidateSupabaseJwtMiddleware
      */
     private function handleLocalBypass(Request $request, Closure $next): Response
     {
-        /** @var string $testEmail */
+        // Type guaranteed by shouldBypassAuth() which validates non-empty string
         $testEmail = \config('services.supabase.local_test_email');
+        \assert(\is_string($testEmail) && $testEmail !== '');
 
         $testUserId = \config('services.supabase.local_test_user_id', '00000000-0000-0000-0000-000000000001');
         $testApproved = \config('services.supabase.local_test_approved', true);
