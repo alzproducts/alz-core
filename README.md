@@ -64,13 +64,14 @@ composer install
 # Copy environment file
 cp .env.example .env
 
-# Start Supabase (PostgreSQL, Auth, Storage)
-make supabase-start
+# Reset Supabase and seed test users
+# (Runs in alz-admin: resets DB, regenerates types, seeds users)
+make supabase-reset
 
 # Start Redis
 make redis
 
-# Run migrations
+# Run Laravel migrations (adopts existing Supabase schema)
 php artisan migrate
 
 # Verify tests pass
@@ -96,11 +97,26 @@ php artisan queue:listen -v
 make supabase-functions
 ```
 
-**Database Commands**:
+### Database Modes
+
+This project uses **two different database setups** depending on context:
+
+| Mode | Database | Port | Managed By | When Used |
+|------|----------|------|------------|-----------|
+| **Local Dev** | Supabase PostgreSQL | 54322 | alz-admin project | Daily development |
+| **CI/Testing** | Docker PostgreSQL | 5432 | GitHub Actions services | CI pipeline |
+
+**Local development** connects to Supabase (shared with alz-admin frontend). User authentication, profiles, and roles are managed by Supabase Auth.
+
+**CI/Testing** uses isolated Docker PostgreSQL with mocked auth schema. This allows tests to run without Supabase dependencies.
+
+**Database Commands** (Local Development):
 ```bash
-make supabase-status   # Check if Supabase is running
-make db-reset          # Reset DB (migrate:fresh)
-make supabase-stop     # Stop Supabase when done
+make supabase-status      # Check if Supabase is running
+make supabase-reset       # Full reset: wipe DB, seed data, create test users
+make supabase-seed-users  # Seed test users only (no DB wipe)
+make migrate              # Run Laravel migrations (safe, additive)
+make supabase-stop        # Stop Supabase when done
 ```
 
 **Testing & Linting**:
