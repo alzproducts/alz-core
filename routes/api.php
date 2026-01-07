@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
+use App\Domain\Access\ValueObjects\AuthenticatedUser;
 use App\Infrastructure\Sentry\SentryUserContextMiddleware;
 use App\Presentation\Http\Controllers\HelpScoutController;
 use App\Presentation\Http\Middleware\HandleHelpScoutExceptionsMiddleware;
 use App\Presentation\Http\Middleware\ValidateSupabaseJwtMiddleware;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -28,9 +28,9 @@ Route::middleware([
 ])->group(static function (): void {
 
     // Test route to verify authentication is working
-    Route::get('user', static fn(Request $request): array => [
-        'user_id' => $request->input('auth_user_id'),
-        'email' => $request->input('auth_user_email'),
+    Route::get('user', static fn(AuthenticatedUser $user): array => [
+        'user_id' => $user->id,
+        'email' => $user->email,
     ]);
 
     /*
