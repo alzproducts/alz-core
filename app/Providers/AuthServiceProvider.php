@@ -8,6 +8,7 @@ use App\Domain\Access\ValueObjects\AuthenticatedUser;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Contracts\Support\DeferrableProvider;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\ServiceProvider;
 use LogicException;
 use Override;
@@ -35,6 +36,11 @@ final class AuthServiceProvider extends ServiceProvider implements DeferrablePro
                 $user = $request->attributes->get('authenticated_user');
 
                 if (! $user instanceof AuthenticatedUser) {
+                    Log::warning('AuthenticatedUser not found in request attributes', [
+                        'path' => $request->path(),
+                        'hint' => 'Route may be missing auth.supabase middleware',
+                    ]);
+
                     // LogicException: programming error (route missing middleware)
                     // In PHPStan's unchecked list, avoids checkedExceptionInCallable
                     throw new LogicException(
