@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Presentation\Http\Middleware;
 
-use App\Domain\Access\ValueObjects\AuthenticatedUser;
+use App\Application\Auth\TestUserPersonaResolver;
 use App\Domain\Exceptions\InvalidConfigurationException;
 use App\Presentation\Http\Auth\SupabaseJwtParser;
 use Closure;
@@ -12,6 +12,7 @@ use Firebase\JWT\JWT;
 use Firebase\JWT\Key;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use RuntimeException;
 use Symfony\Component\HttpFoundation\Response;
 use Throwable;
 
@@ -31,6 +32,8 @@ final class ValidateSupabaseJwtMiddleware
      * 3. Custom claims extraction (is_approved, role_name, departments for authorization)
      *
      * @param Closure(Request): Response $next
+     *
+     * @throws RuntimeException If local bypass is enabled but persona not configured
      */
     public function handle(Request $request, Closure $next): Response
     {
@@ -151,10 +154,13 @@ final class ValidateSupabaseJwtMiddleware
     /**
      * Handle local bypass authentication.
      *
-     * Creates an AuthenticatedUser from config for local testing.
-     * Uses the same request attribute as real JWT auth for consistent downstream handling.
+     * Resolves test email to a full persona (with real developer email for
+     * external services like HelpScout). Requires persona configuration in
+     * config/local-development.php.
      *
      * @param Closure(Request): Response $next
+     *
+     * @throws RuntimeException If test email not in allow-list or env var not configured
      */
     private function handleLocalBypass(Request $request, Closure $next): Response
     {
@@ -162,53 +168,21 @@ final class ValidateSupabaseJwtMiddleware
         $testEmail = \config('services.supabase.local_test_email');
         \assert(\is_string($testEmail) && $testEmail !== '');
 
-        $testUserId = \config('services.supabase.local_test_user_id', '00000000-0000-0000-0000-000000000001');
-        $testApproved = \config('services.supabase.local_test_approved', true);
-        $testRole = \config('services.supabase.local_test_role', 'admin');
-        $testDepartments = \config('services.supabase.local_test_departments');
+        $resolver = TestUserPersonaResolver::fromConfig();
+        $authenticatedUser = $resolver->resolve($testEmail);
 
         Log::channel('security')->debug('Local auth bypass activated', [
             'event' => 'api.auth.local_bypass',
             'ip' => $request->ip(),
             'path' => $request->path(),
             'test_email' => $testEmail,
-            'test_user_id' => $testUserId,
-            'test_role' => $testRole,
+            'resolved_email' => $authenticatedUser->email,
+            'user_id' => $authenticatedUser->id,
+            'role' => $authenticatedUser->roleName,
         ]);
-
-        // Create AuthenticatedUser from config values
-        $authenticatedUser = new AuthenticatedUser(
-            id: \is_string($testUserId) ? $testUserId : '00000000-0000-0000-0000-000000000001',
-            email: $testEmail,
-            isApproved: (bool) $testApproved,
-            roleName: \is_string($testRole) ? $testRole : null,
-            departments: self::parseDepartmentsConfig($testDepartments),
-        );
 
         $request->attributes->set('authenticated_user', $authenticatedUser);
 
         return $next($request);
-    }
-
-    /**
-     * Parse departments config value to array format.
-     *
-     * @return list<string>|null
-     */
-    private static function parseDepartmentsConfig(mixed $value): ?array
-    {
-        if (\is_array($value)) {
-            if ($value === []) {
-                return null;
-            }
-            /** @var list<string> */
-            return \array_values($value);
-        }
-
-        if (\is_string($value) && $value !== '') {
-            return \explode(',', $value);
-        }
-
-        return null;
     }
 }
