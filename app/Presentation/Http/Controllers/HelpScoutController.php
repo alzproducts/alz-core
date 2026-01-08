@@ -8,12 +8,12 @@ use App\Application\HelpScout\Queries\ConversationQueryParams;
 use App\Application\HelpScout\Services\CachingHelpScoutService;
 use App\Application\HelpScout\UseCases\GetConversationsUseCase;
 use App\Application\HelpScout\UseCases\GetEscalationsUseCase;
+use App\Domain\Access\ValueObjects\AuthenticatedUser;
 use App\Domain\CustomerService\Exceptions\CustomerServiceAgentNotFoundException;
 use App\Domain\Exceptions\ConfigurationNotFoundException;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\InvalidApiResponseException;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 
 /**
  * HelpScout conversation endpoints for dashboard widgets.
@@ -41,9 +41,9 @@ final readonly class HelpScoutController
      * @throws ExternalServiceUnavailableException When HelpScout API unavailable
      * @throws InvalidApiResponseException When API response structure is invalid
      */
-    public function assigned(Request $request): JsonResponse
+    public function assigned(AuthenticatedUser $user): JsonResponse
     {
-        $params = ConversationQueryParams::assigned($this->resolveAgentId($request));
+        $params = ConversationQueryParams::assigned($this->resolveAgentId($user));
 
         return new JsonResponse([
             'data' => $this->getConversations->execute($params),
@@ -57,9 +57,9 @@ final readonly class HelpScoutController
      * @throws ExternalServiceUnavailableException When HelpScout API unavailable
      * @throws InvalidApiResponseException When API response structure is invalid
      */
-    public function refreshAssigned(Request $request): JsonResponse
+    public function refreshAssigned(AuthenticatedUser $user): JsonResponse
     {
-        $params = ConversationQueryParams::assigned($this->resolveAgentId($request));
+        $params = ConversationQueryParams::assigned($this->resolveAgentId($user));
 
         return new JsonResponse([
             'data' => $this->getConversations->execute($params, forceRefresh: true),
@@ -73,9 +73,9 @@ final readonly class HelpScoutController
      * @throws ExternalServiceUnavailableException When HelpScout API unavailable
      * @throws InvalidApiResponseException When API response structure is invalid
      */
-    public function todos(Request $request): JsonResponse
+    public function todos(AuthenticatedUser $user): JsonResponse
     {
-        $params = ConversationQueryParams::todos($this->resolveAgentId($request));
+        $params = ConversationQueryParams::todos($this->resolveAgentId($user));
 
         return new JsonResponse([
             'data' => $this->getConversations->execute($params),
@@ -89,9 +89,9 @@ final readonly class HelpScoutController
      * @throws ExternalServiceUnavailableException When HelpScout API unavailable
      * @throws InvalidApiResponseException When API response structure is invalid
      */
-    public function refreshTodos(Request $request): JsonResponse
+    public function refreshTodos(AuthenticatedUser $user): JsonResponse
     {
-        $params = ConversationQueryParams::todos($this->resolveAgentId($request));
+        $params = ConversationQueryParams::todos($this->resolveAgentId($user));
 
         return new JsonResponse([
             'data' => $this->getConversations->execute($params, forceRefresh: true),
@@ -168,12 +168,9 @@ final readonly class HelpScoutController
      * @throws ExternalServiceUnavailableException When HelpScout API unavailable
      * @throws InvalidApiResponseException When API response structure is invalid
      */
-    public function profile(Request $request): JsonResponse
+    public function profile(AuthenticatedUser $user): JsonResponse
     {
-        /** @var string $email */
-        $email = $request->input('auth_user_email');
-
-        $agent = $this->service->getAgentProfile($email);
+        $agent = $this->service->getAgentProfile($user->email);
 
         return new JsonResponse([
             'data' => [
@@ -187,17 +184,14 @@ final readonly class HelpScoutController
     }
 
     /**
-     * Resolve HelpScout agent ID from authenticated user email.
+     * Resolve HelpScout agent ID from authenticated user.
      *
      * @throws CustomerServiceAgentNotFoundException When agent email not found in HelpScout
      * @throws ExternalServiceUnavailableException When HelpScout API unavailable
      * @throws InvalidApiResponseException When API response structure is invalid
      */
-    private function resolveAgentId(Request $request): int
+    private function resolveAgentId(AuthenticatedUser $user): int
     {
-        /** @var string $email */
-        $email = $request->input('auth_user_email');
-
-        return $this->service->getAgentProfile($email)->id;
+        return $this->service->getAgentProfile($user->email)->id;
     }
 }

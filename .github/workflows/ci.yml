@@ -222,7 +222,7 @@ jobs:
           chmod -R 775 storage bootstrap/cache
 
       - name: Run database migrations
-        run: php artisan migrate --force
+        run: make migrate
 
       - name: Setup problem matchers for PHP
         run: echo "::add-matcher::${{ runner.tool_cache }}/phpunit.json"
