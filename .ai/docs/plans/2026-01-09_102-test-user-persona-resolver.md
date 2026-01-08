@@ -28,7 +28,7 @@ return [
             'role_name' => 'admin',
             'departments' => null,
         ],
-        'guest@example.com' => [
+        'default-guest@alzadmin.test' => [
             'email' => env('EMAIL_TOM_MAIN'),  // Same developer, different persona
             'user_id' => '00000000-0000-0000-0000-000000000002',
             'is_approved' => true,
@@ -61,15 +61,13 @@ Key behaviors:
 
 ### 3. `app/Presentation/Http/Middleware/ValidateSupabaseJwtMiddleware.php`
 
-Modify `handleLocalBypass()` to:
-1. Get test email from existing `services.supabase.local_test_email` config
-2. Create resolver via `TestUserPersonaResolver::fromConfig()` (returns empty resolver if config missing)
-3. If `hasPersona()` returns true: **wrap `resolve()` in try-catch**
-   - Success: use resolved `AuthenticatedUser`, log `api.auth.local_bypass_persona`
-   - `RuntimeException`: log warning with error message, fall through to legacy
-4. If `hasPersona()` returns false: fall back to legacy config with **warning log**: "external services like HelpScout won't work"
+Simplify `handleLocalBypass()` to use personas exclusively (no legacy fallback):
+1. Get test email from `services.supabase.local_test_email` config
+2. Create resolver via `TestUserPersonaResolver::fromConfig()`
+3. Call `resolver->resolve($testEmail)` - throws `RuntimeException` if not configured
+4. Log `api.auth.local_bypass` with resolved email details
 
-Also fix legacy fallback default UUID from `'local-test-user'` to `'00000000-0000-0000-0000-000000000001'`.
+**Removed**: Legacy fallback code and `parseDepartmentsConfig()` method (no longer needed).
 
 ### 4. `config/services.php` (line 48)
 
@@ -90,19 +88,28 @@ Add "Local Development" section documenting:
 
 ## Tests to Create
 
+Per `tests/TestingStrategy.md`, Infrastructure layer tests should be minimal:
+- No coverage target enforced
+- No mutation testing
+- 2-3 tests: one happy path, one-two error paths
+
 ### 7. `tests/Unit/Infrastructure/LocalDevelopment/TestUserPersonaResolverTest.php`
 
-- `it resolves known test email to authenticated user`
-- `it throws for unknown test email`
-- `it throws when email is empty or null`
-- `it normalizes email case`
-- `it returns correct role and approval status per persona`
-- `it produces valid UUIDs`
+**3 tests only** (following Infrastructure layer strategy):
+- `it resolves test email to authenticated user` — happy path, verify all fields
+- `it throws for unknown test email` — error: not in allow-list
+- `it throws when persona email not configured` — error: env var missing
 
-### 8. `tests/Feature/LocalBypassPersonaTest.php` (integration)
+**Removed** (over-testing for Infrastructure):
+- ~~Email case normalization~~ — internal implementation detail
+- ~~Role/approval per persona~~ — covered by happy path
+- ~~UUID validation~~ — PHPStan + Assert::uuid() handles this
 
-- `it uses persona when test email is configured`
-- `it falls back to legacy config when persona not found`
+### 8. `tests/Integration/LocalBypassPersonaTest.php`
+
+**2 tests** (tests the real boundary - middleware using resolver):
+- `it uses persona when test email is configured` — happy path through middleware
+- `it rejects request when persona not configured` — error path (no silent fallback)
 
 ---
 
@@ -110,12 +117,12 @@ Add "Local Development" section documenting:
 
 1. Create `config/local-development.php`
 2. Create `TestUserPersonaResolver.php`
-3. Write unit tests for resolver
-4. Fix UUID default in `config/services.php`
-5. Modify middleware `handleLocalBypass()`
-6. Write integration test
-7. Update `.env.example`
-8. Update `CLAUDE.md`
+3. Fix UUID default in `config/services.php`
+4. Modify middleware `handleLocalBypass()`
+5. Update `.env.example`
+6. Update `CLAUDE.md`
+7. Write unit tests for resolver
+8. Write integration test
 9. Run `make lint` and `make test`
 
 ---
