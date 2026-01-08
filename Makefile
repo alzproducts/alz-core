@@ -1,4 +1,4 @@
-.PHONY: help install up down shell db-setup migrate fresh db-reset pint pint-test test test-quick test-coverage coverage-html pest-mutate test-ai test-mutate lint lint-sequential lint-full fix analyse insights phparkitect deptrac tlint tlint-full psalm psalm-ci psalm-baseline stan rector rector-dry-run refactor check check-full infection infection-fast infection-strict infection-incremental infection-ci ide-helper test-domain test-domain-coverage test-app test-app-coverage mutate-domain mutate-app supabase-start supabase-functions supabase-stop supabase-status redis
+.PHONY: help install up down shell migrate pint pint-test test test-quick test-coverage coverage-html pest-mutate test-ai test-mutate lint lint-sequential lint-full fix analyse insights phparkitect deptrac tlint tlint-full psalm psalm-ci psalm-baseline stan rector rector-dry-run refactor check check-full infection infection-fast infection-strict infection-incremental infection-ci ide-helper test-domain test-domain-coverage test-app test-app-coverage mutate-domain mutate-app supabase-start supabase-functions supabase-stop supabase-status supabase-reset supabase-seed-users redis
 
 # Enable strict shell mode for robust error handling
 SHELL := bash
@@ -333,23 +333,9 @@ test-mutate: ## Run full mutation testing suite
 	@$(MAKE) infection-strict
 
 # Database
-db-setup: ## Create databases (main + testing) in Docker PostgreSQL
-	@echo "$(BLUE)Creating databases...$(NC)"
-	@docker compose exec -T pgsql createdb -U sail alz_core 2>/dev/null || echo "Database alz_core already exists"
-	@docker compose exec -T pgsql createdb -U sail testing 2>/dev/null || echo "Database testing already exists"
-	@echo "$(GREEN)Databases ready$(NC)"
-
 migrate: ## Run database migrations
 	@echo "$(MODE)"
 	$(EXEC) artisan migrate
-
-fresh: ## Fresh database with seeders
-	@echo "$(MODE)"
-	$(EXEC) artisan migrate:fresh --seed
-
-db-reset: ## Reset database (migrate:fresh without seed)
-	@echo "$(MODE)"
-	$(EXEC) artisan migrate:fresh
 
 # =============================================================================
 # Supabase (Local Development)
@@ -380,6 +366,22 @@ supabase-status: ## Check Supabase status
 ifdef ALZ_ADMIN
 	cd $(ALZ_ADMIN) && pnpm exec supabase status
 endif
+
+supabase-reset: ## Reset Supabase DB, regenerate types, seed test users
+ifndef ALZ_ADMIN
+	$(error ALZ_ADMIN not set. Add to ~/.zshrc: export ALZ_ADMIN=/path/to/alz-admin)
+endif
+	@echo "$(YELLOW)Running full Supabase reset...$(NC)"
+	cd $(ALZ_ADMIN) && pnpm db:setup-local
+	@echo "$(GREEN)Supabase reset complete. Database ready with test users.$(NC)"
+
+supabase-seed-users: ## Seed test users only (no DB reset)
+ifndef ALZ_ADMIN
+	$(error ALZ_ADMIN not set. Add to ~/.zshrc: export ALZ_ADMIN=/path/to/alz-admin)
+endif
+	@echo "$(YELLOW)Seeding test users...$(NC)"
+	cd $(ALZ_ADMIN) && pnpm tsx scripts/seed-test-users.ts
+	@echo "$(GREEN)Test users seeded.$(NC)"
 
 # Redis (Docker - used alongside Supabase PostgreSQL)
 redis: ## Start Redis only (not PostgreSQL from compose.yaml)
