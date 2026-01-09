@@ -50,6 +50,7 @@ final class SnoozeResponse extends Data
         return new ConversationSnooze(
             snoozedUntil: $snoozedUntil,
             snoozedByUserId: $this->snoozedBy,
+            unsnoozeOnCustomerReply: $this->unsnoozeOnCustomerReply,
         );
     }
 }

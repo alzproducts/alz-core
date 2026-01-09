@@ -13,6 +13,7 @@ use App\Domain\CustomerService\Exceptions\CustomerServiceAgentNotFoundException;
 use App\Domain\Exceptions\ConfigurationNotFoundException;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\InvalidApiResponseException;
+use App\Presentation\Http\Resources\HelpScout\ConversationResource;
 use Illuminate\Http\JsonResponse;
 
 /**
@@ -44,9 +45,10 @@ final readonly class HelpScoutController
     public function assigned(AuthenticatedUser $user): JsonResponse
     {
         $params = ConversationQueryParams::assigned($this->resolveAgentId($user));
+        $conversations = $this->getConversations->execute($params);
 
         return new JsonResponse([
-            'data' => $this->getConversations->execute($params),
+            'data' => ConversationResource::collection($conversations),
         ]);
     }
 
@@ -60,9 +62,10 @@ final readonly class HelpScoutController
     public function refreshAssigned(AuthenticatedUser $user): JsonResponse
     {
         $params = ConversationQueryParams::assigned($this->resolveAgentId($user));
+        $conversations = $this->getConversations->execute($params, forceRefresh: true);
 
         return new JsonResponse([
-            'data' => $this->getConversations->execute($params, forceRefresh: true),
+            'data' => ConversationResource::collection($conversations),
         ]);
     }
 
@@ -76,9 +79,10 @@ final readonly class HelpScoutController
     public function todos(AuthenticatedUser $user): JsonResponse
     {
         $params = ConversationQueryParams::todos($this->resolveAgentId($user));
+        $conversations = $this->getConversations->execute($params);
 
         return new JsonResponse([
-            'data' => $this->getConversations->execute($params),
+            'data' => ConversationResource::collection($conversations),
         ]);
     }
 
@@ -92,9 +96,10 @@ final readonly class HelpScoutController
     public function refreshTodos(AuthenticatedUser $user): JsonResponse
     {
         $params = ConversationQueryParams::todos($this->resolveAgentId($user));
+        $conversations = $this->getConversations->execute($params, forceRefresh: true);
 
         return new JsonResponse([
-            'data' => $this->getConversations->execute($params, forceRefresh: true),
+            'data' => ConversationResource::collection($conversations),
         ]);
     }
 
@@ -107,9 +112,10 @@ final readonly class HelpScoutController
     public function negativeReviews(): JsonResponse
     {
         $params = ConversationQueryParams::negativeReviews();
+        $conversations = $this->getConversations->execute($params);
 
         return new JsonResponse([
-            'data' => $this->getConversations->execute($params),
+            'data' => ConversationResource::collection($conversations),
         ]);
     }
 
@@ -122,9 +128,10 @@ final readonly class HelpScoutController
     public function refreshNegativeReviews(): JsonResponse
     {
         $params = ConversationQueryParams::negativeReviews();
+        $conversations = $this->getConversations->execute($params, forceRefresh: true);
 
         return new JsonResponse([
-            'data' => $this->getConversations->execute($params, forceRefresh: true),
+            'data' => ConversationResource::collection($conversations),
         ]);
     }
 
@@ -140,8 +147,10 @@ final readonly class HelpScoutController
      */
     public function escalations(GetEscalationsUseCase $useCase): JsonResponse
     {
+        $conversations = $useCase->execute();
+
         return new JsonResponse([
-            'data' => $useCase->execute(),
+            'data' => ConversationResource::collection($conversations),
         ]);
     }
 
@@ -154,8 +163,10 @@ final readonly class HelpScoutController
      */
     public function refreshEscalations(GetEscalationsUseCase $useCase): JsonResponse
     {
+        $conversations = $useCase->execute(forceRefresh: true);
+
         return new JsonResponse([
-            'data' => $useCase->execute(forceRefresh: true),
+            'data' => ConversationResource::collection($conversations),
         ]);
     }
 

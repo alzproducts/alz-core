@@ -14,5 +14,6 @@ final readonly class ConversationSnooze
     public function __construct(
         public DateTimeImmutable $snoozedUntil,
         public ?int $snoozedByUserId,
+        public ?bool $unsnoozeOnCustomerReply = null,
     ) {}
 }
