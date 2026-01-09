@@ -85,6 +85,7 @@ final class ConversationResponse extends Data implements DomainConvertibleInterf
             tags: \array_values(\array_map(static fn(TagResponse $t) => $t->toDomain(), $this->tags ?? [])),
             customer: $this->primaryCustomer?->toDomain(),
             assignee: $this->assignee?->toDomain(),
+            customerWaitingFriendly: $this->customerWaitingSince?->friendly,
         );
     }
 }
