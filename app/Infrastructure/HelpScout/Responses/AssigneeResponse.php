@@ -31,6 +31,7 @@ final class AssigneeResponse extends Data implements DomainConvertibleInterface
             firstName: $this->firstName ?? '',
             lastName: $this->lastName ?? '',
             photoUrl: $this->photoUrl,
+            email: $this->email,
         );
     }
 }

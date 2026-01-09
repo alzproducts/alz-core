@@ -16,6 +16,7 @@ final readonly class ConversationAssignee
         public string $firstName,
         public string $lastName,
         public ?string $photoUrl,
+        public ?string $email = null,
     ) {
         Assert::greaterThan($id, 0, 'Assignee ID must be positive');
     }
