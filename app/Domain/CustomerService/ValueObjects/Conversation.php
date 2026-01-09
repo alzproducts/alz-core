@@ -17,6 +17,7 @@ final readonly class Conversation
 {
     /**
      * @param list<ConversationTag> $tags
+     * @param string|null $customerWaitingFriendly Human-readable wait time from HelpScout (e.g., "2 hours ago", "3 days")
      */
     public function __construct(
         public int $id,
@@ -33,6 +34,7 @@ final readonly class Conversation
         public ?ConversationCustomer $customer,
         public ?ConversationAssignee $assignee,
         public ?string $mailboxName = null,
+        public ?string $customerWaitingFriendly = null,
     ) {
         Assert::greaterThan($id, 0, 'Conversation ID must be positive');
         Assert::greaterThan($number, 0, 'Conversation number must be positive');
@@ -61,6 +63,7 @@ final readonly class Conversation
             customer: $this->customer,
             assignee: $this->assignee,
             mailboxName: $name,
+            customerWaitingFriendly: $this->customerWaitingFriendly,
         );
     }
 }

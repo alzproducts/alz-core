@@ -34,7 +34,10 @@
       "Bash(git -C /Users/tom/code/IdeaProjects/alz-core whatchanged:*)",
       "Bash(git -C /Users/tom/code/IdeaProjects/alz-core name-rev:*)",
       "Bash(git -C /Users/tom/code/IdeaProjects/alz-core verify-commit:*)",
-      "Bash(git -C /Users/tom/code/IdeaProjects/alz-core verify-tag:*)"
+      "Bash(git -C /Users/tom/code/IdeaProjects/alz-core verify-tag:*)",
+      "Read(~/WebstormProjects/alz-admin/**)",
+      "Grep(~/WebstormProjects/alz-admin/**)",
+      "Glob(~/WebstormProjects/alz-admin/**)"
     ],
     "deny": []
   }
