@@ -26,6 +26,7 @@ final readonly class Order
     /**
      * @param int $id ShopWired's order ID (external identifier for API/persistence)
      * @param int $reference Customer-facing order reference number
+     * @param bool $hasVatRelief Whether order has VAT relief applied (derived from comments)
      * @param array<int, OrderProduct>|null $products Null=Standard mode, array=Detail mode
      * @param array<int, OrderDiscount> $discounts
      * @param array<string, mixed>|null $customFields Null=Standard mode, array=Detail mode
@@ -39,6 +40,7 @@ final readonly class Order
         public PaymentMethod $paymentMethod,
         public string $comments,
         public bool $marketing,
+        public bool $hasVatRelief,
         public OrderStatus $status,
         public OrderCustomer $customer,
         public ?OrderShipping $shipping,

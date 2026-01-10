@@ -142,6 +142,7 @@ final class OrderResponse extends Data implements DomainConvertibleInterface
             paymentMethod: PaymentMethodRaw::fromApiValue($this->paymentMethod)->toDomain(),
             comments: $this->comments,
             marketing: $this->marketing,
+            hasVatRelief: $this->hasVatRelief(),
             status: $this->status->toDomain(),
             customer: $this->customer->toDomain(),
             shipping: $this->getFirstShipping()?->toDomain(),
@@ -159,5 +160,18 @@ final class OrderResponse extends Data implements DomainConvertibleInterface
                 : null,
             customFields: $this->customFields,
         );
+    }
+
+    /**
+     * Check if the order has VAT relief applied.
+     *
+     * Derived from order comments - customers indicate VAT relief eligibility
+     * by including "vat relief" or "vat-relief" text in their order comments.
+     */
+    private function hasVatRelief(): bool
+    {
+        $comments = \mb_strtolower($this->comments);
+
+        return \str_contains($comments, 'vat relief') || \str_contains($comments, 'vat-relief');
     }
 }
