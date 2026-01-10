@@ -24,11 +24,14 @@ use Webmozart\Assert\Assert;
 final readonly class Order
 {
     /**
+     * @param int $id ShopWired's order ID (external identifier for API/persistence)
+     * @param int $reference Customer-facing order reference number
      * @param array<int, OrderProduct>|null $products Null=Standard mode, array=Detail mode
      * @param array<int, OrderDiscount> $discounts
      * @param array<string, mixed>|null $customFields Null=Standard mode, array=Detail mode
      */
     public function __construct(
+        public int $id,
         public int $reference,
         public float $total,
         public float $subTotal,
@@ -45,6 +48,7 @@ final readonly class Order
         public ?array $products = null,
         public ?array $customFields = null,
     ) {
+        Assert::greaterThan($id, 0, 'Order ID must be positive');
         Assert::greaterThan($reference, 0, 'Order reference must be positive');
         Assert::greaterThanEq($total, 0, 'Order total cannot be negative');
         Assert::greaterThanEq($subTotal, 0, 'Order sub-total cannot be negative');
