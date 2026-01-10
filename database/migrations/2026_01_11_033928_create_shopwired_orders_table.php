@@ -30,10 +30,10 @@ return new class extends Migration {
             $table->integer('external_id')->unique();
             $table->integer('reference')->unique();
 
-            // Financials
-            $table->decimal('total', 10, 2);
-            $table->decimal('sub_total', 10, 2);
-            $table->decimal('shipping_total', 10, 2);
+            // Financials (6dp precision to preserve raw ShopWired values)
+            $table->decimal('total', 14, 6);
+            $table->decimal('sub_total', 14, 6);
+            $table->decimal('shipping_total', 14, 6);
 
             // Status
             $table->integer('status_id');
@@ -77,8 +77,8 @@ return new class extends Migration {
 
             // Shipping method (nullable - not all orders have shipping)
             $table->string('shipping_method', 255)->nullable();
-            $table->decimal('shipping_cost', 10, 2)->nullable();
-            $table->decimal('shipping_vat_rate', 5, 2)->nullable();
+            $table->decimal('shipping_cost', 14, 6)->nullable();
+            $table->decimal('shipping_vat_rate', 5, 1)->nullable(); // Integer rates with 1dp for half-percent
 
             // Payment
             $table->string('payment_method', 100);
