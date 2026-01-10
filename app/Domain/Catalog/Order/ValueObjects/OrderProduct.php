@@ -12,13 +12,12 @@ use Webmozart\Assert\Assert;
  * Snapshot of product data at time of purchase.
  * Different from catalog Product - contains order-specific pricing.
  *
- * @property array<int, array{name: string, value: string}> $variation
  * @property array<int, array{name: string, value: string}> $customFields
  */
 final readonly class OrderProduct
 {
     /**
-     * @param array<int, array{name: string, value: string}> $variation
+     * @param array<int, ProductVariation> $variation
      * @param array<int, array{name: string, value: string}> $customFields
      */
     public function __construct(
