@@ -33,17 +33,17 @@ return new class extends Migration {
             $table->string('title', 255);
             $table->string('sku', 100);
 
-            // Pricing (all decimals for financial accuracy)
-            $table->decimal('price', 10, 2);
-            $table->decimal('price_vat', 10, 2);
-            $table->decimal('total', 10, 2);
-            $table->decimal('total_vat', 10, 2);
-            $table->decimal('original_price', 10, 2);
-            $table->decimal('cost_price', 10, 2);
+            // Pricing (6dp precision to preserve raw ShopWired values like 14.158, 7.9333)
+            $table->decimal('price', 14, 6);
+            $table->decimal('price_vat', 14, 6);
+            $table->decimal('total', 14, 6);
+            $table->decimal('total_vat', 14, 6);
+            $table->decimal('original_price', 14, 6);
+            $table->decimal('cost_price', 14, 6);
 
             // Quantity & Tax
             $table->integer('quantity');
-            $table->decimal('vat_rate', 5, 2);
+            $table->decimal('vat_rate', 5, 1); // Integer rates (20, 0) with 1dp for future half-percent
 
             // Metadata
             $table->text('comments')->nullable();

@@ -25,7 +25,7 @@ return new class extends Migration {
 
             // Discount details
             $table->string('name', 255);
-            $table->decimal('value', 10, 2);
+            $table->decimal('value', 14, 6); // 6dp to preserve raw ShopWired values
             $table->string('type', 50)->nullable();
             $table->string('code', 100)->nullable();
             $table->integer('voucher_id')->nullable();
