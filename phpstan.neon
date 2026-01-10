@@ -156,7 +156,7 @@ parameters:
         # These are intentionally public and mutable - PHP doesn't allow making inherited properties readonly.
         -
             identifier: shipmonk.publicPropertyNotReadonly
-            path: app/Infrastructure/Persistence/Models/*
+            path: app/Infrastructure/*/Models/*
         # Laravel service providers use closures/callbacks for deferred binding resolution.
         # These ARE invoked synchronously when the service is resolved, but ShipMonk can't verify this.
         -
