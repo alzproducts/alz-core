@@ -134,6 +134,7 @@ final class OrderResponse extends Data implements DomainConvertibleInterface
     public function toDomain(): Order
     {
         return new Order(
+            id: $this->id,
             reference: $this->reference,
             total: $this->total,
             subTotal: $this->subTotal,

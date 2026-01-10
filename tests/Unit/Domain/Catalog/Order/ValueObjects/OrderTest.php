@@ -41,6 +41,7 @@ final class OrderTest extends TestCase
     private function createOrder(array $overrides = []): Order
     {
         $defaults = [
+            'id' => 98765,
             'reference' => 12345,
             'total' => 110.50,
             'subTotal' => 100.00,
@@ -140,8 +141,31 @@ final class OrderTest extends TestCase
         $order = $this->createOrder();
 
         $this->assertInstanceOf(Order::class, $order);
+        $this->assertSame(98765, $order->id);
         $this->assertSame(12345, $order->reference);
         $this->assertSame(110.50, $order->total);
+    }
+
+    #[Test]
+    #[DataProvider('invalidIdProvider')]
+    public function it_throws_if_id_is_not_positive(int $invalidId): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Order ID must be positive');
+
+        $this->createOrder(['id' => $invalidId]);
+    }
+
+    /**
+     * @return array<string, array{int}>
+     */
+    public static function invalidIdProvider(): array
+    {
+        return [
+            'zero id' => [0],
+            'negative id' => [-1],
+            'large negative id' => [-99999],
+        ];
     }
 
     #[Test]
