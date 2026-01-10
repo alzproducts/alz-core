@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Domain\Catalog\Order\ValueObjects;
 
 use App\Domain\Catalog\Order\ValueObjects\OrderProduct;
+use App\Domain\Catalog\Order\ValueObjects\ProductVariation;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -77,8 +78,8 @@ final class OrderProductTest extends TestCase
     public function it_creates_order_product_with_variation_and_custom_fields(): void
     {
         $variation = [
-            ['name' => 'Size', 'value' => 'Large'],
-            ['name' => 'Color', 'value' => 'Blue'],
+            new ProductVariation('Size', 'Large'),
+            new ProductVariation('Color', 'Blue'),
         ];
         $customFields = [
             ['name' => 'Engraving', 'value' => 'Happy Birthday'],
@@ -89,7 +90,11 @@ final class OrderProductTest extends TestCase
             'customFields' => $customFields,
         ]);
 
-        $this->assertSame($variation, $product->variation);
+        $this->assertCount(2, $product->variation);
+        $this->assertSame('Size', $product->variation[0]->name);
+        $this->assertSame('Large', $product->variation[0]->value);
+        $this->assertSame('Color', $product->variation[1]->name);
+        $this->assertSame('Blue', $product->variation[1]->value);
         $this->assertSame($customFields, $product->customFields);
     }
 
