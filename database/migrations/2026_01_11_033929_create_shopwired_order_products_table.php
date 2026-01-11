@@ -43,7 +43,7 @@ return new class extends Migration {
             $table->decimal('total', 14, 6);
             $table->decimal('total_vat', 14, 6);
             $table->decimal('original_price', 14, 6);
-            $table->decimal('cost_price', 14, 6);
+            $table->decimal('cost_price', 14, 6)->nullable();  // Nullable: older orders may not have cost data
 
             // Quantity & Tax
             $table->integer('quantity');

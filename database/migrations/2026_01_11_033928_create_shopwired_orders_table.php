@@ -95,14 +95,12 @@ return new class extends Migration {
             $table->timestampTz('order_placed_at');  // ShopWired's order creation date (business data)
             $table->timestampTz('created_at');       // Laravel: when record was first synced
             $table->timestampTz('updated_at');       // Laravel: when record was last updated
-            $table->timestampTz('synced_at');        // When last synced from ShopWired API
 
             // Indexes (external_id and reference already indexed via UNIQUE constraint)
             $table->index('lifecycle_status');
             $table->index('status_type');
             $table->index('customer_id');
             $table->index('order_placed_at');
-            $table->index('synced_at');
             $table->index('delivery_country');
             $table->index('delivery_postcode');
         });

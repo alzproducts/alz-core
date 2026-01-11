@@ -29,7 +29,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property float $total Line total
  * @property float $total_vat Total VAT
  * @property float $original_price Original price before discounts
- * @property float $cost_price Cost price
+ * @property float|null $cost_price Cost price (nullable for older orders)
  * @property int $quantity Quantity ordered
  * @property float $vat_rate VAT rate percentage
  * @property string|null $comments Line item comments

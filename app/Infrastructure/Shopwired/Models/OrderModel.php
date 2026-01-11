@@ -21,7 +21,6 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * Timestamps:
  * - order_placed_at: When customer placed order in ShopWired (business data)
  * - created_at/updated_at: Laravel-managed (when synced/updated locally)
- * - synced_at: Last successful API sync (set by repository)
  *
  * @property string $id Internal UUID
  * @property int $external_id ShopWired order ID
@@ -72,7 +71,6 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property CarbonImmutable $order_placed_at When order was placed in ShopWired
  * @property CarbonImmutable $created_at When first synced to local DB
  * @property CarbonImmutable $updated_at When last updated locally
- * @property CarbonImmutable $synced_at When last synced from API
  *
  * @implements EloquentDomainMappableInterface<Order>
  */
@@ -107,7 +105,6 @@ final class OrderModel extends Model implements EloquentDomainMappableInterface
             'order_placed_at' => 'immutable_datetime',
             'created_at' => 'immutable_datetime',
             'updated_at' => 'immutable_datetime',
-            'synced_at' => 'immutable_datetime',
         ];
     }
 

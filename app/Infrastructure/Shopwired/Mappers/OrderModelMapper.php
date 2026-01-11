@@ -17,7 +17,6 @@ use App\Infrastructure\Concerns\MapperHelperTrait;
 use App\Infrastructure\Shopwired\Models\OrderDiscountModel;
 use App\Infrastructure\Shopwired\Models\OrderModel;
 use App\Infrastructure\Shopwired\Models\OrderProductModel;
-use DateTimeImmutable;
 
 /**
  * Maps between OrderModel (Eloquent) and Order (Domain).
@@ -153,7 +152,6 @@ final class OrderModelMapper
             'has_vat_relief' => $order->hasVatRelief,
             'comments' => $order->comments,
             'custom_fields' => $order->customFields,
-            'synced_at' => new DateTimeImmutable(),
         ];
     }
 
