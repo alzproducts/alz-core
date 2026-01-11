@@ -35,8 +35,8 @@ return new class extends Migration {
             $table->decimal('sub_total', 14, 6);
             $table->decimal('shipping_total', 14, 6);
 
-            // Status
-            $table->integer('status_id');
+            // Status (status_id nullable - custom statuses have no numeric ID)
+            $table->integer('status_id')->nullable();
             $table->string('status_name', 255);
             $table->string('status_type', 50);
             $table->string('lifecycle_status', 50);

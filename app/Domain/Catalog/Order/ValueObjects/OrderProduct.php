@@ -22,6 +22,7 @@ final readonly class OrderProduct
      */
     public function __construct(
         public int $id,
+        public int $orderExternalId,
         public string $title,
         public string $sku,
         public float $price,
@@ -37,6 +38,7 @@ final readonly class OrderProduct
         public array $customFields = [],
     ) {
         Assert::greaterThan($id, 0, 'Product ID must be positive');
+        Assert::greaterThan($orderExternalId, 0, 'Order external ID must be positive');
         Assert::greaterThan($quantity, 0, 'Quantity must be positive');
         Assert::greaterThanEq($vatRate, 0, 'VAT rate cannot be negative');
     }

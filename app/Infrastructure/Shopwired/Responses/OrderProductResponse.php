@@ -53,10 +53,11 @@ final class OrderProductResponse extends Data
         public readonly array $customFields = [],
     ) {}
 
-    public function toDomain(): OrderProduct
+    public function toDomain(int $orderExternalId): OrderProduct
     {
         return new OrderProduct(
             id: $this->id,
+            orderExternalId: $orderExternalId,
             title: $this->title,
             sku: $this->sku,
             price: $this->price,
