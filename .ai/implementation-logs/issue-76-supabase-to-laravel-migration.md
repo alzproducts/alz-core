@@ -1,7 +1,7 @@
 # Implementation Log: Issue #76 - Supabase to Laravel Migration
 
 > **GitHub Issue**: [#76](https://github.com/alzproducts/alz-core/issues/76)
-> **Plan Document**: `.ai/docs/plans/supabase-to-laravel-migration.md`
+> **Plan Document**: `.ai/plans/supabase-to-laravel-migration.md`
 > **Branch**: `feature/76-feat-migrate-database-ownership-from-supabase-to-laravel-eloquent`
 
 ## Status: In Progress
