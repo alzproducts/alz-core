@@ -79,7 +79,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Implementation Logs
 
-When working on a GitHub issue with an associated plan document, maintain an implementation log at `.ai/docs/implementation/issue-{number}-{description}.md`.
+When working on a GitHub issue with an associated plan document, maintain an implementation log at `.ai/implementation-logs/issue-{number}-{description}.md`.
 
 **Key practices:**
 - Create the log when starting work on a non-trivial feature
@@ -88,7 +88,7 @@ When working on a GitHub issue with an associated plan document, maintain an imp
 - Read existing implementation logs at the start of conversations to restore context
 - Use the PR Notes section to draft the PR description before creating the PR
 
-See `.ai/docs/implementation/CLAUDE.md` for the full template and guidelines.
+See `.ai/implementation-logs/CLAUDE.md` for the full template and guidelines.
 
 ## ⚠️ Git Commit Policy
 
