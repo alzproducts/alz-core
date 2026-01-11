@@ -18,7 +18,6 @@ use App\Infrastructure\Shopwired\Mappers\OrderModelMapper;
 use App\Infrastructure\Shopwired\Models\OrderDiscountModel;
 use App\Infrastructure\Shopwired\Models\OrderModel;
 use App\Infrastructure\Shopwired\Models\OrderProductModel;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -43,12 +42,10 @@ final readonly class EloquentOrderRepository implements OrderRepositoryInterface
     public function save(object $entity): void
     {
         /** @var Order $entity */
-        $this->database->execute(function () use ($entity): void {
-            DB::transaction(function () use ($entity): void {
-                $model = $this->upsertOrder($entity);
-                $this->syncProducts($model, $entity);
-                $this->syncDiscounts($model, $entity);
-            });
+        $this->database->executeTransaction(function () use ($entity): void {
+            $model = $this->upsertOrder($entity);
+            $this->syncProducts($model, $entity);
+            $this->syncDiscounts($model, $entity);
         });
     }
 
