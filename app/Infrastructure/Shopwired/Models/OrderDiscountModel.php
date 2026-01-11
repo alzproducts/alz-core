@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Shopwired\Models;
 
+use App\Domain\Catalog\Order\ValueObjects\OrderDiscount;
+use App\Infrastructure\Concerns\AutoDomainMappingTrait;
+use App\Infrastructure\Contracts\EloquentDomainMappableInterface;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
@@ -24,9 +27,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int|null $offer_id ShopWired offer ID (for tracking)
  * @property CarbonImmutable $created_at
  * @property CarbonImmutable $updated_at
+ *
+ * @implements EloquentDomainMappableInterface<OrderDiscount>
  */
-final class OrderDiscountModel extends Model
+final class OrderDiscountModel extends Model implements EloquentDomainMappableInterface
 {
+    use AutoDomainMappingTrait;
     use HasUuids;
 
     protected $table = 'shopwired.order_discounts';
@@ -63,5 +69,14 @@ final class OrderDiscountModel extends Model
     public function order(): BelongsTo
     {
         return $this->belongsTo(OrderModel::class, 'order_id', 'id');
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Domain Mapping
+    // ─────────────────────────────────────────────────────────────────────────
+
+    protected function domainClass(): string
+    {
+        return OrderDiscount::class;
     }
 }

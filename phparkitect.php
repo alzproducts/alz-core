@@ -214,6 +214,7 @@ return static function (Config $config): void {
                                'Sentry*',
                                'Symfony\Component\HttpFoundation',
                                'Random\RandomException',
+                               'Reflection*',
                            ],
                        ),
                    )
@@ -346,6 +347,7 @@ return static function (Config $config): void {
     // EXCEPTION: Internal Infrastructure contracts (marked @internal) for:
     // - DomainConvertibleInterface: Marks DTOs that can convert to Domain objects
     // - PaginatableQueryParamsInterface: Marks query params supporting pagination
+    // - EloquentDomainMappableInterface: Marks Eloquent models with domain mapping
     // These are internal implementation patterns, not cross-layer contracts.
     //
     // VIOLATION EXAMPLE:
@@ -363,6 +365,7 @@ return static function (Config $config): void {
                    ->that(new HaveNameMatching('*Interface'))
                    ->andThat(new NotHaveNameMatching('DomainConvertibleInterface'))
                    ->andThat(new NotHaveNameMatching('PaginatableQueryParamsInterface'))
+                   ->andThat(new NotHaveNameMatching('EloquentDomainMappableInterface'))
                    ->should(new NotResideInTheseNamespaces($infrastructure))
                    ->because(
                        'Public interfaces belong in Domain or Application layers. Infrastructure implements contracts defined by higher layers.',
