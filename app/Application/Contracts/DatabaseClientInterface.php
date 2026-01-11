@@ -44,7 +44,7 @@ interface DatabaseClientInterface
      * Combines transaction management with exception translation:
      * - Opens transaction before executing
      * - Commits on success
-     * - Rolls back on any exception (automatically retries on deadlock up to $attempts times)
+     * - Rolls back on any exception (retries on deadlock up to $attempts total attempts)
      * - Translates database exceptions to domain exceptions
      *
      * @template T
@@ -52,7 +52,7 @@ interface DatabaseClientInterface
      * @param-immediately-invoked-callable $operation
      *
      * @param Closure(): T $operation Closure performing database operation
-     * @param int $attempts Number of attempts before failing on deadlock (default: 1 = no retry)
+     * @param int $attempts Total attempts on deadlock (1 = no retry, 3 = up to 2 retries)
      *
      * @phpstan-return T
      *

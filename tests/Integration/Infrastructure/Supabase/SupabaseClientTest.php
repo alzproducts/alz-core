@@ -8,6 +8,7 @@ use App\Domain\Exceptions\DatabaseOperationFailedException;
 use App\Domain\Exceptions\DuplicateRecordException;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Infrastructure\Supabase\SupabaseClient;
+use Closure;
 use Exception;
 use Illuminate\Database\DatabaseManager;
 use Illuminate\Database\LostConnectionException;
@@ -88,5 +89,20 @@ final class SupabaseClientTest extends TestCase
         $this->expectException(DuplicateRecordException::class);
 
         $client->execute(static fn() => throw $exception);
+    }
+
+    #[Test]
+    public function executeTransaction_wraps_operation_in_database_transaction(): void
+    {
+        $client = $this->createClient();
+
+        $this->mockDb->shouldReceive('transaction')
+            ->once()
+            ->withArgs(static fn(Closure $callback, int $attempts): bool => $attempts === 1)
+            ->andReturnUsing(static fn(Closure $callback): mixed => $callback());
+
+        $result = $client->executeTransaction(static fn(): array => ['id' => 456]);
+
+        $this->assertSame(['id' => 456], $result);
     }
 }
