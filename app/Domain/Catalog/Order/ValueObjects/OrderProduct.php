@@ -30,7 +30,7 @@ final readonly class OrderProduct
         public float $total,
         public float $totalVat,
         public float $originalPrice,
-        public float $costPrice,
+        public ?float $costPrice,
         public int $quantity,
         public float $vatRate,
         public string $comments,

@@ -33,22 +33,22 @@ final class OrderProductResponse extends Data
         public readonly string $title,
         public readonly string $sku,
 
-        // Pricing
+        // Pricing (required)
         public readonly float $price,
         public readonly float $priceVat,
         public readonly float $total,
         public readonly float $totalVat,
         public readonly float $originalPrice,
-        public readonly float $costPrice,
 
         // Quantity & Tax
         public readonly int $quantity,
         public readonly float $vatRate,
 
-        // Notes (nullable - may not have comments)
+        // Notes
         public readonly string $comments,
 
-        // Nested arrays (default to empty)
+        // Optional fields (must come last in PHP 8+)
+        public readonly ?float $costPrice = null,  // Nullable: older orders may not have cost data
         public readonly array $variation = [],
         public readonly array $customFields = [],
     ) {}
