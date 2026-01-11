@@ -14,7 +14,9 @@ use App\Domain\Catalog\Order\ValueObjects\OrderStatus;
 use App\Domain\Catalog\Order\ValueObjects\OrderStatusType;
 use App\Domain\Catalog\Order\ValueObjects\PaymentMethod;
 use App\Infrastructure\Concerns\MapperHelperTrait;
+use App\Infrastructure\Shopwired\Models\OrderDiscountModel;
 use App\Infrastructure\Shopwired\Models\OrderModel;
+use App\Infrastructure\Shopwired\Models\OrderProductModel;
 use DateTimeImmutable;
 
 /**
@@ -32,7 +34,31 @@ final class OrderModelMapper
     use MapperHelperTrait;
 
     /**
-     * Convert Eloquent model to Domain Order.
+     * Convert Eloquent model with loaded relations to Domain Order.
+     *
+     * Preferred entry point - handles relation conversion internally.
+     * Requires 'products' and 'discounts' relations to be eager-loaded.
+     *
+     * @param OrderModel $model The Eloquent model with loaded relations
+     */
+    public static function fromModelWithRelations(OrderModel $model): Order
+    {
+        $products = $model->products->map(
+            static fn(OrderProductModel $m): OrderProduct => $m->toDomain(),
+        )->all();
+
+        /** @var list<OrderDiscount> $discounts */
+        $discounts = $model->discounts->map(
+            static fn(OrderDiscountModel $m): OrderDiscount => $m->toDomain(), // @phpstan-ignore return.type
+        )->all();
+
+        return self::toDomain($model, $products, $discounts);
+    }
+
+    /**
+     * Convert Eloquent model to Domain Order with pre-converted relations.
+     *
+     * Use fromModelWithRelations() unless you need to provide custom relation data.
      *
      * @param OrderModel                $model     The Eloquent model to convert
      * @param array<int, OrderProduct>  $products  Already-converted product domain objects

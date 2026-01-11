@@ -8,7 +8,6 @@ use App\Application\Contracts\DatabaseClientInterface;
 use App\Application\Contracts\Shopwired\OrderRepositoryInterface;
 use App\Application\Shopwired\ValueObjects\SaveManyResult;
 use App\Domain\Catalog\Order\ValueObjects\Order;
-use App\Domain\Catalog\Order\ValueObjects\OrderDiscount;
 use App\Domain\Catalog\Order\ValueObjects\OrderProduct;
 use App\Domain\Exceptions\DatabaseOperationFailedException;
 use App\Domain\Exceptions\DuplicateRecordException;
@@ -41,7 +40,6 @@ final readonly class EloquentOrderRepository implements OrderRepositoryInterface
      */
     public function save(object $entity): void
     {
-        /** @var Order $entity */
         $this->database->executeTransaction(function () use ($entity): void {
             $model = $this->upsertOrder($entity);
             $this->syncProducts($model, $entity);
@@ -66,7 +64,7 @@ final readonly class EloquentOrderRepository implements OrderRepositoryInterface
                 $failed++;
                 $failedReferences[] = $entity->id;
 
-                Log::warning('Failed to save order', [
+                Log::error('Failed to save order', [
                     'external_id' => $entity->id,
                     'reference' => $entity->reference,
                     'error' => $e->getMessage(),
@@ -101,7 +99,7 @@ final readonly class EloquentOrderRepository implements OrderRepositoryInterface
                 throw new ResourceNotFoundException('Database', 'Order', $externalId);
             }
 
-            return EloquentOrderRepository::mapToDomain($model);
+            return OrderModelMapper::fromModelWithRelations($model);
         });
     }
 
@@ -125,7 +123,7 @@ final readonly class EloquentOrderRepository implements OrderRepositoryInterface
                 throw new ResourceNotFoundException('Database', 'Order', $reference);
             }
 
-            return EloquentOrderRepository::mapToDomain($model);
+            return OrderModelMapper::fromModelWithRelations($model);
         });
     }
 
@@ -217,27 +215,4 @@ final readonly class EloquentOrderRepository implements OrderRepositoryInterface
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Domain Mapping
-    // ─────────────────────────────────────────────────────────────────────────
-
-    /**
-     * Convert Eloquent model to Domain Order.
-     *
-     * Uses model toDomain() methods for products/discounts, delegates to mapper for order.
-     */
-    private static function mapToDomain(OrderModel $model): Order
-    {
-        // Convert related models using their toDomain() methods
-        $products = $model->products->map(
-            static fn(OrderProductModel $m): OrderProduct => $m->toDomain(),
-        )->all();
-
-        /** @var array<int, OrderDiscount> $discounts */
-        $discounts = $model->discounts->map(
-            static fn(OrderDiscountModel $m) => $m->toDomain(),
-        )->all();
-
-        return OrderModelMapper::toDomain($model, $products, $discounts);
-    }
 }
