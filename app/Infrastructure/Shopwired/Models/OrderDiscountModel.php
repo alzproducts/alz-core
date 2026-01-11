@@ -31,6 +31,8 @@ final class OrderDiscountModel extends Model
 
     protected $table = 'shopwired.order_discounts';
 
+    protected $guarded = [];
+
     public $incrementing = false;
 
     protected $keyType = 'string';

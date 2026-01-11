@@ -40,6 +40,8 @@ final class OrderProductModel extends Model
 
     protected $table = 'shopwired.order_products';
 
+    protected $guarded = [];
+
     public $incrementing = false;
 
     protected $keyType = 'string';
