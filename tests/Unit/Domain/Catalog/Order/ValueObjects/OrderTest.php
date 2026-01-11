@@ -12,6 +12,7 @@ use App\Domain\Catalog\Order\ValueObjects\OrderShipping;
 use App\Domain\Catalog\Order\ValueObjects\OrderStatus;
 use App\Domain\Catalog\Order\ValueObjects\OrderStatusType;
 use App\Domain\Catalog\Order\ValueObjects\PaymentMethod;
+use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -40,6 +41,7 @@ final class OrderTest extends TestCase
         $defaults = [
             'id' => 98765,
             'reference' => 12345,
+            'orderPlacedAt' => new DateTimeImmutable('2024-01-15T10:30:00+00:00'),
             'total' => 110.50,
             'subTotal' => 100.00,
             'shippingTotal' => 10.50,

@@ -54,7 +54,7 @@ final class EloquentOrderRepository extends AbstractShopwiredEloquentRepository 
             $model = $this->upsertOrder($entity);
             $this->syncProducts($model, $entity);
             $this->syncDiscounts($model, $entity);
-        });
+        }, attempts: 3);
     }
 
     /**

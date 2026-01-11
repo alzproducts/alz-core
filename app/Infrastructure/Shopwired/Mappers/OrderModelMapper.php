@@ -72,6 +72,7 @@ final class OrderModelMapper
         return new Order(
             id: $model->external_id,
             reference: $model->reference,
+            orderPlacedAt: $model->order_placed_at->toDateTimeImmutable(),
             total: $model->total,
             subTotal: $model->sub_total,
             shippingTotal: $model->shipping_total,
@@ -108,6 +109,7 @@ final class OrderModelMapper
     {
         return [
             'reference' => $order->reference,
+            'order_placed_at' => $order->orderPlacedAt,
             'total' => $order->total,
             'sub_total' => $order->subTotal,
             'shipping_total' => $order->shippingTotal,

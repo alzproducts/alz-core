@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Shopwired\Models;
 
+use App\Domain\Catalog\Order\ValueObjects\Order;
+use App\Infrastructure\Contracts\EloquentDomainMappableInterface;
+use App\Infrastructure\Shopwired\Mappers\OrderModelMapper;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
@@ -70,8 +73,10 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property CarbonImmutable $created_at When first synced to local DB
  * @property CarbonImmutable $updated_at When last updated locally
  * @property CarbonImmutable $synced_at When last synced from API
+ *
+ * @implements EloquentDomainMappableInterface<Order>
  */
-final class OrderModel extends Model
+final class OrderModel extends Model implements EloquentDomainMappableInterface
 {
     use HasUuids;
 
@@ -128,5 +133,29 @@ final class OrderModel extends Model
     public function discounts(): HasMany
     {
         return $this->hasMany(OrderDiscountModel::class, 'order_id', 'id');
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Domain Mapping (via EloquentDomainMappableInterface)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Convert this model (with loaded relations) to Domain Order.
+     */
+    public function toDomain(): Order
+    {
+        return OrderModelMapper::fromModelWithRelations($this);
+    }
+
+    /**
+     * Convert a Domain Order to model attributes.
+     *
+     * @param Order $entity
+     *
+     * @return array<string, mixed>
+     */
+    public static function fromDomainAttributes(object $entity): array
+    {
+        return OrderModelMapper::toModelAttributes($entity);
     }
 }

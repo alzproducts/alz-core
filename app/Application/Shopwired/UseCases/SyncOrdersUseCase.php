@@ -48,21 +48,13 @@ final readonly class SyncOrdersUseCase
      */
     public function execute(DateTimeImmutable $from, DateTimeImmutable $to): SyncResult
     {
-        $fromFormatted = $from->format('Y-m-d H:i:s');
-        $toFormatted = $to->format('Y-m-d H:i:s');
-
-        $this->logger->info('Starting ShopWired order sync', [
-            'from' => $fromFormatted,
-            'to' => $toFormatted,
-        ]);
-
         // Fetch orders from ShopWired API (with full details for persistence)
         $orders = $this->orderClient->listOrdersInRangeWithDetails($from, $to);
 
         if ($orders === []) {
             $this->logger->info('No orders found in date range', [
-                'from' => $fromFormatted,
-                'to' => $toFormatted,
+                'from' => $from->format('Y-m-d H:i:s'),
+                'to' => $to->format('Y-m-d H:i:s'),
             ]);
 
             return SyncResult::empty();
@@ -70,14 +62,6 @@ final readonly class SyncOrdersUseCase
 
         // Persist to local database (continue on individual failures)
         $saveResult = $this->orderRepository->saveMany($orders);
-
-        $this->logger->info('ShopWired order sync completed', [
-            'from' => $fromFormatted,
-            'to' => $toFormatted,
-            'fetched' => \count($orders),
-            'saved' => $saveResult->succeeded,
-            'failed' => $saveResult->failed,
-        ]);
 
         if ($saveResult->hasFailures()) {
             $this->logger->warning('Some orders failed to save', [
