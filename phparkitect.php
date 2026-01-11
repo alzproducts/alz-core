@@ -215,6 +215,7 @@ return static function (Config $config): void {
                                'Symfony\Component\HttpFoundation',
                                'Random\RandomException',
                                'Reflection*',
+                               'BackedEnum',
                            ],
                        ),
                    )

@@ -34,3 +34,10 @@ Don't use the trait when you have:
 
 - `protected $guarded = [];` — Internal sync models don't receive user input
 - `protected $table = 'shopwired.table_name';` — Explicit schema-qualified name
+
+## Mappers
+
+For complex models needing dedicated mapping classes:
+
+- Example: `app/Infrastructure/Shopwired/Mappers/OrderModelMapper.php`
+- Use `app/Infrastructure/Concerns/MapperHelperTrait` for enum parsing with fallback logging
