@@ -40,6 +40,8 @@ abstract class AbstractShopwiredEloquentRepository implements ShopwiredRepositor
 
     /**
      * {@inheritDoc}
+     *
+     * @throws ExternalServiceUnavailableException When database temporarily unavailable (bubbled for job retry)
      */
     public function saveMany(array $entities): SaveManyResult
     {
@@ -51,7 +53,18 @@ abstract class AbstractShopwiredEloquentRepository implements ShopwiredRepositor
             try {
                 $this->save($entity);
                 $succeeded++;
-            } catch (DatabaseOperationFailedException|DuplicateRecordException|ExternalServiceUnavailableException $e) {
+            } catch (ExternalServiceUnavailableException $e) {
+                // Transient failure (DB unavailable) - bubble up for job retry
+                throw $e;
+            } catch (DuplicateRecordException) {
+                // Race condition: concurrent process already saved this entity
+                // Not a failure - the entity exists, which is the goal
+                $succeeded++;
+                Log::info("{$this->getEntityTypeName()} already saved by concurrent process", [
+                    'external_id' => $this->getEntityIdentifier($entity),
+                ]);
+            } catch (DatabaseOperationFailedException $e) {
+                // Permanent failure - log and continue batch
                 $failed++;
                 $identifier = $this->getEntityIdentifier($entity);
                 $failedReferences[] = $identifier;

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\Catalog\Order\ValueObjects;
 
+use DateTimeImmutable;
 use Webmozart\Assert\Assert;
 
 /**
@@ -26,6 +27,7 @@ final readonly class Order
     /**
      * @param int $id ShopWired's order ID (external identifier for API/persistence)
      * @param int $reference Customer-facing order reference number
+     * @param DateTimeImmutable $orderPlacedAt When the order was placed by customer
      * @param bool $hasVatRelief Whether order has VAT relief applied (derived from comments)
      * @param array<int, OrderProduct>|null $products Null=Standard mode, array=Detail mode
      * @param array<int, OrderDiscount> $discounts
@@ -34,6 +36,7 @@ final readonly class Order
     public function __construct(
         public int $id,
         public int $reference,
+        public DateTimeImmutable $orderPlacedAt,
         public float $total,
         public float $subTotal,
         public float $shippingTotal,
