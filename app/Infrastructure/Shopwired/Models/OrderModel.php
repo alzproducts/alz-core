@@ -77,6 +77,8 @@ final class OrderModel extends Model
 
     protected $table = 'shopwired.orders';
 
+    protected $guarded = [];
+
     public $incrementing = false;
 
     protected $keyType = 'string';
