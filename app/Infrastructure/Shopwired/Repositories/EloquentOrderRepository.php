@@ -4,9 +4,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Shopwired\Repositories;
 
-use App\Application\Contracts\DatabaseClientInterface;
 use App\Application\Contracts\Shopwired\OrderRepositoryInterface;
-use App\Application\Shopwired\ValueObjects\SaveManyResult;
 use App\Domain\Catalog\Order\ValueObjects\Order;
 use App\Domain\Catalog\Order\ValueObjects\OrderProduct;
 use App\Domain\Exceptions\DatabaseOperationFailedException;
@@ -17,22 +15,34 @@ use App\Infrastructure\Shopwired\Mappers\OrderModelMapper;
 use App\Infrastructure\Shopwired\Models\OrderDiscountModel;
 use App\Infrastructure\Shopwired\Models\OrderModel;
 use App\Infrastructure\Shopwired\Models\OrderProductModel;
-use Illuminate\Support\Facades\Log;
+use Illuminate\Database\Eloquent\Model;
 
 /**
  * Eloquent implementation of ShopWired order repository.
  *
  * Persists Domain Order entities to PostgreSQL using Eloquent models.
  * Uses upsert strategy based on ShopWired's external ID for idempotent sync.
+ *
+ * @extends AbstractShopwiredEloquentRepository<Order>
  */
-final readonly class EloquentOrderRepository implements OrderRepositoryInterface
+final class EloquentOrderRepository extends AbstractShopwiredEloquentRepository implements OrderRepositoryInterface
 {
-    public function __construct(
-        private DatabaseClientInterface $database,
-    ) {}
+    /** @var class-string<OrderModel> */
+    private const string MODEL_CLASS = OrderModel::class;
+
+    private const string ENTITY_TYPE = 'Order';
+
+    /** @var list<string> */
+    private const array EAGER_LOAD_RELATIONS = ['products', 'discounts'];
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Interface Implementation
+    // ─────────────────────────────────────────────────────────────────────────
 
     /**
      * {@inheritDoc}
+     *
+     * @param Order $entity
      *
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
@@ -49,62 +59,6 @@ final readonly class EloquentOrderRepository implements OrderRepositoryInterface
 
     /**
      * {@inheritDoc}
-     */
-    public function saveMany(array $entities): SaveManyResult
-    {
-        $succeeded = 0;
-        $failed = 0;
-        $failedReferences = [];
-
-        foreach ($entities as $entity) {
-            try {
-                $this->save($entity);
-                $succeeded++;
-            } catch (DatabaseOperationFailedException|DuplicateRecordException|ExternalServiceUnavailableException $e) {
-                $failed++;
-                $failedReferences[] = $entity->id;
-
-                Log::error('Failed to save order', [
-                    'external_id' => $entity->id,
-                    'reference' => $entity->reference,
-                    'error' => $e->getMessage(),
-                ]);
-            }
-        }
-
-        return new SaveManyResult(
-            succeeded: $succeeded,
-            failed: $failed,
-            failedReferences: $failedReferences,
-        );
-    }
-
-    /**
-     * {@inheritDoc}
-     *
-     * @throws ResourceNotFoundException
-     * @throws DatabaseOperationFailedException
-     * @throws DuplicateRecordException
-     * @throws ExternalServiceUnavailableException
-     */
-    public function getByExternalId(int $externalId): Order
-    {
-        return $this->database->execute(static function () use ($externalId): Order {
-            $model = OrderModel::query()
-                ->where('external_id', $externalId)
-                ->with(['products', 'discounts'])
-                ->first();
-
-            if ($model === null) {
-                throw new ResourceNotFoundException('Database', 'Order', $externalId);
-            }
-
-            return OrderModelMapper::fromModelWithRelations($model);
-        });
-    }
-
-    /**
-     * {@inheritDoc}
      *
      * @throws ResourceNotFoundException
      * @throws DatabaseOperationFailedException
@@ -114,33 +68,63 @@ final readonly class EloquentOrderRepository implements OrderRepositoryInterface
     public function getByReference(int $reference): Order
     {
         return $this->database->execute(static function () use ($reference): Order {
-            $model = OrderModel::query()
+            $model = self::MODEL_CLASS::query()
                 ->where('reference', $reference)
-                ->with(['products', 'discounts'])
+                ->with(self::EAGER_LOAD_RELATIONS)
                 ->first();
 
             if ($model === null) {
-                throw new ResourceNotFoundException('Database', 'Order', $reference);
+                throw new ResourceNotFoundException('Database', self::ENTITY_TYPE, $reference);
             }
 
             return OrderModelMapper::fromModelWithRelations($model);
         });
     }
 
+    // ─────────────────────────────────────────────────────────────────────────
+    // Abstract Method Implementations
+    // ─────────────────────────────────────────────────────────────────────────
+
     /**
      * {@inheritDoc}
-     *
-     * @throws DatabaseOperationFailedException
-     * @throws DuplicateRecordException
-     * @throws ExternalServiceUnavailableException
      */
-    public function existsByExternalId(int $externalId): bool
+    protected function getModelClass(): string
     {
-        return $this->database->execute(
-            static fn(): bool => OrderModel::query()
-                ->where('external_id', $externalId)
-                ->exists(),
-        );
+        return self::MODEL_CLASS;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    protected function getEagerLoadRelations(): array
+    {
+        return self::EAGER_LOAD_RELATIONS;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    protected function getEntityIdentifier(object $entity): int
+    {
+        /** @var Order $entity */
+        return $entity->id;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    protected function getEntityTypeName(): string
+    {
+        return self::ENTITY_TYPE;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    protected function mapModelToDomain(Model $model): Order
+    {
+        /** @var OrderModel $model */
+        return OrderModelMapper::fromModelWithRelations($model);
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -155,7 +139,7 @@ final readonly class EloquentOrderRepository implements OrderRepositoryInterface
         $attributes = OrderModelMapper::toModelAttributes($order);
 
         /** @var OrderModel $model */
-        $model = OrderModel::query()->updateOrCreate(
+        $model = self::MODEL_CLASS::query()->updateOrCreate(
             ['external_id' => $order->id],
             $attributes,
         );
@@ -214,5 +198,4 @@ final readonly class EloquentOrderRepository implements OrderRepositoryInterface
             OrderDiscountModel::query()->create($attributes);
         }
     }
-
 }
