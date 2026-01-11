@@ -10,8 +10,8 @@ use Illuminate\Support\Facades\Schema;
 /**
  * Creates the shopwired.order_products table for order line items.
  *
- * Note: external_id is ShopWired's product instance ID within the order,
- * confirmed to be globally unique (not just per-order).
+ * Uses composite unique key (order_external_id, external_id) for stable sync.
+ * Internal order_id UUID provides FK relationship; external IDs provide sync semantics.
  */
 return new class extends Migration {
     public function up(): void
@@ -26,8 +26,12 @@ return new class extends Migration {
                 ->on('shopwired.orders')
                 ->cascadeOnDelete();
 
-            // ShopWired identifier (globally unique)
-            $table->integer('external_id')->unique();
+            // ShopWired identifiers
+            $table->integer('order_external_id');  // Parent order's ShopWired ID (stable sync key)
+            $table->integer('external_id');         // Product line's ShopWired ID
+
+            // Composite unique: product line within its order (stable external IDs)
+            $table->unique(['order_external_id', 'external_id']);
 
             // Product info
             $table->string('title', 255);

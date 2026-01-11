@@ -19,8 +19,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * Pricing fields preserve raw API values (up to 6dp) for accurate invoice generation.
  *
  * @property string $id Internal UUID
- * @property string $order_id Parent order UUID
- * @property int $external_id ShopWired product instance ID (globally unique)
+ * @property string $order_id Parent order UUID (FK relationship)
+ * @property int $order_external_id Parent order's ShopWired ID (stable sync key)
+ * @property int $external_id ShopWired product line ID
  * @property string $title Product title at time of purchase
  * @property string $sku Product SKU
  * @property float $price Unit price
@@ -96,6 +97,7 @@ final class OrderProductModel extends Model implements EloquentDomainMappableInt
     {
         return new OrderProduct(
             id: $this->external_id,
+            orderExternalId: $this->order_external_id,
             title: $this->title,
             sku: $this->sku,
             price: $this->price,
@@ -113,11 +115,14 @@ final class OrderProductModel extends Model implements EloquentDomainMappableInt
     }
 
     /**
+     * @param OrderProduct $entity
+     *
      * @return array<string, mixed>
      */
     public static function fromDomainAttributes(object $entity): array
     {
         return [
+            'order_external_id' => $entity->orderExternalId,
             'external_id' => $entity->id,
             'title' => $entity->title,
             'sku' => $entity->sku,

@@ -149,6 +149,9 @@ final class EloquentOrderRepository extends AbstractShopwiredEloquentRepository 
 
     /**
      * Sync order products (delete removed, upsert existing).
+     *
+     * Uses stable ShopWired IDs (order_external_id, external_id) for upsert lookup,
+     * ensuring sync works correctly even if internal UUIDs change.
      */
     private function syncProducts(OrderModel $model, Order $order): void
     {
@@ -161,22 +164,22 @@ final class EloquentOrderRepository extends AbstractShopwiredEloquentRepository 
             $order->products,
         );
 
-        // Delete products no longer in order
+        // Delete products no longer in order (using stable external IDs)
         OrderProductModel::query()
-            ->where('order_id', $model->id)
+            ->where('order_external_id', $order->id)
             ->whereNotIn('external_id', $currentIds)
             ->delete();
 
-        // Upsert current products
+        // Upsert current products using stable external IDs for lookup
         foreach ($order->products as $product) {
             $attributes = OrderProductModel::fromDomainAttributes($product);
 
             OrderProductModel::query()->updateOrCreate(
                 [
-                    'order_id' => $model->id,
+                    'order_external_id' => $product->orderExternalId,
                     'external_id' => $product->id,
                 ],
-                $attributes,
+                $attributes + ['order_id' => $model->id],
             );
         }
     }
