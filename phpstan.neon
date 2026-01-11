@@ -157,6 +157,11 @@ parameters:
         -
             identifier: shipmonk.publicPropertyNotReadonly
             path: app/Infrastructure/*/Models/*
+        # Eloquent query builder returns dynamic proxies - static analysis can't track fluent chains.
+        # Methods like exists(), whereNotIn() on Builder are instance methods called on static chain.
+        -
+            identifier: staticMethod.dynamicCall
+            path: app/Infrastructure/*/Repositories/*
         # Laravel service providers use closures/callbacks for deferred binding resolution.
         # These ARE invoked synchronously when the service is resolved, but ShipMonk can't verify this.
         -
