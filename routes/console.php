@@ -6,6 +6,7 @@ use App\Presentation\Jobs\ProcessProductSearchFeedJob;
 use App\Presentation\Jobs\SyncBingAdsToMixpanelJob;
 use App\Presentation\Jobs\SyncCampaignLookupTableJob;
 use App\Presentation\Jobs\SyncGoogleAdsToMixpanelJob;
+use App\Presentation\Jobs\SyncShopwiredOrdersJob;
 use Illuminate\Support\Facades\Schedule;
 
 // Campaign lookup table sync - runs BEFORE ad spend sync (7:55 AM UTC)
@@ -105,3 +106,20 @@ Schedule::job(new ProcessProductSearchFeedJob())
     ->timezone('Europe/London')
     ->onOneServer()
     ->withoutOverlapping(30);
+
+// ============================================================================
+// ShopWired Order Sync: Hourly with 2-hour overlap
+// Syncs orders from ShopWired API to local PostgreSQL for fast queries
+// ============================================================================
+
+// HOURLY: 2-hour overlap window ensures no orders missed at boundaries
+Schedule::call(static function (): void {
+    SyncShopwiredOrdersJob::dispatch(
+        from: new DateTimeImmutable('-2 hours'),
+        to: new DateTimeImmutable('now'),
+    );
+})
+    ->name('sync-shopwired-orders-hourly')
+    ->hourly()
+    ->onOneServer()
+    ->withoutOverlapping(15);
