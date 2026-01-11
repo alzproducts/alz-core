@@ -26,8 +26,9 @@ interface DatabaseClientInterface
      *
      * @template T
      *
-     * @param Closure(): T $operation Closure performing database operation
+     * @param-immediately-invoked-callable $operation
      *
+     * @param Closure(): T $operation Closure performing database operation
      *
      * @phpstan-return T
      *
