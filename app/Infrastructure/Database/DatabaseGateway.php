@@ -2,13 +2,14 @@
 
 declare(strict_types=1);
 
-namespace App\Infrastructure\Supabase;
+namespace App\Infrastructure\Database;
 
-use App\Application\Contracts\DatabaseClientInterface;
+use App\Application\Contracts\DatabaseGatewayInterface;
 use App\Domain\Exceptions\DatabaseOperationFailedException;
 use App\Domain\Exceptions\DuplicateRecordException;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use Closure;
+use Illuminate\Database\ConnectionInterface;
 use Illuminate\Database\DatabaseManager;
 use Illuminate\Database\DeadlockException;
 use Illuminate\Database\LostConnectionException;
@@ -18,21 +19,30 @@ use PDOException;
 use Psr\Log\LoggerInterface;
 
 /**
- * Supabase database client with exception translation.
+ * Database gateway with exception translation for PostgreSQL.
  *
  * Translates Laravel/PDO exceptions to domain exceptions, enabling
  * callers to distinguish transient errors (retry) from permanent ones (fail).
  *
- * PostgreSQL error codes reference:
+ * ## Injection Patterns
+ *
+ * - **Eloquent repositories**: Inject `DatabaseGatewayInterface` (interface)
+ * - **Query-builder repositories**: Inject `DatabaseGateway` (concrete) when `connection()` access needed
+ *
+ * The concrete class exposes `connection()` for query-builder access. This is intentionally
+ * NOT on the interface to keep Application layer contracts framework-agnostic.
+ *
+ * ## PostgreSQL Error Codes Reference
+ *
  * - 08xxx: Connection exceptions (transient)
  * - 23505: Unique violation (permanent)
  * - 40001, 40P01: Deadlock/serialization (transient)
  * - 57014: Query cancelled/timeout (transient)
  * - 57Pxx: Admin shutdown (transient)
  */
-final readonly class SupabaseClient implements DatabaseClientInterface
+final readonly class DatabaseGateway implements DatabaseGatewayInterface
 {
-    private const string SERVICE_NAME = 'Supabase';
+    private const string SERVICE_NAME = 'Database';
 
     /**
      * PostgreSQL error codes that indicate transient failures.
@@ -57,8 +67,12 @@ final readonly class SupabaseClient implements DatabaseClientInterface
      * @param Closure(): T $operation
      *
      * @phpstan-return T
+     *
+     * @throws ExternalServiceUnavailableException
+     * @throws DuplicateRecordException
+     * @throws DatabaseOperationFailedException
      */
-    public function execute(Closure $operation): mixed
+    public function query(Closure $operation): mixed
     {
         try {
             return $operation();
@@ -81,10 +95,28 @@ final readonly class SupabaseClient implements DatabaseClientInterface
      * @param Closure(): T $operation
      *
      * @phpstan-return T
+     *
+     * @throws ExternalServiceUnavailableException
+     * @throws DuplicateRecordException
+     * @throws DatabaseOperationFailedException
      */
-    public function executeTransaction(Closure $operation, int $attempts = 1): mixed
+    public function transact(Closure $operation, int $attempts = 1): mixed
     {
-        return $this->execute(fn(): mixed => $this->db->transaction($operation, \max(1, $attempts)));
+        return $this->query(fn(): mixed => $this->db->transaction($operation, \max(1, $attempts)));
+    }
+
+    /**
+     * Get database connection for query-builder operations.
+     *
+     * NOTE: This method is on the concrete class only, not the interface.
+     * Repositories needing query-builder access should inject DatabaseGateway directly
+     * rather than DatabaseGatewayInterface.
+     *
+     * @see DatabaseGateway class docblock for injection pattern guidance
+     */
+    public function connection(): ConnectionInterface
+    {
+        return $this->db->connection();
     }
 
     private function handleUniqueConstraint(UniqueConstraintViolationException $e): DuplicateRecordException

@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Tests\Integration\Infrastructure\Supabase;
+namespace Tests\Integration\Infrastructure\Database;
 
 use App\Domain\Exceptions\DatabaseOperationFailedException;
 use App\Domain\Exceptions\DuplicateRecordException;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
-use App\Infrastructure\Supabase\SupabaseClient;
+use App\Infrastructure\Database\DatabaseGateway;
 use Closure;
 use Exception;
 use Illuminate\Database\DatabaseManager;
@@ -23,19 +23,19 @@ use Psr\Log\LoggerInterface;
 use Tests\TestCase;
 
 /**
- * Integration tests for SupabaseClient exception translation.
+ * Integration tests for DatabaseGateway exception translation.
  *
  * Tests the boundary behavior: database exceptions → domain exceptions.
  * Per TestingStrategy.md: one happy path, key error paths only.
  */
-#[CoversClass(SupabaseClient::class)]
-final class SupabaseClientTest extends TestCase
+#[CoversClass(DatabaseGateway::class)]
+final class DatabaseGatewayTest extends TestCase
 {
     private LoggerInterface&MockInterface $mockLogger;
 
     private DatabaseManager&MockInterface $mockDb;
 
-    private function createClient(): SupabaseClient
+    private function createGateway(): DatabaseGateway
     {
         $this->mockLogger = Mockery::mock(LoggerInterface::class);
         $this->mockLogger->allows('warning');
@@ -43,65 +43,65 @@ final class SupabaseClientTest extends TestCase
 
         $this->mockDb = Mockery::mock(DatabaseManager::class);
 
-        return new SupabaseClient($this->mockLogger, $this->mockDb);
+        return new DatabaseGateway($this->mockLogger, $this->mockDb);
     }
 
     #[Test]
-    public function execute_returns_operation_result(): void
+    public function query_returns_operation_result(): void
     {
-        $client = $this->createClient();
+        $gateway = $this->createGateway();
 
-        $result = $client->execute(static fn(): array => ['id' => 123, 'status' => 'active']);
+        $result = $gateway->query(static fn(): array => ['id' => 123, 'status' => 'active']);
 
         $this->assertSame(['id' => 123, 'status' => 'active'], $result);
     }
 
     #[Test]
-    public function execute_translates_transient_error_to_external_service_unavailable(): void
+    public function query_translates_transient_error_to_external_service_unavailable(): void
     {
-        $client = $this->createClient();
+        $gateway = $this->createGateway();
 
         $this->expectException(ExternalServiceUnavailableException::class);
 
-        $client->execute(static fn() => throw new LostConnectionException('Connection lost'));
+        $gateway->query(static fn() => throw new LostConnectionException('Connection lost'));
     }
 
     #[Test]
-    public function execute_translates_permanent_error_to_database_operation_failed(): void
+    public function query_translates_permanent_error_to_database_operation_failed(): void
     {
-        $client = $this->createClient();
+        $gateway = $this->createGateway();
 
         $queryException = new QueryException('pgsql', 'SELECT...', [], new Exception('Syntax error'));
 
         $this->expectException(DatabaseOperationFailedException::class);
 
-        $client->execute(static fn() => throw $queryException);
+        $gateway->query(static fn() => throw $queryException);
     }
 
     #[Test]
-    public function execute_translates_unique_constraint_to_duplicate_record(): void
+    public function query_translates_unique_constraint_to_duplicate_record(): void
     {
-        $client = $this->createClient();
+        $gateway = $this->createGateway();
 
         $pdoException = new PDOException('duplicate key violates unique constraint "orders_pk" on relation "orders"');
         $exception = new UniqueConstraintViolationException('pgsql', 'INSERT...', [], $pdoException);
 
         $this->expectException(DuplicateRecordException::class);
 
-        $client->execute(static fn() => throw $exception);
+        $gateway->query(static fn() => throw $exception);
     }
 
     #[Test]
-    public function executeTransaction_wraps_operation_in_database_transaction(): void
+    public function transact_wraps_operation_in_database_transaction(): void
     {
-        $client = $this->createClient();
+        $gateway = $this->createGateway();
 
         $this->mockDb->shouldReceive('transaction')
             ->once()
             ->withArgs(static fn(Closure $callback, int $attempts): bool => $attempts === 1)
             ->andReturnUsing(static fn(Closure $callback): mixed => $callback());
 
-        $result = $client->executeTransaction(static fn(): array => ['id' => 456]);
+        $result = $gateway->transact(static fn(): array => ['id' => 456]);
 
         $this->assertSame(['id' => 456], $result);
     }
