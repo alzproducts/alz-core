@@ -34,6 +34,7 @@ final class OrderProductTest extends TestCase
     {
         $defaults = [
             'id' => 101,
+            'orderExternalId' => 98765,
             'title' => 'Test Product',
             'sku' => 'TEST-SKU-001',
             'price' => 25.00,
@@ -66,6 +67,7 @@ final class OrderProductTest extends TestCase
         $product = $this->createOrderProduct();
 
         $this->assertSame(101, $product->id);
+        $this->assertSame(98765, $product->orderExternalId);
         $this->assertSame('Test Product', $product->title);
         $this->assertSame('TEST-SKU-001', $product->sku);
         $this->assertSame(25.00, $product->price);
@@ -127,6 +129,41 @@ final class OrderProductTest extends TestCase
         $product = $this->createOrderProduct(['id' => 1]);
 
         $this->assertSame(1, $product->id);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Order External ID Assertion Tests
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    #[DataProvider('invalidOrderExternalIdProvider')]
+    public function it_throws_if_order_external_id_is_not_positive(int $invalidId): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Order external ID must be positive');
+
+        $this->createOrderProduct(['orderExternalId' => $invalidId]);
+    }
+
+    /**
+     * @return array<string, array{int}>
+     */
+    public static function invalidOrderExternalIdProvider(): array
+    {
+        return [
+            'zero order external id' => [0],
+            'negative order external id' => [-1],
+        ];
+    }
+
+    #[Test]
+    public function it_accepts_positive_boundary_order_external_id(): void
+    {
+        $product = $this->createOrderProduct(['orderExternalId' => 1]);
+
+        $this->assertSame(1, $product->orderExternalId);
     }
 
     /*

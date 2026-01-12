@@ -9,6 +9,7 @@ use App\Domain\Exceptions\DatabaseOperationFailedException;
 use App\Domain\Exceptions\DuplicateRecordException;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use Closure;
+use Illuminate\Database\DatabaseManager;
 use Illuminate\Database\DeadlockException;
 use Illuminate\Database\LostConnectionException;
 use Illuminate\Database\QueryException;
@@ -47,6 +48,7 @@ final readonly class SupabaseClient implements DatabaseClientInterface
 
     public function __construct(
         private LoggerInterface $logger,
+        private DatabaseManager $db,
     ) {}
 
     /**
@@ -71,6 +73,18 @@ final readonly class SupabaseClient implements DatabaseClientInterface
         } catch (PDOException $e) {
             throw $this->handlePdoException($e);
         }
+    }
+
+    /**
+     * @template T
+     *
+     * @param Closure(): T $operation
+     *
+     * @phpstan-return T
+     */
+    public function executeTransaction(Closure $operation, int $attempts = 1): mixed
+    {
+        return $this->execute(fn(): mixed => $this->db->transaction($operation, \max(1, $attempts)));
     }
 
     private function handleUniqueConstraint(UniqueConstraintViolationException $e): DuplicateRecordException

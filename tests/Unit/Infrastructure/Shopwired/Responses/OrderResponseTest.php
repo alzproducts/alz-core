@@ -20,6 +20,7 @@ use App\Infrastructure\Shopwired\Responses\OrderProductResponse;
 use App\Infrastructure\Shopwired\Responses\OrderResponse;
 use App\Infrastructure\Shopwired\Responses\OrderShippingResponse;
 use App\Infrastructure\Shopwired\Responses\OrderStatusResponse;
+use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -389,6 +390,19 @@ final class OrderResponseTest extends TestCase
         $this->assertSame(10.00, $domain->shippingTotal);
         $this->assertSame('Please leave at door', $domain->comments);
         $this->assertTrue($domain->marketing);
+    }
+
+    #[Test]
+    public function to_domain_converts_order_placed_at_timestamp(): void
+    {
+        $dto = OrderResponse::from($this->completePayload([
+            'created' => '2024-01-15T10:30:00+00:00',
+        ]));
+
+        $domain = $dto->toDomain();
+
+        $this->assertInstanceOf(DateTimeImmutable::class, $domain->orderPlacedAt);
+        $this->assertSame('2024-01-15 10:30:00', $domain->orderPlacedAt->format('Y-m-d H:i:s'));
     }
 
     #[Test]

@@ -8,7 +8,9 @@ use App\Application\Contracts\Shopwired\CategoryClientInterface;
 use App\Application\Contracts\Shopwired\ConnectivityClientInterface;
 use App\Application\Contracts\Shopwired\CustomerClientInterface;
 use App\Application\Contracts\Shopwired\OrderClientInterface;
+use App\Application\Contracts\Shopwired\OrderRepositoryInterface;
 use App\Application\Contracts\Shopwired\StockClientInterface;
+use App\Infrastructure\Shopwired\Repositories\EloquentOrderRepository;
 use App\Infrastructure\Shopwired\ShopwiredClientFactory;
 use Illuminate\Contracts\Support\DeferrableProvider;
 use Illuminate\Support\ServiceProvider;
@@ -67,6 +69,12 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
             StockClientInterface::class,
             static fn(): StockClientInterface => ShopwiredClientFactory::createStockClient(),
         );
+
+        // Order repository - for local database persistence
+        $this->app->singleton(
+            OrderRepositoryInterface::class,
+            EloquentOrderRepository::class,
+        );
     }
 
     /**
@@ -82,6 +90,7 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
             CategoryClientInterface::class,
             CustomerClientInterface::class,
             OrderClientInterface::class,
+            OrderRepositoryInterface::class,
             StockClientInterface::class,
         ];
     }
