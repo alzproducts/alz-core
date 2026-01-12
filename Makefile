@@ -267,9 +267,9 @@ test-app-coverage: ## Run Application tests with 70% coverage (App code only)
 	@echo "$(MODE)"
 	$(EXEC) -d xdebug.mode=coverage vendor/bin/pest --configuration=phpunit-app.xml --coverage --min=70
 
-test-coverage: ## Run tests with 80% coverage requirement
+test-coverage: ## Run tests with coverage report (no global threshold - layer-specific thresholds enforced in mutation testing)
 	@echo "$(MODE)"
-	$(EXEC) -d xdebug.mode=coverage vendor/bin/pest --coverage --min=75
+	$(EXEC) -d xdebug.mode=coverage vendor/bin/pest --coverage
 
 coverage-html: ## Generate HTML coverage report (open coverage-report/index.html)
 	@echo "$(MODE)"
