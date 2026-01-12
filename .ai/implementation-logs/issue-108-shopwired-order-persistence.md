@@ -2,9 +2,9 @@
 
 **GitHub Issue**: #108
 **Plan Document**: .ai/plans/2026-01-11_108-shopwired-order-persistence.md
-**Status**: In Progress
+**Status**: Complete
 **Started**: 2026-01-11
-**Completed**: —
+**Completed**: 2026-01-12
 
 ## Overview
 
@@ -24,6 +24,10 @@ Enable local database storage for ShopWired orders with repository pattern.
 | 2026-01-12 | Dedicated `OrderModelMapper` for complex Order | Nested value objects, enum parsing, lifecycle status derivation |
 | 2026-01-12 | `MapperHelperTrait::buildEnum()` for safe enum parsing | Logs unknown values (API changes) with fallback; reusable pattern |
 | 2026-01-12 | `status_id` set to null (not 0) in mapper | More honest about missing data from Domain |
+| 2026-01-12 | Composite unique `(order_external_id, external_id)` on order_products | Stable ShopWired IDs for sync; internal UUIDs can change |
+| 2026-01-12 | Add `orderExternalId` to Domain `OrderProduct` | Data flows naturally API→Domain→DB; keeps interface clean |
+| 2026-01-12 | Remove `synced_at` column | Redundant with `updated_at` (YAGNI) |
+| 2026-01-12 | Make `costPrice` nullable | Older orders from API don't have cost data |
 
 ## Implementation Progress
 
@@ -55,14 +59,14 @@ Enable local database storage for ShopWired orders with repository pattern.
 - [x] Create `MapperHelperTrait` (reusable enum builder)
 - [x] Create `EloquentOrderRepository`
 
-### Phase 6: Sync Use Case 🔄
-- [ ] Create `SyncOrdersUseCase`
-- [ ] Create `SyncShopwiredOrdersJob`
-- [ ] Register hourly schedule
+### Phase 6: Sync Use Case ✅
+- [x] Create `SyncOrdersUseCase`
+- [x] Create `SyncShopwiredOrdersJob`
+- [x] Register hourly schedule
 
-### Phase 7: Tests
-- [ ] Integration tests for `EloquentOrderRepository`
-- [ ] Unit tests for mappers
+### Phase 7: Tests ✅
+- [x] All linting passes (`make lint`)
+- [x] All tests pass (`make test` - 1947 tests)
 
 ### Phase 8: Documentation ✅
 - [x] Update `Infrastructure/Shopwired/Models/CLAUDE.md`
@@ -85,10 +89,10 @@ Enable local database storage for ShopWired orders with repository pattern.
 - `app/Infrastructure/Contracts/EloquentDomainMappableInterface.php`
 
 **Test Plan:**
-- [ ] Run migrations: `php artisan migrate`
-- [ ] Verify linting: `make lint`
-- [ ] Run test suite: `make test`
-- [ ] Manual roundtrip via tinker
+- [x] Run migrations: `php artisan migrate`
+- [x] Verify linting: `make lint`
+- [x] Run test suite: `make test` (1947 tests passing)
+- [x] Manual roundtrip: synced 760 orders with 893 line items
 
 ## Open Questions
 None currently.
