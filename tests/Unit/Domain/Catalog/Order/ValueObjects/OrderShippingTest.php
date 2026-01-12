@@ -32,6 +32,7 @@ final class OrderShippingTest extends TestCase
     private function createOrderShipping(array $overrides = []): OrderShipping
     {
         $defaults = [
+            'id' => 42,
             'name' => 'Standard Delivery',
             'value' => 5.99,
             'vatRate' => 20.0,

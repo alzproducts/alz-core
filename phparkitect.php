@@ -197,6 +197,7 @@ return static function (Config $config): void {
                                'Throwable',
                                'JsonException',
                                'Spatie\LaravelData',
+                               'Carbon\*',
                                'Closure',
                                'Google*',
                                'Microsoft*',

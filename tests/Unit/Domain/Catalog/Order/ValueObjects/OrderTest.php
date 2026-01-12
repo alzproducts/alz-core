@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Domain\Catalog\Order\ValueObjects;
 
+use App\Domain\Catalog\Order\Enums\PreOrderStatus;
 use App\Domain\Catalog\Order\ValueObjects\Order;
 use App\Domain\Catalog\Order\ValueObjects\OrderAddress;
 use App\Domain\Catalog\Order\ValueObjects\OrderCustomer;
@@ -46,15 +47,25 @@ final class OrderTest extends TestCase
             'total' => 110.50,
             'subTotal' => 100.00,
             'shippingTotal' => 10.50,
+            'originalShippingTotal' => 10.50,
             'paymentMethod' => PaymentMethod::Card,
             'comments' => '',
             'marketing' => true,
             'hasVatRelief' => false,
+            'isArchived' => false,
+            'isAnonymized' => false,
+            'lineItemVatCalculation' => false,
             'status' => new OrderStatus(1, OrderStatusType::Completed, 'shipped', 0),
             'customer' => new OrderCustomer(99, 1, null, []),
-            'shipping' => new OrderShipping('Standard', 10.50, 20.0),
+            'shipping' => new OrderShipping(id: 1, name: 'Standard', value: 10.50, vatRate: 20.0),
             'billingAddress' => $this->createOrderAddress(),
             'shippingAddress' => $this->createOrderAddress(),
+            'preOrderStatus' => PreOrderStatus::None,
+            'taxValue' => null,
+            'trackingUrl' => null,
+            'invoiceUrl' => null,
+            'transactionId' => null,
+            'deliveryDate' => null,
             'discounts' => [],
             'products' => null,
             'customFields' => null,
@@ -68,7 +79,7 @@ final class OrderTest extends TestCase
         return new OrderAddress(
             name: 'John Doe',
             emailAddress: 'john@example.com',
-            telephone: '01onal234567890',
+            telephone: '01234567890',
             companyName: '',
             addressLine1: '123 Test St',
             addressLine2: '',
@@ -78,6 +89,7 @@ final class OrderTest extends TestCase
             state: null,
             postcode: 'SW1A 1AA',
             country: 'United Kingdom',
+            countryId: 1,
         );
     }
 
@@ -121,6 +133,7 @@ final class OrderTest extends TestCase
                 quantity: 1,
                 vatRate: 20.0,
                 comments: '',
+                isPreorder: false,
             ),
         ];
         $order = $this->createOrder(['products' => $products]);

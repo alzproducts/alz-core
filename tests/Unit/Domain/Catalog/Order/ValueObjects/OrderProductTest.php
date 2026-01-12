@@ -46,6 +46,8 @@ final class OrderProductTest extends TestCase
             'quantity' => 2,
             'vatRate' => 20.0,
             'comments' => '',
+            'isPreorder' => false,
+            'preorderDate' => null,
             'variation' => [],
             'customFields' => [],
         ];

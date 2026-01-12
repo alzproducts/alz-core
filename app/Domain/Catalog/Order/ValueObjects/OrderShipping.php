@@ -10,11 +10,11 @@ use Webmozart\Assert\Assert;
  * Order shipping method value object.
  *
  * Represents the shipping method applied to an order.
- * ID excluded - use name for business logic.
  */
 final readonly class OrderShipping
 {
     public function __construct(
+        public ?int $id,
         public string $name,
         public float $value,
         public float $vatRate,

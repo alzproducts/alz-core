@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Shopwired\Mappers;
 
+use App\Domain\Catalog\Order\Enums\PreOrderStatus;
 use App\Domain\Catalog\Order\ValueObjects\Order;
 use App\Domain\Catalog\Order\ValueObjects\OrderAddress;
 use App\Domain\Catalog\Order\ValueObjects\OrderCustomer;
@@ -75,6 +76,7 @@ final class OrderModelMapper
             total: $model->total,
             subTotal: $model->sub_total,
             shippingTotal: $model->shipping_total,
+            originalShippingTotal: $model->shipping_total, // TODO: Read from original_shipping_total after migration #112
             paymentMethod: self::buildEnum(
                 PaymentMethod::class,
                 $model->payment_method,
@@ -85,11 +87,15 @@ final class OrderModelMapper
             comments: $model->comments ?? '',
             marketing: $model->marketing,
             hasVatRelief: $model->has_vat_relief,
+            isArchived: false, // TODO: Read from is_archived after migration #112
+            isAnonymized: false, // TODO: Read from is_anonymized after migration #112
+            lineItemVatCalculation: false, // TODO: Read from line_item_vat_calculation after migration #112
             status: self::buildStatus($model),
             customer: self::buildCustomer($model),
             shipping: self::buildShipping($model),
             billingAddress: self::buildBillingAddress($model),
             shippingAddress: self::buildShippingAddress($model),
+            preOrderStatus: PreOrderStatus::None, // TODO: Read from pre_order_status after migration #112
             discounts: $discounts,
             products: $products,
             customFields: $model->custom_fields,
@@ -196,6 +202,7 @@ final class OrderModelMapper
         }
 
         return new OrderShipping(
+            id: null, // TODO: Read from shipping_id after migration #112
             name: $model->shipping_method,
             value: $model->shipping_cost ?? 0.0,
             vatRate: $model->shipping_vat_rate ?? 0.0,
@@ -217,6 +224,7 @@ final class OrderModelMapper
             state: $model->billing_state,
             postcode: $model->billing_postcode,
             country: $model->billing_country,
+            countryId: 0, // TODO: Read from billing_country_id after migration #112
         );
     }
 
@@ -235,6 +243,7 @@ final class OrderModelMapper
             state: $model->delivery_state,
             postcode: $model->delivery_postcode,
             country: $model->delivery_country,
+            countryId: 0, // TODO: Read from delivery_country_id after migration #112
         );
     }
 }

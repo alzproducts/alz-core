@@ -8,6 +8,7 @@ use App\Application\Contracts\Shopwired\OrderClientInterface;
 use App\Application\Contracts\Shopwired\OrderRepositoryInterface;
 use App\Application\Shopwired\UseCases\SyncOrdersUseCase;
 use App\Application\Shopwired\ValueObjects\SaveManyResult;
+use App\Domain\Catalog\Order\Enums\PreOrderStatus;
 use App\Domain\Catalog\Order\ValueObjects\Order;
 use App\Domain\Catalog\Order\ValueObjects\OrderAddress;
 use App\Domain\Catalog\Order\ValueObjects\OrderCustomer;
@@ -171,15 +172,20 @@ final class SyncOrdersUseCaseTest extends TestCase
             total: 100.0,
             subTotal: 90.0,
             shippingTotal: 10.0,
+            originalShippingTotal: 10.0,
             paymentMethod: PaymentMethod::Card,
             comments: '',
             marketing: false,
             hasVatRelief: false,
+            isArchived: false,
+            isAnonymized: false,
+            lineItemVatCalculation: false,
             status: new OrderStatus(1, OrderStatusType::Completed, 'paid', 0),
             customer: new OrderCustomer(1, 1, null, []),
             shipping: null,
             billingAddress: $this->createAddress(),
             shippingAddress: $this->createAddress(),
+            preOrderStatus: PreOrderStatus::None,
         );
     }
 
@@ -188,7 +194,7 @@ final class SyncOrdersUseCaseTest extends TestCase
         return new OrderAddress(
             name: 'Test',
             emailAddress: 'test@example.com',
-            telephone: '01onal234567890',
+            telephone: '01234567890',
             companyName: '',
             addressLine1: '123 Test St',
             addressLine2: '',
@@ -198,6 +204,7 @@ final class SyncOrdersUseCaseTest extends TestCase
             state: null,
             postcode: 'SW1A 1AA',
             country: 'UK',
+            countryId: 1,
         );
     }
 }

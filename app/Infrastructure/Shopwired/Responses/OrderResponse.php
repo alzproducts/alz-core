@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Shopwired\Responses;
 
+use App\Domain\Catalog\Order\Enums\PreOrderStatus;
 use App\Domain\Catalog\Order\ValueObjects\Order;
 use App\Domain\Catalog\Order\ValueObjects\OrderDiscount;
 use App\Domain\Catalog\Order\ValueObjects\OrderProduct;
@@ -145,6 +146,13 @@ final class OrderResponse extends Data implements DomainConvertibleInterface
             );
         }
 
+        $products = $this->products !== null
+            ? \array_map(
+                fn(OrderProductResponse $p): OrderProduct => $p->toDomain($this->id),
+                $this->products,
+            )
+            : null;
+
         return new Order(
             id: $this->id,
             reference: $this->reference,
@@ -152,25 +160,30 @@ final class OrderResponse extends Data implements DomainConvertibleInterface
             total: $this->total,
             subTotal: $this->subTotal,
             shippingTotal: $this->shippingTotal,
+            originalShippingTotal: $this->originalShippingTotal,
             paymentMethod: PaymentMethodRaw::fromApiValue($this->paymentMethod)->toDomain(),
             comments: $this->comments,
             marketing: $this->marketing,
             hasVatRelief: $this->hasVatRelief(),
+            isArchived: $this->archived,
+            isAnonymized: $this->anonymized,
+            lineItemVatCalculation: $this->lineItemVatCalculation,
             status: $this->status->toDomain(),
             customer: $this->customer->toDomain(),
             shipping: $this->getFirstShipping()?->toDomain(),
             billingAddress: $this->billingAddress->toDomain(),
             shippingAddress: $this->shippingAddress->toDomain(),
+            preOrderStatus: $this->derivePreOrderStatus($products),
+            taxValue: $this->tax?->value,
+            trackingUrl: $this->trackingUrl !== '' ? $this->trackingUrl : null,
+            invoiceUrl: $this->invoiceUrl !== '' ? $this->invoiceUrl : null,
+            transactionId: $this->transactionId,
+            deliveryDate: $this->parseDeliveryDate(),
             discounts: \array_map(
                 static fn(OrderDiscountResponse $d): OrderDiscount => $d->toDomain(),
                 $this->discounts,
             ),
-            products: $this->products !== null
-                ? \array_map(
-                    fn(OrderProductResponse $p): OrderProduct => $p->toDomain($this->id),
-                    $this->products,
-                )
-                : null,
+            products: $products,
             customFields: $this->customFields,
         );
     }
@@ -186,5 +199,50 @@ final class OrderResponse extends Data implements DomainConvertibleInterface
         $comments = \mb_strtolower($this->comments);
 
         return \str_contains($comments, 'vat relief') || \str_contains($comments, 'vat-relief');
+    }
+
+    /**
+     * Parse delivery date from API string format.
+     */
+    private function parseDeliveryDate(): ?DateTimeImmutable
+    {
+        if ($this->deliveryDate === null || $this->deliveryDate === '') {
+            return null;
+        }
+
+        try {
+            return new DateTimeImmutable($this->deliveryDate);
+        } catch (DateMalformedStringException) {
+            // Invalid date format - return null rather than failing
+            return null;
+        }
+    }
+
+    /**
+     * Derive pre-order status from product-level isPreorder flags.
+     *
+     * @param array<int, OrderProduct>|null $products Converted domain products
+     */
+    private function derivePreOrderStatus(?array $products): PreOrderStatus
+    {
+        if ($products === null || $products === []) {
+            // No products loaded or empty - use API's order-level preOrder flag
+            return $this->preOrder ? PreOrderStatus::Full : PreOrderStatus::None;
+        }
+
+        $preorderCount = 0;
+        foreach ($products as $product) {
+            if ($product->isPreorder) {
+                $preorderCount++;
+            }
+        }
+
+        if ($preorderCount === 0) {
+            return PreOrderStatus::None;
+        }
+
+        return $preorderCount === \count($products)
+            ? PreOrderStatus::Full
+            : PreOrderStatus::Partial;
     }
 }

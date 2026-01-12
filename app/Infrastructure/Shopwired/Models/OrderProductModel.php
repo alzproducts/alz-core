@@ -109,6 +109,8 @@ final class OrderProductModel extends Model implements EloquentDomainMappableInt
             quantity: $this->quantity,
             vatRate: $this->vat_rate,
             comments: $this->comments ?? '',
+            isPreorder: false, // TODO: Read from is_preorder column after migration #112
+            preorderDate: null, // TODO: Read from preorder_date column after migration #112
             variation: $this->buildVariations(),
             customFields: $this->buildCustomFields(),
         );

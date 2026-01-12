@@ -354,3 +354,21 @@ Adding required constructor parameters will break existing test fixtures:
 7. **Run migrations**: `php artisan migrate`
 8. **Re-sync orders**: Trigger sync to populate new fields
 9. **Verify**: `make lint && make test`
+
+---
+
+## Follow-up: DateTime Parsing Pattern Review (Optional)
+
+**Context**: During Phase 3, we encountered PHPStan `missingType.checkedException` errors for `DateTimeImmutable::createFromFormat()` which throws `ValueError` in PHP 8.4. We resolved this by using `CarbonImmutable` instead (returns `null` on failure, no exception).
+
+**Discovery**: PHPArkitect only catches actual Carbon code usage, not docblock `@property` annotations. The 13 Infrastructure files using `CarbonImmutable` in docblocks weren't flagged because they weren't calling Carbon methods directly.
+
+**Recommended follow-up task**:
+1. **Audit** existing `new DateTimeImmutable()` and `DateTimeImmutable::createFromFormat()` usage in Infrastructure and Domain layers
+2. **Decide** on a consistent pattern:
+   - Option A: Use `CarbonImmutable` in Infrastructure for parsing, pass `DateTimeImmutable` to Domain (current approach)
+   - Option B: Create Infrastructure-layer `DateParsingTrait` for consistent exception handling
+   - Option C: Document when to use each approach
+3. **Document** the chosen pattern in `CLAUDE.md` or `.ai/docs/guides/`
+
+**Why this matters**: PHP 8.4's stricter exception handling for datetime functions will affect more code as we add features. Having a consistent pattern prevents repeated debugging sessions.
