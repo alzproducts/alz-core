@@ -7,6 +7,7 @@ namespace App\Infrastructure\Shopwired\Mappers;
 use App\Domain\Catalog\Order\Enums\PreOrderStatus;
 use App\Domain\Catalog\Order\ValueObjects\Order;
 use App\Domain\Catalog\Order\ValueObjects\OrderAddress;
+use App\Domain\Catalog\Order\ValueObjects\OrderAdminComment;
 use App\Domain\Catalog\Order\ValueObjects\OrderCustomer;
 use App\Domain\Catalog\Order\ValueObjects\OrderDiscount;
 use App\Domain\Catalog\Order\ValueObjects\OrderProduct;
@@ -16,6 +17,7 @@ use App\Domain\Catalog\Order\ValueObjects\OrderStatus;
 use App\Domain\Catalog\Order\ValueObjects\OrderStatusType;
 use App\Domain\Catalog\Order\ValueObjects\PaymentMethod;
 use App\Infrastructure\Concerns\MapperHelperTrait;
+use App\Infrastructure\Shopwired\Models\OrderAdminCommentModel;
 use App\Infrastructure\Shopwired\Models\OrderDiscountModel;
 use App\Infrastructure\Shopwired\Models\OrderModel;
 use App\Infrastructure\Shopwired\Models\OrderProductModel;
@@ -29,7 +31,7 @@ use App\Infrastructure\Shopwired\Models\OrderRefundModel;
  * - Enum conversions with fallbacks
  * - Lifecycle status derivation
  *
- * Products, discounts, and refunds are handled separately via their own model mappings.
+ * Products, discounts, refunds, and adminComments are handled separately via their own model mappings.
  */
 final class OrderModelMapper
 {
@@ -39,7 +41,7 @@ final class OrderModelMapper
      * Convert Eloquent model with loaded relations to Domain Order.
      *
      * Preferred entry point - handles relation conversion internally.
-     * Requires 'products', 'discounts', and 'refunds' relations to be eager-loaded.
+     * Requires 'products', 'discounts', 'refunds', and 'adminComments' relations to be eager-loaded.
      *
      * @param OrderModel $model The Eloquent model with loaded relations
      */
@@ -59,7 +61,12 @@ final class OrderModelMapper
             static fn(OrderRefundModel $m): OrderRefund => $m->toDomain(), // @phpstan-ignore return.type
         )->all();
 
-        return self::toDomain($model, $products, $discounts, $refunds);
+        /** @var list<OrderAdminComment> $adminComments */
+        $adminComments = $model->adminComments->map(
+            static fn(OrderAdminCommentModel $m): OrderAdminComment => $m->toDomain(), // @phpstan-ignore return.type
+        )->all();
+
+        return self::toDomain($model, $products, $discounts, $refunds, $adminComments);
     }
 
     /**
@@ -67,16 +74,18 @@ final class OrderModelMapper
      *
      * Use fromModelWithRelations() unless you need to provide custom relation data.
      *
-     * @param OrderModel                $model     The Eloquent model to convert
-     * @param array<int, OrderProduct>  $products  Already-converted product domain objects
-     * @param array<int, OrderDiscount> $discounts Already-converted discount domain objects
-     * @param array<int, OrderRefund>   $refunds   Already-converted refund domain objects
+     * @param OrderModel                     $model         The Eloquent model to convert
+     * @param array<int, OrderProduct>       $products      Already-converted product domain objects
+     * @param array<int, OrderDiscount>      $discounts     Already-converted discount domain objects
+     * @param array<int, OrderRefund>        $refunds       Already-converted refund domain objects
+     * @param array<int, OrderAdminComment>  $adminComments Already-converted admin comment domain objects
      */
     public static function toDomain(
         OrderModel $model,
         array $products,
         array $discounts,
         array $refunds,
+        array $adminComments,
     ): Order {
         return new Order(
             id: $model->external_id,
@@ -118,6 +127,7 @@ final class OrderModelMapper
             deliveryDate: $model->delivery_date?->toDateTimeImmutable(),
             discounts: $discounts,
             refunds: $refunds,
+            adminComments: $adminComments,
             products: $products,
             customFields: $model->custom_fields,
         );

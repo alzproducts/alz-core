@@ -8,15 +8,14 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Creates the shopwired.order_refunds table for order refunds.
+ * Creates the shopwired.order_admin_comments table for admin notes on orders.
  *
- * Refunds have no stable ID for upsert logic - sync strategy is "replace all"
- * (like discounts). The external_id is stored for debugging purposes only.
+ * Admin comments use "replace all" sync strategy - no stable external ID for upsert.
  */
 return new class extends Migration {
     public function up(): void
     {
-        Schema::create('shopwired.order_refunds', static function (Blueprint $table): void {
+        Schema::create('shopwired.order_admin_comments', static function (Blueprint $table): void {
             $table->uuid('id')->primary()->default(DB::raw('gen_random_uuid()'));
 
             // Relationships
@@ -28,16 +27,16 @@ return new class extends Migration {
 
             // ShopWired identifiers
             $table->integer('order_external_id'); // Parent order's ShopWired ID
-            $table->integer('external_id')->nullable(); // ShopWired refund ID (for debugging)
+            $table->integer('external_id')->nullable(); // ShopWired comment ID (debugging only)
 
-            // Refund details
-            $table->string('name', 255); // Description/reason
-            $table->decimal('value', 14, 6); // 6dp to preserve raw ShopWired values
+            // Comment details
+            $table->text('content');
+            $table->integer('status_id')->nullable(); // Associated ShopWired status ID
 
-            // ShopWired timestamp (when refund was created in ShopWired)
+            // ShopWired timestamp
             $table->timestampTz('created_at_shopwired')->nullable();
 
-            // Laravel timestamps (local sync tracking)
+            // Laravel timestamps
             $table->timestampTz('created_at');
             $table->timestampTz('updated_at');
 
@@ -49,6 +48,6 @@ return new class extends Migration {
 
     public function down(): void
     {
-        Schema::dropIfExists('shopwired.order_refunds');
+        Schema::dropIfExists('shopwired.order_admin_comments');
     }
 };

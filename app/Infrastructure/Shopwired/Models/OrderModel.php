@@ -163,6 +163,16 @@ final class OrderModel extends Model implements EloquentDomainMappableInterface
         return $this->hasMany(OrderRefundModel::class, 'order_id', 'id');
     }
 
+    /**
+     * Get the order's admin comments.
+     *
+     * @return HasMany<OrderAdminCommentModel, $this>
+     */
+    public function adminComments(): HasMany
+    {
+        return $this->hasMany(OrderAdminCommentModel::class, 'order_id', 'id');
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
     // Domain Mapping (via EloquentDomainMappableInterface)
     // ─────────────────────────────────────────────────────────────────────────

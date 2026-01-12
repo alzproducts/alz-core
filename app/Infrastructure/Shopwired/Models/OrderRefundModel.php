@@ -20,6 +20,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  *
  * @property string $id Internal UUID
  * @property string $order_id Parent order UUID
+ * @property int $order_external_id Parent order's ShopWired ID
  * @property int|null $external_id ShopWired refund ID (for debugging)
  * @property string $name Refund description/reason
  * @property float $value Refund amount

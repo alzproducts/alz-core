@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Shopwired\Models;
 
-use App\Domain\Catalog\Order\ValueObjects\OrderDiscount;
+use App\Domain\Catalog\Order\ValueObjects\OrderAdminComment;
 use App\Infrastructure\Concerns\AutoDomainMappingTrait;
 use App\Infrastructure\Contracts\EloquentDomainMappableInterface;
 use Carbon\CarbonImmutable;
@@ -13,30 +13,29 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * Eloquent model for shopwired.order_discounts table.
+ * Eloquent model for shopwired.order_admin_comments table.
  *
- * Stores discounts applied to orders, synced from ShopWired API.
+ * Stores admin notes on orders, synced from ShopWired API.
+ * Sync strategy is "replace all" - no stable ID for upserts.
  *
  * @property string $id Internal UUID
  * @property string $order_id Parent order UUID
  * @property int $order_external_id Parent order's ShopWired ID
- * @property string $name Discount name/description
- * @property float $value Discount amount
- * @property string|null $type Discount type
- * @property string|null $code Promo/voucher code used
- * @property int|null $voucher_id ShopWired voucher ID (for tracking)
- * @property int|null $offer_id ShopWired offer ID (for tracking)
+ * @property int|null $external_id ShopWired comment ID (for debugging)
+ * @property string $content Comment text
+ * @property int|null $status_id Associated ShopWired status ID
+ * @property CarbonImmutable|null $created_at_shopwired When comment was created in ShopWired
  * @property CarbonImmutable $created_at
  * @property CarbonImmutable $updated_at
  *
- * @implements EloquentDomainMappableInterface<OrderDiscount>
+ * @implements EloquentDomainMappableInterface<OrderAdminComment>
  */
-final class OrderDiscountModel extends Model implements EloquentDomainMappableInterface
+final class OrderAdminCommentModel extends Model implements EloquentDomainMappableInterface
 {
     use AutoDomainMappingTrait;
     use HasUuids;
 
-    protected $table = 'shopwired.order_discounts';
+    protected $table = 'shopwired.order_admin_comments';
 
     protected $guarded = [];
 
@@ -50,9 +49,10 @@ final class OrderDiscountModel extends Model implements EloquentDomainMappableIn
     protected function casts(): array
     {
         return [
-            // Money field
-            'value' => 'float',
-            // Timestamps
+            'external_id' => 'integer',
+            'order_external_id' => 'integer',
+            'status_id' => 'integer',
+            'created_at_shopwired' => 'immutable_datetime',
             'created_at' => 'immutable_datetime',
             'updated_at' => 'immutable_datetime',
         ];
@@ -78,6 +78,6 @@ final class OrderDiscountModel extends Model implements EloquentDomainMappableIn
 
     protected function domainClass(): string
     {
-        return OrderDiscount::class;
+        return OrderAdminComment::class;
     }
 }

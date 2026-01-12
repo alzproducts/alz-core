@@ -23,6 +23,9 @@ return new class extends Migration {
                 ->on('shopwired.orders')
                 ->cascadeOnDelete();
 
+            // ShopWired identifiers
+            $table->integer('order_external_id'); // Parent order's ShopWired ID
+
             // Discount details
             $table->string('name', 255);
             $table->decimal('value', 14, 6); // 6dp to preserve raw ShopWired values
@@ -37,6 +40,7 @@ return new class extends Migration {
 
             // Indexes
             $table->index('order_id');
+            $table->index('order_external_id');
             $table->index('code');
         });
     }

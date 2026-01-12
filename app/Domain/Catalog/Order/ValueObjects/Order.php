@@ -22,6 +22,7 @@ use Webmozart\Assert\Assert;
  * @property array<int, OrderProduct>|null $products Null=not requested, []=empty
  * @property array<int, OrderDiscount> $discounts
  * @property array<int, OrderRefund> $refunds
+ * @property array<int, OrderAdminComment> $adminComments
  * @property array<string, mixed>|null $customFields Null=not requested, []=empty
  */
 final readonly class Order
@@ -44,6 +45,7 @@ final readonly class Order
      * @param array<int, OrderProduct>|null $products Null=Standard mode, array=Detail mode
      * @param array<int, OrderDiscount> $discounts
      * @param array<int, OrderRefund> $refunds
+     * @param array<int, OrderAdminComment> $adminComments
      * @param array<string, mixed>|null $customFields Null=Standard mode, array=Detail mode
      */
     public function __construct(
@@ -74,6 +76,7 @@ final readonly class Order
         public ?DateTimeImmutable $deliveryDate = null,
         public array $discounts = [],
         public array $refunds = [],
+        public array $adminComments = [],
         public ?array $products = null,
         public ?array $customFields = null,
     ) {
@@ -131,5 +134,13 @@ final readonly class Order
             static fn(float $carry, OrderRefund $refund): float => $carry + $refund->value,
             0.0,
         );
+    }
+
+    /**
+     * Check if order has any admin comments.
+     */
+    public function hasAdminComments(): bool
+    {
+        return $this->adminComments !== [];
     }
 }

@@ -6,6 +6,7 @@ namespace App\Infrastructure\Shopwired\Responses;
 
 use App\Domain\Catalog\Order\Enums\PreOrderStatus;
 use App\Domain\Catalog\Order\ValueObjects\Order;
+use App\Domain\Catalog\Order\ValueObjects\OrderAdminComment;
 use App\Domain\Catalog\Order\ValueObjects\OrderDiscount;
 use App\Domain\Catalog\Order\ValueObjects\OrderProduct;
 use App\Domain\Catalog\Order\ValueObjects\OrderRefund;
@@ -187,6 +188,10 @@ final class OrderResponse extends Data implements DomainConvertibleInterface
             refunds: \array_map(
                 static fn(OrderRefundResponse $r): OrderRefund => $r->toDomain(),
                 $this->refunds,
+            ),
+            adminComments: \array_map(
+                static fn(OrderAdminCommentResponse $c): OrderAdminComment => $c->toDomain(),
+                $this->adminComments,
             ),
             products: $products,
             customFields: $this->customFields,
