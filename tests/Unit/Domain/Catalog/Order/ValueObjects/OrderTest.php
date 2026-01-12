@@ -50,7 +50,7 @@ final class OrderTest extends TestCase
             'comments' => '',
             'marketing' => true,
             'hasVatRelief' => false,
-            'status' => new OrderStatus(OrderStatusType::Completed, 'shipped'),
+            'status' => new OrderStatus(1, OrderStatusType::Completed, 'shipped', 0),
             'customer' => new OrderCustomer(99, 1, null, []),
             'shipping' => new OrderShipping('Standard', 10.50, 20.0),
             'billingAddress' => $this->createOrderAddress(),

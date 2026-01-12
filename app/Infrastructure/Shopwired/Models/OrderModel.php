@@ -29,6 +29,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property float $sub_total Subtotal before shipping
  * @property float $shipping_total Shipping cost
  * @property int $status_id ShopWired status ID
+ * @property int|null $status_sort_order Status display sort order
  * @property string $status_name Status display name (e.g., "Paid", "Dispatched")
  * @property string $status_type Status category (paid, unpaid, cancelled, shipped, custom)
  * @property string $lifecycle_status Derived lifecycle (pending, processing, shipped, completed, cancelled)

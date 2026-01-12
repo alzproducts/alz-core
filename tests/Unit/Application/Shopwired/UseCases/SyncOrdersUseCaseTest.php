@@ -175,7 +175,7 @@ final class SyncOrdersUseCaseTest extends TestCase
             comments: '',
             marketing: false,
             hasVatRelief: false,
-            status: new OrderStatus(OrderStatusType::Completed, 'paid'),
+            status: new OrderStatus(1, OrderStatusType::Completed, 'paid', 0),
             customer: new OrderCustomer(1, 1, null, []),
             shipping: null,
             billingAddress: $this->createAddress(),

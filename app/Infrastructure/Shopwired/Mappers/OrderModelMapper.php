@@ -112,9 +112,10 @@ final class OrderModelMapper
             'total' => $order->total,
             'sub_total' => $order->subTotal,
             'shipping_total' => $order->shippingTotal,
-            'status_id' => null, // Not available from Domain - may be populated by direct API sync
+            'status_id' => $order->status->id,
             'status_name' => $order->status->name->value,
             'status_type' => $order->status->type,
+            'status_sort_order' => $order->status->sortOrder,
             'lifecycle_status' => StatusTypeToLifecycleMapper::toLifecycle($order->status->name)->value,
             'customer_id' => $order->customer->id,
             'customer_type' => $order->customer->type,
@@ -171,8 +172,10 @@ final class OrderModelMapper
         );
 
         return new OrderStatus(
+            id: $model->status_id,
             name: $statusType,
             type: $model->status_type,
+            sortOrder: $model->status_sort_order ?? 0,
         );
     }
 
