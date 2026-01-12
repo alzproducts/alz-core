@@ -94,7 +94,7 @@ None - this was an ad-hoc cleanup without a formal plan document.
 - Updated: 4 test files (namespaces + imports)
 
 ### Task 11: Audit Report
-- Created: `.ai/docs/implementation/issue-35-task-11-audit-report.md`
+- Created: `.ai/implementation-logs/issue-35-task-11-audit-report.md`
 
 ## Audit Findings (Task 11)
 

@@ -10,6 +10,8 @@ use App\Domain\Catalog\Order\ValueObjects\OrderProduct;
 use App\Domain\Exceptions\InvalidApiResponseException;
 use App\Infrastructure\Contracts\DomainConvertibleInterface;
 use App\Infrastructure\Shopwired\Enums\PaymentMethodRaw;
+use DateMalformedStringException;
+use DateTimeImmutable;
 use Spatie\LaravelData\Attributes\DataCollectionOf;
 use Spatie\LaravelData\Attributes\MapInputName;
 use Spatie\LaravelData\Data;
@@ -128,19 +130,32 @@ final class OrderResponse extends Data implements DomainConvertibleInterface
     }
 
     /**
-     * @throws InvalidApiResponseException When nested status has unknown enum value
+     * @throws InvalidApiResponseException When nested status has unknown enum value or created timestamp invalid
      * @throws TypeError When nested status type mismatches (should not occur with proper Spatie Data parsing)
      */
     public function toDomain(): Order
     {
+        try {
+            $orderPlacedAt = new DateTimeImmutable($this->created);
+        } catch (DateMalformedStringException $e) {
+            throw new InvalidApiResponseException(
+                'ShopWired',
+                "Invalid order created timestamp: {$this->created}",
+                $e,
+            );
+        }
+
         return new Order(
+            id: $this->id,
             reference: $this->reference,
+            orderPlacedAt: $orderPlacedAt,
             total: $this->total,
             subTotal: $this->subTotal,
             shippingTotal: $this->shippingTotal,
             paymentMethod: PaymentMethodRaw::fromApiValue($this->paymentMethod)->toDomain(),
             comments: $this->comments,
             marketing: $this->marketing,
+            hasVatRelief: $this->hasVatRelief(),
             status: $this->status->toDomain(),
             customer: $this->customer->toDomain(),
             shipping: $this->getFirstShipping()?->toDomain(),
@@ -152,11 +167,24 @@ final class OrderResponse extends Data implements DomainConvertibleInterface
             ),
             products: $this->products !== null
                 ? \array_map(
-                    static fn(OrderProductResponse $p): OrderProduct => $p->toDomain(),
+                    fn(OrderProductResponse $p): OrderProduct => $p->toDomain($this->id),
                     $this->products,
                 )
                 : null,
             customFields: $this->customFields,
         );
+    }
+
+    /**
+     * Check if the order has VAT relief applied.
+     *
+     * Derived from order comments - customers indicate VAT relief eligibility
+     * by including "vat relief" or "vat-relief" text in their order comments.
+     */
+    private function hasVatRelief(): bool
+    {
+        $comments = \mb_strtolower($this->comments);
+
+        return \str_contains($comments, 'vat relief') || \str_contains($comments, 'vat-relief');
     }
 }

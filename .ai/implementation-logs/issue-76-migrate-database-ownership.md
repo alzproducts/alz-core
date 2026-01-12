@@ -1,7 +1,7 @@
 # Implementation Log: Supabase to Laravel Database Migration
 
 **GitHub Issue**: #76
-**Plan Document**: .ai/docs/plans/supabase-to-laravel-migration.md
+**Plan Document**: .ai/plans/supabase-to-laravel-migration.md
 **Status**: In Progress
 **Started**: 2025-12-23
 **Completed**: —

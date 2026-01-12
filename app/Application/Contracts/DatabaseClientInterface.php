@@ -26,8 +26,9 @@ interface DatabaseClientInterface
      *
      * @template T
      *
-     * @param Closure(): T $operation Closure performing database operation
+     * @param-immediately-invoked-callable $operation
      *
+     * @param Closure(): T $operation Closure performing database operation
      *
      * @phpstan-return T
      *
@@ -36,4 +37,28 @@ interface DatabaseClientInterface
      * @throws DatabaseOperationFailedException When query fails permanently (permanent - no retry)
      */
     public function execute(Closure $operation): mixed;
+
+    /**
+     * Execute a database operation within a transaction with exception translation.
+     *
+     * Combines transaction management with exception translation:
+     * - Opens transaction before executing
+     * - Commits on success
+     * - Rolls back on any exception (retries on deadlock up to $attempts total attempts)
+     * - Translates database exceptions to domain exceptions
+     *
+     * @template T
+     *
+     * @param-immediately-invoked-callable $operation
+     *
+     * @param Closure(): T $operation Closure performing database operation
+     * @param int $attempts Total attempts on deadlock (1 = no retry, 3 = up to 2 retries)
+     *
+     * @phpstan-return T
+     *
+     * @throws ExternalServiceUnavailableException When database temporarily unavailable (transient - retry)
+     * @throws DuplicateRecordException When unique constraint violated (permanent - no retry)
+     * @throws DatabaseOperationFailedException When query fails permanently (permanent - no retry)
+     */
+    public function executeTransaction(Closure $operation, int $attempts = 1): mixed;
 }

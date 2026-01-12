@@ -11,7 +11,7 @@ This directory contains implementation logs for active and completed features. T
 ## When to Create a Log
 
 Create an implementation log when:
-- Working on a feature with an associated plan document (`.ai/docs/plans/`)
+- Working on a feature with an associated plan document (`.ai/plans/`)
 - The feature involves multiple decisions or non-trivial implementation choices
 - Work will span multiple sessions/conversations
 
@@ -39,7 +39,7 @@ Examples:
 When a feature is merged:
 1. Update status to "Complete" with completion date
 2. Fill in the PR Notes section if not already done
-3. Leave the file in place (historical reference) or move to `.ai/docs/implementation/archive/`
+3. Leave the file in place (historical reference) or move to `.ai/implementation-logs/archive/`
 
 ---
 
@@ -51,7 +51,7 @@ Use this template when creating a new implementation log:
 # Implementation Log: [Feature Name]
 
 **GitHub Issue**: #XX
-**Plan Document**: .ai/docs/plans/xxx.md (if applicable)
+**Plan Document**: .ai/plans/xxx.md (if applicable)
 **Status**: In Progress | Complete | On Hold | Abandoned
 **Started**: YYYY-MM-DD
 **Completed**: —

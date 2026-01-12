@@ -10,6 +10,7 @@ use App\Infrastructure\Supabase\EscalationsConfigRepository;
 use App\Infrastructure\Supabase\SupabaseClient;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Contracts\Support\DeferrableProvider;
+use Illuminate\Database\DatabaseManager;
 use Illuminate\Support\ServiceProvider;
 use Override;
 use Psr\Log\LoggerInterface;
@@ -29,6 +30,7 @@ final class SupabaseServiceProvider extends ServiceProvider implements Deferrabl
             DatabaseClientInterface::class,
             static fn(Application $app): DatabaseClientInterface => new SupabaseClient(
                 $app->make(LoggerInterface::class),
+                $app->make(DatabaseManager::class),
             ),
         );
 

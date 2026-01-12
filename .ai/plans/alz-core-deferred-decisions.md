@@ -193,7 +193,7 @@ Multi-model consensus (gemini-2.5-pro vs gemini-2.5-flash) resulted in:
 - **Winning argument:** Validation-not-transformation principle + performance concerns
 
 ### References
-- Consensus analysis: `.ai/docs/plans/rector-git-hooks-consensus.md` (if documented)
+- Consensus analysis: `.ai/plans/rector-git-hooks-consensus.md` (if documented)
 - Rector configuration: `rector.php`
 - Current workflow: CLAUDE.md (Rector section)
 

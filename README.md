@@ -255,8 +255,8 @@ Railway's 2025 best practice is **configuration via UI**, not config files:
 
 ## Project Documentation
 
-- **Project Plan**: `.ai/docs/plans/alz-core-initial-plan.md`
-- **Deferred Decisions**: `.ai/docs/plans/alz-core-deferred-decisions.md`
+- **Project Plan**: `.ai/plans/alz-core-initial-plan.md`
+- **Deferred Decisions**: `.ai/plans/alz-core-deferred-decisions.md`
 - **Development Guide**: `CLAUDE.md`
 
 ## License
