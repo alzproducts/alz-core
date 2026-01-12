@@ -8,6 +8,7 @@ use App\Domain\Catalog\Order\ValueObjects\Order;
 use App\Domain\Catalog\Order\ValueObjects\OrderAddress;
 use App\Domain\Catalog\Order\ValueObjects\OrderCustomer;
 use App\Domain\Catalog\Order\ValueObjects\OrderDiscount;
+use App\Domain\Catalog\Order\ValueObjects\OrderProduct;
 use App\Domain\Catalog\Order\ValueObjects\OrderShipping;
 use App\Domain\Catalog\Order\ValueObjects\OrderStatus;
 use App\Domain\Catalog\Order\ValueObjects\OrderStatusType;
@@ -78,6 +79,76 @@ final class OrderTest extends TestCase
             postcode: 'SW1A 1AA',
             country: 'United Kingdom',
         );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | hasProducts() Tests - Business Logic
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function has_products_returns_false_when_products_is_null(): void
+    {
+        $order = $this->createOrder(['products' => null]);
+
+        $this->assertFalse($order->hasProducts());
+    }
+
+    #[Test]
+    public function has_products_returns_true_when_products_is_empty_array(): void
+    {
+        $order = $this->createOrder(['products' => []]);
+
+        $this->assertTrue($order->hasProducts());
+    }
+
+    #[Test]
+    public function has_products_returns_true_when_products_array_has_items(): void
+    {
+        $products = [
+            new OrderProduct(
+                id: 1,
+                orderExternalId: 98765,
+                title: 'Test',
+                sku: 'SKU-1',
+                price: 10.0,
+                priceVat: 2.0,
+                total: 10.0,
+                totalVat: 2.0,
+                originalPrice: 10.0,
+                costPrice: 5.0,
+                quantity: 1,
+                vatRate: 20.0,
+                comments: '',
+            ),
+        ];
+        $order = $this->createOrder(['products' => $products]);
+
+        $this->assertTrue($order->hasProducts());
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | hasDiscounts() Tests - Business Logic
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function has_discounts_returns_false_when_discounts_is_empty(): void
+    {
+        $order = $this->createOrder(['discounts' => []]);
+
+        $this->assertFalse($order->hasDiscounts());
+    }
+
+    #[Test]
+    public function has_discounts_returns_true_when_discounts_exist(): void
+    {
+        $discounts = [new OrderDiscount('VOUCHER', 10.0, null, null, null, null)];
+        $order = $this->createOrder(['discounts' => $discounts]);
+
+        $this->assertTrue($order->hasDiscounts());
     }
 
     /*
