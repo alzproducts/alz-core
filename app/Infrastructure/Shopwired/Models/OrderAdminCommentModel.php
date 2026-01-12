@@ -8,6 +8,7 @@ use App\Domain\Catalog\Order\ValueObjects\OrderAdminComment;
 use App\Infrastructure\Concerns\AutoDomainMappingTrait;
 use App\Infrastructure\Contracts\EloquentDomainMappableInterface;
 use Carbon\CarbonImmutable;
+use DateTimeImmutable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -21,7 +22,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string $id Internal UUID
  * @property string $order_id Parent order UUID
  * @property int $order_external_id Parent order's ShopWired ID
- * @property int|null $external_id ShopWired comment ID (for debugging)
+ * @property int $external_id ShopWired comment ID
  * @property string $content Comment text
  * @property int|null $status_id Associated ShopWired status ID
  * @property CarbonImmutable|null $created_at_shopwired When comment was created in ShopWired
@@ -90,8 +91,9 @@ final class OrderAdminCommentModel extends Model implements EloquentDomainMappab
     public function toDomain(): OrderAdminComment
     {
         return new OrderAdminComment(
+            externalId: $this->external_id,
             content: $this->content,
-            createdAt: $this->created_at_shopwired,
+            createdAt: $this->created_at_shopwired ?? new DateTimeImmutable(),
             statusId: $this->status_id,
         );
     }
@@ -105,6 +107,7 @@ final class OrderAdminCommentModel extends Model implements EloquentDomainMappab
     {
         /** @var OrderAdminComment $entity */
         return [
+            'external_id' => $entity->externalId,
             'content' => $entity->content,
             'created_at_shopwired' => $entity->createdAt,
             'status_id' => $entity->statusId,

@@ -8,6 +8,7 @@ use App\Domain\Catalog\Order\ValueObjects\OrderRefund;
 use App\Infrastructure\Concerns\AutoDomainMappingTrait;
 use App\Infrastructure\Contracts\EloquentDomainMappableInterface;
 use Carbon\CarbonImmutable;
+use DateTimeImmutable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -21,7 +22,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string $id Internal UUID
  * @property string $order_id Parent order UUID
  * @property int $order_external_id Parent order's ShopWired ID
- * @property int|null $external_id ShopWired refund ID (for debugging)
+ * @property int $external_id ShopWired refund ID
  * @property string $name Refund description/reason
  * @property float $value Refund amount
  * @property CarbonImmutable|null $created_at_shopwired When refund was created in ShopWired
@@ -93,9 +94,10 @@ final class OrderRefundModel extends Model implements EloquentDomainMappableInte
     public function toDomain(): OrderRefund
     {
         return new OrderRefund(
+            externalId: $this->external_id,
             name: $this->name,
             value: $this->value,
-            createdAt: $this->created_at_shopwired,
+            createdAt: $this->created_at_shopwired ?? new DateTimeImmutable(),
         );
     }
 
@@ -108,6 +110,7 @@ final class OrderRefundModel extends Model implements EloquentDomainMappableInte
     {
         /** @var OrderRefund $entity */
         return [
+            'external_id' => $entity->externalId,
             'name' => $entity->name,
             'value' => $entity->value,
             'created_at_shopwired' => $entity->createdAt,

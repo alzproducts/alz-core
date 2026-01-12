@@ -6,6 +6,7 @@ namespace App\Infrastructure\Shopwired\Responses;
 
 use App\Domain\Catalog\Order\ValueObjects\OrderAdminComment;
 use Carbon\CarbonImmutable;
+use DateTimeImmutable;
 use Spatie\LaravelData\Attributes\MapInputName;
 use Spatie\LaravelData\Data;
 use Spatie\LaravelData\Mappers\SnakeCaseMapper;
@@ -33,8 +34,9 @@ final class OrderAdminCommentResponse extends Data
     public function toDomain(): OrderAdminComment
     {
         return new OrderAdminComment(
+            externalId: $this->id ?? 0,
             content: $this->content ?? '',
-            createdAt: $this->parseCreatedAt(),
+            createdAt: $this->parseCreatedAt() ?? new DateTimeImmutable(),
             statusId: $this->statusId,
         );
     }

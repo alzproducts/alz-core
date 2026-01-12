@@ -11,20 +11,20 @@ use Webmozart\Assert\Assert;
  * Order refund value object.
  *
  * Represents a refund applied to an order.
- *
- * Note: external_id stays in Infrastructure layer (debugging only, not business-essential).
  */
 final readonly class OrderRefund
 {
     /**
+     * @param int $externalId ShopWired refund ID
      * @param string $name Refund description/reason
      * @param float $value Refund amount
-     * @param DateTimeImmutable|null $createdAt When refund was created in ShopWired
+     * @param DateTimeImmutable $createdAt When refund was created in ShopWired
      */
     public function __construct(
+        public int $externalId,
         public string $name,
         public float $value,
-        public ?DateTimeImmutable $createdAt = null,
+        public DateTimeImmutable $createdAt,
     ) {
         Assert::greaterThanEq($value, 0, 'Refund value cannot be negative');
     }

@@ -6,6 +6,7 @@ namespace App\Infrastructure\Shopwired\Responses;
 
 use App\Domain\Catalog\Order\ValueObjects\OrderRefund;
 use Carbon\CarbonImmutable;
+use DateTimeImmutable;
 use Spatie\LaravelData\Attributes\MapInputName;
 use Spatie\LaravelData\Data;
 use Spatie\LaravelData\Mappers\SnakeCaseMapper;
@@ -30,9 +31,10 @@ final class OrderRefundResponse extends Data
     public function toDomain(): OrderRefund
     {
         return new OrderRefund(
+            externalId: $this->id ?? 0,
             name: $this->name ?? '',
             value: $this->value ?? 0.0,
-            createdAt: $this->parseCreatedAt(),
+            createdAt: $this->parseCreatedAt() ?? new DateTimeImmutable(),
         );
     }
 
