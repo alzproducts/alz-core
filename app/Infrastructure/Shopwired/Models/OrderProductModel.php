@@ -35,6 +35,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string|null $comments Line item comments
  * @property array<int, array{name: string, value: string}>|null $variation Product variations
  * @property array<string, mixed>|null $custom_fields Dynamic custom fields
+ * @property bool $is_preorder Whether this is a pre-order item
+ * @property CarbonImmutable|null $preorder_date Expected availability date for pre-order items
  * @property CarbonImmutable $created_at
  * @property CarbonImmutable $updated_at
  *
@@ -69,7 +71,10 @@ final class OrderProductModel extends Model implements EloquentDomainMappableInt
             // JSON
             'variation' => 'array',
             'custom_fields' => 'array',
+            // Booleans
+            'is_preorder' => 'boolean',
             // Timestamps
+            'preorder_date' => 'immutable_date',
             'created_at' => 'immutable_datetime',
             'updated_at' => 'immutable_datetime',
         ];
@@ -109,8 +114,8 @@ final class OrderProductModel extends Model implements EloquentDomainMappableInt
             quantity: $this->quantity,
             vatRate: $this->vat_rate,
             comments: $this->comments ?? '',
-            isPreorder: false, // TODO: Read from is_preorder column after migration #112
-            preorderDate: null, // TODO: Read from preorder_date column after migration #112
+            isPreorder: $this->is_preorder,
+            preorderDate: $this->preorder_date?->toDateTimeImmutable(),
             variation: $this->buildVariations(),
             customFields: $this->buildCustomFields(),
         );
@@ -137,6 +142,8 @@ final class OrderProductModel extends Model implements EloquentDomainMappableInt
             'quantity' => $entity->quantity,
             'vat_rate' => $entity->vatRate,
             'comments' => $entity->comments,
+            'is_preorder' => $entity->isPreorder,
+            'preorder_date' => $entity->preorderDate,
             'variation' => \array_map(
                 static fn(ProductVariation $v): array => $v->toArray(),
                 $entity->variation,
