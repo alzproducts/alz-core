@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Tests\Unit\Infrastructure\Supabase;
+namespace Tests\Unit\Infrastructure\CustomerService;
 
-use App\Application\Contracts\DatabaseClientInterface;
 use App\Domain\CustomerService\ValueObjects\EscalationsConfig;
 use App\Domain\Exceptions\ConfigurationNotFoundException;
-use App\Infrastructure\Supabase\EscalationsConfigRepository;
+use App\Infrastructure\CustomerService\EscalationsConfigRepository;
+use App\Infrastructure\Database\DatabaseGateway;
 use Closure;
 use Illuminate\Database\ConnectionInterface;
 use Illuminate\Database\Query\Builder;
@@ -21,7 +21,7 @@ use Tests\TestCase;
 #[CoversClass(EscalationsConfigRepository::class)]
 final class EscalationsConfigRepositoryTest extends TestCase
 {
-    private DatabaseClientInterface&MockInterface $mockDatabase;
+    private DatabaseGateway&MockInterface $mockGateway;
 
     private ConnectionInterface&MockInterface $mockConnection;
 
@@ -31,13 +31,13 @@ final class EscalationsConfigRepositoryTest extends TestCase
     {
         parent::setUp();
 
-        $this->mockDatabase = Mockery::mock(DatabaseClientInterface::class);
+        $this->mockGateway = Mockery::mock(DatabaseGateway::class);
         $this->mockConnection = Mockery::mock(ConnectionInterface::class);
 
-        $this->repository = new EscalationsConfigRepository(
-            $this->mockDatabase,
-            $this->mockConnection,
-        );
+        // Gateway's connection() method returns the mock connection
+        $this->mockGateway->allows('connection')->andReturn($this->mockConnection);
+
+        $this->repository = new EscalationsConfigRepository($this->mockGateway);
     }
 
     /*
@@ -57,13 +57,9 @@ final class EscalationsConfigRepositoryTest extends TestCase
             'assignedTag' => 'server to-do',
         ];
 
-        $this->mockDatabase->expects('execute')
+        $this->mockGateway->expects('query')
             ->with(Mockery::type(Closure::class))
-            ->andReturnUsing(static function (Closure $operation) use ($settings): object {
-                // The operation takes the connection, but we just return the row directly
-                // since we're testing the repository, not the query builder
-                return (object) ['settings' => \json_encode($settings)];
-            });
+            ->andReturnUsing(static fn(Closure $operation): object => (object) ['settings' => \json_encode($settings)]);
 
         $result = $this->repository->get();
 
@@ -86,7 +82,7 @@ final class EscalationsConfigRepositoryTest extends TestCase
             'assignedTag' => 'handling',
         ];
 
-        $this->mockDatabase->expects('execute')
+        $this->mockGateway->expects('query')
             ->with(Mockery::type(Closure::class))
             ->andReturnUsing(static fn(Closure $operation): object => (object) ['settings' => \json_encode($settings)]);
 
@@ -97,7 +93,7 @@ final class EscalationsConfigRepositoryTest extends TestCase
     }
 
     #[Test]
-    public function get_passes_correct_closure_to_database_client(): void
+    public function get_passes_correct_closure_to_gateway(): void
     {
         $settings = [
             'lateThresholdHours' => 48,
@@ -125,8 +121,8 @@ final class EscalationsConfigRepositoryTest extends TestCase
             ->once()
             ->andReturn($mockBuilder);
 
-        // Execute the actual closure passed to database->execute()
-        $this->mockDatabase->expects('execute')
+        // Execute the actual closure passed to gateway->query()
+        $this->mockGateway->expects('query')
             ->with(Mockery::type(Closure::class))
             ->andReturnUsing(static fn(Closure $operation): ?object => $operation());
 
@@ -144,7 +140,7 @@ final class EscalationsConfigRepositoryTest extends TestCase
     #[Test]
     public function get_throws_configuration_not_found_when_row_is_null(): void
     {
-        $this->mockDatabase->expects('execute')
+        $this->mockGateway->expects('query')
             ->with(Mockery::type(Closure::class))
             ->andReturn(null);
 
@@ -157,7 +153,7 @@ final class EscalationsConfigRepositoryTest extends TestCase
     #[Test]
     public function get_throws_with_correct_config_name(): void
     {
-        $this->mockDatabase->expects('execute')
+        $this->mockGateway->expects('query')
             ->andReturn(null);
 
         try {
@@ -177,7 +173,7 @@ final class EscalationsConfigRepositoryTest extends TestCase
     #[Test]
     public function get_throws_json_exception_for_invalid_json(): void
     {
-        $this->mockDatabase->expects('execute')
+        $this->mockGateway->expects('query')
             ->andReturnUsing(static fn(Closure $operation): object => (object) ['settings' => 'invalid json']);
 
         $this->expectException(JsonException::class);
@@ -196,7 +192,7 @@ final class EscalationsConfigRepositoryTest extends TestCase
             'assignedTag' => 'in-progress',
         ];
 
-        $this->mockDatabase->expects('execute')
+        $this->mockGateway->expects('query')
             ->andReturnUsing(static fn(Closure $operation): object => (object) ['settings' => \json_encode($settings)]);
 
         $result = $this->repository->get();

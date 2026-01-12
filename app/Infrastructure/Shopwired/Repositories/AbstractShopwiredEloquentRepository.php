@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Shopwired\Repositories;
 
-use App\Application\Contracts\DatabaseClientInterface;
+use App\Application\Contracts\DatabaseGatewayInterface;
 use App\Application\Contracts\Shopwired\ShopwiredRepositoryInterface;
 use App\Application\Shopwired\ValueObjects\SaveManyResult;
 use App\Domain\Exceptions\DatabaseOperationFailedException;
@@ -31,7 +31,7 @@ use Illuminate\Support\Facades\Log;
 abstract class AbstractShopwiredEloquentRepository implements ShopwiredRepositoryInterface
 {
     public function __construct(
-        protected readonly DatabaseClientInterface $database,
+        protected readonly DatabaseGatewayInterface $gateway,
     ) {}
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -96,7 +96,7 @@ abstract class AbstractShopwiredEloquentRepository implements ShopwiredRepositor
      */
     public function getByExternalId(int $externalId): object
     {
-        return $this->database->execute(function () use ($externalId): object {
+        return $this->gateway->query(function () use ($externalId): object {
             $modelClass = $this->getModelClass();
 
             /** @var Model|null $model */
@@ -128,7 +128,7 @@ abstract class AbstractShopwiredEloquentRepository implements ShopwiredRepositor
     {
         $modelClass = $this->getModelClass();
 
-        return $this->database->execute(
+        return $this->gateway->query(
             static fn(): bool => $modelClass::query()
                 ->where('external_id', $externalId)
                 ->exists(),
