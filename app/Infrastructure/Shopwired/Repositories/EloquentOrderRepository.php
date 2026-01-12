@@ -15,6 +15,7 @@ use App\Infrastructure\Shopwired\Mappers\OrderModelMapper;
 use App\Infrastructure\Shopwired\Models\OrderDiscountModel;
 use App\Infrastructure\Shopwired\Models\OrderModel;
 use App\Infrastructure\Shopwired\Models\OrderProductModel;
+use App\Infrastructure\Shopwired\Models\OrderRefundModel;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -33,7 +34,7 @@ final class EloquentOrderRepository extends AbstractShopwiredEloquentRepository 
     private const string ENTITY_TYPE = 'Order';
 
     /** @var list<string> */
-    private const array EAGER_LOAD_RELATIONS = ['products', 'discounts'];
+    private const array EAGER_LOAD_RELATIONS = ['products', 'discounts', 'refunds'];
 
     // ─────────────────────────────────────────────────────────────────────────
     // Interface Implementation
@@ -54,6 +55,7 @@ final class EloquentOrderRepository extends AbstractShopwiredEloquentRepository 
             $model = $this->upsertOrder($entity);
             $this->syncProducts($model, $entity);
             $this->syncDiscounts($model, $entity);
+            $this->syncRefunds($model, $entity);
         }, attempts: 3);
     }
 
@@ -199,6 +201,24 @@ final class EloquentOrderRepository extends AbstractShopwiredEloquentRepository 
             $attributes['order_id'] = $model->id;
 
             OrderDiscountModel::query()->create($attributes);
+        }
+    }
+
+    /**
+     * Sync order refunds (replace all on each sync).
+     */
+    private function syncRefunds(OrderModel $model, Order $order): void
+    {
+        // Refunds have no stable ID for sync - replace all on sync (like discounts)
+        OrderRefundModel::query()
+            ->where('order_id', $model->id)
+            ->delete();
+
+        foreach ($order->refunds as $refund) {
+            $attributes = OrderRefundModel::fromDomainAttributes($refund);
+            $attributes['order_id'] = $model->id;
+
+            OrderRefundModel::query()->create($attributes);
         }
     }
 }

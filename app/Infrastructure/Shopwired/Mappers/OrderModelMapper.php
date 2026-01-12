@@ -10,6 +10,7 @@ use App\Domain\Catalog\Order\ValueObjects\OrderAddress;
 use App\Domain\Catalog\Order\ValueObjects\OrderCustomer;
 use App\Domain\Catalog\Order\ValueObjects\OrderDiscount;
 use App\Domain\Catalog\Order\ValueObjects\OrderProduct;
+use App\Domain\Catalog\Order\ValueObjects\OrderRefund;
 use App\Domain\Catalog\Order\ValueObjects\OrderShipping;
 use App\Domain\Catalog\Order\ValueObjects\OrderStatus;
 use App\Domain\Catalog\Order\ValueObjects\OrderStatusType;
@@ -18,6 +19,7 @@ use App\Infrastructure\Concerns\MapperHelperTrait;
 use App\Infrastructure\Shopwired\Models\OrderDiscountModel;
 use App\Infrastructure\Shopwired\Models\OrderModel;
 use App\Infrastructure\Shopwired\Models\OrderProductModel;
+use App\Infrastructure\Shopwired\Models\OrderRefundModel;
 
 /**
  * Maps between OrderModel (Eloquent) and Order (Domain).
@@ -27,7 +29,7 @@ use App\Infrastructure\Shopwired\Models\OrderProductModel;
  * - Enum conversions with fallbacks
  * - Lifecycle status derivation
  *
- * Products and discounts are handled separately via their own model mappings.
+ * Products, discounts, and refunds are handled separately via their own model mappings.
  */
 final class OrderModelMapper
 {
@@ -37,7 +39,7 @@ final class OrderModelMapper
      * Convert Eloquent model with loaded relations to Domain Order.
      *
      * Preferred entry point - handles relation conversion internally.
-     * Requires 'products' and 'discounts' relations to be eager-loaded.
+     * Requires 'products', 'discounts', and 'refunds' relations to be eager-loaded.
      *
      * @param OrderModel $model The Eloquent model with loaded relations
      */
@@ -52,7 +54,12 @@ final class OrderModelMapper
             static fn(OrderDiscountModel $m): OrderDiscount => $m->toDomain(), // @phpstan-ignore return.type
         )->all();
 
-        return self::toDomain($model, $products, $discounts);
+        /** @var list<OrderRefund> $refunds */
+        $refunds = $model->refunds->map(
+            static fn(OrderRefundModel $m): OrderRefund => $m->toDomain(), // @phpstan-ignore return.type
+        )->all();
+
+        return self::toDomain($model, $products, $discounts, $refunds);
     }
 
     /**
@@ -63,11 +70,13 @@ final class OrderModelMapper
      * @param OrderModel                $model     The Eloquent model to convert
      * @param array<int, OrderProduct>  $products  Already-converted product domain objects
      * @param array<int, OrderDiscount> $discounts Already-converted discount domain objects
+     * @param array<int, OrderRefund>   $refunds   Already-converted refund domain objects
      */
     public static function toDomain(
         OrderModel $model,
         array $products,
         array $discounts,
+        array $refunds,
     ): Order {
         return new Order(
             id: $model->external_id,
@@ -108,6 +117,7 @@ final class OrderModelMapper
             transactionId: $model->transaction_id,
             deliveryDate: $model->delivery_date?->toDateTimeImmutable(),
             discounts: $discounts,
+            refunds: $refunds,
             products: $products,
             customFields: $model->custom_fields,
         );
@@ -117,7 +127,7 @@ final class OrderModelMapper
      * Convert Domain Order to Eloquent model attributes.
      *
      * Does not include primary key or relationship IDs (handled by repository).
-     * Products and discounts are synced separately.
+     * Products, discounts, and refunds are synced separately.
      *
      * @return array<string, mixed>
      */

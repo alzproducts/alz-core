@@ -8,6 +8,7 @@ use App\Domain\Catalog\Order\Enums\PreOrderStatus;
 use App\Domain\Catalog\Order\ValueObjects\Order;
 use App\Domain\Catalog\Order\ValueObjects\OrderDiscount;
 use App\Domain\Catalog\Order\ValueObjects\OrderProduct;
+use App\Domain\Catalog\Order\ValueObjects\OrderRefund;
 use App\Domain\Exceptions\InvalidApiResponseException;
 use App\Infrastructure\Contracts\DomainConvertibleInterface;
 use App\Infrastructure\Shopwired\Enums\PaymentMethodRaw;
@@ -182,6 +183,10 @@ final class OrderResponse extends Data implements DomainConvertibleInterface
             discounts: \array_map(
                 static fn(OrderDiscountResponse $d): OrderDiscount => $d->toDomain(),
                 $this->discounts,
+            ),
+            refunds: \array_map(
+                static fn(OrderRefundResponse $r): OrderRefund => $r->toDomain(),
+                $this->refunds,
             ),
             products: $products,
             customFields: $this->customFields,

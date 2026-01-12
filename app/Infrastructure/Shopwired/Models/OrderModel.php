@@ -153,6 +153,16 @@ final class OrderModel extends Model implements EloquentDomainMappableInterface
         return $this->hasMany(OrderDiscountModel::class, 'order_id', 'id');
     }
 
+    /**
+     * Get the order's refunds.
+     *
+     * @return HasMany<OrderRefundModel, $this>
+     */
+    public function refunds(): HasMany
+    {
+        return $this->hasMany(OrderRefundModel::class, 'order_id', 'id');
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
     // Domain Mapping (via EloquentDomainMappableInterface)
     // ─────────────────────────────────────────────────────────────────────────

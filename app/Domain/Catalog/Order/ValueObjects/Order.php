@@ -21,6 +21,7 @@ use Webmozart\Assert\Assert;
  *
  * @property array<int, OrderProduct>|null $products Null=not requested, []=empty
  * @property array<int, OrderDiscount> $discounts
+ * @property array<int, OrderRefund> $refunds
  * @property array<string, mixed>|null $customFields Null=not requested, []=empty
  */
 final readonly class Order
@@ -42,6 +43,7 @@ final readonly class Order
      * @param PreOrderStatus $preOrderStatus Derived from product-level isPreorder flags
      * @param array<int, OrderProduct>|null $products Null=Standard mode, array=Detail mode
      * @param array<int, OrderDiscount> $discounts
+     * @param array<int, OrderRefund> $refunds
      * @param array<string, mixed>|null $customFields Null=Standard mode, array=Detail mode
      */
     public function __construct(
@@ -71,6 +73,7 @@ final readonly class Order
         public ?string $transactionId = null,
         public ?DateTimeImmutable $deliveryDate = null,
         public array $discounts = [],
+        public array $refunds = [],
         public ?array $products = null,
         public ?array $customFields = null,
     ) {
@@ -106,6 +109,26 @@ final readonly class Order
         return \array_reduce(
             $this->discounts,
             static fn(float $carry, OrderDiscount $discount): float => $carry + $discount->value,
+            0.0,
+        );
+    }
+
+    /**
+     * Check if order has any refunds applied.
+     */
+    public function hasRefunds(): bool
+    {
+        return $this->refunds !== [];
+    }
+
+    /**
+     * Get total refund value.
+     */
+    public function totalRefundValue(): float
+    {
+        return \array_reduce(
+            $this->refunds,
+            static fn(float $carry, OrderRefund $refund): float => $carry + $refund->value,
             0.0,
         );
     }
