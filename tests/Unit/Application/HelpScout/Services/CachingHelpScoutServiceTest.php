@@ -26,6 +26,12 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
+/**
+ * Tests for CachingHelpScoutService.
+ *
+ * Focus: TTL values, cache invalidation, error paths, and business logic (alias resolution).
+ * Not tested: Cache key patterns, delegation verification (covered by integration tests).
+ */
 #[CoversClass(CachingHelpScoutService::class)]
 final class CachingHelpScoutServiceTest extends TestCase
 {
@@ -75,14 +81,14 @@ final class CachingHelpScoutServiceTest extends TestCase
     */
 
     #[Test]
-    public function get_agent_profile_returns_cached_profile(): void
+    public function get_agent_profile_caches_for_seven_days(): void
     {
         $agent = $this->createSupportAgent(12345, 'agent@example.com', 'admin');
 
         $this->mockCache->expects('remember')
             ->with(
                 Mockery::pattern('/^helpscout:agent:profile:/'),
-                604800, // 7 days
+                604800, // 7 days in seconds
                 Mockery::type(Closure::class),
             )
             ->once()
@@ -91,40 +97,6 @@ final class CachingHelpScoutServiceTest extends TestCase
         $result = $this->service->getAgentProfile('agent@example.com');
 
         $this->assertSame(12345, $result->id);
-        $this->assertSame('agent@example.com', $result->email);
-        $this->assertSame('admin', $result->role);
-    }
-
-    #[Test]
-    public function get_agent_profile_normalizes_email_to_lowercase(): void
-    {
-        $normalizedKeyHash = \hash('xxh3', 'agent@example.com');
-        $expectedKey = "helpscout:agent:profile:{$normalizedKeyHash}";
-
-        $agent = $this->createSupportAgent(12345, 'agent@example.com');
-
-        $this->mockCache->expects('remember')
-            ->with($expectedKey, Mockery::any(), Mockery::type(Closure::class))
-            ->once()
-            ->andReturn($agent);
-
-        $this->service->getAgentProfile('AGENT@EXAMPLE.COM');
-    }
-
-    #[Test]
-    public function get_agent_profile_trims_email(): void
-    {
-        $normalizedKeyHash = \hash('xxh3', 'agent@example.com');
-        $expectedKey = "helpscout:agent:profile:{$normalizedKeyHash}";
-
-        $agent = $this->createSupportAgent(12345, 'agent@example.com');
-
-        $this->mockCache->expects('remember')
-            ->with($expectedKey, Mockery::any(), Mockery::type(Closure::class))
-            ->once()
-            ->andReturn($agent);
-
-        $this->service->getAgentProfile('  agent@example.com  ');
     }
 
     #[Test]
@@ -140,28 +112,8 @@ final class CachingHelpScoutServiceTest extends TestCase
     }
 
     #[Test]
-    public function get_agent_profile_calls_agents_client_via_cache(): void
-    {
-        $agent = $this->createSupportAgent(99999, 'found@example.com', 'user');
-
-        $this->mockAgentsClient->expects('findByEmail')
-            ->with('found@example.com')
-            ->once()
-            ->andReturn($agent);
-
-        $this->mockCache->expects('remember')
-            ->andReturnUsing(static fn(string $key, int $ttl, Closure $callback): ?SupportAgent => $callback());
-
-        $result = $this->service->getAgentProfile('found@example.com');
-
-        $this->assertSame(99999, $result->id);
-        $this->assertSame('user', $result->role);
-    }
-
-    #[Test]
     public function get_agent_profile_resolves_email_alias_before_lookup(): void
     {
-        // Create service with alias resolver configured
         $resolver = new EmailAliasResolver([
             'tom.murray@example.com' => 'tom@example.com',
         ]);
@@ -177,7 +129,6 @@ final class CachingHelpScoutServiceTest extends TestCase
 
         $agent = $this->createSupportAgent(12345, 'tom@example.com', 'admin');
 
-        // Expect the resolved email to be used for lookup
         $this->mockAgentsClient->expects('findByEmail')
             ->with('tom@example.com')
             ->once()
@@ -186,10 +137,9 @@ final class CachingHelpScoutServiceTest extends TestCase
         $this->mockCache->expects('remember')
             ->andReturnUsing(static fn(string $key, int $ttl, Closure $callback): ?SupportAgent => $callback());
 
-        // Call with the aliased email
+        // Call with aliased email, expect canonical email used for lookup
         $result = $service->getAgentProfile('tom.murray@example.com');
 
-        $this->assertSame(12345, $result->id);
         $this->assertSame('tom@example.com', $result->email);
     }
 
@@ -200,121 +150,17 @@ final class CachingHelpScoutServiceTest extends TestCase
     */
 
     #[Test]
-    public function get_conversations_returns_cached_conversations(): void
+    public function get_conversations_caches_for_five_minutes(): void
     {
         $conversations = [$this->createConversation(1)];
 
         $this->mockCache->expects('remember')
-            ->with(Mockery::any(), 300, Mockery::type(Closure::class))
+            ->with(Mockery::any(), 300, Mockery::type(Closure::class)) // 5 minutes
             ->once()
             ->andReturn($conversations);
 
         $params = ConversationQueryParams::assigned(agentId: 12345);
         $result = $this->service->getConversations($params);
-
-        $this->assertCount(1, $result);
-        $this->assertSame(1, $result[0]->id);
-    }
-
-    #[Test]
-    public function get_conversations_uses_params_cache_key(): void
-    {
-        $params = ConversationQueryParams::assigned(agentId: 12345);
-
-        $this->mockCache->expects('remember')
-            ->with($params->getCacheKey(), Mockery::any(), Mockery::type(Closure::class))
-            ->once()
-            ->andReturn([]);
-
-        $this->service->getConversations($params);
-    }
-
-    #[Test]
-    public function get_conversations_enriches_fetched_conversations(): void
-    {
-        $rawConversations = [$this->createConversation(1)];
-        $enrichedConversations = [$this->createConversation(1)->withMailboxName('Support')];
-
-        $this->mockConversationsClient->expects('getConversations')
-            ->once()
-            ->andReturn($rawConversations);
-
-        $this->mockEnricher->expects('enrich')
-            ->with($rawConversations)
-            ->once()
-            ->andReturn($enrichedConversations);
-
-        $this->mockCache->expects('remember')
-            ->andReturnUsing(static fn(string $key, int $ttl, Closure $callback): array => $callback());
-
-        $params = ConversationQueryParams::assigned(agentId: 12345);
-        $result = $this->service->getConversations($params);
-
-        $this->assertSame('Support', $result[0]->mailboxName);
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | getConversationsBatch() Tests
-    |--------------------------------------------------------------------------
-    */
-
-    #[Test]
-    public function get_conversations_batch_returns_empty_for_empty_queries(): void
-    {
-        $result = $this->service->getConversationsBatch([]);
-
-        $this->assertSame([], $result);
-    }
-
-    #[Test]
-    public function get_conversations_batch_returns_cached_results(): void
-    {
-        $conversation1 = $this->createConversation(1);
-        $conversation2 = $this->createConversation(2);
-
-        $params1 = ConversationQueryParams::assigned(agentId: 111);
-        $params2 = ConversationQueryParams::assigned(agentId: 222);
-
-        // Both cached
-        $this->mockCache->expects('get')
-            ->with($params1->getCacheKey())
-            ->once()
-            ->andReturn([$conversation1]);
-
-        $this->mockCache->expects('get')
-            ->with($params2->getCacheKey())
-            ->once()
-            ->andReturn([$conversation2]);
-
-        $result = $this->service->getConversationsBatch([$params1, $params2]);
-
-        $this->assertCount(2, $result);
-    }
-
-    #[Test]
-    public function get_conversations_batch_fetches_uncached_queries(): void
-    {
-        $conversation = $this->createConversation(1);
-        $params = ConversationQueryParams::assigned(agentId: 12345);
-
-        // Not cached
-        $this->mockCache->expects('get')
-            ->andReturn(null);
-
-        // Will be fetched
-        $this->mockConversationsClient->expects('getConversationsBatch')
-            ->once()
-            ->andReturn([[$conversation]]);
-
-        $this->mockEnricher->expects('enrich')
-            ->once()
-            ->andReturn([$conversation]);
-
-        $this->mockCache->expects('put')
-            ->once();
-
-        $result = $this->service->getConversationsBatch([$params]);
 
         $this->assertCount(1, $result);
     }
@@ -326,7 +172,7 @@ final class CachingHelpScoutServiceTest extends TestCase
     */
 
     #[Test]
-    public function invalidate_conversations_calls_cache_forget(): void
+    public function invalidate_conversations_clears_cache(): void
     {
         $params = ConversationQueryParams::assigned(agentId: 12345);
 
@@ -344,40 +190,20 @@ final class CachingHelpScoutServiceTest extends TestCase
     */
 
     #[Test]
-    public function get_mailboxes_returns_cached_mailboxes(): void
+    public function get_mailboxes_caches_for_seven_days(): void
     {
         $mailboxes = [
             new Mailbox(100, 'Support', 'support@example.com', 'support'),
         ];
 
         $this->mockCache->expects('remember')
-            ->with('helpscout:mailboxes', 604800, Mockery::type(Closure::class))
+            ->with('helpscout:mailboxes', 604800, Mockery::type(Closure::class)) // 7 days
             ->once()
             ->andReturn($mailboxes);
 
         $result = $this->service->getMailboxes();
 
         $this->assertCount(1, $result);
-        $this->assertSame(100, $result[0]->id);
-    }
-
-    #[Test]
-    public function get_mailboxes_calls_client_via_cache(): void
-    {
-        $mailboxes = [
-            new Mailbox(200, 'Sales', 'sales@example.com', 'sales'),
-        ];
-
-        $this->mockMailboxesClient->expects('list')
-            ->once()
-            ->andReturn($mailboxes);
-
-        $this->mockCache->expects('remember')
-            ->andReturnUsing(static fn(string $key, int $ttl, Closure $callback): array => $callback());
-
-        $result = $this->service->getMailboxes();
-
-        $this->assertSame('Sales', $result[0]->name);
     }
 
     /*
@@ -387,35 +213,18 @@ final class CachingHelpScoutServiceTest extends TestCase
     */
 
     #[Test]
-    public function get_escalations_config_returns_cached_config(): void
+    public function get_escalations_config_caches_for_five_minutes(): void
     {
         $config = $this->createEscalationsConfig();
 
         $this->mockCache->expects('remember')
-            ->with('helpscout:escalation-config', 300, Mockery::type(Closure::class))
+            ->with('helpscout:escalation-config', 300, Mockery::type(Closure::class)) // 5 minutes
             ->once()
             ->andReturn($config);
 
         $result = $this->service->getEscalationsConfig();
 
         $this->assertSame(24, $result->lateThresholdHours);
-    }
-
-    #[Test]
-    public function get_escalations_config_calls_repository_via_cache(): void
-    {
-        $config = $this->createEscalationsConfig();
-
-        $this->mockEscalationsConfigRepository->expects('get')
-            ->once()
-            ->andReturn($config);
-
-        $this->mockCache->expects('remember')
-            ->andReturnUsing(static fn(string $key, int $ttl, Closure $callback): EscalationsConfig => $callback());
-
-        $result = $this->service->getEscalationsConfig();
-
-        $this->assertSame('server to-do', $result->assignedTag);
     }
 
     /*

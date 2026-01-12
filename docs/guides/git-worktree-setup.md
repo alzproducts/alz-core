@@ -51,6 +51,9 @@ cd ../alz-core-two
 # Copy from MAIN worktree (preserves all API credentials)
 cp ../alz-core/.env .env
 
+# Copy Claude Code settings (tool permissions, etc.)
+mkdir -p .claude && cp ../alz-core/.claude/settings.local.json .claude/
+
 # DO NOT run key:generate - reuse existing APP_KEY
 ```
 
