@@ -146,7 +146,7 @@ final class OrderModelMapper
             'delivery_postcode' => $order->shippingAddress->postcode,
             'delivery_country' => $order->shippingAddress->country,
             'shipping_method' => $order->shipping?->name,
-            'shipping_cost' => $order->shipping?->value,
+            'shipping_cost' => $order->shipping !== null ? $order->shipping->value : 0.0,
             'shipping_vat_rate' => $order->shipping?->vatRate,
             'payment_method' => $order->paymentMethod->value,
             'marketing' => $order->marketing,

@@ -23,10 +23,10 @@
 - [x] Create migration for `status_sort_order` column
 - [x] Update tests (OrderStatusTest, OrderTest, SyncOrdersUseCaseTest)
 
-### Phase 2: shipping_cost NOT NULL
-- [ ] Create migration to alter column
-- [ ] Update mapper null coalesce
-- [ ] Update OrderModel docblock
+### Phase 2: shipping_cost NOT NULL ✅
+- [x] Create migration to alter column (UPDATE NULLs → ALTER to NOT NULL DEFAULT 0)
+- [x] Update mapper null coalesce (`$order->shipping?->value ?? 0.0`)
+- [x] Update OrderModel docblock
 
 ### Phase 3: Missing Scalar Fields
 - [ ] Create PreOrderStatus enum

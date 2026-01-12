@@ -62,7 +62,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string $delivery_postcode
  * @property string $delivery_country
  * @property string|null $shipping_method
- * @property float|null $shipping_cost Shipping method cost
+ * @property float $shipping_cost Shipping method cost (defaults to 0)
  * @property float|null $shipping_vat_rate
  * @property string $payment_method
  * @property bool $marketing Customer opted into marketing
