@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
-use App\Application\Contracts\DatabaseClientInterface;
+use App\Application\Contracts\DatabaseGatewayInterface;
 use App\Application\Contracts\EscalationsConfigRepositoryInterface;
-use App\Infrastructure\Supabase\EscalationsConfigRepository;
-use App\Infrastructure\Supabase\SupabaseClient;
+use App\Infrastructure\CustomerService\EscalationsConfigRepository;
+use App\Infrastructure\Database\DatabaseGateway;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Contracts\Support\DeferrableProvider;
 use Illuminate\Database\DatabaseManager;
@@ -16,22 +16,28 @@ use Override;
 use Psr\Log\LoggerInterface;
 
 /**
- * Supabase Service Provider.
+ * Database Service Provider.
  *
- * Deferred provider for Supabase database services. Services are only loaded
- * when requested, allowing other features to function independently.
+ * Deferred provider for database gateway and related repositories.
+ * Services are only loaded when requested, allowing other features to function independently.
  */
-final class SupabaseServiceProvider extends ServiceProvider implements DeferrableProvider
+final class DatabaseServiceProvider extends ServiceProvider implements DeferrableProvider
 {
     #[Override]
     public function register(): void
     {
         $this->app->singleton(
-            DatabaseClientInterface::class,
-            static fn(Application $app): DatabaseClientInterface => new SupabaseClient(
+            DatabaseGatewayInterface::class,
+            static fn(Application $app): DatabaseGatewayInterface => new DatabaseGateway(
                 $app->make(LoggerInterface::class),
                 $app->make(DatabaseManager::class),
             ),
+        );
+
+        // Also bind concrete class for repositories that need connection() access
+        $this->app->singleton(
+            DatabaseGateway::class,
+            static fn(Application $app): DatabaseGateway => $app->make(DatabaseGatewayInterface::class),
         );
 
         $this->app->bind(
@@ -47,7 +53,8 @@ final class SupabaseServiceProvider extends ServiceProvider implements Deferrabl
     public function provides(): array
     {
         return [
-            DatabaseClientInterface::class,
+            DatabaseGatewayInterface::class,
+            DatabaseGateway::class,
             EscalationsConfigRepositoryInterface::class,
         ];
     }

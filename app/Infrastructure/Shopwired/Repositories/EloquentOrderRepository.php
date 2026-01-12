@@ -50,7 +50,7 @@ final class EloquentOrderRepository extends AbstractShopwiredEloquentRepository 
      */
     public function save(object $entity): void
     {
-        $this->database->executeTransaction(function () use ($entity): void {
+        $this->gateway->transact(function () use ($entity): void {
             $model = $this->upsertOrder($entity);
             $this->syncProducts($model, $entity);
             $this->syncDiscounts($model, $entity);
@@ -67,7 +67,7 @@ final class EloquentOrderRepository extends AbstractShopwiredEloquentRepository 
      */
     public function getByReference(int $reference): Order
     {
-        return $this->database->execute(static function () use ($reference): Order {
+        return $this->gateway->query(static function () use ($reference): Order {
             $model = self::MODEL_CLASS::query()
                 ->where('reference', $reference)
                 ->with(self::EAGER_LOAD_RELATIONS)

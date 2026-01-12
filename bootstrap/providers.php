@@ -6,6 +6,7 @@ use App\Providers\AppServiceProvider;
 use App\Providers\AuthServiceProvider;
 use App\Providers\BingAdsServiceProvider;
 use App\Providers\CacheServiceProvider;
+use App\Providers\DatabaseServiceProvider;
 use App\Providers\GoogleAdsServiceProvider;
 use App\Providers\HelpScoutServiceProvider;
 use App\Providers\HorizonServiceProvider;
@@ -16,7 +17,6 @@ use App\Providers\ReviewsIoServiceProvider;
 use App\Providers\RlsDatabaseServiceProvider;
 use App\Providers\ShopwiredServiceProvider;
 use App\Providers\StorageServiceProvider;
-use App\Providers\SupabaseServiceProvider;
 use App\Providers\TelescopeServiceProvider;
 
 return [
@@ -33,7 +33,7 @@ return [
     RlsDatabaseServiceProvider::class,
     ShopwiredServiceProvider::class,
     StorageServiceProvider::class,
-    SupabaseServiceProvider::class,
+    DatabaseServiceProvider::class,
     HorizonServiceProvider::class,
     ...app()->environment('local') ? [TelescopeServiceProvider::class] : [],
 ];
