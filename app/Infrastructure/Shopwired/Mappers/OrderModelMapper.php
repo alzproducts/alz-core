@@ -58,12 +58,12 @@ final class OrderModelMapper
 
         /** @var list<OrderRefund> $refunds */
         $refunds = $model->refunds->map(
-            static fn(OrderRefundModel $m): OrderRefund => $m->toDomain(), // @phpstan-ignore return.type
+            static fn(OrderRefundModel $m): OrderRefund => $m->toDomain(),
         )->all();
 
         /** @var list<OrderAdminComment> $adminComments */
         $adminComments = $model->adminComments->map(
-            static fn(OrderAdminCommentModel $m): OrderAdminComment => $m->toDomain(), // @phpstan-ignore return.type
+            static fn(OrderAdminCommentModel $m): OrderAdminComment => $m->toDomain(),
         )->all();
 
         return self::toDomain($model, $products, $discounts, $refunds, $adminComments);

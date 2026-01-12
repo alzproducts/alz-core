@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Infrastructure\Shopwired\Responses;
 
 use App\Domain\Catalog\Order\ValueObjects\OrderAdminComment;
+use Carbon\CarbonImmutable;
 use Spatie\LaravelData\Attributes\MapInputName;
 use Spatie\LaravelData\Data;
 use Spatie\LaravelData\Mappers\SnakeCaseMapper;
@@ -13,8 +14,6 @@ use Spatie\LaravelData\Mappers\SnakeCaseMapper;
  * ShopWired API Response: Order Admin Comment.
  *
  * Infrastructure DTO for parsing admin comment data from order responses.
- * Contains id and created timestamp for database storage, but only
- * content/statusId are converted to Domain as business-essential fields.
  *
  * Note: `status_id` uses snake_case in the API (unlike other fields).
  *
@@ -35,7 +34,18 @@ final class OrderAdminCommentResponse extends Data
     {
         return new OrderAdminComment(
             content: $this->content ?? '',
+            createdAt: $this->parseCreatedAt(),
             statusId: $this->statusId,
         );
+    }
+
+    private function parseCreatedAt(): ?CarbonImmutable
+    {
+        if ($this->created === null || $this->created === '') {
+            return null;
+        }
+
+        // Carbon returns null on parse failure (unlike DateTimeImmutable which throws)
+        return CarbonImmutable::parse($this->created);
     }
 }

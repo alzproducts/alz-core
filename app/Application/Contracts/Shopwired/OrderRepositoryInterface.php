@@ -17,7 +17,7 @@ use App\Domain\Exceptions\ResourceNotFoundException;
  */
 interface OrderRepositoryInterface extends ShopwiredRepositoryInterface
 {
-    /**also,
+    /**
      * Get order by customer-facing reference number.
      *
      * @throws ResourceNotFoundException When order not found

@@ -51,8 +51,9 @@ final class OrderRefundModel extends Model implements EloquentDomainMappableInte
         return [
             // Money field
             'value' => 'float',
-            // External ID
+            // External IDs
             'external_id' => 'integer',
+            'order_external_id' => 'integer',
             // Timestamps
             'created_at_shopwired' => 'immutable_datetime',
             'created_at' => 'immutable_datetime',
@@ -81,5 +82,35 @@ final class OrderRefundModel extends Model implements EloquentDomainMappableInte
     protected function domainClass(): string
     {
         return OrderRefund::class;
+    }
+
+    /**
+     * Convert to Domain object with custom column mapping.
+     *
+     * Overrides AutoDomainMappingTrait because `createdAt` maps to
+     * `created_at_shopwired` (not `created_at` which is Laravel's timestamp).
+     */
+    public function toDomain(): OrderRefund
+    {
+        return new OrderRefund(
+            name: $this->name,
+            value: $this->value,
+            createdAt: $this->created_at_shopwired,
+        );
+    }
+
+    /**
+     * Convert Domain object to model attributes with custom column mapping.
+     *
+     * @return array<string, mixed>
+     */
+    public static function fromDomainAttributes(object $entity): array
+    {
+        /** @var OrderRefund $entity */
+        return [
+            'name' => $entity->name,
+            'value' => $entity->value,
+            'created_at_shopwired' => $entity->createdAt,
+        ];
     }
 }

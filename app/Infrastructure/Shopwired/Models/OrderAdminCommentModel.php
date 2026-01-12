@@ -80,4 +80,34 @@ final class OrderAdminCommentModel extends Model implements EloquentDomainMappab
     {
         return OrderAdminComment::class;
     }
+
+    /**
+     * Convert to Domain object with custom column mapping.
+     *
+     * Overrides AutoDomainMappingTrait because `createdAt` maps to
+     * `created_at_shopwired` (not `created_at` which is Laravel's timestamp).
+     */
+    public function toDomain(): OrderAdminComment
+    {
+        return new OrderAdminComment(
+            content: $this->content,
+            createdAt: $this->created_at_shopwired,
+            statusId: $this->status_id,
+        );
+    }
+
+    /**
+     * Convert Domain object to model attributes with custom column mapping.
+     *
+     * @return array<string, mixed>
+     */
+    public static function fromDomainAttributes(object $entity): array
+    {
+        /** @var OrderAdminComment $entity */
+        return [
+            'content' => $entity->content,
+            'created_at_shopwired' => $entity->createdAt,
+            'status_id' => $entity->statusId,
+        ];
+    }
 }
