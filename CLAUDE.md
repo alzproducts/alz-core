@@ -125,6 +125,10 @@ If no PR exists, ask user via `AskUserQuestion`:
 
 After creation, poll CI (up to 10 min) and report pass/fail with PR URL.
 
+### Merge Strategy
+- **Feature → develop**: Squash and merge (one commit per feature)
+- **Develop → main**: Merge commit (preserves feature commits)
+
 ### Safety Rules
 - ❌ Never force push (`--force`, `--force-with-lease`)
 - ❌ Never rebase shared branches
