@@ -35,6 +35,18 @@ Don't use the trait when you have:
 - `protected $guarded = [];` — Internal sync models don't receive user input
 - `protected $table = 'shopwired.table_name';` — Explicit schema-qualified name
 
+### Child Table Relationships
+
+Child tables need **two columns** linking to parent:
+- `order_id` (uuid) — FK to `orders.id` with cascade delete
+- `order_external_id` (int) — Parent's ShopWired ID, indexed for queries
+
+**If child supports upsert** (has stable external ID): add composite unique `(order_external_id, external_id)`
+
+### Sync Deletes
+
+**Always delete by parent's external ID column**, never by UUID — external IDs are stable across syncs.
+
 ## Mappers
 
 For complex models needing dedicated mapping classes:

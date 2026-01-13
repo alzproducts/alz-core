@@ -90,20 +90,57 @@ When working on a GitHub issue with an associated plan document, maintain an imp
 
 See `.ai/implementation-logs/CLAUDE.md` for the full template and guidelines.
 
-## ⚠️ Git Commit Policy
+## Git Workflow
 
-**NEVER create git commits unless explicitly requested by the user.**
+**Proactive commits enabled.** Claude commits and pushes after each logical change. User approves via command approval UI.
 
-- ❌ Do NOT stage files (`git add`)
-- ❌ Do NOT create commits (`git commit`)
-- ❌ Do NOT push to remote (`git push`)
-- ✅ DO make code changes, run linters, run tests
-- ✅ DO report when changes are ready to commit
-- ✅ Only commit when user explicitly asks (e.g., "commit these changes", "create a commit")
+### Commit Sequence
+1. Run `make lint` then `make test`
+2. Verify current branch ≠ `main` or `develop`
+3. Commit with Conventional Commit message
+4. Push immediately
+5. Run `.claude/scripts/refresh-ide.sh` (refreshes JetBrains git panel)
 
-**Rationale**: The user maintains full control over git history and commit timing.
+**Conventional Commits:** `type(scope): description`
+**Types:** `feat`, `fix`, `refactor`, `test`, `docs`, `chore`, `perf`, `ci`
 
-**Always use `git mv`** when moving/renaming files. Preserves history; delete + create loses it.
+### Error Recovery
+
+| Scenario | Action |
+|----------|--------|
+| Lint/test fails | Fix issue, retry from step 1 |
+| Pre-commit hook fails | Fix issue, retry commit |
+| Push hook fails | Fix, amend commit (local-only), retry push |
+| On protected branch | Report error, await instruction |
+| Merge conflict | Report to user, await instruction |
+
+**Amending:** ✅ Local-only commits | ❌ Never amend pushed commits
+
+### PR Creation
+When work is complete, check for existing PR on branch (`gh pr view`). If PR exists, report URL instead of offering to create.
+
+If no PR exists, ask user via `AskUserQuestion`:
+- **Create immediately** — work reviewed along the way
+- **Complete checklist first** — verify against issue/plan/comments (as applicable)
+- **Don't create PR** — more work needed or user will handle
+
+**Always include issue reference** in PR description: `Closes #123` (or `Fixes #123` for bugs).
+
+After creation, poll CI (up to 10 min) and report pass/fail with PR URL.
+
+### Merge Strategy
+- **Feature → develop**: Squash and merge (one commit per feature)
+- **Develop → main**: Merge commit (preserves feature commits)
+
+### Safety Rules
+- ❌ Never force push (`--force`, `--force-with-lease`)
+- ❌ Never rebase shared branches
+- ❌ Never push to `main` or `develop`
+- ❌ No `Co-Authored-By` trailers
+- ✅ Use `git mv` for renames (preserves history)
+
+### Branch Management
+User creates and switches branches. Claude works on current branch only.
 
 ## Development Environment
 
@@ -128,6 +165,10 @@ make lint                         # Run linters
 - **6x faster** test execution (4.5s vs ~30s with Sail)
 - **2-3x faster** linting and static analysis
 - **Instant** IDE indexing (no Docker volume overhead)
+
+### Queue Processing
+
+**Queue listener runs automatically** (`php artisan queue:listen -v`) in the background during local development. Do NOT manually run queue workers — jobs process automatically. Just dispatch jobs and they will be handled.
 
 ---
 
@@ -202,6 +243,10 @@ final class Rating extends Data {
 3. **Supabase shared**: Same PostgreSQL database as Next.js frontend
 4. **Production uses Octane**: We run long-running daemon processes (Laravel Octane) in production. Be cautious with date/time calculations in queue jobs—always calculate timestamps in `handle()` method, not in constructor, to ensure fresh evaluations on each execution (not stale values from job creation time).
 5. **Enforce over warn**: When reviewing security controls, prefer enforcement (fail-fast) over warnings. If a security boundary can be enforced, do that instead of logging a warning that might be ignored.
+
+### Common Pitfalls
+
+**Date Range Windows**: Never use `subMonths()` directly for backfill/sync windows—creates gaps at month boundaries. Use `startOfMonth()->subMonths()` instead. See [`.ai/docs/guides/critical-pitfalls.md`](.ai/docs/guides/critical-pitfalls.md).
 
 ## Exception Handling in Clean Architecture
 

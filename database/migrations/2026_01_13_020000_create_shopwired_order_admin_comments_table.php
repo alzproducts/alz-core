@@ -8,12 +8,14 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Creates the shopwired.order_discounts table for order discounts.
+ * Creates the shopwired.order_admin_comments table for admin notes on orders.
+ *
+ * Admin comments use "replace all" sync strategy - no stable external ID for upsert.
  */
 return new class extends Migration {
     public function up(): void
     {
-        Schema::create('shopwired.order_discounts', static function (Blueprint $table): void {
+        Schema::create('shopwired.order_admin_comments', static function (Blueprint $table): void {
             $table->uuid('id')->primary()->default(DB::raw('gen_random_uuid()'));
 
             // Relationships
@@ -25,28 +27,27 @@ return new class extends Migration {
 
             // ShopWired identifiers
             $table->integer('order_external_id'); // Parent order's ShopWired ID
+            $table->integer('external_id')->nullable(); // ShopWired comment ID (debugging only)
 
-            // Discount details
-            $table->string('name', 255);
-            $table->decimal('value', 14, 6); // 6dp to preserve raw ShopWired values
-            $table->string('type', 50)->nullable();
-            $table->string('code', 100)->nullable();
-            $table->integer('voucher_id')->nullable();
-            $table->integer('offer_id')->nullable();
+            // Comment details
+            $table->text('content');
+            $table->integer('status_id')->nullable(); // Associated ShopWired status ID
 
-            // Timestamps
+            // ShopWired timestamp
+            $table->timestampTz('created_at_shopwired')->nullable();
+
+            // Laravel timestamps
             $table->timestampTz('created_at');
             $table->timestampTz('updated_at');
 
             // Indexes
             $table->index('order_id');
             $table->index('order_external_id');
-            $table->index('code');
         });
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('shopwired.order_discounts');
+        Schema::dropIfExists('shopwired.order_admin_comments');
     }
 };

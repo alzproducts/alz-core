@@ -8,12 +8,15 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Creates the shopwired.order_discounts table for order discounts.
+ * Creates the shopwired.order_refunds table for order refunds.
+ *
+ * Refunds have no stable ID for upsert logic - sync strategy is "replace all"
+ * (like discounts). The external_id is stored for debugging purposes only.
  */
 return new class extends Migration {
     public function up(): void
     {
-        Schema::create('shopwired.order_discounts', static function (Blueprint $table): void {
+        Schema::create('shopwired.order_refunds', static function (Blueprint $table): void {
             $table->uuid('id')->primary()->default(DB::raw('gen_random_uuid()'));
 
             // Relationships
@@ -25,28 +28,27 @@ return new class extends Migration {
 
             // ShopWired identifiers
             $table->integer('order_external_id'); // Parent order's ShopWired ID
+            $table->integer('external_id')->nullable(); // ShopWired refund ID (for debugging)
 
-            // Discount details
-            $table->string('name', 255);
+            // Refund details
+            $table->string('name', 255); // Description/reason
             $table->decimal('value', 14, 6); // 6dp to preserve raw ShopWired values
-            $table->string('type', 50)->nullable();
-            $table->string('code', 100)->nullable();
-            $table->integer('voucher_id')->nullable();
-            $table->integer('offer_id')->nullable();
 
-            // Timestamps
+            // ShopWired timestamp (when refund was created in ShopWired)
+            $table->timestampTz('created_at_shopwired')->nullable();
+
+            // Laravel timestamps (local sync tracking)
             $table->timestampTz('created_at');
             $table->timestampTz('updated_at');
 
             // Indexes
             $table->index('order_id');
             $table->index('order_external_id');
-            $table->index('code');
         });
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('shopwired.order_discounts');
+        Schema::dropIfExists('shopwired.order_refunds');
     }
 };
