@@ -24,7 +24,20 @@ final readonly class MixpanelCheckoutCompletedDTO
     private const string INSERT_ID_PREFIX = 'CC';
     private const string SOURCE = 'backend-sync';
     private const string CURRENCY = 'GBP';
-    private const string UK_COUNTRY = 'United Kingdom';
+
+    /**
+     * Countries considered as UK for shipping analytics.
+     * Includes Crown Dependencies to match frontend isUKAddress() behavior.
+     *
+     * @var list<string>
+     */
+    private const array UK_COUNTRIES = [
+        'United Kingdom',
+        'Jersey',
+        'Isle of Man',
+        'Guernsey',
+        'Isle of Wight',
+    ];
 
     /**
      * @param string $insertId Deduplication ID (max 36 chars)
@@ -84,6 +97,7 @@ final readonly class MixpanelCheckoutCompletedDTO
     public static function fromOrder(Order $order, string $analyticsSalt, bool $isBusinessUser): self
     {
         Assert::notNull($order->products, 'Order must have products loaded (detail mode)');
+        Assert::notEmpty($order->products, 'Order must have at least one product');
         Assert::notEmpty($analyticsSalt, 'Analytics salt cannot be empty');
 
         $orderIdHashed = self::hashOrderId($order->reference, $analyticsSalt);
@@ -103,7 +117,7 @@ final readonly class MixpanelCheckoutCompletedDTO
             isBusinessUser: $isBusinessUser,
             shippingCountry: $order->shippingAddress->country,
             billingCountry: $order->billingAddress->country,
-            hasUkShipping: $order->shippingAddress->country === self::UK_COUNTRY,
+            hasUkShipping: \in_array($order->shippingAddress->country, self::UK_COUNTRIES, true),
             itemCount: \count($order->products),
             totalQuantity: self::sumQuantities($order->products),
             cart: self::buildCart($order->products),

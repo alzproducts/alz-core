@@ -9,7 +9,15 @@ return [
     |--------------------------------------------------------------------------
     */
     'base_url' => env('MIXPANEL_BASE_URL', 'https://api-eu.mixpanel.com'),
+    'export_api_base_url' => env('MIXPANEL_EXPORT_API_BASE_URL', 'https://data-eu.mixpanel.com'),
     'project_id' => env('MIXPANEL_PROJECT_ID'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Analytics Salt (for order_id_hashed - must match frontend)
+    |--------------------------------------------------------------------------
+    */
+    'analytics_salt' => env('ANALYTICS_SALT'),
 
     /*
     |--------------------------------------------------------------------------

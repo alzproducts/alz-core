@@ -7,17 +7,20 @@ namespace App\Infrastructure\Mixpanel;
 use App\Application\Contracts\MixpanelClientInterface;
 use App\Domain\AdSpend\Enums\AdSource;
 use App\Domain\AdSpend\ValueObjects\CampaignMetrics;
+use App\Domain\Catalog\Order\ValueObjects\Order;
 use App\Domain\Exceptions\AuthenticationExpiredException;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\InvalidApiRequestException;
 use App\Domain\Exceptions\InvalidConfigurationException;
 use App\Domain\Exceptions\PayloadSerializationException;
+use App\Domain\Exceptions\UnexpectedApiResultException;
 use App\Infrastructure\Mixpanel\DTOs\MixpanelAdSpendEventDTO;
+use App\Infrastructure\Mixpanel\DTOs\MixpanelCheckoutCompletedDTO;
+use App\Infrastructure\Mixpanel\DTOs\MixpanelProductPurchasedDTO;
 use App\Infrastructure\Support\CsvFormatter;
 use DateTimeImmutable;
 use Illuminate\Support\Facades\Log;
 use JsonException;
-use RuntimeException;
 
 /**
  * Manages Mixpanel API interactions for events and lookup tables.
@@ -127,27 +130,136 @@ final readonly class MixpanelClient implements MixpanelClientInterface
     }
 
     /**
-     * {@inheritDoc}
+     * Export existing order hashes from Mixpanel for deduplication.
      *
-     * @throws RuntimeException Not implemented yet
+     * Queries Mixpanel Export API for "Checkout Completed" events in the date range
+     * and extracts the `order_id_hashed` property from each event.
      *
-     * @todo Implement in Issue #116 - Mixpanel order sync
+     * JSONL Response Format: Each line is a JSON object:
+     * {"event":"Checkout Completed","properties":{"order_id_hashed":"abc123...",...}}
+     *
+     * @param DateTimeImmutable $from Start of date range (inclusive)
+     * @param DateTimeImmutable $to End of date range (inclusive)
+     *
+     * @return list<string> Set of order_id_hashed values from existing events
+     *
+     * @throws AuthenticationExpiredException When credentials invalid/expired
+     * @throws InvalidApiRequestException When request parameters are invalid
+     * @throws ExternalServiceUnavailableException When API unavailable or request fails
+     * @throws UnexpectedApiResultException When export returns no data (suspicious - could mask API issues)
      */
     public function getExistingOrderHashes(DateTimeImmutable $from, DateTimeImmutable $to): array
     {
-        throw new RuntimeException('Not implemented yet - see Issue #116');
+        // Static event filter - JSON encoding cannot fail for this simple array
+        $eventFilter = '["Checkout Completed"]';
+
+        $queryParams = \http_build_query([
+            'project_id' => $this->config->projectId,
+            'from_date' => $from->format('Y-m-d'),
+            'to_date' => $to->format('Y-m-d'),
+            'event' => $eventFilter,
+        ]);
+
+        $response = $this->transport->request(
+            method: 'GET',
+            url: "{$this->config->exportApiBaseUrl}/api/2.0/export?{$queryParams}",
+        );
+
+        $body = $response->body();
+
+        // Empty body with 200 OK means no events in range
+        // This is suspicious and should fail - could mask API issues
+        if (\mb_trim($body) === '') {
+            Log::warning('Mixpanel export returned empty response', [
+                'from' => $from->format('Y-m-d'),
+                'to' => $to->format('Y-m-d'),
+            ]);
+
+            throw new UnexpectedApiResultException(
+                'Mixpanel',
+                'Export returned empty result - cannot proceed without deduplication data',
+            );
+        }
+
+        return $this->parseJsonlOrderHashes($body);
     }
 
     /**
-     * {@inheritDoc}
+     * Import orders to Mixpanel as "Checkout Completed" and "Product Purchased" events.
      *
-     * @throws RuntimeException Not implemented yet
+     * Transforms Domain Order objects to Mixpanel event format.
+     * Each order produces:
+     * - 1 "Checkout Completed" event
+     * - N "Product Purchased" events (one per product line item)
      *
-     * @todo Implement in Issue #116 - Mixpanel order sync
+     * Uses deterministic $insert_id for idempotent imports.
+     *
+     * @param array<int, Order> $orders Domain orders with products populated
+     * @param array<int, bool> $customerTradeMap Map of customer ID → is_trade status
+     *
+     * @throws AuthenticationExpiredException When credentials invalid/expired
+     * @throws InvalidApiRequestException When request parameters are invalid
+     * @throws ExternalServiceUnavailableException When API unavailable or request fails
+     * @throws PayloadSerializationException When payload cannot be encoded
      */
     public function importOrders(array $orders, array $customerTradeMap): void
     {
-        throw new RuntimeException('Not implemented yet - see Issue #116');
+        if (\count($orders) === 0) {
+            return;
+        }
+
+        $events = $this->buildOrderEvents($orders, $customerTradeMap);
+
+        if (\count($events) === 0) {
+            return;
+        }
+
+        $this->transport->request(
+            method: 'POST',
+            url: "{$this->config->dataApiBaseUrl}/import?project_id={$this->config->projectId}",
+            body: $this->encodeJson($events),
+            contentType: 'application/json',
+        );
+    }
+
+    /**
+     * Build Mixpanel events for all orders.
+     *
+     * @param array<int, Order> $orders
+     * @param array<int, bool> $customerTradeMap
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function buildOrderEvents(array $orders, array $customerTradeMap): array
+    {
+        $events = [];
+
+        foreach ($orders as $order) {
+            $isBusinessUser = $customerTradeMap[$order->customer->id] ?? false;
+
+            // 1. Checkout Completed event (one per order)
+            $checkoutDto = MixpanelCheckoutCompletedDTO::fromOrder(
+                $order,
+                $this->config->analyticsSalt,
+                $isBusinessUser,
+            );
+            $events[] = $checkoutDto->toMixpanelFormat();
+
+            // 2. Product Purchased events (one per product)
+            if ($order->products !== null) {
+                foreach ($order->products as $product) {
+                    $productDto = MixpanelProductPurchasedDTO::fromOrderProduct(
+                        $order,
+                        $product,
+                        $this->config->analyticsSalt,
+                        $isBusinessUser,
+                    );
+                    $events[] = $productDto->toMixpanelFormat();
+                }
+            }
+        }
+
+        return $events;
     }
 
     /**
@@ -168,5 +280,60 @@ final readonly class MixpanelClient implements MixpanelClientInterface
 
             throw new PayloadSerializationException('Mixpanel', $e->getMessage(), $e);
         }
+    }
+
+    /**
+     * Parse JSONL response and extract order_id_hashed values.
+     *
+     * Mixpanel Export API returns newline-delimited JSON (JSONL).
+     * Each line: {"event":"...","properties":{"order_id_hashed":"...",...}}
+     *
+     * @return list<string> Unique order_id_hashed values
+     *
+     * @throws UnexpectedApiResultException When JSONL cannot be parsed or structure unexpected
+     */
+    private function parseJsonlOrderHashes(string $jsonl): array
+    {
+        $lines = \explode("\n", \mb_trim($jsonl));
+        $hashes = [];
+
+        foreach ($lines as $lineNumber => $line) {
+            $line = \mb_trim($line);
+
+            if ($line === '') {
+                continue;
+            }
+
+            try {
+                /** @var array{properties?: array{order_id_hashed?: string}} $event */
+                $event = \json_decode($line, true, 512, JSON_THROW_ON_ERROR);
+            } catch (JsonException $e) {
+                Log::error('Mixpanel export JSONL parse error', [
+                    'line' => $lineNumber + 1,
+                    'content' => \mb_substr($line, 0, 100),
+                    'error' => $e->getMessage(),
+                ]);
+
+                throw new UnexpectedApiResultException(
+                    'Mixpanel',
+                    "Invalid JSONL on line {$lineNumber}: {$e->getMessage()}",
+                    $e,
+                );
+            }
+
+            $orderHash = $event['properties']['order_id_hashed'] ?? null;
+
+            if (!\is_string($orderHash) || $orderHash === '') {
+                Log::warning('Mixpanel event missing order_id_hashed', [
+                    'line' => $lineNumber + 1,
+                ]);
+
+                continue; // Skip events without hash (shouldn't happen, but don't fail)
+            }
+
+            $hashes[$orderHash] = true; // Use array keys for deduplication
+        }
+
+        return \array_keys($hashes);
     }
 }
