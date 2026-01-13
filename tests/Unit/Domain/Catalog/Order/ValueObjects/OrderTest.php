@@ -7,9 +7,11 @@ namespace Tests\Unit\Domain\Catalog\Order\ValueObjects;
 use App\Domain\Catalog\Order\Enums\PreOrderStatus;
 use App\Domain\Catalog\Order\ValueObjects\Order;
 use App\Domain\Catalog\Order\ValueObjects\OrderAddress;
+use App\Domain\Catalog\Order\ValueObjects\OrderAdminComment;
 use App\Domain\Catalog\Order\ValueObjects\OrderCustomer;
 use App\Domain\Catalog\Order\ValueObjects\OrderDiscount;
 use App\Domain\Catalog\Order\ValueObjects\OrderProduct;
+use App\Domain\Catalog\Order\ValueObjects\OrderRefund;
 use App\Domain\Catalog\Order\ValueObjects\OrderShipping;
 use App\Domain\Catalog\Order\ValueObjects\OrderStatus;
 use App\Domain\Catalog\Order\ValueObjects\OrderStatusType;
@@ -67,6 +69,8 @@ final class OrderTest extends TestCase
             'transactionId' => null,
             'deliveryDate' => null,
             'discounts' => [],
+            'refunds' => [],
+            'adminComments' => [],
             'products' => null,
             'customFields' => null,
         ];
@@ -198,5 +202,93 @@ final class OrderTest extends TestCase
         $order = $this->createOrder(['discounts' => $discounts]);
 
         $this->assertSame(17.75, $order->totalDiscountValue());
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | hasRefunds() Tests - Business Logic
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function has_refunds_returns_false_when_refunds_is_empty(): void
+    {
+        $order = $this->createOrder(['refunds' => []]);
+
+        $this->assertFalse($order->hasRefunds());
+    }
+
+    #[Test]
+    public function has_refunds_returns_true_when_refunds_exist(): void
+    {
+        $refunds = [
+            new OrderRefund(1, 'Customer return', 15.00, new DateTimeImmutable()),
+        ];
+        $order = $this->createOrder(['refunds' => $refunds]);
+
+        $this->assertTrue($order->hasRefunds());
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | totalRefundValue() Tests - Business Logic
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function total_refund_value_returns_zero_when_no_refunds(): void
+    {
+        $order = $this->createOrder(['refunds' => []]);
+
+        $this->assertSame(0.0, $order->totalRefundValue());
+    }
+
+    #[Test]
+    public function total_refund_value_returns_single_refund_value(): void
+    {
+        $refunds = [
+            new OrderRefund(1, 'Damaged item', 25.50, new DateTimeImmutable()),
+        ];
+        $order = $this->createOrder(['refunds' => $refunds]);
+
+        $this->assertSame(25.50, $order->totalRefundValue());
+    }
+
+    #[Test]
+    public function total_refund_value_sums_multiple_refunds(): void
+    {
+        $refunds = [
+            new OrderRefund(1, 'Item 1 return', 10.00, new DateTimeImmutable()),
+            new OrderRefund(2, 'Item 2 return', 5.50, new DateTimeImmutable()),
+            new OrderRefund(3, 'Shipping refund', 2.25, new DateTimeImmutable()),
+        ];
+        $order = $this->createOrder(['refunds' => $refunds]);
+
+        $this->assertSame(17.75, $order->totalRefundValue());
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | hasAdminComments() Tests - Business Logic
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function has_admin_comments_returns_false_when_comments_is_empty(): void
+    {
+        $order = $this->createOrder(['adminComments' => []]);
+
+        $this->assertFalse($order->hasAdminComments());
+    }
+
+    #[Test]
+    public function has_admin_comments_returns_true_when_comments_exist(): void
+    {
+        $comments = [
+            new OrderAdminComment(1, 'Customer called about delivery', new DateTimeImmutable()),
+        ];
+        $order = $this->createOrder(['adminComments' => $comments]);
+
+        $this->assertTrue($order->hasAdminComments());
     }
 }
