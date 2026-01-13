@@ -4,19 +4,24 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Shopwired\Mappers;
 
+use App\Domain\Catalog\Order\Enums\PreOrderStatus;
 use App\Domain\Catalog\Order\ValueObjects\Order;
 use App\Domain\Catalog\Order\ValueObjects\OrderAddress;
+use App\Domain\Catalog\Order\ValueObjects\OrderAdminComment;
 use App\Domain\Catalog\Order\ValueObjects\OrderCustomer;
 use App\Domain\Catalog\Order\ValueObjects\OrderDiscount;
 use App\Domain\Catalog\Order\ValueObjects\OrderProduct;
+use App\Domain\Catalog\Order\ValueObjects\OrderRefund;
 use App\Domain\Catalog\Order\ValueObjects\OrderShipping;
 use App\Domain\Catalog\Order\ValueObjects\OrderStatus;
 use App\Domain\Catalog\Order\ValueObjects\OrderStatusType;
 use App\Domain\Catalog\Order\ValueObjects\PaymentMethod;
 use App\Infrastructure\Concerns\MapperHelperTrait;
+use App\Infrastructure\Shopwired\Models\OrderAdminCommentModel;
 use App\Infrastructure\Shopwired\Models\OrderDiscountModel;
 use App\Infrastructure\Shopwired\Models\OrderModel;
 use App\Infrastructure\Shopwired\Models\OrderProductModel;
+use App\Infrastructure\Shopwired\Models\OrderRefundModel;
 
 /**
  * Maps between OrderModel (Eloquent) and Order (Domain).
@@ -26,7 +31,7 @@ use App\Infrastructure\Shopwired\Models\OrderProductModel;
  * - Enum conversions with fallbacks
  * - Lifecycle status derivation
  *
- * Products and discounts are handled separately via their own model mappings.
+ * Products, discounts, refunds, and adminComments are handled separately via their own model mappings.
  */
 final class OrderModelMapper
 {
@@ -36,7 +41,7 @@ final class OrderModelMapper
      * Convert Eloquent model with loaded relations to Domain Order.
      *
      * Preferred entry point - handles relation conversion internally.
-     * Requires 'products' and 'discounts' relations to be eager-loaded.
+     * Requires 'products', 'discounts', 'refunds', and 'adminComments' relations to be eager-loaded.
      *
      * @param OrderModel $model The Eloquent model with loaded relations
      */
@@ -51,7 +56,17 @@ final class OrderModelMapper
             static fn(OrderDiscountModel $m): OrderDiscount => $m->toDomain(), // @phpstan-ignore return.type
         )->all();
 
-        return self::toDomain($model, $products, $discounts);
+        /** @var list<OrderRefund> $refunds */
+        $refunds = $model->refunds->map(
+            static fn(OrderRefundModel $m): OrderRefund => $m->toDomain(),
+        )->all();
+
+        /** @var list<OrderAdminComment> $adminComments */
+        $adminComments = $model->adminComments->map(
+            static fn(OrderAdminCommentModel $m): OrderAdminComment => $m->toDomain(),
+        )->all();
+
+        return self::toDomain($model, $products, $discounts, $refunds, $adminComments);
     }
 
     /**
@@ -59,14 +74,18 @@ final class OrderModelMapper
      *
      * Use fromModelWithRelations() unless you need to provide custom relation data.
      *
-     * @param OrderModel                $model     The Eloquent model to convert
-     * @param array<int, OrderProduct>  $products  Already-converted product domain objects
-     * @param array<int, OrderDiscount> $discounts Already-converted discount domain objects
+     * @param OrderModel                     $model         The Eloquent model to convert
+     * @param array<int, OrderProduct>       $products      Already-converted product domain objects
+     * @param array<int, OrderDiscount>      $discounts     Already-converted discount domain objects
+     * @param array<int, OrderRefund>        $refunds       Already-converted refund domain objects
+     * @param array<int, OrderAdminComment>  $adminComments Already-converted admin comment domain objects
      */
     public static function toDomain(
         OrderModel $model,
         array $products,
         array $discounts,
+        array $refunds,
+        array $adminComments,
     ): Order {
         return new Order(
             id: $model->external_id,
@@ -75,6 +94,7 @@ final class OrderModelMapper
             total: $model->total,
             subTotal: $model->sub_total,
             shippingTotal: $model->shipping_total,
+            originalShippingTotal: $model->original_shipping_total,
             paymentMethod: self::buildEnum(
                 PaymentMethod::class,
                 $model->payment_method,
@@ -85,14 +105,32 @@ final class OrderModelMapper
             comments: $model->comments ?? '',
             marketing: $model->marketing,
             hasVatRelief: $model->has_vat_relief,
+            isArchived: $model->is_archived,
+            isAnonymized: $model->is_anonymized,
+            lineItemVatCalculation: $model->line_item_vat_calculation,
             status: self::buildStatus($model),
             customer: self::buildCustomer($model),
             shipping: self::buildShipping($model),
             billingAddress: self::buildBillingAddress($model),
             shippingAddress: self::buildShippingAddress($model),
+            preOrderStatus: self::buildEnum(
+                PreOrderStatus::class,
+                $model->pre_order_status,
+                PreOrderStatus::None,
+                $model->external_id,
+                'pre_order_status',
+            ),
+            taxValue: $model->tax_value,
+            trackingUrl: $model->tracking_url,
+            invoiceUrl: $model->invoice_url,
+            transactionId: $model->transaction_id,
+            deliveryDate: $model->delivery_date?->toDateTimeImmutable(),
             discounts: $discounts,
+            refunds: $refunds,
+            adminComments: $adminComments,
             products: $products,
             customFields: $model->custom_fields,
+            customerReferenceNumber: $model->customer_reference_number,
         );
     }
 
@@ -100,7 +138,7 @@ final class OrderModelMapper
      * Convert Domain Order to Eloquent model attributes.
      *
      * Does not include primary key or relationship IDs (handled by repository).
-     * Products and discounts are synced separately.
+     * Products, discounts, and refunds are synced separately.
      *
      * @return array<string, mixed>
      */
@@ -112,10 +150,15 @@ final class OrderModelMapper
             'total' => $order->total,
             'sub_total' => $order->subTotal,
             'shipping_total' => $order->shippingTotal,
-            'status_id' => null, // Not available from Domain - may be populated by direct API sync
+            'original_shipping_total' => $order->originalShippingTotal,
+            'tax_value' => $order->taxValue,
+            'line_item_vat_calculation' => $order->lineItemVatCalculation,
+            'status_id' => $order->status->id,
             'status_name' => $order->status->name->value,
             'status_type' => $order->status->type,
+            'status_sort_order' => $order->status->sortOrder,
             'lifecycle_status' => StatusTypeToLifecycleMapper::toLifecycle($order->status->name)->value,
+            'pre_order_status' => $order->preOrderStatus->value,
             'customer_id' => $order->customer->id,
             'customer_type' => $order->customer->type,
             'customer_date_of_birth' => $order->customer->dateOfBirth,
@@ -132,6 +175,7 @@ final class OrderModelMapper
             'billing_state' => $order->billingAddress->state,
             'billing_postcode' => $order->billingAddress->postcode,
             'billing_country' => $order->billingAddress->country,
+            'billing_country_id' => $order->billingAddress->countryId,
             'delivery_name' => $order->shippingAddress->name,
             'delivery_email' => $order->shippingAddress->emailAddress,
             'delivery_telephone' => $order->shippingAddress->telephone,
@@ -144,14 +188,23 @@ final class OrderModelMapper
             'delivery_state' => $order->shippingAddress->state,
             'delivery_postcode' => $order->shippingAddress->postcode,
             'delivery_country' => $order->shippingAddress->country,
+            'delivery_country_id' => $order->shippingAddress->countryId,
+            'shipping_id' => $order->shipping?->id,
             'shipping_method' => $order->shipping?->name,
-            'shipping_cost' => $order->shipping?->value,
+            'shipping_cost' => $order->shipping !== null ? $order->shipping->value : 0.0,
             'shipping_vat_rate' => $order->shipping?->vatRate,
+            'tracking_url' => $order->trackingUrl,
+            'invoice_url' => $order->invoiceUrl,
             'payment_method' => $order->paymentMethod->value,
+            'transaction_id' => $order->transactionId,
+            'delivery_date' => $order->deliveryDate,
             'marketing' => $order->marketing,
             'has_vat_relief' => $order->hasVatRelief,
+            'is_archived' => $order->isArchived,
+            'is_anonymized' => $order->isAnonymized,
             'comments' => $order->comments,
             'custom_fields' => $order->customFields,
+            'customer_reference_number' => $order->customerReferenceNumber,
         ];
     }
 
@@ -171,8 +224,10 @@ final class OrderModelMapper
         );
 
         return new OrderStatus(
+            id: $model->status_id,
             name: $statusType,
             type: $model->status_type,
+            sortOrder: $model->status_sort_order ?? 0,
         );
     }
 
@@ -193,6 +248,7 @@ final class OrderModelMapper
         }
 
         return new OrderShipping(
+            id: $model->shipping_id,
             name: $model->shipping_method,
             value: $model->shipping_cost ?? 0.0,
             vatRate: $model->shipping_vat_rate ?? 0.0,
@@ -214,6 +270,7 @@ final class OrderModelMapper
             state: $model->billing_state,
             postcode: $model->billing_postcode,
             country: $model->billing_country,
+            countryId: $model->billing_country_id,
         );
     }
 
@@ -232,6 +289,7 @@ final class OrderModelMapper
             state: $model->delivery_state,
             postcode: $model->delivery_postcode,
             country: $model->delivery_country,
+            countryId: $model->delivery_country_id,
         );
     }
 }

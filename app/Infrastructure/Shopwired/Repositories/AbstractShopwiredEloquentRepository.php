@@ -57,10 +57,10 @@ abstract class AbstractShopwiredEloquentRepository implements ShopwiredRepositor
                 // Transient failure (DB unavailable) - bubble up for job retry
                 throw $e;
             } catch (DuplicateRecordException) {
-                // Race condition: concurrent process already saved this entity
+                // Entity already exists (from previous sync or concurrent process)
                 // Not a failure - the entity exists, which is the goal
                 $succeeded++;
-                Log::info("{$this->getEntityTypeName()} already saved by concurrent process", [
+                Log::info("{$this->getEntityTypeName()} already exists, skipping duplicate", [
                     'external_id' => $this->getEntityIdentifier($entity),
                 ]);
             } catch (DatabaseOperationFailedException $e) {

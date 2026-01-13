@@ -140,7 +140,7 @@ deptrac:
       - SymfonyHttp
       - CarbonDateTime
 
-    # Presentation: Internal + Laravel, Symfony, Firebase, Sentry
+    # Presentation: Internal + Laravel, Symfony, Firebase, Sentry, Carbon
     Presentation:
       - Application
       - Domain
@@ -149,6 +149,7 @@ deptrac:
       - SymfonyHttpKernel
       - FirebaseJwt
       - SentrySdk
+      - CarbonDateTime
 
     # External layers have no outbound dependencies
     AssertionLibrary: ~

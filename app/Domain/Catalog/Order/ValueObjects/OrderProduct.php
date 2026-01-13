@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\Catalog\Order\ValueObjects;
 
+use DateTimeImmutable;
 use Webmozart\Assert\Assert;
 
 /**
@@ -17,6 +18,8 @@ use Webmozart\Assert\Assert;
 final readonly class OrderProduct
 {
     /**
+     * @param bool $isPreorder Whether this is a pre-order item (derived from comments containing "Preorder:")
+     * @param DateTimeImmutable|null $preorderDate Expected availability date for pre-order items
      * @param array<int, ProductVariation> $variation
      * @param array<int, array{name: string, value: string}> $customFields
      */
@@ -34,6 +37,8 @@ final readonly class OrderProduct
         public int $quantity,
         public float $vatRate,
         public string $comments,
+        public bool $isPreorder,
+        public ?DateTimeImmutable $preorderDate = null,
         public array $variation = [],
         public array $customFields = [],
     ) {

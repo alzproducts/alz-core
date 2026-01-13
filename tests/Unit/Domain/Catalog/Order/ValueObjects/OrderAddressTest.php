@@ -44,6 +44,7 @@ final class OrderAddressTest extends TestCase
             'state' => null,
             'postcode' => 'SW1A 1AA',
             'country' => 'United Kingdom',
+            'countryId' => 1,
         ];
 
         $data = \array_merge($defaults, $overrides);

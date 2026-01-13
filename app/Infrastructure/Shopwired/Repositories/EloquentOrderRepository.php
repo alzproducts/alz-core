@@ -12,9 +12,11 @@ use App\Domain\Exceptions\DuplicateRecordException;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\ResourceNotFoundException;
 use App\Infrastructure\Shopwired\Mappers\OrderModelMapper;
+use App\Infrastructure\Shopwired\Models\OrderAdminCommentModel;
 use App\Infrastructure\Shopwired\Models\OrderDiscountModel;
 use App\Infrastructure\Shopwired\Models\OrderModel;
 use App\Infrastructure\Shopwired\Models\OrderProductModel;
+use App\Infrastructure\Shopwired\Models\OrderRefundModel;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -33,7 +35,7 @@ final class EloquentOrderRepository extends AbstractShopwiredEloquentRepository 
     private const string ENTITY_TYPE = 'Order';
 
     /** @var list<string> */
-    private const array EAGER_LOAD_RELATIONS = ['products', 'discounts'];
+    private const array EAGER_LOAD_RELATIONS = ['products', 'discounts', 'refunds', 'adminComments'];
 
     // ─────────────────────────────────────────────────────────────────────────
     // Interface Implementation
@@ -54,6 +56,8 @@ final class EloquentOrderRepository extends AbstractShopwiredEloquentRepository 
             $model = $this->upsertOrder($entity);
             $this->syncProducts($model, $entity);
             $this->syncDiscounts($model, $entity);
+            $this->syncRefunds($model, $entity);
+            $this->syncAdminComments($model, $entity);
         }, attempts: 3);
     }
 
@@ -191,14 +195,53 @@ final class EloquentOrderRepository extends AbstractShopwiredEloquentRepository 
     {
         // Discounts have no stable ID - replace all on sync
         OrderDiscountModel::query()
-            ->where('order_id', $model->id)
+            ->where('order_external_id', $order->id)
             ->delete();
 
         foreach ($order->discounts as $discount) {
             $attributes = OrderDiscountModel::fromDomainAttributes($discount);
             $attributes['order_id'] = $model->id;
+            $attributes['order_external_id'] = $order->id;
 
             OrderDiscountModel::query()->create($attributes);
+        }
+    }
+
+    /**
+     * Sync order refunds (replace all on each sync).
+     */
+    private function syncRefunds(OrderModel $model, Order $order): void
+    {
+        // Refunds have no stable ID - replace all on sync
+        OrderRefundModel::query()
+            ->where('order_external_id', $order->id)
+            ->delete();
+
+        foreach ($order->refunds as $refund) {
+            $attributes = OrderRefundModel::fromDomainAttributes($refund);
+            $attributes['order_id'] = $model->id;
+            $attributes['order_external_id'] = $order->id;
+
+            OrderRefundModel::query()->create($attributes);
+        }
+    }
+
+    /**
+     * Sync order admin comments (replace all on each sync).
+     */
+    private function syncAdminComments(OrderModel $model, Order $order): void
+    {
+        // Admin comments have no stable ID - replace all on sync
+        OrderAdminCommentModel::query()
+            ->where('order_external_id', $order->id)
+            ->delete();
+
+        foreach ($order->adminComments as $comment) {
+            $attributes = OrderAdminCommentModel::fromDomainAttributes($comment);
+            $attributes['order_id'] = $model->id;
+            $attributes['order_external_id'] = $order->id;
+
+            OrderAdminCommentModel::query()->create($attributes);
         }
     }
 }
