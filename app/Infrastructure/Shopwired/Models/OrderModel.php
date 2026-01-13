@@ -80,6 +80,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property bool $is_archived Whether order is archived in ShopWired
  * @property bool $is_anonymized Whether customer data has been anonymized (GDPR)
  * @property string|null $comments Order comments
+ * @property string|null $customer_reference_number Extracted customer reference from comments
  * @property array<string, mixed>|null $custom_fields Dynamic custom fields
  * @property CarbonImmutable $order_placed_at When order was placed in ShopWired
  * @property CarbonImmutable|null $delivery_date Expected/actual delivery date

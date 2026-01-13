@@ -130,6 +130,7 @@ final class OrderModelMapper
             adminComments: $adminComments,
             products: $products,
             customFields: $model->custom_fields,
+            customerReferenceNumber: $model->customer_reference_number,
         );
     }
 
@@ -203,6 +204,7 @@ final class OrderModelMapper
             'is_anonymized' => $order->isAnonymized,
             'comments' => $order->comments,
             'custom_fields' => $order->customFields,
+            'customer_reference_number' => $order->customerReferenceNumber,
         ];
     }
 

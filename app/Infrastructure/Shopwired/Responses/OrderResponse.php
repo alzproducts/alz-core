@@ -195,6 +195,7 @@ final class OrderResponse extends Data implements DomainConvertibleInterface
             ),
             products: $products,
             customFields: $this->customFields,
+            customerReferenceNumber: Order::extractCustomerReferenceNumber($this->comments),
         );
     }
 
