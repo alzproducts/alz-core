@@ -12,11 +12,13 @@ use App\Domain\Exceptions\InvalidApiRequestException;
 use App\Domain\Exceptions\InvalidApiResponseException;
 use App\Domain\Exceptions\ResourceNotFoundException;
 use App\Infrastructure\Shopwired\CustomerQueryParams;
+use App\Infrastructure\Shopwired\Enums\CustomerSort;
 use App\Infrastructure\Shopwired\Responses\CustomerResponse;
 use App\Infrastructure\Shopwired\ShopwiredHttpTransport;
 use App\Infrastructure\Shopwired\ShopwiredPaginator;
 use App\Infrastructure\Shopwired\ShopwiredQueryParams;
 use App\Infrastructure\Shopwired\ShopwiredResponseParserTrait;
+use Generator;
 
 /**
  * ShopWired Customers API Client.
@@ -88,6 +90,8 @@ final readonly class CustomerClient implements CustomerClientInterface
     /**
      * List ALL customers with embedded data (paginated fetch).
      *
+     * Uses created_asc sort order for deterministic pagination consistency.
+     *
      * @return list<DomainCustomer>
      *
      * @throws InvalidApiRequestException When request parameters are invalid (400)
@@ -99,6 +103,7 @@ final readonly class CustomerClient implements CustomerClientInterface
     public function listAllCustomers(): array
     {
         $params = CustomerQueryParams::forBulkFetch()
+            ->withSort(CustomerSort::CreatedAsc)
             ->withBaseParams(
                 ShopwiredQueryParams::forBulkFetch()
                     ->withEmbeds(self::DEFAULT_EMBEDS)
@@ -137,6 +142,37 @@ final readonly class CustomerClient implements CustomerClientInterface
             params: $params,
             fetchPage: fn(CustomerQueryParams $p): array => $this->fetchCustomerPage($p),
             knownTotal: $this->getTradeCustomerCount(),
+        );
+    }
+
+    /**
+     * Iterate ALL customers in batches (memory-efficient).
+     *
+     * Uses created_asc sort order for deterministic pagination consistency.
+     * Yields batches of ~100 customers per page.
+     *
+     * @return Generator<int, list<DomainCustomer>, mixed, void> Yields batches (page number as key)
+     *
+     * @throws InvalidApiRequestException When request parameters are invalid (400)
+     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
+     * @throws ResourceNotFoundException When resource not found (404)
+     * @throws ExternalServiceUnavailableException When API unavailable or connection fails
+     * @throws InvalidApiResponseException When response parsing fails (API contract violation)
+     */
+    public function iterateAllCustomerBatches(): Generator
+    {
+        $params = CustomerQueryParams::forBulkFetch()
+            ->withSort(CustomerSort::CreatedAsc)
+            ->withBaseParams(
+                ShopwiredQueryParams::forBulkFetch()
+                    ->withEmbeds(self::DEFAULT_EMBEDS)
+                    ->withFields(self::DEFAULT_FIELDS),
+            );
+
+        yield from ShopwiredPaginator::pages(
+            params: $params,
+            fetchPage: fn(CustomerQueryParams $p): array => $this->fetchCustomerPage($p),
+            knownTotal: $this->getCustomerCount(),
         );
     }
 
