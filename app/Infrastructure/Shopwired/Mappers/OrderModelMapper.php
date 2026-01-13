@@ -92,9 +92,9 @@ final class OrderModelMapper
             reference: $model->reference,
             orderPlacedAt: $model->order_placed_at->toDateTimeImmutable(),
             total: $model->total,
-            subTotal: $model->sub_total,
-            shippingTotal: $model->shipping_total,
-            originalShippingTotal: $model->original_shipping_total,
+            subTotalNet: $model->sub_total_net,
+            shippingTotalNet: $model->shipping_total_net,
+            originalShippingTotalNet: $model->original_shipping_total_net,
             paymentMethod: self::buildEnum(
                 PaymentMethod::class,
                 $model->payment_method,
@@ -148,9 +148,9 @@ final class OrderModelMapper
             'reference' => $order->reference,
             'order_placed_at' => $order->orderPlacedAt,
             'total' => $order->total,
-            'sub_total' => $order->subTotal,
-            'shipping_total' => $order->shippingTotal,
-            'original_shipping_total' => $order->originalShippingTotal,
+            'sub_total_net' => $order->subTotalNet,
+            'shipping_total_net' => $order->shippingTotalNet,
+            'original_shipping_total_net' => $order->originalShippingTotalNet,
             'tax_value' => $order->taxValue,
             'line_item_vat_calculation' => $order->lineItemVatCalculation,
             'status_id' => $order->status->id,
@@ -191,7 +191,7 @@ final class OrderModelMapper
             'delivery_country_id' => $order->shippingAddress->countryId,
             'shipping_id' => $order->shipping?->id,
             'shipping_method' => $order->shipping?->name,
-            'shipping_cost' => $order->shipping !== null ? $order->shipping->value : 0.0,
+            'shipping_charge_net' => $order->shipping !== null ? $order->shipping->chargeNet : 0.0,
             'shipping_vat_rate' => $order->shipping?->vatRate,
             'tracking_url' => $order->trackingUrl,
             'invoice_url' => $order->invoiceUrl,
@@ -250,7 +250,7 @@ final class OrderModelMapper
         return new OrderShipping(
             id: $model->shipping_id,
             name: $model->shipping_method,
-            value: $model->shipping_cost ?? 0.0,
+            chargeNet: $model->shipping_charge_net ?? 0.0,
             vatRate: $model->shipping_vat_rate ?? 0.0,
         );
     }

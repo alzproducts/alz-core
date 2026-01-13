@@ -14,8 +14,10 @@ use App\Domain\Exceptions\InvalidConfigurationException;
 use App\Domain\Exceptions\PayloadSerializationException;
 use App\Infrastructure\Mixpanel\DTOs\MixpanelAdSpendEventDTO;
 use App\Infrastructure\Support\CsvFormatter;
+use DateTimeImmutable;
 use Illuminate\Support\Facades\Log;
 use JsonException;
+use RuntimeException;
 
 /**
  * Manages Mixpanel API interactions for events and lookup tables.
@@ -122,6 +124,30 @@ final readonly class MixpanelClient implements MixpanelClientInterface
             body: $csv,
             contentType: 'text/csv',
         );
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @throws RuntimeException Not implemented yet
+     *
+     * @todo Implement in Issue #116 - Mixpanel order sync
+     */
+    public function getExistingOrderHashes(DateTimeImmutable $from, DateTimeImmutable $to): array
+    {
+        throw new RuntimeException('Not implemented yet - see Issue #116');
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @throws RuntimeException Not implemented yet
+     *
+     * @todo Implement in Issue #116 - Mixpanel order sync
+     */
+    public function importOrders(array $orders, array $customerTradeMap): void
+    {
+        throw new RuntimeException('Not implemented yet - see Issue #116');
     }
 
     /**
