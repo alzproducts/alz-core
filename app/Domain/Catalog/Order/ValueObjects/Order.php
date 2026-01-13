@@ -27,6 +27,12 @@ use Webmozart\Assert\Assert;
  */
 final readonly class Order
 {
+    /** Comment delimiter used in legacy structured comments. */
+    public const string COMMENT_DELIM_OLD = ':-';
+
+    /** Comment delimiter used in current structured comments. */
+    public const string COMMENT_DELIM_NEW = '*>';
+
     /**
      * @param int $id ShopWired's order ID (external identifier for API/persistence)
      * @param int $reference Customer-facing order reference number
@@ -47,6 +53,7 @@ final readonly class Order
      * @param array<int, OrderRefund> $refunds
      * @param array<int, OrderAdminComment> $adminComments
      * @param array<string, mixed>|null $customFields Null=Standard mode, array=Detail mode
+     * @param string|null $customerReferenceNumber Extracted from comments (null if not present/extractable)
      */
     public function __construct(
         public int $id,
@@ -79,6 +86,7 @@ final readonly class Order
         public array $adminComments = [],
         public ?array $products = null,
         public ?array $customFields = null,
+        public ?string $customerReferenceNumber = null,
     ) {
         Assert::greaterThan($id, 0, 'Order ID must be positive');
         Assert::greaterThan($reference, 0, 'Order reference must be positive');
@@ -142,5 +150,54 @@ final readonly class Order
     public function hasAdminComments(): bool
     {
         return $this->adminComments !== [];
+    }
+
+    /**
+     * Extract customer reference number from order comments.
+     *
+     * Looks for "Reference XYZ" pattern in comments and extracts the value.
+     * Excludes structured comments that use delimiter markers.
+     *
+     * Rules:
+     * - Case-insensitive search for "reference " keyword
+     * - Must NOT contain delimiter markers (structured comments)
+     * - Extracts text after "Reference " until end of line
+     * - Truncates to 255 characters (database column limit)
+     */
+    public static function extractCustomerReferenceNumber(string $comments): ?string
+    {
+        if ($comments === '') {
+            return null;
+        }
+
+        // Exclude structured comments (contain delimiters)
+        if (\str_contains($comments, self::COMMENT_DELIM_OLD)
+            || \str_contains($comments, self::COMMENT_DELIM_NEW)) {
+            return null;
+        }
+
+        // Case-insensitive search for "reference "
+        $pos = \mb_stripos($comments, 'reference ');
+        if ($pos === false) {
+            return null;
+        }
+
+        // Extract from after "Reference " until end of line (not end of string)
+        $afterReference = \mb_substr($comments, $pos + 10);
+
+        // Find first newline to stop extraction
+        $newlinePos = \mb_strpos($afterReference, "\n");
+        $reference = $newlinePos !== false
+            ? \mb_substr($afterReference, 0, $newlinePos)
+            : $afterReference;
+
+        $reference = \mb_trim($reference);
+
+        if ($reference === '') {
+            return null;
+        }
+
+        // Truncate to 255 chars (database column limit)
+        return \mb_substr($reference, 0, 255);
     }
 }

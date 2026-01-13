@@ -99,6 +99,7 @@ See `.ai/implementation-logs/CLAUDE.md` for the full template and guidelines.
 2. Verify current branch ≠ `main` or `develop`
 3. Commit with Conventional Commit message
 4. Push immediately
+5. Run `.claude/scripts/refresh-ide.sh` (refreshes JetBrains git panel)
 
 **Conventional Commits:** `type(scope): description`
 **Types:** `feat`, `fix`, `refactor`, `test`, `docs`, `chore`, `perf`, `ci`
