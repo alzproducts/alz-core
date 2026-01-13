@@ -123,6 +123,8 @@ If no PR exists, ask user via `AskUserQuestion`:
 - **Complete checklist first** — verify against issue/plan/comments (as applicable)
 - **Don't create PR** — more work needed or user will handle
 
+**Always include issue reference** in PR description: `Closes #123` (or `Fixes #123` for bugs).
+
 After creation, poll CI (up to 10 min) and report pass/fail with PR URL.
 
 ### Merge Strategy
