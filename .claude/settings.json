@@ -39,6 +39,11 @@
       "Grep(~/WebstormProjects/alz-admin/**)",
       "Glob(~/WebstormProjects/alz-admin/**)"
     ],
-    "deny": []
+    "deny": [
+      "Bash(*migrate:fresh*)",
+      "Bash(*migrate:refresh*)",
+      "Bash(*migrate:reset*)",
+      "Bash(*db:wipe*)"
+    ]
   }
 }

@@ -1,4 +1,4 @@
-.PHONY: help install up down shell migrate pint pint-test test test-quick test-coverage coverage-html pest-mutate test-ai test-mutate lint lint-sequential lint-full fix analyse insights phparkitect deptrac tlint tlint-full psalm psalm-ci psalm-baseline stan rector rector-dry-run refactor check check-full infection infection-fast infection-strict infection-incremental infection-ci ide-helper test-domain test-domain-coverage test-app test-app-coverage mutate-domain mutate-app supabase-start supabase-functions supabase-stop supabase-status supabase-reset supabase-seed-users redis
+.PHONY: help install up down shell migrate db-reset-full pint pint-test test test-quick test-coverage coverage-html pest-mutate test-ai test-mutate lint lint-sequential lint-full fix analyse insights phparkitect deptrac tlint tlint-full psalm psalm-ci psalm-baseline stan rector rector-dry-run refactor check check-full infection infection-fast infection-strict infection-incremental infection-ci ide-helper test-domain test-domain-coverage test-app test-app-coverage mutate-domain mutate-app supabase-start supabase-functions supabase-stop supabase-status supabase-reset supabase-seed-users redis
 
 # Enable strict shell mode for robust error handling
 SHELL := bash
@@ -336,6 +336,29 @@ test-mutate: ## Run full mutation testing suite
 migrate: ## Run database migrations
 	@echo "$(MODE)"
 	$(EXEC) artisan migrate
+
+# =============================================================================
+# Database Reset (Coordinated)
+# =============================================================================
+# IMPORTANT: This project shares PostgreSQL with Supabase (alz-admin).
+# Supabase owns auth.* tables. NEVER run migrate:fresh, migrate:refresh,
+# migrate:reset, or db:wipe directly - they destroy Supabase auth tables.
+# Use this target instead for safe, coordinated resets.
+
+db-reset-full: ## Full database reset (Supabase auth + Laravel migrations)
+	@echo "$(YELLOW)=== FULL DATABASE RESET ===$(NC)"
+	@echo "$(YELLOW)This resets Supabase auth tables AND re-runs Laravel migrations.$(NC)"
+	@echo ""
+	@echo "$(YELLOW)Step 1/2: Resetting Supabase (auth tables, test users)...$(NC)"
+	@$(MAKE) supabase-reset
+	@echo ""
+	@echo "$(YELLOW)Step 2/2: Running Laravel migrations...$(NC)"
+	@$(MAKE) migrate
+	@echo ""
+	@echo "$(GREEN)Full database reset complete.$(NC)"
+	@echo "$(GREEN)- Supabase auth tables: reset$(NC)"
+	@echo "$(GREEN)- Test users: seeded$(NC)"
+	@echo "$(GREEN)- Laravel tables: migrated$(NC)"
 
 # =============================================================================
 # Supabase (Local Development)
