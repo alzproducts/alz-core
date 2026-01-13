@@ -6,6 +6,7 @@ namespace Tests\Unit\Domain\Catalog\Order\ValueObjects;
 
 use App\Domain\Catalog\Order\ValueObjects\OrderAdminComment;
 use DateTimeImmutable;
+use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -86,5 +87,37 @@ final class OrderAdminCommentTest extends TestCase
         );
 
         $this->assertSame('', $comment->content);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Validation Tests
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function it_throws_when_external_id_is_zero(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Comment external ID must be positive');
+
+        new OrderAdminComment(
+            externalId: 0,
+            content: 'Test comment',
+            createdAt: new DateTimeImmutable(),
+        );
+    }
+
+    #[Test]
+    public function it_throws_when_external_id_is_negative(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Comment external ID must be positive');
+
+        new OrderAdminComment(
+            externalId: -1,
+            content: 'Test comment',
+            createdAt: new DateTimeImmutable(),
+        );
     }
 }

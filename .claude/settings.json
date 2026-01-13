@@ -43,7 +43,9 @@
       "Bash(*migrate:fresh*)",
       "Bash(*migrate:refresh*)",
       "Bash(*migrate:reset*)",
-      "Bash(*db:wipe*)"
+      "Bash(*db:wipe*)",
+      "Bash(*queue:work*)",
+      "Bash(*queue:listen*)"
     ]
   }
 }

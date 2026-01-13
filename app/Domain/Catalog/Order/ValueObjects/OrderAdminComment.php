@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\Catalog\Order\ValueObjects;
 
 use DateTimeImmutable;
+use Webmozart\Assert\Assert;
 
 /**
  * Order admin comment value object.
@@ -24,5 +25,7 @@ final readonly class OrderAdminComment
         public string $content,
         public DateTimeImmutable $createdAt,
         public ?int $statusId = null,
-    ) {}
+    ) {
+        Assert::greaterThan($externalId, 0, 'Comment external ID must be positive');
+    }
 }

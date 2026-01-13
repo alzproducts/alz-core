@@ -24,7 +24,7 @@ use Spatie\LaravelData\Mappers\SnakeCaseMapper;
 final class OrderAdminCommentResponse extends Data
 {
     public function __construct(
-        public readonly ?int $id = null,
+        public readonly int $id,
         public readonly ?string $created = null,
         public readonly ?string $content = null,
         #[MapInputName('status_id')]
@@ -34,7 +34,7 @@ final class OrderAdminCommentResponse extends Data
     public function toDomain(): OrderAdminComment
     {
         return new OrderAdminComment(
-            externalId: $this->id ?? 0,
+            externalId: $this->id,
             content: $this->content ?? '',
             createdAt: $this->parseCreatedAt() ?? new DateTimeImmutable(),
             statusId: $this->statusId,

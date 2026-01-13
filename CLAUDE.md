@@ -166,6 +166,10 @@ make lint                         # Run linters
 - **2-3x faster** linting and static analysis
 - **Instant** IDE indexing (no Docker volume overhead)
 
+### Queue Processing
+
+**Queue listener runs automatically** (`php artisan queue:listen -v`) in the background during local development. Do NOT manually run queue workers — jobs process automatically. Just dispatch jobs and they will be handled.
+
 ---
 
 ## Clean Architecture
@@ -239,6 +243,10 @@ final class Rating extends Data {
 3. **Supabase shared**: Same PostgreSQL database as Next.js frontend
 4. **Production uses Octane**: We run long-running daemon processes (Laravel Octane) in production. Be cautious with date/time calculations in queue jobs—always calculate timestamps in `handle()` method, not in constructor, to ensure fresh evaluations on each execution (not stale values from job creation time).
 5. **Enforce over warn**: When reviewing security controls, prefer enforcement (fail-fast) over warnings. If a security boundary can be enforced, do that instead of logging a warning that might be ignored.
+
+### Common Pitfalls
+
+**Date Range Windows**: Never use `subMonths()` directly for backfill/sync windows—creates gaps at month boundaries. Use `startOfMonth()->subMonths()` instead. See [`.ai/docs/guides/critical-pitfalls.md`](.ai/docs/guides/critical-pitfalls.md).
 
 ## Exception Handling in Clean Architecture
 

@@ -22,7 +22,7 @@ use Spatie\LaravelData\Mappers\SnakeCaseMapper;
 final class OrderRefundResponse extends Data
 {
     public function __construct(
-        public readonly ?int $id = null,
+        public readonly int $id,
         public readonly ?string $created = null,
         public readonly ?string $name = null,
         public readonly ?float $value = null,
@@ -31,7 +31,7 @@ final class OrderRefundResponse extends Data
     public function toDomain(): OrderRefund
     {
         return new OrderRefund(
-            externalId: $this->id ?? 0,
+            externalId: $this->id,
             name: $this->name ?? '',
             value: $this->value ?? 0.0,
             createdAt: $this->parseCreatedAt() ?? new DateTimeImmutable(),

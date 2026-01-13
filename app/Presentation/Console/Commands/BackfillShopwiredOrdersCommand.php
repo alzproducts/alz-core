@@ -5,8 +5,7 @@ declare(strict_types=1);
 namespace App\Presentation\Console\Commands;
 
 use App\Presentation\Jobs\SyncShopwiredOrdersJob;
-use DateMalformedStringException;
-use DateTimeImmutable;
+use Carbon\CarbonImmutable;
 use Illuminate\Console\Command;
 
 /**
@@ -30,9 +29,6 @@ final class BackfillShopwiredOrdersCommand extends Command
 
     protected $description = 'Backfill historical orders from ShopWired API';
 
-    /**
-     * @throws DateMalformedStringException Never in practice (hardcoded valid strings)
-     */
     public function handle(): int
     {
         $months = (int) $this->option('months');
@@ -51,7 +47,10 @@ final class BackfillShopwiredOrdersCommand extends Command
             return self::FAILURE;
         }
 
-        $now = new DateTimeImmutable('now');
+        // Use startOfMonth() to ensure gap-free calendar month windows.
+        // Direct month arithmetic (e.g., "Mar 31 - 1 month = Feb 28") creates gaps
+        // because it doesn't maintain end-of-month semantics.
+        $now = CarbonImmutable::now();
 
         $this->info($dryRun ? 'DRY RUN - Would dispatch:' : "Dispatching {$months} monthly sync jobs...");
         $this->newLine();
@@ -72,10 +71,10 @@ final class BackfillShopwiredOrdersCommand extends Command
 
         for ($i = 0; $i < $months; $i++) {
             $monthsAgo = $offset + $i;
-            $to = $now->modify("-{$monthsAgo} months");
-            $from = $to->modify('-1 month');
+            $from = $now->startOfMonth()->subMonths($monthsAgo + 1);
+            $to = $now->startOfMonth()->subMonths($monthsAgo);
 
-            SyncShopwiredOrdersJob::dispatch($from, $to);
+            SyncShopwiredOrdersJob::dispatch($from->toDateTimeImmutable(), $to->toDateTimeImmutable());
         }
 
         $this->info("✓ {$months} jobs dispatched to queue.");
@@ -88,17 +87,15 @@ final class BackfillShopwiredOrdersCommand extends Command
      * Build table data showing what will be dispatched.
      *
      * @return list<array{int, string, string, string}>
-     *
-     * @throws DateMalformedStringException Never in practice (hardcoded valid strings)
      */
-    private function buildJobTable(DateTimeImmutable $now, int $months, int $offset): array
+    private function buildJobTable(CarbonImmutable $now, int $months, int $offset): array
     {
         $rows = [];
 
         for ($i = 0; $i < $months; $i++) {
             $monthsAgo = $offset + $i;
-            $to = $now->modify("-{$monthsAgo} months");
-            $from = $to->modify('-1 month');
+            $from = $now->startOfMonth()->subMonths($monthsAgo + 1);
+            $to = $now->startOfMonth()->subMonths($monthsAgo);
 
             $rows[] = [
                 $i + 1,

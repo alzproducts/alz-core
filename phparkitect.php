@@ -245,6 +245,7 @@ return static function (Config $config): void {
                                $application,
                                $domain,
                                'Illuminate',
+                               'Carbon',
                                'DateTime',
                                'DateTimeImmutable',
                                'DateTimeZone',
