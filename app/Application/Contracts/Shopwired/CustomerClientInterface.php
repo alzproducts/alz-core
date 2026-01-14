@@ -23,7 +23,7 @@ use Generator;
  * filter is specified, only non-trade customers are returned (this is the API default).
  *
  * Methods are explicitly named (NonTrade/Trade) to reflect which customer type they fetch.
- * To work with ALL customers, call both non-trade and trade methods separately.
+ * Use iterateAllCustomerBatches() to iterate through ALL customers (both types sequentially).
  */
 interface CustomerClientInterface
 {
@@ -66,11 +66,8 @@ interface CustomerClientInterface
      * this generator yields batches of ~100 customers per page, allowing the caller
      * to process and discard each batch before fetching the next.
      *
-     * Ideal for syncing large customer datasets (~60k) where memory is constrained.
-     * Caller can buffer multiple pages before saving (e.g., 10 pages = ~1000 customers).
-     *
-     * NOTE: Only yields non-trade customers (trade=0). For trade customers, use
-     * listAllTradeCustomers() or implement a trade batch iterator if needed.
+     * NOTE: Only yields non-trade customers (trade=0). For all customers, use
+     * iterateAllCustomerBatches() instead.
      *
      * @return Generator<int, list<Customer>, mixed, void> Yields batches of customers (page number as key)
      *
@@ -81,6 +78,30 @@ interface CustomerClientInterface
      * @throws InvalidApiResponseException When response parsing fails (API contract violation)
      */
     public function iterateNonTradeCustomerBatches(): Generator;
+
+    /**
+     * Iterate ALL customers in batches (memory-efficient).
+     *
+     * Yields trade customers first (~5 pages), then non-trade (~677 pages). Trade
+     * customers are synced first as they are higher-priority B2B accounts.
+     *
+     * This method internally makes two separate API pagination passes since the
+     * ShopWired API cannot return both customer types in a single request.
+     *
+     * Ideal for syncing large customer datasets (~68k total) where memory is constrained.
+     * Caller can buffer multiple pages before saving (e.g., 10 pages = ~1000 customers).
+     *
+     * Page numbers are sequential across both passes (trade pages 1-N, non-trade N+1-M).
+     *
+     * @return Generator<int, list<Customer>, mixed, void> Yields batches of customers (page number as key)
+     *
+     * @throws InvalidApiRequestException When request parameters are invalid (400)
+     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
+     * @throws ResourceNotFoundException When resource not found (404)
+     * @throws ExternalServiceUnavailableException When API unavailable or connection fails
+     * @throws InvalidApiResponseException When response parsing fails (API contract violation)
+     */
+    public function iterateAllCustomerBatches(): Generator;
 
     /**
      * List non-trade customers (single page, default parameters).

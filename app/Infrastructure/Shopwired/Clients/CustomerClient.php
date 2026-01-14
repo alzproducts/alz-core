@@ -184,6 +184,70 @@ final readonly class CustomerClient implements CustomerClientInterface
     }
 
     /**
+     * Iterate ALL customers in batches (memory-efficient).
+     *
+     * Yields trade customers first (faster, ~5 pages), then non-trade (~677 pages).
+     * Trade customers are synced first as they are higher-priority B2B accounts.
+     * Page numbers are sequential across both passes.
+     *
+     * @return Generator<int, list<DomainCustomer>, mixed, void> Yields batches (page number as key)
+     *
+     * @throws InvalidApiRequestException When request parameters are invalid (400)
+     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
+     * @throws ResourceNotFoundException When resource not found (404)
+     * @throws ExternalServiceUnavailableException When API unavailable or connection fails
+     * @throws InvalidApiResponseException When response parsing fails (API contract violation)
+     */
+    public function iterateAllCustomerBatches(): Generator
+    {
+        $pageNumber = 0;
+
+        // First pass: trade customers (priority B2B accounts, ~5 pages)
+        foreach ($this->iterateTradeCustomerBatches() as $batch) {
+            $pageNumber++;
+            yield $pageNumber => $batch;
+        }
+
+        // Second pass: non-trade customers (bulk B2C, ~677 pages)
+        foreach ($this->iterateNonTradeCustomerBatches() as $batch) {
+            $pageNumber++;
+            yield $pageNumber => $batch;
+        }
+    }
+
+    /**
+     * Iterate TRADE customers in batches (memory-efficient).
+     *
+     * Uses created_asc sort order for deterministic pagination consistency.
+     * Yields batches of ~100 trade customers per page.
+     *
+     * @return Generator<int, list<DomainCustomer>, mixed, void> Yields batches (page number as key)
+     *
+     * @throws InvalidApiRequestException When request parameters are invalid (400)
+     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
+     * @throws ResourceNotFoundException When resource not found (404)
+     * @throws ExternalServiceUnavailableException When API unavailable or connection fails
+     * @throws InvalidApiResponseException When response parsing fails (API contract violation)
+     */
+    private function iterateTradeCustomerBatches(): Generator
+    {
+        $params = CustomerQueryParams::forBulkFetch()
+            ->withTrade(true)
+            ->withSort(CustomerSort::CreatedAsc)
+            ->withBaseParams(
+                ShopwiredQueryParams::forBulkFetch()
+                    ->withEmbeds(self::DEFAULT_EMBEDS)
+                    ->withFields(self::DEFAULT_FIELDS),
+            );
+
+        yield from ShopwiredPaginator::pages(
+            params: $params,
+            fetchPage: fn(CustomerQueryParams $p): array => $this->fetchCustomerPage($p),
+            knownTotal: $this->getTradeCustomerCount(),
+        );
+    }
+
+    /**
      * List non-trade customers (single page, default parameters).
      *
      * Returns first page of non-trade customers without embeds or custom fields.
