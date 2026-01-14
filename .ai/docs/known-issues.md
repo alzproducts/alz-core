@@ -4,37 +4,38 @@ Tracked issues that aren't blockers but should be documented for future investig
 
 ---
 
-## ShopWired Customer Sync: Duplicate Emails
+## ~~ShopWired Customer Sync: Duplicate Emails~~ (RESOLVED)
+
+**Added:** 2026-01-15
+**Resolved:** 2026-01-15
+**Resolution:** Dropped unique constraint on email, replaced with regular index. Migration: `2026_01_14_224430_drop_unique_email_on_shopwired_customers`
+
+---
+
+## ShopWired: searchByEmail Returns Arbitrary Result for Duplicates
 
 **Added:** 2026-01-15
 **Severity:** Low
-**Impact:** ~8 customers (0.01%) not synced
+**Impact:** Edge case (~7 customers with duplicate emails)
 
 ### Problem
 
-ShopWired appears to have ~8 customers with duplicate emails (different customer IDs, same email address). Our `shopwired.customers` table has a unique constraint on `email`, so when the second customer with a duplicate email is synced, the INSERT fails.
+ShopWired allows the same email on multiple customer accounts (e.g., trade + non-trade). `CustomerClient::searchByEmail()` returns `?Customer` with `withCount(1)`, so when duplicates exist it returns whichever ShopWired returns first (arbitrary).
 
 ### Symptoms
 
-- `Unique constraint violation` warnings in logs during sync (PostgreSQL error 23505)
-- DB count slightly lower than API "fetched" count
-- No actual sync failures reported (constraint violations are caught and logged)
+- Searching by email may return "wrong" customer (older instead of newer, or non-trade instead of trade)
+- No error raised — silently returns one of the matches
 
 ### Workarounds
 
-None needed - 0.01% data loss is acceptable for current use cases.
+None needed currently. Use `external_id` for precise customer lookup.
 
 ### Future Fix Options
 
-1. **Remove email unique constraint** - If ShopWired legitimately allows duplicate emails
-2. **Add logging to identify duplicates** - Modify `EloquentCustomerRepository` to log the specific email on constraint violation, then investigate which accounts are affected
-3. **Composite unique key** - Use `(external_id)` only, drop email uniqueness
-
-### Investigation Notes
-
-- Constraint violations occur during `updateOrCreate` which tries INSERT first
-- Laravel's `updateOrCreate` doesn't use native PostgreSQL upsert
-- The "saved" counter may incorrectly increment even when INSERT fails (potential minor bug)
+1. **Add `searchAllByEmail(): array`** — new method returning all matches
+2. **Sort by created_at desc** — prefer most recent customer
+3. **Accept limitation** — document and move on (current approach)
 
 ---
 
