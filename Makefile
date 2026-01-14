@@ -318,7 +318,7 @@ mutate-app: ## Run Pest mutation testing on Application layer (70%+ min score)
 	@echo "$(MODE)"
 	$(EXEC) -d xdebug.mode=off vendor/bin/pest --mutate \
 		--path=app/Application \
-		--everything --min=70 --parallel --processes=9 \
+		--covered-only --min=70 --parallel --processes=9 \
 		--testsuite=Application --ignore-min-score-on-zero-mutations
 
 test-ai: ## Validate AI-generated tests with mutation testing
