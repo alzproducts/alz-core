@@ -78,7 +78,7 @@ final readonly class SyncAllCustomersUseCase
         $pagesBuffered = 0;
         $batchesFlushed = 0;
 
-        foreach ($this->customerClient->iterateAllCustomerBatches() as $pageNumber => $customers) {
+        foreach ($this->customerClient->iterateNonTradeCustomerBatches() as $pageNumber => $customers) {
             $totalFetched += \count($customers);
             $buffer = [...$buffer, ...$customers];
             $pagesBuffered++;
