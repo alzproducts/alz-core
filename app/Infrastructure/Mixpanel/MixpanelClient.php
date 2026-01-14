@@ -169,7 +169,17 @@ final readonly class MixpanelClient implements MixpanelClientInterface
 
         // Empty body with 200 OK means no events in range
         // This is suspicious and should fail - could mask API issues
+        // Exception: allowEmptyExport enables bootstrap sync for fresh accounts
         if (\mb_trim($body) === '') {
+            if ($this->config->allowEmptyExport) {
+                Log::warning('Mixpanel export returned empty response - proceeding due to allowEmptyExport', [
+                    'from' => $from->format('Y-m-d'),
+                    'to' => $to->format('Y-m-d'),
+                ]);
+
+                return [];
+            }
+
             Log::warning('Mixpanel export returned empty response', [
                 'from' => $from->format('Y-m-d'),
                 'to' => $to->format('Y-m-d'),

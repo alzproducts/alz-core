@@ -177,13 +177,8 @@ final class SyncOrdersToMixpanelJobTest extends TestCase
                     && $context['service'] === 'Mixpanel'
                     && \str_contains($context['error'], 'Export returned empty result'));
 
-        $job = Mockery::mock(SyncOrdersToMixpanelJob::class, [
-            new DateTimeImmutable(self::TEST_FROM),
-            new DateTimeImmutable(self::TEST_TO),
-        ])->makePartial();
-        $job->shouldReceive('fail')
-            ->once()
-            ->with($exception);
+        $job = $this->createJobMock();
+        $job->shouldReceive('fail')->once()->with($exception);
         $job->shouldReceive('attempts')->andReturn(1);
 
         $this->expectException(UnexpectedApiResultException::class);
@@ -214,13 +209,8 @@ final class SyncOrdersToMixpanelJobTest extends TestCase
             ->withArgs(static fn(string $message, array $context): bool => $message === 'Authentication failed during Mixpanel order sync'
                     && $context['service'] === 'Mixpanel');
 
-        $job = Mockery::mock(SyncOrdersToMixpanelJob::class, [
-            new DateTimeImmutable(self::TEST_FROM),
-            new DateTimeImmutable(self::TEST_TO),
-        ])->makePartial();
-        $job->shouldReceive('fail')
-            ->once()
-            ->with($exception);
+        $job = $this->createJobMock();
+        $job->shouldReceive('fail')->once()->with($exception);
         $job->shouldReceive('attempts')->andReturn(1);
 
         $this->expectException(AuthenticationExpiredException::class);
@@ -241,13 +231,8 @@ final class SyncOrdersToMixpanelJobTest extends TestCase
         Log::shouldReceive('info')->once();
         Log::shouldReceive('critical')->once();
 
-        $job = Mockery::mock(SyncOrdersToMixpanelJob::class, [
-            new DateTimeImmutable(self::TEST_FROM),
-            new DateTimeImmutable(self::TEST_TO),
-        ])->makePartial();
-        $job->shouldReceive('fail')
-            ->once()
-            ->with($exception);
+        $job = $this->createJobMock();
+        $job->shouldReceive('fail')->once()->with($exception);
         $job->shouldNotReceive('release'); // Should NOT release for retry
         $job->shouldReceive('attempts')->andReturn(2);
 
@@ -285,13 +270,8 @@ final class SyncOrdersToMixpanelJobTest extends TestCase
                     && $context['operation'] === 'Mixpanel order sync'
                     && $context['resolution'] === 'Run customer sync first');
 
-        $job = Mockery::mock(SyncOrdersToMixpanelJob::class, [
-            new DateTimeImmutable(self::TEST_FROM),
-            new DateTimeImmutable(self::TEST_TO),
-        ])->makePartial();
-        $job->shouldReceive('fail')
-            ->once()
-            ->with($exception);
+        $job = $this->createJobMock();
+        $job->shouldReceive('fail')->once()->with($exception);
         $job->shouldReceive('attempts')->andReturn(1);
 
         $this->expectException(MissingRequiredDataException::class);
@@ -315,13 +295,8 @@ final class SyncOrdersToMixpanelJobTest extends TestCase
         Log::shouldReceive('info')->once();
         Log::shouldReceive('critical')->once();
 
-        $job = Mockery::mock(SyncOrdersToMixpanelJob::class, [
-            new DateTimeImmutable(self::TEST_FROM),
-            new DateTimeImmutable(self::TEST_TO),
-        ])->makePartial();
-        $job->shouldReceive('fail')
-            ->once()
-            ->with($exception);
+        $job = $this->createJobMock();
+        $job->shouldReceive('fail')->once()->with($exception);
         $job->shouldNotReceive('release'); // Should NOT release for retry
         $job->shouldReceive('attempts')->andReturn(2);
 
@@ -354,13 +329,8 @@ final class SyncOrdersToMixpanelJobTest extends TestCase
                     && $context['service'] === 'Mixpanel'
                     && $context['retry_after'] === 180);
 
-        $job = Mockery::mock(SyncOrdersToMixpanelJob::class, [
-            new DateTimeImmutable(self::TEST_FROM),
-            new DateTimeImmutable(self::TEST_TO),
-        ])->makePartial();
-        $job->shouldReceive('release')
-            ->once()
-            ->with(180);
+        $job = $this->createJobMock();
+        $job->shouldReceive('release')->once()->with(180);
         $job->shouldReceive('attempts')->andReturn(1);
 
         $job->handle($this->mockUseCase);
@@ -388,10 +358,7 @@ final class SyncOrdersToMixpanelJobTest extends TestCase
             ->once()
             ->withArgs(static fn(string $message, array $context): bool => $context['retry_after'] === 'using backoff');
 
-        $job = Mockery::mock(SyncOrdersToMixpanelJob::class, [
-            new DateTimeImmutable(self::TEST_FROM),
-            new DateTimeImmutable(self::TEST_TO),
-        ])->makePartial();
+        $job = $this->createJobMock();
         $job->shouldNotReceive('release');
         $job->shouldReceive('attempts')->andReturn(3);
 
@@ -423,13 +390,8 @@ final class SyncOrdersToMixpanelJobTest extends TestCase
             ->withArgs(static fn(string $message, array $context): bool => \str_contains($message, 'Unexpected exception')
                     && $context['exception'] === RuntimeException::class);
 
-        $job = Mockery::mock(SyncOrdersToMixpanelJob::class, [
-            new DateTimeImmutable(self::TEST_FROM),
-            new DateTimeImmutable(self::TEST_TO),
-        ])->makePartial();
-        $job->shouldReceive('fail')
-            ->once()
-            ->with($exception);
+        $job = $this->createJobMock();
+        $job->shouldReceive('fail')->once()->with($exception);
         $job->shouldReceive('attempts')->andReturn(1);
 
         $this->expectException(RuntimeException::class);
@@ -451,13 +413,8 @@ final class SyncOrdersToMixpanelJobTest extends TestCase
         Log::shouldReceive('info')->once();
         Log::shouldReceive('critical')->once();
 
-        $job = Mockery::mock(SyncOrdersToMixpanelJob::class, [
-            new DateTimeImmutable(self::TEST_FROM),
-            new DateTimeImmutable(self::TEST_TO),
-        ])->makePartial();
-        $job->shouldReceive('fail')
-            ->once()
-            ->with($exception);
+        $job = $this->createJobMock();
+        $job->shouldReceive('fail')->once()->with($exception);
         $job->shouldNotReceive('release'); // Should NOT release for retry
         $job->shouldReceive('attempts')->andReturn(2);
 
@@ -487,10 +444,7 @@ final class SyncOrdersToMixpanelJobTest extends TestCase
                 'attempts' => 5,
             ]);
 
-        $job = Mockery::mock(SyncOrdersToMixpanelJob::class, [
-            new DateTimeImmutable(self::TEST_FROM),
-            new DateTimeImmutable(self::TEST_TO),
-        ])->makePartial();
+        $job = $this->createJobMock();
         $job->shouldReceive('attempts')->andReturn(5);
 
         $job->failed($exception);
@@ -506,10 +460,7 @@ final class SyncOrdersToMixpanelJobTest extends TestCase
             ->withArgs(static fn(string $message, array $context): bool => $context['exception'] === ExternalServiceUnavailableException::class
                     && $context['message'] === "External service 'Mixpanel' is unavailable");
 
-        $job = Mockery::mock(SyncOrdersToMixpanelJob::class, [
-            new DateTimeImmutable(self::TEST_FROM),
-            new DateTimeImmutable(self::TEST_TO),
-        ])->makePartial();
+        $job = $this->createJobMock();
         $job->shouldReceive('attempts')->andReturn(5);
 
         $job->failed($exception);
@@ -527,5 +478,25 @@ final class SyncOrdersToMixpanelJobTest extends TestCase
             new DateTimeImmutable(self::TEST_FROM),
             new DateTimeImmutable(self::TEST_TO),
         );
+    }
+
+    /**
+     * Create a partial mock that runs the real constructor.
+     *
+     * Uses Mockery's bracket syntax (partial test double) instead of makePartial()
+     * because makePartial() doesn't run constructors. This allows the job's
+     * constructor to call onQueue() without triggering BadMethodCallException.
+     *
+     * @return SyncOrdersToMixpanelJob&MockInterface
+     */
+    private function createJobMock(): SyncOrdersToMixpanelJob&MockInterface
+    {
+        /** @var SyncOrdersToMixpanelJob&MockInterface $mock */
+        $mock = Mockery::mock(
+            SyncOrdersToMixpanelJob::class . '[fail,release,attempts]',
+            [new DateTimeImmutable(self::TEST_FROM), new DateTimeImmutable(self::TEST_TO)],
+        );
+
+        return $mock;
     }
 }

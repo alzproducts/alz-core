@@ -44,6 +44,7 @@ final class MixpanelClientFactory
             timeout: self::requireInt(\config('mixpanel.timeout'), 'MIXPANEL_TIMEOUT'),
             retryTimes: self::requireInt(\config('mixpanel.retry_times'), 'MIXPANEL_RETRY_TIMES'),
             retryDelay: self::requireInt(\config('mixpanel.retry_delay'), 'MIXPANEL_RETRY_DELAY'),
+            allowEmptyExport: (bool) \config('mixpanel.allow_empty_export', false),
         );
     }
 

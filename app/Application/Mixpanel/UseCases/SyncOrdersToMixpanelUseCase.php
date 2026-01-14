@@ -74,14 +74,17 @@ final readonly class SyncOrdersToMixpanelUseCase
      */
     public function execute(DateTimeImmutable $from, DateTimeImmutable $to): SyncOrdersToMixpanelResult
     {
-        // Adjust sync window: exclude last N hours for Mixpanel ingestion delay
-        $adjustedTo = $to->modify('-' . self::INGESTION_BUFFER_HOURS . ' hours');
+        // Apply ingestion buffer only when $to is recent (within buffer hours of now)
+        // Historical syncs don't need the buffer - Mixpanel already has the data
+        $now = new DateTimeImmutable();
+        $bufferCutoff = $now->modify('-' . self::INGESTION_BUFFER_HOURS . ' hours');
+        $adjustedTo = ($to > $bufferCutoff) ? $bufferCutoff : $to;
 
         $this->logger->info('Starting Mixpanel order sync', [
             'from' => $from->format('Y-m-d H:i:s'),
             'to' => $to->format('Y-m-d H:i:s'),
             'adjusted_to' => $adjustedTo->format('Y-m-d H:i:s'),
-            'buffer_hours' => self::INGESTION_BUFFER_HOURS,
+            'buffer_applied' => $to > $bufferCutoff,
         ]);
 
         // Step 1: Get existing order hashes from Mixpanel (FAIL if this fails)

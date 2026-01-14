@@ -59,6 +59,7 @@ final readonly class MixpanelConfig
      * @param int $timeout Request timeout in seconds (1-300)
      * @param int $retryTimes Number of retry attempts (0-10)
      * @param int $retryDelay Delay between retries in milliseconds (0-5000)
+     * @param bool $allowEmptyExport Allow empty export results (for initial sync bootstrap only)
      *
      * @throws InvalidArgumentException When numeric parameters are out of bounds
      */
@@ -73,6 +74,7 @@ final readonly class MixpanelConfig
         public int $timeout = 30,
         public int $retryTimes = 3,
         public int $retryDelay = 100,
+        public bool $allowEmptyExport = false,
     ) {
         if ($dataApiBaseUrl === '') {
             throw new InvalidConfigurationException('mixpanel.base_url', 'Mixpanel data API base URL cannot be empty');

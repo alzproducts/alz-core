@@ -38,6 +38,15 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Order Sync Settings
+    |--------------------------------------------------------------------------
+    */
+    // Allow empty export results (for initial sync when no events exist yet)
+    // DANGEROUS: Disables deduplication safety check - only use for bootstrapping
+    'allow_empty_export' => env('MIXPANEL_ALLOW_EMPTY_EXPORT', false),
+
+    /*
+    |--------------------------------------------------------------------------
     | HTTP Transport Settings
     |--------------------------------------------------------------------------
     */

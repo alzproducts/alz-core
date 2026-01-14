@@ -46,10 +46,19 @@ final class SyncOrdersToMixpanelJob implements ShouldQueue
      */
     public array $backoff = [60, 120, 240, 480, 960];
 
+    /**
+     * Job timeout in seconds.
+     *
+     * Mixpanel Export API can be slow for historical queries (generates on-demand).
+     */
+    public int $timeout = 600;
+
     public function __construct(
         private readonly DateTimeImmutable $from,
         private readonly DateTimeImmutable $to,
-    ) {}
+    ) {
+        $this->onQueue('low');
+    }
 
     /**
      * Execute the job.

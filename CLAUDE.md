@@ -61,9 +61,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Tool Usage
 
-### ⚠️ Important: Use PHPStorm MCP for Codebase Navigation
+### ⚠️ Important: Use JetBrains MCP for Codebase Navigation
 
-Prefer `mcp__phpstorm__*` tools over built-in equivalents—semantic indexes are faster and more accurate.
+Prefer `mcp__phpstorm__*` or `mcp__intellij__*` for **read-only** operations (search, symbols, file reads). Use standard `Bash`/`Write`/`Edit` for execution and file changes.
 
 ### zen:challenge - Critical Thinking
 
