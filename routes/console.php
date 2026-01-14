@@ -6,6 +6,7 @@ use App\Presentation\Jobs\ProcessProductSearchFeedJob;
 use App\Presentation\Jobs\SyncBingAdsToMixpanelJob;
 use App\Presentation\Jobs\SyncCampaignLookupTableJob;
 use App\Presentation\Jobs\SyncGoogleAdsToMixpanelJob;
+use App\Presentation\Jobs\SyncOrdersToMixpanelJob;
 use App\Presentation\Jobs\SyncShopwiredOrdersJob;
 use Illuminate\Support\Facades\Schedule;
 
@@ -123,3 +124,37 @@ Schedule::call(static function (): void {
     ->hourly()
     ->onOneServer()
     ->withoutOverlapping(15);
+
+// ============================================================================
+// Mixpanel Order Sync: Nightly backend sync for orders missed by frontend
+// Catches orders not tracked by JS SDK (ad blockers, JS errors, page abandonment)
+// Uses 3-tier resilience: nightly (operational), weekly (catch-up)
+// ============================================================================
+
+// NIGHTLY: 28-hour lookback (24h + 4h buffer for Mixpanel ingestion delay)
+// Runs at 2:00 AM UK time — the extra 4 hours ensures no gaps between runs
+Schedule::call(static function (): void {
+    SyncOrdersToMixpanelJob::dispatch(
+        from: new DateTimeImmutable('-28 hours'),
+        to: new DateTimeImmutable('now'),
+    );
+})
+    ->name('sync-orders-to-mixpanel-nightly')
+    ->dailyAt('02:00')
+    ->timezone('Europe/London')
+    ->onOneServer()
+    ->withoutOverlapping(30);
+
+// WEEKLY: Last 14 days (safety net with 1 failure tolerance)
+// Deduplication via order_id_hashed + $insert_id prevents duplicates
+Schedule::call(static function (): void {
+    SyncOrdersToMixpanelJob::dispatch(
+        from: new DateTimeImmutable('-14 days'),
+        to: new DateTimeImmutable('now'),
+    );
+})
+    ->name('sync-orders-to-mixpanel-weekly')
+    ->weeklyOn(0, '03:00') // Sunday 3:00 AM
+    ->timezone('Europe/London')
+    ->onOneServer()
+    ->withoutOverlapping(60);

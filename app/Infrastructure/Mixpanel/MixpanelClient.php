@@ -290,12 +290,15 @@ final readonly class MixpanelClient implements MixpanelClientInterface
      *
      * @return list<string> Unique order_id_hashed values
      *
-     * @throws UnexpectedApiResultException When JSONL cannot be parsed or structure unexpected
+     * @throws UnexpectedApiResultException When JSONL cannot be parsed, structure unexpected,
+     *                                      or events are missing required order_id_hashed property
      */
     private function parseJsonlOrderHashes(string $jsonl): array
     {
         $lines = \explode("\n", \mb_trim($jsonl));
         $hashes = [];
+        $eventsProcessed = 0;
+        $eventsMissingHash = 0;
 
         foreach ($lines as $lineNumber => $line) {
             $line = \mb_trim($line);
@@ -321,17 +324,35 @@ final readonly class MixpanelClient implements MixpanelClientInterface
                 );
             }
 
+            $eventsProcessed++;
             $orderHash = $event['properties']['order_id_hashed'] ?? null;
 
             if (!\is_string($orderHash) || $orderHash === '') {
-                Log::warning('Mixpanel event missing order_id_hashed', [
+                $eventsMissingHash++;
+                Log::error('Mixpanel event missing order_id_hashed property', [
                     'line' => $lineNumber + 1,
+                    'event_properties' => \array_keys($event['properties'] ?? []),
                 ]);
 
-                continue; // Skip events without hash (shouldn't happen, but don't fail)
+                continue;
             }
 
             $hashes[$orderHash] = true; // Use array keys for deduplication
+        }
+
+        // Fail if we processed events but none had valid order_id_hashed
+        // This indicates frontend tracking is broken and needs immediate attention
+        if ($eventsProcessed > 0 && $hashes === []) {
+            Log::critical('All Mixpanel Checkout Completed events missing order_id_hashed', [
+                'events_processed' => $eventsProcessed,
+                'events_missing_hash' => $eventsMissingHash,
+            ]);
+
+            throw new UnexpectedApiResultException(
+                'Mixpanel',
+                "Processed {$eventsProcessed} Checkout Completed events but none had valid order_id_hashed. "
+                . 'Frontend tracking may be broken — investigate immediately.',
+            );
         }
 
         return \array_keys($hashes);

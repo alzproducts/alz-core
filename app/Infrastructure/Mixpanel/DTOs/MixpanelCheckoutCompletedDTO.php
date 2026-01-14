@@ -6,6 +6,7 @@ namespace App\Infrastructure\Mixpanel\DTOs;
 
 use App\Domain\Catalog\Order\Enums\PreOrderStatus;
 use App\Domain\Catalog\Order\ValueObjects\Order;
+use App\Domain\Catalog\Order\ValueObjects\OrderAnalyticsHash;
 use App\Domain\Catalog\Order\ValueObjects\OrderProduct;
 use Webmozart\Assert\Assert;
 
@@ -98,9 +99,8 @@ final readonly class MixpanelCheckoutCompletedDTO
     {
         Assert::notNull($order->products, 'Order must have products loaded (detail mode)');
         Assert::notEmpty($order->products, 'Order must have at least one product');
-        Assert::notEmpty($analyticsSalt, 'Analytics salt cannot be empty');
 
-        $orderIdHashed = self::hashOrderId($order->reference, $analyticsSalt);
+        $orderIdHashed = OrderAnalyticsHash::fromReference($order->reference, $analyticsSalt)->value;
 
         return new self(
             insertId: self::generateInsertId($orderIdHashed),
