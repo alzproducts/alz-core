@@ -77,6 +77,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Rationale**: The JetBrains MCP `create_new_file` tool has unreliable behavior and doesn't integrate well with the validation hooks.
 
+### GitHub CLI - Multiline Content
+
+For multiline `gh` comments: write to `/tmp/gh-comment-{issue#}.md`, then use `--body-file`. Newlines in `--body` trigger security blocks.
+
 ## Implementation Logs
 
 When working on a GitHub issue with an associated plan document, maintain an implementation log at `.ai/implementation-logs/issue-{number}-{description}.md`.
@@ -168,7 +172,7 @@ make lint                         # Run linters
 
 ### Queue Processing
 
-**Queue listener runs automatically** (`php artisan queue:listen -v`) in the background during local development. Do NOT manually run queue workers — jobs process automatically. Just dispatch jobs and they will be handled.
+**Queue listener runs automatically** via the `Queue` run configuration (see `.run/Queue.run.xml`). Do NOT manually run queue workers.
 
 ---
 

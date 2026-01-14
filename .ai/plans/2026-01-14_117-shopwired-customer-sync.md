@@ -213,6 +213,22 @@ Schedule::call(static fn() => SyncShopwiredCustomersJob::dispatch())
     ->withoutOverlapping(30);
 ```
 
+### 12. Implement Queue Priority System
+**Enhancement identified during testing**: Long-running bulk jobs should not block time-sensitive work.
+
+**3-tier queue system:**
+| Queue | Use Case | Example |
+|-------|----------|---------|
+| `high` | Time-sensitive, user-facing | Webhook processing, notifications |
+| `default` | Normal priority | Order sync, daily jobs |
+| `low` | Bulk/background work | Full customer sync, data migrations |
+
+**Changes required:**
+1. Add `public string $queue = 'low';` to `SyncShopwiredCustomersJob`
+2. Update queue listener command: `--queue=high,default,low`
+3. Update `.run/Queue.run.xml`, `CLAUDE.md`, `README.md`
+4. Document queue tiers in CLAUDE.md
+
 ---
 
 ## Files to Modify/Create
@@ -228,8 +244,11 @@ Schedule::call(static fn() => SyncShopwiredCustomersJob::dispatch())
 | `app/Application/Contracts/Shopwired/CustomerRepositoryInterface.php` | Create |
 | `app/Infrastructure/Shopwired/Repositories/CustomerRepository.php` | Create |
 | `app/Application/Shopwired/UseCases/SyncCustomersUseCase.php` | Create |
-| `app/Presentation/Jobs/SyncShopwiredCustomersJob.php` | Create |
+| `app/Presentation/Jobs/SyncShopwiredCustomersJob.php` | Create (with `$queue = 'low'`) |
 | `routes/console.php` | Modify (add schedule) |
+| `.run/Queue.run.xml` | Modify (add `--queue=high,default,low`) |
+| `CLAUDE.md` | Modify (document queue tiers) |
+| `README.md` | Modify (update queue command) |
 
 ---
 
