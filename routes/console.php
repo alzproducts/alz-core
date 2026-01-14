@@ -6,6 +6,7 @@ use App\Presentation\Jobs\ProcessProductSearchFeedJob;
 use App\Presentation\Jobs\SyncBingAdsToMixpanelJob;
 use App\Presentation\Jobs\SyncCampaignLookupTableJob;
 use App\Presentation\Jobs\SyncGoogleAdsToMixpanelJob;
+use App\Presentation\Jobs\SyncShopwiredCustomersJob;
 use App\Presentation\Jobs\SyncShopwiredOrdersJob;
 use Illuminate\Support\Facades\Schedule;
 
@@ -123,3 +124,18 @@ Schedule::call(static function (): void {
     ->hourly()
     ->onOneServer()
     ->withoutOverlapping(15);
+
+// ============================================================================
+// ShopWired Customer Sync: Daily full refresh
+// Syncs all ~60k customers from ShopWired API to local PostgreSQL
+// Unlike orders (date-range filtered), customers require full-sync approach
+// ============================================================================
+
+// DAILY: Full customer sync at 5am UK time
+// At 60 req/min rate limit, ~68k customers takes ~45-50 minutes
+// Daily ensures new customers are captured quickly
+Schedule::job(new SyncShopwiredCustomersJob())
+    ->dailyAt('05:00')
+    ->timezone('Europe/London')
+    ->onOneServer()
+    ->withoutOverlapping(60); // 60 min lock - job runs ~45-50 min

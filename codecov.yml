@@ -27,11 +27,15 @@ coverage:
       # These layers use integration/smoke tests, not unit test coverage metrics
 
 # Ignore paths that should never trigger coverage failures
+# Aligned with tests/TestingStrategy.md exclusions
 ignore:
   - "app/DevTools/**"
   - "app/Providers/**"
   - "**/*Exception.php"
   - "**/*Factory.php"
+  - "**/Contracts/**"  # Interfaces have no implementation to test
+  # Pure delegation UseCases (no branching logic worth testing)
+  - "app/Application/Shopwired/UseCases/SyncAllCustomersUseCase.php"
 
 # Components show coverage by code area in Codecov dashboard
 # See: https://docs.codecov.com/docs/components
