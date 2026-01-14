@@ -161,11 +161,6 @@ make test                         # Run all tests (unit + integration)
 make lint                         # Run linters
 ```
 
-### Why Native PHP?
-- **6x faster** test execution (4.5s vs ~30s with Sail)
-- **2-3x faster** linting and static analysis
-- **Instant** IDE indexing (no Docker volume overhead)
-
 ### Queue Processing
 
 **Queue listener runs automatically** (`php artisan queue:listen -v`) in the background during local development. Do NOT manually run queue workers — jobs process automatically. Just dispatch jobs and they will be handled.
@@ -194,47 +189,18 @@ This project follows **Clean Architecture** (Robert C. Martin) — dependencies 
 4. **Presentation** calls Application use cases, never Infrastructure directly
 5. **Validation**: External data → exceptions (Infrastructure), internal contracts → assertions (Domain)
 
-### Spatie LaravelData (DTOs)
+### Spatie LaravelData
 
-**Rule**: ❌ **NOT allowed in Domain layer**. Domain must stay framework-independent.
+❌ **NOT in Domain** (must stay framework-independent). Use in Application (response DTOs) and Infrastructure (API parsing). See `app/Infrastructure/CLAUDE.md`.
 
-**Use in Application Layer**: Transform Domain objects to API response DTOs.
-```php
-#[MapOutputName(SnakeCaseMapper::class)]
-final class RatingForApiDTO extends Data {
-    public function __construct(
-        public readonly string $sku,
-        public readonly float $averageRating,
-    ) {}
-}
-```
-
-**Use in Infrastructure Layer**: Parse external API responses and represent them as type-safe objects.
-```php
-#[MapInputName(SnakeCaseMapper::class)]
-final class Rating extends Data {
-    public function __construct(
-        public readonly string $sku,
-        public readonly float $averageRating,
-    ) {}
-}
-```
-
-## Interface Placement Rules
+### Interface Placement
 
 **Core Principle:** Interfaces live where they're USED, not where they're IMPLEMENTED.
 
-**Correct Pattern:**
-- Application defines: `Application/Contracts/MixpanelClientInterface`
-- Application uses: `SyncAdSpendUseCase` uses the interface
-- Infrastructure implements: `Infrastructure/Mixpanel/MixpanelClient implements MixpanelClientInterface`
-
-**Why:** Dependency Inversion Principle - higher layers define contracts, lower layers fulfill them.
-
-**Organization Rules:**
-- No interfaces in Infrastructure layer (Infrastructure implements, doesn't define)
-- All interfaces live in `/Contracts/` subdirectories within Domain or Application
-- Contracts directories contain ONLY interfaces, never implementations
+- Application defines cross-layer contracts: `Application/Contracts/MixpanelClientInterface`
+- Infrastructure implements: `MixpanelClient implements MixpanelClientInterface`
+- Infrastructure may have internal-only interfaces (not crossing layer boundaries)
+- Cross-layer interfaces in `/Contracts/` subdirectories within Domain or Application
 
 ## Key Architectural Decisions
 
@@ -271,67 +237,21 @@ See layer-specific guides for detailed patterns.
 
 **Target**: PHP 8.4+ features and best practices
 
-### Exception Handling
-- **Use specific SPL exceptions** instead of generic `\Exception`
-- Runtime failures → `RuntimeException`
-- Invalid arguments → `InvalidArgumentException`
-- Logic errors → `LogicException`
-
 ### PHP 8.4 Features
 - **Property Hooks**: Use where appropriate (getters/setters on properties)
 - **Asymmetric Visibility**: Use `public private(set)` for read-only properties
 - **Array Functions**: Use `array_find()`, `array_find_key()`, `array_any()`, `array_all()`
 - **Static Functions**: Always use static methods and closures for pure/stateless operations (transformations, utilities, factories). Never use static properties for state—Octane persists them across requests.
 - **Readonly Classes**: Mark classes as `readonly` when all properties are immutable (DTOs, value objects, transformers)
+- **Import All Classes**: All classes must be imported with `use` statements—including in docblocks (`@throws`, `@param`, `@return`)
 
-### Type Safety
-- Always use strict types: `declare(strict_types=1);`
-- Use union types over docblock annotations: `string|int` not `@var string|int`
-- Prefer readonly properties for immutable data
-- Use enums over class constants for fixed sets
+### Assertion & Validation
 
-### Import & Use Statements
-- **All classes must be imported** with `use` statements—including in docblocks (`@throws`, `@param`, `@return`)
+- **External data** → Laravel Validator (always active in production)
+- **Internal contracts** → `webmozart/assert` (zero cost in production)
+- **Type narrowing** → PHPStan annotations
 
-### Assertion & Validation Quick Reference
-
-#### Runtime Assertions (Development Only)
-Zero cost in production when `zend.assertions=-1`
-
-- **PHP assert()** - Built-in, compiles out in production
-- **webmozart/assert** - Fluent API with 100+ methods, PHPStan integration
-
-**Use for:** Internal contracts, preconditions in private methods, class invariants, logical impossibilities
-**Never for:** User input, API parameters, security checks, business validation
-
-#### Static Analysis (Compile-time)
-Pure documentation, zero runtime cost
-
-- **PHPStan annotations** - `@phpstan-assert`, `@phpstan-assert-if-true`
-- **Larastan** - PHPStan + Laravel extensions
-
-**Use for:** Type narrowing at Level 8, custom validation function contracts
-
-#### Testing Assertions (Test-only)
-
-- **Pest** - Modern test framework with expectation API
-- **PHPUnit** - Traditional assertions
-
-**Use for:** Verifying behavior in test suites
-
-#### Validation (Always Active)
-Remains active in production, handles untrusted input
-
-- **Laravel Validator** - Framework-integrated, 80+ rules, Form Requests
-
-**Use for:** User input, API requests/responses, external data, security boundaries
-
-#### Decision Tree
-
-1. **External/untrusted data** → Laravel Validator
-2. **Internal contracts** → Runtime assertions (webmozart/assert)
-3. **Type narrowing** → Static analysis annotations
-4. **Test verification** → Pest expectations
+See [`.ai/docs/guides/assertion-validation-reference.md`](.ai/docs/guides/assertion-validation-reference.md) for full reference.
 
 ## Build System: Makefile vs Composer
 
@@ -351,33 +271,6 @@ Remains active in production, handles untrusted input
 5. **Deptrac** (Layer Dependencies) - Analyzes `use` statement imports for CA violations
 6. **Infection** (Mutation Testing) - Validates test quality by catching weak assertions (especially AI-generated tests)
 
-**Why both PHPArkitect + Deptrac?** PHPArkitect checks type usage (`new`, `extends`, type hints) but misses `use` imports. Deptrac explicitly analyzes imports. Together they provide complete CA enforcement.
-
-### Deptrac Whitelist Enforcement
-
-Deptrac enforces **whitelist-only** external dependencies. Any new Composer package must be:
-1. Added as a layer in `deptrac.yaml` with regex pattern
-2. Explicitly allowed in the target layer's ruleset
-
-**Allowed external packages by layer:**
-
-| Layer | Allowed External Dependencies |
-|-------|-------------------------------|
-| Domain | `Webmozart\Assert` |
-| Application | `Psr\*` interfaces |
-| Infrastructure | Laravel, Spatie\LaravelData, Google\*, Webmozart\Assert |
-| Presentation | Laravel, Symfony\HttpFoundation, Firebase\JWT |
-
-### Rector (Code Refactoring)
-
-For PHP/Laravel upgrades and code modernization. **Manual-only** (not in git hooks).
-
-```bash
-make rector-dry-run   # Preview changes (always run first!)
-make rector           # Apply refactorings
-make refactor         # Rector + Pint combo (recommended)
-```
-
 ### Running Linters
 
 **Primary commands** (run `make help` for full list):
@@ -391,22 +284,11 @@ make check        # Full validation: lint-full + tests
 make test-ai      # Validate AI-generated tests (test + infection)
 ```
 
-### Pint Style Fixes (Automated Approach)
+### Pint Style Fixes
 
-**ALWAYS try auto-fixing with Pint before manually editing for style issues:**
+**ALWAYS try `make fix` before manually editing for style issues.** Pint auto-fixes ~95% of style issues.
 
-```bash
-php vendor/bin/pint <file-path>  # Auto-fix single file
-make fix                         # Auto-fix all files
-```
-
-Pint can auto-fix ~95% of style issues (trailing newlines, spacing, imports ordering, etc.). Only manually edit code if:
-1. Pint cannot auto-fix the specific issue
-2. The issue requires semantic changes (not just formatting)
-
-### Git Hooks (Automated)
-- **Pre-commit**: Pint + PHPStan + PHPArkitect (runs automatically on `git commit`)
-- **Pre-push**: Pest tests + PHP Insights + PHPArkitect (runs automatically on `git push`)
+**Git Hooks**: Pre-commit runs Pint + PHPStan + PHPArkitect. Pre-push runs Pest + PHP Insights + PHPArkitect.
 
 ### PHPArkitect Naming Conventions
 
@@ -417,33 +299,9 @@ Enforced by `phparkitect.php` (layer dependencies defined in Clean Architecture 
 - Repositories → `*Repository`
 - API clients → `*Client`
 
-### Test Generation with zen:testgen
+### Testing
 
-**Always use `zen:testgen` MCP when creating test suites.** It analyzes code structure, identifies edge cases, and generates mutation-resistant tests.
-
-After generation, validate with both mutation engines on the specific class:
-```bash
-vendor/bin/infection --filter=YourClass.php --min-msi=80
-vendor/bin/pest --mutate --class=App\\Domain\\YourClass --min=85
-```
-Fix escaped mutants until both pass.
-
-### Testing Strategy by Layer
-
-**Reference**: See `tests/TestingStrategy.md` for full guidance.
-
-| Layer | Coverage | Mutation | Test Type |
-|-------|----------|----------|-----------|
-| Domain | 90%+ | MSI 85%+ | Unit (no mocks) |
-| Application | 70%+ | Services only (70%+) | Unit + Integration |
-| Infrastructure | — | — | Integration only |
-| Presentation | — | — | Feature/smoke |
-
-**Commands**:
-- `make test-domain-coverage` — Domain with 90% threshold
-- `make test-app-coverage` — Application with 70% threshold
-- `make mutate-domain` — Domain mutation testing (90%+, uses Pest mutate)
-- `make mutate-app` — Application mutation testing (70%+, uses Pest mutate)
+**Use `zen:testgen` MCP** when creating test suites. See `tests/CLAUDE.md` for testing strategy by layer.
 
 ### ⚠️ IMPORTANT: Bypassing Linters
 

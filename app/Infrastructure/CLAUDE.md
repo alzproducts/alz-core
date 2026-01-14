@@ -168,15 +168,31 @@ class GoogleAdsClientFactory
     public static function create(): GoogleAdsClient
     {
         $clientId = config('google-ads.client_id');
-        
+
         if (!is_string($clientId) || $clientId === '') {
             throw new RuntimeException('GOOGLE_ADS_CLIENT_ID not configured');
         }
-        
+
         return new GoogleAdsClient(/* ... */);
     }
 }
 ```
+
+## Spatie LaravelData (External API Parsing)
+
+Use Spatie DTOs in Infrastructure to parse external API responses:
+
+```php
+#[MapInputName(SnakeCaseMapper::class)]
+final class ExternalApiResponse extends Data {
+    public function __construct(
+        public readonly string $orderId,
+        public readonly float $totalAmount,
+    ) {}
+}
+```
+
+**Rule**: ❌ NOT allowed in Domain layer — Domain must stay framework-independent.
 
 ## Testing
 ```php
