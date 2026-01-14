@@ -78,6 +78,7 @@ final class CustomerResponse extends Data implements DomainConvertibleInterface
         // Optional fields (trade-specific, not returned for regular customers)
         public readonly ?float $discount = null,
         public readonly ?float $costPriceMultiplier = null,
+        #[MapInputName('credit')]
         public readonly ?bool $creditEnabled = null,
 
         // Embedded objects (optional, require embed param)

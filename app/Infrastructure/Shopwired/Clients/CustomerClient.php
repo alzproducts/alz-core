@@ -65,7 +65,7 @@ final readonly class CustomerClient implements CustomerClientInterface
         'companyName',
         'trade',
         'active',
-        'creditEnabled',
+        'credit',
         'discount',
         'costPriceMultiplier',
         'phone',
