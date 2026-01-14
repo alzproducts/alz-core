@@ -132,10 +132,10 @@ Schedule::call(static function (): void {
 // ============================================================================
 
 // DAILY: Full customer sync at 5am UK time
-// At 60 req/min rate limit, ~68k customers takes ~15-20 minutes
+// At 60 req/min rate limit, ~68k customers takes ~45-50 minutes
 // Daily ensures new customers are captured quickly
 Schedule::job(new SyncShopwiredCustomersJob())
     ->dailyAt('05:00')
     ->timezone('Europe/London')
     ->onOneServer()
-    ->withoutOverlapping(30); // 30 min lock - job runs ~15-20 min
+    ->withoutOverlapping(60); // 60 min lock - job runs ~45-50 min

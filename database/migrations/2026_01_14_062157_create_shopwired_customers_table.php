@@ -59,7 +59,7 @@ return new class extends Migration {
             $table->timestampTz('updated_at');             // Laravel: when record was last updated
 
             // Indexes (external_id already indexed via UNIQUE constraint)
-            $table->unique('email');
+            $table->index('email');
             $table->index('is_trade');
             $table->index('is_active');
             $table->index('shopwired_created_at');

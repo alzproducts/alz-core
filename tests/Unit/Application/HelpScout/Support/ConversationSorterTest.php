@@ -119,6 +119,101 @@ final class ConversationSorterTest extends TestCase
         $this->assertSame(1, $result[3]->id); // closed
     }
 
+    #[Test]
+    public function by_status_and_date_unknown_status_sorts_after_pending(): void
+    {
+        // Unknown status should get priority 2 (same as fallback), sorting after pending
+        $pending = $this->createConversation(1, 'pending', createdAt: new DateTimeImmutable('2024-01-01'));
+        $unknown = $this->createConversation(2, 'unknown_status', createdAt: new DateTimeImmutable('2024-12-14'));
+
+        $result = ConversationSorter::byStatusAndDate([$unknown, $pending]);
+
+        // Pending (priority 1) should come before unknown (priority 2)
+        $this->assertSame(1, $result[0]->id);
+        $this->assertSame(2, $result[1]->id);
+    }
+
+    #[Test]
+    public function by_status_and_date_unknown_statuses_sort_together_by_date(): void
+    {
+        // Two unknown statuses should both get priority 2 and sort by date
+        $olderUnknown = $this->createConversation(1, 'spam', createdAt: new DateTimeImmutable('2024-01-01'));
+        $newerUnknown = $this->createConversation(2, 'archived', createdAt: new DateTimeImmutable('2024-12-14'));
+
+        $result = ConversationSorter::byStatusAndDate([$olderUnknown, $newerUnknown]);
+
+        // Both have same priority (2), so newer date comes first
+        $this->assertSame(2, $result[0]->id);
+        $this->assertSame(1, $result[1]->id);
+    }
+
+    #[Test]
+    public function by_status_and_date_unknown_status_priority_is_consistent_regardless_of_input_order(): void
+    {
+        // This test catches asymmetric mutations where $statusA and $statusB get different fallback values
+        // If line 46 mutates ?? 2 to ?? 3 but line 47 stays at ?? 2, the first unknown item
+        // would incorrectly sort after the second
+        $newerUnknown = $this->createConversation(1, 'spam', createdAt: new DateTimeImmutable('2024-12-14'));
+        $olderUnknown = $this->createConversation(2, 'archived', createdAt: new DateTimeImmutable('2024-01-01'));
+
+        // Pass newer first - with mutation (statusA=3, statusB=2), A would sort after B (wrong!)
+        $result = ConversationSorter::byStatusAndDate([$newerUnknown, $olderUnknown]);
+
+        // Correct behavior: both have same priority, newer date comes first
+        $this->assertSame(1, $result[0]->id);
+        $this->assertSame(2, $result[1]->id);
+    }
+
+    #[Test]
+    public function by_status_and_date_prefers_user_updated_at_over_updated_at(): void
+    {
+        // When both userUpdatedAt and updatedAt are set, userUpdatedAt takes precedence
+        $item1 = $this->createConversation(
+            1,
+            'active',
+            userUpdatedAt: new DateTimeImmutable('2024-01-01'), // older user update
+            updatedAt: new DateTimeImmutable('2024-12-14'), // newer system update (ignored)
+        );
+        $item2 = $this->createConversation(
+            2,
+            'active',
+            userUpdatedAt: new DateTimeImmutable('2024-06-01'), // newer user update
+            updatedAt: new DateTimeImmutable('2024-01-01'), // older system update (ignored)
+        );
+
+        $result = ConversationSorter::byStatusAndDate([$item1, $item2]);
+
+        // Item 2 has newer userUpdatedAt, so it comes first
+        $this->assertSame(2, $result[0]->id);
+        $this->assertSame(1, $result[1]->id);
+    }
+
+    #[Test]
+    public function by_status_and_date_prefers_updated_at_over_created_at(): void
+    {
+        // When updatedAt exists but userUpdatedAt is null, updatedAt takes precedence over createdAt
+        $item1 = $this->createConversation(
+            1,
+            'active',
+            userUpdatedAt: null,
+            updatedAt: new DateTimeImmutable('2024-01-01'), // older
+            createdAt: new DateTimeImmutable('2024-12-14'), // newer (ignored)
+        );
+        $item2 = $this->createConversation(
+            2,
+            'active',
+            userUpdatedAt: null,
+            updatedAt: new DateTimeImmutable('2024-06-01'), // newer
+            createdAt: new DateTimeImmutable('2024-01-01'), // older (ignored)
+        );
+
+        $result = ConversationSorter::byStatusAndDate([$item1, $item2]);
+
+        // Item 2 has newer updatedAt, so it comes first
+        $this->assertSame(2, $result[0]->id);
+        $this->assertSame(1, $result[1]->id);
+    }
+
     /*
     |--------------------------------------------------------------------------
     | byPriorityHierarchy() Tests
@@ -206,7 +301,7 @@ final class ConversationSorterTest extends TestCase
     }
 
     #[Test]
-    public function by_priority_hierarchy_both_null_waiting_since_equal(): void
+    public function by_priority_hierarchy_both_null_waiting_since_preserves_original_order(): void
     {
         $config = $this->createConfig();
 
@@ -215,8 +310,92 @@ final class ConversationSorterTest extends TestCase
 
         $result = ConversationSorter::byPriorityHierarchy([$a, $b], $config);
 
-        // Either order is acceptable when both null, but count should be preserved
+        // When both have null waitingSince, they're considered equal (return 0 in comparison)
+        // PHP's usort preserves original order for equal elements
         $this->assertCount(2, $result);
+        $this->assertSame(1, $result[0]->id);
+        $this->assertSame(2, $result[1]->id);
+    }
+
+    #[Test]
+    public function by_priority_hierarchy_both_null_waiting_since_order_is_stable_reversed_input(): void
+    {
+        // Test with reversed input order to ensure null-null comparison returns 0 (equal)
+        // If mutation changes return 0 to return -1, B would always sort before A
+        $config = $this->createConfig();
+
+        $b = $this->createConversation(2, 'active', customerWaitingSince: null);
+        $a = $this->createConversation(1, 'active', customerWaitingSince: null);
+
+        $result = ConversationSorter::byPriorityHierarchy([$b, $a], $config);
+
+        // With return 0, original order [2, 1] is preserved
+        // With mutation return -1, order would flip to [1, 2]
+        $this->assertSame(2, $result[0]->id);
+        $this->assertSame(1, $result[1]->id);
+    }
+
+    #[Test]
+    public function by_priority_hierarchy_null_waiting_b_comes_before_null_waiting_a(): void
+    {
+        // Test the specific case where A has null waitingSince and B has a value
+        // A should come AFTER B (return 1 from comparison)
+        $config = $this->createConfig();
+
+        $withNull = $this->createConversation(1, 'active', customerWaitingSince: null);
+        $withValue = $this->createConversation(2, 'active', customerWaitingSince: new DateTimeImmutable('2024-06-01'));
+
+        $result = ConversationSorter::byPriorityHierarchy([$withNull, $withValue], $config);
+
+        // Value comes first, null comes last
+        $this->assertSame(2, $result[0]->id);
+        $this->assertSame(1, $result[1]->id);
+    }
+
+    #[Test]
+    public function by_priority_hierarchy_priority_level_1_beats_level_2(): void
+    {
+        // Verify that priority tag (level 1) beats assigned tag (level 2)
+        $config = $this->createConfig(priorityTags: ['urgent'], assignedTag: 'assigned');
+
+        $assigned = $this->createConversation(1, 'active', tags: [new ConversationTag(1, 'assigned', 'blue')]);
+        $priority = $this->createConversation(2, 'active', tags: [new ConversationTag(2, 'urgent', 'red')]);
+
+        $result = ConversationSorter::byPriorityHierarchy([$assigned, $priority], $config);
+
+        $this->assertSame(2, $result[0]->id); // priority (level 1)
+        $this->assertSame(1, $result[1]->id); // assigned (level 2)
+    }
+
+    #[Test]
+    public function by_priority_hierarchy_priority_level_2_beats_level_3(): void
+    {
+        // Verify that assigned tag (level 2) beats standard (level 3)
+        $config = $this->createConfig(assignedTag: 'assigned');
+
+        $standard = $this->createConversation(1, 'active');
+        $assigned = $this->createConversation(2, 'active', tags: [new ConversationTag(1, 'assigned', 'blue')]);
+
+        $result = ConversationSorter::byPriorityHierarchy([$standard, $assigned], $config);
+
+        $this->assertSame(2, $result[0]->id); // assigned (level 2)
+        $this->assertSame(1, $result[1]->id); // standard (level 3)
+    }
+
+    #[Test]
+    public function by_priority_hierarchy_standard_items_sort_by_waiting_since(): void
+    {
+        // Two standard items (level 3) should sort by waitingSince
+        $config = $this->createConfig();
+
+        $newer = $this->createConversation(1, 'active', customerWaitingSince: new DateTimeImmutable('2024-12-14'));
+        $older = $this->createConversation(2, 'active', customerWaitingSince: new DateTimeImmutable('2024-01-01'));
+
+        $result = ConversationSorter::byPriorityHierarchy([$newer, $older], $config);
+
+        // Both are level 3, older waitingSince comes first
+        $this->assertSame(2, $result[0]->id);
+        $this->assertSame(1, $result[1]->id);
     }
 
     #[Test]
