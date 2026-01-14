@@ -40,6 +40,16 @@ final class SyncShopwiredCustomersJob implements ShouldQueue
     public int $tries = 5;
 
     /**
+     * Create a new job instance.
+     *
+     * Routes to low-priority queue as this is a long-running bulk sync (~45 min).
+     */
+    public function __construct()
+    {
+        $this->onQueue('low');
+    }
+
+    /**
      * Seconds to wait before retrying (exponential backoff).
      *
      * Longer delays than orders due to longer runtime - failed retries are costly.
@@ -51,9 +61,10 @@ final class SyncShopwiredCustomersJob implements ShouldQueue
     /**
      * Job timeout in seconds.
      *
-     * Set to 30 minutes to accommodate full sync of ~60k customers.
+     * Set to 60 minutes to accommodate full sync of ~68k customers.
+     * Actual runtime observed: ~46 minutes for 67,717 customers.
      */
-    public int $timeout = 1800;
+    public int $timeout = 3600;
 
     /**
      * Execute the job.

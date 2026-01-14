@@ -91,7 +91,7 @@ make redis
 php artisan octane:start --watch
 
 # In another terminal: start queue worker
-php artisan queue:listen -v --timeout=3600
+php artisan queue:listen -v --timeout=3600 --queue=high,default,low
 
 # Optional: start edge functions (for auth flows)
 make supabase-functions

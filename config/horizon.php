@@ -202,10 +202,21 @@ return [
     |
     */
 
+    /*
+    |--------------------------------------------------------------------------
+    | Queue Priority Tiers
+    |--------------------------------------------------------------------------
+    |
+    | high    - Time-sensitive, user-facing (webhooks, notifications)
+    | default - Normal priority (order sync, daily jobs)
+    | low     - Bulk/background work (full customer sync, data migrations)
+    |
+    */
+
     'defaults' => [
         'supervisor-1' => [
             'connection' => 'redis',
-            'queue' => ['default'],
+            'queue' => ['high', 'default'],
             'balance' => 'auto',
             'autoScalingStrategy' => 'time',
             'maxProcesses' => 1,
@@ -214,6 +225,19 @@ return [
             'memory' => 128,
             'tries' => 1,
             'timeout' => 60,
+            'nice' => 0,
+        ],
+        'supervisor-low' => [
+            'connection' => 'redis',
+            'queue' => ['low'],
+            'balance' => 'auto',
+            'autoScalingStrategy' => 'time',
+            'maxProcesses' => 1,
+            'maxTime' => 0,
+            'maxJobs' => 0,
+            'memory' => 256,
+            'tries' => 1,
+            'timeout' => 3600,
             'nice' => 0,
         ],
     ],
@@ -229,11 +253,20 @@ return [
                 'maxTime' => 3600,
                 'maxJobs' => 100,
             ],
+            'supervisor-low' => [
+                'maxProcesses' => 2,
+                'tries' => 3,
+                'timeout' => 3600,
+                'maxTime' => 7200,
+            ],
         ],
 
         'local' => [
             'supervisor-1' => [
                 'maxProcesses' => 3,
+            ],
+            'supervisor-low' => [
+                'maxProcesses' => 1,
             ],
         ],
     ],

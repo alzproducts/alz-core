@@ -61,6 +61,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Tool Usage
 
+### ⚠️ Important: Use PHPStorm MCP for Codebase Navigation
+
+Prefer `mcp__phpstorm__*` tools over built-in equivalents—semantic indexes are faster and more accurate.
+
 ### zen:challenge - Critical Thinking
 
 **Use when**:
