@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Infrastructure\Mixpanel\DTOs;
 
 use App\Domain\Catalog\Order\ValueObjects\Order;
+use App\Domain\Catalog\Order\ValueObjects\OrderAnalyticsHash;
 use App\Domain\Catalog\Order\ValueObjects\OrderProduct;
 use Webmozart\Assert\Assert;
 
@@ -15,7 +16,7 @@ use Webmozart\Assert\Assert;
  * Each product in an order produces one Product Purchased event.
  *
  * Deduplication: Uses order_id_hashed for pre-export dedup check (frontend compatibility)
- * and deterministic $insert_id combining order hash + SKU hash for Mixpanel-native idempotency.
+ * and deterministic $insert_id combining order hash + product ID hash for Mixpanel-native idempotency.
  */
 final readonly class MixpanelProductPurchasedDTO
 {
@@ -77,10 +78,10 @@ final readonly class MixpanelProductPurchasedDTO
     ): self {
         Assert::notEmpty($analyticsSalt, 'Analytics salt cannot be empty');
 
-        $orderIdHashed = MixpanelCheckoutCompletedDTO::hashOrderId($order->reference, $analyticsSalt);
+        $orderIdHashed = OrderAnalyticsHash::fromReference($order->reference, $analyticsSalt)->value;
 
         return new self(
-            insertId: self::generateInsertId($orderIdHashed, $product->sku),
+            insertId: self::generateInsertId($orderIdHashed, $product->id),
             userId: (string) $order->customer->id,
             timestamp: $order->orderPlacedAt->getTimestamp(),
             orderIdHashed: $orderIdHashed,
@@ -135,18 +136,18 @@ final readonly class MixpanelProductPurchasedDTO
     /**
      * Generate deduplication ID for Mixpanel.
      *
-     * Format: "PP-{orderHash16}-{skuHash8}" (28 chars total, under 36 char limit)
+     * Format: "PP-{orderHash16}-{productIdHash8}" (28 chars total, under 36 char limit)
      *
-     * Using both order hash and SKU hash ensures uniqueness per product within an order,
-     * while remaining deterministic for idempotent imports.
+     * Using order hash + product ID (unique line item ID) ensures uniqueness per product
+     * within an order, while remaining deterministic for idempotent imports.
      */
-    private static function generateInsertId(string $orderIdHashed, string $sku): string
+    private static function generateInsertId(string $orderIdHashed, int $productId): string
     {
-        // Take first 16 chars of order hash + first 8 chars of SKU hash
+        // Take first 16 chars of order hash + first 8 chars of product ID hash
         $orderPart = \mb_substr($orderIdHashed, 0, 16);
-        $skuHash = \hash('sha256', $sku);
-        $skuPart = \mb_substr($skuHash, 0, 8);
+        $productIdHash = \hash('sha256', (string) $productId);
+        $productPart = \mb_substr($productIdHash, 0, 8);
 
-        return self::INSERT_ID_PREFIX . '-' . $orderPart . '-' . $skuPart;
+        return self::INSERT_ID_PREFIX . '-' . $orderPart . '-' . $productPart;
     }
 }

@@ -185,7 +185,7 @@ final readonly class MixpanelCheckoutCompletedDTO
      */
     private static function generateInsertId(string $orderIdHashed): string
     {
-        // Take first 32 chars of 64-char SHA-256 hash
+        // Take first 32 chars of 64-char SHA-256 hash (substr is sufficient for ASCII hex)
         return self::INSERT_ID_PREFIX . '-' . \mb_substr($orderIdHashed, 0, 32);
     }
 
