@@ -8,7 +8,8 @@ namespace App\Infrastructure\Shopwired\Enums;
  * Sort options for ShopWired Customer API.
  *
  * Used with CustomerQueryParams::withSort() to control customer ordering.
- * For bulk sync operations, use CreatedAsc for deterministic pagination.
+ * For bulk sync operations, use CreatedDesc (newest first) so recent customers
+ * are prioritized if sync fails mid-way.
  *
  * @see https://shopwired.readme.io/reference/listcustomers
  */

@@ -94,7 +94,7 @@ final readonly class CustomerClient implements CustomerClientInterface
     /**
      * List all NON-TRADE customers with embedded data (paginated fetch).
      *
-     * Uses created_asc sort order for deterministic pagination consistency.
+     * Uses created_desc (newest first) so recent customers are prioritized if sync fails mid-way.
      * Non-trade customers only (trade=0 / trade filter omitted).
      *
      * @return list<DomainCustomer>
@@ -108,7 +108,7 @@ final readonly class CustomerClient implements CustomerClientInterface
     public function listAllNonTradeCustomers(): array
     {
         $params = CustomerQueryParams::forBulkFetch()
-            ->withSort(CustomerSort::CreatedAsc)
+            ->withSort(CustomerSort::CreatedDesc)
             ->withBaseParams(
                 ShopwiredQueryParams::forBulkFetch()
                     ->withEmbeds(self::DEFAULT_EMBEDS)
@@ -125,7 +125,7 @@ final readonly class CustomerClient implements CustomerClientInterface
     /**
      * List all TRADE customers with embedded data (paginated fetch).
      *
-     * Trade customers only (trade=1). Uses created_asc sort order.
+     * Trade customers only (trade=1). Uses created_desc (newest first).
      *
      * @return list<DomainCustomer>
      *
@@ -155,7 +155,7 @@ final readonly class CustomerClient implements CustomerClientInterface
     /**
      * Iterate NON-TRADE customers in batches (memory-efficient).
      *
-     * Uses created_asc sort order for deterministic pagination consistency.
+     * Uses created_desc (newest first) so recent customers are prioritized if sync fails mid-way.
      * Yields batches of ~100 non-trade customers per page.
      *
      * @return Generator<int, list<DomainCustomer>, mixed, void> Yields batches (page number as key)
@@ -169,7 +169,7 @@ final readonly class CustomerClient implements CustomerClientInterface
     public function iterateNonTradeCustomerBatches(): Generator
     {
         $params = CustomerQueryParams::forBulkFetch()
-            ->withSort(CustomerSort::CreatedAsc)
+            ->withSort(CustomerSort::CreatedDesc)
             ->withBaseParams(
                 ShopwiredQueryParams::forBulkFetch()
                     ->withEmbeds(self::DEFAULT_EMBEDS)
@@ -218,7 +218,7 @@ final readonly class CustomerClient implements CustomerClientInterface
     /**
      * Iterate TRADE customers in batches (memory-efficient).
      *
-     * Uses created_asc sort order for deterministic pagination consistency.
+     * Uses created_desc (newest first) so recent customers are prioritized if sync fails mid-way.
      * Yields batches of ~100 trade customers per page.
      *
      * @return Generator<int, list<DomainCustomer>, mixed, void> Yields batches (page number as key)
@@ -233,7 +233,7 @@ final readonly class CustomerClient implements CustomerClientInterface
     {
         $params = CustomerQueryParams::forBulkFetch()
             ->withTrade(true)
-            ->withSort(CustomerSort::CreatedAsc)
+            ->withSort(CustomerSort::CreatedDesc)
             ->withBaseParams(
                 ShopwiredQueryParams::forBulkFetch()
                     ->withEmbeds(self::DEFAULT_EMBEDS)

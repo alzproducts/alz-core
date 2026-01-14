@@ -111,7 +111,8 @@ final readonly class CustomerQueryParams implements PaginatableQueryParamsInterf
     /**
      * Set sort order for customer results.
      *
-     * For bulk sync operations, use CustomerSort::CreatedAsc for deterministic pagination.
+     * For bulk sync, use CustomerSort::CreatedDesc (newest first) so recent customers
+     * are prioritized if sync fails mid-way.
      */
     public function withSort(?CustomerSort $sort): self
     {
