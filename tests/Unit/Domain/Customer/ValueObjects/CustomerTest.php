@@ -6,7 +6,7 @@ namespace Tests\Unit\Domain\Customer\ValueObjects;
 
 use App\Domain\Customer\ValueObjects\Customer;
 use App\Domain\Customer\ValueObjects\CustomerAddress;
-use InvalidArgumentException;
+use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -35,22 +35,19 @@ final class CustomerTest extends TestCase
     private function createCustomer(array $overrides = []): Customer
     {
         $defaults = [
+            'id' => 12345,
+            'createdAt' => new DateTimeImmutable('2024-01-15T10:30:00Z'),
             'email' => 'test@example.com',
             'firstName' => 'John',
             'lastName' => 'Doe',
             'companyName' => null,
             'isTrade' => false,
             'isActive' => true,
-            'creditEnabled' => false,
-            'discount' => 0.0,
-            'costPriceMultiplier' => 1.0,
+            'isCreditEnabled' => false,
             'phone' => null,
             'mobilePhone' => null,
-            'website' => null,
-            'vatNumber' => null,
             'acceptsMarketing' => true,
             'address' => null,
-            'rewardPoints' => 0,
             'notes' => null,
             'customFields' => [],
         ];
@@ -100,16 +97,11 @@ final class CustomerTest extends TestCase
             'companyName' => 'Acme Corp',
             'isTrade' => true,
             'isActive' => false,
-            'creditEnabled' => true,
-            'discount' => 15.5,
-            'costPriceMultiplier' => 0.85,
+            'isCreditEnabled' => true,
             'phone' => '020 1234 5678',
             'mobilePhone' => '07700 123456',
-            'website' => 'https://acme.com',
-            'vatNumber' => 'GB123456789',
             'acceptsMarketing' => false,
             'address' => $address,
-            'rewardPoints' => 500,
             'notes' => 'VIP customer',
             'customFields' => ['tier' => 'gold'],
         ]);
@@ -117,99 +109,13 @@ final class CustomerTest extends TestCase
         $this->assertSame('Acme Corp', $customer->companyName);
         $this->assertTrue($customer->isTrade);
         $this->assertFalse($customer->isActive);
-        $this->assertTrue($customer->creditEnabled);
-        $this->assertSame(15.5, $customer->discount);
-        $this->assertSame(0.85, $customer->costPriceMultiplier);
+        $this->assertTrue($customer->isCreditEnabled);
         $this->assertSame('020 1234 5678', $customer->phone);
         $this->assertSame('07700 123456', $customer->mobilePhone);
-        $this->assertSame('https://acme.com', $customer->website);
-        $this->assertSame('GB123456789', $customer->vatNumber);
         $this->assertFalse($customer->acceptsMarketing);
         $this->assertSame($address, $customer->address);
-        $this->assertSame(500, $customer->rewardPoints);
         $this->assertSame('VIP customer', $customer->notes);
         $this->assertSame(['tier' => 'gold'], $customer->customFields);
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | Assertion Tests
-    |--------------------------------------------------------------------------
-    */
-
-    #[Test]
-    public function it_accepts_zero_discount(): void
-    {
-        $customer = $this->createCustomer(['discount' => 0.0]);
-
-        $this->assertSame(0.0, $customer->discount);
-    }
-
-    #[Test]
-    public function it_accepts_positive_discount(): void
-    {
-        $customer = $this->createCustomer(['discount' => 25.0]);
-
-        $this->assertSame(25.0, $customer->discount);
-    }
-
-    #[Test]
-    public function it_throws_on_negative_discount(): void
-    {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Discount cannot be negative');
-
-        $this->createCustomer(['discount' => -1.0]);
-    }
-
-    #[Test]
-    public function it_accepts_zero_cost_price_multiplier(): void
-    {
-        $customer = $this->createCustomer(['costPriceMultiplier' => 0.0]);
-
-        $this->assertSame(0.0, $customer->costPriceMultiplier);
-    }
-
-    #[Test]
-    public function it_accepts_positive_cost_price_multiplier(): void
-    {
-        $customer = $this->createCustomer(['costPriceMultiplier' => 1.5]);
-
-        $this->assertSame(1.5, $customer->costPriceMultiplier);
-    }
-
-    #[Test]
-    public function it_throws_on_negative_cost_price_multiplier(): void
-    {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Cost price multiplier cannot be negative');
-
-        $this->createCustomer(['costPriceMultiplier' => -0.1]);
-    }
-
-    #[Test]
-    public function it_accepts_zero_reward_points(): void
-    {
-        $customer = $this->createCustomer(['rewardPoints' => 0]);
-
-        $this->assertSame(0, $customer->rewardPoints);
-    }
-
-    #[Test]
-    public function it_accepts_positive_reward_points(): void
-    {
-        $customer = $this->createCustomer(['rewardPoints' => 1000]);
-
-        $this->assertSame(1000, $customer->rewardPoints);
-    }
-
-    #[Test]
-    public function it_throws_on_negative_reward_points(): void
-    {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Reward points cannot be negative');
-
-        $this->createCustomer(['rewardPoints' => -1]);
     }
 
     /*

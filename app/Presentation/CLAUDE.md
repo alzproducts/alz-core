@@ -3,6 +3,16 @@
 ## Purpose
 Presentation catches **only for delivery mechanism**: queue retry, HTTP responses, console output. This is "the Laravel stuff" - framework integration.
 
+## Queue Priority Tiers
+
+| Queue | Timeout | Use Case |
+|-------|---------|----------|
+| `high` | 90s | Time-sensitive, user-facing (webhooks, notifications) |
+| `default` | 90s | Normal priority (order sync, daily jobs) |
+| `low` | 3600s | Bulk/background work (full customer sync, data migrations) |
+
+Route jobs via constructor: `$this->onQueue('low')`. Config: `config/horizon.php`.
+
 ## Jobs: Queue Retry Management
 
 ### Default: Let Laravel Handle It

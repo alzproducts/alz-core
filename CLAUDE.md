@@ -61,6 +61,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Tool Usage
 
+### ⚠️ Important: Use PHPStorm MCP for Codebase Navigation
+
+Prefer `mcp__phpstorm__*` tools over built-in equivalents—semantic indexes are faster and more accurate.
+
 ### zen:challenge - Critical Thinking
 
 **Use when**:
@@ -76,6 +80,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **Do NOT use `mcp__jetbrains__create_new_file`** for creating new files. Use the standard `Write` tool instead.
 
 **Rationale**: The JetBrains MCP `create_new_file` tool has unreliable behavior and doesn't integrate well with the validation hooks.
+
+### GitHub CLI - Multiline Content
+
+For multiline `gh` comments: write to `/tmp/gh-comment-{issue#}.md`, then use `--body-file`. Newlines in `--body` trigger security blocks.
 
 ## Implementation Logs
 
@@ -163,7 +171,7 @@ make lint                         # Run linters
 
 ### Queue Processing
 
-**Queue listener runs automatically** (`php artisan queue:listen -v`) in the background during local development. Do NOT manually run queue workers — jobs process automatically. Just dispatch jobs and they will be handled.
+**Queue listener runs automatically** via the `Queue` run configuration (see `.run/Queue.run.xml`). Do NOT manually run queue workers.
 
 ---
 

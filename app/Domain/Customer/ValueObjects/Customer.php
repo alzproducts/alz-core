@@ -4,22 +4,27 @@ declare(strict_types=1);
 
 namespace App\Domain\Customer\ValueObjects;
 
-use Webmozart\Assert\Assert;
+use DateTimeImmutable;
 
 /**
  * Customer Value Object.
  *
  * Represents a customer with all business-relevant properties.
- * Infrastructure fields (id, createdAt, audit flags) are excluded.
  *
  * @see https://shopwired.readme.io/reference/listcustomers
  */
 final readonly class Customer
 {
     /**
+     * @param int $id ShopWired customer ID (external identifier)
+     * @param DateTimeImmutable $createdAt When the customer was created in ShopWired
      * @param array<string, mixed> $customFields Custom field key-value pairs
      */
     public function __construct(
+        // External identifier (ShopWired ID)
+        public int $id,
+        public DateTimeImmutable $createdAt,
+
         // Identity
         public string $email,
         public string $firstName,
@@ -29,39 +34,22 @@ final readonly class Customer
         // Classification
         public bool $isTrade,
         public bool $isActive,
-        public ?bool $creditEnabled,
-
-        // Pricing (trade-specific, null for regular customers)
-        public ?float $discount,
-        public ?float $costPriceMultiplier,
+        public ?bool $isCreditEnabled,
 
         // Contact
         public ?string $phone,
         public ?string $mobilePhone,
-        public ?string $website,
-        public ?string $vatNumber,
         public bool $acceptsMarketing,
 
         // Address
         public ?CustomerAddress $address,
-
-        // Loyalty
-        public int $rewardPoints,
 
         // Notes
         public ?string $notes,
 
         // Custom fields (embedded key-value pairs)
         public array $customFields = [],
-    ) {
-        if ($discount !== null) {
-            Assert::greaterThanEq($discount, 0, 'Discount cannot be negative');
-        }
-        if ($costPriceMultiplier !== null) {
-            Assert::greaterThanEq($costPriceMultiplier, 0, 'Cost price multiplier cannot be negative');
-        }
-        Assert::greaterThanEq($rewardPoints, 0, 'Reward points cannot be negative');
-    }
+    ) {}
 
     /**
      * Get customer's full name.
