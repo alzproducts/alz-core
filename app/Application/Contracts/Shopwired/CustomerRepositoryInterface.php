@@ -42,4 +42,18 @@ interface CustomerRepositoryInterface extends ShopwiredRepositoryInterface
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      */
     public function existsByEmail(string $email): bool;
+
+    /**
+     * Get trade status for multiple customers by their ShopWired IDs.
+     *
+     * Returns only customers that exist in the database. Missing IDs are
+     * silently omitted from the result (caller should check for completeness).
+     *
+     * @param list<int> $customerIds ShopWired customer IDs
+     *
+     * @return array<int, bool> Map of customer ID → is_trade status
+     *
+     * @throws DatabaseOperationFailedException On query failure
+     */
+    public function getTradeStatusByIds(array $customerIds): array;
 }

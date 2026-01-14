@@ -113,6 +113,28 @@ final class EloquentCustomerRepository extends AbstractShopwiredEloquentReposito
         );
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function getTradeStatusByIds(array $customerIds): array
+    {
+        if ($customerIds === []) {
+            return [];
+        }
+
+        return $this->gateway->query(static function () use ($customerIds): array {
+            /** @var array<int, bool> */
+            return self::MODEL_CLASS::query()
+                ->whereIn('external_id', $customerIds)
+                ->pluck('is_trade', 'external_id')
+                ->all();
+        });
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
     // Abstract Method Implementations
     // ─────────────────────────────────────────────────────────────────────────

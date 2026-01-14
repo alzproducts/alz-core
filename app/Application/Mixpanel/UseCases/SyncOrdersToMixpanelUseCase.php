@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Application\Mixpanel\UseCases;
 
 use App\Application\Contracts\MixpanelClientInterface;
+use App\Application\Contracts\Shopwired\CustomerRepositoryInterface;
 use App\Application\Contracts\Shopwired\OrderRepositoryInterface;
 use App\Application\Mixpanel\ValueObjects\SyncOrdersToMixpanelResult;
 use App\Domain\Catalog\Order\ValueObjects\Order;
@@ -49,6 +50,7 @@ final readonly class SyncOrdersToMixpanelUseCase
 
     public function __construct(
         private OrderRepositoryInterface $orderRepository,
+        private CustomerRepositoryInterface $customerRepository,
         private MixpanelClientInterface $mixpanel,
         private string $analyticsSalt,
         private LoggerInterface $logger,
@@ -128,7 +130,6 @@ final readonly class SyncOrdersToMixpanelUseCase
         }
 
         // Step 4: Get trade status for customers
-        // TODO: Replace with CustomerRepositoryInterface::getTradeStatusByIds() when #117 is merged
         $customerTradeMap = $this->getCustomerTradeMap($ordersToSync);
 
         // Step 5: Import orders to Mixpanel
@@ -202,32 +203,33 @@ final readonly class SyncOrdersToMixpanelUseCase
      *
      * @return array<int, bool> Map of customer ID → is_trade status
      *
-     * @throws MissingRequiredDataException When customer trade data is not available
+     * @throws MissingRequiredDataException When customer not found in local database
+     * @throws DatabaseOperationFailedException When database query fails
      */
     private function getCustomerTradeMap(array $orders): array
     {
-        // TODO: Issue #117 - Replace with actual customer trade status lookup:
-        // $customerIds = array_unique(array_map(fn(Order $o) => $o->customer->id, $orders));
-        // return $this->customerRepository->getTradeStatusByIds($customerIds);
+        $customerIds = \array_values(\array_unique(
+            \array_map(static fn(Order $order): int => $order->customer->id, $orders),
+        ));
 
-        // Stub: Default all customers to non-trade until customer sync is implemented
-        $map = [];
+        $tradeMap = $this->customerRepository->getTradeStatusByIds($customerIds);
 
-        foreach ($orders as $order) {
-            $map[$order->customer->id] = false;
-        }
+        // Fail-fast: All customers must exist in local DB
+        // If missing, customer sync hasn't run - fail now, reimport later
+        $missingIds = \array_diff($customerIds, \array_keys($tradeMap));
 
-        // Safety check: trade map must not be empty when syncing orders
-        // With real implementation, empty could indicate customer sync hasn't run
-        if ($map === []) {
+        if ($missingIds !== []) {
             throw new MissingRequiredDataException(
                 dataType: 'customer trade status',
                 operation: 'Mixpanel order sync',
-                resolution: 'Ensure customer sync job has run before order sync',
+                resolution: \sprintf(
+                    'Customer IDs not found in local database: %s. Run customer sync first.',
+                    \implode(', ', $missingIds),
+                ),
             );
         }
 
-        return $map;
+        return $tradeMap;
     }
 
     /**

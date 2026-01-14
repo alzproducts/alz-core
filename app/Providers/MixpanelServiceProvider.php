@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Application\Contracts\MixpanelClientInterface;
+use App\Application\Contracts\Shopwired\CustomerRepositoryInterface;
 use App\Application\Contracts\Shopwired\OrderRepositoryInterface;
 use App\Application\Mixpanel\UseCases\SyncOrdersToMixpanelUseCase;
 use App\Infrastructure\Mixpanel\MixpanelClientFactory;
@@ -46,6 +47,7 @@ final class MixpanelServiceProvider extends ServiceProvider implements Deferrabl
 
             return new SyncOrdersToMixpanelUseCase(
                 orderRepository: $this->app->make(OrderRepositoryInterface::class),
+                customerRepository: $this->app->make(CustomerRepositoryInterface::class),
                 mixpanel: $this->app->make(MixpanelClientInterface::class),
                 analyticsSalt: $analyticsSalt,
                 logger: $this->app->make(LoggerInterface::class),
