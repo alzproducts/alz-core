@@ -13,21 +13,25 @@
 |------|----------|-----------|
 | 2026-01-16 | Follow ShopWired customer sync pattern exactly | Proven pattern with generator→buffer→flush, exception handling, scheduling |
 | 2026-01-16 | Enhance existing `StockItem` VO rather than create new | VO already exists with core fields; add `stockItemId` and missing fields |
+| 2026-01-16 | Permissions in schema migration, not separate | Set DEFAULT PRIVILEGES in schema creation so tables inherit automatically |
+| 2026-01-16 | Nullable fields for source fidelity | NULL = "API didn't provide" vs 0 = "API explicitly returned zero". Enables data quality analysis |
+| 2026-01-16 | Remove `is_composite` boolean index | Boolean indexes rarely help at ~10k rows scale |
 
 ---
 
 ## Implementation Progress
 
-### Phase 1: Domain Layer
-- [ ] Enhance `StockItem` VO with `stockItemId` field
-- [ ] Create `StockItemExtendedProperty` VO
-- [ ] Create `Dimensions` VO
-- [ ] Create `Weight` VO
-- [ ] Create `WeightUnit` enum
+### Phase 1: Domain Layer ✅
+- [x] Enhance `StockItem` VO with `stockItemId` field
+- [x] Create `StockItemExtendedProperty` VO
+- [x] Create `Dimensions` VO
+- [x] Create `Weight` VO
+- [x] Create `WeightUnit` enum
 
-### Phase 2: Database Migrations
-- [ ] Create `linnworks.stock_items` table
-- [ ] Create `linnworks.stock_item_extended_properties` table
+### Phase 2: Database Migrations ✅
+- [x] Create `linnworks` schema with Supabase permissions
+- [x] Create `linnworks.stock_items` table (nullable fields for source fidelity)
+- [x] Create `linnworks.stock_item_extended_properties` table with FK cascade
 
 ### Phase 3: Infrastructure - Client
 - [ ] Add `iterateStockItemBatches()` to `InventoryClientInterface`
