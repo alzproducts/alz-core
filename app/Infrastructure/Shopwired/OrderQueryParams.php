@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Infrastructure\Shopwired;
 
 use App\Infrastructure\Shopwired\Contracts\PaginatableQueryParamsInterface;
+use App\Infrastructure\Shopwired\Enums\OrderSort;
 
 /**
  * Immutable value object for ShopWired Order API query parameters.
@@ -159,6 +160,22 @@ final readonly class OrderQueryParams implements PaginatableQueryParamsInterface
     {
         return new self(
             baseParams: $baseParams,
+            from: $this->from,
+            to: $this->to,
+            status: $this->status,
+            archived: $this->archived,
+        );
+    }
+
+    /**
+     * Set sort order.
+     *
+     * For bulk sync, use OrderSort::DateDesc to prioritize recent orders.
+     */
+    public function withSort(OrderSort $sort): self
+    {
+        return new self(
+            baseParams: $this->baseParams->withSort($sort->value),
             from: $this->from,
             to: $this->to,
             status: $this->status,

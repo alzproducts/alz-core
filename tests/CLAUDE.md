@@ -2,7 +2,7 @@
 
 This file provides testing guidance for this Laravel project.
 
-**For layer-specific testing policies, see `tests/TestingStrategy.md`.**
+**⚠️ Read `tests/TestingStrategy.md` first** — required before writing any tests. Defines layer policies and the "Should I Write a Test?" framework.
 
 ## MUTATION TESTING: AI Test Quality Validation
 
@@ -122,7 +122,7 @@ make infection-ci           # CI mode with GitHub logger
 
 ## Code Coverage Strategy
 
-**For layer-specific policies, see `tests/TestingStrategy.md`.**
+**Layer targets defined in `tests/TestingStrategy.md`.**
 
 **Test**: Runtime business logic, error paths, transformations, API interactions
 **Exclude**: Boot-time validation, framework boilerplate, deployment config

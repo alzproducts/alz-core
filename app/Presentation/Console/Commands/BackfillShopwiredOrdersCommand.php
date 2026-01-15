@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Presentation\Console\Commands;
 
-use App\Presentation\Jobs\SyncShopwiredOrdersJob;
+use App\Presentation\Jobs\SyncShopwiredOrdersRangeJob;
 use Carbon\CarbonImmutable;
 use Illuminate\Console\Command;
 
@@ -74,7 +74,7 @@ final class BackfillShopwiredOrdersCommand extends Command
             $from = $now->startOfMonth()->subMonths($monthsAgo + 1);
             $to = $now->startOfMonth()->subMonths($monthsAgo);
 
-            SyncShopwiredOrdersJob::dispatch($from->toDateTimeImmutable(), $to->toDateTimeImmutable());
+            SyncShopwiredOrdersRangeJob::dispatch($from->toDateTimeImmutable(), $to->toDateTimeImmutable());
         }
 
         $this->info("✓ {$months} jobs dispatched to queue.");
