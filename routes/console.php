@@ -110,23 +110,6 @@ Schedule::job(new ProcessProductSearchFeedJob())
     ->withoutOverlapping(30);
 
 // ============================================================================
-// ShopWired Order Sync: Hourly with 2-hour overlap
-// Syncs orders from ShopWired API to local PostgreSQL for fast queries
-// ============================================================================
-
-// HOURLY: 2-hour overlap window ensures no orders missed at boundaries
-Schedule::call(static function (): void {
-    SyncShopwiredOrdersJob::dispatch(
-        from: new DateTimeImmutable('-2 hours'),
-        to: new DateTimeImmutable('now'),
-    );
-})
-    ->name('sync-shopwired-orders-hourly')
-    ->hourly()
-    ->onOneServer()
-    ->withoutOverlapping(15);
-
-// ============================================================================
 // ShopWired Customer Sync: Daily full refresh
 // Syncs all ~60k customers from ShopWired API to local PostgreSQL
 // Unlike orders (date-range filtered), customers require full-sync approach
@@ -153,6 +136,36 @@ Schedule::job(new SyncShopwiredCustomersJob(maxTradePages: 5, maxNonTradePages: 
 // Keeps customer data near real-time for order processing
 Schedule::job(new SyncShopwiredCustomersJob(maxTradePages: 1, maxNonTradePages: 1))
     ->name('sync-shopwired-customers-micro')
+    ->everyFiveMinutes()
+    ->onOneServer()
+    ->withoutOverlapping(2);
+
+// ============================================================================
+// ShopWired Order Sync (Generator-based): 3-tier resilience strategy
+// Memory-efficient pagination from newest → oldest using generators
+// Complements the date-range sync above for different use cases
+// ============================================================================
+
+// DAILY: Full order sync at 4:00 AM UK time
+// Iterates all orders (newest first) until reaching already-synced orders
+Schedule::job(new SyncShopwiredOrdersJob())
+    ->name('sync-shopwired-orders-daily')
+    ->dailyAt('04:00')
+    ->timezone('Europe/London')
+    ->onOneServer()
+    ->withoutOverlapping(60);
+
+// HOURLY: Quick sync (5 pages, ~500 orders)
+Schedule::job(new SyncShopwiredOrdersJob(maxPages: 5))
+    ->name('sync-shopwired-orders-hourly')
+    ->hourly()
+    ->onOneServer()
+    ->withoutOverlapping(5);
+
+// EVERY 5 MIN: Micro sync (1 page, ~100 orders)
+// Keeps order data near real-time
+Schedule::job(new SyncShopwiredOrdersJob(maxPages: 1))
+    ->name('sync-shopwired-orders-micro')
     ->everyFiveMinutes()
     ->onOneServer()
     ->withoutOverlapping(2);

@@ -12,6 +12,7 @@ use App\Domain\Exceptions\InvalidApiRequestException;
 use App\Domain\Exceptions\InvalidApiResponseException;
 use App\Domain\Exceptions\ResourceNotFoundException;
 use DateTimeImmutable;
+use Generator;
 
 /**
  * ShopWired Orders API client.
@@ -147,4 +148,27 @@ interface OrderClientInterface
         bool $notifyCustomer = false,
         ?string $trackingUrl = null,
     ): void;
+
+    /**
+     * Iterate orders in batches (memory-efficient).
+     *
+     * Orders sorted by date descending (newest first).
+     * Page count can be limited for quick sync, or null to fetch all.
+     *
+     * Use cases:
+     * - Full sync (null): Daily job syncing all orders
+     * - Quick sync (N pages): Hourly job catching recent orders
+     * - Micro sync (1 page): 5-min job catching very recent orders
+     *
+     * @param int|null $maxPages Maximum pages to fetch (null = all)
+     *
+     * @return Generator<int, list<Order>, mixed, void> Page number as key, batch of orders as value
+     *
+     * @throws InvalidApiRequestException When request parameters are invalid (400)
+     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
+     * @throws ResourceNotFoundException When resource not found (404)
+     * @throws ExternalServiceUnavailableException When API unavailable or connection fails
+     * @throws InvalidApiResponseException When response parsing fails (API contract violation)
+     */
+    public function iterateOrderBatches(?int $maxPages = null): Generator;
 }

@@ -6,7 +6,7 @@ namespace Tests\Unit\Application\Shopwired\UseCases;
 
 use App\Application\Contracts\Shopwired\OrderClientInterface;
 use App\Application\Contracts\Shopwired\OrderRepositoryInterface;
-use App\Application\Shopwired\UseCases\SyncOrdersUseCase;
+use App\Application\Shopwired\UseCases\SyncOrdersRangeUseCase;
 use App\Application\Shopwired\ValueObjects\SaveManyResult;
 use App\Domain\Catalog\Order\Enums\PreOrderStatus;
 use App\Domain\Catalog\Order\ValueObjects\Order;
@@ -24,12 +24,13 @@ use Psr\Log\LoggerInterface;
 use Tests\TestCase;
 
 /**
- * SyncOrdersUseCase Unit Tests.
+ * SyncOrdersRangeUseCase Unit Tests.
  *
- * Tests the orchestration logic: empty orders handling, failure logging, result construction.
+ * Tests the orchestration logic for date-range based sync:
+ * empty orders handling, failure logging, result construction.
  */
-#[CoversClass(SyncOrdersUseCase::class)]
-final class SyncOrdersUseCaseTest extends TestCase
+#[CoversClass(SyncOrdersRangeUseCase::class)]
+final class SyncOrdersRangeUseCaseTest extends TestCase
 {
     private OrderClientInterface&MockInterface $orderClient;
 
@@ -37,7 +38,7 @@ final class SyncOrdersUseCaseTest extends TestCase
 
     private LoggerInterface&MockInterface $logger;
 
-    private SyncOrdersUseCase $useCase;
+    private SyncOrdersRangeUseCase $useCase;
 
     protected function setUp(): void
     {
@@ -47,7 +48,7 @@ final class SyncOrdersUseCaseTest extends TestCase
         $this->orderRepository = Mockery::mock(OrderRepositoryInterface::class);
         $this->logger = Mockery::mock(LoggerInterface::class);
 
-        $this->useCase = new SyncOrdersUseCase(
+        $this->useCase = new SyncOrdersRangeUseCase(
             $this->orderClient,
             $this->orderRepository,
             $this->logger,
