@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Linnworks\Responses;
 
+use App\Domain\Inventory\Enums\WeightUnit;
+use App\Domain\Inventory\ValueObjects\Dimensions;
 use App\Domain\Inventory\ValueObjects\StockItem as DomainStockItem;
+use App\Domain\Inventory\ValueObjects\Weight;
 use App\Infrastructure\Contracts\DomainConvertibleInterface;
 use App\Infrastructure\Linnworks\Support\PascalCaseMapper;
 use Spatie\LaravelData\Attributes\MapInputName;
@@ -50,9 +53,9 @@ final class StockItemResponse extends Data implements DomainConvertibleInterface
     public function toDomain(): DomainStockItem
     {
         return new DomainStockItem(
+            stockItemId: $this->stockItemId,
             sku: $this->itemNumber,
             title: $this->itemTitle,
-            description: null,
             barcode: $this->barcodeNumber,
             quantity: $this->quantity,
             available: $this->available,
@@ -62,10 +65,8 @@ final class StockItemResponse extends Data implements DomainConvertibleInterface
             purchasePrice: $this->purchasePrice,
             retailPrice: $this->retailPrice,
             taxRate: $this->taxRate,
-            weight: $this->weight,
-            height: $this->height,
-            width: $this->width,
-            depth: $this->depth,
+            weight: new Weight($this->weight ?? 0.0, WeightUnit::Kilogram),
+            dimensions: new Dimensions($this->height, $this->width, $this->depth),
             isComposite: $this->isCompositeParent ?? false,
         );
     }
