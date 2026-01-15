@@ -40,6 +40,8 @@ final class MixpanelHttpTransportTest extends TestCase
     /** @var array<string, string> */
     private const array TEST_LOOKUP_TABLE_IDS = ['utm_campaigns' => 'test-lookup'];
     private const string TEST_DATA_API_BASE_URL = 'https://test.api-eu.mixpanel.com';
+    private const string TEST_EXPORT_API_BASE_URL = 'https://test.data-eu.mixpanel.com';
+    private const string TEST_ANALYTICS_SALT = 'test-analytics-salt';
     private const int TEST_TIMEOUT_SECONDS = 5;
     private const int TEST_RETRY_TIMES = 1;
     private const int TEST_RETRY_DELAY_MS = 10;
@@ -54,9 +56,11 @@ final class MixpanelHttpTransportTest extends TestCase
 
         $this->config = new MixpanelConfig(
             dataApiBaseUrl: self::TEST_DATA_API_BASE_URL,
+            exportApiBaseUrl: self::TEST_EXPORT_API_BASE_URL,
             serviceAccountUsername: self::TEST_USERNAME,
             serviceAccountPassword: self::TEST_PASSWORD,
             projectId: self::TEST_PROJECT_ID,
+            analyticsSalt: self::TEST_ANALYTICS_SALT,
             lookupTableIds: self::TEST_LOOKUP_TABLE_IDS,
             timeout: self::TEST_TIMEOUT_SECONDS,
             retryTimes: self::TEST_RETRY_TIMES,

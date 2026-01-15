@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Infrastructure\Shopwired;
 
 use App\Infrastructure\Shopwired\Contracts\PaginatableQueryParamsInterface;
+use App\Infrastructure\Shopwired\Enums\CustomerSort;
 
 /**
  * Immutable value object for ShopWired Customer API query parameters.
@@ -104,6 +105,21 @@ final readonly class CustomerQueryParams implements PaginatableQueryParamsInterf
             baseParams: $this->baseParams,
             trade: $this->trade,
             email: $email,
+        );
+    }
+
+    /**
+     * Set sort order for customer results.
+     *
+     * For bulk sync, use CustomerSort::CreatedDesc (newest first) so recent customers
+     * are prioritized if sync fails mid-way.
+     */
+    public function withSort(?CustomerSort $sort): self
+    {
+        return new self(
+            baseParams: $this->baseParams->withSort($sort?->value),
+            trade: $this->trade,
+            email: $this->email,
         );
     }
 

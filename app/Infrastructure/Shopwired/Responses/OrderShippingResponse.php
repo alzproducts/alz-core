@@ -30,8 +30,9 @@ final class OrderShippingResponse extends Data
     public function toDomain(): OrderShipping
     {
         return new OrderShipping(
+            id: $this->id,
             name: $this->name,
-            value: $this->value,
+            chargeNet: $this->value,
             vatRate: $this->vatRate,
         );
     }

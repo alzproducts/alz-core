@@ -12,6 +12,7 @@ use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\InvalidApiRequestException;
 use App\Domain\Exceptions\InvalidApiResponseException;
 use App\Domain\Exceptions\ResourceNotFoundException;
+use App\Infrastructure\Shopwired\Enums\OrderSort;
 use App\Infrastructure\Shopwired\Mappers\OrderLifecycleStatusMapper;
 use App\Infrastructure\Shopwired\OrderQueryParams;
 use App\Infrastructure\Shopwired\Requests\OrderStatusUpdateOptions;
@@ -21,6 +22,7 @@ use App\Infrastructure\Shopwired\ShopwiredPaginator;
 use App\Infrastructure\Shopwired\ShopwiredQueryParams;
 use App\Infrastructure\Shopwired\ShopwiredResponseParserTrait;
 use DateTimeImmutable;
+use Generator;
 
 /**
  * ShopWired Orders API Client.
@@ -306,5 +308,46 @@ final readonly class OrderClient implements OrderClientInterface
 
         /** @var list<DomainOrder> */
         return self::parseArrayToDomain($response->json(), OrderResponse::class);
+    }
+
+    /**
+     * Iterate orders in batches (memory-efficient).
+     *
+     * Orders sorted by date descending (newest first) for resilience:
+     * if sync fails mid-way, recent orders are already captured.
+     *
+     * Uses Detail mode to include products and customFields.
+     *
+     * @param int|null $maxPages Maximum pages to fetch (null = all)
+     *
+     * @return Generator<int, list<DomainOrder>, mixed, void>
+     *
+     * @throws InvalidApiRequestException When request parameters are invalid (400)
+     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
+     * @throws ResourceNotFoundException When resource not found (404)
+     * @throws ExternalServiceUnavailableException When API unavailable or connection fails
+     * @throws InvalidApiResponseException When response parsing fails (API contract violation)
+     */
+    public function iterateOrderBatches(?int $maxPages = null): Generator
+    {
+        // IMPORTANT: withSort() must come AFTER withBaseParams() because
+        // withBaseParams() replaces the entire base params object
+        $params = OrderQueryParams::forBulkFetch()
+            ->withBaseParams(
+                ShopwiredQueryParams::forBulkFetch()
+                    ->withEmbeds(self::DETAIL_EMBEDS)
+                    ->withFields(self::DETAIL_FIELDS),
+            )
+            ->withSort(OrderSort::DateDesc);
+
+        $pageCount = 0;
+        foreach (ShopwiredPaginator::pages($params, $this->fetchOrderPage(...)) as $pageNumber => $orders) {
+            $pageCount++;
+            yield $pageNumber => $orders;
+
+            if ($maxPages !== null && $pageCount >= $maxPages) {
+                break;
+            }
+        }
     }
 }

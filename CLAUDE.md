@@ -61,6 +61,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Tool Usage
 
+### ⚠️ Important: Use JetBrains MCP for Codebase Navigation
+
+Prefer `mcp__phpstorm__*` or `mcp__intellij__*` for **read-only** operations (search, symbols, file reads). Use standard `Bash`/`Write`/`Edit` for execution and file changes.
+
 ### zen:challenge - Critical Thinking
 
 **Use when**:
@@ -77,9 +81,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Rationale**: The JetBrains MCP `create_new_file` tool has unreliable behavior and doesn't integrate well with the validation hooks.
 
+### GitHub CLI - Multiline Content
+
+For multiline `gh` comments: write to `/tmp/gh-comment-{issue#}.md`, then use `--body-file`. Newlines in `--body` trigger security blocks.
+
 ## Implementation Logs
 
-When working on a GitHub issue with an associated plan document, maintain an implementation log at `.ai/docs/implementation/issue-{number}-{description}.md`.
+When working on a GitHub issue with an associated plan document, maintain an implementation log at `.ai/implementation-logs/issue-{number}-{description}.md`.
 
 **Key practices:**
 - Create the log when starting work on a non-trivial feature
@@ -88,22 +96,59 @@ When working on a GitHub issue with an associated plan document, maintain an imp
 - Read existing implementation logs at the start of conversations to restore context
 - Use the PR Notes section to draft the PR description before creating the PR
 
-See `.ai/docs/implementation/CLAUDE.md` for the full template and guidelines.
+See `.ai/implementation-logs/CLAUDE.md` for the full template and guidelines.
 
-## ⚠️ Git Commit Policy
+## Git Workflow
 
-**NEVER create git commits unless explicitly requested by the user.**
+**Proactive commits enabled.** Claude commits and pushes after each logical change. User approves via command approval UI.
 
-- ❌ Do NOT stage files (`git add`)
-- ❌ Do NOT create commits (`git commit`)
-- ❌ Do NOT push to remote (`git push`)
-- ✅ DO make code changes, run linters, run tests
-- ✅ DO report when changes are ready to commit
-- ✅ Only commit when user explicitly asks (e.g., "commit these changes", "create a commit")
+### Commit Sequence
+1. Run `make lint` then `make test`
+2. Verify current branch ≠ `main` or `develop`
+3. Commit with Conventional Commit message
+4. Push immediately
+5. Run `.claude/scripts/refresh-ide.sh` (refreshes JetBrains git panel)
 
-**Rationale**: The user maintains full control over git history and commit timing.
+**Conventional Commits:** `type(scope): description`
+**Types:** `feat`, `fix`, `refactor`, `test`, `docs`, `chore`, `perf`, `ci`
 
-**Always use `git mv`** when moving/renaming files. Preserves history; delete + create loses it.
+### Error Recovery
+
+| Scenario | Action |
+|----------|--------|
+| Lint/test fails | Fix issue, retry from step 1 |
+| Pre-commit hook fails | Fix issue, retry commit |
+| Push hook fails | Fix, amend commit (local-only), retry push |
+| On protected branch | Report error, await instruction |
+| Merge conflict | Report to user, await instruction |
+
+**Amending:** ✅ Local-only commits | ❌ Never amend pushed commits
+
+### PR Creation
+When work is complete, check for existing PR on branch (`gh pr view`). If PR exists, report URL instead of offering to create.
+
+If no PR exists, ask user via `AskUserQuestion`:
+- **Create immediately** — work reviewed along the way
+- **Complete checklist first** — verify against issue/plan/comments (as applicable)
+- **Don't create PR** — more work needed or user will handle
+
+**Always include issue reference** in PR description: `Closes #123` (or `Fixes #123` for bugs).
+
+After creation, poll CI (up to 10 min) and report pass/fail with PR URL.
+
+### Merge Strategy
+- **Feature → develop**: Squash and merge (one commit per feature)
+- **Develop → main**: Merge commit (preserves feature commits)
+
+### Safety Rules
+- ❌ Never force push (`--force`, `--force-with-lease`)
+- ❌ Never rebase shared branches
+- ❌ Never push to `main` or `develop`
+- ❌ No `Co-Authored-By` trailers
+- ✅ Use `git mv` for renames (preserves history)
+
+### Branch Management
+User creates and switches branches. Claude works on current branch only.
 
 ## Development Environment
 
@@ -124,10 +169,9 @@ make test                         # Run all tests (unit + integration)
 make lint                         # Run linters
 ```
 
-### Why Native PHP?
-- **6x faster** test execution (4.5s vs ~30s with Sail)
-- **2-3x faster** linting and static analysis
-- **Instant** IDE indexing (no Docker volume overhead)
+### Queue Processing
+
+**Queue listener runs automatically** via the `Queue` run configuration (see `.run/Queue.run.xml`). Do NOT manually run queue workers.
 
 ---
 
@@ -153,47 +197,18 @@ This project follows **Clean Architecture** (Robert C. Martin) — dependencies 
 4. **Presentation** calls Application use cases, never Infrastructure directly
 5. **Validation**: External data → exceptions (Infrastructure), internal contracts → assertions (Domain)
 
-### Spatie LaravelData (DTOs)
+### Spatie LaravelData
 
-**Rule**: ❌ **NOT allowed in Domain layer**. Domain must stay framework-independent.
+❌ **NOT in Domain** (must stay framework-independent). Use in Application (response DTOs) and Infrastructure (API parsing). See `app/Infrastructure/CLAUDE.md`.
 
-**Use in Application Layer**: Transform Domain objects to API response DTOs.
-```php
-#[MapOutputName(SnakeCaseMapper::class)]
-final class RatingForApiDTO extends Data {
-    public function __construct(
-        public readonly string $sku,
-        public readonly float $averageRating,
-    ) {}
-}
-```
-
-**Use in Infrastructure Layer**: Parse external API responses and represent them as type-safe objects.
-```php
-#[MapInputName(SnakeCaseMapper::class)]
-final class Rating extends Data {
-    public function __construct(
-        public readonly string $sku,
-        public readonly float $averageRating,
-    ) {}
-}
-```
-
-## Interface Placement Rules
+### Interface Placement
 
 **Core Principle:** Interfaces live where they're USED, not where they're IMPLEMENTED.
 
-**Correct Pattern:**
-- Application defines: `Application/Contracts/MixpanelClientInterface`
-- Application uses: `SyncAdSpendUseCase` uses the interface
-- Infrastructure implements: `Infrastructure/Mixpanel/MixpanelClient implements MixpanelClientInterface`
-
-**Why:** Dependency Inversion Principle - higher layers define contracts, lower layers fulfill them.
-
-**Organization Rules:**
-- No interfaces in Infrastructure layer (Infrastructure implements, doesn't define)
-- All interfaces live in `/Contracts/` subdirectories within Domain or Application
-- Contracts directories contain ONLY interfaces, never implementations
+- Application defines cross-layer contracts: `Application/Contracts/MixpanelClientInterface`
+- Infrastructure implements: `MixpanelClient implements MixpanelClientInterface`
+- Infrastructure may have internal-only interfaces (not crossing layer boundaries)
+- Cross-layer interfaces in `/Contracts/` subdirectories within Domain or Application
 
 ## Key Architectural Decisions
 
@@ -202,6 +217,10 @@ final class Rating extends Data {
 3. **Supabase shared**: Same PostgreSQL database as Next.js frontend
 4. **Production uses Octane**: We run long-running daemon processes (Laravel Octane) in production. Be cautious with date/time calculations in queue jobs—always calculate timestamps in `handle()` method, not in constructor, to ensure fresh evaluations on each execution (not stale values from job creation time).
 5. **Enforce over warn**: When reviewing security controls, prefer enforcement (fail-fast) over warnings. If a security boundary can be enforced, do that instead of logging a warning that might be ignored.
+
+### Common Pitfalls
+
+**Date Range Windows**: Never use `subMonths()` directly for backfill/sync windows—creates gaps at month boundaries. Use `startOfMonth()->subMonths()` instead. See [`.ai/docs/guides/critical-pitfalls.md`](.ai/docs/guides/critical-pitfalls.md).
 
 ## Exception Handling in Clean Architecture
 
@@ -226,67 +245,21 @@ See layer-specific guides for detailed patterns.
 
 **Target**: PHP 8.4+ features and best practices
 
-### Exception Handling
-- **Use specific SPL exceptions** instead of generic `\Exception`
-- Runtime failures → `RuntimeException`
-- Invalid arguments → `InvalidArgumentException`
-- Logic errors → `LogicException`
-
 ### PHP 8.4 Features
 - **Property Hooks**: Use where appropriate (getters/setters on properties)
 - **Asymmetric Visibility**: Use `public private(set)` for read-only properties
 - **Array Functions**: Use `array_find()`, `array_find_key()`, `array_any()`, `array_all()`
 - **Static Functions**: Always use static methods and closures for pure/stateless operations (transformations, utilities, factories). Never use static properties for state—Octane persists them across requests.
 - **Readonly Classes**: Mark classes as `readonly` when all properties are immutable (DTOs, value objects, transformers)
+- **Import All Classes**: All classes must be imported with `use` statements—including in docblocks (`@throws`, `@param`, `@return`)
 
-### Type Safety
-- Always use strict types: `declare(strict_types=1);`
-- Use union types over docblock annotations: `string|int` not `@var string|int`
-- Prefer readonly properties for immutable data
-- Use enums over class constants for fixed sets
+### Assertion & Validation
 
-### Import & Use Statements
-- **All classes must be imported** with `use` statements—including in docblocks (`@throws`, `@param`, `@return`)
+- **External data** → Laravel Validator (always active in production)
+- **Internal contracts** → `webmozart/assert` (zero cost in production)
+- **Type narrowing** → PHPStan annotations
 
-### Assertion & Validation Quick Reference
-
-#### Runtime Assertions (Development Only)
-Zero cost in production when `zend.assertions=-1`
-
-- **PHP assert()** - Built-in, compiles out in production
-- **webmozart/assert** - Fluent API with 100+ methods, PHPStan integration
-
-**Use for:** Internal contracts, preconditions in private methods, class invariants, logical impossibilities
-**Never for:** User input, API parameters, security checks, business validation
-
-#### Static Analysis (Compile-time)
-Pure documentation, zero runtime cost
-
-- **PHPStan annotations** - `@phpstan-assert`, `@phpstan-assert-if-true`
-- **Larastan** - PHPStan + Laravel extensions
-
-**Use for:** Type narrowing at Level 8, custom validation function contracts
-
-#### Testing Assertions (Test-only)
-
-- **Pest** - Modern test framework with expectation API
-- **PHPUnit** - Traditional assertions
-
-**Use for:** Verifying behavior in test suites
-
-#### Validation (Always Active)
-Remains active in production, handles untrusted input
-
-- **Laravel Validator** - Framework-integrated, 80+ rules, Form Requests
-
-**Use for:** User input, API requests/responses, external data, security boundaries
-
-#### Decision Tree
-
-1. **External/untrusted data** → Laravel Validator
-2. **Internal contracts** → Runtime assertions (webmozart/assert)
-3. **Type narrowing** → Static analysis annotations
-4. **Test verification** → Pest expectations
+See [`.ai/docs/guides/assertion-validation-reference.md`](.ai/docs/guides/assertion-validation-reference.md) for full reference.
 
 ## Build System: Makefile vs Composer
 
@@ -306,33 +279,6 @@ Remains active in production, handles untrusted input
 5. **Deptrac** (Layer Dependencies) - Analyzes `use` statement imports for CA violations
 6. **Infection** (Mutation Testing) - Validates test quality by catching weak assertions (especially AI-generated tests)
 
-**Why both PHPArkitect + Deptrac?** PHPArkitect checks type usage (`new`, `extends`, type hints) but misses `use` imports. Deptrac explicitly analyzes imports. Together they provide complete CA enforcement.
-
-### Deptrac Whitelist Enforcement
-
-Deptrac enforces **whitelist-only** external dependencies. Any new Composer package must be:
-1. Added as a layer in `deptrac.yaml` with regex pattern
-2. Explicitly allowed in the target layer's ruleset
-
-**Allowed external packages by layer:**
-
-| Layer | Allowed External Dependencies |
-|-------|-------------------------------|
-| Domain | `Webmozart\Assert` |
-| Application | `Psr\*` interfaces |
-| Infrastructure | Laravel, Spatie\LaravelData, Google\*, Webmozart\Assert |
-| Presentation | Laravel, Symfony\HttpFoundation, Firebase\JWT |
-
-### Rector (Code Refactoring)
-
-For PHP/Laravel upgrades and code modernization. **Manual-only** (not in git hooks).
-
-```bash
-make rector-dry-run   # Preview changes (always run first!)
-make rector           # Apply refactorings
-make refactor         # Rector + Pint combo (recommended)
-```
-
 ### Running Linters
 
 **Primary commands** (run `make help` for full list):
@@ -346,22 +292,11 @@ make check        # Full validation: lint-full + tests
 make test-ai      # Validate AI-generated tests (test + infection)
 ```
 
-### Pint Style Fixes (Automated Approach)
+### Pint Style Fixes
 
-**ALWAYS try auto-fixing with Pint before manually editing for style issues:**
+**ALWAYS try `make fix` before manually editing for style issues.** Pint auto-fixes ~95% of style issues.
 
-```bash
-php vendor/bin/pint <file-path>  # Auto-fix single file
-make fix                         # Auto-fix all files
-```
-
-Pint can auto-fix ~95% of style issues (trailing newlines, spacing, imports ordering, etc.). Only manually edit code if:
-1. Pint cannot auto-fix the specific issue
-2. The issue requires semantic changes (not just formatting)
-
-### Git Hooks (Automated)
-- **Pre-commit**: Pint + PHPStan + PHPArkitect (runs automatically on `git commit`)
-- **Pre-push**: Pest tests + PHP Insights + PHPArkitect (runs automatically on `git push`)
+**Git Hooks**: Pre-commit runs Pint + PHPStan + PHPArkitect. Pre-push runs Pest + PHP Insights + PHPArkitect.
 
 ### PHPArkitect Naming Conventions
 
@@ -372,33 +307,11 @@ Enforced by `phparkitect.php` (layer dependencies defined in Clean Architecture 
 - Repositories → `*Repository`
 - API clients → `*Client`
 
-### Test Generation with zen:testgen
+### Testing
 
-**Always use `zen:testgen` MCP when creating test suites.** It analyzes code structure, identifies edge cases, and generates mutation-resistant tests.
+**⚠️ Read `tests/TestingStrategy.md` first** — defines what to test per layer, avoiding wasted effort.
 
-After generation, validate with both mutation engines on the specific class:
-```bash
-vendor/bin/infection --filter=YourClass.php --min-msi=80
-vendor/bin/pest --mutate --class=App\\Domain\\YourClass --min=85
-```
-Fix escaped mutants until both pass.
-
-### Testing Strategy by Layer
-
-**Reference**: See `tests/TestingStrategy.md` for full guidance.
-
-| Layer | Coverage | Mutation | Test Type |
-|-------|----------|----------|-----------|
-| Domain | 90%+ | MSI 85%+ | Unit (no mocks) |
-| Application | 70%+ | Services only (70%+) | Unit + Integration |
-| Infrastructure | — | — | Integration only |
-| Presentation | — | — | Feature/smoke |
-
-**Commands**:
-- `make test-domain-coverage` — Domain with 90% threshold
-- `make test-app-coverage` — Application with 70% threshold
-- `make mutate-domain` — Domain mutation testing (90%+, uses Pest mutate)
-- `make mutate-app` — Application mutation testing (70%+, uses Pest mutate)
+**Consider `zen:testgen` MCP** for complex test suites or when you want a second opinion on edge cases. See `tests/CLAUDE.md` for mutation testing workflow.
 
 ### ⚠️ IMPORTANT: Bypassing Linters
 

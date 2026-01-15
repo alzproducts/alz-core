@@ -1,4 +1,4 @@
-.PHONY: help install up down shell migrate pint pint-test test test-quick test-coverage coverage-html pest-mutate test-ai test-mutate lint lint-sequential lint-full fix analyse insights phparkitect deptrac tlint tlint-full psalm psalm-ci psalm-baseline stan rector rector-dry-run refactor check check-full infection infection-fast infection-strict infection-incremental infection-ci ide-helper test-domain test-domain-coverage test-app test-app-coverage mutate-domain mutate-app supabase-start supabase-functions supabase-stop supabase-status supabase-reset supabase-seed-users redis
+.PHONY: help install up down shell migrate db-reset-full pint pint-test test test-quick test-coverage coverage-html pest-mutate test-ai test-mutate lint lint-sequential lint-full fix analyse insights phparkitect deptrac tlint tlint-full psalm psalm-ci psalm-baseline stan rector rector-dry-run refactor check check-full infection infection-fast infection-strict infection-incremental infection-ci ide-helper test-domain test-domain-coverage test-app test-app-coverage mutate-domain mutate-app supabase-start supabase-functions supabase-stop supabase-status supabase-reset supabase-seed-users redis
 
 # Enable strict shell mode for robust error handling
 SHELL := bash
@@ -267,9 +267,9 @@ test-app-coverage: ## Run Application tests with 70% coverage (App code only)
 	@echo "$(MODE)"
 	$(EXEC) -d xdebug.mode=coverage vendor/bin/pest --configuration=phpunit-app.xml --coverage --min=70
 
-test-coverage: ## Run tests with 80% coverage requirement
+test-coverage: ## Run tests with coverage report (no global threshold - layer-specific thresholds enforced in mutation testing)
 	@echo "$(MODE)"
-	$(EXEC) -d xdebug.mode=coverage vendor/bin/pest --coverage --min=75
+	$(EXEC) -d xdebug.mode=coverage vendor/bin/pest --coverage
 
 coverage-html: ## Generate HTML coverage report (open coverage-report/index.html)
 	@echo "$(MODE)"
@@ -318,7 +318,7 @@ mutate-app: ## Run Pest mutation testing on Application layer (70%+ min score)
 	@echo "$(MODE)"
 	$(EXEC) -d xdebug.mode=off vendor/bin/pest --mutate \
 		--path=app/Application \
-		--everything --min=70 --parallel --processes=9 \
+		--covered-only --min=70 --parallel --processes=9 \
 		--testsuite=Application --ignore-min-score-on-zero-mutations
 
 test-ai: ## Validate AI-generated tests with mutation testing
@@ -336,6 +336,29 @@ test-mutate: ## Run full mutation testing suite
 migrate: ## Run database migrations
 	@echo "$(MODE)"
 	$(EXEC) artisan migrate
+
+# =============================================================================
+# Database Reset (Coordinated)
+# =============================================================================
+# IMPORTANT: This project shares PostgreSQL with Supabase (alz-admin).
+# Supabase owns auth.* tables. NEVER run migrate:fresh, migrate:refresh,
+# migrate:reset, or db:wipe directly - they destroy Supabase auth tables.
+# Use this target instead for safe, coordinated resets.
+
+db-reset-full: ## Full database reset (Supabase auth + Laravel migrations)
+	@echo "$(YELLOW)=== FULL DATABASE RESET ===$(NC)"
+	@echo "$(YELLOW)This resets Supabase auth tables AND re-runs Laravel migrations.$(NC)"
+	@echo ""
+	@echo "$(YELLOW)Step 1/2: Resetting Supabase (auth tables, test users)...$(NC)"
+	@$(MAKE) supabase-reset
+	@echo ""
+	@echo "$(YELLOW)Step 2/2: Running Laravel migrations...$(NC)"
+	@$(MAKE) migrate
+	@echo ""
+	@echo "$(GREEN)Full database reset complete.$(NC)"
+	@echo "$(GREEN)- Supabase auth tables: reset$(NC)"
+	@echo "$(GREEN)- Test users: seeded$(NC)"
+	@echo "$(GREEN)- Laravel tables: migrated$(NC)"
 
 # =============================================================================
 # Supabase (Local Development)

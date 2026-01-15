@@ -1,0 +1,119 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Infrastructure\Shopwired\Models;
+
+use App\Domain\Catalog\Order\ValueObjects\OrderRefund;
+use App\Infrastructure\Concerns\AutoDomainMappingTrait;
+use App\Infrastructure\Contracts\EloquentDomainMappableInterface;
+use Carbon\CarbonImmutable;
+use DateTimeImmutable;
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+/**
+ * Eloquent model for shopwired.order_refunds table.
+ *
+ * Stores refunds applied to orders, synced from ShopWired API.
+ * Sync strategy is "replace all" (like discounts) - no stable ID for upserts.
+ *
+ * @property string $id Internal UUID
+ * @property string $order_id Parent order UUID
+ * @property int $order_external_id Parent order's ShopWired ID
+ * @property int $external_id ShopWired refund ID
+ * @property string $name Refund description/reason
+ * @property float $value Refund amount
+ * @property CarbonImmutable|null $created_at_shopwired When refund was created in ShopWired
+ * @property CarbonImmutable $created_at
+ * @property CarbonImmutable $updated_at
+ *
+ * @implements EloquentDomainMappableInterface<OrderRefund>
+ */
+final class OrderRefundModel extends Model implements EloquentDomainMappableInterface
+{
+    use AutoDomainMappingTrait;
+    use HasUuids;
+
+    protected $table = 'shopwired.order_refunds';
+
+    protected $guarded = [];
+
+    public $incrementing = false;
+
+    protected $keyType = 'string';
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            // Money field
+            'value' => 'float',
+            // External IDs
+            'external_id' => 'integer',
+            'order_external_id' => 'integer',
+            // Timestamps
+            'created_at_shopwired' => 'immutable_datetime',
+            'created_at' => 'immutable_datetime',
+            'updated_at' => 'immutable_datetime',
+        ];
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Relationships
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Get the parent order.
+     *
+     * @return BelongsTo<OrderModel, $this>
+     */
+    public function order(): BelongsTo
+    {
+        return $this->belongsTo(OrderModel::class, 'order_id', 'id');
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Domain Mapping
+    // ─────────────────────────────────────────────────────────────────────────
+
+    protected function domainClass(): string
+    {
+        return OrderRefund::class;
+    }
+
+    /**
+     * Convert to Domain object with custom column mapping.
+     *
+     * Overrides AutoDomainMappingTrait because `createdAt` maps to
+     * `created_at_shopwired` (not `created_at` which is Laravel's timestamp).
+     */
+    public function toDomain(): OrderRefund
+    {
+        return new OrderRefund(
+            externalId: $this->external_id,
+            name: $this->name,
+            value: $this->value,
+            createdAt: $this->created_at_shopwired ?? new DateTimeImmutable(),
+        );
+    }
+
+    /**
+     * Convert Domain object to model attributes with custom column mapping.
+     *
+     * @return array<string, mixed>
+     */
+    public static function fromDomainAttributes(object $entity): array
+    {
+        /** @var OrderRefund $entity */
+        return [
+            'external_id' => $entity->externalId,
+            'name' => $entity->name,
+            'value' => $entity->value,
+            'created_at_shopwired' => $entity->createdAt,
+        ];
+    }
+}

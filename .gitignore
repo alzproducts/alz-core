@@ -34,4 +34,5 @@ _ide_helper_models.php
 /.deptrac.cache
 
 /examples
-/.claude/handoffs
+/.ai/handoffs
+/tmp

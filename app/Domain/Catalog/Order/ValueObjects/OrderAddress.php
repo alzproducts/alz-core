@@ -8,7 +8,6 @@ namespace App\Domain\Catalog\Order\ValueObjects;
  * Order address value object (billing or shipping).
  *
  * Contains customer contact and location information.
- * CountryId excluded - use country name for business logic.
  */
 final readonly class OrderAddress
 {
@@ -25,5 +24,6 @@ final readonly class OrderAddress
         public ?string $state,
         public string $postcode,
         public string $country,
+        public int $countryId,
     ) {}
 }
