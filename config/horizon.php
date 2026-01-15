@@ -254,7 +254,7 @@ return [
                 'maxJobs' => 100,
             ],
             'supervisor-low' => [
-                'maxProcesses' => 2,
+                'maxProcesses' => 4,
                 'tries' => 3,
                 'timeout' => 3600,
                 'maxTime' => 7200,

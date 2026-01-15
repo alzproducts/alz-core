@@ -160,7 +160,7 @@ Git hooks automatically enforce these standards on commit/push.
 
 All configuration is done via Railway Dashboard UI (Settings persist across deployments).
 
-#### Service 1: Web (Laravel App)
+#### Service 1: Web (`alz-core-web`)
 
 **Settings → Deploy**
 - **Source**: Connect to GitHub repository
@@ -185,7 +185,7 @@ OCTANE_TASK_WORKERS=6
 OCTANE_MAX_REQUESTS=500
 ```
 
-#### Service 2: Worker (Horizon Queue)
+#### Service 2: Worker (`alz-core-worker`)
 
 **Settings → Deploy**
 - **Source**: Same GitHub repository as Web service
@@ -251,7 +251,23 @@ Railway's 2025 best practice is **configuration via UI**, not config files:
 - Different resource profiles (HTTP concurrency vs long-running processes)
 - Deployment safety (worker failures don't affect web server)
 
-**Scheduler (Phase 2)**: No cron service yet (YAGNI). Will use Railway cron jobs in Phase 2 when scheduled tasks are defined.
+**Scheduler**: The `alz-core-scheduler` service runs `php artisan schedule:work` to execute scheduled tasks defined in `routes/console.php`.
+
+### SSH Quick Reference
+
+```bash
+# List available services
+railway service list
+
+# SSH into a service
+railway ssh -s alz-core-worker "php artisan tinker --execute=\"...\""
+
+# Dispatch jobs manually
+railway ssh -s alz-core-worker "php artisan tinker --execute=\"App\\Presentation\\Jobs\\SyncShopwiredCustomersJob::dispatch();\""
+
+# Check Horizon status
+railway ssh -s alz-core-worker "php artisan horizon:status"
+```
 
 ## Project Documentation
 
