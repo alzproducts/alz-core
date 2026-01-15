@@ -17,6 +17,7 @@ use App\Infrastructure\Shopwired\Models\OrderDiscountModel;
 use App\Infrastructure\Shopwired\Models\OrderModel;
 use App\Infrastructure\Shopwired\Models\OrderProductModel;
 use App\Infrastructure\Shopwired\Models\OrderRefundModel;
+use DateTimeImmutable;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -82,6 +83,32 @@ final class EloquentOrderRepository extends AbstractShopwiredEloquentRepository 
             }
 
             return OrderModelMapper::fromModelWithRelations($model);
+        });
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @return list<Order>
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function getOrdersInDateRange(DateTimeImmutable $from, DateTimeImmutable $to): array
+    {
+        return $this->gateway->query(static function () use ($from, $to): array {
+            $models = self::MODEL_CLASS::query()
+                ->whereBetween('order_placed_at', [$from, $to])
+                ->with(self::EAGER_LOAD_RELATIONS)
+                ->orderBy('order_placed_at')
+                ->get();
+
+            return \array_values(
+                $models
+                    ->map(static fn(OrderModel $model): Order => OrderModelMapper::fromModelWithRelations($model))
+                    ->all(),
+            );
         });
     }
 

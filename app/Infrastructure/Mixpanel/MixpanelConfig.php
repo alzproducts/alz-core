@@ -14,9 +14,10 @@ use InvalidArgumentException;
  * with the Mixpanel API. Validation happens at construction time (fail-fast),
  * ensuring the client always receives valid configuration.
  *
- * Mixpanel uses two base URLs:
+ * Mixpanel uses three base URLs:
  * - Main API (mixpanel.com): Authentication and account endpoints
  * - Data API (api-eu.mixpanel.com): Event ingestion and lookup tables
+ * - Export API (data-eu.mixpanel.com): Raw event export
  *
  * @template-pattern API Client Config Value Object
  */
@@ -48,29 +49,39 @@ final readonly class MixpanelConfig
     private const int MAX_RETRY_DELAY_MS = 5000;
 
     /**
-     * @param string $dataApiBaseUrl Data API base URL (defaults to production)
+     * @param string $dataApiBaseUrl Data API base URL for import and lookup tables
+     * @param string $exportApiBaseUrl Export API base URL for raw event export (different subdomain)
      * @param string $serviceAccountUsername Service account username for Basic Auth
      * @param string $serviceAccountPassword Service account password for Basic Auth
      * @param string $projectId Mixpanel project identifier
+     * @param string $analyticsSalt Salt for order_id_hashed (must match frontend)
      * @param array<string, string> $lookupTableIds Lookup table identifiers keyed by name
      * @param int $timeout Request timeout in seconds (1-300)
      * @param int $retryTimes Number of retry attempts (0-10)
      * @param int $retryDelay Delay between retries in milliseconds (0-5000)
+     * @param bool $allowEmptyExport Allow empty export results (for initial sync bootstrap only)
      *
      * @throws InvalidArgumentException When numeric parameters are out of bounds
      */
     public function __construct(
         public string $dataApiBaseUrl,
+        public string $exportApiBaseUrl,
         public string $serviceAccountUsername,
         public string $serviceAccountPassword,
         public string $projectId,
+        public string $analyticsSalt,
         public array $lookupTableIds,
         public int $timeout = 30,
         public int $retryTimes = 3,
         public int $retryDelay = 100,
+        public bool $allowEmptyExport = false,
     ) {
         if ($dataApiBaseUrl === '') {
             throw new InvalidConfigurationException('mixpanel.base_url', 'Mixpanel data API base URL cannot be empty');
+        }
+
+        if ($exportApiBaseUrl === '') {
+            throw new InvalidConfigurationException('mixpanel.export_api_base_url', 'Mixpanel export API base URL cannot be empty');
         }
 
         if ($serviceAccountUsername === '') {
@@ -83,6 +94,10 @@ final readonly class MixpanelConfig
 
         if ($projectId === '') {
             throw new InvalidConfigurationException('mixpanel.project_id', 'Mixpanel project ID cannot be empty');
+        }
+
+        if ($analyticsSalt === '') {
+            throw new InvalidConfigurationException('mixpanel.analytics_salt', 'Analytics salt cannot be empty');
         }
 
         // Note: lookupTableIds validated by MixpanelClientFactory (type + non-empty)

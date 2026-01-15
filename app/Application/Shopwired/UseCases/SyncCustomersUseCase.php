@@ -16,9 +16,11 @@ use App\Domain\Exceptions\ResourceNotFoundException;
 use Psr\Log\LoggerInterface;
 
 /**
- * Orchestrate full customer synchronization from ShopWired API to local database.
+ * Orchestrate customer synchronization from ShopWired API to local database.
  *
- * Unlike orders (date-range filtered), customers require full-sync approach.
+ * Supports both full sync (all customers) and quick sync (recent customers only).
+ * Always syncs ALL trade customers (B2B priority), with optional limit on non-trade pages.
+ *
  * Uses generator-based pagination for memory efficiency with ~60k customers.
  *
  * Batching strategy:
@@ -26,9 +28,11 @@ use Psr\Log\LoggerInterface;
  * - Buffer 10 pages (~1000 customers) before DB write
  * - Reduces DB round-trips while keeping memory bounded
  *
- * Typical usage: weekly scheduled job (Sunday 3am) with overlap protection.
+ * Usage:
+ * - Full sync (null): Weekly job syncing all ~68k customers (~45 min)
+ * - Quick sync (5): Hourly job catching recent signups (~500 customers, ~1 min)
  */
-final readonly class SyncAllCustomersUseCase
+final readonly class SyncCustomersUseCase
 {
     /**
      * Number of pages to buffer before writing to database.
@@ -49,11 +53,14 @@ final readonly class SyncAllCustomersUseCase
     ) {}
 
     /**
-     * Synchronize all customers from ShopWired API to local database.
+     * Synchronize customers from ShopWired API to local database.
      *
-     * Iterates through all customer pages, buffering PAGES_PER_BATCH pages
+     * Iterates through customer pages, buffering PAGES_PER_BATCH pages
      * before flushing to database. Uses continue-on-failure semantics:
      * individual save failures are logged and counted, but processing continues.
+     *
+     * @param int|null $maxTradePages Max trade pages (null = all ~5 pages, 1 page ≈ 100 customers)
+     * @param int|null $maxNonTradePages Max non-trade pages (null = all ~677 pages, 1 page ≈ 100 customers)
      *
      * @return SyncResult Results with fetched/saved/failed counts
      *
@@ -63,9 +70,15 @@ final readonly class SyncAllCustomersUseCase
      * @throws ExternalServiceUnavailableException When ShopWired API unavailable
      * @throws InvalidApiResponseException When API response parsing fails
      */
-    public function execute(): SyncResult
-    {
-        $this->logger->info('Starting full customer sync from ShopWired');
+    public function execute(
+        ?int $maxTradePages = null,
+        ?int $maxNonTradePages = null,
+    ): SyncResult {
+        $syncType = match (true) {
+            $maxTradePages === null && $maxNonTradePages === null => 'full',
+            default => \sprintf('quick (%s trade, %s non-trade pages)', $maxTradePages ?? 'all', $maxNonTradePages ?? 'all'),
+        };
+        $this->logger->info("Starting {$syncType} customer sync from ShopWired");
 
         $totalFetched = 0;
         $totalSaved = 0;
@@ -78,7 +91,7 @@ final readonly class SyncAllCustomersUseCase
         $pagesBuffered = 0;
         $batchesFlushed = 0;
 
-        foreach ($this->customerClient->iterateAllCustomerBatches() as $pageNumber => $customers) {
+        foreach ($this->customerClient->iterateCustomerBatches($maxTradePages, $maxNonTradePages) as $pageNumber => $customers) {
             $totalFetched += \count($customers);
             $buffer = [...$buffer, ...$customers];
             $pagesBuffered++;

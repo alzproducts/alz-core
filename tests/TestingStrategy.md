@@ -107,6 +107,8 @@ Clean Architecture gives us natural boundaries. Each layer has different charact
 
 A `SyncAdSpendUseCase` that just calls fetch → transform → send in sequence has little testable logic. The `AdSpendTransformer` it calls has real logic worth testing.
 
+**Mutation testing implication**: UseCases don't require mutation testing—they're orchestration code with mostly delegation and logging. Don't chase mutation scores on UseCase classes; focus mutation testing on Services with actual business logic.
+
 ---
 
 ### Infrastructure Layer (`app/Infrastructure`)

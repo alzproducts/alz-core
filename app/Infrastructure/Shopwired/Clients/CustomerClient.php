@@ -108,12 +108,12 @@ final readonly class CustomerClient implements CustomerClientInterface
     public function listAllNonTradeCustomers(): array
     {
         $params = CustomerQueryParams::forBulkFetch()
-            ->withSort(CustomerSort::CreatedDesc)
             ->withBaseParams(
                 ShopwiredQueryParams::forBulkFetch()
                     ->withEmbeds(self::DEFAULT_EMBEDS)
                     ->withFields(self::DEFAULT_FIELDS),
-            );
+            )
+            ->withSort(CustomerSort::CreatedDesc);
 
         return ShopwiredPaginator::fetchAll(
             params: $params,
@@ -143,7 +143,8 @@ final readonly class CustomerClient implements CustomerClientInterface
                 ShopwiredQueryParams::forBulkFetch()
                     ->withEmbeds(self::DEFAULT_EMBEDS)
                     ->withFields(self::DEFAULT_FIELDS),
-            );
+            )
+            ->withSort(CustomerSort::CreatedDesc);
 
         return ShopwiredPaginator::fetchAll(
             params: $params,
@@ -168,13 +169,15 @@ final readonly class CustomerClient implements CustomerClientInterface
      */
     public function iterateNonTradeCustomerBatches(): Generator
     {
+        // IMPORTANT: withSort() must come AFTER withBaseParams() because
+        // withBaseParams() replaces the entire base params object
         $params = CustomerQueryParams::forBulkFetch()
-            ->withSort(CustomerSort::CreatedDesc)
             ->withBaseParams(
                 ShopwiredQueryParams::forBulkFetch()
                     ->withEmbeds(self::DEFAULT_EMBEDS)
                     ->withFields(self::DEFAULT_FIELDS),
-            );
+            )
+            ->withSort(CustomerSort::CreatedDesc);
 
         yield from ShopwiredPaginator::pages(
             params: $params,
@@ -184,11 +187,15 @@ final readonly class CustomerClient implements CustomerClientInterface
     }
 
     /**
-     * Iterate ALL customers in batches (memory-efficient).
+     * Iterate customers in batches (memory-efficient).
      *
-     * Yields trade customers first (faster, ~5 pages), then non-trade (~677 pages).
-     * Trade customers are synced first as they are higher-priority B2B accounts.
-     * Page numbers are sequential across both passes.
+     * Yields trade customers first (newest first), then non-trade customers (newest first).
+     * Both can be limited by page count, or null to fetch all.
+     *
+     * Page numbers are sequential across both passes (trade pages 1-N, non-trade N+1-M).
+     *
+     * @param int|null $maxTradePages Max trade pages (null = all ~5 pages, 1 page ≈ 100 customers)
+     * @param int|null $maxNonTradePages Max non-trade pages (null = all ~677 pages, 1 page ≈ 100 customers)
      *
      * @return Generator<int, list<DomainCustomer>, mixed, void> Yields batches (page number as key)
      *
@@ -198,20 +205,34 @@ final readonly class CustomerClient implements CustomerClientInterface
      * @throws ExternalServiceUnavailableException When API unavailable or connection fails
      * @throws InvalidApiResponseException When response parsing fails (API contract violation)
      */
-    public function iterateAllCustomerBatches(): Generator
-    {
+    public function iterateCustomerBatches(
+        ?int $maxTradePages = null,
+        ?int $maxNonTradePages = null,
+    ): Generator {
         $pageNumber = 0;
 
-        // First pass: trade customers (priority B2B accounts, ~5 pages)
+        // First pass: trade customers (B2B accounts, ~5 pages total)
+        $tradePageCount = 0;
         foreach ($this->iterateTradeCustomerBatches() as $batch) {
             $pageNumber++;
+            $tradePageCount++;
             yield $pageNumber => $batch;
+
+            if ($maxTradePages !== null && $tradePageCount >= $maxTradePages) {
+                break;
+            }
         }
 
-        // Second pass: non-trade customers (bulk B2C, ~677 pages)
+        // Second pass: non-trade customers (B2C, ~677 pages total)
+        $nonTradePageCount = 0;
         foreach ($this->iterateNonTradeCustomerBatches() as $batch) {
             $pageNumber++;
+            $nonTradePageCount++;
             yield $pageNumber => $batch;
+
+            if ($maxNonTradePages !== null && $nonTradePageCount >= $maxNonTradePages) {
+                break;
+            }
         }
     }
 
@@ -231,14 +252,16 @@ final readonly class CustomerClient implements CustomerClientInterface
      */
     private function iterateTradeCustomerBatches(): Generator
     {
+        // IMPORTANT: withSort() must come AFTER withBaseParams() because
+        // withBaseParams() replaces the entire base params object
         $params = CustomerQueryParams::forBulkFetch()
             ->withTrade(true)
-            ->withSort(CustomerSort::CreatedDesc)
             ->withBaseParams(
                 ShopwiredQueryParams::forBulkFetch()
                     ->withEmbeds(self::DEFAULT_EMBEDS)
                     ->withFields(self::DEFAULT_FIELDS),
-            );
+            )
+            ->withSort(CustomerSort::CreatedDesc);
 
         yield from ShopwiredPaginator::pages(
             params: $params,

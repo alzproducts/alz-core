@@ -24,7 +24,7 @@ return new class extends Migration {
             $table->integer('external_id')->unique();
 
             // Identity
-            $table->string('email', 255);
+            $table->string('email', 255)->unique();
             $table->string('first_name', 100);
             $table->string('last_name', 100);
             $table->string('company_name', 255)->nullable();
@@ -58,8 +58,7 @@ return new class extends Migration {
             $table->timestampTz('created_at');             // Laravel: when record was first synced
             $table->timestampTz('updated_at');             // Laravel: when record was last updated
 
-            // Indexes (external_id already indexed via UNIQUE constraint)
-            $table->index('email');
+            // Indexes (external_id and email already indexed via UNIQUE constraints)
             $table->index('is_trade');
             $table->index('is_active');
             $table->index('shopwired_created_at');
