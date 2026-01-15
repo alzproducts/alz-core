@@ -38,6 +38,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ---
 
+## Railway CLI
+
+**Remote commands**: `railway ssh -s <service> <command>` — NOT `railway run` (that's local-only with env vars).
+
+---
+
 ## Documentation Philosophy
 
 **Keep this file succinct.** Use minimal format to convey maximum information:
