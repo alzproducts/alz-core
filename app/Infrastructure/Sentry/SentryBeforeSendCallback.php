@@ -20,6 +20,19 @@ use Sentry\EventHint;
 final class SentryBeforeSendCallback
 {
     /**
+     * Required for config:cache serialization.
+     *
+     * When Laravel caches config, it uses var_export() which requires
+     * classes to implement __set_state() to be reconstructed.
+     *
+     * @param array<string, mixed> $properties
+     */
+    public static function __set_state(array $properties): self
+    {
+        return new self();
+    }
+
+    /**
      * Exceptions throttled to 10% sampling rate.
      *
      * Uses `instanceof` check, so subclasses of these exceptions
