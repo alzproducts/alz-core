@@ -149,6 +149,8 @@ final class SyncShopwiredCustomersJob implements ShouldQueue
     public function failed(Throwable $exception): void
     {
         Log::error('ShopWired customer sync job failed permanently', [
+            'max_trade_pages' => $this->maxTradePages,
+            'max_non_trade_pages' => $this->maxNonTradePages,
             'exception' => $exception::class,
             'message' => $exception->getMessage(),
             'attempts' => $this->attempts(),
