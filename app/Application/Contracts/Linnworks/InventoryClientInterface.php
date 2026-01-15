@@ -10,6 +10,7 @@ use App\Domain\Exceptions\InvalidApiRequestException;
 use App\Domain\Exceptions\InvalidApiResponseException;
 use App\Domain\Exceptions\ResourceNotFoundException;
 use App\Domain\Inventory\ValueObjects\StockItem;
+use Generator;
 
 /**
  * Contract for Linnworks inventory operations.
@@ -30,4 +31,23 @@ interface InventoryClientInterface
      * @throws InvalidApiResponseException When API response structure is invalid
      */
     public function getStockItemBySku(string $sku): StockItem;
+
+    /**
+     * Iterate all stock items with extended properties in batches.
+     *
+     * Memory-efficient generator that fetches stock items from GetStockItemsFull
+     * endpoint with ExtendedProperties included. Yields batches of ~200 items.
+     *
+     * Pagination: Uses entriesPerPage=200, pageNumber increments.
+     * Stop condition: Empty result or fewer items than page size.
+     *
+     * @return Generator<int, list<StockItem>, mixed, void> Yields batches (page number as key)
+     *
+     * @throws AuthenticationExpiredException When credentials are invalid
+     * @throws ExternalServiceUnavailableException When API is unavailable
+     * @throws InvalidApiRequestException When request parameters are invalid
+     * @throws InvalidApiResponseException When API response structure is invalid
+     * @throws ResourceNotFoundException When resource not found (404)
+     */
+    public function iterateStockItemBatches(): Generator;
 }

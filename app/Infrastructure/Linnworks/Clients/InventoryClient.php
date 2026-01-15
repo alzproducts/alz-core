@@ -13,8 +13,10 @@ use App\Domain\Exceptions\ResourceNotFoundException;
 use App\Domain\Inventory\ValueObjects\StockItem;
 use App\Infrastructure\Linnworks\LinnworksHttpTransport;
 use App\Infrastructure\Linnworks\Responses\SkuStockIdMappingResponse;
+use App\Infrastructure\Linnworks\Responses\StockItemFullResponse;
 use App\Infrastructure\Linnworks\Responses\StockItemResponse;
 use App\Infrastructure\Linnworks\Support\LinnworksResponseParserTrait;
+use Generator;
 
 /**
  * Linnworks inventory API client.
@@ -28,6 +30,7 @@ final readonly class InventoryClient implements InventoryClientInterface
     public function __construct(
         private LinnworksHttpTransport $transport,
     ) {}
+
 
     /**
      * @throws ResourceNotFoundException When item doesn't exist
@@ -116,5 +119,73 @@ final readonly class InventoryClient implements InventoryClientInterface
 
         /** @var StockItem */
         return self::parseSingleToDomain($data, StockItemResponse::class);
+    }
+
+    /**
+     * Iterate all stock items with extended properties in batches.
+     *
+     * Memory-efficient generator that fetches stock items from GetStockItemsFull
+     * endpoint with ExtendedProperties included. Yields batches of ~200 items.
+     *
+     * @return Generator<int, list<StockItem>, mixed, void> Yields batches (page number as key)
+     *
+     * @throws AuthenticationExpiredException When credentials are invalid
+     * @throws ExternalServiceUnavailableException When API is unavailable
+     * @throws InvalidApiRequestException When request parameters are invalid
+     * @throws InvalidApiResponseException When API response structure is invalid
+     * @throws ResourceNotFoundException When resource not found (404)
+     */
+    public function iterateStockItemBatches(): Generator
+    {
+        $batchSize = 200;
+        $pageNumber = 1;
+
+        do {
+            $batch = $this->fetchStockItemsFullPage($pageNumber, $batchSize);
+            $batchCount = \count($batch);
+
+            if ($batchCount > 0) {
+                yield $pageNumber => $batch;
+            }
+
+            $pageNumber++;
+        } while ($batchCount === $batchSize);
+    }
+
+    /**
+     * Fetch a single page from GetStockItemsFull endpoint.
+     *
+     * Note: This endpoint uses raw form params (not the standard 'request' JSON wrapper).
+     * Format discovered via legacy alz-connect project: \Alz\ProductsA::Linn_GetStockItemsFull_BySearch
+     *
+     * @see https://apidocs.linnworks.net/reference/getstockitemsfull
+     *
+     * @return list<StockItem>
+     *
+     * @throws AuthenticationExpiredException When credentials are invalid
+     * @throws ExternalServiceUnavailableException When API is unavailable
+     * @throws InvalidApiRequestException When request parameters are invalid
+     * @throws InvalidApiResponseException When API response structure is invalid
+     * @throws ResourceNotFoundException When resource not found (404)
+     */
+    private function fetchStockItemsFullPage(int $pageNumber, int $entriesPerPage): array
+    {
+        $response = $this->transport->postFormParams(
+            endpoint: '/api/Stock/GetStockItemsFull',
+            params: [
+                'dataRequirements' => ['ExtendedProperties', 'StockLevels', 'Pricing'],
+                'loadCompositeParents' => false,
+                'loadVariationParents' => false,
+                'entriesPerPage' => $entriesPerPage,
+                'pageNumber' => $pageNumber,
+            ],
+        );
+
+        $dtos = self::parseDirectArray($response->json(), StockItemFullResponse::class);
+
+        return \array_map(
+            static fn(StockItemFullResponse $dto): StockItem => $dto->toDomain(),
+            $dtos,
+        );
     }
 }
