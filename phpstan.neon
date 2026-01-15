@@ -206,6 +206,7 @@ parameters:
             paths:
                 - app/Infrastructure/Shopwired/Clients/CustomerClient.php
                 - app/Infrastructure/Shopwired/Clients/OrderClient.php
+                - app/Infrastructure/Linnworks/Clients/InventoryClient.php
     paths:
         - app/
         - bootstrap/
