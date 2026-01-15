@@ -309,7 +309,9 @@ Enforced by `phparkitect.php` (layer dependencies defined in Clean Architecture 
 
 ### Testing
 
-**Use `zen:testgen` MCP** when creating test suites. See `tests/CLAUDE.md` for testing strategy by layer.
+**⚠️ Read `tests/TestingStrategy.md` first** — defines what to test per layer, avoiding wasted effort.
+
+**Consider `zen:testgen` MCP** for complex test suites or when you want a second opinion on edge cases. See `tests/CLAUDE.md` for mutation testing workflow.
 
 ### ⚠️ IMPORTANT: Bypassing Linters
 
