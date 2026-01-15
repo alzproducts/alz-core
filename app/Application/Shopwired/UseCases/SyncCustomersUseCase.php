@@ -59,7 +59,8 @@ final readonly class SyncCustomersUseCase
      * before flushing to database. Uses continue-on-failure semantics:
      * individual save failures are logged and counted, but processing continues.
      *
-     * @param int|null $maxNonTradePages Max non-trade pages (null = all, 1 page ≈ 100 customers)
+     * @param int|null $maxTradePages Max trade pages (null = all ~5 pages, 1 page ≈ 100 customers)
+     * @param int|null $maxNonTradePages Max non-trade pages (null = all ~677 pages, 1 page ≈ 100 customers)
      *
      * @return SyncResult Results with fetched/saved/failed counts
      *
@@ -69,9 +70,14 @@ final readonly class SyncCustomersUseCase
      * @throws ExternalServiceUnavailableException When ShopWired API unavailable
      * @throws InvalidApiResponseException When API response parsing fails
      */
-    public function execute(?int $maxNonTradePages = null): SyncResult
-    {
-        $syncType = $maxNonTradePages === null ? 'full' : "quick ({$maxNonTradePages} non-trade pages)";
+    public function execute(
+        ?int $maxTradePages = null,
+        ?int $maxNonTradePages = null,
+    ): SyncResult {
+        $syncType = match (true) {
+            $maxTradePages === null && $maxNonTradePages === null => 'full',
+            default => \sprintf('quick (%s trade, %s non-trade pages)', $maxTradePages ?? 'all', $maxNonTradePages ?? 'all'),
+        };
         $this->logger->info("Starting {$syncType} customer sync from ShopWired");
 
         $totalFetched = 0;
@@ -85,7 +91,7 @@ final readonly class SyncCustomersUseCase
         $pagesBuffered = 0;
         $batchesFlushed = 0;
 
-        foreach ($this->customerClient->iterateCustomerBatches($maxNonTradePages) as $pageNumber => $customers) {
+        foreach ($this->customerClient->iterateCustomerBatches($maxTradePages, $maxNonTradePages) as $pageNumber => $customers) {
             $totalFetched += \count($customers);
             $buffer = [...$buffer, ...$customers];
             $pagesBuffered++;

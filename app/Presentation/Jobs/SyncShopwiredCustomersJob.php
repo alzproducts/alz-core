@@ -19,12 +19,12 @@ use Throwable;
 /**
  * Asynchronously synchronize ShopWired customers to local database.
  *
- * Supports both full sync (all customers) and quick sync (recent customers only).
- * Always syncs ALL trade customers (B2B priority), with optional limit on non-trade pages.
+ * Supports full sync, quick sync, and micro sync modes with page limits.
  *
  * Usage:
  * - Full sync: SyncShopwiredCustomersJob::dispatch() — daily, ~45 min
- * - Quick sync: SyncShopwiredCustomersJob::dispatch(5) — hourly, ~1 min (5 non-trade pages)
+ * - Quick sync: SyncShopwiredCustomersJob::dispatch(5, 5) — hourly, ~2 min
+ * - Micro sync: SyncShopwiredCustomersJob::dispatch(1, 1) — every 5 min, ~30s
  */
 final class SyncShopwiredCustomersJob implements ShouldQueue
 {
@@ -41,9 +41,11 @@ final class SyncShopwiredCustomersJob implements ShouldQueue
     /**
      * Create a new job instance.
      *
-     * @param int|null $maxNonTradePages Max non-trade pages (null = all, 1 page ≈ 100 customers)
+     * @param int|null $maxTradePages Max trade pages (null = all ~5 pages, 1 page ≈ 100 customers)
+     * @param int|null $maxNonTradePages Max non-trade pages (null = all ~677 pages, 1 page ≈ 100 customers)
      */
     public function __construct(
+        private readonly ?int $maxTradePages = null,
         private readonly ?int $maxNonTradePages = null,
     ) {
         $this->onQueue('low');
@@ -76,13 +78,18 @@ final class SyncShopwiredCustomersJob implements ShouldQueue
      */
     public function handle(SyncCustomersUseCase $useCase): void
     {
-        $syncType = $this->maxNonTradePages === null ? 'full' : 'quick';
+        $syncType = match (true) {
+            $this->maxTradePages === null && $this->maxNonTradePages === null => 'full',
+            $this->maxTradePages === 1 && $this->maxNonTradePages === 1 => 'micro',
+            default => 'quick',
+        };
         Log::info("ShopWired customer sync job starting ({$syncType})", [
+            'max_trade_pages' => $this->maxTradePages,
             'max_non_trade_pages' => $this->maxNonTradePages,
         ]);
 
         try {
-            $result = $useCase->execute($this->maxNonTradePages);
+            $result = $useCase->execute($this->maxTradePages, $this->maxNonTradePages);
 
             Log::info('ShopWired customer sync job completed', [
                 'fetched' => $result->fetched,

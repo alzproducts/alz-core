@@ -82,20 +82,21 @@ interface CustomerClientInterface
     /**
      * Iterate customers in batches (memory-efficient).
      *
-     * Always yields ALL trade customers first (B2B priority, ~5 pages), then non-trade
-     * customers (newest first via CreatedDesc). If $maxNonTradePages is null, yields all
-     * non-trade pages (~677 pages); otherwise limits to specified number of pages.
+     * Yields trade customers first (newest first), then non-trade customers (newest first).
+     * Both can be limited by page count, or null to fetch all.
      *
      * This method internally makes two separate API pagination passes since the
      * ShopWired API cannot return both customer types in a single request.
      *
      * Use cases:
-     * - Full sync (null): Weekly job syncing all ~68k customers
-     * - Quick sync (1-5): Hourly job catching recent signups (~100-500 customers)
+     * - Full sync (null, null): Daily job syncing all ~68k customers (~45 min)
+     * - Quick sync (5, 5): Hourly job catching recent signups (~1000 customers, ~2 min)
+     * - Micro sync (1, 1): 5-min job catching very recent signups (~200 customers, ~30s)
      *
      * Page numbers are sequential across both passes (trade pages 1-N, non-trade N+1-M).
      *
-     * @param int|null $maxNonTradePages Max non-trade pages (null = all, 1 page ≈ 100 customers)
+     * @param int|null $maxTradePages Max trade pages (null = all ~5 pages, 1 page ≈ 100 customers)
+     * @param int|null $maxNonTradePages Max non-trade pages (null = all ~677 pages, 1 page ≈ 100 customers)
      *
      * @return Generator<int, list<Customer>, mixed, void> Yields batches of customers (page number as key)
      *
@@ -105,7 +106,10 @@ interface CustomerClientInterface
      * @throws ExternalServiceUnavailableException When API unavailable or connection fails
      * @throws InvalidApiResponseException When response parsing fails (API contract violation)
      */
-    public function iterateCustomerBatches(?int $maxNonTradePages = null): Generator;
+    public function iterateCustomerBatches(
+        ?int $maxTradePages = null,
+        ?int $maxNonTradePages = null,
+    ): Generator;
 
     /**
      * List non-trade customers (single page, default parameters).

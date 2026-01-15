@@ -142,13 +142,20 @@ Schedule::job(new SyncShopwiredCustomersJob())
     ->onOneServer()
     ->withoutOverlapping(60); // 60 min lock - job runs ~45-50 min
 
-// HOURLY: Quick sync of recent customers (all trade + 5 pages non-trade)
-// Catches new signups between daily full syncs (~500 customers, ~1 min)
-Schedule::job(new SyncShopwiredCustomersJob(maxNonTradePages: 5))
+// HOURLY: Quick sync of recent customers (5 pages each type, ~1000 customers)
+Schedule::job(new SyncShopwiredCustomersJob(maxTradePages: 5, maxNonTradePages: 5))
     ->name('sync-shopwired-customers-hourly')
     ->hourly()
     ->onOneServer()
     ->withoutOverlapping(5);
+
+// EVERY 5 MIN: Micro sync (1 page each type, ~200 customers, ~30s)
+// Keeps customer data near real-time for order processing
+Schedule::job(new SyncShopwiredCustomersJob(maxTradePages: 1, maxNonTradePages: 1))
+    ->name('sync-shopwired-customers-micro')
+    ->everyFiveMinutes()
+    ->onOneServer()
+    ->withoutOverlapping(2);
 
 // ============================================================================
 // Mixpanel Order Sync: Nightly backend sync for orders missed by frontend
