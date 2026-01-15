@@ -28,11 +28,15 @@ final class MixpanelClientTest extends TestCase
 
     private const string BASE_URL = 'https://api-eu.mixpanel.com';
 
+    private const string EXPORT_API_URL = 'https://data-eu.mixpanel.com';
+
     private const string PROJECT_ID = 'test-project-123';
 
     private const string USERNAME = 'test-username';
 
     private const string PASSWORD = 'test-password';
+
+    private const string ANALYTICS_SALT = 'test-analytics-salt-for-order-hashing';
 
     private const string LOOKUP_TABLE_ID = 'test-lookup-table-id';
 
@@ -46,9 +50,11 @@ final class MixpanelClientTest extends TestCase
 
         $config = new MixpanelConfig(
             dataApiBaseUrl: self::BASE_URL,
+            exportApiBaseUrl: self::EXPORT_API_URL,
             serviceAccountUsername: self::USERNAME,
             serviceAccountPassword: self::PASSWORD,
             projectId: self::PROJECT_ID,
+            analyticsSalt: self::ANALYTICS_SALT,
             lookupTableIds: self::LOOKUP_TABLE_IDS,
         );
 

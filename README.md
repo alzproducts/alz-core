@@ -91,7 +91,7 @@ make redis
 php artisan octane:start --watch
 
 # In another terminal: start queue worker
-php artisan queue:listen -v
+php artisan queue:listen -v --timeout=3600 --queue=high,default,low
 
 # Optional: start edge functions (for auth flows)
 make supabase-functions
@@ -255,8 +255,8 @@ Railway's 2025 best practice is **configuration via UI**, not config files:
 
 ## Project Documentation
 
-- **Project Plan**: `.ai/docs/plans/alz-core-initial-plan.md`
-- **Deferred Decisions**: `.ai/docs/plans/alz-core-deferred-decisions.md`
+- **Project Plan**: `.ai/plans/alz-core-initial-plan.md`
+- **Deferred Decisions**: `.ai/plans/alz-core-deferred-decisions.md`
 - **Development Guide**: `CLAUDE.md`
 
 ## License

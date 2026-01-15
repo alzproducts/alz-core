@@ -6,7 +6,10 @@ namespace App\Infrastructure\Shopwired\Responses;
 
 use App\Domain\Customer\ValueObjects\Customer as DomainCustomer;
 use App\Domain\Customer\ValueObjects\CustomerAddress;
+use App\Domain\Exceptions\InvalidApiResponseException;
 use App\Infrastructure\Contracts\DomainConvertibleInterface;
+use DateMalformedStringException;
+use DateTimeImmutable;
 use Spatie\LaravelData\Attributes\DataCollectionOf;
 use Spatie\LaravelData\Attributes\MapInputName;
 use Spatie\LaravelData\Data;
@@ -28,9 +31,11 @@ final class CustomerResponse extends Data implements DomainConvertibleInterface
      * @param array<string, mixed> $customFields Custom field key-value pairs
      */
     public function __construct(
-        // Infrastructure-only fields
+        // Identifiers
         public readonly int $id,
         public readonly string $createdAt,
+
+        // Infrastructure-only fields (not in Domain)
         public readonly ?int $tradeGroupId,
         public readonly bool $adminCreated,
         public readonly bool $autoCreated,
@@ -73,6 +78,7 @@ final class CustomerResponse extends Data implements DomainConvertibleInterface
         // Optional fields (trade-specific, not returned for regular customers)
         public readonly ?float $discount = null,
         public readonly ?float $costPriceMultiplier = null,
+        #[MapInputName('credit')]
         public readonly ?bool $creditEnabled = null,
 
         // Embedded objects (optional, require embed param)
@@ -87,26 +93,35 @@ final class CustomerResponse extends Data implements DomainConvertibleInterface
      *
      * Note: wishlists are intentionally NOT converted to domain
      * as they are ShopWired-specific with no business logic use.
+     *
+     * @throws InvalidApiResponseException When date format is invalid
      */
     public function toDomain(): DomainCustomer
     {
+        try {
+            $createdAt = new DateTimeImmutable($this->createdAt);
+        } catch (DateMalformedStringException $e) {
+            throw new InvalidApiResponseException(
+                serviceName: 'Shopwired',
+                message: "Invalid date format in customer {$this->id}",
+                previous: $e,
+            );
+        }
+
         return new DomainCustomer(
+            id: $this->id,
+            createdAt: $createdAt,
             email: $this->email,
             firstName: $this->firstName,
             lastName: $this->lastName,
             companyName: $this->companyName,
             isTrade: $this->trade,
             isActive: $this->active,
-            creditEnabled: $this->creditEnabled,
-            discount: $this->discount,
-            costPriceMultiplier: $this->costPriceMultiplier,
+            isCreditEnabled: $this->creditEnabled,
             phone: $this->phone,
             mobilePhone: $this->mobilePhone,
-            website: $this->website,
-            vatNumber: $this->vatNumber,
             acceptsMarketing: $this->acceptsMarketing,
             address: $this->buildAddress(),
-            rewardPoints: $this->rewardPoints,
             notes: $this->notes,
             customFields: $this->customFields,
         );

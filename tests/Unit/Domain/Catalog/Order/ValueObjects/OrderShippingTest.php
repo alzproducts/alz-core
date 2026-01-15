@@ -32,8 +32,9 @@ final class OrderShippingTest extends TestCase
     private function createOrderShipping(array $overrides = []): OrderShipping
     {
         $defaults = [
+            'id' => 42,
             'name' => 'Standard Delivery',
-            'value' => 5.99,
+            'chargeNet' => 5.99,
             'vatRate' => 20.0,
         ];
 
@@ -54,39 +55,39 @@ final class OrderShippingTest extends TestCase
         $shipping = $this->createOrderShipping();
 
         $this->assertSame('Standard Delivery', $shipping->name);
-        $this->assertSame(5.99, $shipping->value);
+        $this->assertSame(5.99, $shipping->chargeNet);
         $this->assertSame(20.0, $shipping->vatRate);
     }
 
     /*
     |--------------------------------------------------------------------------
-    | Value Assertion Tests
+    | Charge Assertion Tests
     |--------------------------------------------------------------------------
     */
 
     #[Test]
-    public function it_throws_if_value_is_negative(): void
+    public function it_throws_if_charge_is_negative(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Shipping value cannot be negative');
+        $this->expectExceptionMessage('Shipping charge cannot be negative');
 
-        $this->createOrderShipping(['value' => -0.01]);
+        $this->createOrderShipping(['chargeNet' => -0.01]);
     }
 
     #[Test]
-    public function it_accepts_zero_value(): void
+    public function it_accepts_zero_charge(): void
     {
-        $shipping = $this->createOrderShipping(['value' => 0.0]);
+        $shipping = $this->createOrderShipping(['chargeNet' => 0.0]);
 
-        $this->assertSame(0.0, $shipping->value);
+        $this->assertSame(0.0, $shipping->chargeNet);
     }
 
     #[Test]
-    public function it_accepts_positive_value(): void
+    public function it_accepts_positive_charge(): void
     {
-        $shipping = $this->createOrderShipping(['value' => 15.99]);
+        $shipping = $this->createOrderShipping(['chargeNet' => 15.99]);
 
-        $this->assertSame(15.99, $shipping->value);
+        $this->assertSame(15.99, $shipping->chargeNet);
     }
 
     /*

@@ -4,6 +4,17 @@
 
 **PSR-3 `LoggerInterface` accepted in Application layer** - Log business events only (workflow milestones, coordination), not technical details. PSR-3 is a stable PHP-FIG interface, provides observability value for distributed workflows.
 
+## Interface Placement Rules
+
+**Core Principle:** Interfaces live where they're USED, not where they're IMPLEMENTED.
+
+- Application defines cross-layer contracts: `Application/Contracts/MixpanelClientInterface`
+- Infrastructure implements: `MixpanelClient implements MixpanelClientInterface`
+- Infrastructure may have internal-only interfaces (not crossing layer boundaries)
+- Cross-layer interfaces in `/Contracts/` subdirectories within Domain or Application
+
+**Why:** Dependency Inversion Principle — higher layers define contracts, lower layers fulfill them.
+
 ## Purpose
 Application layer **rarely catches exceptions**. It orchestrates Domain logic and lets exceptions bubble to Presentation. Only catch when business coordination requires it.
 

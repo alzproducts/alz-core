@@ -50,8 +50,10 @@ final class OrderStatusResponse extends Data
         }
 
         return new OrderStatus(
+            id: $this->id,
             name: $statusType,
             type: $this->type,
+            sortOrder: $this->sortOrder,
         );
     }
 }

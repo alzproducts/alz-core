@@ -57,6 +57,7 @@ final class OrderAddressResponse extends Data
             state: $this->state,
             postcode: $this->postcode,
             country: $this->country,
+            countryId: $this->countryId,
         );
     }
 }
