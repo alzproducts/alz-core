@@ -6,10 +6,13 @@ namespace App\Application\Contracts;
 
 use App\Domain\AdSpend\Enums\AdSource;
 use App\Domain\AdSpend\ValueObjects\CampaignMetrics;
+use App\Domain\Catalog\Order\ValueObjects\Order;
 use App\Domain\Exceptions\AuthenticationExpiredException;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\InvalidApiRequestException;
 use App\Domain\Exceptions\PayloadSerializationException;
+use App\Domain\Exceptions\UnexpectedApiResultException;
+use DateTimeImmutable;
 
 interface MixpanelClientInterface
 {
@@ -59,4 +62,39 @@ interface MixpanelClientInterface
      * @throws ExternalServiceUnavailableException When API unavailable or request fails
      */
     public function replaceLookupTable(string $tableKey, array $headers, array $rows): void;
+
+    /**
+     * Export existing order hashes from Mixpanel for deduplication.
+     *
+     * Queries Mixpanel Export API for "Checkout Completed" events in the date range
+     * and extracts the `order_id_hashed` property from each event.
+     *
+     * @param DateTimeImmutable $from Start of date range (inclusive)
+     * @param DateTimeImmutable $to End of date range (inclusive)
+     *
+     * @return array<string> Set of order_id_hashed values from existing events
+     *
+     * @throws AuthenticationExpiredException When credentials invalid/expired
+     * @throws InvalidApiRequestException When request parameters are invalid
+     * @throws ExternalServiceUnavailableException When API unavailable or request fails
+     * @throws UnexpectedApiResultException When export returns no data (suspicious)
+     */
+    public function getExistingOrderHashes(DateTimeImmutable $from, DateTimeImmutable $to): array;
+
+    /**
+     * Import orders to Mixpanel as "Checkout Completed" and "Product Purchased" events.
+     *
+     * Transforms Domain Order objects to Mixpanel event format internally.
+     * Generates one "Checkout Completed" event per order and one "Product Purchased"
+     * event per product line item.
+     *
+     * @param array<int, Order> $orders Domain orders with products populated
+     * @param array<int, bool> $customerTradeMap Map of customer ID → is_trade status
+     *
+     * @throws AuthenticationExpiredException When credentials invalid/expired
+     * @throws InvalidApiRequestException When request parameters are invalid
+     * @throws ExternalServiceUnavailableException When API unavailable or request fails
+     * @throws PayloadSerializationException When payload cannot be encoded
+     */
+    public function importOrders(array $orders, array $customerTradeMap): void;
 }

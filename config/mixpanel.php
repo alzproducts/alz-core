@@ -9,7 +9,15 @@ return [
     |--------------------------------------------------------------------------
     */
     'base_url' => env('MIXPANEL_BASE_URL', 'https://api-eu.mixpanel.com'),
+    'export_api_base_url' => env('MIXPANEL_EXPORT_API_BASE_URL', 'https://data-eu.mixpanel.com'),
     'project_id' => env('MIXPANEL_PROJECT_ID'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Analytics Salt (for order_id_hashed - must match frontend)
+    |--------------------------------------------------------------------------
+    */
+    'analytics_salt' => env('ANALYTICS_SALT'),
 
     /*
     |--------------------------------------------------------------------------
@@ -27,6 +35,15 @@ return [
     */
     'service_account_username' => env('MIXPANEL_SERVICE_ACCOUNT_USERNAME'),
     'service_account_password' => env('MIXPANEL_SERVICE_ACCOUNT_PASSWORD'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Order Sync Settings
+    |--------------------------------------------------------------------------
+    */
+    // Allow empty export results (for initial sync when no events exist yet)
+    // DANGEROUS: Disables deduplication safety check - only use for bootstrapping
+    'allow_empty_export' => env('MIXPANEL_ALLOW_EMPTY_EXPORT', false),
 
     /*
     |--------------------------------------------------------------------------

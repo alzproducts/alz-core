@@ -32,7 +32,7 @@ final class OrderShippingResponse extends Data
         return new OrderShipping(
             id: $this->id,
             name: $this->name,
-            value: $this->value,
+            chargeNet: $this->value,
             vatRate: $this->vatRate,
         );
     }

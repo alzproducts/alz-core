@@ -37,10 +37,13 @@ final readonly class Order
      * @param int $id ShopWired's order ID (external identifier for API/persistence)
      * @param int $reference Customer-facing order reference number
      * @param DateTimeImmutable $orderPlacedAt When the order was placed by customer
+     * @param float $total Order total including VAT (GROSS)
+     * @param float $subTotalNet Subtotal excluding VAT and shipping (NET)
+     * @param float $shippingTotalNet Shipping cost after discounts, excluding VAT (NET)
+     * @param float $originalShippingTotalNet Original shipping cost before discounts, excluding VAT (NET)
      * @param bool $hasVatRelief Whether order has VAT relief applied (derived from comments)
      * @param bool $isArchived Whether order has been archived in ShopWired
      * @param bool $isAnonymized Whether customer data has been anonymized (GDPR)
-     * @param float $originalShippingTotal Original shipping cost before discounts
      * @param bool $lineItemVatCalculation Whether VAT is calculated per line item
      * @param float|null $taxValue Total tax value (null for VAT-exempt orders)
      * @param string|null $trackingUrl Shipment tracking URL
@@ -60,9 +63,9 @@ final readonly class Order
         public int $reference,
         public DateTimeImmutable $orderPlacedAt,
         public float $total,
-        public float $subTotal,
-        public float $shippingTotal,
-        public float $originalShippingTotal,
+        public float $subTotalNet,
+        public float $shippingTotalNet,
+        public float $originalShippingTotalNet,
         public PaymentMethod $paymentMethod,
         public string $comments,
         public bool $marketing,
@@ -91,9 +94,9 @@ final readonly class Order
         Assert::greaterThan($id, 0, 'Order ID must be positive');
         Assert::greaterThan($reference, 0, 'Order reference must be positive');
         Assert::greaterThanEq($total, 0, 'Order total cannot be negative');
-        Assert::greaterThanEq($subTotal, 0, 'Order sub-total cannot be negative');
-        Assert::greaterThanEq($shippingTotal, 0, 'Order shipping total cannot be negative');
-        Assert::greaterThanEq($originalShippingTotal, 0, 'Order original shipping total cannot be negative');
+        Assert::greaterThanEq($subTotalNet, 0, 'Order sub-total cannot be negative');
+        Assert::greaterThanEq($shippingTotalNet, 0, 'Order shipping total cannot be negative');
+        Assert::greaterThanEq($originalShippingTotalNet, 0, 'Order original shipping total cannot be negative');
     }
 
     /**

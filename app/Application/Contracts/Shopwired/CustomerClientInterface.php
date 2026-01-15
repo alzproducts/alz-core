@@ -23,7 +23,7 @@ use Generator;
  * filter is specified, only non-trade customers are returned (this is the API default).
  *
  * Methods are explicitly named (NonTrade/Trade) to reflect which customer type they fetch.
- * Use iterateAllCustomerBatches() to iterate through ALL customers (both types sequentially).
+ * Use iterateCustomerBatches() to iterate through customers (both types sequentially).
  */
 interface CustomerClientInterface
 {
@@ -67,7 +67,7 @@ interface CustomerClientInterface
      * to process and discard each batch before fetching the next.
      *
      * NOTE: Only yields non-trade customers (trade=0). For all customers, use
-     * iterateAllCustomerBatches() instead.
+     * iterateCustomerBatches() instead.
      *
      * @return Generator<int, list<Customer>, mixed, void> Yields batches of customers (page number as key)
      *
@@ -80,18 +80,23 @@ interface CustomerClientInterface
     public function iterateNonTradeCustomerBatches(): Generator;
 
     /**
-     * Iterate ALL customers in batches (memory-efficient).
+     * Iterate customers in batches (memory-efficient).
      *
-     * Yields trade customers first (~5 pages), then non-trade (~677 pages). Trade
-     * customers are synced first as they are higher-priority B2B accounts.
+     * Yields trade customers first (newest first), then non-trade customers (newest first).
+     * Both can be limited by page count, or null to fetch all.
      *
      * This method internally makes two separate API pagination passes since the
      * ShopWired API cannot return both customer types in a single request.
      *
-     * Ideal for syncing large customer datasets (~68k total) where memory is constrained.
-     * Caller can buffer multiple pages before saving (e.g., 10 pages = ~1000 customers).
+     * Use cases:
+     * - Full sync (null, null): Daily job syncing all ~68k customers (~45 min)
+     * - Quick sync (5, 5): Hourly job catching recent signups (~1000 customers, ~2 min)
+     * - Micro sync (1, 1): 5-min job catching very recent signups (~200 customers, ~30s)
      *
      * Page numbers are sequential across both passes (trade pages 1-N, non-trade N+1-M).
+     *
+     * @param int|null $maxTradePages Max trade pages (null = all ~5 pages, 1 page ≈ 100 customers)
+     * @param int|null $maxNonTradePages Max non-trade pages (null = all ~677 pages, 1 page ≈ 100 customers)
      *
      * @return Generator<int, list<Customer>, mixed, void> Yields batches of customers (page number as key)
      *
@@ -101,7 +106,10 @@ interface CustomerClientInterface
      * @throws ExternalServiceUnavailableException When API unavailable or connection fails
      * @throws InvalidApiResponseException When response parsing fails (API contract violation)
      */
-    public function iterateAllCustomerBatches(): Generator;
+    public function iterateCustomerBatches(
+        ?int $maxTradePages = null,
+        ?int $maxNonTradePages = null,
+    ): Generator;
 
     /**
      * List non-trade customers (single page, default parameters).

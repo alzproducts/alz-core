@@ -35,13 +35,16 @@ final class MixpanelClientFactory
     {
         return new MixpanelConfig(
             dataApiBaseUrl: self::requireString(\config('mixpanel.base_url'), 'MIXPANEL_BASE_URL'),
+            exportApiBaseUrl: self::requireString(\config('mixpanel.export_api_base_url'), 'MIXPANEL_EXPORT_API_BASE_URL'),
             serviceAccountUsername: self::requireString(\config('mixpanel.service_account_username'), 'MIXPANEL_SERVICE_ACCOUNT_USERNAME'),
             serviceAccountPassword: self::requireString(\config('mixpanel.service_account_password'), 'MIXPANEL_SERVICE_ACCOUNT_PASSWORD'),
             projectId: self::requireString(\config('mixpanel.project_id'), 'MIXPANEL_PROJECT_ID'),
+            analyticsSalt: self::requireString(\config('mixpanel.analytics_salt'), 'ANALYTICS_SALT'),
             lookupTableIds: self::requireLookupTables(\config('mixpanel.lookup_tables')),
             timeout: self::requireInt(\config('mixpanel.timeout'), 'MIXPANEL_TIMEOUT'),
             retryTimes: self::requireInt(\config('mixpanel.retry_times'), 'MIXPANEL_RETRY_TIMES'),
             retryDelay: self::requireInt(\config('mixpanel.retry_delay'), 'MIXPANEL_RETRY_DELAY'),
+            allowEmptyExport: (bool) \config('mixpanel.allow_empty_export', false),
         );
     }
 

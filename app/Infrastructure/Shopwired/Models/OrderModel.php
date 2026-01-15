@@ -25,10 +25,10 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string $id Internal UUID
  * @property int $external_id ShopWired order ID
  * @property int $reference Customer-facing order number
- * @property float $total Order total
- * @property float $sub_total Subtotal before shipping
- * @property float $shipping_total Shipping cost
- * @property float $original_shipping_total Original shipping cost before discounts
+ * @property float $total Order total including VAT (GROSS)
+ * @property float $sub_total_net Subtotal excluding VAT and shipping (NET)
+ * @property float $shipping_total_net Shipping cost after discounts, excluding VAT (NET)
+ * @property float $original_shipping_total_net Original shipping cost before discounts, excluding VAT (NET)
  * @property float|null $tax_value Total tax value (null for VAT-exempt)
  * @property bool $line_item_vat_calculation Whether VAT is calculated per line item
  * @property int $status_id ShopWired status ID
@@ -69,7 +69,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int $delivery_country_id ShopWired country ID for delivery address
  * @property int|null $shipping_id ShopWired shipping method ID
  * @property string|null $shipping_method Shipping method name
- * @property float $shipping_cost Shipping method cost (defaults to 0)
+ * @property float $shipping_charge_net Shipping method charge excluding VAT (NET, defaults to 0)
  * @property float|null $shipping_vat_rate
  * @property string|null $tracking_url Shipment tracking URL
  * @property string|null $invoice_url Invoice download URL
@@ -109,11 +109,11 @@ final class OrderModel extends Model implements EloquentDomainMappableInterface
         return [
             // Money fields - cast to float to match Domain types
             'total' => 'float',
-            'sub_total' => 'float',
-            'shipping_total' => 'float',
-            'original_shipping_total' => 'float',
+            'sub_total_net' => 'float',
+            'shipping_total_net' => 'float',
+            'original_shipping_total_net' => 'float',
             'tax_value' => 'float',
-            'shipping_cost' => 'float',
+            'shipping_charge_net' => 'float',
             'shipping_vat_rate' => 'float',
             // JSON
             'customer_device_info' => 'array',
