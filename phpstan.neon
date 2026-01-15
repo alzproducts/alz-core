@@ -203,7 +203,9 @@ parameters:
         # in their iteration loop. ShipMonk cannot express this "throws during iteration" semantic.
         -
             identifier: shipmonk.checkedExceptionInYieldingMethod
-            path: app/Infrastructure/Shopwired/Clients/CustomerClient.php
+            paths:
+                - app/Infrastructure/Shopwired/Clients/CustomerClient.php
+                - app/Infrastructure/Shopwired/Clients/OrderClient.php
     paths:
         - app/
         - bootstrap/

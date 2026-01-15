@@ -7,25 +7,46 @@ namespace App\Application\Shopwired\UseCases;
 use App\Application\Contracts\Shopwired\OrderClientInterface;
 use App\Application\Contracts\Shopwired\OrderRepositoryInterface;
 use App\Application\Shopwired\ValueObjects\SyncResult;
+use App\Domain\Catalog\Order\ValueObjects\Order;
 use App\Domain\Exceptions\AuthenticationExpiredException;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\InvalidApiRequestException;
 use App\Domain\Exceptions\InvalidApiResponseException;
 use App\Domain\Exceptions\ResourceNotFoundException;
-use DateTimeImmutable;
 use Psr\Log\LoggerInterface;
 
 /**
  * Orchestrate order synchronization from ShopWired API to local database.
  *
- * Fetches orders from ShopWired API within a date range and persists them
- * locally. Uses continue-on-failure semantics: individual save failures
- * are logged and counted, but processing continues.
+ * Supports both full sync (all orders) and quick sync (recent orders only).
+ * Uses generator-based pagination for memory efficiency with large order volumes.
  *
- * Typical usage: hourly scheduled job with 2-hour overlap window.
+ * Batching strategy:
+ * - API returns ~100 orders per page
+ * - Buffer 10 pages (~1000 orders) before DB write
+ * - Reduces DB round-trips while keeping memory bounded
+ *
+ * Usage:
+ * - Full sync (null): Daily job syncing all orders
+ * - Quick sync (5): Hourly job catching recent orders (~500 orders)
+ * - Micro sync (1): Every 5 min job (~100 orders)
+ *
+ * @see SyncOrdersRangeUseCase For date-range based sync (operational flexibility)
  */
 final readonly class SyncOrdersUseCase
 {
+    /**
+     * Number of pages to buffer before writing to database.
+     * 10 pages × ~100 orders/page = ~1000 orders per batch.
+     */
+    private const int PAGES_PER_BATCH = 10;
+
+    /**
+     * Log progress every N batches at info level.
+     * 10 batches × ~1000 orders/batch = ~10,000 orders between progress logs.
+     */
+    private const int PROGRESS_LOG_INTERVAL = 10;
+
     public function __construct(
         private OrderClientInterface $orderClient,
         private OrderRepositoryInterface $orderRepository,
@@ -35,8 +56,11 @@ final readonly class SyncOrdersUseCase
     /**
      * Synchronize orders from ShopWired API to local database.
      *
-     * @param DateTimeImmutable $from Start of date range (inclusive)
-     * @param DateTimeImmutable $to End of date range (inclusive)
+     * Iterates through order pages, buffering PAGES_PER_BATCH pages
+     * before flushing to database. Uses continue-on-failure semantics:
+     * individual save failures are logged and counted, but processing continues.
+     *
+     * @param int|null $maxPages Max pages to fetch (null = all, 1 page ≈ 100 orders)
      *
      * @return SyncResult Results with fetched/saved/failed counts
      *
@@ -46,26 +70,103 @@ final readonly class SyncOrdersUseCase
      * @throws ExternalServiceUnavailableException When ShopWired API unavailable
      * @throws InvalidApiResponseException When API response parsing fails
      */
-    public function execute(DateTimeImmutable $from, DateTimeImmutable $to): SyncResult
+    public function execute(?int $maxPages = null): SyncResult
     {
-        // Fetch orders from ShopWired API (with full details for persistence)
-        $orders = $this->orderClient->listOrdersInRangeWithDetails($from, $to);
+        $syncType = $maxPages === null ? 'full' : "limited ({$maxPages} pages)";
+        $this->logger->info("Starting {$syncType} order sync from ShopWired");
 
-        if ($orders === []) {
-            $this->logger->info('No orders found in date range', [
-                'from' => $from->format('Y-m-d H:i:s'),
-                'to' => $to->format('Y-m-d H:i:s'),
+        $totalFetched = 0;
+        $totalSaved = 0;
+        $totalFailed = 0;
+        /** @var list<int> $allFailedReferences */
+        $allFailedReferences = [];
+
+        /** @var list<Order> $buffer */
+        $buffer = [];
+        $pagesBuffered = 0;
+        $batchesFlushed = 0;
+
+        foreach ($this->orderClient->iterateOrderBatches($maxPages) as $pageNumber => $orders) {
+            $totalFetched += \count($orders);
+            $buffer = [...$buffer, ...$orders];
+            $pagesBuffered++;
+
+            $this->logger->debug('Fetched order page from API', [
+                'page' => $pageNumber,
+                'count' => \count($orders),
+                'buffer_size' => \count($buffer),
             ]);
+
+            // Flush buffer when we've accumulated enough pages
+            if ($pagesBuffered >= self::PAGES_PER_BATCH) {
+                $result = $this->flushBuffer($buffer, $pageNumber);
+                $totalSaved += $result->saved;
+                $totalFailed += $result->failed;
+                $allFailedReferences = [...$allFailedReferences, ...$result->failedReferences];
+
+                $buffer = [];
+                $pagesBuffered = 0;
+                $batchesFlushed++;
+
+                // Log progress at info level periodically for operator visibility
+                if ($batchesFlushed % self::PROGRESS_LOG_INTERVAL === 0) {
+                    $this->logger->info('Order sync progress', [
+                        'fetched' => $totalFetched,
+                        'saved' => $totalSaved,
+                        'failed' => $totalFailed,
+                    ]);
+                }
+            }
+        }
+
+        // Flush remaining orders in buffer
+        if ($buffer !== []) {
+            $result = $this->flushBuffer($buffer, 'final');
+            $totalSaved += $result->saved;
+            $totalFailed += $result->failed;
+            $allFailedReferences = [...$allFailedReferences, ...$result->failedReferences];
+        }
+
+        if ($totalFetched === 0) {
+            $this->logger->info('Order sync completed: no orders found in ShopWired');
 
             return SyncResult::empty();
         }
 
-        // Persist to local database (continue on individual failures)
+        $this->logger->info('Order sync completed', [
+            'fetched' => $totalFetched,
+            'saved' => $totalSaved,
+            'failed' => $totalFailed,
+        ]);
+
+        return new SyncResult(
+            fetched: $totalFetched,
+            saved: $totalSaved,
+            failed: $totalFailed,
+            failedReferences: $allFailedReferences,
+        );
+    }
+
+    /**
+     * Flush buffered orders to database.
+     *
+     * @param list<Order> $orders Orders to save
+     * @param int|string $batchIdentifier For logging (page number or 'final')
+     */
+    private function flushBuffer(array $orders, int|string $batchIdentifier): SyncResult
+    {
+        $this->logger->debug('Flushing order batch to database', [
+            'batch' => $batchIdentifier,
+            'count' => \count($orders),
+        ]);
+
         $saveResult = $this->orderRepository->saveMany($orders);
 
         if ($saveResult->hasFailures()) {
-            $this->logger->warning('Some orders failed to save', [
-                'failed_references' => $saveResult->failedReferences,
+            $this->logger->error('Failed to save some orders to database', [
+                'batch' => $batchIdentifier,
+                'failed_count' => $saveResult->failed,
+                'failed_ids' => $saveResult->failedReferences,
             ]);
         }
 
