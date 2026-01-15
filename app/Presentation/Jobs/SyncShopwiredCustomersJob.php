@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Presentation\Jobs;
 
-use App\Application\Shopwired\UseCases\SyncAllCustomersUseCase;
+use App\Application\Shopwired\UseCases\SyncCustomersUseCase;
 use App\Domain\Exceptions\AuthenticationExpiredException;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\InvalidApiResponseException;
@@ -17,15 +17,14 @@ use Illuminate\Support\Facades\Log;
 use Throwable;
 
 /**
- * Asynchronously synchronize all ShopWired customers to local database.
+ * Asynchronously synchronize ShopWired customers to local database.
  *
- * Queues full customer synchronization from ShopWired API to PostgreSQL.
- * Implements exponential backoff retry strategy for API rate limits.
+ * Supports both full sync (all customers) and quick sync (recent customers only).
+ * Always syncs ALL trade customers (B2B priority), with optional limit on non-trade pages.
  *
- * Unlike orders (date-range filtered), this performs a complete customer sync.
- * At ~60k customers and 60 req/min rate limit, expect ~10-15 minute runtime.
- *
- * Typical usage: weekly schedule (Sunday 3am) with overlap protection.
+ * Usage:
+ * - Full sync: SyncShopwiredCustomersJob::dispatch() — daily, ~45 min
+ * - Quick sync: SyncShopwiredCustomersJob::dispatch(5) — hourly, ~1 min (5 non-trade pages)
  */
 final class SyncShopwiredCustomersJob implements ShouldQueue
 {
@@ -42,10 +41,11 @@ final class SyncShopwiredCustomersJob implements ShouldQueue
     /**
      * Create a new job instance.
      *
-     * Routes to low-priority queue as this is a long-running bulk sync (~45 min).
+     * @param int|null $maxNonTradePages Max non-trade pages (null = all, 1 page ≈ 100 customers)
      */
-    public function __construct()
-    {
+    public function __construct(
+        private readonly ?int $maxNonTradePages = null,
+    ) {
         $this->onQueue('low');
     }
 
@@ -74,12 +74,15 @@ final class SyncShopwiredCustomersJob implements ShouldQueue
      * @throws AuthenticationExpiredException When credentials invalid (permanent failure)
      * @throws Throwable When unexpected errors occur - indicates code update required
      */
-    public function handle(SyncAllCustomersUseCase $useCase): void
+    public function handle(SyncCustomersUseCase $useCase): void
     {
-        Log::info('ShopWired customer sync job starting');
+        $syncType = $this->maxNonTradePages === null ? 'full' : 'quick';
+        Log::info("ShopWired customer sync job starting ({$syncType})", [
+            'max_non_trade_pages' => $this->maxNonTradePages,
+        ]);
 
         try {
-            $result = $useCase->execute();
+            $result = $useCase->execute($this->maxNonTradePages);
 
             Log::info('ShopWired customer sync job completed', [
                 'fetched' => $result->fetched,

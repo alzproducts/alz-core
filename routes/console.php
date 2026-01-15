@@ -136,10 +136,19 @@ Schedule::call(static function (): void {
 // At 60 req/min rate limit, ~68k customers takes ~45-50 minutes
 // Daily ensures new customers are captured quickly
 Schedule::job(new SyncShopwiredCustomersJob())
+    ->name('sync-shopwired-customers-daily')
     ->dailyAt('05:00')
     ->timezone('Europe/London')
     ->onOneServer()
     ->withoutOverlapping(60); // 60 min lock - job runs ~45-50 min
+
+// HOURLY: Quick sync of recent customers (all trade + 5 pages non-trade)
+// Catches new signups between daily full syncs (~500 customers, ~1 min)
+Schedule::job(new SyncShopwiredCustomersJob(maxNonTradePages: 5))
+    ->name('sync-shopwired-customers-hourly')
+    ->hourly()
+    ->onOneServer()
+    ->withoutOverlapping(5);
 
 // ============================================================================
 // Mixpanel Order Sync: Nightly backend sync for orders missed by frontend

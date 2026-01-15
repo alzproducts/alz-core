@@ -184,11 +184,15 @@ final readonly class CustomerClient implements CustomerClientInterface
     }
 
     /**
-     * Iterate ALL customers in batches (memory-efficient).
+     * Iterate customers in batches (memory-efficient).
      *
-     * Yields trade customers first (faster, ~5 pages), then non-trade (~677 pages).
-     * Trade customers are synced first as they are higher-priority B2B accounts.
-     * Page numbers are sequential across both passes.
+     * Always yields ALL trade customers first (B2B priority, ~5 pages), then non-trade
+     * customers (newest first). If $maxNonTradePages is null, yields all non-trade
+     * pages (~677 pages); otherwise limits to specified number of pages.
+     *
+     * Page numbers are sequential across both passes (trade pages 1-N, non-trade N+1-M).
+     *
+     * @param int|null $maxNonTradePages Max non-trade pages (null = all, 1 page ≈ 100 customers)
      *
      * @return Generator<int, list<DomainCustomer>, mixed, void> Yields batches (page number as key)
      *
@@ -198,20 +202,27 @@ final readonly class CustomerClient implements CustomerClientInterface
      * @throws ExternalServiceUnavailableException When API unavailable or connection fails
      * @throws InvalidApiResponseException When response parsing fails (API contract violation)
      */
-    public function iterateAllCustomerBatches(): Generator
+    public function iterateCustomerBatches(?int $maxNonTradePages = null): Generator
     {
         $pageNumber = 0;
 
-        // First pass: trade customers (priority B2B accounts, ~5 pages)
+        // First pass: ALL trade customers (priority B2B accounts, ~5 pages)
         foreach ($this->iterateTradeCustomerBatches() as $batch) {
             $pageNumber++;
             yield $pageNumber => $batch;
         }
 
-        // Second pass: non-trade customers (bulk B2C, ~677 pages)
+        // Second pass: non-trade customers (bulk B2C, limited or all)
+        $nonTradePageCount = 0;
         foreach ($this->iterateNonTradeCustomerBatches() as $batch) {
             $pageNumber++;
+            $nonTradePageCount++;
             yield $pageNumber => $batch;
+
+            // Stop if we've reached the page limit (null = no limit)
+            if ($maxNonTradePages !== null && $nonTradePageCount >= $maxNonTradePages) {
+                break;
+            }
         }
     }
 
