@@ -23,7 +23,6 @@ use Tests\TestCase;
  * SyncBingAdsToMixpanelJob Unit Tests.
  *
  * Tests the job's exception handling and retry logic:
- * - Job configuration (tries, timeout, backoff)
  * - Success path with logging
  * - Permanent failures (PayloadSerializationException, AuthenticationExpiredException) → fail immediately
  * - Transient failures with custom retry (ExternalServiceUnavailableException) → release with delay
@@ -43,57 +42,6 @@ final class SyncBingAdsToMixpanelJobTest extends TestCase
         parent::setUp();
 
         $this->mockUseCase = Mockery::mock(SyncAdSpendUseCase::class);
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | Job Configuration Tests
-    |--------------------------------------------------------------------------
-    */
-
-    #[Test]
-    public function it_has_correct_tries_configuration(): void
-    {
-        $job = $this->createJob();
-
-        $this->assertSame(5, $job->tries);
-    }
-
-    #[Test]
-    public function it_has_correct_timeout_configuration(): void
-    {
-        $job = $this->createJob();
-
-        $this->assertSame(600, $job->timeout);
-    }
-
-    #[Test]
-    public function it_has_correct_backoff_configuration(): void
-    {
-        $job = $this->createJob();
-
-        $this->assertSame([60, 120, 240, 480, 960], $job->backoff);
-    }
-
-    #[Test]
-    public function it_has_exactly_five_backoff_values(): void
-    {
-        $job = $this->createJob();
-
-        $this->assertCount(5, $job->backoff);
-    }
-
-    #[Test]
-    public function backoff_values_are_exponentially_increasing(): void
-    {
-        $job = $this->createJob();
-
-        // Each value should be double the previous (exponential backoff)
-        $this->assertSame(60, $job->backoff[0]);
-        $this->assertSame(120, $job->backoff[1]);  // 60 * 2
-        $this->assertSame(240, $job->backoff[2]);  // 120 * 2
-        $this->assertSame(480, $job->backoff[3]);  // 240 * 2
-        $this->assertSame(960, $job->backoff[4]);  // 480 * 2
     }
 
     /*

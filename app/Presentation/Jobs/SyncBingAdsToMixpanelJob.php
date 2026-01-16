@@ -36,24 +36,26 @@ final class SyncBingAdsToMixpanelJob implements ShouldQueue
 
     /**
      * Maximum number of attempts before giving up.
-     * Public and mutable per Laravel ShouldQueue contract.
+     *
+     * 3 attempts: quick retries for transient issues + 1hr fallback for longer outages.
      */
-    public int $tries = 5;
+    public int $tries = 3;
 
     /**
      * Job timeout in seconds.
+     *
      * Extended for Bing Ads async reporting (submit → poll → download).
-     * Public and mutable per Laravel ShouldQueue contract.
      */
     public int $timeout = 600;
 
     /**
-     * Seconds to wait before retrying (exponential backoff: 60, 120, 240, 480, 960).
-     * Public and mutable per Laravel ShouldQueue contract.
+     * Seconds to wait before retrying.
+     *
+     * 1min, 5min, 1hr: quick retries catch transient issues, hour delay catches maintenance windows.
      *
      * @var array<int>
      */
-    public array $backoff = [60, 120, 240, 480, 960];
+    public array $backoff = [60, 300, 3600];
 
     public function __construct(
         private readonly DateTimeImmutable $from,

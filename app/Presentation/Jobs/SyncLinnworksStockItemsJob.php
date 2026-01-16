@@ -34,15 +34,19 @@ final class SyncLinnworksStockItemsJob implements ShouldQueue
 
     /**
      * Maximum number of attempts before giving up.
+     *
+     * Low retry count since job runs every 15 min — next scheduled run is implicit retry.
      */
-    public int $tries = 5;
+    public int $tries = 2;
 
     /**
-     * Seconds to wait before retrying (exponential backoff).
+     * Seconds to wait before retrying.
+     *
+     * Single short retry; fail fast and let next schedule handle it.
      *
      * @var array<int>
      */
-    public array $backoff = [120, 300, 600, 1200, 2400];
+    public array $backoff = [60];
 
     /**
      * Job timeout in seconds.
