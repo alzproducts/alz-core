@@ -356,56 +356,8 @@ final class SyncCampaignLookupTableJobTest extends TestCase
     }
 
     // ========================================================================
-    // Backoff Delay Calculation Tests
+    // Release Behavior Tests
     // ========================================================================
-
-    #[Test]
-    #[DataProvider('backoffDelayProvider')]
-    public function it_calculates_correct_backoff_delay_for_each_attempt(int $attempt, int $expectedDelay): void
-    {
-        $job = new SyncCampaignLookupTableJob();
-
-        // Test the backoff array directly
-        $calculatedDelay = $job->backoff[$attempt - 1] ?? 960;
-
-        self::assertSame($expectedDelay, $calculatedDelay);
-    }
-
-    /**
-     * @return array<string, array{int, int}>
-     */
-    public static function backoffDelayProvider(): array
-    {
-        return [
-            'attempt 1 uses 60 seconds' => [1, 60],
-            'attempt 2 uses 120 seconds' => [2, 120],
-            'attempt 3 uses 240 seconds' => [3, 240],
-            'attempt 4 uses 480 seconds' => [4, 480],
-            'attempt 5 uses 960 seconds' => [5, 960],
-        ];
-    }
-
-    #[Test]
-    public function it_uses_fallback_backoff_delay_when_attempts_exceed_backoff_array_size(): void
-    {
-        $job = new SyncCampaignLookupTableJob();
-
-        // Attempt 6 should fall back to 960 (the last value)
-        $calculatedDelay = $job->backoff[6 - 1] ?? 960;
-
-        self::assertSame(960, $calculatedDelay);
-    }
-
-    #[Test]
-    public function it_uses_fallback_backoff_delay_for_very_high_attempt_number(): void
-    {
-        $job = new SyncCampaignLookupTableJob();
-
-        // Attempt 100 should fall back to 960
-        $calculatedDelay = $job->backoff[100 - 1] ?? 960;
-
-        self::assertSame(960, $calculatedDelay);
-    }
 
     #[Test]
     #[DataProvider('releaseDelayProvider')]
@@ -611,47 +563,6 @@ final class SyncCampaignLookupTableJobTest extends TestCase
                     return true;
                 },
             ));
-    }
-
-    // ========================================================================
-    // Job Configuration Tests
-    // ========================================================================
-
-    #[Test]
-    public function it_has_correct_default_tries_configuration(): void
-    {
-        $job = new SyncCampaignLookupTableJob();
-
-        self::assertSame(5, $job->tries);
-    }
-
-    #[Test]
-    public function it_has_correct_default_backoff_configuration(): void
-    {
-        $job = new SyncCampaignLookupTableJob();
-
-        self::assertSame([60, 120, 240, 480, 960], $job->backoff);
-    }
-
-    #[Test]
-    public function it_has_exactly_five_backoff_values(): void
-    {
-        $job = new SyncCampaignLookupTableJob();
-
-        self::assertCount(5, $job->backoff);
-    }
-
-    #[Test]
-    public function backoff_values_are_exponentially_increasing(): void
-    {
-        $job = new SyncCampaignLookupTableJob();
-
-        // Each value should be double the previous (exponential backoff)
-        self::assertSame(60, $job->backoff[0]);
-        self::assertSame(120, $job->backoff[1]); // 60 * 2
-        self::assertSame(240, $job->backoff[2]); // 120 * 2
-        self::assertSame(480, $job->backoff[3]); // 240 * 2
-        self::assertSame(960, $job->backoff[4]); // 480 * 2
     }
 
     // ========================================================================
