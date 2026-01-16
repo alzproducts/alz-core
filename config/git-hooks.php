@@ -29,8 +29,8 @@ return [
     |--------------------------------------------------------------------------
     | Pre-Push Hooks
     |--------------------------------------------------------------------------
-    | Runs unit tests + code quality analysis (~15 seconds with native PHP)
-    | Integration/feature tests run in CI only (avoids flaky network deps)
+    | Runs full test suite + code quality analysis (~15 seconds with native PHP)
+    | All tests use mocks/fakes - no external dependencies
     |
     | Mutation testing moved to CI (runs in parallel, no added wall time)
     */
