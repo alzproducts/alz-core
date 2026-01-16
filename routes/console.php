@@ -231,13 +231,12 @@ Schedule::call(static function (): void {
 // Linnworks Stock Item Sync: Frequent refresh
 // Syncs ~4k stock items with extended properties from Linnworks to PostgreSQL
 // Used for inventory lookups and order enrichment
-// Fast endpoint (~1 min for full sync), no practical rate limit concerns
 // ============================================================================
 
-// EVERY 10 MIN: Full stock item sync
+// EVERY 15 MIN: Full stock item sync
 // Keeps inventory data near real-time for order processing and lookups
 Schedule::job(new SyncLinnworksStockItemsJob())
     ->name('sync-linnworks-stock-items')
-    ->everyTenMinutes()
+    ->everyFifteenMinutes()
     ->onOneServer()
     ->withoutOverlapping(20); // 20 min lock - job runs 8-12 min in prod
