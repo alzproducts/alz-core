@@ -10,9 +10,10 @@ on:
     branches: [main, develop]
 
 concurrency:
-  # Use head_ref for PRs (source branch) to dedupe with push events to same branch
-  group: ${{ github.workflow }}-${{ github.event.pull_request.head.ref || github.ref_name }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  # PRs use PR number, pushes use branch name - keeps them in separate groups
+  # This prevents PR checks from being cancelled by push events (which breaks branch protection)
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.ref_name }}
+  cancel-in-progress: true
 
 env:
   PHP_VERSION: '8.4'
