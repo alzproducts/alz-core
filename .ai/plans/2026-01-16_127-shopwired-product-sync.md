@@ -4,7 +4,7 @@
 
 Implement full product synchronization from ShopWired API to local database, following the established patterns from `SyncShopwiredOrdersJob` and `SyncShopwiredCustomersJob`.
 
-**Scope**: Standard (core fields + pricing + variations + images)
+**Scope**: Standard (core fields + pricing + variations + images + custom fields)
 **Catalog Size**: ~1,000-1,500 products
 **Estimated Sync Time**: ~2-5 minutes full sync
 
@@ -16,10 +16,26 @@ Implement full product synchronization from ShopWired API to local database, fol
 Job (SyncShopwiredProductsJob)
   → UseCase (SyncProductsUseCase)
     → Client (ProductClient via ProductClientInterface)
+        → Factory (ProductDomainFactory) ← Registry (CustomFieldDefinitionRegistry)
+        → Transport (ShopwiredHttpTransport)
     → Repository (EloquentProductRepository via ProductRepositoryInterface)
       → Models (ProductModel, ProductVariationModel)
         → Database (shopwired.products, shopwired.product_variations)
 ```
+
+### Custom Fields Data Flow
+
+```
+API JSON (customFields: {name: value})
+  → ProductResponse (DTO, raw customFields array)
+  → ProductDomainFactory
+      ↓ looks up definition by name
+      CustomFieldDefinitionRegistry (in-memory, keyed by name)
+      ↓ creates typed value object
+  → Product (Domain VO with list<CustomFieldValue>)
+```
+
+**Key Decision**: Factory lazy-loads registry on first use. Registered with `scoped()` binding to ensure fresh instance per queue job (avoids Octane stale state).
 
 ---
 
@@ -27,21 +43,66 @@ Job (SyncShopwiredProductsJob)
 
 ### Phase 1: Domain Layer
 
+#### Phase 1a: Custom Field Value Objects (Generic, Reusable)
+
 | File | Description |
 |------|-------------|
-| `app/Domain/Product/ValueObjects/ProductImage.php` | Image with id, url, description, sortOrder |
-| `app/Domain/Product/ValueObjects/ProductVariationOption.php` | Option attribute (optionId, optionName, valueId, valueName) |
-| `app/Domain/Product/ValueObjects/ProductVariation.php` | Variation with pricing, stock, options array |
-| `app/Domain/Product/ValueObjects/Product.php` | Main product with all fields, variations[], images[], categoryIds[] |
+| `app/Domain/Catalog/CustomFields/ValueObjects/AbstractCustomFieldValue.php` | Abstract base with embedded CustomFieldDefinition |
+| `app/Domain/Catalog/CustomFields/ValueObjects/StringCustomFieldValue.php` | Text, Choice, List types (string values) |
+| `app/Domain/Catalog/CustomFields/ValueObjects/DateTimeCustomFieldValue.php` | Date, DateTime types (DateTimeImmutable value) - **TODO: verify API datetime format (assumed Unix timestamp)** |
+| `app/Domain/Catalog/CustomFields/ValueObjects/ToggleCustomFieldValue.php` | Boolean toggle type |
+| `app/Domain/Catalog/CustomFields/ValueObjects/ValueListCustomFieldValue.php` | Array of strings type |
+| `app/Domain/Catalog/CustomFields/ValueObjects/ProductListCustomFieldValue.php` | Array of product IDs type |
+| `app/Domain/Catalog/CustomFields/Exceptions/CustomFieldNotFoundException.php` | Thrown when field name not in registry |
+| `app/Domain/Catalog/CustomFields/Exceptions/InvalidCustomFieldValueException.php` | Thrown when value type mismatches definition |
+
+**CustomFieldValue Design**:
+```php
+abstract readonly class CustomFieldValue
+{
+    public function __construct(
+        public CustomFieldDefinition $definition,
+    ) {}
+
+    abstract public function rawValue(): mixed;
+
+    // Convenience accessors
+    public function name(): string => $this->definition->name;
+    public function label(): ?string => $this->definition->label;
+    public function type(): CustomFieldType => $this->definition->type;
+}
+
+final readonly class StringCustomFieldValue extends CustomFieldValue
+{
+    public function __construct(
+        CustomFieldDefinition $definition,
+        public string $value,
+    ) {
+        parent::__construct($definition);
+    }
+}
+```
+
+**Note**: These are generic and reusable across Products, Customers, Orders, etc.
+
+#### Phase 1b: Product Value Objects (Existing + Update)
+
+| File | Description |
+|------|-------------|
+| `app/Domain/Catalog/Product/ValueObjects/ProductImage.php` | ✅ EXISTS - Image with id, url, description, sortOrder |
+| `app/Domain/Catalog/Product/ValueObjects/ProductVariationOption.php` | ✅ EXISTS - Option attribute (optionId, optionName, valueId, valueName) |
+| `app/Domain/Catalog/Product/ValueObjects/ProductVariation.php` | ✅ EXISTS - Variation with pricing, stock, options array |
+| `app/Domain/Catalog/Product/ValueObjects/Product.php` | ⚠️ UPDATE NEEDED - Add customFields property |
 
 **Key Properties (Product)**:
 - Identifiers: `id`, `sku`, `slug`, `url`
 - Pricing: `price`, `costPrice`, `salePrice`, `comparePrice`
-- Inventory: `stock`, `outOfStockStatus`
-- Flags: `isActive`, `isNew`, `isPreOrder`, `vatExclusive`, `vatRelief`, `isBundle`
-- Shipping: `weight`, `deliveryPrice`, `freeDelivery`
+- Inventory: `stock`
+- Flags: `isActive`, `vatExclusive`, `vatRelief`
+- Shipping: `weight`
 - SEO: `metaTitle`, `metaDescription`
-- Relations: `categoryIds[]` (JSONB), `variations[]`, `images[]` (JSONB)
+- Relations: `categoryIds[]`, `variations[]`, `images[]`
+- **Custom Fields**: `customFields: list<CustomFieldValue>` ← NEW
 - Timestamps: `createdAt`, `updatedAt` (from ShopWired)
 
 ### Phase 2: Database Migrations
@@ -58,15 +119,18 @@ shopwired.products
 ├── external_id (int unique) - ShopWired product ID
 ├── sku, title, description, slug, url
 ├── price, cost_price, sale_price, compare_price (decimal 14,6)
-├── stock, out_of_stock_status
-├── is_active, is_new, is_pre_order, vat_exclusive, vat_relief, is_bundle
-├── weight, delivery_price, free_delivery
+├── stock
+├── is_active, vat_exclusive, vat_relief
+├── weight
 ├── meta_title, meta_description
 ├── category_ids (JSONB array of ints)
 ├── images (JSONB array of {id, url, description, sort_order})
+├── custom_fields (JSONB object {name: value, ...}) ← NEW
 ├── shopwired_created_at, shopwired_updated_at
 └── created_at, updated_at
 ```
+
+**Note**: `custom_fields` stored as raw JSONB from API. Typed `CustomFieldValue` objects are hydrated at read time by `ProductDomainFactory` using `CustomFieldDefinitionRegistry`.
 
 **Variations Table Schema**:
 ```
@@ -105,16 +169,82 @@ shopwired.product_variations
 
 Additional query methods (getBySku, getByCategory, etc.) deferred until specific requirements are clearer.
 
-### Phase 4: Infrastructure DTOs
+### Phase 4: Infrastructure DTOs & Factory
+
+#### Phase 4a: Response DTOs
 
 | File | Description |
 |------|-------------|
-| `app/Infrastructure/Shopwired/Responses/ProductImageResponse.php` | Image DTO with toDomain() |
-| `app/Infrastructure/Shopwired/Responses/ProductVariationOptionResponse.php` | Option DTO |
-| `app/Infrastructure/Shopwired/Responses/ProductVariationResponse.php` | Variation DTO |
-| `app/Infrastructure/Shopwired/Responses/ProductResponse.php` | Product DTO with nested collections |
+| `app/Infrastructure/Shopwired/Responses/ProductImageResponse.php` | Image DTO (simple, can have toDomain()) |
+| `app/Infrastructure/Shopwired/Responses/ProductVariationOptionResponse.php` | Option DTO (simple, can have toDomain()) |
+| `app/Infrastructure/Shopwired/Responses/ProductVariationResponse.php` | Variation DTO (simple, can have toDomain()) |
+| `app/Infrastructure/Shopwired/Responses/ProductResponse.php` | Product DTO - **NO toDomain()**, raw customFields |
 
-All use `#[MapInputName(SnakeCaseMapper::class)]` and implement `DomainConvertibleInterface`.
+All use `#[MapInputName(SnakeCaseMapper::class)]`.
+
+**Important**: `ProductResponse` does NOT implement `DomainConvertibleInterface`. It holds raw `customFields: array<string, mixed>` from API. Transformation to Domain happens via `ProductDomainFactory`.
+
+#### Phase 4b: Custom Field Infrastructure
+
+| File | Description |
+|------|-------------|
+| `app/Infrastructure/Shopwired/CustomFields/CustomFieldDefinitionRegistry.php` | In-memory lookup keyed by field name, scoped to item type |
+| `app/Infrastructure/Shopwired/Factories/ProductDomainFactory.php` | Transforms ProductResponse → Product with typed CustomFieldValue[] |
+
+**CustomFieldDefinitionRegistry**:
+```php
+final readonly class CustomFieldDefinitionRegistry
+{
+    /** @var array<string, CustomFieldDefinition> */
+    private array $byName;
+
+    public static function forItemType(array $definitions, CustomFieldItemType $itemType): self;
+    public function findByName(string $name): ?CustomFieldDefinition;
+    public function has(string $name): bool;
+}
+```
+
+**ProductDomainFactory**:
+```php
+final class ProductDomainFactory
+{
+    private ?CustomFieldDefinitionRegistry $registry = null;
+
+    public function __construct(
+        private CustomFieldRepositoryInterface $customFieldRepo,
+    ) {}
+
+    public function fromResponse(ProductResponse $response): Product
+    {
+        return new Product(
+            // ... map all fields ...
+            customFields: $this->buildCustomFields($response->customFields),
+        );
+    }
+
+    private function registry(): CustomFieldDefinitionRegistry
+    {
+        // Lazy-load once per factory instance
+        return $this->registry ??= CustomFieldDefinitionRegistry::forItemType(
+            $this->customFieldRepo->getByItemType(CustomFieldItemType::Product),
+            CustomFieldItemType::Product,
+        );
+    }
+
+    /** @return list<CustomFieldValue> */
+    private function buildCustomFields(array $rawFields): array
+    {
+        $result = [];
+        foreach ($rawFields as $name => $value) {
+            $definition = $this->registry()->findByName($name);
+            if ($definition !== null) {
+                $result[] = $this->createTypedValue($definition, $value);
+            }
+        }
+        return $result;
+    }
+}
+```
 
 ### Phase 5: Infrastructure Persistence
 
@@ -134,14 +264,39 @@ All use `#[MapInputName(SnakeCaseMapper::class)]` and implement `DomainConvertib
 
 | File | Description |
 |------|-------------|
-| `app/Infrastructure/Shopwired/Clients/ProductClient.php` | API client using ShopwiredHttpTransport |
+| `app/Infrastructure/Shopwired/Clients/ProductClient.php` | API client using ShopwiredHttpTransport + ProductDomainFactory |
 
 **API Configuration**:
 - Endpoint: `products`
-- Embeds: `variations,images,categories`
+- Embeds: `variations,images,categories,custom_fields` ← custom_fields added
+- Fields: Must include `customFields` (camelCase) when `custom_fields` embed is used
 - Page size: 100 (max)
 - Sort: Not specified (API only supports title sort, not useful for sync)
 - Uses `ShopwiredPaginator::pages()` for generator-based iteration
+
+**Client Pattern** (differs from Customer/Order due to factory):
+```php
+final readonly class ProductClient implements ProductClientInterface
+{
+    public function __construct(
+        private ShopwiredHttpTransport $transport,
+        private ProductDomainFactory $factory,  // ← Injected factory
+    ) {}
+
+    public function iterateProductBatches(): Generator
+    {
+        // ... pagination logic ...
+        foreach ($response->json() as $item) {
+            $products[] = $this->factory->fromResponse(
+                ProductResponse::from($item)
+            );
+        }
+        yield $products;
+    }
+}
+```
+
+**Note**: Unlike CustomerClient/OrderClient which use `DTO.toDomain()`, ProductClient uses the injected factory because custom field transformation requires the registry.
 
 ### Phase 7: Application Use Case
 
@@ -177,7 +332,26 @@ $queue = 'low';
 | File | Changes |
 |------|---------|
 | `app/Infrastructure/Shopwired/ShopwiredClientFactory.php` | Add `createProductClient()` method |
-| `app/Providers/ShopwiredServiceProvider.php` | Register ProductClientInterface and ProductRepositoryInterface bindings |
+| `app/Providers/ShopwiredServiceProvider.php` | Register all bindings (see below) |
+
+**Service Provider Bindings**:
+```php
+// ProductDomainFactory - MUST be scoped() for Octane compatibility
+// Fresh instance per request/job ensures registry is not stale
+$this->app->scoped(ProductDomainFactory::class);
+
+// Client and Repository - standard bindings
+$this->app->bind(ProductClientInterface::class, function ($app) {
+    return $app->make(ShopwiredClientFactory::class)->createProductClient();
+});
+
+$this->app->bind(ProductRepositoryInterface::class, EloquentProductRepository::class);
+```
+
+**Critical**: `ProductDomainFactory` uses `scoped()` NOT `singleton()`. This ensures:
+- Fresh factory instance per queue job
+- Registry lazy-loaded fresh each job
+- No stale custom field definitions in Octane long-running process
 
 ### Phase 10: Reconciliation Job (Handles Deleted Products)
 
@@ -218,28 +392,61 @@ $queue = 'low';
 
 5. **Separate reconciliation job** - Products deleted from ShopWired are removed by a daily reconciliation job (not during main sync). This prevents accidental mass deletion if API fails mid-sync, and handles the SKU reuse scenario where deleted products are recreated with the same SKU.
 
+6. **Custom fields stored as raw JSONB, typed on read** - Raw `custom_fields` JSONB in database matches API response. `ProductDomainFactory` hydrates to typed `CustomFieldValue` objects using `CustomFieldDefinitionRegistry`. This decouples storage from domain typing.
+
+7. **Generic CustomFieldValue hierarchy** - Abstract `CustomFieldValue` with typed subtypes (`StringCustomFieldValue`, `ToggleCustomFieldValue`, etc.) is entity-agnostic. Can be reused for Products, Customers, Orders without duplication.
+
+8. **Factory with lazy-loaded registry** - `ProductDomainFactory` lazy-loads `CustomFieldDefinitionRegistry` on first use. Registered with `scoped()` binding ensures fresh registry per queue job, avoiding Octane stale state.
+
+9. **Combined value objects** - `CustomFieldValue` subtypes embed the full `CustomFieldDefinition`, not just a reference. This provides complete context (label, type, allowedValues) without additional lookups.
+
+10. **Strict custom field validation** - Domain/Infrastructure throws exceptions for custom field errors (unknown field name, type mismatch). Application layer decides policy: fail sync entirely, or catch per-product and log+continue. This follows Clean Architecture's principle that inner layers are strict, outer layers set policy.
+
 ---
 
 ## File Dependencies (Implementation Order)
 
 ```
-1. ProductImage, ProductVariationOption (no deps)
-2. ProductVariation (depends on ProductVariationOption)
-3. Product (depends on ProductVariation, ProductImage)
-4. Migrations (no code deps)
-5. ProductClientInterface, ProductRepositoryInterface (depend on Product)
-6. ProductImageResponse, ProductVariationOptionResponse (no deps)
-7. ProductVariationResponse (depends on ProductVariationOptionResponse)
-8. ProductResponse (depends on all Response DTOs)
-9. ProductVariationModel (depends on domain objects)
-10. ProductModel (depends on ProductVariationModel)
-11. ProductModelMapper (depends on models + domain)
-12. EloquentProductRepository (depends on mapper, models)
-13. ProductClient (depends on DTOs, transport)
-14. SyncProductsUseCase (depends on interfaces)
-15. SyncShopwiredProductsJob (depends on use case)
-16. ReconcileShopwiredProductsJob (depends on interfaces - can be done after main sync works)
-17. ShopwiredServiceProvider updates (wires everything)
+Phase 1a: Custom Field Value Objects
+1. CustomFieldValue (abstract base, depends on CustomFieldDefinition)
+2. StringCustomFieldValue, ToggleCustomFieldValue, ValueListCustomFieldValue, ProductListCustomFieldValue
+
+Phase 1b: Product Domain (existing, needs update)
+3. ProductImage, ProductVariationOption (✅ exist, no changes)
+4. ProductVariation (✅ exists, no changes)
+5. Product (⚠️ exists, ADD customFields property)
+
+Phase 2: Database
+6. Migrations (no code deps)
+
+Phase 3: Application Contracts
+7. ProductClientInterface, ProductRepositoryInterface (depend on Product)
+
+Phase 4a: Response DTOs
+8. ProductImageResponse, ProductVariationOptionResponse (no deps)
+9. ProductVariationResponse (depends on ProductVariationOptionResponse)
+10. ProductResponse (depends on all Response DTOs, NO toDomain())
+
+Phase 4b: Custom Field Infrastructure
+11. CustomFieldDefinitionRegistry (depends on CustomFieldDefinition)
+12. ProductDomainFactory (depends on Registry, ProductResponse, all CustomFieldValue subtypes)
+
+Phase 5: Persistence
+13. ProductVariationModel (depends on domain objects)
+14. ProductModel (depends on ProductVariationModel)
+15. ProductModelMapper (depends on models + domain)
+16. EloquentProductRepository (depends on mapper, models)
+
+Phase 6: Client
+17. ProductClient (depends on DTOs, transport, ProductDomainFactory)
+
+Phase 7-8: Application + Presentation
+18. SyncProductsUseCase (depends on interfaces)
+19. SyncShopwiredProductsJob (depends on use case)
+20. ReconcileShopwiredProductsJob (depends on interfaces - can be done after main sync works)
+
+Phase 9: Wiring
+21. ShopwiredServiceProvider updates (wires everything, scoped() for factory)
 ```
 
 ---
@@ -249,14 +456,22 @@ $queue = 'low';
 ### Unit Tests
 - [ ] `Product::hasVariations()` returns correct boolean
 - [ ] `Product::totalStock()` sums variations or returns master stock
-- [ ] `ProductResponse::toDomain()` maps all fields correctly
 - [ ] `ProductVariationResponse::toDomain()` handles nested options
+- [ ] `CustomFieldDefinitionRegistry::findByName()` returns correct definition
+- [ ] `CustomFieldDefinitionRegistry::forItemType()` filters by item type
+- [ ] `StringCustomFieldValue` holds string value with embedded definition
+- [ ] `ToggleCustomFieldValue` holds boolean value
+- [ ] `ValueListCustomFieldValue` holds array of strings
+- [ ] `ProductListCustomFieldValue` holds array of ints
 
 ### Integration Tests
 - [ ] `EloquentProductRepository::save()` creates product with variations
 - [ ] `EloquentProductRepository::save()` updates existing (upsert)
 - [ ] `EloquentProductRepository::getByCategory()` JSONB contains works
 - [ ] `ProductClient::iterateProductBatches()` pagination works (mocked transport)
+- [ ] `ProductDomainFactory::fromResponse()` creates typed custom field values
+- [ ] `ProductDomainFactory` throws `CustomFieldNotFoundException` for unknown field names
+- [ ] `ProductDomainFactory` lazy-loads registry only once per instance
 
 ### End-to-End Tests
 - [ ] Run `SyncShopwiredProductsJob` against real API (staging/dev)
@@ -287,6 +502,9 @@ php artisan tinker
 
 - `app/Application/Shopwired/UseCases/SyncCustomersUseCase.php` - UseCase pattern
 - `app/Infrastructure/Shopwired/Repositories/EloquentOrderRepository.php` - Child sync pattern
-- `app/Infrastructure/Shopwired/Clients/CustomerClient.php` - Client pagination pattern
+- `app/Infrastructure/Shopwired/Clients/CustomerClient.php` - Client pagination pattern (note: Products uses factory, differs slightly)
 - `database/migrations/2026_01_11_033929_create_shopwired_order_products_table.php` - Child table migration
 - `app/Providers/ShopwiredServiceProvider.php` - Binding registration
+- `app/Domain/Catalog/CustomFields/ValueObjects/CustomFieldDefinition.php` - Existing custom field definition VO
+- `app/Domain/Catalog/CustomFields/Enums/CustomFieldType.php` - Field type enum (Text, Toggle, Choice, etc.)
+- `app/Infrastructure/Shopwired/Repositories/EloquentCustomFieldRepository.php` - For loading definitions into registry

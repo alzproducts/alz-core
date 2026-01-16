@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\Catalog\Product\ValueObjects;
 
+use App\Domain\Catalog\CustomFields\ValueObjects\AbstractCustomFieldValue;
 use DateTimeImmutable;
 use Webmozart\Assert\Assert;
 
@@ -38,6 +39,7 @@ final readonly class Product
      * @param list<int> $categoryIds ShopWired category IDs
      * @param list<ProductVariation> $variations Product variations
      * @param list<ProductImage> $images Product images
+     * @param list<AbstractCustomFieldValue> $customFields Typed custom field values
      * @param DateTimeImmutable $createdAt ShopWired creation timestamp
      * @param DateTimeImmutable $updatedAt ShopWired last update timestamp
      */
@@ -62,6 +64,7 @@ final readonly class Product
         public array $categoryIds,
         public array $variations,
         public array $images,
+        public array $customFields,
         public DateTimeImmutable $createdAt,
         public DateTimeImmutable $updatedAt,
     ) {
@@ -137,5 +140,24 @@ final readonly class Product
     public function isInCategory(int $categoryId): bool
     {
         return \in_array($categoryId, $this->categoryIds, true);
+    }
+
+    /**
+     * Get a custom field value by name.
+     */
+    public function getCustomField(string $name): ?AbstractCustomFieldValue
+    {
+        return \array_find(
+            $this->customFields,
+            static fn(AbstractCustomFieldValue $field): bool => $field->name() === $name,
+        );
+    }
+
+    /**
+     * Check if this product has a specific custom field.
+     */
+    public function hasCustomField(string $name): bool
+    {
+        return $this->getCustomField($name) !== null;
     }
 }

@@ -182,6 +182,11 @@ parameters:
         # This is intentional: domain exceptions for business logic, RuntimeException for infrastructure.
         # Rule disabled globally - consistently produces false positives for valid exception hierarchies.
         - identifier: shipmonk.nonNormalizedType
+        # DateTimeZone constructor throws ValueError for invalid timezone, but we use hardcoded constant.
+        # DateTimeImmutable::createFromFormat throws ValueError for invalid format, but 'U' is always valid.
+        -
+            identifier: missingType.checkedException
+            path: app/Domain/Catalog/CustomFields/ValueObjects/DateTimeCustomFieldValue.php
         # PHP Insights config references PHP_CodeSniffer classes as config keys (not loaded via Composer autoload)
         -
             message: '#^Class PHP_CodeSniffer\\.*#'
