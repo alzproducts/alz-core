@@ -80,6 +80,47 @@ trait LinnworksResponseParserTrait
     }
 
     /**
+     * Parse direct array API response and return array of DTOs.
+     *
+     * Some Linnworks endpoints return a direct array [...] instead of wrapped {Items: [...]}.
+     *
+     * @template T of Data
+     *
+     * @param class-string<T> $dtoClass
+     *
+     * @return list<T>
+     *
+     * @throws InvalidApiResponseException When response structure is invalid
+     */
+    private static function parseDirectArray(mixed $data, string $dtoClass): array
+    {
+        if (!\is_array($data) || !\array_is_list($data)) {
+            self::logParsingFailure('Expected direct array response', $data);
+
+            throw new InvalidApiResponseException(
+                serviceName: self::SERVICE_NAME,
+                message: 'Expected direct array response',
+            );
+        }
+
+        try {
+            /** @var list<T> */
+            return \array_map(
+                static fn(mixed $item): Data => $dtoClass::from($item),
+                $data,
+            );
+        } catch (CannotCreateData $e) {
+            self::logParsingFailure($e->getMessage(), $data);
+
+            throw new InvalidApiResponseException(
+                serviceName: self::SERVICE_NAME,
+                message: 'API returned invalid data structure',
+                previous: $e,
+            );
+        }
+    }
+
+    /**
      * Parse single response and convert to Domain object.
      *
      * @template T of Data&DomainConvertibleInterface
