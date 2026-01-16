@@ -9,7 +9,21 @@ use App\Presentation\Jobs\SyncGoogleAdsToMixpanelJob;
 use App\Presentation\Jobs\SyncOrdersToMixpanelJob;
 use App\Presentation\Jobs\SyncShopwiredCustomersJob;
 use App\Presentation\Jobs\SyncShopwiredOrdersJob;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Schedule;
+
+// ============================================================================
+// Helper: Check if currently in ShopWired daily sync window (04:00-06:00 UK)
+// Used to skip micro/hourly syncs during full sync to avoid rate limit contention
+// ============================================================================
+$isDuringShopwiredDailySyncWindow = static function (): bool {
+    $ukTime = Carbon::now('Europe/London');
+    $hour = $ukTime->hour;
+
+    // Daily syncs run at 04:00 (orders) and 05:00 (customers) UK time
+    // Skip micro/hourly during 04:00-05:59 to give full syncs exclusive API access
+    return $hour >= 4 && $hour < 6;
+};
 
 // Campaign lookup table sync - runs BEFORE ad spend sync (7:55 AM UTC)
 Schedule::job(new SyncCampaignLookupTableJob())
@@ -126,19 +140,23 @@ Schedule::job(new SyncShopwiredCustomersJob())
     ->withoutOverlapping(60); // 60 min lock - job runs ~45-50 min
 
 // HOURLY: Quick sync of recent customers (5 pages each type, ~1000 customers)
+// Skipped during 04:00-06:00 UK to avoid rate limit contention with daily full sync
 Schedule::job(new SyncShopwiredCustomersJob(maxTradePages: 5, maxNonTradePages: 5))
     ->name('sync-shopwired-customers-hourly')
     ->hourly()
     ->onOneServer()
-    ->withoutOverlapping(5);
+    ->withoutOverlapping(5)
+    ->skip($isDuringShopwiredDailySyncWindow);
 
 // EVERY 5 MIN: Micro sync (1 page each type, ~200 customers, ~30s)
 // Keeps customer data near real-time for order processing
+// Skipped during 04:00-06:00 UK to avoid rate limit contention with daily full sync
 Schedule::job(new SyncShopwiredCustomersJob(maxTradePages: 1, maxNonTradePages: 1))
     ->name('sync-shopwired-customers-micro')
     ->everyFiveMinutes()
     ->onOneServer()
-    ->withoutOverlapping(2);
+    ->withoutOverlapping(2)
+    ->skip($isDuringShopwiredDailySyncWindow);
 
 // ============================================================================
 // ShopWired Order Sync (Generator-based): 3-tier resilience strategy
@@ -156,19 +174,23 @@ Schedule::job(new SyncShopwiredOrdersJob())
     ->withoutOverlapping(60);
 
 // HOURLY: Quick sync (5 pages, ~500 orders)
+// Skipped during 04:00-06:00 UK to avoid rate limit contention with daily full sync
 Schedule::job(new SyncShopwiredOrdersJob(maxPages: 5))
     ->name('sync-shopwired-orders-hourly')
     ->hourly()
     ->onOneServer()
-    ->withoutOverlapping(5);
+    ->withoutOverlapping(5)
+    ->skip($isDuringShopwiredDailySyncWindow);
 
 // EVERY 5 MIN: Micro sync (1 page, ~100 orders)
 // Keeps order data near real-time
+// Skipped during 04:00-06:00 UK to avoid rate limit contention with daily full sync
 Schedule::job(new SyncShopwiredOrdersJob(maxPages: 1))
     ->name('sync-shopwired-orders-micro')
     ->everyFiveMinutes()
     ->onOneServer()
-    ->withoutOverlapping(2);
+    ->withoutOverlapping(2)
+    ->skip($isDuringShopwiredDailySyncWindow);
 
 // ============================================================================
 // Mixpanel Order Sync: Nightly backend sync for orders missed by frontend
