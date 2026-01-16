@@ -113,6 +113,98 @@ final readonly class LinnworksHttpTransport
     }
 
     /**
+     * Perform POST request with raw form-encoded parameters.
+     *
+     * Unlike post(), this sends parameters directly as form fields (not wrapped
+     * in a 'request' JSON blob). Used by Linnworks endpoints like GetStockItemsFull
+     * that expect query-string style parameters in the POST body.
+     *
+     * Array/object values are automatically JSON-encoded as string values.
+     *
+     * @param string $endpoint API endpoint path
+     * @param array<string, scalar|array<mixed>|null> $params Form parameters (arrays will be JSON-encoded)
+     *
+     * @return Response Successful HTTP response
+     *
+     * @throws InvalidApiRequestException When request parameters are invalid (400)
+     * @throws InvalidApiResponseException When session data is malformed (API contract violation)
+     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
+     * @throws ResourceNotFoundException When resource not found (404)
+     * @throws ExternalServiceUnavailableException When API unavailable, rate limited, or connection fails
+     */
+    public function postFormParams(string $endpoint, array $params = []): Response
+    {
+        $formParams = $this->convertToFormParams($params, $endpoint);
+
+        return $this->executeWithAuthRetry(
+            // @phpstan-ignore missingType.checkedException, missingType.checkedException, missingType.checkedException (false positive: closure exceptions caught in executeWithAuthRetry)
+            fn(LinnworksSession $session): Response => $this->createBaseRequest($session)
+                ->asForm()
+                ->post($endpoint, $formParams)
+                ->throw(),
+            $endpoint,
+        );
+    }
+
+    /**
+     * Convert mixed params to form-compatible string values.
+     *
+     * Arrays are JSON-encoded, booleans become 'true'/'false' strings.
+     *
+     * @param array<string, scalar|array<mixed>|null> $params
+     *
+     * @return array<string, string|int|float>
+     *
+     * @throws InvalidApiRequestException When array serialization fails
+     */
+    private function convertToFormParams(array $params, string $endpoint): array
+    {
+        $formParams = [];
+
+        foreach ($params as $key => $value) {
+            if ($value === null) {
+                // Linnworks may not ignore null - monitor for issues
+                continue;
+            }
+
+            $formParams[$key] = match (true) {
+                \is_array($value) => $this->jsonEncodeParam($key, $value, $endpoint),
+                \is_bool($value) => $value ? 'true' : 'false',
+                \is_int($value), \is_float($value) => $value,
+                \is_string($value) => $value,
+            };
+        }
+
+        return $formParams;
+    }
+
+    /**
+     * JSON-encode an array parameter for form submission.
+     *
+     * @param array<mixed> $value
+     *
+     * @throws InvalidApiRequestException When serialization fails
+     */
+    private function jsonEncodeParam(string $key, array $value, string $endpoint): string
+    {
+        try {
+            return \json_encode($value, \JSON_THROW_ON_ERROR);
+        } catch (JsonException $e) {
+            Log::error(self::SERVICE_NAME . ' failed to serialize form parameter', [
+                'endpoint' => $endpoint,
+                'parameter' => $key,
+                'error' => $e->getMessage(),
+            ]);
+
+            throw new InvalidApiRequestException(
+                self::SERVICE_NAME,
+                "Parameter '{$key}' could not be serialized: " . $e->getMessage(),
+                $e,
+            );
+        }
+    }
+
+    /**
      * Execute request with automatic 401 retry (once).
      *
      * On 401 response:

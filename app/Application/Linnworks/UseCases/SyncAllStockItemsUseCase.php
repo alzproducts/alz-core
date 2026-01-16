@@ -2,103 +2,90 @@
 
 declare(strict_types=1);
 
-namespace App\Application\Shopwired\UseCases;
+namespace App\Application\Linnworks\UseCases;
 
-use App\Application\Contracts\Shopwired\CustomerClientInterface;
-use App\Application\Contracts\Shopwired\CustomerRepositoryInterface;
+use App\Application\Contracts\Linnworks\InventoryClientInterface;
+use App\Application\Contracts\Linnworks\StockItemRepositoryInterface;
 use App\Application\ValueObjects\SyncResult;
-use App\Domain\Customer\ValueObjects\Customer;
 use App\Domain\Exceptions\AuthenticationExpiredException;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\InvalidApiRequestException;
 use App\Domain\Exceptions\InvalidApiResponseException;
 use App\Domain\Exceptions\ResourceNotFoundException;
+use App\Domain\Inventory\ValueObjects\StockItem;
 use Psr\Log\LoggerInterface;
 
 /**
- * Orchestrate customer synchronization from ShopWired API to local database.
+ * Orchestrate stock item synchronization from Linnworks API to local database.
  *
- * Supports both full sync (all customers) and quick sync (recent customers only).
- * Always syncs ALL trade customers (B2B priority), with optional limit on non-trade pages.
+ * Full sync strategy: fetches all ~10k stock items with extended properties
+ * and upserts them to the database. Designed for daily 5am execution.
  *
- * Uses generator-based pagination for memory efficiency with ~60k customers.
+ * Uses generator-based pagination for memory efficiency.
  *
  * Batching strategy:
- * - API returns ~100 customers per page
- * - Buffer 10 pages (~1000 customers) before DB write
+ * - API returns ~200 items per page
+ * - Buffer 5 pages (~1000 items) before DB write
  * - Reduces DB round-trips while keeping memory bounded
- *
- * Usage:
- * - Full sync (null): Weekly job syncing all ~68k customers (~45 min)
- * - Quick sync (5): Hourly job catching recent signups (~500 customers, ~1 min)
  */
-final readonly class SyncCustomersUseCase
+final readonly class SyncAllStockItemsUseCase
 {
     /**
      * Number of pages to buffer before writing to database.
-     * 10 pages × ~100 customers/page = ~1000 customers per batch.
+     * 5 pages × ~200 items/page = ~1000 items per batch.
      */
-    private const int PAGES_PER_BATCH = 10;
+    private const int PAGES_PER_BATCH = 5;
 
     /**
      * Log progress every N batches at info level.
-     * 10 batches × ~1000 customers/batch = ~10,000 customers between progress logs.
+     * 5 batches × ~1000 items/batch = ~5,000 items between progress logs.
      */
-    private const int PROGRESS_LOG_INTERVAL = 10;
+    private const int PROGRESS_LOG_INTERVAL = 5;
 
     public function __construct(
-        private CustomerClientInterface $customerClient,
-        private CustomerRepositoryInterface $customerRepository,
+        private InventoryClientInterface $inventoryClient,
+        private StockItemRepositoryInterface $stockItemRepository,
         private LoggerInterface $logger,
     ) {}
 
     /**
-     * Synchronize customers from ShopWired API to local database.
+     * Synchronize all stock items from Linnworks API to local database.
      *
-     * Iterates through customer pages, buffering PAGES_PER_BATCH pages
+     * Iterates through stock item pages, buffering PAGES_PER_BATCH pages
      * before flushing to database. Uses continue-on-failure semantics:
      * individual save failures are logged and counted, but processing continues.
      *
-     * @param int|null $maxTradePages Max trade pages (null = all ~5 pages, 1 page ≈ 100 customers)
-     * @param int|null $maxNonTradePages Max non-trade pages (null = all ~677 pages, 1 page ≈ 100 customers)
-     *
      * @return SyncResult Results with fetched/saved/failed counts
      *
-     * @throws AuthenticationExpiredException When ShopWired credentials invalid/expired
+     * @throws AuthenticationExpiredException When Linnworks credentials invalid/expired
      * @throws InvalidApiRequestException When request parameters are invalid
      * @throws ResourceNotFoundException When requested resource not found (404)
-     * @throws ExternalServiceUnavailableException When ShopWired API unavailable
+     * @throws ExternalServiceUnavailableException When Linnworks API unavailable
      * @throws InvalidApiResponseException When API response parsing fails
      */
-    public function execute(
-        ?int $maxTradePages = null,
-        ?int $maxNonTradePages = null,
-    ): SyncResult {
-        $syncType = match (true) {
-            $maxTradePages === null && $maxNonTradePages === null => 'full',
-            default => \sprintf('quick (%s trade, %s non-trade pages)', $maxTradePages ?? 'all', $maxNonTradePages ?? 'all'),
-        };
-        $this->logger->info("Starting {$syncType} customer sync from ShopWired");
+    public function execute(): SyncResult
+    {
+        $this->logger->info('Starting full stock item sync from Linnworks');
 
         $totalFetched = 0;
         $totalSaved = 0;
         $totalFailed = 0;
-        /** @var list<int> $allFailedReferences */
+        /** @var list<string> $allFailedReferences */
         $allFailedReferences = [];
 
-        /** @var list<Customer> $buffer */
+        /** @var list<StockItem> $buffer */
         $buffer = [];
         $pagesBuffered = 0;
         $batchesFlushed = 0;
 
-        foreach ($this->customerClient->iterateCustomerBatches($maxTradePages, $maxNonTradePages) as $pageNumber => $customers) {
-            $totalFetched += \count($customers);
-            $buffer = [...$buffer, ...$customers];
+        foreach ($this->inventoryClient->iterateStockItemBatches() as $pageNumber => $stockItems) {
+            $totalFetched += \count($stockItems);
+            $buffer = [...$buffer, ...$stockItems];
             $pagesBuffered++;
 
-            $this->logger->debug('Fetched customer page from API', [
+            $this->logger->debug('Fetched stock item page from API', [
                 'page' => $pageNumber,
-                'count' => \count($customers),
+                'count' => \count($stockItems),
                 'buffer_size' => \count($buffer),
             ]);
 
@@ -115,7 +102,7 @@ final readonly class SyncCustomersUseCase
 
                 // Log progress at info level periodically for operator visibility
                 if ($batchesFlushed % self::PROGRESS_LOG_INTERVAL === 0) {
-                    $this->logger->info('Customer sync progress', [
+                    $this->logger->info('Stock item sync progress', [
                         'fetched' => $totalFetched,
                         'saved' => $totalSaved,
                         'failed' => $totalFailed,
@@ -124,7 +111,7 @@ final readonly class SyncCustomersUseCase
             }
         }
 
-        // Flush remaining customers in buffer
+        // Flush remaining items in buffer
         if ($buffer !== []) {
             $result = $this->flushBuffer($buffer, 'final');
             $totalSaved += $result->saved;
@@ -133,12 +120,12 @@ final readonly class SyncCustomersUseCase
         }
 
         if ($totalFetched === 0) {
-            $this->logger->info('Customer sync completed: no customers found in ShopWired');
+            $this->logger->info('Stock item sync completed: no items found in Linnworks');
 
             return SyncResult::empty();
         }
 
-        $this->logger->info('Customer sync completed', [
+        $this->logger->info('Stock item sync completed', [
             'fetched' => $totalFetched,
             'saved' => $totalSaved,
             'failed' => $totalFailed,
@@ -153,22 +140,24 @@ final readonly class SyncCustomersUseCase
     }
 
     /**
-     * Flush buffered customers to database.
+     * Flush buffered stock items to database.
      *
-     * @param list<Customer> $customers Customers to save
+     * @param list<StockItem> $stockItems Items to save
      * @param int|string $batchIdentifier For logging (page number or 'final')
+     *
+     * @throws ExternalServiceUnavailableException When database temporarily unavailable
      */
-    private function flushBuffer(array $customers, int|string $batchIdentifier): SyncResult
+    private function flushBuffer(array $stockItems, int|string $batchIdentifier): SyncResult
     {
-        $this->logger->debug('Flushing customer batch to database', [
+        $this->logger->debug('Flushing stock item batch to database', [
             'batch' => $batchIdentifier,
-            'count' => \count($customers),
+            'count' => \count($stockItems),
         ]);
 
-        $saveResult = $this->customerRepository->saveMany($customers);
+        $saveResult = $this->stockItemRepository->saveMany($stockItems);
 
         if ($saveResult->hasFailures()) {
-            $this->logger->error('Failed to save some customers to database', [
+            $this->logger->error('Failed to save some stock items to database', [
                 'batch' => $batchIdentifier,
                 'failed_count' => $saveResult->failed,
                 'failed_ids' => $saveResult->failedReferences,
@@ -176,7 +165,7 @@ final readonly class SyncCustomersUseCase
         }
 
         return new SyncResult(
-            fetched: \count($customers),
+            fetched: \count($stockItems),
             saved: $saveResult->succeeded,
             failed: $saveResult->failed,
             failedReferences: $saveResult->failedReferences,
