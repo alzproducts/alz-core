@@ -1,0 +1,86 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Infrastructure\Linnworks\Mappers;
+
+use App\Domain\Inventory\Enums\WeightUnit;
+use App\Domain\Inventory\ValueObjects\Dimensions;
+use App\Domain\Inventory\ValueObjects\StockItem;
+use App\Domain\Inventory\ValueObjects\Weight;
+use App\Infrastructure\Linnworks\Models\StockItemExtendedPropertyModel;
+use App\Infrastructure\Linnworks\Models\StockItemModel;
+
+/**
+ * Maps between StockItemModel (Eloquent) and StockItem (Domain).
+ */
+final class StockItemModelMapper
+{
+    /**
+     * Convert Eloquent model to Domain StockItem.
+     */
+    public static function fromModel(StockItemModel $model): StockItem
+    {
+        return new StockItem(
+            stockItemId: $model->stock_item_id,
+            sku: $model->item_number,
+            title: $model->item_title,
+            barcode: $model->barcode ?? '',
+            quantity: $model->quantity ?? 0,
+            available: $model->available ?? 0,
+            inOrder: $model->in_order ?? 0,
+            due: $model->due ?? 0,
+            minimumLevel: $model->minimum_level ?? 0,
+            purchasePrice: $model->purchase_price ?? 0.0,
+            retailPrice: $model->retail_price ?? 0.0,
+            taxRate: $model->tax_rate,
+            weight: new Weight(
+                $model->weight ?? 0.0,
+                WeightUnit::tryFrom($model->weight_unit ?? '') ?? WeightUnit::Kilogram,
+            ),
+            dimensions: new Dimensions(
+                $model->height ?? 0.0,
+                $model->width ?? 0.0,
+                $model->depth ?? 0.0,
+            ),
+            isComposite: $model->is_composite,
+            createdAt: $model->linnworks_created_at?->toDateTimeImmutable(),
+            extendedProperties: $model->relationLoaded('extendedProperties')
+                ? \array_values(\array_map(
+                    static fn(StockItemExtendedPropertyModel $ep) => $ep->toDomain(),
+                    $model->extendedProperties->all(),
+                ))
+                : [],
+        );
+    }
+
+    /**
+     * Convert Domain StockItem to Eloquent model attributes.
+     *
+     * @return array<string, mixed>
+     */
+    public static function toModelAttributes(StockItem $stockItem): array
+    {
+        return [
+            'stock_item_id' => $stockItem->stockItemId,
+            'item_number' => $stockItem->sku,
+            'item_title' => $stockItem->title,
+            'barcode' => $stockItem->barcode,
+            'quantity' => $stockItem->quantity,
+            'available' => $stockItem->available,
+            'in_order' => $stockItem->inOrder,
+            'due' => $stockItem->due,
+            'minimum_level' => $stockItem->minimumLevel,
+            'purchase_price' => $stockItem->purchasePrice,
+            'retail_price' => $stockItem->retailPrice,
+            'tax_rate' => $stockItem->taxRate,
+            'weight' => $stockItem->weight->value,
+            'weight_unit' => $stockItem->weight->unit->value,
+            'height' => $stockItem->dimensions->height,
+            'width' => $stockItem->dimensions->width,
+            'depth' => $stockItem->dimensions->depth,
+            'is_composite' => $stockItem->isComposite,
+            'linnworks_created_at' => $stockItem->createdAt,
+        ];
+    }
+}

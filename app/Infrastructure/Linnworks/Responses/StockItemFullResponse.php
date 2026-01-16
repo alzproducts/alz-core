@@ -11,6 +11,7 @@ use App\Domain\Inventory\ValueObjects\StockItemExtendedProperty;
 use App\Domain\Inventory\ValueObjects\Weight;
 use App\Infrastructure\Contracts\DomainConvertibleInterface;
 use App\Infrastructure\Linnworks\Support\PascalCaseMapper;
+use Carbon\CarbonImmutable;
 use Spatie\LaravelData\Attributes\DataCollectionOf;
 use Spatie\LaravelData\Attributes\MapInputName;
 use Spatie\LaravelData\Data;
@@ -52,6 +53,7 @@ final class StockItemFullResponse extends Data implements DomainConvertibleInter
         public readonly bool $isVariationParent,
         public readonly bool $isBatchedStockType,
         public readonly int $inventoryTrackingType,
+        public readonly ?string $creationDate = null,
         #[DataCollectionOf(StockLevelResponse::class)]
         public readonly array $stockLevels = [],
         #[DataCollectionOf(ExtendedPropertyResponse::class)]
@@ -74,10 +76,13 @@ final class StockItemFullResponse extends Data implements DomainConvertibleInter
             minimumLevel: $defaultStock !== null ? $defaultStock->minimumLevel : 0,
             purchasePrice: $this->purchasePrice,
             retailPrice: $this->retailPrice,
-            taxRate: $this->taxRate,
+            taxRate: $this->taxRate < 0 ? null : $this->taxRate, // -1 means "use default"
             weight: new Weight($this->weight, WeightUnit::Kilogram),
             dimensions: new Dimensions($this->height, $this->width, $this->depth),
             isComposite: false, // GetStockItemsFull doesn't return IsCompositeParent
+            createdAt: $this->creationDate !== null
+                ? CarbonImmutable::parse($this->creationDate)->toDateTimeImmutable()
+                : null,
             extendedProperties: $this->mapExtendedProperties(),
         );
     }
