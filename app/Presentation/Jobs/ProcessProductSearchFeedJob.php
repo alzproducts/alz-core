@@ -31,17 +31,19 @@ final class ProcessProductSearchFeedJob implements ShouldQueue
 
     /**
      * Maximum number of attempts before giving up.
-     * Feed processing can fail due to source unavailability or S3 issues.
+     *
+     * 3 attempts: quick retries for transient issues + 1hr fallback for longer outages.
      */
     public int $tries = 3;
 
     /**
-     * Seconds to wait before retrying (1min, 5min, 15min).
-     * Allows transient issues (rate limits, network) to resolve.
+     * Seconds to wait before retrying.
+     *
+     * 1min, 5min, 1hr: quick retries catch transient issues, hour delay catches maintenance windows.
      *
      * @var list<int>
      */
-    public array $backoff = [60, 300, 900];
+    public array $backoff = [60, 300, 3600];
 
     /**
      * Job timeout in seconds (10 minutes).

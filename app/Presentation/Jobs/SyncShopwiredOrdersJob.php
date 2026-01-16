@@ -37,8 +37,10 @@ final class SyncShopwiredOrdersJob implements ShouldQueue
 
     /**
      * Maximum number of attempts before giving up.
+     *
+     * 3 attempts: quick retries for transient issues + 1hr fallback for longer outages.
      */
-    public int $tries = 5;
+    public int $tries = 3;
 
     /**
      * Create a new job instance.
@@ -52,13 +54,14 @@ final class SyncShopwiredOrdersJob implements ShouldQueue
     }
 
     /**
-     * Seconds to wait before retrying (exponential backoff).
+     * Seconds to wait before retrying.
      *
-     * Longer delays than range-based sync due to potentially longer runtime.
+     * 1min, 5min, 1hr: quick retries catch transient issues, hour delay catches maintenance windows.
+     * For micro syncs (every 5 min), the 1hr retry never fires — next schedule comes first.
      *
      * @var array<int>
      */
-    public array $backoff = [120, 300, 600, 1200, 2400];
+    public array $backoff = [60, 300, 3600];
 
     /**
      * Job timeout in seconds.
