@@ -8,10 +8,13 @@ use App\Application\Contracts\Shopwired\CategoryClientInterface;
 use App\Application\Contracts\Shopwired\ConnectivityClientInterface;
 use App\Application\Contracts\Shopwired\CustomerClientInterface;
 use App\Application\Contracts\Shopwired\CustomerRepositoryInterface;
+use App\Application\Contracts\Shopwired\CustomFieldClientInterface;
+use App\Application\Contracts\Shopwired\CustomFieldRepositoryInterface;
 use App\Application\Contracts\Shopwired\OrderClientInterface;
 use App\Application\Contracts\Shopwired\OrderRepositoryInterface;
 use App\Application\Contracts\Shopwired\StockClientInterface;
 use App\Infrastructure\Shopwired\Repositories\EloquentCustomerRepository;
+use App\Infrastructure\Shopwired\Repositories\EloquentCustomFieldRepository;
 use App\Infrastructure\Shopwired\Repositories\EloquentOrderRepository;
 use App\Infrastructure\Shopwired\ShopwiredClientFactory;
 use Illuminate\Contracts\Support\DeferrableProvider;
@@ -54,6 +57,12 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
             static fn(): CategoryClientInterface => ShopwiredClientFactory::createCategoryClient(),
         );
 
+        // Custom field client - for custom field definitions
+        $this->app->singleton(
+            CustomFieldClientInterface::class,
+            static fn(): CustomFieldClientInterface => ShopwiredClientFactory::createCustomFieldClient(),
+        );
+
         // Customer client - for customer operations
         $this->app->singleton(
             CustomerClientInterface::class,
@@ -83,6 +92,12 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
             CustomerRepositoryInterface::class,
             EloquentCustomerRepository::class,
         );
+
+        // Custom field repository - for local database persistence
+        $this->app->singleton(
+            CustomFieldRepositoryInterface::class,
+            EloquentCustomFieldRepository::class,
+        );
     }
 
     /**
@@ -94,8 +109,10 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
     public function provides(): array
     {
         return [
-            ConnectivityClientInterface::class,
             CategoryClientInterface::class,
+            ConnectivityClientInterface::class,
+            CustomFieldClientInterface::class,
+            CustomFieldRepositoryInterface::class,
             CustomerClientInterface::class,
             CustomerRepositoryInterface::class,
             OrderClientInterface::class,

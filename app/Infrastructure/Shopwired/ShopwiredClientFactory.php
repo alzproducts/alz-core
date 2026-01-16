@@ -7,11 +7,13 @@ namespace App\Infrastructure\Shopwired;
 use App\Application\Contracts\Shopwired\CategoryClientInterface;
 use App\Application\Contracts\Shopwired\ConnectivityClientInterface;
 use App\Application\Contracts\Shopwired\CustomerClientInterface;
+use App\Application\Contracts\Shopwired\CustomFieldClientInterface;
 use App\Application\Contracts\Shopwired\OrderClientInterface;
 use App\Application\Contracts\Shopwired\StockClientInterface;
 use App\Domain\Exceptions\InvalidConfigurationException;
 use App\Infrastructure\Shopwired\Clients\CategoryClient;
 use App\Infrastructure\Shopwired\Clients\CustomerClient;
+use App\Infrastructure\Shopwired\Clients\CustomFieldClient;
 use App\Infrastructure\Shopwired\Clients\OrderClient;
 use App\Infrastructure\Shopwired\Clients\StockClient;
 use Illuminate\Support\Facades\Config;
@@ -46,6 +48,14 @@ final class ShopwiredClientFactory
     public static function createCategoryClient(): CategoryClientInterface
     {
         return new CategoryClient(self::getTransport());
+    }
+
+    /**
+     * Create the custom field client for custom field definitions.
+     */
+    public static function createCustomFieldClient(): CustomFieldClientInterface
+    {
+        return new CustomFieldClient(self::getTransport());
     }
 
     /**

@@ -87,9 +87,12 @@ parameters:
 
         # Laravel Concurrency serializes closures to child processes but propagates exceptions via IPC.
         # From exception-handling perspective, it behaves like immediate invocation.
+        # Collection::map() invokes callback immediately during iteration - exceptions propagate normally.
         forbidCheckedExceptionInCallable:
             allowedCheckedExceptionCallables:
                 'Illuminate\Contracts\Concurrency\Driver::run': 0
+                'Illuminate\Support\Collection::map': 0
+                'Illuminate\Database\Eloquent\Collection::map': 0
 
     # Checked exception enforcement - require @throws documentation
     # See: https://phpstan.org/blog/bring-your-exceptions-under-control
