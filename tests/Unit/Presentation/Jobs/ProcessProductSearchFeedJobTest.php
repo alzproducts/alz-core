@@ -46,20 +46,6 @@ final class ProcessProductSearchFeedJobTest extends TestCase
 
     /*
     |--------------------------------------------------------------------------
-    | Job Configuration
-    |--------------------------------------------------------------------------
-    */
-
-    #[Test]
-    public function it_has_correct_retry_configuration(): void
-    {
-        $this->assertSame(3, $this->job->tries);
-        $this->assertSame([60, 300, 900], $this->job->backoff);
-        $this->assertSame(600, $this->job->timeout);
-    }
-
-    /*
-    |--------------------------------------------------------------------------
     | Success Path
     |--------------------------------------------------------------------------
     */

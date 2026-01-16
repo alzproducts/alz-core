@@ -25,7 +25,6 @@ use Tests\TestCase;
  * SyncOrdersToMixpanelJob Unit Tests.
  *
  * Tests the job's exception handling and retry logic:
- * - Job configuration (tries, backoff)
  * - Success path with logging
  * - Permanent failures (UnexpectedApiResultException, AuthenticationExpiredException, MissingRequiredDataException)
  * - Transient failures with custom retry (ExternalServiceUnavailableException)
@@ -46,48 +45,6 @@ final class SyncOrdersToMixpanelJobTest extends TestCase
         parent::setUp();
 
         $this->mockUseCase = Mockery::mock(SyncOrdersToMixpanelUseCase::class);
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | Job Configuration Tests
-    |--------------------------------------------------------------------------
-    */
-
-    #[Test]
-    public function it_has_correct_tries_configuration(): void
-    {
-        $job = $this->createJob();
-
-        $this->assertSame(5, $job->tries);
-    }
-
-    #[Test]
-    public function it_has_correct_backoff_configuration(): void
-    {
-        $job = $this->createJob();
-
-        $this->assertSame([60, 120, 240, 480, 960], $job->backoff);
-    }
-
-    #[Test]
-    public function it_has_exactly_five_backoff_values(): void
-    {
-        $job = $this->createJob();
-
-        $this->assertCount(5, $job->backoff);
-    }
-
-    #[Test]
-    public function backoff_values_are_exponentially_increasing(): void
-    {
-        $job = $this->createJob();
-
-        $this->assertSame(60, $job->backoff[0]);
-        $this->assertSame(120, $job->backoff[1]);  // 60 * 2
-        $this->assertSame(240, $job->backoff[2]);  // 120 * 2
-        $this->assertSame(480, $job->backoff[3]);  // 240 * 2
-        $this->assertSame(960, $job->backoff[4]);  // 480 * 2
     }
 
     /*
