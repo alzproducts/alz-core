@@ -400,6 +400,7 @@ return static function (Config $config): void {
                    ->should(
                        new ResideInOneOfTheseNamespaces(
                            'App\Domain\Contracts',
+                           'App\Domain\*\Contracts',
                            'App\Application\Contracts',
                            'App\Infrastructure\Contracts',
                            'App\Infrastructure\*\Contracts',
@@ -426,6 +427,7 @@ return static function (Config $config): void {
                    ->that(
                        new ResideInOneOfTheseNamespaces(
                            'App\Domain\Contracts',
+                           'App\Domain\*\Contracts',
                            'App\Application\Contracts',
                        ),
                    )
@@ -539,10 +541,12 @@ return static function (Config $config): void {
                        'App\Domain\Exceptions',
                        'App\Domain\*\Exceptions',
                        'App\Domain\Contracts',
+                       'App\Domain\*\Contracts',
+                       'App\Domain\*\Concerns',
                    ))
                    ->because(
                        'Domain classes must be organized into Value Objects, Entities, Enums, Exceptions, '
-                       . 'or Contracts subdirectories for discoverability and maintainability.',
+                       . 'Contracts, or Concerns subdirectories for discoverability and maintainability.',
                    );
 
     // RULE 10: All Exceptions must end with *Exception suffix

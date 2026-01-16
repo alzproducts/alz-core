@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Domain\Catalog\Product\ValueObjects;
 
 use App\Domain\Catalog\CustomFields\ValueObjects\AbstractCustomFieldValue;
+use App\Domain\Catalog\Product\Concerns\BasicProductTrait;
+use App\Domain\Catalog\Product\Contracts\BasicProductInterface;
 use DateTimeImmutable;
 use Webmozart\Assert\Assert;
 
@@ -16,8 +18,9 @@ use Webmozart\Assert\Assert;
  *
  * @see https://shopwired.readme.io/reference/getproduct
  */
-final readonly class Product
+final readonly class Product implements BasicProductInterface
 {
+    use BasicProductTrait;
     /**
      * @param int $id ShopWired product ID (external identifier)
      * @param string|null $sku Master SKU
@@ -98,32 +101,41 @@ final readonly class Product
         ));
     }
 
-    /**
-     * Check if this product is on sale.
-     */
-    public function isOnSale(): bool
+    // BasicProductInterface implementation (isOnSale, effectivePrice provided by BasicProductTrait)
+
+    public function sku(): ?string
     {
-        return $this->salePrice !== null && $this->salePrice < $this->price;
+        return $this->sku;
     }
 
-    /**
-     * Get the effective selling price (sale price if on sale, otherwise regular price).
-     */
-    public function effectivePrice(): float
+    public function price(): float
     {
-        if ($this->salePrice !== null && $this->salePrice < $this->price) {
-            return $this->salePrice;
-        }
-
         return $this->price;
     }
 
-    /**
-     * Check if this product is in stock.
-     */
+    public function costPrice(): ?float
+    {
+        return $this->costPrice;
+    }
+
+    public function salePrice(): ?float
+    {
+        return $this->salePrice;
+    }
+
+    public function weight(): ?float
+    {
+        return $this->weight;
+    }
+
     public function isInStock(): bool
     {
         return $this->totalStock() > 0;
+    }
+
+    public function getStockLevel(): int
+    {
+        return $this->totalStock();
     }
 
     /**

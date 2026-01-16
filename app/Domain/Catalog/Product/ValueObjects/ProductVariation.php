@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Domain\Catalog\Product\ValueObjects;
 
+use App\Domain\Catalog\Product\Concerns\BasicProductTrait;
+use App\Domain\Catalog\Product\Contracts\BasicProductInterface;
 use Webmozart\Assert\Assert;
 
 /**
@@ -14,8 +16,9 @@ use Webmozart\Assert\Assert;
  *
  * @see https://shopwired.readme.io/reference/getproduct
  */
-final readonly class ProductVariation
+final readonly class ProductVariation implements BasicProductInterface
 {
+    use BasicProductTrait;
     /**
      * @param int $id ShopWired variation ID
      * @param int $productExternalId Parent product's ShopWired ID (for sync key)
@@ -50,32 +53,41 @@ final readonly class ProductVariation
         Assert::greaterThanEq($stock, 0, 'Stock cannot be negative');
     }
 
-    /**
-     * Check if this variation is on sale.
-     */
-    public function isOnSale(): bool
+    // BasicProductInterface implementation (isOnSale, effectivePrice provided by BasicProductTrait)
+
+    public function sku(): ?string
     {
-        return $this->salePrice !== null && $this->salePrice < $this->price;
+        return $this->sku;
     }
 
-    /**
-     * Get the effective selling price (sale price if on sale, otherwise regular price).
-     */
-    public function effectivePrice(): float
+    public function price(): float
     {
-        if ($this->salePrice !== null && $this->salePrice < $this->price) {
-            return $this->salePrice;
-        }
-
         return $this->price;
     }
 
-    /**
-     * Check if this variation is in stock.
-     */
+    public function costPrice(): ?float
+    {
+        return $this->costPrice;
+    }
+
+    public function salePrice(): ?float
+    {
+        return $this->salePrice;
+    }
+
+    public function weight(): ?float
+    {
+        return $this->weight;
+    }
+
     public function isInStock(): bool
     {
         return $this->stock > 0;
+    }
+
+    public function getStockLevel(): int
+    {
+        return $this->stock;
     }
 
     /**
