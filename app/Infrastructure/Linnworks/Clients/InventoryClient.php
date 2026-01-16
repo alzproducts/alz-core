@@ -174,7 +174,7 @@ final readonly class InventoryClient implements InventoryClientInterface
             endpoint: '/api/Stock/GetStockItemsFull',
             params: [
                 'dataRequirements' => ['ExtendedProperties', 'StockLevels', 'Pricing'],
-                'loadCompositeParents' => false,
+                'loadCompositeParents' => true,
                 'loadVariationParents' => false,
                 'entriesPerPage' => $entriesPerPage,
                 'pageNumber' => $pageNumber,
