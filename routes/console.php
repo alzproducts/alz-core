@@ -240,4 +240,4 @@ Schedule::job(new SyncLinnworksStockItemsJob())
     ->name('sync-linnworks-stock-items')
     ->everyTenMinutes()
     ->onOneServer()
-    ->withoutOverlapping(5); // 5 min lock - job runs ~1 min
+    ->withoutOverlapping(20); // 20 min lock - job runs 8-12 min in prod
