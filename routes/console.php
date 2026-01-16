@@ -6,6 +6,7 @@ use App\Presentation\Jobs\ProcessProductSearchFeedJob;
 use App\Presentation\Jobs\SyncBingAdsToMixpanelJob;
 use App\Presentation\Jobs\SyncCampaignLookupTableJob;
 use App\Presentation\Jobs\SyncGoogleAdsToMixpanelJob;
+use App\Presentation\Jobs\SyncLinnworksStockItemsJob;
 use App\Presentation\Jobs\SyncOrdersToMixpanelJob;
 use App\Presentation\Jobs\SyncShopwiredCustomersJob;
 use App\Presentation\Jobs\SyncShopwiredOrdersJob;
@@ -225,3 +226,18 @@ Schedule::call(static function (): void {
     ->timezone('Europe/London')
     ->onOneServer()
     ->withoutOverlapping(60);
+
+// ============================================================================
+// Linnworks Stock Item Sync: Frequent refresh
+// Syncs ~4k stock items with extended properties from Linnworks to PostgreSQL
+// Used for inventory lookups and order enrichment
+// Fast endpoint (~1 min for full sync), no practical rate limit concerns
+// ============================================================================
+
+// EVERY 10 MIN: Full stock item sync
+// Keeps inventory data near real-time for order processing and lookups
+Schedule::job(new SyncLinnworksStockItemsJob())
+    ->name('sync-linnworks-stock-items')
+    ->everyTenMinutes()
+    ->onOneServer()
+    ->withoutOverlapping(5); // 5 min lock - job runs ~1 min
