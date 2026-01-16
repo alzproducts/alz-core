@@ -57,7 +57,10 @@ return new class extends Migration {
             // Flags (boolean with sensible default)
             $table->boolean('is_composite')->default(false);
 
-            // Timestamps
+            // Linnworks creation timestamp (when item was created in Linnworks)
+            $table->timestampTz('linnworks_created_at')->nullable();
+
+            // Laravel timestamps (when synced/updated locally)
             $table->timestampTz('created_at');
             $table->timestampTz('updated_at');
         });

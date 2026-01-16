@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\Inventory\ValueObjects;
 
+use DateTimeImmutable;
 use Webmozart\Assert\Assert;
 
 /**
@@ -32,10 +33,11 @@ final readonly class StockItem
         public int $minimumLevel,
         public float $purchasePrice,
         public float $retailPrice,
-        public float $taxRate,
+        public ?float $taxRate,
         public Weight $weight,
         public Dimensions $dimensions,
         public bool $isComposite,
+        public ?DateTimeImmutable $createdAt = null,
         public array $extendedProperties = [],
     ) {
         Assert::notEmpty($stockItemId, 'Stock item ID cannot be empty');
