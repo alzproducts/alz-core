@@ -23,11 +23,13 @@ Implementing full product synchronization from ShopWired API to local database, 
 
 ## Implementation Progress
 
-### Phase 1: Domain Layer
-- [ ] ProductImage value object
-- [ ] ProductVariationOption value object
-- [ ] ProductVariation value object
-- [ ] Product value object
+### Phase 1: Domain Layer ✅
+- [x] ProductImage value object
+- [x] ProductVariationOption value object
+- [x] ProductVariation value object (with Gtin)
+- [x] Product value object
+- [x] Gtin value object (bonus - barcode validation)
+- [x] InvalidGtinException
 
 ### Phase 2: Database Migrations
 - [ ] shopwired.products table
@@ -62,6 +64,10 @@ Implementing full product synchronization from ShopWired API to local database, 
 ### Phase 9: Service Provider Wiring
 - [ ] ShopwiredClientFactory updates
 - [ ] ShopwiredServiceProvider bindings
+
+## Post-Merge Tasks
+After merging changes from other worktree:
+- [ ] Replace `?float $weight` with `Weight` value object in `ProductVariation` and `Product`
 
 ## PR Notes
 _To be filled when creating PR_
