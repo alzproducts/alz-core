@@ -87,10 +87,6 @@ Prefer `mcp__phpstorm__*` or `mcp__intellij__*` for **read-only** operations (se
 
 **Rationale**: The JetBrains MCP `create_new_file` tool has unreliable behavior and doesn't integrate well with the validation hooks.
 
-### GitHub CLI - Multiline Content
-
-For multiline `gh` comments: write to `/tmp/gh-comment-{issue#}.md`, then use `--body-file`. Newlines in `--body` trigger security blocks.
-
 ## Implementation Logs
 
 When working on a GitHub issue with an associated plan document, maintain an implementation log at `.ai/implementation-logs/issue-{number}-{description}.md`.

@@ -194,6 +194,10 @@ final class ExternalApiResponse extends Data {
 
 **Rule**: ❌ NOT allowed in Domain layer — Domain must stay framework-independent.
 
+## Bulk Inserts
+
+Bulk `insert()` bypasses Eloquent timestamps - manually add `created_at`/`updated_at` in mapper.
+
 ## Testing
 ```php
 test('translates rate limit to domain exception', function () {

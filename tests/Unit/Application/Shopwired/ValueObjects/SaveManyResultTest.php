@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Application\Shopwired\ValueObjects;
 
-use App\Application\Shopwired\ValueObjects\SaveManyResult;
+use App\Application\ValueObjects\SaveManyResult;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;

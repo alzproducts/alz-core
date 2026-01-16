@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Application\Shopwired\ValueObjects;
+namespace App\Application\ValueObjects;
 
 /**
  * Result of a bulk save operation.
@@ -10,13 +10,15 @@ namespace App\Application\Shopwired\ValueObjects;
  * Captures success/failure counts and identifies failed items by reference
  * for logging and retry purposes. Used by repositories when persisting
  * multiple entities where individual failures should not abort the batch.
+ *
+ * Supports both integer IDs (ShopWired) and string GUIDs (Linnworks).
  */
 final readonly class SaveManyResult
 {
     /**
      * @param int<0, max> $succeeded Number of entities saved successfully
      * @param int<0, max> $failed Number of entities that failed to save
-     * @param list<int> $failedReferences External IDs of entities that failed
+     * @param list<int|string> $failedReferences IDs of entities that failed
      */
     public function __construct(
         public int $succeeded,
@@ -61,7 +63,7 @@ final readonly class SaveManyResult
     /**
      * Create a result representing complete failure.
      *
-     * @param list<int> $failedReferences External IDs that failed
+     * @param list<int|string> $failedReferences IDs that failed
      */
     public static function failure(array $failedReferences): self
     {
