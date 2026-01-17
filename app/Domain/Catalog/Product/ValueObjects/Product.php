@@ -16,6 +16,10 @@ use Webmozart\Assert\Assert;
  * Represents a product with core business-relevant properties.
  * Excludes unused ShopWired fields (freeDelivery, deliveryPrice, isNew, isBundle, isPreOrder, outOfStockStatus).
  *
+ * **Creation**: Use {@see \App\Infrastructure\Shopwired\Factories\ProductDomainFactory::fromResponse()}
+ * to create instances from API responses. Direct instantiation requires typed custom field values,
+ * which the factory creates by joining raw API data with the CustomFieldDefinitionRegistry.
+ *
  * @see https://shopwired.readme.io/reference/getproduct
  */
 final readonly class Product implements BasicProductInterface
@@ -24,6 +28,7 @@ final readonly class Product implements BasicProductInterface
     /**
      * @param int $id ShopWired product ID (external identifier)
      * @param string|null $sku Master SKU
+     * @param Gtin|null $gtin Global Trade Item Number (barcode)
      * @param string $title Product title
      * @param string|null $description HTML description
      * @param string $slug URL slug
@@ -49,6 +54,7 @@ final readonly class Product implements BasicProductInterface
     public function __construct(
         public int $id,
         public ?string $sku,
+        public ?Gtin $gtin,
         public string $title,
         public ?string $description,
         public string $slug,

@@ -351,6 +351,7 @@ return static function (Config $config): void {
     //
     // EXCEPTION: Internal Infrastructure contracts (marked @internal) for:
     // - DomainConvertibleInterface: Marks DTOs that can convert to Domain objects
+    // - DomainConvertibleChildInterface: Marks child DTOs needing parent ID to convert
     // - PaginatableQueryParamsInterface: Marks query params supporting pagination
     // - EloquentDomainMappableInterface: Marks Eloquent models with domain mapping
     // These are internal implementation patterns, not cross-layer contracts.
@@ -369,6 +370,7 @@ return static function (Config $config): void {
     $rules[] = Rule::allClasses()
                    ->that(new HaveNameMatching('*Interface'))
                    ->andThat(new NotHaveNameMatching('DomainConvertibleInterface'))
+                   ->andThat(new NotHaveNameMatching('DomainConvertibleChildInterface'))
                    ->andThat(new NotHaveNameMatching('PaginatableQueryParamsInterface'))
                    ->andThat(new NotHaveNameMatching('EloquentDomainMappableInterface'))
                    ->should(new NotResideInTheseNamespaces($infrastructure))

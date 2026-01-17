@@ -52,6 +52,9 @@ return new class extends Migration {
             $table->string('meta_title', 255)->nullable();
             $table->text('meta_description')->nullable();
 
+            // Product identifiers
+            $table->string('gtin', 50)->nullable();      // Global Trade Item Number (barcode)
+
             // Relations (no defaults - must be explicitly set on insert)
             $table->jsonb('category_ids');   // Array of int category IDs
             $table->jsonb('images');          // Array of {id, url, description, sort_order}
@@ -64,10 +67,24 @@ return new class extends Migration {
             $table->timestampTz('updated_at');
 
             // Indexes
-            $table->index('sku');
             $table->index('is_active');
             $table->index('shopwired_updated_at');
         });
+
+        // Partial unique index on SKU - only non-null values must be unique
+        // (Parent products may not have SKUs, but if they do, they must be unique)
+        DB::statement('
+            CREATE UNIQUE INDEX products_sku_unique
+            ON shopwired.products (sku)
+            WHERE sku IS NOT NULL
+        ');
+
+        // Partial unique index on GTIN (barcode) - only non-null values must be unique
+        DB::statement('
+            CREATE UNIQUE INDEX products_gtin_unique
+            ON shopwired.products (gtin)
+            WHERE gtin IS NOT NULL
+        ');
     }
 
     public function down(): void

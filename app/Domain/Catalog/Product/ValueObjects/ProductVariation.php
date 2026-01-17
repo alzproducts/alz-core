@@ -6,6 +6,7 @@ namespace App\Domain\Catalog\Product\ValueObjects;
 
 use App\Domain\Catalog\Product\Concerns\BasicProductTrait;
 use App\Domain\Catalog\Product\Contracts\BasicProductInterface;
+use App\Domain\Catalog\Product\Exceptions\MissingVariationSkuException;
 use Webmozart\Assert\Assert;
 
 /**
@@ -14,15 +15,25 @@ use Webmozart\Assert\Assert;
  * Represents a purchasable variant of a product (e.g., "Large, Red").
  * Contains pricing, stock, and option attributes.
  *
+ * **External ID Instability**: Unlike parent products, variation external IDs
+ * (`$id`) can change when product options are regenerated, variants are deleted
+ * and recreated, or product structure is modified in ShopWired. Do NOT rely on
+ * variation external_id for long-term tracking or analytics. Use SKU as the
+ * stable identifier for variations.
+ *
  * @see https://shopwired.readme.io/reference/getproduct
  */
 final readonly class ProductVariation implements BasicProductInterface
 {
     use BasicProductTrait;
+
+    /** @var string Variation SKU (stable identifier - REQUIRED for all purchasable variants) */
+    public string $sku;
+
     /**
-     * @param int $id ShopWired variation ID
+     * @param int $id ShopWired variation ID (unstable - see class docblock)
      * @param int $productExternalId Parent product's ShopWired ID (for sync key)
-     * @param string|null $sku Variation SKU (may differ from master)
+     * @param string|null $sku Variation SKU - validated and assigned to property
      * @param float $price Selling price
      * @param float|null $costPrice Cost/wholesale price
      * @param float|null $salePrice Discounted price (null = no sale)
@@ -32,11 +43,13 @@ final readonly class ProductVariation implements BasicProductInterface
      * @param string|null $mpn Manufacturer Part Number
      * @param string|null $imageUrl Variation-specific image URL
      * @param list<ProductVariationOption> $options Option attributes (e.g., Size, Color)
+     *
+     * @throws MissingVariationSkuException When SKU is null or empty
      */
     public function __construct(
         public int $id,
         public int $productExternalId,
-        public ?string $sku,
+        ?string $sku,
         public float $price,
         public ?float $costPrice,
         public ?float $salePrice,
@@ -51,11 +64,19 @@ final readonly class ProductVariation implements BasicProductInterface
         Assert::greaterThan($productExternalId, 0, 'Product external ID must be positive');
         Assert::greaterThanEq($price, 0, 'Price cannot be negative');
         Assert::greaterThanEq($stock, 0, 'Stock cannot be negative');
+
+        $sku = $sku !== null ? \mb_trim($sku) : null;
+
+        if ($sku === null || $sku === '') {
+            throw new MissingVariationSkuException($id, $productExternalId);
+        }
+
+        $this->sku = $sku;
     }
 
     // BasicProductInterface implementation (isOnSale, effectivePrice provided by BasicProductTrait)
 
-    public function sku(): ?string
+    public function sku(): string
     {
         return $this->sku;
     }
