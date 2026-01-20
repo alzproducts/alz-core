@@ -87,8 +87,11 @@ final class ShopwiredClientFactory
      *
      * Creates the transport on first access, reuses for subsequent calls.
      * This ensures all clients share the same transport instance.
+     *
+     * Note: Made public for ServiceProvider to wire ProductClient with its
+     * scoped dependencies (ProductDomainFactory).
      */
-    private static function getTransport(): ShopwiredHttpTransport
+    public static function getTransport(): ShopwiredHttpTransport
     {
         return self::$transport ??= self::createTransport();
     }

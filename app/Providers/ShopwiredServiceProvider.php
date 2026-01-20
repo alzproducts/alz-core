@@ -12,15 +12,19 @@ use App\Application\Contracts\Shopwired\CustomFieldClientInterface;
 use App\Application\Contracts\Shopwired\CustomFieldRepositoryInterface;
 use App\Application\Contracts\Shopwired\OrderClientInterface;
 use App\Application\Contracts\Shopwired\OrderRepositoryInterface;
+use App\Application\Contracts\Shopwired\ProductClientInterface;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Application\Contracts\Shopwired\StockClientInterface;
+use App\Infrastructure\Shopwired\Clients\ProductClient;
 use App\Infrastructure\Shopwired\Factories\ProductCustomFieldFactory;
+use App\Infrastructure\Shopwired\Factories\ProductDomainFactory;
 use App\Infrastructure\Shopwired\Mappers\ProductModelMapper;
 use App\Infrastructure\Shopwired\Repositories\EloquentCustomerRepository;
 use App\Infrastructure\Shopwired\Repositories\EloquentCustomFieldRepository;
 use App\Infrastructure\Shopwired\Repositories\EloquentOrderRepository;
 use App\Infrastructure\Shopwired\Repositories\EloquentProductRepository;
 use App\Infrastructure\Shopwired\ShopwiredClientFactory;
+use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Contracts\Support\DeferrableProvider;
 use Illuminate\Support\ServiceProvider;
 use Override;
@@ -85,6 +89,20 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
             static fn(): StockClientInterface => ShopwiredClientFactory::createStockClient(),
         );
 
+        // Product domain factory - scoped to prevent stale state in Octane
+        // Used by ProductClient (write path) for DTO→Domain transformation
+        $this->app->scoped(ProductDomainFactory::class);
+
+        // Product client - scoped because it depends on scoped ProductDomainFactory
+        // Uses closure to wire transport from factory + scoped factory from container
+        $this->app->scoped(
+            ProductClientInterface::class,
+            static fn(Application $app): ProductClientInterface => new ProductClient(
+                ShopwiredClientFactory::getTransport(),
+                $app->make(ProductDomainFactory::class),
+            ),
+        );
+
         // Order repository - for local database persistence
         $this->app->singleton(
             OrderRepositoryInterface::class,
@@ -133,7 +151,9 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
             CustomerRepositoryInterface::class,
             OrderClientInterface::class,
             OrderRepositoryInterface::class,
+            ProductClientInterface::class,
             ProductCustomFieldFactory::class,
+            ProductDomainFactory::class,
             ProductModelMapper::class,
             ProductRepositoryInterface::class,
             StockClientInterface::class,
