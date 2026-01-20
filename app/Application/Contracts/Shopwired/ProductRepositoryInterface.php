@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Application\Contracts\Shopwired;
 
+use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\Product\Contracts\BasicProductInterface;
 use App\Domain\Catalog\Product\ValueObjects\Product;
 use App\Domain\Exceptions\DatabaseOperationFailedException;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\ResourceNotFoundException;
+use Generator;
 
 /**
  * Repository for ShopWired product persistence.
@@ -62,4 +64,45 @@ interface ProductRepositoryInterface extends ShopwiredRepositoryInterface
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      */
     public function getBasicProductBySku(string $sku): BasicProductInterface;
+
+    /**
+     * Get a full product by SKU with typed custom fields.
+     *
+     * Returns the complete Product value object including variations, images,
+     * and typed custom field values.
+     *
+     * IMPORTANT: This method only searches master product SKUs, NOT variation SKUs.
+     * If the given SKU belongs to a variation, this will throw ResourceNotFoundException
+     * even though the SKU exists in the system. Callers must know the SKU type beforehand
+     * or use getBasicProductBySku() which searches both.
+     *
+     * TODO: This interface needs expansion to support SKU type disambiguation. When
+     * integrating with systems like Linnworks that send SKUs without type context,
+     * callers need a way to determine whether a SKU is a product or variation before
+     * calling type-specific methods. Consider adding findBySku(): Product|ProductVariation
+     * or getSkuType(): SkuType when concrete use cases emerge.
+     *
+     * @throws ResourceNotFoundException When no product matches the SKU (includes variation SKUs)
+     * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
+     * @throws DatabaseOperationFailedException On query failure
+     * @throws ExternalServiceUnavailableException When database temporarily unavailable
+     */
+    public function getProductBySku(string $sku): Product;
+
+    /**
+     * Stream all products with full data (memory-efficient).
+     *
+     * Yields Product objects one at a time using a generator pattern.
+     * Each product includes variations, images, and typed custom fields.
+     *
+     * IMPORTANT: Exceptions throw during iteration, not at method call.
+     * Wrap the foreach loop in try/catch, not the streamAll() call.
+     *
+     * @return Generator<int, Product> Yields products (array index as key)
+     *
+     * @throws InvalidCustomFieldValueException During iteration - value type mismatch
+     * @throws DatabaseOperationFailedException During iteration - query failure
+     * @throws ExternalServiceUnavailableException During iteration - DB unavailable
+     */
+    public function streamAll(): Generator;
 }

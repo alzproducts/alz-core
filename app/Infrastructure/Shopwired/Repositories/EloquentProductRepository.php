@@ -17,6 +17,7 @@ use App\Domain\Exceptions\ResourceNotFoundException;
 use App\Infrastructure\Shopwired\Mappers\ProductModelMapper;
 use App\Infrastructure\Shopwired\Models\ProductModel;
 use App\Infrastructure\Shopwired\Models\ProductVariationModel;
+use Generator;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Log;
 
@@ -167,6 +168,58 @@ final class EloquentProductRepository extends AbstractShopwiredEloquentRepositor
 
             throw new ResourceNotFoundException('Database', 'Product or Variation', $sku);
         });
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * Only searches master product SKUs, not variation SKUs.
+     *
+     * @throws ResourceNotFoundException
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
+     */
+    public function getProductBySku(string $sku): Product
+    {
+        return $this->gateway->query(function () use ($sku): Product {
+            /** @var ProductModel|null $product */
+            $product = self::MODEL_CLASS::query()
+                ->where('sku', $sku)
+                ->with(self::EAGER_LOAD_RELATIONS)
+                ->first();
+
+            if ($product === null) {
+                throw new ResourceNotFoundException('Database', 'Product', $sku);
+            }
+
+            return $this->mapModelToDomain($product);
+        });
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * Uses lazy() with chunk size of 100 to balance memory efficiency with query overhead.
+     *
+     * @return Generator<int, Product>
+     *
+     * @throws InvalidCustomFieldValueException During iteration - value type mismatch
+     * @throws DatabaseOperationFailedException During iteration - query failure
+     * @throws ExternalServiceUnavailableException During iteration - DB unavailable
+     */
+    public function streamAll(): Generator
+    {
+        // Use lazy() for memory-efficient chunked iteration
+        $lazyCollection = self::MODEL_CLASS::query()
+            ->with(self::EAGER_LOAD_RELATIONS)
+            ->lazy(100);
+
+        foreach ($lazyCollection as $model) {
+            /** @var ProductModel $model */
+            yield $this->mapModelToDomain($model);
+        }
     }
 
     // ─────────────────────────────────────────────────────────────────────────

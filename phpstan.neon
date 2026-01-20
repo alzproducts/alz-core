@@ -207,14 +207,14 @@ parameters:
         # and other libraries use positional arguments: #[MapInputName(SnakeCaseMapper::class)]
         - identifier: symplify.requireAttributeName
         # Generator methods that yield from API calls throw exceptions during iteration, not creation.
-        # @throws docblocks are intentionally documented to remind consumers to handle exceptions
-        # in their iteration loop. ShipMonk cannot express this "throws during iteration" semantic.
+        # @throws docblocks document this with "During iteration" prefix. See common-linting-errors.md.
         -
             identifier: shipmonk.checkedExceptionInYieldingMethod
             paths:
                 - app/Infrastructure/Shopwired/Clients/CustomerClient.php
                 - app/Infrastructure/Shopwired/Clients/OrderClient.php
                 - app/Infrastructure/Shopwired/Clients/ProductClient.php
+                - app/Infrastructure/Shopwired/Repositories/EloquentProductRepository.php
     paths:
         - app/
         - bootstrap/
