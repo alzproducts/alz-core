@@ -28,9 +28,10 @@ final readonly class ProductVariationOption
         public int $valueId,
         public string $valueName,
     ) {
-        Assert::greaterThan($optionId, 0, 'Option ID must be positive');
+        // Note: ShopWired can return 0 for option/value IDs in some edge cases
+        Assert::greaterThanEq($optionId, 0, 'Option ID cannot be negative');
         Assert::notEmpty($optionName, 'Option name cannot be empty');
-        Assert::greaterThan($valueId, 0, 'Value ID must be positive');
+        Assert::greaterThanEq($valueId, 0, 'Value ID cannot be negative');
         Assert::notEmpty($valueName, 'Value name cannot be empty');
     }
 

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Shopwired\Responses;
 
-use Carbon\CarbonImmutable;
 use Spatie\LaravelData\Attributes\DataCollectionOf;
 use Spatie\LaravelData\Attributes\MapInputName;
 use Spatie\LaravelData\Data;
@@ -48,6 +47,7 @@ final class ProductResponse extends Data
         public readonly int $stock,
 
         // Flags
+        #[MapInputName('active')]
         public readonly bool $isActive,
         public readonly bool $vatExclusive,
         public readonly bool $vatRelief,
@@ -59,9 +59,9 @@ final class ProductResponse extends Data
         public readonly ?string $metaTitle,
         public readonly ?string $metaDescription,
 
-        // Timestamps
-        public readonly CarbonImmutable $createdAt,
-        public readonly CarbonImmutable $updatedAt,
+        // Timestamps (stored as strings, parsed manually to handle RFC 2822 format)
+        public readonly string $createdAt,
+        public readonly string $updatedAt,
 
         // Relations (must come after required fields)
         #[DataCollectionOf(ProductVariationResponse::class)]

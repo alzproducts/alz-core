@@ -32,7 +32,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property float|null $weight Weight in configured unit
  * @property string|null $gtin Global Trade Item Number (barcode)
  * @property string|null $mpn Manufacturer Part Number
- * @property string|null $image_url Variation-specific image URL
+ * @property int|null $image_index Index into parent product's images array
  * @property list<array{option_id: int, option_name: string, value_id: int, value_name: string}> $options Option attributes
  * @property CarbonImmutable $created_at
  * @property CarbonImmutable $updated_at
@@ -104,7 +104,7 @@ final class ProductVariationModel extends Model implements EloquentDomainMappabl
             weight: $this->weight,
             gtin: $this->gtin !== null ? Gtin::fromTrusted($this->gtin) : null,
             mpn: $this->mpn,
-            imageUrl: $this->image_url,
+            imageIndex: $this->image_index,
             options: $this->buildOptions(),
         );
     }
@@ -127,7 +127,7 @@ final class ProductVariationModel extends Model implements EloquentDomainMappabl
             'weight' => $entity->weight,
             'gtin' => $entity->gtin?->value,
             'mpn' => $entity->mpn,
-            'image_url' => $entity->imageUrl,
+            'image_index' => $entity->imageIndex,
             'options' => \array_map(
                 static fn(ProductVariationOption $opt): array => $opt->toArray(),
                 $entity->options,

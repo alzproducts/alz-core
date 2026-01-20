@@ -41,7 +41,7 @@ final readonly class ProductVariation implements BasicProductInterface
      * @param float|null $weight Weight in configured unit (TODO: replace with Weight value object post-merge)
      * @param Gtin|null $gtin Global Trade Item Number (barcode)
      * @param string|null $mpn Manufacturer Part Number
-     * @param string|null $imageUrl Variation-specific image URL
+     * @param int|null $imageIndex Index into parent product's images array (null = no image)
      * @param list<ProductVariationOption> $options Option attributes (e.g., Size, Color)
      *
      * @throws MissingVariationSkuException When SKU is null or empty
@@ -57,13 +57,13 @@ final readonly class ProductVariation implements BasicProductInterface
         public ?float $weight,
         public ?Gtin $gtin,
         public ?string $mpn,
-        public ?string $imageUrl,
+        public ?int $imageIndex,
         public array $options = [],
     ) {
         Assert::greaterThan($id, 0, 'Variation ID must be positive');
         Assert::greaterThan($productExternalId, 0, 'Product external ID must be positive');
         Assert::greaterThanEq($price, 0, 'Price cannot be negative');
-        Assert::greaterThanEq($stock, 0, 'Stock cannot be negative');
+        // Note: Stock can be negative in ShopWired (e.g., backorders)
 
         $sku = $sku !== null ? \mb_trim($sku) : null;
 

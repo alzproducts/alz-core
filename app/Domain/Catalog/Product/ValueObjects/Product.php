@@ -87,7 +87,7 @@ final readonly class Product implements BasicProductInterface
         Assert::notEmpty($title, 'Product title cannot be empty');
         Assert::notEmpty($slug, 'Product slug cannot be empty');
         Assert::greaterThanEq($price, 0, 'Price cannot be negative');
-        Assert::greaterThanEq($stock, 0, 'Stock cannot be negative');
+        // Note: Stock can be negative in ShopWired (e.g., backorders)
     }
 
     /**

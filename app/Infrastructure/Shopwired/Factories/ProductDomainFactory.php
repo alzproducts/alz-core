@@ -14,6 +14,7 @@ use App\Infrastructure\Shopwired\Responses\ProductImageResponse;
 use App\Infrastructure\Shopwired\Responses\ProductResponse;
 use App\Infrastructure\Shopwired\Responses\ProductVariationOptionResponse;
 use App\Infrastructure\Shopwired\Responses\ProductVariationResponse;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -61,8 +62,8 @@ final class ProductDomainFactory
             images: $this->buildImages($response->images),
             rawCustomFields: $response->customFields,
             customFields: [],
-            createdAt: $response->createdAt->toDateTimeImmutable(),
-            updatedAt: $response->updatedAt->toDateTimeImmutable(),
+            createdAt: CarbonImmutable::parse($response->createdAt)->toDateTimeImmutable(),
+            updatedAt: CarbonImmutable::parse($response->updatedAt)->toDateTimeImmutable(),
         );
     }
 
@@ -97,13 +98,13 @@ final class ProductDomainFactory
      */
     private function buildOptionsDisplayString(ProductVariationResponse $variation): string
     {
-        if ($variation->options === []) {
+        if ($variation->values === []) {
             return '(no options)';
         }
 
         return \implode(', ', \array_map(
-            static fn(ProductVariationOptionResponse $opt): string => "{$opt->optionName}: {$opt->valueName}",
-            $variation->options,
+            static fn(ProductVariationOptionResponse $opt): string => "{$opt->option['name']}: {$opt->name}",
+            $variation->values,
         ));
     }
 

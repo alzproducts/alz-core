@@ -28,7 +28,7 @@ use Spatie\LaravelData\Mappers\SnakeCaseMapper;
 final class ProductVariationResponse extends Data implements DomainConvertibleChildInterface
 {
     /**
-     * @param list<ProductVariationOptionResponse> $options
+     * @param list<ProductVariationOptionResponse> $values API returns "values" not "options"
      */
     public function __construct(
         public readonly int $id,
@@ -40,9 +40,10 @@ final class ProductVariationResponse extends Data implements DomainConvertibleCh
         public readonly ?float $weight,
         public readonly ?string $gtin,
         public readonly ?string $mpn,
-        public readonly ?string $imageUrl,
+        #[MapInputName('image')]
+        public readonly ?int $imageIndex,
         #[DataCollectionOf(ProductVariationOptionResponse::class)]
-        public readonly array $options = [],
+        public readonly array $values = [],
     ) {}
 
     /**
@@ -65,10 +66,10 @@ final class ProductVariationResponse extends Data implements DomainConvertibleCh
             weight: $this->weight,
             gtin: $this->parseGtin(),
             mpn: $this->mpn,
-            imageUrl: $this->imageUrl,
+            imageIndex: $this->imageIndex,
             options: \array_map(
                 static fn(ProductVariationOptionResponse $opt): ProductVariationOption => $opt->toDomain(),
-                $this->options,
+                $this->values,
             ),
         );
     }

@@ -51,7 +51,7 @@ return new class extends Migration {
             // Product identifiers
             $table->string('gtin', 50)->nullable();      // Global Trade Item Number
             $table->string('mpn', 100)->nullable();       // Manufacturer Part Number
-            $table->string('image_url', 500)->nullable();
+            $table->smallInteger('image_index')->nullable();  // Index into parent product's images array
 
             // Options (no default - must be explicitly set)
             $table->jsonb('options');  // Array of {option_id, option_name, value_id, value_name}
