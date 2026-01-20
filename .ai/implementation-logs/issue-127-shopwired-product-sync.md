@@ -21,6 +21,11 @@ Implementing full product synchronization from ShopWired API to local database, 
 - **Decision**: Delete+insert pattern for variations (not upsert)
 - **Rationale**: Simpler than diffing, idempotent, handles variation option changes cleanly
 
+### 2026-01-18: Repository vs Client Architecture
+- **Decision**: `ProductRepository` returns fully-hydrated Domain objects with typed custom fields
+- **Rationale**: Consumers should use Repository for data retrieval (treats products as "local" entities). Custom field interpretation happens on read, in the Repository (using `ProductDomainFactory`).
+- **Deferred**: Broader question of whether Clients should return DTOs vs Domain objects is noted as future consideration, not blocking this feature.
+
 ## Implementation Progress
 
 ### Phase 1: Domain Layer ✅

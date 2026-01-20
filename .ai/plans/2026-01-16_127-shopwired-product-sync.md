@@ -12,28 +12,48 @@ Implement full product synchronization from ShopWired API to local database, fol
 
 ## Architecture Summary
 
+### Sync Flow (Write Path)
 ```
 Job (SyncShopwiredProductsJob)
   → UseCase (SyncProductsUseCase)
     → Client (ProductClient via ProductClientInterface)
-        → Factory (ProductDomainFactory) ← Registry (CustomFieldDefinitionRegistry)
         → Transport (ShopwiredHttpTransport)
+        → Returns: ProductResponse DTOs (raw data, NO domain transformation)
     → Repository (EloquentProductRepository via ProductRepositoryInterface)
-      → Models (ProductModel, ProductVariationModel)
+        → saveFromResponse(ProductResponse) stores raw JSONB
         → Database (shopwired.products, shopwired.product_variations)
+```
+
+### Retrieval Flow (Read Path)
+```
+Business Logic needs a Product
+  → Repository::findById() / getByExternalId()
+      → Reads raw data from DB (including raw custom_fields JSONB)
+      → Factory (ProductDomainFactory) ← Registry (CustomFieldDefinitionRegistry)
+      → Returns: Product Domain VO (fully hydrated with typed CustomFieldValue[])
 ```
 
 ### Custom Fields Data Flow
 
+**Sync (store raw):**
 ```
 API JSON (customFields: {name: value})
-  → ProductResponse (DTO, raw customFields array)
+  → ProductResponse DTO (raw customFields array)
+  → Repository::saveFromResponse()
+  → DB (custom_fields stored as raw JSONB)
+```
+
+**Retrieval (interpret on read):**
+```
+DB (raw custom_fields JSONB)
   → ProductDomainFactory
       ↓ looks up definition by name
       CustomFieldDefinitionRegistry (in-memory, keyed by name)
       ↓ creates typed value object
   → Product (Domain VO with list<CustomFieldValue>)
 ```
+
+**Key Architectural Principle**: Clients are "dumb pipes" (HTTP → DTOs). Repositories provide fully-hydrated Domain objects. Custom field interpretation is a **read concern**, not a sync concern.
 
 **Key Decision**: Factory lazy-loads registry on first use. Registered with `scoped()` binding to ensure fresh instance per queue job (avoids Octane stale state).
 
@@ -150,22 +170,26 @@ shopwired.product_variations
 
 | File | Description |
 |------|-------------|
-| `app/Application/Contracts/Shopwired/ProductClientInterface.php` | API client contract |
+| `app/Application/Contracts/Shopwired/ProductClientInterface.php` | API client contract - **returns DTOs, not Domain objects** |
 | `app/Application/Contracts/Shopwired/ProductRepositoryInterface.php` | Repository contract extending ShopwiredRepositoryInterface |
 
-**ProductClientInterface Methods**:
-- `listAllProducts(): array` - All products with embeds (loads all into memory)
-- `iterateProductBatches(): Generator<int, list<Product>>` - Yields batches, key=page number
-- `getProductById(int $id): Product` - Single product fetch
+**ProductClientInterface Methods** (returns DTOs for sync):
+- `listAllProductResponses(): array<ProductResponse>` - All products as DTOs (loads all into memory)
+- `iterateProductResponseBatches(): Generator<int, list<ProductResponse>>` - Yields DTO batches, key=page number
+- `getProductResponseById(int $id): ProductResponse` - Single product DTO fetch
 - `getProductCount(): int` - Total count
 - `getAllProductIds(): array` - Lightweight fetch of all external_ids only (for reconciliation)
 
-**Note**: No `ProductSort` enum needed - only `title`/`title_desc` available, not useful for sync ordering.
+**Note**: Client returns **ProductResponse DTOs**, NOT Product Domain objects. Client has NO factory dependency - just HTTP → DTO transformation.
 
 **ProductRepositoryInterface Methods** (extends ShopwiredRepositoryInterface):
 - Inherits: `save()`, `saveMany()`, `getByExternalId()`, `existsByExternalId()`
+- **NEW**: `saveFromResponse(ProductResponse $response): void` - Persist DTO directly (for sync)
+- **NEW**: `saveManyFromResponses(array $responses): void` - Batch persist DTOs (for sync)
 - `getAllExternalIds(): array` - All local product external_ids (for reconciliation)
 - `deleteByExternalIds(array $externalIds): int` - Delete orphans, returns count deleted
+
+**Key**: Repository read methods (`getByExternalId()`, etc.) return **fully-hydrated Domain objects** with typed custom fields, using `ProductDomainFactory` internally.
 
 Additional query methods (getBySku, getByCategory, etc.) deferred until specific requirements are clearer.
 
@@ -255,6 +279,36 @@ final class ProductDomainFactory
 | `app/Infrastructure/Shopwired/Mappers/ProductModelMapper.php` | Complex mapping for nested relations |
 | `app/Infrastructure/Shopwired/Repositories/EloquentProductRepository.php` | Extends AbstractShopwiredEloquentRepository |
 
+**Repository has two modes:**
+1. **Write mode (sync)**: `saveFromResponse(ProductResponse $dto)` - stores raw data, no factory needed
+2. **Read mode (business logic)**: `getByExternalId()`, `findById()` - uses `ProductDomainFactory` to return fully-hydrated Domain objects
+
+**Repository Pattern:**
+```php
+final class EloquentProductRepository implements ProductRepositoryInterface
+{
+    public function __construct(
+        private ProductDomainFactory $factory,  // ← Used for READ operations only
+    ) {}
+
+    // WRITE: accepts DTOs, stores raw
+    public function saveFromResponse(ProductResponse $response): void
+    {
+        ProductModel::upsert([
+            'custom_fields' => json_encode($response->customFields),  // Raw storage
+            // ...
+        ], ...);
+    }
+
+    // READ: returns Domain objects via factory
+    public function getByExternalId(int $externalId): Product
+    {
+        $model = ProductModel::where('external_id', $externalId)->firstOrFail();
+        return $this->factory->fromModel($model);  // ← Factory interprets custom fields
+    }
+}
+```
+
 **Variation Sync Strategy** (like order_products):
 1. Delete existing variations by `product_external_id`
 2. Insert new variations in transaction
@@ -264,7 +318,7 @@ final class ProductDomainFactory
 
 | File | Description |
 |------|-------------|
-| `app/Infrastructure/Shopwired/Clients/ProductClient.php` | API client using ShopwiredHttpTransport + ProductDomainFactory |
+| `app/Infrastructure/Shopwired/Clients/ProductClient.php` | API client using ShopwiredHttpTransport - **returns DTOs only** |
 
 **API Configuration**:
 - Endpoint: `products`
@@ -274,29 +328,27 @@ final class ProductDomainFactory
 - Sort: Not specified (API only supports title sort, not useful for sync)
 - Uses `ShopwiredPaginator::pages()` for generator-based iteration
 
-**Client Pattern** (differs from Customer/Order due to factory):
+**Client Pattern** (simple HTTP → DTO, NO factory):
 ```php
 final readonly class ProductClient implements ProductClientInterface
 {
     public function __construct(
         private ShopwiredHttpTransport $transport,
-        private ProductDomainFactory $factory,  // ← Injected factory
+        // NO ProductDomainFactory - client is a "dumb pipe"
     ) {}
 
-    public function iterateProductBatches(): Generator
+    public function iterateProductResponseBatches(): Generator
     {
         // ... pagination logic ...
         foreach ($response->json() as $item) {
-            $products[] = $this->factory->fromResponse(
-                ProductResponse::from($item)
-            );
+            $products[] = ProductResponse::from($item);  // ← Just DTO, no transformation
         }
         yield $products;
     }
 }
 ```
 
-**Note**: Unlike CustomerClient/OrderClient which use `DTO.toDomain()`, ProductClient uses the injected factory because custom field transformation requires the registry.
+**Key Principle**: ProductClient is a "dumb pipe" - it fetches from HTTP and returns DTOs. It has NO database dependency and NO factory. Domain transformation happens in the Repository when reading.
 
 ### Phase 7: Application Use Case
 
@@ -337,14 +389,16 @@ $queue = 'low';
 **Service Provider Bindings**:
 ```php
 // ProductDomainFactory - MUST be scoped() for Octane compatibility
+// Used by Repository for READ operations (not by Client)
 // Fresh instance per request/job ensures registry is not stale
 $this->app->scoped(ProductDomainFactory::class);
 
-// Client and Repository - standard bindings
+// Client - simple, no factory dependency
 $this->app->bind(ProductClientInterface::class, function ($app) {
     return $app->make(ShopwiredClientFactory::class)->createProductClient();
 });
 
+// Repository - depends on factory for read operations
 $this->app->bind(ProductRepositoryInterface::class, EloquentProductRepository::class);
 ```
 
@@ -352,6 +406,8 @@ $this->app->bind(ProductRepositoryInterface::class, EloquentProductRepository::c
 - Fresh factory instance per queue job
 - Registry lazy-loaded fresh each job
 - No stale custom field definitions in Octane long-running process
+
+**Note**: Factory is injected into Repository (for reads), NOT into Client. Client has no factory dependency.
 
 ### Phase 10: Reconciliation Job (Handles Deleted Products)
 
@@ -392,15 +448,17 @@ $queue = 'low';
 
 5. **Separate reconciliation job** - Products deleted from ShopWired are removed by a daily reconciliation job (not during main sync). This prevents accidental mass deletion if API fails mid-sync, and handles the SKU reuse scenario where deleted products are recreated with the same SKU.
 
-6. **Custom fields stored as raw JSONB, typed on read** - Raw `custom_fields` JSONB in database matches API response. `ProductDomainFactory` hydrates to typed `CustomFieldValue` objects using `CustomFieldDefinitionRegistry`. This decouples storage from domain typing.
+6. **Custom fields stored as raw JSONB, typed on read** - Raw `custom_fields` JSONB in database matches API response. `ProductDomainFactory` hydrates to typed `CustomFieldValue` objects using `CustomFieldDefinitionRegistry`. This decouples storage from domain typing. **Interpretation is a read concern, not a sync concern.**
 
 7. **Generic CustomFieldValue hierarchy** - Abstract `CustomFieldValue` with typed subtypes (`StringCustomFieldValue`, `ToggleCustomFieldValue`, etc.) is entity-agnostic. Can be reused for Products, Customers, Orders without duplication.
 
-8. **Factory with lazy-loaded registry** - `ProductDomainFactory` lazy-loads `CustomFieldDefinitionRegistry` on first use. Registered with `scoped()` binding ensures fresh registry per queue job, avoiding Octane stale state.
+8. **Client returns DTOs, Repository returns Domain objects** - `ProductClient` is a "dumb pipe" (HTTP → DTOs) with no database dependency. `ProductRepository` uses `ProductDomainFactory` to return fully-hydrated Domain objects on read. This separation keeps the Client pure and moves domain transformation to where it belongs.
 
-9. **Combined value objects** - `CustomFieldValue` subtypes embed the full `CustomFieldDefinition`, not just a reference. This provides complete context (label, type, allowedValues) without additional lookups.
+9. **Factory used by Repository, not Client** - `ProductDomainFactory` lazy-loads `CustomFieldDefinitionRegistry` on first use. Factory is injected into Repository (for reads), NOT into Client. Registered with `scoped()` binding ensures fresh registry per queue job, avoiding Octane stale state.
 
-10. **Strict custom field validation** - Domain/Infrastructure throws exceptions for custom field errors (unknown field name, type mismatch). Application layer decides policy: fail sync entirely, or catch per-product and log+continue. This follows Clean Architecture's principle that inner layers are strict, outer layers set policy.
+10. **Combined value objects** - `CustomFieldValue` subtypes embed the full `CustomFieldDefinition`, not just a reference. This provides complete context (label, type, allowedValues) without additional lookups.
+
+11. **Strict custom field validation on read** - Factory throws exceptions for custom field errors (unknown field name, type mismatch). This happens when reading from Repository, not during sync. If a custom field definition changes, the data is already stored raw - re-sync of definitions fixes the issue.
 
 ---
 
@@ -435,10 +493,10 @@ Phase 5: Persistence
 13. ProductVariationModel (depends on domain objects)
 14. ProductModel (depends on ProductVariationModel)
 15. ProductModelMapper (depends on models + domain)
-16. EloquentProductRepository (depends on mapper, models)
+16. EloquentProductRepository (depends on mapper, models, ProductDomainFactory for READ ops)
 
 Phase 6: Client
-17. ProductClient (depends on DTOs, transport, ProductDomainFactory)
+17. ProductClient (depends on DTOs, transport ONLY - no factory dependency)
 
 Phase 7-8: Application + Presentation
 18. SyncProductsUseCase (depends on interfaces)
@@ -508,3 +566,13 @@ php artisan tinker
 - `app/Domain/Catalog/CustomFields/ValueObjects/CustomFieldDefinition.php` - Existing custom field definition VO
 - `app/Domain/Catalog/CustomFields/Enums/CustomFieldType.php` - Field type enum (Text, Toggle, Choice, etc.)
 - `app/Infrastructure/Shopwired/Repositories/EloquentCustomFieldRepository.php` - For loading definitions into registry
+
+---
+
+## Future Consideration: Client Architecture Pattern
+
+During implementation planning, we identified that ideally Clients should be "dumb pipes" (HTTP → DTOs) with Repositories handling Domain transformation. This keeps Clients free of database dependencies and centralizes Domain object creation in Repositories.
+
+**Not in scope for this feature** - existing Clients (Customer, Order) return Domain objects directly. Consider standardizing this pattern in a future refactoring effort.
+
+**Key requirement for Products**: `ProductRepository` must return fully-hydrated Domain objects with typed custom fields. The ProductClient implementation approach (DTO vs Domain) is an implementation detail to decide during Phase 7.

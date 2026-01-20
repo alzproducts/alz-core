@@ -4,9 +4,6 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Shopwired\Models;
 
-use App\Domain\Catalog\Product\ValueObjects\Product;
-use App\Infrastructure\Contracts\EloquentDomainMappableInterface;
-use App\Infrastructure\Shopwired\Mappers\ProductModelMapper;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
@@ -18,9 +15,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * Stores ShopWired products synced from the API. The `external_id` is ShopWired's
  * product ID, while `id` is our internal UUID (never exposed to Domain layer).
  *
- * Custom fields are stored as raw JSONB from the API. To convert to Domain Product
- * with typed CustomFieldValue objects, use ProductDomainFactory which joins the raw
- * data with CustomFieldDefinitionRegistry.
+ * **Domain Conversion**: Use ProductModelMapper for all model ↔ domain conversion.
+ * This model intentionally does NOT implement EloquentDomainMappableInterface because
+ * Product requires custom field typing via ProductCustomFieldFactory, which the mapper handles.
  *
  * @property string $id Internal UUID
  * @property int $external_id ShopWired product ID
@@ -48,10 +45,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property CarbonImmutable $shopwired_updated_at ShopWired last update timestamp
  * @property CarbonImmutable $created_at When first synced to local DB
  * @property CarbonImmutable $updated_at When last updated locally
- *
- * @implements EloquentDomainMappableInterface<Product>
  */
-final class ProductModel extends Model implements EloquentDomainMappableInterface
+final class ProductModel extends Model
 {
     use HasUuids;
 
@@ -103,32 +98,5 @@ final class ProductModel extends Model implements EloquentDomainMappableInterfac
     public function variations(): HasMany
     {
         return $this->hasMany(ProductVariationModel::class, 'product_id', 'id');
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // Domain Mapping (via EloquentDomainMappableInterface)
-    // ─────────────────────────────────────────────────────────────────────────
-
-    /**
-     * Convert this model (with loaded relations) to Domain Product.
-     *
-     * NOTE: This creates a Product with empty customFields. For full hydration
-     * with typed CustomFieldValue objects, use ProductDomainFactory::fromModel().
-     */
-    public function toDomain(): Product
-    {
-        return ProductModelMapper::fromModelWithRelations($this);
-    }
-
-    /**
-     * Convert a Domain Product to model attributes.
-     *
-     * @param Product $entity
-     *
-     * @return array<string, mixed>
-     */
-    public static function fromDomainAttributes(object $entity): array
-    {
-        return ProductModelMapper::toModelAttributes($entity);
     }
 }

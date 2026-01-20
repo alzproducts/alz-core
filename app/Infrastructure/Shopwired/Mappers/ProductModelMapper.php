@@ -4,62 +4,51 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Shopwired\Mappers;
 
-use App\Domain\Catalog\CustomFields\ValueObjects\AbstractCustomFieldValue;
+use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\Product\ValueObjects\Gtin;
 use App\Domain\Catalog\Product\ValueObjects\Product;
 use App\Domain\Catalog\Product\ValueObjects\ProductImage;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariation;
+use App\Domain\Exceptions\DatabaseOperationFailedException;
+use App\Domain\Exceptions\ExternalServiceUnavailableException;
+use App\Infrastructure\Shopwired\Factories\ProductCustomFieldFactory;
 use App\Infrastructure\Shopwired\Models\ProductModel;
 use App\Infrastructure\Shopwired\Models\ProductVariationModel;
 
 /**
  * Maps between ProductModel (Eloquent) and Product (Domain).
  *
- * Handles the complex transformations for Product entities including:
- * - Nested value objects (images, variations)
- * - JSONB array hydration
- *
- * **Custom Fields**: This mapper creates Products with EMPTY customFields.
- * For typed CustomFieldValue objects, use ProductDomainFactory::fromModel()
- * which joins raw custom_fields data with CustomFieldDefinitionRegistry.
+ * **Read path**: Use `toDomain()` for typed custom fields via ProductCustomFieldFactory.
+ * **Write path**: Use static `toModelAttributes()` for persistence.
  */
 final class ProductModelMapper
 {
+    public function __construct(
+        private readonly ProductCustomFieldFactory $customFieldFactory,
+    ) {}
+
     /**
      * Convert Eloquent model with loaded relations to Domain Product.
      *
-     * Preferred entry point - handles relation conversion internally.
      * Requires 'variations' relation to be eager-loaded.
-     *
-     * NOTE: Creates Product with empty customFields. For full hydration,
-     * use ProductDomainFactory::fromModel() instead.
+     * Custom fields are typed using ProductCustomFieldFactory.
      *
      * @param ProductModel $model The Eloquent model with loaded relations
+     *
+     * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
+     * @throws DatabaseOperationFailedException When custom field registry fails to load
+     * @throws ExternalServiceUnavailableException When database temporarily unavailable
      */
-    public static function fromModelWithRelations(ProductModel $model): Product
+    public function toDomain(ProductModel $model): Product
     {
         /** @var list<ProductVariation> $variations */
         $variations = $model->variations->map(
             static fn(ProductVariationModel $m): ProductVariation => $m->toDomain(),
         )->all();
 
-        return self::toDomain($model, $variations, []);
-    }
+        /** @var array<string, mixed> $rawCustomFields */
+        $rawCustomFields = $model->custom_fields;
 
-    /**
-     * Convert Eloquent model to Domain Product with pre-converted relations.
-     *
-     * Use fromModelWithRelations() unless you need to provide custom relation data.
-     *
-     * @param ProductModel                    $model        The Eloquent model to convert
-     * @param list<ProductVariation>          $variations   Already-converted variation domain objects
-     * @param list<AbstractCustomFieldValue>  $customFields Already-converted custom field value objects
-     */
-    public static function toDomain(
-        ProductModel $model,
-        array $variations,
-        array $customFields,
-    ): Product {
         return new Product(
             id: $model->external_id,
             sku: $model->sku,
@@ -79,10 +68,11 @@ final class ProductModelMapper
             weight: $model->weight,
             metaTitle: $model->meta_title,
             metaDescription: $model->meta_description,
-            categoryIds: $model->category_ids ?? [],
+            categoryIds: $model->category_ids,
             variations: $variations,
-            images: self::buildImages($model->images ?? []),
-            customFields: $customFields,
+            images: self::buildImages($model->images),
+            rawCustomFields: $rawCustomFields,
+            customFields: $this->customFieldFactory->fromRawFields($rawCustomFields),
             createdAt: $model->shopwired_created_at->toDateTimeImmutable(),
             updatedAt: $model->shopwired_updated_at->toDateTimeImmutable(),
         );
@@ -122,7 +112,7 @@ final class ProductModelMapper
                 static fn(ProductImage $img): array => $img->toArray(),
                 $product->images,
             ),
-            'custom_fields' => self::serializeCustomFields($product->customFields),
+            'custom_fields' => $product->rawCustomFields,
             'shopwired_created_at' => $product->createdAt,
             'shopwired_updated_at' => $product->updatedAt,
         ];
@@ -145,24 +135,5 @@ final class ProductModelMapper
             static fn(array $img): ProductImage => ProductImage::fromArray($img),
             $images,
         );
-    }
-
-    /**
-     * Serialize typed CustomFieldValue objects to raw JSONB format.
-     *
-     * Converts list<CustomFieldValue> back to {name: value, ...} for storage.
-     *
-     * @param list<AbstractCustomFieldValue> $customFields
-     *
-     * @return array<string, mixed>
-     */
-    private static function serializeCustomFields(array $customFields): array
-    {
-        $result = [];
-        foreach ($customFields as $field) {
-            $result[$field->name()] = $field->rawValue();
-        }
-
-        return $result;
     }
 }

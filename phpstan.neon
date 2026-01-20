@@ -214,6 +214,7 @@ parameters:
             paths:
                 - app/Infrastructure/Shopwired/Clients/CustomerClient.php
                 - app/Infrastructure/Shopwired/Clients/OrderClient.php
+                - app/Infrastructure/Shopwired/Clients/ProductClient.php
     paths:
         - app/
         - bootstrap/

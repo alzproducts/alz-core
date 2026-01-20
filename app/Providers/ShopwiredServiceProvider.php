@@ -12,10 +12,14 @@ use App\Application\Contracts\Shopwired\CustomFieldClientInterface;
 use App\Application\Contracts\Shopwired\CustomFieldRepositoryInterface;
 use App\Application\Contracts\Shopwired\OrderClientInterface;
 use App\Application\Contracts\Shopwired\OrderRepositoryInterface;
+use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Application\Contracts\Shopwired\StockClientInterface;
+use App\Infrastructure\Shopwired\Factories\ProductCustomFieldFactory;
+use App\Infrastructure\Shopwired\Mappers\ProductModelMapper;
 use App\Infrastructure\Shopwired\Repositories\EloquentCustomerRepository;
 use App\Infrastructure\Shopwired\Repositories\EloquentCustomFieldRepository;
 use App\Infrastructure\Shopwired\Repositories\EloquentOrderRepository;
+use App\Infrastructure\Shopwired\Repositories\EloquentProductRepository;
 use App\Infrastructure\Shopwired\ShopwiredClientFactory;
 use Illuminate\Contracts\Support\DeferrableProvider;
 use Illuminate\Support\ServiceProvider;
@@ -98,6 +102,18 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
             CustomFieldRepositoryInterface::class,
             EloquentCustomFieldRepository::class,
         );
+
+        // Product custom field factory - scoped to prevent stale registry in Octane
+        $this->app->scoped(ProductCustomFieldFactory::class);
+
+        // Product model mapper - scoped as it depends on ProductCustomFieldFactory
+        $this->app->scoped(ProductModelMapper::class);
+
+        // Product repository - scoped for fresh mapper per queue job
+        $this->app->scoped(
+            ProductRepositoryInterface::class,
+            EloquentProductRepository::class,
+        );
     }
 
     /**
@@ -117,6 +133,9 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
             CustomerRepositoryInterface::class,
             OrderClientInterface::class,
             OrderRepositoryInterface::class,
+            ProductCustomFieldFactory::class,
+            ProductModelMapper::class,
+            ProductRepositoryInterface::class,
             StockClientInterface::class,
         ];
     }

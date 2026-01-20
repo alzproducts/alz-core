@@ -16,9 +16,13 @@ use Webmozart\Assert\Assert;
  * Represents a product with core business-relevant properties.
  * Excludes unused ShopWired fields (freeDelivery, deliveryPrice, isNew, isBundle, isPreOrder, outOfStockStatus).
  *
- * **Creation**: Use {@see \App\Infrastructure\Shopwired\Factories\ProductDomainFactory::fromResponse()}
- * to create instances from API responses. Direct instantiation requires typed custom field values,
- * which the factory creates by joining raw API data with the CustomFieldDefinitionRegistry.
+ * **Custom Fields**: Products have two custom field representations:
+ * - `rawCustomFields`: Raw name → value map for storage (always populated)
+ * - `customFields`: Typed values from CustomFieldDefinitionRegistry (populated on read)
+ *
+ * **Creation**:
+ * - Write path: {@see \App\Infrastructure\Shopwired\Factories\ProductDomainFactory::fromResponse()}
+ * - Read path: {@see \App\Infrastructure\Shopwired\Factories\ProductDomainFactory::fromModel()}
  *
  * @see https://shopwired.readme.io/reference/getproduct
  */
@@ -47,7 +51,8 @@ final readonly class Product implements BasicProductInterface
      * @param list<int> $categoryIds ShopWired category IDs
      * @param list<ProductVariation> $variations Product variations
      * @param list<ProductImage> $images Product images
-     * @param list<AbstractCustomFieldValue> $customFields Typed custom field values
+     * @param array<string, mixed> $rawCustomFields Raw custom field data (name => value) for storage
+     * @param list<AbstractCustomFieldValue> $customFields Typed custom field values (populated on read)
      * @param DateTimeImmutable $createdAt ShopWired creation timestamp
      * @param DateTimeImmutable $updatedAt ShopWired last update timestamp
      */
@@ -73,6 +78,7 @@ final readonly class Product implements BasicProductInterface
         public array $categoryIds,
         public array $variations,
         public array $images,
+        public array $rawCustomFields,
         public array $customFields,
         public DateTimeImmutable $createdAt,
         public DateTimeImmutable $updatedAt,

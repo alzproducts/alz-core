@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Shopwired\Repositories;
 
+use App\Application\Contracts\DatabaseGatewayInterface;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
+use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\Product\Contracts\BasicProductInterface;
 use App\Domain\Catalog\Product\Exceptions\MissingVariationSkuException;
 use App\Domain\Catalog\Product\ValueObjects\Product;
@@ -40,6 +42,13 @@ final class EloquentProductRepository extends AbstractShopwiredEloquentRepositor
 
     /** @var list<string> */
     private const array EAGER_LOAD_RELATIONS = ['variations'];
+
+    public function __construct(
+        DatabaseGatewayInterface $gateway,
+        private readonly ProductModelMapper $mapper,
+    ) {
+        parent::__construct($gateway);
+    }
 
     // ─────────────────────────────────────────────────────────────────────────
     // Interface Implementation
@@ -120,6 +129,7 @@ final class EloquentProductRepository extends AbstractShopwiredEloquentRepositor
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
+     * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
      */
     public function getBasicProductBySku(string $sku): BasicProductInterface
     {
@@ -198,11 +208,15 @@ final class EloquentProductRepository extends AbstractShopwiredEloquentRepositor
 
     /**
      * {@inheritDoc}
+     *
+     * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
+     * @throws DatabaseOperationFailedException When custom field registry fails to load
+     * @throws ExternalServiceUnavailableException When database temporarily unavailable
      */
     protected function mapModelToDomain(Model $model): Product
     {
         /** @var ProductModel $model */
-        return ProductModelMapper::fromModelWithRelations($model);
+        return $this->mapper->toDomain($model);
     }
 
     // ─────────────────────────────────────────────────────────────────────────
