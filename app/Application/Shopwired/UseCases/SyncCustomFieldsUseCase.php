@@ -6,7 +6,7 @@ namespace App\Application\Shopwired\UseCases;
 
 use App\Application\Contracts\Shopwired\CustomFieldClientInterface;
 use App\Application\Contracts\Shopwired\CustomFieldRepositoryInterface;
-use App\Application\Shopwired\ValueObjects\SyncResult;
+use App\Application\ValueObjects\SyncResult;
 use App\Domain\Exceptions\AuthenticationExpiredException;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\InvalidApiRequestException;

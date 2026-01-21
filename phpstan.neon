@@ -211,9 +211,9 @@ parameters:
         -
             identifier: shipmonk.checkedExceptionInYieldingMethod
             paths:
+                - app/Infrastructure/Linnworks/Clients/InventoryClient.php
                 - app/Infrastructure/Shopwired/Clients/CustomerClient.php
                 - app/Infrastructure/Shopwired/Clients/OrderClient.php
-                - app/Infrastructure/Linnworks/Clients/InventoryClient.php
                 - app/Infrastructure/Shopwired/Clients/ProductClient.php
                 - app/Infrastructure/Shopwired/Repositories/EloquentProductRepository.php
     paths:
