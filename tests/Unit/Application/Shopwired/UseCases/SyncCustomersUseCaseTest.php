@@ -7,7 +7,7 @@ namespace Tests\Unit\Application\Shopwired\UseCases;
 use App\Application\Contracts\Shopwired\CustomerClientInterface;
 use App\Application\Contracts\Shopwired\CustomerRepositoryInterface;
 use App\Application\Shopwired\UseCases\SyncCustomersUseCase;
-use App\Application\Shopwired\ValueObjects\SaveManyResult;
+use App\Application\ValueObjects\SaveManyResult;
 use App\Domain\Customer\ValueObjects\Customer;
 use DateTimeImmutable;
 use Generator;

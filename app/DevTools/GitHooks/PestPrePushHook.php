@@ -16,12 +16,12 @@ final class PestPrePushHook extends AbstractProcessHook
      */
     protected function getProcessCommand(): array
     {
-        return ['make', 'test-quick'];
+        return ['make', 'test'];
     }
 
     protected function getTimeout(): int
     {
-        return 60; // 1 minute (unit tests only, ~5s typical)
+        return 120; // 2 minutes (full test suite, ~8s typical with parallel)
     }
 
     protected function getSuccessMessage(): string

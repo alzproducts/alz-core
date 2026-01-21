@@ -6,7 +6,7 @@ namespace App\Application\Shopwired\UseCases;
 
 use App\Application\Contracts\Shopwired\CustomerClientInterface;
 use App\Application\Contracts\Shopwired\CustomerRepositoryInterface;
-use App\Application\Shopwired\ValueObjects\SyncResult;
+use App\Application\ValueObjects\SyncResult;
 use App\Domain\Customer\ValueObjects\Customer;
 use App\Domain\Exceptions\AuthenticationExpiredException;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;

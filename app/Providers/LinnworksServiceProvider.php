@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Application\Contracts\DatabaseGatewayInterface;
 use App\Application\Contracts\Linnworks\ConnectivityClientInterface;
 use App\Application\Contracts\Linnworks\InventoryClientInterface;
+use App\Application\Contracts\Linnworks\StockItemRepositoryInterface;
 use App\Application\Contracts\LockableCacheInterface;
 use App\Infrastructure\Linnworks\LinnworksClientFactory;
 use App\Infrastructure\Linnworks\LinnworksConfig;
 use App\Infrastructure\Linnworks\LinnworksSessionManager;
+use App\Infrastructure\Linnworks\Repositories\EloquentStockItemRepository;
 use Illuminate\Contracts\Container\Container;
 use Illuminate\Contracts\Support\DeferrableProvider;
 use Illuminate\Support\Facades\Config;
@@ -62,6 +65,14 @@ final class LinnworksServiceProvider extends ServiceProvider implements Deferrab
             InventoryClientInterface::class,
             static fn(): InventoryClientInterface => LinnworksClientFactory::createInventoryClient(),
         );
+
+        // Stock item repository - for persisting synced stock items
+        $this->app->singleton(
+            StockItemRepositoryInterface::class,
+            static fn(Container $app): StockItemRepositoryInterface => new EloquentStockItemRepository(
+                $app->make(DatabaseGatewayInterface::class),
+            ),
+        );
     }
 
     /**
@@ -76,6 +87,7 @@ final class LinnworksServiceProvider extends ServiceProvider implements Deferrab
             ConnectivityClientInterface::class,
             InventoryClientInterface::class,
             LinnworksSessionManager::class,
+            StockItemRepositoryInterface::class,
         ];
     }
 

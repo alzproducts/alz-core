@@ -6,6 +6,7 @@ use App\Presentation\Jobs\ProcessProductSearchFeedJob;
 use App\Presentation\Jobs\SyncBingAdsToMixpanelJob;
 use App\Presentation\Jobs\SyncCampaignLookupTableJob;
 use App\Presentation\Jobs\SyncGoogleAdsToMixpanelJob;
+use App\Presentation\Jobs\SyncLinnworksStockItemsJob;
 use App\Presentation\Jobs\SyncOrdersToMixpanelJob;
 use App\Presentation\Jobs\SyncShopwiredCustomersJob;
 use App\Presentation\Jobs\SyncShopwiredOrdersJob;
@@ -198,30 +199,48 @@ Schedule::job(new SyncShopwiredOrdersJob(maxPages: 1))
 // Uses 3-tier resilience: nightly (operational), weekly (catch-up)
 // ============================================================================
 
-// NIGHTLY: 28-hour lookback (24h + 4h buffer for Mixpanel ingestion delay)
-// Runs at 2:00 AM UK time — the extra 4 hours ensures no gaps between runs
-Schedule::call(static function (): void {
-    SyncOrdersToMixpanelJob::dispatch(
-        from: new DateTimeImmutable('-28 hours'),
-        to: new DateTimeImmutable('now'),
-    );
-})
-    ->name('sync-orders-to-mixpanel-nightly')
-    ->dailyAt('02:00')
-    ->timezone('Europe/London')
-    ->onOneServer()
-    ->withoutOverlapping(30);
+// TEMPORARILY DISABLED: Duplicate events bug - see Issue #134
+// Frontend and backend generate different hashes for the same order, causing duplicates.
+// Re-enable after root cause is fixed.
 
-// WEEKLY: Last 14 days (safety net with 1 failure tolerance)
-// Deduplication via order_id_hashed + $insert_id prevents duplicates
-Schedule::call(static function (): void {
-    SyncOrdersToMixpanelJob::dispatch(
-        from: new DateTimeImmutable('-14 days'),
-        to: new DateTimeImmutable('now'),
-    );
-})
-    ->name('sync-orders-to-mixpanel-weekly')
-    ->weeklyOn(0, '03:00') // Sunday 3:00 AM
-    ->timezone('Europe/London')
+// // NIGHTLY: 28-hour lookback (24h + 4h buffer for Mixpanel ingestion delay)
+// // Runs at 2:00 AM UK time — the extra 4 hours ensures no gaps between runs
+// Schedule::call(static function (): void {
+//     SyncOrdersToMixpanelJob::dispatch(
+//         from: new DateTimeImmutable('-28 hours'),
+//         to: new DateTimeImmutable('now'),
+//     );
+// })
+//     ->name('sync-orders-to-mixpanel-nightly')
+//     ->dailyAt('02:00')
+//     ->timezone('Europe/London')
+//     ->onOneServer()
+//     ->withoutOverlapping(30);
+
+// // WEEKLY: Last 14 days (safety net with 1 failure tolerance)
+// // Deduplication via order_id_hashed + $insert_id prevents duplicates
+// Schedule::call(static function (): void {
+//     SyncOrdersToMixpanelJob::dispatch(
+//         from: new DateTimeImmutable('-14 days'),
+//         to: new DateTimeImmutable('now'),
+//     );
+// })
+//     ->name('sync-orders-to-mixpanel-weekly')
+//     ->weeklyOn(0, '03:00') // Sunday 3:00 AM
+//     ->timezone('Europe/London')
+//     ->onOneServer()
+//     ->withoutOverlapping(60);
+
+// ============================================================================
+// Linnworks Stock Item Sync: Frequent refresh
+// Syncs ~4k stock items with extended properties from Linnworks to PostgreSQL
+// Used for inventory lookups and order enrichment
+// ============================================================================
+
+// EVERY 15 MIN: Full stock item sync
+// Keeps inventory data near real-time for order processing and lookups
+Schedule::job(new SyncLinnworksStockItemsJob())
+    ->name('sync-linnworks-stock-items')
+    ->everyFifteenMinutes()
     ->onOneServer()
-    ->withoutOverlapping(60);
+    ->withoutOverlapping(20); // 20 min lock - job runs 8-12 min in prod

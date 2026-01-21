@@ -2,21 +2,23 @@
 
 declare(strict_types=1);
 
-namespace App\Application\Shopwired\ValueObjects;
+namespace App\Application\ValueObjects;
 
 /**
- * Result of a sync operation from ShopWired API to local database.
+ * Result of a sync operation from external API to local database.
  *
  * Tracks the full pipeline: fetched from API → saved to database.
  * Used by sync use cases to report outcomes without exposing infrastructure details.
+ *
+ * Supports both integer IDs (ShopWired) and string GUIDs (Linnworks).
  */
 final readonly class SyncResult
 {
     /**
-     * @param int<0, max> $fetched Number of entities fetched from ShopWired API
+     * @param int<0, max> $fetched Number of entities fetched from external API
      * @param int<0, max> $saved Number of entities saved to local database
      * @param int<0, max> $failed Number of entities that failed to save
-     * @param list<int> $failedReferences External IDs of entities that failed
+     * @param list<int|string> $failedReferences IDs of entities that failed
      */
     public function __construct(
         public int $fetched,
@@ -50,7 +52,7 @@ final readonly class SyncResult
     }
 
     /**
-     * Create result for empty sync (no orders in time range).
+     * Create result for empty sync (no entities found).
      */
     public static function empty(): self
     {
