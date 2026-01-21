@@ -252,20 +252,147 @@ echo 'Hash: ' . hash('sha256', \$reference . \$salt) . PHP_EOL;
 
 ---
 
-## Phase 3: Fix Implementation
+## Phase 3: Fix Implementation — Multi-Salt Hash Matching
 
-### Option A: Fix Configuration Mismatch (if found)
+### Root Cause (Confirmed)
 
-If salt/reference values differ, correct the configuration and re-verify hashes match.
+Frontend bug: Used fallback salt `"alz-" + orderDate.getTimestamp()` instead of configured salt when `window.ALZ_CONFIG` wasn't available. Historical Mixpanel events have hashes from this fallback. Backend only checked configured salt → duplicates created.
 
-### Option B: Add Legacy Hash Support (FUTURE IMPROVEMENT - NOT FOR THIS BUG)
+### Solution
 
-> **Note**: Both example hashes are SHA-256 format (64 hex chars). Legacy Base64 support won't fix THIS bug.
-> This is a separate resilience improvement for browsers without `crypto.subtle`.
-> The current `OrderAnalyticsHash` requires 64 chars - legacy hashes are 32 chars.
-> Would require either a separate value object or modified validation.
+Create `OrderAnalyticsHashMatcher` that checks against **all known hash variations** (2 algorithms × 2 salts = 4 candidates):
 
-**Defer to separate issue/PR.**
+| # | Algorithm | Salt | Format |
+|---|-----------|------|--------|
+| 1 | SHA-256 | Configured | 64-char lowercase hex |
+| 2 | SHA-256 | Fallback (`alz-{ts}`) | 64-char lowercase hex |
+| 3 | Legacy Base64 | Configured | 32-char alphanumeric |
+| 4 | Legacy Base64 | Fallback (`alz-{ts}`) | 32-char alphanumeric |
+
+**Legacy algorithm** (for browsers without `crypto.subtle`):
+```javascript
+btoa(text).replace(/[^a-zA-Z0-9]/g, "").substring(0, 32)
+```
+PHP equivalent: `substr(preg_replace('/[^a-zA-Z0-9]/', '', base64_encode($input)), 0, 32)`
+
+### Files to Create/Modify
+
+| File | Action |
+|------|--------|
+| `app/Domain/Catalog/Order/ValueObjects/OrderAnalyticsHashMatcher.php` | **Create** |
+| `app/Application/Mixpanel/UseCases/SyncOrdersToMixpanelUseCase.php` | **Modify** (filterNewOrders method) |
+| `tests/Unit/Domain/Catalog/Order/ValueObjects/OrderAnalyticsHashMatcherTest.php` | **Create** |
+| `tests/Unit/Application/Mixpanel/UseCases/SyncOrdersToMixpanelUseCaseTest.php` | **Add test** |
+
+### Implementation Details
+
+#### 3.1 Create `OrderAnalyticsHashMatcher` (Domain)
+
+```php
+// app/Domain/Catalog/Order/ValueObjects/OrderAnalyticsHashMatcher.php
+final readonly class OrderAnalyticsHashMatcher
+{
+    public static function existsInHashes(
+        array $existingHashSet,
+        int $orderReference,
+        DateTimeImmutable $orderPlacedAt,
+        string $configuredSalt,
+    ): bool;
+
+    public static function generateCandidateHashes(
+        int $orderReference,
+        DateTimeImmutable $orderPlacedAt,
+        string $configuredSalt,
+    ): array;
+
+    private static function sha256Hash(string $input): string
+    {
+        return hash('sha256', $input);
+    }
+
+    private static function legacyBase64Hash(string $input): string
+    {
+        return substr(preg_replace('/[^a-zA-Z0-9]/', '', base64_encode($input)), 0, 32);
+    }
+
+    private static function buildFallbackSalt(DateTimeImmutable $orderPlacedAt): string
+    {
+        return 'alz-' . $orderPlacedAt->getTimestamp();
+    }
+}
+```
+
+**Critical**: Use `getTimestamp()` (seconds), NOT milliseconds. Frontend Twig used `date('U')` = seconds.
+
+#### 3.2 Update `filterNewOrders()` in Use Case
+
+```php
+// Before:
+$hash = OrderAnalyticsHash::fromReference($order->reference, $this->analyticsSalt);
+if (!\array_key_exists($hash->value, $existingHashSet)) {
+
+// After:
+$exists = OrderAnalyticsHashMatcher::existsInHashes(
+    $existingHashSet,
+    $order->reference,
+    $order->orderPlacedAt,
+    $this->analyticsSalt,
+);
+if (!$exists) {
+```
+
+#### 3.3 Unit Tests
+
+**Matcher tests (all 4 hash types):**
+- `it_matches_sha256_with_configured_salt` - primary correct path
+- `it_matches_sha256_with_fallback_salt` - buggy salt, modern browser
+- `it_matches_legacy_base64_with_configured_salt` - old browser, correct salt
+- `it_matches_legacy_base64_with_fallback_salt` - old browser, buggy salt
+- `it_returns_false_when_no_match`
+- `it_generates_exactly_four_candidate_hashes`
+- `it_uses_seconds_not_milliseconds_for_fallback`
+- `it_generates_deterministic_hashes`
+
+**Use case tests:**
+- `it_skips_orders_with_fallback_salt_hash`
+- `it_skips_orders_with_legacy_base64_hash`
+
+### Test Data
+
+**SHA-256 + Configured salt (correct path):**
+```
+Order reference: 111392
+Salt: MINZM+G8mVxffMb4uHnQAnSn4pSxBsDum9Q96QqlHpQ=
+Input: "111392MINZM+G8mVxffMb4uHnQAnSn4pSxBsDum9Q96QqlHpQ="
+Expected: 338d11eec3f391a1542114426fcb23362c39819cdf2756713611122ce7712924
+```
+
+**SHA-256 + Fallback salt (buggy salt, modern browser):**
+```
+Order reference: 111391
+Order date: 2026-01-21 09:28:18 UTC (timestamp: 1769012498)
+Input: "111391alz-1769012498"
+Expected: 2690db80abca31c8f3f81f639bd79e2f13ed883a781987fb167d013a39c83a01
+```
+
+**Legacy Base64 + Configured salt (old browser, correct salt):**
+```
+Order reference: 111392
+Salt: MINZM+G8mVxffMb4uHnQAnSn4pSxBsDum9Q96QqlHpQ=
+Input: "111392MINZM+G8mVxffMb4uHnQAnSn4pSxBsDum9Q96QqlHpQ="
+Expected (first 32): MTExMzkyTUlOWk1HOG1WeGZmTWI0
+```
+
+**Legacy Base64 + Fallback salt (old browser, buggy salt):**
+```
+Order reference: 111391
+Input: "111391alz-1769012498"
+Expected (first 32): MTExMzkxYWx6LTE3NjkwMTI0OTg (only 27 chars, use as-is)
+```
+
+### Future Considerations
+
+- **Cleanup**: After 6+ months, consider removing legacy hash matching if historical data fully processed and no legacy browsers in use.
 
 ---
 

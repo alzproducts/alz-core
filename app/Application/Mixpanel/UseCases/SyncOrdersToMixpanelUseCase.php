@@ -9,7 +9,7 @@ use App\Application\Contracts\Shopwired\CustomerRepositoryInterface;
 use App\Application\Contracts\Shopwired\OrderRepositoryInterface;
 use App\Application\Mixpanel\ValueObjects\SyncOrdersToMixpanelResult;
 use App\Domain\Catalog\Order\ValueObjects\Order;
-use App\Domain\Catalog\Order\ValueObjects\OrderAnalyticsHash;
+use App\Domain\Catalog\Order\ValueObjects\OrderAnalyticsHashMatcher;
 use App\Domain\Exceptions\AuthenticationExpiredException;
 use App\Domain\Exceptions\DatabaseOperationFailedException;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
@@ -179,6 +179,10 @@ final readonly class SyncOrdersToMixpanelUseCase
     /**
      * Filter orders to only those not already in Mixpanel.
      *
+     * Uses multi-hash matching to handle frontend hash variations:
+     * - SHA-256 vs Legacy Base64 algorithm (browser capability)
+     * - Configured salt vs fallback salt (frontend bug)
+     *
      * @param list<Order> $orders
      * @param array<string, int|string> $existingHashSet Hash set for O(1) lookup (via array_flip)
      *
@@ -189,9 +193,14 @@ final readonly class SyncOrdersToMixpanelUseCase
         $newOrders = [];
 
         foreach ($orders as $order) {
-            $hash = OrderAnalyticsHash::fromReference($order->reference, $this->analyticsSalt);
+            $exists = OrderAnalyticsHashMatcher::existsInHashes(
+                $existingHashSet,
+                $order->reference,
+                $order->orderPlacedAt,
+                $this->analyticsSalt,
+            );
 
-            if (!\array_key_exists($hash->value, $existingHashSet)) {
+            if (!$exists) {
                 $newOrders[] = $order;
             }
         }
