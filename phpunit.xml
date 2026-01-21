@@ -56,6 +56,12 @@
             <file>app/Domain/Review/Rating.php</file>
             <!-- SOAP transport - tested via smoke tests, mocking is brittle -->
             <file>app/Infrastructure/BingAds/BingAdsTransport.php</file>
+            <!-- Orchestration UseCases - pure delegation, no testable business logic (TestingStrategy.md) -->
+            <file>app/Application/Shopwired/UseCases/SyncProductsUseCase.php</file>
+            <file>app/Application/Shopwired/UseCases/SyncCustomFieldsUseCase.php</file>
+            <file>app/Application/Shopwired/UseCases/ReconcileProductsUseCase.php</file>
+            <!-- Simple result value objects - minimal logic, type system handles structure -->
+            <file>app/Application/ValueObjects/ReconcileResult.php</file>
         </exclude>
     </source>
     <php>
