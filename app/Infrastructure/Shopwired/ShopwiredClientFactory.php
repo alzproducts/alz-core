@@ -7,11 +7,13 @@ namespace App\Infrastructure\Shopwired;
 use App\Application\Contracts\Shopwired\CategoryClientInterface;
 use App\Application\Contracts\Shopwired\ConnectivityClientInterface;
 use App\Application\Contracts\Shopwired\CustomerClientInterface;
+use App\Application\Contracts\Shopwired\CustomFieldClientInterface;
 use App\Application\Contracts\Shopwired\OrderClientInterface;
 use App\Application\Contracts\Shopwired\StockClientInterface;
 use App\Domain\Exceptions\InvalidConfigurationException;
 use App\Infrastructure\Shopwired\Clients\CategoryClient;
 use App\Infrastructure\Shopwired\Clients\CustomerClient;
+use App\Infrastructure\Shopwired\Clients\CustomFieldClient;
 use App\Infrastructure\Shopwired\Clients\OrderClient;
 use App\Infrastructure\Shopwired\Clients\StockClient;
 use Illuminate\Support\Facades\Config;
@@ -49,6 +51,14 @@ final class ShopwiredClientFactory
     }
 
     /**
+     * Create the custom field client for custom field definitions.
+     */
+    public static function createCustomFieldClient(): CustomFieldClientInterface
+    {
+        return new CustomFieldClient(self::getTransport());
+    }
+
+    /**
      * Create the customer client for customer operations.
      */
     public static function createCustomerClient(): CustomerClientInterface
@@ -77,8 +87,11 @@ final class ShopwiredClientFactory
      *
      * Creates the transport on first access, reuses for subsequent calls.
      * This ensures all clients share the same transport instance.
+     *
+     * Note: Made public for ServiceProvider to wire ProductClient with its
+     * scoped dependencies (ProductDomainFactory).
      */
-    private static function getTransport(): ShopwiredHttpTransport
+    public static function getTransport(): ShopwiredHttpTransport
     {
         return self::$transport ??= self::createTransport();
     }

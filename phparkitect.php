@@ -351,6 +351,7 @@ return static function (Config $config): void {
     //
     // EXCEPTION: Internal Infrastructure contracts (marked @internal) for:
     // - DomainConvertibleInterface: Marks DTOs that can convert to Domain objects
+    // - DomainConvertibleChildInterface: Marks child DTOs needing parent ID to convert
     // - PaginatableQueryParamsInterface: Marks query params supporting pagination
     // - EloquentDomainMappableInterface: Marks Eloquent models with domain mapping
     // These are internal implementation patterns, not cross-layer contracts.
@@ -369,6 +370,7 @@ return static function (Config $config): void {
     $rules[] = Rule::allClasses()
                    ->that(new HaveNameMatching('*Interface'))
                    ->andThat(new NotHaveNameMatching('DomainConvertibleInterface'))
+                   ->andThat(new NotHaveNameMatching('DomainConvertibleChildInterface'))
                    ->andThat(new NotHaveNameMatching('PaginatableQueryParamsInterface'))
                    ->andThat(new NotHaveNameMatching('EloquentDomainMappableInterface'))
                    ->should(new NotResideInTheseNamespaces($infrastructure))
@@ -400,6 +402,7 @@ return static function (Config $config): void {
                    ->should(
                        new ResideInOneOfTheseNamespaces(
                            'App\Domain\Contracts',
+                           'App\Domain\*\Contracts',
                            'App\Application\Contracts',
                            'App\Infrastructure\Contracts',
                            'App\Infrastructure\*\Contracts',
@@ -426,6 +429,7 @@ return static function (Config $config): void {
                    ->that(
                        new ResideInOneOfTheseNamespaces(
                            'App\Domain\Contracts',
+                           'App\Domain\*\Contracts',
                            'App\Application\Contracts',
                        ),
                    )
@@ -539,10 +543,12 @@ return static function (Config $config): void {
                        'App\Domain\Exceptions',
                        'App\Domain\*\Exceptions',
                        'App\Domain\Contracts',
+                       'App\Domain\*\Contracts',
+                       'App\Domain\*\Concerns',
                    ))
                    ->because(
                        'Domain classes must be organized into Value Objects, Entities, Enums, Exceptions, '
-                       . 'or Contracts subdirectories for discoverability and maintainability.',
+                       . 'Contracts, or Concerns subdirectories for discoverability and maintainability.',
                    );
 
     // RULE 10: All Exceptions must end with *Exception suffix
