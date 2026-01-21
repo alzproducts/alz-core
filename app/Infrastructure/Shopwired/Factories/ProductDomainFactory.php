@@ -57,7 +57,7 @@ final class ProductDomainFactory
             weight: $response->weight,
             metaTitle: $response->metaTitle,
             metaDescription: $response->metaDescription,
-            categoryIds: $response->categoryIds,
+            categoryIds: $response->getCategoryIds(),
             variations: $this->buildVariations($response->id, $response->variations),
             images: $this->buildImages($response->images),
             rawCustomFields: $response->customFields,

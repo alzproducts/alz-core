@@ -38,7 +38,8 @@ return new class extends Migration {
             $table->string('sku', 100)->unique();
 
             // Pricing (6dp precision)
-            $table->decimal('price', 14, 6);
+            // price: null = inherit parent price, 0.00 = temporarily removed from sale
+            $table->decimal('price', 14, 6)->nullable();
             $table->decimal('cost_price', 14, 6)->nullable();
             $table->decimal('sale_price', 14, 6)->nullable();
 

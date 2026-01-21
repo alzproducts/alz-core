@@ -39,6 +39,38 @@ None needed currently. Use `external_id` for precise customer lookup.
 
 ---
 
+## BasicProductInterface and ProductVariation
+
+**Added:** 2026-01-21
+**Severity:** Low
+**Impact:** ProductVariation cannot share polymorphism with Product for pricing operations
+
+### Problem
+
+ShopWired variations can have nullable prices with special semantics:
+- `null` = inherit parent product's price
+- `0.00` = temporarily removed from sale
+
+This creates semantic issues with `BasicProductInterface` methods like `isOnSale()` and `effectivePrice()` which require the parent product's context to resolve correctly when price is null.
+
+### Symptoms
+
+- `ProductVariation` does not implement `BasicProductInterface`
+- Cannot use unified `BasicProductInterface` type for both Products and Variations
+- Methods like `isOnSale()` would return incorrect results without parent context
+
+### Workarounds
+
+ProductVariation has its own standalone methods (`price()`, `salePrice()`, etc.) that return nullable values. Callers must handle the null case by looking up the parent product's price.
+
+### Future Fix Options
+
+1. **Add parent-aware methods** — `effectivePriceWithParent(Product $parent): float`
+2. **Create VariationWithParent wrapper** — Composite object that holds both variation and parent
+3. **Accept limitation** — Keep interfaces separate, document the difference (current approach)
+
+---
+
 ## Template
 
 ```markdown

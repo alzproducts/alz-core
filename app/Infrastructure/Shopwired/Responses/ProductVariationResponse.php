@@ -28,12 +28,13 @@ use Spatie\LaravelData\Mappers\SnakeCaseMapper;
 final class ProductVariationResponse extends Data implements DomainConvertibleChildInterface
 {
     /**
+     * @param ?float $price null = inherit parent price, 0.00 = temporarily removed from sale
      * @param list<ProductVariationOptionResponse> $values API returns "values" not "options"
      */
     public function __construct(
         public readonly int $id,
         public readonly ?string $sku,
-        public readonly float $price,
+        public readonly ?float $price,
         public readonly ?float $costPrice,
         public readonly ?float $salePrice,
         public readonly int $stock,

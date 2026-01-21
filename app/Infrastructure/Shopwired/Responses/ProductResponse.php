@@ -24,7 +24,7 @@ final class ProductResponse extends Data
     /**
      * @param list<ProductVariationResponse> $variations
      * @param list<ProductImageResponse> $images
-     * @param list<int> $categoryIds
+     * @param list<array{id: int, title: string, ...}> $categories Raw category objects from embed
      * @param array<string, mixed> $customFields Raw custom fields from API (name => value)
      */
     public function __construct(
@@ -68,7 +68,20 @@ final class ProductResponse extends Data
         public readonly array $variations = [],
         #[DataCollectionOf(ProductImageResponse::class)]
         public readonly array $images = [],
-        public readonly array $categoryIds = [],
+        public readonly array $categories = [],
         public readonly array $customFields = [],
     ) {}
+
+    /**
+     * Extract category IDs from embedded category objects.
+     *
+     * @return list<int>
+     */
+    public function getCategoryIds(): array
+    {
+        return \array_map(
+            static fn(array $category): int => $category['id'],
+            $this->categories,
+        );
+    }
 }

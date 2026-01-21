@@ -75,7 +75,7 @@ final readonly class ProductClient implements ProductClientInterface
         'updatedAt',
         'variations',
         'images',
-        'categoryIds',
+        'categories',
         'customFields',
     ];
 

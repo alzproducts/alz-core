@@ -7,9 +7,9 @@ namespace App\Infrastructure\Shopwired\Repositories;
 use App\Application\Contracts\DatabaseGatewayInterface;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
-use App\Domain\Catalog\Product\Contracts\BasicProductInterface;
 use App\Domain\Catalog\Product\Exceptions\MissingVariationSkuException;
 use App\Domain\Catalog\Product\ValueObjects\Product;
+use App\Domain\Catalog\Product\ValueObjects\ProductVariation;
 use App\Domain\Exceptions\DatabaseOperationFailedException;
 use App\Domain\Exceptions\DuplicateRecordException;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
@@ -132,9 +132,9 @@ final class EloquentProductRepository extends AbstractShopwiredEloquentRepositor
      * @throws ExternalServiceUnavailableException
      * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
      */
-    public function getBasicProductBySku(string $sku): BasicProductInterface
+    public function getBasicProductBySku(string $sku): Product|ProductVariation
     {
-        return $this->gateway->query(function () use ($sku): BasicProductInterface {
+        return $this->gateway->query(function () use ($sku): Product|ProductVariation {
             // Try product master SKU first
             /** @var ProductModel|null $product */
             $product = self::MODEL_CLASS::query()

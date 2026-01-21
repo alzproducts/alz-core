@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Domain\Catalog\Product\ValueObjects;
 
-use App\Domain\Catalog\Product\Concerns\BasicProductTrait;
-use App\Domain\Catalog\Product\Contracts\BasicProductInterface;
 use App\Domain\Catalog\Product\Exceptions\MissingVariationSkuException;
 use Webmozart\Assert\Assert;
 
@@ -15,18 +13,23 @@ use Webmozart\Assert\Assert;
  * Represents a purchasable variant of a product (e.g., "Large, Red").
  * Contains pricing, stock, and option attributes.
  *
+ * **Pricing Semantics**:
+ * - `price = null` → Inherit parent product's price
+ * - `price = 0.00` → Temporarily removed from sale
+ *
  * **External ID Instability**: Unlike parent products, variation external IDs
  * (`$id`) can change when product options are regenerated, variants are deleted
  * and recreated, or product structure is modified in ShopWired. Do NOT rely on
  * variation external_id for long-term tracking or analytics. Use SKU as the
  * stable identifier for variations.
  *
+ * NOTE: Does not implement BasicProductInterface due to nullable price semantics.
+ * See .ai/docs/known-issues.md "BasicProductInterface and ProductVariation".
+ *
  * @see https://shopwired.readme.io/reference/getproduct
  */
-final readonly class ProductVariation implements BasicProductInterface
+final readonly class ProductVariation
 {
-    use BasicProductTrait;
-
     /** @var string Variation SKU (stable identifier - REQUIRED for all purchasable variants) */
     public string $sku;
 
@@ -34,7 +37,7 @@ final readonly class ProductVariation implements BasicProductInterface
      * @param int $id ShopWired variation ID (unstable - see class docblock)
      * @param int $productExternalId Parent product's ShopWired ID (for sync key)
      * @param string|null $sku Variation SKU - validated and assigned to property
-     * @param float $price Selling price
+     * @param float|null $price Selling price (null = inherit parent price, 0.00 = temporarily removed from sale)
      * @param float|null $costPrice Cost/wholesale price
      * @param float|null $salePrice Discounted price (null = no sale)
      * @param int $stock Stock quantity
@@ -50,7 +53,7 @@ final readonly class ProductVariation implements BasicProductInterface
         public int $id,
         public int $productExternalId,
         ?string $sku,
-        public float $price,
+        public ?float $price,
         public ?float $costPrice,
         public ?float $salePrice,
         public int $stock,
@@ -62,7 +65,7 @@ final readonly class ProductVariation implements BasicProductInterface
     ) {
         Assert::greaterThan($id, 0, 'Variation ID must be positive');
         Assert::greaterThan($productExternalId, 0, 'Product external ID must be positive');
-        Assert::greaterThanEq($price, 0, 'Price cannot be negative');
+        Assert::nullOrGreaterThanEq($price, 0, 'Price cannot be negative');
         // Note: Stock can be negative in ShopWired (e.g., backorders)
 
         $sku = $sku !== null ? \mb_trim($sku) : null;
@@ -74,14 +77,12 @@ final readonly class ProductVariation implements BasicProductInterface
         $this->sku = $sku;
     }
 
-    // BasicProductInterface implementation (isOnSale, effectivePrice provided by BasicProductTrait)
-
     public function sku(): string
     {
         return $this->sku;
     }
 
-    public function price(): float
+    public function price(): ?float
     {
         return $this->price;
     }

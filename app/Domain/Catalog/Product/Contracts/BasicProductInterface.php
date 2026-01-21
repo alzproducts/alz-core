@@ -15,6 +15,11 @@ namespace App\Domain\Catalog\Product\Contracts;
  * - `getBasicProductBySku()` returning either Product or Variation
  * - Unified pricing displays in carts/listings
  * - Stock availability checks
+ *
+ * TODO: Expand to include ProductVariation. Currently blocked because ShopWired variations
+ * can have nullable prices (null = inherit parent price, 0.00 = removed from sale).
+ * This creates semantic issues with isOnSale() and effectivePrice() requiring parent context.
+ * See: .ai/docs/known-issues.md "BasicProductInterface and ProductVariation"
  */
 interface BasicProductInterface
 {

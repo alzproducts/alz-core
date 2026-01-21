@@ -40,3 +40,13 @@ Orders use Standard vs Detail modes:
 - **Detail**: Complete data (all fields)
 
 See `OrderClient.php` constants: `STANDARD_FIELDS`, `DETAIL_FIELDS`, `STANDARD_EMBEDS`, `DETAIL_EMBEDS`.
+
+## Embed Return Formats
+
+**Embeds return different formats depending on the embed type.** Always check API documentation for each embed.
+
+Examples:
+- `categories` embed → returns full category objects `[{id, title, ...}]`
+- Other embeds may return ID arrays, nested objects, or different structures
+
+When adding a new embed, verify the actual response structure before writing the DTO.

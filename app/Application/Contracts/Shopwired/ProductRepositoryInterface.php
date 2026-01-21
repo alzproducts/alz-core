@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Application\Contracts\Shopwired;
 
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
-use App\Domain\Catalog\Product\Contracts\BasicProductInterface;
 use App\Domain\Catalog\Product\ValueObjects\Product;
+use App\Domain\Catalog\Product\ValueObjects\ProductVariation;
 use App\Domain\Exceptions\DatabaseOperationFailedException;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\ResourceNotFoundException;
@@ -54,16 +54,16 @@ interface ProductRepositoryInterface extends ShopwiredRepositoryInterface
      * Get a product or variation by SKU.
      *
      * Searches both products (master SKU) and variations (variant SKU).
-     * Returns whichever matches first via the common BasicProductInterface.
+     * Returns whichever matches first.
      *
-     * Use this when you need basic product data (pricing, stock, identification)
-     * without caring whether it's a parent product or a specific variation.
+     * Use this when you need to look up by SKU without knowing whether
+     * it's a parent product or a specific variation.
      *
      * @throws ResourceNotFoundException When no product or variation matches the SKU
      * @throws DatabaseOperationFailedException On query failure
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      */
-    public function getBasicProductBySku(string $sku): BasicProductInterface;
+    public function getBasicProductBySku(string $sku): Product|ProductVariation;
 
     /**
      * Get a full product by SKU with typed custom fields.

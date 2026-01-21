@@ -25,7 +25,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $product_external_id Parent product's ShopWired ID (stable sync key)
  * @property int $external_id ShopWired variation ID
  * @property string|null $sku Variation SKU
- * @property float $price Selling price
+ * @property float|null $price Selling price (null = inherit parent, 0.00 = removed from sale)
  * @property float|null $cost_price Cost/wholesale price
  * @property float|null $sale_price Discounted price
  * @property int $stock Stock quantity
