@@ -197,6 +197,8 @@ Schedule::job(new SyncShopwiredOrdersJob(maxPages: 1))
 // Mixpanel Order Sync: Nightly backend sync for orders missed by frontend
 // Catches orders not tracked by JS SDK (ad blockers, JS errors, page abandonment)
 // Uses 3-tier resilience: nightly (operational), weekly (catch-up)
+// Uses multi-hash matching to detect orders tracked with different hash variations
+// (SHA-256/Base64 algorithms, configured/fallback salts) - see Issue #134
 // ============================================================================
 
 // TEMPORARILY DISABLED: Duplicate events bug - see Issue #134

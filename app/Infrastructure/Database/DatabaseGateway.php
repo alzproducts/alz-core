@@ -121,7 +121,8 @@ final readonly class DatabaseGateway implements DatabaseGatewayInterface
 
     private function handleUniqueConstraint(UniqueConstraintViolationException $e): DuplicateRecordException
     {
-        $this->logger->warning('Unique constraint violation', [
+        // Info level: duplicates are expected during idempotent sync operations
+        $this->logger->info('Unique constraint violation', [
             'service' => self::SERVICE_NAME,
             'sql' => $e->getSql(),
             'code' => $e->getCode(),

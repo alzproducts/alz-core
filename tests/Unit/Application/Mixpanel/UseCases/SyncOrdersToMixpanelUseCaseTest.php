@@ -237,4 +237,141 @@ final class SyncOrdersToMixpanelUseCaseTest extends TestCase
             countryId: 1,
         );
     }
+
+    private function createOrderWithDate(int $customerId, int $reference, DateTimeImmutable $orderPlacedAt): Order
+    {
+        return new Order(
+            id: $reference,
+            reference: $reference,
+            orderPlacedAt: $orderPlacedAt,
+            total: 100.0,
+            subTotalNet: 90.0,
+            shippingTotalNet: 10.0,
+            originalShippingTotalNet: 10.0,
+            paymentMethod: PaymentMethod::Card,
+            comments: '',
+            marketing: false,
+            hasVatRelief: false,
+            isArchived: false,
+            isAnonymized: false,
+            lineItemVatCalculation: false,
+            status: new OrderStatus(1, OrderStatusType::Completed, 'paid', 0),
+            customer: new OrderCustomer($customerId, 0, null, []),
+            shipping: null,
+            billingAddress: $this->createAddress(),
+            shippingAddress: $this->createAddress(),
+            preOrderStatus: PreOrderStatus::None,
+        );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Multi-Hash Matching Tests (Issue #134 - Fallback Salt Bug)
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function skips_orders_with_fallback_salt_hash(): void
+    {
+        $from = new DateTimeImmutable('-30 days');
+        $to = new DateTimeImmutable('-7 days');
+
+        // Order placed at specific time (used for fallback salt calculation)
+        $orderPlacedAt = new DateTimeImmutable('2026-01-21 09:00:00 UTC');
+        $order = $this->createOrderWithDate(1, 10001, $orderPlacedAt);
+
+        // Generate hash using FALLBACK salt (frontend bug scenario)
+        $fallbackSalt = 'alz-' . $orderPlacedAt->getTimestamp();
+        $fallbackHash = \hash('sha256', $order->reference . $fallbackSalt);
+
+        $this->mixpanel->shouldReceive('getExistingOrderHashes')->andReturn([$fallbackHash]);
+        $this->orderRepository->shouldReceive('getOrdersInDateRange')->andReturn([$order]);
+
+        $result = $this->useCase->execute($from, $to);
+
+        // Order should be skipped (detected via fallback salt hash)
+        $this->assertSame(1, $result->ordersInRange);
+        $this->assertSame(1, $result->skipped);
+        $this->assertSame(0, $result->synced);
+    }
+
+    #[Test]
+    public function skips_orders_with_legacy_base64_hash(): void
+    {
+        $from = new DateTimeImmutable('-30 days');
+        $to = new DateTimeImmutable('-7 days');
+
+        $orderPlacedAt = new DateTimeImmutable('2026-01-21 09:00:00 UTC');
+        $order = $this->createOrderWithDate(1, 10001, $orderPlacedAt);
+
+        // Generate hash using LEGACY BASE64 algorithm (old browser scenario)
+        $input = $order->reference . $this->salt;
+        $base64 = \base64_encode($input);
+        $stripped = \preg_replace('/[^a-zA-Z0-9]/', '', $base64);
+        $legacyHash = \mb_substr($stripped, 0, 32);
+
+        $this->mixpanel->shouldReceive('getExistingOrderHashes')->andReturn([$legacyHash]);
+        $this->orderRepository->shouldReceive('getOrdersInDateRange')->andReturn([$order]);
+
+        $result = $this->useCase->execute($from, $to);
+
+        // Order should be skipped (detected via legacy base64 hash)
+        $this->assertSame(1, $result->ordersInRange);
+        $this->assertSame(1, $result->skipped);
+        $this->assertSame(0, $result->synced);
+    }
+
+    #[Test]
+    public function skips_orders_with_legacy_base64_fallback_salt_hash(): void
+    {
+        $from = new DateTimeImmutable('-30 days');
+        $to = new DateTimeImmutable('-7 days');
+
+        $orderPlacedAt = new DateTimeImmutable('2026-01-21 09:00:00 UTC');
+        $order = $this->createOrderWithDate(1, 10001, $orderPlacedAt);
+
+        // Generate hash using LEGACY BASE64 + FALLBACK SALT (old browser + frontend bug)
+        $fallbackSalt = 'alz-' . $orderPlacedAt->getTimestamp();
+        $input = $order->reference . $fallbackSalt;
+        $base64 = \base64_encode($input);
+        $stripped = \preg_replace('/[^a-zA-Z0-9]/', '', $base64);
+        $legacyFallbackHash = \mb_substr($stripped, 0, 32);
+
+        $this->mixpanel->shouldReceive('getExistingOrderHashes')->andReturn([$legacyFallbackHash]);
+        $this->orderRepository->shouldReceive('getOrdersInDateRange')->andReturn([$order]);
+
+        $result = $this->useCase->execute($from, $to);
+
+        // Order should be skipped (detected via legacy + fallback hash)
+        $this->assertSame(1, $result->ordersInRange);
+        $this->assertSame(1, $result->skipped);
+        $this->assertSame(0, $result->synced);
+    }
+
+    #[Test]
+    public function syncs_orders_not_matching_any_hash_variation(): void
+    {
+        $from = new DateTimeImmutable('-30 days');
+        $to = new DateTimeImmutable('-7 days');
+
+        $orderPlacedAt = new DateTimeImmutable('2026-01-21 09:00:00 UTC');
+        $order = $this->createOrderWithDate(1, 10001, $orderPlacedAt);
+
+        // Completely unrelated hash (order not in Mixpanel at all)
+        $unrelatedHash = 'completely_different_hash_that_will_not_match';
+
+        $this->mixpanel->shouldReceive('getExistingOrderHashes')->andReturn([$unrelatedHash]);
+        $this->orderRepository->shouldReceive('getOrdersInDateRange')->andReturn([$order]);
+        $this->customerRepository->shouldReceive('getTradeStatusByIds')
+            ->with([1])
+            ->andReturn([1 => false]);
+        $this->mixpanel->shouldReceive('importOrders')->once();
+
+        $result = $this->useCase->execute($from, $to);
+
+        // Order should be synced (not found under any hash variation)
+        $this->assertSame(1, $result->ordersInRange);
+        $this->assertSame(0, $result->skipped);
+        $this->assertSame(1, $result->synced);
+    }
 }
