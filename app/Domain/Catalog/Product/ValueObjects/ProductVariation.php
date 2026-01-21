@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Domain\Catalog\Product\ValueObjects;
 
-use App\Domain\Catalog\Product\Exceptions\MissingVariationSkuException;
 use Webmozart\Assert\Assert;
 
 /**
@@ -23,6 +22,10 @@ use Webmozart\Assert\Assert;
  * variation external_id for long-term tracking or analytics. Use SKU as the
  * stable identifier for variations.
  *
+ * **SKU Nullable**: SKU can be null for legacy/inactive products that lack SKUs
+ * in ShopWired. Active purchasable variants should always have SKUs.
+ * See .ai/docs/known-issues.md "Product Variations with Missing SKUs".
+ *
  * NOTE: Does not implement BasicProductInterface due to nullable price semantics.
  * See .ai/docs/known-issues.md "BasicProductInterface and ProductVariation".
  *
@@ -30,13 +33,13 @@ use Webmozart\Assert\Assert;
  */
 final readonly class ProductVariation
 {
-    /** @var string Variation SKU (stable identifier - REQUIRED for all purchasable variants) */
-    public string $sku;
+    /** @var string|null Variation SKU (stable identifier - should be set for purchasable variants) */
+    public ?string $sku;
 
     /**
      * @param int $id ShopWired variation ID (unstable - see class docblock)
      * @param int $productExternalId Parent product's ShopWired ID (for sync key)
-     * @param string|null $sku Variation SKU - validated and assigned to property
+     * @param string|null $sku Variation SKU (nullable for legacy data - see class docblock)
      * @param float|null $price Selling price (null = inherit parent price, 0.00 = temporarily removed from sale)
      * @param float|null $costPrice Cost/wholesale price
      * @param float|null $salePrice Discounted price (null = no sale)
@@ -46,8 +49,6 @@ final readonly class ProductVariation
      * @param string|null $mpn Manufacturer Part Number
      * @param int|null $imageIndex Index into parent product's images array (null = no image)
      * @param list<ProductVariationOption> $options Option attributes (e.g., Size, Color)
-     *
-     * @throws MissingVariationSkuException When SKU is null or empty
      */
     public function __construct(
         public int $id,
@@ -68,16 +69,11 @@ final readonly class ProductVariation
         Assert::nullOrGreaterThanEq($price, 0, 'Price cannot be negative');
         // Note: Stock can be negative in ShopWired (e.g., backorders)
 
-        $sku = $sku !== null ? \mb_trim($sku) : null;
-
-        if ($sku === null || $sku === '') {
-            throw new MissingVariationSkuException($id, $productExternalId);
-        }
-
-        $this->sku = $sku;
+        // Trim whitespace, treat whitespace-only as null
+        $this->sku = $sku !== null && \mb_trim($sku) !== '' ? \mb_trim($sku) : null;
     }
 
-    public function sku(): string
+    public function sku(): ?string
     {
         return $this->sku;
     }

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Shopwired\Models;
 
-use App\Domain\Catalog\Product\Exceptions\MissingVariationSkuException;
 use App\Domain\Catalog\Product\ValueObjects\Gtin;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariation;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariationOption;
@@ -88,9 +87,6 @@ final class ProductVariationModel extends Model implements EloquentDomainMappabl
     // Domain Mapping (manual - has complex transformations)
     // ─────────────────────────────────────────────────────────────────────────
 
-    /**
-     * @throws MissingVariationSkuException When stored SKU is null/empty (data integrity issue)
-     */
     public function toDomain(): ProductVariation
     {
         return new ProductVariation(

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Shopwired\Factories;
 
-use App\Domain\Catalog\Product\Exceptions\MissingVariationSkuException;
 use App\Domain\Catalog\Product\ValueObjects\Gtin;
 use App\Domain\Catalog\Product\ValueObjects\Product;
 use App\Domain\Catalog\Product\ValueObjects\ProductImage;
@@ -68,7 +67,7 @@ final class ProductDomainFactory
     }
 
     /**
-     * Build variations, logging and skipping any with missing SKUs.
+     * Build variations, logging any with missing SKUs.
      *
      * @param list<ProductVariationResponse> $variations
      *
@@ -79,15 +78,18 @@ final class ProductDomainFactory
         $result = [];
 
         foreach ($variations as $variation) {
-            try {
-                $result[] = $variation->toDomain($productExternalId);
-            } catch (MissingVariationSkuException $e) {
-                Log::error('Skipping product variation with missing SKU - fix in ShopWired admin', [
-                    'variation_id' => $e->variationId,
-                    'product_external_id' => $e->productExternalId,
+            $domainVariation = $variation->toDomain($productExternalId);
+
+            // Log missing SKUs as notice (data quality issue, not blocking)
+            if ($domainVariation->sku === null) {
+                Log::notice('Product variation has missing SKU - consider fixing in ShopWired admin', [
+                    'variation_id' => $domainVariation->id,
+                    'product_external_id' => $productExternalId,
                     'options' => $this->buildOptionsDisplayString($variation),
                 ]);
             }
+
+            $result[] = $domainVariation;
         }
 
         return $result;

@@ -34,8 +34,9 @@ return new class extends Migration {
             // Composite unique: variation within its product (stable external IDs)
             $table->unique(['product_external_id', 'external_id']);
 
-            // Identity - SKU is REQUIRED for all purchasable variants (unique across all SKUs)
-            $table->string('sku', 100)->unique();
+            // Identity - SKU should be set for purchasable variants but nullable for legacy data
+            // Partial unique index ensures non-null SKUs are unique across the system
+            $table->string('sku', 100)->nullable();
 
             // Pricing (6dp precision)
             // price: null = inherit parent price, 0.00 = temporarily removed from sale
@@ -61,10 +62,17 @@ return new class extends Migration {
             $table->timestampTz('created_at');
             $table->timestampTz('updated_at');
 
-            // Indexes (sku already indexed via unique constraint)
+            // Indexes
             $table->index('product_id');
             $table->index('product_external_id');
         });
+
+        // Partial unique index on SKU - only non-null values must be unique
+        DB::statement('
+            CREATE UNIQUE INDEX product_variations_sku_unique
+            ON shopwired.product_variations (sku)
+            WHERE sku IS NOT NULL
+        ');
 
         // Partial unique index on GTIN (barcode) - only non-null values must be unique
         DB::statement('

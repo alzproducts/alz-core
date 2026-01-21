@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Domain\Catalog\Product\ValueObjects;
 
-use App\Domain\Catalog\Product\Exceptions\MissingVariationSkuException;
 use App\Domain\Catalog\Product\ValueObjects\Gtin;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariation;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariationOption;
@@ -16,9 +15,9 @@ use PHPUnit\Framework\TestCase;
 /**
  * Tests for ProductVariation value object validation and business logic.
  *
- * Key business rule: All purchasable variants MUST have an SKU for inventory
- * tracking and order fulfillment. Missing SKU is a data quality issue in
- * ShopWired that must be fixed by the user.
+ * Note: SKU is nullable to support legacy products without SKUs.
+ * Active purchasable variants should have SKUs for inventory tracking.
+ * See .ai/docs/known-issues.md "Product Variations with Missing SKUs".
  */
 #[CoversClass(ProductVariation::class)]
 final class ProductVariationTest extends TestCase
@@ -113,40 +112,37 @@ final class ProductVariationTest extends TestCase
     }
 
     // ========================================================================
-    // SKU Requirement - Business Rule
+    // SKU Handling - Nullable for Legacy Data
     // ========================================================================
 
     #[Test]
-    public function it_throws_missing_sku_exception_for_null_sku(): void
+    public function it_allows_null_sku_for_legacy_data(): void
     {
-        // Assert
-        $this->expectException(MissingVariationSkuException::class);
-        $this->expectExceptionMessage('Product variation 1001 (parent product 12345) is missing required SKU');
-
         // Act
-        self::createVariation(['sku' => null]);
+        $variation = self::createVariation(['sku' => null]);
+
+        // Assert
+        self::assertNull($variation->sku);
     }
 
     #[Test]
-    public function it_throws_missing_sku_exception_for_empty_sku(): void
+    public function it_treats_empty_sku_as_null(): void
     {
-        // Assert
-        $this->expectException(MissingVariationSkuException::class);
-
         // Act
-        self::createVariation(['sku' => '']);
+        $variation = self::createVariation(['sku' => '']);
+
+        // Assert - empty string normalized to null
+        self::assertNull($variation->sku);
     }
 
     #[Test]
-    public function it_throws_missing_sku_exception_for_whitespace_only_sku(): void
+    public function it_treats_whitespace_only_sku_as_null(): void
     {
-        // SKU is trimmed before validation, so whitespace-only is treated as empty
-
-        // Assert
-        $this->expectException(MissingVariationSkuException::class);
-
         // Act
-        self::createVariation(['sku' => '   ']);
+        $variation = self::createVariation(['sku' => '   ']);
+
+        // Assert - whitespace-only normalized to null
+        self::assertNull($variation->sku);
     }
 
     #[Test]
@@ -157,37 +153,6 @@ final class ProductVariationTest extends TestCase
 
         // Assert - SKU should be trimmed
         self::assertSame('ABC-123', $variation->sku);
-    }
-
-    #[Test]
-    public function missing_sku_exception_contains_context(): void
-    {
-        // Arrange
-        $variationId = 9999;
-        $productExternalId = 88888;
-
-        try {
-            new ProductVariation(
-                id: $variationId,
-                productExternalId: $productExternalId,
-                sku: null,
-                price: 10.00,
-                costPrice: null,
-                salePrice: null,
-                stock: 0,
-                weight: null,
-                gtin: null,
-                mpn: null,
-                imageIndex: null,
-            );
-            self::fail('Expected MissingVariationSkuException');
-        } catch (MissingVariationSkuException $e) {
-            // Assert - exception should contain IDs for debugging
-            self::assertSame($variationId, $e->variationId);
-            self::assertSame($productExternalId, $e->productExternalId);
-            self::assertStringContainsString('9999', $e->getMessage());
-            self::assertStringContainsString('88888', $e->getMessage());
-        }
     }
 
     // ========================================================================

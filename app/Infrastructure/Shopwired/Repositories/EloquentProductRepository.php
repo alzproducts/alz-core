@@ -7,7 +7,6 @@ namespace App\Infrastructure\Shopwired\Repositories;
 use App\Application\Contracts\DatabaseGatewayInterface;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
-use App\Domain\Catalog\Product\Exceptions\MissingVariationSkuException;
 use App\Domain\Catalog\Product\ValueObjects\Product;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariation;
 use App\Domain\Exceptions\DatabaseOperationFailedException;
@@ -153,17 +152,7 @@ final class EloquentProductRepository extends AbstractShopwiredEloquentRepositor
                 ->first();
 
             if ($variation !== null) {
-                try {
-                    return $variation->toDomain();
-                } catch (MissingVariationSkuException $e) {
-                    // Data integrity issue - should never happen if sync validation works.
-                    // Log and treat as not found rather than propagating an "impossible" exception.
-                    Log::error('Variation in database has null SKU - data integrity issue', [
-                        'variation_id' => $e->variationId,
-                        'product_external_id' => $e->productExternalId,
-                        'searched_sku' => $sku,
-                    ]);
-                }
+                return $variation->toDomain();
             }
 
             throw new ResourceNotFoundException('Database', 'Product or Variation', $sku);

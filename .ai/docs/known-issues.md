@@ -71,6 +71,42 @@ ProductVariation has its own standalone methods (`price()`, `salePrice()`, etc.)
 
 ---
 
+## Product Variations with Missing SKUs
+
+**Added:** 2026-01-22
+**Severity:** Low
+**Impact:** ~1,000 variations across 19 products lack SKUs, mostly on inactive/legacy products
+
+### Problem
+
+ShopWired allows variations to exist without SKUs. While active purchasable variants should always have SKUs for inventory tracking, legacy and inactive products in our catalog have variations missing this data.
+
+### Symptoms
+
+- `Log::notice()` entries during product sync: "Product variation has missing SKU"
+- These variations sync successfully but have `sku = null` in the database
+- Cannot be looked up by SKU (obviously)
+
+### Affected Products
+
+Main offenders (by variation count):
+- Product 5585555: 480 variations
+- Product 2979152: 140 variations
+- Product 2979171, 2979170, 2979167: 128 each
+- 14 other products with 4 variations each
+
+### Workarounds
+
+SKU is now nullable in the domain model. Variations without SKUs sync successfully but are logged at `notice` level for visibility. Callers looking up by SKU will not find these variations.
+
+### Future Fix Options
+
+1. **Clean up in ShopWired** — Add SKUs to active products that need them
+2. **Filter by active status** — Only sync active products (may miss needed inactive data)
+3. **Accept limitation** — Legacy data stays as-is, new products require SKUs in ShopWired (current approach)
+
+---
+
 ## Template
 
 ```markdown

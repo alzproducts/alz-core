@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Shopwired\Responses;
 
-use App\Domain\Catalog\Product\Exceptions\MissingVariationSkuException;
 use App\Domain\Catalog\Product\ValueObjects\Gtin;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariation;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariationOption;
@@ -51,8 +50,6 @@ final class ProductVariationResponse extends Data implements DomainConvertibleCh
      * Convert to domain value object.
      *
      * @param int|string $parentId Parent product's ShopWired ID (required for sync key)
-     *
-     * @throws MissingVariationSkuException When variation has null/empty SKU
      */
     public function toDomain(int|string $parentId): ProductVariation
     {
