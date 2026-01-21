@@ -211,6 +211,72 @@ Does entire directory follow same pattern?
 
 ---
 
+## shipmonk.checkedExceptionInYieldingMethod
+
+### What It Means
+
+PHPStan's ShipMonk rule flags checked exceptions thrown inside generator methods (methods using `yield`). The concern is that exceptions in generators throw **during iteration**, not at method call time. Callers might misplace try/catch blocks:
+
+```php
+// WRONG - exceptions escape uncaught:
+try {
+    $generator = $repo->streamAll();  // Returns immediately, no exception
+} catch (...) { }
+foreach ($generator as $item) { ... }  // Exception throws HERE
+
+// CORRECT:
+try {
+    foreach ($repo->streamAll() as $item) { ... }
+} catch (...) { }
+```
+
+### When It Triggers
+
+- Methods that use `yield` keyword
+- The yielded code path can throw checked exceptions
+- Common in repository/client streaming methods
+
+### Solution: Path-based Ignore + Docblock Update
+
+1. **Update the docblock** to clarify iteration-time exceptions:
+
+```php
+/**
+ * IMPORTANT: Exceptions throw during iteration, not at method call.
+ * Wrap the foreach loop in try/catch, not the streamAll() call.
+ *
+ * @throws SomeException During iteration - description
+ */
+public function streamAll(): Generator
+```
+
+2. **Add to path-based ignore** in phpstan.neon:
+
+```yaml
+ignoreErrors:
+  # Generator methods throw during iteration, not creation.
+  # Docblocks document this with "During iteration" prefix.
+  -
+    identifier: shipmonk.checkedExceptionInYieldingMethod
+    paths:
+      - app/Infrastructure/Shopwired/Clients/CustomerClient.php
+      - app/Infrastructure/Shopwired/Repositories/EloquentProductRepository.php
+```
+
+### Why This Approach
+
+- **Docblock update is mandatory** — prevents silent suppression, documents behavior for callers
+- **Path-based ignore is acceptable** — PHPStan can't express "throws during iteration" semantics
+- **Alternative (callback API)** — `forEachProduct(callable)` makes exceptions synchronous but changes ergonomics
+
+### Codebase Examples
+
+- `app/Application/Contracts/Shopwired/ProductRepositoryInterface.php` - Interface docblock pattern
+- `app/Infrastructure/Shopwired/Repositories/EloquentProductRepository.php` - Implementation
+- `phpstan.neon` - Path-based ignore configuration
+
+---
+
 ## missingType.checkedException (with @param-immediately-invoked-callable)
 
 ### What It Means
