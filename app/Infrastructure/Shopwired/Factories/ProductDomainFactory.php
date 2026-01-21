@@ -128,7 +128,8 @@ final class ProductDomainFactory
      */
     private function buildGtin(?string $gtin, int $productExternalId): ?Gtin
     {
-        if ($gtin === null || $gtin === '') {
+        // 'Does not apply' is a common placeholder in ShopWired for products without GTINs
+        if ($gtin === null || $gtin === '' || $gtin === 'Does not apply') {
             return null;
         }
 

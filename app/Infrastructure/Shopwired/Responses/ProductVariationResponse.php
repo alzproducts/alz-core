@@ -82,7 +82,8 @@ final class ProductVariationResponse extends Data implements DomainConvertibleCh
      */
     private function parseGtin(): ?Gtin
     {
-        if ($this->gtin === null || $this->gtin === '') {
+        // 'Does not apply' is a common placeholder in ShopWired for products without GTINs
+        if ($this->gtin === null || $this->gtin === '' || $this->gtin === 'Does not apply') {
             return null;
         }
 
