@@ -11,7 +11,7 @@ use App\Application\Contracts\MixpanelClientInterface;
 use App\Infrastructure\BingAds\BingAdsClientFactory;
 use App\Infrastructure\BingAds\BingAdsConfig;
 use App\Infrastructure\BingAds\BingAdsSessionManager;
-use App\Presentation\Jobs\SyncBingAdsToMixpanelJob;
+use App\Presentation\Jobs\Mixpanel\SyncBingAdsToMixpanelJob;
 use Illuminate\Contracts\Container\BindingResolutionException;
 use Illuminate\Contracts\Container\Container;
 use Illuminate\Contracts\Support\DeferrableProvider;
