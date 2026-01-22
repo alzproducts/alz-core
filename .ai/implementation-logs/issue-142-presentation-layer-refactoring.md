@@ -13,6 +13,8 @@ Reorganize Presentation layer for scalability with feature-based structure.
 |----------|-----------|------|
 | Single PR for all changes | Namespace changes interconnected, easier to review holistically | 2026-01-23 |
 | Jobs organized by integration | Feature-based grouping (Shopwired/, Mixpanel/, Feeds/, Linnworks/) improves discoverability | 2026-01-23 |
+| Schedule providers use `boot()` with `@throws` | Schedules register at boot time, PHPStan requires checked exception annotations | 2026-01-23 |
+| Re-enabled Mixpanel order sync | Issue #134 fixed, schedules now active | 2026-01-23 |
 
 ---
 
@@ -23,15 +25,15 @@ Reorganize Presentation layer for scalability with feature-based structure.
 - Updated all namespace imports (commands, providers, routes, tests)
 - Moved 5 test files to matching structure
 
-### Stage 1: Extract Schedule Definitions
-- [ ] Create `app/Providers/Schedule/` directory
-- [ ] `ShopwiredScheduleServiceProvider`
-- [ ] `AdsScheduleServiceProvider`
-- [ ] `FeedsScheduleServiceProvider`
-- [ ] `LinnworksScheduleServiceProvider`
-- [ ] `MixpanelScheduleServiceProvider`
-- [ ] Register in `bootstrap/providers.php`
-- [ ] Clean up `routes/console.php`
+### ✅ Stage 1: Extract Schedule Definitions
+- [x] Create `app/Providers/Schedule/` directory
+- [x] `ShopwiredScheduleServiceProvider` (6 schedules: orders + customers × 3 tiers)
+- [x] `AdsScheduleServiceProvider` (7 schedules: campaign lookup + Google 3 + Bing 3)
+- [x] `FeedsScheduleServiceProvider` (1 schedule: DooFinder)
+- [x] `LinnworksScheduleServiceProvider` (1 schedule: stock sync)
+- [x] `MixpanelScheduleServiceProvider` (2 schedules: order sync nightly + weekly)
+- [x] Register in `bootstrap/providers.php`
+- [x] Clean up `routes/console.php` (249 → 19 lines)
 
 ### Stage 2: Auth Consolidation
 - [ ] Move `ValidateSupabaseJwtMiddleware` to `Http/Auth/Middleware/`

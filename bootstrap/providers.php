@@ -15,6 +15,11 @@ use App\Providers\MixpanelServiceProvider;
 use App\Providers\ProductSearchFeedServiceProvider;
 use App\Providers\ReviewsIoServiceProvider;
 use App\Providers\RlsDatabaseServiceProvider;
+use App\Providers\Schedule\AdsScheduleServiceProvider;
+use App\Providers\Schedule\FeedsScheduleServiceProvider;
+use App\Providers\Schedule\LinnworksScheduleServiceProvider;
+use App\Providers\Schedule\MixpanelScheduleServiceProvider;
+use App\Providers\Schedule\ShopwiredScheduleServiceProvider;
 use App\Providers\ShopwiredServiceProvider;
 use App\Providers\StorageServiceProvider;
 use App\Providers\TelescopeServiceProvider;
@@ -35,5 +40,13 @@ return [
     StorageServiceProvider::class,
     DatabaseServiceProvider::class,
     HorizonServiceProvider::class,
+
+    // Schedule providers (must not be deferred - schedules register at boot)
+    AdsScheduleServiceProvider::class,
+    FeedsScheduleServiceProvider::class,
+    LinnworksScheduleServiceProvider::class,
+    MixpanelScheduleServiceProvider::class,
+    ShopwiredScheduleServiceProvider::class,
+
     ...app()->environment('local') ? [TelescopeServiceProvider::class] : [],
 ];
