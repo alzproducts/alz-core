@@ -265,3 +265,22 @@ test('returns 503 when service unavailable', function () {
 - [ ] Have I avoided business logic in Presentation?
 
 **Golden Rule**: Presentation speaks Laravel to framework, business concepts to users.
+
+---
+
+## Directory Organization
+
+**Feature threshold**: Create subdirectory when feature has 2+ related files.
+
+| Location | Contents |
+|----------|----------|
+| `Http/{Feature}/` | Feature-specific middleware, resources |
+| `Http/Middleware/` | Global-only middleware |
+| `Http/Controllers/{Feature}/` | Feature controllers |
+| `Jobs/{Integration}/` | Integration-specific jobs |
+
+## Naming
+
+**Jobs**: `Sync*` (data sync), `Process*` (transform), `Reconcile*` (compare/fix)
+
+**Controllers**: Multi-action `{Feature}Controller`, single-action invokable (`__invoke`)

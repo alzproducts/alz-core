@@ -55,8 +55,9 @@ Reorganize Presentation layer for scalability with feature-based structure.
 - [x] Update routes to use `Route::match(['get', 'post'], ...)`
 - [x] Delete old `HelpScoutController`
 
-### Stage 5: Documentation
-- [ ] Update `app/Presentation/CLAUDE.md`
+### ✅ Stage 5: Documentation
+- [x] Update `app/Presentation/CLAUDE.md` with directory organization and naming conventions
+- [x] Simplify `CLAUDE.md` commit sequence (rely on git hooks, remove redundant manual lint/test)
 
 ---
 
