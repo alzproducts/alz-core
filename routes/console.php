@@ -239,10 +239,10 @@ Schedule::job(new SyncShopwiredOrdersJob(maxPages: 1))
 // Used for inventory lookups and order enrichment
 // ============================================================================
 
-// EVERY 15 MIN: Full stock item sync
-// Keeps inventory data near real-time for order processing and lookups
+// EVERY 8 HOURS: Full stock item sync (00:00, 08:00, 16:00 UTC)
+// Syncs inventory data 3x daily - increase frequency if near-real-time needed
 Schedule::job(new SyncLinnworksStockItemsJob())
     ->name('sync-linnworks-stock-items')
-    ->everyFifteenMinutes()
+    ->cron('0 */8 * * *')
     ->onOneServer()
-    ->withoutOverlapping(20); // 20 min lock - job runs 8-12 min in prod
+    ->withoutOverlapping(60); // 60 min lock - job runs 8-12 min in prod
