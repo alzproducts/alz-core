@@ -105,11 +105,10 @@ See `.ai/implementation-logs/CLAUDE.md` for the full template and guidelines.
 **Proactive commits enabled.** Claude commits and pushes after each logical change. User approves via command approval UI.
 
 ### Commit Sequence
-1. Run `make lint` then `make test`
-2. Verify current branch ≠ `main` or `develop`
-3. Commit with Conventional Commit message
-4. Push immediately
-5. Run `.claude/scripts/refresh-ide.sh` (refreshes JetBrains git panel)
+1. Verify current branch ≠ `main` or `develop`
+2. Commit with Conventional Commit message (git hooks run lint automatically)
+3. Push immediately (git hooks run tests automatically)
+4. Run `.claude/scripts/refresh-ide.sh` (refreshes JetBrains git panel)
 
 **Conventional Commits:** `type(scope): description`
 **Types:** `feat`, `fix`, `refactor`, `test`, `docs`, `chore`, `perf`, `ci`
@@ -118,9 +117,8 @@ See `.ai/implementation-logs/CLAUDE.md` for the full template and guidelines.
 
 | Scenario | Action |
 |----------|--------|
-| Lint/test fails | Fix issue, retry from step 1 |
 | Pre-commit hook fails | Fix issue, retry commit |
-| Push hook fails | Fix, amend commit (local-only), retry push |
+| Pre-push hook fails | Fix, amend commit (local-only), retry push |
 | On protected branch | Report error, await instruction |
 | Merge conflict | Report to user, await instruction |
 

@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
+use App\Presentation\Http\Auth\Middleware\ValidateSupabaseJwtMiddleware;
 use App\Presentation\Http\Middleware\EnsureUserApprovedMiddleware;
 use App\Presentation\Http\Middleware\SetRlsContextMiddleware;
-use App\Presentation\Http\Middleware\ValidateSupabaseJwtMiddleware;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
