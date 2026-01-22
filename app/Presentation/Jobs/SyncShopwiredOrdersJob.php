@@ -66,9 +66,9 @@ final class SyncShopwiredOrdersJob implements ShouldQueue
     /**
      * Job timeout in seconds.
      *
-     * Set to 60 minutes to accommodate full sync of all orders.
+     * Set to 70 minutes to accommodate full sync of all orders with buffer.
      */
-    public int $timeout = 3600;
+    public int $timeout = 4200;
 
     /**
      * Execute the job.

@@ -14,16 +14,16 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\Schedule;
 
 // ============================================================================
-// Helper: Check if currently in ShopWired daily sync window (04:00-06:00 UK)
+// Helper: Check if currently in ShopWired daily sync window (04:00-07:00 UK)
 // Used to skip micro/hourly syncs during full sync to avoid rate limit contention
 // ============================================================================
 $isDuringShopwiredDailySyncWindow = static function (): bool {
     $ukTime = Carbon::now('Europe/London');
     $hour = $ukTime->hour;
 
-    // Daily syncs run at 04:00 (orders) and 05:00 (customers) UK time
-    // Skip micro/hourly during 04:00-05:59 to give full syncs exclusive API access
-    return $hour >= 4 && $hour < 6;
+    // Daily syncs run at 04:00 (orders) and 05:30 (customers) UK time
+    // Skip micro/hourly during 04:00-06:59 to give full syncs exclusive API access
+    return $hour >= 4 && $hour < 7;
 };
 
 // Campaign lookup table sync - runs BEFORE ad spend sync (7:55 AM UTC)
@@ -130,18 +130,18 @@ Schedule::job(new ProcessProductSearchFeedJob())
 // Unlike orders (date-range filtered), customers require full-sync approach
 // ============================================================================
 
-// DAILY: Full customer sync at 5am UK time
-// At 60 req/min rate limit, ~68k customers takes ~45-50 minutes
+// DAILY: Full customer sync at 5:30am UK time (90 min after orders)
+// At 60 req/min rate limit, ~68k customers takes ~45-60 minutes
 // Daily ensures new customers are captured quickly
 Schedule::job(new SyncShopwiredCustomersJob())
     ->name('sync-shopwired-customers-daily')
-    ->dailyAt('05:00')
+    ->dailyAt('05:30')
     ->timezone('Europe/London')
     ->onOneServer()
-    ->withoutOverlapping(60); // 60 min lock - job runs ~45-50 min
+    ->withoutOverlapping(75); // 75 min lock - job timeout is 70 min
 
 // HOURLY: Quick sync of recent customers (5 pages each type, ~1000 customers)
-// Skipped during 04:00-06:00 UK to avoid rate limit contention with daily full sync
+// Skipped during daily sync window (see $isDuringShopwiredDailySyncWindow)
 Schedule::job(new SyncShopwiredCustomersJob(maxTradePages: 5, maxNonTradePages: 5))
     ->name('sync-shopwired-customers-hourly')
     ->hourly()
@@ -151,7 +151,7 @@ Schedule::job(new SyncShopwiredCustomersJob(maxTradePages: 5, maxNonTradePages: 
 
 // EVERY 5 MIN: Micro sync (1 page each type, ~200 customers, ~30s)
 // Keeps customer data near real-time for order processing
-// Skipped during 04:00-06:00 UK to avoid rate limit contention with daily full sync
+// Skipped during daily sync window (see $isDuringShopwiredDailySyncWindow)
 Schedule::job(new SyncShopwiredCustomersJob(maxTradePages: 1, maxNonTradePages: 1))
     ->name('sync-shopwired-customers-micro')
     ->everyFiveMinutes()
@@ -172,10 +172,10 @@ Schedule::job(new SyncShopwiredOrdersJob())
     ->dailyAt('04:00')
     ->timezone('Europe/London')
     ->onOneServer()
-    ->withoutOverlapping(60);
+    ->withoutOverlapping(75); // 75 min lock - job timeout is 70 min
 
 // HOURLY: Quick sync (5 pages, ~500 orders)
-// Skipped during 04:00-06:00 UK to avoid rate limit contention with daily full sync
+// Skipped during daily sync window (see $isDuringShopwiredDailySyncWindow)
 Schedule::job(new SyncShopwiredOrdersJob(maxPages: 5))
     ->name('sync-shopwired-orders-hourly')
     ->hourly()
@@ -185,7 +185,7 @@ Schedule::job(new SyncShopwiredOrdersJob(maxPages: 5))
 
 // EVERY 5 MIN: Micro sync (1 page, ~100 orders)
 // Keeps order data near real-time
-// Skipped during 04:00-06:00 UK to avoid rate limit contention with daily full sync
+// Skipped during daily sync window (see $isDuringShopwiredDailySyncWindow)
 Schedule::job(new SyncShopwiredOrdersJob(maxPages: 1))
     ->name('sync-shopwired-orders-micro')
     ->everyFiveMinutes()
