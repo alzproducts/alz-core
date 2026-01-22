@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Presentation\Http\Middleware;
+namespace App\Presentation\Http\Auth\Middleware;
 
 use App\Application\Auth\TestUserPersonaResolver;
 use App\Domain\Exceptions\InvalidConfigurationException;

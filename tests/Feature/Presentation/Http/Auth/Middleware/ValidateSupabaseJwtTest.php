@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Tests\Feature\Presentation\Http\Middleware;
+namespace Tests\Feature\Presentation\Http\Auth\Middleware;
 
-use App\Presentation\Http\Middleware\ValidateSupabaseJwtMiddleware;
+use App\Presentation\Http\Auth\Middleware\ValidateSupabaseJwtMiddleware;
 use Firebase\JWT\JWT;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;

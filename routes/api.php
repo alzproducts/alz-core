@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 use App\Domain\Access\ValueObjects\AuthenticatedUser;
 use App\Infrastructure\Sentry\SentryUserContextMiddleware;
+use App\Presentation\Http\Auth\Middleware\ValidateSupabaseJwtMiddleware;
 use App\Presentation\Http\Controllers\HelpScoutController;
 use App\Presentation\Http\Middleware\HandleHelpScoutExceptionsMiddleware;
-use App\Presentation\Http\Middleware\ValidateSupabaseJwtMiddleware;
 use Illuminate\Support\Facades\Route;
 
 /*
