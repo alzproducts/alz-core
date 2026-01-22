@@ -263,7 +263,7 @@ railway service list
 railway ssh -s alz-core-worker "php artisan tinker --execute=\"...\""
 
 # Dispatch jobs manually
-railway ssh -s alz-core-worker "php artisan tinker --execute=\"App\\Presentation\\Jobs\\SyncShopwiredCustomersJob::dispatch();\""
+railway ssh -s alz-core-worker "php artisan tinker --execute=\"App\\Presentation\\Jobs\\Shopwired\\SyncShopwiredCustomersJob::dispatch();\""
 
 # Check Horizon status
 railway ssh -s alz-core-worker "php artisan horizon:status"

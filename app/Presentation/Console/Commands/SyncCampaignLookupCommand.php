@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Presentation\Console\Commands;
 
-use App\Presentation\Jobs\SyncCampaignLookupTableJob;
+use App\Presentation\Jobs\Mixpanel\SyncCampaignLookupTableJob;
 use Illuminate\Console\Command;
 
 final class SyncCampaignLookupCommand extends Command
