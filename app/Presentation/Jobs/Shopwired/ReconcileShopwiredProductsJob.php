@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Presentation\Jobs;
+namespace App\Presentation\Jobs\Shopwired;
 
-use App\Application\Shopwired\UseCases\SyncCustomersUseCase;
+use App\Application\Shopwired\UseCases\ReconcileProductsUseCase;
 use App\Domain\Exceptions\AuthenticationExpiredException;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\InvalidApiResponseException;
@@ -17,16 +17,17 @@ use Illuminate\Support\Facades\Log;
 use Throwable;
 
 /**
- * Asynchronously synchronize ShopWired customers to local database.
+ * Asynchronously reconcile ShopWired products (remove orphans).
  *
- * Supports full sync, quick sync, and micro sync modes with page limits.
+ * Compares local product IDs against ShopWired API and removes any
+ * that no longer exist in ShopWired.
  *
  * Usage:
- * - Full sync: SyncShopwiredCustomersJob::dispatch() — daily, ~45 min
- * - Quick sync: SyncShopwiredCustomersJob::dispatch(5, 5) — hourly, ~2 min
- * - Micro sync: SyncShopwiredCustomersJob::dispatch(1, 1) — every 5 min, ~30s
+ * - Reconciliation: ReconcileShopwiredProductsJob::dispatch() — daily overnight
+ *
+ * Schedule: Run after main sync completes to ensure local data is current.
  */
-final class SyncShopwiredCustomersJob implements ShouldQueue
+final class ReconcileShopwiredProductsJob implements ShouldQueue
 {
     use Dispatchable;
     use InteractsWithQueue;
@@ -35,41 +36,32 @@ final class SyncShopwiredCustomersJob implements ShouldQueue
 
     /**
      * Maximum number of attempts before giving up.
-     *
-     * 3 attempts: quick retries for transient issues + 1hr fallback for longer outages.
      */
     public int $tries = 3;
 
     /**
      * Create a new job instance.
-     *
-     * @param int|null $maxTradePages Max trade pages (null = all ~5 pages, 1 page ≈ 100 customers)
-     * @param int|null $maxNonTradePages Max non-trade pages (null = all ~677 pages, 1 page ≈ 100 customers)
      */
-    public function __construct(
-        private readonly ?int $maxTradePages = null,
-        private readonly ?int $maxNonTradePages = null,
-    ) {
+    public function __construct()
+    {
         $this->onQueue('low');
     }
 
     /**
-     * Seconds to wait before retrying.
+     * Seconds to wait before retrying (exponential backoff).
      *
-     * 1min, 5min, 1hr: quick retries catch transient issues, hour delay catches maintenance windows.
-     * For micro syncs (every 5 min), the 1hr retry never fires — next schedule comes first.
+     * Lightweight job (ID comparison only), so short delays.
      *
      * @var array<int>
      */
-    public array $backoff = [60, 300, 3600];
+    public array $backoff = [30, 60, 120];
 
     /**
      * Job timeout in seconds.
      *
-     * Set to 70 minutes to accommodate full sync of ~68k customers with buffer.
-     * Actual runtime observed: ~46-60 minutes for 67,717 customers.
+     * Set to 5 minutes for lightweight ID comparison.
      */
-    public int $timeout = 4200;
+    public int $timeout = 300;
 
     /**
      * Execute the job.
@@ -79,29 +71,30 @@ final class SyncShopwiredCustomersJob implements ShouldQueue
      * @throws AuthenticationExpiredException When credentials invalid (permanent failure)
      * @throws Throwable When unexpected errors occur - indicates code update required
      */
-    public function handle(SyncCustomersUseCase $useCase): void
+    public function handle(ReconcileProductsUseCase $useCase): void
     {
-        $syncType = match (true) {
-            $this->maxTradePages === null && $this->maxNonTradePages === null => 'full',
-            $this->maxTradePages === 1 && $this->maxNonTradePages === 1 => 'micro',
-            default => 'quick',
-        };
-        Log::info("ShopWired customer sync job starting ({$syncType})", [
-            'max_trade_pages' => $this->maxTradePages,
-            'max_non_trade_pages' => $this->maxNonTradePages,
-        ]);
+        Log::info('ShopWired product reconciliation job starting');
 
         try {
-            $result = $useCase->execute($this->maxTradePages, $this->maxNonTradePages);
+            $result = $useCase->execute();
 
-            Log::info('ShopWired customer sync job completed', [
-                'fetched' => $result->fetched,
-                'saved' => $result->saved,
-                'failed' => $result->failed,
+            if ($result->wasSkipped()) {
+                Log::warning('ShopWired product reconciliation job skipped (safety check)', [
+                    'local_count' => $result->localCount,
+                ]);
+
+                return;
+            }
+
+            Log::info('ShopWired product reconciliation job completed', [
+                'api_count' => $result->apiCount,
+                'local_count' => $result->localCount,
+                'orphans_found' => $result->orphansFound,
+                'orphans_deleted' => $result->orphansDeleted,
             ]);
         } catch (InvalidApiResponseException $e) {
             // Permanent failure - API contract changed, code needs updating
-            Log::critical('API response validation failed during ShopWired customer sync', [
+            Log::critical('API response validation failed during ShopWired product reconciliation', [
                 'service' => $e->serviceName,
                 'error' => $e->getMessage(),
                 'attempts' => $this->attempts(),
@@ -111,7 +104,7 @@ final class SyncShopwiredCustomersJob implements ShouldQueue
             throw $e;
         } catch (AuthenticationExpiredException $e) {
             // Permanent failure - credentials need fixing, don't waste retries
-            Log::critical('Authentication failed during ShopWired customer sync', [
+            Log::critical('Authentication failed during ShopWired product reconciliation', [
                 'service' => $e->serviceName,
                 'error' => $e->getMessage(),
                 'attempts' => $this->attempts(),
@@ -120,7 +113,7 @@ final class SyncShopwiredCustomersJob implements ShouldQueue
             $this->fail($e);
             throw $e;
         } catch (ExternalServiceUnavailableException $e) {
-            Log::warning('ShopWired API unavailable during customer sync, will retry', [
+            Log::warning('ShopWired API unavailable during product reconciliation, will retry', [
                 'service' => $e->serviceName,
                 'retry_after' => $e->retryAfter ?? 'using backoff',
                 'attempts' => $this->attempts(),
@@ -134,7 +127,7 @@ final class SyncShopwiredCustomersJob implements ShouldQueue
             }
         } catch (Throwable $e) {
             // Unexpected exception = code needs updating
-            Log::critical('Unexpected exception in ShopWired customer sync - code update required', [
+            Log::critical('Unexpected exception in ShopWired product reconciliation - code update required', [
                 'job' => self::class,
                 'exception' => $e::class,
                 'message' => $e->getMessage(),
@@ -151,9 +144,7 @@ final class SyncShopwiredCustomersJob implements ShouldQueue
      */
     public function failed(Throwable $exception): void
     {
-        Log::error('ShopWired customer sync job failed permanently', [
-            'max_trade_pages' => $this->maxTradePages,
-            'max_non_trade_pages' => $this->maxNonTradePages,
+        Log::error('ShopWired product reconciliation job failed permanently', [
             'exception' => $exception::class,
             'message' => $exception->getMessage(),
             'attempts' => $this->attempts(),

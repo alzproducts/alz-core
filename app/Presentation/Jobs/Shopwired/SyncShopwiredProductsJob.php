@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Presentation\Jobs;
+namespace App\Presentation\Jobs\Shopwired;
 
-use App\Application\Shopwired\UseCases\ReconcileProductsUseCase;
+use App\Application\Shopwired\UseCases\SyncProductsUseCase;
 use App\Domain\Exceptions\AuthenticationExpiredException;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\InvalidApiResponseException;
@@ -17,17 +17,15 @@ use Illuminate\Support\Facades\Log;
 use Throwable;
 
 /**
- * Asynchronously reconcile ShopWired products (remove orphans).
+ * Asynchronously synchronize ShopWired products to local database.
  *
- * Compares local product IDs against ShopWired API and removes any
- * that no longer exist in ShopWired.
+ * Performs full catalog sync only. ShopWired Products API doesn't support
+ * date-based sorting, making incremental sync impractical.
  *
  * Usage:
- * - Reconciliation: ReconcileShopwiredProductsJob::dispatch() — daily overnight
- *
- * Schedule: Run after main sync completes to ensure local data is current.
+ * - Full sync: SyncShopwiredProductsJob::dispatch() — daily, ~2-5 min
  */
-final class ReconcileShopwiredProductsJob implements ShouldQueue
+final class SyncShopwiredProductsJob implements ShouldQueue
 {
     use Dispatchable;
     use InteractsWithQueue;
@@ -37,7 +35,7 @@ final class ReconcileShopwiredProductsJob implements ShouldQueue
     /**
      * Maximum number of attempts before giving up.
      */
-    public int $tries = 3;
+    public int $tries = 5;
 
     /**
      * Create a new job instance.
@@ -50,18 +48,18 @@ final class ReconcileShopwiredProductsJob implements ShouldQueue
     /**
      * Seconds to wait before retrying (exponential backoff).
      *
-     * Lightweight job (ID comparison only), so short delays.
+     * Shorter delays than customers/orders due to faster runtime (~2-5 min).
      *
      * @var array<int>
      */
-    public array $backoff = [30, 60, 120];
+    public array $backoff = [30, 60, 120, 240];
 
     /**
      * Job timeout in seconds.
      *
-     * Set to 5 minutes for lightweight ID comparison.
+     * Set to 15 minutes to accommodate full sync of ~1,500 products.
      */
-    public int $timeout = 300;
+    public int $timeout = 900;
 
     /**
      * Execute the job.
@@ -71,30 +69,21 @@ final class ReconcileShopwiredProductsJob implements ShouldQueue
      * @throws AuthenticationExpiredException When credentials invalid (permanent failure)
      * @throws Throwable When unexpected errors occur - indicates code update required
      */
-    public function handle(ReconcileProductsUseCase $useCase): void
+    public function handle(SyncProductsUseCase $useCase): void
     {
-        Log::info('ShopWired product reconciliation job starting');
+        Log::info('ShopWired product sync job starting');
 
         try {
             $result = $useCase->execute();
 
-            if ($result->wasSkipped()) {
-                Log::warning('ShopWired product reconciliation job skipped (safety check)', [
-                    'local_count' => $result->localCount,
-                ]);
-
-                return;
-            }
-
-            Log::info('ShopWired product reconciliation job completed', [
-                'api_count' => $result->apiCount,
-                'local_count' => $result->localCount,
-                'orphans_found' => $result->orphansFound,
-                'orphans_deleted' => $result->orphansDeleted,
+            Log::info('ShopWired product sync job completed', [
+                'fetched' => $result->fetched,
+                'saved' => $result->saved,
+                'failed' => $result->failed,
             ]);
         } catch (InvalidApiResponseException $e) {
             // Permanent failure - API contract changed, code needs updating
-            Log::critical('API response validation failed during ShopWired product reconciliation', [
+            Log::critical('API response validation failed during ShopWired product sync', [
                 'service' => $e->serviceName,
                 'error' => $e->getMessage(),
                 'attempts' => $this->attempts(),
@@ -104,7 +93,7 @@ final class ReconcileShopwiredProductsJob implements ShouldQueue
             throw $e;
         } catch (AuthenticationExpiredException $e) {
             // Permanent failure - credentials need fixing, don't waste retries
-            Log::critical('Authentication failed during ShopWired product reconciliation', [
+            Log::critical('Authentication failed during ShopWired product sync', [
                 'service' => $e->serviceName,
                 'error' => $e->getMessage(),
                 'attempts' => $this->attempts(),
@@ -113,7 +102,7 @@ final class ReconcileShopwiredProductsJob implements ShouldQueue
             $this->fail($e);
             throw $e;
         } catch (ExternalServiceUnavailableException $e) {
-            Log::warning('ShopWired API unavailable during product reconciliation, will retry', [
+            Log::warning('ShopWired API unavailable during product sync, will retry', [
                 'service' => $e->serviceName,
                 'retry_after' => $e->retryAfter ?? 'using backoff',
                 'attempts' => $this->attempts(),
@@ -127,7 +116,7 @@ final class ReconcileShopwiredProductsJob implements ShouldQueue
             }
         } catch (Throwable $e) {
             // Unexpected exception = code needs updating
-            Log::critical('Unexpected exception in ShopWired product reconciliation - code update required', [
+            Log::critical('Unexpected exception in ShopWired product sync - code update required', [
                 'job' => self::class,
                 'exception' => $e::class,
                 'message' => $e->getMessage(),
@@ -144,7 +133,7 @@ final class ReconcileShopwiredProductsJob implements ShouldQueue
      */
     public function failed(Throwable $exception): void
     {
-        Log::error('ShopWired product reconciliation job failed permanently', [
+        Log::error('ShopWired product sync job failed permanently', [
             'exception' => $exception::class,
             'message' => $exception->getMessage(),
             'attempts' => $this->attempts(),

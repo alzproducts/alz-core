@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Tests\Unit\Presentation\Jobs;
+namespace Tests\Unit\Presentation\Jobs\Mixpanel;
 
 use App\Application\Mixpanel\UseCases\SyncOrdersToMixpanelUseCase;
 use App\Application\Mixpanel\ValueObjects\SyncOrdersToMixpanelResult;
@@ -10,7 +10,7 @@ use App\Domain\Exceptions\AuthenticationExpiredException;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\MissingRequiredDataException;
 use App\Domain\Exceptions\UnexpectedApiResultException;
-use App\Presentation\Jobs\SyncOrdersToMixpanelJob;
+use App\Presentation\Jobs\Mixpanel\SyncOrdersToMixpanelJob;
 use DateTimeImmutable;
 use Illuminate\Support\Facades\Log;
 use Mockery;

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Presentation\Jobs;
+namespace App\Presentation\Jobs\Mixpanel;
 
 use App\Application\Mixpanel\UseCases\SyncOrdersToMixpanelUseCase;
 use App\Domain\Exceptions\AuthenticationExpiredException;

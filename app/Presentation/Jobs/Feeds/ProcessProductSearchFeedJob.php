@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Presentation\Jobs;
+namespace App\Presentation\Jobs\Feeds;
 
 use App\Application\Feeds\ProcessProductSearchFeedUseCase;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Tests\Feature\Presentation\Jobs;
+namespace Tests\Feature\Presentation\Jobs\Mixpanel;
 
 use App\Application\AdSpend\UseCases\SyncAdSpendUseCase;
 use App\Application\Contracts\AdSpendClientInterface;
@@ -13,7 +13,7 @@ use App\Domain\Exceptions\AuthenticationExpiredException;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\PayloadSerializationException;
 use App\Domain\ValueObjects\DateRange;
-use App\Presentation\Jobs\SyncGoogleAdsToMixpanelJob;
+use App\Presentation\Jobs\Mixpanel\SyncGoogleAdsToMixpanelJob;
 use DateTimeImmutable;
 use Illuminate\Contracts\Queue\Job as QueueJobContract;
 use Illuminate\Support\Facades\Log;

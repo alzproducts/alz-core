@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Tests\Unit\Presentation\Jobs;
+namespace Tests\Unit\Presentation\Jobs\Feeds;
 
 use App\Application\Feeds\ProcessProductSearchFeedUseCase;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\MalformedFeedDataException;
 use App\Domain\Exceptions\StorageOperationFailedException;
-use App\Presentation\Jobs\ProcessProductSearchFeedJob;
+use App\Presentation\Jobs\Feeds\ProcessProductSearchFeedJob;
 use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
 use Mockery;

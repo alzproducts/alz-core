@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Presentation\Jobs;
+namespace App\Presentation\Jobs\Shopwired;
 
 use App\Application\Shopwired\UseCases\SyncOrdersUseCase;
 use App\Domain\Exceptions\AuthenticationExpiredException;

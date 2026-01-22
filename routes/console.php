@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-use App\Presentation\Jobs\ProcessProductSearchFeedJob;
-use App\Presentation\Jobs\SyncBingAdsToMixpanelJob;
-use App\Presentation\Jobs\SyncCampaignLookupTableJob;
-use App\Presentation\Jobs\SyncGoogleAdsToMixpanelJob;
-use App\Presentation\Jobs\SyncLinnworksStockItemsJob;
-use App\Presentation\Jobs\SyncOrdersToMixpanelJob;
-use App\Presentation\Jobs\SyncShopwiredCustomersJob;
-use App\Presentation\Jobs\SyncShopwiredOrdersJob;
+use App\Presentation\Jobs\Feeds\ProcessProductSearchFeedJob;
+use App\Presentation\Jobs\Linnworks\SyncLinnworksStockItemsJob;
+use App\Presentation\Jobs\Mixpanel\SyncBingAdsToMixpanelJob;
+use App\Presentation\Jobs\Mixpanel\SyncCampaignLookupTableJob;
+use App\Presentation\Jobs\Mixpanel\SyncGoogleAdsToMixpanelJob;
+use App\Presentation\Jobs\Mixpanel\SyncOrdersToMixpanelJob;
+use App\Presentation\Jobs\Shopwired\SyncShopwiredCustomersJob;
+use App\Presentation\Jobs\Shopwired\SyncShopwiredOrdersJob;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Schedule;
 
