@@ -5,7 +5,9 @@ declare(strict_types=1);
 use App\Domain\Access\ValueObjects\AuthenticatedUser;
 use App\Infrastructure\Sentry\SentryUserContextMiddleware;
 use App\Presentation\Http\Auth\Middleware\ValidateSupabaseJwtMiddleware;
-use App\Presentation\Http\Controllers\HelpScoutController;
+use App\Presentation\Http\Controllers\HelpScout\ConversationsController;
+use App\Presentation\Http\Controllers\HelpScout\ProfileController;
+use App\Presentation\Http\HelpScout\Middleware\DetectRefreshMiddleware;
 use App\Presentation\Http\HelpScout\Middleware\HandleHelpScoutExceptionsMiddleware;
 use Illuminate\Support\Facades\Route;
 
@@ -39,22 +41,16 @@ Route::middleware([
     |--------------------------------------------------------------------------
     |
     | Dashboard widget APIs for customer service conversations.
-    | GET endpoints return cached data; POST /refresh invalidates + fetches fresh.
+    | GET returns cached data; POST invalidates cache + fetches fresh.
+    | DetectRefreshMiddleware converts HTTP verb to forceRefresh attribute.
     |
     */
     Route::prefix('helpscout')->middleware(HandleHelpScoutExceptionsMiddleware::class)->group(static function (): void {
-        Route::prefix('conversations')->group(static function (): void {
-            Route::get('assigned', [HelpScoutController::class, 'assigned']);
-            Route::post('assigned/refresh', [HelpScoutController::class, 'refreshAssigned']);
-
-            Route::get('todos', [HelpScoutController::class, 'todos']);
-            Route::post('todos/refresh', [HelpScoutController::class, 'refreshTodos']);
-
-            Route::get('negative-reviews', [HelpScoutController::class, 'negativeReviews']);
-            Route::post('negative-reviews/refresh', [HelpScoutController::class, 'refreshNegativeReviews']);
-
-            Route::get('escalations', [HelpScoutController::class, 'escalations']);
-            Route::post('escalations/refresh', [HelpScoutController::class, 'refreshEscalations']);
+        Route::prefix('conversations')->middleware(DetectRefreshMiddleware::class)->group(static function (): void {
+            Route::match(['get', 'post'], 'assigned', [ConversationsController::class, 'assigned']);
+            Route::match(['get', 'post'], 'todos', [ConversationsController::class, 'todos']);
+            Route::match(['get', 'post'], 'negative-reviews', [ConversationsController::class, 'negativeReviews']);
+            Route::match(['get', 'post'], 'escalations', [ConversationsController::class, 'escalations']);
         });
 
         /*
@@ -66,7 +62,7 @@ Route::middleware([
         |
         */
         Route::prefix('user')->group(static function (): void {
-            Route::get('profile', [HelpScoutController::class, 'profile']);
+            Route::get('profile', ProfileController::class);
         });
     });
 });

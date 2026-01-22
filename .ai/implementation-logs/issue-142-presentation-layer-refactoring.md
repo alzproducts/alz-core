@@ -15,6 +15,8 @@ Reorganize Presentation layer for scalability with feature-based structure.
 | Jobs organized by integration | Feature-based grouping (Shopwired/, Mixpanel/, Feeds/, Linnworks/) improves discoverability | 2026-01-23 |
 | Schedule providers use `boot()` with `@throws` | Schedules register at boot time, PHPStan requires checked exception annotations | 2026-01-23 |
 | Re-enabled Mixpanel order sync | Issue #134 fixed, schedules now active | 2026-01-23 |
+| DetectRefreshMiddleware via request attributes | Controllers read `$request->attributes->get('forceRefresh')` instead of checking HTTP verb - decouples business logic from transport layer | 2026-01-23 |
+| ProfileController as invokable | Single-action controller uses `__invoke()` - Laravel convention for focused controllers | 2026-01-23 |
 
 ---
 
@@ -35,19 +37,23 @@ Reorganize Presentation layer for scalability with feature-based structure.
 - [x] Register in `bootstrap/providers.php`
 - [x] Clean up `routes/console.php` (249 → 19 lines)
 
-### Stage 2: Auth Consolidation
-- [ ] Move `ValidateSupabaseJwtMiddleware` to `Http/Auth/Middleware/`
+### ✅ Stage 2: Auth Consolidation
+- [x] Move `ValidateSupabaseJwtMiddleware` to `Http/Auth/Middleware/`
+- [x] Update namespace imports across codebase
+- [x] Move test file to matching structure
 
-### Stage 3: HelpScout Consolidation
-- [ ] Create `Http/HelpScout/` feature directory
-- [ ] Move `HandleHelpScoutExceptionsMiddleware`
-- [ ] Move Resources
+### ✅ Stage 3: HelpScout Consolidation
+- [x] Create `Http/HelpScout/` feature directory
+- [x] Move `HandleHelpScoutExceptionsMiddleware` to `Http/HelpScout/Middleware/`
+- [x] Move Resources to `Http/HelpScout/Resources/`
+- [x] Move test file to matching structure
 
-### Stage 4: HelpScoutController Split
-- [ ] Create `DetectRefreshMiddleware`
-- [ ] Create `ConversationsController`
-- [ ] Create `ProfileController`
-- [ ] Update routes to use `Route::match()`
+### ✅ Stage 4: HelpScoutController Split
+- [x] Create `DetectRefreshMiddleware` (POST→forceRefresh:true, GET→forceRefresh:false)
+- [x] Create `ConversationsController` (4 methods: assigned, todos, negativeReviews, escalations)
+- [x] Create `ProfileController` (single-action invokable controller)
+- [x] Update routes to use `Route::match(['get', 'post'], ...)`
+- [x] Delete old `HelpScoutController`
 
 ### Stage 5: Documentation
 - [ ] Update `app/Presentation/CLAUDE.md`
