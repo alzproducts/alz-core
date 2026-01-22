@@ -6,9 +6,12 @@ namespace App\Infrastructure\Linnworks;
 
 use App\Application\Contracts\Linnworks\ConnectivityClientInterface;
 use App\Application\Contracts\Linnworks\InventoryClientInterface;
+use App\Domain\Exceptions\AuthenticationExpiredException;
+use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\InvalidConfigurationException;
 use App\Infrastructure\Linnworks\Clients\ConnectivityClient;
 use App\Infrastructure\Linnworks\Clients\InventoryClient;
+use DateMalformedStringException;
 use Illuminate\Support\Facades\Config;
 
 /**
@@ -45,6 +48,24 @@ final class LinnworksClientFactory
     public static function createInventoryClient(): InventoryClientInterface
     {
         return new InventoryClient(self::getTransport());
+    }
+
+    /**
+     * Get the authentication token for manual API calls.
+     *
+     * Convenience method for development/debugging - retrieves a valid
+     * session and returns the bearer token string for use in API requests.
+     *
+     * Usage in Tinker:
+     *   $token = \App\Infrastructure\Linnworks\LinnworksClientFactory::getAuthToken();
+     *
+     * @throws AuthenticationExpiredException When credentials are invalid
+     * @throws ExternalServiceUnavailableException When auth endpoint unavailable
+     * @throws DateMalformedStringException When date parsing fails
+     */
+    public static function getAuthToken(): string
+    {
+        return self::getSessionManager()->getSession()->token;
     }
 
     /**

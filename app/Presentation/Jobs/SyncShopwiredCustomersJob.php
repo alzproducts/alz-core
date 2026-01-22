@@ -66,10 +66,10 @@ final class SyncShopwiredCustomersJob implements ShouldQueue
     /**
      * Job timeout in seconds.
      *
-     * Set to 60 minutes to accommodate full sync of ~68k customers.
-     * Actual runtime observed: ~46 minutes for 67,717 customers.
+     * Set to 70 minutes to accommodate full sync of ~68k customers with buffer.
+     * Actual runtime observed: ~46-60 minutes for 67,717 customers.
      */
-    public int $timeout = 3600;
+    public int $timeout = 4200;
 
     /**
      * Execute the job.
