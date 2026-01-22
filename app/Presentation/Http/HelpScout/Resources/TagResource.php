@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Presentation\Http\Resources\HelpScout;
+namespace App\Presentation\Http\HelpScout\Resources;
 
 use App\Domain\CustomerService\ValueObjects\ConversationTag;
 use Illuminate\Http\Request;

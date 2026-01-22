@@ -13,7 +13,7 @@ use App\Domain\CustomerService\Exceptions\CustomerServiceAgentNotFoundException;
 use App\Domain\Exceptions\ConfigurationNotFoundException;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\InvalidApiResponseException;
-use App\Presentation\Http\Resources\HelpScout\ConversationResource;
+use App\Presentation\Http\HelpScout\Resources\ConversationResource;
 use Illuminate\Http\JsonResponse;
 
 /**

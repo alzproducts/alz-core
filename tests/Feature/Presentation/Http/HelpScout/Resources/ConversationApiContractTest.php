@@ -2,18 +2,18 @@
 
 declare(strict_types=1);
 
-namespace Tests\Feature\Presentation\Http\Resources\HelpScout;
+namespace Tests\Feature\Presentation\Http\HelpScout\Resources;
 
 use App\Domain\CustomerService\ValueObjects\Conversation;
 use App\Domain\CustomerService\ValueObjects\ConversationAssignee;
 use App\Domain\CustomerService\ValueObjects\ConversationCustomer;
 use App\Domain\CustomerService\ValueObjects\ConversationSnooze;
 use App\Domain\CustomerService\ValueObjects\ConversationTag;
-use App\Presentation\Http\Resources\HelpScout\AssigneeResource;
-use App\Presentation\Http\Resources\HelpScout\ConversationResource;
-use App\Presentation\Http\Resources\HelpScout\CustomerResource;
-use App\Presentation\Http\Resources\HelpScout\SnoozeResource;
-use App\Presentation\Http\Resources\HelpScout\TagResource;
+use App\Presentation\Http\HelpScout\Resources\AssigneeResource;
+use App\Presentation\Http\HelpScout\Resources\ConversationResource;
+use App\Presentation\Http\HelpScout\Resources\CustomerResource;
+use App\Presentation\Http\HelpScout\Resources\SnoozeResource;
+use App\Presentation\Http\HelpScout\Resources\TagResource;
 use DateTimeImmutable;
 use DateTimeZone;
 use Illuminate\Http\Request;

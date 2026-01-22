@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Presentation\Http\Middleware;
+namespace App\Presentation\Http\HelpScout\Middleware;
 
 use App\Domain\CustomerService\Exceptions\CustomerServiceAgentNotFoundException;
 use Closure;

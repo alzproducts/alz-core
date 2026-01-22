@@ -6,7 +6,7 @@ use App\Domain\Access\ValueObjects\AuthenticatedUser;
 use App\Infrastructure\Sentry\SentryUserContextMiddleware;
 use App\Presentation\Http\Auth\Middleware\ValidateSupabaseJwtMiddleware;
 use App\Presentation\Http\Controllers\HelpScoutController;
-use App\Presentation\Http\Middleware\HandleHelpScoutExceptionsMiddleware;
+use App\Presentation\Http\HelpScout\Middleware\HandleHelpScoutExceptionsMiddleware;
 use Illuminate\Support\Facades\Route;
 
 /*
