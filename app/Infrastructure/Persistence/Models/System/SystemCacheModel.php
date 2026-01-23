@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Infrastructure\Persistence\Models;
+namespace App\Infrastructure\Persistence\Models\System;
 
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;

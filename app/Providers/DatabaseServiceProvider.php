@@ -6,8 +6,8 @@ namespace App\Providers;
 
 use App\Application\Contracts\DatabaseGatewayInterface;
 use App\Application\Contracts\EscalationsConfigRepositoryInterface;
-use App\Infrastructure\CustomerService\EscalationsConfigRepository;
 use App\Infrastructure\Database\DatabaseGateway;
+use App\Infrastructure\Persistence\Repositories\EscalationsConfigRepository;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Contracts\Support\DeferrableProvider;
 use Illuminate\Database\DatabaseManager;
