@@ -8,7 +8,6 @@ use App\Application\Contracts\DatabaseGatewayInterface;
 use App\Application\Contracts\RepositoryInterface;
 use App\Application\Results\SaveManyResult;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
-use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Infrastructure\Contracts\EloquentDomainMappableInterface;
@@ -19,14 +18,12 @@ use RuntimeException;
 /**
  * Abstract base class for Eloquent repositories.
  *
- * Provides shared implementations for common operations:
- * - saveMany(): Batch saves with continue-on-failure semantics
- * - saveManyBulk(): High-performance bulk upsert for large syncs (Phase 2)
- * - getByColumn(): Generic query by column with domain mapping
- * - existsByColumn(): Existence check by column
+ * Provides shared implementation for batch save operations:
+ * - saveMany(): Iterative saves with continue-on-failure semantics
  *
- * Vendor-specific abstracts (Linnworks, ShopWired) extend this class and narrow
- * the identifier type (string GUID vs int external ID) via abstract methods.
+ * Concrete repositories extend this and implement:
+ * - save(): Entity-specific upsert logic
+ * - Entity-specific query methods (getByEmail, getByReference, etc.)
  *
  * Domain mapping: Override mapModelToDomain() for custom mapping logic.
  * Default implementation calls $model->toDomain() (requires EloquentDomainMappableInterface).
@@ -62,20 +59,24 @@ abstract class AbstractEloquentRepository implements RepositoryInterface
      */
     abstract protected function getEntityIdentifier(object $entity): int|string;
 
+    // ─────────────────────────────────────────────────────────────────────────
+    // Default Implementations (Override as needed)
+    // ─────────────────────────────────────────────────────────────────────────
+
     /**
      * Get the human-readable entity type name for logging.
      *
-     * Example: 'Order', 'Customer', 'StockItem'
+     * Default derives from model class: OrderModel → 'Order'.
+     * Override if the derived name isn't appropriate.
      */
-    abstract protected function getEntityTypeName(): string;
+    protected function getEntityTypeName(): string
+    {
+        $baseName = \class_basename($this->getModelClass());
 
-    /**
-     * Get the log key name for the entity's external identifier.
-     *
-     * Used to create consistent log context across vendor systems.
-     * Example: 'external_id' for ShopWired, 'linnworks_id' for Linnworks.
-     */
-    abstract protected function getIdentifierLogKey(): string;
+        return \str_ends_with($baseName, 'Model')
+            ? \mb_substr($baseName, 0, -5)
+            : $baseName;
+    }
 
     // ─────────────────────────────────────────────────────────────────────────
     // Optional Methods (Override as needed)
@@ -155,7 +156,7 @@ abstract class AbstractEloquentRepository implements RepositoryInterface
                 // Entity already exists (shouldn't happen with upsert, but defensive)
                 $succeeded++;
                 Log::info("{$this->getEntityTypeName()} already exists, counted as success", [
-                    $this->getIdentifierLogKey() => $this->getEntityIdentifier($entity),
+                    'identifier' => $this->getEntityIdentifier($entity),
                 ]);
             } catch (DatabaseOperationFailedException $e) {
                 // Permanent failure - log and continue batch
@@ -164,7 +165,7 @@ abstract class AbstractEloquentRepository implements RepositoryInterface
                 $failedReferences[] = $identifier;
 
                 Log::error($this->getLogMessageForFailedSave(), [
-                    $this->getIdentifierLogKey() => $identifier,
+                    'identifier' => $identifier,
                     'entity_type' => $this->getEntityTypeName(),
                     'error' => $e->getMessage(),
                 ]);
@@ -175,67 +176,6 @@ abstract class AbstractEloquentRepository implements RepositoryInterface
             succeeded: $succeeded,
             failed: $failed,
             failedReferences: $failedReferences,
-        );
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // Query Operations
-    // ─────────────────────────────────────────────────────────────────────────
-
-    /**
-     * {@inheritDoc}
-     *
-     * @return T
-     *
-     * @throws ResourceNotFoundException
-     * @throws DatabaseOperationFailedException
-     * @throws DuplicateRecordException
-     * @throws ExternalServiceUnavailableException
-     * @throws RuntimeException When model doesn't implement EloquentDomainMappableInterface (programming error)
-     */
-    public function getByColumn(int|string $value, string $column): object
-    {
-        return $this->gateway->query(function () use ($value, $column): object {
-            $modelClass = $this->getModelClass();
-
-            $query = $modelClass::query()->where($column, $value);
-
-            $relations = $this->getEagerLoadRelations();
-            if ($relations !== []) {
-                $query->with($relations);
-            }
-
-            /** @var Model|null $model */
-            $model = $query->first();
-
-            if ($model === null) {
-                throw new ResourceNotFoundException(
-                    'Database',
-                    $this->getEntityTypeName(),
-                    $value,
-                );
-            }
-
-            return $this->mapModelToDomain($model);
-        });
-    }
-
-    /**
-     * {@inheritDoc}
-     *
-     * @throws DatabaseOperationFailedException
-     * @throws DuplicateRecordException
-     * @throws ExternalServiceUnavailableException
-     */
-    public function existsByColumn(int|string $value, string $column): bool
-    {
-        $modelClass = $this->getModelClass();
-
-        return $this->gateway->query(
-            // @phpstan-ignore staticMethod.dynamicCall (class-string used dynamically for Eloquent query builder)
-            static fn(): bool => $modelClass::query()
-                ->where($column, $value)
-                ->exists(),
         );
     }
 }

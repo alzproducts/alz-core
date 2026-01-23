@@ -10,6 +10,7 @@ use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use App\Infrastructure\Repositories\AbstractEloquentRepository;
 use App\Infrastructure\Shopwired\Mappers\CustomerModelMapper;
 use App\Infrastructure\Shopwired\Models\CustomerModel;
 use Illuminate\Database\Eloquent\Model;
@@ -20,14 +21,12 @@ use Illuminate\Database\Eloquent\Model;
  * Persists Domain Customer entities to PostgreSQL using Eloquent models.
  * Uses upsert strategy based on ShopWired's external ID for idempotent sync.
  *
- * @extends AbstractShopwiredEloquentRepository<Customer>
+ * @extends AbstractEloquentRepository<Customer>
  */
-final class EloquentCustomerRepository extends AbstractShopwiredEloquentRepository implements CustomerRepositoryInterface
+final class EloquentCustomerRepository extends AbstractEloquentRepository implements CustomerRepositoryInterface
 {
     /** @var class-string<CustomerModel> */
     private const string MODEL_CLASS = CustomerModel::class;
-
-    private const string ENTITY_TYPE = 'Customer';
 
     /** @var list<string> */
     private const array EAGER_LOAD_RELATIONS = [];
@@ -62,13 +61,15 @@ final class EloquentCustomerRepository extends AbstractShopwiredEloquentReposito
      */
     public function getByEmail(string $email): Customer
     {
-        return $this->gateway->query(static function () use ($email): Customer {
+        $entityType = $this->getEntityTypeName();
+
+        return $this->gateway->query(static function () use ($email, $entityType): Customer {
             $model = self::MODEL_CLASS::query()
                 ->where('email', $email)
                 ->first();
 
             if ($model === null) {
-                throw new ResourceNotFoundException('Database', self::ENTITY_TYPE, $email);
+                throw new ResourceNotFoundException('Database', $entityType, $email);
             }
 
             return CustomerModelMapper::fromModel($model);
@@ -162,14 +163,6 @@ final class EloquentCustomerRepository extends AbstractShopwiredEloquentReposito
     {
         /** @var Customer $entity */
         return $entity->id;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    protected function getEntityTypeName(): string
-    {
-        return self::ENTITY_TYPE;
     }
 
     /**

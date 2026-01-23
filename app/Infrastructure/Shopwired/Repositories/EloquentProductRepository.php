@@ -13,6 +13,7 @@ use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use App\Infrastructure\Repositories\AbstractEloquentRepository;
 use App\Infrastructure\Shopwired\Mappers\ProductModelMapper;
 use App\Infrastructure\Shopwired\Models\ProductModel;
 use App\Infrastructure\Shopwired\Models\ProductVariationModel;
@@ -31,14 +32,12 @@ use Illuminate\Support\Facades\Log;
  * - Simpler than diffing, and variations rarely change independently
  * - Composite unique (product_external_id, external_id) ensures idempotency
  *
- * @extends AbstractShopwiredEloquentRepository<Product>
+ * @extends AbstractEloquentRepository<Product>
  */
-final class EloquentProductRepository extends AbstractShopwiredEloquentRepository implements ProductRepositoryInterface
+final class EloquentProductRepository extends AbstractEloquentRepository implements ProductRepositoryInterface
 {
     /** @var class-string<ProductModel> */
     private const string MODEL_CLASS = ProductModel::class;
-
-    private const string ENTITY_TYPE = 'Product';
 
     /** @var list<string> */
     private const array EAGER_LOAD_RELATIONS = ['variations'];
@@ -238,14 +237,6 @@ final class EloquentProductRepository extends AbstractShopwiredEloquentRepositor
     {
         /** @var Product $entity */
         return $entity->id;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    protected function getEntityTypeName(): string
-    {
-        return self::ENTITY_TYPE;
     }
 
     /**

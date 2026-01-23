@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Application\Contracts\Shopwired;
 
+use App\Application\Contracts\RepositoryInterface;
 use App\Domain\Customer\ValueObjects\Customer;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
@@ -12,11 +13,9 @@ use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 /**
  * Repository for ShopWired customer persistence.
  *
- * Extends base ShopWired repository with customer-specific query methods.
- *
- * @extends ShopwiredRepositoryInterface<Customer>
+ * @extends RepositoryInterface<Customer>
  */
-interface CustomerRepositoryInterface extends ShopwiredRepositoryInterface
+interface CustomerRepositoryInterface extends RepositoryInterface
 {
     /**
      * Get customer by email address.

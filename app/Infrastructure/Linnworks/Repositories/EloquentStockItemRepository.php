@@ -11,6 +11,7 @@ use App\Infrastructure\Linnworks\Mappers\StockItemExtendedPropertyMapper;
 use App\Infrastructure\Linnworks\Mappers\StockItemModelMapper;
 use App\Infrastructure\Linnworks\Models\StockItemExtendedPropertyModel;
 use App\Infrastructure\Linnworks\Models\StockItemModel;
+use App\Infrastructure\Repositories\AbstractEloquentRepository;
 
 /**
  * Eloquent implementation of Linnworks stock item repository.
@@ -21,12 +22,10 @@ use App\Infrastructure\Linnworks\Models\StockItemModel;
  *
  * Each save is wrapped in a transaction for atomicity.
  *
- * @extends AbstractLinnworksEloquentRepository<StockItem>
+ * @extends AbstractEloquentRepository<StockItem>
  */
-final class EloquentStockItemRepository extends AbstractLinnworksEloquentRepository implements StockItemRepositoryInterface
+final class EloquentStockItemRepository extends AbstractEloquentRepository implements StockItemRepositoryInterface
 {
-    private const string ENTITY_TYPE = 'StockItem';
-
     /**
      * {@inheritDoc}
      *
@@ -75,10 +74,5 @@ final class EloquentStockItemRepository extends AbstractLinnworksEloquentReposit
     {
         /** @var StockItem $entity */
         return $entity->stockItemId;
-    }
-
-    protected function getEntityTypeName(): string
-    {
-        return self::ENTITY_TYPE;
     }
 }

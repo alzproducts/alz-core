@@ -11,6 +11,7 @@ use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use App\Infrastructure\Repositories\AbstractEloquentRepository;
 use App\Infrastructure\Shopwired\Models\CustomFieldDefinitionModel;
 use Illuminate\Database\Eloquent\Model;
 
@@ -20,14 +21,12 @@ use Illuminate\Database\Eloquent\Model;
  * Persists Domain CustomFieldDefinition entities to PostgreSQL using Eloquent models.
  * Uses upsert strategy based on ShopWired's external ID for idempotent sync.
  *
- * @extends AbstractShopwiredEloquentRepository<CustomFieldDefinition>
+ * @extends AbstractEloquentRepository<CustomFieldDefinition>
  */
-final class EloquentCustomFieldRepository extends AbstractShopwiredEloquentRepository implements CustomFieldRepositoryInterface
+final class EloquentCustomFieldRepository extends AbstractEloquentRepository implements CustomFieldRepositoryInterface
 {
     /** @var class-string<CustomFieldDefinitionModel> */
     private const string MODEL_CLASS = CustomFieldDefinitionModel::class;
-
-    private const string ENTITY_TYPE = 'CustomFieldDefinition';
 
     /** @var list<string> */
     private const array EAGER_LOAD_RELATIONS = [];
@@ -140,14 +139,6 @@ final class EloquentCustomFieldRepository extends AbstractShopwiredEloquentRepos
     {
         /** @var CustomFieldDefinition $entity */
         return $entity->id;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    protected function getEntityTypeName(): string
-    {
-        return self::ENTITY_TYPE;
     }
 
     /**

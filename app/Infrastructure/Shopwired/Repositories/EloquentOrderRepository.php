@@ -11,6 +11,7 @@ use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use App\Infrastructure\Repositories\AbstractEloquentRepository;
 use App\Infrastructure\Shopwired\Mappers\OrderModelMapper;
 use App\Infrastructure\Shopwired\Models\OrderAdminCommentModel;
 use App\Infrastructure\Shopwired\Models\OrderDiscountModel;
@@ -25,14 +26,12 @@ use DateTimeImmutable;
  * Persists Domain Order entities to PostgreSQL using Eloquent models.
  * Uses upsert strategy based on ShopWired's external ID for idempotent sync.
  *
- * @extends AbstractShopwiredEloquentRepository<Order>
+ * @extends AbstractEloquentRepository<Order>
  */
-final class EloquentOrderRepository extends AbstractShopwiredEloquentRepository implements OrderRepositoryInterface
+final class EloquentOrderRepository extends AbstractEloquentRepository implements OrderRepositoryInterface
 {
     /** @var class-string<OrderModel> */
     private const string MODEL_CLASS = OrderModel::class;
-
-    private const string ENTITY_TYPE = 'Order';
 
     /** @var list<string> */
     private const array EAGER_LOAD_RELATIONS = ['products', 'discounts', 'refunds', 'adminComments'];
@@ -71,14 +70,16 @@ final class EloquentOrderRepository extends AbstractShopwiredEloquentRepository 
      */
     public function getByReference(int $reference): Order
     {
-        return $this->gateway->query(static function () use ($reference): Order {
+        $entityType = $this->getEntityTypeName();
+
+        return $this->gateway->query(static function () use ($reference, $entityType): Order {
             $model = self::MODEL_CLASS::query()
                 ->where('reference', $reference)
                 ->with(self::EAGER_LOAD_RELATIONS)
                 ->first();
 
             if ($model === null) {
-                throw new ResourceNotFoundException('Database', self::ENTITY_TYPE, $reference);
+                throw new ResourceNotFoundException('Database', $entityType, $reference);
             }
 
             return OrderModelMapper::fromModelWithRelations($model);
@@ -138,11 +139,6 @@ final class EloquentOrderRepository extends AbstractShopwiredEloquentRepository 
     {
         /** @var Order $entity */
         return $entity->id;
-    }
-
-    protected function getEntityTypeName(): string
-    {
-        return self::ENTITY_TYPE;
     }
 
     // ─────────────────────────────────────────────────────────────────────────
