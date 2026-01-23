@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Infrastructure\Persistence\Models;
+namespace App\Infrastructure\Persistence\Models\Auth;
 
 use App\Infrastructure\Persistence\Models\Access\DepartmentModel;
 use App\Infrastructure\Persistence\Models\Access\PermissionModel;
