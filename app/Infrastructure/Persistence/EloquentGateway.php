@@ -176,14 +176,25 @@ final readonly class EloquentGateway
             return new SaveManyResult(succeeded: 0, failed: 0, failedReferences: []);
         }
 
-        $succeeded = 0;
-        $failed = 0;
-        /** @var list<int|string> $failedReferences */
-        $failedReferences = [];
+        $modelName = \class_basename($modelClass);
+        $totalRows = \count($rows);
 
         /** @var positive-int $safeBatchSize */
         $safeBatchSize = \max(1, $batchSize);
         $batches = \array_chunk($rows, $safeBatchSize);
+        $totalBatches = \count($batches);
+
+        Log::debug('Starting batch upsert', [
+            'model' => $modelName,
+            'total_rows' => $totalRows,
+            'batch_size' => $safeBatchSize,
+            'total_batches' => $totalBatches,
+        ]);
+
+        $succeeded = 0;
+        $failed = 0;
+        /** @var list<int|string> $failedReferences */
+        $failedReferences = [];
 
         foreach ($batches as $batchIndex => $batch) {
             try {
@@ -195,7 +206,7 @@ final readonly class EloquentGateway
             } catch (DatabaseOperationFailedException|DuplicateRecordException $e) {
                 // Batch failed - fall back to per-row processing
                 Log::warning('Bulk upsert failed, falling back to per-row processing', [
-                    'model' => $modelClass,
+                    'model' => $modelName,
                     'batch' => $batchIndex + 1,
                     'batch_size' => \count($batch),
                     'error' => $e->getMessage(),
@@ -214,6 +225,13 @@ final readonly class EloquentGateway
                 $failedReferences = [...$failedReferences, ...$result->failedReferences];
             }
         }
+
+        Log::info('Batch upsert completed', [
+            'model' => $modelName,
+            'total_rows' => $totalRows,
+            'succeeded' => $succeeded,
+            'failed' => $failed,
+        ]);
 
         return new SaveManyResult(
             succeeded: $succeeded,
@@ -285,6 +303,7 @@ final readonly class EloquentGateway
         ?array $update = null,
         string $identifierColumn = 'external_id',
     ): SaveManyResult {
+        $modelName = \class_basename($modelClass);
         $succeeded = 0;
         $failed = 0;
         /** @var list<int|string> $failedReferences */
@@ -307,13 +326,33 @@ final readonly class EloquentGateway
             } catch (DuplicateRecordException) {
                 // Shouldn't happen with upsert, but count as success defensively
                 $succeeded++;
-            } catch (DatabaseOperationFailedException) {
+            } catch (DatabaseOperationFailedException $e) {
                 // Permanent failure - track and continue
                 $failed++;
                 /** @var int|string $identifier */
                 $identifier = $row[$identifierColumn] ?? 'unknown';
                 $failedReferences[] = $identifier;
+
+                Log::error('Per-row upsert failed', [
+                    'model' => $modelName,
+                    'identifier' => $identifier,
+                    'error' => $e->getMessage(),
+                ]);
             }
+        }
+
+        if ($failed > 0) {
+            Log::warning('Per-row fallback completed with failures', [
+                'model' => $modelName,
+                'total' => \count($rows),
+                'succeeded' => $succeeded,
+                'failed' => $failed,
+            ]);
+        } else {
+            Log::debug('Per-row fallback completed successfully', [
+                'model' => $modelName,
+                'succeeded' => $succeeded,
+            ]);
         }
 
         return new SaveManyResult(
@@ -342,7 +381,10 @@ final readonly class EloquentGateway
             return true;
         }
 
-        return $this->dbGateway->transact(
+        $modelName = \class_basename($modelClass);
+        $count = \count($rows);
+
+        $result = $this->dbGateway->transact(
             static function () use ($modelClass, $rows): bool {
                 // fillForInsert applies casts, sets UUIDs, and adds timestamps
                 $preparedRows = $modelClass::query()->fillForInsert($rows);
@@ -350,6 +392,13 @@ final readonly class EloquentGateway
                 return $modelClass::insert($preparedRows);
             },
         );
+
+        Log::debug('Bulk insert completed', [
+            'model' => $modelName,
+            'count' => $count,
+        ]);
+
+        return $result;
     }
 
     /**
@@ -370,11 +419,22 @@ final readonly class EloquentGateway
         int|string $value,
         array $data,
     ): int {
-        return $this->dbGateway->transact(
+        $modelName = \class_basename($modelClass);
+
+        $affected = $this->dbGateway->transact(
             static fn(): int => $modelClass::query()
                 ->where($column, $value)
                 ->update($data),
         );
+
+        Log::debug('Update completed', [
+            'model' => $modelName,
+            'column' => $column,
+            'value' => $value,
+            'affected' => $affected,
+        ]);
+
+        return $affected;
     }
 
     /**
@@ -390,7 +450,9 @@ final readonly class EloquentGateway
      */
     public function deleteWhere(string $modelClass, string $column, int|string $value): int
     {
-        return $this->dbGateway->transact(
+        $modelName = \class_basename($modelClass);
+
+        $deleted = $this->dbGateway->transact(
             /**
              * @return int
              */
@@ -401,5 +463,14 @@ final readonly class EloquentGateway
                     ->delete();
             },
         );
+
+        Log::debug('Delete completed', [
+            'model' => $modelName,
+            'column' => $column,
+            'value' => $value,
+            'deleted' => $deleted,
+        ]);
+
+        return $deleted;
     }
 }

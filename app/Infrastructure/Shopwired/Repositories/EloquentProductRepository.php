@@ -13,6 +13,7 @@ use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use App\Infrastructure\Persistence\EloquentGateway;
 use App\Infrastructure\Repositories\AbstractEloquentRepository;
 use App\Infrastructure\Shopwired\Mappers\ProductModelMapper;
 use App\Infrastructure\Shopwired\Models\ProductModel;
@@ -44,9 +45,10 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
 
     public function __construct(
         DatabaseGatewayInterface $gateway,
+        EloquentGateway $eloquentGateway,
         private readonly ProductModelMapper $mapper,
     ) {
-        parent::__construct($gateway);
+        parent::__construct($gateway, $eloquentGateway);
     }
 
     // ─────────────────────────────────────────────────────────────────────────

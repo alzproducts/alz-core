@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Infrastructure\Shopwired\Repositories;
 
 use App\Application\Contracts\Shopwired\CustomerRepositoryInterface;
+use App\Application\Results\SaveManyResult;
 use App\Domain\Customer\ValueObjects\Customer;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
@@ -134,6 +135,24 @@ final class EloquentCustomerRepository extends AbstractEloquentRepository implem
                 ->pluck('is_trade', 'external_id')
                 ->all();
         });
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @param list<Customer> $customers
+     */
+    public function saveCustomersBulk(array $customers, int $batchSize = 500): SaveManyResult
+    {
+        return $this->saveManyBulk(
+            entities: $customers,
+            entityToAttributes: static fn(Customer $customer): array => [
+                'external_id' => $customer->id,
+                ...CustomerModelMapper::toModelAttributes($customer),
+            ],
+            upsertKeys: ['external_id'],
+            batchSize: $batchSize,
+        );
     }
 
     // ─────────────────────────────────────────────────────────────────────────

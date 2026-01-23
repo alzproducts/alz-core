@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Application\Contracts\Shopwired;
 
 use App\Application\Contracts\RepositoryInterface;
+use App\Application\Results\SaveManyResult;
 use App\Domain\Customer\ValueObjects\Customer;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
@@ -55,4 +56,17 @@ interface CustomerRepositoryInterface extends RepositoryInterface
      * @throws DatabaseOperationFailedException On query failure
      */
     public function getTradeStatusByIds(array $customerIds): array;
+
+    /**
+     * Bulk upsert customers using high-performance batch operations.
+     *
+     * Use this for large batches of customers (e.g., sync operations).
+     * Automatically batches into chunks and falls back to per-row on errors.
+     *
+     * @param list<Customer> $customers Customers to persist
+     * @param int $batchSize Rows per batch (default: 500)
+     *
+     * @throws ExternalServiceUnavailableException When database temporarily unavailable
+     */
+    public function saveCustomersBulk(array $customers, int $batchSize = 500): SaveManyResult;
 }
