@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace App\Infrastructure\ReviewsIo;
 
 use App\Application\Contracts\ReviewsIoClientInterface;
+use App\Domain\Catalog\Product\ValueObjects\ProductRating;
 use App\Domain\Exceptions\AuthenticationExpiredException;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\InvalidApiRequestException;
 use App\Domain\Exceptions\InvalidApiResponseException;
 use App\Domain\Exceptions\ResourceNotFoundException;
-use App\Domain\Product\ValueObjects\ProductRating;
 use App\Infrastructure\ReviewsIo\Responses\RatingResponse;
 use App\Infrastructure\ReviewsIo\Validation\ValidSku;
 use Illuminate\Support\Facades\Log;

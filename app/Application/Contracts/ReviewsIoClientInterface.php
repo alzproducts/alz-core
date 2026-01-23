@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Application\Contracts;
 
+use App\Domain\Catalog\Product\ValueObjects\ProductRating;
 use App\Domain\Exceptions\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\InvalidApiResponseException;
-use App\Domain\Product\ValueObjects\ProductRating;
 use InvalidArgumentException;
 
 /**
