@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Application\Shopwired\ValueObjects;
+namespace App\Application\Shopwired\Results;
 
 /**
  * Result of a reconciliation operation against ShopWired API.

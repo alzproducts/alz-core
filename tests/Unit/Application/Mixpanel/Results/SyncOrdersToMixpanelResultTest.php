@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Tests\Unit\Application\Mixpanel\ValueObjects;
+namespace Tests\Unit\Application\Mixpanel\Results;
 
-use App\Application\Mixpanel\ValueObjects\SyncOrdersToMixpanelResult;
+use App\Application\Mixpanel\Results\SyncOrdersToMixpanelResult;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;

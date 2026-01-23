@@ -7,7 +7,7 @@ namespace App\Application\Mixpanel\UseCases;
 use App\Application\Contracts\MixpanelClientInterface;
 use App\Application\Contracts\Shopwired\CustomerRepositoryInterface;
 use App\Application\Contracts\Shopwired\OrderRepositoryInterface;
-use App\Application\Mixpanel\ValueObjects\SyncOrdersToMixpanelResult;
+use App\Application\Mixpanel\Results\SyncOrdersToMixpanelResult;
 use App\Domain\Catalog\Order\ValueObjects\Order;
 use App\Domain\Catalog\Order\ValueObjects\OrderAnalyticsHashMatcher;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
