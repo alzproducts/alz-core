@@ -8,7 +8,6 @@ use App\Application\Contracts\RepositoryInterface;
 use App\Application\Results\SaveManyResult;
 use App\Domain\Customer\ValueObjects\Customer;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
-use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 
 /**
@@ -18,31 +17,6 @@ use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
  */
 interface CustomerRepositoryInterface extends RepositoryInterface
 {
-    /**
-     * Get customer by email address.
-     *
-     * @throws ResourceNotFoundException When customer not found
-     * @throws DatabaseOperationFailedException On query failure
-     * @throws ExternalServiceUnavailableException When database temporarily unavailable
-     */
-    public function getByEmail(string $email): Customer;
-
-    /**
-     * Find customer by email address without exception.
-     *
-     * @throws DatabaseOperationFailedException On query failure
-     * @throws ExternalServiceUnavailableException When database temporarily unavailable
-     */
-    public function findByEmail(string $email): ?Customer;
-
-    /**
-     * Check if customer exists by email without exception.
-     *
-     * @throws DatabaseOperationFailedException On query failure
-     * @throws ExternalServiceUnavailableException When database temporarily unavailable
-     */
-    public function existsByEmail(string $email): bool;
-
     /**
      * Get trade status for multiple customers by their ShopWired IDs.
      *

@@ -89,7 +89,7 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
      */
     public function getAllExternalIds(): array
     {
-        return $this->gateway->query(static function (): array {
+        return $this->eloquentGateway->query(static function (): array {
             /** @var list<int> $ids */
             $ids = self::MODEL_CLASS::query()
                 ->pluck('external_id')
@@ -108,19 +108,12 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
      */
     public function deleteByExternalIds(array $externalIds): int
     {
-        if ($externalIds === []) {
-            return 0;
-        }
-
-        return $this->gateway->transact(static function () use ($externalIds): int {
-            // Variations are cascade-deleted via FK constraint
-            /** @var int $count */
-            $count = self::MODEL_CLASS::query()
-                ->whereIn('external_id', $externalIds)
-                ->delete();
-
-            return $count;
-        }, attempts: 3);
+        // Variations are cascade-deleted via FK constraint
+        return $this->eloquentGateway->deleteWhereIn(
+            modelClass: self::MODEL_CLASS,
+            column: 'external_id',
+            values: $externalIds,
+        );
     }
 
     /**
@@ -134,30 +127,29 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
      */
     public function getBasicProductBySku(string $sku): Product|ProductVariation
     {
-        return $this->gateway->query(function () use ($sku): Product|ProductVariation {
-            // Try product master SKU first
-            /** @var ProductModel|null $product */
-            $product = self::MODEL_CLASS::query()
-                ->where('sku', $sku)
-                ->with(self::EAGER_LOAD_RELATIONS)
-                ->first();
+        // Try product master SKU first
+        try {
+            return $this->eloquentGateway->findOrFail(
+                modelClass: self::MODEL_CLASS,
+                column: 'sku',
+                value: $sku,
+                relations: self::EAGER_LOAD_RELATIONS,
+                entityTypeName: 'Product',
+                mapper: fn(ProductModel $model): Product => $this->mapModelToDomain($model),
+            );
+        } catch (ResourceNotFoundException) {
+            Log::debug('Product not found by SKU, trying variation', ['sku' => $sku]);
+        }
 
-            if ($product !== null) {
-                return $this->mapModelToDomain($product);
-            }
-
-            // Try variation SKU
-            /** @var ProductVariationModel|null $variation */
-            $variation = ProductVariationModel::query()
-                ->where('sku', $sku)
-                ->first();
-
-            if ($variation !== null) {
-                return $variation->toDomain();
-            }
-
-            throw new ResourceNotFoundException('Database', 'Product or Variation', $sku);
-        });
+        // Try variation SKU - throws if neither found
+        return $this->eloquentGateway->findOrFail(
+            modelClass: ProductVariationModel::class,
+            column: 'sku',
+            value: $sku,
+            relations: [],
+            entityTypeName: 'Product or Variation',
+            mapper: static fn(ProductVariationModel $model): ProductVariation => $model->toDomain(),
+        );
     }
 
     /**
@@ -173,19 +165,14 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
      */
     public function getProductBySku(string $sku): Product
     {
-        return $this->gateway->query(function () use ($sku): Product {
-            /** @var ProductModel|null $product */
-            $product = self::MODEL_CLASS::query()
-                ->where('sku', $sku)
-                ->with(self::EAGER_LOAD_RELATIONS)
-                ->first();
-
-            if ($product === null) {
-                throw new ResourceNotFoundException('Database', 'Product', $sku);
-            }
-
-            return $this->mapModelToDomain($product);
-        });
+        return $this->eloquentGateway->findOrFail(
+            modelClass: self::MODEL_CLASS,
+            column: 'sku',
+            value: $sku,
+            relations: self::EAGER_LOAD_RELATIONS,
+            entityTypeName: 'Product',
+            mapper: fn(ProductModel $model): Product => $this->mapModelToDomain($model),
+        );
     }
 
     /**
@@ -201,15 +188,11 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
      */
     public function streamAll(): Generator
     {
-        // Use lazy() for memory-efficient chunked iteration
-        $lazyCollection = self::MODEL_CLASS::query()
-            ->with(self::EAGER_LOAD_RELATIONS)
-            ->lazy(100);
-
-        foreach ($lazyCollection as $model) {
-            /** @var ProductModel $model */
-            yield $this->mapModelToDomain($model);
-        }
+        yield from $this->eloquentGateway->streamAll(
+            modelClass: self::MODEL_CLASS,
+            relations: self::EAGER_LOAD_RELATIONS,
+            mapper: fn(ProductModel $model): Product => $this->mapModelToDomain($model),
+        );
     }
 
     // ─────────────────────────────────────────────────────────────────────────

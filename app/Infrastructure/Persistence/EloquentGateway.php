@@ -10,6 +10,8 @@ use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use Closure;
+use Generator;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Log;
@@ -38,6 +40,28 @@ final readonly class EloquentGateway
     // ─────────────────────────────────────────────────────────────────────────
 
     /**
+     * Execute a read query with domain exception translation.
+     *
+     * Use for custom queries that don't fit the generic methods below.
+     * Catches database exceptions and translates to domain exceptions.
+     *
+     * @template T
+     *
+     * @param-immediately-invoked-callable $callback
+     * @param Closure(): T $callback
+     *
+     * @return T
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function query(Closure $callback): mixed
+    {
+        return $this->dbGateway->query($callback);
+    }
+
+    /**
      * Check if a record exists by column value.
      *
      * @param class-string<Model> $modelClass
@@ -58,19 +82,24 @@ final readonly class EloquentGateway
     /**
      * Find a single record by column value.
      *
-     * @param class-string<Model> $modelClass
+     * @template TModel of Model
+     *
+     * @param class-string<TModel> $modelClass
      * @param list<string> $relations Relations to eager load
+     *
+     * @return TModel|null
      *
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      */
-    public function find(
+    private function find(
         string $modelClass,
         string $column,
         int|string $value,
         array $relations = [],
     ): ?Model {
+        /** @var TModel|null */
         return $this->dbGateway->query(
             static function () use ($modelClass, $column, $value, $relations): ?Model {
                 $query = $modelClass::query()->where($column, $value);
@@ -87,8 +116,18 @@ final readonly class EloquentGateway
     /**
      * Find a single record by column value or throw.
      *
-     * @param class-string<Model> $modelClass
+     * When a mapper is provided, applies it to the found model and returns the result.
+     * Without a mapper, returns the raw Eloquent model.
+     *
+     * @template TModel of Model
+     * @template TResult
+     *
+     * @param class-string<TModel> $modelClass
      * @param list<string> $relations Relations to eager load
+     * @param-immediately-invoked-callable $mapper
+     * @param (Closure(TModel): TResult)|null $mapper Optional mapper to transform the model
+     *
+     * @return ($mapper is null ? TModel : TResult)
      *
      * @throws ResourceNotFoundException When record not found
      * @throws DatabaseOperationFailedException
@@ -101,14 +140,15 @@ final readonly class EloquentGateway
         int|string $value,
         array $relations = [],
         string $entityTypeName = 'Record',
-    ): Model {
+        ?Closure $mapper = null,
+    ): mixed {
         $model = $this->find($modelClass, $column, $value, $relations);
 
         if ($model === null) {
             throw new ResourceNotFoundException('Database', $entityTypeName, $value);
         }
 
-        return $model;
+        return $mapper !== null ? $mapper($model) : $model;
     }
 
     /**
@@ -143,9 +183,77 @@ final readonly class EloquentGateway
         );
     }
 
+    /**
+     * Stream all records with lazy loading for memory efficiency.
+     *
+     * Uses Laravel's lazy() to process records in chunks without loading
+     * all records into memory at once. Ideal for large datasets.
+     *
+     * When a mapper is provided, applies it to each model before yielding.
+     * Without a mapper, yields raw Eloquent models.
+     *
+     * @template TModel of Model
+     * @template TResult
+     *
+     * @param class-string<TModel> $modelClass
+     * @param list<string> $relations Relations to eager load
+     * @param-immediately-invoked-callable $mapper
+     * @param (Closure(TModel): TResult)|null $mapper Optional mapper to transform each model
+     * @param positive-int $chunkSize Number of records per chunk (default 100)
+     *
+     * @return Generator<int, ($mapper is null ? TModel : TResult)>
+     */
+    public function streamAll(
+        string $modelClass,
+        array $relations = [],
+        ?Closure $mapper = null,
+        int $chunkSize = 100,
+    ): Generator {
+        $query = $modelClass::query();
+
+        if ($relations !== []) {
+            $query->with($relations);
+        }
+
+        $lazyCollection = $query->lazy($chunkSize);
+
+        foreach ($lazyCollection as $model) {
+            /** @var TModel $model */
+            yield $mapper !== null ? $mapper($model) : $model;
+        }
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
     // Write Operations
     // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Upsert a single record with transaction and error handling.
+     *
+     * Uses fillForInsert() + upsert() for consistency with bulk operations.
+     * Applies casts, generates UUIDs, and adds timestamps automatically.
+     *
+     * @param class-string<Model> $modelClass
+     * @param array<string, mixed> $attributes Data to insert/update (must include unique key values)
+     * @param list<string> $uniqueBy Column names that determine uniqueness (default: ['external_id'])
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function upsertOne(
+        string $modelClass,
+        array $attributes,
+        array $uniqueBy,
+    ): void {
+        $this->dbGateway->transact(
+            static function () use ($modelClass, $attributes, $uniqueBy): int {
+                $preparedRows = $modelClass::query()->fillForInsert([$attributes]);
+
+                return $modelClass::upsert($preparedRows, $uniqueBy);
+            },
+        );
+    }
 
     /**
      * Batch upsert with automatic fallback to per-row processing on errors.
@@ -177,18 +285,15 @@ final readonly class EloquentGateway
         }
 
         $modelName = \class_basename($modelClass);
-        $totalRows = \count($rows);
-
         /** @var positive-int $safeBatchSize */
         $safeBatchSize = \max(1, $batchSize);
         $batches = \array_chunk($rows, $safeBatchSize);
-        $totalBatches = \count($batches);
 
         Log::debug('Starting batch upsert', [
             'model' => $modelName,
-            'total_rows' => $totalRows,
+            'total_rows' => \count($rows),
             'batch_size' => $safeBatchSize,
-            'total_batches' => $totalBatches,
+            'total_batches' => \count($batches),
         ]);
 
         $succeeded = 0;
@@ -228,7 +333,7 @@ final readonly class EloquentGateway
 
         Log::info('Batch upsert completed', [
             'model' => $modelName,
-            'total_rows' => $totalRows,
+            'total_rows' => \count($rows),
             'succeeded' => $succeeded,
             'failed' => $failed,
         ]);
@@ -468,6 +573,45 @@ final readonly class EloquentGateway
             'model' => $modelName,
             'column' => $column,
             'value' => $value,
+            'deleted' => $deleted,
+        ]);
+
+        return $deleted;
+    }
+
+    /**
+     * Delete records matching multiple column values.
+     *
+     * @param class-string<Model> $modelClass
+     * @param list<int|string> $values
+     *
+     * @return int Number of rows deleted
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function deleteWhereIn(string $modelClass, string $column, array $values): int
+    {
+        if ($values === []) {
+            return 0;
+        }
+
+        $modelName = \class_basename($modelClass);
+
+        $deleted = $this->dbGateway->transact(
+            static function () use ($modelClass, $column, $values): int {
+                /** @var int */
+                return $modelClass::query()
+                    ->whereIn($column, $values)
+                    ->delete();
+            },
+        );
+
+        Log::debug('Bulk delete completed', [
+            'model' => $modelName,
+            'column' => $column,
+            'count' => \count($values),
             'deleted' => $deleted,
         ]);
 

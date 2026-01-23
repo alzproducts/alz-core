@@ -70,20 +70,14 @@ final class EloquentOrderRepository extends AbstractEloquentRepository implement
      */
     public function getByReference(int $reference): Order
     {
-        $entityType = $this->getEntityTypeName();
-
-        return $this->gateway->query(static function () use ($reference, $entityType): Order {
-            $model = self::MODEL_CLASS::query()
-                ->where('reference', $reference)
-                ->with(self::EAGER_LOAD_RELATIONS)
-                ->first();
-
-            if ($model === null) {
-                throw new ResourceNotFoundException('Database', $entityType, $reference);
-            }
-
-            return OrderModelMapper::fromModelWithRelations($model);
-        });
+        return $this->eloquentGateway->findOrFail(
+            modelClass: self::MODEL_CLASS,
+            column: 'reference',
+            value: $reference,
+            relations: self::EAGER_LOAD_RELATIONS,
+            entityTypeName: $this->getEntityTypeName(),
+            mapper: static fn(OrderModel $model): Order => OrderModelMapper::fromModelWithRelations($model),
+        );
     }
 
     /**
@@ -97,7 +91,7 @@ final class EloquentOrderRepository extends AbstractEloquentRepository implement
      */
     public function getOrdersInDateRange(DateTimeImmutable $from, DateTimeImmutable $to): array
     {
-        return $this->gateway->query(static function () use ($from, $to): array {
+        return $this->eloquentGateway->query(static function () use ($from, $to): array {
             $models = self::MODEL_CLASS::query()
                 ->whereBetween('order_placed_at', [$from, $to])
                 ->with(self::EAGER_LOAD_RELATIONS)
