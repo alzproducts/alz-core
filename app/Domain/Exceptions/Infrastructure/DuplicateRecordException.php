@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Domain\Exceptions;
+namespace App\Domain\Exceptions\Infrastructure;
 
 use Throwable;
 
@@ -12,7 +12,7 @@ use Throwable;
  * This is a permanent error - the operation cannot succeed
  * without changing the data. Jobs should NOT retry.
  */
-final class DuplicateRecordException extends DomainException
+final class DuplicateRecordException extends AbstractInfrastructureException
 {
     public function __construct(
         public readonly string $table,

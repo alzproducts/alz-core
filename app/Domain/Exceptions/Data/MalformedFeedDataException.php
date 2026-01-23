@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Domain\Exceptions;
+namespace App\Domain\Exceptions\Data;
 
 use Throwable;
 
@@ -18,7 +18,7 @@ use Throwable;
  * Retry semantics: Limited retry may help if source regenerates feed,
  * but persistent failures indicate source-side issues requiring investigation.
  */
-final class MalformedFeedDataException extends DomainException
+final class MalformedFeedDataException extends AbstractDataException
 {
     public function __construct(
         public readonly string $feedName,

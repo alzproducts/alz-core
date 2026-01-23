@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Domain\Exceptions;
+namespace App\Domain\Exceptions\Data;
 
 use Throwable;
 
@@ -19,7 +19,7 @@ use Throwable;
  *
  * Resolution: Run the prerequisite sync job first, then retry.
  */
-final class MissingRequiredDataException extends DomainException
+final class MissingRequiredDataException extends AbstractDataException
 {
     /**
      * @param string $dataType Type of data that's missing (e.g., 'customer trade status')
