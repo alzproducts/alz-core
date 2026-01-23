@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Application\Contracts\Shopwired;
 
-use App\Application\ValueObjects\SaveManyResult;
+use App\Application\Results\SaveManyResult;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;

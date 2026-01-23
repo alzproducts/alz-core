@@ -6,7 +6,7 @@ namespace App\Infrastructure\Shopwired\Repositories;
 
 use App\Application\Contracts\DatabaseGatewayInterface;
 use App\Application\Contracts\Shopwired\ShopwiredRepositoryInterface;
-use App\Application\ValueObjects\SaveManyResult;
+use App\Application\Results\SaveManyResult;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;

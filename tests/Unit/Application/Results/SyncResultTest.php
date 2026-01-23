@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Tests\Unit\Application\Shopwired\ValueObjects;
+namespace Tests\Unit\Application\Results;
 
-use App\Application\ValueObjects\SyncResult;
+use App\Application\Results\SyncResult;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;

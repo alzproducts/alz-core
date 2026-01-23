@@ -7,7 +7,7 @@ namespace Tests\Unit\Application\Linnworks\UseCases;
 use App\Application\Contracts\Linnworks\InventoryClientInterface;
 use App\Application\Contracts\Linnworks\StockItemRepositoryInterface;
 use App\Application\Linnworks\UseCases\SyncAllStockItemsUseCase;
-use App\Application\ValueObjects\SaveManyResult;
+use App\Application\Results\SaveManyResult;
 use App\Domain\Inventory\ValueObjects\Dimensions;
 use App\Domain\Inventory\ValueObjects\StockItem;
 use App\Domain\Inventory\ValueObjects\Weight;
