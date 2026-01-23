@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Domain\Exceptions;
+namespace App\Domain\Exceptions\Api;
 
 use Throwable;
 
@@ -23,7 +23,7 @@ use Throwable;
  * @see InvalidApiResponseException For malformed responses from the API
  * @see ExternalServiceUnavailableException For transient failures (rate limits, outages)
  */
-final class InvalidApiRequestException extends DomainException
+final class InvalidApiRequestException extends AbstractApiException
 {
     public function __construct(
         public readonly string $serviceName,

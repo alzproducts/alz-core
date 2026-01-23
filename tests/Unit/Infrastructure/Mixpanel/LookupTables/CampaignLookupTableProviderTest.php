@@ -6,7 +6,7 @@ namespace Tests\Unit\Infrastructure\Mixpanel\LookupTables;
 
 use App\Application\Contracts\GoogleAdsClientInterface;
 use App\Domain\AdSpend\ValueObjects\Campaign;
-use App\Domain\Exceptions\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Infrastructure\Mixpanel\LookupTables\CampaignLookupTableProvider;
 use Mockery;
 use Mockery\MockInterface;

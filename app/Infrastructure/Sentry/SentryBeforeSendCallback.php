@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Sentry;
 
-use App\Domain\Exceptions\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Infrastructure\Exceptions\ApiRateLimitException;
 use Illuminate\Http\Exceptions\ThrottleRequestsException;
 use Random\RandomException;

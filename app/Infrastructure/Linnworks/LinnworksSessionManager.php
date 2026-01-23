@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Infrastructure\Linnworks;
 
 use App\Application\Contracts\LockableCacheInterface;
-use App\Domain\Exceptions\AuthenticationExpiredException;
-use App\Domain\Exceptions\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Api\AuthenticationExpiredException;
+use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use DateMalformedStringException;
 use Exception;
 use Illuminate\Http\Client\ConnectionException;

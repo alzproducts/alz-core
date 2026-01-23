@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Infrastructure\Storage;
 
 use App\Application\Contracts\RemoteStorageInterface;
-use App\Domain\Exceptions\StorageOperationFailedException;
+use App\Domain\Exceptions\Infrastructure\StorageOperationFailedException;
 use DateTimeImmutable;
 use Illuminate\Contracts\Filesystem\Factory as FilesystemFactory;
 use Illuminate\Filesystem\FilesystemAdapter;

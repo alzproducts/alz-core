@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Domain\Exceptions;
+namespace App\Domain\Exceptions\Infrastructure;
 
 use Throwable;
 
@@ -16,7 +16,7 @@ use Throwable;
  *
  * This is a permanent error - jobs should NOT retry.
  */
-final class DatabaseOperationFailedException extends DomainException
+final class DatabaseOperationFailedException extends AbstractInfrastructureException
 {
     public function __construct(
         public readonly string $operation,

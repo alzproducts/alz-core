@@ -8,8 +8,8 @@ use App\Application\Contracts\HelpScout\MailboxesClientInterface;
 use App\Application\Support\CacheTimesTrait;
 use App\Application\Support\GracefulCache;
 use App\Domain\CustomerService\ValueObjects\Conversation;
-use App\Domain\Exceptions\ExternalServiceUnavailableException;
-use App\Domain\Exceptions\InvalidApiResponseException;
+use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Api\InvalidApiResponseException;
 
 /**
  * Enriches conversations with mailbox names.

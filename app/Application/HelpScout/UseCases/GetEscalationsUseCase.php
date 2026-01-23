@@ -9,9 +9,9 @@ use App\Application\HelpScout\Services\CachingHelpScoutService;
 use App\Application\HelpScout\Support\ConversationSorter;
 use App\Domain\CustomerService\ValueObjects\Conversation;
 use App\Domain\CustomerService\ValueObjects\EscalationsConfig;
-use App\Domain\Exceptions\ConfigurationNotFoundException;
-use App\Domain\Exceptions\ExternalServiceUnavailableException;
-use App\Domain\Exceptions\InvalidApiResponseException;
+use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Api\InvalidApiResponseException;
+use App\Domain\Exceptions\Infrastructure\ConfigurationNotFoundException;
 
 /**
  * Orchestrates escalation queries across mailboxes.

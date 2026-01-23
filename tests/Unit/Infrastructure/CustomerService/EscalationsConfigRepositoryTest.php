@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Infrastructure\CustomerService;
 
 use App\Domain\CustomerService\ValueObjects\EscalationsConfig;
-use App\Domain\Exceptions\ConfigurationNotFoundException;
+use App\Domain\Exceptions\Infrastructure\ConfigurationNotFoundException;
 use App\Infrastructure\CustomerService\EscalationsConfigRepository;
 use App\Infrastructure\Database\DatabaseGateway;
 use Closure;

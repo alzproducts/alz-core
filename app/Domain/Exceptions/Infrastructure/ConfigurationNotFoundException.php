@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Domain\Exceptions;
+namespace App\Domain\Exceptions\Infrastructure;
 
 use Throwable;
 
@@ -15,7 +15,7 @@ use Throwable;
  *
  * This is a permanent error until configuration is fixed.
  */
-final class ConfigurationNotFoundException extends DomainException
+final class ConfigurationNotFoundException extends AbstractInfrastructureException
 {
     public function __construct(
         public readonly string $configName,

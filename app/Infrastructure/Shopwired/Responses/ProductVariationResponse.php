@@ -7,7 +7,7 @@ namespace App\Infrastructure\Shopwired\Responses;
 use App\Domain\Catalog\Product\ValueObjects\Gtin;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariation;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariationOption;
-use App\Domain\Exceptions\InvalidGtinException;
+use App\Domain\Exceptions\Data\InvalidGtinException;
 use App\Infrastructure\Contracts\DomainConvertibleChildInterface;
 use Illuminate\Support\Facades\Log;
 use Spatie\LaravelData\Attributes\DataCollectionOf;

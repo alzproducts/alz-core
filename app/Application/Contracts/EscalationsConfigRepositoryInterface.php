@@ -7,8 +7,8 @@ declare(strict_types=1);
 namespace App\Application\Contracts;
 
 use App\Domain\CustomerService\ValueObjects\EscalationsConfig;
-use App\Domain\Exceptions\ConfigurationNotFoundException;
-use App\Domain\Exceptions\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Infrastructure\ConfigurationNotFoundException;
 
 /**
  * Repository for loading escalation configuration.

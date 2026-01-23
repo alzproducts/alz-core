@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Domain\Exceptions;
+namespace App\Domain\Exceptions\Api;
 
 use Throwable;
 
@@ -20,7 +20,7 @@ use Throwable;
  * @see ExternalServiceUnavailableException For transient failures (rate limits, outages)
  * @see InvalidApiRequestException For malformed requests
  */
-final class AuthenticationExpiredException extends DomainException
+final class AuthenticationExpiredException extends AbstractApiException
 {
     public function __construct(
         public readonly string $serviceName,

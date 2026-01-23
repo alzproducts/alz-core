@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Domain\Exceptions;
+namespace App\Domain\Exceptions\Infrastructure;
 
 use Throwable;
 
@@ -14,7 +14,7 @@ use Throwable;
  * - File write failure (disk full, permissions)
  * - Storage service unavailable
  */
-final class StorageOperationFailedException extends DomainException
+final class StorageOperationFailedException extends AbstractInfrastructureException
 {
     public function __construct(
         public readonly string $operation,

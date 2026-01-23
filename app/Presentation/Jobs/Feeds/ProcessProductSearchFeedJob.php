@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Presentation\Jobs\Feeds;
 
 use App\Application\Feeds\ProcessProductSearchFeedUseCase;
-use App\Domain\Exceptions\ExternalServiceUnavailableException;
-use App\Domain\Exceptions\StorageOperationFailedException;
+use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Infrastructure\StorageOperationFailedException;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
