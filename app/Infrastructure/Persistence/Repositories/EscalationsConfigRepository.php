@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Infrastructure\CustomerService;
+namespace App\Infrastructure\Persistence\Repositories;
 
 use App\Application\Contracts\EscalationsConfigRepositoryInterface;
 use App\Domain\CustomerService\ValueObjects\EscalationsConfig;
