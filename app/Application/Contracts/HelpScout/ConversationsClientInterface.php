@@ -6,8 +6,8 @@ namespace App\Application\Contracts\HelpScout;
 
 use App\Application\HelpScout\Queries\ConversationQueryParams;
 use App\Domain\CustomerService\ValueObjects\Conversation;
-use App\Domain\Exceptions\ExternalServiceUnavailableException;
-use App\Domain\Exceptions\InvalidApiResponseException;
+use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Api\InvalidApiResponseException;
 
 /**
  * HelpScout Conversations API client contract.

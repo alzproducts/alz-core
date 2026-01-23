@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Infrastructure\Linnworks\Clients;
 
 use App\Application\Contracts\Linnworks\ConnectivityClientInterface;
-use App\Domain\Exceptions\AuthenticationExpiredException;
-use App\Domain\Exceptions\ExternalServiceUnavailableException;
-use App\Domain\Exceptions\InvalidApiResponseException;
+use App\Domain\Exceptions\Api\AuthenticationExpiredException;
+use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Infrastructure\Linnworks\LinnworksSessionManager;
 use DateMalformedStringException;
 use Illuminate\Support\Facades\Log;

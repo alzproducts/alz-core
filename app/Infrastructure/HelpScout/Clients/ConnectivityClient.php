@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Infrastructure\HelpScout\Clients;
 
 use App\Application\Contracts\HelpScout\ConnectivityClientInterface;
-use App\Domain\Exceptions\AuthenticationExpiredException;
-use App\Domain\Exceptions\ExternalServiceUnavailableException;
-use App\Domain\Exceptions\InvalidApiRequestException;
+use App\Domain\Exceptions\Api\AuthenticationExpiredException;
+use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Infrastructure\HelpScout\HelpScoutHttpTransport;
 
 /**

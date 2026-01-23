@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Presentation\Jobs\Shopwired;
 
 use App\Application\Shopwired\UseCases\SyncOrdersRangeUseCase;
-use App\Domain\Exceptions\AuthenticationExpiredException;
-use App\Domain\Exceptions\ExternalServiceUnavailableException;
-use App\Domain\Exceptions\InvalidApiResponseException;
+use App\Domain\Exceptions\Api\AuthenticationExpiredException;
+use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use DateTimeImmutable;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;

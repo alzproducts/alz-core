@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Domain\Exceptions;
+namespace App\Domain\Exceptions\Infrastructure;
 
 use App\Domain\Inventory\ValueObjects\ItemStockLevel;
 use Throwable;
@@ -23,7 +23,7 @@ use Throwable;
  * The API doesn't report per-item success/failure, only aggregate counts.
  * To identify problematic SKUs, verify each against the target system.
  */
-final class StockUpdateFailedException extends DomainException
+final class StockUpdateFailedException extends AbstractInfrastructureException
 {
     /**
      * @param list<ItemStockLevel> $attemptedItems All items that were sent for update

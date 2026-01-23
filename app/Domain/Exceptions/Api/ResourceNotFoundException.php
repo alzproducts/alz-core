@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Domain\Exceptions;
+namespace App\Domain\Exceptions\Api;
 
 use Throwable;
 
@@ -16,7 +16,7 @@ use Throwable;
  * - API returns 404 for a specific resource ID
  * - Search returns no results for a known identifier
  */
-final class ResourceNotFoundException extends DomainException
+final class ResourceNotFoundException extends AbstractApiException
 {
     public function __construct(
         public readonly string $serviceName,

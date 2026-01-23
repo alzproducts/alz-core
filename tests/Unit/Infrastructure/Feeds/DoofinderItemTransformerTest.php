@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Infrastructure\Feeds;
 
-use App\Domain\Exceptions\MalformedFeedDataException;
+use App\Domain\Exceptions\Data\MalformedFeedDataException;
 use App\Infrastructure\Feeds\DoofinderItemTransformer;
 use Mockery;
 use Mockery\MockInterface;

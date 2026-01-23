@@ -7,8 +7,8 @@ namespace App\Infrastructure\BingAds;
 use App\Application\Contracts\BingAdsClientInterface;
 use App\Domain\AdSpend\Enums\AdSource;
 use App\Domain\AdSpend\ValueObjects\CampaignMetrics;
-use App\Domain\Exceptions\AuthenticationExpiredException;
-use App\Domain\Exceptions\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Api\AuthenticationExpiredException;
+use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\ValueObjects\DateRange;
 use App\Infrastructure\BingAds\Transformers\BingAdsCsvTransformer;
 

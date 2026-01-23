@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\ReviewsIo\Responses;
 
-use App\Domain\Product\ValueObjects\ProductRating;
+use App\Domain\Catalog\Product\ValueObjects\ProductRating;
 use App\Infrastructure\Contracts\DomainConvertibleInterface;
 use Spatie\LaravelData\Attributes\MapInputName;
 use Spatie\LaravelData\Attributes\Validation\Required;

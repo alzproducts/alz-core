@@ -6,7 +6,7 @@ namespace App\Infrastructure\Shopwired\Responses;
 
 use App\Domain\Customer\ValueObjects\Customer as DomainCustomer;
 use App\Domain\Customer\ValueObjects\CustomerAddress;
-use App\Domain\Exceptions\InvalidApiResponseException;
+use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Infrastructure\Contracts\DomainConvertibleInterface;
 use DateMalformedStringException;
 use DateTimeImmutable;

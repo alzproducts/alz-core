@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Domain\Exceptions;
+namespace App\Domain\Exceptions\Api;
 
 use Throwable;
 
@@ -14,7 +14,7 @@ use Throwable;
  * - Service outage (503) → retryAfter null, let Laravel backoff
  * - Network timeout → retryAfter null, let Laravel backoff
  */
-final class ExternalServiceUnavailableException extends DomainException
+final class ExternalServiceUnavailableException extends AbstractApiException
 {
     public function __construct(
         public readonly string $serviceName,

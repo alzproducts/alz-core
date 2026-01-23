@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Infrastructure\Database;
 
 use App\Application\Contracts\DatabaseGatewayInterface;
-use App\Domain\Exceptions\DatabaseOperationFailedException;
-use App\Domain\Exceptions\DuplicateRecordException;
-use App\Domain\Exceptions\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
+use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use Closure;
 use Illuminate\Database\ConnectionInterface;
 use Illuminate\Database\DatabaseManager;

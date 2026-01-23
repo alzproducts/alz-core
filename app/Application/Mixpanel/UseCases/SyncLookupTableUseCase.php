@@ -6,10 +6,10 @@ namespace App\Application\Mixpanel\UseCases;
 
 use App\Application\Contracts\LookupTableProviderInterface;
 use App\Application\Contracts\MixpanelClientInterface;
-use App\Domain\Exceptions\AuthenticationExpiredException;
-use App\Domain\Exceptions\ExternalServiceUnavailableException;
-use App\Domain\Exceptions\InvalidApiRequestException;
-use App\Domain\Exceptions\UnexpectedApiResultException;
+use App\Domain\Exceptions\Api\AuthenticationExpiredException;
+use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Api\InvalidApiRequestException;
+use App\Domain\Exceptions\Api\UnexpectedApiResultException;
 use Psr\Log\LoggerInterface;
 
 /**

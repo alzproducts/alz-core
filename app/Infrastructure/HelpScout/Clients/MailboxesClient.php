@@ -6,10 +6,10 @@ namespace App\Infrastructure\HelpScout\Clients;
 
 use App\Application\Contracts\HelpScout\MailboxesClientInterface;
 use App\Domain\CustomerService\ValueObjects\Mailbox as DomainMailbox;
-use App\Domain\Exceptions\AuthenticationExpiredException;
-use App\Domain\Exceptions\ExternalServiceUnavailableException;
-use App\Domain\Exceptions\InvalidApiRequestException;
-use App\Domain\Exceptions\InvalidApiResponseException;
+use App\Domain\Exceptions\Api\AuthenticationExpiredException;
+use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Api\InvalidApiRequestException;
+use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Infrastructure\HelpScout\HelpScoutHttpTransport;
 use App\Infrastructure\HelpScout\HelpScoutResponseParser;
 use App\Infrastructure\HelpScout\Responses\MailboxResponse;

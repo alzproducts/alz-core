@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\Catalog\Product\ValueObjects;
 
-use App\Domain\Exceptions\InvalidGtinException;
+use App\Domain\Exceptions\Data\InvalidGtinException;
 
 /**
  * Global Trade Item Number (GTIN) Value Object.

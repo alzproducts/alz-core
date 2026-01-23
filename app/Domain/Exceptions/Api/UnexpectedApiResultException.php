@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Domain\Exceptions;
+namespace App\Domain\Exceptions\Api;
 
 use Throwable;
 
@@ -17,7 +17,7 @@ use Throwable;
  * This is NOT a transient failure - retrying won't help.
  * Requires human investigation to resolve.
  */
-final class UnexpectedApiResultException extends DomainException
+final class UnexpectedApiResultException extends AbstractApiException
 {
     public function __construct(
         public readonly string $serviceName,

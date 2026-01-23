@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Tests\Unit\Domain\Product\ValueObjects;
+namespace Tests\Unit\Domain\Catalog\Product\ValueObjects;
 
-use App\Domain\Product\ValueObjects\ProductRating;
+use App\Domain\Catalog\Product\ValueObjects\ProductRating;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;

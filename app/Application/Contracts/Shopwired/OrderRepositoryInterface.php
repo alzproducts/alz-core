@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Application\Contracts\Shopwired;
 
 use App\Domain\Catalog\Order\ValueObjects\Order;
-use App\Domain\Exceptions\DatabaseOperationFailedException;
-use App\Domain\Exceptions\ExternalServiceUnavailableException;
-use App\Domain\Exceptions\ResourceNotFoundException;
+use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use DateTimeImmutable;
 
 /**

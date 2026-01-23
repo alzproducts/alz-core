@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Presentation\Jobs\Mixpanel;
 
 use App\Application\Mixpanel\UseCases\SyncLookupTableUseCase;
-use App\Domain\Exceptions\AuthenticationExpiredException;
-use App\Domain\Exceptions\ExternalServiceUnavailableException;
-use App\Domain\Exceptions\UnexpectedApiResultException;
+use App\Domain\Exceptions\Api\AuthenticationExpiredException;
+use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Api\UnexpectedApiResultException;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
