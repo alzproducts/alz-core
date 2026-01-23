@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Presentation\Jobs\Mixpanel;
 
+use App\Application\Mixpanel\Results\SyncOrdersToMixpanelResult;
 use App\Application\Mixpanel\UseCases\SyncOrdersToMixpanelUseCase;
-use App\Application\Mixpanel\ValueObjects\SyncOrdersToMixpanelResult;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\UnexpectedApiResultException;

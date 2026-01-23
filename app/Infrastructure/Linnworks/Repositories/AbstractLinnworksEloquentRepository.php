@@ -6,7 +6,7 @@ namespace App\Infrastructure\Linnworks\Repositories;
 
 use App\Application\Contracts\DatabaseGatewayInterface;
 use App\Application\Contracts\Linnworks\LinnworksRepositoryInterface;
-use App\Application\ValueObjects\SaveManyResult;
+use App\Application\Results\SaveManyResult;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;

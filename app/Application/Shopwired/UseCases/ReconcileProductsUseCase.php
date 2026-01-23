@@ -6,7 +6,7 @@ namespace App\Application\Shopwired\UseCases;
 
 use App\Application\Contracts\Shopwired\ProductClientInterface;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
-use App\Application\Shopwired\ValueObjects\ReconcileResult;
+use App\Application\Shopwired\Results\ReconcileResult;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;

@@ -6,7 +6,7 @@ namespace App\Application\Linnworks\UseCases;
 
 use App\Application\Contracts\Linnworks\InventoryClientInterface;
 use App\Application\Contracts\Linnworks\StockItemRepositoryInterface;
-use App\Application\ValueObjects\SyncResult;
+use App\Application\Results\SyncResult;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;

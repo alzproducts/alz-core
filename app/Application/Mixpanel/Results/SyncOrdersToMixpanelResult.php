@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Application\Mixpanel\ValueObjects;
+namespace App\Application\Mixpanel\Results;
 
 /**
  * Result of syncing orders from local database to Mixpanel.

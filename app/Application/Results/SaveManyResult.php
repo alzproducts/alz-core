@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Application\ValueObjects;
+namespace App\Application\Results;
 
 /**
  * Result of a bulk save operation.
