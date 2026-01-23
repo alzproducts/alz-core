@@ -18,7 +18,6 @@ use App\Infrastructure\Shopwired\Models\OrderModel;
 use App\Infrastructure\Shopwired\Models\OrderProductModel;
 use App\Infrastructure\Shopwired\Models\OrderRefundModel;
 use DateTimeImmutable;
-use Illuminate\Database\Eloquent\Model;
 
 /**
  * Eloquent implementation of ShopWired order repository.
@@ -141,21 +140,9 @@ final class EloquentOrderRepository extends AbstractShopwiredEloquentRepository 
         return $entity->id;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     protected function getEntityTypeName(): string
     {
         return self::ENTITY_TYPE;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    protected function mapModelToDomain(Model $model): Order
-    {
-        /** @var OrderModel $model */
-        return OrderModelMapper::fromModelWithRelations($model);
     }
 
     // ─────────────────────────────────────────────────────────────────────────

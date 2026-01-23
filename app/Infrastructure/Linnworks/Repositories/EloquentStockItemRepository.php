@@ -66,6 +66,11 @@ final class EloquentStockItemRepository extends AbstractLinnworksEloquentReposit
         }, attempts: 3);
     }
 
+    protected function getModelClass(): string
+    {
+        return StockItemModel::class;
+    }
+
     protected function getEntityIdentifier(object $entity): string
     {
         /** @var StockItem $entity */

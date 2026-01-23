@@ -157,6 +157,8 @@ final readonly class SyncCustomersUseCase
      *
      * @param list<Customer> $customers Customers to save
      * @param int|string $batchIdentifier For logging (page number or 'final')
+     *
+     * @throws ExternalServiceUnavailableException When database temporarily unavailable
      */
     private function flushBuffer(array $customers, int|string $batchIdentifier): SyncResult
     {
