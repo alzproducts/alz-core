@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Application\Contracts;
 
-use App\Domain\Exceptions\AuthenticationExpiredException;
-use App\Domain\Exceptions\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Api\AuthenticationExpiredException;
+use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 
 /**
  * Provider for lookup table data synchronization.

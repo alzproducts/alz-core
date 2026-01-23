@@ -17,7 +17,7 @@ use App\Domain\Catalog\Order\ValueObjects\OrderProduct;
 use App\Domain\Catalog\Order\ValueObjects\OrderStatus;
 use App\Domain\Catalog\Order\ValueObjects\OrderStatusType;
 use App\Domain\Catalog\Order\ValueObjects\PaymentMethod;
-use App\Domain\Exceptions\MissingRequiredDataException;
+use App\Domain\Exceptions\Data\MissingRequiredDataException;
 use DateTimeImmutable;
 use Mockery;
 use Mockery\MockInterface;

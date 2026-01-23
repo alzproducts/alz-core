@@ -18,9 +18,9 @@ use App\Domain\CustomerService\ValueObjects\Conversation;
 use App\Domain\CustomerService\ValueObjects\EscalationsConfig;
 use App\Domain\CustomerService\ValueObjects\Mailbox;
 use App\Domain\CustomerService\ValueObjects\SupportAgent;
-use App\Domain\Exceptions\ConfigurationNotFoundException;
-use App\Domain\Exceptions\ExternalServiceUnavailableException;
-use App\Domain\Exceptions\InvalidApiResponseException;
+use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Api\InvalidApiResponseException;
+use App\Domain\Exceptions\Infrastructure\ConfigurationNotFoundException;
 use LogicException;
 
 /**

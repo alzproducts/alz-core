@@ -7,7 +7,7 @@ namespace App\Infrastructure\Shopwired\Responses;
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldItemType;
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldType;
 use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldDefinition;
-use App\Domain\Exceptions\InvalidApiResponseException;
+use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Infrastructure\Contracts\DomainConvertibleInterface;
 use Spatie\LaravelData\Attributes\MapInputName;
 use Spatie\LaravelData\Data;

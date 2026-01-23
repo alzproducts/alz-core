@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Application\Contracts\Linnworks;
 
 use App\Application\ValueObjects\SaveManyResult;
-use App\Domain\Exceptions\DatabaseOperationFailedException;
-use App\Domain\Exceptions\DuplicateRecordException;
-use App\Domain\Exceptions\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
+use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 
 /**
  * Base repository interface for Linnworks entity persistence.

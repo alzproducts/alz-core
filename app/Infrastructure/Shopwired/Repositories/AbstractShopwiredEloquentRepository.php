@@ -7,10 +7,10 @@ namespace App\Infrastructure\Shopwired\Repositories;
 use App\Application\Contracts\DatabaseGatewayInterface;
 use App\Application\Contracts\Shopwired\ShopwiredRepositoryInterface;
 use App\Application\ValueObjects\SaveManyResult;
-use App\Domain\Exceptions\DatabaseOperationFailedException;
-use App\Domain\Exceptions\DuplicateRecordException;
-use App\Domain\Exceptions\ExternalServiceUnavailableException;
-use App\Domain\Exceptions\ResourceNotFoundException;
+use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
+use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Log;
 

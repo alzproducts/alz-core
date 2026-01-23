@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Infrastructure\HelpScout\Responses;
 
 use App\Domain\CustomerService\ValueObjects\ConversationSnooze;
-use App\Domain\Exceptions\InvalidApiResponseException;
+use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use DateMalformedStringException;
 use DateTimeImmutable;
 use Spatie\LaravelData\Data;

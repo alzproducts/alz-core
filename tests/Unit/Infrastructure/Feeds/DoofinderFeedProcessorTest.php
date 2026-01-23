@@ -6,8 +6,8 @@ namespace Tests\Unit\Infrastructure\Feeds;
 
 use App\Application\Contracts\RemoteStorageInterface;
 use App\Application\Feeds\ProductSearchFeedProcessingResult;
-use App\Domain\Exceptions\ExternalServiceUnavailableException;
-use App\Domain\Exceptions\MalformedFeedDataException;
+use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Data\MalformedFeedDataException;
 use App\Infrastructure\Feeds\DoofinderFeedProcessor;
 use App\Infrastructure\Feeds\DoofinderItemTransformer;
 use Illuminate\Http\Client\ConnectionException;

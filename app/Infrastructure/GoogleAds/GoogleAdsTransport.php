@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\GoogleAds;
 
-use App\Domain\Exceptions\AuthenticationExpiredException;
-use App\Domain\Exceptions\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Api\AuthenticationExpiredException;
+use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Infrastructure\Support\RetryAfterParser;
 use Google\Ads\GoogleAds\Lib\V22\GoogleAdsClient as SdkGoogleAdsClient;
 use Google\Ads\GoogleAds\V22\Services\SearchGoogleAdsRequest;

@@ -7,10 +7,10 @@ namespace App\Infrastructure\Shopwired\Repositories;
 use App\Application\Contracts\Shopwired\CustomFieldRepositoryInterface;
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldItemType;
 use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldDefinition;
-use App\Domain\Exceptions\DatabaseOperationFailedException;
-use App\Domain\Exceptions\DuplicateRecordException;
-use App\Domain\Exceptions\ExternalServiceUnavailableException;
-use App\Domain\Exceptions\InvalidApiResponseException;
+use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Api\InvalidApiResponseException;
+use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
+use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Infrastructure\Shopwired\Models\CustomFieldDefinitionModel;
 use Illuminate\Database\Eloquent\Model;
 

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Feeds;
 
-use App\Domain\Exceptions\MalformedFeedDataException;
+use App\Domain\Exceptions\Data\MalformedFeedDataException;
 use Psr\Log\LoggerInterface;
 use SimpleXMLElement;
 use Throwable;

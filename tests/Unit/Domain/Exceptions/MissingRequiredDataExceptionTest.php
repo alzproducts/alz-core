@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Domain\Exceptions;
 
-use App\Domain\Exceptions\MissingRequiredDataException;
+use App\Domain\Exceptions\Data\MissingRequiredDataException;
 use PHPUnit\Framework\Attributes\Test;
 use RuntimeException;
 use Tests\TestCase;

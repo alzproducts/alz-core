@@ -8,11 +8,11 @@ use App\Application\Contracts\Shopwired\CategoryClientInterface;
 use App\Application\Support\CacheTimesTrait;
 use App\Application\Support\GracefulCache;
 use App\Domain\Catalog\ValueObjects\Category;
-use App\Domain\Exceptions\AuthenticationExpiredException;
-use App\Domain\Exceptions\ExternalServiceUnavailableException;
-use App\Domain\Exceptions\InvalidApiRequestException;
-use App\Domain\Exceptions\InvalidApiResponseException;
-use App\Domain\Exceptions\ResourceNotFoundException;
+use App\Domain\Exceptions\Api\AuthenticationExpiredException;
+use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Api\InvalidApiRequestException;
+use App\Domain\Exceptions\Api\InvalidApiResponseException;
+use App\Domain\Exceptions\Api\ResourceNotFoundException;
 
 /**
  * Caching decorator for ShopWired API operations.

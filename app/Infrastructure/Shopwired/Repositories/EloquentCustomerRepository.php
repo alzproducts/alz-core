@@ -6,10 +6,10 @@ namespace App\Infrastructure\Shopwired\Repositories;
 
 use App\Application\Contracts\Shopwired\CustomerRepositoryInterface;
 use App\Domain\Customer\ValueObjects\Customer;
-use App\Domain\Exceptions\DatabaseOperationFailedException;
-use App\Domain\Exceptions\DuplicateRecordException;
-use App\Domain\Exceptions\ExternalServiceUnavailableException;
-use App\Domain\Exceptions\ResourceNotFoundException;
+use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
+use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Infrastructure\Shopwired\Mappers\CustomerModelMapper;
 use App\Infrastructure\Shopwired\Models\CustomerModel;
 use Illuminate\Database\Eloquent\Model;

@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Application\Contracts\HelpScout;
 
 use App\Domain\CustomerService\ValueObjects\SupportAgent;
-use App\Domain\Exceptions\ExternalServiceUnavailableException;
-use App\Domain\Exceptions\InvalidApiResponseException;
+use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Api\InvalidApiResponseException;
 
 /**
  * HelpScout Users/Agents API client contract.

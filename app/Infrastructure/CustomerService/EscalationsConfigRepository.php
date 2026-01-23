@@ -6,10 +6,10 @@ namespace App\Infrastructure\CustomerService;
 
 use App\Application\Contracts\EscalationsConfigRepositoryInterface;
 use App\Domain\CustomerService\ValueObjects\EscalationsConfig;
-use App\Domain\Exceptions\ConfigurationNotFoundException;
-use App\Domain\Exceptions\DatabaseOperationFailedException;
-use App\Domain\Exceptions\DuplicateRecordException;
-use App\Domain\Exceptions\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Infrastructure\ConfigurationNotFoundException;
+use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
+use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Infrastructure\Database\DatabaseGateway;
 use JsonException;
 

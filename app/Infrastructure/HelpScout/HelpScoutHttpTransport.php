@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\HelpScout;
 
-use App\Domain\Exceptions\AuthenticationExpiredException;
-use App\Domain\Exceptions\ExternalServiceUnavailableException;
-use App\Domain\Exceptions\InvalidApiRequestException;
+use App\Domain\Exceptions\Api\AuthenticationExpiredException;
+use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Infrastructure\Support\ApiRetryStrategy;
 use App\Infrastructure\Support\RetryAfterParser;
 use Exception;
@@ -188,14 +188,22 @@ final readonly class HelpScoutHttpTransport
         /** @var array<string, string> $authHeaders */
         $authHeaders = $this->sdkClient->getAuthenticator()->getAuthHeader();
 
-        /** @phpstan-ignore staticMethod.dynamicCall */
-        return $this->httpFactory->withHeaders($authHeaders)
+        /**
+         * Factory uses __call to proxy to PendingRequest, but IDE doesn't recognize this.
+         *
+         * @var PendingRequest $request
+         *
+         * @phpstan-ignore staticMethod.dynamicCall
+         */
+        $request = $this->httpFactory->withHeaders($authHeaders)
             ->retry(
                 times: $this->config->retryAttempts,
                 sleepMilliseconds: 100,
                 when: ApiRetryStrategy::defaultRetry(),
             )
             ->timeout($this->config->timeoutSeconds);
+
+        return $request;
     }
 
     /**
