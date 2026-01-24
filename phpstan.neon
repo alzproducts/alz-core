@@ -163,11 +163,13 @@ parameters:
         # Eloquent query builder returns dynamic proxies - static analysis can't track fluent chains.
         # Methods like exists(), whereNotIn() on Builder are instance methods called on static chain.
         # DatabaseManager also proxies to Connection (transaction() call in DatabaseGateway).
+        # EloquentGateway uses dynamic class-string<Model> calls throughout by design.
         -
             identifier: staticMethod.dynamicCall
             paths:
                 - app/Infrastructure/*/Repositories/*
                 - app/Infrastructure/Database/DatabaseGateway.php
+                - app/Infrastructure/Persistence/EloquentGateway.php
         # Laravel service providers use closures/callbacks for deferred binding resolution.
         # These ARE invoked synchronously when the service is resolved, but ShipMonk can't verify this.
         -

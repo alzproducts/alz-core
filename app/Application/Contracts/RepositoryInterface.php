@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Application\Contracts\Linnworks;
+namespace App\Application\Contracts;
 
 use App\Application\Results\SaveManyResult;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
@@ -10,24 +10,17 @@ use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 
 /**
- * Base repository interface for Linnworks entity persistence.
+ * Base repository interface for entity persistence.
  *
- * Provides common operations for syncing Linnworks entities to local database.
- * Linnworks remains the source of truth; local storage provides fast queries
- * and offline resilience.
- *
- * Entity-specific repositories should extend this interface and add
- * custom query methods as needed.
- *
- * Key difference from ShopWired: Linnworks uses string GUIDs as identifiers,
- * not integer external IDs.
+ * Defines common operations shared across all repository implementations.
+ * Entity-specific interfaces extend this and add their own query methods.
  *
  * @template T of object
  */
-interface LinnworksRepositoryInterface
+interface RepositoryInterface
 {
     /**
-     * Persist an entity (upsert based on Linnworks GUID).
+     * Persist an entity (upsert based on external identifier).
      *
      * @param T $entity
      *
