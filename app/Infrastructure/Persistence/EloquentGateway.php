@@ -368,15 +368,15 @@ final readonly class EloquentGateway
         );
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Private Upsert Helpers
-    // ─────────────────────────────────────────────────────────────────────────
-
     /**
      * Bulk upsert records (high-performance).
      *
-     * Performs INSERT ... ON DUPLICATE KEY UPDATE (MySQL) or equivalent.
+     * Performs INSERT ... ON CONFLICT DO UPDATE (PostgreSQL) or equivalent.
      * Applies model casts before upserting to ensure proper type handling.
+     *
+     * Use this when you need a simple bulk upsert without fallback logic.
+     * For large batches with automatic chunking and per-row fallback on errors,
+     * use batchUpsertMany() instead.
      *
      * @param class-string<Model> $modelClass
      * @param list<array<string, mixed>> $rows Data rows to upsert (raw attributes)
@@ -389,7 +389,7 @@ final readonly class EloquentGateway
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      */
-    private function upsertMany(
+    public function upsertMany(
         string $modelClass,
         array $rows,
         array $uniqueBy,
@@ -635,6 +635,58 @@ final readonly class EloquentGateway
             'model' => $modelName,
             'column' => $column,
             'count' => \count($values),
+            'deleted' => $deleted,
+        ]);
+
+        return $deleted;
+    }
+
+    /**
+     * Delete records matching a column value but NOT in a list of values.
+     *
+     * Useful for syncing child records: delete rows that exist in the database
+     * but are no longer present in the incoming data.
+     *
+     * Example: Delete order products where order_external_id = 123
+     *          but external_id NOT IN [1, 2, 3] (the current product IDs)
+     *
+     * @param class-string<Model> $modelClass
+     * @param list<int|string> $notInValues Values to exclude from deletion
+     *
+     * @return int Number of rows deleted
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function deleteWhereNotIn(
+        string $modelClass,
+        string $whereColumn,
+        int|string $whereValue,
+        string $notInColumn,
+        array $notInValues,
+    ): int {
+        $modelName = \class_basename($modelClass);
+
+        $deleted = $this->dbGateway->transact(
+            static function () use ($modelClass, $whereColumn, $whereValue, $notInColumn, $notInValues): int {
+                $query = $modelClass::query()->where($whereColumn, $whereValue);
+
+                // Only add whereNotIn if there are values to exclude
+                if ($notInValues !== []) {
+                    $query->whereNotIn($notInColumn, $notInValues);
+                }
+
+                /** @var int */
+                return $query->delete();
+            },
+        );
+
+        Log::debug('Conditional delete completed', [
+            'model' => $modelName,
+            'where' => [$whereColumn => $whereValue],
+            'not_in' => $notInColumn,
+            'excluded_count' => \count($notInValues),
             'deleted' => $deleted,
         ]);
 

@@ -6,7 +6,10 @@ namespace App\Infrastructure\Shopwired\Repositories;
 
 use App\Application\Contracts\Shopwired\OrderRepositoryInterface;
 use App\Domain\Catalog\Order\ValueObjects\Order;
+use App\Domain\Catalog\Order\ValueObjects\OrderAdminComment;
+use App\Domain\Catalog\Order\ValueObjects\OrderDiscount;
 use App\Domain\Catalog\Order\ValueObjects\OrderProduct;
+use App\Domain\Catalog\Order\ValueObjects\OrderRefund;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
@@ -51,12 +54,28 @@ final class EloquentOrderRepository extends AbstractEloquentRepository implement
      */
     public function save(object $entity): void
     {
-        $this->gateway->transact(function () use ($entity): void {
-            $model = $this->upsertOrder($entity);
-            $this->syncProducts($model, $entity);
-            $this->syncDiscounts($model, $entity);
-            $this->syncRefunds($model, $entity);
-            $this->syncAdminComments($model, $entity);
+        $this->eloquentGateway->transact(function () use ($entity): void {
+            // 1. Upsert order (single INSERT ON CONFLICT query)
+            $this->eloquentGateway->upsertOne(
+                modelClass: self::MODEL_CLASS,
+                attributes: [
+                    'external_id' => $entity->id,
+                    ...OrderModelMapper::toModelAttributes($entity),
+                ],
+                uniqueBy: ['external_id'],
+            );
+
+            // 2. Fetch order UUID for FK relationships on child tables
+            /** @var string $orderUuid */
+            $orderUuid = self::MODEL_CLASS::query()
+                ->where('external_id', $entity->id)
+                ->value('id');
+
+            // 3. Sync child tables
+            $this->syncProducts($orderUuid, $entity);
+            $this->syncDiscounts($orderUuid, $entity);
+            $this->syncRefunds($orderUuid, $entity);
+            $this->syncAdminComments($orderUuid, $entity);
         }, attempts: 3);
     }
 
@@ -140,112 +159,170 @@ final class EloquentOrderRepository extends AbstractEloquentRepository implement
     // ─────────────────────────────────────────────────────────────────────────
 
     /**
-     * Upsert order record based on external_id.
-     */
-    private function upsertOrder(Order $order): OrderModel
-    {
-        $attributes = OrderModelMapper::toModelAttributes($order);
-
-        /** @var OrderModel $model */
-        $model = self::MODEL_CLASS::query()->updateOrCreate(
-            ['external_id' => $order->id],
-            $attributes,
-        );
-
-        return $model;
-    }
-
-    /**
      * Sync order products (delete removed, upsert existing).
      *
      * Uses stable ShopWired IDs (order_external_id, external_id) for upsert lookup,
      * ensuring sync works correctly even if internal UUIDs change.
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
      */
-    private function syncProducts(OrderModel $model, Order $order): void
+    private function syncProducts(string $orderUuid, Order $order): void
     {
-        if ($order->products === null) {
+        if ($order->products === null || $order->products === []) {
+            // No products - delete any existing
+            $this->eloquentGateway->deleteWhere(
+                modelClass: OrderProductModel::class,
+                column: 'order_external_id',
+                value: $order->id,
+            );
+
             return;
         }
 
-        $currentIds = \array_map(
+        /** @var list<int> $currentIds */
+        $currentIds = \array_values(\array_map(
             static fn(OrderProduct $p): int => $p->id,
             $order->products,
+        ));
+
+        // 1. Delete products no longer in order (using stable external IDs)
+        $this->eloquentGateway->deleteWhereNotIn(
+            modelClass: OrderProductModel::class,
+            whereColumn: 'order_external_id',
+            whereValue: $order->id,
+            notInColumn: 'external_id',
+            notInValues: $currentIds,
         );
 
-        // Delete products no longer in order (using stable external IDs)
-        OrderProductModel::query()
-            ->where('order_external_id', $order->id)
-            ->whereNotIn('external_id', $currentIds)
-            ->delete();
+        // 2. Bulk upsert current products (single query vs N queries)
+        /** @var list<array<string, mixed>> $rows */
+        $rows = \array_values(\array_map(
+            static fn(OrderProduct $p): array => [
+                'order_id' => $orderUuid,
+                'order_external_id' => $p->orderExternalId,
+                'external_id' => $p->id,
+                ...OrderProductModel::fromDomainAttributes($p),
+            ],
+            $order->products,
+        ));
 
-        // Upsert current products using stable external IDs for lookup
-        foreach ($order->products as $product) {
-            $attributes = OrderProductModel::fromDomainAttributes($product);
+        $this->eloquentGateway->upsertMany(
+            modelClass: OrderProductModel::class,
+            rows: $rows,
+            uniqueBy: ['order_external_id', 'external_id'],
+        );
+    }
 
-            OrderProductModel::query()->updateOrCreate(
-                [
-                    'order_external_id' => $product->orderExternalId,
-                    'external_id' => $product->id,
+    /**
+     * Sync order discounts (replace all on each sync).
+     *
+     * Discounts have no stable ID - delete all and bulk insert fresh.
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    private function syncDiscounts(string $orderUuid, Order $order): void
+    {
+        // 1. Delete existing discounts
+        $this->eloquentGateway->deleteWhere(
+            modelClass: OrderDiscountModel::class,
+            column: 'order_external_id',
+            value: $order->id,
+        );
+
+        // 2. Bulk insert fresh discounts (single query vs N queries)
+        if ($order->discounts !== []) {
+            /** @var list<array<string, mixed>> $rows */
+            $rows = \array_values(\array_map(
+                static fn(OrderDiscount $discount): array => [
+                    'order_id' => $orderUuid,
+                    'order_external_id' => $order->id,
+                    ...OrderDiscountModel::fromDomainAttributes($discount),
                 ],
-                $attributes + ['order_id' => $model->id],
+                $order->discounts,
+            ));
+
+            $this->eloquentGateway->insertMany(
+                modelClass: OrderDiscountModel::class,
+                rows: $rows,
             );
         }
     }
 
     /**
-     * Sync order discounts (replace all on each sync).
-     */
-    private function syncDiscounts(OrderModel $model, Order $order): void
-    {
-        // Discounts have no stable ID - replace all on sync
-        OrderDiscountModel::query()
-            ->where('order_external_id', $order->id)
-            ->delete();
-
-        foreach ($order->discounts as $discount) {
-            $attributes = OrderDiscountModel::fromDomainAttributes($discount);
-            $attributes['order_id'] = $model->id;
-            $attributes['order_external_id'] = $order->id;
-
-            OrderDiscountModel::query()->create($attributes);
-        }
-    }
-
-    /**
      * Sync order refunds (replace all on each sync).
+     *
+     * Refunds have no stable ID - delete all and bulk insert fresh.
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
      */
-    private function syncRefunds(OrderModel $model, Order $order): void
+    private function syncRefunds(string $orderUuid, Order $order): void
     {
-        // Refunds have no stable ID - replace all on sync
-        OrderRefundModel::query()
-            ->where('order_external_id', $order->id)
-            ->delete();
+        // 1. Delete existing refunds
+        $this->eloquentGateway->deleteWhere(
+            modelClass: OrderRefundModel::class,
+            column: 'order_external_id',
+            value: $order->id,
+        );
 
-        foreach ($order->refunds as $refund) {
-            $attributes = OrderRefundModel::fromDomainAttributes($refund);
-            $attributes['order_id'] = $model->id;
-            $attributes['order_external_id'] = $order->id;
+        // 2. Bulk insert fresh refunds (single query vs N queries)
+        if ($order->refunds !== []) {
+            /** @var list<array<string, mixed>> $rows */
+            $rows = \array_values(\array_map(
+                static fn(OrderRefund $refund): array => [
+                    'order_id' => $orderUuid,
+                    'order_external_id' => $order->id,
+                    ...OrderRefundModel::fromDomainAttributes($refund),
+                ],
+                $order->refunds,
+            ));
 
-            OrderRefundModel::query()->create($attributes);
+            $this->eloquentGateway->insertMany(
+                modelClass: OrderRefundModel::class,
+                rows: $rows,
+            );
         }
     }
 
     /**
      * Sync order admin comments (replace all on each sync).
+     *
+     * Admin comments have no stable ID - delete all and bulk insert fresh.
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
      */
-    private function syncAdminComments(OrderModel $model, Order $order): void
+    private function syncAdminComments(string $orderUuid, Order $order): void
     {
-        // Admin comments have no stable ID - replace all on sync
-        OrderAdminCommentModel::query()
-            ->where('order_external_id', $order->id)
-            ->delete();
+        // 1. Delete existing admin comments
+        $this->eloquentGateway->deleteWhere(
+            modelClass: OrderAdminCommentModel::class,
+            column: 'order_external_id',
+            value: $order->id,
+        );
 
-        foreach ($order->adminComments as $comment) {
-            $attributes = OrderAdminCommentModel::fromDomainAttributes($comment);
-            $attributes['order_id'] = $model->id;
-            $attributes['order_external_id'] = $order->id;
+        // 2. Bulk insert fresh admin comments (single query vs N queries)
+        if ($order->adminComments !== []) {
+            /** @var list<array<string, mixed>> $rows */
+            $rows = \array_values(\array_map(
+                static fn(OrderAdminComment $comment): array => [
+                    'order_id' => $orderUuid,
+                    'order_external_id' => $order->id,
+                    ...OrderAdminCommentModel::fromDomainAttributes($comment),
+                ],
+                $order->adminComments,
+            ));
 
-            OrderAdminCommentModel::query()->create($attributes);
+            $this->eloquentGateway->insertMany(
+                modelClass: OrderAdminCommentModel::class,
+                rows: $rows,
+            );
         }
     }
 }
