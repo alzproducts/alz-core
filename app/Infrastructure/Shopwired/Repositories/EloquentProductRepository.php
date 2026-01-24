@@ -67,9 +67,19 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
     public function save(object $entity): void
     {
         try {
-            $this->gateway->transact(function () use ($entity): void {
-                $model = $this->upsertProduct($entity);
-                $this->syncVariations($model, $entity);
+            $this->eloquentGateway->transact(function () use ($entity): void {
+                // 1. Upsert product (single INSERT ON CONFLICT query)
+                $this->eloquentGateway->upsertOne(
+                    modelClass: self::MODEL_CLASS,
+                    attributes: [
+                        'external_id' => $entity->id,
+                        ...ProductModelMapper::toModelAttributes($entity),
+                    ],
+                    uniqueBy: ['external_id'],
+                );
+
+                // 2. Sync variations (requires product UUID for FK)
+                $this->syncVariations($entity);
             }, attempts: 3);
         } catch (DatabaseOperationFailedException $e) {
             $this->logCrossTableSkuConflictIfApplicable($e, $entity);
@@ -242,41 +252,47 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
     // ─────────────────────────────────────────────────────────────────────────
 
     /**
-     * Upsert product record based on external_id.
-     */
-    private function upsertProduct(Product $product): ProductModel
-    {
-        $attributes = ProductModelMapper::toModelAttributes($product);
-
-        /** @var ProductModel $model */
-        $model = self::MODEL_CLASS::query()->updateOrCreate(
-            ['external_id' => $product->id],
-            $attributes,
-        );
-
-        return $model;
-    }
-
-    /**
      * Sync product variations using delete+insert strategy.
      *
-     * Deletes all existing variations by product_external_id, then inserts fresh.
+     * Deletes all existing variations by product_external_id, then bulk inserts fresh.
      * This is simpler than upsert/diff since variations rarely change independently
      * and the composite unique (product_external_id, external_id) ensures idempotency.
+     *
+     * Performance: Bulk insert reduces N queries to 1 (significant for 100+ variations).
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
      */
-    private function syncVariations(ProductModel $model, Product $product): void
+    private function syncVariations(Product $product): void
     {
-        // Delete existing variations using stable external ID
-        ProductVariationModel::query()
-            ->where('product_external_id', $product->id)
-            ->delete();
+        // 1. Delete existing variations using stable external ID
+        $this->eloquentGateway->deleteWhere(
+            modelClass: ProductVariationModel::class,
+            column: 'product_external_id',
+            value: $product->id,
+        );
 
-        // Insert fresh variations
-        foreach ($product->variations as $variation) {
-            $attributes = ProductVariationModel::fromDomainAttributes($variation);
-            $attributes['product_id'] = $model->id;
+        // 2. Bulk insert fresh variations (single query vs N queries)
+        if ($product->variations !== []) {
+            // Fetch product UUID for FK (single column query after upsert)
+            /** @var string $productUuid */
+            $productUuid = self::MODEL_CLASS::query()
+                ->where('external_id', $product->id)
+                ->value('id');
 
-            ProductVariationModel::query()->create($attributes);
+            $rows = \array_map(
+                static fn(ProductVariation $v): array => [
+                    'product_id' => $productUuid,
+                    ...ProductVariationModel::fromDomainAttributes($v),
+                ],
+                $product->variations,
+            );
+
+            $this->eloquentGateway->insertMany(
+                modelClass: ProductVariationModel::class,
+                rows: $rows,
+            );
         }
     }
 

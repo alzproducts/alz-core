@@ -62,6 +62,29 @@ final readonly class EloquentGateway
     }
 
     /**
+     * Execute operations within a database transaction.
+     *
+     * Wraps the callback in a transaction with automatic retry support.
+     * Use for operations that modify multiple tables atomically.
+     *
+     * @template T
+     *
+     * @param-immediately-invoked-callable $callback
+     * @param Closure(): T $callback
+     * @param int $attempts Number of retry attempts on deadlock (default 1 = no retry)
+     *
+     * @return T
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function transact(Closure $callback, int $attempts = 1): mixed
+    {
+        return $this->dbGateway->transact($callback, $attempts);
+    }
+
+    /**
      * Check if a record exists by column value.
      *
      * @param class-string<Model> $modelClass

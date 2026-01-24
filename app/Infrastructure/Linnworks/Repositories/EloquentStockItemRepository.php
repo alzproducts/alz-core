@@ -38,17 +38,23 @@ final class EloquentStockItemRepository extends AbstractEloquentRepository imple
      */
     public function save(object $entity): void
     {
-        $this->gateway->transact(static function () use ($entity): void {
-            // 1. Upsert stock item by stock_item_id
-            StockItemModel::query()->updateOrCreate(
-                ['stock_item_id' => $entity->stockItemId],
-                StockItemModelMapper::toModelAttributes($entity),
+        $this->eloquentGateway->transact(function () use ($entity): void {
+            // 1. Upsert stock item by stock_item_id (single query vs SELECT+INSERT)
+            $this->eloquentGateway->upsertOne(
+                modelClass: StockItemModel::class,
+                attributes: [
+                    'stock_item_id' => $entity->stockItemId,
+                    ...StockItemModelMapper::toModelAttributes($entity),
+                ],
+                uniqueBy: ['stock_item_id'],
             );
 
             // 2. Delete existing extended properties
-            StockItemExtendedPropertyModel::query()
-                ->where('stock_item_id', $entity->stockItemId)
-                ->delete();
+            $this->eloquentGateway->deleteWhere(
+                modelClass: StockItemExtendedPropertyModel::class,
+                column: 'stock_item_id',
+                value: $entity->stockItemId,
+            );
 
             // 3. Insert fresh extended properties
             if ($entity->hasExtendedProperties()) {
@@ -60,7 +66,10 @@ final class EloquentStockItemRepository extends AbstractEloquentRepository imple
                     $entity->extendedProperties,
                 );
 
-                StockItemExtendedPropertyModel::query()->insert($epRecords);
+                $this->eloquentGateway->insertMany(
+                    modelClass: StockItemExtendedPropertyModel::class,
+                    rows: $epRecords,
+                );
             }
         }, attempts: 3);
     }
