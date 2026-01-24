@@ -147,6 +147,8 @@ final readonly class SyncProductsUseCase
      *
      * @param list<Product> $products Products to save
      * @param int|string $batchIdentifier For logging (page number or 'final')
+     *
+     * @throws ExternalServiceUnavailableException When database temporarily unavailable
      */
     private function flushBuffer(array $products, int|string $batchIdentifier): SyncResult
     {

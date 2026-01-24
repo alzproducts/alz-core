@@ -157,6 +157,8 @@ final readonly class SyncCustomersUseCase
      *
      * @param list<Customer> $customers Customers to save
      * @param int|string $batchIdentifier For logging (page number or 'final')
+     *
+     * @throws ExternalServiceUnavailableException When database temporarily unavailable
      */
     private function flushBuffer(array $customers, int|string $batchIdentifier): SyncResult
     {
@@ -165,7 +167,7 @@ final readonly class SyncCustomersUseCase
             'count' => \count($customers),
         ]);
 
-        $saveResult = $this->customerRepository->saveMany($customers);
+        $saveResult = $this->customerRepository->saveCustomersBulk($customers);
 
         if ($saveResult->hasFailures()) {
             $this->logger->error('Failed to save some customers to database', [
