@@ -251,6 +251,38 @@ final readonly class EloquentGateway
     // ─────────────────────────────────────────────────────────────────────────
 
     /**
+     * Compute safe update columns for upsert operations.
+     *
+     * Always excludes 'id' (primary keys must never change - child FKs reference them)
+     * and the uniqueBy columns (conflict detection columns shouldn't be updated).
+     *
+     * @param array<string, mixed> $preparedRow A single prepared row to extract column names from
+     * @param list<string> $uniqueBy Columns used for conflict detection
+     * @param list<string>|null $explicitUpdate Caller-specified update columns (null = compute default)
+     *
+     * @return list<string> Safe columns to update on conflict
+     */
+    private static function computeUpdateColumns(
+        array $preparedRow,
+        array $uniqueBy,
+        ?array $explicitUpdate,
+    ): array {
+        // If caller specified columns, filter out 'id' for safety
+        if ($explicitUpdate !== null) {
+            return \array_values(\array_filter(
+                $explicitUpdate,
+                static fn(string $col): bool => $col !== 'id',
+            ));
+        }
+
+        // Default: all columns except 'id' and uniqueBy columns
+        return \array_values(\array_filter(
+            \array_keys($preparedRow),
+            static fn(string $col): bool => $col !== 'id' && !\in_array($col, $uniqueBy, true),
+        ));
+    }
+
+    /**
      * Upsert a single record with transaction and error handling.
      *
      * Uses fillForInsert() + upsert() for consistency with bulk operations.
@@ -272,8 +304,9 @@ final readonly class EloquentGateway
         $this->dbGateway->transact(
             static function () use ($modelClass, $attributes, $uniqueBy): int {
                 $preparedRows = $modelClass::query()->fillForInsert([$attributes]);
+                $updateColumns = self::computeUpdateColumns($preparedRows[0] ?? [], $uniqueBy, null);
 
-                return $modelClass::upsert($preparedRows, $uniqueBy);
+                return $modelClass::upsert($preparedRows, $uniqueBy, $updateColumns);
             },
         );
     }
@@ -403,8 +436,9 @@ final readonly class EloquentGateway
             static function () use ($modelClass, $rows, $uniqueBy, $update): int {
                 // fillForInsert applies casts, sets UUIDs, and adds timestamps
                 $preparedRows = $modelClass::query()->fillForInsert($rows);
+                $updateColumns = self::computeUpdateColumns($preparedRows[0] ?? [], $uniqueBy, $update);
 
-                return $modelClass::upsert($preparedRows, $uniqueBy, $update);
+                return $modelClass::upsert($preparedRows, $uniqueBy, $updateColumns);
             },
         );
     }
@@ -442,8 +476,9 @@ final readonly class EloquentGateway
                 $this->dbGateway->transact(
                     static function () use ($modelClass, $row, $uniqueBy, $update): int {
                         $preparedRows = $modelClass::query()->fillForInsert([$row]);
+                        $updateColumns = self::computeUpdateColumns($preparedRows[0] ?? [], $uniqueBy, $update);
 
-                        return $modelClass::upsert($preparedRows, $uniqueBy, $update);
+                        return $modelClass::upsert($preparedRows, $uniqueBy, $updateColumns);
                     },
                 );
 
