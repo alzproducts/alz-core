@@ -41,7 +41,7 @@ Child tables need **two columns** linking to parent:
 - `order_id` (uuid) — FK to `orders.id` with cascade delete
 - `order_external_id` (int) — Parent's ShopWired ID, indexed for queries
 
-**If child supports upsert** (has stable external ID): add composite unique `(order_external_id, external_id)`
+**Sync strategy**: All child tables use delete-all → insert-all (no upsert). None have stable unique line item IDs.
 
 ### Sync Deletes
 
