@@ -54,7 +54,9 @@ final class SyncShopwiredOrdersRangeJob implements ShouldQueue
     public function __construct(
         private readonly DateTimeImmutable $from,
         private readonly DateTimeImmutable $to,
-    ) {}
+    ) {
+        $this->onQueue('low');
+    }
 
     /**
      * Execute the job.
