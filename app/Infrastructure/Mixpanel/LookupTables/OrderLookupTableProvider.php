@@ -26,12 +26,29 @@ use DateTimeImmutable;
 final readonly class OrderLookupTableProvider implements LookupTableProviderInterface
 {
     /**
-     * Bug period where frontend sometimes used fallback salt.
-     * Orders in this period need duplicate rows with both hash variants.
+     * Bug period where frontend JavaScript sometimes used a fallback salt for order hashing.
+     *
+     * Between Sept 2025 and Jan 2026, the frontend tracking script could use either:
+     * - Standard salt (from config): SHA-256(reference + ANALYTICS_SALT)
+     * - Fallback salt (timestamp-based): SHA-256(reference + 'alz-' + timestamp)
+     *
+     * Orders placed during this period need duplicate Mixpanel lookup table rows
+     * with both hash variants to ensure discoverability regardless of which hash
+     * was used when the order was tracked.
+     *
+     * Note: BUG_PERIOD_END is the day AFTER the last affected day (exclusive upper bound).
+     *
+     * @see https://github.com/alzproducts/alz-core/issues/134 Original bug investigation
      */
     private const string BUG_PERIOD_START = '2025-09-01';
 
-    private const string BUG_PERIOD_END = '2026-01-26';
+    private const string BUG_PERIOD_END = '2026-01-27';
+
+    /**
+     * Prefix used by frontend fallback hashing algorithm during bug period.
+     * Pattern: 'alz-' + Unix timestamp of order placement.
+     */
+    private const string FALLBACK_SALT_PREFIX = 'alz-';
 
     public function __construct(
         private MixpanelConfig $config,
@@ -87,7 +104,7 @@ final readonly class OrderLookupTableProvider implements LookupTableProviderInte
 
         $rows = [];
         $bugPeriodStart = new DateTimeImmutable(self::BUG_PERIOD_START);
-        $bugPeriodEnd = new DateTimeImmutable(self::BUG_PERIOD_END . ' 23:59:59');
+        $bugPeriodEnd = new DateTimeImmutable(self::BUG_PERIOD_END);
 
         foreach ($results as $row) {
             $orderPlacedAt = new DateTimeImmutable($row->order_placed_at);
@@ -101,8 +118,8 @@ final readonly class OrderLookupTableProvider implements LookupTableProviderInte
             $rows[] = $this->buildRow($standardHash, $row);
 
             // Bug period: add duplicate row with fallback salt hash
-            if ($orderPlacedAt >= $bugPeriodStart && $orderPlacedAt <= $bugPeriodEnd) {
-                $fallbackSalt = 'alz-' . $orderPlacedAt->getTimestamp();
+            if ($orderPlacedAt >= $bugPeriodStart && $orderPlacedAt < $bugPeriodEnd) {
+                $fallbackSalt = self::FALLBACK_SALT_PREFIX . $orderPlacedAt->getTimestamp();
                 $fallbackHash = \hash('sha256', $row->reference . $fallbackSalt);
                 $rows[] = $this->buildRow($fallbackHash, $row);
             }
