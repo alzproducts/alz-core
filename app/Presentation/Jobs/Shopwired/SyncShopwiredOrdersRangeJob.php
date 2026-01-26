@@ -51,10 +51,19 @@ final class SyncShopwiredOrdersRangeJob implements ShouldQueue
      */
     public array $backoff = [60, 300, 3600];
 
+    /**
+     * Job timeout in seconds.
+     *
+     * Set to 70 minutes to accommodate large date-range syncs with buffer.
+     */
+    public int $timeout = 4200;
+
     public function __construct(
         private readonly DateTimeImmutable $from,
         private readonly DateTimeImmutable $to,
-    ) {}
+    ) {
+        $this->onQueue('low');
+    }
 
     /**
      * Execute the job.
