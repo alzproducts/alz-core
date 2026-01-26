@@ -1,7 +1,7 @@
 <?php
 
 declare(strict_types=1);
-use App\Domain\Exceptions\AuthenticationExpiredException;
+use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use Illuminate\Auth\AuthenticationException;
 
 /**

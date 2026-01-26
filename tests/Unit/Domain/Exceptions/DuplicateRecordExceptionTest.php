@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Domain\Exceptions;
 
-use App\Domain\Exceptions\DuplicateRecordException;
+use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 

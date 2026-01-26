@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Persistence\Models\Access;
 
-use App\Infrastructure\Persistence\Models\ProfileModel;
+use App\Infrastructure\Persistence\Models\Auth\ProfileModel;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;

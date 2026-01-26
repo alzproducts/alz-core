@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Application\Contracts;
 
-use App\Domain\Exceptions\StorageOperationFailedException;
+use App\Domain\Exceptions\Infrastructure\StorageOperationFailedException;
 use DateTimeImmutable;
 
 /**

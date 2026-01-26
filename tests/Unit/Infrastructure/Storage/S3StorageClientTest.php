@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Infrastructure\Storage;
 
-use App\Domain\Exceptions\StorageOperationFailedException;
+use App\Domain\Exceptions\Infrastructure\StorageOperationFailedException;
 use App\Infrastructure\Storage\S3StorageClient;
 use DateTimeImmutable;
 use Illuminate\Contracts\Filesystem\Factory as FilesystemFactory;

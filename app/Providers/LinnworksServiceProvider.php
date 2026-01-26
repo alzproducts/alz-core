@@ -13,6 +13,7 @@ use App\Infrastructure\Linnworks\LinnworksClientFactory;
 use App\Infrastructure\Linnworks\LinnworksConfig;
 use App\Infrastructure\Linnworks\LinnworksSessionManager;
 use App\Infrastructure\Linnworks\Repositories\EloquentStockItemRepository;
+use App\Infrastructure\Persistence\EloquentGateway;
 use Illuminate\Contracts\Container\Container;
 use Illuminate\Contracts\Support\DeferrableProvider;
 use Illuminate\Support\Facades\Config;
@@ -71,6 +72,7 @@ final class LinnworksServiceProvider extends ServiceProvider implements Deferrab
             StockItemRepositoryInterface::class,
             static fn(Container $app): StockItemRepositoryInterface => new EloquentStockItemRepository(
                 $app->make(DatabaseGatewayInterface::class),
+                $app->make(EloquentGateway::class),
             ),
         );
     }

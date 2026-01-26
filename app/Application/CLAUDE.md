@@ -1,4 +1,28 @@
-# Application Layer Exception Handling
+# Application Layer
+
+## Directory Structure for New Integrations
+
+When adding a new external service integration (e.g., Google Ads, QuickBooks), follow this template:
+
+```
+[IntegrationName]/
+├── Services/                   # Caching decorators, business logic with state
+├── UseCases/                   # Entry points (orchestration, thin)
+├── Queries/                    # Complex read params (optional, when needed)
+├── Commands/                   # Write operations (optional, when needed)
+└── Results/                    # Operation outcome objects (optional)
+```
+
+**When to use each:**
+- **Services/**: Caching wrappers, stateful business logic, cross-concern coordination
+- **UseCases/**: Single entry point per operation, orchestrates Services, stays thin
+- **Queries/**: Parameter objects for complex read operations (e.g., `ConversationQueryParams`)
+- **Commands/**: Parameter objects for write operations (future, when needed)
+- **Results/**: Operation outcomes with success/failure tracking (e.g., `SyncResult`)
+
+**Contracts**: Define interfaces in `Application/Contracts/[IntegrationName]/` when there are 2+ interfaces for an integration. Single interfaces can stay flat at `Application/Contracts/`.
+
+---
 
 ## Logging Decision
 

@@ -22,11 +22,11 @@ final class LinnworksScheduleServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        // EVERY 8 HOURS: Full stock item sync (00:00, 08:00, 16:00 UTC)
-        // Syncs inventory data 3x daily - increase frequency if near-real-time needed
+        // DAILY: Full stock item sync at midnight UTC
+        // Syncs inventory data once daily - increase frequency if near-real-time needed
         Schedule::job(new SyncLinnworksStockItemsJob())
             ->name('sync-linnworks-stock-items')
-            ->cron('0 */8 * * *')
+            ->daily()
             ->onOneServer()
             ->withoutOverlapping(60); // 60 min lock - job runs 8-12 min in prod
     }

@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Presentation\Jobs\Mixpanel;
 
 use App\Application\AdSpend\UseCases\SyncAdSpendUseCase;
-use App\Domain\Exceptions\AuthenticationExpiredException;
-use App\Domain\Exceptions\ExternalServiceUnavailableException;
-use App\Domain\Exceptions\PayloadSerializationException;
+use App\Domain\Exceptions\Api\AuthenticationExpiredException;
+use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Api\PayloadSerializationException;
 use App\Domain\ValueObjects\DateRange;
 use DateTimeImmutable;
 use Illuminate\Bus\Queueable;

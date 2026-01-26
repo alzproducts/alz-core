@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Application\Contracts;
 
 use App\Domain\AdSpend\ValueObjects\Campaign;
-use App\Domain\Exceptions\AuthenticationExpiredException;
-use App\Domain\Exceptions\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Api\AuthenticationExpiredException;
+use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 
 /**
  * Google Ads-specific client interface.

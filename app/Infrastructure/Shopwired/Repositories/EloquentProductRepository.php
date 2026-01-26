@@ -9,10 +9,12 @@ use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\Product\ValueObjects\Product;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariation;
-use App\Domain\Exceptions\DatabaseOperationFailedException;
-use App\Domain\Exceptions\DuplicateRecordException;
-use App\Domain\Exceptions\ExternalServiceUnavailableException;
-use App\Domain\Exceptions\ResourceNotFoundException;
+use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
+use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use App\Infrastructure\Persistence\EloquentGateway;
+use App\Infrastructure\Repositories\AbstractEloquentRepository;
 use App\Infrastructure\Shopwired\Mappers\ProductModelMapper;
 use App\Infrastructure\Shopwired\Models\ProductModel;
 use App\Infrastructure\Shopwired\Models\ProductVariationModel;
@@ -31,23 +33,22 @@ use Illuminate\Support\Facades\Log;
  * - Simpler than diffing, and variations rarely change independently
  * - Composite unique (product_external_id, external_id) ensures idempotency
  *
- * @extends AbstractShopwiredEloquentRepository<Product>
+ * @extends AbstractEloquentRepository<Product>
  */
-final class EloquentProductRepository extends AbstractShopwiredEloquentRepository implements ProductRepositoryInterface
+final class EloquentProductRepository extends AbstractEloquentRepository implements ProductRepositoryInterface
 {
     /** @var class-string<ProductModel> */
     private const string MODEL_CLASS = ProductModel::class;
-
-    private const string ENTITY_TYPE = 'Product';
 
     /** @var list<string> */
     private const array EAGER_LOAD_RELATIONS = ['variations'];
 
     public function __construct(
         DatabaseGatewayInterface $gateway,
+        EloquentGateway $eloquentGateway,
         private readonly ProductModelMapper $mapper,
     ) {
-        parent::__construct($gateway);
+        parent::__construct($gateway, $eloquentGateway);
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -66,9 +67,19 @@ final class EloquentProductRepository extends AbstractShopwiredEloquentRepositor
     public function save(object $entity): void
     {
         try {
-            $this->gateway->transact(function () use ($entity): void {
-                $model = $this->upsertProduct($entity);
-                $this->syncVariations($model, $entity);
+            $this->eloquentGateway->transact(function () use ($entity): void {
+                // 1. Upsert product (single INSERT ON CONFLICT query)
+                $this->eloquentGateway->upsertOne(
+                    modelClass: self::MODEL_CLASS,
+                    attributes: [
+                        'external_id' => $entity->id,
+                        ...ProductModelMapper::toModelAttributes($entity),
+                    ],
+                    uniqueBy: ['external_id'],
+                );
+
+                // 2. Sync variations (requires product UUID for FK)
+                $this->syncVariations($entity);
             }, attempts: 3);
         } catch (DatabaseOperationFailedException $e) {
             $this->logCrossTableSkuConflictIfApplicable($e, $entity);
@@ -88,7 +99,7 @@ final class EloquentProductRepository extends AbstractShopwiredEloquentRepositor
      */
     public function getAllExternalIds(): array
     {
-        return $this->gateway->query(static function (): array {
+        return $this->eloquentGateway->query(static function (): array {
             /** @var list<int> $ids */
             $ids = self::MODEL_CLASS::query()
                 ->pluck('external_id')
@@ -107,19 +118,12 @@ final class EloquentProductRepository extends AbstractShopwiredEloquentRepositor
      */
     public function deleteByExternalIds(array $externalIds): int
     {
-        if ($externalIds === []) {
-            return 0;
-        }
-
-        return $this->gateway->transact(static function () use ($externalIds): int {
-            // Variations are cascade-deleted via FK constraint
-            /** @var int $count */
-            $count = self::MODEL_CLASS::query()
-                ->whereIn('external_id', $externalIds)
-                ->delete();
-
-            return $count;
-        }, attempts: 3);
+        // Variations are cascade-deleted via FK constraint
+        return $this->eloquentGateway->deleteWhereIn(
+            modelClass: self::MODEL_CLASS,
+            column: 'external_id',
+            values: $externalIds,
+        );
     }
 
     /**
@@ -133,30 +137,29 @@ final class EloquentProductRepository extends AbstractShopwiredEloquentRepositor
      */
     public function getBasicProductBySku(string $sku): Product|ProductVariation
     {
-        return $this->gateway->query(function () use ($sku): Product|ProductVariation {
-            // Try product master SKU first
-            /** @var ProductModel|null $product */
-            $product = self::MODEL_CLASS::query()
-                ->where('sku', $sku)
-                ->with(self::EAGER_LOAD_RELATIONS)
-                ->first();
+        // Try product master SKU first
+        try {
+            return $this->eloquentGateway->findOrFail(
+                modelClass: self::MODEL_CLASS,
+                column: 'sku',
+                value: $sku,
+                relations: self::EAGER_LOAD_RELATIONS,
+                entityTypeName: 'Product',
+                mapper: fn(ProductModel $model): Product => $this->mapModelToDomain($model),
+            );
+        } catch (ResourceNotFoundException) {
+            Log::debug('Product not found by SKU, trying variation', ['sku' => $sku]);
+        }
 
-            if ($product !== null) {
-                return $this->mapModelToDomain($product);
-            }
-
-            // Try variation SKU
-            /** @var ProductVariationModel|null $variation */
-            $variation = ProductVariationModel::query()
-                ->where('sku', $sku)
-                ->first();
-
-            if ($variation !== null) {
-                return $variation->toDomain();
-            }
-
-            throw new ResourceNotFoundException('Database', 'Product or Variation', $sku);
-        });
+        // Try variation SKU - throws if neither found
+        return $this->eloquentGateway->findOrFail(
+            modelClass: ProductVariationModel::class,
+            column: 'sku',
+            value: $sku,
+            relations: [],
+            entityTypeName: 'Product or Variation',
+            mapper: static fn(ProductVariationModel $model): ProductVariation => $model->toDomain(),
+        );
     }
 
     /**
@@ -172,19 +175,14 @@ final class EloquentProductRepository extends AbstractShopwiredEloquentRepositor
      */
     public function getProductBySku(string $sku): Product
     {
-        return $this->gateway->query(function () use ($sku): Product {
-            /** @var ProductModel|null $product */
-            $product = self::MODEL_CLASS::query()
-                ->where('sku', $sku)
-                ->with(self::EAGER_LOAD_RELATIONS)
-                ->first();
-
-            if ($product === null) {
-                throw new ResourceNotFoundException('Database', 'Product', $sku);
-            }
-
-            return $this->mapModelToDomain($product);
-        });
+        return $this->eloquentGateway->findOrFail(
+            modelClass: self::MODEL_CLASS,
+            column: 'sku',
+            value: $sku,
+            relations: self::EAGER_LOAD_RELATIONS,
+            entityTypeName: 'Product',
+            mapper: fn(ProductModel $model): Product => $this->mapModelToDomain($model),
+        );
     }
 
     /**
@@ -200,15 +198,11 @@ final class EloquentProductRepository extends AbstractShopwiredEloquentRepositor
      */
     public function streamAll(): Generator
     {
-        // Use lazy() for memory-efficient chunked iteration
-        $lazyCollection = self::MODEL_CLASS::query()
-            ->with(self::EAGER_LOAD_RELATIONS)
-            ->lazy(100);
-
-        foreach ($lazyCollection as $model) {
-            /** @var ProductModel $model */
-            yield $this->mapModelToDomain($model);
-        }
+        yield from $this->eloquentGateway->streamAll(
+            modelClass: self::MODEL_CLASS,
+            relations: self::EAGER_LOAD_RELATIONS,
+            mapper: fn(ProductModel $model): Product => $this->mapModelToDomain($model),
+        );
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -242,14 +236,6 @@ final class EloquentProductRepository extends AbstractShopwiredEloquentRepositor
 
     /**
      * {@inheritDoc}
-     */
-    protected function getEntityTypeName(): string
-    {
-        return self::ENTITY_TYPE;
-    }
-
-    /**
-     * {@inheritDoc}
      *
      * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
      * @throws DatabaseOperationFailedException When custom field registry fails to load
@@ -266,41 +252,47 @@ final class EloquentProductRepository extends AbstractShopwiredEloquentRepositor
     // ─────────────────────────────────────────────────────────────────────────
 
     /**
-     * Upsert product record based on external_id.
-     */
-    private function upsertProduct(Product $product): ProductModel
-    {
-        $attributes = ProductModelMapper::toModelAttributes($product);
-
-        /** @var ProductModel $model */
-        $model = self::MODEL_CLASS::query()->updateOrCreate(
-            ['external_id' => $product->id],
-            $attributes,
-        );
-
-        return $model;
-    }
-
-    /**
      * Sync product variations using delete+insert strategy.
      *
-     * Deletes all existing variations by product_external_id, then inserts fresh.
+     * Deletes all existing variations by product_external_id, then bulk inserts fresh.
      * This is simpler than upsert/diff since variations rarely change independently
      * and the composite unique (product_external_id, external_id) ensures idempotency.
+     *
+     * Performance: Bulk insert reduces N queries to 1 (significant for 100+ variations).
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
      */
-    private function syncVariations(ProductModel $model, Product $product): void
+    private function syncVariations(Product $product): void
     {
-        // Delete existing variations using stable external ID
-        ProductVariationModel::query()
-            ->where('product_external_id', $product->id)
-            ->delete();
+        // 1. Delete existing variations using stable external ID
+        $this->eloquentGateway->deleteWhere(
+            modelClass: ProductVariationModel::class,
+            column: 'product_external_id',
+            value: $product->id,
+        );
 
-        // Insert fresh variations
-        foreach ($product->variations as $variation) {
-            $attributes = ProductVariationModel::fromDomainAttributes($variation);
-            $attributes['product_id'] = $model->id;
+        // 2. Bulk insert fresh variations (single query vs N queries)
+        if ($product->variations !== []) {
+            // Fetch product UUID for FK (single column query after upsert)
+            /** @var string $productUuid */
+            $productUuid = self::MODEL_CLASS::query()
+                ->where('external_id', $product->id)
+                ->value('id');
 
-            ProductVariationModel::query()->create($attributes);
+            $rows = \array_map(
+                static fn(ProductVariation $v): array => [
+                    'product_id' => $productUuid,
+                    ...ProductVariationModel::fromDomainAttributes($v),
+                ],
+                $product->variations,
+            );
+
+            $this->eloquentGateway->insertMany(
+                modelClass: ProductVariationModel::class,
+                rows: $rows,
+            );
         }
     }
 

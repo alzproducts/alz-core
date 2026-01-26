@@ -65,6 +65,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Rationale**: These decisions shape the codebase long-term. User should make informed choices, not have them silently resolved.
 
+## ⚠️ Important: Scope Creep
+
+When discovering issues tangential to the task (bugs, inconsistencies):
+1. **Flag it** — note the discovery before acting
+2. **Present options** — don't silently fix without approval
+3. **Exception**: Obvious typos/syntax errors can be fixed inline
+
+**Rationale**: Expanding scope without consent leads to unexpected changes, harder reviews, and violated trust.
+
 ## Tool Usage
 
 ### ⚠️ Important: Use JetBrains MCP for Codebase Navigation

@@ -11,6 +11,7 @@ use App\Infrastructure\Linnworks\Mappers\StockItemExtendedPropertyMapper;
 use App\Infrastructure\Linnworks\Mappers\StockItemModelMapper;
 use App\Infrastructure\Linnworks\Models\StockItemExtendedPropertyModel;
 use App\Infrastructure\Linnworks\Models\StockItemModel;
+use App\Infrastructure\Repositories\AbstractEloquentRepository;
 
 /**
  * Eloquent implementation of Linnworks stock item repository.
@@ -21,12 +22,10 @@ use App\Infrastructure\Linnworks\Models\StockItemModel;
  *
  * Each save is wrapped in a transaction for atomicity.
  *
- * @extends AbstractLinnworksEloquentRepository<StockItem>
+ * @extends AbstractEloquentRepository<StockItem>
  */
-final class EloquentStockItemRepository extends AbstractLinnworksEloquentRepository implements StockItemRepositoryInterface
+final class EloquentStockItemRepository extends AbstractEloquentRepository implements StockItemRepositoryInterface
 {
-    private const string ENTITY_TYPE = 'StockItem';
-
     /**
      * {@inheritDoc}
      *
@@ -39,17 +38,23 @@ final class EloquentStockItemRepository extends AbstractLinnworksEloquentReposit
      */
     public function save(object $entity): void
     {
-        $this->gateway->transact(static function () use ($entity): void {
-            // 1. Upsert stock item by stock_item_id
-            StockItemModel::query()->updateOrCreate(
-                ['stock_item_id' => $entity->stockItemId],
-                StockItemModelMapper::toModelAttributes($entity),
+        $this->eloquentGateway->transact(function () use ($entity): void {
+            // 1. Upsert stock item by stock_item_id (single query vs SELECT+INSERT)
+            $this->eloquentGateway->upsertOne(
+                modelClass: StockItemModel::class,
+                attributes: [
+                    'stock_item_id' => $entity->stockItemId,
+                    ...StockItemModelMapper::toModelAttributes($entity),
+                ],
+                uniqueBy: ['stock_item_id'],
             );
 
             // 2. Delete existing extended properties
-            StockItemExtendedPropertyModel::query()
-                ->where('stock_item_id', $entity->stockItemId)
-                ->delete();
+            $this->eloquentGateway->deleteWhere(
+                modelClass: StockItemExtendedPropertyModel::class,
+                column: 'stock_item_id',
+                value: $entity->stockItemId,
+            );
 
             // 3. Insert fresh extended properties
             if ($entity->hasExtendedProperties()) {
@@ -61,19 +66,22 @@ final class EloquentStockItemRepository extends AbstractLinnworksEloquentReposit
                     $entity->extendedProperties,
                 );
 
-                StockItemExtendedPropertyModel::query()->insert($epRecords);
+                $this->eloquentGateway->insertMany(
+                    modelClass: StockItemExtendedPropertyModel::class,
+                    rows: $epRecords,
+                );
             }
         }, attempts: 3);
+    }
+
+    protected function getModelClass(): string
+    {
+        return StockItemModel::class;
     }
 
     protected function getEntityIdentifier(object $entity): string
     {
         /** @var StockItem $entity */
         return $entity->stockItemId;
-    }
-
-    protected function getEntityTypeName(): string
-    {
-        return self::ENTITY_TYPE;
     }
 }

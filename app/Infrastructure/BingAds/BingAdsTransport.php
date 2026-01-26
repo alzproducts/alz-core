@@ -6,8 +6,8 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\BingAds;
 
-use App\Domain\Exceptions\AuthenticationExpiredException;
-use App\Domain\Exceptions\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Api\AuthenticationExpiredException;
+use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\ValueObjects\DateRange;
 use DateTimeImmutable;
 use Exception;

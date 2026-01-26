@@ -6,13 +6,13 @@ namespace App\Application\Shopwired\UseCases;
 
 use App\Application\Contracts\Shopwired\OrderClientInterface;
 use App\Application\Contracts\Shopwired\OrderRepositoryInterface;
-use App\Application\ValueObjects\SyncResult;
+use App\Application\Results\SyncResult;
 use App\Domain\Catalog\Order\ValueObjects\Order;
-use App\Domain\Exceptions\AuthenticationExpiredException;
-use App\Domain\Exceptions\ExternalServiceUnavailableException;
-use App\Domain\Exceptions\InvalidApiRequestException;
-use App\Domain\Exceptions\InvalidApiResponseException;
-use App\Domain\Exceptions\ResourceNotFoundException;
+use App\Domain\Exceptions\Api\AuthenticationExpiredException;
+use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Api\InvalidApiRequestException;
+use App\Domain\Exceptions\Api\InvalidApiResponseException;
+use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -152,6 +152,8 @@ final readonly class SyncOrdersUseCase
      *
      * @param list<Order> $orders Orders to save
      * @param int|string $batchIdentifier For logging (page number or 'final')
+     *
+     * @throws ExternalServiceUnavailableException When database temporarily unavailable
      */
     private function flushBuffer(array $orders, int|string $batchIdentifier): SyncResult
     {

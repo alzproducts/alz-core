@@ -541,6 +541,7 @@ return static function (Config $config): void {
                        'App\Domain\Enums',
                        'App\Domain\*\Enums',
                        'App\Domain\Exceptions',
+                       'App\Domain\Exceptions\*',      // Allow subdirectories (Api/, Data/, Infrastructure/)
                        'App\Domain\*\Exceptions',
                        'App\Domain\Contracts',
                        'App\Domain\*\Contracts',
@@ -570,6 +571,7 @@ return static function (Config $config): void {
                    ->that(new HaveNameMatching('*Exception'))
                    ->should(new ResideInOneOfTheseNamespaces(
                        'App\Domain\Exceptions',
+                       'App\Domain\Exceptions\*',         // Allow subdirectories (Api/, Data/, Infrastructure/)
                        'App\Domain\*\Exceptions',
                        'App\Application\Exceptions',
                        'App\Application\*\Exceptions',

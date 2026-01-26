@@ -4,19 +4,18 @@ declare(strict_types=1);
 
 namespace App\Application\Contracts\Shopwired;
 
+use App\Application\Contracts\RepositoryInterface;
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldItemType;
 use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldDefinition;
-use App\Domain\Exceptions\DatabaseOperationFailedException;
-use App\Domain\Exceptions\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 
 /**
  * Repository for ShopWired custom field definition persistence.
  *
- * Extends base ShopWired repository with custom-field-specific query methods.
- *
- * @extends ShopwiredRepositoryInterface<CustomFieldDefinition>
+ * @extends RepositoryInterface<CustomFieldDefinition>
  */
-interface CustomFieldRepositoryInterface extends ShopwiredRepositoryInterface
+interface CustomFieldRepositoryInterface extends RepositoryInterface
 {
     /**
      * Find a custom field definition by its name.

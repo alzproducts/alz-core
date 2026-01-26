@@ -11,7 +11,7 @@ use App\Application\Contracts\Linnworks\ConnectivityClientInterface as Linnworks
 use App\Application\Contracts\MixpanelClientInterface;
 use App\Application\Contracts\ReviewsIoClientInterface;
 use App\Application\Contracts\Shopwired\ConnectivityClientInterface as ShopwiredConnectivityClient;
-use App\Domain\Exceptions\AuthenticationExpiredException;
+use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use Illuminate\Console\Command;
 use Throwable;
 

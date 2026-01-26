@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Application\Contracts;
 
 use App\Application\Feeds\ProductSearchFeedProcessingResult;
-use App\Domain\Exceptions\ExternalServiceUnavailableException;
-use App\Domain\Exceptions\MalformedFeedDataException;
-use App\Domain\Exceptions\StorageOperationFailedException;
+use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Data\MalformedFeedDataException;
+use App\Domain\Exceptions\Infrastructure\StorageOperationFailedException;
 
 /**
  * Contract for product search feed transformation processing.

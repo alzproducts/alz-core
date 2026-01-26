@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace App\Presentation\Jobs\Mixpanel;
 
 use App\Application\Mixpanel\UseCases\SyncOrdersToMixpanelUseCase;
-use App\Domain\Exceptions\AuthenticationExpiredException;
-use App\Domain\Exceptions\ExternalServiceUnavailableException;
-use App\Domain\Exceptions\MissingRequiredDataException;
-use App\Domain\Exceptions\UnexpectedApiResultException;
+use App\Domain\Exceptions\Api\AuthenticationExpiredException;
+use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Api\UnexpectedApiResultException;
+use App\Domain\Exceptions\Data\MissingRequiredDataException;
 use DateTimeImmutable;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;

@@ -11,7 +11,7 @@ use App\Application\Contracts\Linnworks\ConnectivityClientInterface as Linnworks
 use App\Application\Contracts\MixpanelClientInterface;
 use App\Application\Contracts\ReviewsIoClientInterface;
 use App\Application\Contracts\Shopwired\ConnectivityClientInterface as ShopwiredConnectivityClient;
-use App\Domain\Exceptions\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Presentation\Console\Commands\VerifyApiConnectivityCommand;
 use Illuminate\Console\Command;
 use Mockery;
