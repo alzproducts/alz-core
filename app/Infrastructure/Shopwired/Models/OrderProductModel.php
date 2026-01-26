@@ -21,7 +21,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string $id Internal UUID
  * @property string $order_id Parent order UUID (FK relationship)
  * @property int $order_external_id Parent order's ShopWired ID (stable sync key)
- * @property int $external_id ShopWired product line ID
+ * @property int $external_id ShopWired product ID (NOT a unique line item ID - multiple line items can share this when ordering variations of the same product)
  * @property string $title Product title at time of purchase
  * @property string $sku Product SKU
  * @property float $price Unit price

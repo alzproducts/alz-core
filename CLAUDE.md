@@ -205,6 +205,7 @@ This project follows **Clean Architecture** (Robert C. Martin) — dependencies 
 3. **Infrastructure** implements Domain interfaces, can use external SDKs/Laravel
 4. **Presentation** calls Application use cases, never Infrastructure directly
 5. **Validation**: External data → exceptions (Infrastructure), internal contracts → assertions (Domain)
+6. **Database**: Use `DatabaseGateway`, never `DB::` facade
 
 ### Spatie LaravelData
 
