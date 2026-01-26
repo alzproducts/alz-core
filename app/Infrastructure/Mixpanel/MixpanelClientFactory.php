@@ -31,7 +31,7 @@ final class MixpanelClientFactory
      *
      * @throws InvalidConfigurationException When required config values are missing or invalid
      */
-    private static function createConfig(): MixpanelConfig
+    public static function createConfig(): MixpanelConfig
     {
         return new MixpanelConfig(
             dataApiBaseUrl: self::requireString(\config('mixpanel.base_url'), 'MIXPANEL_BASE_URL'),

@@ -9,6 +9,7 @@ use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
@@ -28,7 +29,7 @@ use Throwable;
  *
  * @see SyncShopwiredOrdersRangeJob For date-range based sync
  */
-final class SyncShopwiredOrdersJob implements ShouldQueue
+final class SyncShopwiredOrdersJob implements ShouldBeUnique, ShouldQueue
 {
     use Dispatchable;
     use InteractsWithQueue;
@@ -41,6 +42,26 @@ final class SyncShopwiredOrdersJob implements ShouldQueue
      * 3 attempts: quick retries for transient issues + 1hr fallback for longer outages.
      */
     public int $tries = 3;
+
+    /**
+     * Unique lock duration in seconds.
+     *
+     * Set to max expected runtime + buffer. If job completes sooner,
+     * lock releases immediately. If job times out, lock auto-releases.
+     */
+    public int $uniqueFor = 4500;
+
+    /**
+     * Get the unique ID for this job.
+     *
+     * Returns a fixed ID (ignores constructor params) so ALL sync modes
+     * (full/quick/micro) share one lock. This prevents quick/micro syncs from
+     * running while a full sync is in progress.
+     */
+    public function uniqueId(): string
+    {
+        return 'sync-shopwired-orders';
+    }
 
     /**
      * Create a new job instance.

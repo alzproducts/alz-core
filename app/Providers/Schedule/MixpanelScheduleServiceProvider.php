@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Providers\Schedule;
 
+use App\Presentation\Jobs\Mixpanel\SyncOrderLookupTableJob;
 use App\Presentation\Jobs\Mixpanel\SyncOrdersToMixpanelJob;
 use DateTimeImmutable;
 use Illuminate\Support\Facades\Schedule;
@@ -24,7 +25,25 @@ final class MixpanelScheduleServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        $this->registerOrderLookupTableSchedule();
         $this->registerOrderSyncSchedules();
+    }
+
+    /**
+     * Order enrichment lookup table sync (LTV, first order, trade status).
+     *
+     * Runs before order event sync to ensure lookup data is fresh.
+     *
+     * @throws RuntimeException
+     */
+    private function registerOrderLookupTableSchedule(): void
+    {
+        Schedule::job(new SyncOrderLookupTableJob())
+            ->name('sync-order-lookup-table')
+            ->dailyAt('01:00')
+            ->timezone('Europe/London')
+            ->onOneServer()
+            ->withoutOverlapping(10);
     }
 
     /**

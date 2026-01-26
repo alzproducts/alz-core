@@ -26,6 +26,7 @@ return [
     */
     'lookup_tables' => [
         'utm_campaigns' => env('MIXPANEL_LOOKUP_TABLE_UTM_CAMPAIGNS', '321195e7-7672-4d3b-9f05-0265b5133bb6'),
+        'order_enrichment' => env('MIXPANEL_LOOKUP_TABLE_ORDER_ENRICHMENT', 'cdd4c821-ae5c-495c-bbdc-2f86bb5bfc91'),
     ],
 
     /*

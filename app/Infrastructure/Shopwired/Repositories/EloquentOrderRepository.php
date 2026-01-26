@@ -159,10 +159,14 @@ final class EloquentOrderRepository extends AbstractEloquentRepository implement
     // ─────────────────────────────────────────────────────────────────────────
 
     /**
-     * Sync order products (delete removed, upsert existing).
+     * Sync order products (replace all on each sync).
      *
-     * Uses stable ShopWired IDs (order_external_id, external_id) for upsert lookup,
-     * ensuring sync works correctly even if internal UUIDs change.
+     * Products have no stable unique line item ID - ShopWired's external_id is the
+     * PRODUCT ID, not a line item identifier. Multiple line items can share the same
+     * external_id when ordering product variations (e.g., "Magiplug - Basin" +
+     * "Magiplug - Kitchen Sink" both use the Magiplug product ID).
+     *
+     * Delete all and bulk insert fresh - same pattern as discounts/refunds/comments.
      *
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
@@ -170,49 +174,31 @@ final class EloquentOrderRepository extends AbstractEloquentRepository implement
      */
     private function syncProducts(string $orderUuid, Order $order): void
     {
-        if ($order->products === null || $order->products === []) {
-            // No products - delete any existing
-            $this->eloquentGateway->deleteWhere(
+        // 1. Delete existing products
+        $this->eloquentGateway->deleteWhere(
+            modelClass: OrderProductModel::class,
+            column: 'order_external_id',
+            value: $order->id,
+        );
+
+        // 2. Bulk insert fresh products (single query vs N queries)
+        if ($order->products !== null && $order->products !== []) {
+            /** @var list<array<string, mixed>> $rows */
+            $rows = \array_values(\array_map(
+                static fn(OrderProduct $p): array => [
+                    'order_id' => $orderUuid,
+                    'order_external_id' => $p->orderExternalId,
+                    'external_id' => $p->id,
+                    ...OrderProductModel::fromDomainAttributes($p),
+                ],
+                $order->products,
+            ));
+
+            $this->eloquentGateway->insertMany(
                 modelClass: OrderProductModel::class,
-                column: 'order_external_id',
-                value: $order->id,
+                rows: $rows,
             );
-
-            return;
         }
-
-        /** @var list<int> $currentIds */
-        $currentIds = \array_values(\array_map(
-            static fn(OrderProduct $p): int => $p->id,
-            $order->products,
-        ));
-
-        // 1. Delete products no longer in order (using stable external IDs)
-        $this->eloquentGateway->deleteWhereNotIn(
-            modelClass: OrderProductModel::class,
-            whereColumn: 'order_external_id',
-            whereValue: $order->id,
-            notInColumn: 'external_id',
-            notInValues: $currentIds,
-        );
-
-        // 2. Bulk upsert current products (single query vs N queries)
-        /** @var list<array<string, mixed>> $rows */
-        $rows = \array_values(\array_map(
-            static fn(OrderProduct $p): array => [
-                'order_id' => $orderUuid,
-                'order_external_id' => $p->orderExternalId,
-                'external_id' => $p->id,
-                ...OrderProductModel::fromDomainAttributes($p),
-            ],
-            $order->products,
-        ));
-
-        $this->eloquentGateway->upsertMany(
-            modelClass: OrderProductModel::class,
-            rows: $rows,
-            uniqueBy: ['order_external_id', 'external_id'],
-        );
     }
 
     /**

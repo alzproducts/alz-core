@@ -18,6 +18,7 @@ use Webmozart\Assert\Assert;
 final readonly class OrderProduct
 {
     /**
+     * @param int $id ShopWired product ID (NOT a unique line item ID - multiple line items can share this when ordering variations of the same product, e.g., "Magiplug - Basin" + "Magiplug - Kitchen Sink")
      * @param bool $isPreorder Whether this is a pre-order item (derived from comments containing "Preorder:")
      * @param DateTimeImmutable|null $preorderDate Expected availability date for pre-order items
      * @param array<int, ProductVariation> $variation

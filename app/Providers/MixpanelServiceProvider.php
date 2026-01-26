@@ -7,8 +7,15 @@ namespace App\Providers;
 use App\Application\Contracts\MixpanelClientInterface;
 use App\Application\Contracts\Shopwired\CustomerRepositoryInterface;
 use App\Application\Contracts\Shopwired\OrderRepositoryInterface;
+use App\Application\Mixpanel\UseCases\SyncLookupTableUseCase;
 use App\Application\Mixpanel\UseCases\SyncOrdersToMixpanelUseCase;
+use App\Infrastructure\Database\DatabaseGateway;
+use App\Infrastructure\Mixpanel\LookupTables\OrderLookupTableProvider;
 use App\Infrastructure\Mixpanel\MixpanelClientFactory;
+use App\Infrastructure\Mixpanel\MixpanelConfig;
+use App\Presentation\Jobs\Mixpanel\SyncOrderLookupTableJob;
+use Illuminate\Contracts\Container\BindingResolutionException;
+use Illuminate\Contracts\Container\Container;
 use Illuminate\Contracts\Support\DeferrableProvider;
 use Illuminate\Support\ServiceProvider;
 use Override;
@@ -33,6 +40,8 @@ final class MixpanelServiceProvider extends ServiceProvider implements Deferrabl
     #[Override]
     public function register(): void
     {
+        $this->app->singleton(MixpanelConfig::class, static fn(): MixpanelConfig => MixpanelClientFactory::createConfig());
+
         $this->app->singleton(MixpanelClientInterface::class, static fn(): MixpanelClientInterface => MixpanelClientFactory::create());
 
         $this->app->singleton(SyncOrdersToMixpanelUseCase::class, function (): SyncOrdersToMixpanelUseCase {
@@ -53,6 +62,23 @@ final class MixpanelServiceProvider extends ServiceProvider implements Deferrabl
                 logger: $this->app->make(LoggerInterface::class),
             );
         });
+
+        // Contextual binding: SyncOrderLookupTableJob gets SyncLookupTableUseCase with OrderLookupTableProvider
+        $this->app->when(SyncOrderLookupTableJob::class)
+            ->needs(SyncLookupTableUseCase::class)
+            ->give(
+                /**
+                 * @throws BindingResolutionException
+                 */
+                static fn(Container $app): SyncLookupTableUseCase => new SyncLookupTableUseCase(
+                    new OrderLookupTableProvider(
+                        $app->make(MixpanelConfig::class),
+                        $app->make(DatabaseGateway::class),
+                    ),
+                    $app->make(MixpanelClientInterface::class),
+                    $app->make(LoggerInterface::class),
+                ),
+            );
     }
 
     /**
@@ -64,6 +90,7 @@ final class MixpanelServiceProvider extends ServiceProvider implements Deferrabl
     public function provides(): array
     {
         return [
+            MixpanelConfig::class,
             MixpanelClientInterface::class,
             SyncOrdersToMixpanelUseCase::class,
         ];
