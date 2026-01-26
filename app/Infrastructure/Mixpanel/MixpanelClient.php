@@ -34,6 +34,14 @@ use JsonException;
  */
 final readonly class MixpanelClient implements MixpanelClientInterface
 {
+    /**
+     * Date when frontend JavaScript SDK started tracking "Checkout Completed" events.
+     *
+     * Before this date, Mixpanel may return empty results until a historical backfill is run.
+     * After this date, empty results indicate potential frontend tracking issues.
+     */
+    private const string FRONTEND_TRACKING_START_DATE = '2025-10-01';
+
     public function __construct(
         private MixpanelHttpTransport $transport,
         private MixpanelConfig $config,
@@ -168,9 +176,22 @@ final readonly class MixpanelClient implements MixpanelClientInterface
         $body = $response->body();
 
         // Empty body with 200 OK means no events in range
-        // This is suspicious and should fail - could mask API issues
-        // Exception: allowEmptyExport enables bootstrap sync for fresh accounts
         if (\mb_trim($body) === '') {
+            $frontendTrackingStart = new DateTimeImmutable(self::FRONTEND_TRACKING_START_DATE);
+
+            // Before frontend tracking existed, empty results are expected for historical backfills
+            if ($to < $frontendTrackingStart) {
+                Log::info('Mixpanel export returned empty response - expected for pre-frontend-tracking period', [
+                    'from' => $from->format('Y-m-d'),
+                    'to' => $to->format('Y-m-d'),
+                    'frontend_tracking_start' => self::FRONTEND_TRACKING_START_DATE,
+                ]);
+
+                return [];
+            }
+
+            // After frontend tracking started, empty results are suspicious
+            // Exception: allowEmptyExport enables bootstrap sync for fresh accounts
             if ($this->config->allowEmptyExport) {
                 Log::warning('Mixpanel export returned empty response - proceeding due to allowEmptyExport', [
                     'from' => $from->format('Y-m-d'),
