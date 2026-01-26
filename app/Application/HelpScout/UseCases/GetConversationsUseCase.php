@@ -8,8 +8,8 @@ use App\Application\HelpScout\Queries\ConversationQueryParams;
 use App\Application\HelpScout\Services\CachingHelpScoutService;
 use App\Application\HelpScout\Support\ConversationSorter;
 use App\Domain\CustomerService\ValueObjects\Conversation;
-use App\Domain\Exceptions\ExternalServiceUnavailableException;
-use App\Domain\Exceptions\InvalidApiResponseException;
+use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Api\InvalidApiResponseException;
 
 /**
  * Fetch conversations with default sorting.

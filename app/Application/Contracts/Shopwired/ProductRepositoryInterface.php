@@ -4,23 +4,23 @@ declare(strict_types=1);
 
 namespace App\Application\Contracts\Shopwired;
 
+use App\Application\Contracts\RepositoryInterface;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\Product\ValueObjects\Product;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariation;
-use App\Domain\Exceptions\DatabaseOperationFailedException;
-use App\Domain\Exceptions\ExternalServiceUnavailableException;
-use App\Domain\Exceptions\ResourceNotFoundException;
+use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use Generator;
 
 /**
  * Repository for ShopWired product persistence.
  *
- * Extends base ShopWired repository with product-specific methods.
  * Products include variations, which are managed via cascade operations.
  *
- * @extends ShopwiredRepositoryInterface<Product>
+ * @extends RepositoryInterface<Product>
  */
-interface ProductRepositoryInterface extends ShopwiredRepositoryInterface
+interface ProductRepositoryInterface extends RepositoryInterface
 {
     /**
      * Get all product external IDs stored locally.

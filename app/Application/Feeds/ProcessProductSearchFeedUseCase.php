@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace App\Application\Feeds;
 
 use App\Application\Contracts\ProductSearchFeedProcessorInterface;
-use App\Domain\Exceptions\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Data\MalformedFeedDataException;
+use App\Domain\Exceptions\Infrastructure\StorageOperationFailedException;
 use App\Domain\Exceptions\InvalidConfigurationException;
-use App\Domain\Exceptions\MalformedFeedDataException;
-use App\Domain\Exceptions\StorageOperationFailedException;
 use Psr\Log\LoggerInterface;
 
 /**

@@ -15,8 +15,8 @@ use App\Domain\Catalog\CustomFields\ValueObjects\ProductListCustomFieldValue;
 use App\Domain\Catalog\CustomFields\ValueObjects\StringCustomFieldValue;
 use App\Domain\Catalog\CustomFields\ValueObjects\ToggleCustomFieldValue;
 use App\Domain\Catalog\CustomFields\ValueObjects\ValueListCustomFieldValue;
-use App\Domain\Exceptions\DatabaseOperationFailedException;
-use App\Domain\Exceptions\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Infrastructure\Shopwired\CustomFields\CustomFieldDefinitionRegistry;
 use Illuminate\Support\Facades\Log;
 

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Domain\Catalog\Product\ValueObjects;
 
 use App\Domain\Catalog\Product\ValueObjects\Gtin;
-use App\Domain\Exceptions\InvalidGtinException;
+use App\Domain\Exceptions\Data\InvalidGtinException;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;

@@ -6,8 +6,8 @@ namespace Tests\Unit\Application\Shopwired\UseCases;
 
 use App\Application\Contracts\Shopwired\CustomerClientInterface;
 use App\Application\Contracts\Shopwired\CustomerRepositoryInterface;
+use App\Application\Results\SaveManyResult;
 use App\Application\Shopwired\UseCases\SyncCustomersUseCase;
-use App\Application\ValueObjects\SaveManyResult;
 use App\Domain\Customer\ValueObjects\Customer;
 use DateTimeImmutable;
 use Generator;
@@ -105,7 +105,7 @@ final class SyncCustomersUseCaseTest extends TestCase
             ->andReturn($this->singlePageGenerator($customers));
 
         $this->customerRepository
-            ->shouldReceive('saveMany')
+            ->shouldReceive('saveCustomersBulk')
             ->once()
             ->with($customers)
             ->andReturn(SaveManyResult::success(2));
@@ -146,7 +146,7 @@ final class SyncCustomersUseCaseTest extends TestCase
 
         // Should flush once after 10 pages (20 customers)
         $this->customerRepository
-            ->shouldReceive('saveMany')
+            ->shouldReceive('saveCustomersBulk')
             ->once()
             ->with(Mockery::on(static fn(array $customers) => \count($customers) === 20))
             ->andReturn(SaveManyResult::success(20));
@@ -182,7 +182,7 @@ final class SyncCustomersUseCaseTest extends TestCase
             ->andReturn($this->singlePageGenerator($customers));
 
         $this->customerRepository
-            ->shouldReceive('saveMany')
+            ->shouldReceive('saveCustomersBulk')
             ->once()
             ->andReturn(new SaveManyResult(succeeded: 1, failed: 2, failedReferences: $failedRefs));
 
@@ -228,14 +228,14 @@ final class SyncCustomersUseCaseTest extends TestCase
 
         // First flush after 10 pages (10 customers)
         $this->customerRepository
-            ->shouldReceive('saveMany')
+            ->shouldReceive('saveCustomersBulk')
             ->once()
             ->with(Mockery::on(static fn(array $customers) => \count($customers) === 10))
             ->andReturn(SaveManyResult::success(10));
 
         // Final flush with remaining 2 customers
         $this->customerRepository
-            ->shouldReceive('saveMany')
+            ->shouldReceive('saveCustomersBulk')
             ->once()
             ->with(Mockery::on(static fn(array $customers) => \count($customers) === 2))
             ->andReturn(SaveManyResult::success(2));

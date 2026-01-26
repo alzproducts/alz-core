@@ -9,7 +9,7 @@ use App\Application\Contracts\AdSpendClientInterface;
 use App\Application\Contracts\MixpanelClientInterface;
 use App\Domain\AdSpend\Enums\AdSource;
 use App\Domain\AdSpend\ValueObjects\CampaignMetrics;
-use App\Domain\Exceptions\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\ValueObjects\DateRange;
 use DateTimeImmutable;
 use Mockery;

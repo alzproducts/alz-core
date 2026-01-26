@@ -6,8 +6,8 @@ namespace Tests\Unit\Application\Shopwired\UseCases;
 
 use App\Application\Contracts\Shopwired\OrderClientInterface;
 use App\Application\Contracts\Shopwired\OrderRepositoryInterface;
+use App\Application\Results\SaveManyResult;
 use App\Application\Shopwired\UseCases\SyncOrdersUseCase;
-use App\Application\ValueObjects\SaveManyResult;
 use App\Domain\Catalog\Order\Enums\PreOrderStatus;
 use App\Domain\Catalog\Order\ValueObjects\Order;
 use App\Domain\Catalog\Order\ValueObjects\OrderAddress;

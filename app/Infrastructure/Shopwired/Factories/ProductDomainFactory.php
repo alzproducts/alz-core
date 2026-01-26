@@ -8,7 +8,7 @@ use App\Domain\Catalog\Product\ValueObjects\Gtin;
 use App\Domain\Catalog\Product\ValueObjects\Product;
 use App\Domain\Catalog\Product\ValueObjects\ProductImage;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariation;
-use App\Domain\Exceptions\InvalidGtinException;
+use App\Domain\Exceptions\Data\InvalidGtinException;
 use App\Infrastructure\Shopwired\Responses\ProductImageResponse;
 use App\Infrastructure\Shopwired\Responses\ProductResponse;
 use App\Infrastructure\Shopwired\Responses\ProductVariationOptionResponse;

@@ -7,8 +7,8 @@ namespace App\Presentation\Http\Controllers\HelpScout;
 use App\Application\HelpScout\Services\CachingHelpScoutService;
 use App\Domain\Access\ValueObjects\AuthenticatedUser;
 use App\Domain\CustomerService\Exceptions\CustomerServiceAgentNotFoundException;
-use App\Domain\Exceptions\ExternalServiceUnavailableException;
-use App\Domain\Exceptions\InvalidApiResponseException;
+use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use Illuminate\Http\JsonResponse;
 
 /**

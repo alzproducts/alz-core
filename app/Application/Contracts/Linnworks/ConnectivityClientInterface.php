@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Application\Contracts\Linnworks;
 
-use App\Domain\Exceptions\AuthenticationExpiredException;
-use App\Domain\Exceptions\ExternalServiceUnavailableException;
-use App\Domain\Exceptions\InvalidApiResponseException;
+use App\Domain\Exceptions\Api\AuthenticationExpiredException;
+use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Api\InvalidApiResponseException;
 
 /**
  * Contract for Linnworks API connectivity verification.
