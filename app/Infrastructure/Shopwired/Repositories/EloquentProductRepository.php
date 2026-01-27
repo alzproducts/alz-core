@@ -112,6 +112,27 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
     /**
      * {@inheritDoc}
      *
+     * @return list<int>
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function getAllVariationExternalIds(): array
+    {
+        return $this->eloquentGateway->query(static function (): array {
+            /** @var list<int> $ids */
+            $ids = ProductVariationModel::query()
+                ->pluck('external_id')
+                ->all();
+
+            return $ids;
+        });
+    }
+
+    /**
+     * {@inheritDoc}
+     *
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException

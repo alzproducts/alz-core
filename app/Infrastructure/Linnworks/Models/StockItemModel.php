@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Linnworks\Models;
 
-use App\Domain\Inventory\ValueObjects\StockItem;
+use App\Domain\Inventory\ValueObjects\StockItemFull;
 use App\Infrastructure\Contracts\EloquentDomainMappableInterface;
 use App\Infrastructure\Linnworks\Mappers\StockItemModelMapper;
 use Carbon\CarbonImmutable;
@@ -37,11 +37,13 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property float|null $width
  * @property float|null $depth
  * @property bool $is_composite
+ * @property string $category_id Linnworks category GUID
+ * @property string $category_name Linnworks category name
  * @property CarbonImmutable|null $linnworks_created_at When created in Linnworks
  * @property CarbonImmutable $created_at When first synced locally
  * @property CarbonImmutable $updated_at When last updated locally
  *
- * @implements EloquentDomainMappableInterface<StockItem>
+ * @implements EloquentDomainMappableInterface<StockItemFull>
  */
 final class StockItemModel extends Model implements EloquentDomainMappableInterface
 {
@@ -89,13 +91,13 @@ final class StockItemModel extends Model implements EloquentDomainMappableInterf
         );
     }
 
-    public function toDomain(): StockItem
+    public function toDomain(): StockItemFull
     {
         return StockItemModelMapper::fromModel($this);
     }
 
     /**
-     * @param StockItem $entity
+     * @param StockItemFull $entity
      *
      * @return array<string, mixed>
      */

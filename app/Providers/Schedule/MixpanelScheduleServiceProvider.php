@@ -6,17 +6,19 @@ namespace App\Providers\Schedule;
 
 use App\Presentation\Jobs\Mixpanel\SyncOrderLookupTableJob;
 use App\Presentation\Jobs\Mixpanel\SyncOrdersToMixpanelJob;
+use App\Presentation\Jobs\Mixpanel\SyncProductLookupTableJob;
 use DateTimeImmutable;
 use Illuminate\Support\Facades\Schedule;
 use Illuminate\Support\ServiceProvider;
 use RuntimeException;
 
 /**
- * Mixpanel Order Sync Schedule Definitions
+ * Mixpanel Schedule Definitions
  *
- * Backend sync for orders missed by frontend JS SDK (ad blockers, JS errors, page abandonment).
- * Uses multi-hash matching to detect orders tracked with different hash variations
- * (SHA-256/Base64 algorithms, configured/fallback salts) - see Issue #134.
+ * Includes:
+ * - Order lookup table sync (LTV, first order, trade status)
+ * - Product lookup table sync (category, supplier)
+ * - Order event sync for orders missed by frontend JS SDK
  */
 final class MixpanelScheduleServiceProvider extends ServiceProvider
 {
@@ -26,6 +28,7 @@ final class MixpanelScheduleServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->registerOrderLookupTableSchedule();
+        $this->registerProductLookupTableSchedule();
         $this->registerOrderSyncSchedules();
     }
 
@@ -41,6 +44,24 @@ final class MixpanelScheduleServiceProvider extends ServiceProvider
         Schedule::job(new SyncOrderLookupTableJob())
             ->name('sync-order-lookup-table')
             ->dailyAt('01:00')
+            ->timezone('Europe/London')
+            ->onOneServer()
+            ->withoutOverlapping(10);
+    }
+
+    /**
+     * Product enrichment lookup table sync (category, supplier).
+     *
+     * Runs after Linnworks stock sync (which populates suppliers) and before
+     * order sync to ensure product context is available for analytics.
+     *
+     * @throws RuntimeException
+     */
+    private function registerProductLookupTableSchedule(): void
+    {
+        Schedule::job(new SyncProductLookupTableJob())
+            ->name('sync-product-lookup-table')
+            ->dailyAt('01:30')
             ->timezone('Europe/London')
             ->onOneServer()
             ->withoutOverlapping(10);
