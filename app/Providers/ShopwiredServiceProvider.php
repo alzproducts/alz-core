@@ -13,9 +13,12 @@ use App\Application\Contracts\Shopwired\CustomFieldRepositoryInterface;
 use App\Application\Contracts\Shopwired\OrderClientInterface;
 use App\Application\Contracts\Shopwired\OrderRepositoryInterface;
 use App\Application\Contracts\Shopwired\ProductClientInterface;
+use App\Application\Contracts\Shopwired\ProductIdentifierResolverInterface;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
+use App\Application\Contracts\Shopwired\ProductUpdateClientInterface;
 use App\Application\Contracts\Shopwired\StockClientInterface;
 use App\Infrastructure\Shopwired\Clients\ProductClient;
+use App\Infrastructure\Shopwired\Clients\ProductUpdateClient;
 use App\Infrastructure\Shopwired\Factories\ProductCustomFieldFactory;
 use App\Infrastructure\Shopwired\Factories\ProductDomainFactory;
 use App\Infrastructure\Shopwired\Mappers\ProductModelMapper;
@@ -23,6 +26,7 @@ use App\Infrastructure\Shopwired\Repositories\EloquentCustomerRepository;
 use App\Infrastructure\Shopwired\Repositories\EloquentCustomFieldRepository;
 use App\Infrastructure\Shopwired\Repositories\EloquentOrderRepository;
 use App\Infrastructure\Shopwired\Repositories\EloquentProductRepository;
+use App\Infrastructure\Shopwired\Services\ProductIdentifierResolver;
 use App\Infrastructure\Shopwired\ShopwiredClientFactory;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Contracts\Support\DeferrableProvider;
@@ -132,6 +136,21 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
             ProductRepositoryInterface::class,
             EloquentProductRepository::class,
         );
+
+        // Product identifier resolver - resolves SKU/ID to ShopWired product ID
+        $this->app->singleton(
+            ProductIdentifierResolverInterface::class,
+            ProductIdentifierResolver::class,
+        );
+
+        // Product update client - scoped because it depends on scoped ProductClientInterface
+        $this->app->scoped(
+            ProductUpdateClientInterface::class,
+            static fn(Application $app): ProductUpdateClientInterface => new ProductUpdateClient(
+                ShopwiredClientFactory::getTransport(),
+                $app->make(ProductClientInterface::class),
+            ),
+        );
     }
 
     /**
@@ -154,8 +173,10 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
             ProductClientInterface::class,
             ProductCustomFieldFactory::class,
             ProductDomainFactory::class,
+            ProductIdentifierResolverInterface::class,
             ProductModelMapper::class,
             ProductRepositoryInterface::class,
+            ProductUpdateClientInterface::class,
             StockClientInterface::class,
         ];
     }

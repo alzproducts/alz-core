@@ -262,6 +262,7 @@ See layer-specific guides for detailed patterns.
 - **Static Functions**: Always use static methods and closures for pure/stateless operations (transformations, utilities, factories). Never use static properties for state—Octane persists them across requests.
 - **Readonly Classes**: Mark classes as `readonly` when all properties are immutable (DTOs, value objects, transformers)
 - **Import All Classes**: All classes must be imported with `use` statements—including in docblocks (`@throws`, `@param`, `@return`)
+- **@throws Propagation**: Implementations must copy `@throws` from interface and any called methods
 
 ### Assertion & Validation
 
