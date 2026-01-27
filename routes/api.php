@@ -7,6 +7,7 @@ use App\Infrastructure\Sentry\SentryUserContextMiddleware;
 use App\Presentation\Http\Auth\Middleware\ValidateSupabaseJwtMiddleware;
 use App\Presentation\Http\Controllers\HelpScout\ConversationsController;
 use App\Presentation\Http\Controllers\HelpScout\ProfileController;
+use App\Presentation\Http\Controllers\Shopwired\ProductUpdateController;
 use App\Presentation\Http\HelpScout\Middleware\DetectRefreshMiddleware;
 use App\Presentation\Http\HelpScout\Middleware\HandleHelpScoutExceptionsMiddleware;
 use Illuminate\Support\Facades\Route;
@@ -63,6 +64,20 @@ Route::middleware([
         */
         Route::prefix('user')->group(static function (): void {
             Route::get('profile', ProfileController::class);
+        });
+    });
+
+    /*
+    |--------------------------------------------------------------------------
+    | ShopWired Endpoints
+    |--------------------------------------------------------------------------
+    |
+    | Product management APIs for ShopWired integration.
+    |
+    */
+    Route::prefix('shopwired')->group(static function (): void {
+        Route::prefix('products')->group(static function (): void {
+            Route::post('free-delivery', [ProductUpdateController::class, 'updateFreeDelivery']);
         });
     });
 });
