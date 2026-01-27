@@ -50,3 +50,7 @@ Examples:
 - Other embeds may return ID arrays, nested objects, or different structures
 
 When adding a new embed, verify the actual response structure before writing the DTO.
+
+## Update Semantics
+
+**Behaviour varies per endpoint.** Some use PATCH semantics (missing = unchanged), others require all fields (missing = deleted). Test each update endpoint manually before implementing.

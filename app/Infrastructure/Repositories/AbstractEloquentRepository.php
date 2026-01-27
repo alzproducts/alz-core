@@ -191,11 +191,17 @@ abstract class AbstractEloquentRepository implements RepositoryInterface
             } catch (ExternalServiceUnavailableException $e) {
                 // Transient failure (DB unavailable) - bubble up for job retry
                 throw $e;
-            } catch (DuplicateRecordException) {
-                // Entity already exists (shouldn't happen with upsert, but defensive)
-                $succeeded++;
-                Log::info("{$this->getEntityTypeName()} already exists, counted as success", [
-                    'identifier' => $this->getEntityIdentifier($entity),
+            } catch (DuplicateRecordException $e) {
+                // Unique constraint violation on non-upsert column (e.g., SKU, GTIN)
+                // This indicates a real data conflict that needs attention
+                $failed++;
+                $identifier = $this->getEntityIdentifier($entity);
+                $failedReferences[] = $identifier;
+
+                Log::error("{$this->getEntityTypeName()} has duplicate unique value - fix in source system", [
+                    'identifier' => $identifier,
+                    'constraint' => $e->constraint,
+                    'table' => $e->table,
                 ]);
             } catch (DatabaseOperationFailedException $e) {
                 // Permanent failure - log and continue batch

@@ -6,22 +6,22 @@ namespace App\Infrastructure\Linnworks\Mappers;
 
 use App\Domain\Inventory\Enums\WeightUnit;
 use App\Domain\Inventory\ValueObjects\Dimensions;
-use App\Domain\Inventory\ValueObjects\StockItem;
+use App\Domain\Inventory\ValueObjects\StockItemFull;
 use App\Domain\Inventory\ValueObjects\Weight;
 use App\Infrastructure\Linnworks\Models\StockItemExtendedPropertyModel;
 use App\Infrastructure\Linnworks\Models\StockItemModel;
 
 /**
- * Maps between StockItemModel (Eloquent) and StockItem (Domain).
+ * Maps between StockItemModel (Eloquent) and StockItemFull (Domain).
  */
 final class StockItemModelMapper
 {
     /**
-     * Convert Eloquent model to Domain StockItem.
+     * Convert Eloquent model to Domain StockItemFull.
      */
-    public static function fromModel(StockItemModel $model): StockItem
+    public static function fromModel(StockItemModel $model): StockItemFull
     {
-        return new StockItem(
+        return new StockItemFull(
             stockItemId: $model->stock_item_id,
             sku: $model->item_number,
             title: $model->item_title,
@@ -44,6 +44,8 @@ final class StockItemModelMapper
                 $model->depth ?? 0.0,
             ),
             isComposite: $model->is_composite,
+            categoryId: $model->category_id,
+            categoryName: $model->category_name,
             createdAt: $model->linnworks_created_at?->toDateTimeImmutable(),
             extendedProperties: $model->relationLoaded('extendedProperties')
                 ? \array_values(\array_map(
@@ -55,11 +57,11 @@ final class StockItemModelMapper
     }
 
     /**
-     * Convert Domain StockItem to Eloquent model attributes.
+     * Convert Domain StockItemFull to Eloquent model attributes.
      *
      * @return array<string, mixed>
      */
-    public static function toModelAttributes(StockItem $stockItem): array
+    public static function toModelAttributes(StockItemFull $stockItem): array
     {
         return [
             'stock_item_id' => $stockItem->stockItemId,
@@ -80,6 +82,8 @@ final class StockItemModelMapper
             'width' => $stockItem->dimensions->width,
             'depth' => $stockItem->dimensions->depth,
             'is_composite' => $stockItem->isComposite,
+            'category_id' => $stockItem->categoryId,
+            'category_name' => $stockItem->categoryName,
             'linnworks_created_at' => $stockItem->createdAt,
         ];
     }
