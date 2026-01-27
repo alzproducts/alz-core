@@ -107,6 +107,7 @@ return static function (Config $config): void {
                                'RuntimeException',
                                'InvalidArgumentException',
                                'LogicException',
+                               'ValueError',
                                'Exception',
                                'Throwable',
                                Assert::class,
@@ -546,10 +547,11 @@ return static function (Config $config): void {
                        'App\Domain\Contracts',
                        'App\Domain\*\Contracts',
                        'App\Domain\*\Concerns',
+                       'App\Domain\*\Commands',
                    ))
                    ->because(
                        'Domain classes must be organized into Value Objects, Entities, Enums, Exceptions, '
-                       . 'Contracts, or Concerns subdirectories for discoverability and maintainability.',
+                       . 'Contracts, Concerns, or Commands subdirectories for discoverability and maintainability.',
                    );
 
     // RULE 10: All Exceptions must end with *Exception suffix
