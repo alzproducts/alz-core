@@ -128,7 +128,7 @@ final readonly class SetProductFreeDeliveryUseCase
         $productId = $this->resolver->resolveToParentProductId($command->identifier);
 
         $this->updateClient->updateCustomFields($productId, [
-            self::CUSTOM_FIELD_NAME => $command->freeDeliveryType->toNullableValue(),
+            self::CUSTOM_FIELD_NAME => $command->freeDeliveryType->toStringOrEmpty(),
         ]);
     }
 }

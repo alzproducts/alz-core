@@ -41,13 +41,14 @@ enum FreeDeliveryType: string
     }
 
     /**
-     * Get the value to persist/transmit, returning null for None.
+     * Get the string representation, returning empty string for None.
      *
-     * @return string|null null when clearing designation, string value otherwise
+     * Use when an explicit empty value is needed to clear a designation,
+     * rather than omitting the field entirely.
      */
-    public function toNullableValue(): ?string
+    public function toStringOrEmpty(): string
     {
-        return $this === self::None ? null : $this->value;
+        return $this === self::None ? '' : $this->value;
     }
 
     /**
