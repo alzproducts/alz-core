@@ -18,8 +18,12 @@ use App\Infrastructure\Database\DatabaseGateway;
  * - default_category: Linnworks category name
  * - default_supplier: Linnworks default supplier name
  *
- * Only includes SKUs that have matching ShopWired products or variations
- * (orphan Linnworks SKUs are excluded).
+ * Uses UNION to include ALL SKUs from either system:
+ * 1. ShopWired SKUs (products + variations) with optional Linnworks enrichment
+ * 2. Linnworks-only SKUs (discontinued products with order history)
+ *
+ * This ensures Mixpanel events for any product—current or discontinued—can
+ * be enriched with whatever data is available.
  */
 final readonly class ProductLookupTableProvider implements LookupTableProviderInterface
 {
@@ -48,8 +52,12 @@ final readonly class ProductLookupTableProvider implements LookupTableProviderIn
     /**
      * Fetch all SKUs with enrichment data.
      *
-     * Uses PostgreSQL DISTINCT ON for deterministic supplier selection when
-     * multiple suppliers exist. Alphabetically first supplier name is chosen.
+     * Uses UNION to combine:
+     * 1. ShopWired SKUs (products + variations) LEFT JOIN Linnworks
+     * 2. Linnworks-only SKUs (not in ShopWired)
+     *
+     * PostgreSQL DISTINCT ON ensures one row per SKU with deterministic
+     * supplier selection (alphabetically first) when multiple exist.
      *
      * @return list<list<string>>
      *
@@ -59,7 +67,7 @@ final readonly class ProductLookupTableProvider implements LookupTableProviderIn
      */
     public function fetchRows(): array
     {
-        /** @var list<object{sku: string, group_identifier: string, default_category: string, default_supplier: string|null}> $results */
+        /** @var list<object{sku: string, group_identifier: string, default_category: string|null, default_supplier: string|null}> $results */
         $results = $this->database->query(
             fn(): array => $this->database->connection()->select($this->buildQuery()),
         );
@@ -68,7 +76,7 @@ final readonly class ProductLookupTableProvider implements LookupTableProviderIn
             static fn(object $row): array => [
                 $row->sku,
                 $row->group_identifier,
-                $row->default_category,
+                $row->default_category ?? '',
                 $row->default_supplier ?? '',
             ],
             $results,
@@ -76,30 +84,75 @@ final readonly class ProductLookupTableProvider implements LookupTableProviderIn
     }
 
     /**
-     * Build SQL query for product enrichment data.
+     * Build SQL query for product enrichment data using UNION.
+     *
+     * Combines three sources:
+     * 1. ShopWired products with master SKU → LEFT JOIN Linnworks
+     * 2. ShopWired variations → LEFT JOIN Linnworks
+     * 3. Linnworks-only SKUs (not in ShopWired) → for discontinued products
      *
      * DISTINCT ON ensures exactly one row per SKU, with alphabetical supplier
      * selection for determinism when multiple default suppliers exist.
      *
-     * The COALESCE on group_identifier handles both products and variations:
-     * - Products: use external_id directly
-     * - Variations: use product_external_id (parent product ID)
+     * group_identifier logic (with SKU as fallback):
+     * - ShopWired products: external_id (the product itself)
+     * - ShopWired variations: product_external_id (parent product)
+     * - Linnworks-only or null: SKU itself (no grouping available)
      */
     private function buildQuery(): string
     {
         return <<<'SQL'
-            SELECT DISTINCT ON (si.item_number)
-                si.item_number AS sku,
-                COALESCE(p.external_id, pv.product_external_id)::text AS group_identifier,
-                si.category_name AS default_category,
-                s.supplier_name AS default_supplier
-            FROM linnworks.stock_items si
-            LEFT JOIN shopwired.products p ON p.sku = si.item_number
-            LEFT JOIN shopwired.product_variations pv ON pv.sku = si.item_number
-            LEFT JOIN linnworks.stock_item_suppliers s
-                ON s.stock_item_id = si.stock_item_id AND s.is_default = true
-            WHERE p.sku IS NOT NULL OR pv.sku IS NOT NULL
-            ORDER BY si.item_number, s.supplier_name NULLS LAST
+            SELECT DISTINCT ON (sku)
+                sku,
+                COALESCE(group_identifier, sku) AS group_identifier,
+                default_category,
+                default_supplier
+            FROM (
+                -- ShopWired products with master SKU
+                SELECT
+                    p.sku AS sku,
+                    p.external_id::text AS group_identifier,
+                    si.category_name AS default_category,
+                    s.supplier_name AS default_supplier
+                FROM shopwired.products p
+                LEFT JOIN linnworks.stock_items si ON si.item_number = p.sku
+                LEFT JOIN linnworks.stock_item_suppliers s
+                    ON s.stock_item_id = si.stock_item_id AND s.is_default = true
+                WHERE p.sku IS NOT NULL
+
+                UNION ALL
+
+                -- ShopWired variations
+                SELECT
+                    pv.sku AS sku,
+                    pv.product_external_id::text AS group_identifier,
+                    si.category_name AS default_category,
+                    s.supplier_name AS default_supplier
+                FROM shopwired.product_variations pv
+                LEFT JOIN linnworks.stock_items si ON si.item_number = pv.sku
+                LEFT JOIN linnworks.stock_item_suppliers s
+                    ON s.stock_item_id = si.stock_item_id AND s.is_default = true
+                WHERE pv.sku IS NOT NULL
+
+                UNION ALL
+
+                -- Linnworks-only SKUs (discontinued products not in ShopWired)
+                SELECT
+                    si.item_number AS sku,
+                    si.item_number AS group_identifier,
+                    si.category_name AS default_category,
+                    s.supplier_name AS default_supplier
+                FROM linnworks.stock_items si
+                LEFT JOIN linnworks.stock_item_suppliers s
+                    ON s.stock_item_id = si.stock_item_id AND s.is_default = true
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM shopwired.products p WHERE p.sku = si.item_number
+                )
+                AND NOT EXISTS (
+                    SELECT 1 FROM shopwired.product_variations pv WHERE pv.sku = si.item_number
+                )
+            ) combined
+            ORDER BY sku, default_supplier NULLS LAST
             SQL;
     }
 }
