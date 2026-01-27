@@ -215,6 +215,7 @@ return static function (Config $config): void {
                                'PDOException',
                                'Override',
                                'Sentry*',
+                               'Monolog*',
                                'Symfony\Component\HttpFoundation',
                                'Random\RandomException',
                                'Reflection*',
