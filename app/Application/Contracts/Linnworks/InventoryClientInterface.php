@@ -10,6 +10,7 @@ use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Inventory\ValueObjects\StockItem;
+use App\Domain\Inventory\ValueObjects\StockItemFull;
 use Generator;
 
 /**
@@ -41,7 +42,7 @@ interface InventoryClientInterface
      * Pagination: Uses entriesPerPage=200, pageNumber increments.
      * Stop condition: Empty result or fewer items than page size.
      *
-     * @return Generator<int, list<StockItem>, mixed, void> Yields batches (page number as key)
+     * @return Generator<int, list<StockItemFull>, mixed, void> Yields batches (page number as key)
      *
      * @throws AuthenticationExpiredException When credentials are invalid
      * @throws ExternalServiceUnavailableException When API is unavailable

@@ -6,8 +6,8 @@ namespace App\Infrastructure\Linnworks\Responses;
 
 use App\Domain\Inventory\Enums\WeightUnit;
 use App\Domain\Inventory\ValueObjects\Dimensions;
-use App\Domain\Inventory\ValueObjects\StockItem as DomainStockItem;
 use App\Domain\Inventory\ValueObjects\StockItemExtendedProperty;
+use App\Domain\Inventory\ValueObjects\StockItemFull;
 use App\Domain\Inventory\ValueObjects\Weight;
 use App\Infrastructure\Contracts\DomainConvertibleInterface;
 use App\Infrastructure\Linnworks\Support\PascalCaseMapper;
@@ -60,11 +60,11 @@ final class StockItemFullResponse extends Data implements DomainConvertibleInter
         public readonly array $itemExtendedProperties = [],
     ) {}
 
-    public function toDomain(): DomainStockItem
+    public function toDomain(): StockItemFull
     {
         $defaultStock = $this->findDefaultLocationStock();
 
-        return new DomainStockItem(
+        return new StockItemFull(
             stockItemId: $this->stockItemId,
             sku: $this->itemNumber,
             title: $this->itemTitle,
@@ -80,6 +80,8 @@ final class StockItemFullResponse extends Data implements DomainConvertibleInter
             weight: new Weight($this->weight, WeightUnit::Kilogram),
             dimensions: new Dimensions($this->height, $this->width, $this->depth),
             isComposite: false, // GetStockItemsFull doesn't return IsCompositeParent
+            categoryId: $this->categoryId,
+            categoryName: $this->categoryName,
             createdAt: $this->creationDate !== null
                 ? CarbonImmutable::parse($this->creationDate)->toDateTimeImmutable()
                 : null,

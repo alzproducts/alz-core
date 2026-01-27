@@ -12,7 +12,7 @@ use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
-use App\Domain\Inventory\ValueObjects\StockItem;
+use App\Domain\Inventory\ValueObjects\StockItemFull;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -73,7 +73,7 @@ final readonly class SyncAllStockItemsUseCase
         /** @var list<string> $allFailedReferences */
         $allFailedReferences = [];
 
-        /** @var list<StockItem> $buffer */
+        /** @var list<StockItemFull> $buffer */
         $buffer = [];
         $pagesBuffered = 0;
         $batchesFlushed = 0;
@@ -142,7 +142,7 @@ final readonly class SyncAllStockItemsUseCase
     /**
      * Flush buffered stock items to database.
      *
-     * @param list<StockItem> $stockItems Items to save
+     * @param list<StockItemFull> $stockItems Items to save
      * @param int|string $batchIdentifier For logging (page number or 'final')
      *
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
