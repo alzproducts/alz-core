@@ -107,6 +107,7 @@ return static function (Config $config): void {
                                'RuntimeException',
                                'InvalidArgumentException',
                                'LogicException',
+                               'ValueError',
                                'Exception',
                                'Throwable',
                                Assert::class,
@@ -321,9 +322,9 @@ return static function (Config $config): void {
     $rules[] = Rule::allClasses()
                    ->that(new ResideInOneOfTheseNamespaces($presentation))
                    ->andThat(new NotHaveNameMatching('*Exception'))
-                   ->should(new MatchOneOfTheseNames(['*Controller', '*Command', '*Job', '*Middleware', '*Parser', '*Resource']))
+                   ->should(new MatchOneOfTheseNames(['*Controller', '*Command', '*Job', '*Middleware', '*Parser', '*Resource', '*Request', '*Trait']))
                    ->because(
-                       'Presentation layer classes should be clearly identifiable as controllers, commands, jobs, middleware, parsers, or resources.',
+                       'Presentation layer classes should be clearly identifiable as controllers, commands, jobs, middleware, parsers, resources, form requests, or traits.',
                    );
 
     // Application services must end with "UseCase", "Service", "Transformer", "Formatter", or "Interface"
@@ -547,10 +548,11 @@ return static function (Config $config): void {
                        'App\Domain\Contracts',
                        'App\Domain\*\Contracts',
                        'App\Domain\*\Concerns',
+                       'App\Domain\*\Commands',
                    ))
                    ->because(
                        'Domain classes must be organized into Value Objects, Entities, Enums, Exceptions, '
-                       . 'Contracts, or Concerns subdirectories for discoverability and maintainability.',
+                       . 'Contracts, Concerns, or Commands subdirectories for discoverability and maintainability.',
                    );
 
     // RULE 10: All Exceptions must end with *Exception suffix
