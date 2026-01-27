@@ -14,6 +14,7 @@ Enable setting the `free_delivery` custom field on ShopWired products via consol
 | 2026-01-27 | Interface named `ProductUpdateClientInterface` | Generic name allows future product update operations |
 | 2026-01-28 | `DispatchesChunkedJobsTrait` over injectable service | Job dispatch is Presentation concern; trait is stateless, follows Laravel patterns |
 | 2026-01-28 | Added `*Request` and `*Trait` to PHPArkitect patterns | Form requests are Laravel convention; traits need naming pattern |
+| 2026-01-28 | Send `""` not `null` to clear custom fields | ShopWired API interprets missing fields as "leave unchanged"; empty string explicitly clears |
 
 ## Implementation Progress
 
@@ -46,9 +47,10 @@ Enable setting the `free_delivery` custom field on ShopWired products via consol
 - [x] Service provider bindings (`ProductIdentifierResolverInterface`, `ProductUpdateClientInterface`)
 
 ### Phase 7: Testing
-- [ ] Unit tests
-- [ ] Integration tests
-- [ ] Feature tests
+- [x] Domain unit tests: `FreeDeliveryTypeTest`, `SetFreeDeliveryCommandTest`, `ProductIdentifierResolutionExceptionTest`
+- [x] Application unit tests: `BatchUpdateResultTest`, `SetProductFreeDeliveryUseCaseTest`
+- [ ] Infrastructure integration tests (optional per TestingStrategy.md)
+- [ ] Presentation feature tests (optional per TestingStrategy.md)
 
 ## Session Notes
 
