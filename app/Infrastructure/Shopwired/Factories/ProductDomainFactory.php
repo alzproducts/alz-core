@@ -39,7 +39,7 @@ final class ProductDomainFactory
     {
         return new Product(
             id: $response->id,
-            sku: $response->sku,
+            sku: $response->sku === '' ? null : $response->sku,
             gtin: $this->buildGtin($response->gtin, $response->id),
             title: $response->title,
             description: $response->description,

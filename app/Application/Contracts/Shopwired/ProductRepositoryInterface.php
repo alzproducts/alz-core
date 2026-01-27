@@ -36,6 +36,19 @@ interface ProductRepositoryInterface extends RepositoryInterface
     public function getAllExternalIds(): array;
 
     /**
+     * Get all variation external IDs stored locally.
+     *
+     * Returns ShopWired variation IDs for all product variations in the database.
+     * Use for reconciliation to compare against API variation IDs.
+     *
+     * @return list<int> ShopWired variation IDs
+     *
+     * @throws DatabaseOperationFailedException On query failure
+     * @throws ExternalServiceUnavailableException When database temporarily unavailable
+     */
+    public function getAllVariationExternalIds(): array;
+
+    /**
      * Delete products by their ShopWired external IDs.
      *
      * Removes orphaned products that no longer exist in ShopWired.

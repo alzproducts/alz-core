@@ -56,7 +56,7 @@ final class ProductVariationResponse extends Data implements DomainConvertibleCh
         return new ProductVariation(
             id: $this->id,
             productExternalId: (int) $parentId,
-            sku: $this->sku,
+            sku: $this->sku === '' ? null : $this->sku,
             price: $this->price,
             costPrice: $this->costPrice,
             salePrice: $this->salePrice,
