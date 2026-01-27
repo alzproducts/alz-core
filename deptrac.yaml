@@ -113,6 +113,12 @@ deptrac:
         - type: classLike
           value: ^Carbon\\.*
 
+    # Monolog logging library (Laravel dependency)
+    - name: MonologLogging
+      collectors:
+        - type: classLike
+          value: ^Monolog\\.*
+
   ruleset:
     # Domain: Pure business logic + assertions only
     Domain:
@@ -123,7 +129,7 @@ deptrac:
       - Domain
       - PsrInterfaces
 
-    # Infrastructure: All internal + Laravel, Spatie, Google, Bing, Guzzle, PSR, Flysystem, Assertions, Sentry, Symfony, Carbon
+    # Infrastructure: All internal + Laravel, Spatie, Google, Bing, Guzzle, PSR, Flysystem, Assertions, Sentry, Symfony, Carbon, Monolog
     Infrastructure:
       - Application
       - Domain
@@ -139,6 +145,7 @@ deptrac:
       - SentrySdk
       - SymfonyHttp
       - CarbonDateTime
+      - MonologLogging
 
     # Presentation: Internal + Laravel, Symfony, Firebase, Sentry, Carbon
     Presentation:
@@ -166,3 +173,4 @@ deptrac:
     LeagueFlysystem: ~
     SentrySdk: ~
     CarbonDateTime: ~
+    MonologLogging: ~
