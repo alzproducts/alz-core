@@ -11,7 +11,7 @@ use Webmozart\Assert\Assert;
  * Full stock item value object with extended data from GetStockItemsFull endpoint.
  *
  * Contains all fields from the bulk sync endpoint including category information,
- * extended properties, and (later) supplier data. Used for inventory sync and
+ * extended properties, and supplier data. Used for inventory sync and
  * the product_enrichment Mixpanel lookup table.
  *
  * @see StockItem For the simpler version from GetInventoryItemById
@@ -22,6 +22,7 @@ final readonly class StockItemFull
 {
     /**
      * @param list<StockItemExtendedProperty> $extendedProperties
+     * @param list<StockItemSupplier> $suppliers
      */
     public function __construct(
         public string $stockItemId,
@@ -43,6 +44,7 @@ final readonly class StockItemFull
         public string $categoryName,
         public ?DateTimeImmutable $createdAt = null,
         public array $extendedProperties = [],
+        public array $suppliers = [],
     ) {
         Assert::notEmpty($stockItemId, 'Stock item ID cannot be empty');
     }
@@ -72,5 +74,24 @@ final readonly class StockItemFull
     public function getExtendedPropertyValue(string $name): ?string
     {
         return $this->getExtendedProperty($name)?->value;
+    }
+
+    /**
+     * Check if this stock item has any suppliers.
+     */
+    public function hasSuppliers(): bool
+    {
+        return $this->suppliers !== [];
+    }
+
+    /**
+     * Get the default supplier, or null if none is marked as default.
+     */
+    public function getDefaultSupplier(): ?StockItemSupplier
+    {
+        return \array_find(
+            $this->suppliers,
+            static fn(StockItemSupplier $supplier): bool => $supplier->isDefault,
+        );
     }
 }
