@@ -11,6 +11,7 @@ use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Inventory\ValueObjects\StockItem;
+use App\Domain\Inventory\ValueObjects\StockItemFull;
 use App\Infrastructure\Linnworks\LinnworksHttpTransport;
 use App\Infrastructure\Linnworks\Responses\SkuStockIdMappingResponse;
 use App\Infrastructure\Linnworks\Responses\StockItemFullResponse;
@@ -127,7 +128,7 @@ final readonly class InventoryClient implements InventoryClientInterface
      * Memory-efficient generator that fetches stock items from GetStockItemsFull
      * endpoint with ExtendedProperties included. Yields batches of ~200 items.
      *
-     * @return Generator<int, list<StockItem>, mixed, void> Yields batches (page number as key)
+     * @return Generator<int, list<StockItemFull>, mixed, void> Yields batches (page number as key)
      *
      * @throws AuthenticationExpiredException When credentials are invalid
      * @throws ExternalServiceUnavailableException When API is unavailable
@@ -160,7 +161,7 @@ final readonly class InventoryClient implements InventoryClientInterface
      *
      * @see https://apidocs.linnworks.net/reference/getstockitemsfull
      *
-     * @return list<StockItem>
+     * @return list<StockItemFull>
      *
      * @throws AuthenticationExpiredException When credentials are invalid
      * @throws ExternalServiceUnavailableException When API is unavailable
@@ -173,7 +174,7 @@ final readonly class InventoryClient implements InventoryClientInterface
         $response = $this->transport->postFormParams(
             endpoint: '/api/Stock/GetStockItemsFull',
             params: [
-                'dataRequirements' => ['ExtendedProperties', 'StockLevels', 'Pricing'],
+                'dataRequirements' => ['ExtendedProperties', 'StockLevels', 'Pricing', 'Supplier'],
                 'loadCompositeParents' => true,
                 'loadVariationParents' => false,
                 'entriesPerPage' => $entriesPerPage,
@@ -184,7 +185,7 @@ final readonly class InventoryClient implements InventoryClientInterface
         $dtos = self::parseDirectArray($response->json(), StockItemFullResponse::class);
 
         return \array_map(
-            static fn(StockItemFullResponse $dto): StockItem => $dto->toDomain(),
+            static fn(StockItemFullResponse $dto): StockItemFull => $dto->toDomain(),
             $dtos,
         );
     }

@@ -11,9 +11,11 @@ use App\Application\Mixpanel\UseCases\SyncLookupTableUseCase;
 use App\Application\Mixpanel\UseCases\SyncOrdersToMixpanelUseCase;
 use App\Infrastructure\Database\DatabaseGateway;
 use App\Infrastructure\Mixpanel\LookupTables\OrderLookupTableProvider;
+use App\Infrastructure\Mixpanel\LookupTables\ProductLookupTableProvider;
 use App\Infrastructure\Mixpanel\MixpanelClientFactory;
 use App\Infrastructure\Mixpanel\MixpanelConfig;
 use App\Presentation\Jobs\Mixpanel\SyncOrderLookupTableJob;
+use App\Presentation\Jobs\Mixpanel\SyncProductLookupTableJob;
 use Illuminate\Contracts\Container\BindingResolutionException;
 use Illuminate\Contracts\Container\Container;
 use Illuminate\Contracts\Support\DeferrableProvider;
@@ -73,6 +75,22 @@ final class MixpanelServiceProvider extends ServiceProvider implements Deferrabl
                 static fn(Container $app): SyncLookupTableUseCase => new SyncLookupTableUseCase(
                     new OrderLookupTableProvider(
                         $app->make(MixpanelConfig::class),
+                        $app->make(DatabaseGateway::class),
+                    ),
+                    $app->make(MixpanelClientInterface::class),
+                    $app->make(LoggerInterface::class),
+                ),
+            );
+
+        // Contextual binding: SyncProductLookupTableJob gets SyncLookupTableUseCase with ProductLookupTableProvider
+        $this->app->when(SyncProductLookupTableJob::class)
+            ->needs(SyncLookupTableUseCase::class)
+            ->give(
+                /**
+                 * @throws BindingResolutionException
+                 */
+                static fn(Container $app): SyncLookupTableUseCase => new SyncLookupTableUseCase(
+                    new ProductLookupTableProvider(
                         $app->make(DatabaseGateway::class),
                     ),
                     $app->make(MixpanelClientInterface::class),

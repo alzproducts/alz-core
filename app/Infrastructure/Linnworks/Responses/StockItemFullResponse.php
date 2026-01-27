@@ -6,8 +6,9 @@ namespace App\Infrastructure\Linnworks\Responses;
 
 use App\Domain\Inventory\Enums\WeightUnit;
 use App\Domain\Inventory\ValueObjects\Dimensions;
-use App\Domain\Inventory\ValueObjects\StockItem as DomainStockItem;
 use App\Domain\Inventory\ValueObjects\StockItemExtendedProperty;
+use App\Domain\Inventory\ValueObjects\StockItemFull;
+use App\Domain\Inventory\ValueObjects\StockItemSupplier;
 use App\Domain\Inventory\ValueObjects\Weight;
 use App\Infrastructure\Contracts\DomainConvertibleInterface;
 use App\Infrastructure\Linnworks\Support\PascalCaseMapper;
@@ -34,6 +35,7 @@ final class StockItemFullResponse extends Data implements DomainConvertibleInter
     /**
      * @param list<StockLevelResponse> $stockLevels Per-location stock levels
      * @param list<ExtendedPropertyResponse> $itemExtendedProperties API returns ItemExtendedProperties
+     * @param list<SupplierResponse> $suppliers Supplier relationships for this item
      */
     public function __construct(
         public readonly string $stockItemId,
@@ -58,13 +60,15 @@ final class StockItemFullResponse extends Data implements DomainConvertibleInter
         public readonly array $stockLevels = [],
         #[DataCollectionOf(ExtendedPropertyResponse::class)]
         public readonly array $itemExtendedProperties = [],
+        #[DataCollectionOf(SupplierResponse::class)]
+        public readonly array $suppliers = [],
     ) {}
 
-    public function toDomain(): DomainStockItem
+    public function toDomain(): StockItemFull
     {
         $defaultStock = $this->findDefaultLocationStock();
 
-        return new DomainStockItem(
+        return new StockItemFull(
             stockItemId: $this->stockItemId,
             sku: $this->itemNumber,
             title: $this->itemTitle,
@@ -80,10 +84,13 @@ final class StockItemFullResponse extends Data implements DomainConvertibleInter
             weight: new Weight($this->weight, WeightUnit::Kilogram),
             dimensions: new Dimensions($this->height, $this->width, $this->depth),
             isComposite: false, // GetStockItemsFull doesn't return IsCompositeParent
+            categoryId: $this->categoryId,
+            categoryName: $this->categoryName,
             createdAt: $this->creationDate !== null
                 ? CarbonImmutable::parse($this->creationDate)->toDateTimeImmutable()
                 : null,
             extendedProperties: $this->mapExtendedProperties(),
+            suppliers: $this->mapSuppliers(),
         );
     }
 
@@ -111,6 +118,19 @@ final class StockItemFullResponse extends Data implements DomainConvertibleInter
         return \array_map(
             static fn(ExtendedPropertyResponse $ep): StockItemExtendedProperty => $ep->toDomain(),
             $this->itemExtendedProperties,
+        );
+    }
+
+    /**
+     * Map suppliers to domain value objects.
+     *
+     * @return list<StockItemSupplier>
+     */
+    private function mapSuppliers(): array
+    {
+        return \array_map(
+            static fn(SupplierResponse $supplier): StockItemSupplier => $supplier->toDomain(),
+            $this->suppliers,
         );
     }
 }
