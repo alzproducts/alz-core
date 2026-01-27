@@ -174,7 +174,7 @@ final readonly class InventoryClient implements InventoryClientInterface
         $response = $this->transport->postFormParams(
             endpoint: '/api/Stock/GetStockItemsFull',
             params: [
-                'dataRequirements' => ['ExtendedProperties', 'StockLevels', 'Pricing', 'Suppliers'],
+                'dataRequirements' => ['ExtendedProperties', 'StockLevels', 'Pricing', 'Supplier'],
                 'loadCompositeParents' => true,
                 'loadVariationParents' => false,
                 'entriesPerPage' => $entriesPerPage,
