@@ -40,8 +40,8 @@
 - [x] Infrastructure: `LinnworksHttpTransport::postJson()` method
 - [x] Infrastructure: `InventoryUpdateClient` (Linnworks, with Sku/Guid branching)
 - [x] Infrastructure: `BasicProductUpdateClient` (ShopWired, prices=gross, weight=kg)
-- [ ] Infrastructure: `EloquentSkuChangeRepository`
-- [ ] Infrastructure: `SkuChangeModel`
+- [x] Infrastructure: `EloquentSkuChangeRepository` (uses `transact()` for writes)
+- [x] Infrastructure: `SkuChangeModel` (UUID primary key, `HasUuids` trait)
 - [ ] Presentation: `UpdateSkuJob`
 - [ ] Presentation: `UpdateSkusCommand`
 - [ ] Tests: Unit + Integration
@@ -79,6 +79,15 @@
 **Money VO hardening:**
 - Removed `toFloat()` method to prevent bypassing tax semantics
 - All callers must use `toGross()` or `toNet()` explicitly
+
+### 2026-01-29: Audit Repository Implementation
+
+**EloquentSkuChangeRepository:**
+- Uses `DatabaseGateway::transact()` for all writes (not `query()`)
+- `transact()` = write operations with transaction + exception translation
+- `query()` = read operations only
+- `SkuChangeModel` uses `HasUuids` trait for UUID primary key generation
+- Binding added to `DatabaseServiceProvider` (deferred)
 
 ## PR Notes
 
