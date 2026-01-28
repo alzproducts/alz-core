@@ -118,7 +118,7 @@ final readonly class ProductLookupTableProvider implements LookupTableProviderIn
                 LEFT JOIN linnworks.stock_items si ON si.item_number = p.sku
                 LEFT JOIN linnworks.stock_item_suppliers s
                     ON s.stock_item_id = si.stock_item_id AND s.is_default = true
-                WHERE p.sku IS NOT NULL
+                WHERE p.sku IS NOT NULL AND p.sku != ''
 
                 UNION ALL
 
@@ -132,7 +132,7 @@ final readonly class ProductLookupTableProvider implements LookupTableProviderIn
                 LEFT JOIN linnworks.stock_items si ON si.item_number = pv.sku
                 LEFT JOIN linnworks.stock_item_suppliers s
                     ON s.stock_item_id = si.stock_item_id AND s.is_default = true
-                WHERE pv.sku IS NOT NULL
+                WHERE pv.sku IS NOT NULL AND pv.sku != ''
 
                 UNION ALL
 
@@ -145,7 +145,8 @@ final readonly class ProductLookupTableProvider implements LookupTableProviderIn
                 FROM linnworks.stock_items si
                 LEFT JOIN linnworks.stock_item_suppliers s
                     ON s.stock_item_id = si.stock_item_id AND s.is_default = true
-                WHERE NOT EXISTS (
+                WHERE si.item_number != ''
+                AND NOT EXISTS (
                     SELECT 1 FROM shopwired.products p WHERE p.sku = si.item_number
                 )
                 AND NOT EXISTS (
