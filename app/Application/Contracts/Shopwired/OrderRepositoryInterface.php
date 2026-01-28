@@ -38,10 +38,29 @@ interface OrderRepositoryInterface extends RepositoryWriteInterface
      * Orders are filtered by `order_placed_at` timestamp.
      * Results include all relations (products, discounts, refunds, comments).
      *
+     * Note: This method applies business filters (test email exclusion, duplicate
+     * deduplication). For raw unfiltered data, use getAllOrdersInDateRange().
+     *
      * @return list<Order>
      *
      * @throws DatabaseOperationFailedException On query failure
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      */
     public function getOrdersInDateRange(DateTimeImmutable $from, DateTimeImmutable $to): array;
+
+    /**
+     * Get ALL orders placed within a date range (no filtering).
+     *
+     * Returns raw database contents without any business filtering:
+     * - Includes test customer orders
+     * - Includes duplicate references (cancelled + active versions)
+     *
+     * Use this for auditing/debugging. For business operations, use getOrdersInDateRange().
+     *
+     * @return list<Order>
+     *
+     * @throws DatabaseOperationFailedException On query failure
+     * @throws ExternalServiceUnavailableException When database temporarily unavailable
+     */
+    public function getAllOrdersInDateRange(DateTimeImmutable $from, DateTimeImmutable $to): array;
 }

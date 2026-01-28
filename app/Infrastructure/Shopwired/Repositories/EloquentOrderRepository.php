@@ -22,6 +22,7 @@ use App\Infrastructure\Shopwired\Models\OrderModel;
 use App\Infrastructure\Shopwired\Models\OrderProductModel;
 use App\Infrastructure\Shopwired\Models\OrderRefundModel;
 use DateTimeImmutable;
+use Illuminate\Support\Collection;
 
 /**
  * Eloquent implementation of ShopWired order repository.
@@ -95,6 +96,7 @@ final class EloquentOrderRepository extends AbstractEloquentRepository implement
     public function getByReference(int $reference): Order
     {
         return $this->eloquentGateway->query(function () use ($reference): Order {
+            /** @var Collection<int, OrderModel> $orders */
             $orders = self::MODEL_CLASS::query()
                 ->where('reference', $reference)
                 ->with(self::EAGER_LOAD_RELATIONS)
@@ -104,27 +106,71 @@ final class EloquentOrderRepository extends AbstractEloquentRepository implement
                 throw new ResourceNotFoundException('Database', $this->getEntityTypeName(), $reference);
             }
 
-            // Single order - return directly
-            if ($orders->count() === 1) {
-                /** @var OrderModel $model */
-                $model = $orders->first();
-
-                return OrderModelMapper::fromModelWithRelations($model);
-            }
-
-            // Multiple orders: prefer non-cancelled, then highest external_id
-            // Sort descending by external_id, then partition by cancelled status
-            $nonCancelled = $orders->filter(
-                static fn(OrderModel $o): bool => $o->status_type !== 'cancelled',
-            );
-
-            // Return first non-cancelled (highest external_id), or highest cancelled
-            /** @var OrderModel $selected */
-            $selected = $nonCancelled->isNotEmpty()
-                ? $nonCancelled->sortByDesc('external_id')->first()
-                : $orders->sortByDesc('external_id')->first();
+            $selected = self::selectPreferredOrder($orders);
 
             return OrderModelMapper::fromModelWithRelations($selected);
+        });
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * When multiple orders share the same reference (edited orders in ShopWired),
+     * returns only the "active" order per reference using PostgreSQL DISTINCT ON:
+     * 1. Non-cancelled order takes priority
+     * 2. Highest external_id wins as tiebreaker
+     *
+     * Also excludes orders from test customer emails (configured in shopwired.excluded_customer_emails).
+     *
+     * Uses two-query approach for memory efficiency:
+     * 1. Get deduplicated external_ids using DISTINCT ON (lightweight)
+     * 2. Load only those orders with eager-loaded relations
+     *
+     * @return list<Order>
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function getOrdersInDateRange(DateTimeImmutable $from, DateTimeImmutable $to): array
+    {
+        return $this->eloquentGateway->query(static function () use ($from, $to): array {
+            // Build base query with date range and email exclusions
+            $baseQuery = self::MODEL_CLASS::query()
+                ->whereBetween('order_placed_at', [$from, $to]);
+
+            /** @var list<string> $excludedEmails */
+            $excludedEmails = \config('shopwired.excluded_customer_emails', []);
+
+            if ($excludedEmails !== []) {
+                $baseQuery->whereNotIn('billing_email', $excludedEmails);
+            }
+
+            // Query 1: Get deduplicated external_ids using PostgreSQL DISTINCT ON
+            // This is memory-efficient as it only fetches IDs, not full models with relations
+            /** @var list<int> $deduplicatedIds */
+            $deduplicatedIds = (clone $baseQuery)
+                ->selectRaw('DISTINCT ON (reference) external_id')
+                ->orderByRaw('reference, CASE WHEN status_type = ? THEN 1 ELSE 0 END, external_id DESC', ['cancelled'])
+                ->pluck('external_id')
+                ->all();
+
+            if ($deduplicatedIds === []) {
+                return [];
+            }
+
+            // Query 2: Load only the deduplicated orders with full eager loading
+            $models = self::MODEL_CLASS::query()
+                ->whereIn('external_id', $deduplicatedIds)
+                ->with(self::EAGER_LOAD_RELATIONS)
+                ->orderBy('order_placed_at')
+                ->get();
+
+            return \array_values(
+                $models
+                    ->map(static fn(OrderModel $model): Order => OrderModelMapper::fromModelWithRelations($model))
+                    ->all(),
+            );
         });
     }
 
@@ -137,7 +183,7 @@ final class EloquentOrderRepository extends AbstractEloquentRepository implement
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      */
-    public function getOrdersInDateRange(DateTimeImmutable $from, DateTimeImmutable $to): array
+    public function getAllOrdersInDateRange(DateTimeImmutable $from, DateTimeImmutable $to): array
     {
         return $this->eloquentGateway->query(static function () use ($from, $to): array {
             $models = self::MODEL_CLASS::query()
@@ -174,13 +220,40 @@ final class EloquentOrderRepository extends AbstractEloquentRepository implement
         return self::EAGER_LOAD_RELATIONS;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     protected function getEntityIdentifier(object $entity): int
     {
         /** @var Order $entity */
         return $entity->id;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Query Helpers
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Select the preferred order from a collection sharing the same reference.
+     *
+     * When ShopWired orders are "edited", a new order is created with the same
+     * customer-facing reference but a new external_id. The original is cancelled.
+     *
+     * Selection priority:
+     * 1. Non-cancelled orders take priority over cancelled ones
+     * 2. Among same-status orders, highest external_id wins (most recent)
+     *
+     * @param Collection<int, OrderModel> $orders Non-empty collection of orders with same reference
+     */
+    private static function selectPreferredOrder(Collection $orders): OrderModel
+    {
+        // Filter to non-cancelled orders
+        $nonCancelled = $orders->filter(
+            static fn(OrderModel $o): bool => $o->status_type !== 'cancelled',
+        );
+
+        // Return best non-cancelled, or best cancelled if all are cancelled
+        /** @var OrderModel */
+        return $nonCancelled->isNotEmpty()
+            ? $nonCancelled->sortByDesc('external_id')->first()
+            : $orders->sortByDesc('external_id')->first();
     }
 
     // ─────────────────────────────────────────────────────────────────────────
