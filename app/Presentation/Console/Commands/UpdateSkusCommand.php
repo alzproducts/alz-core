@@ -19,11 +19,15 @@ use ValueError;
  * Dispatches jobs to synchronously update SKUs in both systems.
  * Jobs are serialized via ShouldBeUnique to prevent race conditions.
  *
+ * ⚠️ PRODUCTION ONLY: This command modifies LIVE Linnworks and ShopWired data.
+ * The audit trail (operations.sku_changes) is critical for tracking changes
+ * used in historic sales reports. Running locally writes audit records to your
+ * local database while making REAL changes to production systems - leaving no
+ * traceable record in production. Always run via `railway ssh` in production.
+ *
  * Examples:
- *   php artisan inventory:update-skus ABC123:XYZ789 --reason=fix_sku_mismatch
- *   php artisan inventory:update-skus OLD-SKU:generate --reason=shorten_long_sku
- *   php artisan inventory:update-skus SKU1:NEW1 SKU2:NEW2 --reason=standardize_format
- *   php artisan inventory:update-skus ABC123:XYZ789 --reason=other --dry-run
+ *   railway ssh -s alz-core 'php artisan inventory:update-skus ABC123:XYZ789 --reason=fix_sku_mismatch'
+ *   railway ssh -s alz-core 'php artisan inventory:update-skus OLD-SKU:generate --reason=shorten_long_sku'
  */
 final class UpdateSkusCommand extends Command
 {

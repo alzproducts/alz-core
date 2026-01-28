@@ -33,6 +33,12 @@ use Psr\Log\LoggerInterface;
  * 4. Update ShopWired
  * 5. On ShopWired failure: compensate Linnworks, re-throw original
  *
+ * ⚠️ PRODUCTION ONLY: This use case modifies LIVE Linnworks and ShopWired data.
+ * The audit trail (operations.sku_changes) is critical for tracking changes
+ * used in historic sales reports. Running locally writes audit records to your
+ * local database while making REAL changes to production systems - leaving no
+ * traceable record in production.
+ *
  * Exception Strategy:
  * - Original exceptions bubble up for job retry logic
  * - SkuUpdateFailedException thrown ONLY when compensation fails (no retry!)

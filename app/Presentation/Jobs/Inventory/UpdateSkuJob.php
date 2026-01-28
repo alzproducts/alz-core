@@ -30,6 +30,10 @@ use Throwable;
  * This prevents GetNewItemNumber race conditions where concurrent jobs
  * could receive the same auto-generated sequential SKU.
  *
+ * ⚠️ PRODUCTION ONLY: This job modifies LIVE Linnworks and ShopWired data.
+ * The audit trail must be in the production database for traceability.
+ * See UpdateSkusCommand docblock for details.
+ *
  * Exception Strategy:
  * - SkuUpdateFailedException: Fail immediately (compensation failed, manual intervention)
  * - ExternalServiceUnavailableException: Retry with backoff (transient)
