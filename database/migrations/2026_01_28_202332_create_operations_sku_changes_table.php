@@ -24,12 +24,9 @@ return new class extends Migration {
     public function up(): void
     {
         Schema::create('operations.sku_changes', static function (Blueprint $table): void {
-            $table->id();
+            $table->uuid('id')->primary()->default(DB::raw('gen_random_uuid()'));
 
-            // Linnworks identifier (GUID format)
-            $table->uuid('stock_item_id');
-
-            // SKU values
+            // SKU values (business identifiers - no Linnworks-specific IDs)
             $table->string('old_sku', 255);
             $table->string('new_sku', 255);
 

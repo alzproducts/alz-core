@@ -35,4 +35,9 @@ final class InvalidSkuException extends AbstractDataException
     {
         return new self($value, 'must contain only alphanumeric characters, hyphens, and underscores');
     }
+
+    public static function missingForProvidedType(): self
+    {
+        return new self('', 'newSku is required when update type is Provided');
+    }
 }
