@@ -109,7 +109,7 @@ final readonly class UpdateSkuUseCase
                 currentSku: $command->oldSku,
                 newSku: $newSku,
             ));
-        } catch (ResourceNotFoundException|InvalidApiRequestException|AuthenticationExpiredException|ExternalServiceUnavailableException $e) {
+        } catch (ResourceNotFoundException|InvalidApiRequestException|InvalidApiResponseException|AuthenticationExpiredException|ExternalServiceUnavailableException $e) {
             $this->compensateAndRethrow($auditId, $command->oldSku, $newSku, $e);
         }
 
@@ -150,6 +150,7 @@ final readonly class UpdateSkuUseCase
      * @throws SkuUpdateFailedException When compensation fails (systems out of sync)
      * @throws ResourceNotFoundException Re-thrown when compensation succeeds
      * @throws InvalidApiRequestException Re-thrown when compensation succeeds
+     * @throws InvalidApiResponseException Re-thrown when compensation succeeds
      * @throws AuthenticationExpiredException Re-thrown when compensation succeeds
      * @throws ExternalServiceUnavailableException Re-thrown when compensation succeeds
      * @throws DatabaseOperationFailedException When audit record update fails
@@ -158,7 +159,7 @@ final readonly class UpdateSkuUseCase
         string $auditId,
         string $oldSku,
         Sku $newSku,
-        ResourceNotFoundException|InvalidApiRequestException|AuthenticationExpiredException|ExternalServiceUnavailableException $originalError,
+        ResourceNotFoundException|InvalidApiRequestException|InvalidApiResponseException|AuthenticationExpiredException|ExternalServiceUnavailableException $originalError,
     ): never {
         $this->logger->warning('ShopWired update failed, attempting Linnworks compensation', [
             'old_sku' => $oldSku,
