@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Application\Contracts\Shopwired;
 
-use App\Application\Contracts\RepositoryInterface;
+use App\Application\Contracts\RepositoryWriteInterface;
 use App\Domain\Catalog\Order\ValueObjects\Order;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
@@ -14,9 +14,9 @@ use DateTimeImmutable;
 /**
  * Repository for ShopWired order persistence.
  *
- * @extends RepositoryInterface<Order>
+ * @extends RepositoryWriteInterface<Order>
  */
-interface OrderRepositoryInterface extends RepositoryInterface
+interface OrderRepositoryInterface extends RepositoryWriteInterface
 {
     /**
      * Get order by customer-facing reference number.

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Application\Contracts\Shopwired;
 
-use App\Application\Contracts\RepositoryInterface;
+use App\Application\Contracts\RepositoryWriteInterface;
 use App\Application\Results\SaveManyResult;
 use App\Domain\Customer\ValueObjects\Customer;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
@@ -13,9 +13,9 @@ use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 /**
  * Repository for ShopWired customer persistence.
  *
- * @extends RepositoryInterface<Customer>
+ * @extends RepositoryWriteInterface<Customer>
  */
-interface CustomerRepositoryInterface extends RepositoryInterface
+interface CustomerRepositoryInterface extends RepositoryWriteInterface
 {
     /**
      * Get trade status for multiple customers by their ShopWired IDs.

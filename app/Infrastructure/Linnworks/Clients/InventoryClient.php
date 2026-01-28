@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace App\Infrastructure\Linnworks\Clients;
 
 use App\Application\Contracts\Linnworks\InventoryClientInterface;
+use App\Domain\Catalog\Product\ValueObjects\Sku;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Domain\Exceptions\Data\InvalidSkuException;
 use App\Domain\Inventory\ValueObjects\StockItem;
 use App\Domain\Inventory\ValueObjects\StockItemFull;
 use App\Infrastructure\Linnworks\LinnworksHttpTransport;
@@ -31,7 +33,6 @@ final readonly class InventoryClient implements InventoryClientInterface
     public function __construct(
         private LinnworksHttpTransport $transport,
     ) {}
-
 
     /**
      * @throws ResourceNotFoundException When item doesn't exist
@@ -188,5 +189,33 @@ final readonly class InventoryClient implements InventoryClientInterface
             static fn(StockItemFullResponse $dto): StockItemFull => $dto->toDomain(),
             $dtos,
         );
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @throws AuthenticationExpiredException When credentials are invalid
+     * @throws ExternalServiceUnavailableException When API is unavailable
+     * @throws InvalidApiRequestException When request parameters are invalid
+     * @throws InvalidApiResponseException When response format unexpected
+     * @throws ResourceNotFoundException When resource not found
+     * @throws InvalidSkuException When generated SKU fails validation (should not happen)
+     */
+    public function getNewItemNumber(): Sku
+    {
+        $response = $this->transport->get(
+            endpoint: '/api/Inventory/GetNewItemNumber',
+        );
+
+        $value = $response->json();
+
+        if (!\is_string($value) || $value === '') {
+            throw new InvalidApiResponseException(
+                self::SERVICE_NAME,
+                'GetNewItemNumber returned invalid response',
+            );
+        }
+
+        return Sku::fromString($value);
     }
 }

@@ -6,11 +6,13 @@ namespace App\Infrastructure\Linnworks;
 
 use App\Application\Contracts\Linnworks\ConnectivityClientInterface;
 use App\Application\Contracts\Linnworks\InventoryClientInterface;
+use App\Application\Contracts\Linnworks\InventoryUpdateClientInterface;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\InvalidConfigurationException;
 use App\Infrastructure\Linnworks\Clients\ConnectivityClient;
 use App\Infrastructure\Linnworks\Clients\InventoryClient;
+use App\Infrastructure\Linnworks\Clients\InventoryUpdateClient;
 use DateMalformedStringException;
 use Illuminate\Support\Facades\Config;
 
@@ -48,6 +50,17 @@ final class LinnworksClientFactory
     public static function createInventoryClient(): InventoryClientInterface
     {
         return new InventoryClient(self::getTransport());
+    }
+
+    /**
+     * Create the inventory update client for modifying stock items.
+     */
+    public static function createInventoryUpdateClient(): InventoryUpdateClientInterface
+    {
+        return new InventoryUpdateClient(
+            self::getTransport(),
+            self::createInventoryClient(),
+        );
     }
 
     /**
