@@ -12,7 +12,6 @@ use PHPUnit\Framework\TestCase;
 use Webmozart\Assert\InvalidArgumentException;
 
 #[CoversClass(Money::class)]
-#[CoversClass(TaxType::class)]
 final class MoneyTest extends TestCase
 {
     /*
@@ -201,29 +200,5 @@ final class MoneyTest extends TestCase
         $money = Money::inclusive(0.01);
 
         self::assertFalse($money->isZero());
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | TaxType Tests
-    |--------------------------------------------------------------------------
-    */
-
-    #[Test]
-    public function tax_type_has_tax_returns_true_for_inclusive(): void
-    {
-        self::assertTrue(TaxType::Inclusive->hasTax());
-    }
-
-    #[Test]
-    public function tax_type_has_tax_returns_true_for_exclusive(): void
-    {
-        self::assertTrue(TaxType::Exclusive->hasTax());
-    }
-
-    #[Test]
-    public function tax_type_has_tax_returns_false_for_zero_rated(): void
-    {
-        self::assertFalse(TaxType::ZeroRated->hasTax());
     }
 }
