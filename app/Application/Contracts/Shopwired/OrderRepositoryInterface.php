@@ -21,7 +21,13 @@ interface OrderRepositoryInterface extends RepositoryWriteInterface
     /**
      * Get order by customer-facing reference number.
      *
-     * @throws ResourceNotFoundException When order not found
+     * When multiple orders share the same reference (e.g., edited orders in ShopWired
+     * where the original is cancelled and a new order is created with the same
+     * customer-facing reference), returns the "active" order:
+     * 1. Non-cancelled order takes priority (if exactly one exists)
+     * 2. Highest external_id wins as tiebreaker (most recent ShopWired order)
+     *
+     * @throws ResourceNotFoundException When no order found with this reference
      * @throws DatabaseOperationFailedException On query failure
      */
     public function getByReference(int $reference): Order;

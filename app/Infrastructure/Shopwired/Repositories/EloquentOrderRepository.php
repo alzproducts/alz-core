@@ -82,6 +82,11 @@ final class EloquentOrderRepository extends AbstractEloquentRepository implement
     /**
      * {@inheritDoc}
      *
+     * When multiple orders share the same reference (edited orders in ShopWired),
+     * this method returns the "active" order using this priority:
+     * 1. Non-cancelled order (if exactly one exists)
+     * 2. Highest external_id (most recent ShopWired order ID)
+     *
      * @throws ResourceNotFoundException
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
@@ -89,14 +94,38 @@ final class EloquentOrderRepository extends AbstractEloquentRepository implement
      */
     public function getByReference(int $reference): Order
     {
-        return $this->eloquentGateway->findOrFail(
-            modelClass: self::MODEL_CLASS,
-            column: 'reference',
-            value: $reference,
-            relations: self::EAGER_LOAD_RELATIONS,
-            entityTypeName: $this->getEntityTypeName(),
-            mapper: static fn(OrderModel $model): Order => OrderModelMapper::fromModelWithRelations($model),
-        );
+        return $this->eloquentGateway->query(function () use ($reference): Order {
+            $orders = self::MODEL_CLASS::query()
+                ->where('reference', $reference)
+                ->with(self::EAGER_LOAD_RELATIONS)
+                ->get();
+
+            if ($orders->isEmpty()) {
+                throw new ResourceNotFoundException('Database', $this->getEntityTypeName(), $reference);
+            }
+
+            // Single order - return directly
+            if ($orders->count() === 1) {
+                /** @var OrderModel $model */
+                $model = $orders->first();
+
+                return OrderModelMapper::fromModelWithRelations($model);
+            }
+
+            // Multiple orders: prefer non-cancelled, then highest external_id
+            // Sort descending by external_id, then partition by cancelled status
+            $nonCancelled = $orders->filter(
+                static fn(OrderModel $o): bool => $o->status_type !== 'cancelled',
+            );
+
+            // Return first non-cancelled (highest external_id), or highest cancelled
+            /** @var OrderModel $selected */
+            $selected = $nonCancelled->isNotEmpty()
+                ? $nonCancelled->sortByDesc('external_id')->first()
+                : $orders->sortByDesc('external_id')->first();
+
+            return OrderModelMapper::fromModelWithRelations($selected);
+        });
     }
 
     /**
