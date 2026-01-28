@@ -24,7 +24,7 @@ final class BackfillShopwiredOrdersCommand extends Command
 {
     protected $signature = 'shopwired:backfill-orders
                             {--months=12 : Number of months to sync}
-                            {--offset=0 : Start from X months ago (skip recent months)}
+                            {--offset=0 : Month offset (0 = include current partial month up to now, 1 = start from last complete month)}
                             {--dry-run : Show what would be dispatched without dispatching}';
 
     protected $description = 'Backfill historical orders from ShopWired API';
@@ -71,8 +71,13 @@ final class BackfillShopwiredOrdersCommand extends Command
 
         for ($i = 0; $i < $months; $i++) {
             $monthsAgo = $offset + $i;
-            $from = $now->startOfMonth()->subMonths($monthsAgo + 1);
-            $to = $now->startOfMonth()->subMonths($monthsAgo);
+            $from = $now->startOfMonth()->subMonths($monthsAgo);
+
+            // First job with offset=0: sync up to NOW (partial current month)
+            // All other jobs: sync complete calendar months
+            $to = ($i === 0 && $offset === 0)
+                ? $now
+                : $now->startOfMonth()->subMonths($monthsAgo - 1);
 
             SyncShopwiredOrdersRangeJob::dispatch($from->toDateTimeImmutable(), $to->toDateTimeImmutable());
         }
@@ -94,14 +99,24 @@ final class BackfillShopwiredOrdersCommand extends Command
 
         for ($i = 0; $i < $months; $i++) {
             $monthsAgo = $offset + $i;
-            $from = $now->startOfMonth()->subMonths($monthsAgo + 1);
-            $to = $now->startOfMonth()->subMonths($monthsAgo);
+            $from = $now->startOfMonth()->subMonths($monthsAgo);
+
+            // First job with offset=0: sync up to NOW (partial current month)
+            // All other jobs: sync complete calendar months
+            $to = ($i === 0 && $offset === 0)
+                ? $now
+                : $now->startOfMonth()->subMonths($monthsAgo - 1);
+
+            // Period label: show "Current" for partial month, otherwise month name
+            $period = ($i === 0 && $offset === 0)
+                ? $from->format('M Y') . ' (partial)'
+                : $from->format('M Y');
 
             $rows[] = [
                 $i + 1,
                 $from->format('Y-m-d H:i'),
                 $to->format('Y-m-d H:i'),
-                $from->format('M Y'),
+                $period,
             ];
         }
 

@@ -1,4 +1,4 @@
-.PHONY: help install up down shell migrate db-reset-full pint pint-test test test-quick test-coverage coverage-html pest-mutate test-ai test-mutate lint lint-sequential lint-full fix analyse insights phparkitect deptrac tlint tlint-full psalm psalm-ci psalm-baseline stan rector rector-dry-run refactor check check-full infection infection-fast infection-strict infection-incremental infection-ci ide-helper test-domain test-domain-coverage test-app test-app-coverage mutate-domain mutate-app supabase-start supabase-functions supabase-stop supabase-status supabase-reset supabase-seed-users redis
+.PHONY: help install up down shell migrate db-reset-full pint pint-test test test-quick test-coverage coverage-html pest-mutate test-ai test-mutate lint lint-sequential lint-full fix analyse insights phparkitect deptrac tlint tlint-full psalm psalm-ci psalm-baseline stan rector rector-dry-run refactor check check-full infection infection-fast infection-strict infection-incremental infection-ci ide-helper test-domain test-domain-coverage test-app test-app-coverage mutate-domain mutate-app supabase-start supabase-functions supabase-stop supabase-status supabase-reset supabase-seed-users redis pail
 
 # Enable strict shell mode for robust error handling
 SHELL := bash
@@ -409,6 +409,11 @@ endif
 # Redis (Docker - used alongside Supabase PostgreSQL)
 redis: ## Start Redis only (not PostgreSQL from compose.yaml)
 	docker compose up -d redis
+
+# Development Tools
+pail: ## Tail logs (respects LOG_LEVEL from .env, defaults to info)
+	@LOG_LEVEL=$$(grep -E '^LOG_LEVEL=' .env 2>/dev/null | cut -d'=' -f2 | tr -d '"'"'" || echo "info"); \
+	php artisan pail --level=$${LOG_LEVEL:-info}
 
 # IDE Helper
 ide-helper: ## Generate IDE helper files
