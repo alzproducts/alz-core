@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Application\Contracts\Shopwired;
 
-use App\Application\Contracts\RepositoryInterface;
+use App\Application\Contracts\RepositoryWriteInterface;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\Product\ValueObjects\Product;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariation;
@@ -18,9 +18,9 @@ use Generator;
  *
  * Products include variations, which are managed via cascade operations.
  *
- * @extends RepositoryInterface<Product>
+ * @extends RepositoryWriteInterface<Product>
  */
-interface ProductRepositoryInterface extends RepositoryInterface
+interface ProductRepositoryInterface extends RepositoryWriteInterface
 {
     /**
      * Get all product external IDs stored locally.

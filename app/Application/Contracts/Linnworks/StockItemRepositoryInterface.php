@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Application\Contracts\Linnworks;
 
-use App\Application\Contracts\RepositoryInterface;
+use App\Application\Contracts\RepositoryWriteInterface;
 use App\Domain\Inventory\ValueObjects\StockItemFull;
 
 /**
@@ -14,6 +14,6 @@ use App\Domain\Inventory\ValueObjects\StockItemFull;
  * - Stock items: upsert by stock_item_id (Linnworks GUID)
  * - Extended properties: delete/re-insert (catches removals in Linnworks)
  *
- * @extends RepositoryInterface<StockItemFull>
+ * @extends RepositoryWriteInterface<StockItemFull>
  */
-interface StockItemRepositoryInterface extends RepositoryInterface {}
+interface StockItemRepositoryInterface extends RepositoryWriteInterface {}
