@@ -82,14 +82,6 @@ final readonly class Money
     }
 
     /**
-     * Get the raw amount as a float.
-     */
-    public function toFloat(): float
-    {
-        return $this->amount;
-    }
-
-    /**
      * Get the tax-inclusive (gross) value.
      *
      * - If already inclusive: returns the amount unchanged

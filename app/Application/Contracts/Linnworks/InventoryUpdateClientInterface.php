@@ -10,20 +10,24 @@ use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Domain\ValueObjects\Guid;
 
 /**
  * Linnworks inventory update operations.
  *
- * Infrastructure resolves SKU → stockItemId internally via getStockItemBySku().
+ * Accepts either SKU or GUID as identifier:
+ * - SKU: Resolved to stockItemId via getStockItemBySku() (extra API call)
+ * - GUID: Used directly as stockItemId (no resolution needed)
+ *
+ * For bulk operations, prefer resolving SKUs to GUIDs upfront via
+ * InventoryClientInterface, then passing GUIDs here to avoid N+1 API calls.
  */
 interface InventoryUpdateClientInterface
 {
     /**
      * Update the SKU (ItemNumber) for a stock item.
      *
-     * Resolves the current SKU to Linnworks stockItemId internally.
-     *
-     * @param Sku $currentSku The existing SKU to find
+     * @param Sku|Guid $identifier Current SKU (resolved internally) or stockItemId (used directly)
      * @param Sku $newSku The new SKU value to set
      *
      * @throws ResourceNotFoundException When stock item not found by SKU
@@ -32,5 +36,5 @@ interface InventoryUpdateClientInterface
      * @throws AuthenticationExpiredException When credentials invalid
      * @throws ExternalServiceUnavailableException When API unavailable
      */
-    public function updateSku(Sku $currentSku, Sku $newSku): void;
+    public function updateSku(Sku|Guid $identifier, Sku $newSku): void;
 }
