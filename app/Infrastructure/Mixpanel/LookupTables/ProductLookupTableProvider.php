@@ -15,6 +15,7 @@ use App\Infrastructure\Database\DatabaseGateway;
  *
  * Maps SKUs to product context for Mixpanel analytics:
  * - group_identifier: ShopWired product ID (always parent, even for variants)
+ * - title: Product title from ShopWired or Linnworks
  * - default_category: Linnworks category name
  * - default_supplier: Linnworks default supplier name
  *
@@ -46,7 +47,7 @@ final readonly class ProductLookupTableProvider implements LookupTableProviderIn
      */
     public function getHeaders(): array
     {
-        return ['sku', 'group_identifier', 'default_category', 'default_supplier'];
+        return ['sku', 'group_identifier', 'title', 'default_category', 'default_supplier'];
     }
 
     /**
@@ -67,7 +68,7 @@ final readonly class ProductLookupTableProvider implements LookupTableProviderIn
      */
     public function fetchRows(): array
     {
-        /** @var list<object{sku: string, group_identifier: string, default_category: string|null, default_supplier: string|null}> $results */
+        /** @var list<object{sku: string, group_identifier: string, title: string, default_category: string|null, default_supplier: string|null}> $results */
         $results = $this->database->query(
             fn(): array => $this->database->connection()->select($this->buildQuery()),
         );
@@ -76,6 +77,7 @@ final readonly class ProductLookupTableProvider implements LookupTableProviderIn
             static fn(object $row): array => [
                 $row->sku,
                 $row->group_identifier,
+                $row->title,
                 $row->default_category ?? '',
                 $row->default_supplier ?? '',
             ],
@@ -105,6 +107,7 @@ final readonly class ProductLookupTableProvider implements LookupTableProviderIn
             SELECT DISTINCT ON (sku)
                 sku,
                 COALESCE(group_identifier, sku) AS group_identifier,
+                title,
                 default_category,
                 default_supplier
             FROM (
@@ -112,13 +115,14 @@ final readonly class ProductLookupTableProvider implements LookupTableProviderIn
                 SELECT
                     p.sku AS sku,
                     p.external_id::text AS group_identifier,
+                    p.title AS title,
                     si.category_name AS default_category,
                     s.supplier_name AS default_supplier
                 FROM shopwired.products p
                 LEFT JOIN linnworks.stock_items si ON si.item_number = p.sku
                 LEFT JOIN linnworks.stock_item_suppliers s
                     ON s.stock_item_id = si.stock_item_id AND s.is_default = true
-                WHERE p.sku IS NOT NULL
+                WHERE p.sku IS NOT NULL AND p.sku != ''
 
                 UNION ALL
 
@@ -126,13 +130,15 @@ final readonly class ProductLookupTableProvider implements LookupTableProviderIn
                 SELECT
                     pv.sku AS sku,
                     pv.product_external_id::text AS group_identifier,
+                    p.title AS title,
                     si.category_name AS default_category,
                     s.supplier_name AS default_supplier
                 FROM shopwired.product_variations pv
+                JOIN shopwired.products p ON p.external_id = pv.product_external_id
                 LEFT JOIN linnworks.stock_items si ON si.item_number = pv.sku
                 LEFT JOIN linnworks.stock_item_suppliers s
                     ON s.stock_item_id = si.stock_item_id AND s.is_default = true
-                WHERE pv.sku IS NOT NULL
+                WHERE pv.sku IS NOT NULL AND pv.sku != ''
 
                 UNION ALL
 
@@ -140,12 +146,14 @@ final readonly class ProductLookupTableProvider implements LookupTableProviderIn
                 SELECT
                     si.item_number AS sku,
                     si.item_number AS group_identifier,
+                    si.item_title AS title,
                     si.category_name AS default_category,
                     s.supplier_name AS default_supplier
                 FROM linnworks.stock_items si
                 LEFT JOIN linnworks.stock_item_suppliers s
                     ON s.stock_item_id = si.stock_item_id AND s.is_default = true
-                WHERE NOT EXISTS (
+                WHERE si.item_number != ''
+                AND NOT EXISTS (
                     SELECT 1 FROM shopwired.products p WHERE p.sku = si.item_number
                 )
                 AND NOT EXISTS (
