@@ -12,6 +12,7 @@ use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Domain\Inventory\Enums\LinnworksInventoryField;
 use App\Domain\ValueObjects\Guid;
 use App\Infrastructure\Linnworks\LinnworksHttpTransport;
 
@@ -26,8 +27,6 @@ use App\Infrastructure\Linnworks\LinnworksHttpTransport;
  */
 final readonly class InventoryUpdateClient implements InventoryUpdateClientInterface
 {
-    private const string FIELD_NAME_ITEM_NUMBER = 'ItemNumber';
-
     public function __construct(
         private LinnworksHttpTransport $transport,
         private InventoryClientInterface $inventoryClient,
@@ -46,11 +45,11 @@ final readonly class InventoryUpdateClient implements InventoryUpdateClientInter
     {
         $stockItemId = $this->resolveStockItemId($identifier);
 
-        $this->transport->postJson(
+        $this->transport->postFormParams(
             endpoint: '/api/Inventory/UpdateInventoryItemField',
-            data: [
+            params: [
                 'inventoryItemId' => $stockItemId,
-                'fieldName' => self::FIELD_NAME_ITEM_NUMBER,
+                'fieldName' => LinnworksInventoryField::SKU->value,
                 'fieldValue' => $newSku->value,
             ],
         );
