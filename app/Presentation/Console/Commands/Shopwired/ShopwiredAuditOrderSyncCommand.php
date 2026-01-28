@@ -31,7 +31,7 @@ final class ShopwiredAuditOrderSyncCommand extends Command
 {
     protected $signature = 'shopwired:audit-order-sync
                             {--from= : Start date (Y-m-d), defaults to 30 days ago}
-                            {--to= : End date (Y-m-d), defaults to today}
+                            {--to= : End date (Y-m-d), defaults to 6 hours ago to allow for sync lag}
                             {--show-missing : Show IDs of missing orders/order lines}
                             {--limit=20 : Limit number of missing items shown}';
 
@@ -51,7 +51,8 @@ final class ShopwiredAuditOrderSyncCommand extends Command
         OrderRepositoryInterface $orderRepository,
     ): int {
         $from = $this->parseDate($this->option('from'), (new DateTimeImmutable())->modify('-30 days'));
-        $to = $this->parseDate($this->option('to'), new DateTimeImmutable());
+        // Default to 6 hours ago to allow for sync lag (orders need time to propagate through the system)
+        $to = $this->parseDate($this->option('to'), (new DateTimeImmutable())->modify('-6 hours'));
 
         $this->info("Auditing orders from {$from->format('Y-m-d')} to {$to->format('Y-m-d')}...");
 
