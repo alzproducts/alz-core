@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Presentation\Console\Commands;
+namespace App\Presentation\Console\Commands\Shopwired;
 
 use App\Application\Contracts\Shopwired\ProductClientInterface;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
@@ -21,12 +21,12 @@ use Illuminate\Console\Command;
  * Use this command to diagnose sync issues, identify missing products/variations,
  * and verify data integrity between ShopWired API and local database.
  *
- * @example php artisan shopwired:audit-sync
- * @example php artisan shopwired:audit-sync --show-missing
+ * @example php artisan shopwired:audit-product-sync
+ * @example php artisan shopwired:audit-product-sync --show-missing
  */
-final class ShopwiredAuditSyncCommand extends Command
+final class ShopwiredAuditProductSyncCommand extends Command
 {
-    protected $signature = 'shopwired:audit-sync
+    protected $signature = 'shopwired:audit-product-sync
                             {--show-missing : Show IDs of missing products/variations}
                             {--limit=20 : Limit number of missing items shown}';
 
