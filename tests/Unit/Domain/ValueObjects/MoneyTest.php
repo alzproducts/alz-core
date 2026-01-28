@@ -202,4 +202,28 @@ final class MoneyTest extends TestCase
 
         self::assertFalse($money->isZero());
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | TaxType Tests
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function tax_type_has_tax_returns_true_for_inclusive(): void
+    {
+        self::assertTrue(TaxType::Inclusive->hasTax());
+    }
+
+    #[Test]
+    public function tax_type_has_tax_returns_true_for_exclusive(): void
+    {
+        self::assertTrue(TaxType::Exclusive->hasTax());
+    }
+
+    #[Test]
+    public function tax_type_has_tax_returns_false_for_zero_rated(): void
+    {
+        self::assertFalse(TaxType::ZeroRated->hasTax());
+    }
 }
