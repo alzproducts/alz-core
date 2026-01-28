@@ -42,7 +42,7 @@
 - [x] Infrastructure: `BasicProductUpdateClient` (ShopWired, prices=gross, weight=kg)
 - [x] Infrastructure: `EloquentSkuChangeRepository` (uses `transact()` for writes)
 - [x] Infrastructure: `SkuChangeModel` (UUID primary key, `HasUuids` trait)
-- [ ] Presentation: `UpdateSkuJob`
+- [x] Presentation: `UpdateSkuJob` (ShouldBeUnique with fixed ID)
 - [ ] Presentation: `UpdateSkusCommand`
 - [ ] Tests: Unit + Integration
 
