@@ -43,7 +43,7 @@
 - [x] Infrastructure: `EloquentSkuChangeRepository` (uses `transact()` for writes)
 - [x] Infrastructure: `SkuChangeModel` (UUID primary key, `HasUuids` trait)
 - [x] Presentation: `UpdateSkuJob` (ShouldBeUnique with fixed ID)
-- [ ] Presentation: `UpdateSkusCommand`
+- [x] Presentation: `UpdateSkusCommand` (parses `old:new` or `old:generate`)
 - [ ] Tests: Unit + Integration
 
 ## Session Notes
@@ -88,6 +88,20 @@
 - `query()` = read operations only
 - `SkuChangeModel` uses `HasUuids` trait for UUID primary key generation
 - Binding added to `DatabaseServiceProvider` (deferred)
+
+### 2026-01-29: Presentation Layer
+
+**UpdateSkuJob:**
+- `ShouldBeUnique` with fixed ID (`update-sku`) serializes all SKU updates
+- Prevents `GetNewItemNumber` race conditions
+- Explicit exception handling per codebase pattern
+
+**UpdateSkusCommand:**
+- Parses `old_sku:new_sku` or `old_sku:generate` format
+- Validates all mappings before dispatching any jobs
+- Dispatches individual jobs (not chunked - serialized anyway)
+- `--reason` option maps to `SkuUpdateReason` enum
+- `--dry-run` for preview
 
 ## PR Notes
 
