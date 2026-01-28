@@ -113,6 +113,36 @@ final readonly class LinnworksHttpTransport
     }
 
     /**
+     * Perform POST request with raw JSON body.
+     *
+     * Unlike post(), this sends JSON directly in the request body (not wrapped
+     * in a 'request' form parameter). Used by Linnworks endpoints like
+     * UpdateInventoryItemField that expect application/json content type.
+     *
+     * @param string $endpoint API endpoint path
+     * @param array<string, mixed> $data Request body data (sent as JSON)
+     *
+     * @return Response Successful HTTP response
+     *
+     * @throws InvalidApiRequestException When request parameters are invalid (400)
+     * @throws InvalidApiResponseException When session data is malformed (API contract violation)
+     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
+     * @throws ResourceNotFoundException When resource not found (404)
+     * @throws ExternalServiceUnavailableException When API unavailable, rate limited, or connection fails
+     */
+    public function postJson(string $endpoint, array $data = []): Response
+    {
+        return $this->executeWithAuthRetry(
+            // @phpstan-ignore missingType.checkedException, missingType.checkedException, missingType.checkedException (false positive: closure exceptions caught in executeWithAuthRetry)
+            fn(LinnworksSession $session): Response => $this->createBaseRequest($session)
+                ->asJson()
+                ->post($endpoint, $data)
+                ->throw(),
+            $endpoint,
+        );
+    }
+
+    /**
      * Perform POST request with raw form-encoded parameters.
      *
      * Unlike post(), this sends parameters directly as form fields (not wrapped

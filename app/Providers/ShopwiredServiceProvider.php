@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Application\Contracts\Shopwired\BasicProductUpdateClientInterface;
 use App\Application\Contracts\Shopwired\CategoryClientInterface;
 use App\Application\Contracts\Shopwired\ConnectivityClientInterface;
 use App\Application\Contracts\Shopwired\CustomerClientInterface;
@@ -17,6 +18,7 @@ use App\Application\Contracts\Shopwired\ProductIdentifierResolverInterface;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Application\Contracts\Shopwired\ProductUpdateClientInterface;
 use App\Application\Contracts\Shopwired\StockClientInterface;
+use App\Infrastructure\Shopwired\Clients\BasicProductUpdateClient;
 use App\Infrastructure\Shopwired\Clients\ProductClient;
 use App\Infrastructure\Shopwired\Clients\ProductUpdateClient;
 use App\Infrastructure\Shopwired\Factories\ProductCustomFieldFactory;
@@ -151,6 +153,15 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
                 $app->make(ProductClientInterface::class),
             ),
         );
+
+        // Basic product update client - scoped because it depends on scoped ProductRepositoryInterface
+        $this->app->scoped(
+            BasicProductUpdateClientInterface::class,
+            static fn(Application $app): BasicProductUpdateClientInterface => new BasicProductUpdateClient(
+                ShopwiredClientFactory::getTransport(),
+                $app->make(ProductRepositoryInterface::class),
+            ),
+        );
     }
 
     /**
@@ -162,6 +173,7 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
     public function provides(): array
     {
         return [
+            BasicProductUpdateClientInterface::class,
             CategoryClientInterface::class,
             ConnectivityClientInterface::class,
             CustomFieldClientInterface::class,
