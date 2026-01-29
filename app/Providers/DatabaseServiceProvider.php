@@ -6,7 +6,9 @@ namespace App\Providers;
 
 use App\Application\Contracts\DatabaseGatewayInterface;
 use App\Application\Contracts\EscalationsConfigRepositoryInterface;
+use App\Application\Contracts\Operations\SkuChangeRepositoryInterface;
 use App\Infrastructure\Database\DatabaseGateway;
+use App\Infrastructure\Operations\Repositories\EloquentSkuChangeRepository;
 use App\Infrastructure\Persistence\Repositories\EscalationsConfigRepository;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Contracts\Support\DeferrableProvider;
@@ -44,6 +46,11 @@ final class DatabaseServiceProvider extends ServiceProvider implements Deferrabl
             EscalationsConfigRepositoryInterface::class,
             EscalationsConfigRepository::class,
         );
+
+        $this->app->bind(
+            SkuChangeRepositoryInterface::class,
+            EloquentSkuChangeRepository::class,
+        );
     }
 
     /**
@@ -56,6 +63,7 @@ final class DatabaseServiceProvider extends ServiceProvider implements Deferrabl
             DatabaseGatewayInterface::class,
             DatabaseGateway::class,
             EscalationsConfigRepositoryInterface::class,
+            SkuChangeRepositoryInterface::class,
         ];
     }
 }

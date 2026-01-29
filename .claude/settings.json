@@ -39,6 +39,7 @@
             "Grep(~/WebstormProjects/alz-admin/**)",
             "Glob(~/WebstormProjects/alz-admin/**)",
             "Bash(php artisan migrate:*)",
+            "Bash(php artisan shopwired:audit-*)",
             "Bash(railway logs:*)",
             "Bash(railway service list:*)",
             "Bash(railway service:*)"
