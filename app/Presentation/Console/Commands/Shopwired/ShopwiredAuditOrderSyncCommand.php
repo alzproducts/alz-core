@@ -62,7 +62,8 @@ final class ShopwiredAuditOrderSyncCommand extends Command
         [$apiOrderIds, $apiOrderLineCount] = $this->extractApiCounts($apiOrders);
 
         $this->info('Fetching orders from database...');
-        $dbOrders = $orderRepository->getOrdersInDateRange($from, $to);
+        // Use unfiltered method for accurate raw comparison with API
+        $dbOrders = $orderRepository->getAllOrdersInDateRange($from, $to);
 
         [$dbOrderIds, $dbOrderLineCount] = $this->extractDbCounts($dbOrders);
 
