@@ -294,6 +294,7 @@ final readonly class ShopwiredHttpTransport
                 ->baseUrl($this->config->baseUrl)
                 ->withBasicAuth($this->config->apiKey, $this->config->apiSecret)
                 ->timeout($this->config->timeout)
+                // @phpstan-ignore argument.type (data arrays always have int/string keys)
                 ->post($request['endpoint'], $request['data']);
         }
 
@@ -328,18 +329,18 @@ final readonly class ShopwiredHttpTransport
     /**
      * Build sleep closure for retry delay calculation.
      *
-     * @return Closure(int, Exception): int Sleep duration in milliseconds
+     * @return Closure(int, mixed): int Sleep duration in milliseconds
      */
     private function buildSleepClosure(RetryStrategy $strategy): Closure
     {
         $baseMs = $strategy->baseDelayMs();
 
         if (! $strategy->useExponentialBackoff()) {
-            return static fn(int $attempt, Exception $e): int => $baseMs;
+            return static fn(int $attempt, mixed $e): int => $baseMs;
         }
 
         // Exponential backoff: 500ms → 1s → 2s → 4s → 8s (capped at MAX_BACKOFF_MS)
-        return static fn(int $attempt, Exception $e): int => (int) \min($baseMs * (2 ** ($attempt - 1)), self::MAX_BACKOFF_MS);
+        return static fn(int $attempt, mixed $e): int => (int) \min($baseMs * (2 ** ($attempt - 1)), self::MAX_BACKOFF_MS);
     }
 
     /**
