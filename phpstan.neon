@@ -175,6 +175,11 @@ parameters:
         -
             identifier: shipmonk.checkedExceptionInCallable
             path: app/Providers/*
+        # Rate limiter closures are invoked by Laravel's throttle middleware during request handling.
+        # Request::ip() can throw RuntimeException but Laravel handles this at the framework level.
+        -
+            identifier: missingType.checkedException
+            path: app/Providers/RateLimitServiceProvider.php
         # Laravel route files use closures for route grouping and definitions.
         # All exceptions are handled by Laravel's exception handler, not the closure caller.
         -
