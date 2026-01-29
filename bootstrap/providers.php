@@ -13,6 +13,7 @@ use App\Providers\HorizonServiceProvider;
 use App\Providers\LinnworksServiceProvider;
 use App\Providers\MixpanelServiceProvider;
 use App\Providers\ProductSearchFeedServiceProvider;
+use App\Providers\RateLimitServiceProvider;
 use App\Providers\ReviewsIoServiceProvider;
 use App\Providers\RlsDatabaseServiceProvider;
 use App\Providers\Schedule\AdsScheduleServiceProvider;
@@ -34,6 +35,7 @@ return [
     LinnworksServiceProvider::class,
     MixpanelServiceProvider::class,
     ProductSearchFeedServiceProvider::class,
+    RateLimitServiceProvider::class,
     ReviewsIoServiceProvider::class,
     RlsDatabaseServiceProvider::class,
     ShopwiredServiceProvider::class,

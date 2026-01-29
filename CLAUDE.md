@@ -40,7 +40,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Railway CLI
 
-**Remote commands**: `railway ssh -s <service> <command>` — NOT `railway run` (that's local-only with env vars).
+**Remote commands**: `railway ssh -s alz-core-worker <command>` (default for jobs/artisan)
+
+Note: `railway run` is local-only with env vars, not remote execution.
 
 ---
 

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Infrastructure\Repositories;
 
 use App\Application\Contracts\DatabaseGatewayInterface;
-use App\Application\Contracts\RepositoryInterface;
+use App\Application\Contracts\RepositoryWriteInterface;
 use App\Application\Results\SaveManyResult;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
@@ -32,9 +32,9 @@ use RuntimeException;
  *
  * @template T of object
  *
- * @implements RepositoryInterface<T>
+ * @implements RepositoryWriteInterface<T>
  */
-abstract class AbstractEloquentRepository implements RepositoryInterface
+abstract class AbstractEloquentRepository implements RepositoryWriteInterface
 {
     public function __construct(
         protected readonly DatabaseGatewayInterface $gateway,

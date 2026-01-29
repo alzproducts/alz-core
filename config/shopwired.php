@@ -34,4 +34,25 @@ return [
     'retry_times' => 3,
     'retry_delay' => 100,
 
+    /*
+    |--------------------------------------------------------------------------
+    | Test Order Exclusion
+    |--------------------------------------------------------------------------
+    |
+    | Customer emails to exclude from bulk order retrieval (e.g., for Mixpanel
+    | sync). Used to filter out test orders placed by developers in production.
+    |
+    | Orders from these emails are excluded from getOrdersInDateRange() and
+    | lookup table generation, but remain accessible via getByReference().
+    |
+    */
+
+    'excluded_customer_emails' => array_values(array_filter(
+        [
+            env('EMAIL_TOM_MAIN'),
+            env('EMAIL_TOM_SECONDARY'),
+        ],
+        static fn(mixed $email): bool => is_string($email) && $email !== '',
+    )),
+
 ];

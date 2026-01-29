@@ -10,14 +10,14 @@ use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 
 /**
- * Base repository interface for entity persistence.
+ * Base repository interface for write operations (persistence).
  *
- * Defines common operations shared across all repository implementations.
+ * Defines save/upsert operations shared across sync repositories.
  * Entity-specific interfaces extend this and add their own query methods.
  *
  * @template T of object
  */
-interface RepositoryInterface
+interface RepositoryWriteInterface
 {
     /**
      * Persist an entity (upsert based on external identifier).

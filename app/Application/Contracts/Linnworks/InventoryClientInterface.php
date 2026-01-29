@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Application\Contracts\Linnworks;
 
+use App\Domain\Catalog\Product\ValueObjects\Sku;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
@@ -51,4 +52,13 @@ interface InventoryClientInterface
      * @throws ResourceNotFoundException When resource not found (404)
      */
     public function iterateStockItemBatches(): Generator;
+
+    /**
+     * Generate a new sequential SKU from Linnworks.
+     *
+     * @throws AuthenticationExpiredException When credentials invalid
+     * @throws ExternalServiceUnavailableException When API unavailable
+     * @throws InvalidApiResponseException When response format unexpected
+     */
+    public function getNewItemNumber(): Sku;
 }
