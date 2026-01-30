@@ -155,6 +155,11 @@ parameters:
         -
             identifier: shipmonk.publicPropertyNotReadonly
             path: app/Presentation/Jobs/*
+        # Eloquent models require mutable public properties ($timestamps, $incrementing, etc.)
+        # Laravel sets these dynamically during model boot - they cannot be readonly
+        -
+            identifier: shipmonk.publicPropertyNotReadonly
+            path: app/Infrastructure/*/Models/*
         # Eloquent query builder returns dynamic proxies - static analysis can't track fluent chains.
         # Methods like exists(), whereNotIn() on Builder are instance methods called on static chain.
         # DatabaseManager also proxies to Connection (transaction() call in DatabaseGateway).
@@ -175,6 +180,11 @@ parameters:
         -
             identifier: missingType.checkedException
             path: app/Providers/RateLimitServiceProvider.php
+        # HTTP transport closures throw RequestException which is caught by executeWithAuthRetry().
+        # PHPStan can't trace exception flow through @param-immediately-invoked-callable callbacks.
+        -
+            identifier: missingType.checkedException
+            path: app/Infrastructure/Linnworks/LinnworksHttpTransport.php
         # Laravel route files use closures for route grouping and definitions.
         # All exceptions are handled by Laravel's exception handler, not the closure caller.
         -

@@ -294,7 +294,6 @@ final readonly class ShopwiredHttpTransport
                 ->baseUrl($this->config->baseUrl)
                 ->withBasicAuth($this->config->apiKey, $this->config->apiSecret)
                 ->timeout($this->config->timeout)
-                // @phpstan-ignore argument.type (data arrays always have int/string keys)
                 ->post($request['endpoint'], $request['data']);
         }
 

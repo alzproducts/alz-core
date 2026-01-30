@@ -45,7 +45,7 @@ final readonly class EscalationsConfigRepository implements EscalationsConfigRep
      */
     public function get(): EscalationsConfig
     {
-        /** @var object{settings: string}|null $row @phpstan-ignore varTag.type (stdClass with known shape) */
+        /** @var object{settings: string}|null $row */
         $row = $this->gateway->query(
             fn(): ?object => $this->gateway->connection()->table(self::TABLE)
                 ->where('table_name', self::CONFIG_NAME)

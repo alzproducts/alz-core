@@ -95,9 +95,9 @@ final readonly class HelpScoutHttpTransport
 
         /**
          * Pool executes requests concurrently after closure returns.
-         * Connection failures appear as Throwable in results array.
+         * Connection failures appear as ConnectionException|RequestException in results array.
          *
-         * @var array<string, Response|Throwable> $poolResults
+         * @var array<string, ConnectionException|RequestException|Response> $poolResults
          *
          * @phpstan-ignore staticMethod.dynamicCall, shipmonk.checkedExceptionInCallable
          */
