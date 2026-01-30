@@ -14,6 +14,7 @@ use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Data\InvalidSkuException;
 use App\Domain\Inventory\ValueObjects\StockItem;
 use App\Domain\Inventory\ValueObjects\StockItemFull;
+use App\Domain\ValueObjects\Guid;
 use App\Infrastructure\Linnworks\LinnworksHttpTransport;
 use App\Infrastructure\Linnworks\Responses\SkuStockIdMappingResponse;
 use App\Infrastructure\Linnworks\Responses\StockItemFullResponse;
@@ -30,6 +31,21 @@ final readonly class InventoryClient implements InventoryClientInterface
 {
     use LinnworksResponseParserTrait;
 
+    /**
+     * Data requirements for full stock item responses.
+     *
+     * Used by both GetStockItemsFull and GetStockItemsFullByIds endpoints
+     * to ensure consistent data is returned.
+     *
+     * @var list<string>
+     */
+    private const array DATA_REQUIREMENTS_FULL = [
+        'ExtendedProperties',
+        'StockLevels',
+        'Pricing',
+        'Supplier',
+    ];
+
     public function __construct(
         private LinnworksHttpTransport $transport,
     ) {}
@@ -43,9 +59,9 @@ final readonly class InventoryClient implements InventoryClientInterface
      */
     public function getStockItemBySku(string $sku): StockItem
     {
-        $stockItemId = $this->resolveStockItemId($sku);
+        $stockItemId = $this->resolveSkuToStockItemId($sku);
 
-        return $this->fetchStockItemById($stockItemId);
+        return $this->fetchStockItemById($stockItemId->value);
     }
 
     /**
@@ -73,7 +89,7 @@ final readonly class InventoryClient implements InventoryClientInterface
     }
 
     /**
-     * Resolve a single SKU to its StockItemId.
+     * {@inheritDoc}
      *
      * @throws ResourceNotFoundException When SKU doesn't exist in Linnworks
      * @throws AuthenticationExpiredException When credentials are invalid
@@ -81,7 +97,25 @@ final readonly class InventoryClient implements InventoryClientInterface
      * @throws InvalidApiRequestException When request parameters are invalid
      * @throws InvalidApiResponseException When API response structure is invalid
      */
-    private function resolveStockItemId(string $sku): string
+    public function resolveStockItemId(Sku|Guid $identifier): Guid
+    {
+        if ($identifier instanceof Guid) {
+            return $identifier;
+        }
+
+        return $this->resolveSkuToStockItemId($identifier->value);
+    }
+
+    /**
+     * Resolve a single SKU string to its StockItemId GUID.
+     *
+     * @throws ResourceNotFoundException When SKU doesn't exist in Linnworks
+     * @throws AuthenticationExpiredException When credentials are invalid
+     * @throws ExternalServiceUnavailableException When API is unavailable
+     * @throws InvalidApiRequestException When request parameters are invalid
+     * @throws InvalidApiResponseException When API response structure is invalid
+     */
+    private function resolveSkuToStockItemId(string $sku): Guid
     {
         $mappings = $this->getStockItemIdsBySkus([$sku]);
 
@@ -94,7 +128,7 @@ final readonly class InventoryClient implements InventoryClientInterface
             throw new ResourceNotFoundException(self::SERVICE_NAME, 'StockItem', $sku);
         }
 
-        return $match->stockItemId;
+        return new Guid($match->stockItemId);
     }
 
     /**
@@ -175,7 +209,7 @@ final readonly class InventoryClient implements InventoryClientInterface
         $response = $this->transport->postFormParams(
             endpoint: '/api/Stock/GetStockItemsFull',
             params: [
-                'dataRequirements' => ['ExtendedProperties', 'StockLevels', 'Pricing', 'Supplier'],
+                'dataRequirements' => self::DATA_REQUIREMENTS_FULL,
                 'loadCompositeParents' => true,
                 'loadVariationParents' => false,
                 'entriesPerPage' => $entriesPerPage,
@@ -183,12 +217,8 @@ final readonly class InventoryClient implements InventoryClientInterface
             ],
         );
 
-        $dtos = self::parseDirectArray($response->json(), StockItemFullResponse::class);
-
-        return \array_map(
-            static fn(StockItemFullResponse $dto): StockItemFull => $dto->toDomain(),
-            $dtos,
-        );
+        /** @var list<StockItemFull> */
+        return self::parseDirectArrayToDomain($response->json(), StockItemFullResponse::class);
     }
 
     /**
@@ -217,5 +247,68 @@ final readonly class InventoryClient implements InventoryClientInterface
         }
 
         return Sku::fromString($value);
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @throws ResourceNotFoundException When stock item doesn't exist
+     * @throws AuthenticationExpiredException When credentials are invalid
+     * @throws ExternalServiceUnavailableException When API is unavailable
+     * @throws InvalidApiRequestException When request parameters are invalid
+     * @throws InvalidApiResponseException When API response structure is invalid
+     */
+    public function getStockItemFull(Sku|Guid $identifier): StockItemFull
+    {
+        $stockItemId = $this->resolveStockItemId($identifier);
+        $items = $this->fetchStockItemsFullByIds([$stockItemId->value]);
+
+        if ($items === []) {
+            throw new ResourceNotFoundException(
+                self::SERVICE_NAME,
+                'StockItem',
+                $stockItemId->value,
+            );
+        }
+
+        return $items[0];
+    }
+
+    /**
+     * Fetch full stock items by their StockItemIds.
+     *
+     * Uses GetStockItemsFullByIds endpoint which returns the same structure
+     * as GetStockItemsFull but for specific IDs.
+     *
+     * @param list<string> $stockItemIds GUIDs of stock items to fetch
+     *
+     * @return list<StockItemFull>
+     *
+     * @throws ResourceNotFoundException When resource not found
+     * @throws AuthenticationExpiredException When credentials are invalid
+     * @throws ExternalServiceUnavailableException When API is unavailable
+     * @throws InvalidApiRequestException When request parameters are invalid
+     * @throws InvalidApiResponseException When API response structure is invalid
+     */
+    private function fetchStockItemsFullByIds(array $stockItemIds): array
+    {
+        if ($stockItemIds === []) {
+            return [];
+        }
+
+        $response = $this->transport->post(
+            endpoint: '/api/Stock/GetStockItemsFullByIds',
+            data: [
+                'StockItemIds' => $stockItemIds,
+                'DataRequirements' => self::DATA_REQUIREMENTS_FULL,
+            ],
+        );
+
+        /** @var list<StockItemFull> */
+        return self::parseWrappedArrayToDomain(
+            $response->json(),
+            StockItemFullResponse::class,
+            'StockItemsFullExtended',
+        );
     }
 }

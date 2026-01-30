@@ -43,34 +43,15 @@ final readonly class InventoryUpdateClient implements InventoryUpdateClientInter
      */
     public function updateSku(Sku|Guid $identifier, Sku $newSku): void
     {
-        $stockItemId = $this->resolveStockItemId($identifier);
+        $stockItemId = $this->inventoryClient->resolveStockItemId($identifier);
 
         $this->transport->postFormParams(
             endpoint: '/api/Inventory/UpdateInventoryItemField',
             params: [
-                'inventoryItemId' => $stockItemId,
+                'inventoryItemId' => $stockItemId->value,
                 'fieldName' => LinnworksInventoryField::SKU->value,
                 'fieldValue' => $newSku->value,
             ],
         );
-    }
-
-    /**
-     * Resolve identifier to Linnworks stockItemId.
-     *
-     * @throws ResourceNotFoundException When SKU not found in Linnworks
-     * @throws InvalidApiRequestException When request parameters invalid
-     * @throws InvalidApiResponseException When API response malformed
-     * @throws AuthenticationExpiredException When credentials invalid
-     * @throws ExternalServiceUnavailableException When API unavailable
-     */
-    private function resolveStockItemId(Sku|Guid $identifier): string
-    {
-        if ($identifier instanceof Guid) {
-            return $identifier->value;
-        }
-
-        // SKU requires resolution via API
-        return $this->inventoryClient->getStockItemBySku($identifier->value)->stockItemId;
     }
 }
