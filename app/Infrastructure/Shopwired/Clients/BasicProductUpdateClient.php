@@ -40,7 +40,7 @@ final readonly class BasicProductUpdateClient implements BasicProductUpdateClien
     /**
      * {@inheritDoc}
      *
-     * @throws ResourceNotFoundException When SKU not found locally
+     * @throws ResourceNotFoundException When product/variation not found locally
      * @throws InvalidApiRequestException When update parameters invalid
      * @throws AuthenticationExpiredException When credentials invalid
      * @throws ExternalServiceUnavailableException When API unavailable
@@ -52,7 +52,7 @@ final readonly class BasicProductUpdateClient implements BasicProductUpdateClien
             return;
         }
 
-        $entity = $this->productRepository->getBasicProductBySku($command->currentSku);
+        $entity = $this->productRepository->getBasicProduct($command->identifier);
         $payload = $this->buildPayload($command);
 
         if ($entity instanceof Product) {

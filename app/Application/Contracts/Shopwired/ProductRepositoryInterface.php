@@ -8,9 +8,11 @@ use App\Application\Contracts\RepositoryWriteInterface;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\Product\ValueObjects\Product;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariation;
+use App\Domain\Catalog\Product\ValueObjects\Sku;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
+use App\Domain\ValueObjects\IntId;
 use Generator;
 
 /**
@@ -64,19 +66,22 @@ interface ProductRepositoryInterface extends RepositoryWriteInterface
     public function deleteByExternalIds(array $externalIds): int;
 
     /**
-     * Get a product or variation by SKU.
+     * Get a product or variation by identifier.
      *
-     * Searches both products (master SKU) and variations (variant SKU).
-     * Returns whichever matches first.
+     * Accepts either SKU or IntId:
+     * - SKU: Searches products (master SKU) then variations (variant SKU)
+     * - IntId: Looks up variation directly by external ID
      *
-     * Use this when you need to look up by SKU without knowing whether
+     * Use this when you need to look up without knowing whether
      * it's a parent product or a specific variation.
      *
-     * @throws ResourceNotFoundException When no product or variation matches the SKU
+     * @param Sku|IntId $identifier SKU to search, or variation external ID
+     *
+     * @throws ResourceNotFoundException When no product or variation matches
      * @throws DatabaseOperationFailedException On query failure
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      */
-    public function getBasicProductBySku(string $sku): Product|ProductVariation;
+    public function getBasicProduct(Sku|IntId $identifier): Product|ProductVariation;
 
     /**
      * Get a full product by SKU with typed custom fields.
@@ -87,7 +92,7 @@ interface ProductRepositoryInterface extends RepositoryWriteInterface
      * IMPORTANT: This method only searches master product SKUs, NOT variation SKUs.
      * If the given SKU belongs to a variation, this will throw ResourceNotFoundException
      * even though the SKU exists in the system. Callers must know the SKU type beforehand
-     * or use getBasicProductBySku() which searches both.
+     * or use getBasicProduct() which searches both.
      *
      * TODO: This interface needs expansion to support SKU type disambiguation. When
      * integrating with systems like Linnworks that send SKUs without type context,

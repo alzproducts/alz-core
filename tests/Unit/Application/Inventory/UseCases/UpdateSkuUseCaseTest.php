@@ -99,7 +99,7 @@ final class UpdateSkuUseCaseTest extends TestCase
 
         $this->shopwiredClient->shouldReceive('update')
             ->once()
-            ->withArgs(static fn($cmd) => $cmd->currentSku === 'OLD-SKU' && $cmd->newSku->value === 'NEW-SKU');
+            ->withArgs(static fn($cmd) => $cmd->identifier->value === 'OLD-SKU' && $cmd->newSku->value === 'NEW-SKU');
 
         $this->auditRepository->shouldReceive('markComplete')
             ->once()

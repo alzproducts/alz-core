@@ -124,7 +124,7 @@ final readonly class UpdateSkuUseCase
         // 4. Update ShopWired (with compensation on failure) - outside lock
         try {
             $this->shopwiredClient->update(new UpdateBasicProductCommand(
-                currentSku: $command->oldSku,
+                identifier: $oldSkuValue,
                 newSku: $newSku,
             ));
         } catch (ResourceNotFoundException|InvalidApiRequestException|InvalidApiResponseException|AuthenticationExpiredException|ExternalServiceUnavailableException $e) {
