@@ -24,7 +24,7 @@ final readonly class AddInventoryItemCommand
      * @param Sku $sku Item number/SKU
      * @param string $title Display title for the item
      * @param Money $retailPrice Customer-facing price (tax-inclusive)
-     * @param Money $purchasePrice Cost/purchase price from supplier
+     * @param Money|null $purchasePrice Cost/purchase price from supplier (null = unknown)
      * @param TaxRate $taxRate Tax rate for this item
      * @param Gtin|null $barcode Optional barcode (GTIN/EAN/UPC)
      * @param string|null $mpn Optional manufacturer part number
@@ -33,7 +33,7 @@ final readonly class AddInventoryItemCommand
         public Sku $sku,
         public string $title,
         public Money $retailPrice,
-        public Money $purchasePrice,
+        public ?Money $purchasePrice,
         public TaxRate $taxRate,
         public ?Gtin $barcode = null,
         public ?string $mpn = null,

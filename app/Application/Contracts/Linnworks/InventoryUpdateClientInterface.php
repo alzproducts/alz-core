@@ -62,7 +62,7 @@ interface InventoryUpdateClientInterface
      *
      * @param Sku|Guid $identifier SKU (resolved internally) or stockItemId (used directly)
      * @param Guid $supplierId The supplier to link
-     * @param Money $purchasePrice Cost price from this supplier
+     * @param Money|null $purchasePrice Cost price from this supplier (null = unknown)
      * @param string|null $supplierCode Supplier's code/SKU for this item
      * @param bool $isDefault Whether this is the default supplier
      *
@@ -75,7 +75,7 @@ interface InventoryUpdateClientInterface
     public function createSupplierStat(
         Sku|Guid $identifier,
         Guid $supplierId,
-        Money $purchasePrice,
+        ?Money $purchasePrice,
         ?string $supplierCode = null,
         bool $isDefault = false,
     ): void;

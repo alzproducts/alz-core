@@ -45,8 +45,8 @@ final readonly class VariationPriceResolver
         // Price: variation → parent (parent always has a price)
         $price = $variation->price ?? $parentPrice;
 
-        // Cost price: variation → parent → 0.0 (fallback to zero if neither has cost)
-        $costPrice = $variation->costPrice ?? $parentCostPrice ?? 0.0;
+        // Cost price: variation → parent (null = unknown, 0.00 not valid for cost)
+        $costPrice = $variation->costPrice ?? $parentCostPrice;
 
         // Sale price: variation → parent (both can be null = no sale)
         $salePrice = $variation->salePrice ?? $parentSalePrice;

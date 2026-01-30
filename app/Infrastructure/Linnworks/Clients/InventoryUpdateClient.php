@@ -80,7 +80,7 @@ final readonly class InventoryUpdateClient implements InventoryUpdateClientInter
             'ItemTitle' => $command->title,
             'CategoryId' => $categoryId->value,
             'RetailPrice' => $command->retailPrice->toGross(),
-            'PurchasePrice' => $command->purchasePrice->toNet(),
+            'PurchasePrice' => $command->purchasePrice?->toNet() ?? 0.0,
             'TaxRate' => $taxRate,
             'Barcode' => $command->barcode !== null ? $command->barcode->value : '',
         ];
@@ -105,7 +105,7 @@ final readonly class InventoryUpdateClient implements InventoryUpdateClientInter
     public function createSupplierStat(
         Sku|Guid $identifier,
         Guid $supplierId,
-        Money $purchasePrice,
+        ?Money $purchasePrice,
         ?string $supplierCode = null,
         bool $isDefault = false,
     ): void {
@@ -114,7 +114,7 @@ final readonly class InventoryUpdateClient implements InventoryUpdateClientInter
         $supplierStat = [
             'fkStockItemId' => $stockItemId->value,
             'fkSupplierId' => $supplierId->value,
-            'PurchasePrice' => $purchasePrice->toNet(),
+            'PurchasePrice' => $purchasePrice?->toNet() ?? 0.0,
             'Code' => $supplierCode ?? '',
             'IsDefault' => $isDefault,
         ];
