@@ -552,10 +552,11 @@ return static function (Config $config): void {
                        'App\Domain\*\Contracts',
                        'App\Domain\*\Concerns',
                        'App\Domain\*\Commands',
+                       'App\Domain\*\Resolvers',
                    ))
                    ->because(
                        'Domain classes must be organized into Value Objects, Entities, Enums, Exceptions, '
-                       . 'Contracts, Concerns, or Commands subdirectories for discoverability and maintainability.',
+                       . 'Contracts, Concerns, Commands, or Resolvers subdirectories for discoverability and maintainability.',
                    );
 
     // RULE 10: All Exceptions must end with *Exception suffix
