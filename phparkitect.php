@@ -338,7 +338,10 @@ return static function (Config $config): void {
                    ->that(new ResideInOneOfTheseNamespaces($application))
                    ->andThat(new NotHaveNameMatching('CacheTimesTrait'))
                    ->andThat(new NotHaveNameMatching('GracefulCache'))
-                   ->andThat(new NotResideInTheseNamespaces('App\Application\HelpScout\Queries\Conversation\Enums'))
+                   ->andThat(new NotResideInTheseNamespaces(
+                       'App\Application\HelpScout\Queries\Conversation\Enums',
+                       'App\Application\Inventory\Enums',
+                   ))
                    ->should(
                        new MatchOneOfTheseNames(['*UseCase', '*Service', '*Transformer', '*Formatter', '*Sorter', '*Resolver', '*Interface', '*DTO', '*Exception', '*Result', '*Params']),
                    )

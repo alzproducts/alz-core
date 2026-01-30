@@ -6,6 +6,7 @@ namespace Tests\Unit\Application\Inventory\UseCases;
 
 use App\Application\Contracts\Linnworks\InventoryClientInterface;
 use App\Application\Contracts\Linnworks\InventoryUpdateClientInterface;
+use App\Application\Contracts\LockManagerInterface;
 use App\Application\Contracts\Operations\SkuChangeRepositoryInterface;
 use App\Application\Contracts\Shopwired\BasicProductUpdateClientInterface;
 use App\Application\Inventory\UseCases\UpdateSkuUseCase;
@@ -41,6 +42,8 @@ final class UpdateSkuUseCaseTest extends TestCase
 
     private SkuChangeRepositoryInterface&MockInterface $auditRepository;
 
+    private LockManagerInterface&MockInterface $lockManager;
+
     private LoggerInterface&MockInterface $logger;
 
     private UpdateSkuUseCase $useCase;
@@ -54,13 +57,19 @@ final class UpdateSkuUseCaseTest extends TestCase
         $this->inventoryUpdateClient = Mockery::mock(InventoryUpdateClientInterface::class)->shouldIgnoreMissing();
         $this->shopwiredClient = Mockery::mock(BasicProductUpdateClientInterface::class);
         $this->auditRepository = Mockery::mock(SkuChangeRepositoryInterface::class);
+        $this->lockManager = Mockery::mock(LockManagerInterface::class);
         $this->logger = Mockery::mock(LoggerInterface::class)->shouldIgnoreMissing();
+
+        // Lock manager executes callback immediately (pass-through for unit tests)
+        $this->lockManager->shouldReceive('withLock')
+            ->andReturnUsing(static fn(string $name, int $timeout, callable $callback) => $callback());
 
         $this->useCase = new UpdateSkuUseCase(
             $this->inventoryClient,
             $this->inventoryUpdateClient,
             $this->shopwiredClient,
             $this->auditRepository,
+            $this->lockManager,
             $this->logger,
         );
     }
