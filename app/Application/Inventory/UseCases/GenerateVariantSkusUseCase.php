@@ -201,6 +201,8 @@ final readonly class GenerateVariantSkusUseCase
             ]);
 
             return $sku;
+            // Note: LockAcquisitionException intentionally bubbles up - it indicates infrastructure
+            // problems (Redis down, stuck lock) that would affect ALL variations. Fail-fast is correct.
         } catch (ResourceNotFoundException|InvalidApiRequestException|InvalidApiResponseException|AuthenticationExpiredException|ExternalServiceUnavailableException $e) {
             $this->logger->error('Failed to process variation', [
                 'variation_id' => $variation->id,
