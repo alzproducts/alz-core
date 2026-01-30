@@ -5,15 +5,12 @@ declare(strict_types=1);
 namespace App\Application\Inventory\UseCases;
 
 use App\Application\Contracts\Linnworks\InventoryClientInterface;
-use App\Application\Contracts\Linnworks\InventoryUpdateClientInterface;
-use App\Application\Contracts\LockManagerInterface;
-use App\Application\Contracts\Shopwired\BasicProductUpdateClientInterface;
 use App\Application\Contracts\Shopwired\ProductClientInterface;
 use App\Application\Inventory\Commands\GenerateVariantSkusCommand;
-use App\Application\Inventory\Enums\LockName;
+use App\Application\Inventory\Params\CreateStockItemParams;
 use App\Application\Inventory\Results\GenerateVariantSkusResult;
+use App\Application\Inventory\Services\GenerateStockItemFromVariationService;
 use App\Application\Shopwired\Services\ProductSyncService;
-use App\Domain\Catalog\Product\Commands\UpdateBasicProductCommand;
 use App\Domain\Catalog\Product\Resolvers\VariationImageResolver;
 use App\Domain\Catalog\Product\Resolvers\VariationPriceResolver;
 use App\Domain\Catalog\Product\ValueObjects\Product;
@@ -28,11 +25,9 @@ use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\Exceptions\Infrastructure\LockAcquisitionException;
 use App\Domain\Exceptions\Inventory\InvalidTemplateException;
-use App\Domain\Inventory\Commands\AddInventoryItemCommand;
 use App\Domain\Inventory\Enums\ExtendedPropertyName;
 use App\Domain\Inventory\ValueObjects\StockItemFull;
 use App\Domain\ValueObjects\Guid;
-use App\Domain\ValueObjects\IntId;
 use App\Domain\ValueObjects\Money;
 use App\Domain\ValueObjects\TaxRate;
 use Psr\Log\LoggerInterface;
@@ -45,26 +40,19 @@ use Psr\Log\LoggerInterface;
  * back to ShopWired variations.
  *
  * **Transaction Flow (per variation):**
- * 1. [LOCKED] Generate SKU + create Linnworks item
- * 2. Link supplier from template
- * 3. Add ShopID extended property
- * 4. Add image if available
- * 5. Update ShopWired with new SKU
- * 6. On failure (steps 2-5): delete Linnworks item, continue to next
+ * 1. Build CreateStockItemParams from variation data
+ * 2. Delegate to GenerateStockItemFromVariationService (handles Linnworks creation, ShopWired update, rollback)
+ * 3. On failure: continue to next variation
  *
  * **After all variations:** Refresh local product from ShopWired API.
  */
 final readonly class GenerateVariantSkusUseCase
 {
-    private const int LOCK_TIMEOUT_SECONDS = 30;
-
     public function __construct(
         private ProductClientInterface $productClient,
         private InventoryClientInterface $inventoryClient,
-        private InventoryUpdateClientInterface $inventoryUpdateClient,
-        private BasicProductUpdateClientInterface $shopwiredUpdateClient,
         private ProductSyncService $productSyncService,
-        private LockManagerInterface $lockManager,
+        private GenerateStockItemFromVariationService $stockItemGenerator,
         private VariationPriceResolver $priceResolver,
         private VariationImageResolver $imageResolver,
         private LoggerInterface $logger,
@@ -200,28 +188,12 @@ final readonly class GenerateVariantSkusUseCase
             'options' => $variation->optionValuesString(),
         ]);
 
-        $stockItemId = null;
-
         try {
-            // LOCKED: Generate SKU and create item
-            [$sku, $stockItemId] = $this->lockManager->withLock(
-                LockName::SkuGeneration->value,
-                self::LOCK_TIMEOUT_SECONDS,
-                function () use ($variation, $product, $template): array {
-                    $sku = $this->inventoryClient->getNewItemNumber();
+            // Build params from variation data
+            $params = $this->buildCreateParams($variation, $product, $template);
 
-                    $stockItemId = $this->inventoryUpdateClient->addInventoryItem(
-                        Guid::fromTrusted($template->categoryId),
-                        $this->buildAddItemCommand($sku, $variation, $product),
-                    );
-
-                    return [$sku, $stockItemId];
-                },
-            );
-
-            // Outside lock: Link supplier, add EP, add image, update ShopWired
-            $this->completeItemSetup($stockItemId, $variation, $product, $template);
-            $this->updateShopWiredVariation($variation, $sku);
+            // Delegate to service (handles Linnworks creation, ShopWired update, rollback)
+            $sku = $this->stockItemGenerator->generate($params, $variation->id);
 
             $this->logger->info('Variation processed successfully', [
                 'variation_id' => $variation->id,
@@ -235,23 +207,21 @@ final readonly class GenerateVariantSkusUseCase
                 'error' => $e->getMessage(),
             ]);
 
-            // Attempt rollback if we have a stockItemId
-            if ($stockItemId !== null) {
-                $this->attemptRollback($stockItemId, $variation->id);
-            }
-
             return null;
         }
     }
 
     /**
-     * Build the AddInventoryItemCommand for a variation.
+     * Build CreateStockItemParams from variation, product, and template.
      */
-    private function buildAddItemCommand(
-        Sku $sku,
+    private function buildCreateParams(
         ProductVariation $variation,
         Product $product,
-    ): AddInventoryItemCommand {
+        StockItemFull $template,
+    ): CreateStockItemParams {
+        $supplier = $template->getDefaultSupplier();
+        \assert($supplier !== null); // Validated in validateTemplate()
+
         $prices = $this->priceResolver->resolveFromProduct($variation, $product);
         $taxRate = $product->vatExclusive ? TaxRate::zero() : TaxRate::standard();
 
@@ -271,99 +241,23 @@ final readonly class GenerateVariantSkusUseCase
             ? Money::exclusive($prices->costPrice)
             : null;
 
-        return new AddInventoryItemCommand(
-            sku: $sku,
+        // Resolve image URL
+        $imageUrl = $this->imageResolver->resolveUrl($variation, $product->images);
+
+        return new CreateStockItemParams(
+            categoryId: Guid::fromTrusted($template->categoryId),
             title: $title,
             retailPrice: $retailPrice,
-            purchasePrice: $purchasePrice,
             taxRate: $taxRate,
-            barcode: $variation->gtin,
-            mpn: $variation->mpn,
-        );
-    }
-
-    /**
-     * Complete item setup: supplier, extended property, image.
-     *
-     * @throws ResourceNotFoundException
-     * @throws InvalidApiRequestException
-     * @throws InvalidApiResponseException
-     * @throws AuthenticationExpiredException
-     * @throws ExternalServiceUnavailableException
-     */
-    private function completeItemSetup(
-        Guid $stockItemId,
-        ProductVariation $variation,
-        Product $product,
-        StockItemFull $template,
-    ): void {
-        $supplier = $template->getDefaultSupplier();
-        \assert($supplier !== null); // Validated in validateTemplate()
-
-        $prices = $this->priceResolver->resolveFromProduct($variation, $product);
-
-        // Cost price can be null (unknown)
-        $purchasePrice = $prices->costPrice !== null
-            ? Money::exclusive($prices->costPrice)
-            : null;
-
-        // Link supplier
-        $this->inventoryUpdateClient->createSupplierStat(
-            identifier: $stockItemId,
             supplierId: Guid::fromTrusted($supplier->supplierId),
             purchasePrice: $purchasePrice,
+            barcode: $variation->gtin,
+            mpn: $variation->mpn,
             supplierCode: $supplier->code,
-            isDefault: true,
+            extendedProperties: [
+                ExtendedPropertyName::ShopId->value => (string) $variation->id,
+            ],
+            imageUrl: $imageUrl,
         );
-
-        // Add ShopID extended property
-        $this->inventoryUpdateClient->addExtendedProperty(
-            identifier: $stockItemId,
-            name: ExtendedPropertyName::ShopId->value,
-            value: (string) $variation->id,
-        );
-
-        // Add image if available
-        $imageUrl = $this->imageResolver->resolveUrl($variation, $product->images);
-        if ($imageUrl !== null) {
-            $this->inventoryUpdateClient->addImage($stockItemId, $imageUrl);
-        }
-    }
-
-    /**
-     * Update ShopWired variation with the new SKU.
-     *
-     * @throws ResourceNotFoundException
-     * @throws InvalidApiRequestException
-     * @throws AuthenticationExpiredException
-     * @throws ExternalServiceUnavailableException
-     */
-    private function updateShopWiredVariation(ProductVariation $variation, Sku $sku): void
-    {
-        $this->shopwiredUpdateClient->update(new UpdateBasicProductCommand(
-            identifier: IntId::from($variation->id),
-            newSku: $sku,
-        ));
-    }
-
-    /**
-     * Attempt to delete Linnworks item on failure.
-     */
-    private function attemptRollback(Guid $stockItemId, int $variationId): void
-    {
-        try {
-            $this->inventoryUpdateClient->deleteInventoryItem($stockItemId);
-            $this->logger->info('Rolled back Linnworks item', [
-                'stock_item_id' => $stockItemId->value,
-                'variation_id' => $variationId,
-            ]);
-        } catch (ResourceNotFoundException|InvalidApiRequestException|InvalidApiResponseException|AuthenticationExpiredException|ExternalServiceUnavailableException $e) {
-            // Critical: orphaned item in Linnworks
-            $this->logger->critical('Failed to rollback Linnworks item - manual cleanup required', [
-                'stock_item_id' => $stockItemId->value,
-                'variation_id' => $variationId,
-                'error' => $e->getMessage(),
-            ]);
-        }
     }
 }
