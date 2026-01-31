@@ -248,24 +248,50 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
     /**
      * {@inheritDoc}
      *
-     * Only searches master product SKUs, not variation SKUs.
-     *
      * @throws ResourceNotFoundException
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
      */
-    public function getProductBySku(string $sku): Product
+    public function getProduct(Sku|IntId $identifier): Product
     {
         return $this->eloquentGateway->findOrFail(
             modelClass: self::MODEL_CLASS,
-            column: 'sku',
-            value: $sku,
+            column: self::columnForIdentifier($identifier),
+            value: $identifier->value,
             relations: self::EAGER_LOAD_RELATIONS,
             entityTypeName: 'Product',
             mapper: fn(ProductModel $model): Product => $this->mapModelToDomain($model),
         );
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @throws ResourceNotFoundException
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function getVariation(Sku|IntId $identifier): ProductVariation
+    {
+        return $this->eloquentGateway->findOrFail(
+            modelClass: ProductVariationModel::class,
+            column: self::columnForIdentifier($identifier),
+            value: $identifier->value,
+            relations: [],
+            entityTypeName: 'Variation',
+            mapper: static fn(ProductVariationModel $model): ProductVariation => $model->toDomain(),
+        );
+    }
+
+    /**
+     * Get the database column name for an identifier type.
+     */
+    private static function columnForIdentifier(Sku|IntId $identifier): string
+    {
+        return $identifier instanceof IntId ? 'external_id' : 'sku';
     }
 
     /**

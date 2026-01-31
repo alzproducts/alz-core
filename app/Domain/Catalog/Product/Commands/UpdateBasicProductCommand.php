@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\Catalog\Product\Commands;
 
+use App\Domain\Catalog\Product\Enums\ProductType;
 use App\Domain\Catalog\Product\ValueObjects\Gtin;
 use App\Domain\Catalog\Product\ValueObjects\Sku;
 use App\Domain\Inventory\ValueObjects\Weight;
@@ -17,12 +18,16 @@ use App\Domain\ValueObjects\Money;
  * - SKU: Resolves via repository to find product or variation
  * - IntId: Direct variation ID lookup (for SKU-less variations)
  *
+ * The optional `type` parameter enables targeted lookups when the caller
+ * knows the entity type upfront, avoiding a dual-table search.
+ *
  * All update fields are nullable for partial updates.
  */
 final readonly class UpdateBasicProductCommand
 {
     /**
      * @param Sku|IntId $identifier Current SKU or variation ID to identify the target
+     * @param ProductType|null $type Entity type for targeted lookup (null = search both tables)
      * @param Sku|null $newSku New SKU to set (null = no change)
      * @param Money|null $price New price (null = no change)
      * @param Money|null $costPrice New cost price (null = no change)
@@ -32,6 +37,7 @@ final readonly class UpdateBasicProductCommand
      */
     public function __construct(
         public Sku|IntId $identifier,
+        public ?ProductType $type = null,
         public ?Sku $newSku = null,
         public ?Money $price = null,
         public ?Money $costPrice = null,

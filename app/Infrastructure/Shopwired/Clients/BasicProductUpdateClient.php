@@ -6,7 +6,9 @@ namespace App\Infrastructure\Shopwired\Clients;
 
 use App\Application\Contracts\Shopwired\BasicProductUpdateClientInterface;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
+use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\Product\Commands\UpdateBasicProductCommand;
+use App\Domain\Catalog\Product\Enums\ProductType;
 use App\Domain\Catalog\Product\ValueObjects\Product;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariation;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
@@ -19,8 +21,11 @@ use App\Infrastructure\Shopwired\Contracts\ShopwiredTransportInterface;
 /**
  * ShopWired basic product attribute updates.
  *
- * Handles updates to products and variations by resolving SKU to determine
+ * Handles updates to products and variations by resolving identifier to determine
  * the correct endpoint. Uses partial PUT semantics (missing fields unchanged).
+ *
+ * When `ProductType` is provided in command, uses targeted single-table lookup.
+ * Otherwise falls back to searching both tables via `getBasicProduct()`.
  *
  * Endpoint routing:
  * - Product: PUT products/{id}
@@ -41,6 +46,7 @@ final readonly class BasicProductUpdateClient implements BasicProductUpdateClien
      * {@inheritDoc}
      *
      * @throws ResourceNotFoundException When product/variation not found locally
+     * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
      * @throws InvalidApiRequestException When update parameters invalid
      * @throws AuthenticationExpiredException When credentials invalid
      * @throws ExternalServiceUnavailableException When API unavailable
@@ -52,7 +58,7 @@ final readonly class BasicProductUpdateClient implements BasicProductUpdateClien
             return;
         }
 
-        $entity = $this->productRepository->getBasicProduct($command->identifier);
+        $entity = $this->resolveEntity($command);
         $payload = $this->buildPayload($command);
 
         if ($entity instanceof Product) {
@@ -60,6 +66,26 @@ final readonly class BasicProductUpdateClient implements BasicProductUpdateClien
         } else {
             $this->updateVariation($entity, $payload);
         }
+    }
+
+    /**
+     * Resolve the target entity using targeted or fallback lookup.
+     *
+     * When ProductType is specified, uses single-table lookup for efficiency.
+     * Otherwise searches both products and variations tables.
+     *
+     * @throws ResourceNotFoundException When entity not found
+     * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
+     * @throws DatabaseOperationFailedException When local lookup fails
+     * @throws ExternalServiceUnavailableException When database unavailable
+     */
+    private function resolveEntity(UpdateBasicProductCommand $command): Product|ProductVariation
+    {
+        return match ($command->type) {
+            ProductType::Main => $this->productRepository->getProduct($command->identifier),
+            ProductType::Variation => $this->productRepository->getVariation($command->identifier),
+            null => $this->productRepository->getBasicProduct($command->identifier),
+        };
     }
 
     /**

@@ -8,6 +8,7 @@ use App\Application\Contracts\Linnworks\InventoryUpdateClientInterface;
 use App\Application\Contracts\Shopwired\BasicProductUpdateClientInterface;
 use App\Application\Inventory\Params\CreateStockItemParams;
 use App\Domain\Catalog\Product\Commands\UpdateBasicProductCommand;
+use App\Domain\Catalog\Product\Enums\ProductType;
 use App\Domain\Catalog\Product\ValueObjects\Sku;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
@@ -65,6 +66,7 @@ final readonly class GenerateStockItemFromVariationService
         try {
             $this->shopwiredUpdateClient->update(new UpdateBasicProductCommand(
                 identifier: IntId::from($variationId),
+                type: ProductType::Variation,
                 newSku: $sku,
             ));
 
