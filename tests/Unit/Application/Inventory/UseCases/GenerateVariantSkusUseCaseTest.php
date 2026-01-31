@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Tests\Unit\Application\Inventory\UseCases;
 
 use App\Application\Contracts\Linnworks\InventoryClientInterface;
-use App\Application\Contracts\Shopwired\ProductClientInterface;
 use App\Application\Inventory\Commands\GenerateVariantSkusCommand;
 use App\Application\Inventory\Services\GenerateStockItemFromVariationService;
 use App\Application\Inventory\UseCases\GenerateVariantSkusUseCase;
@@ -41,8 +40,6 @@ use Tests\TestCase;
 #[CoversClass(GenerateVariantSkusUseCase::class)]
 final class GenerateVariantSkusUseCaseTest extends TestCase
 {
-    private ProductClientInterface&MockInterface $productClient;
-
     private InventoryClientInterface&MockInterface $inventoryClient;
 
     private ProductSyncService&MockInterface $productSyncService;
@@ -62,7 +59,6 @@ final class GenerateVariantSkusUseCaseTest extends TestCase
     {
         parent::setUp();
 
-        $this->productClient = Mockery::mock(ProductClientInterface::class);
         $this->inventoryClient = Mockery::mock(InventoryClientInterface::class);
         $this->productSyncService = Mockery::mock(ProductSyncService::class);
         $this->stockItemGenerator = Mockery::mock(GenerateStockItemFromVariationService::class);
@@ -71,7 +67,6 @@ final class GenerateVariantSkusUseCaseTest extends TestCase
         $this->logger = Mockery::mock(LoggerInterface::class)->shouldIgnoreMissing();
 
         $this->useCase = new GenerateVariantSkusUseCase(
-            $this->productClient,
             $this->inventoryClient,
             $this->productSyncService,
             $this->stockItemGenerator,
@@ -93,7 +88,7 @@ final class GenerateVariantSkusUseCaseTest extends TestCase
         $command = $this->createCommand();
         $product = $this->createProduct(variations: []);
 
-        $this->productClient->shouldReceive('getProductById')
+        $this->productSyncService->shouldReceive('refreshById')
             ->once()
             ->with(12345)
             ->andReturn($product);
@@ -103,9 +98,6 @@ final class GenerateVariantSkusUseCaseTest extends TestCase
 
         // No generator calls
         $this->stockItemGenerator->shouldNotReceive('generate');
-
-        // No sync needed
-        $this->productSyncService->shouldNotReceive('refreshById');
 
         $result = $this->useCase->execute($command);
 
@@ -127,7 +119,7 @@ final class GenerateVariantSkusUseCaseTest extends TestCase
         $product = $this->createProduct(variations: $variations);
         $template = $this->createTemplate(hasSupplier: true);
 
-        $this->productClient->shouldReceive('getProductById')
+        $this->productSyncService->shouldReceive('refreshById')
             ->once()
             ->andReturn($product);
 
@@ -137,9 +129,6 @@ final class GenerateVariantSkusUseCaseTest extends TestCase
 
         // No generator calls - all have SKUs
         $this->stockItemGenerator->shouldNotReceive('generate');
-
-        // No sync needed - early return when all skipped
-        $this->productSyncService->shouldNotReceive('refreshById');
 
         $result = $this->useCase->execute($command);
 
@@ -166,7 +155,7 @@ final class GenerateVariantSkusUseCaseTest extends TestCase
         $product = $this->createProduct(variations: $variations);
         $template = $this->createTemplate(hasSupplier: false);
 
-        $this->productClient->shouldReceive('getProductById')
+        $this->productSyncService->shouldReceive('refreshById')
             ->once()
             ->andReturn($product);
 
@@ -202,7 +191,7 @@ final class GenerateVariantSkusUseCaseTest extends TestCase
         $product = $this->createProduct(variations: $variations);
         $template = $this->createTemplate(hasSupplier: true);
 
-        $this->productClient->shouldReceive('getProductById')
+        $this->productSyncService->shouldReceive('refreshById')
             ->once()
             ->andReturn($product);
 
@@ -251,7 +240,7 @@ final class GenerateVariantSkusUseCaseTest extends TestCase
         $product = $this->createProduct(variations: $variations);
         $template = $this->createTemplate(hasSupplier: true);
 
-        $this->productClient->shouldReceive('getProductById')
+        $this->productSyncService->shouldReceive('refreshById')
             ->once()
             ->andReturn($product);
 
@@ -283,46 +272,6 @@ final class GenerateVariantSkusUseCaseTest extends TestCase
         $this->assertSame(['SUCCESS-1', 'SUCCESS-3'], $result->createdSkus);
         $this->assertSame([2], $result->failedVariationIds);
         $this->assertTrue($result->hasFailures());
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | Post-Processing Tests
-    |--------------------------------------------------------------------------
-    */
-
-    #[Test]
-    public function it_refreshes_local_product_after_processing(): void
-    {
-        $command = $this->createCommand();
-        $variations = [
-            $this->createVariation(id: 1, sku: null),
-        ];
-        $product = $this->createProduct(variations: $variations);
-        $template = $this->createTemplate(hasSupplier: true);
-
-        $this->productClient->shouldReceive('getProductById')
-            ->once()
-            ->andReturn($product);
-
-        $this->inventoryClient->shouldReceive('getStockItemFull')
-            ->once()
-            ->andReturn($template);
-
-        $this->setupResolversForVariations();
-
-        $this->stockItemGenerator->shouldReceive('generate')
-            ->once()
-            ->andReturn(Sku::fromTrusted('SYNC-TEST'));
-
-        // Verify refresh is called with correct product ID
-        $this->productSyncService->shouldReceive('refreshById')
-            ->once()
-            ->with(12345);
-
-        $this->useCase->execute($command);
-
-        $this->assertTrue(true); // Reached = refreshById was called
     }
 
     /*

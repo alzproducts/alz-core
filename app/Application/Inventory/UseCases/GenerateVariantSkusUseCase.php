@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Application\Inventory\UseCases;
 
 use App\Application\Contracts\Linnworks\InventoryClientInterface;
-use App\Application\Contracts\Shopwired\ProductClientInterface;
 use App\Application\Inventory\Commands\GenerateVariantSkusCommand;
 use App\Application\Inventory\Params\CreateStockItemParams;
 use App\Application\Inventory\Results\GenerateVariantSkusResult;
@@ -49,7 +48,6 @@ use Psr\Log\LoggerInterface;
 final readonly class GenerateVariantSkusUseCase
 {
     public function __construct(
-        private ProductClientInterface $productClient,
         private InventoryClientInterface $inventoryClient,
         private ProductSyncService $productSyncService,
         private GenerateStockItemFromVariationService $stockItemGenerator,
@@ -78,8 +76,8 @@ final readonly class GenerateVariantSkusUseCase
             'template_sku' => $command->templateSku->value,
         ]);
 
-        // 1. Fetch ShopWired product with variations
-        $product = $this->productClient->getProductById($command->productId->value);
+        // 1. Fetch ShopWired product and sync to local DB (so variation lookups work)
+        $product = $this->productSyncService->refreshById($command->productId->value);
 
         if ($product->variations === []) {
             $this->logger->info('Product has no variations', ['product_id' => $command->productId->value]);

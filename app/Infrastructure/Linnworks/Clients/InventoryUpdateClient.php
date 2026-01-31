@@ -112,8 +112,8 @@ final readonly class InventoryUpdateClient implements InventoryUpdateClientInter
         $stockItemId = $this->inventoryClient->resolveStockItemId($identifier);
 
         $supplierStat = [
-            'fkStockItemId' => $stockItemId->value,
-            'fkSupplierId' => $supplierId->value,
+            'StockItemId' => $stockItemId->value,
+            'SupplierID' => $supplierId->value,
             'PurchasePrice' => $purchasePrice?->toNet() ?? 0.0,
             'Code' => $supplierCode ?? '',
             'IsDefault' => $isDefault,
