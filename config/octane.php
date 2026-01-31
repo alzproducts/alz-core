@@ -24,6 +24,8 @@ use Laravel\Octane\Listeners\FlushUploadedFiles;
 use Laravel\Octane\Listeners\ReportException;
 use Laravel\Octane\Listeners\StopWorkerIfNecessary;
 use Laravel\Octane\Octane;
+use Laravel\Pail\Files;
+use Laravel\Pail\Handler;
 
 return [
 
@@ -169,7 +171,8 @@ return [
     ],
 
     'flush' => [
-        //
+        Handler::class,
+        Files::class,
     ],
 
     /*

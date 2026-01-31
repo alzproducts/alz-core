@@ -17,6 +17,9 @@ use App\Domain\Catalog\Product\ValueObjects\ProductVariation;
  * - The parent has no images
  * - The imageIndex is out of bounds
  *
+ * **Important:** ShopWired stores imageIndex as 1-based (matching UI display),
+ * so we subtract 1 to convert to 0-based array index.
+ *
  * **Usage:**
  * ```php
  * $resolver = new VariationImageResolver();
@@ -50,12 +53,15 @@ final readonly class VariationImageResolver
             return null;
         }
 
+        // Convert 1-based imageIndex (from ShopWired UI) to 0-based array index
+        $arrayIndex = $variation->imageIndex - 1;
+
         // Index out of bounds (defensive - shouldn't happen with valid data)
-        if (!isset($parentImages[$variation->imageIndex])) {
+        if ($arrayIndex < 0 || !isset($parentImages[$arrayIndex])) {
             return null;
         }
 
-        return $parentImages[$variation->imageIndex];
+        return $parentImages[$arrayIndex];
     }
 
     /**
