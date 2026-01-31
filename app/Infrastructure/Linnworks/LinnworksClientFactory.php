@@ -11,8 +11,10 @@ use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\InvalidConfigurationException;
 use App\Infrastructure\Linnworks\Clients\ConnectivityClient;
+use App\Infrastructure\Linnworks\Clients\DashboardsClient;
 use App\Infrastructure\Linnworks\Clients\InventoryClient;
 use App\Infrastructure\Linnworks\Clients\InventoryUpdateClient;
+use App\Infrastructure\Linnworks\Clients\StockDashboardsClient;
 use App\Infrastructure\Linnworks\Contracts\LinnworksTransportInterface;
 use App\Infrastructure\Linnworks\Enums\LinnworksLogLevel;
 use DateMalformedStringException;
@@ -63,6 +65,24 @@ final class LinnworksClientFactory
             self::getTransport(),
             self::createInventoryClient(),
         );
+    }
+
+    /**
+     * Create the low-level dashboards client for SQL queries.
+     *
+     * @internal Use createStockDashboardsClient() for stock-related queries.
+     */
+    public static function createDashboardsClient(): DashboardsClient
+    {
+        return new DashboardsClient(self::getTransport());
+    }
+
+    /**
+     * Create the stock dashboards client for stock-related SQL queries.
+     */
+    public static function createStockDashboardsClient(): StockDashboardsClient
+    {
+        return new StockDashboardsClient(self::createDashboardsClient());
     }
 
     /**
