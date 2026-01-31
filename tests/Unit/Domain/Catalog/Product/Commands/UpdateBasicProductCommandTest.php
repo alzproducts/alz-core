@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Domain\Catalog\Product\Commands;
 
 use App\Domain\Catalog\Product\Commands\UpdateBasicProductCommand;
+use App\Domain\Catalog\Product\Enums\ProductType;
 use App\Domain\Catalog\Product\ValueObjects\Gtin;
 use App\Domain\Catalog\Product\ValueObjects\Sku;
 use App\Domain\Inventory\ValueObjects\Weight;
@@ -30,12 +31,37 @@ final class UpdateBasicProductCommandTest extends TestCase
         $command = new UpdateBasicProductCommand(identifier: $identifier);
 
         self::assertSame($identifier, $command->identifier);
+        self::assertNull($command->type);
         self::assertNull($command->newSku);
         self::assertNull($command->price);
         self::assertNull($command->costPrice);
         self::assertNull($command->salePrice);
         self::assertNull($command->weight);
         self::assertNull($command->gtin);
+    }
+
+    #[Test]
+    public function it_constructs_with_product_type_main(): void
+    {
+        $command = new UpdateBasicProductCommand(
+            identifier: Sku::fromTrusted('MAIN-SKU'),
+            type: ProductType::Main,
+        );
+
+        self::assertSame(ProductType::Main, $command->type);
+    }
+
+    #[Test]
+    public function it_constructs_with_product_type_variation(): void
+    {
+        $command = new UpdateBasicProductCommand(
+            identifier: IntId::from(12345),
+            type: ProductType::Variation,
+            newSku: Sku::fromTrusted('NEW-SKU'),
+        );
+
+        self::assertSame(ProductType::Variation, $command->type);
+        self::assertSame('NEW-SKU', $command->newSku?->value);
     }
 
     #[Test]
