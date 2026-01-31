@@ -25,7 +25,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $external_id ShopWired variation ID
  * @property string|null $sku Variation SKU
  * @property float|null $price Selling price (null = inherit parent, 0.00 = removed from sale)
- * @property float|null $cost_price Cost/wholesale price
+ * @property float|null $cost_price Cost/wholesale price (-1.0 = inherit parent, 0.00 = unknown, >0 = valid)
  * @property float|null $sale_price Discounted price
  * @property int $stock Stock quantity
  * @property float|null $weight Weight in configured unit

@@ -11,7 +11,7 @@ use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
-use App\Infrastructure\Shopwired\ShopwiredHttpTransport;
+use App\Infrastructure\Shopwired\Contracts\ShopwiredTransportInterface;
 
 /**
  * ShopWired Product Update Client.
@@ -24,7 +24,7 @@ final readonly class ProductUpdateClient implements ProductUpdateClientInterface
     private const string ENDPOINT_PRODUCTS = 'products';
 
     public function __construct(
-        private ShopwiredHttpTransport $transport,
+        private ShopwiredTransportInterface $transport,
         private ProductClientInterface $productClient,
     ) {}
 

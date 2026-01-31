@@ -30,14 +30,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ---
 
-## Git Branching Strategy
-
-- **Base branch**: `develop` (not `main`)
-- **Feature branches**: `feature/{issue-number}-{description}` → merge to `develop`
-- **PRs**: Always target `develop`
-
----
-
 ## Railway CLI
 
 **Remote commands**: `railway ssh -s alz-core-worker <command>` (default for jobs/artisan)
@@ -113,53 +105,29 @@ See `.ai/implementation-logs/CLAUDE.md` for the full template and guidelines.
 
 ## Git Workflow
 
-**Proactive commits enabled.** Claude commits and pushes after each logical change. User approves via command approval UI.
+**Branching:** Base = `develop` (not `main`) | Features = `feature/{issue}-{desc}` | PRs → `develop`
 
-### Commit Sequence
-1. Verify current branch ≠ `main` or `develop`
-2. Commit with Conventional Commit message (git hooks run lint automatically)
-3. Push immediately (git hooks run tests automatically)
-4. Run `.claude/scripts/refresh-ide.sh` (refreshes JetBrains git panel)
+**Proactive commits enabled.** Claude commits/pushes after logical changes. User approves via UI.
 
-**Conventional Commits:** `type(scope): description`
-**Types:** `feat`, `fix`, `refactor`, `test`, `docs`, `chore`, `perf`, `ci`
-
-### Error Recovery
+**Commit format:** `type(scope): description`
+Types: `feat` | `fix` | `refactor` | `test` | `docs` | `chore` | `perf` | `ci`
 
 | Scenario | Action |
 |----------|--------|
 | Pre-commit hook fails | Fix issue, retry commit |
-| Pre-push hook fails | Fix, amend commit (local-only), retry push |
+| Pre-push hook fails | Fix, amend (local-only), retry push |
 | On protected branch | Report error, await instruction |
 | Merge conflict | Report to user, await instruction |
 
-**Amending:** ✅ Local-only commits | ❌ Never amend pushed commits
+**PR Creation:** Check existing (`gh pr view`) → If none, ask user via AskUserQuestion → Include `Closes #123`
 
-### PR Creation
-When work is complete, check for existing PR on branch (`gh pr view`). If PR exists, report URL instead of offering to create.
+**Merge:** Feature→develop = squash | Develop→main = merge commit
 
-If no PR exists, ask user via `AskUserQuestion`:
-- **Create immediately** — work reviewed along the way
-- **Complete checklist first** — verify against issue/plan/comments (as applicable)
-- **Don't create PR** — more work needed or user will handle
-
-**Always include issue reference** in PR description: `Closes #123` (or `Fixes #123` for bugs).
-
-After creation, poll CI (up to 10 min) and report pass/fail with PR URL.
-
-### Merge Strategy
-- **Feature → develop**: Squash and merge (one commit per feature)
-- **Develop → main**: Merge commit (preserves feature commits)
-
-### Safety Rules
-- ❌ Never force push (`--force`, `--force-with-lease`)
-- ❌ Never rebase shared branches
-- ❌ Never push to `main` or `develop`
-- ❌ No `Co-Authored-By` trailers
+**Safety:**
+- ❌ Force push, rebase shared branches, push to main/develop, `Co-Authored-By` trailers
 - ✅ Use `git mv` for renames (preserves history)
 
-### Branch Management
-User creates and switches branches. Claude works on current branch only.
+**Branch management:** User creates/switches branches. Claude works on current branch only.
 
 ## Development Environment
 
@@ -270,7 +238,7 @@ See layer-specific guides for detailed patterns.
 
 - **External data** → Laravel Validator (always active in production)
 - **Internal contracts** → `webmozart/assert` (zero cost in production)
-- **Type narrowing** → PHPStan annotations
+- **Type narrowing** → PHPStan annotations (never use assertions as PHPStan workarounds)
 
 See [`.ai/docs/guides/assertion-validation-reference.md`](.ai/docs/guides/assertion-validation-reference.md) for full reference.
 

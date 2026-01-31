@@ -12,7 +12,7 @@ use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Infrastructure\StockUpdateFailedException;
 use App\Domain\Inventory\ValueObjects\ItemStockLevel;
-use App\Infrastructure\Shopwired\ShopwiredHttpTransport;
+use App\Infrastructure\Shopwired\Contracts\ShopwiredTransportInterface;
 use App\Infrastructure\Shopwired\ShopwiredRequestBuilderTrait;
 use App\Infrastructure\Shopwired\ShopwiredResponseParserTrait;
 use Illuminate\Http\Client\Response;
@@ -44,7 +44,7 @@ final readonly class StockClient implements StockClientInterface
     private const int BATCH_SIZE = 15;
 
     public function __construct(
-        private ShopwiredHttpTransport $transport,
+        private ShopwiredTransportInterface $transport,
     ) {}
 
     /**

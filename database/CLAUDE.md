@@ -52,3 +52,14 @@ Examples:
 - ❌ `2026_01_12_124157_add_status_sort_order_to_orders_table.php`
 
 **Why**: Schema resets use `DROP SCHEMA CASCADE` + clear migration records by pattern matching (`%schema_name%`). Migrations without schema in filename get skipped on re-run, causing missing column errors.
+
+## Order Deduplication
+
+When orders are "edited" in ShopWired, a new order is created with the same `reference` but different `external_id`. The original is cancelled.
+
+**For queries needing one order per reference:**
+- Use `shopwired.orders_deduplicated` view (preferred)
+- This view applies `DISTINCT ON (reference)` with proper ordering
+
+**For audit/history queries needing all orders:**
+- Use `shopwired.orders` table directly

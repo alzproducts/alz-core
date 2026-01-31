@@ -115,59 +115,35 @@ final class EloquentOrderRepository extends AbstractEloquentRepository implement
     /**
      * {@inheritDoc}
      *
-     * When multiple orders share the same reference (edited orders in ShopWired),
-     * returns only the "active" order per reference using PostgreSQL DISTINCT ON:
-     * 1. Non-cancelled order takes priority
-     * 2. Highest external_id wins as tiebreaker
-     *
-     * Also excludes orders from test customer emails (configured in shopwired.excluded_customer_emails).
-     *
-     * Uses two-query approach for memory efficiency:
-     * 1. Get deduplicated external_ids using DISTINCT ON (lightweight)
-     * 2. Load only those orders with eager-loaded relations
+     * Returns deduplicated orders (one per reference) using the orders_deduplicated view.
+     * Excludes orders from test customer emails (configured in shopwired.excluded_customer_emails).
      *
      * @return list<Order>
      *
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
+     *
+     * @see shopwired.orders_deduplicated - View handling deduplication
      */
     public function getOrdersInDateRange(DateTimeImmutable $from, DateTimeImmutable $to): array
     {
         return $this->eloquentGateway->query(static function () use ($from, $to): array {
-            // Build base query with date range and email exclusions
-            $baseQuery = self::MODEL_CLASS::query()
-                ->whereBetween('order_placed_at', [$from, $to]);
+            $query = self::MODEL_CLASS::query()
+                ->from('shopwired.orders_deduplicated')
+                ->whereBetween('order_placed_at', [$from, $to])
+                ->with(self::EAGER_LOAD_RELATIONS)
+                ->orderBy('order_placed_at');
 
             /** @var list<string> $excludedEmails */
             $excludedEmails = \config('shopwired.excluded_customer_emails', []);
 
             if ($excludedEmails !== []) {
-                $baseQuery->whereNotIn('billing_email', $excludedEmails);
+                $query->whereNotIn('billing_email', $excludedEmails);
             }
-
-            // Query 1: Get deduplicated external_ids using PostgreSQL DISTINCT ON
-            // This is memory-efficient as it only fetches IDs, not full models with relations
-            /** @var list<int> $deduplicatedIds */
-            $deduplicatedIds = (clone $baseQuery)
-                ->selectRaw('DISTINCT ON (reference) external_id')
-                ->orderByRaw('reference, CASE WHEN status_type = ? THEN 1 ELSE 0 END, external_id DESC', ['cancelled'])
-                ->pluck('external_id')
-                ->all();
-
-            if ($deduplicatedIds === []) {
-                return [];
-            }
-
-            // Query 2: Load only the deduplicated orders with full eager loading
-            $models = self::MODEL_CLASS::query()
-                ->whereIn('external_id', $deduplicatedIds)
-                ->with(self::EAGER_LOAD_RELATIONS)
-                ->orderBy('order_placed_at')
-                ->get();
 
             return \array_values(
-                $models
+                $query->get()
                     ->map(static fn(OrderModel $model): Order => OrderModelMapper::fromModelWithRelations($model))
                     ->all(),
             );
@@ -240,7 +216,13 @@ final class EloquentOrderRepository extends AbstractEloquentRepository implement
      * 1. Non-cancelled orders take priority over cancelled ones
      * 2. Among same-status orders, highest external_id wins (most recent)
      *
+     * Note: This method is kept for getByReference() which queries the raw orders table
+     * for performance (single-reference lookup is faster than using the view).
+     * For bulk queries, use the shopwired.orders_deduplicated view instead.
+     *
      * @param Collection<int, OrderModel> $orders Non-empty collection of orders with same reference
+     *
+     * @see shopwired.orders_deduplicated - View-based deduplication for bulk queries
      */
     private static function selectPreferredOrder(Collection $orders): OrderModel
     {

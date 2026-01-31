@@ -9,27 +9,29 @@ use App\Domain\Exceptions\Data\InvalidSkuException;
 /**
  * Validated Stock Keeping Unit (SKU).
  *
- * Enforces strict validation rules for new/updated SKUs:
- * - Maximum 40 characters
- * - Alphanumeric characters, hyphens, and underscores only
+ * Validates SKUs with relaxed rules to support legacy data:
+ * - Maximum 64 characters
+ * - Any printable characters allowed (legacy SKUs contain spaces, slashes, etc.)
  * - No leading/trailing whitespace
  *
- * Use `fromString()` for user input (validates strictly).
+ * New SKUs generated via Linnworks `getNewItemNumber()` follow stricter
+ * conventions by design, but we accept any existing SKU format.
+ *
+ * Use `fromString()` for user input (validates length).
  * Use `fromTrusted()` for database hydration (no validation).
  */
 final readonly class Sku
 {
-    private const int MAX_LENGTH = 40;
-    private const string VALID_PATTERN = '/^[A-Za-z0-9\-_]+$/';
+    private const int MAX_LENGTH = 64;
 
     private function __construct(
         public string $value,
     ) {}
 
     /**
-     * Create a SKU from user input with full validation.
+     * Create a SKU from user input with validation.
      *
-     * @throws InvalidSkuException When SKU format is invalid
+     * @throws InvalidSkuException When SKU is empty or too long
      */
     public static function fromString(string $value): self
     {
@@ -41,10 +43,6 @@ final readonly class Sku
 
         if (\mb_strlen($trimmed) > self::MAX_LENGTH) {
             throw InvalidSkuException::tooLong($trimmed, self::MAX_LENGTH);
-        }
-
-        if (\preg_match(self::VALID_PATTERN, $trimmed) !== 1) {
-            throw InvalidSkuException::invalidCharacters($trimmed);
         }
 
         return new self($trimmed);

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Domain\ValueObjects;
 
 use App\Domain\ValueObjects\Money;
+use App\Domain\ValueObjects\TaxRate;
 use App\Domain\ValueObjects\TaxType;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -110,7 +111,7 @@ final class MoneyTest extends TestCase
         $money = Money::exclusive(100.00);
 
         // 100.00 + 10% = 110.00
-        self::assertSame(110.00, $money->toGross(0.10));
+        self::assertSame(110.00, $money->toGross(TaxRate::fromDecimal(0.10)));
     }
 
     /*
@@ -150,7 +151,7 @@ final class MoneyTest extends TestCase
         $money = Money::inclusive(110.00);
 
         // 110.00 / 1.10 = 100.00
-        self::assertSame(100.00, $money->toNet(0.10));
+        self::assertSame(100.00, $money->toNet(TaxRate::fromDecimal(0.10)));
     }
 
     /*

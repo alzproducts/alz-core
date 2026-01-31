@@ -24,7 +24,7 @@ use Throwable;
  *
  * Usage:
  * - Full sync: SyncShopwiredCustomersJob::dispatch() — daily, ~45 min
- * - Quick sync: SyncShopwiredCustomersJob::dispatch(5, 5) — hourly, ~2 min
+ * - Quick sync: SyncShopwiredCustomersJob::dispatch(null, 5) — all trade + 5 non-trade pages, ~2 min
  * - Micro sync: SyncShopwiredCustomersJob::dispatch(1, 1) — every 5 min, ~30s
  */
 final class SyncShopwiredCustomersJob implements ShouldBeUnique, ShouldQueue

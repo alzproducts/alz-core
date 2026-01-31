@@ -7,6 +7,7 @@ namespace App\Infrastructure\Mixpanel;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
+use App\Infrastructure\Mixpanel\Contracts\MixpanelTransportInterface;
 use App\Infrastructure\Support\ApiRetryStrategy;
 use App\Infrastructure\Support\RetryAfterParser;
 use Exception;
@@ -33,7 +34,7 @@ use RuntimeException;
  *
  * @template-pattern API Client HTTP Transport
  */
-final readonly class MixpanelHttpTransport
+final readonly class MixpanelHttpTransport implements MixpanelTransportInterface
 {
     private const string SERVICE_NAME = 'Mixpanel';
 

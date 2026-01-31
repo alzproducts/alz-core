@@ -26,7 +26,6 @@ use Webmozart\Assert\Assert;
  */
 final readonly class Money
 {
-    private const float UK_VAT_RATE = 0.20;
     private const int DEFAULT_PRECISION = 2;
 
     private function __construct(
@@ -88,14 +87,16 @@ final readonly class Money
      * - If exclusive: adds tax at the given rate
      * - If zero-rated: returns the amount unchanged
      *
-     * @param float $taxRate Tax rate as decimal (default: 0.20 for UK VAT)
+     * @param TaxRate|null $taxRate Tax rate to apply (default: UK standard 20%)
      * @param int|null $precision Decimal places to round to (null = no rounding)
      */
-    public function toGross(float $taxRate = self::UK_VAT_RATE, ?int $precision = self::DEFAULT_PRECISION): float
+    public function toGross(?TaxRate $taxRate = null, ?int $precision = self::DEFAULT_PRECISION): float
     {
+        $rate = $taxRate ?? TaxRate::standard();
+
         $result = match ($this->taxType) {
             TaxType::Inclusive => $this->amount,
-            TaxType::Exclusive => $this->amount * (1 + $taxRate),
+            TaxType::Exclusive => $this->amount * (1 + $rate->toDecimal()),
             TaxType::ZeroRated => $this->amount,
         };
 
@@ -109,13 +110,15 @@ final readonly class Money
      * - If inclusive: removes tax at the given rate
      * - If zero-rated: returns the amount unchanged
      *
-     * @param float $taxRate Tax rate as decimal (default: 0.20 for UK VAT)
+     * @param TaxRate|null $taxRate Tax rate to apply (default: UK standard 20%)
      * @param int|null $precision Decimal places to round to (null = no rounding)
      */
-    public function toNet(float $taxRate = self::UK_VAT_RATE, ?int $precision = self::DEFAULT_PRECISION): float
+    public function toNet(?TaxRate $taxRate = null, ?int $precision = self::DEFAULT_PRECISION): float
     {
+        $rate = $taxRate ?? TaxRate::standard();
+
         $result = match ($this->taxType) {
-            TaxType::Inclusive => $this->amount / (1 + $taxRate),
+            TaxType::Inclusive => $this->amount / (1 + $rate->toDecimal()),
             TaxType::Exclusive => $this->amount,
             TaxType::ZeroRated => $this->amount,
         };

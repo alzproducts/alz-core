@@ -12,6 +12,7 @@ use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Inventory\ValueObjects\StockItem;
 use App\Domain\Inventory\ValueObjects\StockItemFull;
+use App\Domain\ValueObjects\Guid;
 use Generator;
 
 /**
@@ -21,6 +22,20 @@ use Generator;
  */
 interface InventoryClientInterface
 {
+    /**
+     * Resolve a SKU or GUID identifier to a Linnworks stockItemId.
+     *
+     * - GUID: Returned directly (no API call)
+     * - SKU: Resolved via API lookup
+     *
+     * @throws ResourceNotFoundException When SKU doesn't exist in Linnworks
+     * @throws AuthenticationExpiredException When credentials are invalid
+     * @throws ExternalServiceUnavailableException When API is unavailable
+     * @throws InvalidApiRequestException When request parameters are invalid
+     * @throws InvalidApiResponseException When API response structure is invalid
+     */
+    public function resolveStockItemId(Sku|Guid $identifier): Guid;
+
     /**
      * Retrieve a stock item by its SKU.
      *
@@ -61,4 +76,18 @@ interface InventoryClientInterface
      * @throws InvalidApiResponseException When response format unexpected
      */
     public function getNewItemNumber(): Sku;
+
+    /**
+     * Retrieve a full stock item (with extended properties) by identifier.
+     *
+     * Use this when you need extended properties, suppliers, or other data
+     * not available from getStockItemBySku().
+     *
+     * @throws ResourceNotFoundException When stock item doesn't exist
+     * @throws AuthenticationExpiredException When credentials are invalid
+     * @throws ExternalServiceUnavailableException When API is unavailable
+     * @throws InvalidApiRequestException When request parameters are invalid
+     * @throws InvalidApiResponseException When API response structure is invalid
+     */
+    public function getStockItemFull(Sku|Guid $identifier): StockItemFull;
 }

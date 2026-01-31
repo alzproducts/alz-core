@@ -12,7 +12,7 @@ namespace App\Domain\Catalog\Product\Contracts;
  * price comparisons, and stock checks across both entity types.
  *
  * Use cases:
- * - `getBasicProductBySku()` returning either Product or Variation
+ * - `getBasicProduct()` returning either Product or Variation
  * - Unified pricing displays in carts/listings
  * - Stock availability checks
  *
