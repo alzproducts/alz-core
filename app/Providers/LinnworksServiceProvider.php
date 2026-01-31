@@ -8,6 +8,7 @@ use App\Application\Contracts\DatabaseGatewayInterface;
 use App\Application\Contracts\Linnworks\ConnectivityClientInterface;
 use App\Application\Contracts\Linnworks\InventoryClientInterface;
 use App\Application\Contracts\Linnworks\InventoryUpdateClientInterface;
+use App\Application\Contracts\Linnworks\StockDashboardsClientInterface;
 use App\Application\Contracts\Linnworks\StockItemRepositoryInterface;
 use App\Application\Contracts\LockableCacheInterface;
 use App\Infrastructure\Linnworks\LinnworksClientFactory;
@@ -74,6 +75,12 @@ final class LinnworksServiceProvider extends ServiceProvider implements Deferrab
             static fn(): InventoryUpdateClientInterface => LinnworksClientFactory::createInventoryUpdateClient(),
         );
 
+        // Stock dashboards client - for SQL queries including soft-deleted items
+        $this->app->singleton(
+            StockDashboardsClientInterface::class,
+            static fn(): StockDashboardsClientInterface => LinnworksClientFactory::createStockDashboardsClient(),
+        );
+
         // Stock item repository - for persisting synced stock items
         $this->app->singleton(
             StockItemRepositoryInterface::class,
@@ -97,6 +104,7 @@ final class LinnworksServiceProvider extends ServiceProvider implements Deferrab
             InventoryClientInterface::class,
             InventoryUpdateClientInterface::class,
             LinnworksSessionManager::class,
+            StockDashboardsClientInterface::class,
             StockItemRepositoryInterface::class,
         ];
     }

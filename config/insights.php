@@ -9,11 +9,13 @@ use NunoMaduro\PhpInsights\Domain\Insights\ForbiddenPrivateMethods;
 use NunoMaduro\PhpInsights\Domain\Insights\ForbiddenTraits;
 use NunoMaduro\PhpInsights\Domain\Sniffs\ForbiddenSetterSniff;
 use PHP_CodeSniffer\Standards\Generic\Sniffs\Files\LineLengthSniff;
+use PHP_CodeSniffer\Standards\Generic\Sniffs\Files\OneClassPerFileSniff;
 use PHP_CodeSniffer\Standards\Generic\Sniffs\Formatting\SpaceAfterCastSniff;
 use PHP_CodeSniffer\Standards\Generic\Sniffs\Formatting\SpaceAfterNotSniff;
 use PHP_CodeSniffer\Standards\Generic\Sniffs\Functions\OpeningFunctionBraceBsdAllmanSniff;
 use PHP_CodeSniffer\Standards\PEAR\Sniffs\Classes\ClassDeclarationSniff;
 use PHP_CodeSniffer\Standards\PEAR\Sniffs\WhiteSpace\ScopeClosingBraceSniff;
+use PHP_CodeSniffer\Standards\PSR1\Sniffs\Classes\ClassDeclarationSniff as Psr1ClassDeclarationSniff;
 use PHP_CodeSniffer\Standards\PSR2\Sniffs\Methods\FunctionClosingBraceSniff;
 use PhpCsFixer\Fixer\Basic\BracesFixer;
 use PhpCsFixer\Fixer\ClassNotation\ClassDefinitionFixer;
@@ -189,6 +191,18 @@ return [
         PropertyTypeHintSniff::class => [
             'exclude' => [
                 'app/Models/User.php',
+            ],
+        ],
+
+        // Linnworks Query Objects co-locate Row DTOs in same file for cohesion
+        OneClassPerFileSniff::class => [
+            'exclude' => [
+                'app/Infrastructure/Linnworks/Queries',
+            ],
+        ],
+        Psr1ClassDeclarationSniff::class => [
+            'exclude' => [
+                'app/Infrastructure/Linnworks/Queries',
             ],
         ],
     ],

@@ -283,6 +283,40 @@ final class ProductVariationTest extends TestCase
     }
 
     // ========================================================================
+    // Option Values String (for Linnworks titles)
+    // ========================================================================
+
+    #[Test]
+    public function option_values_string_returns_empty_for_no_options(): void
+    {
+        $variation = self::createVariation();
+        self::assertSame('', $variation->optionValuesString());
+    }
+
+    #[Test]
+    public function option_values_string_returns_single_value(): void
+    {
+        $options = [
+            new ProductVariationOption(1, 'Size', 10, 'Large'),
+        ];
+        $variation = self::createVariation(options: $options);
+
+        self::assertSame('Large', $variation->optionValuesString());
+    }
+
+    #[Test]
+    public function option_values_string_returns_space_separated_values(): void
+    {
+        $options = [
+            new ProductVariationOption(1, 'Size', 10, 'Large'),
+            new ProductVariationOption(2, 'Color', 20, 'Red'),
+        ];
+        $variation = self::createVariation(options: $options);
+
+        self::assertSame('Large Red', $variation->optionValuesString());
+    }
+
+    // ========================================================================
     // Interface Methods
     // ========================================================================
 

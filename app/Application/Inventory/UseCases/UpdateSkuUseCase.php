@@ -6,8 +6,10 @@ namespace App\Application\Inventory\UseCases;
 
 use App\Application\Contracts\Linnworks\InventoryClientInterface;
 use App\Application\Contracts\Linnworks\InventoryUpdateClientInterface;
+use App\Application\Contracts\LockManagerInterface;
 use App\Application\Contracts\Operations\SkuChangeRepositoryInterface;
 use App\Application\Contracts\Shopwired\BasicProductUpdateClientInterface;
+use App\Application\Inventory\Enums\LockName;
 use App\Domain\Catalog\Product\Commands\UpdateBasicProductCommand;
 use App\Domain\Catalog\Product\ValueObjects\Sku;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
@@ -17,6 +19,7 @@ use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Data\InvalidSkuException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
+use App\Domain\Exceptions\Infrastructure\LockAcquisitionException;
 use App\Domain\Exceptions\Inventory\SkuGenerationFailedException;
 use App\Domain\Exceptions\Inventory\SkuUpdateFailedException;
 use App\Domain\Inventory\Commands\UpdateSkuCommand;
@@ -48,11 +51,14 @@ use Psr\Log\LoggerInterface;
  */
 final readonly class UpdateSkuUseCase
 {
+    private const int LOCK_TIMEOUT_SECONDS = 30;
+
     public function __construct(
         private InventoryClientInterface $inventoryClient,
         private InventoryUpdateClientInterface $inventoryUpdateClient,
         private BasicProductUpdateClientInterface $shopwiredClient,
         private SkuChangeRepositoryInterface $auditRepository,
+        private LockManagerInterface $lockManager,
         private LoggerInterface $logger,
     ) {}
 
@@ -61,6 +67,7 @@ final readonly class UpdateSkuUseCase
      *
      * @throws InvalidSkuException When command validation fails (permanent failure)
      * @throws SkuGenerationFailedException When auto-generation fails
+     * @throws LockAcquisitionException When SKU generation lock cannot be acquired
      * @throws SkuUpdateFailedException When compensation fails (systems out of sync - DO NOT RETRY)
      * @throws ResourceNotFoundException When SKU not found in either system
      * @throws AuthenticationExpiredException When credentials invalid
@@ -71,42 +78,53 @@ final readonly class UpdateSkuUseCase
      */
     public function execute(UpdateSkuCommand $command): void
     {
-        // 1. Resolve the new SKU value
-        $newSku = $this->resolveNewSku($command);
         $oldSkuValue = Sku::fromTrusted($command->oldSku);
 
-        $this->logger->info('Starting SKU update', [
-            'old_sku' => $command->oldSku,
-            'new_sku' => $newSku->value,
-            'type' => $command->type->value,
-            'reason' => $command->reason->value,
-        ]);
+        // Lock critical section: SKU generation + Linnworks update
+        // This prevents race conditions where two processes generate the same SKU
+        [$newSku, $auditId] = $this->lockManager->withLock(
+            LockName::SkuGeneration->value,
+            self::LOCK_TIMEOUT_SECONDS,
+            function () use ($command, $oldSkuValue): array {
+                // 1. Resolve the new SKU value
+                $newSku = $this->resolveNewSku($command);
 
-        // 2. Create audit record (marks intent before any mutations)
-        $auditId = $this->auditRepository->create(
-            oldSku: $command->oldSku,
-            newSku: $newSku,
-            reason: $command->reason,
+                $this->logger->info('Starting SKU update', [
+                    'old_sku' => $command->oldSku,
+                    'new_sku' => $newSku->value,
+                    'type' => $command->type->value,
+                    'reason' => $command->reason->value,
+                ]);
+
+                // 2. Create audit record (marks intent before any mutations)
+                $auditId = $this->auditRepository->create(
+                    oldSku: $command->oldSku,
+                    newSku: $newSku,
+                    reason: $command->reason,
+                );
+
+                // 3. Update Linnworks first (source of truth, easier to revert)
+                try {
+                    $this->inventoryUpdateClient->updateSku($oldSkuValue, $newSku);
+                } catch (ResourceNotFoundException|InvalidApiRequestException|InvalidApiResponseException|AuthenticationExpiredException|ExternalServiceUnavailableException $e) {
+                    $this->logger->error('Linnworks SKU update failed', [
+                        'old_sku' => $command->oldSku,
+                        'new_sku' => $newSku->value,
+                        'error' => $e->getMessage(),
+                    ]);
+                    $this->auditRepository->recordError($auditId, "Linnworks failed: {$e->getMessage()}");
+
+                    throw $e;
+                }
+
+                return [$newSku, $auditId];
+            },
         );
 
-        // 3. Update Linnworks first (source of truth, easier to revert)
-        try {
-            $this->inventoryUpdateClient->updateSku($oldSkuValue, $newSku);
-        } catch (ResourceNotFoundException|InvalidApiRequestException|InvalidApiResponseException|AuthenticationExpiredException|ExternalServiceUnavailableException $e) {
-            $this->logger->error('Linnworks SKU update failed', [
-                'old_sku' => $command->oldSku,
-                'new_sku' => $newSku->value,
-                'error' => $e->getMessage(),
-            ]);
-            $this->auditRepository->recordError($auditId, "Linnworks failed: {$e->getMessage()}");
-
-            throw $e;
-        }
-
-        // 4. Update ShopWired (with compensation on failure)
+        // 4. Update ShopWired (with compensation on failure) - outside lock
         try {
             $this->shopwiredClient->update(new UpdateBasicProductCommand(
-                currentSku: $command->oldSku,
+                identifier: $oldSkuValue,
                 newSku: $newSku,
             ));
         } catch (ResourceNotFoundException|InvalidApiRequestException|InvalidApiResponseException|AuthenticationExpiredException|ExternalServiceUnavailableException $e) {

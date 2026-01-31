@@ -21,6 +21,24 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | API Logging
+    |--------------------------------------------------------------------------
+    |
+    | Control API request/response logging for debugging purposes.
+    |
+    | Supported values:
+    | - null/empty: No logging (zero overhead, recommended for production)
+    | - 'info': Log endpoint, status code, and duration
+    | - 'debug': Log full request/response bodies (truncated to 1000 chars)
+    |
+    | Security: Auth credentials are never logged.
+    |
+    */
+
+    'log_level' => env('SHOPWIRED_LOG_LEVEL'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Request Configuration
     |--------------------------------------------------------------------------
     |

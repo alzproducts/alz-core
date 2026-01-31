@@ -9,10 +9,12 @@ use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\Product\ValueObjects\Product;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariation;
+use App\Domain\Catalog\Product\ValueObjects\Sku;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use App\Domain\ValueObjects\IntId;
 use App\Infrastructure\Persistence\EloquentGateway;
 use App\Infrastructure\Repositories\AbstractEloquentRepository;
 use App\Infrastructure\Shopwired\Mappers\ProductModelMapper;
@@ -150,33 +152,93 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
     /**
      * {@inheritDoc}
      *
+     * Note: This method searches both tables sequentially when the entity type is unknown.
+     * For better performance when you know the type, consider using specific repository methods.
+     *
      * @throws ResourceNotFoundException
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
      */
-    public function getBasicProductBySku(string $sku): Product|ProductVariation
+    public function getBasicProduct(Sku|IntId $identifier): Product|ProductVariation
+    {
+        return $identifier instanceof IntId
+            ? $this->getBasicProductById($identifier)
+            : $this->getBasicProductBySku($identifier);
+    }
+
+    /**
+     * Look up product or variation by ShopWired external ID.
+     *
+     * Searches products first, then variations. Most external IDs will be
+     * variations (SKU-less items), but products can also be looked up by ID.
+     *
+     * @throws ResourceNotFoundException
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
+     */
+    private function getBasicProductById(IntId $id): Product|ProductVariation
+    {
+        // Try product first
+        try {
+            return $this->eloquentGateway->findOrFail(
+                modelClass: self::MODEL_CLASS,
+                column: 'external_id',
+                value: $id->value,
+                relations: self::EAGER_LOAD_RELATIONS,
+                entityTypeName: 'Product',
+                mapper: fn(ProductModel $model): Product => $this->mapModelToDomain($model),
+            );
+        } catch (ResourceNotFoundException) {
+            Log::debug('Product not found by ID, trying variation', ['external_id' => $id->value]);
+        }
+
+        // Try variation - throws if neither found
+        return $this->eloquentGateway->findOrFail(
+            modelClass: ProductVariationModel::class,
+            column: 'external_id',
+            value: $id->value,
+            relations: [],
+            entityTypeName: 'Product or Variation',
+            mapper: static fn(ProductVariationModel $model): ProductVariation => $model->toDomain(),
+        );
+    }
+
+    /**
+     * Look up product or variation by SKU.
+     *
+     * Searches products (master SKU) first, then variations (variant SKU).
+     *
+     * @throws ResourceNotFoundException
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
+     */
+    private function getBasicProductBySku(Sku $sku): Product|ProductVariation
     {
         // Try product master SKU first
         try {
             return $this->eloquentGateway->findOrFail(
                 modelClass: self::MODEL_CLASS,
                 column: 'sku',
-                value: $sku,
+                value: $sku->value,
                 relations: self::EAGER_LOAD_RELATIONS,
                 entityTypeName: 'Product',
                 mapper: fn(ProductModel $model): Product => $this->mapModelToDomain($model),
             );
         } catch (ResourceNotFoundException) {
-            Log::debug('Product not found by SKU, trying variation', ['sku' => $sku]);
+            Log::debug('Product not found by SKU, trying variation', ['sku' => $sku->value]);
         }
 
         // Try variation SKU - throws if neither found
         return $this->eloquentGateway->findOrFail(
             modelClass: ProductVariationModel::class,
             column: 'sku',
-            value: $sku,
+            value: $sku->value,
             relations: [],
             entityTypeName: 'Product or Variation',
             mapper: static fn(ProductVariationModel $model): ProductVariation => $model->toDomain(),
@@ -186,24 +248,50 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
     /**
      * {@inheritDoc}
      *
-     * Only searches master product SKUs, not variation SKUs.
-     *
      * @throws ResourceNotFoundException
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
      */
-    public function getProductBySku(string $sku): Product
+    public function getProduct(Sku|IntId $identifier): Product
     {
         return $this->eloquentGateway->findOrFail(
             modelClass: self::MODEL_CLASS,
-            column: 'sku',
-            value: $sku,
+            column: self::columnForIdentifier($identifier),
+            value: $identifier->value,
             relations: self::EAGER_LOAD_RELATIONS,
             entityTypeName: 'Product',
             mapper: fn(ProductModel $model): Product => $this->mapModelToDomain($model),
         );
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @throws ResourceNotFoundException
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function getVariation(Sku|IntId $identifier): ProductVariation
+    {
+        return $this->eloquentGateway->findOrFail(
+            modelClass: ProductVariationModel::class,
+            column: self::columnForIdentifier($identifier),
+            value: $identifier->value,
+            relations: [],
+            entityTypeName: 'Variation',
+            mapper: static fn(ProductVariationModel $model): ProductVariation => $model->toDomain(),
+        );
+    }
+
+    /**
+     * Get the database column name for an identifier type.
+     */
+    private static function columnForIdentifier(Sku|IntId $identifier): string
+    {
+        return $identifier instanceof IntId ? 'external_id' : 'sku';
     }
 
     /**

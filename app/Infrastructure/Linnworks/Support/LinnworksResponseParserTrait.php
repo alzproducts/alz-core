@@ -121,6 +121,57 @@ trait LinnworksResponseParserTrait
     }
 
     /**
+     * Parse wrapped API response and return array of Domain objects.
+     *
+     * Combines parseWrappedArray() with toDomain() conversion in a single step.
+     * Callers should use @var annotation to specify the concrete domain type.
+     *
+     * @template T of Data&DomainConvertibleInterface
+     *
+     * @param string $key The key containing the items array (default: 'Items')
+     * @param class-string<T> $dtoClass
+     *
+     * @return list<object>
+     *
+     * @throws InvalidApiResponseException When response structure is invalid
+     */
+    private static function parseWrappedArrayToDomain(mixed $data, string $dtoClass, string $key = 'Items'): array
+    {
+        /** @var list<T> $dtos */
+        $dtos = self::parseWrappedArray($data, $dtoClass, $key);
+
+        return \array_map(
+            static fn(DomainConvertibleInterface $dto): object => $dto->toDomain(),
+            $dtos,
+        );
+    }
+
+    /**
+     * Parse direct array API response and return array of Domain objects.
+     *
+     * Combines parseDirectArray() with toDomain() conversion in a single step.
+     * Callers should use @var annotation to specify the concrete domain type.
+     *
+     * @template T of Data&DomainConvertibleInterface
+     *
+     * @param class-string<T> $dtoClass
+     *
+     * @return list<object>
+     *
+     * @throws InvalidApiResponseException When response structure is invalid
+     */
+    private static function parseDirectArrayToDomain(mixed $data, string $dtoClass): array
+    {
+        /** @var list<T> $dtos */
+        $dtos = self::parseDirectArray($data, $dtoClass);
+
+        return \array_map(
+            static fn(DomainConvertibleInterface $dto): object => $dto->toDomain(),
+            $dtos,
+        );
+    }
+
+    /**
      * Parse single response and convert to Domain object.
      *
      * @template T of Data&DomainConvertibleInterface

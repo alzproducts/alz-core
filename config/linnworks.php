@@ -33,4 +33,22 @@ return [
     'timeout' => 30,
     'cache_ttl_buffer' => 300,
 
+    /*
+    |--------------------------------------------------------------------------
+    | Logging Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Optional API logging for debugging. Disabled by default (no overhead).
+    |
+    | Levels:
+    |   - null (default): No logging decorator, zero overhead
+    |   - 'info': Log endpoint, status, duration
+    |   - 'debug': Log full request/response bodies (truncated to 1000 chars)
+    |
+    | Security: Auth tokens are never logged (added after decorator layer).
+    |
+    */
+
+    'log_level' => env('LINNWORKS_LOG_LEVEL'),
+
 ];

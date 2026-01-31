@@ -1,0 +1,111 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Domain\Catalog\Product\Resolvers;
+
+use App\Domain\Catalog\Product\ValueObjects\Product;
+use App\Domain\Catalog\Product\ValueObjects\ProductVariation;
+use App\Domain\Catalog\Product\ValueObjects\ResolvedVariationPrices;
+
+/**
+ * Resolves variation prices by inheriting from parent when null.
+ *
+ * **Resolution Rules for price/salePrice:**
+ * - `null` → Inherit from parent (variation doesn't override)
+ * - `0.00` → Keep as zero (explicitly set, e.g., "temporarily removed from sale")
+ *
+ * **Resolution Rules for costPrice (ShopWired-specific):**
+ * - `-1.0` → Inherit from parent (ShopWired's "not set" sentinel)
+ * - `0.00` → Treat as null/unknown (invalid cost price)
+ * - `> 0.00` → Valid variation cost price
+ *
+ * This distinction is critical: a £0.00 selling price is intentional (perhaps
+ * a free sample or withdrawn item), while null means "use the parent's price".
+ * For cost prices, neither -1 nor 0 are valid business values.
+ *
+ * **Usage:**
+ * ```php
+ * $resolver = new VariationPriceResolver();
+ * $prices = $resolver->resolve($variation, $product->price, $product->costPrice, $product->salePrice);
+ * ```
+ *
+ * @template-pattern Domain Service
+ */
+final readonly class VariationPriceResolver
+{
+    /**
+     * Resolve variation prices, falling back to parent values when null.
+     *
+     * @param ProductVariation $variation The variation to resolve prices for
+     * @param float $parentPrice Parent product's selling price (required fallback)
+     * @param float|null $parentCostPrice Parent product's cost price
+     * @param float|null $parentSalePrice Parent product's sale price
+     */
+    public function resolve(
+        ProductVariation $variation,
+        float $parentPrice,
+        ?float $parentCostPrice,
+        ?float $parentSalePrice,
+    ): ResolvedVariationPrices {
+        // Price: variation → parent (parent always has a price)
+        $price = $variation->price ?? $parentPrice;
+
+        // Cost price: special handling for ShopWired sentinel values
+        // -1.0 = inherit from parent, 0.00 = unknown/null, > 0 = valid cost
+        $costPrice = $this->resolveCostPrice($variation->costPrice, $parentCostPrice);
+
+        // Sale price: variation → parent (both can be null = no sale)
+        $salePrice = $variation->salePrice ?? $parentSalePrice;
+
+        return new ResolvedVariationPrices(
+            price: $price,
+            costPrice: $costPrice,
+            salePrice: $salePrice,
+        );
+    }
+
+    /**
+     * Resolve cost price with ShopWired sentinel value handling.
+     *
+     * @param float|null $variationCost Variation's cost price from ShopWired
+     * @param float|null $parentCost Parent product's cost price
+     *
+     * @return float|null Resolved cost price (null = unknown)
+     */
+    private function resolveCostPrice(?float $variationCost, ?float $parentCost): ?float
+    {
+        // null or -1.0 = inherit from parent
+        if ($variationCost === null || $variationCost === -1.0) {
+            return $parentCost;
+        }
+
+        // 0.00 = treat as unknown (not a valid cost price)
+        if ($variationCost === 0.0) {
+            return null;
+        }
+
+        // > 0.00 = valid variation cost price
+        return $variationCost;
+    }
+
+    /**
+     * Resolve prices from a variation using parent Product.
+     *
+     * Convenience method when you have the full Product object.
+     *
+     * @param ProductVariation $variation The variation to resolve prices for
+     * @param Product $product Parent product
+     */
+    public function resolveFromProduct(
+        ProductVariation $variation,
+        Product $product,
+    ): ResolvedVariationPrices {
+        return $this->resolve(
+            $variation,
+            $product->price,
+            $product->costPrice,
+            $product->salePrice,
+        );
+    }
+}

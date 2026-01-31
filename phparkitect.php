@@ -338,12 +338,15 @@ return static function (Config $config): void {
                    ->that(new ResideInOneOfTheseNamespaces($application))
                    ->andThat(new NotHaveNameMatching('CacheTimesTrait'))
                    ->andThat(new NotHaveNameMatching('GracefulCache'))
-                   ->andThat(new NotResideInTheseNamespaces('App\Application\HelpScout\Queries\Conversation\Enums'))
+                   ->andThat(new NotResideInTheseNamespaces(
+                       'App\Application\HelpScout\Queries\Conversation\Enums',
+                       'App\Application\Inventory\Enums',
+                   ))
                    ->should(
-                       new MatchOneOfTheseNames(['*UseCase', '*Service', '*Transformer', '*Formatter', '*Sorter', '*Resolver', '*Interface', '*DTO', '*Exception', '*Result', '*Params']),
+                       new MatchOneOfTheseNames(['*UseCase', '*Service', '*Transformer', '*Formatter', '*Sorter', '*Resolver', '*Interface', '*DTO', '*Exception', '*Result', '*Params', '*Command']),
                    )
                    ->because(
-                       'Application layer classes should be clearly identifiable as use cases, services, transformers, formatters, sorters, resolvers, interfaces, or parameter objects.',
+                       'Application layer classes should be clearly identifiable as use cases, services, transformers, formatters, sorters, resolvers, interfaces, commands, or parameter objects.',
                    );
 
     // RULE 5: No interfaces in Infrastructure
@@ -356,6 +359,9 @@ return static function (Config $config): void {
     // - DomainConvertibleChildInterface: Marks child DTOs needing parent ID to convert
     // - PaginatableQueryParamsInterface: Marks query params supporting pagination
     // - EloquentDomainMappableInterface: Marks Eloquent models with domain mapping
+    // - LinnworksTransportInterface: Internal transport abstraction for decorator pattern
+    // - LinnworksQueryInterface: Internal query object abstraction for SQL queries
+    // - ShopwiredTransportInterface: Internal transport abstraction for decorator pattern
     // These are internal implementation patterns, not cross-layer contracts.
     //
     // VIOLATION EXAMPLE:
@@ -375,6 +381,9 @@ return static function (Config $config): void {
                    ->andThat(new NotHaveNameMatching('DomainConvertibleChildInterface'))
                    ->andThat(new NotHaveNameMatching('PaginatableQueryParamsInterface'))
                    ->andThat(new NotHaveNameMatching('EloquentDomainMappableInterface'))
+                   ->andThat(new NotHaveNameMatching('LinnworksTransportInterface'))
+                   ->andThat(new NotHaveNameMatching('LinnworksQueryInterface'))
+                   ->andThat(new NotHaveNameMatching('ShopwiredTransportInterface'))
                    ->should(new NotResideInTheseNamespaces($infrastructure))
                    ->because(
                        'Public interfaces belong in Domain or Application layers. Infrastructure implements contracts defined by higher layers.',
@@ -549,10 +558,11 @@ return static function (Config $config): void {
                        'App\Domain\*\Contracts',
                        'App\Domain\*\Concerns',
                        'App\Domain\*\Commands',
+                       'App\Domain\*\Resolvers',
                    ))
                    ->because(
                        'Domain classes must be organized into Value Objects, Entities, Enums, Exceptions, '
-                       . 'Contracts, Concerns, or Commands subdirectories for discoverability and maintainability.',
+                       . 'Contracts, Concerns, Commands, or Resolvers subdirectories for discoverability and maintainability.',
                    );
 
     // RULE 10: All Exceptions must end with *Exception suffix

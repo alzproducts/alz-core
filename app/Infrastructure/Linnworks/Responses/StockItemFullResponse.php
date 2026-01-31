@@ -52,9 +52,9 @@ final class StockItemFullResponse extends Data implements DomainConvertibleInter
         public readonly float $depth,
         public readonly string $categoryId,
         public readonly string $categoryName,
-        public readonly bool $isVariationParent,
         public readonly bool $isBatchedStockType,
         public readonly int $inventoryTrackingType,
+        public readonly ?bool $isVariationParent = null, // Not returned by GetStockItemsFullByIds
         public readonly ?string $creationDate = null,
         #[DataCollectionOf(StockLevelResponse::class)]
         public readonly array $stockLevels = [],

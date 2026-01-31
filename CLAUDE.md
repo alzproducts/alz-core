@@ -238,7 +238,7 @@ See layer-specific guides for detailed patterns.
 
 - **External data** → Laravel Validator (always active in production)
 - **Internal contracts** → `webmozart/assert` (zero cost in production)
-- **Type narrowing** → PHPStan annotations
+- **Type narrowing** → PHPStan annotations (never use assertions as PHPStan workarounds)
 
 See [`.ai/docs/guides/assertion-validation-reference.md`](.ai/docs/guides/assertion-validation-reference.md) for full reference.
 
