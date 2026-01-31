@@ -16,7 +16,7 @@ use App\Domain\Inventory\Commands\AddInventoryItemCommand;
 use App\Domain\Inventory\Enums\LinnworksInventoryField;
 use App\Domain\ValueObjects\Guid;
 use App\Domain\ValueObjects\Money;
-use App\Infrastructure\Linnworks\LinnworksHttpTransport;
+use App\Infrastructure\Linnworks\Contracts\LinnworksTransportInterface;
 use Illuminate\Support\Str;
 
 /**
@@ -31,7 +31,7 @@ use Illuminate\Support\Str;
 final readonly class InventoryUpdateClient implements InventoryUpdateClientInterface
 {
     public function __construct(
-        private LinnworksHttpTransport $transport,
+        private LinnworksTransportInterface $transport,
         private InventoryClientInterface $inventoryClient,
     ) {}
 

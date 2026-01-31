@@ -15,7 +15,7 @@ use App\Domain\Exceptions\Data\InvalidSkuException;
 use App\Domain\Inventory\ValueObjects\StockItem;
 use App\Domain\Inventory\ValueObjects\StockItemFull;
 use App\Domain\ValueObjects\Guid;
-use App\Infrastructure\Linnworks\LinnworksHttpTransport;
+use App\Infrastructure\Linnworks\Contracts\LinnworksTransportInterface;
 use App\Infrastructure\Linnworks\Responses\SkuStockIdMappingResponse;
 use App\Infrastructure\Linnworks\Responses\StockItemFullResponse;
 use App\Infrastructure\Linnworks\Responses\StockItemResponse;
@@ -61,7 +61,7 @@ final readonly class InventoryClient implements InventoryClientInterface
     ];
 
     public function __construct(
-        private LinnworksHttpTransport $transport,
+        private LinnworksTransportInterface $transport,
     ) {}
 
     /**
