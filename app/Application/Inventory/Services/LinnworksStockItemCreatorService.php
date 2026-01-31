@@ -83,7 +83,7 @@ final readonly class LinnworksStockItemCreatorService
 
                     $stockItemId = $this->inventoryUpdateClient->addInventoryItem(
                         $params->categoryId,
-                        $this->buildAddItemCommand($sku, $params),
+                        LinnworksStockItemCreatorService::buildAddItemCommand($sku, $params),
                     );
 
                     return [$sku, $stockItemId];
@@ -112,7 +112,7 @@ final readonly class LinnworksStockItemCreatorService
     /**
      * Build the AddInventoryItemCommand from the params.
      */
-    private function buildAddItemCommand(Sku $sku, CreateStockItemParams $params): AddInventoryItemCommand
+    private static function buildAddItemCommand(Sku $sku, CreateStockItemParams $params): AddInventoryItemCommand
     {
         return new AddInventoryItemCommand(
             sku: $sku,

@@ -46,6 +46,20 @@ final readonly class InventoryClient implements InventoryClientInterface
         'Supplier',
     ];
 
+    /**
+     * Data requirements for GetStockItemsFullByIds endpoint.
+     *
+     * Unlike GetStockItemsFull, this endpoint doesn't support 'Pricing' requirement.
+     * Prices are still returned in the base response fields (PurchasePrice, RetailPrice).
+     *
+     * @var list<string>
+     */
+    private const array DATA_REQUIREMENTS_BY_IDS = [
+        'ExtendedProperties',
+        'StockLevels',
+        'Supplier',
+    ];
+
     public function __construct(
         private LinnworksHttpTransport $transport,
     ) {}
@@ -300,7 +314,7 @@ final readonly class InventoryClient implements InventoryClientInterface
             endpoint: '/api/Stock/GetStockItemsFullByIds',
             data: [
                 'StockItemIds' => $stockItemIds,
-                'DataRequirements' => self::DATA_REQUIREMENTS_FULL,
+                'DataRequirements' => self::DATA_REQUIREMENTS_BY_IDS,
             ],
         );
 

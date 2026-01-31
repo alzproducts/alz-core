@@ -71,8 +71,8 @@ final readonly class InventoryUpdateClient implements InventoryUpdateClientInter
     {
         $stockItemId = new Guid(Str::uuid()->toString());
 
-        // Linnworks uses -1 to indicate "use default tax rate"
-        $taxRate = $command->taxRate->isStandard() ? -1 : $command->taxRate->percentage;
+        // Linnworks uses -1.0 to indicate "use default tax rate" (must be double, not int)
+        $taxRate = $command->taxRate->isStandard() ? -1.0 : $command->taxRate->percentage;
 
         $inventoryItem = [
             'StockItemId' => $stockItemId->value,
@@ -82,7 +82,7 @@ final readonly class InventoryUpdateClient implements InventoryUpdateClientInter
             'RetailPrice' => $command->retailPrice->toGross(),
             'PurchasePrice' => $command->purchasePrice?->toNet() ?? 0.0,
             'TaxRate' => $taxRate,
-            'Barcode' => $command->barcode !== null ? $command->barcode->value : '',
+            'BarcodeNumber' => $command->barcode !== null ? $command->barcode->value : '',
         ];
 
         $this->transport->postFormParams(
@@ -172,11 +172,9 @@ final readonly class InventoryUpdateClient implements InventoryUpdateClientInter
         $this->transport->post(
             endpoint: '/api/Inventory/AddImageToInventoryItem',
             data: [
-                'request' => [
-                    'ItemNumber' => $sku,
-                    'IsMain' => true,
-                    'ImageUrl' => $imageUrl,
-                ],
+                'ItemNumber' => $sku,
+                'IsMain' => true,
+                'ImageUrl' => $imageUrl,
             ],
         );
     }
