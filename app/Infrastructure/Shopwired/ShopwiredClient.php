@@ -9,6 +9,7 @@ use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Infrastructure\Shopwired\Contracts\ShopwiredTransportInterface;
 
 /**
  * Shopwired e-commerce API Client.
@@ -34,7 +35,7 @@ final readonly class ShopwiredClient implements ConnectivityClientInterface
     private const string ENDPOINT_BUSINESS = 'business';
 
     public function __construct(
-        private ShopwiredHttpTransport $transport,
+        private ShopwiredTransportInterface $transport,
     ) {}
 
     /**

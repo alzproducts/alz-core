@@ -57,10 +57,10 @@ final class SkuTest extends TestCase
     #[Test]
     public function from_string_rejects_sku_exceeding_max_length(): void
     {
-        $longSku = \str_repeat('A', 41);
+        $longSku = \str_repeat('A', 65);
 
         $this->expectException(InvalidSkuException::class);
-        $this->expectExceptionMessage('exceeds maximum length of 40 characters');
+        $this->expectExceptionMessage('exceeds maximum length of 64 characters');
 
         Sku::fromString($longSku);
     }
@@ -68,7 +68,7 @@ final class SkuTest extends TestCase
     #[Test]
     public function from_string_accepts_sku_at_max_length(): void
     {
-        $maxSku = \str_repeat('A', 40);
+        $maxSku = \str_repeat('A', 64);
 
         $sku = Sku::fromString($maxSku);
 
@@ -76,19 +76,19 @@ final class SkuTest extends TestCase
     }
 
     #[Test]
-    #[DataProvider('invalidCharacterProvider')]
-    public function from_string_rejects_invalid_characters(string $invalidSku): void
+    #[DataProvider('legacySkuProvider')]
+    public function from_string_accepts_legacy_sku_formats(string $legacySku): void
     {
-        $this->expectException(InvalidSkuException::class);
-        $this->expectExceptionMessage('must contain only alphanumeric characters, hyphens, and underscores');
+        // Legacy SKUs from Linnworks contain spaces, slashes, and other characters
+        $sku = Sku::fromString($legacySku);
 
-        Sku::fromString($invalidSku);
+        self::assertSame($legacySku, $sku->value);
     }
 
     /**
      * @return array<string, array{string}>
      */
-    public static function invalidCharacterProvider(): array
+    public static function legacySkuProvider(): array
     {
         return [
             'space in middle' => ['ABC 123'],
@@ -96,6 +96,7 @@ final class SkuTest extends TestCase
             'forward slash' => ['ABC/123'],
             'period' => ['ABC.123'],
             'hash' => ['ABC#123'],
+            'real legacy sku' => ['FSKICK/150 X 800MM/10 - CORNFLOWER/SELF-ADHESIVE'],
         ];
     }
 

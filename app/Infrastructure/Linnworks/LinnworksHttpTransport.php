@@ -9,6 +9,7 @@ use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Infrastructure\Linnworks\Contracts\LinnworksTransportInterface;
 use App\Infrastructure\Support\RetryAfterParser;
 use Closure;
 use DateMalformedStringException;
@@ -36,7 +37,7 @@ use RuntimeException;
  *
  * @template-pattern API Client HTTP Transport
  */
-final readonly class LinnworksHttpTransport
+final readonly class LinnworksHttpTransport implements LinnworksTransportInterface
 {
     private const string SERVICE_NAME = 'Linnworks';
 

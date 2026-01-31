@@ -11,9 +11,9 @@ use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Infrastructure\Shopwired\Contracts\ShopwiredTransportInterface;
 use App\Infrastructure\Shopwired\Factories\ProductDomainFactory;
 use App\Infrastructure\Shopwired\Responses\ProductResponse;
-use App\Infrastructure\Shopwired\ShopwiredHttpTransport;
 use App\Infrastructure\Shopwired\ShopwiredPaginator;
 use App\Infrastructure\Shopwired\ShopwiredQueryParams;
 use App\Infrastructure\Shopwired\ShopwiredResponseParserTrait;
@@ -87,7 +87,7 @@ final readonly class ProductClient implements ProductClientInterface
     private const array ID_ONLY_FIELDS = ['id'];
 
     public function __construct(
-        private ShopwiredHttpTransport $transport,
+        private ShopwiredTransportInterface $transport,
         private ProductDomainFactory $factory,
     ) {}
 
