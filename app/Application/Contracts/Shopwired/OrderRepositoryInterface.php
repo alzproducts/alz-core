@@ -14,6 +14,9 @@ use DateTimeImmutable;
 /**
  * Repository for ShopWired order persistence.
  *
+ * Bulk queries should use `shopwired.orders_deduplicated` view to handle edited orders
+ * (same reference, multiple external_ids). See `getOrdersInDateRange()` for example.
+ *
  * @extends RepositoryWriteInterface<Order>
  */
 interface OrderRepositoryInterface extends RepositoryWriteInterface

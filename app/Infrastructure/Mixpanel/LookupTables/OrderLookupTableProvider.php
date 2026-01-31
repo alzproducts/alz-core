@@ -187,7 +187,7 @@ final readonly class OrderLookupTableProvider implements LookupTableProviderInte
                     OVER (PARTITION BY o.customer_id),
                     0
                 ) AS user_lifetime_value
-            FROM shopwired.orders o
+            FROM shopwired.orders_deduplicated o
             JOIN shopwired.customers c ON c.external_id = o.customer_id
             SQL;
     }
