@@ -99,7 +99,7 @@ final readonly class HelpScoutHttpTransport
          *
          * @var array<string, Response|Throwable> $poolResults
          *
-         * @phpstan-ignore staticMethod.dynamicCall, varTag.type, shipmonk.checkedExceptionInCallable
+         * @phpstan-ignore staticMethod.dynamicCall, shipmonk.checkedExceptionInCallable
          */
         $poolResults = $this->httpFactory->pool(fn(Pool $pool): array => $this->buildPoolGetRequests($pool, $requests, $authHeaders));
 

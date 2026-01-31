@@ -155,11 +155,6 @@ parameters:
         -
             identifier: shipmonk.publicPropertyNotReadonly
             path: app/Presentation/Jobs/*
-        # Eloquent models inherit $timestamps, $incrementing from Laravel's Model class.
-        # These are intentionally public and mutable - PHP doesn't allow making inherited properties readonly.
-        -
-            identifier: shipmonk.publicPropertyNotReadonly
-            path: app/Infrastructure/*/Models/*
         # Eloquent query builder returns dynamic proxies - static analysis can't track fluent chains.
         # Methods like exists(), whereNotIn() on Builder are instance methods called on static chain.
         # DatabaseManager also proxies to Connection (transaction() call in DatabaseGateway).
@@ -223,6 +218,11 @@ parameters:
                 - app/Infrastructure/Shopwired/Clients/OrderClient.php
                 - app/Infrastructure/Shopwired/Clients/ProductClient.php
                 - app/Infrastructure/Shopwired/Repositories/EloquentProductRepository.php
+        # Linnworks Query Objects co-locate Row DTOs in same file for cohesion.
+        # Each Query contains its internal Row DTO - intentional pattern for self-contained queries.
+        -
+            identifier: symplify.multipleClassLikeInFile
+            path: app/Infrastructure/Linnworks/Queries/*
     paths:
         - app/
         - bootstrap/

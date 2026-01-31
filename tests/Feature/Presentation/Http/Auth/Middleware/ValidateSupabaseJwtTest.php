@@ -137,7 +137,7 @@ final class ValidateSupabaseJwtTest extends TestCase
             ->with('security')
             ->andReturn($logger);
 
-        $token = $this->generateToken([], 'this-is-the-wrong-secret');
+        $token = $this->generateToken([], 'this-is-the-wrong-secret-key-32bytes');
 
         // Act
         $response = $this->withToken($token)->getJson('/_test/protected-route');

@@ -54,3 +54,30 @@ When adding a new embed, verify the actual response structure before writing the
 ## Update Semantics
 
 **Behaviour varies per endpoint.** Some use PATCH semantics (missing = unchanged), others require all fields (missing = deleted). Test each update endpoint manually before implementing.
+
+## Database Schema
+
+ShopWired data is stored in the `shopwired` schema (not `public`). Use qualified table names in queries.
+
+| Table | Description |
+|-------|-------------|
+| `shopwired.products` | Product catalog data |
+| `shopwired.product_variations` | Product variations with SKU, prices |
+| `shopwired.orders` | Order headers |
+| `shopwired.order_products` | Order line items |
+| `shopwired.order_discounts` | Applied discounts |
+| `shopwired.order_refunds` | Refund records |
+| `shopwired.order_admin_comments` | Internal order notes |
+| `shopwired.customers` | Customer records |
+| `shopwired.custom_field_definitions` | Custom field metadata |
+| `shopwired.orders_deduplicated` | **View**: One order per reference (for bulk queries) |
+
+### Querying Examples
+
+```php
+// Direct DB query (use schema prefix)
+DB::table('shopwired.products')->where('external_id', 12345)->first();
+
+// Via Eloquent (if model configured with schema)
+Product::where('external_id', 12345)->first();
+```

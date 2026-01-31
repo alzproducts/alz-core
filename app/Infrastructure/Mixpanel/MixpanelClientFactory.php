@@ -6,6 +6,8 @@ namespace App\Infrastructure\Mixpanel;
 
 use App\Application\Contracts\MixpanelClientInterface;
 use App\Domain\Exceptions\InvalidConfigurationException;
+use App\Infrastructure\Mixpanel\Contracts\MixpanelTransportInterface;
+use App\Infrastructure\Mixpanel\Enums\MixpanelLogLevel;
 
 /**
  * Factory for creating MixpanelClient with all dependencies.
@@ -18,9 +20,34 @@ final class MixpanelClientFactory
     public static function create(): MixpanelClientInterface
     {
         $config = self::createConfig();
-        $transport = new MixpanelHttpTransport($config);
+        $transport = self::createTransport($config);
 
         return new MixpanelClient($transport, $config);
+    }
+
+    /**
+     * Create transport with optional logging decorator.
+     *
+     * @throws InvalidConfigurationException When log level is invalid
+     */
+    private static function createTransport(MixpanelConfig $config): MixpanelTransportInterface
+    {
+        $logLevel = \config('mixpanel.log_level');
+
+        if (!\is_string($logLevel) || $logLevel === '') {
+            return new MixpanelHttpTransport($config);
+        }
+
+        $parsed = MixpanelLogLevel::tryFrom($logLevel);
+
+        if ($parsed === null) {
+            throw new InvalidConfigurationException(
+                'MIXPANEL_LOG_LEVEL',
+                "Invalid value '{$logLevel}'. Must be 'info' or 'debug'.",
+            );
+        }
+
+        return new LoggingMixpanelTransport(new MixpanelHttpTransport($config), $parsed);
     }
 
     /**

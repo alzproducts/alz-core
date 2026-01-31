@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Application\Contracts\LockableCacheInterface;
+use App\Application\Contracts\LockManagerInterface;
 use App\Infrastructure\BingAds\BingAdsSessionManager;
 use App\Infrastructure\Linnworks\LinnworksSessionManager;
+use App\Infrastructure\Locking\CacheLockManager;
 use App\Infrastructure\Support\LockableCache;
 use Illuminate\Cache\CacheManager;
 use Illuminate\Contracts\Support\DeferrableProvider;
@@ -58,6 +60,14 @@ final class CacheServiceProvider extends ServiceProvider implements DeferrablePr
                 logger: $app->make(LoggerInterface::class),
                 serviceName: 'linnworks',
             ));
+
+        // LockManagerInterface: strict locking for critical operations (no graceful degradation)
+        $this->app->singleton(
+            LockManagerInterface::class,
+            static fn(Application $app): LockManagerInterface => new CacheLockManager(
+                cache: $app->make(CacheManager::class),
+            ),
+        );
     }
 
     /**
@@ -70,6 +80,7 @@ final class CacheServiceProvider extends ServiceProvider implements DeferrablePr
     {
         return [
             LockableCacheInterface::class,
+            LockManagerInterface::class,
         ];
     }
 }

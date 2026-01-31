@@ -118,4 +118,17 @@ final readonly class ProductVariation
             $this->options,
         ));
     }
+
+    /**
+     * Get option values only as space-separated string (e.g., "Large Red").
+     *
+     * Used for generating Linnworks item titles: "{Product Name} - {values}".
+     */
+    public function optionValuesString(): string
+    {
+        return \implode(' ', \array_map(
+            static fn(ProductVariationOption $opt): string => $opt->valueName,
+            $this->options,
+        ));
+    }
 }

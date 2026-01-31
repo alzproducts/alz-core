@@ -11,8 +11,12 @@ use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\InvalidConfigurationException;
 use App\Infrastructure\Linnworks\Clients\ConnectivityClient;
+use App\Infrastructure\Linnworks\Clients\DashboardsClient;
 use App\Infrastructure\Linnworks\Clients\InventoryClient;
 use App\Infrastructure\Linnworks\Clients\InventoryUpdateClient;
+use App\Infrastructure\Linnworks\Clients\StockDashboardsClient;
+use App\Infrastructure\Linnworks\Contracts\LinnworksTransportInterface;
+use App\Infrastructure\Linnworks\Enums\LinnworksLogLevel;
 use DateMalformedStringException;
 use Illuminate\Support\Facades\Config;
 
@@ -32,7 +36,7 @@ final class LinnworksClientFactory
 {
     private static ?LinnworksConfig $config = null;
 
-    private static ?LinnworksHttpTransport $transport = null;
+    private static ?LinnworksTransportInterface $transport = null;
 
     private static ?LinnworksSessionManager $sessionManager = null;
 
@@ -64,6 +68,24 @@ final class LinnworksClientFactory
     }
 
     /**
+     * Create the low-level dashboards client for SQL queries.
+     *
+     * @internal Use createStockDashboardsClient() for stock-related queries.
+     */
+    public static function createDashboardsClient(): DashboardsClient
+    {
+        return new DashboardsClient(self::getTransport());
+    }
+
+    /**
+     * Create the stock dashboards client for stock-related SQL queries.
+     */
+    public static function createStockDashboardsClient(): StockDashboardsClient
+    {
+        return new StockDashboardsClient(self::createDashboardsClient());
+    }
+
+    /**
      * Get the authentication token for manual API calls.
      *
      * Convenience method for development/debugging - retrieves a valid
@@ -83,8 +105,10 @@ final class LinnworksClientFactory
 
     /**
      * Get the shared HTTP transport (lazy singleton).
+     *
+     * Conditionally wraps transport with logging decorator based on config.
      */
-    private static function getTransport(): LinnworksHttpTransport
+    private static function getTransport(): LinnworksTransportInterface
     {
         return self::$transport ??= self::createTransport();
     }
@@ -108,11 +132,34 @@ final class LinnworksClientFactory
     }
 
     /**
-     * Create the HTTP transport with session manager.
+     * Create the HTTP transport with optional logging decorator.
+     *
+     * When LINNWORKS_LOG_LEVEL is set, wraps the base transport with a
+     * logging decorator for debugging. Otherwise returns base transport
+     * directly (zero overhead in production).
+     *
+     * @throws InvalidConfigurationException When log level value is invalid
      */
-    private static function createTransport(): LinnworksHttpTransport
+    private static function createTransport(): LinnworksTransportInterface
     {
-        return new LinnworksHttpTransport(self::getConfig(), self::getSessionManager());
+        $baseTransport = new LinnworksHttpTransport(self::getConfig(), self::getSessionManager());
+
+        $logLevel = \config('linnworks.log_level');
+
+        if (!\is_string($logLevel) || $logLevel === '') {
+            return $baseTransport;
+        }
+
+        $parsedLogLevel = LinnworksLogLevel::tryFrom($logLevel);
+
+        if ($parsedLogLevel === null) {
+            throw new InvalidConfigurationException(
+                'LINNWORKS_LOG_LEVEL',
+                "Invalid value '{$logLevel}'. Must be 'info' or 'debug'.",
+            );
+        }
+
+        return new LoggingLinnworksTransport($baseTransport, $parsedLogLevel);
     }
 
     /**

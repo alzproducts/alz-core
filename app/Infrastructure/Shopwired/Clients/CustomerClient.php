@@ -11,10 +11,10 @@ use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Infrastructure\Shopwired\Contracts\ShopwiredTransportInterface;
 use App\Infrastructure\Shopwired\CustomerQueryParams;
 use App\Infrastructure\Shopwired\Enums\CustomerSort;
 use App\Infrastructure\Shopwired\Responses\CustomerResponse;
-use App\Infrastructure\Shopwired\ShopwiredHttpTransport;
 use App\Infrastructure\Shopwired\ShopwiredPaginator;
 use App\Infrastructure\Shopwired\ShopwiredQueryParams;
 use App\Infrastructure\Shopwired\ShopwiredResponseParserTrait;
@@ -88,7 +88,7 @@ final readonly class CustomerClient implements CustomerClientInterface
     ];
 
     public function __construct(
-        private ShopwiredHttpTransport $transport,
+        private ShopwiredTransportInterface $transport,
     ) {}
 
     /**
