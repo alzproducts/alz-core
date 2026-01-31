@@ -362,6 +362,7 @@ return static function (Config $config): void {
     // - LinnworksTransportInterface: Internal transport abstraction for decorator pattern
     // - LinnworksQueryInterface: Internal query object abstraction for SQL queries
     // - ShopwiredTransportInterface: Internal transport abstraction for decorator pattern
+    // - MixpanelTransportInterface: Internal transport abstraction for decorator pattern
     // These are internal implementation patterns, not cross-layer contracts.
     //
     // VIOLATION EXAMPLE:
@@ -384,6 +385,7 @@ return static function (Config $config): void {
                    ->andThat(new NotHaveNameMatching('LinnworksTransportInterface'))
                    ->andThat(new NotHaveNameMatching('LinnworksQueryInterface'))
                    ->andThat(new NotHaveNameMatching('ShopwiredTransportInterface'))
+                   ->andThat(new NotHaveNameMatching('MixpanelTransportInterface'))
                    ->should(new NotResideInTheseNamespaces($infrastructure))
                    ->because(
                        'Public interfaces belong in Domain or Application layers. Infrastructure implements contracts defined by higher layers.',

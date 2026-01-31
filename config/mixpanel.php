@@ -55,4 +55,15 @@ return [
     'timeout' => env('MIXPANEL_TIMEOUT', 30),
     'retry_times' => env('MIXPANEL_RETRY_TIMES', 3),
     'retry_delay' => env('MIXPANEL_RETRY_DELAY', 100),
+
+    /*
+    |--------------------------------------------------------------------------
+    | API Logging
+    |--------------------------------------------------------------------------
+    | Control API request/response logging for debugging purposes.
+    | - null/empty: No logging (production)
+    | - 'info': Log endpoint, status, duration
+    | - 'debug': Also log request/response bodies (truncated)
+    */
+    'log_level' => env('MIXPANEL_LOG_LEVEL'),
 ];

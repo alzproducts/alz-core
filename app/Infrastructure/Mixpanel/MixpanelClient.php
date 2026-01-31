@@ -14,6 +14,7 @@ use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\PayloadSerializationException;
 use App\Domain\Exceptions\Api\UnexpectedApiResultException;
 use App\Domain\Exceptions\InvalidConfigurationException;
+use App\Infrastructure\Mixpanel\Contracts\MixpanelTransportInterface;
 use App\Infrastructure\Mixpanel\DTOs\MixpanelAdSpendEventDTO;
 use App\Infrastructure\Mixpanel\DTOs\MixpanelCheckoutCompletedDTO;
 use App\Infrastructure\Mixpanel\DTOs\MixpanelProductPurchasedDTO;
@@ -43,7 +44,7 @@ final readonly class MixpanelClient implements MixpanelClientInterface
     private const string FRONTEND_TRACKING_START_DATE = '2025-10-01';
 
     public function __construct(
-        private MixpanelHttpTransport $transport,
+        private MixpanelTransportInterface $transport,
         private MixpanelConfig $config,
     ) {}
 
