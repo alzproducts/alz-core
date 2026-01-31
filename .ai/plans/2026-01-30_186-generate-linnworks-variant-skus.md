@@ -239,6 +239,45 @@ class GenerateVariantSkusCommand extends Command {
 
 ---
 
+## Known Blockers & Issues (Discovered 2026-01-31)
+
+### BLOCKER: Linnworks Soft-Delete SKU Collision
+
+**Problem**: Linnworks soft-deletes items. `AddInventoryItem` with a SKU matching a soft-deleted item returns 204 success but doesn't actually create.
+
+**Why critical**: `GetNewItemNumber` may return a SKU that was previously deleted. `GetStockItemIdsBySKU` doesn't return soft-deleted items, so we can't detect the collision.
+
+**Solution required**: Implement Linnworks SQL query endpoint to check raw database (including soft-deleted). Legacy codebase has working implementation.
+
+**Handoff**: `.ai/handoffs/linnworks-sql-query-analysis.md`
+
+### BLOCKER: CreateStockSupplierStat Silent Failure
+
+**Problem**: Returns HTTP 204 but doesn't create supplier linkage. Verified via `GetStockItemsFullByIds` showing `Suppliers: []`.
+
+**Solution required**: Post-creation verification — check `Suppliers` array is non-empty after call, throw exception if empty to trigger rollback.
+
+### Fixed Issues
+
+| Issue | Fix | Commit |
+|-------|-----|--------|
+| Image index off-by-one (1-based vs 0-based) | Subtract 1 from imageIndex | 94d2bbc |
+| GetStockItemsFullByIds doesn't support `Pricing` DataRequirement | Separate constant | 257898a |
+| isVariationParent not returned by GetStockItemsFullByIds | Made nullable | 257898a |
+| AddImageToInventoryItem double-wrapping | Removed inner wrapper | 257898a |
+| TaxRate -1 (int) vs -1.0 (float) | Use float | 257898a |
+| ShopWired cost price sentinel values (-1, 0) | VariationPriceResolver handles | 257898a |
+
+### To Discuss (Future Improvements)
+
+1. **Validation of data with regards to user input** — Should we validate command inputs more strictly? What happens with invalid product IDs or template SKUs?
+
+2. **Command for refreshing ShopWired entities** — Need a way to refresh local database from ShopWired API before running commands (variation IDs can change between syncs).
+
+3. **Adding logging to APIs** — Should Linnworks transport log all responses for debugging? Currently only logs errors. Would help diagnose silent failures like CreateStockSupplierStat.
+
+---
+
 ## Implementation Order (Suggested)
 
 1. **IntId VO + Polymorphic lookup refactor** — Create IntId, update UpdateBasicProductCommand, refactor getBasicProduct
