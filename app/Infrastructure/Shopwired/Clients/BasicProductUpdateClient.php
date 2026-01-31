@@ -14,7 +14,7 @@ use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
-use App\Infrastructure\Shopwired\ShopwiredHttpTransport;
+use App\Infrastructure\Shopwired\Contracts\ShopwiredTransportInterface;
 
 /**
  * ShopWired basic product attribute updates.
@@ -33,7 +33,7 @@ final readonly class BasicProductUpdateClient implements BasicProductUpdateClien
     private const string ENDPOINT_PRODUCTS = 'products';
 
     public function __construct(
-        private ShopwiredHttpTransport $transport,
+        private ShopwiredTransportInterface $transport,
         private ProductRepositoryInterface $productRepository,
     ) {}
 

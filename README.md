@@ -152,6 +152,19 @@ composer run check
 
 Git hooks automatically enforce these standards on commit/push.
 
+## Security Notes
+
+### API Debug Logging
+
+The `SHOPWIRED_LOG_LEVEL` and `LINNWORKS_LOG_LEVEL` environment variables enable request/response logging for debugging API issues.
+
+**⚠️ Do NOT enable in production.** Debug mode logs request/response bodies which may contain:
+- Customer names, addresses, and contact information (PII)
+- Order details and payment information
+- Product pricing and stock levels
+
+Use only in local development or isolated debugging sessions. Auth credentials are never logged.
+
 ## Railway Deployment
 
 **Deployment Architecture**: "Majestic Monolith" - one codebase, multiple Railway services.

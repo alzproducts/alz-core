@@ -8,6 +8,7 @@ use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Infrastructure\Shopwired\Contracts\ShopwiredTransportInterface;
 use App\Infrastructure\Support\ApiRetryStrategy;
 use App\Infrastructure\Support\RetryAfterParser;
 use Closure;
@@ -39,7 +40,7 @@ use Throwable;
  *
  * @template-pattern API Client HTTP Transport
  */
-final readonly class ShopwiredHttpTransport
+final readonly class ShopwiredHttpTransport implements ShopwiredTransportInterface
 {
     private const string SERVICE_NAME = 'Shopwired';
 

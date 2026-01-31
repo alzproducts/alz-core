@@ -16,6 +16,8 @@ use App\Infrastructure\Shopwired\Clients\CustomerClient;
 use App\Infrastructure\Shopwired\Clients\CustomFieldClient;
 use App\Infrastructure\Shopwired\Clients\OrderClient;
 use App\Infrastructure\Shopwired\Clients\StockClient;
+use App\Infrastructure\Shopwired\Contracts\ShopwiredTransportInterface;
+use App\Infrastructure\Shopwired\Enums\ShopwiredLogLevel;
 use Illuminate\Support\Facades\Config;
 
 /**
@@ -32,7 +34,7 @@ use Illuminate\Support\Facades\Config;
  */
 final class ShopwiredClientFactory
 {
-    private static ?ShopwiredHttpTransport $transport = null;
+    private static ?ShopwiredTransportInterface $transport = null;
 
     /**
      * Create the connectivity client for API health checks.
@@ -91,15 +93,21 @@ final class ShopwiredClientFactory
      * Note: Made public for ServiceProvider to wire ProductClient with its
      * scoped dependencies (ProductDomainFactory).
      */
-    public static function getTransport(): ShopwiredHttpTransport
+    public static function getTransport(): ShopwiredTransportInterface
     {
         return self::$transport ??= self::createTransport();
     }
 
     /**
-     * Create the HTTP transport with validated configuration.
+     * Create the HTTP transport with optional logging decorator.
+     *
+     * When SHOPWIRED_LOG_LEVEL is set, wraps the base transport with a
+     * logging decorator for debugging. Otherwise returns base transport
+     * directly (zero overhead in production).
+     *
+     * @throws InvalidConfigurationException When credentials missing or log level invalid
      */
-    private static function createTransport(): ShopwiredHttpTransport
+    private static function createTransport(): ShopwiredTransportInterface
     {
         $apiKey = \config('shopwired.api_key');
         $apiSecret = \config('shopwired.api_secret');
@@ -118,7 +126,24 @@ final class ShopwiredClientFactory
             timeout: Config::integer('shopwired.timeout', 30),
         );
 
-        return new ShopwiredHttpTransport($config);
+        $baseTransport = new ShopwiredHttpTransport($config);
+
+        $logLevel = \config('shopwired.log_level');
+
+        if (!\is_string($logLevel) || $logLevel === '') {
+            return $baseTransport;
+        }
+
+        $parsedLogLevel = ShopwiredLogLevel::tryFrom($logLevel);
+
+        if ($parsedLogLevel === null) {
+            throw new InvalidConfigurationException(
+                'SHOPWIRED_LOG_LEVEL',
+                "Invalid value '{$logLevel}'. Must be 'info' or 'debug'.",
+            );
+        }
+
+        return new LoggingShopwiredTransport($baseTransport, $parsedLogLevel);
     }
 
     /**

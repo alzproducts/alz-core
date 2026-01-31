@@ -360,6 +360,7 @@ return static function (Config $config): void {
     // - PaginatableQueryParamsInterface: Marks query params supporting pagination
     // - EloquentDomainMappableInterface: Marks Eloquent models with domain mapping
     // - LinnworksTransportInterface: Internal transport abstraction for decorator pattern
+    // - ShopwiredTransportInterface: Internal transport abstraction for decorator pattern
     // These are internal implementation patterns, not cross-layer contracts.
     //
     // VIOLATION EXAMPLE:
@@ -380,6 +381,7 @@ return static function (Config $config): void {
                    ->andThat(new NotHaveNameMatching('PaginatableQueryParamsInterface'))
                    ->andThat(new NotHaveNameMatching('EloquentDomainMappableInterface'))
                    ->andThat(new NotHaveNameMatching('LinnworksTransportInterface'))
+                   ->andThat(new NotHaveNameMatching('ShopwiredTransportInterface'))
                    ->should(new NotResideInTheseNamespaces($infrastructure))
                    ->because(
                        'Public interfaces belong in Domain or Application layers. Infrastructure implements contracts defined by higher layers.',
