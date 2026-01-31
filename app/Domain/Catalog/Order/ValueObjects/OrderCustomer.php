@@ -17,6 +17,8 @@ use Webmozart\Assert\Assert;
  * (ipAddress, userAgent, awinChannel, facebookBrowserId, facebookClickId, gclid, etc.)
  * since ShopWired doesn't document complete field list.
  *
+ * Note: Legacy orders may have customer_id = 0 (guests didn't receive IDs before ShopWired update).
+ *
  * @property array<string, mixed> $deviceInfo
  */
 final readonly class OrderCustomer
