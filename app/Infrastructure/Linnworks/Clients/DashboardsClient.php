@@ -28,7 +28,7 @@ use Spatie\LaravelData\Exceptions\CannotCreateData;
  */
 final readonly class DashboardsClient
 {
-    private const string ENDPOINT = 'Dashboards/ExecuteCustomScriptQuery';
+    private const string ENDPOINT = '/api/Dashboards/ExecuteCustomScriptQuery';
 
     private const string SERVICE_NAME = 'Linnworks';
 

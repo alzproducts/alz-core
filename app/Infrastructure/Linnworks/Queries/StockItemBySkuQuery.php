@@ -8,6 +8,23 @@ use App\Domain\ValueObjects\Guid;
 use App\Infrastructure\Linnworks\Responses\SqlQueryResponse;
 use App\Infrastructure\Linnworks\Support\SqlQueryBuilder;
 use InvalidArgumentException;
+use Spatie\LaravelData\Attributes\MapInputName;
+use Spatie\LaravelData\Data;
+
+/**
+ * Row structure for StockItemBySkuQuery results.
+ *
+ * @internal Implementation detail of StockItemBySkuQuery
+ */
+final class StockItemBySkuRow extends Data
+{
+    public function __construct(
+        #[MapInputName('pkStockItemID')]
+        public readonly string $stockItemId,
+        #[MapInputName('ItemNumber')]
+        public readonly string $sku,
+    ) {}
+}
 
 /**
  * Query stock items by SKU, including soft-deleted items.
@@ -26,21 +43,20 @@ use InvalidArgumentException;
 final readonly class StockItemBySkuQuery extends AbstractLinnworksQuery
 {
     /**
-     * @param list<string> $skus SKUs to look up
+     * @param list<string> $skus SKUs to look up (must not be empty)
+     *
+     * @throws InvalidArgumentException When SKU list is empty
      */
     public function __construct(
         private array $skus,
-    ) {}
-
-    /**
-     * @throws InvalidArgumentException When SKU list is empty
-     */
-    protected function buildQueryBody(): string
-    {
+    ) {
         if ($this->skus === []) {
             throw new InvalidArgumentException('SKU list cannot be empty');
         }
+    }
 
+    protected function buildQueryBody(): string
+    {
         $inClause = SqlQueryBuilder::buildInClause($this->skus);
 
         return "SELECT pkStockItemID, ItemNumber FROM StockItem WHERE ItemNumber IN {$inClause}";
@@ -56,7 +72,7 @@ final readonly class StockItemBySkuQuery extends AbstractLinnworksQuery
         $results = [];
 
         foreach ($response->results as $row) {
-            $parsed = StockItemSkuRow::from($row);
+            $parsed = StockItemBySkuRow::from($row);
             $results[$parsed->sku] = new Guid($parsed->stockItemId);
         }
 

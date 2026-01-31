@@ -79,7 +79,7 @@ final class StockDashboardsClientTest extends TestCase
     public function it_finds_stock_items_by_sku(): void
     {
         Http::fake([
-            self::TEST_SERVER_URL . '/Dashboards/ExecuteCustomScriptQuery' => Http::response([
+            self::TEST_SERVER_URL . '/api/Dashboards/ExecuteCustomScriptQuery' => Http::response([
                 'IsError' => false,
                 'TotalResults' => 2,
                 'Columns' => [
@@ -108,7 +108,7 @@ final class StockDashboardsClientTest extends TestCase
 
         Http::assertSent(function (Request $request) {
             // Verify endpoint
-            $this->assertStringEndsWith('/Dashboards/ExecuteCustomScriptQuery', $request->url());
+            $this->assertStringEndsWith('/api/Dashboards/ExecuteCustomScriptQuery', $request->url());
 
             // Linnworks transport wraps data in 'request' JSON form parameter
             $requestJson = $request->data()['request'] ?? '';
@@ -149,7 +149,7 @@ final class StockDashboardsClientTest extends TestCase
     public function it_returns_empty_array_when_no_skus_found(): void
     {
         Http::fake([
-            self::TEST_SERVER_URL . '/Dashboards/ExecuteCustomScriptQuery' => Http::response([
+            self::TEST_SERVER_URL . '/api/Dashboards/ExecuteCustomScriptQuery' => Http::response([
                 'IsError' => false,
                 'TotalResults' => 0,
                 'Columns' => [],
@@ -172,7 +172,7 @@ final class StockDashboardsClientTest extends TestCase
     public function it_throws_on_query_error(): void
     {
         Http::fake([
-            self::TEST_SERVER_URL . '/Dashboards/ExecuteCustomScriptQuery' => Http::response([
+            self::TEST_SERVER_URL . '/api/Dashboards/ExecuteCustomScriptQuery' => Http::response([
                 'IsError' => true,
                 'TotalResults' => 0,
                 'Columns' => [],
@@ -190,7 +190,7 @@ final class StockDashboardsClientTest extends TestCase
     public function it_throws_on_malformed_response(): void
     {
         Http::fake([
-            self::TEST_SERVER_URL . '/Dashboards/ExecuteCustomScriptQuery' => Http::response([
+            self::TEST_SERVER_URL . '/api/Dashboards/ExecuteCustomScriptQuery' => Http::response([
                 'UnexpectedField' => 'value',
             ]),
         ]);
