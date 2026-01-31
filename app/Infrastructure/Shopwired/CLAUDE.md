@@ -70,6 +70,7 @@ ShopWired data is stored in the `shopwired` schema (not `public`). Use qualified
 | `shopwired.order_admin_comments` | Internal order notes |
 | `shopwired.customers` | Customer records |
 | `shopwired.custom_field_definitions` | Custom field metadata |
+| `shopwired.orders_deduplicated` | **View**: One order per reference (for bulk queries) |
 
 ### Querying Examples
 

@@ -26,6 +26,24 @@ use Throwable;
  *
  * Scheduled to run daily at 2:00 AM Europe/London with 24-hour lookback.
  * Uses pre-export deduplication to prevent duplicate events.
+ *
+ * ## Required Data
+ *
+ * 1. **shopwired.orders** — Orders in the date range (with products, discounts, refunds)
+ * 2. **shopwired.customers** — Customer `is_trade` status for each order's customer
+ * 3. **Mixpanel Export API** — Existing order hashes for deduplication
+ *
+ * ## Common Failure: MissingRequiredDataException
+ *
+ * If customers referenced by orders don't exist in `shopwired.customers`, the job fails.
+ * This happens when new customers placed orders but haven't been synced yet.
+ *
+ * **Resolution:** Run a customer sync first, then retry this job.
+ * - Quick sync (ALL trade + recent non-trade): `SyncShopwiredCustomersJob::dispatch(null, 5)`
+ * - Full sync (all ~68k customers, ~45 min): `SyncShopwiredCustomersJob::dispatch()`
+ *
+ * Quick sync is usually sufficient since trade customers (~466) fit in ~5 pages,
+ * so `maxTradePages=null` fetches 100% of trade accounts.
  */
 final class SyncOrdersToMixpanelJob implements ShouldQueue
 {
