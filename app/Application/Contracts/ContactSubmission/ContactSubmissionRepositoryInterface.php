@@ -6,6 +6,8 @@ namespace App\Application\Contracts\ContactSubmission;
 
 use App\Domain\ContactSubmission\ValueObjects\ContactSubmission;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Domain\Exceptions\Data\MalformedStoredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 
@@ -29,9 +31,11 @@ interface ContactSubmissionRepositoryInterface
     public function save(ContactSubmission $submission): string;
 
     /**
-     * Find a submission by ID.
+     * Find a submission by ID or throw.
      *
+     * @throws ResourceNotFoundException When submission not found
+     * @throws MalformedStoredDataException If product JSONB is corrupted
      * @throws ExternalServiceUnavailableException On transient database failure
      */
-    public function findById(string $id): ?ContactSubmission;
+    public function findById(string $id): ContactSubmission;
 }
