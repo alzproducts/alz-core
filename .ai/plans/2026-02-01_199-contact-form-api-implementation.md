@@ -347,8 +347,49 @@ ProcessContactSubmissionJob::handle()
 
 **Action Status Updates:**
 - On transient failure: status stays 'processing', attempts++
-- On permanent failure: status → 'failed', error_message set
+- On permanent failure: status → 'failed', error_message set, **Slack notification sent**
 - On success: status → 'completed', external_id set, completed_at set
+
+---
+
+## Slack Failure Notification (TODO)
+
+On **permanent job failure** (after all retries exhausted), send notification to general Slack channel:
+
+```
+🚨 Contact Form Failed to Create HelpScout Ticket
+
+Customer: {name}
+Email: {email}
+Phone: {phone}
+Reason: {reason}
+Message: "{message preview...}"
+
+Order #: {order_number or 'none'}
+Product: {product title or 'none'}
+
+❌ Error: {exception message}
+📋 Submission ID: {uuid}
+```
+
+**Implementation**: Use job's `failed()` method to dispatch Slack notification.
+
+**Rationale**: Customers often submit malformed emails. Rather than reject upfront, we store the submission and notify staff on downstream failure so they can manually create the HelpScout conversation.
+
+---
+
+## Order Number Validation (TODO)
+
+The subject line does NOT include customer-supplied order numbers directly. Instead:
+
+1. Job queries local `shopwired.orders` table
+2. Checks if submission email matches order's customer email
+3. If validated: enriches subject to `[Reason] Order A12345`
+4. If not validated: uses base subject `[Reason] Contact Us Form`
+
+**Soft failure**: Validation failure does NOT block conversation creation. The message content still includes the customer-supplied order number for staff reference.
+
+**Rationale**: Staff currently add validated order numbers to subjects. This automates that workflow while preventing unvalidated customer data in subjects.
 
 ---
 

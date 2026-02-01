@@ -57,8 +57,8 @@ return new class extends Migration {
             $table->string('utm_content', 255)->nullable();
             $table->string('utm_term', 255)->nullable();
 
-            // Context
-            $table->text('page_url');
+            // Context (page_url nullable for frontend resilience)
+            $table->text('page_url')->nullable();
             $table->text('referrer_url')->nullable();
             $table->text('user_agent')->nullable();
             $table->timestampTz('client_timestamp');
