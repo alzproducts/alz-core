@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Domain\ContactForm\ValueObjects;
+namespace App\Domain\ContactSubmission\ValueObjects;
 
 use DateTimeImmutable;
 use Webmozart\Assert\Assert;

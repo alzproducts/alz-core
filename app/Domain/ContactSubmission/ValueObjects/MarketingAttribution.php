@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Domain\ContactForm\ValueObjects;
+namespace App\Domain\ContactSubmission\ValueObjects;
 
 /**
  * Marketing attribution parameters from the form submission.

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Domain\ContactForm\Enums;
+namespace App\Domain\ContactSubmission\Enums;
 
 /**
  * Type of action to perform for a contact submission.

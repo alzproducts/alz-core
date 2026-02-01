@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Domain\ContactForm\Enums;
+namespace App\Domain\ContactSubmission\Enums;
 
 /**
  * Source of the selected product in contact form.

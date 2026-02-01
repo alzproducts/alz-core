@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Domain\ContactForm\ValueObjects;
+namespace App\Domain\ContactSubmission\ValueObjects;
 
-use App\Domain\ContactForm\Enums\ProductSource;
+use App\Domain\ContactSubmission\Enums\ProductSource;
 use TypeError;
 use ValueError;
 use Webmozart\Assert\Assert;

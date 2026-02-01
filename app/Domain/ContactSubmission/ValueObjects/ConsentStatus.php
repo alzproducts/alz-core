@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Domain\ContactForm\ValueObjects;
+namespace App\Domain\ContactSubmission\ValueObjects;
 
 /**
  * Consent Mode v2 status at time of form submission.
