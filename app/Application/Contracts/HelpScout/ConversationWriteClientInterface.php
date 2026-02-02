@@ -8,6 +8,8 @@ use App\Application\HelpScout\Commands\CreateCustomerConversationCommand;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
+use App\Domain\Exceptions\Api\UnexpectedApiResultException;
+use App\Domain\Exceptions\Data\InsufficientDataException;
 
 /**
  * HelpScout Conversations write operations client contract.
@@ -30,6 +32,8 @@ interface ConversationWriteClientInterface
      * @throws AuthenticationExpiredException When credentials invalid/expired
      * @throws ExternalServiceUnavailableException When API unavailable
      * @throws InvalidApiRequestException When request parameters invalid
+     * @throws UnexpectedApiResultException When API returns null conversation ID
+     * @throws InsufficientDataException When customer has no email or phone
      */
     public function createConversationFromCustomer(CreateCustomerConversationCommand $command): int;
 }

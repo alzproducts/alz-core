@@ -119,6 +119,18 @@ deptrac:
         - type: classLike
           value: ^Monolog\\.*
 
+    # TheIconic name parser library
+    - name: TheIconicNameParser
+      collectors:
+        - type: classLike
+          value: ^TheIconic\\NameParser\\.*
+
+    # libphonenumber phone parsing library
+    - name: LibPhoneNumber
+      collectors:
+        - type: classLike
+          value: ^libphonenumber\\.*
+
   ruleset:
     # Domain: Pure business logic + assertions only
     Domain:
@@ -129,7 +141,7 @@ deptrac:
       - Domain
       - PsrInterfaces
 
-    # Infrastructure: All internal + Laravel, Spatie, Google, Bing, Guzzle, PSR, Flysystem, Assertions, Sentry, Symfony, Carbon, Monolog
+    # Infrastructure: All internal + Laravel, Spatie, Google, Bing, Guzzle, PSR, Flysystem, Assertions, Sentry, Symfony, Carbon, Monolog, TheIconic, libphonenumber
     Infrastructure:
       - Application
       - Domain
@@ -146,6 +158,8 @@ deptrac:
       - SymfonyHttp
       - CarbonDateTime
       - MonologLogging
+      - TheIconicNameParser
+      - LibPhoneNumber
 
     # Presentation: Internal + Laravel, Symfony, Firebase, Sentry, Carbon
     Presentation:
@@ -174,3 +188,5 @@ deptrac:
     SentrySdk: ~
     CarbonDateTime: ~
     MonologLogging: ~
+    TheIconicNameParser: ~
+    LibPhoneNumber: ~

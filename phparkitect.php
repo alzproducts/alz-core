@@ -205,6 +205,8 @@ return static function (Config $config): void {
                                'Google*',
                                'Microsoft*',
                                'HelpScout*',
+                               'TheIconic*',
+                               'libphonenumber*',
                                'SoapClient',
                                'SoapFault',
                                'SoapVar',

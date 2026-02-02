@@ -15,6 +15,9 @@ use App\Infrastructure\HelpScout\Clients\ConversationsClient;
 use App\Infrastructure\HelpScout\Clients\ConversationWriteClient;
 use App\Infrastructure\HelpScout\Clients\MailboxesClient;
 use App\Infrastructure\HelpScout\Clients\UsersClient;
+use App\Infrastructure\HelpScout\Mappers\CustomerMapper;
+use App\Infrastructure\HelpScout\Services\NameFormatterService;
+use App\Infrastructure\HelpScout\Services\PhoneFormatterService;
 use HelpScout\Api\ApiClient;
 use HelpScout\Api\ApiClientFactory as SdkClientFactory;
 use Illuminate\Http\Client\Factory as HttpFactory;
@@ -37,6 +40,7 @@ final class HelpScoutClientFactory
     private static ?HelpScoutHttpTransport $transport = null;
     private static ?ApiClient $sdkClient = null;
     private static ?HelpScoutConfig $config = null;
+    private static ?CustomerMapper $customerMapper = null;
 
     /**
      * Create the conversations read client.
@@ -51,7 +55,11 @@ final class HelpScoutClientFactory
      */
     public static function createConversationWriteClient(): ConversationWriteClientInterface
     {
-        return new ConversationWriteClient(self::getSdkClient(), self::getConfig());
+        return new ConversationWriteClient(
+            self::getSdkClient(),
+            self::getConfig(),
+            self::getCustomerMapper(),
+        );
     }
 
     /**
@@ -104,6 +112,17 @@ final class HelpScoutClientFactory
     private static function getConfig(): HelpScoutConfig
     {
         return self::$config ??= self::createConfig();
+    }
+
+    /**
+     * Get the shared customer mapper (lazy singleton).
+     */
+    private static function getCustomerMapper(): CustomerMapper
+    {
+        return self::$customerMapper ??= new CustomerMapper(
+            new NameFormatterService(),
+            new PhoneFormatterService(),
+        );
     }
 
     /**
@@ -162,5 +181,6 @@ final class HelpScoutClientFactory
         self::$transport = null;
         self::$sdkClient = null;
         self::$config = null;
+        self::$customerMapper = null;
     }
 }

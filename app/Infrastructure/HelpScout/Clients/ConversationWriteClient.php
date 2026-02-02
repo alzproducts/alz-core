@@ -6,10 +6,14 @@ namespace App\Infrastructure\HelpScout\Clients;
 
 use App\Application\Contracts\HelpScout\ConversationWriteClientInterface;
 use App\Application\HelpScout\Commands\CreateCustomerConversationCommand;
+use App\Application\HelpScout\Requests\CreateCustomerRequestDTO;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
+use App\Domain\Exceptions\Api\UnexpectedApiResultException;
+use App\Domain\Exceptions\Data\InsufficientDataException;
 use App\Infrastructure\HelpScout\HelpScoutConfig;
+use App\Infrastructure\HelpScout\Mappers\CustomerMapper;
 use App\Infrastructure\HelpScout\Mappers\TagMapper;
 use GuzzleHttp\Exception\ConnectException;
 use HelpScout\Api\ApiClient;
@@ -19,8 +23,6 @@ use HelpScout\Api\Customers\Customer;
 use HelpScout\Api\Exception\AuthenticationException;
 use HelpScout\Api\Exception\ValidationErrorException;
 use Illuminate\Support\Facades\Log;
-use RuntimeException;
-use Throwable;
 
 /**
  * HelpScout Conversations write operations client.
@@ -39,16 +41,25 @@ final readonly class ConversationWriteClient implements ConversationWriteClientI
     public function __construct(
         private ApiClient $sdkClient,
         private HelpScoutConfig $config,
+        private CustomerMapper $customerMapper,
     ) {}
 
     /**
      * @throws AuthenticationExpiredException When credentials invalid/expired
      * @throws ExternalServiceUnavailableException When API unavailable
      * @throws InvalidApiRequestException When request parameters invalid
+     * @throws UnexpectedApiResultException When API returns null conversation ID
+     * @throws InsufficientDataException When customer has no email or phone
      */
     public function createConversationFromCustomer(CreateCustomerConversationCommand $command): int
     {
-        $customer = $this->buildCustomer($command);
+        $customerRequest = new CreateCustomerRequestDTO(
+            email: $command->email,
+            name: $command->name,
+            phone: $command->phone,
+        );
+
+        $customer = $this->customerMapper->toSdk($customerRequest);
         $thread = $this->buildCustomerThread($customer, $command->body);
         $conversation = $this->buildConversation($command, $customer, $thread);
 
@@ -64,6 +75,7 @@ final readonly class ConversationWriteClient implements ConversationWriteClientI
      * @throws AuthenticationExpiredException When credentials invalid/expired
      * @throws ExternalServiceUnavailableException When API unavailable
      * @throws InvalidApiRequestException When request parameters invalid
+     * @throws UnexpectedApiResultException When API returns null conversation ID
      */
     private function executeCreate(Conversation $conversation): int
     {
@@ -72,7 +84,7 @@ final readonly class ConversationWriteClient implements ConversationWriteClientI
 
             if ($conversationId === null) {
                 Log::error(self::SERVICE_NAME . ' create returned null conversation ID');
-                throw new RuntimeException('HelpScout create returned null conversation ID');
+                throw new UnexpectedApiResultException(self::SERVICE_NAME, 'Create returned null conversation ID');
             }
 
             return $conversationId;
@@ -91,34 +103,7 @@ final readonly class ConversationWriteClient implements ConversationWriteClientI
                 'error' => $e->getMessage(),
             ]);
             throw new ExternalServiceUnavailableException(self::SERVICE_NAME, previous: $e);
-        } catch (Throwable $e) {
-            Log::error(self::SERVICE_NAME . ' unexpected error during conversation creation', [
-                'exception' => $e::class,
-                'error' => $e->getMessage(),
-            ]);
-            throw new ExternalServiceUnavailableException(self::SERVICE_NAME, previous: $e);
         }
-    }
-
-    /**
-     * Build SDK Customer object from command.
-     *
-     * HelpScout auto-creates customers by email if they don't exist.
-     */
-    private function buildCustomer(CreateCustomerConversationCommand $command): Customer
-    {
-        [$firstName, $lastName] = self::splitName($command->name);
-
-        $customer = new Customer();
-        $customer->addEmail($command->email);
-        $customer->setFirstName($firstName);
-        $customer->setLastName($lastName);
-
-        if ($command->phone !== null) {
-            $customer->addPhone($command->phone);
-        }
-
-        return $customer;
     }
 
     /**
@@ -154,19 +139,5 @@ final readonly class ConversationWriteClient implements ConversationWriteClientI
         }
 
         return $conversation;
-    }
-
-    /**
-     * Split full name into first and last name.
-     *
-     * @return array{0: string, 1: string} [firstName, lastName]
-     */
-    private static function splitName(string $fullName): array
-    {
-        $parts = \explode(' ', $fullName, 2);
-        $firstName = $parts[0];
-        $lastName = $parts[1] ?? '';
-
-        return [$firstName, $lastName];
     }
 }
