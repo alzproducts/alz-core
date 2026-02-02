@@ -49,5 +49,9 @@ final class RateLimitServiceProvider extends ServiceProvider
 
         // Global rate limiter: 120 requests per minute per IP
         RateLimiter::for('global', static fn(Request $request): Limit => Limit::perMinute(120)->by($request->ip()));
+
+        // Contact form rate limiter: 5 requests per minute per IP
+        // Prevents spam floods while allowing legitimate resubmissions after validation errors
+        RateLimiter::for('contact-form', static fn(Request $request): Limit => Limit::perMinute(5)->by($request->ip()));
     }
 }

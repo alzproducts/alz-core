@@ -17,6 +17,7 @@ use App\Providers\RateLimitServiceProvider;
 use App\Providers\ReviewsIoServiceProvider;
 use App\Providers\RlsDatabaseServiceProvider;
 use App\Providers\Schedule\AdsScheduleServiceProvider;
+use App\Providers\Schedule\ContactFormScheduleServiceProvider;
 use App\Providers\Schedule\FeedsScheduleServiceProvider;
 use App\Providers\Schedule\LinnworksScheduleServiceProvider;
 use App\Providers\Schedule\MixpanelScheduleServiceProvider;
@@ -45,6 +46,7 @@ return [
 
     // Schedule providers (must not be deferred - schedules register at boot)
     AdsScheduleServiceProvider::class,
+    ContactFormScheduleServiceProvider::class,
     FeedsScheduleServiceProvider::class,
     LinnworksScheduleServiceProvider::class,
     MixpanelScheduleServiceProvider::class,
