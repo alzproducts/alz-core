@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\ContactSubmission\Enums;
 
 use App\Domain\CustomerService\ValueObjects\Tag;
+use App\Domain\Exceptions\Data\InvalidEnumValueException;
 
 /**
  * Reason for contacting customer service.
@@ -61,6 +62,22 @@ enum ContactReason: string
             self::Marketing,
             self::Other => false,
         };
+    }
+
+    /**
+     * Create from human-readable label (frontend format).
+     *
+     * @throws InvalidEnumValueException When label doesn't match any case
+     */
+    public static function fromLabel(string $label): self
+    {
+        foreach (self::cases() as $case) {
+            if ($case->label() === $label) {
+                return $case;
+            }
+        }
+
+        throw InvalidEnumValueException::unknownLabel(self::class, $label);
     }
 
     /**

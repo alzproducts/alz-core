@@ -5,8 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\ContactSubmission\ValueObjects;
 
 use App\Domain\ContactSubmission\Enums\ProductSource;
-use TypeError;
-use ValueError;
+use App\Domain\Exceptions\Data\InvalidEnumValueException;
 use Webmozart\Assert\Assert;
 
 /**
@@ -60,8 +59,7 @@ final readonly class SelectedProduct
      *
      * @param array{sku: string, title?: string|null, price?: string|null, url?: string|null, source?: string|null, manual_url?: string|null, quantity?: int|null} $data
      *
-     * @throws TypeError If sku is missing or not a string
-     * @throws ValueError If source value is not a valid ProductSource
+     * @throws InvalidEnumValueException If source value is not a valid ProductSource
      */
     public static function fromArray(array $data): self
     {
@@ -70,7 +68,7 @@ final readonly class SelectedProduct
             title: $data['title'] ?? null,
             price: $data['price'] ?? null,
             url: $data['url'] ?? null,
-            source: isset($data['source']) ? ProductSource::from($data['source']) : null,
+            source: isset($data['source']) ? ProductSource::fromValue($data['source']) : null,
             manualUrl: $data['manual_url'] ?? null,
             quantity: $data['quantity'] ?? null,
         );

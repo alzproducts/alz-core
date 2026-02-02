@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace App\Domain\ContactSubmission\Enums;
 
+use App\Domain\Exceptions\Data\InvalidEnumValueException;
+use TypeError;
+use ValueError;
+
 /**
  * Source of the selected product in contact form.
  *
@@ -24,5 +28,22 @@ enum ProductSource: string
             self::RecentlyViewed => 'Recently Viewed',
             self::RecentlyOrdered => 'Recently Ordered',
         };
+    }
+
+    /**
+     * Create from backing value with domain exception.
+     *
+     * Use instead of ::from() when you want domain exceptions
+     * rather than PHP's ValueError.
+     *
+     * @throws InvalidEnumValueException When value doesn't match any case
+     */
+    public static function fromValue(string $value): self
+    {
+        try {
+            return self::from($value);
+        } catch (ValueError|TypeError $e) {
+            throw InvalidEnumValueException::invalidBackingValue(self::class, $value, $e);
+        }
     }
 }
