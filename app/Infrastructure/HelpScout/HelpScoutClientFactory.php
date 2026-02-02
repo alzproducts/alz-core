@@ -7,10 +7,12 @@ namespace App\Infrastructure\HelpScout;
 use App\Application\Contracts\HelpScout\AgentsClientInterface;
 use App\Application\Contracts\HelpScout\ConnectivityClientInterface;
 use App\Application\Contracts\HelpScout\ConversationsClientInterface;
+use App\Application\Contracts\HelpScout\ConversationWriteClientInterface;
 use App\Application\Contracts\HelpScout\MailboxesClientInterface;
 use App\Domain\Exceptions\InvalidConfigurationException;
 use App\Infrastructure\HelpScout\Clients\ConnectivityClient;
 use App\Infrastructure\HelpScout\Clients\ConversationsClient;
+use App\Infrastructure\HelpScout\Clients\ConversationWriteClient;
 use App\Infrastructure\HelpScout\Clients\MailboxesClient;
 use App\Infrastructure\HelpScout\Clients\UsersClient;
 use HelpScout\Api\ApiClient;
@@ -33,13 +35,23 @@ use Illuminate\Support\Facades\Config;
 final class HelpScoutClientFactory
 {
     private static ?HelpScoutHttpTransport $transport = null;
+    private static ?ApiClient $sdkClient = null;
+    private static ?HelpScoutConfig $config = null;
 
     /**
-     * Create the conversations client.
+     * Create the conversations read client.
      */
     public static function createConversationsClient(): ConversationsClientInterface
     {
         return new ConversationsClient(self::getTransport());
+    }
+
+    /**
+     * Create the conversation write client.
+     */
+    public static function createConversationWriteClient(): ConversationWriteClientInterface
+    {
+        return new ConversationWriteClient(self::getSdkClient(), self::getConfig());
     }
 
     /**
@@ -68,25 +80,30 @@ final class HelpScoutClientFactory
 
     /**
      * Get the shared HTTP transport (lazy singleton).
-     *
-     * Creates the transport on first access, reuses for subsequent calls.
-     * This ensures all clients share the same transport instance.
      */
     private static function getTransport(): HelpScoutHttpTransport
     {
-        return self::$transport ??= self::createTransport();
+        return self::$transport ??= new HelpScoutHttpTransport(
+            self::getConfig(),
+            self::getSdkClient(),
+            \app(HttpFactory::class),
+        );
     }
 
     /**
-     * Create the HTTP transport with validated configuration.
+     * Get the shared SDK client (lazy singleton).
      */
-    private static function createTransport(): HelpScoutHttpTransport
+    private static function getSdkClient(): ApiClient
     {
-        $config = self::createConfig();
-        $sdkClient = self::createSdkClient();
-        $httpFactory = \app(HttpFactory::class);
+        return self::$sdkClient ??= self::createSdkClient();
+    }
 
-        return new HelpScoutHttpTransport($config, $sdkClient, $httpFactory);
+    /**
+     * Get the shared config (lazy singleton).
+     */
+    private static function getConfig(): HelpScoutConfig
+    {
+        return self::$config ??= self::createConfig();
     }
 
     /**
@@ -143,5 +160,7 @@ final class HelpScoutClientFactory
     public static function reset(): void
     {
         self::$transport = null;
+        self::$sdkClient = null;
+        self::$config = null;
     }
 }

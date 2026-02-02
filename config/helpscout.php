@@ -16,6 +16,7 @@ return [
         'support' => 11667,
         'purchase_orders' => 29767,
         'suppliers_purchasing' => 55362,
+        'accounts' => 140494,
     ],
 
     /*

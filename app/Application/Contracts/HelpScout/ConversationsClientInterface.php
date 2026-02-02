@@ -10,7 +10,13 @@ use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
 
 /**
- * HelpScout Conversations API client contract.
+ * HelpScout Conversations read operations client contract.
+ *
+ * Separate from write operations because:
+ * - Reads use direct HTTP (SDK hydration drops fields)
+ * - Writes use SDK (clean serialization)
+ *
+ * @see ConversationWriteClientInterface for write operations
  */
 interface ConversationsClientInterface
 {
