@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Domain\ContactSubmission\Enums;
 
+use App\Domain\CustomerService\ValueObjects\Tag;
+
 /**
  * Reason for contacting customer service.
  *
@@ -62,11 +64,13 @@ enum ContactReason: string
     }
 
     /**
-     * Get HelpScout tag for this reason.
+     * Get tag for this contact reason.
+     *
+     * Used to categorize conversations in helpdesk systems.
      */
-    public function helpScoutTag(): string
+    public function toTag(): Tag
     {
-        return match ($this) {
+        $tagName = match ($this) {
             self::ProductInformation => 'product-enquiry',
             self::CheckoutPayment => 'checkout-payment',
             self::QuotationRequest => 'quote-request',
@@ -77,5 +81,7 @@ enum ContactReason: string
             self::Marketing => 'marketing',
             self::Other => 'general-enquiry',
         };
+
+        return Tag::fromName($tagName);
     }
 }

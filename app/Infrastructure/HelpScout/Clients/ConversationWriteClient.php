@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Infrastructure\HelpScout\Clients;
 
 use App\Application\Contracts\HelpScout\ConversationWriteClientInterface;
-use App\Application\HelpScout\Commands\CreateConversationCommand;
+use App\Application\HelpScout\Commands\CreateCustomerConversationCommand;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
@@ -19,7 +19,6 @@ use HelpScout\Api\Customers\Customer;
 use HelpScout\Api\Exception\AuthenticationException;
 use HelpScout\Api\Exception\ValidationErrorException;
 use Illuminate\Support\Facades\Log;
-use Override;
 use RuntimeException;
 use Throwable;
 
@@ -47,13 +46,27 @@ final readonly class ConversationWriteClient implements ConversationWriteClientI
      * @throws ExternalServiceUnavailableException When API unavailable
      * @throws InvalidApiRequestException When request parameters invalid
      */
-    #[Override]
-    public function createConversation(CreateConversationCommand $command): int
+    public function createConversationFromCustomer(CreateCustomerConversationCommand $command): int
     {
         $customer = $this->buildCustomer($command);
-        $thread = $this->buildThread($customer, $command->body);
+        $thread = $this->buildCustomerThread($customer, $command->body);
         $conversation = $this->buildConversation($command, $customer, $thread);
 
+        return $this->executeCreate($conversation);
+    }
+
+    /**
+     * Execute the SDK create call with exception translation.
+     *
+     * Caller should set Log::withContext() with relevant identifiers (e.g., submission_id)
+     * before calling - this allows correlation without logging PII in Infrastructure.
+     *
+     * @throws AuthenticationExpiredException When credentials invalid/expired
+     * @throws ExternalServiceUnavailableException When API unavailable
+     * @throws InvalidApiRequestException When request parameters invalid
+     */
+    private function executeCreate(Conversation $conversation): int
+    {
         try {
             $conversationId = $this->sdkClient->conversations()->create($conversation);
 
@@ -71,7 +84,6 @@ final readonly class ConversationWriteClient implements ConversationWriteClientI
         } catch (ValidationErrorException $e) {
             Log::error(self::SERVICE_NAME . ' validation error during conversation creation', [
                 'error' => $e->getMessage(),
-                'email' => $command->email,
             ]);
             throw new InvalidApiRequestException(self::SERVICE_NAME, $e->getMessage(), $e);
         } catch (ConnectException $e) {
@@ -93,7 +105,7 @@ final readonly class ConversationWriteClient implements ConversationWriteClientI
      *
      * HelpScout auto-creates customers by email if they don't exist.
      */
-    private function buildCustomer(CreateConversationCommand $command): Customer
+    private function buildCustomer(CreateCustomerConversationCommand $command): Customer
     {
         [$firstName, $lastName] = self::splitName($command->name);
 
@@ -102,13 +114,17 @@ final readonly class ConversationWriteClient implements ConversationWriteClientI
         $customer->setFirstName($firstName);
         $customer->setLastName($lastName);
 
+        if ($command->phone !== null) {
+            $customer->addPhone($command->phone);
+        }
+
         return $customer;
     }
 
     /**
-     * Build SDK CustomerThread with the message body.
+     * Build SDK CustomerThread for customer-initiated messages.
      */
-    private function buildThread(Customer $customer, string $body): CustomerThread
+    private function buildCustomerThread(Customer $customer, string $body): CustomerThread
     {
         $thread = new CustomerThread();
         $thread->setCustomer($customer);
@@ -121,7 +137,7 @@ final readonly class ConversationWriteClient implements ConversationWriteClientI
      * Build SDK Conversation with all components.
      */
     private function buildConversation(
-        CreateConversationCommand $command,
+        CreateCustomerConversationCommand $command,
         Customer $customer,
         CustomerThread $thread,
     ): Conversation {

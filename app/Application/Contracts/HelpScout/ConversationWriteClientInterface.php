@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Application\Contracts\HelpScout;
 
-use App\Application\HelpScout\Commands\CreateConversationCommand;
+use App\Application\HelpScout\Commands\CreateCustomerConversationCommand;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
@@ -19,10 +19,11 @@ use App\Domain\Exceptions\Api\InvalidApiRequestException;
 interface ConversationWriteClientInterface
 {
     /**
-     * Create a new conversation in HelpScout.
+     * Create a customer-initiated conversation in HelpScout.
      *
-     * Creates a conversation with a customer thread. HelpScout auto-creates
-     * the customer by email if they don't exist.
+     * Creates a conversation with a CustomerThread - used when the customer
+     * contacts support (e.g., contact form). HelpScout auto-creates the
+     * customer by email if they don't exist.
      *
      * @return int The created conversation ID
      *
@@ -30,5 +31,5 @@ interface ConversationWriteClientInterface
      * @throws ExternalServiceUnavailableException When API unavailable
      * @throws InvalidApiRequestException When request parameters invalid
      */
-    public function createConversation(CreateConversationCommand $command): int;
+    public function createConversationFromCustomer(CreateCustomerConversationCommand $command): int;
 }

@@ -10,11 +10,10 @@ use App\Domain\CustomerService\Enums\Mailbox;
 use App\Domain\CustomerService\ValueObjects\Tag;
 
 /**
- * Command to create a conversation in an external helpdesk system.
+ * Command to create a customer-initiated conversation.
  *
- * Generic command for creating conversations in any mailbox.
- * The caller builds the subject and body from their domain objects;
- * this command is transport-agnostic.
+ * Used when a customer contacts support (e.g., contact form, inbound email).
+ * The conversation is created with the customer as the thread author.
  *
  * Applies basic normalization:
  * - Email is lowercased and trimmed
@@ -22,11 +21,12 @@ use App\Domain\CustomerService\ValueObjects\Tag;
  *
  * @template-pattern Application Command
  */
-final readonly class CreateConversationCommand
+final readonly class CreateCustomerConversationCommand
 {
     public string $email;
     public string $name;
     public string $subject;
+    public ?string $phone;
 
     /**
      * @param string $email Customer email address
@@ -36,6 +36,7 @@ final readonly class CreateConversationCommand
      * @param Mailbox $mailbox Target mailbox
      * @param ConversationType $type Conversation type (email, phone, chat)
      * @param ConversationStatus $status Initial conversation status
+     * @param string|null $phone Customer phone number (optional)
      * @param list<Tag> $tags Tags to apply to the conversation
      */
     public function __construct(
@@ -46,11 +47,13 @@ final readonly class CreateConversationCommand
         public Mailbox $mailbox,
         public ConversationType $type,
         public ConversationStatus $status,
+        ?string $phone = null,
         /** @var list<Tag> */
         public array $tags = [],
     ) {
         $this->email = \mb_strtolower(\mb_trim($email));
         $this->name = \mb_trim($name);
         $this->subject = \mb_trim($subject);
+        $this->phone = $phone !== null ? \mb_trim($phone) : null;
     }
 }
