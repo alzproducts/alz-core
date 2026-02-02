@@ -10,6 +10,7 @@ use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Infrastructure\HelpScout\HelpScoutConfig;
+use App\Infrastructure\HelpScout\Mappers\TagMapper;
 use GuzzleHttp\Exception\ConnectException;
 use HelpScout\Api\ApiClient;
 use HelpScout\Api\Conversations\Conversation;
@@ -17,7 +18,6 @@ use HelpScout\Api\Conversations\Threads\CustomerThread;
 use HelpScout\Api\Customers\Customer;
 use HelpScout\Api\Exception\AuthenticationException;
 use HelpScout\Api\Exception\ValidationErrorException;
-use HelpScout\Api\Tags\Tag;
 use Illuminate\Support\Facades\Log;
 use Override;
 use RuntimeException;
@@ -133,10 +133,8 @@ final readonly class ConversationWriteClient implements ConversationWriteClientI
         $conversation->setCustomer($customer);
         $conversation->addThread($thread);
 
-        foreach ($command->tags as $tagName) {
-            $tag = new Tag();
-            $tag->setName($tagName);
-            $conversation->addTag($tag);
+        foreach (TagMapper::toSdkCollection($command->tags) as $sdkTag) {
+            $conversation->addTag($sdkTag);
         }
 
         return $conversation;
