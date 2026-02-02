@@ -9,18 +9,19 @@ use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Data\InvalidEnumValueException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
-use App\Presentation\Http\ContactForm\ContactSubmissionFactory;
-use App\Presentation\Http\Requests\ContactFormRequest;
+use App\Presentation\Http\ContactForm\DTOs\ContactFormRequestDTO;
+use App\Presentation\Http\ContactForm\Mappers\ContactSubmissionMapper;
 use App\Presentation\Jobs\ContactForm\ProcessContactSubmissionJob;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Handles contact form submissions from the frontend.
  *
  * Flow:
- * 1. Validate request (handled by FormRequest)
- * 2. Check honeypot → silent 200 if triggered (handled by RejectHoneypotMiddleware)
+ * 1. Check honeypot → silent 200 if triggered (handled by RejectHoneypotMiddleware)
+ * 2. Validate + parse request (handled by Spatie Data DTO)
  * 3. Build domain object → save to DB
  * 4. Dispatch async job for HelpScout processing
  * 5. Return submission ID
@@ -28,7 +29,7 @@ use Symfony\Component\HttpFoundation\Response;
 final readonly class ContactFormController
 {
     public function __construct(
-        private ContactSubmissionFactory $factory,
+        private ContactSubmissionMapper $mapper,
         private SubmitContactFormUseCase $useCase,
     ) {}
 
@@ -38,10 +39,13 @@ final readonly class ContactFormController
      * @throws ExternalServiceUnavailableException On transient database failure (retry)
      * @throws InvalidEnumValueException When enum values don't match expected values
      */
-    public function __invoke(ContactFormRequest $request): JsonResponse
+    public function __invoke(Request $request): JsonResponse
     {
-        // Build domain object from request
-        $submission = $this->factory->fromRequest($request);
+        // Validate + type request data in one step
+        $data = ContactFormRequestDTO::from($request);
+
+        // Transform to domain objects
+        $submission = $this->mapper->toDomain($data, $request->ip() ?? '0.0.0.0');
 
         // Save to database and get IDs
         $result = $this->useCase->execute($submission);

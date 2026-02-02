@@ -268,6 +268,7 @@ return static function (Config $config): void {
                                'Symfony\Component\HttpFoundation',
                                'Symfony\Component\HttpKernel',
                                'Firebase\JWT',
+                               'Spatie\LaravelData',
                            ],
                        ),
                    )
@@ -324,9 +325,9 @@ return static function (Config $config): void {
     $rules[] = Rule::allClasses()
                    ->that(new ResideInOneOfTheseNamespaces($presentation))
                    ->andThat(new NotHaveNameMatching('*Exception'))
-                   ->should(new MatchOneOfTheseNames(['*Controller', '*Command', '*Job', '*Middleware', '*Parser', '*Resource', '*Request', '*Trait', '*Factory']))
+                   ->should(new MatchOneOfTheseNames(['*Controller', '*Command', '*Job', '*Middleware', '*Parser', '*Resource', '*Request', '*Trait', '*Factory', '*DTO', '*Mapper']))
                    ->because(
-                       'Presentation layer classes should be clearly identifiable as controllers, commands, jobs, middleware, parsers, resources, form requests, traits, or factories.',
+                       'Presentation layer classes should be clearly identifiable as controllers, commands, jobs, middleware, parsers, resources, form requests, traits, factories, DTOs, or mappers.',
                    );
 
     // Application services must end with "UseCase", "Service", "Transformer", "Formatter", or "Interface"

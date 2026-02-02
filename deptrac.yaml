@@ -161,11 +161,12 @@ deptrac:
       - TheIconicNameParser
       - LibPhoneNumber
 
-    # Presentation: Internal + Laravel, Symfony, Firebase, Sentry, Carbon
+    # Presentation: Internal + Laravel, Symfony, Firebase, Sentry, Carbon, Spatie (for request DTOs)
     Presentation:
       - Application
       - Domain
       - LaravelFramework
+      - SpatieData
       - SymfonyHttp
       - SymfonyHttpKernel
       - FirebaseJwt
