@@ -151,10 +151,12 @@ parameters:
         # Laravel config files use nullable string concatenation
         - identifier: shipmonk.binaryOperationWithNull
         # Laravel ShouldQueue contract requires public mutable properties (tries, backoff, etc.)
-        # These are intentionally public and mutable per Laravel's queue job specification
+        # These are intentionally public and mutable per Laravel's queue job/listener specification
         -
             identifier: shipmonk.publicPropertyNotReadonly
-            path: app/Presentation/Jobs/*
+            paths:
+                - app/Presentation/Jobs/*
+                - app/Infrastructure/*/Listeners/*
         # Eloquent query builder returns dynamic proxies - static analysis can't track fluent chains.
         # Methods like exists(), whereNotIn() on Builder are instance methods called on static chain.
         # DatabaseManager also proxies to Connection (transaction() call in DatabaseGateway).

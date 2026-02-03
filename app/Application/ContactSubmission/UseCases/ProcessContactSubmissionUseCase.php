@@ -45,6 +45,8 @@ final readonly class ProcessContactSubmissionUseCase
      * @param string $submissionId UUID of the contact submission to process
      * @param string $actionId UUID of the action record to update
      *
+     * @return int|null HelpScout conversation ID (null if already completed - idempotent)
+     *
      * @throws ResourceNotFoundException When submission not found
      * @throws MalformedStoredDataException When stored data is corrupted
      * @throws DatabaseOperationFailedException When DB operation fails (permanent)
@@ -54,12 +56,12 @@ final readonly class ProcessContactSubmissionUseCase
      * @throws UnexpectedApiResultException When HelpScout returns unexpected response (permanent)
      * @throws InsufficientDataException When submission lacks required customer data
      */
-    public function execute(string $submissionId, string $actionId): void
+    public function execute(string $submissionId, string $actionId): ?int
     {
         // Idempotency check - skip if already completed to prevent duplicate tickets
         $status = $this->actionRepository->getStatus($actionId);
         if ($status === ActionStatus::Completed) {
-            return;
+            return null;
         }
 
         // Mark as processing (sets processing_started_at for stale detection)
@@ -76,5 +78,7 @@ final readonly class ProcessContactSubmissionUseCase
 
         // Mark completed with external ID for reference
         $this->actionRepository->markCompleted($actionId, (string) $conversationId);
+
+        return $conversationId;
     }
 }

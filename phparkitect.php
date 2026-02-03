@@ -325,9 +325,9 @@ return static function (Config $config): void {
     $rules[] = Rule::allClasses()
                    ->that(new ResideInOneOfTheseNamespaces($presentation))
                    ->andThat(new NotHaveNameMatching('*Exception'))
-                   ->should(new MatchOneOfTheseNames(['*Controller', '*Command', '*Job', '*Middleware', '*Parser', '*Resource', '*Request', '*Trait', '*Factory', '*DTO', '*Mapper']))
+                   ->should(new MatchOneOfTheseNames(['*Controller', '*Command', '*Job', '*Middleware', '*Parser', '*Resource', '*Request', '*Trait', '*Factory', '*DTO', '*Mapper', '*Notification']))
                    ->because(
-                       'Presentation layer classes should be clearly identifiable as controllers, commands, jobs, middleware, parsers, resources, form requests, traits, factories, DTOs, or mappers.',
+                       'Presentation layer classes should be clearly identifiable as controllers, commands, jobs, middleware, parsers, resources, form requests, traits, factories, DTOs, mappers, or notifications.',
                    );
 
     // Application services must end with "UseCase", "Service", "Transformer", "Formatter", or "Interface"
@@ -564,10 +564,11 @@ return static function (Config $config): void {
                        'App\Domain\*\Concerns',
                        'App\Domain\*\Commands',
                        'App\Domain\*\Resolvers',
+                       'App\Domain\*\Events',
                    ))
                    ->because(
                        'Domain classes must be organized into Value Objects, Entities, Enums, Exceptions, '
-                       . 'Contracts, Concerns, Commands, or Resolvers subdirectories for discoverability and maintainability.',
+                       . 'Contracts, Concerns, Commands, Resolvers, or Events subdirectories for discoverability and maintainability.',
                    );
 
     // RULE 10: All Exceptions must end with *Exception suffix
@@ -601,6 +602,32 @@ return static function (Config $config): void {
                        'All exception classes must reside in Exceptions/ subdirectories '
                        . 'and end with Exception suffix for clarity and consistency.',
                    );
+
+    // RULE 11: Events must be in Events/ directories within Domain layer
+    //
+    // WHY: Events represent business concepts (things that happened).
+    // They belong in Domain and should be organized in Events/ subdirectories.
+    //
+    $rules[] = Rule::allClasses()
+                   ->that(new HaveNameMatching('*Event'))
+                   ->should(new ResideInOneOfTheseNamespaces(
+                       'App\Domain\Events',
+                       'App\Domain\*\Events',
+                   ))
+                   ->because('Events represent business concepts and must reside in Domain layer Events/ subdirectories.');
+
+    // RULE 12: Listeners must be in Listeners/ directories within Infrastructure layer
+    //
+    // WHY: Listeners handle side effects (notifications, external services).
+    // They belong in Infrastructure and should be organized in Listeners/ subdirectories.
+    //
+    $rules[] = Rule::allClasses()
+                   ->that(new HaveNameMatching('*Listener'))
+                   ->should(new ResideInOneOfTheseNamespaces(
+                       'App\Infrastructure\Listeners',
+                       'App\Infrastructure\*\Listeners',
+                   ))
+                   ->because('Listeners handle side effects and must reside in Infrastructure layer Listeners/ subdirectories.');
 
     $config->add($classSet, ...$rules);
     /*

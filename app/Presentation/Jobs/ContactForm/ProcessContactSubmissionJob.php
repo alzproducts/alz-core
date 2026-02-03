@@ -6,6 +6,9 @@ namespace App\Presentation\Jobs\ContactForm;
 
 use App\Application\ContactSubmission\UseCases\ProcessContactSubmissionUseCase;
 use App\Application\Contracts\ContactSubmission\ContactSubmissionActionRepositoryInterface;
+use App\Application\Contracts\ContactSubmission\ContactSubmissionRepositoryInterface;
+use App\Domain\ContactSubmission\Events\ContactFormProcessedEvent;
+use App\Domain\ContactSubmission\Events\ContactFormProcessingFailedEvent;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
@@ -13,6 +16,7 @@ use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Api\UnexpectedApiResultException;
 use App\Domain\Exceptions\Data\InsufficientDataException;
 use App\Domain\Exceptions\Data\MalformedStoredDataException;
+use App\Domain\ValueObjects\IntId;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -92,6 +96,7 @@ final class ProcessContactSubmissionJob implements ShouldBeUnique, ShouldQueue
     public function handle(
         ProcessContactSubmissionUseCase $useCase,
         ContactSubmissionActionRepositoryInterface $actionRepository,
+        ContactSubmissionRepositoryInterface $submissionRepository,
     ): void {
         Log::info('ProcessContactSubmissionJob starting', [
             'submission_id' => $this->submissionId,
@@ -103,11 +108,23 @@ final class ProcessContactSubmissionJob implements ShouldBeUnique, ShouldQueue
         $actionRepository->incrementAttempts($this->actionId);
 
         try {
-            $useCase->execute($this->submissionId, $this->actionId);
+            $conversationId = $useCase->execute($this->submissionId, $this->actionId);
 
             Log::info('ProcessContactSubmissionJob completed', [
                 'submission_id' => $this->submissionId,
+                'conversation_id' => $conversationId,
             ]);
+
+            // Fire success event for notifications (queued listener handles Slack)
+            if ($conversationId !== null) {
+                $submission = $submissionRepository->findById($this->submissionId);
+                \event(new ContactFormProcessedEvent(
+                    submissionId: $this->submissionId,
+                    conversationId: IntId::from($conversationId),
+                    customerName: $submission->form->name,
+                    customerEmail: $submission->form->email,
+                ));
+            }
         } catch (ExternalServiceUnavailableException $e) {
             // Transient failure - retry with API's delay or use backoff
             Log::warning('HelpScout unavailable during contact processing', [
@@ -222,5 +239,11 @@ final class ProcessContactSubmissionJob implements ShouldBeUnique, ShouldQueue
                 'mark_failed_message' => $e->getMessage(),
             ]);
         }
+
+        // Fire failure event for notifications (queued listener handles Slack)
+        \event(new ContactFormProcessingFailedEvent(
+            submissionId: $this->submissionId,
+            exceptionMessage: $exception->getMessage(),
+        ));
     }
 }
