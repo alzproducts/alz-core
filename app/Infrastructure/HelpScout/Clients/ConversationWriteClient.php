@@ -15,6 +15,7 @@ use App\Domain\Exceptions\Data\InsufficientDataException;
 use App\Infrastructure\HelpScout\HelpScoutConfig;
 use App\Infrastructure\HelpScout\Mappers\CustomerMapper;
 use App\Infrastructure\HelpScout\Mappers\TagMapper;
+use App\Infrastructure\HelpScout\Support\VndErrorFormatter;
 use GuzzleHttp\Exception\ConnectException;
 use HelpScout\Api\ApiClient;
 use HelpScout\Api\Conversations\Conversation;
@@ -94,10 +95,16 @@ final readonly class ConversationWriteClient implements ConversationWriteClientI
             ]);
             throw new AuthenticationExpiredException(self::SERVICE_NAME, 'Authentication failed', $e);
         } catch (ValidationErrorException $e) {
+            $vndError = $e->getError();
             Log::error(self::SERVICE_NAME . ' validation error during conversation creation', [
                 'error' => $e->getMessage(),
+                ...VndErrorFormatter::toLogContext($vndError),
             ]);
-            throw new InvalidApiRequestException(self::SERVICE_NAME, $e->getMessage(), $e);
+            throw new InvalidApiRequestException(
+                self::SERVICE_NAME,
+                VndErrorFormatter::toMessage($vndError),
+                $e,
+            );
         } catch (ConnectException $e) {
             Log::error(self::SERVICE_NAME . ' connection failed during conversation creation', [
                 'error' => $e->getMessage(),

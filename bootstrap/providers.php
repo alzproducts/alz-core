@@ -6,6 +6,7 @@ use App\Providers\AppServiceProvider;
 use App\Providers\AuthServiceProvider;
 use App\Providers\BingAdsServiceProvider;
 use App\Providers\CacheServiceProvider;
+use App\Providers\ContactSubmissionServiceProvider;
 use App\Providers\DatabaseServiceProvider;
 use App\Providers\GoogleAdsServiceProvider;
 use App\Providers\HelpScoutServiceProvider;
@@ -31,6 +32,7 @@ return [
     AuthServiceProvider::class,
     BingAdsServiceProvider::class,
     CacheServiceProvider::class,
+    ContactSubmissionServiceProvider::class,
     GoogleAdsServiceProvider::class,
     HelpScoutServiceProvider::class,
     LinnworksServiceProvider::class,
