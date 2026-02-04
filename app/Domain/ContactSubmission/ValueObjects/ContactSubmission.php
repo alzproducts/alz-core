@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Domain\ContactSubmission\ValueObjects;
 
+use DateTimeImmutable;
+
 /**
  * Aggregate root for a contact form submission.
  *
@@ -19,6 +21,7 @@ final readonly class ContactSubmission
         public SubmissionContext $context,
         public ?SelectedProduct $product = null,
         public ?string $shopwiredCustomerId = null,
+        public ?DateTimeImmutable $submittedAt = null,
     ) {}
 
     /**

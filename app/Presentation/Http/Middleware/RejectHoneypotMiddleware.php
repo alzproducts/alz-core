@@ -8,6 +8,7 @@ use Closure;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -39,9 +40,9 @@ final class RejectHoneypotMiddleware
                 'field' => $field,
             ]);
 
-            // Silent 200 response - don't reveal to bot that it was detected
+            // Silent 200 response with fake UUID - don't reveal to bot that it was detected
             return new JsonResponse(
-                ['id' => 'spam-filtered'],
+                ['id' => (string) Str::uuid()],
                 Response::HTTP_OK,
             );
         }

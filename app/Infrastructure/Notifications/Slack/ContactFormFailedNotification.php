@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Notifications\Slack;
 
+use App\Domain\ContactSubmission\ValueObjects\ContactFormData;
 use App\Domain\ContactSubmission\ValueObjects\ContactSubmission;
+use App\Domain\ContactSubmission\ValueObjects\SelectedProduct;
 use Illuminate\Notifications\Notification;
 use Illuminate\Notifications\Slack\BlockKit\Blocks\ContextBlock;
 use Illuminate\Notifications\Slack\BlockKit\Blocks\SectionBlock;
@@ -22,6 +24,7 @@ final class ContactFormFailedNotification extends Notification
         public readonly ContactSubmission $submission,
         public readonly string $submissionId,
         public readonly string $errorMessage,
+        public readonly ?bool $emailValid = null,
     ) {}
 
     /**
@@ -35,44 +38,76 @@ final class ContactFormFailedNotification extends Notification
     public function toSlack(object $notifiable): SlackMessage
     {
         $form = $this->submission->form;
-        $product = $this->submission->product;
 
-        // Build customer details with markdown formatting
+        $message = (new SlackMessage())
+            ->text("Contact form processing failed for {$form->email}")
+            ->headerBlock('⚠️ Contact Form Processing Failed');
+
+        $this->addCustomerSection($message, $form);
+        $this->addReasonSection($message, $form);
+        $this->addMessageSection($message, $form);
+        $this->addProductSection($message);
+        $this->addMetadataSection($message, $form);
+        $this->addEmailValiditySection($message);
+        $this->addErrorSection($message);
+
+        return $message;
+    }
+
+    private function addCustomerSection(SlackMessage $message, ContactFormData $form): void
+    {
         $customerDetails = "*Email:* {$form->email}\n*Name:* {$form->name}";
         if ($form->phone !== null) {
             $customerDetails .= "\n*Phone:* {$form->phone}";
         }
 
-        $message = (new SlackMessage())
-            ->text("Contact form processing failed for {$form->email}")
-            ->headerBlock('⚠️ Contact Form Processing Failed')
-            ->sectionBlock(static function (SectionBlock $block) use ($customerDetails): void {
-                $block->text($customerDetails)->markdown();
-            })
-            ->sectionBlock(static function (SectionBlock $block) use ($form): void {
-                $block->text("*Reason:* {$form->reason->label()}")->markdown();
-            })
-            ->sectionBlock(static function (SectionBlock $block) use ($form): void {
-                // Truncate message to ~500 chars to keep notification readable
-                $truncatedMessage = \mb_strlen($form->message) > 500
-                    ? \mb_substr($form->message, 0, 497) . '...'
-                    : $form->message;
+        $message->sectionBlock(static function (SectionBlock $block) use ($customerDetails): void {
+            $block->text($customerDetails)->markdown();
+        });
+    }
 
-                $block->text("*Message:*\n{$truncatedMessage}")->markdown();
-            });
+    private function addReasonSection(SlackMessage $message, ContactFormData $form): void
+    {
+        $message->sectionBlock(static function (SectionBlock $block) use ($form): void {
+            $block->text("*Reason:* {$form->reason->label()}")->markdown();
+        });
+    }
 
-        // Add product context if present
-        if ($product !== null) {
-            $message->sectionBlock(static function (SectionBlock $block) use ($product): void {
-                $productText = "*Product:*\n{$product->sku}";
-                if ($product->title !== null) {
-                    $productText .= " - {$product->title}";
-                }
-                $block->text($productText)->markdown();
-            });
+    private function addMessageSection(SlackMessage $message, ContactFormData $form): void
+    {
+        $truncatedMessage = \mb_strlen($form->message) > 500
+            ? \mb_substr($form->message, 0, 497) . '...'
+            : $form->message;
+
+        $message->sectionBlock(static function (SectionBlock $block) use ($truncatedMessage): void {
+            $block->text("*Message:*\n{$truncatedMessage}")->markdown();
+        });
+    }
+
+    private function addProductSection(SlackMessage $message): void
+    {
+        $product = $this->submission->product;
+        if ($product === null) {
+            return;
         }
 
-        // Add order/postcode metadata if present
+        $message->sectionBlock(static function (SectionBlock $block) use ($product): void {
+            $block->text(self::formatProductText($product))->markdown();
+        });
+    }
+
+    private static function formatProductText(SelectedProduct $product): string
+    {
+        $text = "*Product:*\n{$product->sku}";
+        if ($product->title !== null) {
+            $text .= " - {$product->title}";
+        }
+
+        return $text;
+    }
+
+    private function addMetadataSection(SlackMessage $message, ContactFormData $form): void
+    {
         $metadata = [];
         if ($form->orderNumber !== null) {
             $metadata[] = "*Order:* {$form->orderNumber}";
@@ -80,22 +115,47 @@ final class ContactFormFailedNotification extends Notification
         if ($form->deliveryPostcode !== null) {
             $metadata[] = "*Postcode:* {$form->deliveryPostcode}";
         }
+
         if ($metadata !== []) {
             $message->sectionBlock(static function (SectionBlock $block) use ($metadata): void {
                 $block->text(\implode('  |  ', $metadata))->markdown();
             });
         }
+    }
 
-        // Add error details
+    private function addEmailValiditySection(SlackMessage $message): void
+    {
+        if ($this->emailValid !== false) {
+            return;
+        }
+
+        $message->sectionBlock(static function (SectionBlock $block): void {
+            $block->text('⚠️ *Email Valid:* No (failed RFC/DNS check)')->markdown();
+        });
+    }
+
+    private function addErrorSection(SlackMessage $message): void
+    {
         $message
             ->dividerBlock()
             ->sectionBlock(function (SectionBlock $block): void {
                 $block->text("*Error:*\n```{$this->errorMessage}```")->markdown();
             })
             ->contextBlock(function (ContextBlock $block): void {
-                $block->text("Submission ID: {$this->submissionId}");
+                $block->text($this->buildContextText());
             });
+    }
 
-        return $message;
+    private function buildContextText(): string
+    {
+        $contextParts = ["Submission ID: {$this->submissionId}"];
+
+        if ($this->submission->submittedAt !== null) {
+            $submittedTime = $this->submission->submittedAt->format('g:ia');
+            $submittedDate = $this->submission->submittedAt->format('j M');
+            $contextParts[] = "Submitted: {$submittedDate} at {$submittedTime}";
+        }
+
+        return \implode('  •  ', $contextParts);
     }
 }

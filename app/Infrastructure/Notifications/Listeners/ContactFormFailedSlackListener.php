@@ -51,6 +51,7 @@ final class ContactFormFailedSlackListener implements ShouldQueue
                 submission: $submission,
                 submissionId: $event->submissionId,
                 errorMessage: $event->exceptionMessage,
+                emailValid: $event->emailValid,
             ));
     }
 

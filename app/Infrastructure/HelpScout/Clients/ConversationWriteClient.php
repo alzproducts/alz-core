@@ -12,6 +12,7 @@ use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\UnexpectedApiResultException;
 use App\Domain\Exceptions\Data\InsufficientDataException;
+use App\Domain\ValueObjects\IntId;
 use App\Infrastructure\HelpScout\HelpScoutConfig;
 use App\Infrastructure\HelpScout\Mappers\CustomerMapper;
 use App\Infrastructure\HelpScout\Mappers\TagMapper;
@@ -20,6 +21,8 @@ use GuzzleHttp\Exception\ConnectException;
 use HelpScout\Api\ApiClient;
 use HelpScout\Api\Conversations\Conversation;
 use HelpScout\Api\Conversations\Threads\CustomerThread;
+use HelpScout\Api\Conversations\Threads\NoteThread;
+use HelpScout\Api\Conversations\Threads\Thread;
 use HelpScout\Api\Customers\Customer;
 use HelpScout\Api\Exception\AuthenticationException;
 use HelpScout\Api\Exception\ValidationErrorException;
@@ -68,6 +71,20 @@ final readonly class ConversationWriteClient implements ConversationWriteClientI
     }
 
     /**
+     * @throws AuthenticationExpiredException When credentials invalid/expired
+     * @throws ExternalServiceUnavailableException When API unavailable
+     * @throws InvalidApiRequestException When request parameters invalid
+     */
+    public function addNoteToConversation(IntId $conversationId, string $noteText, IntId $userId): void
+    {
+        $thread = new NoteThread();
+        $thread->setText($noteText);
+        $thread->setUserId($userId->value);
+
+        $this->executeCreateThread($conversationId->value, $thread);
+    }
+
+    /**
      * Execute the SDK create call with exception translation.
      *
      * Caller should set Log::withContext() with relevant identifiers (e.g., submission_id)
@@ -107,6 +124,44 @@ final readonly class ConversationWriteClient implements ConversationWriteClientI
             );
         } catch (ConnectException $e) {
             Log::error(self::SERVICE_NAME . ' connection failed during conversation creation', [
+                'error' => $e->getMessage(),
+            ]);
+            throw new ExternalServiceUnavailableException(self::SERVICE_NAME, previous: $e);
+        }
+    }
+
+    /**
+     * Execute the SDK thread create call with exception translation.
+     *
+     * @throws AuthenticationExpiredException When credentials invalid/expired
+     * @throws ExternalServiceUnavailableException When API unavailable
+     * @throws InvalidApiRequestException When request parameters invalid
+     */
+    private function executeCreateThread(int $conversationId, Thread $thread): void
+    {
+        try {
+            $this->sdkClient->threads()->create($conversationId, $thread);
+        } catch (AuthenticationException $e) {
+            Log::error(self::SERVICE_NAME . ' authentication failed during thread creation', [
+                'conversation_id' => $conversationId,
+                'error' => $e->getMessage(),
+            ]);
+            throw new AuthenticationExpiredException(self::SERVICE_NAME, 'Authentication failed', $e);
+        } catch (ValidationErrorException $e) {
+            $vndError = $e->getError();
+            Log::error(self::SERVICE_NAME . ' validation error during thread creation', [
+                'conversation_id' => $conversationId,
+                'error' => $e->getMessage(),
+                ...VndErrorFormatter::toLogContext($vndError),
+            ]);
+            throw new InvalidApiRequestException(
+                self::SERVICE_NAME,
+                VndErrorFormatter::toMessage($vndError),
+                $e,
+            );
+        } catch (ConnectException $e) {
+            Log::error(self::SERVICE_NAME . ' connection failed during thread creation', [
+                'conversation_id' => $conversationId,
                 'error' => $e->getMessage(),
             ]);
             throw new ExternalServiceUnavailableException(self::SERVICE_NAME, previous: $e);

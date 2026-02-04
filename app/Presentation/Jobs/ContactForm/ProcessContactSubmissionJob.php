@@ -7,6 +7,7 @@ namespace App\Presentation\Jobs\ContactForm;
 use App\Application\ContactSubmission\UseCases\ProcessContactSubmissionUseCase;
 use App\Application\Contracts\ContactSubmission\ContactSubmissionActionRepositoryInterface;
 use App\Application\Contracts\ContactSubmission\ContactSubmissionRepositoryInterface;
+use App\Application\Contracts\EmailValidationServiceInterface;
 use App\Domain\ContactSubmission\Events\ContactFormProcessedEvent;
 use App\Domain\ContactSubmission\Events\ContactFormProcessingFailedEvent;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
@@ -240,10 +241,25 @@ final class ProcessContactSubmissionJob implements ShouldBeUnique, ShouldQueue
             ]);
         }
 
+        // Validate email for the failure notification (helps support team know if email is reachable)
+        $emailValid = null;
+        try {
+            $submissionRepository = \app(ContactSubmissionRepositoryInterface::class);
+            $emailValidator = \app(EmailValidationServiceInterface::class);
+            $submission = $submissionRepository->findById($this->submissionId);
+            $emailValid = $emailValidator->isValid($submission->form->email);
+        } catch (Throwable $e) { // @ignoreException - failed() must not throw; email validity is non-critical
+            Log::warning('Could not validate email for failure notification', [
+                'submission_id' => $this->submissionId,
+                'exception' => $e::class,
+            ]);
+        }
+
         // Fire failure event for notifications (queued listener handles Slack)
         \event(new ContactFormProcessingFailedEvent(
             submissionId: $this->submissionId,
             exceptionMessage: $exception->getMessage(),
+            emailValid: $emailValid,
         ));
     }
 }

@@ -114,6 +114,7 @@ final class ContactSubmissionMapper
             ),
             product: self::buildProduct($model),
             shopwiredCustomerId: $model->shopwired_customer_id,
+            submittedAt: $model->created_at->toDateTimeImmutable(),
         );
     }
 

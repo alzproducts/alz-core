@@ -7,6 +7,7 @@ namespace App\Application\ContactSubmission\UseCases;
 use App\Application\ContactSubmission\Transformers\ContactSubmissionToConversationCommandTransformer;
 use App\Application\Contracts\ContactSubmission\ContactSubmissionActionRepositoryInterface;
 use App\Application\Contracts\ContactSubmission\ContactSubmissionRepositoryInterface;
+use App\Application\Contracts\EmailValidationServiceInterface;
 use App\Application\Contracts\HelpScout\ConversationWriteClientInterface;
 use App\Domain\ContactSubmission\Enums\ActionStatus;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
@@ -17,6 +18,9 @@ use App\Domain\Exceptions\Api\UnexpectedApiResultException;
 use App\Domain\Exceptions\Data\InsufficientDataException;
 use App\Domain\Exceptions\Data\MalformedStoredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
+use App\Domain\ValueObjects\IntId;
+use Psr\Log\LoggerInterface;
+use Throwable;
 
 /**
  * Processes a contact submission by creating a HelpScout conversation.
@@ -37,6 +41,9 @@ final readonly class ProcessContactSubmissionUseCase
         private ContactSubmissionActionRepositoryInterface $actionRepository,
         private ConversationWriteClientInterface $helpScoutClient,
         private ContactSubmissionToConversationCommandTransformer $transformer,
+        private EmailValidationServiceInterface $emailValidator,
+        private LoggerInterface $logger,
+        private IntId $helpScoutSystemUserId,
     ) {}
 
     /**
@@ -76,9 +83,45 @@ final readonly class ProcessContactSubmissionUseCase
         // Create HelpScout conversation
         $conversationId = $this->helpScoutClient->createConversationFromCustomer($command);
 
+        // Validate email and add warning note if invalid (non-blocking)
+        $this->addEmailValidationNoteIfInvalid($submission->form->email, $conversationId);
+
         // Mark completed with external ID for reference
         $this->actionRepository->markCompleted($actionId, (string) $conversationId);
 
         return $conversationId;
+    }
+
+    /**
+     * Add an internal note to HelpScout if the email fails validation.
+     *
+     * Non-blocking: logs errors but continues processing. The note is
+     * informational to help support staff - not critical to the workflow.
+     */
+    private function addEmailValidationNoteIfInvalid(string $email, int $conversationId): void
+    {
+        if ($this->emailValidator->isValid($email)) {
+            return;
+        }
+
+        try {
+            $noteText = "⚠️ Email validation warning: The email address '{$email}' may be invalid "
+                . '(failed RFC/DNS check). Please verify before replying.';
+
+            $this->helpScoutClient->addNoteToConversation(
+                IntId::from($conversationId),
+                $noteText,
+                $this->helpScoutSystemUserId,
+            );
+
+            $this->logger->info('Added email validation warning note to HelpScout conversation', [
+                'conversation_id' => $conversationId,
+            ]);
+        } catch (Throwable $e) { // @ignoreException - Non-critical: note failure shouldn't fail submission
+            $this->logger->error('Failed to add email validation note to HelpScout conversation', [
+                'conversation_id' => $conversationId,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 }

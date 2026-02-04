@@ -14,5 +14,6 @@ final readonly class ContactFormProcessingFailedEvent
     public function __construct(
         public string $submissionId,
         public string $exceptionMessage,
+        public ?bool $emailValid = null,
     ) {}
 }
