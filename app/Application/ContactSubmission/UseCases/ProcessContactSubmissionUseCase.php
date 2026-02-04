@@ -9,6 +9,7 @@ use App\Application\Contracts\ContactSubmission\ContactSubmissionActionRepositor
 use App\Application\Contracts\ContactSubmission\ContactSubmissionRepositoryInterface;
 use App\Application\Contracts\EmailValidationServiceInterface;
 use App\Application\Contracts\HelpScout\ConversationWriteClientInterface;
+use App\Application\HelpScout\Config\HelpScoutSystemUserId;
 use App\Domain\ContactSubmission\Enums\ActionStatus;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
@@ -43,7 +44,7 @@ final readonly class ProcessContactSubmissionUseCase
         private ContactSubmissionToConversationCommandTransformer $transformer,
         private EmailValidationServiceInterface $emailValidator,
         private LoggerInterface $logger,
-        private IntId $helpScoutSystemUserId,
+        private HelpScoutSystemUserId $helpScoutSystemUserId,
     ) {}
 
     /**
@@ -111,7 +112,7 @@ final readonly class ProcessContactSubmissionUseCase
             $this->helpScoutClient->addNoteToConversation(
                 IntId::from($conversationId),
                 $noteText,
-                $this->helpScoutSystemUserId,
+                $this->helpScoutSystemUserId->value,
             );
 
             $this->logger->info('Added email validation warning note to HelpScout conversation', [
