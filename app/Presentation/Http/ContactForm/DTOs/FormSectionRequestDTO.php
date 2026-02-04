@@ -32,7 +32,7 @@ final class FormSectionRequestDTO extends Data
         public readonly string $email,
         #[Required, StringType]
         public readonly string $reason,
-        #[Required, StringType]
+        #[Required, StringType, Max(10000)]
         public readonly string $message,
         #[Nullable, StringType, Max(50)]
         public readonly ?string $phone = null,

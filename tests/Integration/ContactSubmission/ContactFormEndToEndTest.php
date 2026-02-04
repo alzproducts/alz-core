@@ -114,6 +114,7 @@ final class ContactFormEndToEndTest extends TestCase
         $job->handle(
             \app(ProcessContactSubmissionUseCase::class),
             \app(ContactSubmissionActionRepositoryInterface::class),
+            \app(ContactSubmissionRepositoryInterface::class),
         );
 
         // Assert 4: HelpScout received correct data
@@ -154,6 +155,7 @@ final class ContactFormEndToEndTest extends TestCase
         $job->handle(
             \app(ProcessContactSubmissionUseCase::class),
             \app(ContactSubmissionActionRepositoryInterface::class),
+            \app(ContactSubmissionRepositoryInterface::class),
         );
 
         // Assert product details in body
@@ -189,6 +191,7 @@ final class ContactFormEndToEndTest extends TestCase
         $job->handle(
             \app(ProcessContactSubmissionUseCase::class),
             \app(ContactSubmissionActionRepositoryInterface::class),
+            \app(ContactSubmissionRepositoryInterface::class),
         );
 
         // Assert customer metadata in body
@@ -237,6 +240,7 @@ final class ContactFormEndToEndTest extends TestCase
         $job->handle(
             \app(ProcessContactSubmissionUseCase::class),
             \app(ContactSubmissionActionRepositoryInterface::class),
+            \app(ContactSubmissionRepositoryInterface::class),
         );
 
         // Assert PII is NOT in the body
