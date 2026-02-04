@@ -198,6 +198,9 @@ final class TestSlackNotificationCommand extends Command
 
     private function buildContactFailedNotification(): ContactFormFailedNotification
     {
+        // Simulate a submission from ~15 minutes ago to test time display
+        $submittedAt = new DateTimeImmutable('-15 minutes');
+
         $submission = new ContactSubmission(
             form: new ContactFormData(
                 name: 'John Smith',
@@ -220,12 +223,14 @@ final class TestSlackNotificationCommand extends Command
                 title: 'Folding Mobility Scooter - Blue',
                 price: '£899.00',
             ),
+            submittedAt: $submittedAt,
         );
 
         return new ContactFormFailedNotification(
             submission: $submission,
             submissionId: 'test-' . \now()->format('YmdHis'),
             errorMessage: 'HelpScout API error: 503 Service Unavailable - The server is temporarily unable to handle the request.',
+            emailValid: false, // Test the email validity warning display
         );
     }
 
