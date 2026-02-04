@@ -34,8 +34,13 @@ ignore:
   - "**/*Exception.php"
   - "**/*Factory.php"
   - "**/Contracts/**"  # Interfaces have no implementation to test
+  # Domain Events are data carriers with no logic (TestingStrategy.md)
+  - "**/*Event.php"
   # Pure delegation UseCases (no branching logic worth testing)
   - "app/Application/Shopwired/UseCases/SyncAllCustomersUseCase.php"
+  - "app/Application/ContactSubmission/UseCases/SubmitContactFormUseCase.php"
+  # Simple result value objects - minimal logic
+  - "app/Application/ContactSubmission/Results/SubmitContactFormResult.php"
 
 # Components show coverage by code area in Codecov dashboard
 # See: https://docs.codecov.com/docs/components

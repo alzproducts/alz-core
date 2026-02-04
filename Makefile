@@ -267,9 +267,10 @@ test-app-coverage: ## Run Application tests with 70% coverage (App code only)
 	@echo "$(MODE)"
 	$(EXEC) -d xdebug.mode=coverage vendor/bin/pest --configuration=phpunit-app.xml --coverage --min=70
 
-test-coverage: ## Run tests with coverage report (no global threshold - layer-specific thresholds enforced in mutation testing)
-	@echo "$(MODE)"
-	$(EXEC) -d xdebug.mode=coverage vendor/bin/pest --coverage
+test-coverage: ## Run Domain (90%) + Application (70%) coverage checks in parallel - PR gate
+	@echo "$(YELLOW)Running layer coverage checks in parallel...$(NC)"
+	@$(MAKE) -j2 test-domain-coverage test-app-coverage
+	@echo "$(GREEN)✓ All layer coverage thresholds passed (Domain 90%, Application 70%)$(NC)"
 
 coverage-html: ## Generate HTML coverage report (open coverage-report/index.html)
 	@echo "$(MODE)"
