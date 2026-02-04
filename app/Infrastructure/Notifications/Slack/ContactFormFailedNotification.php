@@ -37,19 +37,20 @@ final class ContactFormFailedNotification extends Notification
         $form = $this->submission->form;
         $product = $this->submission->product;
 
+        // Build customer details with markdown formatting
+        $customerDetails = "*Email:* {$form->email}\n*Name:* {$form->name}";
+        if ($form->phone !== null) {
+            $customerDetails .= "\n*Phone:* {$form->phone}";
+        }
+
         $message = (new SlackMessage())
             ->text("Contact form processing failed for {$form->email}")
             ->headerBlock('⚠️ Contact Form Processing Failed')
-            ->sectionBlock(static function (SectionBlock $block) use ($form): void {
-                $block->field("*Email:*\n{$form->email}");
-                $block->field("*Name:*\n{$form->name}");
-
-                if ($form->phone !== null) {
-                    $block->field("*Phone:*\n{$form->phone}");
-                }
+            ->sectionBlock(static function (SectionBlock $block) use ($customerDetails): void {
+                $block->text($customerDetails)->markdown();
             })
             ->sectionBlock(static function (SectionBlock $block) use ($form): void {
-                $block->text("*Reason:*\n{$form->reason->label()}");
+                $block->text("*Reason:* {$form->reason->label()}")->markdown();
             })
             ->sectionBlock(static function (SectionBlock $block) use ($form): void {
                 // Truncate message to ~500 chars to keep notification readable
@@ -57,7 +58,7 @@ final class ContactFormFailedNotification extends Notification
                     ? \mb_substr($form->message, 0, 497) . '...'
                     : $form->message;
 
-                $block->text("*Message:*\n{$truncatedMessage}");
+                $block->text("*Message:*\n{$truncatedMessage}")->markdown();
             });
 
         // Add product context if present
@@ -67,7 +68,7 @@ final class ContactFormFailedNotification extends Notification
                 if ($product->title !== null) {
                     $productText .= " - {$product->title}";
                 }
-                $block->text($productText);
+                $block->text($productText)->markdown();
             });
         }
 
@@ -81,7 +82,7 @@ final class ContactFormFailedNotification extends Notification
         }
         if ($metadata !== []) {
             $message->sectionBlock(static function (SectionBlock $block) use ($metadata): void {
-                $block->text(\implode('  |  ', $metadata));
+                $block->text(\implode('  |  ', $metadata))->markdown();
             });
         }
 
@@ -89,7 +90,7 @@ final class ContactFormFailedNotification extends Notification
         $message
             ->dividerBlock()
             ->sectionBlock(function (SectionBlock $block): void {
-                $block->text("*Error:*\n```{$this->errorMessage}```");
+                $block->text("*Error:*\n```{$this->errorMessage}```")->markdown();
             })
             ->contextBlock(function (ContextBlock $block): void {
                 $block->text("Submission ID: {$this->submissionId}");

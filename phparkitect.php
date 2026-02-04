@@ -242,8 +242,11 @@ return static function (Config $config): void {
     //        }
     //    }
     //
+    // EXCEPTION: Commands\Dev\ may access Infrastructure for dev/debug utilities
+    //
     $rules[] = Rule::allClasses()
                    ->that(new ResideInOneOfTheseNamespaces($presentation))
+                   ->andThat(new NotResideInTheseNamespaces('App\Presentation\Console\Commands\Dev'))
                    ->should(
                        new NotHaveDependencyOutsideNamespace(
                            $presentation,

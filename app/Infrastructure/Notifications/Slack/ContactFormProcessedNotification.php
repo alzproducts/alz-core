@@ -39,7 +39,7 @@ final class ContactFormProcessedNotification extends Notification
             ->text("New contact form processed for {$this->customerName}")
             ->headerBlock('✅ Contact Form Processed')
             ->sectionBlock(function (SectionBlock $block): void {
-                $block->text("New contact form submitted by *{$this->customerName}* ({$this->customerEmail})");
+                $block->text("New contact form submitted by *{$this->customerName}* ({$this->customerEmail})")->markdown();
             })
             ->actionsBlock(static function (ActionsBlock $block) use ($helpScoutUrl): void {
                 $block->button('View in HelpScout')

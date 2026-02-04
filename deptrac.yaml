@@ -22,10 +22,21 @@ deptrac:
         - type: classLike
           value: ^App\\Infrastructure\\.*
 
-    - name: Presentation
+    # Dev utilities can access Infrastructure for testing/debugging
+    - name: PresentationDev
       collectors:
         - type: classLike
-          value: ^App\\Presentation\\.*
+          value: ^App\\Presentation\\Console\\Commands\\Dev\\.*
+
+    - name: Presentation
+      collectors:
+        - type: bool
+          must:
+            - type: classLike
+              value: ^App\\Presentation\\.*
+          must_not:
+            - type: classLike
+              value: ^App\\Presentation\\Console\\Commands\\Dev\\.*
 
     # === External Package Layers (Whitelist) ===
 
@@ -165,6 +176,19 @@ deptrac:
     Presentation:
       - Application
       - Domain
+      - LaravelFramework
+      - SpatieData
+      - SymfonyHttp
+      - SymfonyHttpKernel
+      - FirebaseJwt
+      - SentrySdk
+      - CarbonDateTime
+
+    # Dev utilities: Same as Presentation + Infrastructure (for testing/debugging commands)
+    PresentationDev:
+      - Application
+      - Domain
+      - Infrastructure
       - LaravelFramework
       - SpatieData
       - SymfonyHttp
