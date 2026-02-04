@@ -314,6 +314,40 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
         );
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * Queries both products and variations tables, combining results in PHP.
+     * Uses distinct merge to avoid duplicates when a SKU exists in both tables.
+     *
+     * @return list<string>
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function getAllSkus(): array
+    {
+        return $this->eloquentGateway->query(static function (): array {
+            /** @var list<string> $productSkus */
+            $productSkus = self::MODEL_CLASS::query()
+                ->whereNotNull('sku')
+                ->where('sku', '!=', '')
+                ->pluck('sku')
+                ->all();
+
+            /** @var list<string> $variationSkus */
+            $variationSkus = ProductVariationModel::query()
+                ->whereNotNull('sku')
+                ->where('sku', '!=', '')
+                ->pluck('sku')
+                ->all();
+
+            // Merge and deduplicate
+            return \array_values(\array_unique([...$productSkus, ...$variationSkus]));
+        });
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
     // Abstract Method Implementations
     // ─────────────────────────────────────────────────────────────────────────
