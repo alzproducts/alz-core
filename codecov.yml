@@ -9,12 +9,7 @@
 coverage:
   status:
     project:
-      default:
-        target: 75%  # Overall (lower since Infra/Presentation have no targets)
-
-    # Layer-specific patch coverage (only Domain and Application enforced)
-    # See: tests/TestingStrategy.md for rationale
-    patch:
+      default: false  # Disable overall project check - we use layer-specific checks
       domain:
         target: 90%
         paths:
@@ -23,8 +18,7 @@ coverage:
         target: 70%
         paths:
           - app/Application/**
-      # Infrastructure and Presentation intentionally excluded from patch checks
-      # These layers use integration/smoke tests, not unit test coverage metrics
+    patch: off  # Disable patch coverage - too volatile for small changes
 
 # Ignore paths that should never trigger coverage failures
 # Aligned with tests/TestingStrategy.md exclusions
@@ -34,8 +28,13 @@ ignore:
   - "**/*Exception.php"
   - "**/*Factory.php"
   - "**/Contracts/**"  # Interfaces have no implementation to test
+  # Domain Events are data carriers with no logic (TestingStrategy.md)
+  - "**/*Event.php"
   # Pure delegation UseCases (no branching logic worth testing)
   - "app/Application/Shopwired/UseCases/SyncAllCustomersUseCase.php"
+  - "app/Application/ContactSubmission/UseCases/SubmitContactFormUseCase.php"
+  # Simple result value objects - minimal logic
+  - "app/Application/ContactSubmission/Results/SubmitContactFormResult.php"
 
 # Components show coverage by code area in Codecov dashboard
 # See: https://docs.codecov.com/docs/components

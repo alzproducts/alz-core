@@ -18,6 +18,7 @@
         "ext-xmlreader": "*",
         "ext-zip": "*",
         "firebase/php-jwt": "*",
+        "giggsey/libphonenumber-for-php-lite": "^9.0",
         "googleads/google-ads-php": "^31.1",
         "helpscout/api-laravel": "^2.1",
         "laravel/framework": "^12.0",
@@ -31,6 +32,7 @@
         "predis/predis": "^3.2",
         "sentry/sentry-laravel": "^4.0",
         "spatie/laravel-data": "^4.18",
+        "theiconic/name-parser": "^1.2",
         "webmozart/assert": "^1.11"
     },
     "require-dev": {
@@ -115,6 +117,7 @@
         "test": "make test",
         "test:feature": "make test-feature",
         "test:coverage": "make test-coverage",
+        "test:coverage:ci": "make test-coverage-ci",
         "test:domain": "make test-domain",
         "test:domain:coverage": "make test-domain-coverage",
         "test:app": "make test-app",
