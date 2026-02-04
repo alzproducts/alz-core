@@ -15,6 +15,7 @@ use Generator;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Log;
+use RuntimeException;
 
 /**
  * Generic Eloquent operations gateway.
@@ -562,6 +563,48 @@ final readonly class EloquentGateway
         ]);
 
         return $result;
+    }
+
+    /**
+     * Insert a single record and return the generated ID.
+     *
+     * Uses fillForInsert() to apply casts, generate UUID, and add timestamps.
+     * Returns the generated ID (typically UUID for models with HasUuids trait).
+     *
+     * @param class-string<Model> $modelClass
+     * @param array<string, mixed> $attributes Data to insert
+     *
+     * @return string The generated primary key (UUID)
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException When unique constraint violated
+     * @throws ExternalServiceUnavailableException
+     * @throws RuntimeException If fillForInsert returns unexpected result (programming error)
+     */
+    public function insertOne(string $modelClass, array $attributes): string
+    {
+        return $this->dbGateway->transact(
+            static function () use ($modelClass, $attributes): string {
+                // fillForInsert applies casts, sets UUIDs, and adds timestamps
+                /** @var list<array<string, mixed>> $preparedRows */
+                $preparedRows = $modelClass::query()->fillForInsert([$attributes]);
+
+                // Extract the single prepared row (fillForInsert always returns same count as input)
+                $preparedRow = \array_shift($preparedRows);
+
+                if ($preparedRow === null) {
+                    throw new RuntimeException('fillForInsert returned empty array');
+                }
+
+                if (!isset($preparedRow['id']) || !\is_string($preparedRow['id'])) {
+                    throw new RuntimeException('Prepared row missing string id key');
+                }
+
+                $modelClass::insert([$preparedRow]);
+
+                return $preparedRow['id'];
+            },
+        );
     }
 
     /**

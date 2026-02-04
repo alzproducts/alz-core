@@ -8,15 +8,18 @@ use App\Application\Contracts\HelpScout\AgentsClientInterface;
 use App\Application\Contracts\HelpScout\ConnectivityClientInterface;
 use App\Application\Contracts\HelpScout\ConversationsClientInterface;
 use App\Application\Contracts\HelpScout\MailboxesClientInterface;
+use App\Application\HelpScout\Config\HelpScoutSystemUserId;
 use App\Application\HelpScout\Services\CachingHelpScoutService;
 use App\Application\HelpScout\UseCases\GetEscalationsUseCase;
 use App\Application\Support\EmailAliasResolver;
+use App\Domain\ValueObjects\IntId;
 use App\Infrastructure\HelpScout\HelpScoutClientFactory;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Contracts\Support\DeferrableProvider;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\ServiceProvider;
 use Override;
+use RuntimeException;
 
 /**
  * HelpScout API Client Service Provider.
@@ -63,6 +66,23 @@ final class HelpScoutServiceProvider extends ServiceProvider implements Deferrab
             static fn(): ConnectivityClientInterface => HelpScoutClientFactory::createConnectivityClient(),
         );
 
+        // System user ID for automated HelpScout actions (notes, etc.)
+        $this->app->singleton(
+            HelpScoutSystemUserId::class,
+            static function (): HelpScoutSystemUserId {
+                $configValue = \config('helpscout.system_user_id');
+                $userId = \is_numeric($configValue) ? (int) $configValue : 0;
+
+                if ($userId <= 0) {
+                    throw new RuntimeException(
+                        'HELPSCOUT_SYSTEM_USER_ID not configured. Get ID from: Help Scout → Manage → Users → Click user → ID in URL',
+                    );
+                }
+
+                return new HelpScoutSystemUserId(IntId::from($userId));
+            },
+        );
+
         $this->app->bind(
             GetEscalationsUseCase::class,
             static fn(Application $app): GetEscalationsUseCase => new GetEscalationsUseCase(
@@ -96,6 +116,7 @@ final class HelpScoutServiceProvider extends ServiceProvider implements Deferrab
             MailboxesClientInterface::class,
             AgentsClientInterface::class,
             ConnectivityClientInterface::class,
+            HelpScoutSystemUserId::class,
             GetEscalationsUseCase::class,
         ];
     }

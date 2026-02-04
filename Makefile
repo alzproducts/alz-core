@@ -147,7 +147,7 @@ lint: ## Run parallel lint (Pint + PHPStan + PHPArkitect + Deptrac + TLint-fast)
 	@$(EXEC) vendor/bin/pint --test --parallel > /tmp/alz-lint/1-pint.txt 2>&1 & P1=$$!; \
 	 $(EXEC) -d xdebug.mode=off vendor/bin/phpstan analyse > /tmp/alz-lint/2-phpstan.txt 2>&1 & P2=$$!; \
 	 $(EXEC) -d xdebug.mode=off vendor/bin/phparkitect check > /tmp/alz-lint/3-phparkitect.txt 2>&1 & P3=$$!; \
-	 $(EXEC) -d xdebug.mode=off vendor/bin/deptrac analyse --fail-on-uncovered > /tmp/alz-lint/4-deptrac.txt 2>&1 & P4=$$!; \
+	 $(EXEC) -d xdebug.mode=off vendor/bin/deptrac analyse --fail-on-uncovered --report-uncovered > /tmp/alz-lint/4-deptrac.txt 2>&1 & P4=$$!; \
 	 (vendor/bin/tlint lint app/ && vendor/bin/tlint lint routes/) > /tmp/alz-lint/5-tlint.txt 2>&1 & P5=$$!; \
 	 E1=0; E2=0; E3=0; E4=0; E5=0; \
 	 wait $$P1 || E1=$$?; wait $$P2 || E2=$$?; wait $$P3 || E3=$$?; wait $$P4 || E4=$$?; wait $$P5 || E5=$$?; \
@@ -267,9 +267,14 @@ test-app-coverage: ## Run Application tests with 70% coverage (App code only)
 	@echo "$(MODE)"
 	$(EXEC) -d xdebug.mode=coverage vendor/bin/pest --configuration=phpunit-app.xml --coverage --min=70
 
-test-coverage: ## Run tests with coverage report (no global threshold - layer-specific thresholds enforced in mutation testing)
+test-coverage: ## Run Domain (90%) + Application (70%) coverage checks in parallel - PR gate
+	@echo "$(YELLOW)Running layer coverage checks in parallel...$(NC)"
+	@$(MAKE) -j2 test-domain-coverage test-app-coverage
+	@echo "$(GREEN)✓ All layer coverage thresholds passed (Domain 90%, Application 70%)$(NC)"
+
+test-coverage-ci: ## Generate coverage.xml for CI/Codecov upload (all tests)
 	@echo "$(MODE)"
-	$(EXEC) -d xdebug.mode=coverage vendor/bin/pest --coverage
+	$(EXEC) -d xdebug.mode=coverage vendor/bin/pest --coverage-clover=coverage.xml
 
 coverage-html: ## Generate HTML coverage report (open coverage-report/index.html)
 	@echo "$(MODE)"
