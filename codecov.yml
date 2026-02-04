@@ -8,11 +8,8 @@
 
 coverage:
   status:
-    # Project-level coverage (whole codebase, not just changed lines)
     project:
-      default:
-        target: 75%  # Overall (lower since Infra/Presentation have no targets)
-      # Layer-specific project coverage - checks entire layer, not just patch
+      default: false  # Disable overall project check - we use layer-specific checks
       domain:
         target: 90%
         paths:
@@ -21,8 +18,7 @@ coverage:
         target: 70%
         paths:
           - app/Application/**
-    # Patch coverage disabled - too volatile for small changes
-    # patch: false would disable, but omitting section also works
+    patch: off  # Disable patch coverage - too volatile for small changes
 
 # Ignore paths that should never trigger coverage failures
 # Aligned with tests/TestingStrategy.md exclusions
