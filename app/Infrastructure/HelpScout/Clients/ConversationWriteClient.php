@@ -16,16 +16,12 @@ use App\Domain\ValueObjects\IntId;
 use App\Infrastructure\HelpScout\HelpScoutConfig;
 use App\Infrastructure\HelpScout\Mappers\CustomerMapper;
 use App\Infrastructure\HelpScout\Mappers\TagMapper;
-use App\Infrastructure\HelpScout\Support\VndErrorFormatter;
-use GuzzleHttp\Exception\ConnectException;
+use App\Infrastructure\HelpScout\Support\SdkExceptionTranslator;
 use HelpScout\Api\ApiClient;
 use HelpScout\Api\Conversations\Conversation;
 use HelpScout\Api\Conversations\Threads\CustomerThread;
 use HelpScout\Api\Conversations\Threads\NoteThread;
-use HelpScout\Api\Conversations\Threads\Thread;
 use HelpScout\Api\Customers\Customer;
-use HelpScout\Api\Exception\AuthenticationException;
-use HelpScout\Api\Exception\ValidationErrorException;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -67,7 +63,17 @@ final readonly class ConversationWriteClient implements ConversationWriteClientI
         $thread = $this->buildCustomerThread($customer, $command->body);
         $conversation = $this->buildConversation($command, $customer, $thread);
 
-        return $this->executeCreate($conversation);
+        $conversationId = SdkExceptionTranslator::execute(
+            fn(): ?int => $this->sdkClient->conversations()->create($conversation),
+            'conversation creation',
+        );
+
+        if ($conversationId === null) {
+            Log::error(self::SERVICE_NAME . ' create returned null conversation ID');
+            throw new UnexpectedApiResultException(self::SERVICE_NAME, 'Create returned null conversation ID');
+        }
+
+        return $conversationId;
     }
 
     /**
@@ -81,91 +87,11 @@ final readonly class ConversationWriteClient implements ConversationWriteClientI
         $thread->setText($noteText);
         $thread->setUserId($userId->value);
 
-        $this->executeCreateThread($conversationId->value, $thread);
-    }
-
-    /**
-     * Execute the SDK create call with exception translation.
-     *
-     * Caller should set Log::withContext() with relevant identifiers (e.g., submission_id)
-     * before calling - this allows correlation without logging PII in Infrastructure.
-     *
-     * @throws AuthenticationExpiredException When credentials invalid/expired
-     * @throws ExternalServiceUnavailableException When API unavailable
-     * @throws InvalidApiRequestException When request parameters invalid
-     * @throws UnexpectedApiResultException When API returns null conversation ID
-     */
-    private function executeCreate(Conversation $conversation): int
-    {
-        try {
-            $conversationId = $this->sdkClient->conversations()->create($conversation);
-
-            if ($conversationId === null) {
-                Log::error(self::SERVICE_NAME . ' create returned null conversation ID');
-                throw new UnexpectedApiResultException(self::SERVICE_NAME, 'Create returned null conversation ID');
-            }
-
-            return $conversationId;
-        } catch (AuthenticationException $e) {
-            Log::error(self::SERVICE_NAME . ' authentication failed during conversation creation', [
-                'error' => $e->getMessage(),
-            ]);
-            throw new AuthenticationExpiredException(self::SERVICE_NAME, 'Authentication failed', $e);
-        } catch (ValidationErrorException $e) {
-            $vndError = $e->getError();
-            Log::error(self::SERVICE_NAME . ' validation error during conversation creation', [
-                'error' => $e->getMessage(),
-                ...VndErrorFormatter::toLogContext($vndError),
-            ]);
-            throw new InvalidApiRequestException(
-                self::SERVICE_NAME,
-                VndErrorFormatter::toMessage($vndError),
-                $e,
-            );
-        } catch (ConnectException $e) {
-            Log::error(self::SERVICE_NAME . ' connection failed during conversation creation', [
-                'error' => $e->getMessage(),
-            ]);
-            throw new ExternalServiceUnavailableException(self::SERVICE_NAME, previous: $e);
-        }
-    }
-
-    /**
-     * Execute the SDK thread create call with exception translation.
-     *
-     * @throws AuthenticationExpiredException When credentials invalid/expired
-     * @throws ExternalServiceUnavailableException When API unavailable
-     * @throws InvalidApiRequestException When request parameters invalid
-     */
-    private function executeCreateThread(int $conversationId, Thread $thread): void
-    {
-        try {
-            $this->sdkClient->threads()->create($conversationId, $thread);
-        } catch (AuthenticationException $e) {
-            Log::error(self::SERVICE_NAME . ' authentication failed during thread creation', [
-                'conversation_id' => $conversationId,
-                'error' => $e->getMessage(),
-            ]);
-            throw new AuthenticationExpiredException(self::SERVICE_NAME, 'Authentication failed', $e);
-        } catch (ValidationErrorException $e) {
-            $vndError = $e->getError();
-            Log::error(self::SERVICE_NAME . ' validation error during thread creation', [
-                'conversation_id' => $conversationId,
-                'error' => $e->getMessage(),
-                ...VndErrorFormatter::toLogContext($vndError),
-            ]);
-            throw new InvalidApiRequestException(
-                self::SERVICE_NAME,
-                VndErrorFormatter::toMessage($vndError),
-                $e,
-            );
-        } catch (ConnectException $e) {
-            Log::error(self::SERVICE_NAME . ' connection failed during thread creation', [
-                'conversation_id' => $conversationId,
-                'error' => $e->getMessage(),
-            ]);
-            throw new ExternalServiceUnavailableException(self::SERVICE_NAME, previous: $e);
-        }
+        SdkExceptionTranslator::execute(
+            fn() => $this->sdkClient->threads()->create($conversationId->value, $thread),
+            'thread creation',
+            ['conversation_id' => $conversationId->value],
+        );
     }
 
     /**

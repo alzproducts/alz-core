@@ -225,6 +225,12 @@ parameters:
         -
             identifier: symplify.multipleClassLikeInFile
             path: app/Infrastructure/Linnworks/Queries/*
+        # SdkExceptionTranslator uses @param-immediately-invoked-callable to propagate SDK exceptions,
+        # but PHPStan can't see that the translator's catch blocks handle ValidationErrorException.
+        # The exceptions ARE caught and translated - this is a PHPStan limitation with closure exception tracking.
+        -
+            identifier: missingType.checkedException
+            path: app/Infrastructure/HelpScout/Clients/ConversationWriteClient.php
     paths:
         - app/
         - bootstrap/
