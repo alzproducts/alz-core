@@ -69,8 +69,11 @@ final readonly class ContactSubmissionToConversationCommandTransformer
     {
         $lines = [];
 
-        // Build product line with available info
-        $productLine = "Product: {$product->sku}";
+        // Build product identifier line with productId and optionally SKU
+        $productLine = "Product ID: {$product->productId->value}";
+        if ($product->sku !== null) {
+            $productLine .= " (SKU: {$product->sku})";
+        }
         if ($product->title !== null) {
             $productLine .= " - {$product->title}";
         }

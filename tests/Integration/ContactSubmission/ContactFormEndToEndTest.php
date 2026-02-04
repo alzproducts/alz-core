@@ -6,6 +6,7 @@ namespace Tests\Integration\ContactSubmission;
 
 use App\Application\ContactSubmission\UseCases\ProcessContactSubmissionUseCase;
 use App\Application\Contracts\ContactSubmission\ContactSubmissionActionRepositoryInterface;
+use App\Application\Contracts\ContactSubmission\ContactSubmissionRepositoryInterface;
 use App\Application\Contracts\HelpScout\ConversationWriteClientInterface;
 use App\Application\HelpScout\Commands\CreateCustomerConversationCommand;
 use App\Domain\ContactSubmission\Enums\ActionStatus;
@@ -160,7 +161,7 @@ final class ContactFormEndToEndTest extends TestCase
 
         // Assert product details in body
         self::assertNotNull($capturedCommand);
-        self::assertStringContainsString("Product: {$payload['product']['sku']}", $capturedCommand->body);
+        self::assertStringContainsString("Product ID: {$payload['product']['product_id']} (SKU: {$payload['product']['sku']})", $capturedCommand->body);
         self::assertStringContainsString("Price: {$payload['product']['price']}", $capturedCommand->body);
     }
 
@@ -302,6 +303,7 @@ final class ContactFormEndToEndTest extends TestCase
     {
         $payload = $this->buildFakePayload();
         $payload['product'] = [
+            'product_id' => $this->faker->numberBetween(10000, 99999),
             'sku' => $this->faker->regexify('[A-Z]{2,4}-[0-9]{3,5}'),
             'source' => 'recently_viewed',
             'title' => $this->faker->words(4, true),

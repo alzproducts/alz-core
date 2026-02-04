@@ -12,6 +12,7 @@ use App\Domain\ContactSubmission\ValueObjects\ContactSubmission;
 use App\Domain\ContactSubmission\ValueObjects\MarketingAttribution;
 use App\Domain\ContactSubmission\ValueObjects\SelectedProduct;
 use App\Domain\ContactSubmission\ValueObjects\SubmissionContext;
+use App\Domain\ValueObjects\IntId;
 use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -63,7 +64,7 @@ final class ContactSubmissionTest extends TestCase
         $consent = new ConsentStatus(true, true, true, true);
         $attribution = new MarketingAttribution(gclid: 'test-gclid');
         $context = $this->createContext();
-        $product = new SelectedProduct(sku: 'TEST-SKU', source: ProductSource::RecentlyViewed);
+        $product = new SelectedProduct(productId: IntId::from(12345), sku: 'TEST-SKU', source: ProductSource::RecentlyViewed);
 
         $submission = new ContactSubmission(
             form: $form,

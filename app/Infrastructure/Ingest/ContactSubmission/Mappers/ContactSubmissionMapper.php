@@ -12,6 +12,7 @@ use App\Domain\ContactSubmission\ValueObjects\MarketingAttribution;
 use App\Domain\ContactSubmission\ValueObjects\SelectedProduct;
 use App\Domain\ContactSubmission\ValueObjects\SubmissionContext;
 use App\Domain\Exceptions\Data\MalformedStoredDataException;
+use App\Domain\ValueObjects\IntId;
 use App\Infrastructure\Ingest\ContactSubmission\Models\ContactSubmissionModel;
 
 /**
@@ -134,11 +135,12 @@ final class ContactSubmissionMapper
         }
 
         $data = $model->product;
-        $sku = self::extractRequiredSku($data);
+        $productId = self::extractRequiredProductId($data);
         $source = self::extractOptionalSource($data);
 
         return new SelectedProduct(
-            sku: $sku,
+            productId: $productId,
+            sku: self::extractString($data, 'sku'),
             title: self::extractString($data, 'title'),
             price: self::extractString($data, 'price'),
             url: self::extractString($data, 'url'),
@@ -149,22 +151,22 @@ final class ContactSubmissionMapper
     }
 
     /**
-     * Extract and validate required SKU field.
+     * Extract and validate required product_id field.
      *
      * @param array<string, mixed> $data
      *
-     * @throws MalformedStoredDataException If SKU is missing or invalid
+     * @throws MalformedStoredDataException If product_id is missing or invalid
      */
-    private static function extractRequiredSku(array $data): string
+    private static function extractRequiredProductId(array $data): IntId
     {
-        if (!isset($data['sku']) || !\is_string($data['sku'])) {
+        if (!isset($data['product_id']) || !\is_int($data['product_id'])) {
             throw new MalformedStoredDataException(
                 'contact_submissions.product',
-                'missing or invalid required field: sku',
+                'missing or invalid required field: product_id',
             );
         }
 
-        return $data['sku'];
+        return IntId::fromTrusted($data['product_id']);
     }
 
     /**

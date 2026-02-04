@@ -7,6 +7,7 @@ namespace Tests\Unit\Domain\ContactSubmission\ValueObjects;
 use App\Domain\ContactSubmission\Enums\ProductSource;
 use App\Domain\ContactSubmission\ValueObjects\SelectedProduct;
 use App\Domain\Exceptions\Data\InvalidEnumValueException;
+use App\Domain\ValueObjects\IntId;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -16,7 +17,7 @@ use PHPUnit\Framework\TestCase;
  * SelectedProduct Value Object Unit Tests.
  *
  * Tests the product context attached to contact form submissions.
- * SKU validation and serialization are critical for data integrity.
+ * ProductId is required; SKU and other fields are optional.
  */
 #[CoversClass(SelectedProduct::class)]
 final class SelectedProductTest extends TestCase
@@ -28,11 +29,13 @@ final class SelectedProductTest extends TestCase
     */
 
     #[Test]
-    public function it_creates_with_required_sku_only(): void
+    public function it_creates_with_required_productId_only(): void
     {
-        $product = new SelectedProduct(sku: 'ABC-123');
+        $productId = IntId::from(12345);
+        $product = new SelectedProduct(productId: $productId);
 
-        self::assertSame('ABC-123', $product->sku);
+        self::assertSame(12345, $product->productId->value);
+        self::assertNull($product->sku);
         self::assertNull($product->title);
         self::assertNull($product->price);
         self::assertNull($product->url);
@@ -42,9 +45,22 @@ final class SelectedProductTest extends TestCase
     }
 
     #[Test]
+    public function it_creates_with_productId_and_sku(): void
+    {
+        $product = new SelectedProduct(
+            productId: IntId::from(12345),
+            sku: 'ABC-123',
+        );
+
+        self::assertSame(12345, $product->productId->value);
+        self::assertSame('ABC-123', $product->sku);
+    }
+
+    #[Test]
     public function it_creates_with_all_fields(): void
     {
         $product = new SelectedProduct(
+            productId: IntId::from(67890),
             sku: 'PROD-456',
             title: 'Premium Walking Frame',
             price: '£149.99',
@@ -54,6 +70,7 @@ final class SelectedProductTest extends TestCase
             quantity: 2,
         );
 
+        self::assertSame(67890, $product->productId->value);
         self::assertSame('PROD-456', $product->sku);
         self::assertSame('Premium Walking Frame', $product->title);
         self::assertSame('£149.99', $product->price);
@@ -65,25 +82,29 @@ final class SelectedProductTest extends TestCase
 
     /*
     |--------------------------------------------------------------------------
-    | SKU Validation Tests
+    | SKU Tests (Now Optional)
     |--------------------------------------------------------------------------
     */
 
     #[Test]
-    public function it_throws_for_empty_sku(): void
+    public function it_accepts_null_sku(): void
     {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Product SKU is required');
+        $product = new SelectedProduct(
+            productId: IntId::from(12345),
+            sku: null,
+        );
 
-        new SelectedProduct(sku: '');
+        self::assertNull($product->sku);
     }
 
     #[Test]
     public function it_accepts_whitespace_sku(): void
     {
-        // Note: Assert::notEmpty() only checks for empty string, not whitespace
         // Frontend validation handles whitespace; domain accepts for resilience
-        $product = new SelectedProduct(sku: '   ');
+        $product = new SelectedProduct(
+            productId: IntId::from(12345),
+            sku: '   ',
+        );
 
         self::assertSame('   ', $product->sku);
     }
@@ -97,7 +118,10 @@ final class SelectedProductTest extends TestCase
     #[Test]
     public function it_accepts_null_quantity(): void
     {
-        $product = new SelectedProduct(sku: 'SKU-123', quantity: null);
+        $product = new SelectedProduct(
+            productId: IntId::from(12345),
+            quantity: null,
+        );
 
         self::assertNull($product->quantity);
     }
@@ -105,7 +129,10 @@ final class SelectedProductTest extends TestCase
     #[Test]
     public function it_accepts_quantity_of_one(): void
     {
-        $product = new SelectedProduct(sku: 'SKU-123', quantity: 1);
+        $product = new SelectedProduct(
+            productId: IntId::from(12345),
+            quantity: 1,
+        );
 
         self::assertSame(1, $product->quantity);
     }
@@ -113,7 +140,10 @@ final class SelectedProductTest extends TestCase
     #[Test]
     public function it_accepts_quantity_of_999(): void
     {
-        $product = new SelectedProduct(sku: 'SKU-123', quantity: 999);
+        $product = new SelectedProduct(
+            productId: IntId::from(12345),
+            quantity: 999,
+        );
 
         self::assertSame(999, $product->quantity);
     }
@@ -124,7 +154,10 @@ final class SelectedProductTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Quantity must be between 1 and 999');
 
-        new SelectedProduct(sku: 'SKU-123', quantity: 0);
+        new SelectedProduct(
+            productId: IntId::from(12345),
+            quantity: 0,
+        );
     }
 
     #[Test]
@@ -133,7 +166,10 @@ final class SelectedProductTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Quantity must be between 1 and 999');
 
-        new SelectedProduct(sku: 'SKU-123', quantity: 1000);
+        new SelectedProduct(
+            productId: IntId::from(12345),
+            quantity: 1000,
+        );
     }
 
     #[Test]
@@ -142,7 +178,10 @@ final class SelectedProductTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Quantity must be between 1 and 999');
 
-        new SelectedProduct(sku: 'SKU-123', quantity: -1);
+        new SelectedProduct(
+            productId: IntId::from(12345),
+            quantity: -1,
+        );
     }
 
     /*
@@ -155,6 +194,7 @@ final class SelectedProductTest extends TestCase
     public function toArray_serializes_all_fields(): void
     {
         $product = new SelectedProduct(
+            productId: IntId::from(54321),
             sku: 'PROD-789',
             title: 'Test Product',
             price: '£99.99',
@@ -166,6 +206,7 @@ final class SelectedProductTest extends TestCase
 
         $array = $product->toArray();
 
+        self::assertSame(54321, $array['product_id']);
         self::assertSame('PROD-789', $array['sku']);
         self::assertSame('Test Product', $array['title']);
         self::assertSame('£99.99', $array['price']);
@@ -178,11 +219,12 @@ final class SelectedProductTest extends TestCase
     #[Test]
     public function toArray_serializes_null_fields(): void
     {
-        $product = new SelectedProduct(sku: 'MIN-SKU');
+        $product = new SelectedProduct(productId: IntId::from(11111));
 
         $array = $product->toArray();
 
-        self::assertSame('MIN-SKU', $array['sku']);
+        self::assertSame(11111, $array['product_id']);
+        self::assertNull($array['sku']);
         self::assertNull($array['title']);
         self::assertNull($array['price']);
         self::assertNull($array['url']);
@@ -195,7 +237,7 @@ final class SelectedProductTest extends TestCase
     public function toArray_converts_enum_to_string_value(): void
     {
         $product = new SelectedProduct(
-            sku: 'TEST',
+            productId: IntId::from(12345),
             source: ProductSource::RecentlyViewed,
         );
 
@@ -215,6 +257,7 @@ final class SelectedProductTest extends TestCase
     public function fromArray_reconstructs_with_all_fields(): void
     {
         $data = [
+            'product_id' => 99999,
             'sku' => 'RESTORED-123',
             'title' => 'Restored Product',
             'price' => '£199.99',
@@ -226,6 +269,7 @@ final class SelectedProductTest extends TestCase
 
         $product = SelectedProduct::fromArray($data);
 
+        self::assertSame(99999, $product->productId->value);
         self::assertSame('RESTORED-123', $product->sku);
         self::assertSame('Restored Product', $product->title);
         self::assertSame('£199.99', $product->price);
@@ -239,7 +283,8 @@ final class SelectedProductTest extends TestCase
     public function fromArray_handles_null_optionals(): void
     {
         $data = [
-            'sku' => 'MINIMAL',
+            'product_id' => 12345,
+            'sku' => null,
             'title' => null,
             'price' => null,
             'url' => null,
@@ -250,7 +295,8 @@ final class SelectedProductTest extends TestCase
 
         $product = SelectedProduct::fromArray($data);
 
-        self::assertSame('MINIMAL', $product->sku);
+        self::assertSame(12345, $product->productId->value);
+        self::assertNull($product->sku);
         self::assertNull($product->title);
         self::assertNull($product->price);
         self::assertNull($product->url);
@@ -263,12 +309,13 @@ final class SelectedProductTest extends TestCase
     public function fromArray_handles_missing_optional_keys(): void
     {
         $data = [
-            'sku' => 'SPARSE',
+            'product_id' => 77777,
         ];
 
         $product = SelectedProduct::fromArray($data);
 
-        self::assertSame('SPARSE', $product->sku);
+        self::assertSame(77777, $product->productId->value);
+        self::assertNull($product->sku);
         self::assertNull($product->title);
         self::assertNull($product->source);
     }
@@ -279,7 +326,7 @@ final class SelectedProductTest extends TestCase
         $this->expectException(InvalidEnumValueException::class);
 
         SelectedProduct::fromArray([
-            'sku' => 'TEST',
+            'product_id' => 12345,
             'source' => 'invalid_source',
         ]);
     }
@@ -288,6 +335,7 @@ final class SelectedProductTest extends TestCase
     public function roundtrip_preserves_data(): void
     {
         $original = new SelectedProduct(
+            productId: IntId::from(88888),
             sku: 'ROUNDTRIP',
             title: 'Roundtrip Test',
             price: '£50.00',
@@ -299,6 +347,7 @@ final class SelectedProductTest extends TestCase
 
         $restored = SelectedProduct::fromArray($original->toArray());
 
+        self::assertSame($original->productId->value, $restored->productId->value);
         self::assertSame($original->sku, $restored->sku);
         self::assertSame($original->title, $restored->title);
         self::assertSame($original->price, $restored->price);
@@ -306,5 +355,21 @@ final class SelectedProductTest extends TestCase
         self::assertSame($original->source, $restored->source);
         self::assertSame($original->manualUrl, $restored->manualUrl);
         self::assertSame($original->quantity, $restored->quantity);
+    }
+
+    #[Test]
+    public function roundtrip_preserves_data_with_null_sku(): void
+    {
+        $original = new SelectedProduct(
+            productId: IntId::from(44444),
+            sku: null,
+            title: 'Product Without SKU',
+        );
+
+        $restored = SelectedProduct::fromArray($original->toArray());
+
+        self::assertSame($original->productId->value, $restored->productId->value);
+        self::assertNull($restored->sku);
+        self::assertSame($original->title, $restored->title);
     }
 }

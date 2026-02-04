@@ -11,6 +11,7 @@ use App\Domain\ContactSubmission\ValueObjects\ContactSubmission;
 use App\Domain\ContactSubmission\ValueObjects\MarketingAttribution;
 use App\Domain\ContactSubmission\ValueObjects\SelectedProduct;
 use App\Domain\ContactSubmission\ValueObjects\SubmissionContext;
+use App\Domain\ValueObjects\IntId;
 use App\Infrastructure\Notifications\Slack\ContactFormFailedNotification;
 use App\Infrastructure\Notifications\Slack\ContactFormProcessedNotification;
 use DateTimeImmutable;
@@ -219,7 +220,8 @@ final class TestSlackNotificationCommand extends Command
                 pageUrl: 'https://alzproducts.co.uk/contact',
             ),
             product: new SelectedProduct(
-                sku: 'MOB-SCOOTER-001',
+                productId: IntId::from(123456),
+                sku: null, // Testing product with ID but no SKU
                 title: 'Folding Mobility Scooter - Blue',
                 price: '£899.00',
             ),

@@ -14,6 +14,7 @@ use App\Domain\ContactSubmission\ValueObjects\SelectedProduct;
 use App\Domain\ContactSubmission\ValueObjects\SubmissionContext;
 use App\Domain\Customer\Enums\CustomerType;
 use App\Domain\Exceptions\Data\InvalidEnumValueException;
+use App\Domain\ValueObjects\IntId;
 use App\Presentation\Http\ContactForm\DTOs\ContactFormRequestDTO;
 use App\Presentation\Http\ContactForm\DTOs\FormSectionRequestDTO;
 use DateMalformedStringException;
@@ -113,6 +114,7 @@ final readonly class ContactSubmissionMapper
         }
 
         return new SelectedProduct(
+            productId: IntId::from($data->product->productId),
             sku: $data->product->sku,
             title: $data->product->title,
             price: $data->product->price,

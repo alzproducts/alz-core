@@ -98,7 +98,11 @@ final class ContactFormFailedNotification extends Notification
 
     private static function formatProductText(SelectedProduct $product): string
     {
-        $text = "*Product:*\n{$product->sku}";
+        $identifier = $product->sku !== null
+            ? "ID {$product->productId->value} (SKU: {$product->sku})"
+            : "ID {$product->productId->value}";
+
+        $text = "*Product:*\n{$identifier}";
         if ($product->title !== null) {
             $text .= " - {$product->title}";
         }
