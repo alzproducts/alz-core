@@ -8,13 +8,11 @@
 
 coverage:
   status:
+    # Project-level coverage (whole codebase, not just changed lines)
     project:
       default:
         target: 75%  # Overall (lower since Infra/Presentation have no targets)
-
-    # Layer-specific patch coverage (only Domain and Application enforced)
-    # See: tests/TestingStrategy.md for rationale
-    patch:
+      # Layer-specific project coverage - checks entire layer, not just patch
       domain:
         target: 90%
         paths:
@@ -23,8 +21,8 @@ coverage:
         target: 70%
         paths:
           - app/Application/**
-      # Infrastructure and Presentation intentionally excluded from patch checks
-      # These layers use integration/smoke tests, not unit test coverage metrics
+    # Patch coverage disabled - too volatile for small changes
+    # patch: false would disable, but omitting section also works
 
 # Ignore paths that should never trigger coverage failures
 # Aligned with tests/TestingStrategy.md exclusions
