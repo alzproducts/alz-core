@@ -117,6 +117,7 @@
         "test": "make test",
         "test:feature": "make test-feature",
         "test:coverage": "make test-coverage",
+        "test:coverage:ci": "make test-coverage-ci",
         "test:domain": "make test-domain",
         "test:domain:coverage": "make test-domain-coverage",
         "test:app": "make test-app",

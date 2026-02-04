@@ -272,6 +272,10 @@ test-coverage: ## Run Domain (90%) + Application (70%) coverage checks in parall
 	@$(MAKE) -j2 test-domain-coverage test-app-coverage
 	@echo "$(GREEN)✓ All layer coverage thresholds passed (Domain 90%, Application 70%)$(NC)"
 
+test-coverage-ci: ## Generate coverage.xml for CI/Codecov upload (all tests)
+	@echo "$(MODE)"
+	$(EXEC) -d xdebug.mode=coverage vendor/bin/pest --coverage-clover=coverage.xml
+
 coverage-html: ## Generate HTML coverage report (open coverage-report/index.html)
 	@echo "$(MODE)"
 	@mkdir -p coverage-report

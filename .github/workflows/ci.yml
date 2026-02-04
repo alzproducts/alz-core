@@ -232,7 +232,7 @@ jobs:
       - name: Execute test suite
         run: |
           if [ "${{ github.event_name }}" == "pull_request" ]; then
-            composer run test:coverage
+            composer run test:coverage:ci
           else
             composer run test
           fi

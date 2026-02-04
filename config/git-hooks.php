@@ -32,6 +32,7 @@ return [
     | Runs full test suite + code quality analysis (~15 seconds with native PHP)
     | All tests use mocks/fakes - no external dependencies
     |
+    | Coverage checks: Run `make test-coverage` manually before PRs
     | Mutation testing moved to CI (runs in parallel, no added wall time)
     */
     'pre-push' => [
