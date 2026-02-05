@@ -317,8 +317,7 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
     /**
      * {@inheritDoc}
      *
-     * Queries both products and variations tables, combining results in PHP.
-     * Uses distinct merge to avoid duplicates when a SKU exists in both tables.
+     * Uses SQL UNION for single-pass query across both tables.
      *
      * @return list<string>
      *
@@ -329,22 +328,21 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
     public function getAllSkus(): array
     {
         return $this->eloquentGateway->query(static function (): array {
-            /** @var list<string> $productSkus */
-            $productSkus = self::MODEL_CLASS::query()
+            /** @var list<string> $skus */
+            $skus = self::MODEL_CLASS::query()
                 ->whereNotNull('sku')
                 ->where('sku', '!=', '')
+                ->select('sku')
+                ->union(
+                    ProductVariationModel::query()
+                        ->whereNotNull('sku')
+                        ->where('sku', '!=', '')
+                        ->select('sku'),
+                )
                 ->pluck('sku')
                 ->all();
 
-            /** @var list<string> $variationSkus */
-            $variationSkus = ProductVariationModel::query()
-                ->whereNotNull('sku')
-                ->where('sku', '!=', '')
-                ->pluck('sku')
-                ->all();
-
-            // Merge and deduplicate
-            return \array_values(\array_unique([...$productSkus, ...$variationSkus]));
+            return $skus;
         });
     }
 
@@ -375,6 +373,27 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
     {
         /** @var Product $entity */
         return $entity->id;
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @param Product $entity
+     */
+    protected function entityToAttributes(object $entity): array
+    {
+        return [
+            'external_id' => $entity->id,
+            ...ProductModelMapper::toModelAttributes($entity),
+        ];
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    protected function getUpsertKeys(): array
+    {
+        return ['external_id'];
     }
 
     /**
