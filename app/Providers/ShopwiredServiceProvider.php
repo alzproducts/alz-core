@@ -11,6 +11,8 @@ use App\Application\Contracts\Shopwired\CustomerClientInterface;
 use App\Application\Contracts\Shopwired\CustomerRepositoryInterface;
 use App\Application\Contracts\Shopwired\CustomFieldClientInterface;
 use App\Application\Contracts\Shopwired\CustomFieldRepositoryInterface;
+use App\Application\Contracts\Shopwired\FilterGroupClientInterface;
+use App\Application\Contracts\Shopwired\FilterGroupRepositoryInterface;
 use App\Application\Contracts\Shopwired\OrderClientInterface;
 use App\Application\Contracts\Shopwired\OrderRepositoryInterface;
 use App\Application\Contracts\Shopwired\ProductClientInterface;
@@ -23,9 +25,11 @@ use App\Infrastructure\Shopwired\Clients\ProductClient;
 use App\Infrastructure\Shopwired\Clients\ProductUpdateClient;
 use App\Infrastructure\Shopwired\Factories\ProductCustomFieldFactory;
 use App\Infrastructure\Shopwired\Factories\ProductDomainFactory;
+use App\Infrastructure\Shopwired\Factories\ProductFilterFactory;
 use App\Infrastructure\Shopwired\Mappers\ProductModelMapper;
 use App\Infrastructure\Shopwired\Repositories\EloquentCustomerRepository;
 use App\Infrastructure\Shopwired\Repositories\EloquentCustomFieldRepository;
+use App\Infrastructure\Shopwired\Repositories\EloquentFilterGroupRepository;
 use App\Infrastructure\Shopwired\Repositories\EloquentOrderRepository;
 use App\Infrastructure\Shopwired\Repositories\EloquentProductRepository;
 use App\Infrastructure\Shopwired\Services\ProductIdentifierResolver;
@@ -75,6 +79,12 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
         $this->app->singleton(
             CustomFieldClientInterface::class,
             static fn(): CustomFieldClientInterface => ShopwiredClientFactory::createCustomFieldClient(),
+        );
+
+        // Filter group client - for filter group definitions
+        $this->app->singleton(
+            FilterGroupClientInterface::class,
+            static fn(): FilterGroupClientInterface => ShopwiredClientFactory::createFilterGroupClient(),
         );
 
         // Customer client - for customer operations
@@ -127,10 +137,19 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
             EloquentCustomFieldRepository::class,
         );
 
+        // Filter group repository - for local database persistence
+        $this->app->singleton(
+            FilterGroupRepositoryInterface::class,
+            EloquentFilterGroupRepository::class,
+        );
+
         // Product custom field factory - scoped to prevent stale registry in Octane
         $this->app->scoped(ProductCustomFieldFactory::class);
 
-        // Product model mapper - scoped as it depends on ProductCustomFieldFactory
+        // Product filter factory - scoped to prevent stale registry in Octane
+        $this->app->scoped(ProductFilterFactory::class);
+
+        // Product model mapper - scoped as it depends on ProductCustomFieldFactory and ProductFilterFactory
         $this->app->scoped(ProductModelMapper::class);
 
         // Product repository - scoped for fresh mapper per queue job
@@ -178,6 +197,8 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
             ConnectivityClientInterface::class,
             CustomFieldClientInterface::class,
             CustomFieldRepositoryInterface::class,
+            FilterGroupClientInterface::class,
+            FilterGroupRepositoryInterface::class,
             CustomerClientInterface::class,
             CustomerRepositoryInterface::class,
             OrderClientInterface::class,
@@ -185,6 +206,7 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
             ProductClientInterface::class,
             ProductCustomFieldFactory::class,
             ProductDomainFactory::class,
+            ProductFilterFactory::class,
             ProductIdentifierResolverInterface::class,
             ProductModelMapper::class,
             ProductRepositoryInterface::class,

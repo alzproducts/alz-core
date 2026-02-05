@@ -61,6 +61,8 @@ final class ProductDomainFactory
             images: $this->buildImages($response->images),
             rawCustomFields: $response->customFields,
             customFields: [],
+            rawFilters: $response->filters,
+            filters: [],
             createdAt: CarbonImmutable::parse($response->createdAt)->toDateTimeImmutable(),
             updatedAt: CarbonImmutable::parse($response->updatedAt)->toDateTimeImmutable(),
         );

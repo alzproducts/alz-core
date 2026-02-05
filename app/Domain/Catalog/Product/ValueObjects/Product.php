@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\Catalog\Product\ValueObjects;
 
 use App\Domain\Catalog\CustomFields\ValueObjects\AbstractCustomFieldValue;
+use App\Domain\Catalog\Filters\ValueObjects\ProductFilter;
 use App\Domain\Catalog\Product\Concerns\BasicProductTrait;
 use App\Domain\Catalog\Product\Contracts\BasicProductInterface;
 use DateTimeImmutable;
@@ -19,6 +20,10 @@ use Webmozart\Assert\Assert;
  * **Custom Fields**: Products have two custom field representations:
  * - `rawCustomFields`: Raw name → value map for storage (always populated)
  * - `customFields`: Typed values from CustomFieldDefinitionRegistry (populated on read)
+ *
+ * **Filters**: Products have two filter representations (same pattern):
+ * - `rawFilters`: Raw optionNo → values map for storage (always populated)
+ * - `filters`: Typed ProductFilter values from FilterGroupRegistry (populated on read)
  *
  * **Creation**:
  * - Write path: {@see \App\Infrastructure\Shopwired\Factories\ProductDomainFactory::fromResponse()}
@@ -53,6 +58,8 @@ final readonly class Product implements BasicProductInterface
      * @param list<ProductImage> $images Product images
      * @param array<string, mixed> $rawCustomFields Raw custom field data (name => value) for storage
      * @param list<AbstractCustomFieldValue> $customFields Typed custom field values (populated on read)
+     * @param array<int|string, list<string>> $rawFilters Raw filter data (optionNo => values) for storage
+     * @param list<ProductFilter> $filters Typed filter values (populated on read)
      * @param DateTimeImmutable $createdAt ShopWired creation timestamp
      * @param DateTimeImmutable $updatedAt ShopWired last update timestamp
      */
@@ -80,6 +87,8 @@ final readonly class Product implements BasicProductInterface
         public array $images,
         public array $rawCustomFields,
         public array $customFields,
+        public array $rawFilters,
+        public array $filters,
         public DateTimeImmutable $createdAt,
         public DateTimeImmutable $updatedAt,
     ) {
@@ -184,4 +193,16 @@ final readonly class Product implements BasicProductInterface
     {
         return $this->getCustomField($name) !== null;
     }
+
+    /**
+     * Get a filter by its group title (e.g., "Size", "Colour").
+     */
+    public function getFilter(string $title): ?ProductFilter
+    {
+        return \array_find(
+            $this->filters,
+            static fn(ProductFilter $filter): bool => $filter->title() === $title,
+        );
+    }
+
 }

@@ -120,6 +120,18 @@ make infection-ci           # CI mode with GitHub logger
 
 ---
 
+## ⚠️ IMPORTANT: Pre-PR Coverage Check
+
+**After creating tests for a feature, ALWAYS run coverage checks before creating a PR:**
+
+```bash
+make test-coverage   # Runs Domain (90%) + Application (70%) checks in parallel
+```
+
+This catches coverage regressions early. The PR gate will fail if coverage drops below thresholds.
+
+---
+
 ## Code Coverage Strategy
 
 **Layer targets defined in `tests/TestingStrategy.md`.**
