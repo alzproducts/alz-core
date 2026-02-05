@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
@@ -21,12 +22,12 @@ return new class extends Migration {
         });
 
         // GIN index for efficient JSONB queries (e.g., find products with specific filter values)
-        Schema::raw('CREATE INDEX products_filters_gin_idx ON shopwired.products USING GIN (filters)');
+        DB::statement('CREATE INDEX products_filters_gin_idx ON shopwired.products USING GIN (filters)');
     }
 
     public function down(): void
     {
-        Schema::raw('DROP INDEX IF EXISTS shopwired.products_filters_gin_idx');
+        DB::statement('DROP INDEX IF EXISTS shopwired.products_filters_gin_idx');
 
         Schema::table('shopwired.products', static function (Blueprint $table): void {
             $table->dropColumn('filters');
