@@ -62,6 +62,24 @@ abstract class AbstractEloquentRepository implements RepositoryWriteInterface
      */
     abstract protected function getEntityIdentifier(object $entity): int|string;
 
+    /**
+     * Convert a domain entity to model attributes for persistence.
+     *
+     * Must return an array suitable for Eloquent upsert, including the upsert key.
+     *
+     * @param T $entity
+     *
+     * @return array<string, mixed>
+     */
+    abstract protected function entityToAttributes(object $entity): array;
+
+    /**
+     * Get the columns that determine uniqueness for upsert operations.
+     *
+     * @return list<string>
+     */
+    abstract protected function getUpsertKeys(): array;
+
     // ─────────────────────────────────────────────────────────────────────────
     // Default Implementations (Override as needed)
     // ─────────────────────────────────────────────────────────────────────────
@@ -131,6 +149,31 @@ abstract class AbstractEloquentRepository implements RepositoryWriteInterface
 
         /** @var T */
         return $model->toDomain();
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Save Operations
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * {@inheritDoc}
+     *
+     * Default implementation uses upsertOne with entityToAttributes() and getUpsertKeys().
+     * Override for entities with child relations or complex persistence logic.
+     *
+     * @param T $entity
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function save(object $entity): void
+    {
+        $this->eloquentGateway->upsertOne(
+            modelClass: $this->getModelClass(),
+            attributes: $this->entityToAttributes($entity),
+            uniqueBy: $this->getUpsertKeys(),
+        );
     }
 
     // ─────────────────────────────────────────────────────────────────────────

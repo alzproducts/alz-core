@@ -12,6 +12,7 @@ use App\Domain\Catalog\Product\ValueObjects\ProductVariation;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Infrastructure\Shopwired\Factories\ProductCustomFieldFactory;
+use App\Infrastructure\Shopwired\Factories\ProductFilterFactory;
 use App\Infrastructure\Shopwired\Models\ProductModel;
 use App\Infrastructure\Shopwired\Models\ProductVariationModel;
 
@@ -25,6 +26,7 @@ final class ProductModelMapper
 {
     public function __construct(
         private readonly ProductCustomFieldFactory $customFieldFactory,
+        private readonly ProductFilterFactory $filterFactory,
     ) {}
 
     /**
@@ -48,6 +50,9 @@ final class ProductModelMapper
 
         /** @var array<string, mixed> $rawCustomFields */
         $rawCustomFields = $model->custom_fields;
+
+        /** @var array<int|string, list<string>> $rawFilters */
+        $rawFilters = $model->filters ?? [];
 
         return new Product(
             id: $model->external_id,
@@ -73,6 +78,8 @@ final class ProductModelMapper
             images: self::buildImages($model->images),
             rawCustomFields: $rawCustomFields,
             customFields: $this->customFieldFactory->fromRawFields($rawCustomFields),
+            rawFilters: $rawFilters,
+            filters: $this->filterFactory->fromRawFilters($rawFilters),
             createdAt: $model->shopwired_created_at->toDateTimeImmutable(),
             updatedAt: $model->shopwired_updated_at->toDateTimeImmutable(),
         );
@@ -113,6 +120,7 @@ final class ProductModelMapper
                 $product->images,
             ),
             'custom_fields' => $product->rawCustomFields,
+            'filters' => $product->rawFilters,
             'shopwired_created_at' => $product->createdAt,
             'shopwired_updated_at' => $product->updatedAt,
         ];

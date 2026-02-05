@@ -317,6 +317,8 @@ final class GenerateVariantSkusUseCaseTest extends TestCase
             images: [],
             rawCustomFields: [],
             customFields: [],
+            rawFilters: [],
+            filters: [],
             createdAt: new DateTimeImmutable(),
             updatedAt: new DateTimeImmutable(),
         );

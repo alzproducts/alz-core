@@ -16,6 +16,7 @@ return [
         'support' => 11667,
         'purchase_orders' => 29767,
         'suppliers_purchasing' => 55362,
+        'accounts' => 140494,
     ],
 
     /*
@@ -35,6 +36,17 @@ return [
     |
     */
     'negative_reviews_tag' => 'negative-review',
+
+    /*
+    |--------------------------------------------------------------------------
+    | System User
+    |--------------------------------------------------------------------------
+    |
+    | HelpScout user ID for automated actions (e.g., adding internal notes).
+    | Get this from: Help Scout → Manage → Users → Click user → ID in URL
+    |
+    */
+    'system_user_id' => (int) env('HELPSCOUT_SYSTEM_USER_ID', 0),
 
     /*
     |--------------------------------------------------------------------------

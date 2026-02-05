@@ -120,6 +120,18 @@ make infection-ci           # CI mode with GitHub logger
 
 ---
 
+## ⚠️ IMPORTANT: Pre-PR Coverage Check
+
+**After creating tests for a feature, ALWAYS run coverage checks before creating a PR:**
+
+```bash
+make test-coverage   # Runs Domain (90%) + Application (70%) checks in parallel
+```
+
+This catches coverage regressions early. The PR gate will fail if coverage drops below thresholds.
+
+---
+
 ## Code Coverage Strategy
 
 **Layer targets defined in `tests/TestingStrategy.md`.**
@@ -145,6 +157,55 @@ make mutate-app             # Application mutation testing (70%+) - uses Pest mu
 ```
 
 **Note**: Both layers use Pest mutate. Infection 0.31.9 is incompatible with PHPUnit 12.5.x (GitHub issue #2698). We'll revisit when Infection is fixed.
+
+---
+
+## Fixing Code Coverage Failures in PRs
+
+### Configuration Files
+| File | Purpose |
+|------|---------|
+| `phpunit.xml` | CI → Codecov (all layers) |
+| `phpunit-domain.xml` | Local 90% Domain check |
+| `phpunit-app.xml` | Local 70% Application check |
+| `codecov.yml` | Mirror exclusions (belt-and-suspenders) |
+
+### Diagnose
+```bash
+make test-domain-coverage  # 90% target
+make test-app-coverage     # 70% target
+make coverage-html && open coverage-report/index.html
+```
+
+### Test vs Exclude Decision
+```
+Data container with no logic? → EXCLUDE
+├─ Events, simple Results, pure delegation UseCases
+Has validation/branching/transformation? → TEST
+├─ Value objects with Assert::*, DTOs with normalization
+├─ UseCases with conditionals, Transformers
+```
+
+### Adding Exclusions
+
+**1. Layer config** (`phpunit-domain.xml` or `phpunit-app.xml`):
+```xml
+<exclude>
+    <file>app/Domain/Path/To/File.php</file>
+    <directory suffix="Event.php">./app/Domain</directory>
+</exclude>
+```
+
+**2. Main config** (`phpunit.xml`) — same exclusions
+
+**3. Codecov** (`codecov.yml`):
+```yaml
+ignore:
+  - "app/Path/To/File.php"
+  - "**/*Event.php"
+```
+
+**In-source alternative** (one-offs only): `@codeCoverageIgnore` annotation
 
 ---
 

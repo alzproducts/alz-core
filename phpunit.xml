@@ -54,6 +54,8 @@
             <directory suffix="Exception.php">./app</directory>
             <directory suffix="Factory.php">./app</directory>
             <file>app/Domain/Review/Rating.php</file>
+            <!-- Domain Events are data carriers with no logic (TestingStrategy.md) -->
+            <directory suffix="Event.php">./app/Domain</directory>
             <!-- SOAP transport - tested via smoke tests, mocking is brittle -->
             <file>app/Infrastructure/BingAds/BingAdsTransport.php</file>
             <!-- Orchestration UseCases - pure delegation, no testable business logic (TestingStrategy.md) -->
@@ -62,6 +64,10 @@
             <file>app/Application/Shopwired/UseCases/ReconcileProductsUseCase.php</file>
             <!-- Simple result value objects - minimal logic, type system handles structure -->
             <file>app/Application/ValueObjects/ReconcileResult.php</file>
+            <!-- Pure delegation UseCases - no branching logic (TestingStrategy.md) -->
+            <file>app/Application/ContactSubmission/UseCases/SubmitContactFormUseCase.php</file>
+            <!-- Simple result value objects - minimal logic -->
+            <file>app/Application/ContactSubmission/Results/SubmitContactFormResult.php</file>
         </exclude>
     </source>
     <php>
