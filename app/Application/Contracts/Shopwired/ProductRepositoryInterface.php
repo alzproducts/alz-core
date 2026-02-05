@@ -148,4 +148,16 @@ interface ProductRepositoryInterface extends RepositoryWriteInterface
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      */
     public function getAllSkus(): array;
+
+    /**
+     * Get all SKUs grouped by product external ID.
+     *
+     * Returns a map: product external ID => list of SKUs (master + variations).
+     *
+     * @return array<int, list<string>>
+     *
+     * @throws DatabaseOperationFailedException On query failure
+     * @throws ExternalServiceUnavailableException When database temporarily unavailable
+     */
+    public function getSkusGroupedByProductId(): array;
 }

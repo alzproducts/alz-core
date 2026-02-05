@@ -346,6 +346,50 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
         });
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * Single raw SQL query using UNION + json_agg for efficient grouping.
+     *
+     * @return array<int, list<string>>
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function getSkusGroupedByProductId(): array
+    {
+        return $this->eloquentGateway->query(static function (): array {
+            $sql = <<<'SQL'
+                SELECT product_id, json_agg(sku) as skus
+                FROM (
+                    SELECT external_id as product_id, sku
+                    FROM shopwired.products
+                    WHERE sku IS NOT NULL AND sku != ''
+                    UNION ALL
+                    SELECT product_external_id as product_id, sku
+                    FROM shopwired.product_variations
+                    WHERE sku IS NOT NULL AND sku != ''
+                ) combined
+                GROUP BY product_id
+                SQL;
+
+            /** @var list<object{product_id: int, skus: string}> $rows */
+            $rows = self::MODEL_CLASS::query()->getConnection()->select($sql);
+
+            /** @var array<int, list<string>> $result */
+            $result = [];
+
+            foreach ($rows as $row) {
+                /** @var list<string> $skus */
+                $skus = \json_decode($row->skus, true);
+                $result[$row->product_id] = $skus;
+            }
+
+            return $result;
+        });
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
     // Abstract Method Implementations
     // ─────────────────────────────────────────────────────────────────────────
