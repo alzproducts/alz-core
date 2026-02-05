@@ -26,6 +26,7 @@ final class ProductResponse extends Data
      * @param list<ProductImageResponse> $images
      * @param list<array{id: int, title: string, ...}> $categories Raw category objects from embed
      * @param array<string, mixed> $customFields Raw custom fields from API (name => value)
+     * @param array<int|string, list<string>> $filters Raw filter data from API (optionNo => values)
      */
     public function __construct(
         // Identifiers
@@ -70,6 +71,7 @@ final class ProductResponse extends Data
         public readonly array $images = [],
         public readonly array $categories = [],
         public readonly array $customFields = [],
+        public readonly array $filters = [],
     ) {}
 
     /**

@@ -42,7 +42,7 @@ final readonly class ProductClient implements ProductClientInterface
      *
      * @var list<string>
      */
-    private const array DEFAULT_EMBEDS = ['variations', 'images', 'categories', 'custom_fields', 'vat_relief'];
+    private const array DEFAULT_EMBEDS = ['variations', 'images', 'categories', 'custom_fields', 'vat_relief', 'filters'];
 
     /**
      * Fields for product requests.
@@ -77,6 +77,7 @@ final readonly class ProductClient implements ProductClientInterface
         'images',
         'categories',
         'customFields',
+        'filters',
     ];
 
     /**

@@ -25,6 +25,7 @@ use App\Infrastructure\Shopwired\Clients\ProductClient;
 use App\Infrastructure\Shopwired\Clients\ProductUpdateClient;
 use App\Infrastructure\Shopwired\Factories\ProductCustomFieldFactory;
 use App\Infrastructure\Shopwired\Factories\ProductDomainFactory;
+use App\Infrastructure\Shopwired\Factories\ProductFilterFactory;
 use App\Infrastructure\Shopwired\Mappers\ProductModelMapper;
 use App\Infrastructure\Shopwired\Repositories\EloquentCustomerRepository;
 use App\Infrastructure\Shopwired\Repositories\EloquentCustomFieldRepository;
@@ -145,7 +146,10 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
         // Product custom field factory - scoped to prevent stale registry in Octane
         $this->app->scoped(ProductCustomFieldFactory::class);
 
-        // Product model mapper - scoped as it depends on ProductCustomFieldFactory
+        // Product filter factory - scoped to prevent stale registry in Octane
+        $this->app->scoped(ProductFilterFactory::class);
+
+        // Product model mapper - scoped as it depends on ProductCustomFieldFactory and ProductFilterFactory
         $this->app->scoped(ProductModelMapper::class);
 
         // Product repository - scoped for fresh mapper per queue job
@@ -202,6 +206,7 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
             ProductClientInterface::class,
             ProductCustomFieldFactory::class,
             ProductDomainFactory::class,
+            ProductFilterFactory::class,
             ProductIdentifierResolverInterface::class,
             ProductModelMapper::class,
             ProductRepositoryInterface::class,
