@@ -63,6 +63,8 @@ final class ProductTest extends TestCase
             'images' => $images,
             'rawCustomFields' => [],
             'customFields' => $customFields,
+            'rawFilters' => [],
+            'filters' => [],
             'createdAt' => new DateTimeImmutable('2024-01-01 12:00:00'),
             'updatedAt' => new DateTimeImmutable('2024-01-15 14:30:00'),
         ];
@@ -93,6 +95,8 @@ final class ProductTest extends TestCase
             images: $data['images'],
             rawCustomFields: $data['rawCustomFields'],
             customFields: $data['customFields'],
+            rawFilters: $data['rawFilters'],
+            filters: $data['filters'],
             createdAt: $data['createdAt'],
             updatedAt: $data['updatedAt'],
         );
