@@ -64,7 +64,7 @@ final readonly class LinnworksStockItemCreatorService
      * @throws AuthenticationExpiredException When credentials invalid
      * @throws ExternalServiceUnavailableException When API unavailable
      */
-    public function create(CreateStockItemParams $params): array
+    public function create(CreateStockItemParams $params, bool $skipSupplier = false): array
     {
         $this->logger->debug('Creating Linnworks stock item', [
             'category_id' => $params->categoryId->value,
@@ -91,7 +91,7 @@ final readonly class LinnworksStockItemCreatorService
             );
 
             // Outside lock: Complete item setup
-            $this->completeItemSetup($stockItemId, $params);
+            $this->completeItemSetup($stockItemId, $params, $skipSupplier);
 
             $this->logger->info('Linnworks stock item created', [
                 'sku' => $sku->value,
@@ -134,16 +134,18 @@ final readonly class LinnworksStockItemCreatorService
      * @throws AuthenticationExpiredException When credentials invalid
      * @throws ExternalServiceUnavailableException When API unavailable
      */
-    private function completeItemSetup(Guid $stockItemId, CreateStockItemParams $params): void
+    private function completeItemSetup(Guid $stockItemId, CreateStockItemParams $params, bool $skipSupplier): void
     {
-        // Link supplier
-        $this->inventoryUpdateClient->createSupplierStat(
-            identifier: $stockItemId,
-            supplierId: $params->supplierId,
-            purchasePrice: $params->purchasePrice,
-            supplierCode: $params->supplierCode,
-            isDefault: true,
-        );
+        // Link supplier (skipped when --no-supplier flag is used)
+        if (! $skipSupplier) {
+            $this->inventoryUpdateClient->createSupplierStat(
+                identifier: $stockItemId,
+                supplierId: $params->supplierId,
+                purchasePrice: $params->purchasePrice,
+                supplierCode: $params->supplierCode,
+                isDefault: true,
+            );
+        }
 
         // Add extended properties
         foreach ($params->extendedProperties as $name => $value) {

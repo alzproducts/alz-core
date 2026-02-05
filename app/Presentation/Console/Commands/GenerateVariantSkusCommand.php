@@ -40,7 +40,10 @@ final class GenerateVariantSkusCommand extends Command
 {
     protected $signature = 'inventory:generate-variant-skus
                             {productId : ShopWired product ID}
-                            {templateSku : Linnworks SKU to use as template for category/supplier}';
+                            {templateSku : Linnworks SKU to use as template for category/supplier}
+                            {--copy-mpn : Use template\'s default supplier code as MPN for all variants}
+                            {--no-supplier : Skip supplier linking in Linnworks (still uses template for category)}
+                            {--is-standard-sign : Match purchase prices against standard sign product variants}';
 
     protected $description = 'Generate Linnworks inventory items for SKU-less ShopWired product variations';
 
@@ -56,12 +59,35 @@ final class GenerateVariantSkusCommand extends Command
             return self::FAILURE;
         }
 
+        $copyMpn = $this->option('copy-mpn');
+        $noSupplier = $this->option('no-supplier');
+        $isStandardSign = $this->option('is-standard-sign');
+
         $this->info("Generating variant SKUs for product {$productId->value}");
         $this->line("  Template: {$templateSku->value}");
+
+        if ($copyMpn) {
+            $this->line('  MPN Source: template supplier code (--copy-mpn)');
+        }
+
+        if ($noSupplier) {
+            $this->line('  Supplier: skipped (--no-supplier)');
+        }
+
+        if ($isStandardSign) {
+            $this->line('  Pricing: standard sign matching (--is-standard-sign)');
+        }
+
         $this->newLine();
 
         try {
-            $result = $useCase->execute(new UseCaseCommand($productId, $templateSku));
+            $result = $useCase->execute(new UseCaseCommand(
+                $productId,
+                $templateSku,
+                copyParentMpn: $copyMpn,
+                noSupplier: $noSupplier,
+                isStandardSign: $isStandardSign,
+            ));
 
             return $this->displaySuccessResult($result);
         } catch (ResourceNotFoundException|InvalidTemplateException|LockAcquisitionException|AuthenticationExpiredException|ExternalServiceUnavailableException|InvalidApiRequestException|InvalidApiResponseException|DatabaseOperationFailedException|DuplicateRecordException $e) {

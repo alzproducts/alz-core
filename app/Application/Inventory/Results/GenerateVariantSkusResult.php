@@ -16,6 +16,7 @@ final readonly class GenerateVariantSkusResult
      * @param int $skipped Variations skipped (already had SKU)
      * @param int $created Variations successfully created in Linnworks
      * @param int $failed Variations that failed (rolled back)
+     * @param string $productTitle Product title for display/notifications
      * @param list<string> $createdSkus SKUs successfully created
      * @param list<int> $failedVariationIds Variation external IDs that failed
      */
@@ -24,6 +25,7 @@ final readonly class GenerateVariantSkusResult
         public int $skipped,
         public int $created,
         public int $failed,
+        public string $productTitle = '',
         public array $createdSkus = [],
         public array $failedVariationIds = [],
     ) {}
@@ -41,26 +43,28 @@ final readonly class GenerateVariantSkusResult
     /**
      * Create a result for when the product has no variations.
      */
-    public static function noVariations(): self
+    public static function noVariations(string $productTitle = ''): self
     {
         return new self(
             total: 0,
             skipped: 0,
             created: 0,
             failed: 0,
+            productTitle: $productTitle,
         );
     }
 
     /**
      * Create a result for when all variations already have SKUs.
      */
-    public static function allSkipped(int $total): self
+    public static function allSkipped(int $total, string $productTitle = ''): self
     {
         return new self(
             total: $total,
             skipped: $total,
             created: 0,
             failed: 0,
+            productTitle: $productTitle,
         );
     }
 }

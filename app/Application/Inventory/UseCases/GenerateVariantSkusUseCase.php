@@ -30,6 +30,7 @@ use App\Domain\ValueObjects\Guid;
 use App\Domain\ValueObjects\Money;
 use App\Domain\ValueObjects\TaxRate;
 use Psr\Log\LoggerInterface;
+use Webmozart\Assert\Assert;
 
 /**
  * Generate Linnworks inventory items for SKU-less ShopWired variations.
@@ -74,6 +75,9 @@ final readonly class GenerateVariantSkusUseCase
         $this->logger->info('Starting variant SKU generation', [
             'product_id' => $command->productId->value,
             'template_sku' => $command->templateSku->value,
+            'copy_parent_mpn' => $command->copyParentMpn,
+            'no_supplier' => $command->noSupplier,
+            'is_standard_sign' => $command->isStandardSign,
         ]);
 
         // 1. Fetch ShopWired product and sync to local DB (so variation lookups work)
@@ -82,7 +86,7 @@ final readonly class GenerateVariantSkusUseCase
         if ($product->variations === []) {
             $this->logger->info('Product has no variations', ['product_id' => $command->productId->value]);
 
-            return GenerateVariantSkusResult::noVariations();
+            return GenerateVariantSkusResult::noVariations($product->title);
         }
 
         // 2. Fetch Linnworks template item
@@ -98,7 +102,7 @@ final readonly class GenerateVariantSkusUseCase
                 'total_variations' => \count($product->variations),
             ]);
 
-            return GenerateVariantSkusResult::allSkipped(\count($product->variations));
+            return GenerateVariantSkusResult::allSkipped(\count($product->variations), $product->title);
         }
 
         // 4. Process each SKU-less variation
@@ -110,7 +114,7 @@ final readonly class GenerateVariantSkusUseCase
         $failedVariationIds = [];
 
         foreach ($skuLessVariations as $variation) {
-            $result = $this->processVariation($variation, $product, $template);
+            $result = $this->processVariation($variation, $product, $template, $command);
 
             if ($result !== null) {
                 $created++;
@@ -137,6 +141,7 @@ final readonly class GenerateVariantSkusUseCase
             skipped: \count($product->variations) - \count($skuLessVariations),
             created: $created,
             failed: $failed,
+            productTitle: $product->title,
             createdSkus: $createdSkus,
             failedVariationIds: $failedVariationIds,
         );
@@ -145,7 +150,7 @@ final readonly class GenerateVariantSkusUseCase
     /**
      * Validate template has required data.
      *
-     * @throws InvalidTemplateException When no default supplier
+     * @throws InvalidTemplateException When template has no default supplier
      */
     private function validateTemplate(StockItemFull $template): void
     {
@@ -180,6 +185,7 @@ final readonly class GenerateVariantSkusUseCase
         ProductVariation $variation,
         Product $product,
         StockItemFull $template,
+        GenerateVariantSkusCommand $command,
     ): ?Sku {
         $this->logger->debug('Processing variation', [
             'variation_id' => $variation->id,
@@ -188,10 +194,10 @@ final readonly class GenerateVariantSkusUseCase
 
         try {
             // Build params from variation data
-            $params = $this->buildCreateParams($variation, $product, $template);
+            $params = $this->buildCreateParams($variation, $product, $template, $command);
 
             // Delegate to service (handles Linnworks creation, ShopWired update, rollback)
-            $sku = $this->stockItemGenerator->generate($params, $variation->id);
+            $sku = $this->stockItemGenerator->generate($params, $variation->id, $command->noSupplier);
 
             $this->logger->info('Variation processed successfully', [
                 'variation_id' => $variation->id,
@@ -218,9 +224,11 @@ final readonly class GenerateVariantSkusUseCase
         ProductVariation $variation,
         Product $product,
         StockItemFull $template,
+        GenerateVariantSkusCommand $command,
     ): CreateStockItemParams {
+        // Template is always validated to have a default supplier
         $supplier = $template->getDefaultSupplier();
-        \assert($supplier !== null); // Validated in validateTemplate()
+        Assert::notNull($supplier, 'Template must have a default supplier (validated in validateTemplate)');
 
         $prices = $this->priceResolver->resolveFromProduct($variation, $product);
         $taxRate = $product->vatExclusive ? TaxRate::zero() : TaxRate::standard();
@@ -236,10 +244,15 @@ final readonly class GenerateVariantSkusUseCase
             ? Money::zeroRated($prices->price)
             : Money::inclusive($prices->price);
 
-        // Cost price can be null (unknown)
+        // Resolve purchase price from variation cost
         $purchasePrice = $prices->costPrice !== null
             ? Money::exclusive($prices->costPrice)
             : null;
+
+        // Resolve MPN: template supplier code (--copy-mpn) or variation MPN
+        $mpn = $command->copyParentMpn
+            ? $supplier->code
+            : $variation->mpn;
 
         // Resolve image URL
         $imageUrl = $this->imageResolver->resolveUrl($variation, $product->images);
@@ -250,10 +263,10 @@ final readonly class GenerateVariantSkusUseCase
             retailPrice: $retailPrice,
             taxRate: $taxRate,
             supplierId: Guid::fromTrusted($supplier->supplierId),
-            purchasePrice: $purchasePrice,
+            purchasePrice: $command->noSupplier ? null : $purchasePrice,
             barcode: $variation->gtin,
-            mpn: $variation->mpn,
-            supplierCode: $supplier->code,
+            mpn: $mpn,
+            supplierCode: $command->noSupplier ? null : $supplier->code,
             extendedProperties: [
                 ExtendedPropertyName::ShopId->value => (string) $variation->id,
             ],

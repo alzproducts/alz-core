@@ -57,10 +57,10 @@ final readonly class GenerateStockItemFromVariationService
      * @throws AuthenticationExpiredException When credentials invalid
      * @throws ExternalServiceUnavailableException When API unavailable
      */
-    public function generate(CreateStockItemParams $params, int $variationId): Sku
+    public function generate(CreateStockItemParams $params, int $variationId, bool $skipSupplier = false): Sku
     {
         // 1. Create Linnworks stock item
-        [$sku, $stockItemId] = $this->stockItemCreator->create($params);
+        [$sku, $stockItemId] = $this->stockItemCreator->create($params, $skipSupplier);
 
         // 2. Write SKU back to ShopWired variation
         try {
