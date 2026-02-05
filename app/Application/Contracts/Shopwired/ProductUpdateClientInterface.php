@@ -36,4 +36,23 @@ interface ProductUpdateClientInterface
      * @throws InvalidApiResponseException When response parsing fails (API contract violation)
      */
     public function updateCustomFields(int $productId, array $customFields): void;
+
+    /**
+     * Update filters on a product.
+     *
+     * Fetches current product, merges new filter values with existing filters,
+     * and PUTs the merged result. This preserves any filters not explicitly
+     * included in the update.
+     *
+     * @param int $productId ShopWired product ID
+     * @param array<int, list<string>|null> $filters optionNo => values pairs
+     *                                               (null removes the filter)
+     *
+     * @throws ResourceNotFoundException When product not found (404)
+     * @throws InvalidApiRequestException When request parameters are invalid (400)
+     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
+     * @throws ExternalServiceUnavailableException When API unavailable or connection fails
+     * @throws InvalidApiResponseException When response parsing fails (API contract violation)
+     */
+    public function updateFilters(int $productId, array $filters): void;
 }
