@@ -8,12 +8,14 @@ use App\Application\Contracts\Shopwired\CategoryClientInterface;
 use App\Application\Contracts\Shopwired\ConnectivityClientInterface;
 use App\Application\Contracts\Shopwired\CustomerClientInterface;
 use App\Application\Contracts\Shopwired\CustomFieldClientInterface;
+use App\Application\Contracts\Shopwired\FilterGroupClientInterface;
 use App\Application\Contracts\Shopwired\OrderClientInterface;
 use App\Application\Contracts\Shopwired\StockClientInterface;
 use App\Domain\Exceptions\InvalidConfigurationException;
 use App\Infrastructure\Shopwired\Clients\CategoryClient;
 use App\Infrastructure\Shopwired\Clients\CustomerClient;
 use App\Infrastructure\Shopwired\Clients\CustomFieldClient;
+use App\Infrastructure\Shopwired\Clients\FilterGroupClient;
 use App\Infrastructure\Shopwired\Clients\OrderClient;
 use App\Infrastructure\Shopwired\Clients\StockClient;
 use App\Infrastructure\Shopwired\Contracts\ShopwiredTransportInterface;
@@ -58,6 +60,14 @@ final class ShopwiredClientFactory
     public static function createCustomFieldClient(): CustomFieldClientInterface
     {
         return new CustomFieldClient(self::getTransport());
+    }
+
+    /**
+     * Create the filter group client for filter group definitions.
+     */
+    public static function createFilterGroupClient(): FilterGroupClientInterface
+    {
+        return new FilterGroupClient(self::getTransport());
     }
 
     /**
