@@ -33,28 +33,6 @@ final class EloquentFilterGroupRepository extends AbstractEloquentRepository imp
     /**
      * {@inheritDoc}
      *
-     * @param FilterGroupDefinition $entity
-     *
-     * @throws DatabaseOperationFailedException
-     * @throws DuplicateRecordException
-     * @throws ExternalServiceUnavailableException
-     */
-    public function save(object $entity): void
-    {
-        /** @var FilterGroupDefinition $entity */
-        $this->eloquentGateway->upsertOne(
-            modelClass: FilterGroupDefinitionModel::class,
-            attributes: [
-                'external_id' => $entity->id,
-                ...FilterGroupDefinitionModel::fromDomainAttributes($entity),
-            ],
-            uniqueBy: ['external_id'],
-        );
-    }
-
-    /**
-     * {@inheritDoc}
-     *
      * @throws ResourceNotFoundException
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
@@ -111,5 +89,26 @@ final class EloquentFilterGroupRepository extends AbstractEloquentRepository imp
     {
         /** @var FilterGroupDefinition $entity */
         return $entity->id;
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @param FilterGroupDefinition $entity
+     */
+    protected function entityToAttributes(object $entity): array
+    {
+        return [
+            'external_id' => $entity->id,
+            ...FilterGroupDefinitionModel::fromDomainAttributes($entity),
+        ];
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    protected function getUpsertKeys(): array
+    {
+        return ['external_id'];
     }
 }

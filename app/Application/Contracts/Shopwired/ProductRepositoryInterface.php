@@ -135,4 +135,29 @@ interface ProductRepositoryInterface extends RepositoryWriteInterface
      * @throws ExternalServiceUnavailableException During iteration - DB unavailable
      */
     public function streamAll(): Generator;
+
+    /**
+     * Get all unique SKUs from products and variations.
+     *
+     * Returns distinct SKUs from both master products and variations.
+     * Used for bulk operations (Reviews.io sync, feed generation, etc.)
+     *
+     * @return list<string> Unique SKU values
+     *
+     * @throws DatabaseOperationFailedException On query failure
+     * @throws ExternalServiceUnavailableException When database temporarily unavailable
+     */
+    public function getAllSkus(): array;
+
+    /**
+     * Get all SKUs grouped by product external ID.
+     *
+     * Returns a map: product external ID => list of SKUs (master + variations).
+     *
+     * @return array<int, list<string>>
+     *
+     * @throws DatabaseOperationFailedException On query failure
+     * @throws ExternalServiceUnavailableException When database temporarily unavailable
+     */
+    public function getSkusGroupedByProductId(): array;
 }
