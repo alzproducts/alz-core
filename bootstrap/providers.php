@@ -22,6 +22,7 @@ use App\Providers\Schedule\ContactFormScheduleServiceProvider;
 use App\Providers\Schedule\FeedsScheduleServiceProvider;
 use App\Providers\Schedule\LinnworksScheduleServiceProvider;
 use App\Providers\Schedule\MixpanelScheduleServiceProvider;
+use App\Providers\Schedule\ReviewsIoScheduleServiceProvider;
 use App\Providers\Schedule\ShopwiredScheduleServiceProvider;
 use App\Providers\ShopwiredServiceProvider;
 use App\Providers\StorageServiceProvider;
@@ -52,6 +53,7 @@ return [
     FeedsScheduleServiceProvider::class,
     LinnworksScheduleServiceProvider::class,
     MixpanelScheduleServiceProvider::class,
+    ReviewsIoScheduleServiceProvider::class,
     ShopwiredScheduleServiceProvider::class,
 
     ...app()->environment('local') ? [TelescopeServiceProvider::class] : [],
