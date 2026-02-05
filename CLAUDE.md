@@ -221,6 +221,10 @@ This project follows **Clean Architecture** (Robert C. Martin) — dependencies 
 
 See layer-specific guides for detailed patterns.
 
+### Creating Exceptions
+
+**Always search for existing exceptions before creating new ones.** Search `app/Domain/Exceptions` for similar patterns. Prefer reusing/extending existing exceptions over proliferating new ones.
+
 ## Modern PHP Standards
 
 **Target**: PHP 8.4+ features and best practices
