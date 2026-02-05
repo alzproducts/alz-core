@@ -39,16 +39,42 @@ final readonly class ProductUpdateClient implements ProductUpdateClientInterface
      */
     public function updateCustomFields(int $productId, array $customFields): void
     {
-        // Fetch current product to get existing custom fields
         $product = $this->productClient->getProductById($productId);
-
-        // Merge new values with existing (new values overwrite, null removes)
         $mergedFields = $this->mergeCustomFields($product->rawCustomFields, $customFields);
+        $this->updateProductField($productId, 'customFields', $mergedFields);
+    }
 
-        // PUT the merged custom fields
+    /**
+     * {@inheritDoc}
+     *
+     * @throws ResourceNotFoundException When product not found (404)
+     * @throws InvalidApiRequestException When request parameters are invalid (400)
+     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
+     * @throws ExternalServiceUnavailableException When API unavailable or connection fails
+     * @throws InvalidApiResponseException When response parsing fails (API contract violation)
+     */
+    public function updateFilters(int $productId, array $filters): void
+    {
+        $product = $this->productClient->getProductById($productId);
+        $mergedFilters = $this->mergeFilters($product->rawFilters, $filters);
+        $this->updateProductField($productId, 'filters', $mergedFilters);
+    }
+
+    /**
+     * PUT a single field update to a product.
+     *
+     * @param array<string|int, mixed> $data Merged field data to send
+     *
+     * @throws ResourceNotFoundException When product not found (404)
+     * @throws InvalidApiRequestException When request parameters are invalid (400)
+     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
+     * @throws ExternalServiceUnavailableException When API unavailable or connection fails
+     */
+    private function updateProductField(int $productId, string $fieldName, array $data): void
+    {
         $this->transport->put(
             self::ENDPOINT_PRODUCTS . '/' . $productId,
-            ['customFields' => $mergedFields],
+            [$fieldName => $data],
         );
     }
 
@@ -73,6 +99,33 @@ final readonly class ProductUpdateClient implements ProductUpdateClientInterface
                 unset($merged[$name]);
             } else {
                 $merged[$name] = $value;
+            }
+        }
+
+        return $merged;
+    }
+
+    /**
+     * Merge new filter values with existing.
+     *
+     * - Existing filters not in $newFilters are preserved
+     * - Filters in $newFilters overwrite existing
+     * - Filters with null value in $newFilters are removed
+     *
+     * @param array<int|string, list<string>> $existing Current filter values
+     * @param array<int, list<string>|null> $newFilters Filters to update
+     *
+     * @return array<int|string, list<string>> Merged filters
+     */
+    private function mergeFilters(array $existing, array $newFilters): array
+    {
+        $merged = $existing;
+
+        foreach ($newFilters as $optionNo => $values) {
+            if ($values === null) {
+                unset($merged[$optionNo]);
+            } else {
+                $merged[$optionNo] = $values;
             }
         }
 
