@@ -1,6 +1,15 @@
-# Infrastructure Layer Exception Handling
+# Infrastructure Layer
 
-## Purpose
+## Eloquent Repositories
+
+**All new repositories MUST:**
+1. Define interface extending `RepositoryWriteInterface` in `Application/Contracts/`
+2. Create implementation extending `AbstractEloquentRepository`
+
+---
+
+## Exception Handling
+
 Infrastructure **always catches** SDK exceptions and **translates** to Domain exceptions. This is where technical → business translation happens.
 
 ## Core Pattern: Catch and Translate

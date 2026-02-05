@@ -34,28 +34,6 @@ final class EloquentCustomFieldRepository extends AbstractEloquentRepository imp
     /**
      * {@inheritDoc}
      *
-     * @param CustomFieldDefinition $entity
-     *
-     * @throws DatabaseOperationFailedException
-     * @throws DuplicateRecordException
-     * @throws ExternalServiceUnavailableException
-     */
-    public function save(object $entity): void
-    {
-        /** @var CustomFieldDefinition $entity */
-        $this->eloquentGateway->upsertOne(
-            modelClass: CustomFieldDefinitionModel::class,
-            attributes: [
-                'external_id' => $entity->id,
-                ...CustomFieldDefinitionModel::fromDomainAttributes($entity),
-            ],
-            uniqueBy: ['external_id'],
-        );
-    }
-
-    /**
-     * {@inheritDoc}
-     *
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
@@ -133,5 +111,26 @@ final class EloquentCustomFieldRepository extends AbstractEloquentRepository imp
     {
         /** @var CustomFieldDefinition $entity */
         return $entity->id;
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @param CustomFieldDefinition $entity
+     */
+    protected function entityToAttributes(object $entity): array
+    {
+        return [
+            'external_id' => $entity->id,
+            ...CustomFieldDefinitionModel::fromDomainAttributes($entity),
+        ];
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    protected function getUpsertKeys(): array
+    {
+        return ['external_id'];
     }
 }

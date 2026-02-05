@@ -103,4 +103,5 @@ final readonly class HelpScoutConfig
 
         return $this->mailboxes[$name];
     }
+
 }

@@ -202,6 +202,27 @@ final class EloquentOrderRepository extends AbstractEloquentRepository implement
         return $entity->id;
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * @param Order $entity
+     */
+    protected function entityToAttributes(object $entity): array
+    {
+        return [
+            'external_id' => $entity->id,
+            ...OrderModelMapper::toModelAttributes($entity),
+        ];
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    protected function getUpsertKeys(): array
+    {
+        return ['external_id'];
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
     // Query Helpers
     // ─────────────────────────────────────────────────────────────────────────

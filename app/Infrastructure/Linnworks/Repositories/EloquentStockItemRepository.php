@@ -112,4 +112,25 @@ final class EloquentStockItemRepository extends AbstractEloquentRepository imple
         /** @var StockItemFull $entity */
         return $entity->stockItemId;
     }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @param StockItemFull $entity
+     */
+    protected function entityToAttributes(object $entity): array
+    {
+        return [
+            'stock_item_id' => $entity->stockItemId,
+            ...StockItemModelMapper::toModelAttributes($entity),
+        ];
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    protected function getUpsertKeys(): array
+    {
+        return ['stock_item_id'];
+    }
 }

@@ -41,6 +41,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property list<int> $category_ids ShopWired category IDs
  * @property list<array{id: int, url: string, description: string|null, sort_order: int}> $images Product images
  * @property array<string, mixed> $custom_fields Raw custom fields from API
+ * @property array<int|string, list<string>> $filters Raw filter data from API
  * @property CarbonImmutable $shopwired_created_at ShopWired creation timestamp
  * @property CarbonImmutable $shopwired_updated_at ShopWired last update timestamp
  * @property CarbonImmutable $created_at When first synced to local DB
@@ -74,6 +75,7 @@ final class ProductModel extends Model
             'category_ids' => 'array',
             'images' => 'array',
             'custom_fields' => 'array',
+            'filters' => 'array',
             // Booleans
             'is_active' => 'boolean',
             'vat_exclusive' => 'boolean',

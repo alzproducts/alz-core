@@ -34,28 +34,6 @@ final class EloquentCustomerRepository extends AbstractEloquentRepository implem
     /**
      * {@inheritDoc}
      *
-     * @param Customer $entity
-     *
-     * @throws DatabaseOperationFailedException
-     * @throws DuplicateRecordException
-     * @throws ExternalServiceUnavailableException
-     */
-    public function save(object $entity): void
-    {
-        /** @var Customer $entity */
-        $this->eloquentGateway->upsertOne(
-            modelClass: CustomerModel::class,
-            attributes: [
-                'external_id' => $entity->id,
-                ...CustomerModelMapper::toModelAttributes($entity),
-            ],
-            uniqueBy: ['external_id'],
-        );
-    }
-
-    /**
-     * {@inheritDoc}
-     *
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
@@ -112,5 +90,26 @@ final class EloquentCustomerRepository extends AbstractEloquentRepository implem
     {
         /** @var Customer $entity */
         return $entity->id;
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @param Customer $entity
+     */
+    protected function entityToAttributes(object $entity): array
+    {
+        return [
+            'external_id' => $entity->id,
+            ...CustomerModelMapper::toModelAttributes($entity),
+        ];
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    protected function getUpsertKeys(): array
+    {
+        return ['external_id'];
     }
 }

@@ -230,3 +230,7 @@ interface GoogleAdsClientInterface
 - [ ] Does it extend `\DomainException` or `\LogicException`?
 
 If "no" to any, it probably belongs in Infrastructure or is too generic.
+
+## Integer IDs
+
+**Use `IntId` value object** for all integer identifiers, not primitive `int`.

@@ -28,6 +28,10 @@
             <directory suffix="ServiceProvider.php">./app/Application</directory>
             <directory suffix="Exception.php">./app/Application</directory>
             <directory suffix="Factory.php">./app/Application</directory>
+            <!-- Pure delegation UseCases - no branching logic (TestingStrategy.md) -->
+            <file>app/Application/ContactSubmission/UseCases/SubmitContactFormUseCase.php</file>
+            <!-- Simple result value objects - minimal logic -->
+            <file>app/Application/ContactSubmission/Results/SubmitContactFormResult.php</file>
         </exclude>
     </source>
     <php>
