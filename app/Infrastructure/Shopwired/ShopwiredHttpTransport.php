@@ -218,7 +218,6 @@ final readonly class ShopwiredHttpTransport implements ShopwiredTransportInterfa
          * Connection failures appear as Throwable in results array.
          *
          * @var array<string, Response|Throwable> $poolResults
-         *
          */
         $poolResults = Http::pool(fn(Pool $pool): array => $this->buildPoolRequests($pool, $requests));
 
