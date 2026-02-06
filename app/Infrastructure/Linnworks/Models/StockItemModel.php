@@ -91,6 +91,34 @@ final class StockItemModel extends Model implements EloquentDomainMappableInterf
         );
     }
 
+    /**
+     * @return HasMany<StockItemSupplierModel, $this>
+     */
+    public function suppliers(): HasMany
+    {
+        return $this->hasMany(
+            StockItemSupplierModel::class,
+            'stock_item_id',
+            'stock_item_id',
+        );
+    }
+
+    /**
+     * Get the default supplier model, or null if none marked as default.
+     *
+     * Returns null if the suppliers relation hasn't been loaded.
+     */
+    public function defaultSupplier(): ?StockItemSupplierModel
+    {
+        if (! $this->relationLoaded('suppliers')) {
+            return null;
+        }
+
+        return $this->suppliers->first(
+            static fn(StockItemSupplierModel $s): bool => $s->is_default,
+        );
+    }
+
     public function toDomain(): StockItemFull
     {
         return StockItemModelMapper::fromModel($this);

@@ -152,6 +152,7 @@ return static function (Config $config): void {
                                'Closure',
                                'Generator',
                                'Spatie\LaravelData',
+                               Assert::class,
                                'RuntimeException',
                                'LogicException',
                                'Exception',

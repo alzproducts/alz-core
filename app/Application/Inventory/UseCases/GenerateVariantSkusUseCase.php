@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace App\Application\Inventory\UseCases;
 
 use App\Application\Contracts\Linnworks\InventoryClientInterface;
+use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Application\Inventory\Commands\GenerateVariantSkusCommand;
-use App\Application\Inventory\Params\CreateStockItemParams;
 use App\Application\Inventory\Results\GenerateVariantSkusResult;
 use App\Application\Inventory\Services\GenerateStockItemFromVariationService;
+use App\Application\Inventory\Services\StockItemParamsBuilderService;
 use App\Application\Shopwired\Services\ProductSyncService;
-use App\Domain\Catalog\Product\Resolvers\VariationImageResolver;
-use App\Domain\Catalog\Product\Resolvers\VariationPriceResolver;
+use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\Product\ValueObjects\Product;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariation;
 use App\Domain\Catalog\Product\ValueObjects\Sku;
@@ -24,11 +24,9 @@ use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\Exceptions\Infrastructure\LockAcquisitionException;
 use App\Domain\Exceptions\Inventory\InvalidTemplateException;
-use App\Domain\Inventory\Enums\ExtendedPropertyName;
+use App\Domain\Inventory\Events\VariantSkusGeneratedEvent;
 use App\Domain\Inventory\ValueObjects\StockItemFull;
-use App\Domain\ValueObjects\Guid;
-use App\Domain\ValueObjects\Money;
-use App\Domain\ValueObjects\TaxRate;
+use App\Domain\ValueObjects\IntId;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -39,7 +37,7 @@ use Psr\Log\LoggerInterface;
  * back to ShopWired variations.
  *
  * **Transaction Flow (per variation):**
- * 1. Build CreateStockItemParams from variation data
+ * 1. Build CreateStockItemParams via StockItemParamsBuilderService
  * 2. Delegate to GenerateStockItemFromVariationService (handles Linnworks creation, ShopWired update, rollback)
  * 3. On failure: continue to next variation
  *
@@ -51,9 +49,10 @@ final readonly class GenerateVariantSkusUseCase
         private InventoryClientInterface $inventoryClient,
         private ProductSyncService $productSyncService,
         private GenerateStockItemFromVariationService $stockItemGenerator,
-        private VariationPriceResolver $priceResolver,
-        private VariationImageResolver $imageResolver,
+        private StockItemParamsBuilderService $paramsBuilder,
+        private ProductRepositoryInterface $productRepository,
         private LoggerInterface $logger,
+        private int $standardSignProductId,
     ) {}
 
     /**
@@ -68,12 +67,16 @@ final readonly class GenerateVariantSkusUseCase
      * @throws DatabaseOperationFailedException When local refresh fails
      * @throws DuplicateRecordException When local refresh encounters duplicate
      * @throws InvalidTemplateException When template has no default supplier
+     * @throws InvalidCustomFieldValueException When product custom fields invalid
      */
     public function execute(GenerateVariantSkusCommand $command): GenerateVariantSkusResult
     {
         $this->logger->info('Starting variant SKU generation', [
             'product_id' => $command->productId->value,
             'template_sku' => $command->templateSku->value,
+            'copy_parent_mpn' => $command->copyParentMpn,
+            'no_supplier' => $command->noSupplier,
+            'is_standard_sign' => $command->isStandardSign,
         ]);
 
         // 1. Fetch ShopWired product and sync to local DB (so variation lookups work)
@@ -82,7 +85,7 @@ final readonly class GenerateVariantSkusUseCase
         if ($product->variations === []) {
             $this->logger->info('Product has no variations', ['product_id' => $command->productId->value]);
 
-            return GenerateVariantSkusResult::noVariations();
+            return GenerateVariantSkusResult::noVariations($product->title);
         }
 
         // 2. Fetch Linnworks template item
@@ -98,30 +101,38 @@ final readonly class GenerateVariantSkusUseCase
                 'total_variations' => \count($product->variations),
             ]);
 
-            return GenerateVariantSkusResult::allSkipped(\count($product->variations));
+            return GenerateVariantSkusResult::allSkipped(\count($product->variations), $product->title);
         }
 
-        // 4. Process each SKU-less variation
+        // 4. If standard sign mode, load reference product for price matching
+        $standardSignVariations = $command->isStandardSign
+            ? $this->loadStandardSignVariations()
+            : null;
+
+        // 5. Process each SKU-less variation
         $created = 0;
         $failed = 0;
-        /** @var list<string> $createdSkus */
-        $createdSkus = [];
+        /** @var list<string> $createdVariants */
+        $createdVariants = [];
         /** @var list<int> $failedVariationIds */
         $failedVariationIds = [];
 
         foreach ($skuLessVariations as $variation) {
-            $result = $this->processVariation($variation, $product, $template);
+            $result = $this->processVariation($variation, $product, $template, $command, $standardSignVariations);
 
             if ($result !== null) {
                 $created++;
-                $createdSkus[] = $result->value;
+                $optionValues = $variation->optionValuesString();
+                $createdVariants[] = $optionValues !== ''
+                    ? "{$result->value} - {$optionValues}"
+                    : $result->value;
             } else {
                 $failed++;
                 $failedVariationIds[] = $variation->id;
             }
         }
 
-        // 5. Refresh local product from API
+        // 6. Refresh local product from API
         $this->productSyncService->refreshById($command->productId->value);
 
         $this->logger->info('Variant SKU generation completed', [
@@ -132,20 +143,25 @@ final readonly class GenerateVariantSkusUseCase
             'failed' => $failed,
         ]);
 
-        return new GenerateVariantSkusResult(
+        $result = new GenerateVariantSkusResult(
             total: \count($product->variations),
             skipped: \count($product->variations) - \count($skuLessVariations),
             created: $created,
             failed: $failed,
-            createdSkus: $createdSkus,
+            productTitle: $product->title,
+            createdVariants: $createdVariants,
             failedVariationIds: $failedVariationIds,
         );
+
+        $this->dispatchNotificationEvent($result, $command);
+
+        return $result;
     }
 
     /**
      * Validate template has required data.
      *
-     * @throws InvalidTemplateException When no default supplier
+     * @throws InvalidTemplateException When template has no default supplier
      */
     private function validateTemplate(StockItemFull $template): void
     {
@@ -170,7 +186,48 @@ final readonly class GenerateVariantSkusUseCase
     }
 
     /**
+     * Load standard sign product variations for price matching.
+     *
+     * @return list<ProductVariation>
+     *
+     * @throws ResourceNotFoundException When standard sign product not found in local DB
+     * @throws ExternalServiceUnavailableException When ShopWired API unavailable
+     * @throws DatabaseOperationFailedException When local DB query fails
+     * @throws InvalidCustomFieldValueException When product custom fields invalid
+     */
+    private function loadStandardSignVariations(): array
+    {
+        $standardProduct = $this->productRepository->getProduct(IntId::from($this->standardSignProductId));
+
+        $this->logger->info('Loaded standard sign product for price matching', [
+            'product_id' => $standardProduct->id,
+            'variation_count' => \count($standardProduct->variations),
+        ]);
+
+        return $standardProduct->variations;
+    }
+
+    /**
+     * Dispatch Slack notification event when SKUs were created.
+     */
+    private function dispatchNotificationEvent(GenerateVariantSkusResult $result, GenerateVariantSkusCommand $command): void
+    {
+        if ($result->created > 0) {
+            \event(new VariantSkusGeneratedEvent(
+                productId: $command->productId->value,
+                productTitle: $result->productTitle,
+                created: $result->created,
+                skipped: $result->skipped,
+                failed: $result->failed,
+                createdVariants: $result->createdVariants,
+            ));
+        }
+    }
+
+    /**
      * Process a single variation: create in Linnworks, update ShopWired.
+     *
+     * @param list<ProductVariation>|null $standardSignVariations Reference variations for price matching
      *
      * @return Sku|null The created SKU, or null on failure
      *
@@ -180,6 +237,8 @@ final readonly class GenerateVariantSkusUseCase
         ProductVariation $variation,
         Product $product,
         StockItemFull $template,
+        GenerateVariantSkusCommand $command,
+        ?array $standardSignVariations,
     ): ?Sku {
         $this->logger->debug('Processing variation', [
             'variation_id' => $variation->id,
@@ -188,7 +247,7 @@ final readonly class GenerateVariantSkusUseCase
 
         try {
             // Build params from variation data
-            $params = $this->buildCreateParams($variation, $product, $template);
+            $params = $this->paramsBuilder->build($variation, $product, $template, $command, $standardSignVariations);
 
             // Delegate to service (handles Linnworks creation, ShopWired update, rollback)
             $sku = $this->stockItemGenerator->generate($params, $variation->id);
@@ -209,55 +268,5 @@ final readonly class GenerateVariantSkusUseCase
 
             return null;
         }
-    }
-
-    /**
-     * Build CreateStockItemParams from variation, product, and template.
-     */
-    private function buildCreateParams(
-        ProductVariation $variation,
-        Product $product,
-        StockItemFull $template,
-    ): CreateStockItemParams {
-        $supplier = $template->getDefaultSupplier();
-        \assert($supplier !== null); // Validated in validateTemplate()
-
-        $prices = $this->priceResolver->resolveFromProduct($variation, $product);
-        $taxRate = $product->vatExclusive ? TaxRate::zero() : TaxRate::standard();
-
-        // Build title: "Product Name - Option Values"
-        $optionValues = $variation->optionValuesString();
-        $title = $optionValues !== ''
-            ? $product->title . ' - ' . $optionValues
-            : $product->title;
-
-        // Build Money based on tax treatment
-        $retailPrice = $product->vatExclusive
-            ? Money::zeroRated($prices->price)
-            : Money::inclusive($prices->price);
-
-        // Cost price can be null (unknown)
-        $purchasePrice = $prices->costPrice !== null
-            ? Money::exclusive($prices->costPrice)
-            : null;
-
-        // Resolve image URL
-        $imageUrl = $this->imageResolver->resolveUrl($variation, $product->images);
-
-        return new CreateStockItemParams(
-            categoryId: Guid::fromTrusted($template->categoryId),
-            title: $title,
-            retailPrice: $retailPrice,
-            taxRate: $taxRate,
-            supplierId: Guid::fromTrusted($supplier->supplierId),
-            purchasePrice: $purchasePrice,
-            barcode: $variation->gtin,
-            mpn: $variation->mpn,
-            supplierCode: $supplier->code,
-            extendedProperties: [
-                ExtendedPropertyName::ShopId->value => (string) $variation->id,
-            ],
-            imageUrl: $imageUrl,
-        );
     }
 }

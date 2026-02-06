@@ -7,6 +7,7 @@ namespace App\Presentation\Console\Commands;
 use App\Application\Inventory\Commands\GenerateVariantSkusCommand as UseCaseCommand;
 use App\Application\Inventory\Results\GenerateVariantSkusResult;
 use App\Application\Inventory\UseCases\GenerateVariantSkusUseCase;
+use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\Product\ValueObjects\Sku;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
@@ -40,10 +41,16 @@ final class GenerateVariantSkusCommand extends Command
 {
     protected $signature = 'inventory:generate-variant-skus
                             {productId : ShopWired product ID}
-                            {templateSku : Linnworks SKU to use as template for category/supplier}';
+                            {templateSku : Linnworks SKU to use as template for category/supplier}
+                            {--copy-mpn : Use template\'s default supplier code as MPN for all variants}
+                            {--no-supplier : Skip supplier linking in Linnworks (still uses template for category)}
+                            {--is-standard-sign : Match purchase prices against standard sign product variants}';
 
     protected $description = 'Generate Linnworks inventory items for SKU-less ShopWired product variations';
 
+    /**
+     * @throws InvalidCustomFieldValueException When product custom fields invalid
+     */
     public function handle(GenerateVariantSkusUseCase $useCase): int
     {
         $productId = $this->parseProductId($this->argument('productId'));
@@ -56,12 +63,35 @@ final class GenerateVariantSkusCommand extends Command
             return self::FAILURE;
         }
 
+        $copyMpn = $this->option('copy-mpn');
+        $noSupplier = $this->option('no-supplier');
+        $isStandardSign = $this->option('is-standard-sign');
+
         $this->info("Generating variant SKUs for product {$productId->value}");
         $this->line("  Template: {$templateSku->value}");
+
+        if ($copyMpn) {
+            $this->line('  MPN Source: template supplier code (--copy-mpn)');
+        }
+
+        if ($noSupplier) {
+            $this->line('  Supplier: skipped (--no-supplier)');
+        }
+
+        if ($isStandardSign) {
+            $this->line('  Pricing: standard sign matching (--is-standard-sign)');
+        }
+
         $this->newLine();
 
         try {
-            $result = $useCase->execute(new UseCaseCommand($productId, $templateSku));
+            $result = $useCase->execute(new UseCaseCommand(
+                $productId,
+                $templateSku,
+                copyParentMpn: $copyMpn,
+                noSupplier: $noSupplier,
+                isStandardSign: $isStandardSign,
+            ));
 
             return $this->displaySuccessResult($result);
         } catch (ResourceNotFoundException|InvalidTemplateException|LockAcquisitionException|AuthenticationExpiredException|ExternalServiceUnavailableException|InvalidApiRequestException|InvalidApiResponseException|DatabaseOperationFailedException|DuplicateRecordException $e) {
@@ -70,7 +100,7 @@ final class GenerateVariantSkusCommand extends Command
     }
 
     /**
-     * Display success result and return appropriate exit code.
+     * Display success result, dispatch notification event, and return appropriate exit code.
      */
     private function displaySuccessResult(GenerateVariantSkusResult $result): int
     {
@@ -85,23 +115,36 @@ final class GenerateVariantSkusCommand extends Command
             $this->info('All variations already have SKUs - nothing to create.');
         }
 
-        if ($result->createdSkus !== []) {
-            $this->newLine();
-            $this->info('Created SKUs:');
-            foreach ($result->createdSkus as $sku) {
-                $this->line("  - {$sku}");
-            }
-        }
-
-        if ($result->failedVariationIds !== []) {
-            $this->newLine();
-            $this->warn('Failed variation IDs (see logs for details):');
-            foreach ($result->failedVariationIds as $variationId) {
-                $this->line("  - {$variationId}");
-            }
-        }
+        $this->displayCreatedSkus($result);
+        $this->displayFailedVariations($result);
 
         return $result->failed > 0 ? self::FAILURE : self::SUCCESS;
+    }
+
+    private function displayCreatedSkus(GenerateVariantSkusResult $result): void
+    {
+        if ($result->createdVariants === []) {
+            return;
+        }
+
+        $this->newLine();
+        $this->info('Created SKUs:');
+        foreach ($result->createdVariants as $sku) {
+            $this->line("  - {$sku}");
+        }
+    }
+
+    private function displayFailedVariations(GenerateVariantSkusResult $result): void
+    {
+        if ($result->failedVariationIds === []) {
+            return;
+        }
+
+        $this->newLine();
+        $this->warn('Failed variation IDs (see logs for details):');
+        foreach ($result->failedVariationIds as $variationId) {
+            $this->line("  - {$variationId}");
+        }
     }
 
     /**

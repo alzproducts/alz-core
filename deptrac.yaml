@@ -147,10 +147,11 @@ deptrac:
     Domain:
       - AssertionLibrary
 
-    # Application: Domain + PSR interfaces
+    # Application: Domain + PSR interfaces + assertions
     Application:
       - Domain
       - PsrInterfaces
+      - AssertionLibrary
 
     # Infrastructure: All internal + Laravel, Spatie, Google, Bing, Guzzle, PSR, Flysystem, Assertions, Sentry, Symfony, Carbon, Monolog, TheIconic, libphonenumber
     Infrastructure:

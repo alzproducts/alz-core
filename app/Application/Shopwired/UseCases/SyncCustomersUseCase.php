@@ -162,6 +162,24 @@ final readonly class SyncCustomersUseCase
      */
     private function flushBuffer(array $customers, int|string $batchIdentifier): SyncResult
     {
+        // Deduplicate by customer ID (first-seen wins) — prevents cardinality violations
+        // when pagination drift causes the same customer to appear on adjacent pages.
+        // With created_desc sorting, earlier entries have newer data.
+        $uniqueCustomers = [];
+        foreach ($customers as $customer) {
+            $uniqueCustomers[$customer->id] ??= $customer;
+        }
+
+        $deduplicatedCount = \count($customers) - \count($uniqueCustomers);
+        if ($deduplicatedCount > 0) {
+            $this->logger->debug('Deduplicated customers in batch', [
+                'batch' => $batchIdentifier,
+                'duplicates_removed' => $deduplicatedCount,
+            ]);
+        }
+
+        $customers = \array_values($uniqueCustomers);
+
         $this->logger->debug('Flushing customer batch to database', [
             'batch' => $batchIdentifier,
             'count' => \count($customers),
