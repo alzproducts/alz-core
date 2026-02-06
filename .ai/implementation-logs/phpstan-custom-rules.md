@@ -13,6 +13,10 @@
 | 2026-02-06 | Refactored Domain enum `fromValue()` to use `tryFrom()` | Eliminates try-catch in Domain; `tryFrom()` + null coalescing throw is cleaner |
 | 2026-02-06 | Static properties in ClientFactories flagged as tech debt | User decision: suppress with ignoreErrors, refactor to DI later |
 | 2026-02-06 | config() in Application layer flagged as tech debt | 2 files suppressed, refactor to constructor injection later |
+| 2026-02-06 | Rule #10 skips private methods | Private @throws are internal docs for checked exception system, not public API contract |
+| 2026-02-06 | Rule #10 allows App\Infrastructure\* in @throws | Internal infra exceptions (e.g. InvalidGoogleAdsResponseException) are valid within infrastructure |
+| 2026-02-06 | NoCatchReturnEmpty: suppressed 10 intentional patterns | GracefulCache, LockableCache, batch processing, data parsing, console commands |
+| 2026-02-06 | Removed stale @throws ConnectionException from 2 transport pool builders | Were PHPStan-pacifying annotations, not actually thrown |
 
 ## Batch Progress
 
@@ -44,9 +48,9 @@
 ### Batch 4: Exception Rules
 | # | Rule | File | Status | Violations Found |
 |---|------|------|--------|-----------------|
-| 5 | Domain exceptions must extend base | `DomainExceptionMustExtendBaseRule.php` | | |
-| 10 | Infrastructure @throws only Domain | `NoSdkExceptionsInThrowsRule.php` | | |
-| 12 | No returning empty in catch | `NoCatchReturnEmptyRule.php` | | |
+| 5 | Domain exceptions must extend base | `DomainExceptionMustExtendBaseRule.php` | UNVERIFIED | 0 — all domain exceptions correctly extend hierarchy |
+| 10 | Infrastructure @throws only Domain | `NoSdkExceptionsInThrowsRule.php` | VERIFIED | 1 — `@throws ConnectionException` in ShopwiredHttpTransport (removed, was PHPStan-pacifying) + removed stale `@throws ConnectionException` from HelpScoutHttpTransport |
+| 12 | No returning empty in catch | `NoCatchReturnEmptyRule.php` | VERIFIED | 10 — graceful cache (3), batch processing (2), data parsing (3), console commands (2) — all suppressed as intentional patterns |
 
 ### Batch 5: Infrastructure DTO + Table Rules
 | # | Rule | File | Status | Violations Found |
@@ -66,6 +70,7 @@
 - #20+21: Jobs must define backoff() + failed() (all already do)
 - #23: Job naming prefix (all follow convention)
 - #14: Job handle() must catch \Throwable (all already do)
+- #5: Domain exceptions must extend base (all already do)
 
 ## PR Notes
 _To be drafted after implementation_

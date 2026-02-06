@@ -79,3 +79,7 @@ rules:
     - App\DevTools\PHPStan\Rules\Jobs\JobMustCallOnQueueRule
     - App\DevTools\PHPStan\Rules\Jobs\JobNamingPrefixRule
     - App\DevTools\PHPStan\Rules\Jobs\JobHandleMustCatchThrowableRule
+    # Batch 4: Exception rules
+    - App\DevTools\PHPStan\Rules\Exceptions\DomainExceptionMustExtendBaseRule
+    - App\DevTools\PHPStan\Rules\Exceptions\NoCatchReturnEmptyRule
+    - App\DevTools\PHPStan\Rules\Infrastructure\NoSdkExceptionsInThrowsRule
