@@ -1,98 +1,9 @@
 # Presentation Layer Exception Handling
 
 ## Purpose
-Presentation catches **only for delivery mechanism**: queue retry, HTTP responses, console output. This is "the Laravel stuff" - framework integration.
+Presentation catches **only for delivery mechanism**: HTTP responses, console output. This is "the Laravel stuff" - framework integration.
 
-## Queue Priority Tiers
-
-| Queue | Timeout | Use Case |
-|-------|---------|----------|
-| `high` | 90s | Time-sensitive, user-facing (webhooks, notifications) |
-| `default` | 90s | Normal priority (order sync, daily jobs) |
-| `low` | 3600s | Bulk/background work (full customer sync, data migrations) |
-
-Route jobs via constructor: `$this->onQueue('low')`. Config: `config/horizon.php`.
-
-## Jobs: Queue Retry Management
-
-### Default: Let Laravel Handle It
-```php
-class SyncGoogleAdsToMixpanelJob implements ShouldQueue
-{
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
-
-    public int $tries = 5;
-    public int $timeout = 300;
-    
-    public function backoff(): array
-    {
-        return [30, 60, 120, 300, 600]; // Exponential backoff
-    }
-
-    public function handle(SyncAdSpendUseCase $useCase): void
-    {
-        // No try-catch - Laravel retries automatically
-        $useCase->execute($this->date ?? now()->subDay()->format('Y-m-d'));
-    }
-    
-    public function failed(?Throwable $exception): void
-    {
-        Log::critical('Sync permanently failed', [
-            'exception' => $exception?->getMessage(),
-        ]);
-        
-        Mail::to('[email protected]')->send(new JobFailedNotification($exception));
-    }
-}
-```
-
-### When to Catch: Custom Retry Logic
-```php
-class SyncGoogleAdsToMixpanelJob implements ShouldQueue
-{
-    public int $tries = 5;
-    
-    public function handle(SyncAdSpendUseCase $useCase): void
-    {
-        try {
-            $useCase->execute($this->date);
-            
-        } catch (InvalidApiResponseException $e) {
-            // Programming error - don't waste retries
-            Log::critical('API contract violation', [
-                'service' => $e->serviceName,
-                'action' => 'CODE_UPDATE_REQUIRED',
-            ]);
-            $this->fail($e); // Fail immediately
-            
-        } catch (ExternalServiceUnavailableException $e) {
-            // Transient failure - use API's retry-after
-            Log::warning('Service unavailable', ['retry_after' => $e->retryAfter]);
-            $this->release($e->retryAfter);
-            
-        } catch (AuthenticationExpiredException $e) {
-            // Permanent failure - don't waste retries
-            Log::critical('Auth expired', ['service' => $e->serviceName]);
-            $this->fail($e);
-        }
-        // Other exceptions bubble - Laravel retries automatically
-    }
-}
-```
-
-**Catch jobs when:**
-- API contract violations (fail immediately - code needs fixing)
-- Custom retry delay (use API's Retry-After)
-- Permanent failures (auth expired - don't retry)
-
-### Required: Final Throwable Catch
-
-All jobs MUST end with `catch (\Throwable)` that:
-1. Logs critical (unexpected exception = code needs updating)
-2. Calls `$this->fail($e)` for standard jobs (skip for business-critical jobs that should retry)
-3. Rethrows with `throw $e` (safe - Laravel checks `hasFailed()` to prevent double-processing)
-
-See existing jobs in `app/Presentation/Jobs/` for implementation examples.
+**Jobs** live in the Application layer (`app/Application/Jobs/`). See `app/Application/CLAUDE.md` for Job conventions.
 
 ## Controllers: Global Exception Handler (Preferred)
 ```php
@@ -215,15 +126,10 @@ public function store(Request $request, CreateOrderUseCase $useCase)
 ```
 Exception reaches Presentation
     ↓
-Is this a Job?
-    → Need custom retry delay? → Catch, use $this->release()
-    → Permanent failure? → Catch, use $this->fail()
-    → Otherwise → Don't catch (Laravel retries automatically)
-    
 Is this a Controller?
     → Can global handler handle it? → Don't catch
     → Need transaction rollback + redirect? → Catch in controller
-    
+
 Is this a Command?
     → Catch for user-friendly output + exit codes
 ```
@@ -277,10 +183,7 @@ test('returns 503 when service unavailable', function () {
 | `Http/{Feature}/` | Feature-specific middleware, resources |
 | `Http/Middleware/` | Global-only middleware |
 | `Http/Controllers/{Feature}/` | Feature controllers |
-| `Jobs/{Integration}/` | Integration-specific jobs |
 
 ## Naming
-
-**Jobs**: `Sync*` (data sync), `Process*` (transform), `Reconcile*` (compare/fix)
 
 **Controllers**: Multi-action `{Feature}Controller`, single-action invokable (`__invoke`)

@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace App\Presentation\Console\Commands;
 
-use App\Presentation\Jobs\Shopwired\SyncShopwiredOrdersRangeJob;
+use App\Application\Shopwired\UseCases\BackfillShopwiredOrdersUseCase;
 use Carbon\CarbonImmutable;
+use DateTimeImmutable;
 use Illuminate\Console\Command;
 
 /**
@@ -29,7 +30,7 @@ final class BackfillShopwiredOrdersCommand extends Command
 
     protected $description = 'Backfill historical orders from ShopWired API';
 
-    public function handle(): int
+    public function handle(BackfillShopwiredOrdersUseCase $dispatchUseCase): int
     {
         $months = (int) $this->option('months');
         $offset = (int) $this->option('offset');
@@ -69,6 +70,24 @@ final class BackfillShopwiredOrdersCommand extends Command
 
         $this->newLine();
 
+        $ranges = $this->buildRanges($now, $months, $offset);
+        $dispatched = $dispatchUseCase->execute($ranges);
+
+        $this->info("✓ {$dispatched} jobs dispatched to queue.");
+        $this->line('  Monitor progress: php artisan horizon');
+
+        return self::SUCCESS;
+    }
+
+    /**
+     * Build date ranges for dispatch.
+     *
+     * @return list<array{from: DateTimeImmutable, to: DateTimeImmutable}>
+     */
+    private function buildRanges(CarbonImmutable $now, int $months, int $offset): array
+    {
+        $ranges = [];
+
         for ($i = 0; $i < $months; $i++) {
             $monthsAgo = $offset + $i;
             $from = $now->startOfMonth()->subMonths($monthsAgo);
@@ -79,13 +98,13 @@ final class BackfillShopwiredOrdersCommand extends Command
                 ? $now
                 : $now->startOfMonth()->subMonths($monthsAgo - 1);
 
-            SyncShopwiredOrdersRangeJob::dispatch($from->toDateTimeImmutable(), $to->toDateTimeImmutable());
+            $ranges[] = [
+                'from' => $from->toDateTimeImmutable(),
+                'to' => $to->toDateTimeImmutable(),
+            ];
         }
 
-        $this->info("✓ {$months} jobs dispatched to queue.");
-        $this->line('  Monitor progress: php artisan horizon');
-
-        return self::SUCCESS;
+        return $ranges;
     }
 
     /**
@@ -97,18 +116,11 @@ final class BackfillShopwiredOrdersCommand extends Command
     {
         $rows = [];
 
-        for ($i = 0; $i < $months; $i++) {
-            $monthsAgo = $offset + $i;
-            $from = $now->startOfMonth()->subMonths($monthsAgo);
+        foreach ($this->buildRanges($now, $months, $offset) as $i => $range) {
+            $from = CarbonImmutable::instance($range['from']);
+            $to = CarbonImmutable::instance($range['to']);
 
-            // First job with offset=0: sync up to NOW (partial current month)
-            // All other jobs: sync complete calendar months
-            $to = ($i === 0 && $offset === 0)
-                ? $now
-                : $now->startOfMonth()->subMonths($monthsAgo - 1);
-
-            // Period label: show "Current" for partial month, otherwise month name
-            $period = ($i === 0 && $offset === 0)
+            $period = ($i === 0 && (int) $this->option('offset') === 0)
                 ? $from->format('M Y') . ' (partial)'
                 : $from->format('M Y');
 

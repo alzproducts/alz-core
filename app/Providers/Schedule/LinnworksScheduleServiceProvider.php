@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Providers\Schedule;
 
-use App\Presentation\Jobs\Linnworks\SyncLinnworksStockItemsJob;
+use App\Application\Jobs\Linnworks\SyncLinnworksStockItemsJob;
 use Illuminate\Support\Facades\Schedule;
 use Illuminate\Support\ServiceProvider;
 use RuntimeException;

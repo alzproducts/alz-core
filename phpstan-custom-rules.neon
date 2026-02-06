@@ -37,8 +37,7 @@ rules:
     - App\DevTools\PHPStan\Rules\Architecture\NoTryCatchInDomainRule
     - App\DevTools\PHPStan\Rules\Architecture\NoStaticPropertiesRule
     - App\DevTools\PHPStan\Rules\Architecture\NoTryCatchInControllerRule
-    # Disabled: Requires moving Jobs from Presentation → Application first (see follow-up issue)
-    # - App\DevTools\PHPStan\Rules\Architecture\NoEventDispatchOutsideApplicationRule
+    - App\DevTools\PHPStan\Rules\Architecture\NoEventDispatchOutsideApplicationRule
     # Batch 3: Job rules
     - App\DevTools\PHPStan\Rules\Jobs\JobMustImplementShouldQueueRule
     - App\DevTools\PHPStan\Rules\Jobs\JobRequiredPropertiesRule

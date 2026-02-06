@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Providers\Schedule;
 
-use App\Presentation\Jobs\Mixpanel\SyncBingAdsToMixpanelJob;
-use App\Presentation\Jobs\Mixpanel\SyncCampaignLookupTableJob;
-use App\Presentation\Jobs\Mixpanel\SyncGoogleAdsToMixpanelJob;
+use App\Application\Jobs\Mixpanel\SyncBingAdsToMixpanelJob;
+use App\Application\Jobs\Mixpanel\SyncCampaignLookupTableJob;
+use App\Application\Jobs\Mixpanel\SyncGoogleAdsToMixpanelJob;
 use DateTimeImmutable;
 use Illuminate\Support\Facades\Schedule;
 use Illuminate\Support\ServiceProvider;
