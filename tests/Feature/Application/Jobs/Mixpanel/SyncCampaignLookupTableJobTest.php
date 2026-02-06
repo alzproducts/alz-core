@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Tests\Feature\Presentation\Jobs\Mixpanel;
+namespace Tests\Feature\Application\Jobs\Mixpanel;
 
 use App\Application\Contracts\LookupTableProviderInterface;
 use App\Application\Contracts\MixpanelClientInterface;

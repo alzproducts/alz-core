@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Tests\Unit\Presentation\Jobs\Feeds;
+namespace Tests\Unit\Application\Jobs\Feeds;
 
 use App\Application\Feeds\ProcessProductSearchFeedUseCase;
 use App\Application\Jobs\Feeds\ProcessProductSearchFeedJob;

@@ -159,9 +159,10 @@ deptrac:
     Domain:
       - AssertionLibrary
 
-    # Application: Domain + PSR interfaces + assertions
+    # Application: Domain + PSR interfaces + assertions + can dispatch Jobs
     Application:
       - Domain
+      - ApplicationJobs
       - PsrInterfaces
       - AssertionLibrary
 

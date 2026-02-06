@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Presentation\Http\Controllers\ContactForm;
 
 use App\Application\ContactSubmission\UseCases\SubmitContactFormUseCase;
-use App\Application\Jobs\ContactForm\ProcessContactSubmissionJob;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Data\InvalidEnumValueException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
@@ -47,14 +46,8 @@ final readonly class ContactFormController
         // Transform to domain objects
         $submission = $this->mapper->toDomain($data, $request->ip() ?? '0.0.0.0');
 
-        // Save to database and get IDs
+        // Save to database, dispatch async HelpScout processing
         $result = $this->useCase->execute($submission);
-
-        // Dispatch async job for HelpScout processing
-        ProcessContactSubmissionJob::dispatch(
-            $result->submissionId,
-            $result->actionId,
-        );
 
         return new JsonResponse(
             ['id' => $result->submissionId],

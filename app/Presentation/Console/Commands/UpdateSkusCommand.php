@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Presentation\Console\Commands;
 
-use App\Application\Jobs\Inventory\UpdateSkuJob;
+use App\Application\Inventory\UseCases\ProcessSkuUpdatesUseCase;
 use App\Domain\Catalog\Product\ValueObjects\Sku;
 use App\Domain\Exceptions\Data\InvalidSkuException;
 use App\Domain\Inventory\Commands\UpdateSkuCommand;
@@ -41,7 +41,7 @@ final class UpdateSkusCommand extends Command
     /**
      * @throws TypeError When array_column fails (defensive - shouldn't happen with enum)
      */
-    public function handle(): int
+    public function handle(ProcessSkuUpdatesUseCase $dispatchUseCase): int
     {
         /** @var list<string> $mappings */
         $mappings = $this->argument('mappings');
@@ -78,7 +78,12 @@ final class UpdateSkusCommand extends Command
             return self::SUCCESS;
         }
 
-        $this->dispatchJobs($commands);
+        $dispatched = $dispatchUseCase->execute($commands);
+
+        $this->newLine();
+        $this->info('✓ ' . $dispatched . ' job(s) dispatched.');
+        $this->line('  Jobs are serialized - they will execute one at a time.');
+        $this->line('  Monitor progress: php artisan horizon');
 
         return self::SUCCESS;
     }
@@ -152,21 +157,6 @@ final class UpdateSkusCommand extends Command
                 $commands,
             ),
         );
-    }
-
-    /**
-     * @param list<UpdateSkuCommand> $commands
-     */
-    private function dispatchJobs(array $commands): void
-    {
-        foreach ($commands as $command) {
-            UpdateSkuJob::dispatch($command);
-        }
-
-        $this->newLine();
-        $this->info('✓ ' . \count($commands) . ' job(s) dispatched.');
-        $this->line('  Jobs are serialized - they will execute one at a time.');
-        $this->line('  Monitor progress: php artisan horizon');
     }
 
     /**

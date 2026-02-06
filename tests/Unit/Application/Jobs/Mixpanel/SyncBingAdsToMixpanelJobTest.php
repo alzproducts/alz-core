@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Tests\Unit\Presentation\Jobs\Mixpanel;
+namespace Tests\Unit\Application\Jobs\Mixpanel;
 
 use App\Application\AdSpend\UseCases\SyncAdSpendUseCase;
 use App\Application\Jobs\Mixpanel\SyncBingAdsToMixpanelJob;

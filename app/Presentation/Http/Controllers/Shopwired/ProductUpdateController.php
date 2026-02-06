@@ -4,10 +4,9 @@ declare(strict_types=1);
 
 namespace App\Presentation\Http\Controllers\Shopwired;
 
-use App\Application\Jobs\Shopwired\SetProductFreeDeliveryJob;
+use App\Application\Shopwired\UseCases\UpdateProductFreeDeliveryUseCase;
 use App\Domain\Catalog\Product\Commands\SetFreeDeliveryCommand;
 use App\Domain\Catalog\Product\Enums\FreeDeliveryType;
-use App\Presentation\Concerns\DispatchesChunkedJobsTrait;
 use App\Presentation\Http\Requests\SetFreeDeliveryRequest;
 use Illuminate\Http\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
@@ -18,9 +17,11 @@ use ValueError;
  *
  * All endpoints require Supabase JWT authentication.
  */
-final class ProductUpdateController
+final readonly class ProductUpdateController
 {
-    use DispatchesChunkedJobsTrait;
+    public function __construct(
+        private UpdateProductFreeDeliveryUseCase $dispatchUseCase,
+    ) {}
 
     /**
      * Update free delivery type on multiple products.
@@ -43,7 +44,7 @@ final class ProductUpdateController
             $updates,
         );
 
-        $jobsDispatched = $this->dispatchInChunks($commands, SetProductFreeDeliveryJob::class);
+        $jobsDispatched = $this->dispatchUseCase->execute($commands);
 
         return new JsonResponse(
             [

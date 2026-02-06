@@ -4,10 +4,9 @@ declare(strict_types=1);
 
 namespace App\Presentation\Console\Commands;
 
-use App\Application\Jobs\Shopwired\SetProductFreeDeliveryJob;
+use App\Application\Shopwired\UseCases\UpdateProductFreeDeliveryUseCase;
 use App\Domain\Catalog\Product\Commands\SetFreeDeliveryCommand;
 use App\Domain\Catalog\Product\Enums\FreeDeliveryType;
-use App\Presentation\Concerns\DispatchesChunkedJobsTrait;
 use Illuminate\Console\Command;
 use ValueError;
 
@@ -25,8 +24,6 @@ use ValueError;
  */
 final class SetProductFreeDeliveryCommand extends Command
 {
-    use DispatchesChunkedJobsTrait;
-
     protected $signature = 'shopwired:set-free-delivery
                             {identifiers* : Product SKUs or IDs to update}
                             {--type=Standard : Free delivery type (Standard, Express, None)}
@@ -34,7 +31,7 @@ final class SetProductFreeDeliveryCommand extends Command
 
     protected $description = 'Set free delivery type on ShopWired products';
 
-    public function handle(): int
+    public function handle(UpdateProductFreeDeliveryUseCase $dispatchUseCase): int
     {
         /** @var list<string> $identifiers */
         $identifiers = $this->argument('identifiers');
@@ -76,7 +73,7 @@ final class SetProductFreeDeliveryCommand extends Command
             return self::SUCCESS;
         }
 
-        $jobCount = $this->dispatchInChunks($commands, SetProductFreeDeliveryJob::class);
+        $jobCount = $dispatchUseCase->execute($commands);
 
         $this->newLine();
         $this->info("✓ {$jobCount} job(s) dispatched for " . \count($commands) . ' product(s).');
