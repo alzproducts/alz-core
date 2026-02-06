@@ -127,14 +127,14 @@ final readonly class EloquentContactSubmissionActionRepository implements Contac
     {
         return $this->gateway->query(
             static fn(): array => ContactSubmissionActionModel::query()
-                    ->where('status', ActionStatus::Processing)
-                    ->where('processing_started_at', '<', $threshold)
-                    ->get(['id', 'contact_submission_id'])
-                    ->map(static fn(ContactSubmissionActionModel $model): array => [
-                        'action_id' => $model->id,
-                        'parent_id' => $model->contact_submission_id,
-                    ])
-                    ->all(),
+                ->where('status', ActionStatus::Processing)
+                ->where('processing_started_at', '<', $threshold)
+                ->get(['id', 'contact_submission_id'])
+                ->map(static fn(ContactSubmissionActionModel $model): array => [
+                    'action_id' => $model->id,
+                    'parent_id' => $model->contact_submission_id,
+                ])
+                ->all(),
         );
     }
 

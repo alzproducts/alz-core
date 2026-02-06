@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Presentation\Console\Commands;
 
-use App\Presentation\Jobs\Mixpanel\SyncCampaignLookupTableJob;
+use App\Application\Jobs\Mixpanel\SyncCampaignLookupTableJob;
 use Illuminate\Support\Facades\Queue;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;

@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Providers\Schedule;
 
-use App\Presentation\Jobs\Shopwired\SyncShopwiredCustomersJob;
-use App\Presentation\Jobs\Shopwired\SyncShopwiredOrdersJob;
+use App\Application\Jobs\Shopwired\SyncShopwiredCustomersJob;
+use App\Application\Jobs\Shopwired\SyncShopwiredOrdersJob;
 use Carbon\Carbon;
 use Closure;
 use Illuminate\Support\Facades\Schedule;

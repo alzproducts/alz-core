@@ -5,8 +5,6 @@ declare(strict_types=1);
 namespace App\Domain\ContactSubmission\Enums;
 
 use App\Domain\Exceptions\Data\InvalidEnumValueException;
-use TypeError;
-use ValueError;
 
 /**
  * Source of the selected product in contact form.
@@ -40,10 +38,7 @@ enum ProductSource: string
      */
     public static function fromValue(string $value): self
     {
-        try {
-            return self::from($value);
-        } catch (ValueError|TypeError $e) {
-            throw InvalidEnumValueException::invalidBackingValue(self::class, $value, $e);
-        }
+        return self::tryFrom($value)
+            ?? throw InvalidEnumValueException::invalidBackingValue(self::class, $value);
     }
 }

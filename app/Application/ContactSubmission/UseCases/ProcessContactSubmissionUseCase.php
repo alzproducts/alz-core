@@ -11,6 +11,7 @@ use App\Application\Contracts\EmailValidationServiceInterface;
 use App\Application\Contracts\HelpScout\ConversationWriteClientInterface;
 use App\Application\HelpScout\Config\HelpScoutSystemUserId;
 use App\Domain\ContactSubmission\Enums\ActionStatus;
+use App\Domain\ContactSubmission\Events\ContactFormProcessedEvent;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
@@ -89,6 +90,14 @@ final readonly class ProcessContactSubmissionUseCase
 
         // Mark completed with external ID for reference
         $this->actionRepository->markCompleted($actionId, (string) $conversationId);
+
+        // Fire success event for notifications (queued listener handles Slack)
+        \event(new ContactFormProcessedEvent(
+            submissionId: $submissionId,
+            conversationId: IntId::from($conversationId),
+            customerName: $submission->form->name,
+            customerEmail: $submission->form->email,
+        ));
 
         return $conversationId;
     }

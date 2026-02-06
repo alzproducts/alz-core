@@ -99,7 +99,7 @@ final readonly class HelpScoutHttpTransport
          *
          * @var array<string, Response|Throwable> $poolResults
          *
-         * @phpstan-ignore staticMethod.dynamicCall, shipmonk.checkedExceptionInCallable
+         * @phpstan-ignore staticMethod.dynamicCall
          */
         $poolResults = $this->httpFactory->pool(fn(Pool $pool): array => $this->buildPoolGetRequests($pool, $requests, $authHeaders));
 
@@ -122,8 +122,6 @@ final readonly class HelpScoutHttpTransport
      * @param array<string, string> $authHeaders Pre-fetched OAuth2 headers
      *
      * @return array<string, PromiseInterface|Response>
-     *
-     * @throws ConnectionException Declared for PHPStan - not actually thrown during request building
      */
     private function buildPoolGetRequests(Pool $pool, array $requests, array $authHeaders): array
     {
@@ -188,22 +186,14 @@ final readonly class HelpScoutHttpTransport
         /** @var array<string, string> $authHeaders */
         $authHeaders = $this->sdkClient->getAuthenticator()->getAuthHeader();
 
-        /**
-         * Factory uses __call to proxy to PendingRequest, but IDE doesn't recognize this.
-         *
-         * @var PendingRequest $request
-         *
-         * @phpstan-ignore staticMethod.dynamicCall
-         */
-        $request = $this->httpFactory->withHeaders($authHeaders)
+        /** @phpstan-ignore staticMethod.dynamicCall (Factory uses __call to proxy to PendingRequest) */
+        return $this->httpFactory->withHeaders($authHeaders)
             ->retry(
                 times: $this->config->retryAttempts,
                 sleepMilliseconds: 100,
                 when: ApiRetryStrategy::defaultRetry(),
             )
             ->timeout($this->config->timeoutSeconds);
-
-        return $request;
     }
 
     /**

@@ -24,6 +24,30 @@ When adding a new external service integration (e.g., Google Ads, QuickBooks), f
 
 ---
 
+## Jobs (`Application/Jobs/`)
+
+Jobs live in the Application layer (not Presentation) because they orchestrate business logic and aren't tied to a specific delivery mechanism. They are in a Deptrac/PHPArkitect sub-layer (`ApplicationJobs`) with explicit Laravel framework access.
+
+### Queue Priority Tiers
+
+| Queue | Timeout | Use Case |
+|-------|---------|----------|
+| `high` | 90s | Time-sensitive, user-facing (webhooks, notifications) |
+| `default` | 90s | Normal priority (order sync, daily jobs) |
+| `low` | 3600s | Bulk/background work (full customer sync, data migrations) |
+
+Route jobs via constructor: `$this->onQueue('low')`. Config: `config/horizon.php`.
+
+### Required Job Properties
+
+Every job must define: `$tries`, `$timeout`, `backoff()` (property or method), `failed()` method, and call `$this->onQueue()` in the constructor. These are enforced by custom PHPStan rules in `DevTools/PHPStan/Rules/Jobs/`.
+
+### Naming Convention
+
+Job class names must start with: `Sync`, `Process`, `Reconcile`, `Set`, `Update`, or `Cleanup`.
+
+---
+
 ## Logging Decision
 
 **PSR-3 `LoggerInterface` accepted in Application layer** - Log business events only (workflow milestones, coordination), not technical details. PSR-3 is a stable PHP-FIG interface, provides observability value for distributed workflows.

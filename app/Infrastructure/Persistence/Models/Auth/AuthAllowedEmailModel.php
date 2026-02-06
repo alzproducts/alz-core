@@ -25,7 +25,7 @@ final class AuthAllowedEmailModel extends Model
 {
     use HasUuids;
 
-    protected $table = 'auth_allowed_emails';
+    protected $table = 'public.auth_allowed_emails';
 
     public $incrementing = false;
 

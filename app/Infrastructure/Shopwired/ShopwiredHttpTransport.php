@@ -218,8 +218,6 @@ final readonly class ShopwiredHttpTransport implements ShopwiredTransportInterfa
          * Connection failures appear as Throwable in results array.
          *
          * @var array<string, Response|Throwable> $poolResults
-         *
-         * @phpstan-ignore shipmonk.checkedExceptionInCallable (Pool builds request definitions, doesn't execute HTTP - no exceptions thrown in closure)
          */
         $poolResults = Http::pool(fn(Pool $pool): array => $this->buildPoolRequests($pool, $requests));
 
@@ -282,8 +280,6 @@ final readonly class ShopwiredHttpTransport implements ShopwiredTransportInterfa
      * @param array<string, array{endpoint: string, data: array<mixed>}> $requests
      *
      * @return array<string, PromiseInterface|Response>
-     *
-     * @throws ConnectionException Declared for PHPStan - not actually thrown during request building
      */
     private function buildPoolRequests(Pool $pool, array $requests): array
     {

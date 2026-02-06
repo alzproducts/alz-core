@@ -164,7 +164,7 @@ This project follows **Clean Architecture** (Robert C. Martin) — dependencies 
 
 - **Infrastructure** (`App\Infrastructure`) — External world: API clients, database repositories, SDK wrappers. Implements Domain interfaces. Validates external data with exceptions. *Naming: `*Client`, `*Repository`*
 
-- **Application** (`App\Application`) — Use cases: orchestrates Domain objects and Infrastructure services to accomplish tasks. Contains jobs, transformers. *Naming: `*UseCase`, `*Service`*
+- **Application** (`App\Application`) — Use cases: orchestrates Domain objects and Infrastructure services to accomplish tasks. Contains jobs (in `ApplicationJobs` sub-layer with Laravel framework access), transformers. *Naming: `*UseCase`, `*Service`, `*Job`*
 
 - **Domain** (`App\Domain`) — Pure business logic: value objects, entities, interfaces, domain exceptions. Zero external dependencies. Validates internal contracts with assertions.
 

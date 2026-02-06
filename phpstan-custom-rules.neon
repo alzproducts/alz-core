@@ -1,0 +1,56 @@
+# Custom PHPStan rules for alz-core-two
+# Included by phpstan.neon — project-specific disallowed calls and custom rule services.
+# See: .ai/plans/2026-02-06_211-phpstan-custom-rules.md
+
+parameters:
+    # ── Disallowed Calls (spaze/phpstan-disallowed-calls) ─────────────
+
+    disallowedStaticCalls:
+        # Rule #41: No Config:: facade in Domain/Application layers
+        # Config values should be injected via constructor, not pulled from facade.
+        -
+            method: 'Illuminate\Support\Facades\Config::*()'
+            message: 'inject config values via constructor instead of using the Config facade'
+            errorIdentifier: 'alz.noConfigFacade'
+            allowExceptIn:
+                - app/Domain/*
+                - app/Application/*
+
+    disallowedFunctionCalls:
+        # Rule #41: No config() helper in Domain/Application layers
+        # Config values should be injected via constructor, not pulled from global helper.
+        -
+            function: 'config()'
+            message: 'inject config values via constructor instead of using config() helper'
+            errorIdentifier: 'alz.noConfigHelper'
+            allowExceptIn:
+                - app/Domain/*
+                - app/Application/*
+
+# ── Custom PHP Rules ─────────────────────────────────────────────────
+rules:
+    # Batch 1: Replaced spaze/disallowed-calls (Larastan facade resolution breaks spaze)
+    - App\DevTools\PHPStan\Rules\Architecture\NoDbFacadeRule
+    - App\DevTools\PHPStan\Rules\Architecture\NoAssertEqualsRule
+    - App\DevTools\PHPStan\Rules\Architecture\NoArtisanCallRule
+    # Batch 2: Architecture rules
+    - App\DevTools\PHPStan\Rules\Architecture\NoTryCatchInDomainRule
+    - App\DevTools\PHPStan\Rules\Architecture\NoStaticPropertiesRule
+    - App\DevTools\PHPStan\Rules\Architecture\NoTryCatchInControllerRule
+    - App\DevTools\PHPStan\Rules\Architecture\NoEventDispatchOutsideApplicationRule
+    # Batch 3: Job rules
+    - App\DevTools\PHPStan\Rules\Jobs\JobMustImplementShouldQueueRule
+    - App\DevTools\PHPStan\Rules\Jobs\JobRequiredPropertiesRule
+    - App\DevTools\PHPStan\Rules\Jobs\JobRequiredMethodsRule
+    - App\DevTools\PHPStan\Rules\Jobs\JobMustCallOnQueueRule
+    - App\DevTools\PHPStan\Rules\Jobs\JobNamingPrefixRule
+    - App\DevTools\PHPStan\Rules\Jobs\JobHandleMustCatchThrowableRule
+    # Batch 4: Exception rules
+    - App\DevTools\PHPStan\Rules\Exceptions\DomainExceptionMustExtendBaseRule
+    - App\DevTools\PHPStan\Rules\Exceptions\NoCatchReturnEmptyRule
+    - App\DevTools\PHPStan\Rules\Infrastructure\NoSdkExceptionsInThrowsRule
+    # Batch 5: Infrastructure DTO + Table rules
+    - App\DevTools\PHPStan\Rules\Architecture\SchemaQualifiedTableNameRule
+    - App\DevTools\PHPStan\Rules\Infrastructure\ShopwiredModelMustImplementMappableRule
+    - App\DevTools\PHPStan\Rules\Infrastructure\RowDtoMustBeInternalRule
+    - App\DevTools\PHPStan\Rules\Infrastructure\RowClassNotImportedOutsideQueriesRule
