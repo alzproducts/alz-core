@@ -130,10 +130,7 @@ final class SyncBingAdsToMixpanelJobTest extends TestCase
                     && \str_contains($context['error'], 'JSON encoding failed')
                     && \array_key_exists('attempts', $context));
 
-        $job = Mockery::mock(SyncBingAdsToMixpanelJob::class, [
-            new DateTimeImmutable(self::TEST_DATE),
-            new DateTimeImmutable(self::TEST_DATE),
-        ])->makePartial();
+        $job = $this->createJobMock();
         $job->shouldReceive('fail')
             ->once()
             ->with($exception);
@@ -157,10 +154,7 @@ final class SyncBingAdsToMixpanelJobTest extends TestCase
         Log::shouldReceive('info')->once();
         Log::shouldReceive('critical')->once();
 
-        $job = Mockery::mock(SyncBingAdsToMixpanelJob::class, [
-            new DateTimeImmutable(self::TEST_DATE),
-            new DateTimeImmutable(self::TEST_DATE),
-        ])->makePartial();
+        $job = $this->createJobMock();
         $job->shouldReceive('fail')
             ->once()
             ->with($exception);
@@ -197,10 +191,7 @@ final class SyncBingAdsToMixpanelJobTest extends TestCase
                     && \str_contains($context['message'], 'Bing Ads')
                     && \array_key_exists('attempts', $context));
 
-        $job = Mockery::mock(SyncBingAdsToMixpanelJob::class, [
-            new DateTimeImmutable(self::TEST_DATE),
-            new DateTimeImmutable(self::TEST_DATE),
-        ])->makePartial();
+        $job = $this->createJobMock();
         $job->shouldReceive('fail')
             ->once()
             ->with($exception);
@@ -224,10 +215,7 @@ final class SyncBingAdsToMixpanelJobTest extends TestCase
         Log::shouldReceive('info')->once();
         Log::shouldReceive('critical')->once();
 
-        $job = Mockery::mock(SyncBingAdsToMixpanelJob::class, [
-            new DateTimeImmutable(self::TEST_DATE),
-            new DateTimeImmutable(self::TEST_DATE),
-        ])->makePartial();
+        $job = $this->createJobMock();
         $job->shouldReceive('fail')
             ->once()
             ->with($exception);
@@ -264,10 +252,7 @@ final class SyncBingAdsToMixpanelJobTest extends TestCase
                     && $context['retry_after'] === 180
                     && \array_key_exists('attempts', $context));
 
-        $job = Mockery::mock(SyncBingAdsToMixpanelJob::class, [
-            new DateTimeImmutable(self::TEST_DATE),
-            new DateTimeImmutable(self::TEST_DATE),
-        ])->makePartial();
+        $job = $this->createJobMock();
         $job->shouldReceive('release')
             ->once()
             ->with(180);
@@ -296,10 +281,7 @@ final class SyncBingAdsToMixpanelJobTest extends TestCase
                     && $context['retry_after'] === 60
                     && $context['attempts'] === 2);
 
-        $job = Mockery::mock(SyncBingAdsToMixpanelJob::class, [
-            new DateTimeImmutable(self::TEST_DATE),
-            new DateTimeImmutable(self::TEST_DATE),
-        ])->makePartial();
+        $job = $this->createJobMock();
         $job->shouldReceive('release')
             ->once()
             ->with(60);
@@ -330,10 +312,7 @@ final class SyncBingAdsToMixpanelJobTest extends TestCase
             ->once()
             ->withArgs(static fn(string $message, array $context): bool => $context['retry_after'] === 'using backoff');
 
-        $job = Mockery::mock(SyncBingAdsToMixpanelJob::class, [
-            new DateTimeImmutable(self::TEST_DATE),
-            new DateTimeImmutable(self::TEST_DATE),
-        ])->makePartial();
+        $job = $this->createJobMock();
         $job->shouldNotReceive('release');
         $job->shouldReceive('attempts')->andReturn(3);
 
@@ -361,10 +340,7 @@ final class SyncBingAdsToMixpanelJobTest extends TestCase
                     && $context['retry_after'] === 'using backoff'
                     && $context['attempts'] === 4);
 
-        $job = Mockery::mock(SyncBingAdsToMixpanelJob::class, [
-            new DateTimeImmutable(self::TEST_DATE),
-            new DateTimeImmutable(self::TEST_DATE),
-        ])->makePartial();
+        $job = $this->createJobMock();
         $job->shouldReceive('attempts')->andReturn(4);
 
         try {
@@ -397,10 +373,7 @@ final class SyncBingAdsToMixpanelJobTest extends TestCase
             ->withArgs(static fn(string $message, array $context): bool => \str_contains($message, 'Unexpected exception')
                     && $context['exception'] === RuntimeException::class);
 
-        $job = Mockery::mock(SyncBingAdsToMixpanelJob::class, [
-            new DateTimeImmutable(self::TEST_DATE),
-            new DateTimeImmutable(self::TEST_DATE),
-        ])->makePartial();
+        $job = $this->createJobMock();
         $job->shouldReceive('fail')
             ->once()
             ->with($exception);
@@ -425,10 +398,7 @@ final class SyncBingAdsToMixpanelJobTest extends TestCase
         Log::shouldReceive('info')->once();
         Log::shouldReceive('critical')->once();
 
-        $job = Mockery::mock(SyncBingAdsToMixpanelJob::class, [
-            new DateTimeImmutable(self::TEST_DATE),
-            new DateTimeImmutable(self::TEST_DATE),
-        ])->makePartial();
+        $job = $this->createJobMock();
         $job->shouldReceive('fail')
             ->once()
             ->with($exception);
@@ -461,10 +431,7 @@ final class SyncBingAdsToMixpanelJobTest extends TestCase
                 'attempts' => 5,
             ]);
 
-        $job = Mockery::mock(SyncBingAdsToMixpanelJob::class, [
-            new DateTimeImmutable(self::TEST_DATE),
-            new DateTimeImmutable(self::TEST_DATE),
-        ])->makePartial();
+        $job = $this->createJobMock();
         $job->shouldReceive('attempts')->andReturn(5);
 
         $job->failed($exception);
@@ -480,10 +447,7 @@ final class SyncBingAdsToMixpanelJobTest extends TestCase
             ->withArgs(static fn(string $message, array $context): bool => $context['exception'] === ExternalServiceUnavailableException::class
                     && $context['message'] === "External service 'Bing Ads' is unavailable");
 
-        $job = Mockery::mock(SyncBingAdsToMixpanelJob::class, [
-            new DateTimeImmutable(self::TEST_DATE),
-            new DateTimeImmutable(self::TEST_DATE),
-        ])->makePartial();
+        $job = $this->createJobMock();
         $job->shouldReceive('attempts')->andReturn(5);
 
         $job->failed($exception);
@@ -498,10 +462,7 @@ final class SyncBingAdsToMixpanelJobTest extends TestCase
             ->once()
             ->withArgs(static fn(string $message, array $context): bool => $context['exception'] === AuthenticationExpiredException::class);
 
-        $job = Mockery::mock(SyncBingAdsToMixpanelJob::class, [
-            new DateTimeImmutable(self::TEST_DATE),
-            new DateTimeImmutable(self::TEST_DATE),
-        ])->makePartial();
+        $job = $this->createJobMock();
         $job->shouldReceive('attempts')->andReturn(3);
 
         $job->failed($exception);
@@ -519,5 +480,23 @@ final class SyncBingAdsToMixpanelJobTest extends TestCase
             new DateTimeImmutable(self::TEST_DATE),
             new DateTimeImmutable(self::TEST_DATE),
         );
+    }
+
+    /**
+     * Create a partial mock that allows onQueue() from the constructor.
+     *
+     * Needed because JobMustCallOnQueueRule requires $this->onQueue() in constructors,
+     * and Mockery partial mocks intercept the call without forwarding it.
+     */
+    private function createJobMock(string $from = self::TEST_DATE, string $to = self::TEST_DATE): SyncBingAdsToMixpanelJob&MockInterface
+    {
+        $job = Mockery::mock(SyncBingAdsToMixpanelJob::class)->makePartial();
+        $job->allows('onQueue');
+        $job->__construct(
+            new DateTimeImmutable($from),
+            new DateTimeImmutable($to),
+        );
+
+        return $job;
     }
 }
