@@ -7,6 +7,7 @@ namespace App\Presentation\Console\Commands;
 use App\Application\Inventory\Commands\GenerateVariantSkusCommand as UseCaseCommand;
 use App\Application\Inventory\Results\GenerateVariantSkusResult;
 use App\Application\Inventory\UseCases\GenerateVariantSkusUseCase;
+use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\Product\ValueObjects\Sku;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
@@ -20,7 +21,6 @@ use App\Domain\Exceptions\Infrastructure\LockAcquisitionException;
 use App\Domain\Exceptions\Inventory\InvalidTemplateException;
 use App\Domain\ValueObjects\IntId;
 use Illuminate\Console\Command;
-use RuntimeException;
 
 /**
  * Generate Linnworks inventory items for SKU-less ShopWired variations.
@@ -49,7 +49,7 @@ final class GenerateVariantSkusCommand extends Command
     protected $description = 'Generate Linnworks inventory items for SKU-less ShopWired product variations';
 
     /**
-     * @throws RuntimeException When standard sign product ID not configured
+     * @throws InvalidCustomFieldValueException When product custom fields invalid
      */
     public function handle(GenerateVariantSkusUseCase $useCase): int
     {

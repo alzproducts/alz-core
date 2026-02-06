@@ -77,6 +77,7 @@ final class GenerateVariantSkusUseCaseTest extends TestCase
             new VariationOptionMatcher(),
             Mockery::mock(ProductRepositoryInterface::class),
             $this->logger,
+            standardSignProductId: 99999,
         );
     }
 

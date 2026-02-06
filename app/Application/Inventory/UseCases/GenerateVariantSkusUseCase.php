@@ -11,6 +11,7 @@ use App\Application\Inventory\Params\CreateStockItemParams;
 use App\Application\Inventory\Results\GenerateVariantSkusResult;
 use App\Application\Inventory\Services\GenerateStockItemFromVariationService;
 use App\Application\Shopwired\Services\ProductSyncService;
+use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\Product\Resolvers\VariationImageResolver;
 use App\Domain\Catalog\Product\Resolvers\VariationOptionMatcher;
 use App\Domain\Catalog\Product\Resolvers\VariationPriceResolver;
@@ -33,7 +34,6 @@ use App\Domain\ValueObjects\IntId;
 use App\Domain\ValueObjects\Money;
 use App\Domain\ValueObjects\TaxRate;
 use Psr\Log\LoggerInterface;
-use RuntimeException;
 use Webmozart\Assert\Assert;
 
 /**
@@ -61,7 +61,7 @@ final readonly class GenerateVariantSkusUseCase
         private VariationOptionMatcher $optionMatcher,
         private ProductRepositoryInterface $productRepository,
         private LoggerInterface $logger,
-        private ?int $standardSignProductId = null,
+        private int $standardSignProductId,
     ) {}
 
     /**
@@ -76,7 +76,7 @@ final readonly class GenerateVariantSkusUseCase
      * @throws DatabaseOperationFailedException When local refresh fails
      * @throws DuplicateRecordException When local refresh encounters duplicate
      * @throws InvalidTemplateException When template has no default supplier
-     * @throws RuntimeException When standard sign product ID not configured
+     * @throws InvalidCustomFieldValueException When product custom fields invalid
      */
     public function execute(GenerateVariantSkusCommand $command): GenerateVariantSkusResult
     {
@@ -192,15 +192,13 @@ final readonly class GenerateVariantSkusUseCase
      *
      * @return list<ProductVariation>
      *
-     * @throws RuntimeException When standard_sign_product_id not configured
      * @throws ResourceNotFoundException When standard sign product not found in local DB
+     * @throws ExternalServiceUnavailableException When ShopWired API unavailable
+     * @throws DatabaseOperationFailedException When local DB query fails
+     * @throws InvalidCustomFieldValueException When product custom fields invalid
      */
     private function loadStandardSignVariations(): array
     {
-        if ($this->standardSignProductId === null) {
-            throw new RuntimeException('shopwired.standard_sign_product_id not configured');
-        }
-
         $standardProduct = $this->productRepository->getProduct(IntId::from($this->standardSignProductId));
 
         $this->logger->info('Loaded standard sign product for price matching', [
