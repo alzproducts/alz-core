@@ -254,6 +254,80 @@ final class SyncCustomersUseCaseTest extends TestCase
 
     /*
     |--------------------------------------------------------------------------
+    | Deduplication (Pagination Drift)
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function execute_deduplicates_customers_by_id_keeping_first_seen(): void
+    {
+        // Simulate pagination drift: customer 2 appears on both pages
+        $page1 = [$this->createCustomer(1), $this->createCustomer(2)];
+        $page2 = [$this->createCustomer(2), $this->createCustomer(3)];
+
+        $this->customerClient
+            ->shouldReceive('iterateCustomerBatches')
+            ->once()
+            ->with(1, 1)
+            ->andReturn($this->multiPageGenerator([0 => $page1, 1 => $page2]));
+
+        // Should receive 3 unique customers (not 4) — customer 2 deduplicated
+        $this->customerRepository
+            ->shouldReceive('saveCustomersBulk')
+            ->once()
+            ->with(Mockery::on(static fn(array $customers) => \count($customers) === 3
+                && $customers[0]->id === 1
+                && $customers[1]->id === 2
+                && $customers[2]->id === 3))
+            ->andReturn(SaveManyResult::success(3));
+
+        $this->logger->shouldReceive('info')->with(Mockery::pattern('/Starting.*customer sync/'));
+        $this->logger->shouldReceive('debug')->times(2)->with('Fetched customer page from API', Mockery::type('array'));
+        $this->logger->shouldReceive('debug')->once()->with('Deduplicated customers in batch', Mockery::on(
+            static fn(array $context) => $context['duplicates_removed'] === 1,
+        ));
+        $this->logger->shouldReceive('debug')->once()->with('Flushing customer batch to database', Mockery::type('array'));
+        $this->logger->shouldReceive('info')->with('Customer sync completed', Mockery::type('array'));
+
+        $result = $this->useCase->execute(1, 1);
+
+        // Fetched counts raw API output (4), saved counts deduplicated (3)
+        $this->assertSame(4, $result->fetched);
+        $this->assertSame(3, $result->saved);
+        $this->assertSame(0, $result->failed);
+    }
+
+    #[Test]
+    public function execute_does_not_log_dedup_when_no_duplicates(): void
+    {
+        $customers = [$this->createCustomer(1), $this->createCustomer(2)];
+
+        $this->customerClient
+            ->shouldReceive('iterateCustomerBatches')
+            ->once()
+            ->with(1, 1)
+            ->andReturn($this->singlePageGenerator($customers));
+
+        $this->customerRepository
+            ->shouldReceive('saveCustomersBulk')
+            ->once()
+            ->with($customers)
+            ->andReturn(SaveManyResult::success(2));
+
+        $this->logger->shouldReceive('info')->with(Mockery::pattern('/Starting.*customer sync/'));
+        $this->logger->shouldReceive('debug')->with('Fetched customer page from API', Mockery::type('array'));
+        $this->logger->shouldReceive('debug')->never()->with('Deduplicated customers in batch', Mockery::any());
+        $this->logger->shouldReceive('debug')->with('Flushing customer batch to database', Mockery::type('array'));
+        $this->logger->shouldReceive('info')->with('Customer sync completed', Mockery::type('array'));
+
+        $result = $this->useCase->execute(1, 1);
+
+        $this->assertSame(2, $result->fetched);
+        $this->assertSame(2, $result->saved);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
     | Page Limit Parameters
     |--------------------------------------------------------------------------
     */
