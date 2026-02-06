@@ -36,7 +36,7 @@ final class VariantSkusGeneratedSlackListener implements ShouldQueue
                 created: $event->created,
                 skipped: $event->skipped,
                 failed: $event->failed,
-                createdSkus: $event->createdSkus,
+                createdVariants: $event->createdVariants,
             ));
     }
 

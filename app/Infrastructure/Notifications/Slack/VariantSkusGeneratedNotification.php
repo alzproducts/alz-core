@@ -24,7 +24,7 @@ final class VariantSkusGeneratedNotification extends Notification
      * @param int $created SKUs created
      * @param int $skipped Variations skipped
      * @param int $failed Variations failed
-     * @param list<string> $createdSkus Created SKU values
+     * @param list<string> $createdVariants Created SKU values
      */
     public function __construct(
         public readonly int $productId,
@@ -32,7 +32,7 @@ final class VariantSkusGeneratedNotification extends Notification
         public readonly int $created,
         public readonly int $skipped,
         public readonly int $failed,
-        public readonly array $createdSkus,
+        public readonly array $createdVariants,
     ) {}
 
     /**
@@ -57,9 +57,9 @@ final class VariantSkusGeneratedNotification extends Notification
             })
             ->dividerBlock();
 
-        if ($this->createdSkus !== []) {
+        if ($this->createdVariants !== []) {
             $message->sectionBlock(function (SectionBlock $block): void {
-                $block->text($this->buildSkuList())->markdown();
+                $block->text($this->buildVariantList())->markdown();
             });
         }
 
@@ -68,13 +68,13 @@ final class VariantSkusGeneratedNotification extends Notification
         });
     }
 
-    private function buildSkuList(): string
+    private function buildVariantList(): string
     {
-        $visible = \array_slice($this->createdSkus, 0, self::MAX_SKUS_SHOWN);
-        $lines = \array_map(static fn(string $sku): string => "`{$sku}`", $visible);
+        $visible = \array_slice($this->createdVariants, 0, self::MAX_SKUS_SHOWN);
+        $lines = \array_map(static fn(string $variant): string => "`{$variant}`", $visible);
         $text = \implode("\n", $lines);
 
-        $remaining = \count($this->createdSkus) - self::MAX_SKUS_SHOWN;
+        $remaining = \count($this->createdVariants) - self::MAX_SKUS_SHOWN;
         if ($remaining > 0) {
             $text .= "\n+ {$remaining} more";
         }

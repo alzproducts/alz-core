@@ -125,13 +125,13 @@ final class GenerateVariantSkusCommand extends Command
 
     private function displayCreatedSkus(GenerateVariantSkusResult $result): void
     {
-        if ($result->createdSkus === []) {
+        if ($result->createdVariants === []) {
             return;
         }
 
         $this->newLine();
         $this->info('Created SKUs:');
-        foreach ($result->createdSkus as $sku) {
+        foreach ($result->createdVariants as $sku) {
             $this->line("  - {$sku}");
         }
     }
@@ -161,7 +161,7 @@ final class GenerateVariantSkusCommand extends Command
             created: $result->created,
             skipped: $result->skipped,
             failed: $result->failed,
-            createdSkus: $result->createdSkus,
+            createdVariants: $result->createdVariants,
         ));
     }
 

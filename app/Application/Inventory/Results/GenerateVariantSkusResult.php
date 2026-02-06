@@ -17,7 +17,7 @@ final readonly class GenerateVariantSkusResult
      * @param int $created Variations successfully created in Linnworks
      * @param int $failed Variations that failed (rolled back)
      * @param string $productTitle Product title for display/notifications
-     * @param list<string> $createdSkus SKUs successfully created
+     * @param list<string> $createdVariants Created variant labels (e.g., "WEB-123 - Red Large")
      * @param list<int> $failedVariationIds Variation external IDs that failed
      */
     public function __construct(
@@ -26,7 +26,7 @@ final readonly class GenerateVariantSkusResult
         public int $created,
         public int $failed,
         public string $productTitle = '',
-        public array $createdSkus = [],
+        public array $createdVariants = [],
         public array $failedVariationIds = [],
     ) {}
 

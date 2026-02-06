@@ -222,7 +222,7 @@ final class GenerateVariantSkusUseCaseTest extends TestCase
         $this->assertSame(2, $result->skipped);
         $this->assertSame(2, $result->created);
         $this->assertSame(0, $result->failed);
-        $this->assertSame(['NEW-2', 'NEW-4'], $result->createdSkus);
+        $this->assertSame(['NEW-2', 'NEW-4'], $result->createdVariants);
     }
 
     /*
@@ -274,7 +274,7 @@ final class GenerateVariantSkusUseCaseTest extends TestCase
         $this->assertSame(0, $result->skipped);
         $this->assertSame(2, $result->created);
         $this->assertSame(1, $result->failed);
-        $this->assertSame(['SUCCESS-1', 'SUCCESS-3'], $result->createdSkus);
+        $this->assertSame(['SUCCESS-1', 'SUCCESS-3'], $result->createdVariants);
         $this->assertSame([2], $result->failedVariationIds);
         $this->assertTrue($result->hasFailures());
     }

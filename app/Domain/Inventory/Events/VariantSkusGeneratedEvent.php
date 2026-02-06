@@ -18,7 +18,7 @@ final readonly class VariantSkusGeneratedEvent
      * @param int $created Number of SKUs successfully created
      * @param int $skipped Variations already with SKUs
      * @param int $failed Variations that failed (rolled back)
-     * @param list<string> $createdSkus The SKUs that were created
+     * @param list<string> $createdVariants Created variant labels (e.g., "WEB-123 - Red Large")
      */
     public function __construct(
         public int $productId,
@@ -26,6 +26,6 @@ final readonly class VariantSkusGeneratedEvent
         public int $created,
         public int $skipped,
         public int $failed,
-        public array $createdSkus,
+        public array $createdVariants,
     ) {}
 }

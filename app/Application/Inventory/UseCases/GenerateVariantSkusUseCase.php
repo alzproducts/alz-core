@@ -111,8 +111,8 @@ final readonly class GenerateVariantSkusUseCase
         // 5. Process each SKU-less variation
         $created = 0;
         $failed = 0;
-        /** @var list<string> $createdSkus */
-        $createdSkus = [];
+        /** @var list<string> $createdVariants */
+        $createdVariants = [];
         /** @var list<int> $failedVariationIds */
         $failedVariationIds = [];
 
@@ -121,7 +121,10 @@ final readonly class GenerateVariantSkusUseCase
 
             if ($result !== null) {
                 $created++;
-                $createdSkus[] = $result->value;
+                $optionValues = $variation->optionValuesString();
+                $createdVariants[] = $optionValues !== ''
+                    ? "{$result->value} - {$optionValues}"
+                    : $result->value;
             } else {
                 $failed++;
                 $failedVariationIds[] = $variation->id;
@@ -145,7 +148,7 @@ final readonly class GenerateVariantSkusUseCase
             created: $created,
             failed: $failed,
             productTitle: $product->title,
-            createdSkus: $createdSkus,
+            createdVariants: $createdVariants,
             failedVariationIds: $failedVariationIds,
         );
     }
