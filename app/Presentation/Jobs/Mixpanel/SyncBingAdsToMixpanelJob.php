@@ -60,7 +60,9 @@ final class SyncBingAdsToMixpanelJob implements ShouldQueue
     public function __construct(
         private readonly DateTimeImmutable $from,
         private readonly DateTimeImmutable $to,
-    ) {}
+    ) {
+        $this->onQueue('default');
+    }
 
     /**
      * Execute the job.

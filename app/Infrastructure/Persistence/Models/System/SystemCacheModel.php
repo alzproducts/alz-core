@@ -23,7 +23,7 @@ use Illuminate\Database\Eloquent\Model;
  */
 final class SystemCacheModel extends Model
 {
-    protected $table = 'system_cache';
+    protected $table = 'public.system_cache';
 
     protected $primaryKey = 'key';
 

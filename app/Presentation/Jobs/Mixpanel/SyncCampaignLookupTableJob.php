@@ -46,6 +46,11 @@ final class SyncCampaignLookupTableJob implements ShouldQueue
     public array $backoff = [60, 300, 3600];
 
     /**
+     * Job timeout in seconds.
+     */
+    public int $timeout = 300;
+
+    /**
      * Execute the job: synchronize campaign lookup table.
      *
      * @throws ExternalServiceUnavailableException When external APIs unavailable - will retry
