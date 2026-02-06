@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace App\Presentation\Jobs\Shopwired;
+namespace App\Application\Jobs\Mixpanel;
 
-use App\Application\Shopwired\UseCases\SyncFilterGroupsUseCase;
+use App\Application\Mixpanel\UseCases\SyncLookupTableUseCase;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
-use App\Domain\Exceptions\Api\InvalidApiResponseException;
+use App\Domain\Exceptions\Api\UnexpectedApiResultException;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -17,18 +17,14 @@ use Illuminate\Support\Facades\Log;
 use Throwable;
 
 /**
- * Asynchronously synchronize ShopWired filter group definitions to local database.
+ * Asynchronously synchronize order enrichment lookup table to Mixpanel.
  *
- * Filter group definitions describe the faceted navigation categories
- * (e.g., "Size", "Colour", "VAT Relief Eligible"). This is a small, stable
- * dataset (~10-20 groups) that changes infrequently.
+ * Syncs customer/order metadata (LTV, first order, trade status) enabling
+ * Mixpanel reports to enrich any event with order_id_hashed property.
  *
- * Usage:
- * - SyncShopwiredFilterGroupsJob::dispatch()
- *
- * Recommended scheduling: Daily (definitions rarely change)
+ * Implements exponential backoff for rate limit and transient error handling.
  */
-final class SyncShopwiredFilterGroupsJob implements ShouldQueue
+final class SyncOrderLookupTableJob implements ShouldQueue
 {
     use Dispatchable;
     use InteractsWithQueue;
@@ -37,56 +33,54 @@ final class SyncShopwiredFilterGroupsJob implements ShouldQueue
 
     /**
      * Maximum number of attempts before giving up.
+     *
+     * 3 attempts: quick retries for transient issues + 1hr fallback for longer outages.
      */
     public int $tries = 3;
 
     /**
-     * Seconds to wait before retrying (exponential backoff).
+     * Job timeout in seconds.
+     *
+     * 5 minutes: generous buffer for ~100k row query + CSV generation + upload.
+     * Expected actual time: < 30 seconds.
+     */
+    public int $timeout = 300;
+
+    /**
+     * Seconds to wait before retrying.
+     *
+     * 1min, 5min, 1hr: quick retries catch transient issues, hour delay catches maintenance windows.
      *
      * @var array<int>
      */
-    public array $backoff = [30, 60, 120];
+    public array $backoff = [60, 300, 3600];
 
-    /**
-     * Job timeout in seconds.
-     *
-     * Expected runtime: ~5s (1 API call for ~10-20 definitions).
-     */
-    public int $timeout = 60;
-
-    /**
-     * Create a new job instance.
-     */
     public function __construct()
     {
         $this->onQueue('low');
     }
 
     /**
-     * Execute the job.
+     * Execute the job: synchronize order enrichment lookup table.
      *
-     * @throws ExternalServiceUnavailableException When ShopWired API unavailable - will retry
-     * @throws InvalidApiResponseException When API contract violation (permanent failure)
-     * @throws AuthenticationExpiredException When credentials invalid (permanent failure)
+     * @throws ExternalServiceUnavailableException When external APIs unavailable - will retry
+     * @throws UnexpectedApiResultException When API returns unexpected data (permanent failure)
+     * @throws AuthenticationExpiredException When API credentials invalid (permanent failure)
      * @throws Throwable When unexpected errors occur - indicates code update required
      */
-    public function handle(SyncFilterGroupsUseCase $useCase): void
+    public function handle(SyncLookupTableUseCase $useCase): void
     {
-        Log::info('ShopWired filter group definitions sync job starting');
+        Log::info('Order lookup table sync job starting');
 
         try {
-            $result = $useCase->execute();
+            $useCase->execute();
 
-            Log::info('ShopWired filter group definitions sync job completed', [
-                'fetched' => $result->fetched,
-                'saved' => $result->saved,
-                'failed' => $result->failed,
-            ]);
-        } catch (InvalidApiResponseException $e) {
-            // Permanent failure - API contract changed, code needs updating
-            Log::critical('API response validation failed during ShopWired filter group sync', [
+            Log::info('Order lookup table sync job completed successfully');
+        } catch (UnexpectedApiResultException $e) {
+            // Permanent failure - retrying won't help, needs human investigation
+            Log::critical('Unexpected API result during order lookup table sync, failing immediately', [
                 'service' => $e->serviceName,
-                'error' => $e->getMessage(),
+                'reason' => $e->reason,
                 'attempts' => $this->attempts(),
             ]);
 
@@ -94,16 +88,16 @@ final class SyncShopwiredFilterGroupsJob implements ShouldQueue
             throw $e;
         } catch (AuthenticationExpiredException $e) {
             // Permanent failure - credentials need fixing, don't waste retries
-            Log::critical('Authentication failed during ShopWired filter group sync', [
+            Log::critical('Authentication failed during order lookup table sync, failing immediately', [
                 'service' => $e->serviceName,
-                'error' => $e->getMessage(),
+                'message' => $e->getMessage(),
                 'attempts' => $this->attempts(),
             ]);
 
             $this->fail($e);
             throw $e;
         } catch (ExternalServiceUnavailableException $e) {
-            Log::warning('ShopWired API unavailable during filter group sync, will retry', [
+            Log::warning('External service unavailable during order lookup table sync, will retry', [
                 'service' => $e->serviceName,
                 'retry_after' => $e->retryAfter ?? 'using backoff',
                 'attempts' => $this->attempts(),
@@ -117,7 +111,8 @@ final class SyncShopwiredFilterGroupsJob implements ShouldQueue
             }
         } catch (Throwable $e) {
             // Unexpected exception = code needs updating
-            Log::critical('Unexpected exception in ShopWired filter group sync - code update required', [
+            // Fail immediately - don't waste retries on unknown errors
+            Log::critical('Unexpected exception in order lookup sync - code update required', [
                 'job' => self::class,
                 'exception' => $e::class,
                 'message' => $e->getMessage(),
@@ -130,11 +125,11 @@ final class SyncShopwiredFilterGroupsJob implements ShouldQueue
     }
 
     /**
-     * Handle job failure after all retries exhausted.
+     * Handle job failure with logging.
      */
     public function failed(Throwable $exception): void
     {
-        Log::error('ShopWired filter group definitions sync job failed permanently', [
+        Log::error('Order lookup table sync job failed', [
             'exception' => $exception::class,
             'message' => $exception->getMessage(),
             'attempts' => $this->attempts(),

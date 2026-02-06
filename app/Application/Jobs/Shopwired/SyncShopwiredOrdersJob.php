@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Presentation\Jobs\Shopwired;
+namespace App\Application\Jobs\Shopwired;
 
-use App\Application\Shopwired\UseCases\SyncCustomersUseCase;
+use App\Application\Shopwired\UseCases\SyncOrdersUseCase;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
@@ -18,16 +18,18 @@ use Illuminate\Support\Facades\Log;
 use Throwable;
 
 /**
- * Asynchronously synchronize ShopWired customers to local database.
+ * Asynchronously synchronize ShopWired orders to local database.
  *
  * Supports full sync, quick sync, and micro sync modes with page limits.
  *
  * Usage:
- * - Full sync: SyncShopwiredCustomersJob::dispatch() — daily, ~45 min
- * - Quick sync: SyncShopwiredCustomersJob::dispatch(null, 5) — all trade + 5 non-trade pages, ~2 min
- * - Micro sync: SyncShopwiredCustomersJob::dispatch(1, 1) — every 5 min, ~30s
+ * - Full sync: SyncShopwiredOrdersJob::dispatch() — daily, all orders
+ * - Quick sync: SyncShopwiredOrdersJob::dispatch(5) — hourly, ~500 orders
+ * - Micro sync: SyncShopwiredOrdersJob::dispatch(1) — every 5 min, ~100 orders
+ *
+ * @see SyncShopwiredOrdersRangeJob For date-range based sync
  */
-final class SyncShopwiredCustomersJob implements ShouldBeUnique, ShouldQueue
+final class SyncShopwiredOrdersJob implements ShouldBeUnique, ShouldQueue
 {
     use Dispatchable;
     use InteractsWithQueue;
@@ -58,18 +60,16 @@ final class SyncShopwiredCustomersJob implements ShouldBeUnique, ShouldQueue
      */
     public function uniqueId(): string
     {
-        return 'sync-shopwired-customers';
+        return 'sync-shopwired-orders';
     }
 
     /**
      * Create a new job instance.
      *
-     * @param int|null $maxTradePages Max trade pages (null = all ~5 pages, 1 page ≈ 100 customers)
-     * @param int|null $maxNonTradePages Max non-trade pages (null = all ~677 pages, 1 page ≈ 100 customers)
+     * @param int|null $maxPages Max pages to fetch (null = all, 1 page ≈ 100 orders)
      */
     public function __construct(
-        private readonly ?int $maxTradePages = null,
-        private readonly ?int $maxNonTradePages = null,
+        private readonly ?int $maxPages = null,
     ) {
         $this->onQueue('low');
     }
@@ -87,8 +87,7 @@ final class SyncShopwiredCustomersJob implements ShouldBeUnique, ShouldQueue
     /**
      * Job timeout in seconds.
      *
-     * Set to 70 minutes to accommodate full sync of ~68k customers with buffer.
-     * Actual runtime observed: ~46-60 minutes for 67,717 customers.
+     * Set to 70 minutes to accommodate full sync of all orders with buffer.
      */
     public int $timeout = 4200;
 
@@ -100,29 +99,28 @@ final class SyncShopwiredCustomersJob implements ShouldBeUnique, ShouldQueue
      * @throws AuthenticationExpiredException When credentials invalid (permanent failure)
      * @throws Throwable When unexpected errors occur - indicates code update required
      */
-    public function handle(SyncCustomersUseCase $useCase): void
+    public function handle(SyncOrdersUseCase $useCase): void
     {
         $syncType = match (true) {
-            $this->maxTradePages === null && $this->maxNonTradePages === null => 'full',
-            $this->maxTradePages === 1 && $this->maxNonTradePages === 1 => 'micro',
+            $this->maxPages === null => 'full',
+            $this->maxPages === 1 => 'micro',
             default => 'quick',
         };
-        Log::info("ShopWired customer sync job starting ({$syncType})", [
-            'max_trade_pages' => $this->maxTradePages,
-            'max_non_trade_pages' => $this->maxNonTradePages,
+        Log::info("ShopWired order sync job starting ({$syncType})", [
+            'max_pages' => $this->maxPages,
         ]);
 
         try {
-            $result = $useCase->execute($this->maxTradePages, $this->maxNonTradePages);
+            $result = $useCase->execute($this->maxPages);
 
-            Log::info('ShopWired customer sync job completed', [
+            Log::info('ShopWired order sync job completed', [
                 'fetched' => $result->fetched,
                 'saved' => $result->saved,
                 'failed' => $result->failed,
             ]);
         } catch (InvalidApiResponseException $e) {
             // Permanent failure - API contract changed, code needs updating
-            Log::critical('API response validation failed during ShopWired customer sync', [
+            Log::critical('API response validation failed during ShopWired order sync', [
                 'service' => $e->serviceName,
                 'error' => $e->getMessage(),
                 'attempts' => $this->attempts(),
@@ -132,7 +130,7 @@ final class SyncShopwiredCustomersJob implements ShouldBeUnique, ShouldQueue
             throw $e;
         } catch (AuthenticationExpiredException $e) {
             // Permanent failure - credentials need fixing, don't waste retries
-            Log::critical('Authentication failed during ShopWired customer sync', [
+            Log::critical('Authentication failed during ShopWired order sync', [
                 'service' => $e->serviceName,
                 'error' => $e->getMessage(),
                 'attempts' => $this->attempts(),
@@ -141,7 +139,7 @@ final class SyncShopwiredCustomersJob implements ShouldBeUnique, ShouldQueue
             $this->fail($e);
             throw $e;
         } catch (ExternalServiceUnavailableException $e) {
-            Log::warning('ShopWired API unavailable during customer sync, will retry', [
+            Log::warning('ShopWired API unavailable during order sync, will retry', [
                 'service' => $e->serviceName,
                 'retry_after' => $e->retryAfter ?? 'using backoff',
                 'attempts' => $this->attempts(),
@@ -155,7 +153,7 @@ final class SyncShopwiredCustomersJob implements ShouldBeUnique, ShouldQueue
             }
         } catch (Throwable $e) {
             // Unexpected exception = code needs updating
-            Log::critical('Unexpected exception in ShopWired customer sync - code update required', [
+            Log::critical('Unexpected exception in ShopWired order sync - code update required', [
                 'job' => self::class,
                 'exception' => $e::class,
                 'message' => $e->getMessage(),
@@ -172,9 +170,8 @@ final class SyncShopwiredCustomersJob implements ShouldBeUnique, ShouldQueue
      */
     public function failed(Throwable $exception): void
     {
-        Log::error('ShopWired customer sync job failed permanently', [
-            'max_trade_pages' => $this->maxTradePages,
-            'max_non_trade_pages' => $this->maxNonTradePages,
+        Log::error('ShopWired order sync job failed permanently', [
+            'max_pages' => $this->maxPages,
             'exception' => $exception::class,
             'message' => $exception->getMessage(),
             'attempts' => $this->attempts(),

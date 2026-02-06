@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace App\Presentation\Http\Controllers\ContactForm;
 
 use App\Application\ContactSubmission\UseCases\SubmitContactFormUseCase;
+use App\Application\Jobs\ContactForm\ProcessContactSubmissionJob;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Data\InvalidEnumValueException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Presentation\Http\ContactForm\DTOs\ContactFormRequestDTO;
 use App\Presentation\Http\ContactForm\Mappers\ContactSubmissionMapper;
-use App\Presentation\Jobs\ContactForm\ProcessContactSubmissionJob;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;

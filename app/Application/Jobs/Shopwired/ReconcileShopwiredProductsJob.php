@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Presentation\Jobs\Shopwired;
+namespace App\Application\Jobs\Shopwired;
 
-use App\Application\Shopwired\UseCases\SyncCustomFieldsUseCase;
+use App\Application\Shopwired\UseCases\ReconcileProductsUseCase;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
@@ -17,18 +17,17 @@ use Illuminate\Support\Facades\Log;
 use Throwable;
 
 /**
- * Asynchronously synchronize ShopWired custom field definitions to local database.
+ * Asynchronously reconcile ShopWired products (remove orphans).
  *
- * Custom field definitions are schema/metadata describing what custom fields
- * exist for products, categories, customers, etc. This is a small, stable dataset
- * (~100-150 definitions) that changes infrequently.
+ * Compares local product IDs against ShopWired API and removes any
+ * that no longer exist in ShopWired.
  *
  * Usage:
- * - SyncShopwiredCustomFieldsJob::dispatch()
+ * - Reconciliation: ReconcileShopwiredProductsJob::dispatch() — daily overnight
  *
- * Recommended scheduling: Weekly (definitions rarely change)
+ * Schedule: Run after main sync completes to ensure local data is current.
  */
-final class SyncShopwiredCustomFieldsJob implements ShouldQueue
+final class ReconcileShopwiredProductsJob implements ShouldQueue
 {
     use Dispatchable;
     use InteractsWithQueue;
@@ -41,7 +40,17 @@ final class SyncShopwiredCustomFieldsJob implements ShouldQueue
     public int $tries = 3;
 
     /**
+     * Create a new job instance.
+     */
+    public function __construct()
+    {
+        $this->onQueue('low');
+    }
+
+    /**
      * Seconds to wait before retrying (exponential backoff).
+     *
+     * Lightweight job (ID comparison only), so short delays.
      *
      * @var array<int>
      */
@@ -50,17 +59,9 @@ final class SyncShopwiredCustomFieldsJob implements ShouldQueue
     /**
      * Job timeout in seconds.
      *
-     * Expected runtime: ~10s (2-3 API calls for ~100-150 definitions).
+     * Set to 5 minutes for lightweight ID comparison.
      */
-    public int $timeout = 60;
-
-    /**
-     * Create a new job instance.
-     */
-    public function __construct()
-    {
-        $this->onQueue('low');
-    }
+    public int $timeout = 300;
 
     /**
      * Execute the job.
@@ -70,21 +71,30 @@ final class SyncShopwiredCustomFieldsJob implements ShouldQueue
      * @throws AuthenticationExpiredException When credentials invalid (permanent failure)
      * @throws Throwable When unexpected errors occur - indicates code update required
      */
-    public function handle(SyncCustomFieldsUseCase $useCase): void
+    public function handle(ReconcileProductsUseCase $useCase): void
     {
-        Log::info('ShopWired custom field definitions sync job starting');
+        Log::info('ShopWired product reconciliation job starting');
 
         try {
             $result = $useCase->execute();
 
-            Log::info('ShopWired custom field definitions sync job completed', [
-                'fetched' => $result->fetched,
-                'saved' => $result->saved,
-                'failed' => $result->failed,
+            if ($result->wasSkipped()) {
+                Log::warning('ShopWired product reconciliation job skipped (safety check)', [
+                    'local_count' => $result->localCount,
+                ]);
+
+                return;
+            }
+
+            Log::info('ShopWired product reconciliation job completed', [
+                'api_count' => $result->apiCount,
+                'local_count' => $result->localCount,
+                'orphans_found' => $result->orphansFound,
+                'orphans_deleted' => $result->orphansDeleted,
             ]);
         } catch (InvalidApiResponseException $e) {
             // Permanent failure - API contract changed, code needs updating
-            Log::critical('API response validation failed during ShopWired custom field sync', [
+            Log::critical('API response validation failed during ShopWired product reconciliation', [
                 'service' => $e->serviceName,
                 'error' => $e->getMessage(),
                 'attempts' => $this->attempts(),
@@ -94,7 +104,7 @@ final class SyncShopwiredCustomFieldsJob implements ShouldQueue
             throw $e;
         } catch (AuthenticationExpiredException $e) {
             // Permanent failure - credentials need fixing, don't waste retries
-            Log::critical('Authentication failed during ShopWired custom field sync', [
+            Log::critical('Authentication failed during ShopWired product reconciliation', [
                 'service' => $e->serviceName,
                 'error' => $e->getMessage(),
                 'attempts' => $this->attempts(),
@@ -103,7 +113,7 @@ final class SyncShopwiredCustomFieldsJob implements ShouldQueue
             $this->fail($e);
             throw $e;
         } catch (ExternalServiceUnavailableException $e) {
-            Log::warning('ShopWired API unavailable during custom field sync, will retry', [
+            Log::warning('ShopWired API unavailable during product reconciliation, will retry', [
                 'service' => $e->serviceName,
                 'retry_after' => $e->retryAfter ?? 'using backoff',
                 'attempts' => $this->attempts(),
@@ -117,7 +127,7 @@ final class SyncShopwiredCustomFieldsJob implements ShouldQueue
             }
         } catch (Throwable $e) {
             // Unexpected exception = code needs updating
-            Log::critical('Unexpected exception in ShopWired custom field sync - code update required', [
+            Log::critical('Unexpected exception in ShopWired product reconciliation - code update required', [
                 'job' => self::class,
                 'exception' => $e::class,
                 'message' => $e->getMessage(),
@@ -134,7 +144,7 @@ final class SyncShopwiredCustomFieldsJob implements ShouldQueue
      */
     public function failed(Throwable $exception): void
     {
-        Log::error('ShopWired custom field definitions sync job failed permanently', [
+        Log::error('ShopWired product reconciliation job failed permanently', [
             'exception' => $exception::class,
             'message' => $exception->getMessage(),
             'attempts' => $this->attempts(),

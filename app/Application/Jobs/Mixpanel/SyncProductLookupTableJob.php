@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Presentation\Jobs\Mixpanel;
+namespace App\Application\Jobs\Mixpanel;
 
 use App\Application\Mixpanel\UseCases\SyncLookupTableUseCase;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;

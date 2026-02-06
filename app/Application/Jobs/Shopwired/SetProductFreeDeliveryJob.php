@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Presentation\Jobs\Shopwired;
+namespace App\Application\Jobs\Shopwired;
 
 use App\Application\Results\BatchUpdateResult;
 use App\Application\Shopwired\UseCases\SetProductFreeDeliveryUseCase;

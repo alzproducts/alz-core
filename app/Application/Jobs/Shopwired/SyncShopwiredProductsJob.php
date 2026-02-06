@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace App\Presentation\Jobs\Mixpanel;
+namespace App\Application\Jobs\Shopwired;
 
-use App\Application\Mixpanel\UseCases\SyncLookupTableUseCase;
+use App\Application\Shopwired\UseCases\SyncProductsUseCase;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
-use App\Domain\Exceptions\Api\UnexpectedApiResultException;
+use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -17,12 +17,15 @@ use Illuminate\Support\Facades\Log;
 use Throwable;
 
 /**
- * Asynchronously synchronize campaign lookup table from Google Ads to Mixpanel.
+ * Asynchronously synchronize ShopWired products to local database.
  *
- * Queues the campaign lookup table sync to avoid blocking HTTP requests.
- * Implements exponential backoff for rate limit handling.
+ * Performs full catalog sync only. ShopWired Products API doesn't support
+ * date-based sorting, making incremental sync impractical.
+ *
+ * Usage:
+ * - Full sync: SyncShopwiredProductsJob::dispatch() — daily, ~2-5 min
  */
-final class SyncCampaignLookupTableJob implements ShouldQueue
+final class SyncShopwiredProductsJob implements ShouldQueue
 {
     use Dispatchable;
     use InteractsWithQueue;
@@ -31,46 +34,58 @@ final class SyncCampaignLookupTableJob implements ShouldQueue
 
     /**
      * Maximum number of attempts before giving up.
-     *
-     * 3 attempts: quick retries for transient issues + 1hr fallback for longer outages.
      */
-    public int $tries = 3;
+    public int $tries = 5;
 
     /**
-     * Seconds to wait before retrying.
+     * Create a new job instance.
+     */
+    public function __construct()
+    {
+        $this->onQueue('low');
+    }
+
+    /**
+     * Seconds to wait before retrying (exponential backoff).
      *
-     * 1min, 5min, 1hr: quick retries catch transient issues, hour delay catches maintenance windows.
+     * Shorter delays than customers/orders due to faster runtime (~2-5 min).
      *
      * @var array<int>
      */
-    public array $backoff = [60, 300, 3600];
+    public array $backoff = [30, 60, 120, 240];
 
     /**
      * Job timeout in seconds.
+     *
+     * Set to 15 minutes to accommodate full sync of ~1,500 products.
      */
-    public int $timeout = 300;
+    public int $timeout = 900;
 
     /**
-     * Execute the job: synchronize campaign lookup table.
+     * Execute the job.
      *
-     * @throws ExternalServiceUnavailableException When external APIs unavailable - will retry
-     * @throws UnexpectedApiResultException When API returns unexpected data (permanent failure)
-     * @throws AuthenticationExpiredException When API credentials invalid (permanent failure)
+     * @throws ExternalServiceUnavailableException When ShopWired API unavailable - will retry
+     * @throws InvalidApiResponseException When API contract violation (permanent failure)
+     * @throws AuthenticationExpiredException When credentials invalid (permanent failure)
      * @throws Throwable When unexpected errors occur - indicates code update required
      */
-    public function handle(SyncLookupTableUseCase $useCase): void
+    public function handle(SyncProductsUseCase $useCase): void
     {
-        Log::info('Campaign lookup table sync job starting');
+        Log::info('ShopWired product sync job starting');
 
         try {
-            $useCase->execute();
+            $result = $useCase->execute();
 
-            Log::info('Campaign lookup table sync job completed successfully');
-        } catch (UnexpectedApiResultException $e) {
-            // Permanent failure - retrying won't help, needs human investigation
-            Log::critical('Unexpected API result during campaign lookup table sync, failing immediately', [
+            Log::info('ShopWired product sync job completed', [
+                'fetched' => $result->fetched,
+                'saved' => $result->saved,
+                'failed' => $result->failed,
+            ]);
+        } catch (InvalidApiResponseException $e) {
+            // Permanent failure - API contract changed, code needs updating
+            Log::critical('API response validation failed during ShopWired product sync', [
                 'service' => $e->serviceName,
-                'reason' => $e->reason,
+                'error' => $e->getMessage(),
                 'attempts' => $this->attempts(),
             ]);
 
@@ -78,16 +93,16 @@ final class SyncCampaignLookupTableJob implements ShouldQueue
             throw $e;
         } catch (AuthenticationExpiredException $e) {
             // Permanent failure - credentials need fixing, don't waste retries
-            Log::critical('Authentication failed during campaign lookup table sync, failing immediately', [
+            Log::critical('Authentication failed during ShopWired product sync', [
                 'service' => $e->serviceName,
-                'message' => $e->getMessage(),
+                'error' => $e->getMessage(),
                 'attempts' => $this->attempts(),
             ]);
 
             $this->fail($e);
             throw $e;
         } catch (ExternalServiceUnavailableException $e) {
-            Log::warning('External service unavailable during campaign lookup table sync, will retry', [
+            Log::warning('ShopWired API unavailable during product sync, will retry', [
                 'service' => $e->serviceName,
                 'retry_after' => $e->retryAfter ?? 'using backoff',
                 'attempts' => $this->attempts(),
@@ -101,8 +116,7 @@ final class SyncCampaignLookupTableJob implements ShouldQueue
             }
         } catch (Throwable $e) {
             // Unexpected exception = code needs updating
-            // Fail immediately - don't waste retries on unknown errors
-            Log::critical('Unexpected exception in campaign lookup sync - code update required', [
+            Log::critical('Unexpected exception in ShopWired product sync - code update required', [
                 'job' => self::class,
                 'exception' => $e::class,
                 'message' => $e->getMessage(),
@@ -115,11 +129,11 @@ final class SyncCampaignLookupTableJob implements ShouldQueue
     }
 
     /**
-     * Handle job failure with logging.
+     * Handle job failure after all retries exhausted.
      */
     public function failed(Throwable $exception): void
     {
-        Log::error('Campaign lookup table sync job failed', [
+        Log::error('ShopWired product sync job failed permanently', [
             'exception' => $exception::class,
             'message' => $exception->getMessage(),
             'attempts' => $this->attempts(),

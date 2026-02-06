@@ -48,7 +48,7 @@ final class JobNamingPrefixRule implements Rule
         $classReflection = $node->getClassReflection();
         $fullName = $classReflection->getName();
 
-        if (! \str_contains($fullName, 'App\\Presentation\\Jobs\\')) {
+        if (! \str_contains($fullName, 'App\\Application\\Jobs\\')) {
             return [];
         }
 

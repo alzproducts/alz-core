@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Presentation\Console\Commands;
 
+use App\Application\Jobs\Inventory\UpdateSkuJob;
 use App\Domain\Catalog\Product\ValueObjects\Sku;
 use App\Domain\Exceptions\Data\InvalidSkuException;
 use App\Domain\Inventory\Commands\UpdateSkuCommand;
 use App\Domain\Inventory\Enums\SkuUpdateReason;
-use App\Presentation\Jobs\Inventory\UpdateSkuJob;
 use Illuminate\Console\Command;
 use TypeError;
 use ValueError;

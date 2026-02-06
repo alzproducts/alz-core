@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Presentation\Jobs\ContactForm;
+namespace App\Application\Jobs\ContactForm;
 
 use App\Application\ContactSubmission\UseCases\HandleContactSubmissionFailureUseCase;
 use App\Application\ContactSubmission\UseCases\ProcessContactSubmissionUseCase;

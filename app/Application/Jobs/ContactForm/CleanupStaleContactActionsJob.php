@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Presentation\Jobs\ContactForm;
+namespace App\Application\Jobs\ContactForm;
 
 use App\Application\Contracts\ContactSubmission\ContactSubmissionActionRepositoryInterface;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;

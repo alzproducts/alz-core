@@ -2,15 +2,12 @@
 
 declare(strict_types=1);
 
-namespace App\Presentation\Jobs\ReviewsIo;
+namespace App\Application\Jobs\ReviewsIo;
 
-use App\Application\ReviewsIo\UseCases\UpdateShopwiredRatingsUseCase;
+use App\Application\ReviewsIo\UseCases\SyncProductRatingsUseCase;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
-use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
-use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
-use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -20,12 +17,12 @@ use Illuminate\Support\Facades\Log;
 use Throwable;
 
 /**
- * Push product ratings from local database to ShopWired custom fields.
+ * Sync product ratings from Reviews.io API to local database.
  *
- * Stage 2 of the ratings sync pipeline. Reads aggregated ratings from
- * reviews_io.product_ratings and updates ShopWired products.
+ * Stage 1 of the ratings sync pipeline. Fetches ratings for all SKUs
+ * and stores them in reviews_io.product_ratings.
  */
-final class UpdateShopwiredRatingsJob implements ShouldQueue
+final class SyncProductRatingsJob implements ShouldQueue
 {
     use Dispatchable;
     use InteractsWithQueue;
@@ -44,29 +41,25 @@ final class UpdateShopwiredRatingsJob implements ShouldQueue
     }
 
     /**
-     * @throws DatabaseOperationFailedException When database query fails
-     * @throws DuplicateRecordException On constraint violation
-     * @throws ExternalServiceUnavailableException When ShopWired API unavailable - will retry
+     * @throws ExternalServiceUnavailableException When Reviews.io API unavailable - will retry
+     * @throws InvalidApiResponseException When API contract violation (permanent failure)
      * @throws AuthenticationExpiredException When credentials invalid (permanent failure)
-     * @throws InvalidApiRequestException When request invalid (permanent failure)
-     * @throws InvalidApiResponseException When response parsing fails (permanent failure)
      * @throws Throwable When unexpected errors occur
      */
-    public function handle(UpdateShopwiredRatingsUseCase $useCase): void
+    public function handle(SyncProductRatingsUseCase $useCase): void
     {
-        Log::info('ShopWired ratings update job starting');
+        Log::info('Reviews.io ratings sync job starting');
 
         try {
             $result = $useCase->execute();
 
-            Log::info('ShopWired ratings update job completed', [
-                'processed' => $result->processed,
-                'updated' => $result->updated,
-                'skipped' => $result->skipped,
+            Log::info('Reviews.io ratings sync job completed', [
+                'fetched' => $result->fetched,
+                'saved' => $result->saved,
                 'failed' => $result->failed,
             ]);
         } catch (InvalidApiResponseException $e) {
-            Log::critical('API response validation failed during ShopWired ratings update', [
+            Log::critical('API response validation failed during Reviews.io ratings sync', [
                 'service' => $e->serviceName,
                 'error' => $e->getMessage(),
                 'attempts' => $this->attempts(),
@@ -75,16 +68,7 @@ final class UpdateShopwiredRatingsJob implements ShouldQueue
             $this->fail($e);
             throw $e;
         } catch (AuthenticationExpiredException $e) {
-            Log::critical('Authentication failed during ShopWired ratings update', [
-                'service' => $e->serviceName,
-                'error' => $e->getMessage(),
-                'attempts' => $this->attempts(),
-            ]);
-
-            $this->fail($e);
-            throw $e;
-        } catch (InvalidApiRequestException $e) {
-            Log::critical('Invalid API request during ShopWired ratings update', [
+            Log::critical('Authentication failed during Reviews.io ratings sync', [
                 'service' => $e->serviceName,
                 'error' => $e->getMessage(),
                 'attempts' => $this->attempts(),
@@ -93,7 +77,7 @@ final class UpdateShopwiredRatingsJob implements ShouldQueue
             $this->fail($e);
             throw $e;
         } catch (ExternalServiceUnavailableException $e) {
-            Log::warning('ShopWired API unavailable during ratings update, will retry', [
+            Log::warning('Reviews.io API unavailable during ratings sync, will retry', [
                 'service' => $e->serviceName,
                 'retry_after' => $e->retryAfter ?? 'using backoff',
                 'attempts' => $this->attempts(),
@@ -105,7 +89,7 @@ final class UpdateShopwiredRatingsJob implements ShouldQueue
                 throw $e;
             }
         } catch (Throwable $e) {
-            Log::critical('Unexpected exception in ShopWired ratings update - code update required', [
+            Log::critical('Unexpected exception in Reviews.io ratings sync - code update required', [
                 'job' => self::class,
                 'exception' => $e::class,
                 'message' => $e->getMessage(),
@@ -119,7 +103,7 @@ final class UpdateShopwiredRatingsJob implements ShouldQueue
 
     public function failed(Throwable $exception): void
     {
-        Log::error('ShopWired ratings update job failed permanently', [
+        Log::error('Reviews.io ratings sync job failed permanently', [
             'exception' => $exception::class,
             'message' => $exception->getMessage(),
             'attempts' => $this->attempts(),

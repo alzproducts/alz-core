@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Presentation\Jobs\Inventory;
+namespace App\Application\Jobs\Inventory;
 
 use App\Application\Inventory\UseCases\UpdateSkuUseCase;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;

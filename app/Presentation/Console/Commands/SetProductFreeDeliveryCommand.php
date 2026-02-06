@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Presentation\Console\Commands;
 
+use App\Application\Jobs\Shopwired\SetProductFreeDeliveryJob;
 use App\Domain\Catalog\Product\Commands\SetFreeDeliveryCommand;
 use App\Domain\Catalog\Product\Enums\FreeDeliveryType;
 use App\Presentation\Concerns\DispatchesChunkedJobsTrait;
-use App\Presentation\Jobs\Shopwired\SetProductFreeDeliveryJob;
 use Illuminate\Console\Command;
 use ValueError;
 

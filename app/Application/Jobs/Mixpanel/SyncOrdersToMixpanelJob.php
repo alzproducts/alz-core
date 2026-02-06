@@ -2,12 +2,13 @@
 
 declare(strict_types=1);
 
-namespace App\Presentation\Jobs\Shopwired;
+namespace App\Application\Jobs\Mixpanel;
 
-use App\Application\Shopwired\UseCases\SyncOrdersRangeUseCase;
+use App\Application\Mixpanel\UseCases\SyncOrdersToMixpanelUseCase;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
-use App\Domain\Exceptions\Api\InvalidApiResponseException;
+use App\Domain\Exceptions\Api\UnexpectedApiResultException;
+use App\Domain\Exceptions\Data\MissingRequiredDataException;
 use DateTimeImmutable;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -18,17 +19,33 @@ use Illuminate\Support\Facades\Log;
 use Throwable;
 
 /**
- * Asynchronously synchronize ShopWired orders to local database (date-range based).
+ * Asynchronously synchronize orders to Mixpanel analytics.
  *
- * Queues order synchronization from ShopWired API to PostgreSQL.
- * Implements exponential backoff retry strategy for API rate limits.
+ * Syncs "Checkout Completed" and "Product Purchased" events for orders
+ * not already tracked by the frontend JavaScript SDK.
  *
- * Typical usage: hourly schedule with 2-hour overlap window.
- * For historical backfills: dispatch multiple jobs with smaller date ranges.
+ * Scheduled to run daily at 2:00 AM Europe/London with 24-hour lookback.
+ * Uses pre-export deduplication to prevent duplicate events.
  *
- * @see SyncShopwiredOrdersJob For generator-based full/quick/micro sync
+ * ## Required Data
+ *
+ * 1. **shopwired.orders** — Orders in the date range (with products, discounts, refunds)
+ * 2. **shopwired.customers** — Customer `is_trade` status for each order's customer
+ * 3. **Mixpanel Export API** — Existing order hashes for deduplication
+ *
+ * ## Common Failure: MissingRequiredDataException
+ *
+ * If customers referenced by orders don't exist in `shopwired.customers`, the job fails.
+ * This happens when new customers placed orders but haven't been synced yet.
+ *
+ * **Resolution:** Run a customer sync first, then retry this job.
+ * - Quick sync (ALL trade + recent non-trade): `SyncShopwiredCustomersJob::dispatch(null, 5)`
+ * - Full sync (all ~68k customers, ~45 min): `SyncShopwiredCustomersJob::dispatch()`
+ *
+ * Quick sync is usually sufficient since trade customers (~466) fit in ~5 pages,
+ * so `maxTradePages=null` fetches 100% of trade accounts.
  */
-final class SyncShopwiredOrdersRangeJob implements ShouldQueue
+final class SyncOrdersToMixpanelJob implements ShouldQueue
 {
     use Dispatchable;
     use InteractsWithQueue;
@@ -54,9 +71,9 @@ final class SyncShopwiredOrdersRangeJob implements ShouldQueue
     /**
      * Job timeout in seconds.
      *
-     * Set to 70 minutes to accommodate large date-range syncs with buffer.
+     * Mixpanel Export API can be slow for historical queries (generates on-demand).
      */
-    public int $timeout = 4200;
+    public int $timeout = 600;
 
     public function __construct(
         private readonly DateTimeImmutable $from,
@@ -68,17 +85,18 @@ final class SyncShopwiredOrdersRangeJob implements ShouldQueue
     /**
      * Execute the job.
      *
-     * @throws ExternalServiceUnavailableException When ShopWired API unavailable - will retry
-     * @throws InvalidApiResponseException When API contract violation (permanent failure)
+     * @throws ExternalServiceUnavailableException When Mixpanel API unavailable - will retry
+     * @throws UnexpectedApiResultException When export data invalid (permanent failure)
      * @throws AuthenticationExpiredException When credentials invalid (permanent failure)
+     * @throws MissingRequiredDataException When customer data missing (permanent failure)
      * @throws Throwable When unexpected errors occur - indicates code update required
      */
-    public function handle(SyncOrdersRangeUseCase $useCase): void
+    public function handle(SyncOrdersToMixpanelUseCase $useCase): void
     {
         $fromString = $this->from->format('Y-m-d H:i:s');
         $toString = $this->to->format('Y-m-d H:i:s');
 
-        Log::info('ShopWired order sync job starting', [
+        Log::info('Mixpanel order sync job starting', [
             'from' => $fromString,
             'to' => $toString,
         ]);
@@ -86,16 +104,19 @@ final class SyncShopwiredOrdersRangeJob implements ShouldQueue
         try {
             $result = $useCase->execute($this->from, $this->to);
 
-            Log::info('ShopWired order sync job completed', [
+            Log::info('Mixpanel order sync job completed', [
                 'from' => $fromString,
                 'to' => $toString,
-                'fetched' => $result->fetched,
-                'saved' => $result->saved,
-                'failed' => $result->failed,
+                'orders_in_range' => $result->ordersInRange,
+                'skipped' => $result->skipped,
+                'synced' => $result->synced,
+                'checkout_events' => $result->checkoutEventsCreated,
+                'product_events' => $result->productEventsCreated,
             ]);
-        } catch (InvalidApiResponseException $e) {
-            // Permanent failure - API contract changed, code needs updating
-            Log::critical('API response validation failed during ShopWired sync', [
+        } catch (UnexpectedApiResultException $e) {
+            // Permanent failure - Mixpanel export data is invalid or missing
+            // Could indicate frontend tracking issues
+            Log::critical('Mixpanel export data invalid during order sync', [
                 'from' => $fromString,
                 'to' => $toString,
                 'service' => $e->serviceName,
@@ -107,7 +128,7 @@ final class SyncShopwiredOrdersRangeJob implements ShouldQueue
             throw $e;
         } catch (AuthenticationExpiredException $e) {
             // Permanent failure - credentials need fixing, don't waste retries
-            Log::critical('Authentication failed during ShopWired sync', [
+            Log::critical('Authentication failed during Mixpanel order sync', [
                 'from' => $fromString,
                 'to' => $toString,
                 'service' => $e->serviceName,
@@ -117,8 +138,21 @@ final class SyncShopwiredOrdersRangeJob implements ShouldQueue
 
             $this->fail($e);
             throw $e;
+        } catch (MissingRequiredDataException $e) {
+            // Permanent failure - prerequisite data not available
+            Log::critical('Missing required data during Mixpanel order sync', [
+                'from' => $fromString,
+                'to' => $toString,
+                'data_type' => $e->dataType,
+                'operation' => $e->operation,
+                'resolution' => $e->resolution,
+                'attempts' => $this->attempts(),
+            ]);
+
+            $this->fail($e);
+            throw $e;
         } catch (ExternalServiceUnavailableException $e) {
-            Log::warning('ShopWired API unavailable, will retry', [
+            Log::warning('Mixpanel API unavailable, will retry', [
                 'from' => $fromString,
                 'to' => $toString,
                 'service' => $e->serviceName,
@@ -134,7 +168,7 @@ final class SyncShopwiredOrdersRangeJob implements ShouldQueue
             }
         } catch (Throwable $e) {
             // Unexpected exception = code needs updating
-            Log::critical('Unexpected exception in ShopWired sync - code update required', [
+            Log::critical('Unexpected exception in Mixpanel order sync - code update required', [
                 'job' => self::class,
                 'exception' => $e::class,
                 'message' => $e->getMessage(),
@@ -153,25 +187,12 @@ final class SyncShopwiredOrdersRangeJob implements ShouldQueue
      */
     public function failed(Throwable $exception): void
     {
-        Log::error('ShopWired order sync job failed permanently', [
+        Log::error('Mixpanel order sync job failed permanently', [
             'from' => $this->from->format('Y-m-d H:i:s'),
             'to' => $this->to->format('Y-m-d H:i:s'),
             'exception' => $exception::class,
             'message' => $exception->getMessage(),
             'attempts' => $this->attempts(),
         ]);
-    }
-
-    /**
-     * Create a job for hourly scheduled sync with 2-hour overlap.
-     *
-     * The overlap ensures orders modified near sync boundaries are captured.
-     */
-    public static function hourly(): self
-    {
-        $to = new DateTimeImmutable('now');
-        $from = $to->modify('-2 hours');
-
-        return new self($from, $to);
     }
 }

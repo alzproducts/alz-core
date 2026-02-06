@@ -14,8 +14,20 @@ deptrac:
 
     - name: Application
       collectors:
+        - type: bool
+          must:
+            - type: classLike
+              value: ^App\\Application\\.*
+          must_not:
+            - type: classLike
+              value: ^App\\Application\\Jobs\\.*
+
+    # Jobs need Illuminate\* + Carbon\* but Application must stay pure.
+    # Sub-layer pattern (like PresentationDev) with explicit framework access.
+    - name: ApplicationJobs
+      collectors:
         - type: classLike
-          value: ^App\\Application\\.*
+          value: ^App\\Application\\Jobs\\.*
 
     - name: Infrastructure
       collectors:
@@ -152,6 +164,16 @@ deptrac:
       - Domain
       - PsrInterfaces
       - AssertionLibrary
+
+    # ApplicationJobs: Application + Laravel framework access for queue infrastructure
+    ApplicationJobs:
+      - Application
+      - Domain
+      - LaravelFramework
+      - CarbonDateTime
+      - PsrInterfaces
+      - AssertionLibrary
+      - SentrySdk
 
     # Infrastructure: All internal + Laravel, Spatie, Google, Bing, Guzzle, PSR, Flysystem, Assertions, Sentry, Symfony, Carbon, Monolog, TheIconic, libphonenumber
     Infrastructure:

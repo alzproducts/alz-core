@@ -2,14 +2,12 @@
 
 declare(strict_types=1);
 
-namespace App\Presentation\Jobs\Mixpanel;
+namespace App\Application\Jobs\Mixpanel;
 
-use App\Application\AdSpend\UseCases\SyncAdSpendUseCase;
+use App\Application\Mixpanel\UseCases\SyncLookupTableUseCase;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
-use App\Domain\Exceptions\Api\PayloadSerializationException;
-use App\Domain\ValueObjects\DateRange;
-use DateTimeImmutable;
+use App\Domain\Exceptions\Api\UnexpectedApiResultException;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -19,12 +17,12 @@ use Illuminate\Support\Facades\Log;
 use Throwable;
 
 /**
- * Asynchronously synchronize Google Ads spend data to Mixpanel.
+ * Asynchronously synchronize campaign lookup table from Google Ads to Mixpanel.
  *
- * Queues ad spend synchronization to prevent blocking HTTP responses.
- * Implements exponential backoff retry strategy for rate-limited API calls.
+ * Queues the campaign lookup table sync to avoid blocking HTTP requests.
+ * Implements exponential backoff for rate limit handling.
  */
-final class SyncGoogleAdsToMixpanelJob implements ShouldQueue
+final class SyncCampaignLookupTableJob implements ShouldQueue
 {
     use Dispatchable;
     use InteractsWithQueue;
@@ -52,46 +50,27 @@ final class SyncGoogleAdsToMixpanelJob implements ShouldQueue
      */
     public int $timeout = 300;
 
-    public function __construct(
-        private readonly DateTimeImmutable $from,
-        private readonly DateTimeImmutable $to,
-    ) {
-        $this->onQueue('default');
-    }
-
     /**
-     * Execute the job.
+     * Execute the job: synchronize campaign lookup table.
      *
      * @throws ExternalServiceUnavailableException When external APIs unavailable - will retry
-     * @throws PayloadSerializationException When data serialization fails (permanent failure)
+     * @throws UnexpectedApiResultException When API returns unexpected data (permanent failure)
      * @throws AuthenticationExpiredException When API credentials invalid (permanent failure)
      * @throws Throwable When unexpected errors occur - indicates code update required
      */
-    public function handle(SyncAdSpendUseCase $useCase): void
+    public function handle(SyncLookupTableUseCase $useCase): void
     {
-        $dateRange = new DateRange($this->from, $this->to);
-        $fromString = $this->from->format('Y-m-d');
-        $toString = $this->to->format('Y-m-d');
-
-        Log::info('Queued Google Ads to Mixpanel sync starting', [
-            'from' => $fromString,
-            'to' => $toString,
-        ]);
+        Log::info('Campaign lookup table sync job starting');
 
         try {
-            $useCase->execute($dateRange);
+            $useCase->execute();
 
-            Log::info('Queued Google Ads to Mixpanel sync completed', [
-                'from' => $fromString,
-                'to' => $toString,
-            ]);
-        } catch (PayloadSerializationException $e) {
-            // Permanent failure - data integrity issue, retrying won't help
-            Log::critical('Payload serialization failed during sync, failing immediately', [
-                'from' => $fromString,
-                'to' => $toString,
+            Log::info('Campaign lookup table sync job completed successfully');
+        } catch (UnexpectedApiResultException $e) {
+            // Permanent failure - retrying won't help, needs human investigation
+            Log::critical('Unexpected API result during campaign lookup table sync, failing immediately', [
                 'service' => $e->serviceName,
-                'error' => $e->getMessage(),
+                'reason' => $e->reason,
                 'attempts' => $this->attempts(),
             ]);
 
@@ -99,9 +78,7 @@ final class SyncGoogleAdsToMixpanelJob implements ShouldQueue
             throw $e;
         } catch (AuthenticationExpiredException $e) {
             // Permanent failure - credentials need fixing, don't waste retries
-            Log::critical('Authentication failed during sync, failing immediately', [
-                'from' => $fromString,
-                'to' => $toString,
+            Log::critical('Authentication failed during campaign lookup table sync, failing immediately', [
                 'service' => $e->serviceName,
                 'message' => $e->getMessage(),
                 'attempts' => $this->attempts(),
@@ -110,9 +87,7 @@ final class SyncGoogleAdsToMixpanelJob implements ShouldQueue
             $this->fail($e);
             throw $e;
         } catch (ExternalServiceUnavailableException $e) {
-            Log::warning('External service unavailable during sync, will retry', [
-                'from' => $fromString,
-                'to' => $toString,
+            Log::warning('External service unavailable during campaign lookup table sync, will retry', [
                 'service' => $e->serviceName,
                 'retry_after' => $e->retryAfter ?? 'using backoff',
                 'attempts' => $this->attempts(),
@@ -127,12 +102,10 @@ final class SyncGoogleAdsToMixpanelJob implements ShouldQueue
         } catch (Throwable $e) {
             // Unexpected exception = code needs updating
             // Fail immediately - don't waste retries on unknown errors
-            Log::critical('Unexpected exception in Google Ads sync - code update required', [
+            Log::critical('Unexpected exception in campaign lookup sync - code update required', [
                 'job' => self::class,
                 'exception' => $e::class,
                 'message' => $e->getMessage(),
-                'from' => $fromString,
-                'to' => $toString,
                 'attempts' => $this->attempts(),
             ]);
 
@@ -142,13 +115,11 @@ final class SyncGoogleAdsToMixpanelJob implements ShouldQueue
     }
 
     /**
-     * Handle job failure.
+     * Handle job failure with logging.
      */
     public function failed(Throwable $exception): void
     {
-        Log::error('Google Ads to Mixpanel sync job failed', [
-            'from' => $this->from->format('Y-m-d'),
-            'to' => $this->to->format('Y-m-d'),
+        Log::error('Campaign lookup table sync job failed', [
             'exception' => $exception::class,
             'message' => $exception->getMessage(),
             'attempts' => $this->attempts(),

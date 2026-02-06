@@ -67,6 +67,6 @@ final class JobRequiredMethodsRule implements Rule
 
     private function isJobClass(string $className): bool
     {
-        return \str_contains($className, 'App\\Presentation\\Jobs\\');
+        return \str_contains($className, 'App\\Application\\Jobs\\');
     }
 }

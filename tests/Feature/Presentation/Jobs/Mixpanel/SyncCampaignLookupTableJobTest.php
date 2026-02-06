@@ -6,11 +6,11 @@ namespace Tests\Feature\Presentation\Jobs\Mixpanel;
 
 use App\Application\Contracts\LookupTableProviderInterface;
 use App\Application\Contracts\MixpanelClientInterface;
+use App\Application\Jobs\Mixpanel\SyncCampaignLookupTableJob;
 use App\Application\Mixpanel\UseCases\SyncLookupTableUseCase;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\UnexpectedApiResultException;
-use App\Presentation\Jobs\Mixpanel\SyncCampaignLookupTableJob;
 use Illuminate\Contracts\Queue\Job as QueueJobContract;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Queue;

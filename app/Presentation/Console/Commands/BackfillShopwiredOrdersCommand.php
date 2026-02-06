@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Presentation\Console\Commands;
 
-use App\Presentation\Jobs\Shopwired\SyncShopwiredOrdersRangeJob;
+use App\Application\Jobs\Shopwired\SyncShopwiredOrdersRangeJob;
 use Carbon\CarbonImmutable;
 use Illuminate\Console\Command;
 
