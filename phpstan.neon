@@ -199,6 +199,11 @@ parameters:
             paths:
                 - app/Presentation/Console/Commands/GenerateVariantSkusCommand.php
                 - app/Presentation/Console/Commands/UpdateSkusCommand.php
+        # ProductModel uses dedicated ProductModelMapper instead of implementing
+        # EloquentDomainMappableInterface — custom field typing requires the factory (#211).
+        -
+            identifier: alz.shopwiredModelMustImplementMappable
+            path: app/Infrastructure/Shopwired/Models/ProductModel.php
         # Eloquent query builder returns dynamic proxies - static analysis can't track fluent chains.
         # Methods like exists(), whereNotIn() on Builder are instance methods called on static chain.
         # DatabaseManager also proxies to Connection (transaction() call in DatabaseGateway).

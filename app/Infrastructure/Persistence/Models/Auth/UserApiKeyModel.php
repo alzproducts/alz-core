@@ -33,7 +33,7 @@ final class UserApiKeyModel extends Model
 {
     use HasUuids;
 
-    protected $table = 'user_api_keys';
+    protected $table = 'public.user_api_keys';
 
     public $incrementing = false;
 

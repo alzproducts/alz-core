@@ -25,7 +25,7 @@ final class AuthAllowedDomainModel extends Model
 {
     use HasUuids;
 
-    protected $table = 'auth_allowed_domains';
+    protected $table = 'public.auth_allowed_domains';
 
     public $incrementing = false;
 

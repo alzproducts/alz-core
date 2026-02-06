@@ -17,6 +17,9 @@
 | 2026-02-06 | Rule #10 allows App\Infrastructure\* in @throws | Internal infra exceptions (e.g. InvalidGoogleAdsResponseException) are valid within infrastructure |
 | 2026-02-06 | NoCatchReturnEmpty: suppressed 10 intentional patterns | GracefulCache, LockableCache, batch processing, data parsing, console commands |
 | 2026-02-06 | Removed stale @throws ConnectionException from 2 transport pool builders | Were PHPStan-pacifying annotations, not actually thrown |
+| 2026-02-06 | Fixed 5 models missing schema prefix (public.*) | ProfileModel, SystemCacheModel, Auth models — added `public.` prefix |
+| 2026-02-06 | Dropped Rule #26 (ResponseDtoMustHaveToDomainRule) | 14 violations vs 19 passes — too many intentional exemptions (wrappers, sub-DTOs, internal DTOs, factory pattern) |
+| 2026-02-06 | Suppressed ProductModel for Rule #28 | Uses dedicated ProductModelMapper due to custom field complexity — documented in docblock |
 
 ## Batch Progress
 
@@ -55,11 +58,11 @@
 ### Batch 5: Infrastructure DTO + Table Rules
 | # | Rule | File | Status | Violations Found |
 |---|------|------|--------|-----------------|
-| 3 | DB table refs must include schema | `SchemaQualifiedTableNameRule.php` | | |
-| 26 | Response DTOs must have toDomain() | `ResponseDtoMustHaveToDomainRule.php` | | |
-| 28 | Shopwired models must implement Mappable | `ShopwiredModelMustImplementMappableRule.php` | | |
-| 29 | Row DTOs must be @internal | `RowDtoMustBeInternalRule.php` | | |
-| 30 | Row classes not imported outside Queries | `RowClassNotImportedOutsideQueriesRule.php` | | |
+| 3 | DB table refs must include schema | `SchemaQualifiedTableNameRule.php` | VERIFIED | 5 — Auth/system models missing `public.` prefix (fixed) |
+| 26 | Response DTOs must have toDomain() | DROPPED | DROPPED | 14 violations vs 19 passes — too many intentional exemptions |
+| 28 | Shopwired models must implement Mappable | `ShopwiredModelMustImplementMappableRule.php` | VERIFIED | 1 — ProductModel (suppressed, uses dedicated Mapper) |
+| 29 | Row DTOs must be @internal | `RowDtoMustBeInternalRule.php` | UNVERIFIED | 0 — only Row DTO already has @internal |
+| 30 | Row classes not imported outside Queries | `RowClassNotImportedOutsideQueriesRule.php` | UNVERIFIED | 0 — no Row imports outside Queries |
 
 ## Unverified Rules (need test fixtures)
 - #1: No DB:: facade (allowIn paths cover all current usage)
@@ -71,6 +74,8 @@
 - #23: Job naming prefix (all follow convention)
 - #14: Job handle() must catch \Throwable (all already do)
 - #5: Domain exceptions must extend base (all already do)
+- #29: Row DTOs must be @internal (only Row DTO already has it)
+- #30: Row classes not imported outside Queries (no external imports)
 
 ## PR Notes
 _To be drafted after implementation_

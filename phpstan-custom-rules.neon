@@ -83,3 +83,8 @@ rules:
     - App\DevTools\PHPStan\Rules\Exceptions\DomainExceptionMustExtendBaseRule
     - App\DevTools\PHPStan\Rules\Exceptions\NoCatchReturnEmptyRule
     - App\DevTools\PHPStan\Rules\Infrastructure\NoSdkExceptionsInThrowsRule
+    # Batch 5: Infrastructure DTO + Table rules
+    - App\DevTools\PHPStan\Rules\Architecture\SchemaQualifiedTableNameRule
+    - App\DevTools\PHPStan\Rules\Infrastructure\ShopwiredModelMustImplementMappableRule
+    - App\DevTools\PHPStan\Rules\Infrastructure\RowDtoMustBeInternalRule
+    - App\DevTools\PHPStan\Rules\Infrastructure\RowClassNotImportedOutsideQueriesRule
