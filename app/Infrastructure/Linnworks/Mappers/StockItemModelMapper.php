@@ -10,6 +10,7 @@ use App\Domain\Inventory\ValueObjects\StockItemFull;
 use App\Domain\Inventory\ValueObjects\Weight;
 use App\Infrastructure\Linnworks\Models\StockItemExtendedPropertyModel;
 use App\Infrastructure\Linnworks\Models\StockItemModel;
+use App\Infrastructure\Linnworks\Models\StockItemSupplierModel;
 
 /**
  * Maps between StockItemModel (Eloquent) and StockItemFull (Domain).
@@ -51,6 +52,12 @@ final class StockItemModelMapper
                 ? \array_values(\array_map(
                     static fn(StockItemExtendedPropertyModel $ep) => $ep->toDomain(),
                     $model->extendedProperties->all(),
+                ))
+                : [],
+            suppliers: $model->relationLoaded('suppliers')
+                ? \array_values(\array_map(
+                    static fn(StockItemSupplierModel $s) => $s->toDomain(),
+                    $model->suppliers->all(),
                 ))
                 : [],
         );
