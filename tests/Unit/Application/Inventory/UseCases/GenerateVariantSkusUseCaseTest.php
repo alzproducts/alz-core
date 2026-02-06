@@ -7,15 +7,13 @@ namespace Tests\Unit\Application\Inventory\UseCases;
 use App\Application\Contracts\Linnworks\InventoryClientInterface;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Application\Inventory\Commands\GenerateVariantSkusCommand;
+use App\Application\Inventory\Params\CreateStockItemParams;
 use App\Application\Inventory\Services\GenerateStockItemFromVariationService;
+use App\Application\Inventory\Services\StockItemParamsBuilderService;
 use App\Application\Inventory\UseCases\GenerateVariantSkusUseCase;
 use App\Application\Shopwired\Services\ProductSyncService;
-use App\Domain\Catalog\Product\Resolvers\VariationImageResolver;
-use App\Domain\Catalog\Product\Resolvers\VariationOptionMatcher;
-use App\Domain\Catalog\Product\Resolvers\VariationPriceResolver;
 use App\Domain\Catalog\Product\ValueObjects\Product;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariation;
-use App\Domain\Catalog\Product\ValueObjects\ResolvedVariationPrices;
 use App\Domain\Catalog\Product\ValueObjects\Sku;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Inventory\InvalidTemplateException;
@@ -23,7 +21,10 @@ use App\Domain\Inventory\ValueObjects\Dimensions;
 use App\Domain\Inventory\ValueObjects\StockItemFull;
 use App\Domain\Inventory\ValueObjects\StockItemSupplier;
 use App\Domain\Inventory\ValueObjects\Weight;
+use App\Domain\ValueObjects\Guid;
 use App\Domain\ValueObjects\IntId;
+use App\Domain\ValueObjects\Money;
+use App\Domain\ValueObjects\TaxRate;
 use DateTimeImmutable;
 use Mockery;
 use Mockery\MockInterface;
@@ -48,9 +49,7 @@ final class GenerateVariantSkusUseCaseTest extends TestCase
 
     private GenerateStockItemFromVariationService&MockInterface $stockItemGenerator;
 
-    private VariationPriceResolver&MockInterface $priceResolver;
-
-    private VariationImageResolver&MockInterface $imageResolver;
+    private StockItemParamsBuilderService&MockInterface $paramsBuilder;
 
     private LoggerInterface&MockInterface $logger;
 
@@ -64,17 +63,14 @@ final class GenerateVariantSkusUseCaseTest extends TestCase
         $this->inventoryClient = Mockery::mock(InventoryClientInterface::class);
         $this->productSyncService = Mockery::mock(ProductSyncService::class);
         $this->stockItemGenerator = Mockery::mock(GenerateStockItemFromVariationService::class);
-        $this->priceResolver = Mockery::mock(VariationPriceResolver::class);
-        $this->imageResolver = Mockery::mock(VariationImageResolver::class);
+        $this->paramsBuilder = Mockery::mock(StockItemParamsBuilderService::class);
         $this->logger = Mockery::mock(LoggerInterface::class)->shouldIgnoreMissing();
 
         $this->useCase = new GenerateVariantSkusUseCase(
             $this->inventoryClient,
             $this->productSyncService,
             $this->stockItemGenerator,
-            $this->priceResolver,
-            $this->imageResolver,
-            new VariationOptionMatcher(),
+            $this->paramsBuilder,
             Mockery::mock(ProductRepositoryInterface::class),
             $this->logger,
             standardSignProductId: 99999,
@@ -204,7 +200,9 @@ final class GenerateVariantSkusUseCaseTest extends TestCase
             ->once()
             ->andReturn($template);
 
-        $this->setupResolversForVariations();
+        // Params builder returns a stub for any variation
+        $this->paramsBuilder->shouldReceive('build')
+            ->andReturn($this->createStubParams());
 
         // Only called for variations 2 and 4 (the SKU-less ones)
         $this->stockItemGenerator->shouldReceive('generate')
@@ -253,7 +251,9 @@ final class GenerateVariantSkusUseCaseTest extends TestCase
             ->once()
             ->andReturn($template);
 
-        $this->setupResolversForVariations();
+        // Params builder returns a stub for any variation
+        $this->paramsBuilder->shouldReceive('build')
+            ->andReturn($this->createStubParams());
 
         // First succeeds, second fails, third succeeds
         $this->stockItemGenerator->shouldReceive('generate')
@@ -389,18 +389,14 @@ final class GenerateVariantSkusUseCaseTest extends TestCase
         );
     }
 
-    private function setupResolversForVariations(): void
+    private function createStubParams(): CreateStockItemParams
     {
-        // Price resolver returns real ResolvedVariationPrices
-        $this->priceResolver->shouldReceive('resolveFromProduct')
-            ->andReturn(new ResolvedVariationPrices(
-                price: 29.99,
-                costPrice: 15.00,
-                salePrice: null,
-            ));
-
-        // Image resolver returns null (no image)
-        $this->imageResolver->shouldReceive('resolveUrl')
-            ->andReturn(null);
+        return new CreateStockItemParams(
+            categoryId: Guid::fromTrusted('550e8400-e29b-41d4-a716-446655440001'),
+            title: 'Stub Item',
+            retailPrice: Money::inclusive(29.99),
+            taxRate: TaxRate::standard(),
+            supplierId: Guid::fromTrusted('550e8400-e29b-41d4-a716-446655440002'),
+        );
     }
 }

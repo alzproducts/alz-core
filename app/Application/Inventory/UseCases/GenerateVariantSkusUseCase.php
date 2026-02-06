@@ -7,14 +7,11 @@ namespace App\Application\Inventory\UseCases;
 use App\Application\Contracts\Linnworks\InventoryClientInterface;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Application\Inventory\Commands\GenerateVariantSkusCommand;
-use App\Application\Inventory\Params\CreateStockItemParams;
 use App\Application\Inventory\Results\GenerateVariantSkusResult;
 use App\Application\Inventory\Services\GenerateStockItemFromVariationService;
+use App\Application\Inventory\Services\StockItemParamsBuilderService;
 use App\Application\Shopwired\Services\ProductSyncService;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
-use App\Domain\Catalog\Product\Resolvers\VariationImageResolver;
-use App\Domain\Catalog\Product\Resolvers\VariationOptionMatcher;
-use App\Domain\Catalog\Product\Resolvers\VariationPriceResolver;
 use App\Domain\Catalog\Product\ValueObjects\Product;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariation;
 use App\Domain\Catalog\Product\ValueObjects\Sku;
@@ -27,14 +24,9 @@ use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\Exceptions\Infrastructure\LockAcquisitionException;
 use App\Domain\Exceptions\Inventory\InvalidTemplateException;
-use App\Domain\Inventory\Enums\ExtendedPropertyName;
 use App\Domain\Inventory\ValueObjects\StockItemFull;
-use App\Domain\ValueObjects\Guid;
 use App\Domain\ValueObjects\IntId;
-use App\Domain\ValueObjects\Money;
-use App\Domain\ValueObjects\TaxRate;
 use Psr\Log\LoggerInterface;
-use Webmozart\Assert\Assert;
 
 /**
  * Generate Linnworks inventory items for SKU-less ShopWired variations.
@@ -44,7 +36,7 @@ use Webmozart\Assert\Assert;
  * back to ShopWired variations.
  *
  * **Transaction Flow (per variation):**
- * 1. Build CreateStockItemParams from variation data
+ * 1. Build CreateStockItemParams via StockItemParamsBuilderService
  * 2. Delegate to GenerateStockItemFromVariationService (handles Linnworks creation, ShopWired update, rollback)
  * 3. On failure: continue to next variation
  *
@@ -56,9 +48,7 @@ final readonly class GenerateVariantSkusUseCase
         private InventoryClientInterface $inventoryClient,
         private ProductSyncService $productSyncService,
         private GenerateStockItemFromVariationService $stockItemGenerator,
-        private VariationPriceResolver $priceResolver,
-        private VariationImageResolver $imageResolver,
-        private VariationOptionMatcher $optionMatcher,
+        private StockItemParamsBuilderService $paramsBuilder,
         private ProductRepositoryInterface $productRepository,
         private LoggerInterface $logger,
         private int $standardSignProductId,
@@ -232,7 +222,7 @@ final readonly class GenerateVariantSkusUseCase
 
         try {
             // Build params from variation data
-            $params = $this->buildCreateParams($variation, $product, $template, $command, $standardSignVariations);
+            $params = $this->paramsBuilder->build($variation, $product, $template, $command, $standardSignVariations);
 
             // Delegate to service (handles Linnworks creation, ShopWired update, rollback)
             $sku = $this->stockItemGenerator->generate($params, $variation->id, $command->noSupplier);
@@ -253,84 +243,5 @@ final readonly class GenerateVariantSkusUseCase
 
             return null;
         }
-    }
-
-    /**
-     * Resolve purchase price: standard sign match takes priority, then variation cost.
-     *
-     * @param list<ProductVariation>|null $standardSignVariations Reference variations for price matching
-     */
-    private function resolvePurchasePrice(
-        ProductVariation $variation,
-        ?float $costPrice,
-        ?array $standardSignVariations,
-    ): ?Money {
-        if ($standardSignVariations !== null) {
-            $matched = $this->optionMatcher->findMatch($variation, $standardSignVariations);
-
-            if ($matched?->costPrice !== null) {
-                return Money::exclusive($matched->costPrice);
-            }
-        }
-
-        return $costPrice !== null ? Money::exclusive($costPrice) : null;
-    }
-
-    /**
-     * Build CreateStockItemParams from variation, product, and template.
-     *
-     * @param list<ProductVariation>|null $standardSignVariations Reference variations for price matching
-     */
-    private function buildCreateParams(
-        ProductVariation $variation,
-        Product $product,
-        StockItemFull $template,
-        GenerateVariantSkusCommand $command,
-        ?array $standardSignVariations,
-    ): CreateStockItemParams {
-        // Template is always validated to have a default supplier
-        $supplier = $template->getDefaultSupplier();
-        Assert::notNull($supplier, 'Template must have a default supplier (validated in validateTemplate)');
-
-        $prices = $this->priceResolver->resolveFromProduct($variation, $product);
-        $taxRate = $product->vatExclusive ? TaxRate::zero() : TaxRate::standard();
-
-        // Build title: "Product Name - Option Values"
-        $optionValues = $variation->optionValuesString();
-        $title = $optionValues !== ''
-            ? $product->title . ' - ' . $optionValues
-            : $product->title;
-
-        // Build Money based on tax treatment
-        $retailPrice = $product->vatExclusive
-            ? Money::zeroRated($prices->price)
-            : Money::inclusive($prices->price);
-
-        // Resolve purchase price: standard sign match > variation cost > null
-        $purchasePrice = $this->resolvePurchasePrice($variation, $prices->costPrice, $standardSignVariations);
-
-        // Resolve MPN: template supplier code (--copy-mpn) or variation MPN
-        $mpn = $command->copyParentMpn
-            ? $supplier->code
-            : $variation->mpn;
-
-        // Resolve image URL
-        $imageUrl = $this->imageResolver->resolveUrl($variation, $product->images);
-
-        return new CreateStockItemParams(
-            categoryId: Guid::fromTrusted($template->categoryId),
-            title: $title,
-            retailPrice: $retailPrice,
-            taxRate: $taxRate,
-            supplierId: Guid::fromTrusted($supplier->supplierId),
-            purchasePrice: $command->noSupplier ? null : $purchasePrice,
-            barcode: $variation->gtin,
-            mpn: $mpn,
-            supplierCode: $command->noSupplier ? null : $supplier->code,
-            extendedProperties: [
-                ExtendedPropertyName::ShopId->value => (string) $variation->id,
-            ],
-            imageUrl: $imageUrl,
-        );
     }
 }
