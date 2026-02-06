@@ -89,7 +89,9 @@ final class UpdateSkuJob implements ShouldBeUnique, ShouldQueue
 
     public function __construct(
         public readonly UpdateSkuCommand $command,
-    ) {}
+    ) {
+        $this->onQueue('default');
+    }
 
     /**
      * Execute the job.

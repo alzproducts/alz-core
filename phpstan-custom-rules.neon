@@ -72,3 +72,10 @@ rules:
     - App\DevTools\PHPStan\Rules\Architecture\NoTryCatchInDomainRule
     - App\DevTools\PHPStan\Rules\Architecture\NoStaticPropertiesRule
     - App\DevTools\PHPStan\Rules\Architecture\NoTryCatchInControllerRule
+    # Batch 3: Job rules
+    - App\DevTools\PHPStan\Rules\Jobs\JobMustImplementShouldQueueRule
+    - App\DevTools\PHPStan\Rules\Jobs\JobRequiredPropertiesRule
+    - App\DevTools\PHPStan\Rules\Jobs\JobRequiredMethodsRule
+    - App\DevTools\PHPStan\Rules\Jobs\JobMustCallOnQueueRule
+    - App\DevTools\PHPStan\Rules\Jobs\JobNamingPrefixRule
+    - App\DevTools\PHPStan\Rules\Jobs\JobHandleMustCatchThrowableRule

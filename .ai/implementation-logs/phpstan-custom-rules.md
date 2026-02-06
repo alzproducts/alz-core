@@ -34,12 +34,12 @@
 ### Batch 3: Job Rules
 | # | Rule | File | Status | Violations Found |
 |---|------|------|--------|-----------------|
-| 17 | Jobs must implement ShouldQueue | `JobMustImplementShouldQueueRule.php` | | |
-| 18+19 | Jobs must define $tries + $timeout | `JobRequiredPropertiesRule.php` | | |
-| 20+21 | Jobs must define backoff() + failed() | `JobRequiredMethodsRule.php` | | |
-| 22 | Jobs must call onQueue() in constructor | `JobMustCallOnQueueRule.php` | | |
-| 23 | Job naming prefix | `JobNamingPrefixRule.php` | | |
-| 14 | Job handle() must catch \Throwable | `JobHandleMustCatchThrowableRule.php` | | |
+| 17 | Jobs must implement ShouldQueue | `JobMustImplementShouldQueueRule.php` | UNVERIFIED | 0 — all jobs already implement ShouldQueue |
+| 18+19 | Jobs must define $tries + $timeout | `JobRequiredPropertiesRule.php` | VERIFIED | 2 — SyncGoogleAds + SyncCampaignLookup missing $timeout (fixed) |
+| 20+21 | Jobs must define backoff() + failed() | `JobRequiredMethodsRule.php` | UNVERIFIED | 0 — all jobs have backoff + failed() |
+| 22 | Jobs must call onQueue() in constructor | `JobMustCallOnQueueRule.php` | VERIFIED | 3 — UpdateSku + SyncBingAds + SyncGoogleAds missing onQueue() (fixed) |
+| 23 | Job naming prefix | `JobNamingPrefixRule.php` | UNVERIFIED | 0 — all job names follow convention |
+| 14 | Job handle() must catch \Throwable | `JobHandleMustCatchThrowableRule.php` | UNVERIFIED | 0 — all jobs have catch(Throwable) |
 
 ### Batch 4: Exception Rules
 | # | Rule | File | Status | Violations Found |
@@ -62,6 +62,10 @@
 - #35: No assertEquals() (tests excluded from PHPStan)
 - #40: No Artisan::call() (no current usage — preventive)
 - #24: No try-catch in Controllers (no controllers use try-catch)
+- #17: Jobs must implement ShouldQueue (all already do)
+- #20+21: Jobs must define backoff() + failed() (all already do)
+- #23: Job naming prefix (all follow convention)
+- #14: Job handle() must catch \Throwable (all already do)
 
 ## PR Notes
 _To be drafted after implementation_
