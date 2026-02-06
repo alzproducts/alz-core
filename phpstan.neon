@@ -159,6 +159,21 @@ parameters:
             paths:
                 - app/Presentation/Jobs/*
                 - app/Infrastructure/*/Listeners/*
+        # Application classes using config() — flagged as tech debt (#211).
+        # TODO: Refactor to constructor injection.
+        -
+            identifier: alz.noConfigHelper
+            paths:
+                - app/Application/Auth/TestUserPersonaResolver.php
+                - app/Application/Feeds/ProcessProductSearchFeedUseCase.php
+        # ClientFactory classes use static memoization — flagged as tech debt (#211).
+        # TODO: Refactor to constructor injection via service provider singletons.
+        -
+            identifier: alz.noStaticProperties
+            paths:
+                - app/Infrastructure/HelpScout/HelpScoutClientFactory.php
+                - app/Infrastructure/Linnworks/LinnworksClientFactory.php
+                - app/Infrastructure/Shopwired/ShopwiredClientFactory.php
         # Eloquent query builder returns dynamic proxies - static analysis can't track fluent chains.
         # Methods like exists(), whereNotIn() on Builder are instance methods called on static chain.
         # DatabaseManager also proxies to Connection (transaction() call in DatabaseGateway).

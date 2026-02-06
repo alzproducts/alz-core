@@ -20,6 +20,16 @@ parameters:
                 - config/*
                 - tests/*
 
+        # Rule #41: No Config:: facade in Domain/Application layers
+        # Config values should be injected via constructor, not pulled from facade.
+        -
+            method: 'Illuminate\Support\Facades\Config::*()'
+            message: 'inject config values via constructor instead of using the Config facade'
+            errorIdentifier: 'alz.noConfigFacade'
+            allowExceptIn:
+                - app/Domain/*
+                - app/Application/*
+
         # Rule #40: No Artisan::call()/queue() in application code
         # Programmatic artisan calls bypass queue retry, logging, and error handling.
         # Use dedicated jobs or scheduled commands instead.
@@ -35,6 +45,17 @@ parameters:
                 - database/*
                 - tests/*
 
+    disallowedFunctionCalls:
+        # Rule #41: No config() helper in Domain/Application layers
+        # Config values should be injected via constructor, not pulled from global helper.
+        -
+            function: 'config()'
+            message: 'inject config values via constructor instead of using config() helper'
+            errorIdentifier: 'alz.noConfigHelper'
+            allowExceptIn:
+                - app/Domain/*
+                - app/Application/*
+
     disallowedMethodCalls:
         # Rule #35: No assertEquals() — use assertSame() for strict type comparison
         # assertEquals() uses loose comparison (==), allowing type juggling.
@@ -44,3 +65,10 @@ parameters:
             method: 'PHPUnit\Framework\Assert::assertEquals()'
             message: 'use assertSame() for strict type comparison — assertEquals() uses loose == comparison'
             errorIdentifier: 'alz.noAssertEquals'
+
+# ── Custom PHP Rules ─────────────────────────────────────────────────
+rules:
+    # Batch 2: Architecture rules
+    - App\DevTools\PHPStan\Rules\Architecture\NoTryCatchInDomainRule
+    - App\DevTools\PHPStan\Rules\Architecture\NoStaticPropertiesRule
+    - App\DevTools\PHPStan\Rules\Architecture\NoTryCatchInControllerRule
