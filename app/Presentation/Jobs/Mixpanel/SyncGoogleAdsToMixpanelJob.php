@@ -47,10 +47,17 @@ final class SyncGoogleAdsToMixpanelJob implements ShouldQueue
      */
     public array $backoff = [60, 300, 3600];
 
+    /**
+     * Job timeout in seconds.
+     */
+    public int $timeout = 300;
+
     public function __construct(
         private readonly DateTimeImmutable $from,
         private readonly DateTimeImmutable $to,
-    ) {}
+    ) {
+        $this->onQueue('default');
+    }
 
     /**
      * Execute the job.

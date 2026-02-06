@@ -48,14 +48,14 @@ final class EloquentProductRatingRepository extends AbstractEloquentRepository i
 
         return $this->eloquentGateway->query(static fn(): array => \array_values(
             self::MODEL_CLASS::query()
-                    ->whereIn('sku', $skus)
-                    ->get()
-                    ->map(static fn(ProductRatingModel $model): ProductRating => new ProductRating(
-                        sku: $model->sku,
-                        averageRating: $model->average_rating,
-                        numRatings: $model->num_ratings,
-                    ))
-                    ->all(),
+                ->whereIn('sku', $skus)
+                ->get()
+                ->map(static fn(ProductRatingModel $model): ProductRating => new ProductRating(
+                    sku: $model->sku,
+                    averageRating: $model->average_rating,
+                    numRatings: $model->num_ratings,
+                ))
+                ->all(),
         ));
     }
 

@@ -33,7 +33,7 @@ final class ProfileModel extends Model
 {
     use HasUuids;
 
-    protected $table = 'profiles';
+    protected $table = 'public.profiles';
 
     public $incrementing = false;
 

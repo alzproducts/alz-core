@@ -26,6 +26,8 @@ includes:
     - vendor/symplify/phpstan-rules/config/static-rules.neon
     - vendor/symplify/phpstan-rules/config/naming-rules.neon
     # Note: Skip code-complexity-rules.neon (overlaps with tomasvotruba/cognitive-complexity)
+    # Project-specific custom rules and disallowed calls
+    - phpstan-custom-rules.neon
 
 parameters:
     level: max
@@ -157,6 +159,51 @@ parameters:
             paths:
                 - app/Presentation/Jobs/*
                 - app/Infrastructure/*/Listeners/*
+        # Application classes using config() — flagged as tech debt (#211).
+        # TODO: Refactor to constructor injection.
+        -
+            identifier: alz.noConfigHelper
+            paths:
+                - app/Application/Auth/TestUserPersonaResolver.php
+                - app/Application/Feeds/ProcessProductSearchFeedUseCase.php
+        # ClientFactory classes use static memoization — flagged as tech debt (#211).
+        # TODO: Refactor to constructor injection via service provider singletons.
+        -
+            identifier: alz.noStaticProperties
+            paths:
+                - app/Infrastructure/HelpScout/HelpScoutClientFactory.php
+                - app/Infrastructure/Linnworks/LinnworksClientFactory.php
+                - app/Infrastructure/Shopwired/ShopwiredClientFactory.php
+        # Graceful cache degradation: return null on infrastructure failure is the design intent (#211).
+        # GracefulCache and LockableCache are explicitly designed to degrade gracefully.
+        -
+            identifier: alz.noCatchReturnEmpty
+            paths:
+                - app/Application/Support/GracefulCache.php
+                - app/Infrastructure/Support/LockableCache.php
+        # Batch processing / data parsing: return null for individual item failures (#211).
+        # The batch orchestrator collects results and reports failures separately.
+        # Data parsing returns null for invalid external data (GTIN, dates, ratings).
+        -
+            identifier: alz.noCatchReturnEmpty
+            paths:
+                - app/Application/Inventory/UseCases/GenerateVariantSkusUseCase.php
+                - app/Infrastructure/Shopwired/Responses/ProductVariationResponse.php
+                - app/Infrastructure/Shopwired/Responses/OrderResponse.php
+                - app/Infrastructure/Shopwired/Factories/ProductDomainFactory.php
+                - app/Infrastructure/ReviewsIo/ReviewsIoClient.php
+        # Console commands: return null after showing user-friendly error message (#211).
+        # Standard CLI pattern — error is communicated via $this->error() before returning.
+        -
+            identifier: alz.noCatchReturnEmpty
+            paths:
+                - app/Presentation/Console/Commands/GenerateVariantSkusCommand.php
+                - app/Presentation/Console/Commands/UpdateSkusCommand.php
+        # ProductModel uses dedicated ProductModelMapper instead of implementing
+        # EloquentDomainMappableInterface — custom field typing requires the factory (#211).
+        -
+            identifier: alz.shopwiredModelMustImplementMappable
+            path: app/Infrastructure/Shopwired/Models/ProductModel.php
         # Eloquent query builder returns dynamic proxies - static analysis can't track fluent chains.
         # Methods like exists(), whereNotIn() on Builder are instance methods called on static chain.
         # DatabaseManager also proxies to Connection (transaction() call in DatabaseGateway).
