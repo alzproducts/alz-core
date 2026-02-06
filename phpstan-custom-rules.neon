@@ -6,20 +6,6 @@ parameters:
     # ── Disallowed Calls (spaze/phpstan-disallowed-calls) ─────────────
 
     disallowedStaticCalls:
-        # Rule #1: No DB:: facade — use DatabaseGateway
-        # DB:: bypasses exception translation and connection management.
-        # Allowed: Providers (RLS setup), Middleware (RLS context), migrations, config, tests.
-        -
-            method: 'Illuminate\Support\Facades\DB::*()'
-            message: 'use DatabaseGateway instead of the DB facade — it provides exception translation and connection management'
-            errorIdentifier: 'alz.noDbFacade'
-            allowIn:
-                - app/Providers/*
-                - app/Presentation/Http/Middleware/*
-                - database/*
-                - config/*
-                - tests/*
-
         # Rule #41: No Config:: facade in Domain/Application layers
         # Config values should be injected via constructor, not pulled from facade.
         -
@@ -29,21 +15,6 @@ parameters:
             allowExceptIn:
                 - app/Domain/*
                 - app/Application/*
-
-        # Rule #40: No Artisan::call()/queue() in application code
-        # Programmatic artisan calls bypass queue retry, logging, and error handling.
-        # Use dedicated jobs or scheduled commands instead.
-        -
-            method:
-                - 'Illuminate\Support\Facades\Artisan::call()'
-                - 'Illuminate\Support\Facades\Artisan::queue()'
-            message: 'do not call artisan commands programmatically — use dedicated jobs or scheduled commands instead'
-            errorIdentifier: 'alz.noArtisanCall'
-            allowIn:
-                - app/Presentation/Console/*
-                - app/Providers/*
-                - database/*
-                - tests/*
 
     disallowedFunctionCalls:
         # Rule #41: No config() helper in Domain/Application layers
@@ -56,18 +27,12 @@ parameters:
                 - app/Domain/*
                 - app/Application/*
 
-    disallowedMethodCalls:
-        # Rule #35: No assertEquals() — use assertSame() for strict type comparison
-        # assertEquals() uses loose comparison (==), allowing type juggling.
-        # Note: tests/ is currently excluded from PHPStan analysis. This rule will
-        # activate if tests are added to PHPStan paths in the future.
-        -
-            method: 'PHPUnit\Framework\Assert::assertEquals()'
-            message: 'use assertSame() for strict type comparison — assertEquals() uses loose == comparison'
-            errorIdentifier: 'alz.noAssertEquals'
-
 # ── Custom PHP Rules ─────────────────────────────────────────────────
 rules:
+    # Batch 1: Replaced spaze/disallowed-calls (Larastan facade resolution breaks spaze)
+    - App\DevTools\PHPStan\Rules\Architecture\NoDbFacadeRule
+    - App\DevTools\PHPStan\Rules\Architecture\NoAssertEqualsRule
+    - App\DevTools\PHPStan\Rules\Architecture\NoArtisanCallRule
     # Batch 2: Architecture rules
     - App\DevTools\PHPStan\Rules\Architecture\NoTryCatchInDomainRule
     - App\DevTools\PHPStan\Rules\Architecture\NoStaticPropertiesRule

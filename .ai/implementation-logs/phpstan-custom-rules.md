@@ -1,12 +1,15 @@
 # PHPStan Custom Rules — Implementation Log
 
-## Status: In Progress
+## Status: Complete
+**Completed**: 2026-02-06
 
 ## Decision Log
 
 | Date | Decision | Rationale |
 |------|----------|-----------|
 | 2026-02-06 | Use `spaze/phpstan-disallowed-calls` for config-only rules | Already installed v4.7, avoids custom PHP code |
+| 2026-02-06 | Replaced spaze rules #1/#35/#40 with custom AST rules | Larastan facade resolution transforms `DB::table()` → `DatabaseManager::table()` at type level, breaking spaze's type-based matching. Custom AST-level rules check raw PhpParser nodes before Larastan transforms. |
+| 2026-02-06 | Kept spaze for Rule #41 (Config facade/helper) | Config:: is not resolved by Larastan like DB::/Artisan::, so spaze still works for it |
 | 2026-02-06 | Place rules in `app/DevTools/PHPStan/Rules/` | Follows existing DevTools convention |
 | 2026-02-06 | Separate neon file `phpstan-custom-rules.neon` | Clean separation, included by main phpstan.neon |
 | 2026-02-06 | Rule #41 via spaze config, not custom PHP rule | `config()` + `Config::*()` handled by `disallowedFunctionCalls`/`disallowedStaticCalls` with `allowExceptIn` — simpler, same result |
@@ -23,35 +26,35 @@
 
 ## Batch Progress
 
-### Batch 1: CONFIG Rules (phpstan.neon only)
-| # | Rule | Status | Violations Found |
-|---|------|--------|-----------------|
-| 1 | No `DB::` facade | UNVERIFIED | 0 — all DB:: usage in allowed paths (Providers, Middleware) |
-| 35 | No `assertEquals()` | UNVERIFIED | 0 — tests/ excluded from PHPStan analysis |
-| 40 | No destructive artisan commands | UNVERIFIED | 0 — no Artisan::call() in app code (preventive) |
+### Batch 1: Custom AST Rules (replaced spaze/disallowed-calls)
+| # | Rule | File | Status | Violations Found |
+|---|------|------|--------|-----------------|
+| 1 | No `DB::` facade | `NoDbFacadeRule.php` | VERIFIED (fixture) | 0 live — verified via test fixture. Allows Providers, Middleware |
+| 35 | No `assertEquals()` | `NoAssertEqualsRule.php` | VERIFIED (fixture) | 0 live — verified via test fixture. tests/ excluded from PHPStan |
+| 40 | No Artisan::call/queue | `NoArtisanCallRule.php` | VERIFIED (fixture) | 0 live — verified via test fixture. Allows Console, Providers |
 
 ### Batch 2: Architecture Rules
 | # | Rule | File | Status | Violations Found |
 |---|------|------|--------|-----------------|
 | 6 | No try-catch in Domain | `NoTryCatchInDomainRule.php` | VERIFIED | 4 — Domain enum `fromValue()` methods (fixed: refactored to `tryFrom()`) |
 | 8 | No static properties (Octane) | `NoStaticPropertiesRule.php` | VERIFIED | 8 — ClientFactory memoization (suppressed as tech debt) |
-| 24 | No try-catch in Controllers | `NoTryCatchInControllerRule.php` | UNVERIFIED | 0 — no controllers use try-catch |
+| 24 | No try-catch in Controllers | `NoTryCatchInControllerRule.php` | VERIFIED (fixture) | 0 live — verified via test fixture |
 | 41 | No config() outside Domain/Application | spaze config (`allowExceptIn`) | VERIFIED | 2 — Application config() calls (suppressed as tech debt) |
 
 ### Batch 3: Job Rules
 | # | Rule | File | Status | Violations Found |
 |---|------|------|--------|-----------------|
-| 17 | Jobs must implement ShouldQueue | `JobMustImplementShouldQueueRule.php` | UNVERIFIED | 0 — all jobs already implement ShouldQueue |
+| 17 | Jobs must implement ShouldQueue | `JobMustImplementShouldQueueRule.php` | VERIFIED (fixture) | 0 live — verified via test fixture |
 | 18+19 | Jobs must define $tries + $timeout | `JobRequiredPropertiesRule.php` | VERIFIED | 2 — SyncGoogleAds + SyncCampaignLookup missing $timeout (fixed) |
-| 20+21 | Jobs must define backoff() + failed() | `JobRequiredMethodsRule.php` | UNVERIFIED | 0 — all jobs have backoff + failed() |
+| 20+21 | Jobs must define backoff() + failed() | `JobRequiredMethodsRule.php` | VERIFIED (fixture) | 0 live — verified via test fixture |
 | 22 | Jobs must call onQueue() in constructor | `JobMustCallOnQueueRule.php` | VERIFIED | 3 — UpdateSku + SyncBingAds + SyncGoogleAds missing onQueue() (fixed) |
-| 23 | Job naming prefix | `JobNamingPrefixRule.php` | UNVERIFIED | 0 — all job names follow convention |
-| 14 | Job handle() must catch \Throwable | `JobHandleMustCatchThrowableRule.php` | UNVERIFIED | 0 — all jobs have catch(Throwable) |
+| 23 | Job naming prefix | `JobNamingPrefixRule.php` | VERIFIED (fixture) | 0 live — verified via test fixture |
+| 14 | Job handle() must catch \Throwable | `JobHandleMustCatchThrowableRule.php` | VERIFIED (fixture) | 0 live — verified via test fixture |
 
 ### Batch 4: Exception Rules
 | # | Rule | File | Status | Violations Found |
 |---|------|------|--------|-----------------|
-| 5 | Domain exceptions must extend base | `DomainExceptionMustExtendBaseRule.php` | UNVERIFIED | 0 — all domain exceptions correctly extend hierarchy |
+| 5 | Domain exceptions must extend base | `DomainExceptionMustExtendBaseRule.php` | VERIFIED (fixture) | 0 live — verified via test fixture |
 | 10 | Infrastructure @throws only Domain | `NoSdkExceptionsInThrowsRule.php` | VERIFIED | 1 — `@throws ConnectionException` in ShopwiredHttpTransport (removed, was PHPStan-pacifying) + removed stale `@throws ConnectionException` from HelpScoutHttpTransport |
 | 12 | No returning empty in catch | `NoCatchReturnEmptyRule.php` | VERIFIED | 10 — graceful cache (3), batch processing (2), data parsing (3), console commands (2) — all suppressed as intentional patterns |
 
@@ -61,21 +64,42 @@
 | 3 | DB table refs must include schema | `SchemaQualifiedTableNameRule.php` | VERIFIED | 5 — Auth/system models missing `public.` prefix (fixed) |
 | 26 | Response DTOs must have toDomain() | DROPPED | DROPPED | 14 violations vs 19 passes — too many intentional exemptions |
 | 28 | Shopwired models must implement Mappable | `ShopwiredModelMustImplementMappableRule.php` | VERIFIED | 1 — ProductModel (suppressed, uses dedicated Mapper) |
-| 29 | Row DTOs must be @internal | `RowDtoMustBeInternalRule.php` | UNVERIFIED | 0 — only Row DTO already has @internal |
-| 30 | Row classes not imported outside Queries | `RowClassNotImportedOutsideQueriesRule.php` | UNVERIFIED | 0 — no Row imports outside Queries |
+| 29 | Row DTOs must be @internal | `RowDtoMustBeInternalRule.php` | VERIFIED (fixture) | 0 live — verified via test fixture |
+| 30 | Row classes not imported outside Queries | `RowClassNotImportedOutsideQueriesRule.php` | VERIFIED (fixture) | 0 live — verified via test fixture |
 
-## Unverified Rules (need test fixtures)
-- #1: No DB:: facade (allowIn paths cover all current usage)
-- #35: No assertEquals() (tests excluded from PHPStan)
-- #40: No Artisan::call() (no current usage — preventive)
-- #24: No try-catch in Controllers (no controllers use try-catch)
-- #17: Jobs must implement ShouldQueue (all already do)
-- #20+21: Jobs must define backoff() + failed() (all already do)
-- #23: Job naming prefix (all follow convention)
-- #14: Job handle() must catch \Throwable (all already do)
-- #5: Domain exceptions must extend base (all already do)
-- #29: Row DTOs must be @internal (only Row DTO already has it)
-- #30: Row classes not imported outside Queries (no external imports)
+## Final Verification (test fixtures)
+All 11 previously-unverified rules confirmed working via temporary test fixtures:
+- #1: NoDbFacadeRule — `alz.noDbFacade` fired
+- #35: NoAssertEqualsRule — `alz.noAssertEquals` fired
+- #40: NoArtisanCallRule — `alz.noArtisanCall` fired
+- #24: NoTryCatchInControllerRule — `alz.noTryCatchInController` fired
+- #17: JobMustImplementShouldQueueRule — `alz.jobMustImplementShouldQueue` fired
+- #20+21: JobRequiredMethodsRule — `alz.jobRequiredMethod` fired
+- #23: JobNamingPrefixRule — `alz.jobNamingPrefix` fired
+- #14: JobHandleMustCatchThrowableRule — `alz.jobHandleMustCatchThrowable` fired
+- #5: DomainExceptionMustExtendBaseRule — `alz.domainExceptionMustExtendBase` fired
+- #29: RowDtoMustBeInternalRule — `alz.rowDtoMustBeInternal` fired
+- #30: RowClassNotImportedOutsideQueriesRule — `alz.rowClassNotImportedOutsideQueries` fired
+Fixtures deleted after verification.
 
 ## PR Notes
-_To be drafted after implementation_
+
+### What
+22 custom PHPStan rules (18 custom PHP + 2 spaze config + 1 dropped) enforcing Clean Architecture conventions at static analysis time.
+
+### Why
+Architecture conventions were only enforced by code review — creating inconsistency and overhead. These rules catch violations before code reaches a PR.
+
+### Key Decisions
+- Replaced spaze/disallowed-calls for DB::/Artisan::/assertEquals with custom AST rules (Larastan facade resolution breaks spaze's type-level matching)
+- Kept spaze for Config:: facade/helper (not affected by Larastan resolution)
+- Dropped Rule #26 (ResponseDtoMustHaveToDomain) — too many intentional exemptions (14 of 33)
+- Suppressed ProductModel for Rule #28 (uses dedicated ProductModelMapper)
+- Suppressed ClientFactory static properties as tech debt (Octane rule)
+- Fixed 5 models missing `public.` schema prefix
+- All 22 rules verified (11 caught real violations, 11 verified via temporary test fixtures)
+
+### Testing
+All rules verified in two ways:
+1. `make lint` catching real violations during implementation (11 rules)
+2. Temporary test fixtures for rules with 0 existing violations (11 rules) — fixtures deleted after verification
