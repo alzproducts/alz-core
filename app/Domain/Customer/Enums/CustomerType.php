@@ -5,8 +5,6 @@ declare(strict_types=1);
 namespace App\Domain\Customer\Enums;
 
 use App\Domain\Exceptions\Data\InvalidEnumValueException;
-use TypeError;
-use ValueError;
 
 /**
  * Type of customer for business classification.
@@ -64,10 +62,7 @@ enum CustomerType: string
      */
     public static function fromValue(string $value): self
     {
-        try {
-            return self::from($value);
-        } catch (ValueError|TypeError $e) {
-            throw InvalidEnumValueException::invalidBackingValue(self::class, $value, $e);
-        }
+        return self::tryFrom($value)
+            ?? throw InvalidEnumValueException::invalidBackingValue(self::class, $value);
     }
 }

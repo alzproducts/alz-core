@@ -169,7 +169,7 @@ return [
                 // Validation-heavy transformer with unavoidably verbose null checks
                 'app/Infrastructure/GoogleAds/Transformers/GoogleAdsRowTransformer.php',
                 // Job exception handling pattern requires multiple catch blocks
-                'app/Presentation/Jobs',
+                'app/Application/Jobs',
             ],
         ],
 
@@ -184,7 +184,7 @@ return [
         // Laravel Job classes require public $tries, $backoff, $timeout properties (queue contract)
         ForbiddenPublicPropertySniff::class => [
             'exclude' => [
-                'app/Presentation/Jobs',
+                'app/Application/Jobs',
             ],
         ],
 

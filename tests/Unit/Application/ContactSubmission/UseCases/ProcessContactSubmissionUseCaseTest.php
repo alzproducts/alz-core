@@ -14,6 +14,7 @@ use App\Application\HelpScout\Commands\CreateCustomerConversationCommand;
 use App\Application\HelpScout\Config\HelpScoutSystemUserId;
 use App\Domain\ContactSubmission\Enums\ActionStatus;
 use App\Domain\ContactSubmission\Enums\ContactReason;
+use App\Domain\ContactSubmission\Events\ContactFormProcessedEvent;
 use App\Domain\ContactSubmission\ValueObjects\ConsentStatus;
 use App\Domain\ContactSubmission\ValueObjects\ContactFormData;
 use App\Domain\ContactSubmission\ValueObjects\ContactSubmission;
@@ -25,6 +26,7 @@ use App\Domain\CustomerService\Enums\Mailbox;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\ValueObjects\IntId;
 use DateTimeImmutable;
+use Illuminate\Support\Facades\Event;
 use Mockery;
 use Mockery\MockInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -68,6 +70,8 @@ final class ProcessContactSubmissionUseCaseTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        Event::fake([ContactFormProcessedEvent::class]);
 
         $this->submissionRepository = Mockery::mock(ContactSubmissionRepositoryInterface::class);
         $this->actionRepository = Mockery::mock(ContactSubmissionActionRepositoryInterface::class);
@@ -195,6 +199,34 @@ final class ProcessContactSubmissionUseCaseTest extends TestCase
         $result = $this->useCase->execute(self::SUBMISSION_ID, self::ACTION_ID);
 
         self::assertSame(self::CONVERSATION_ID, $result);
+    }
+
+    #[Test]
+    public function execute_fires_success_event_with_submission_details(): void
+    {
+        $this->setupSuccessfulProcessing();
+
+        $this->useCase->execute(self::SUBMISSION_ID, self::ACTION_ID);
+
+        Event::assertDispatched(
+            ContactFormProcessedEvent::class,
+            static fn(ContactFormProcessedEvent $event): bool => $event->submissionId === self::SUBMISSION_ID
+                    && $event->conversationId->value === self::CONVERSATION_ID
+                    && $event->customerName === 'Test User'
+                    && $event->customerEmail === 'test@example.com',
+        );
+    }
+
+    #[Test]
+    public function execute_does_not_fire_event_when_already_completed(): void
+    {
+        $this->actionRepository->expects('getStatus')
+            ->with(self::ACTION_ID)
+            ->andReturn(ActionStatus::Completed);
+
+        $this->useCase->execute(self::SUBMISSION_ID, self::ACTION_ID);
+
+        Event::assertNotDispatched(ContactFormProcessedEvent::class);
     }
 
     #[Test]

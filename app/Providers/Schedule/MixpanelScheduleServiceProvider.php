@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Providers\Schedule;
 
-use App\Presentation\Jobs\Mixpanel\SyncOrderLookupTableJob;
-use App\Presentation\Jobs\Mixpanel\SyncOrdersToMixpanelJob;
-use App\Presentation\Jobs\Mixpanel\SyncProductLookupTableJob;
+use App\Application\Jobs\Mixpanel\SyncOrderLookupTableJob;
+use App\Application\Jobs\Mixpanel\SyncOrdersToMixpanelJob;
+use App\Application\Jobs\Mixpanel\SyncProductLookupTableJob;
 use DateTimeImmutable;
 use Illuminate\Support\Facades\Schedule;
 use Illuminate\Support\ServiceProvider;
