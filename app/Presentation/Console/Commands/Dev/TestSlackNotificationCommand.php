@@ -14,6 +14,7 @@ use App\Domain\ContactSubmission\ValueObjects\SubmissionContext;
 use App\Domain\ValueObjects\IntId;
 use App\Infrastructure\Notifications\Slack\ContactFormFailedNotification;
 use App\Infrastructure\Notifications\Slack\ContactFormProcessedNotification;
+use App\Infrastructure\Notifications\Slack\VariantSkusGeneratedNotification;
 use DateTimeImmutable;
 use Illuminate\Console\Command;
 use Illuminate\Notifications\Notification;
@@ -34,7 +35,7 @@ final class TestSlackNotificationCommand extends Command
     protected $signature = 'slack:test
         {channel? : The Slack channel to send to (e.g., #dev-notifications)}
         {message? : Custom message to send}
-        {--notification= : Test a notification class (contact-failed, contact-processed)}';
+        {--notification= : Test a notification class (contact-failed, contact-processed, variant-skus)}';
 
     protected $description = 'Send a test notification to Slack';
 
@@ -140,12 +141,13 @@ final class TestSlackNotificationCommand extends Command
         $notification = match ($type) {
             'contact-failed' => $this->buildContactFailedNotification(),
             'contact-processed' => $this->buildContactProcessedNotification(),
+            'variant-skus' => $this->buildVariantSkusNotification(),
             default => null,
         };
 
         if ($notification === null) {
             $this->error("Unknown notification type: {$type}");
-            $this->line('  Available: contact-failed, contact-processed');
+            $this->line('  Available: contact-failed, contact-processed, variant-skus');
 
             return self::FAILURE;
         }
@@ -242,6 +244,27 @@ final class TestSlackNotificationCommand extends Command
             conversationId: 123456789,
             customerName: 'Jane Doe',
             customerEmail: 'jane.doe@example.com',
+        );
+    }
+
+    private function buildVariantSkusNotification(): VariantSkusGeneratedNotification
+    {
+        return new VariantSkusGeneratedNotification(
+            productId: 5585518,
+            productTitle: 'Bathroom Sign - Budget & Premium Range',
+            created: 8,
+            skipped: 4,
+            failed: 1,
+            createdVariants: [
+                'WEB-15424-001 - Budget Self-Adhesive 300mm Blue',
+                'WEB-15424-002 - Budget Self-Adhesive 300mm Green',
+                'WEB-15424-003 - Budget Self-Adhesive 300mm Red',
+                'WEB-15424-004 - Budget Self-Adhesive 300mm Yellow',
+                'WEB-15424-005 - Budget Fixings 300mm Blue',
+                'WEB-15424-006 - Budget Fixings 300mm Green',
+                'WEB-15424-007 - Premium Self-Adhesive 300mm Blue',
+                'WEB-15424-008 - Premium Self-Adhesive 300mm Green',
+            ],
         );
     }
 }

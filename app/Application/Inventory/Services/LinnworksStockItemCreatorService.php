@@ -136,14 +136,16 @@ final readonly class LinnworksStockItemCreatorService
      */
     private function completeItemSetup(Guid $stockItemId, CreateStockItemParams $params): void
     {
-        // Link supplier
-        $this->inventoryUpdateClient->createSupplierStat(
-            identifier: $stockItemId,
-            supplierId: $params->supplierId,
-            purchasePrice: $params->purchasePrice,
-            supplierCode: $params->supplierCode,
-            isDefault: true,
-        );
+        // Link supplier (skipped when supplierId is null, e.g. --no-supplier flag)
+        if ($params->supplierId !== null) {
+            $this->inventoryUpdateClient->createSupplierStat(
+                identifier: $stockItemId,
+                supplierId: $params->supplierId,
+                purchasePrice: $params->purchasePrice,
+                supplierCode: $params->supplierCode,
+                isDefault: true,
+            );
+        }
 
         // Add extended properties
         foreach ($params->extendedProperties as $name => $value) {

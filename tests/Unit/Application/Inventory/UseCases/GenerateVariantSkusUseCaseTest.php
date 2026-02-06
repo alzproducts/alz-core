@@ -5,24 +5,29 @@ declare(strict_types=1);
 namespace Tests\Unit\Application\Inventory\UseCases;
 
 use App\Application\Contracts\Linnworks\InventoryClientInterface;
+use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Application\Inventory\Commands\GenerateVariantSkusCommand;
+use App\Application\Inventory\Params\CreateStockItemParams;
 use App\Application\Inventory\Services\GenerateStockItemFromVariationService;
+use App\Application\Inventory\Services\StockItemParamsBuilderService;
 use App\Application\Inventory\UseCases\GenerateVariantSkusUseCase;
 use App\Application\Shopwired\Services\ProductSyncService;
-use App\Domain\Catalog\Product\Resolvers\VariationImageResolver;
-use App\Domain\Catalog\Product\Resolvers\VariationPriceResolver;
 use App\Domain\Catalog\Product\ValueObjects\Product;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariation;
-use App\Domain\Catalog\Product\ValueObjects\ResolvedVariationPrices;
 use App\Domain\Catalog\Product\ValueObjects\Sku;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Inventory\InvalidTemplateException;
+use App\Domain\Inventory\Events\VariantSkusGeneratedEvent;
 use App\Domain\Inventory\ValueObjects\Dimensions;
 use App\Domain\Inventory\ValueObjects\StockItemFull;
 use App\Domain\Inventory\ValueObjects\StockItemSupplier;
 use App\Domain\Inventory\ValueObjects\Weight;
+use App\Domain\ValueObjects\Guid;
 use App\Domain\ValueObjects\IntId;
+use App\Domain\ValueObjects\Money;
+use App\Domain\ValueObjects\TaxRate;
 use DateTimeImmutable;
+use Illuminate\Support\Facades\Event;
 use Mockery;
 use Mockery\MockInterface;
 use Override;
@@ -46,9 +51,9 @@ final class GenerateVariantSkusUseCaseTest extends TestCase
 
     private GenerateStockItemFromVariationService&MockInterface $stockItemGenerator;
 
-    private VariationPriceResolver&MockInterface $priceResolver;
+    private StockItemParamsBuilderService&MockInterface $paramsBuilder;
 
-    private VariationImageResolver&MockInterface $imageResolver;
+    private ProductRepositoryInterface&MockInterface $productRepository;
 
     private LoggerInterface&MockInterface $logger;
 
@@ -59,20 +64,23 @@ final class GenerateVariantSkusUseCaseTest extends TestCase
     {
         parent::setUp();
 
+        Event::fake([VariantSkusGeneratedEvent::class]);
+
         $this->inventoryClient = Mockery::mock(InventoryClientInterface::class);
         $this->productSyncService = Mockery::mock(ProductSyncService::class);
         $this->stockItemGenerator = Mockery::mock(GenerateStockItemFromVariationService::class);
-        $this->priceResolver = Mockery::mock(VariationPriceResolver::class);
-        $this->imageResolver = Mockery::mock(VariationImageResolver::class);
+        $this->paramsBuilder = Mockery::mock(StockItemParamsBuilderService::class);
+        $this->productRepository = Mockery::mock(ProductRepositoryInterface::class);
         $this->logger = Mockery::mock(LoggerInterface::class)->shouldIgnoreMissing();
 
         $this->useCase = new GenerateVariantSkusUseCase(
             $this->inventoryClient,
             $this->productSyncService,
             $this->stockItemGenerator,
-            $this->priceResolver,
-            $this->imageResolver,
+            $this->paramsBuilder,
+            $this->productRepository,
             $this->logger,
+            standardSignProductId: 99999,
         );
     }
 
@@ -199,7 +207,9 @@ final class GenerateVariantSkusUseCaseTest extends TestCase
             ->once()
             ->andReturn($template);
 
-        $this->setupResolversForVariations();
+        // Params builder returns a stub for any variation
+        $this->paramsBuilder->shouldReceive('build')
+            ->andReturn($this->createStubParams());
 
         // Only called for variations 2 and 4 (the SKU-less ones)
         $this->stockItemGenerator->shouldReceive('generate')
@@ -219,7 +229,7 @@ final class GenerateVariantSkusUseCaseTest extends TestCase
         $this->assertSame(2, $result->skipped);
         $this->assertSame(2, $result->created);
         $this->assertSame(0, $result->failed);
-        $this->assertSame(['NEW-2', 'NEW-4'], $result->createdSkus);
+        $this->assertSame(['NEW-2', 'NEW-4'], $result->createdVariants);
     }
 
     /*
@@ -248,7 +258,9 @@ final class GenerateVariantSkusUseCaseTest extends TestCase
             ->once()
             ->andReturn($template);
 
-        $this->setupResolversForVariations();
+        // Params builder returns a stub for any variation
+        $this->paramsBuilder->shouldReceive('build')
+            ->andReturn($this->createStubParams());
 
         // First succeeds, second fails, third succeeds
         $this->stockItemGenerator->shouldReceive('generate')
@@ -269,9 +281,191 @@ final class GenerateVariantSkusUseCaseTest extends TestCase
         $this->assertSame(0, $result->skipped);
         $this->assertSame(2, $result->created);
         $this->assertSame(1, $result->failed);
-        $this->assertSame(['SUCCESS-1', 'SUCCESS-3'], $result->createdSkus);
+        $this->assertSame(['SUCCESS-1', 'SUCCESS-3'], $result->createdVariants);
         $this->assertSame([2], $result->failedVariationIds);
         $this->assertTrue($result->hasFailures());
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Standard Sign Flag Tests
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function it_loads_standard_sign_product_when_flag_enabled(): void
+    {
+        $command = $this->createCommand(isStandardSign: true);
+        $variations = [$this->createVariation(id: 1, sku: null)];
+        $product = $this->createProduct(variations: $variations);
+        $template = $this->createTemplate(hasSupplier: true);
+
+        // Standard sign product fetched from local DB
+        $standardProduct = $this->createProduct(variations: [
+            $this->createVariation(id: 100, sku: 'STD-001'),
+        ]);
+
+        $this->productSyncService->shouldReceive('refreshById')
+            ->andReturn($product);
+
+        $this->inventoryClient->shouldReceive('getStockItemFull')
+            ->once()
+            ->andReturn($template);
+
+        // Product repository IS called for standard sign product
+        $this->productRepository->shouldReceive('getProduct')
+            ->once()
+            ->with(Mockery::on(static fn(IntId $id): bool => $id->value === 99999))
+            ->andReturn($standardProduct);
+
+        $this->paramsBuilder->shouldReceive('build')
+            ->andReturn($this->createStubParams());
+
+        $this->stockItemGenerator->shouldReceive('generate')
+            ->once()
+            ->andReturn(Sku::fromTrusted('NEW-1'));
+
+        $result = $this->useCase->execute($command);
+
+        $this->assertSame(1, $result->created);
+    }
+
+    #[Test]
+    public function it_does_not_load_standard_sign_product_when_flag_disabled(): void
+    {
+        $command = $this->createCommand(isStandardSign: false);
+        $variations = [$this->createVariation(id: 1, sku: null)];
+        $product = $this->createProduct(variations: $variations);
+        $template = $this->createTemplate(hasSupplier: true);
+
+        $this->productSyncService->shouldReceive('refreshById')
+            ->andReturn($product);
+
+        $this->inventoryClient->shouldReceive('getStockItemFull')
+            ->once()
+            ->andReturn($template);
+
+        // Product repository NOT called when standard sign disabled
+        $this->productRepository->shouldNotReceive('getProduct');
+
+        $this->paramsBuilder->shouldReceive('build')
+            ->andReturn($this->createStubParams());
+
+        $this->stockItemGenerator->shouldReceive('generate')
+            ->once()
+            ->andReturn(Sku::fromTrusted('NEW-1'));
+
+        $result = $this->useCase->execute($command);
+
+        $this->assertSame(1, $result->created);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | No Supplier Flag Tests
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function it_passes_no_supplier_command_to_params_builder(): void
+    {
+        $command = $this->createCommand(noSupplier: true);
+        $variations = [$this->createVariation(id: 1, sku: null)];
+        $product = $this->createProduct(variations: $variations);
+        $template = $this->createTemplate(hasSupplier: true);
+
+        $this->productSyncService->shouldReceive('refreshById')
+            ->andReturn($product);
+
+        $this->inventoryClient->shouldReceive('getStockItemFull')
+            ->once()
+            ->andReturn($template);
+
+        // Verify noSupplier command is passed to params builder (which nullifies supplierId)
+        $this->paramsBuilder->shouldReceive('build')
+            ->once()
+            ->withArgs(static fn($variation, $product, $template, $cmd): bool => $cmd->noSupplier === true)
+            ->andReturn($this->createStubParams());
+
+        $this->stockItemGenerator->shouldReceive('generate')
+            ->once()
+            ->andReturn(Sku::fromTrusted('NEW-1'));
+
+        $result = $this->useCase->execute($command);
+
+        $this->assertSame(1, $result->created);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Event Dispatch Tests
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function it_dispatches_notification_event_when_skus_created(): void
+    {
+        $command = $this->createCommand();
+        $variations = [$this->createVariation(id: 1, sku: null)];
+        $product = $this->createProduct(variations: $variations);
+        $template = $this->createTemplate(hasSupplier: true);
+
+        $this->productSyncService->shouldReceive('refreshById')
+            ->andReturn($product);
+
+        $this->inventoryClient->shouldReceive('getStockItemFull')
+            ->once()
+            ->andReturn($template);
+
+        $this->paramsBuilder->shouldReceive('build')
+            ->andReturn($this->createStubParams());
+
+        $this->stockItemGenerator->shouldReceive('generate')
+            ->once()
+            ->andReturn(Sku::fromTrusted('NEW-1'));
+
+        $this->useCase->execute($command);
+
+        Event::assertDispatched(VariantSkusGeneratedEvent::class, static fn(VariantSkusGeneratedEvent $event): bool => $event->productId === 12345
+                && $event->created === 1
+                && $event->skipped === 0
+                && $event->failed === 0);
+    }
+
+    #[Test]
+    public function it_does_not_dispatch_notification_event_when_no_skus_created(): void
+    {
+        $command = $this->createCommand();
+        $product = $this->createProduct(variations: []);
+
+        $this->productSyncService->shouldReceive('refreshById')
+            ->once()
+            ->andReturn($product);
+
+        $this->useCase->execute($command);
+
+        Event::assertNotDispatched(VariantSkusGeneratedEvent::class);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Result Metadata Tests
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function it_includes_product_title_in_result(): void
+    {
+        $command = $this->createCommand();
+        $product = $this->createProduct(variations: []);
+
+        $this->productSyncService->shouldReceive('refreshById')
+            ->once()
+            ->andReturn($product);
+
+        $result = $this->useCase->execute($command);
+
+        $this->assertSame('Test Product', $result->productTitle);
     }
 
     /*
@@ -280,11 +474,17 @@ final class GenerateVariantSkusUseCaseTest extends TestCase
     |--------------------------------------------------------------------------
     */
 
-    private function createCommand(): GenerateVariantSkusCommand
-    {
+    private function createCommand(
+        bool $copyParentMpn = false,
+        bool $noSupplier = false,
+        bool $isStandardSign = false,
+    ): GenerateVariantSkusCommand {
         return new GenerateVariantSkusCommand(
             productId: IntId::from(12345),
             templateSku: Sku::fromTrusted('TEMPLATE-SKU'),
+            copyParentMpn: $copyParentMpn,
+            noSupplier: $noSupplier,
+            isStandardSign: $isStandardSign,
         );
     }
 
@@ -384,18 +584,14 @@ final class GenerateVariantSkusUseCaseTest extends TestCase
         );
     }
 
-    private function setupResolversForVariations(): void
+    private function createStubParams(): CreateStockItemParams
     {
-        // Price resolver returns real ResolvedVariationPrices
-        $this->priceResolver->shouldReceive('resolveFromProduct')
-            ->andReturn(new ResolvedVariationPrices(
-                price: 29.99,
-                costPrice: 15.00,
-                salePrice: null,
-            ));
-
-        // Image resolver returns null (no image)
-        $this->imageResolver->shouldReceive('resolveUrl')
-            ->andReturn(null);
+        return new CreateStockItemParams(
+            categoryId: Guid::fromTrusted('550e8400-e29b-41d4-a716-446655440001'),
+            title: 'Stub Item',
+            retailPrice: Money::inclusive(29.99),
+            taxRate: TaxRate::standard(),
+            supplierId: Guid::fromTrusted('550e8400-e29b-41d4-a716-446655440002'),
+        );
     }
 }
