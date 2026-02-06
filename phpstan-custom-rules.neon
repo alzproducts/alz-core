@@ -1,0 +1,46 @@
+# Custom PHPStan rules for alz-core-two
+# Included by phpstan.neon — project-specific disallowed calls and custom rule services.
+# See: .ai/plans/2026-02-06_211-phpstan-custom-rules.md
+
+parameters:
+    # ── Disallowed Calls (spaze/phpstan-disallowed-calls) ─────────────
+
+    disallowedStaticCalls:
+        # Rule #1: No DB:: facade — use DatabaseGateway
+        # DB:: bypasses exception translation and connection management.
+        # Allowed: Providers (RLS setup), Middleware (RLS context), migrations, config, tests.
+        -
+            method: 'Illuminate\Support\Facades\DB::*()'
+            message: 'use DatabaseGateway instead of the DB facade — it provides exception translation and connection management'
+            errorIdentifier: 'alz.noDbFacade'
+            allowIn:
+                - app/Providers/*
+                - app/Presentation/Http/Middleware/*
+                - database/*
+                - config/*
+                - tests/*
+
+        # Rule #40: No Artisan::call()/queue() in application code
+        # Programmatic artisan calls bypass queue retry, logging, and error handling.
+        # Use dedicated jobs or scheduled commands instead.
+        -
+            method:
+                - 'Illuminate\Support\Facades\Artisan::call()'
+                - 'Illuminate\Support\Facades\Artisan::queue()'
+            message: 'do not call artisan commands programmatically — use dedicated jobs or scheduled commands instead'
+            errorIdentifier: 'alz.noArtisanCall'
+            allowIn:
+                - app/Presentation/Console/*
+                - app/Providers/*
+                - database/*
+                - tests/*
+
+    disallowedMethodCalls:
+        # Rule #35: No assertEquals() — use assertSame() for strict type comparison
+        # assertEquals() uses loose comparison (==), allowing type juggling.
+        # Note: tests/ is currently excluded from PHPStan analysis. This rule will
+        # activate if tests are added to PHPStan paths in the future.
+        -
+            method: 'PHPUnit\Framework\Assert::assertEquals()'
+            message: 'use assertSame() for strict type comparison — assertEquals() uses loose == comparison'
+            errorIdentifier: 'alz.noAssertEquals'
