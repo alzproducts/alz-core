@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace App\Application\Inventory\UseCases;
 
 use App\Application\Contracts\Linnworks\InventoryClientInterface;
+use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Application\Inventory\Commands\GenerateVariantSkusCommand;
 use App\Application\Inventory\Params\CreateStockItemParams;
 use App\Application\Inventory\Results\GenerateVariantSkusResult;
 use App\Application\Inventory\Services\GenerateStockItemFromVariationService;
 use App\Application\Shopwired\Services\ProductSyncService;
 use App\Domain\Catalog\Product\Resolvers\VariationImageResolver;
+use App\Domain\Catalog\Product\Resolvers\VariationOptionMatcher;
 use App\Domain\Catalog\Product\Resolvers\VariationPriceResolver;
 use App\Domain\Catalog\Product\ValueObjects\Product;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariation;
@@ -27,9 +29,11 @@ use App\Domain\Exceptions\Inventory\InvalidTemplateException;
 use App\Domain\Inventory\Enums\ExtendedPropertyName;
 use App\Domain\Inventory\ValueObjects\StockItemFull;
 use App\Domain\ValueObjects\Guid;
+use App\Domain\ValueObjects\IntId;
 use App\Domain\ValueObjects\Money;
 use App\Domain\ValueObjects\TaxRate;
 use Psr\Log\LoggerInterface;
+use RuntimeException;
 use Webmozart\Assert\Assert;
 
 /**
@@ -54,7 +58,10 @@ final readonly class GenerateVariantSkusUseCase
         private GenerateStockItemFromVariationService $stockItemGenerator,
         private VariationPriceResolver $priceResolver,
         private VariationImageResolver $imageResolver,
+        private VariationOptionMatcher $optionMatcher,
+        private ProductRepositoryInterface $productRepository,
         private LoggerInterface $logger,
+        private ?int $standardSignProductId = null,
     ) {}
 
     /**
@@ -69,6 +76,7 @@ final readonly class GenerateVariantSkusUseCase
      * @throws DatabaseOperationFailedException When local refresh fails
      * @throws DuplicateRecordException When local refresh encounters duplicate
      * @throws InvalidTemplateException When template has no default supplier
+     * @throws RuntimeException When standard sign product ID not configured
      */
     public function execute(GenerateVariantSkusCommand $command): GenerateVariantSkusResult
     {
@@ -105,7 +113,12 @@ final readonly class GenerateVariantSkusUseCase
             return GenerateVariantSkusResult::allSkipped(\count($product->variations), $product->title);
         }
 
-        // 4. Process each SKU-less variation
+        // 4. If standard sign mode, load reference product for price matching
+        $standardSignVariations = $command->isStandardSign
+            ? $this->loadStandardSignVariations()
+            : null;
+
+        // 5. Process each SKU-less variation
         $created = 0;
         $failed = 0;
         /** @var list<string> $createdSkus */
@@ -114,7 +127,7 @@ final readonly class GenerateVariantSkusUseCase
         $failedVariationIds = [];
 
         foreach ($skuLessVariations as $variation) {
-            $result = $this->processVariation($variation, $product, $template, $command);
+            $result = $this->processVariation($variation, $product, $template, $command, $standardSignVariations);
 
             if ($result !== null) {
                 $created++;
@@ -125,7 +138,7 @@ final readonly class GenerateVariantSkusUseCase
             }
         }
 
-        // 5. Refresh local product from API
+        // 6. Refresh local product from API
         $this->productSyncService->refreshById($command->productId->value);
 
         $this->logger->info('Variant SKU generation completed', [
@@ -175,7 +188,33 @@ final readonly class GenerateVariantSkusUseCase
     }
 
     /**
+     * Load standard sign product variations for price matching.
+     *
+     * @return list<ProductVariation>
+     *
+     * @throws RuntimeException When standard_sign_product_id not configured
+     * @throws ResourceNotFoundException When standard sign product not found in local DB
+     */
+    private function loadStandardSignVariations(): array
+    {
+        if ($this->standardSignProductId === null) {
+            throw new RuntimeException('shopwired.standard_sign_product_id not configured');
+        }
+
+        $standardProduct = $this->productRepository->getProduct(IntId::from($this->standardSignProductId));
+
+        $this->logger->info('Loaded standard sign product for price matching', [
+            'product_id' => $standardProduct->id,
+            'variation_count' => \count($standardProduct->variations),
+        ]);
+
+        return $standardProduct->variations;
+    }
+
+    /**
      * Process a single variation: create in Linnworks, update ShopWired.
+     *
+     * @param list<ProductVariation>|null $standardSignVariations Reference variations for price matching
      *
      * @return Sku|null The created SKU, or null on failure
      *
@@ -186,6 +225,7 @@ final readonly class GenerateVariantSkusUseCase
         Product $product,
         StockItemFull $template,
         GenerateVariantSkusCommand $command,
+        ?array $standardSignVariations,
     ): ?Sku {
         $this->logger->debug('Processing variation', [
             'variation_id' => $variation->id,
@@ -194,7 +234,7 @@ final readonly class GenerateVariantSkusUseCase
 
         try {
             // Build params from variation data
-            $params = $this->buildCreateParams($variation, $product, $template, $command);
+            $params = $this->buildCreateParams($variation, $product, $template, $command, $standardSignVariations);
 
             // Delegate to service (handles Linnworks creation, ShopWired update, rollback)
             $sku = $this->stockItemGenerator->generate($params, $variation->id, $command->noSupplier);
@@ -218,13 +258,37 @@ final readonly class GenerateVariantSkusUseCase
     }
 
     /**
+     * Resolve purchase price: standard sign match takes priority, then variation cost.
+     *
+     * @param list<ProductVariation>|null $standardSignVariations Reference variations for price matching
+     */
+    private function resolvePurchasePrice(
+        ProductVariation $variation,
+        ?float $costPrice,
+        ?array $standardSignVariations,
+    ): ?Money {
+        if ($standardSignVariations !== null) {
+            $matched = $this->optionMatcher->findMatch($variation, $standardSignVariations);
+
+            if ($matched?->costPrice !== null) {
+                return Money::exclusive($matched->costPrice);
+            }
+        }
+
+        return $costPrice !== null ? Money::exclusive($costPrice) : null;
+    }
+
+    /**
      * Build CreateStockItemParams from variation, product, and template.
+     *
+     * @param list<ProductVariation>|null $standardSignVariations Reference variations for price matching
      */
     private function buildCreateParams(
         ProductVariation $variation,
         Product $product,
         StockItemFull $template,
         GenerateVariantSkusCommand $command,
+        ?array $standardSignVariations,
     ): CreateStockItemParams {
         // Template is always validated to have a default supplier
         $supplier = $template->getDefaultSupplier();
@@ -244,10 +308,8 @@ final readonly class GenerateVariantSkusUseCase
             ? Money::zeroRated($prices->price)
             : Money::inclusive($prices->price);
 
-        // Resolve purchase price from variation cost
-        $purchasePrice = $prices->costPrice !== null
-            ? Money::exclusive($prices->costPrice)
-            : null;
+        // Resolve purchase price: standard sign match > variation cost > null
+        $purchasePrice = $this->resolvePurchasePrice($variation, $prices->costPrice, $standardSignVariations);
 
         // Resolve MPN: template supplier code (--copy-mpn) or variation MPN
         $mpn = $command->copyParentMpn

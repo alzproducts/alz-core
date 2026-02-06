@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace Tests\Unit\Application\Inventory\UseCases;
 
 use App\Application\Contracts\Linnworks\InventoryClientInterface;
+use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Application\Inventory\Commands\GenerateVariantSkusCommand;
 use App\Application\Inventory\Services\GenerateStockItemFromVariationService;
 use App\Application\Inventory\UseCases\GenerateVariantSkusUseCase;
 use App\Application\Shopwired\Services\ProductSyncService;
 use App\Domain\Catalog\Product\Resolvers\VariationImageResolver;
+use App\Domain\Catalog\Product\Resolvers\VariationOptionMatcher;
 use App\Domain\Catalog\Product\Resolvers\VariationPriceResolver;
 use App\Domain\Catalog\Product\ValueObjects\Product;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariation;
@@ -72,6 +74,8 @@ final class GenerateVariantSkusUseCaseTest extends TestCase
             $this->stockItemGenerator,
             $this->priceResolver,
             $this->imageResolver,
+            new VariationOptionMatcher(),
+            Mockery::mock(ProductRepositoryInterface::class),
             $this->logger,
         );
     }

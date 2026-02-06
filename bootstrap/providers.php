@@ -11,6 +11,7 @@ use App\Providers\DatabaseServiceProvider;
 use App\Providers\GoogleAdsServiceProvider;
 use App\Providers\HelpScoutServiceProvider;
 use App\Providers\HorizonServiceProvider;
+use App\Providers\InventoryServiceProvider;
 use App\Providers\LinnworksServiceProvider;
 use App\Providers\MixpanelServiceProvider;
 use App\Providers\ProductSearchFeedServiceProvider;
@@ -46,6 +47,7 @@ return [
     StorageServiceProvider::class,
     DatabaseServiceProvider::class,
     HorizonServiceProvider::class,
+    InventoryServiceProvider::class,
 
     // Schedule providers (must not be deferred - schedules register at boot)
     AdsScheduleServiceProvider::class,

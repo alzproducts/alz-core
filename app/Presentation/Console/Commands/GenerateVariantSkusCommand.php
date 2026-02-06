@@ -20,6 +20,7 @@ use App\Domain\Exceptions\Infrastructure\LockAcquisitionException;
 use App\Domain\Exceptions\Inventory\InvalidTemplateException;
 use App\Domain\ValueObjects\IntId;
 use Illuminate\Console\Command;
+use RuntimeException;
 
 /**
  * Generate Linnworks inventory items for SKU-less ShopWired variations.
@@ -47,6 +48,9 @@ final class GenerateVariantSkusCommand extends Command
 
     protected $description = 'Generate Linnworks inventory items for SKU-less ShopWired product variations';
 
+    /**
+     * @throws RuntimeException When standard sign product ID not configured
+     */
     public function handle(GenerateVariantSkusUseCase $useCase): int
     {
         $productId = $this->parseProductId($this->argument('productId'));
