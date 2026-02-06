@@ -17,6 +17,7 @@ use App\Domain\Catalog\Product\ValueObjects\ProductVariation;
 use App\Domain\Catalog\Product\ValueObjects\Sku;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Inventory\InvalidTemplateException;
+use App\Domain\Inventory\Events\VariantSkusGeneratedEvent;
 use App\Domain\Inventory\ValueObjects\Dimensions;
 use App\Domain\Inventory\ValueObjects\StockItemFull;
 use App\Domain\Inventory\ValueObjects\StockItemSupplier;
@@ -26,6 +27,7 @@ use App\Domain\ValueObjects\IntId;
 use App\Domain\ValueObjects\Money;
 use App\Domain\ValueObjects\TaxRate;
 use DateTimeImmutable;
+use Illuminate\Support\Facades\Event;
 use Mockery;
 use Mockery\MockInterface;
 use Override;
@@ -61,6 +63,8 @@ final class GenerateVariantSkusUseCaseTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        Event::fake([VariantSkusGeneratedEvent::class]);
 
         $this->inventoryClient = Mockery::mock(InventoryClientInterface::class);
         $this->productSyncService = Mockery::mock(ProductSyncService::class);
@@ -390,6 +394,57 @@ final class GenerateVariantSkusUseCaseTest extends TestCase
         $result = $this->useCase->execute($command);
 
         $this->assertSame(1, $result->created);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Event Dispatch Tests
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function it_dispatches_notification_event_when_skus_created(): void
+    {
+        $command = $this->createCommand();
+        $variations = [$this->createVariation(id: 1, sku: null)];
+        $product = $this->createProduct(variations: $variations);
+        $template = $this->createTemplate(hasSupplier: true);
+
+        $this->productSyncService->shouldReceive('refreshById')
+            ->andReturn($product);
+
+        $this->inventoryClient->shouldReceive('getStockItemFull')
+            ->once()
+            ->andReturn($template);
+
+        $this->paramsBuilder->shouldReceive('build')
+            ->andReturn($this->createStubParams());
+
+        $this->stockItemGenerator->shouldReceive('generate')
+            ->once()
+            ->andReturn(Sku::fromTrusted('NEW-1'));
+
+        $this->useCase->execute($command);
+
+        Event::assertDispatched(VariantSkusGeneratedEvent::class, static fn(VariantSkusGeneratedEvent $event): bool => $event->productId === 12345
+                && $event->created === 1
+                && $event->skipped === 0
+                && $event->failed === 0);
+    }
+
+    #[Test]
+    public function it_does_not_dispatch_notification_event_when_no_skus_created(): void
+    {
+        $command = $this->createCommand();
+        $product = $this->createProduct(variations: []);
+
+        $this->productSyncService->shouldReceive('refreshById')
+            ->once()
+            ->andReturn($product);
+
+        $this->useCase->execute($command);
+
+        Event::assertNotDispatched(VariantSkusGeneratedEvent::class);
     }
 
     /*
