@@ -65,6 +65,20 @@ return [
     |
     */
 
+    /*
+    |--------------------------------------------------------------------------
+    | Standard Sign Product
+    |--------------------------------------------------------------------------
+    |
+    | ShopWired product ID used as the reference for standard sign cost price
+    | matching. When --is-standard-sign is used with generate-variant-skus,
+    | variation options are matched against this product's variations to
+    | inherit cost prices.
+    |
+    */
+
+    'standard_sign_product_id' => env('SHOPWIRED_STANDARD_SIGN_PRODUCT_ID'),
+
     'excluded_customer_emails' => array_values(array_filter(
         [
             env('EMAIL_TOM_MAIN'),

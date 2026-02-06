@@ -17,9 +17,15 @@ final readonly class GenerateVariantSkusCommand
     /**
      * @param IntId $productId ShopWired product external ID
      * @param Sku $templateSku Linnworks SKU to use as template for category/supplier
+     * @param bool $copyParentMpn When true, use template's default supplier code as MPN for all variants
+     * @param bool $noSupplier When true, skip supplier linking in Linnworks
+     * @param bool $isStandardSign When true, match cost prices against standard sign product
      */
     public function __construct(
         public IntId $productId,
         public Sku $templateSku,
+        public bool $copyParentMpn = false,
+        public bool $noSupplier = false,
+        public bool $isStandardSign = false,
     ) {}
 }

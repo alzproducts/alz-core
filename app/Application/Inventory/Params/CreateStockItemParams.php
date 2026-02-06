@@ -25,7 +25,7 @@ final readonly class CreateStockItemParams
      * @param string $title Display title for the item
      * @param Money $retailPrice Customer-facing price
      * @param TaxRate $taxRate Tax rate for this item
-     * @param Guid $supplierId Default supplier to link
+     * @param Guid|null $supplierId Default supplier to link (null = skip supplier linking)
      * @param Money|null $purchasePrice Cost/purchase price from supplier (null = unknown)
      * @param Gtin|null $barcode Optional barcode (GTIN/EAN/UPC)
      * @param string|null $mpn Optional manufacturer part number
@@ -38,7 +38,7 @@ final readonly class CreateStockItemParams
         public string $title,
         public Money $retailPrice,
         public TaxRate $taxRate,
-        public Guid $supplierId,
+        public ?Guid $supplierId = null,
         public ?Money $purchasePrice = null,
         public ?Gtin $barcode = null,
         public ?string $mpn = null,
