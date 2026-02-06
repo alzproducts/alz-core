@@ -78,7 +78,7 @@ final class GenerateStockItemFromVariationServiceTest extends TestCase
         // Linnworks creation succeeds
         $this->stockItemCreator->shouldReceive('create')
             ->once()
-            ->with($params, false)
+            ->with($params)
             ->andReturn([$generatedSku, $stockItemId]);
 
         // ShopWired update succeeds

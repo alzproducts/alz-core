@@ -64,7 +64,7 @@ final readonly class LinnworksStockItemCreatorService
      * @throws AuthenticationExpiredException When credentials invalid
      * @throws ExternalServiceUnavailableException When API unavailable
      */
-    public function create(CreateStockItemParams $params, bool $skipSupplier = false): array
+    public function create(CreateStockItemParams $params): array
     {
         $this->logger->debug('Creating Linnworks stock item', [
             'category_id' => $params->categoryId->value,
@@ -91,7 +91,7 @@ final readonly class LinnworksStockItemCreatorService
             );
 
             // Outside lock: Complete item setup
-            $this->completeItemSetup($stockItemId, $params, $skipSupplier);
+            $this->completeItemSetup($stockItemId, $params);
 
             $this->logger->info('Linnworks stock item created', [
                 'sku' => $sku->value,
@@ -134,10 +134,10 @@ final readonly class LinnworksStockItemCreatorService
      * @throws AuthenticationExpiredException When credentials invalid
      * @throws ExternalServiceUnavailableException When API unavailable
      */
-    private function completeItemSetup(Guid $stockItemId, CreateStockItemParams $params, bool $skipSupplier): void
+    private function completeItemSetup(Guid $stockItemId, CreateStockItemParams $params): void
     {
-        // Link supplier (skipped when --no-supplier flag is used)
-        if (! $skipSupplier) {
+        // Link supplier (skipped when supplierId is null, e.g. --no-supplier flag)
+        if ($params->supplierId !== null) {
             $this->inventoryUpdateClient->createSupplierStat(
                 identifier: $stockItemId,
                 supplierId: $params->supplierId,

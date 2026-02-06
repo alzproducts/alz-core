@@ -78,7 +78,7 @@ final readonly class StockItemParamsBuilderService
             title: $title,
             retailPrice: $retailPrice,
             taxRate: $taxRate,
-            supplierId: Guid::fromTrusted($supplier->supplierId),
+            supplierId: $command->noSupplier ? null : Guid::fromTrusted($supplier->supplierId),
             purchasePrice: $command->noSupplier ? null : $purchasePrice,
             barcode: $variation->gtin,
             mpn: $mpn,

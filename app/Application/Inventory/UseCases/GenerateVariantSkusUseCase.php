@@ -24,6 +24,7 @@ use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\Exceptions\Infrastructure\LockAcquisitionException;
 use App\Domain\Exceptions\Inventory\InvalidTemplateException;
+use App\Domain\Inventory\Events\VariantSkusGeneratedEvent;
 use App\Domain\Inventory\ValueObjects\StockItemFull;
 use App\Domain\ValueObjects\IntId;
 use Psr\Log\LoggerInterface;
@@ -142,7 +143,7 @@ final readonly class GenerateVariantSkusUseCase
             'failed' => $failed,
         ]);
 
-        return new GenerateVariantSkusResult(
+        $result = new GenerateVariantSkusResult(
             total: \count($product->variations),
             skipped: \count($product->variations) - \count($skuLessVariations),
             created: $created,
@@ -151,6 +152,10 @@ final readonly class GenerateVariantSkusUseCase
             createdVariants: $createdVariants,
             failedVariationIds: $failedVariationIds,
         );
+
+        $this->dispatchNotificationEvent($result, $command);
+
+        return $result;
     }
 
     /**
@@ -203,6 +208,23 @@ final readonly class GenerateVariantSkusUseCase
     }
 
     /**
+     * Dispatch Slack notification event when SKUs were created.
+     */
+    private function dispatchNotificationEvent(GenerateVariantSkusResult $result, GenerateVariantSkusCommand $command): void
+    {
+        if ($result->created > 0) {
+            \event(new VariantSkusGeneratedEvent(
+                productId: $command->productId->value,
+                productTitle: $result->productTitle,
+                created: $result->created,
+                skipped: $result->skipped,
+                failed: $result->failed,
+                createdVariants: $result->createdVariants,
+            ));
+        }
+    }
+
+    /**
      * Process a single variation: create in Linnworks, update ShopWired.
      *
      * @param list<ProductVariation>|null $standardSignVariations Reference variations for price matching
@@ -228,7 +250,7 @@ final readonly class GenerateVariantSkusUseCase
             $params = $this->paramsBuilder->build($variation, $product, $template, $command, $standardSignVariations);
 
             // Delegate to service (handles Linnworks creation, ShopWired update, rollback)
-            $sku = $this->stockItemGenerator->generate($params, $variation->id, $command->noSupplier);
+            $sku = $this->stockItemGenerator->generate($params, $variation->id);
 
             $this->logger->info('Variation processed successfully', [
                 'variation_id' => $variation->id,

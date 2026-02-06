@@ -363,7 +363,7 @@ final class GenerateVariantSkusUseCaseTest extends TestCase
     */
 
     #[Test]
-    public function it_passes_no_supplier_flag_to_generator(): void
+    public function it_passes_no_supplier_command_to_params_builder(): void
     {
         $command = $this->createCommand(noSupplier: true);
         $variations = [$this->createVariation(id: 1, sku: null)];
@@ -377,13 +377,14 @@ final class GenerateVariantSkusUseCaseTest extends TestCase
             ->once()
             ->andReturn($template);
 
+        // Verify noSupplier command is passed to params builder (which nullifies supplierId)
         $this->paramsBuilder->shouldReceive('build')
+            ->once()
+            ->withArgs(static fn($variation, $product, $template, $cmd): bool => $cmd->noSupplier === true)
             ->andReturn($this->createStubParams());
 
-        // Verify noSupplier=true is passed through to generator
         $this->stockItemGenerator->shouldReceive('generate')
             ->once()
-            ->withArgs(static fn($params, $variationId, bool $noSupplier): bool => $noSupplier === true)
             ->andReturn(Sku::fromTrusted('NEW-1'));
 
         $result = $this->useCase->execute($command);

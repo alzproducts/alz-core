@@ -19,7 +19,6 @@ use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\Exceptions\Infrastructure\LockAcquisitionException;
 use App\Domain\Exceptions\Inventory\InvalidTemplateException;
-use App\Domain\Inventory\Events\VariantSkusGeneratedEvent;
 use App\Domain\ValueObjects\IntId;
 use Illuminate\Console\Command;
 
@@ -94,7 +93,7 @@ final class GenerateVariantSkusCommand extends Command
                 isStandardSign: $isStandardSign,
             ));
 
-            return $this->displaySuccessResult($result, $productId);
+            return $this->displaySuccessResult($result);
         } catch (ResourceNotFoundException|InvalidTemplateException|LockAcquisitionException|AuthenticationExpiredException|ExternalServiceUnavailableException|InvalidApiRequestException|InvalidApiResponseException|DatabaseOperationFailedException|DuplicateRecordException $e) {
             return $this->handleExecutionError($e);
         }
@@ -103,7 +102,7 @@ final class GenerateVariantSkusCommand extends Command
     /**
      * Display success result, dispatch notification event, and return appropriate exit code.
      */
-    private function displaySuccessResult(GenerateVariantSkusResult $result, IntId $productId): int
+    private function displaySuccessResult(GenerateVariantSkusResult $result): int
     {
         $this->table(
             ['Total Variations', 'Already Had SKU', 'Created', 'Failed'],
@@ -118,7 +117,6 @@ final class GenerateVariantSkusCommand extends Command
 
         $this->displayCreatedSkus($result);
         $this->displayFailedVariations($result);
-        $this->dispatchNotificationEvent($result, $productId);
 
         return $result->failed > 0 ? self::FAILURE : self::SUCCESS;
     }
@@ -147,22 +145,6 @@ final class GenerateVariantSkusCommand extends Command
         foreach ($result->failedVariationIds as $variationId) {
             $this->line("  - {$variationId}");
         }
-    }
-
-    private function dispatchNotificationEvent(GenerateVariantSkusResult $result, IntId $productId): void
-    {
-        if ($result->created <= 0) {
-            return;
-        }
-
-        \event(new VariantSkusGeneratedEvent(
-            productId: $productId->value,
-            productTitle: $result->productTitle,
-            created: $result->created,
-            skipped: $result->skipped,
-            failed: $result->failed,
-            createdVariants: $result->createdVariants,
-        ));
     }
 
     /**

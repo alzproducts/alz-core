@@ -353,12 +353,13 @@ final class StockItemParamsBuilderServiceTest extends TestCase
             null,
         );
 
+        self::assertNotNull($result->supplierId);
         self::assertNotNull($result->purchasePrice);
         self::assertSame('SUP-CODE', $result->supplierCode);
     }
 
     #[Test]
-    public function it_nullifies_supplier_fields_when_no_supplier_enabled(): void
+    public function it_nullifies_all_supplier_fields_when_no_supplier_enabled(): void
     {
         $result = $this->service->build(
             self::createVariation(costPrice: 15.00),
@@ -368,6 +369,7 @@ final class StockItemParamsBuilderServiceTest extends TestCase
             null,
         );
 
+        self::assertNull($result->supplierId);
         self::assertNull($result->purchasePrice);
         self::assertNull($result->supplierCode);
     }
