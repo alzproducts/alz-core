@@ -19,6 +19,7 @@ use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\Exceptions\Infrastructure\LockAcquisitionException;
 use App\Domain\Exceptions\Inventory\InvalidTemplateException;
+use App\Domain\Inventory\Events\VariantSkusGeneratedEvent;
 use App\Domain\ValueObjects\IntId;
 use Illuminate\Console\Command;
 
@@ -93,16 +94,16 @@ final class GenerateVariantSkusCommand extends Command
                 isStandardSign: $isStandardSign,
             ));
 
-            return $this->displaySuccessResult($result);
+            return $this->displaySuccessResult($result, $productId);
         } catch (ResourceNotFoundException|InvalidTemplateException|LockAcquisitionException|AuthenticationExpiredException|ExternalServiceUnavailableException|InvalidApiRequestException|InvalidApiResponseException|DatabaseOperationFailedException|DuplicateRecordException $e) {
             return $this->handleExecutionError($e);
         }
     }
 
     /**
-     * Display success result and return appropriate exit code.
+     * Display success result, dispatch notification event, and return appropriate exit code.
      */
-    private function displaySuccessResult(GenerateVariantSkusResult $result): int
+    private function displaySuccessResult(GenerateVariantSkusResult $result, IntId $productId): int
     {
         $this->table(
             ['Total Variations', 'Already Had SKU', 'Created', 'Failed'],
@@ -115,23 +116,53 @@ final class GenerateVariantSkusCommand extends Command
             $this->info('All variations already have SKUs - nothing to create.');
         }
 
-        if ($result->createdSkus !== []) {
-            $this->newLine();
-            $this->info('Created SKUs:');
-            foreach ($result->createdSkus as $sku) {
-                $this->line("  - {$sku}");
-            }
-        }
-
-        if ($result->failedVariationIds !== []) {
-            $this->newLine();
-            $this->warn('Failed variation IDs (see logs for details):');
-            foreach ($result->failedVariationIds as $variationId) {
-                $this->line("  - {$variationId}");
-            }
-        }
+        $this->displayCreatedSkus($result);
+        $this->displayFailedVariations($result);
+        $this->dispatchNotificationEvent($result, $productId);
 
         return $result->failed > 0 ? self::FAILURE : self::SUCCESS;
+    }
+
+    private function displayCreatedSkus(GenerateVariantSkusResult $result): void
+    {
+        if ($result->createdSkus === []) {
+            return;
+        }
+
+        $this->newLine();
+        $this->info('Created SKUs:');
+        foreach ($result->createdSkus as $sku) {
+            $this->line("  - {$sku}");
+        }
+    }
+
+    private function displayFailedVariations(GenerateVariantSkusResult $result): void
+    {
+        if ($result->failedVariationIds === []) {
+            return;
+        }
+
+        $this->newLine();
+        $this->warn('Failed variation IDs (see logs for details):');
+        foreach ($result->failedVariationIds as $variationId) {
+            $this->line("  - {$variationId}");
+        }
+    }
+
+    private function dispatchNotificationEvent(GenerateVariantSkusResult $result, IntId $productId): void
+    {
+        if ($result->created <= 0) {
+            return;
+        }
+
+        \event(new VariantSkusGeneratedEvent(
+            productId: $productId->value,
+            productTitle: $result->productTitle,
+            created: $result->created,
+            skipped: $result->skipped,
+            failed: $result->failed,
+            createdSkus: $result->createdSkus,
+        ));
     }
 
     /**

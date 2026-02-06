@@ -6,8 +6,12 @@ namespace App\Providers;
 
 use App\Application\Inventory\UseCases\GenerateVariantSkusUseCase;
 use App\Domain\Exceptions\InvalidConfigurationException;
+use App\Domain\Inventory\Events\VariantSkusGeneratedEvent;
+use App\Infrastructure\Notifications\Listeners\VariantSkusGeneratedSlackListener;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 use Override;
+use RuntimeException;
 
 /**
  * Inventory-related bindings and configuration.
@@ -31,5 +35,13 @@ final class InventoryServiceProvider extends ServiceProvider
 
                 return (int) $value;
             });
+    }
+
+    /**
+     * @throws RuntimeException If event registration fails
+     */
+    public function boot(): void
+    {
+        Event::listen(VariantSkusGeneratedEvent::class, VariantSkusGeneratedSlackListener::class);
     }
 }
