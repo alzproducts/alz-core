@@ -12,11 +12,11 @@ use Illuminate\Notifications\Slack\SlackMessage;
 /**
  * Slack notification sent when variant SKUs are generated.
  *
- * Displays product context, creation stats, and up to 5 created SKUs.
+ * Displays product context, creation stats, and up to 8 created SKUs.
  */
 final class VariantSkusGeneratedNotification extends Notification
 {
-    private const int MAX_SKUS_SHOWN = 5;
+    private const int MAX_SKUS_SHOWN = 8;
 
     /**
      * @param int $productId ShopWired product ID
