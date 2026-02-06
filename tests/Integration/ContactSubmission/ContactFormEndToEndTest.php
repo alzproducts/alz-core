@@ -9,13 +9,13 @@ use App\Application\Contracts\ContactSubmission\ContactSubmissionActionRepositor
 use App\Application\Contracts\ContactSubmission\ContactSubmissionRepositoryInterface;
 use App\Application\Contracts\HelpScout\ConversationWriteClientInterface;
 use App\Application\HelpScout\Commands\CreateCustomerConversationCommand;
+use App\Application\Jobs\ContactForm\ProcessContactSubmissionJob;
 use App\Domain\ContactSubmission\Enums\ActionStatus;
 use App\Domain\ContactSubmission\Enums\ContactReason;
 use App\Domain\Customer\Enums\CustomerType;
 use App\Domain\CustomerService\Enums\Mailbox;
 use App\Infrastructure\Ingest\ContactSubmission\Models\ContactSubmissionActionModel;
 use App\Infrastructure\Ingest\ContactSubmission\Models\ContactSubmissionModel;
-use App\Presentation\Jobs\ContactForm\ProcessContactSubmissionJob;
 use Faker\Factory as Faker;
 use Faker\Generator;
 use Illuminate\Support\Facades\Queue;

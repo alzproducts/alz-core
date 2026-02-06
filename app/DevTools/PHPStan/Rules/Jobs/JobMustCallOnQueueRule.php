@@ -45,7 +45,7 @@ final class JobMustCallOnQueueRule implements Rule
 
         $className = $scope->getClassReflection()->getName();
 
-        if (! \str_contains($className, 'App\\Presentation\\Jobs\\')) {
+        if (! \str_contains($className, 'App\\Application\\Jobs\\')) {
             return [];
         }
 
