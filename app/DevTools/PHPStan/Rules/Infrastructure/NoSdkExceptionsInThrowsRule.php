@@ -32,6 +32,9 @@ use PHPStan\Rules\RuleErrorBuilder;
  */
 final class NoSdkExceptionsInThrowsRule implements Rule
 {
+    /** @var array<string, array<string, string>> Per-file use-map cache to avoid duplicate file reads */
+    private static array $useMapCache = [];
+
     /** @var array<string, true> Base PHP exception classes allowed in @throws */
     private const array ALLOWED_PHP_EXCEPTIONS = [
         'Throwable' => true,
@@ -133,6 +136,10 @@ final class NoSdkExceptionsInThrowsRule implements Rule
      */
     private static function buildUseMap(string $filePath): array
     {
+        if (isset(self::$useMapCache[$filePath])) {
+            return self::$useMapCache[$filePath];
+        }
+
         $content = \file_get_contents($filePath);
         if ($content === false) {
             return [];
@@ -147,6 +154,8 @@ final class NoSdkExceptionsInThrowsRule implements Rule
             $alias = $match[2] ?? $parts[\array_key_last($parts)];
             $map[$alias] = $fqcn;
         }
+
+        self::$useMapCache[$filePath] = $map;
 
         return $map;
     }
