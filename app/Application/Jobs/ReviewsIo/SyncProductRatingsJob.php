@@ -4,15 +4,18 @@ declare(strict_types=1);
 
 namespace App\Application\Jobs\ReviewsIo;
 
+use App\Application\Jobs\Enums\QueueName;
 use App\Application\ReviewsIo\UseCases\SyncProductRatingsUseCase;
+use App\Domain\Exceptions\Api\AbstractApiException;
 use App\Domain\Exceptions\Api\PermanentApiFailure;
 use App\Domain\Exceptions\Api\TransientApiFailure;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
+use Psr\Log\LoggerInterface;
 use Throwable;
 
 /**
@@ -21,22 +24,27 @@ use Throwable;
  * Stage 1 of the ratings sync pipeline. Fetches ratings for all SKUs
  * and stores them in reviews_io.product_ratings.
  */
-final class SyncProductRatingsJob implements ShouldQueue
+final class SyncProductRatingsJob implements ShouldBeUnique, ShouldQueue
 {
     use Dispatchable;
     use InteractsWithQueue;
     use Queueable;
-    use SerializesModels;
 
     public int $tries = 5;
     public int $timeout = 900;
+    public int $uniqueFor = 1200;
 
     /** @var array<int> */
     public array $backoff = [30, 60, 120, 240];
 
+    public function uniqueId(): string
+    {
+        return 'sync-product-ratings';
+    }
+
     public function __construct()
     {
-        $this->onQueue('low');
+        $this->onQueue(QueueName::Low->value);
     }
 
     /**
@@ -44,20 +52,21 @@ final class SyncProductRatingsJob implements ShouldQueue
      * @throws PermanentApiFailure When permanent API failure occurs (fails immediately)
      * @throws Throwable When unexpected errors occur
      */
-    public function handle(SyncProductRatingsUseCase $useCase): void
+    public function handle(SyncProductRatingsUseCase $useCase, LoggerInterface $logger): void
     {
-        Log::info('Reviews.io ratings sync job starting');
+        $logger->info('Reviews.io ratings sync job starting');
 
         try {
             $result = $useCase->execute();
 
-            Log::info('Reviews.io ratings sync job completed', [
+            $logger->info('Reviews.io ratings sync job completed', [
                 'fetched' => $result->fetched,
                 'saved' => $result->saved,
                 'failed' => $result->failed,
             ]);
         } catch (TransientApiFailure $e) {
-            Log::warning('Reviews.io ratings sync service unavailable, will retry', [
+            // Dual retry: API-provided delay via release(), or Laravel backoff via rethrow
+            $logger->warning('Reviews.io ratings sync service unavailable, will retry', [
                 'service' => $e->serviceName,
                 'retry_after' => $e->retryAfter,
                 'attempts' => $this->attempts(),
@@ -69,23 +78,9 @@ final class SyncProductRatingsJob implements ShouldQueue
                 throw $e;
             }
         } catch (PermanentApiFailure $e) {
-            Log::critical('Reviews.io ratings sync permanent API failure, failing immediately', [
-                'exception' => $e::class,
-                'service' => $e->serviceName,
-                'error' => $e->getMessage(),
-                'attempts' => $this->attempts(),
-            ]);
-
             $this->fail($e);
             throw $e;
         } catch (Throwable $e) {
-            Log::critical('Unexpected exception in Reviews.io ratings sync - code update required', [
-                'job' => self::class,
-                'exception' => $e::class,
-                'message' => $e->getMessage(),
-                'attempts' => $this->attempts(),
-            ]);
-
             $this->fail($e);
             throw $e;
         }
@@ -93,10 +88,16 @@ final class SyncProductRatingsJob implements ShouldQueue
 
     public function failed(Throwable $exception): void
     {
-        Log::error('Reviews.io ratings sync job failed permanently', [
+        $context = [
             'exception' => $exception::class,
             'message' => $exception->getMessage(),
             'attempts' => $this->attempts(),
-        ]);
+        ];
+
+        if ($exception instanceof AbstractApiException) {
+            Log::error('Reviews.io ratings sync job failed permanently', $context);
+        } else {
+            Log::critical('Reviews.io ratings sync job failed permanently', $context);
+        }
     }
 }

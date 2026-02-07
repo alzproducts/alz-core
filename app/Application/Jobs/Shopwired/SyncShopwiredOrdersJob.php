@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Application\Jobs\Shopwired;
 
+use App\Application\Jobs\Enums\QueueName;
 use App\Application\Shopwired\UseCases\SyncOrdersUseCase;
+use App\Domain\Exceptions\Api\AbstractApiException;
 use App\Domain\Exceptions\Api\PermanentApiFailure;
 use App\Domain\Exceptions\Api\TransientApiFailure;
 use Illuminate\Bus\Queueable;
@@ -12,8 +14,8 @@ use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
+use Psr\Log\LoggerInterface;
 use Throwable;
 
 /**
@@ -33,7 +35,6 @@ final class SyncShopwiredOrdersJob implements ShouldBeUnique, ShouldQueue
     use Dispatchable;
     use InteractsWithQueue;
     use Queueable;
-    use SerializesModels;
 
     /**
      * Maximum number of attempts before giving up.
@@ -41,6 +42,11 @@ final class SyncShopwiredOrdersJob implements ShouldBeUnique, ShouldQueue
      * 3 attempts: quick retries for transient issues + 1hr fallback for longer outages.
      */
     public int $tries = 3;
+
+    /**
+     * Maximum exceptions allowed before failing.
+     */
+    public int $maxExceptions = 3;
 
     /**
      * Unique lock duration in seconds.
@@ -70,7 +76,7 @@ final class SyncShopwiredOrdersJob implements ShouldBeUnique, ShouldQueue
     public function __construct(
         private readonly ?int $maxPages = null,
     ) {
-        $this->onQueue('low');
+        $this->onQueue(QueueName::Low->value);
     }
 
     /**
@@ -97,27 +103,28 @@ final class SyncShopwiredOrdersJob implements ShouldBeUnique, ShouldQueue
      * @throws PermanentApiFailure When permanent API failure occurs (fails immediately)
      * @throws Throwable When unexpected errors occur - indicates code update required
      */
-    public function handle(SyncOrdersUseCase $useCase): void
+    public function handle(SyncOrdersUseCase $useCase, LoggerInterface $logger): void
     {
         $syncType = match (true) {
             $this->maxPages === null => 'full',
             $this->maxPages === 1 => 'micro',
             default => 'quick',
         };
-        Log::info("ShopWired order sync job starting ({$syncType})", [
+        $logger->info("ShopWired order sync job starting ({$syncType})", [
             'max_pages' => $this->maxPages,
         ]);
 
         try {
             $result = $useCase->execute($this->maxPages);
 
-            Log::info('ShopWired order sync job completed', [
+            $logger->info('ShopWired order sync job completed', [
                 'fetched' => $result->fetched,
                 'saved' => $result->saved,
                 'failed' => $result->failed,
             ]);
         } catch (TransientApiFailure $e) {
-            Log::warning('ShopWired order sync service unavailable, will retry', [
+            // Dual retry: API-provided delay via release(), or Laravel backoff via rethrow
+            $logger->warning('ShopWired order sync service unavailable, will retry', [
                 'service' => $e->serviceName,
                 'retry_after' => $e->retryAfter,
                 'attempts' => $this->attempts(),
@@ -129,24 +136,9 @@ final class SyncShopwiredOrdersJob implements ShouldBeUnique, ShouldQueue
                 throw $e;
             }
         } catch (PermanentApiFailure $e) {
-            Log::critical('ShopWired order sync permanent API failure, failing immediately', [
-                'exception' => $e::class,
-                'service' => $e->serviceName,
-                'error' => $e->getMessage(),
-                'attempts' => $this->attempts(),
-            ]);
-
             $this->fail($e);
             throw $e;
         } catch (Throwable $e) {
-            // Unexpected exception = code needs updating
-            Log::critical('Unexpected exception in ShopWired order sync - code update required', [
-                'job' => self::class,
-                'exception' => $e::class,
-                'message' => $e->getMessage(),
-                'attempts' => $this->attempts(),
-            ]);
-
             $this->fail($e);
             throw $e;
         }
@@ -157,11 +149,17 @@ final class SyncShopwiredOrdersJob implements ShouldBeUnique, ShouldQueue
      */
     public function failed(Throwable $exception): void
     {
-        Log::error('ShopWired order sync job failed permanently', [
+        $context = [
             'max_pages' => $this->maxPages,
             'exception' => $exception::class,
             'message' => $exception->getMessage(),
             'attempts' => $this->attempts(),
-        ]);
+        ];
+
+        if ($exception instanceof AbstractApiException) {
+            Log::error('ShopWired order sync job failed permanently', $context);
+        } else {
+            Log::critical('ShopWired order sync job failed permanently', $context);
+        }
     }
 }

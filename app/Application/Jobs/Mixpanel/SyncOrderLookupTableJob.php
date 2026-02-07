@@ -4,15 +4,18 @@ declare(strict_types=1);
 
 namespace App\Application\Jobs\Mixpanel;
 
+use App\Application\Jobs\Enums\QueueName;
 use App\Application\Mixpanel\UseCases\SyncLookupTableUseCase;
+use App\Domain\Exceptions\Api\AbstractApiException;
 use App\Domain\Exceptions\Api\PermanentApiFailure;
 use App\Domain\Exceptions\Api\TransientApiFailure;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
+use Psr\Log\LoggerInterface;
 use Throwable;
 
 /**
@@ -23,12 +26,11 @@ use Throwable;
  *
  * Implements exponential backoff for rate limit and transient error handling.
  */
-final class SyncOrderLookupTableJob implements ShouldQueue
+final class SyncOrderLookupTableJob implements ShouldBeUnique, ShouldQueue
 {
     use Dispatchable;
     use InteractsWithQueue;
     use Queueable;
-    use SerializesModels;
 
     /**
      * Maximum number of attempts before giving up.
@@ -54,9 +56,22 @@ final class SyncOrderLookupTableJob implements ShouldQueue
      */
     public array $backoff = [60, 300, 3600];
 
+    /**
+     * Seconds this job should remain unique.
+     */
+    public int $uniqueFor = 600;
+
+    /**
+     * Get the unique ID for the job.
+     */
+    public function uniqueId(): string
+    {
+        return 'sync-order-lookup-table';
+    }
+
     public function __construct()
     {
-        $this->onQueue('low');
+        $this->onQueue(QueueName::Low->value);
     }
 
     /**
@@ -66,16 +81,17 @@ final class SyncOrderLookupTableJob implements ShouldQueue
      * @throws PermanentApiFailure When permanent API failure occurs (fails immediately)
      * @throws Throwable When unexpected errors occur - indicates code update required
      */
-    public function handle(SyncLookupTableUseCase $useCase): void
+    public function handle(SyncLookupTableUseCase $useCase, LoggerInterface $logger): void
     {
-        Log::info('Order lookup table sync job starting');
+        $logger->info('Order lookup table sync job starting');
 
         try {
             $useCase->execute();
 
-            Log::info('Order lookup table sync job completed successfully');
+            $logger->info('Order lookup table sync job completed successfully');
         } catch (TransientApiFailure $e) {
-            Log::warning('Order lookup table sync service unavailable, will retry', [
+            // Dual retry: API-provided delay via release(), or Laravel backoff via rethrow
+            $logger->warning('Order lookup table sync service unavailable, will retry', [
                 'service' => $e->serviceName,
                 'retry_after' => $e->retryAfter,
                 'attempts' => $this->attempts(),
@@ -87,25 +103,9 @@ final class SyncOrderLookupTableJob implements ShouldQueue
                 throw $e;
             }
         } catch (PermanentApiFailure $e) {
-            Log::critical('Order lookup table sync permanent API failure, failing immediately', [
-                'exception' => $e::class,
-                'service' => $e->serviceName,
-                'error' => $e->getMessage(),
-                'attempts' => $this->attempts(),
-            ]);
-
             $this->fail($e);
             throw $e;
         } catch (Throwable $e) {
-            // Unexpected exception = code needs updating
-            // Fail immediately - don't waste retries on unknown errors
-            Log::critical('Unexpected exception in order lookup sync - code update required', [
-                'job' => self::class,
-                'exception' => $e::class,
-                'message' => $e->getMessage(),
-                'attempts' => $this->attempts(),
-            ]);
-
             $this->fail($e);
             throw $e;
         }
@@ -116,10 +116,16 @@ final class SyncOrderLookupTableJob implements ShouldQueue
      */
     public function failed(Throwable $exception): void
     {
-        Log::error('Order lookup table sync job failed', [
+        $context = [
             'exception' => $exception::class,
             'message' => $exception->getMessage(),
             'attempts' => $this->attempts(),
-        ]);
+        ];
+
+        if ($exception instanceof AbstractApiException) {
+            Log::error('Order lookup table sync job failed', $context);
+        } else {
+            Log::critical('Order lookup table sync job failed', $context);
+        }
     }
 }
