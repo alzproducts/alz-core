@@ -5,9 +5,8 @@ declare(strict_types=1);
 namespace App\Application\Jobs\Mixpanel;
 
 use App\Application\AdSpend\UseCases\SyncAdSpendUseCase;
-use App\Domain\Exceptions\Api\AuthenticationExpiredException;
-use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
-use App\Domain\Exceptions\Api\PayloadSerializationException;
+use App\Domain\Exceptions\Api\PermanentApiFailure;
+use App\Domain\Exceptions\Api\TransientApiFailure;
 use App\Domain\ValueObjects\DateRange;
 use DateTimeImmutable;
 use Illuminate\Bus\Queueable;
@@ -62,9 +61,8 @@ final class SyncGoogleAdsToMixpanelJob implements ShouldQueue
     /**
      * Execute the job.
      *
-     * @throws ExternalServiceUnavailableException When external APIs unavailable - will retry
-     * @throws PayloadSerializationException When data serialization fails (permanent failure)
-     * @throws AuthenticationExpiredException When API credentials invalid (permanent failure)
+     * @throws TransientApiFailure When Google Ads API unavailable (triggers retry)
+     * @throws PermanentApiFailure When permanent API failure occurs (fails immediately)
      * @throws Throwable When unexpected errors occur - indicates code update required
      */
     public function handle(SyncAdSpendUseCase $useCase): void
@@ -85,11 +83,25 @@ final class SyncGoogleAdsToMixpanelJob implements ShouldQueue
                 'from' => $fromString,
                 'to' => $toString,
             ]);
-        } catch (PayloadSerializationException $e) {
-            // Permanent failure - data integrity issue, retrying won't help
-            Log::critical('Payload serialization failed during sync, failing immediately', [
+        } catch (TransientApiFailure $e) {
+            Log::warning('Google Ads sync service unavailable, will retry', [
                 'from' => $fromString,
                 'to' => $toString,
+                'service' => $e->serviceName,
+                'retry_after' => $e->retryAfter,
+                'attempts' => $this->attempts(),
+            ]);
+
+            if ($e->retryAfter !== null) {
+                $this->release($e->retryAfter);
+            } else {
+                throw $e;
+            }
+        } catch (PermanentApiFailure $e) {
+            Log::critical('Google Ads sync permanent API failure, failing immediately', [
+                'from' => $fromString,
+                'to' => $toString,
+                'exception' => $e::class,
                 'service' => $e->serviceName,
                 'error' => $e->getMessage(),
                 'attempts' => $this->attempts(),
@@ -97,33 +109,6 @@ final class SyncGoogleAdsToMixpanelJob implements ShouldQueue
 
             $this->fail($e);
             throw $e;
-        } catch (AuthenticationExpiredException $e) {
-            // Permanent failure - credentials need fixing, don't waste retries
-            Log::critical('Authentication failed during sync, failing immediately', [
-                'from' => $fromString,
-                'to' => $toString,
-                'service' => $e->serviceName,
-                'message' => $e->getMessage(),
-                'attempts' => $this->attempts(),
-            ]);
-
-            $this->fail($e);
-            throw $e;
-        } catch (ExternalServiceUnavailableException $e) {
-            Log::warning('External service unavailable during sync, will retry', [
-                'from' => $fromString,
-                'to' => $toString,
-                'service' => $e->serviceName,
-                'retry_after' => $e->retryAfter ?? 'using backoff',
-                'attempts' => $this->attempts(),
-            ]);
-
-            // Use API's retry delay if provided, otherwise let Laravel use backoff array
-            if ($e->retryAfter !== null) {
-                $this->release($e->retryAfter);
-            } else {
-                throw $e;
-            }
         } catch (Throwable $e) {
             // Unexpected exception = code needs updating
             // Fail immediately - don't waste retries on unknown errors

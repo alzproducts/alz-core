@@ -118,7 +118,7 @@ final class SyncCampaignLookupTableJobTest extends TestCase
         $job->handle($this->useCase);
 
         Log::shouldHaveReceived('warning')
-            ->with('External service unavailable during campaign lookup table sync, will retry', Mockery::on(
+            ->with('Campaign lookup table sync service unavailable, will retry', Mockery::on(
                 static function (array $context): bool {
                     self::assertSame('Google Ads', $context['service']);
                     self::assertSame(60, $context['retry_after']);
@@ -166,10 +166,10 @@ final class SyncCampaignLookupTableJobTest extends TestCase
         }
 
         Log::shouldHaveReceived('warning')
-            ->with('External service unavailable during campaign lookup table sync, will retry', Mockery::on(
+            ->with('Campaign lookup table sync service unavailable, will retry', Mockery::on(
                 static function (array $context): bool {
                     self::assertSame('Google Ads', $context['service']);
-                    self::assertSame('using backoff', $context['retry_after']);
+                    self::assertNull($context['retry_after']);
                     self::assertSame(3, $context['attempts']);
 
                     return true;
@@ -244,10 +244,11 @@ final class SyncCampaignLookupTableJobTest extends TestCase
         }
 
         Log::shouldHaveReceived('critical')
-            ->with('Unexpected API result during campaign lookup table sync, failing immediately', Mockery::on(
+            ->with('Campaign lookup table sync permanent API failure, failing immediately', Mockery::on(
                 static function (array $context): bool {
+                    self::assertSame(UnexpectedApiResultException::class, $context['exception']);
                     self::assertSame('Mixpanel', $context['service']);
-                    self::assertSame('Lookup table response malformed', $context['reason']);
+                    self::assertStringContainsString('Lookup table response malformed', $context['error']);
                     self::assertSame(2, $context['attempts']);
 
                     return true;
@@ -286,10 +287,11 @@ final class SyncCampaignLookupTableJobTest extends TestCase
         }
 
         Log::shouldHaveReceived('critical')
-            ->with('Authentication failed during campaign lookup table sync, failing immediately', Mockery::on(
+            ->with('Campaign lookup table sync permanent API failure, failing immediately', Mockery::on(
                 static function (array $context): bool {
+                    self::assertSame(AuthenticationExpiredException::class, $context['exception']);
                     self::assertSame('Google Ads', $context['service']);
-                    self::assertStringContainsString('Google Ads', $context['message']);
+                    self::assertStringContainsString('Google Ads', $context['error']);
                     self::assertSame(1, $context['attempts']);
 
                     return true;
@@ -346,8 +348,9 @@ final class SyncCampaignLookupTableJobTest extends TestCase
         }
 
         Log::shouldHaveReceived('critical')
-            ->with('Authentication failed during campaign lookup table sync, failing immediately', Mockery::on(
+            ->with('Campaign lookup table sync permanent API failure, failing immediately', Mockery::on(
                 static function (array $context): bool {
+                    self::assertSame(AuthenticationExpiredException::class, $context['exception']);
                     self::assertSame('Mixpanel', $context['service']);
 
                     return true;

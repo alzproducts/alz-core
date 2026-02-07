@@ -9,11 +9,8 @@ use App\Application\Contracts\Shopwired\ProductUpdateClientInterface;
 use App\Application\Results\BatchUpdateResult;
 use App\Domain\Catalog\Product\Commands\SetFreeDeliveryCommand;
 use App\Domain\Catalog\Product\Exceptions\ProductIdentifierResolutionException;
-use App\Domain\Exceptions\Api\AuthenticationExpiredException;
-use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
-use App\Domain\Exceptions\Api\InvalidApiRequestException;
-use App\Domain\Exceptions\Api\InvalidApiResponseException;
-use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Domain\Exceptions\Api\PermanentApiFailure;
+use App\Domain\Exceptions\Api\TransientApiFailure;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use Psr\Log\LoggerInterface;
 
@@ -72,7 +69,7 @@ final readonly class SetProductFreeDeliveryUseCase
                     'identifier' => $command->identifier,
                     'type' => $command->freeDeliveryType->value,
                 ]);
-            } catch (ProductIdentifierResolutionException|ResourceNotFoundException|InvalidApiRequestException|InvalidApiResponseException|AuthenticationExpiredException $e) {
+            } catch (ProductIdentifierResolutionException|PermanentApiFailure $e) {
                 // Permanent failures: data issues or auth problems that won't resolve on retry
                 $permanentFailures[] = [
                     'identifier' => $command->identifier,
@@ -83,7 +80,7 @@ final readonly class SetProductFreeDeliveryUseCase
                     'exception' => $e::class,
                     'error' => $e->getMessage(),
                 ]);
-            } catch (ExternalServiceUnavailableException|DatabaseOperationFailedException $e) {
+            } catch (TransientApiFailure|DatabaseOperationFailedException $e) {
                 // Temporary failures: service issues that may resolve on retry
                 $temporaryFailures[] = [
                     'identifier' => $command->identifier,
@@ -116,11 +113,8 @@ final readonly class SetProductFreeDeliveryUseCase
      * Process a single command.
      *
      * @throws ProductIdentifierResolutionException When identifier cannot be resolved
-     * @throws ResourceNotFoundException When product not found in ShopWired
-     * @throws InvalidApiRequestException When request parameters are invalid
-     * @throws InvalidApiResponseException When API response parsing fails
-     * @throws AuthenticationExpiredException When credentials are invalid
-     * @throws ExternalServiceUnavailableException When API is unavailable
+     * @throws PermanentApiFailure When non-retryable API failure occurs
+     * @throws TransientApiFailure When API is unavailable
      * @throws DatabaseOperationFailedException On database errors
      */
     private function processCommand(SetFreeDeliveryCommand $command): void

@@ -5,9 +5,8 @@ declare(strict_types=1);
 namespace App\Application\Jobs\Mixpanel;
 
 use App\Application\Mixpanel\UseCases\SyncOrdersToMixpanelUseCase;
-use App\Domain\Exceptions\Api\AuthenticationExpiredException;
-use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
-use App\Domain\Exceptions\Api\UnexpectedApiResultException;
+use App\Domain\Exceptions\Api\PermanentApiFailure;
+use App\Domain\Exceptions\Api\TransientApiFailure;
 use App\Domain\Exceptions\Data\MissingRequiredDataException;
 use DateTimeImmutable;
 use Illuminate\Bus\Queueable;
@@ -85,9 +84,8 @@ final class SyncOrdersToMixpanelJob implements ShouldQueue
     /**
      * Execute the job.
      *
-     * @throws ExternalServiceUnavailableException When Mixpanel API unavailable - will retry
-     * @throws UnexpectedApiResultException When export data invalid (permanent failure)
-     * @throws AuthenticationExpiredException When credentials invalid (permanent failure)
+     * @throws TransientApiFailure When Mixpanel API unavailable (triggers retry)
+     * @throws PermanentApiFailure When permanent API failure occurs (fails immediately)
      * @throws MissingRequiredDataException When customer data missing (permanent failure)
      * @throws Throwable When unexpected errors occur - indicates code update required
      */
@@ -113,31 +111,6 @@ final class SyncOrdersToMixpanelJob implements ShouldQueue
                 'checkout_events' => $result->checkoutEventsCreated,
                 'product_events' => $result->productEventsCreated,
             ]);
-        } catch (UnexpectedApiResultException $e) {
-            // Permanent failure - Mixpanel export data is invalid or missing
-            // Could indicate frontend tracking issues
-            Log::critical('Mixpanel export data invalid during order sync', [
-                'from' => $fromString,
-                'to' => $toString,
-                'service' => $e->serviceName,
-                'error' => $e->getMessage(),
-                'attempts' => $this->attempts(),
-            ]);
-
-            $this->fail($e);
-            throw $e;
-        } catch (AuthenticationExpiredException $e) {
-            // Permanent failure - credentials need fixing, don't waste retries
-            Log::critical('Authentication failed during Mixpanel order sync', [
-                'from' => $fromString,
-                'to' => $toString,
-                'service' => $e->serviceName,
-                'error' => $e->getMessage(),
-                'attempts' => $this->attempts(),
-            ]);
-
-            $this->fail($e);
-            throw $e;
         } catch (MissingRequiredDataException $e) {
             // Permanent failure - prerequisite data not available
             Log::critical('Missing required data during Mixpanel order sync', [
@@ -151,21 +124,32 @@ final class SyncOrdersToMixpanelJob implements ShouldQueue
 
             $this->fail($e);
             throw $e;
-        } catch (ExternalServiceUnavailableException $e) {
-            Log::warning('Mixpanel API unavailable, will retry', [
+        } catch (TransientApiFailure $e) {
+            Log::warning('Mixpanel order sync service unavailable, will retry', [
                 'from' => $fromString,
                 'to' => $toString,
                 'service' => $e->serviceName,
-                'retry_after' => $e->retryAfter ?? 'using backoff',
+                'retry_after' => $e->retryAfter,
                 'attempts' => $this->attempts(),
             ]);
 
-            // Use API's retry delay if provided, otherwise let Laravel use backoff array
             if ($e->retryAfter !== null) {
                 $this->release($e->retryAfter);
             } else {
                 throw $e;
             }
+        } catch (PermanentApiFailure $e) {
+            Log::critical('Mixpanel order sync permanent API failure, failing immediately', [
+                'from' => $fromString,
+                'to' => $toString,
+                'exception' => $e::class,
+                'service' => $e->serviceName,
+                'error' => $e->getMessage(),
+                'attempts' => $this->attempts(),
+            ]);
+
+            $this->fail($e);
+            throw $e;
         } catch (Throwable $e) {
             // Unexpected exception = code needs updating
             Log::critical('Unexpected exception in Mixpanel order sync - code update required', [

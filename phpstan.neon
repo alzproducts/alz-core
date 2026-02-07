@@ -255,6 +255,8 @@ parameters:
             paths:
                 - app/Application/Exceptions/ApplicationException.php
                 - app/Domain/Exceptions/DomainException.php
+                - app/Domain/Exceptions/Api/PermanentApiFailure.php
+                - app/Domain/Exceptions/Api/TransientApiFailure.php
                 - app/Infrastructure/Exceptions/InfrastructureException.php
                 - app/Infrastructure/Exceptions/ApiException.php
         # Symplify expects singular "Exception" namespace but PHP/Laravel convention uses "Exceptions" (plural)

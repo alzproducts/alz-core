@@ -15,6 +15,7 @@ use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\Product\ValueObjects\Product;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariation;
 use App\Domain\Catalog\Product\ValueObjects\Sku;
+use App\Domain\Exceptions\Api\AbstractApiException;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
@@ -260,7 +261,7 @@ final readonly class GenerateVariantSkusUseCase
             return $sku;
             // Note: LockAcquisitionException intentionally bubbles up - it indicates infrastructure
             // problems (Redis down, stuck lock) that would affect ALL variations. Fail-fast is correct.
-        } catch (ResourceNotFoundException|InvalidApiRequestException|InvalidApiResponseException|AuthenticationExpiredException|ExternalServiceUnavailableException $e) {
+        } catch (AbstractApiException $e) {
             $this->logger->error('Failed to process variation', [
                 'variation_id' => $variation->id,
                 'error' => $e->getMessage(),

@@ -5,9 +5,8 @@ declare(strict_types=1);
 namespace App\Application\Jobs\Mixpanel;
 
 use App\Application\Mixpanel\UseCases\SyncLookupTableUseCase;
-use App\Domain\Exceptions\Api\AuthenticationExpiredException;
-use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
-use App\Domain\Exceptions\Api\UnexpectedApiResultException;
+use App\Domain\Exceptions\Api\PermanentApiFailure;
+use App\Domain\Exceptions\Api\TransientApiFailure;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -63,9 +62,8 @@ final class SyncProductLookupTableJob implements ShouldQueue
     /**
      * Execute the job: synchronize product enrichment lookup table.
      *
-     * @throws ExternalServiceUnavailableException When external APIs unavailable - will retry
-     * @throws UnexpectedApiResultException When API returns unexpected data (permanent failure)
-     * @throws AuthenticationExpiredException When API credentials invalid (permanent failure)
+     * @throws TransientApiFailure When Mixpanel API unavailable (triggers retry)
+     * @throws PermanentApiFailure When permanent API failure occurs (fails immediately)
      * @throws Throwable When unexpected errors occur - indicates code update required
      */
     public function handle(SyncLookupTableUseCase $useCase): void
@@ -76,39 +74,28 @@ final class SyncProductLookupTableJob implements ShouldQueue
             $useCase->execute();
 
             Log::info('Product lookup table sync job completed successfully');
-        } catch (UnexpectedApiResultException $e) {
-            // Permanent failure - retrying won't help, needs human investigation
-            Log::critical('Unexpected API result during product lookup table sync, failing immediately', [
+        } catch (TransientApiFailure $e) {
+            Log::warning('Product lookup table sync service unavailable, will retry', [
                 'service' => $e->serviceName,
-                'reason' => $e->reason,
+                'retry_after' => $e->retryAfter,
                 'attempts' => $this->attempts(),
             ]);
 
-            $this->fail($e);
-            throw $e;
-        } catch (AuthenticationExpiredException $e) {
-            // Permanent failure - credentials need fixing, don't waste retries
-            Log::critical('Authentication failed during product lookup table sync, failing immediately', [
-                'service' => $e->serviceName,
-                'message' => $e->getMessage(),
-                'attempts' => $this->attempts(),
-            ]);
-
-            $this->fail($e);
-            throw $e;
-        } catch (ExternalServiceUnavailableException $e) {
-            Log::warning('External service unavailable during product lookup table sync, will retry', [
-                'service' => $e->serviceName,
-                'retry_after' => $e->retryAfter ?? 'using backoff',
-                'attempts' => $this->attempts(),
-            ]);
-
-            // Use API's retry delay if provided, otherwise let Laravel use backoff array
             if ($e->retryAfter !== null) {
                 $this->release($e->retryAfter);
             } else {
                 throw $e;
             }
+        } catch (PermanentApiFailure $e) {
+            Log::critical('Product lookup table sync permanent API failure, failing immediately', [
+                'exception' => $e::class,
+                'service' => $e->serviceName,
+                'error' => $e->getMessage(),
+                'attempts' => $this->attempts(),
+            ]);
+
+            $this->fail($e);
+            throw $e;
         } catch (Throwable $e) {
             // Unexpected exception = code needs updating
             // Fail immediately - don't waste retries on unknown errors

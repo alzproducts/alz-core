@@ -125,7 +125,8 @@ final class SyncBingAdsToMixpanelJobTest extends TestCase
 
         Log::shouldReceive('critical')
             ->once()
-            ->withArgs(static fn(string $message, array $context): bool => $message === 'Payload serialization failed during Bing Ads sync, failing immediately'
+            ->withArgs(static fn(string $message, array $context): bool => $message === 'Bing Ads sync permanent API failure, failing immediately'
+                    && $context['exception'] === PayloadSerializationException::class
                     && $context['service'] === 'Mixpanel'
                     && \str_contains($context['error'], 'JSON encoding failed')
                     && \array_key_exists('attempts', $context));
@@ -186,9 +187,10 @@ final class SyncBingAdsToMixpanelJobTest extends TestCase
 
         Log::shouldReceive('critical')
             ->once()
-            ->withArgs(static fn(string $message, array $context): bool => $message === 'Authentication failed during Bing Ads sync, failing immediately'
+            ->withArgs(static fn(string $message, array $context): bool => $message === 'Bing Ads sync permanent API failure, failing immediately'
+                    && $context['exception'] === AuthenticationExpiredException::class
                     && $context['service'] === 'Bing Ads'
-                    && \str_contains($context['message'], 'Bing Ads')
+                    && \str_contains($context['error'], 'Bing Ads')
                     && \array_key_exists('attempts', $context));
 
         $job = $this->createJobMock();
@@ -247,7 +249,7 @@ final class SyncBingAdsToMixpanelJobTest extends TestCase
 
         Log::shouldReceive('warning')
             ->once()
-            ->withArgs(static fn(string $message, array $context): bool => $message === 'External service unavailable during Bing Ads sync, will retry'
+            ->withArgs(static fn(string $message, array $context): bool => $message === 'Bing Ads sync service unavailable, will retry'
                     && $context['service'] === 'Bing Ads'
                     && $context['retry_after'] === 180
                     && \array_key_exists('attempts', $context));
@@ -310,7 +312,7 @@ final class SyncBingAdsToMixpanelJobTest extends TestCase
 
         Log::shouldReceive('warning')
             ->once()
-            ->withArgs(static fn(string $message, array $context): bool => $context['retry_after'] === 'using backoff');
+            ->withArgs(static fn(string $message, array $context): bool => $context['retry_after'] === null);
 
         $job = $this->createJobMock();
         $job->shouldNotReceive('release');
@@ -335,9 +337,9 @@ final class SyncBingAdsToMixpanelJobTest extends TestCase
 
         Log::shouldReceive('warning')
             ->once()
-            ->withArgs(static fn(string $message, array $context): bool => $message === 'External service unavailable during Bing Ads sync, will retry'
+            ->withArgs(static fn(string $message, array $context): bool => $message === 'Bing Ads sync service unavailable, will retry'
                     && $context['service'] === 'Bing Ads'
-                    && $context['retry_after'] === 'using backoff'
+                    && $context['retry_after'] === null
                     && $context['attempts'] === 4);
 
         $job = $this->createJobMock();
