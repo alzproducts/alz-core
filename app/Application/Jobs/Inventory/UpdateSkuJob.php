@@ -6,10 +6,10 @@ namespace App\Application\Jobs\Inventory;
 
 use App\Application\Inventory\UseCases\UpdateSkuUseCase;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
-use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Domain\Exceptions\Api\TransientApiFailure;
 use App\Domain\Exceptions\Data\InvalidSkuException;
 use App\Domain\Exceptions\Inventory\SkuGenerationFailedException;
 use App\Domain\Exceptions\Inventory\SkuUpdateFailedException;
@@ -96,7 +96,7 @@ final class UpdateSkuJob implements ShouldBeUnique, ShouldQueue
     /**
      * Execute the job.
      *
-     * @throws ExternalServiceUnavailableException When services unavailable (triggers retry)
+     * @throws TransientApiFailure When services unavailable (triggers retry)
      * @throws Throwable On unexpected errors
      */
     public function handle(UpdateSkuUseCase $useCase): void
@@ -145,10 +145,10 @@ final class UpdateSkuJob implements ShouldBeUnique, ShouldQueue
             $this->fail($e);
 
             throw $e;
-        } catch (ExternalServiceUnavailableException $e) {
-            // Transient failure - retry with API's delay or use backoff
-            Log::warning('Service unavailable during SKU update', [
+        } catch (TransientApiFailure $e) {
+            Log::warning('SKU update service unavailable, will retry', [
                 'service' => $e->serviceName,
+                'retry_after' => $e->retryAfter,
                 'attempt' => $this->attempts(),
             ]);
 

@@ -14,13 +14,18 @@ use Throwable;
  * - Service outage (503) → retryAfter null, let Laravel backoff
  * - Network timeout → retryAfter null, let Laravel backoff
  */
-final class ExternalServiceUnavailableException extends AbstractApiException
+final class ExternalServiceUnavailableException extends TransientApiFailure
 {
     public function __construct(
-        public readonly string $serviceName,
-        public readonly ?int $retryAfter = null,
+        string $serviceName,
+        ?int $retryAfter = null,
         ?Throwable $previous = null,
     ) {
-        parent::__construct("External service '{$serviceName}' is unavailable", 0, $previous);
+        parent::__construct(
+            $serviceName,
+            $retryAfter,
+            "External service '{$serviceName}' is unavailable",
+            $previous,
+        );
     }
 }

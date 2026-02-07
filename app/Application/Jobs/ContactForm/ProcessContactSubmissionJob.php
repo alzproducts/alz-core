@@ -8,9 +8,9 @@ use App\Application\ContactSubmission\UseCases\HandleContactSubmissionFailureUse
 use App\Application\ContactSubmission\UseCases\ProcessContactSubmissionUseCase;
 use App\Application\Contracts\ContactSubmission\ContactSubmissionActionRepositoryInterface;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
-use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Domain\Exceptions\Api\TransientApiFailure;
 use App\Domain\Exceptions\Api\UnexpectedApiResultException;
 use App\Domain\Exceptions\Data\InsufficientDataException;
 use App\Domain\Exceptions\Data\MalformedStoredDataException;
@@ -87,7 +87,7 @@ final class ProcessContactSubmissionJob implements ShouldBeUnique, ShouldQueue
     /**
      * Execute the job.
      *
-     * @throws ExternalServiceUnavailableException When HelpScout unavailable (triggers retry)
+     * @throws TransientApiFailure When HelpScout unavailable (triggers retry)
      * @throws Throwable On unexpected errors
      */
     public function handle(
@@ -110,9 +110,8 @@ final class ProcessContactSubmissionJob implements ShouldBeUnique, ShouldQueue
                 'submission_id' => $this->submissionId,
                 'conversation_id' => $conversationId,
             ]);
-        } catch (ExternalServiceUnavailableException $e) {
-            // Transient failure - retry with API's delay or use backoff
-            Log::warning('HelpScout unavailable during contact processing', [
+        } catch (TransientApiFailure $e) {
+            Log::warning('Contact processing service unavailable, will retry', [
                 'submission_id' => $this->submissionId,
                 'service' => $e->serviceName,
                 'retry_after' => $e->retryAfter,
@@ -122,7 +121,7 @@ final class ProcessContactSubmissionJob implements ShouldBeUnique, ShouldQueue
             if ($e->retryAfter !== null) {
                 $this->release($e->retryAfter);
             } else {
-                throw $e; // Let Laravel handle with backoff
+                throw $e;
             }
         } catch (AuthenticationExpiredException $e) {
             // Permanent failure - credentials need updating

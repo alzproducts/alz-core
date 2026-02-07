@@ -115,7 +115,7 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
         $job->handle($this->useCase);
 
         Log::shouldHaveReceived('warning')
-            ->with('External service unavailable during sync, will retry', Mockery::on(
+            ->with('Google Ads sync service unavailable, will retry', Mockery::on(
                 static function (array $context): bool {
                     self::assertSame(self::TEST_DATE, $context['from']);
                     self::assertSame(self::TEST_DATE, $context['to']);
@@ -165,12 +165,12 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
         }
 
         Log::shouldHaveReceived('warning')
-            ->with('External service unavailable during sync, will retry', Mockery::on(
+            ->with('Google Ads sync service unavailable, will retry', Mockery::on(
                 static function (array $context): bool {
                     self::assertSame(self::TEST_DATE, $context['from']);
                     self::assertSame(self::TEST_DATE, $context['to']);
                     self::assertSame('Google Ads', $context['service']);
-                    self::assertSame('using backoff', $context['retry_after']);
+                    self::assertNull($context['retry_after']);
                     self::assertSame(3, $context['attempts']);
 
                     return true;
@@ -310,7 +310,7 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
         $job->handle($this->useCase);
 
         Log::shouldHaveReceived('warning')
-            ->with('External service unavailable during sync, will retry', Mockery::on(
+            ->with('Google Ads sync service unavailable, will retry', Mockery::on(
                 static function (array $context): bool {
                     self::assertSame(self::TEST_DATE, $context['from']);
                     self::assertSame(self::TEST_DATE, $context['to']);
@@ -517,10 +517,11 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
         }
 
         Log::shouldHaveReceived('critical')
-            ->with('Payload serialization failed during sync, failing immediately', Mockery::on(
+            ->with('Google Ads sync permanent API failure, failing immediately', Mockery::on(
                 static function (array $context): bool {
                     self::assertSame(self::TEST_DATE, $context['from']);
                     self::assertSame(self::TEST_DATE, $context['to']);
+                    self::assertSame(PayloadSerializationException::class, $context['exception']);
                     self::assertSame('Mixpanel', $context['service']);
                     self::assertStringContainsString('JSON encoding failed', $context['error']);
                     self::assertSame(1, $context['attempts']);
@@ -586,12 +587,13 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
         }
 
         Log::shouldHaveReceived('critical')
-            ->with('Authentication failed during sync, failing immediately', Mockery::on(
+            ->with('Google Ads sync permanent API failure, failing immediately', Mockery::on(
                 static function (array $context): bool {
                     self::assertSame(self::TEST_DATE, $context['from']);
                     self::assertSame(self::TEST_DATE, $context['to']);
+                    self::assertSame(AuthenticationExpiredException::class, $context['exception']);
                     self::assertSame('Google Ads', $context['service']);
-                    self::assertStringContainsString('Google Ads', $context['message']);
+                    self::assertStringContainsString('Google Ads', $context['error']);
                     self::assertSame(1, $context['attempts']);
 
                     return true;
@@ -648,8 +650,9 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
         }
 
         Log::shouldHaveReceived('critical')
-            ->with('Authentication failed during sync, failing immediately', Mockery::on(
+            ->with('Google Ads sync permanent API failure, failing immediately', Mockery::on(
                 static function (array $context): bool {
+                    self::assertSame(AuthenticationExpiredException::class, $context['exception']);
                     self::assertSame('Mixpanel', $context['service']);
 
                     return true;

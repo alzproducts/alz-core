@@ -21,13 +21,13 @@ use Throwable;
  * @see InvalidApiResponseException For malformed API responses (inbound)
  * @see ExternalServiceUnavailableException For network/API failures
  */
-final class PayloadSerializationException extends AbstractApiException
+final class PayloadSerializationException extends PermanentApiFailure
 {
     public function __construct(
-        public readonly string $serviceName,
+        string $serviceName,
         string $message = 'Failed to serialize payload',
         ?Throwable $previous = null,
     ) {
-        parent::__construct("{$serviceName}: {$message}", 0, $previous);
+        parent::__construct($serviceName, "{$serviceName}: {$message}", $previous);
     }
 }
