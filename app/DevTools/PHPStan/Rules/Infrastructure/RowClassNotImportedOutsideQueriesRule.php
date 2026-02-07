@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\DevTools\PHPStan\Rules\Infrastructure;
 
 use PhpParser\Node;
+use PhpParser\Node\Stmt\Use_;
 use PHPStan\Analyser\Scope;
-use PHPStan\Node\InClassNode;
 use PHPStan\Rules\IdentifierRuleError;
 use PHPStan\Rules\Rule;
 use PHPStan\Rules\RuleErrorBuilder;
@@ -18,13 +18,13 @@ use PHPStan\Rules\RuleErrorBuilder;
  * in the same file. Importing them outside Queries indicates a layer boundary
  * violation — use the Query's public API instead.
  *
- * @implements Rule<InClassNode>
+ * @implements Rule<Use_>
  */
 final class RowClassNotImportedOutsideQueriesRule implements Rule
 {
     public function getNodeType(): string
     {
-        return InClassNode::class;
+        return Use_::class;
     }
 
     /**
@@ -39,32 +39,29 @@ final class RowClassNotImportedOutsideQueriesRule implements Rule
             return [];
         }
 
-        // Read file to find use statements importing Row classes from Queries
-        $content = \file_get_contents($scope->getFile());
-
-        if ($content === false) {
-            return [];
-        }
-
-        \preg_match_all(
-            '/^use\s+(App\\\\Infrastructure\\\\[^;]*\\\\Queries\\\\(\w*Row))\s*;/m',
-            $content,
-            $matches,
-            PREG_SET_ORDER,
-        );
-
-        if (\count($matches) === 0) {
-            return [];
-        }
-
         $errors = [];
 
-        foreach ($matches as $match) {
+        foreach ($node->uses as $use) {
+            $name = $use->name->toString();
+
+            if (! \str_starts_with($name, 'App\\Infrastructure\\')
+                || ! \str_contains($name, '\\Queries\\')
+            ) {
+                continue;
+            }
+
+            $parts = \explode('\\', $name);
+            $className = $parts[\array_key_last($parts)];
+
+            if (! \str_ends_with($className, 'Row')) {
+                continue;
+            }
+
             $errors[] = RuleErrorBuilder::message(
                 \sprintf(
                     'Row class %s must not be imported outside its Queries namespace. '
                     . 'Row DTOs are internal implementation details — use the Query\'s public API instead.',
-                    $match[2],
+                    $className,
                 ),
             )
                 ->identifier('alz.rowClassNotImportedOutsideQueries')
