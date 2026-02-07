@@ -17,13 +17,17 @@ use Throwable;
  * This is NOT a transient failure - retrying won't help.
  * Requires human investigation to resolve.
  */
-final class UnexpectedApiResultException extends AbstractApiException
+final class UnexpectedApiResultException extends PermanentApiFailure
 {
     public function __construct(
-        public readonly string $serviceName,
+        string $serviceName,
         public readonly string $reason,
         ?Throwable $previous = null,
     ) {
-        parent::__construct("Unexpected result from {$serviceName}: {$reason}", 0, $previous);
+        parent::__construct(
+            $serviceName,
+            "Unexpected result from {$serviceName}: {$reason}",
+            $previous,
+        );
     }
 }
