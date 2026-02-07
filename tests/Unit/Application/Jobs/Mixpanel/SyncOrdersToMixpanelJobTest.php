@@ -130,7 +130,8 @@ final class SyncOrdersToMixpanelJobTest extends TestCase
 
         Log::shouldReceive('critical')
             ->once()
-            ->withArgs(static fn(string $message, array $context): bool => $message === 'Mixpanel export data invalid during order sync'
+            ->withArgs(static fn(string $message, array $context): bool => $message === 'Mixpanel order sync permanent API failure, failing immediately'
+                    && $context['exception'] === UnexpectedApiResultException::class
                     && $context['service'] === 'Mixpanel'
                     && \str_contains($context['error'], 'Export returned empty result'));
 
@@ -163,7 +164,8 @@ final class SyncOrdersToMixpanelJobTest extends TestCase
 
         Log::shouldReceive('critical')
             ->once()
-            ->withArgs(static fn(string $message, array $context): bool => $message === 'Authentication failed during Mixpanel order sync'
+            ->withArgs(static fn(string $message, array $context): bool => $message === 'Mixpanel order sync permanent API failure, failing immediately'
+                    && $context['exception'] === AuthenticationExpiredException::class
                     && $context['service'] === 'Mixpanel');
 
         $job = $this->createJobMock();
@@ -282,7 +284,7 @@ final class SyncOrdersToMixpanelJobTest extends TestCase
 
         Log::shouldReceive('warning')
             ->once()
-            ->withArgs(static fn(string $message, array $context): bool => $message === 'Mixpanel API unavailable, will retry'
+            ->withArgs(static fn(string $message, array $context): bool => $message === 'Mixpanel order sync service unavailable, will retry'
                     && $context['service'] === 'Mixpanel'
                     && $context['retry_after'] === 180);
 
@@ -313,7 +315,7 @@ final class SyncOrdersToMixpanelJobTest extends TestCase
 
         Log::shouldReceive('warning')
             ->once()
-            ->withArgs(static fn(string $message, array $context): bool => $context['retry_after'] === 'using backoff');
+            ->withArgs(static fn(string $message, array $context): bool => $context['retry_after'] === null);
 
         $job = $this->createJobMock();
         $job->shouldNotReceive('release');

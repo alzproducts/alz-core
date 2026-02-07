@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Application\Jobs\Feeds;
 
 use App\Application\Feeds\ProcessProductSearchFeedUseCase;
-use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Api\TransientApiFailure;
 use App\Domain\Exceptions\Infrastructure\StorageOperationFailedException;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -54,7 +54,7 @@ final class ProcessProductSearchFeedJob implements ShouldQueue
     /**
      * Execute the job.
      *
-     * @throws ExternalServiceUnavailableException When source feed unavailable - will retry
+     * @throws TransientApiFailure When source feed unavailable (triggers retry)
      * @throws StorageOperationFailedException When S3 upload fails - will retry
      * @throws Throwable When unexpected errors occur - indicates code update required
      */
@@ -66,14 +66,13 @@ final class ProcessProductSearchFeedJob implements ShouldQueue
             $useCase->execute();
 
             Log::info('Product search feed processing job completed');
-        } catch (ExternalServiceUnavailableException $e) {
-            Log::warning('Source feed unavailable, will retry', [
+        } catch (TransientApiFailure $e) {
+            Log::warning('Product search feed service unavailable, will retry', [
                 'service' => $e->serviceName,
-                'retry_after' => $e->retryAfter ?? 'using backoff',
+                'retry_after' => $e->retryAfter,
                 'attempts' => $this->attempts(),
             ]);
 
-            // Use server's retry delay if provided, otherwise let Laravel use backoff array
             if ($e->retryAfter !== null) {
                 $this->release($e->retryAfter);
             } else {

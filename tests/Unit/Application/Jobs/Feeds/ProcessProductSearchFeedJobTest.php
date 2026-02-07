@@ -170,7 +170,7 @@ final class ProcessProductSearchFeedJobTest extends TestCase
 
         Log::shouldReceive('warning')
             ->once()
-            ->withArgs(static fn(string $message, array $context): bool => $message === 'Source feed unavailable, will retry'
+            ->withArgs(static fn(string $message, array $context): bool => $message === 'Product search feed service unavailable, will retry'
                     && $context['service'] === 'Doofinder Feed'
                     && $context['retry_after'] === 120
                     && \array_key_exists('attempts', $context));
@@ -207,9 +207,9 @@ final class ProcessProductSearchFeedJobTest extends TestCase
 
         Log::shouldReceive('warning')
             ->once()
-            ->withArgs(static fn(string $message, array $context): bool => $message === 'Source feed unavailable, will retry'
+            ->withArgs(static fn(string $message, array $context): bool => $message === 'Product search feed service unavailable, will retry'
                     && $context['service'] === 'Doofinder Feed'
-                    && $context['retry_after'] === 'using backoff'
+                    && $context['retry_after'] === null
                     && \array_key_exists('attempts', $context));
 
         $job = Mockery::mock(ProcessProductSearchFeedJob::class)->makePartial();

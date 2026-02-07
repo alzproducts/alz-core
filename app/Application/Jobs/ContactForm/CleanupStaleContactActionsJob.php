@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Application\Jobs\ContactForm;
 
 use App\Application\Contracts\ContactSubmission\ContactSubmissionActionRepositoryInterface;
-use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Api\TransientApiFailure;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use DateTimeImmutable;
 use Illuminate\Bus\Queueable;
@@ -66,7 +66,7 @@ final class CleanupStaleContactActionsJob implements ShouldQueue
     }
 
     /**
-     * @throws ExternalServiceUnavailableException On transient DB failure (triggers retry)
+     * @throws TransientApiFailure On transient failure (triggers retry)
      * @throws Throwable On unexpected errors (fails immediately)
      */
     public function handle(ContactSubmissionActionRepositoryInterface $repository): void
@@ -107,14 +107,14 @@ final class CleanupStaleContactActionsJob implements ShouldQueue
                 'failed_count' => $failedCount,
                 'total_found' => \count($staleActions),
             ]);
-        } catch (ExternalServiceUnavailableException $e) {
-            // Transient DB failure - retry with backoff
-            Log::warning('Database unavailable during stale action cleanup', [
+        } catch (TransientApiFailure $e) {
+            Log::warning('Stale action cleanup service unavailable, will retry', [
+                'service' => $e->serviceName,
                 'retry_after' => $e->retryAfter,
                 'attempt' => $this->attempts(),
             ]);
 
-            throw $e; // Let Laravel handle with backoff
+            throw $e;
         } catch (Throwable $e) {
             // Unexpected exception = code needs updating
             Log::critical('Unexpected exception in CleanupStaleContactActionsJob - code update required', [
@@ -135,7 +135,7 @@ final class CleanupStaleContactActionsJob implements ShouldQueue
      * @param array{action_id: string, parent_id: string} $action
      *
      * @throws DatabaseOperationFailedException On reset failure
-     * @throws ExternalServiceUnavailableException On transient DB failure
+     * @throws TransientApiFailure On transient failure
      */
     private function resetAndRedispatch(
         ContactSubmissionActionRepositoryInterface $repository,

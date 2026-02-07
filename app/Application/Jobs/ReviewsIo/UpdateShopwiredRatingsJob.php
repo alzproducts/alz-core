@@ -5,10 +5,8 @@ declare(strict_types=1);
 namespace App\Application\Jobs\ReviewsIo;
 
 use App\Application\ReviewsIo\UseCases\UpdateShopwiredRatingsUseCase;
-use App\Domain\Exceptions\Api\AuthenticationExpiredException;
-use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
-use App\Domain\Exceptions\Api\InvalidApiRequestException;
-use App\Domain\Exceptions\Api\InvalidApiResponseException;
+use App\Domain\Exceptions\Api\PermanentApiFailure;
+use App\Domain\Exceptions\Api\TransientApiFailure;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use Illuminate\Bus\Queueable;
@@ -46,10 +44,8 @@ final class UpdateShopwiredRatingsJob implements ShouldQueue
     /**
      * @throws DatabaseOperationFailedException When database query fails
      * @throws DuplicateRecordException On constraint violation
-     * @throws ExternalServiceUnavailableException When ShopWired API unavailable - will retry
-     * @throws AuthenticationExpiredException When credentials invalid (permanent failure)
-     * @throws InvalidApiRequestException When request invalid (permanent failure)
-     * @throws InvalidApiResponseException When response parsing fails (permanent failure)
+     * @throws TransientApiFailure When ShopWired API unavailable (triggers retry)
+     * @throws PermanentApiFailure When permanent API failure occurs (fails immediately)
      * @throws Throwable When unexpected errors occur
      */
     public function handle(UpdateShopwiredRatingsUseCase $useCase): void
@@ -65,37 +61,10 @@ final class UpdateShopwiredRatingsJob implements ShouldQueue
                 'skipped' => $result->skipped,
                 'failed' => $result->failed,
             ]);
-        } catch (InvalidApiResponseException $e) {
-            Log::critical('API response validation failed during ShopWired ratings update', [
+        } catch (TransientApiFailure $e) {
+            Log::warning('ShopWired ratings update service unavailable, will retry', [
                 'service' => $e->serviceName,
-                'error' => $e->getMessage(),
-                'attempts' => $this->attempts(),
-            ]);
-
-            $this->fail($e);
-            throw $e;
-        } catch (AuthenticationExpiredException $e) {
-            Log::critical('Authentication failed during ShopWired ratings update', [
-                'service' => $e->serviceName,
-                'error' => $e->getMessage(),
-                'attempts' => $this->attempts(),
-            ]);
-
-            $this->fail($e);
-            throw $e;
-        } catch (InvalidApiRequestException $e) {
-            Log::critical('Invalid API request during ShopWired ratings update', [
-                'service' => $e->serviceName,
-                'error' => $e->getMessage(),
-                'attempts' => $this->attempts(),
-            ]);
-
-            $this->fail($e);
-            throw $e;
-        } catch (ExternalServiceUnavailableException $e) {
-            Log::warning('ShopWired API unavailable during ratings update, will retry', [
-                'service' => $e->serviceName,
-                'retry_after' => $e->retryAfter ?? 'using backoff',
+                'retry_after' => $e->retryAfter,
                 'attempts' => $this->attempts(),
             ]);
 
@@ -104,6 +73,16 @@ final class UpdateShopwiredRatingsJob implements ShouldQueue
             } else {
                 throw $e;
             }
+        } catch (PermanentApiFailure $e) {
+            Log::critical('ShopWired ratings update permanent API failure, failing immediately', [
+                'exception' => $e::class,
+                'service' => $e->serviceName,
+                'error' => $e->getMessage(),
+                'attempts' => $this->attempts(),
+            ]);
+
+            $this->fail($e);
+            throw $e;
         } catch (Throwable $e) {
             Log::critical('Unexpected exception in ShopWired ratings update - code update required', [
                 'job' => self::class,
