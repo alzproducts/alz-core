@@ -4,17 +4,18 @@ declare(strict_types=1);
 
 namespace App\Application\Jobs\Shopwired;
 
+use App\Application\Jobs\Enums\QueueName;
 use App\Application\Shopwired\UseCases\SyncOrdersRangeUseCase;
-use App\Domain\Exceptions\Api\AuthenticationExpiredException;
-use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
-use App\Domain\Exceptions\Api\InvalidApiResponseException;
+use App\Domain\Exceptions\Api\AbstractApiException;
+use App\Domain\Exceptions\Api\PermanentApiFailure;
+use App\Domain\Exceptions\Api\TransientApiFailure;
 use DateTimeImmutable;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
+use Psr\Log\LoggerInterface;
 use Throwable;
 
 /**
@@ -33,7 +34,6 @@ final class SyncShopwiredOrdersRangeJob implements ShouldQueue
     use Dispatchable;
     use InteractsWithQueue;
     use Queueable;
-    use SerializesModels;
 
     /**
      * Maximum number of attempts before giving up.
@@ -62,23 +62,22 @@ final class SyncShopwiredOrdersRangeJob implements ShouldQueue
         private readonly DateTimeImmutable $from,
         private readonly DateTimeImmutable $to,
     ) {
-        $this->onQueue('low');
+        $this->onQueue(QueueName::Low->value);
     }
 
     /**
      * Execute the job.
      *
-     * @throws ExternalServiceUnavailableException When ShopWired API unavailable - will retry
-     * @throws InvalidApiResponseException When API contract violation (permanent failure)
-     * @throws AuthenticationExpiredException When credentials invalid (permanent failure)
+     * @throws TransientApiFailure When ShopWired API unavailable (triggers retry)
+     * @throws PermanentApiFailure When permanent API failure occurs (fails immediately)
      * @throws Throwable When unexpected errors occur - indicates code update required
      */
-    public function handle(SyncOrdersRangeUseCase $useCase): void
+    public function handle(SyncOrdersRangeUseCase $useCase, LoggerInterface $logger): void
     {
         $fromString = $this->from->format('Y-m-d H:i:s');
         $toString = $this->to->format('Y-m-d H:i:s');
 
-        Log::info('ShopWired order sync job starting', [
+        $logger->info('ShopWired order sync job starting', [
             'from' => $fromString,
             'to' => $toString,
         ]);
@@ -86,63 +85,32 @@ final class SyncShopwiredOrdersRangeJob implements ShouldQueue
         try {
             $result = $useCase->execute($this->from, $this->to);
 
-            Log::info('ShopWired order sync job completed', [
+            $logger->info('ShopWired order sync job completed', [
                 'from' => $fromString,
                 'to' => $toString,
                 'fetched' => $result->fetched,
                 'saved' => $result->saved,
                 'failed' => $result->failed,
             ]);
-        } catch (InvalidApiResponseException $e) {
-            // Permanent failure - API contract changed, code needs updating
-            Log::critical('API response validation failed during ShopWired sync', [
+        } catch (TransientApiFailure $e) {
+            // Dual retry: API-provided delay via release(), or Laravel backoff via rethrow
+            $logger->warning('ShopWired order sync service unavailable, will retry', [
                 'from' => $fromString,
                 'to' => $toString,
                 'service' => $e->serviceName,
-                'error' => $e->getMessage(),
+                'retry_after' => $e->retryAfter,
                 'attempts' => $this->attempts(),
             ]);
 
-            $this->fail($e);
-            throw $e;
-        } catch (AuthenticationExpiredException $e) {
-            // Permanent failure - credentials need fixing, don't waste retries
-            Log::critical('Authentication failed during ShopWired sync', [
-                'from' => $fromString,
-                'to' => $toString,
-                'service' => $e->serviceName,
-                'error' => $e->getMessage(),
-                'attempts' => $this->attempts(),
-            ]);
-
-            $this->fail($e);
-            throw $e;
-        } catch (ExternalServiceUnavailableException $e) {
-            Log::warning('ShopWired API unavailable, will retry', [
-                'from' => $fromString,
-                'to' => $toString,
-                'service' => $e->serviceName,
-                'retry_after' => $e->retryAfter ?? 'using backoff',
-                'attempts' => $this->attempts(),
-            ]);
-
-            // Use API's retry delay if provided, otherwise let Laravel use backoff array
             if ($e->retryAfter !== null) {
                 $this->release($e->retryAfter);
             } else {
                 throw $e;
             }
+        } catch (PermanentApiFailure $e) {
+            $this->fail($e);
+            throw $e;
         } catch (Throwable $e) {
-            // Unexpected exception = code needs updating
-            Log::critical('Unexpected exception in ShopWired sync - code update required', [
-                'job' => self::class,
-                'exception' => $e::class,
-                'message' => $e->getMessage(),
-                'from' => $fromString,
-                'to' => $toString,
-                'attempts' => $this->attempts(),
-            ]);
-
             $this->fail($e);
             throw $e;
         }
@@ -153,13 +121,19 @@ final class SyncShopwiredOrdersRangeJob implements ShouldQueue
      */
     public function failed(Throwable $exception): void
     {
-        Log::error('ShopWired order sync job failed permanently', [
+        $context = [
             'from' => $this->from->format('Y-m-d H:i:s'),
             'to' => $this->to->format('Y-m-d H:i:s'),
             'exception' => $exception::class,
             'message' => $exception->getMessage(),
             'attempts' => $this->attempts(),
-        ]);
+        ];
+
+        if ($exception instanceof AbstractApiException) {
+            Log::error('ShopWired order sync job failed permanently', $context);
+        } else {
+            Log::critical('ShopWired order sync job failed permanently', $context);
+        }
     }
 
     /**

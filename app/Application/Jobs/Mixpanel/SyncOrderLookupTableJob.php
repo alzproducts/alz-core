@@ -4,16 +4,18 @@ declare(strict_types=1);
 
 namespace App\Application\Jobs\Mixpanel;
 
+use App\Application\Jobs\Enums\QueueName;
 use App\Application\Mixpanel\UseCases\SyncLookupTableUseCase;
-use App\Domain\Exceptions\Api\AuthenticationExpiredException;
-use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
-use App\Domain\Exceptions\Api\UnexpectedApiResultException;
+use App\Domain\Exceptions\Api\AbstractApiException;
+use App\Domain\Exceptions\Api\PermanentApiFailure;
+use App\Domain\Exceptions\Api\TransientApiFailure;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
+use Psr\Log\LoggerInterface;
 use Throwable;
 
 /**
@@ -24,12 +26,11 @@ use Throwable;
  *
  * Implements exponential backoff for rate limit and transient error handling.
  */
-final class SyncOrderLookupTableJob implements ShouldQueue
+final class SyncOrderLookupTableJob implements ShouldBeUnique, ShouldQueue
 {
     use Dispatchable;
     use InteractsWithQueue;
     use Queueable;
-    use SerializesModels;
 
     /**
      * Maximum number of attempts before giving up.
@@ -55,70 +56,56 @@ final class SyncOrderLookupTableJob implements ShouldQueue
      */
     public array $backoff = [60, 300, 3600];
 
+    /**
+     * Seconds this job should remain unique.
+     */
+    public int $uniqueFor = 600;
+
+    /**
+     * Get the unique ID for the job.
+     */
+    public function uniqueId(): string
+    {
+        return 'sync-order-lookup-table';
+    }
+
     public function __construct()
     {
-        $this->onQueue('low');
+        $this->onQueue(QueueName::Low->value);
     }
 
     /**
      * Execute the job: synchronize order enrichment lookup table.
      *
-     * @throws ExternalServiceUnavailableException When external APIs unavailable - will retry
-     * @throws UnexpectedApiResultException When API returns unexpected data (permanent failure)
-     * @throws AuthenticationExpiredException When API credentials invalid (permanent failure)
+     * @throws TransientApiFailure When Mixpanel API unavailable (triggers retry)
+     * @throws PermanentApiFailure When permanent API failure occurs (fails immediately)
      * @throws Throwable When unexpected errors occur - indicates code update required
      */
-    public function handle(SyncLookupTableUseCase $useCase): void
+    public function handle(SyncLookupTableUseCase $useCase, LoggerInterface $logger): void
     {
-        Log::info('Order lookup table sync job starting');
+        $logger->info('Order lookup table sync job starting');
 
         try {
             $useCase->execute();
 
-            Log::info('Order lookup table sync job completed successfully');
-        } catch (UnexpectedApiResultException $e) {
-            // Permanent failure - retrying won't help, needs human investigation
-            Log::critical('Unexpected API result during order lookup table sync, failing immediately', [
+            $logger->info('Order lookup table sync job completed successfully');
+        } catch (TransientApiFailure $e) {
+            // Dual retry: API-provided delay via release(), or Laravel backoff via rethrow
+            $logger->warning('Order lookup table sync service unavailable, will retry', [
                 'service' => $e->serviceName,
-                'reason' => $e->reason,
+                'retry_after' => $e->retryAfter,
                 'attempts' => $this->attempts(),
             ]);
 
-            $this->fail($e);
-            throw $e;
-        } catch (AuthenticationExpiredException $e) {
-            // Permanent failure - credentials need fixing, don't waste retries
-            Log::critical('Authentication failed during order lookup table sync, failing immediately', [
-                'service' => $e->serviceName,
-                'message' => $e->getMessage(),
-                'attempts' => $this->attempts(),
-            ]);
-
-            $this->fail($e);
-            throw $e;
-        } catch (ExternalServiceUnavailableException $e) {
-            Log::warning('External service unavailable during order lookup table sync, will retry', [
-                'service' => $e->serviceName,
-                'retry_after' => $e->retryAfter ?? 'using backoff',
-                'attempts' => $this->attempts(),
-            ]);
-
-            // Use API's retry delay if provided, otherwise let Laravel use backoff array
             if ($e->retryAfter !== null) {
                 $this->release($e->retryAfter);
             } else {
                 throw $e;
             }
+        } catch (PermanentApiFailure $e) {
+            $this->fail($e);
+            throw $e;
         } catch (Throwable $e) {
-            // Unexpected exception = code needs updating
-            // Fail immediately - don't waste retries on unknown errors
-            Log::critical('Unexpected exception in order lookup sync - code update required', [
-                'job' => self::class,
-                'exception' => $e::class,
-                'message' => $e->getMessage(),
-                'attempts' => $this->attempts(),
-            ]);
-
             $this->fail($e);
             throw $e;
         }
@@ -129,10 +116,16 @@ final class SyncOrderLookupTableJob implements ShouldQueue
      */
     public function failed(Throwable $exception): void
     {
-        Log::error('Order lookup table sync job failed', [
+        $context = [
             'exception' => $exception::class,
             'message' => $exception->getMessage(),
             'attempts' => $this->attempts(),
-        ]);
+        ];
+
+        if ($exception instanceof AbstractApiException) {
+            Log::error('Order lookup table sync job failed', $context);
+        } else {
+            Log::critical('Order lookup table sync job failed', $context);
+        }
     }
 }

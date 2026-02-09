@@ -20,13 +20,13 @@ use Throwable;
  * @see ExternalServiceUnavailableException For transient failures (rate limits, outages)
  * @see InvalidApiRequestException For malformed requests
  */
-final class AuthenticationExpiredException extends AbstractApiException
+final class AuthenticationExpiredException extends PermanentApiFailure
 {
     public function __construct(
-        public readonly string $serviceName,
+        string $serviceName,
         string $message = 'Authentication failed',
         ?Throwable $previous = null,
     ) {
-        parent::__construct("{$serviceName}: {$message}", 0, $previous);
+        parent::__construct($serviceName, "{$serviceName}: {$message}", $previous);
     }
 }

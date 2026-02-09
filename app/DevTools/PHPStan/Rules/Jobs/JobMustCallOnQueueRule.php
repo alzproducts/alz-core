@@ -10,6 +10,7 @@ use PhpParser\Node\Identifier;
 use PhpParser\Node\Stmt\ClassMethod;
 use PhpParser\Node\Stmt\Expression;
 use PHPStan\Analyser\Scope;
+use PHPStan\Node\InClassNode;
 use PHPStan\Rules\IdentifierRuleError;
 use PHPStan\Rules\Rule;
 use PHPStan\Rules\RuleErrorBuilder;
@@ -21,13 +22,16 @@ use PHPStan\Rules\RuleErrorBuilder;
  * silently. Each job should declare its queue tier (high/default/low)
  * for proper priority routing via Horizon.
  *
- * @implements Rule<ClassMethod>
+ * Uses InClassNode (not ClassMethod) so that jobs without a constructor
+ * are also caught — previously they silently defaulted to 'default'.
+ *
+ * @implements Rule<InClassNode>
  */
 final class JobMustCallOnQueueRule implements Rule
 {
     public function getNodeType(): string
     {
-        return ClassMethod::class;
+        return InClassNode::class;
     }
 
     /**
@@ -35,22 +39,38 @@ final class JobMustCallOnQueueRule implements Rule
      */
     public function processNode(Node $node, Scope $scope): array
     {
-        if ($node->name->toString() !== '__construct') {
+        $classReflection = $node->getClassReflection();
+
+        if (! $this->isJobClass($classReflection->getName())) {
             return [];
         }
 
-        if (! $scope->isInClass()) {
+        if ($classReflection->isAbstract() || $classReflection->isEnum()) {
             return [];
         }
 
-        $className = $scope->getClassReflection()->getName();
-
-        if (! \str_contains($className, 'App\\Application\\Jobs\\')) {
-            return [];
+        // Find __construct in the AST
+        $classNode = $node->getOriginalNode();
+        $constructor = null;
+        foreach ($classNode->stmts as $stmt) {
+            if ($stmt instanceof ClassMethod && $stmt->name->toString() === '__construct') {
+                $constructor = $stmt;
+                break;
+            }
         }
 
-        // Search constructor statements for $this->onQueue() call
-        foreach ($node->stmts ?? [] as $stmt) {
+        if ($constructor === null) {
+            return [
+                RuleErrorBuilder::message(
+                    'Job must have a constructor that calls $this->onQueue() to explicitly assign a queue tier.',
+                )
+                    ->identifier('alz.jobMustCallOnQueue')
+                    ->build(),
+            ];
+        }
+
+        // Check constructor contains onQueue() call
+        foreach ($constructor->stmts ?? [] as $stmt) {
             if ($this->containsOnQueueCall($stmt)) {
                 return [];
             }
@@ -63,6 +83,11 @@ final class JobMustCallOnQueueRule implements Rule
                 ->identifier('alz.jobMustCallOnQueue')
                 ->build(),
         ];
+    }
+
+    private function isJobClass(string $className): bool
+    {
+        return \str_contains($className, 'App\\Application\\Jobs\\');
     }
 
     private function containsOnQueueCall(Node $stmt): bool

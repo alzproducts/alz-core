@@ -7,10 +7,11 @@ namespace App\Application\Jobs\ContactForm;
 use App\Application\ContactSubmission\UseCases\HandleContactSubmissionFailureUseCase;
 use App\Application\ContactSubmission\UseCases\ProcessContactSubmissionUseCase;
 use App\Application\Contracts\ContactSubmission\ContactSubmissionActionRepositoryInterface;
+use App\Application\Jobs\Enums\QueueName;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
-use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Domain\Exceptions\Api\TransientApiFailure;
 use App\Domain\Exceptions\Api\UnexpectedApiResultException;
 use App\Domain\Exceptions\Data\InsufficientDataException;
 use App\Domain\Exceptions\Data\MalformedStoredDataException;
@@ -19,8 +20,7 @@ use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Facades\Log;
+use Psr\Log\LoggerInterface;
 use Throwable;
 
 /**
@@ -41,13 +41,17 @@ final class ProcessContactSubmissionJob implements ShouldBeUnique, ShouldQueue
     use Dispatchable;
     use InteractsWithQueue;
     use Queueable;
-    use SerializesModels;
 
     /**
      * Maximum attempts before permanent failure.
      * 5 attempts = initial + 4 retries (using all 4 backoff delays).
      */
     public int $tries = 5;
+
+    /**
+     * Maximum exceptions before permanent failure.
+     */
+    public int $maxExceptions = 5;
 
     /**
      * Job timeout in seconds.
@@ -72,7 +76,7 @@ final class ProcessContactSubmissionJob implements ShouldBeUnique, ShouldQueue
         public readonly string $submissionId,
         public readonly string $actionId,
     ) {
-        $this->onQueue('default');
+        $this->onQueue(QueueName::Default->value);
     }
 
     /**
@@ -87,14 +91,15 @@ final class ProcessContactSubmissionJob implements ShouldBeUnique, ShouldQueue
     /**
      * Execute the job.
      *
-     * @throws ExternalServiceUnavailableException When HelpScout unavailable (triggers retry)
+     * @throws TransientApiFailure When HelpScout unavailable (triggers retry)
      * @throws Throwable On unexpected errors
      */
     public function handle(
         ProcessContactSubmissionUseCase $useCase,
         ContactSubmissionActionRepositoryInterface $actionRepository,
+        LoggerInterface $logger,
     ): void {
-        Log::info('ProcessContactSubmissionJob starting', [
+        $logger->info('ProcessContactSubmissionJob starting', [
             'submission_id' => $this->submissionId,
             'action_id' => $this->actionId,
             'attempt' => $this->attempts(),
@@ -106,13 +111,13 @@ final class ProcessContactSubmissionJob implements ShouldBeUnique, ShouldQueue
         try {
             $conversationId = $useCase->execute($this->submissionId, $this->actionId);
 
-            Log::info('ProcessContactSubmissionJob completed', [
+            $logger->info('ProcessContactSubmissionJob completed', [
                 'submission_id' => $this->submissionId,
                 'conversation_id' => $conversationId,
             ]);
-        } catch (ExternalServiceUnavailableException $e) {
-            // Transient failure - retry with API's delay or use backoff
-            Log::warning('HelpScout unavailable during contact processing', [
+        } catch (TransientApiFailure $e) {
+            // Dual retry: API-provided delay via release(), or Laravel backoff via rethrow
+            $logger->warning('Contact processing service unavailable, will retry', [
                 'submission_id' => $this->submissionId,
                 'service' => $e->serviceName,
                 'retry_after' => $e->retryAfter,
@@ -122,14 +127,10 @@ final class ProcessContactSubmissionJob implements ShouldBeUnique, ShouldQueue
             if ($e->retryAfter !== null) {
                 $this->release($e->retryAfter);
             } else {
-                throw $e; // Let Laravel handle with backoff
+                throw $e;
             }
         } catch (AuthenticationExpiredException $e) {
             // Permanent failure - credentials need updating
-            Log::critical('HelpScout authentication expired', [
-                'submission_id' => $this->submissionId,
-                'service' => $e->serviceName,
-            ]);
 
             $actionRepository->markFailed($this->actionId, "Authentication expired: {$e->getMessage()}");
             $this->fail($e);
@@ -137,11 +138,6 @@ final class ProcessContactSubmissionJob implements ShouldBeUnique, ShouldQueue
             throw $e;
         } catch (InvalidApiRequestException|UnexpectedApiResultException $e) {
             // Permanent failure - code needs fixing
-            Log::critical('HelpScout API error - code update required', [
-                'submission_id' => $this->submissionId,
-                'exception' => $e::class,
-                'message' => $e->getMessage(),
-            ]);
 
             $actionRepository->markFailed($this->actionId, "API error: {$e->getMessage()}");
             $this->fail($e);
@@ -149,11 +145,6 @@ final class ProcessContactSubmissionJob implements ShouldBeUnique, ShouldQueue
             throw $e;
         } catch (ResourceNotFoundException|MalformedStoredDataException $e) {
             // Permanent failure - data issue
-            Log::error('Contact submission data error', [
-                'submission_id' => $this->submissionId,
-                'exception' => $e::class,
-                'message' => $e->getMessage(),
-            ]);
 
             $actionRepository->markFailed($this->actionId, "Data error: {$e->getMessage()}");
             $this->fail($e);
@@ -161,25 +152,12 @@ final class ProcessContactSubmissionJob implements ShouldBeUnique, ShouldQueue
             throw $e;
         } catch (InsufficientDataException $e) {
             // Permanent failure - validation should have caught this
-            Log::error('Contact submission has insufficient data', [
-                'submission_id' => $this->submissionId,
-                'context' => $e->context,
-                'requirement' => $e->requirement,
-            ]);
 
             $actionRepository->markFailed($this->actionId, "Insufficient data: {$e->getMessage()}");
             $this->fail($e);
 
             throw $e;
         } catch (Throwable $e) {
-            // Unexpected exception = code needs updating
-            Log::critical('Unexpected exception in ProcessContactSubmissionJob - code update required', [
-                'submission_id' => $this->submissionId,
-                'exception' => $e::class,
-                'message' => $e->getMessage(),
-                'attempt' => $this->attempts(),
-            ]);
-
             $actionRepository->markFailed($this->actionId, "Unexpected error: {$e->getMessage()}");
             $this->fail($e);
 

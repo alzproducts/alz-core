@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\DevTools\PHPStan\Rules\Architecture;
 
 use PhpParser\Node;
-use PhpParser\Node\Expr;
+use PhpParser\Node\Expr\CallLike;
 use PhpParser\Node\Expr\FuncCall;
 use PhpParser\Node\Expr\MethodCall;
 use PhpParser\Node\Expr\StaticCall;
@@ -24,7 +24,7 @@ use PHPStan\Rules\RuleErrorBuilder;
  *
  * Detects: event(), ::dispatch(), ->dispatch()
  *
- * @implements Rule<Expr>
+ * @implements Rule<CallLike>
  */
 final class NoEventDispatchOutsideApplicationRule implements Rule
 {
@@ -36,7 +36,7 @@ final class NoEventDispatchOutsideApplicationRule implements Rule
 
     public function getNodeType(): string
     {
-        return Expr::class;
+        return CallLike::class;
     }
 
     /**

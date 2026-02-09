@@ -380,6 +380,7 @@ return static function (Config $config): void {
                        'App\Application\HelpScout\Config',
                        'App\Application\HelpScout\Queries\Conversation\Enums',
                        'App\Application\Inventory\Enums',
+                       'App\Application\Jobs\Enums',
                    ))
                    ->should(
                        new MatchOneOfTheseNames(['*UseCase', '*Service', '*Transformer', '*Formatter', '*Sorter', '*Resolver', '*Interface', '*DTO', '*Exception', '*Result', '*Params', '*Command', '*Job']),

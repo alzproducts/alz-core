@@ -18,6 +18,7 @@ use Mockery\MockInterface;
 use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use Psr\Log\LoggerInterface;
 use RuntimeException;
 use Tests\TestCase;
 
@@ -39,12 +40,15 @@ final class SyncOrdersToMixpanelJobTest extends TestCase
 
     private SyncOrdersToMixpanelUseCase&MockInterface $mockUseCase;
 
+    private LoggerInterface&MockInterface $mockLogger;
+
     #[Override]
     protected function setUp(): void
     {
         parent::setUp();
 
         $this->mockUseCase = Mockery::mock(SyncOrdersToMixpanelUseCase::class);
+        $this->mockLogger = Mockery::mock(LoggerInterface::class)->shouldIgnoreMissing();
     }
 
     /*
@@ -69,11 +73,11 @@ final class SyncOrdersToMixpanelJobTest extends TestCase
             ->once()
             ->andReturn($result);
 
-        Log::shouldReceive('info')
+        $this->mockLogger->shouldReceive('info')
             ->once()
             ->with('Mixpanel order sync job starting', Mockery::type('array'));
 
-        Log::shouldReceive('info')
+        $this->mockLogger->shouldReceive('info')
             ->once()
             ->with('Mixpanel order sync job completed', Mockery::on(static fn(array $context): bool => $context['orders_in_range'] === 10
                     && $context['skipped'] === 5
@@ -82,7 +86,7 @@ final class SyncOrdersToMixpanelJobTest extends TestCase
                     && $context['product_events'] === 25));
 
         $job = $this->createJob();
-        $job->handle($this->mockUseCase);
+        $job->handle($this->mockUseCase, $this->mockLogger);
     }
 
     #[Test]
@@ -95,19 +99,19 @@ final class SyncOrdersToMixpanelJobTest extends TestCase
             ->once()
             ->andReturn($result);
 
-        Log::shouldReceive('info')
+        $this->mockLogger->shouldReceive('info')
             ->once()
             ->with('Mixpanel order sync job starting', [
                 'from' => self::TEST_FROM,
                 'to' => self::TEST_TO,
             ]);
 
-        Log::shouldReceive('info')
+        $this->mockLogger->shouldReceive('info')
             ->once()
             ->with('Mixpanel order sync job completed', Mockery::type('array'));
 
         $job = $this->createJob();
-        $job->handle($this->mockUseCase);
+        $job->handle($this->mockUseCase, $this->mockLogger);
     }
 
     /*
@@ -126,21 +130,13 @@ final class SyncOrdersToMixpanelJobTest extends TestCase
             ->once()
             ->andThrow($exception);
 
-        Log::shouldReceive('info')->once();
-
-        Log::shouldReceive('critical')
-            ->once()
-            ->withArgs(static fn(string $message, array $context): bool => $message === 'Mixpanel export data invalid during order sync'
-                    && $context['service'] === 'Mixpanel'
-                    && \str_contains($context['error'], 'Export returned empty result'));
-
         $job = $this->createJobMock();
         $job->shouldReceive('fail')->once()->with($exception);
         $job->shouldReceive('attempts')->andReturn(1);
 
         $this->expectException(UnexpectedApiResultException::class);
 
-        $job->handle($this->mockUseCase);
+        $job->handle($this->mockUseCase, $this->mockLogger);
     }
 
     /*
@@ -159,20 +155,13 @@ final class SyncOrdersToMixpanelJobTest extends TestCase
             ->once()
             ->andThrow($exception);
 
-        Log::shouldReceive('info')->once();
-
-        Log::shouldReceive('critical')
-            ->once()
-            ->withArgs(static fn(string $message, array $context): bool => $message === 'Authentication failed during Mixpanel order sync'
-                    && $context['service'] === 'Mixpanel');
-
         $job = $this->createJobMock();
         $job->shouldReceive('fail')->once()->with($exception);
         $job->shouldReceive('attempts')->andReturn(1);
 
         $this->expectException(AuthenticationExpiredException::class);
 
-        $job->handle($this->mockUseCase);
+        $job->handle($this->mockUseCase, $this->mockLogger);
     }
 
     #[Test]
@@ -185,9 +174,6 @@ final class SyncOrdersToMixpanelJobTest extends TestCase
             ->once()
             ->andThrow($exception);
 
-        Log::shouldReceive('info')->once();
-        Log::shouldReceive('critical')->once();
-
         $job = $this->createJobMock();
         $job->shouldReceive('fail')->once()->with($exception);
         $job->shouldNotReceive('release'); // Should NOT release for retry
@@ -195,7 +181,7 @@ final class SyncOrdersToMixpanelJobTest extends TestCase
 
         $this->expectException(AuthenticationExpiredException::class);
 
-        $job->handle($this->mockUseCase);
+        $job->handle($this->mockUseCase, $this->mockLogger);
     }
 
     /*
@@ -218,22 +204,13 @@ final class SyncOrdersToMixpanelJobTest extends TestCase
             ->once()
             ->andThrow($exception);
 
-        Log::shouldReceive('info')->once();
-
-        Log::shouldReceive('critical')
-            ->once()
-            ->withArgs(static fn(string $message, array $context): bool => $message === 'Missing required data during Mixpanel order sync'
-                    && $context['data_type'] === 'customer trade status'
-                    && $context['operation'] === 'Mixpanel order sync'
-                    && $context['resolution'] === 'Run customer sync first');
-
         $job = $this->createJobMock();
         $job->shouldReceive('fail')->once()->with($exception);
         $job->shouldReceive('attempts')->andReturn(1);
 
         $this->expectException(MissingRequiredDataException::class);
 
-        $job->handle($this->mockUseCase);
+        $job->handle($this->mockUseCase, $this->mockLogger);
     }
 
     #[Test]
@@ -249,9 +226,6 @@ final class SyncOrdersToMixpanelJobTest extends TestCase
             ->once()
             ->andThrow($exception);
 
-        Log::shouldReceive('info')->once();
-        Log::shouldReceive('critical')->once();
-
         $job = $this->createJobMock();
         $job->shouldReceive('fail')->once()->with($exception);
         $job->shouldNotReceive('release'); // Should NOT release for retry
@@ -259,7 +233,7 @@ final class SyncOrdersToMixpanelJobTest extends TestCase
 
         $this->expectException(MissingRequiredDataException::class);
 
-        $job->handle($this->mockUseCase);
+        $job->handle($this->mockUseCase, $this->mockLogger);
     }
 
     /*
@@ -278,11 +252,9 @@ final class SyncOrdersToMixpanelJobTest extends TestCase
             ->once()
             ->andThrow($exception);
 
-        Log::shouldReceive('info')->once();
-
-        Log::shouldReceive('warning')
+        $this->mockLogger->shouldReceive('warning')
             ->once()
-            ->withArgs(static fn(string $message, array $context): bool => $message === 'Mixpanel API unavailable, will retry'
+            ->withArgs(static fn(string $message, array $context): bool => $message === 'Mixpanel order sync service unavailable, will retry'
                     && $context['service'] === 'Mixpanel'
                     && $context['retry_after'] === 180);
 
@@ -290,7 +262,7 @@ final class SyncOrdersToMixpanelJobTest extends TestCase
         $job->shouldReceive('release')->once()->with(180);
         $job->shouldReceive('attempts')->andReturn(1);
 
-        $job->handle($this->mockUseCase);
+        $job->handle($this->mockUseCase, $this->mockLogger);
     }
 
     /*
@@ -309,11 +281,9 @@ final class SyncOrdersToMixpanelJobTest extends TestCase
             ->once()
             ->andThrow($exception);
 
-        Log::shouldReceive('info')->once();
-
-        Log::shouldReceive('warning')
+        $this->mockLogger->shouldReceive('warning')
             ->once()
-            ->withArgs(static fn(string $message, array $context): bool => $context['retry_after'] === 'using backoff');
+            ->withArgs(static fn(string $message, array $context): bool => $context['retry_after'] === null);
 
         $job = $this->createJobMock();
         $job->shouldNotReceive('release');
@@ -321,7 +291,7 @@ final class SyncOrdersToMixpanelJobTest extends TestCase
 
         $this->expectException(ExternalServiceUnavailableException::class);
 
-        $job->handle($this->mockUseCase);
+        $job->handle($this->mockUseCase, $this->mockLogger);
     }
 
     /*
@@ -340,13 +310,6 @@ final class SyncOrdersToMixpanelJobTest extends TestCase
             ->once()
             ->andThrow($exception);
 
-        Log::shouldReceive('info')->once();
-
-        Log::shouldReceive('critical')
-            ->once()
-            ->withArgs(static fn(string $message, array $context): bool => \str_contains($message, 'Unexpected exception')
-                    && $context['exception'] === RuntimeException::class);
-
         $job = $this->createJobMock();
         $job->shouldReceive('fail')->once()->with($exception);
         $job->shouldReceive('attempts')->andReturn(1);
@@ -354,7 +317,7 @@ final class SyncOrdersToMixpanelJobTest extends TestCase
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('Unexpected database error');
 
-        $job->handle($this->mockUseCase);
+        $job->handle($this->mockUseCase, $this->mockLogger);
     }
 
     #[Test]
@@ -367,9 +330,6 @@ final class SyncOrdersToMixpanelJobTest extends TestCase
             ->once()
             ->andThrow($exception);
 
-        Log::shouldReceive('info')->once();
-        Log::shouldReceive('critical')->once();
-
         $job = $this->createJobMock();
         $job->shouldReceive('fail')->once()->with($exception);
         $job->shouldNotReceive('release'); // Should NOT release for retry
@@ -377,7 +337,7 @@ final class SyncOrdersToMixpanelJobTest extends TestCase
 
         $this->expectException(RuntimeException::class);
 
-        $job->handle($this->mockUseCase);
+        $job->handle($this->mockUseCase, $this->mockLogger);
     }
 
     /*
@@ -391,7 +351,7 @@ final class SyncOrdersToMixpanelJobTest extends TestCase
     {
         $exception = new RuntimeException('Something went wrong');
 
-        Log::shouldReceive('error')
+        Log::shouldReceive('critical')
             ->once()
             ->with('Mixpanel order sync job failed permanently', [
                 'from' => self::TEST_FROM,

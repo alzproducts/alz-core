@@ -39,7 +39,7 @@ final class JobRequiredMethodsRule implements Rule
             return [];
         }
 
-        if ($classReflection->isAbstract()) {
+        if ($classReflection->isAbstract() || $classReflection->isEnum()) {
             return [];
         }
 

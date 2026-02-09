@@ -38,6 +38,8 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
 
     private SyncAdSpendUseCase $useCase;
 
+    private LoggerInterface&MockInterface $jobLoggerMock;
+
     private const string TEST_DATE = '2024-11-20';
 
     protected function setUp(): void
@@ -49,6 +51,7 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
         $this->mixpanelMock = Mockery::mock(MixpanelClientInterface::class);
         $loggerMock = Mockery::mock(LoggerInterface::class)->shouldIgnoreMissing();
         $this->useCase = new SyncAdSpendUseCase($this->adClientMock, $this->mixpanelMock, $loggerMock);
+        $this->jobLoggerMock = Mockery::mock(LoggerInterface::class)->shouldIgnoreMissing();
 
         Log::spy();
     }
@@ -64,12 +67,12 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
 
         $job = new SyncGoogleAdsToMixpanelJob(new DateTimeImmutable(self::TEST_DATE), new DateTimeImmutable(self::TEST_DATE));
 
-        $job->handle($this->useCase);
+        $job->handle($this->useCase, $this->jobLoggerMock);
 
-        Log::shouldHaveReceived('info')
+        $this->jobLoggerMock->shouldHaveReceived('info')
             ->with('Queued Google Ads to Mixpanel sync starting', ['from' => self::TEST_DATE, 'to' => self::TEST_DATE]);
 
-        Log::shouldHaveReceived('info')
+        $this->jobLoggerMock->shouldHaveReceived('info')
             ->with('Queued Google Ads to Mixpanel sync completed', ['from' => self::TEST_DATE, 'to' => self::TEST_DATE]);
     }
 
@@ -86,9 +89,9 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
 
         $job = new SyncGoogleAdsToMixpanelJob(new DateTimeImmutable($specificDate), new DateTimeImmutable($specificDate));
 
-        $job->handle($this->useCase);
+        $job->handle($this->useCase, $this->jobLoggerMock);
 
-        Log::shouldHaveReceived('info')
+        $this->jobLoggerMock->shouldHaveReceived('info')
             ->with('Queued Google Ads to Mixpanel sync starting', ['from' => $specificDate, 'to' => $specificDate]);
     }
 
@@ -112,10 +115,10 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
         $this->setJobAttempts($job, 1);
 
         // The job catches the exception and releases - it should not throw
-        $job->handle($this->useCase);
+        $job->handle($this->useCase, $this->jobLoggerMock);
 
-        Log::shouldHaveReceived('warning')
-            ->with('External service unavailable during sync, will retry', Mockery::on(
+        $this->jobLoggerMock->shouldHaveReceived('warning')
+            ->with('Google Ads sync service unavailable, will retry', Mockery::on(
                 static function (array $context): bool {
                     self::assertSame(self::TEST_DATE, $context['from']);
                     self::assertSame(self::TEST_DATE, $context['to']);
@@ -143,7 +146,7 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
 
         $this->expectException(ExternalServiceUnavailableException::class);
 
-        $job->handle($this->useCase);
+        $job->handle($this->useCase, $this->jobLoggerMock);
     }
 
     #[Test]
@@ -159,18 +162,18 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
         $this->setJobAttempts($job, 3);
 
         try {
-            $job->handle($this->useCase);
+            $job->handle($this->useCase, $this->jobLoggerMock);
         } catch (ExternalServiceUnavailableException) {
             // Expected
         }
 
-        Log::shouldHaveReceived('warning')
-            ->with('External service unavailable during sync, will retry', Mockery::on(
+        $this->jobLoggerMock->shouldHaveReceived('warning')
+            ->with('Google Ads sync service unavailable, will retry', Mockery::on(
                 static function (array $context): bool {
                     self::assertSame(self::TEST_DATE, $context['from']);
                     self::assertSame(self::TEST_DATE, $context['to']);
                     self::assertSame('Google Ads', $context['service']);
-                    self::assertSame('using backoff', $context['retry_after']);
+                    self::assertNull($context['retry_after']);
                     self::assertSame(3, $context['attempts']);
 
                     return true;
@@ -201,7 +204,7 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
         $queueJob->shouldReceive('isDeletedOrReleased')->andReturn(false);
         $job->setJob($queueJob);
 
-        $job->handle($this->useCase);
+        $job->handle($this->useCase, $this->jobLoggerMock);
     }
 
     #[Test]
@@ -226,7 +229,7 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
         $job->setJob($queueJob);
 
         // Should not throw - catches ExternalServiceUnavailableException
-        $job->handle($this->useCase);
+        $job->handle($this->useCase, $this->jobLoggerMock);
     }
 
     /**
@@ -262,7 +265,7 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
 
         $this->expectException($exception::class);
 
-        $job->handle($this->useCase);
+        $job->handle($this->useCase, $this->jobLoggerMock);
     }
 
     /**
@@ -292,7 +295,7 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('Unexpected error occurred');
 
-        $job->handle($this->useCase);
+        $job->handle($this->useCase, $this->jobLoggerMock);
     }
 
     #[Test]
@@ -307,10 +310,10 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
         $this->setJobAttempts($job, 1);
 
         // The job catches the exception and releases - it should not throw
-        $job->handle($this->useCase);
+        $job->handle($this->useCase, $this->jobLoggerMock);
 
-        Log::shouldHaveReceived('warning')
-            ->with('External service unavailable during sync, will retry', Mockery::on(
+        $this->jobLoggerMock->shouldHaveReceived('warning')
+            ->with('Google Ads sync service unavailable, will retry', Mockery::on(
                 static function (array $context): bool {
                     self::assertSame(self::TEST_DATE, $context['from']);
                     self::assertSame(self::TEST_DATE, $context['to']);
@@ -338,7 +341,7 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('Unexpected error occurred');
 
-        $job->handle($this->useCase);
+        $job->handle($this->useCase, $this->jobLoggerMock);
     }
 
     #[Test]
@@ -353,12 +356,12 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
         $job = new SyncGoogleAdsToMixpanelJob(new DateTimeImmutable(self::TEST_DATE), new DateTimeImmutable(self::TEST_DATE));
 
         try {
-            $job->handle($this->useCase);
+            $job->handle($this->useCase, $this->jobLoggerMock);
         } catch (RuntimeException) {
             // Expected
         }
 
-        Log::shouldHaveReceived('info')
+        $this->jobLoggerMock->shouldHaveReceived('info')
             ->with('Queued Google Ads to Mixpanel sync starting', ['from' => self::TEST_DATE, 'to' => self::TEST_DATE]);
     }
 
@@ -367,7 +370,7 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
     // ========================================================================
 
     #[Test]
-    public function failed_method_logs_error_with_exception_details(): void
+    public function failed_method_logs_critical_with_exception_details(): void
     {
         $exception = new RuntimeException('Something went terribly wrong');
 
@@ -376,7 +379,7 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
 
         $job->failed($exception);
 
-        Log::shouldHaveReceived('error')
+        Log::shouldHaveReceived('critical')
             ->with('Google Ads to Mixpanel sync job failed', [
                 'from' => self::TEST_DATE,
                 'to' => self::TEST_DATE,
@@ -456,7 +459,7 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
 
         $job->failed($exception);
 
-        Log::shouldHaveReceived('error')
+        Log::shouldHaveReceived('critical')
             ->with('Google Ads to Mixpanel sync job failed', Mockery::on(
                 static function (array $context): bool {
                     self::assertSame(1, $context['attempts']);
@@ -483,9 +486,9 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
 
         $job = new SyncGoogleAdsToMixpanelJob(new DateTimeImmutable($expectedDate), new DateTimeImmutable($expectedDate));
 
-        $job->handle($this->useCase);
+        $job->handle($this->useCase, $this->jobLoggerMock);
 
-        Log::shouldHaveReceived('info')
+        $this->jobLoggerMock->shouldHaveReceived('info')
             ->with('Queued Google Ads to Mixpanel sync starting', ['from' => $expectedDate, 'to' => $expectedDate]);
     }
 
@@ -510,24 +513,11 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
         $job->setJob($queueJob);
 
         try {
-            $job->handle($this->useCase);
+            $job->handle($this->useCase, $this->jobLoggerMock);
             self::fail('Expected PayloadSerializationException was not thrown');
         } catch (PayloadSerializationException) {
             // Expected - jobs now rethrow after fail()
         }
-
-        Log::shouldHaveReceived('critical')
-            ->with('Payload serialization failed during sync, failing immediately', Mockery::on(
-                static function (array $context): bool {
-                    self::assertSame(self::TEST_DATE, $context['from']);
-                    self::assertSame(self::TEST_DATE, $context['to']);
-                    self::assertSame('Mixpanel', $context['service']);
-                    self::assertStringContainsString('JSON encoding failed', $context['error']);
-                    self::assertSame(1, $context['attempts']);
-
-                    return true;
-                },
-            ));
     }
 
     #[Test]
@@ -548,7 +538,7 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
         $job->setJob($queueJob);
 
         try {
-            $job->handle($this->useCase);
+            $job->handle($this->useCase, $this->jobLoggerMock);
             self::fail('Expected PayloadSerializationException was not thrown');
         } catch (PayloadSerializationException) {
             // Expected - jobs now rethrow after fail()
@@ -579,24 +569,11 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
         $job->setJob($queueJob);
 
         try {
-            $job->handle($this->useCase);
+            $job->handle($this->useCase, $this->jobLoggerMock);
             self::fail('Expected AuthenticationExpiredException was not thrown');
         } catch (AuthenticationExpiredException) {
             // Expected - jobs now rethrow after fail()
         }
-
-        Log::shouldHaveReceived('critical')
-            ->with('Authentication failed during sync, failing immediately', Mockery::on(
-                static function (array $context): bool {
-                    self::assertSame(self::TEST_DATE, $context['from']);
-                    self::assertSame(self::TEST_DATE, $context['to']);
-                    self::assertSame('Google Ads', $context['service']);
-                    self::assertStringContainsString('Google Ads', $context['message']);
-                    self::assertSame(1, $context['attempts']);
-
-                    return true;
-                },
-            ));
     }
 
     #[Test]
@@ -617,44 +594,11 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
         $job->setJob($queueJob);
 
         try {
-            $job->handle($this->useCase);
+            $job->handle($this->useCase, $this->jobLoggerMock);
             self::fail('Expected AuthenticationExpiredException was not thrown');
         } catch (AuthenticationExpiredException) {
             // Expected - jobs now rethrow after fail()
         }
-    }
-
-    #[Test]
-    public function it_logs_critical_with_service_name_on_auth_failure_from_mixpanel(): void
-    {
-        $exception = new AuthenticationExpiredException('Mixpanel');
-
-        $this->setupCampaignsForMixpanelError($exception);
-
-        $job = new SyncGoogleAdsToMixpanelJob(new DateTimeImmutable(self::TEST_DATE), new DateTimeImmutable(self::TEST_DATE));
-
-        $queueJob = Mockery::mock(QueueJobContract::class);
-        $queueJob->shouldReceive('attempts')->andReturn(1);
-        $queueJob->shouldReceive('fail')->once()->with($exception)->andReturnNull();
-        $queueJob->shouldReceive('isReleased')->andReturn(false);
-        $queueJob->shouldReceive('isDeletedOrReleased')->andReturn(false);
-        $job->setJob($queueJob);
-
-        try {
-            $job->handle($this->useCase);
-            self::fail('Expected AuthenticationExpiredException was not thrown');
-        } catch (AuthenticationExpiredException) {
-            // Expected - jobs now rethrow after fail()
-        }
-
-        Log::shouldHaveReceived('critical')
-            ->with('Authentication failed during sync, failing immediately', Mockery::on(
-                static function (array $context): bool {
-                    self::assertSame('Mixpanel', $context['service']);
-
-                    return true;
-                },
-            ));
     }
 
     // ========================================================================
