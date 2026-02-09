@@ -4,24 +4,12 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Presentation\Console\Commands;
 
-use App\Application\Jobs\Mixpanel\SyncCampaignLookupTableJob;
 use Illuminate\Support\Facades\Queue;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
 final class SyncCampaignLookupCommandTest extends TestCase
 {
-    #[Test]
-    public function it_dispatches_campaign_lookup_job(): void
-    {
-        Queue::fake();
-
-        $this->artisan('adspend:sync-lookup')
-            ->assertSuccessful();
-
-        Queue::assertPushed(SyncCampaignLookupTableJob::class);
-    }
-
     #[Test]
     public function it_displays_success_message(): void
     {

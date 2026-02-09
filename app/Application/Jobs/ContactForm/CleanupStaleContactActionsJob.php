@@ -5,15 +5,18 @@ declare(strict_types=1);
 namespace App\Application\Jobs\ContactForm;
 
 use App\Application\Contracts\ContactSubmission\ContactSubmissionActionRepositoryInterface;
+use App\Application\Jobs\Enums\QueueName;
+use App\Domain\Exceptions\Api\AbstractApiException;
 use App\Domain\Exceptions\Api\TransientApiFailure;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use DateTimeImmutable;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
+use Psr\Log\LoggerInterface;
 use Throwable;
 
 /**
@@ -33,12 +36,11 @@ use Throwable;
  * - Per-action failures: Log and continue (don't fail entire batch)
  * - Unexpected errors: Fail immediately (code needs fixing)
  */
-final class CleanupStaleContactActionsJob implements ShouldQueue
+final class CleanupStaleContactActionsJob implements ShouldBeUnique, ShouldQueue
 {
     use Dispatchable;
     use InteractsWithQueue;
     use Queueable;
-    use SerializesModels;
 
     private const int STALE_THRESHOLD_HOURS = 1;
 
@@ -60,16 +62,26 @@ final class CleanupStaleContactActionsJob implements ShouldQueue
      */
     public array $backoff = [60, 300];
 
+    /**
+     * Seconds the job can be uniquely locked.
+     */
+    public int $uniqueFor = 300;
+
+    public function uniqueId(): string
+    {
+        return 'cleanup-stale-contact-actions';
+    }
+
     public function __construct()
     {
-        $this->onQueue('default');
+        $this->onQueue(QueueName::Default->value);
     }
 
     /**
      * @throws TransientApiFailure On transient failure (triggers retry)
      * @throws Throwable On unexpected errors (fails immediately)
      */
-    public function handle(ContactSubmissionActionRepositoryInterface $repository): void
+    public function handle(ContactSubmissionActionRepositoryInterface $repository, LoggerInterface $logger): void
     {
         try {
             $threshold = new DateTimeImmutable(\sprintf('-%d hours', self::STALE_THRESHOLD_HOURS));
@@ -79,7 +91,7 @@ final class CleanupStaleContactActionsJob implements ShouldQueue
                 return;
             }
 
-            Log::info('Found stale contact submission actions', [
+            $logger->info('Found stale contact submission actions', [
                 'count' => \count($staleActions),
                 'threshold_hours' => self::STALE_THRESHOLD_HOURS,
             ]);
@@ -89,11 +101,11 @@ final class CleanupStaleContactActionsJob implements ShouldQueue
 
             foreach ($staleActions as $action) {
                 try {
-                    $this->resetAndRedispatch($repository, $action);
+                    $this->resetAndRedispatch($repository, $action, $logger);
                     $resetCount++;
                 } catch (DatabaseOperationFailedException $e) {
                     // Log and continue - don't let one failure stop others
-                    Log::error('Failed to reset stale contact action', [
+                    $logger->error('Failed to reset stale contact action', [
                         'action_id' => $action['action_id'],
                         'submission_id' => $action['parent_id'],
                         'error' => $e->getMessage(),
@@ -102,13 +114,13 @@ final class CleanupStaleContactActionsJob implements ShouldQueue
                 }
             }
 
-            Log::info('Completed stale contact action cleanup', [
+            $logger->info('Completed stale contact action cleanup', [
                 'reset_count' => $resetCount,
                 'failed_count' => $failedCount,
                 'total_found' => \count($staleActions),
             ]);
         } catch (TransientApiFailure $e) {
-            Log::warning('Stale action cleanup service unavailable, will retry', [
+            $logger->warning('Stale action cleanup service unavailable, will retry', [
                 'service' => $e->serviceName,
                 'retry_after' => $e->retryAfter,
                 'attempt' => $this->attempts(),
@@ -116,13 +128,6 @@ final class CleanupStaleContactActionsJob implements ShouldQueue
 
             throw $e;
         } catch (Throwable $e) {
-            // Unexpected exception = code needs updating
-            Log::critical('Unexpected exception in CleanupStaleContactActionsJob - code update required', [
-                'exception' => $e::class,
-                'message' => $e->getMessage(),
-                'attempt' => $this->attempts(),
-            ]);
-
             $this->fail($e);
 
             throw $e;
@@ -140,8 +145,9 @@ final class CleanupStaleContactActionsJob implements ShouldQueue
     private function resetAndRedispatch(
         ContactSubmissionActionRepositoryInterface $repository,
         array $action,
+        LoggerInterface $logger,
     ): void {
-        Log::warning('Resetting stale contact action', [
+        $logger->warning('Resetting stale contact action', [
             'action_id' => $action['action_id'],
             'submission_id' => $action['parent_id'],
         ]);
@@ -159,10 +165,16 @@ final class CleanupStaleContactActionsJob implements ShouldQueue
      */
     public function failed(Throwable $exception): void
     {
-        Log::error('CleanupStaleContactActionsJob exhausted all retries', [
+        $context = [
             'exception' => $exception::class,
             'message' => $exception->getMessage(),
             'attempts' => $this->attempts(),
-        ]);
+        ];
+
+        if ($exception instanceof AbstractApiException) {
+            Log::error('CleanupStaleContactActionsJob exhausted all retries', $context);
+        } else {
+            Log::critical('CleanupStaleContactActionsJob exhausted all retries', $context);
+        }
     }
 }

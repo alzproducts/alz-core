@@ -4,16 +4,18 @@ declare(strict_types=1);
 
 namespace App\Application\Jobs\Shopwired;
 
+use App\Application\Jobs\Enums\QueueName;
 use App\Application\Results\BatchUpdateResult;
 use App\Application\Shopwired\UseCases\SetProductFreeDeliveryUseCase;
 use App\Domain\Catalog\Product\Commands\SetFreeDeliveryCommand;
 use App\Domain\Exceptions\AllItemsFailedException;
+use App\Domain\Exceptions\Api\AbstractApiException;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
+use Psr\Log\LoggerInterface;
 use Throwable;
 
 /**
@@ -31,7 +33,6 @@ final class SetProductFreeDeliveryJob implements ShouldQueue
     use Dispatchable;
     use InteractsWithQueue;
     use Queueable;
-    use SerializesModels;
 
     /**
      * Maximum number of attempts before giving up.
@@ -63,7 +64,7 @@ final class SetProductFreeDeliveryJob implements ShouldQueue
     public function __construct(
         public readonly array $commands,
     ) {
-        $this->onQueue('default');
+        $this->onQueue(QueueName::Default->value);
     }
 
     /**
@@ -72,25 +73,17 @@ final class SetProductFreeDeliveryJob implements ShouldQueue
      * @throws AllItemsFailedException When all items fail with temporary errors
      * @throws Throwable When unexpected errors occur
      */
-    public function handle(SetProductFreeDeliveryUseCase $useCase): void
+    public function handle(SetProductFreeDeliveryUseCase $useCase, LoggerInterface $logger): void
     {
-        Log::info('SetProductFreeDeliveryJob starting', [
+        $logger->info('SetProductFreeDeliveryJob starting', [
             'count' => \count($this->commands),
             'attempt' => $this->attempts(),
         ]);
 
         try {
             $result = $useCase->execute($this->commands);
-            $this->handleResult($result);
+            $this->handleResult($result, $logger);
         } catch (Throwable $e) {
-            // Unexpected exception = code needs updating
-            Log::critical('Unexpected exception in SetProductFreeDeliveryJob - code update required', [
-                'job' => self::class,
-                'exception' => $e::class,
-                'message' => $e->getMessage(),
-                'attempts' => $this->attempts(),
-            ]);
-
             $this->fail($e);
 
             throw $e;
@@ -104,11 +97,11 @@ final class SetProductFreeDeliveryJob implements ShouldQueue
      *
      * @throws AllItemsFailedException When all items fail with temporary errors
      */
-    private function handleResult(BatchUpdateResult $result): void
+    private function handleResult(BatchUpdateResult $result, LoggerInterface $logger): void
     {
         // All succeeded - nothing more to do
         if ($result->allSucceeded()) {
-            Log::info('SetProductFreeDeliveryJob completed successfully', [
+            $logger->info('SetProductFreeDeliveryJob completed successfully', [
                 'succeeded' => $result->succeeded,
             ]);
 
@@ -117,7 +110,7 @@ final class SetProductFreeDeliveryJob implements ShouldQueue
 
         // Log permanent failures (these won't be retried)
         if ($result->permanentFailures !== []) {
-            Log::warning('SetProductFreeDeliveryJob permanent failures (not retrying)', [
+            $logger->warning('SetProductFreeDeliveryJob permanent failures (not retrying)', [
                 'count' => \count($result->permanentFailures),
                 'failures' => $result->permanentFailures,
             ]);
@@ -125,7 +118,7 @@ final class SetProductFreeDeliveryJob implements ShouldQueue
 
         // Handle temporary failures
         if ($result->hasRetryableFailures()) {
-            $this->handleTemporaryFailures($result);
+            $this->handleTemporaryFailures($result, $logger);
         }
     }
 
@@ -136,12 +129,12 @@ final class SetProductFreeDeliveryJob implements ShouldQueue
      *
      * @throws AllItemsFailedException When all items failed with temporary errors
      */
-    private function handleTemporaryFailures(BatchUpdateResult $result): void
+    private function handleTemporaryFailures(BatchUpdateResult $result, LoggerInterface $logger): void
     {
         // If ALL items failed with temporary errors, throw to trigger job retry
         // This uses Laravel's built-in retry mechanism with backoff
         if ($result->succeeded === 0 && $result->permanentFailures === []) {
-            Log::warning('SetProductFreeDeliveryJob all items failed temporarily, will retry job', [
+            $logger->warning('SetProductFreeDeliveryJob all items failed temporarily, will retry job', [
                 'count' => \count($result->temporaryFailures),
                 'attempt' => $this->attempts(),
             ]);
@@ -153,7 +146,7 @@ final class SetProductFreeDeliveryJob implements ShouldQueue
         $failedCommands = $this->extractFailedCommands($result);
 
         if ($failedCommands !== []) {
-            Log::info('SetProductFreeDeliveryJob re-queuing temporary failures', [
+            $logger->info('SetProductFreeDeliveryJob re-queuing temporary failures', [
                 'succeeded' => $result->succeeded,
                 'retrying' => \count($failedCommands),
             ]);
@@ -184,11 +177,17 @@ final class SetProductFreeDeliveryJob implements ShouldQueue
      */
     public function failed(Throwable $exception): void
     {
-        Log::error('SetProductFreeDeliveryJob failed permanently', [
+        $context = [
             'count' => \count($this->commands),
             'exception' => $exception::class,
             'message' => $exception->getMessage(),
             'attempts' => $this->attempts(),
-        ]);
+        ];
+
+        if ($exception instanceof AbstractApiException) {
+            Log::error('SetProductFreeDeliveryJob failed permanently', $context);
+        } else {
+            Log::critical('SetProductFreeDeliveryJob failed permanently', $context);
+        }
     }
 }

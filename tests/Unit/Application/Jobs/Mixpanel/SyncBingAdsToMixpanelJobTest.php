@@ -16,6 +16,7 @@ use Mockery\MockInterface;
 use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use Psr\Log\LoggerInterface;
 use RuntimeException;
 use Tests\TestCase;
 
@@ -36,12 +37,15 @@ final class SyncBingAdsToMixpanelJobTest extends TestCase
 
     private SyncAdSpendUseCase&MockInterface $mockUseCase;
 
+    private LoggerInterface&MockInterface $mockLogger;
+
     #[Override]
     protected function setUp(): void
     {
         parent::setUp();
 
         $this->mockUseCase = Mockery::mock(SyncAdSpendUseCase::class);
+        $this->mockLogger = Mockery::mock(LoggerInterface::class)->shouldIgnoreMissing();
     }
 
     /*
@@ -58,14 +62,14 @@ final class SyncBingAdsToMixpanelJobTest extends TestCase
             ->once()
             ->andReturnNull();
 
-        Log::shouldReceive('info')
+        $this->mockLogger->shouldReceive('info')
             ->once()
             ->with('Queued Bing Ads to Mixpanel sync starting', [
                 'from' => self::TEST_DATE,
                 'to' => self::TEST_DATE,
             ]);
 
-        Log::shouldReceive('info')
+        $this->mockLogger->shouldReceive('info')
             ->once()
             ->with('Queued Bing Ads to Mixpanel sync completed', [
                 'from' => self::TEST_DATE,
@@ -73,7 +77,7 @@ final class SyncBingAdsToMixpanelJobTest extends TestCase
             ]);
 
         $job = $this->createJob();
-        $job->handle($this->mockUseCase);
+        $job->handle($this->mockUseCase, $this->mockLogger);
     }
 
     #[Test]
@@ -84,14 +88,14 @@ final class SyncBingAdsToMixpanelJobTest extends TestCase
             ->once()
             ->andReturnNull();
 
-        Log::shouldReceive('info')
+        $this->mockLogger->shouldReceive('info')
             ->once()
             ->with('Queued Bing Ads to Mixpanel sync starting', [
                 'from' => '2024-01-01',
                 'to' => '2024-01-31',
             ]);
 
-        Log::shouldReceive('info')
+        $this->mockLogger->shouldReceive('info')
             ->once()
             ->with('Queued Bing Ads to Mixpanel sync completed', [
                 'from' => '2024-01-01',
@@ -102,7 +106,7 @@ final class SyncBingAdsToMixpanelJobTest extends TestCase
             new DateTimeImmutable('2024-01-01'),
             new DateTimeImmutable('2024-01-31'),
         );
-        $job->handle($this->mockUseCase);
+        $job->handle($this->mockUseCase, $this->mockLogger);
     }
 
     /*
@@ -121,16 +125,6 @@ final class SyncBingAdsToMixpanelJobTest extends TestCase
             ->once()
             ->andThrow($exception);
 
-        Log::shouldReceive('info')->once();
-
-        Log::shouldReceive('critical')
-            ->once()
-            ->withArgs(static fn(string $message, array $context): bool => $message === 'Bing Ads sync permanent API failure, failing immediately'
-                    && $context['exception'] === PayloadSerializationException::class
-                    && $context['service'] === 'Mixpanel'
-                    && \str_contains($context['error'], 'JSON encoding failed')
-                    && \array_key_exists('attempts', $context));
-
         $job = $this->createJobMock();
         $job->shouldReceive('fail')
             ->once()
@@ -139,7 +133,7 @@ final class SyncBingAdsToMixpanelJobTest extends TestCase
 
         $this->expectException(PayloadSerializationException::class);
 
-        $job->handle($this->mockUseCase);
+        $job->handle($this->mockUseCase, $this->mockLogger);
     }
 
     #[Test]
@@ -152,9 +146,6 @@ final class SyncBingAdsToMixpanelJobTest extends TestCase
             ->once()
             ->andThrow($exception);
 
-        Log::shouldReceive('info')->once();
-        Log::shouldReceive('critical')->once();
-
         $job = $this->createJobMock();
         $job->shouldReceive('fail')
             ->once()
@@ -164,7 +155,7 @@ final class SyncBingAdsToMixpanelJobTest extends TestCase
 
         $this->expectException(PayloadSerializationException::class);
 
-        $job->handle($this->mockUseCase);
+        $job->handle($this->mockUseCase, $this->mockLogger);
     }
 
     /*
@@ -183,16 +174,6 @@ final class SyncBingAdsToMixpanelJobTest extends TestCase
             ->once()
             ->andThrow($exception);
 
-        Log::shouldReceive('info')->once();
-
-        Log::shouldReceive('critical')
-            ->once()
-            ->withArgs(static fn(string $message, array $context): bool => $message === 'Bing Ads sync permanent API failure, failing immediately'
-                    && $context['exception'] === AuthenticationExpiredException::class
-                    && $context['service'] === 'Bing Ads'
-                    && \str_contains($context['error'], 'Bing Ads')
-                    && \array_key_exists('attempts', $context));
-
         $job = $this->createJobMock();
         $job->shouldReceive('fail')
             ->once()
@@ -201,7 +182,7 @@ final class SyncBingAdsToMixpanelJobTest extends TestCase
 
         $this->expectException(AuthenticationExpiredException::class);
 
-        $job->handle($this->mockUseCase);
+        $job->handle($this->mockUseCase, $this->mockLogger);
     }
 
     #[Test]
@@ -214,9 +195,6 @@ final class SyncBingAdsToMixpanelJobTest extends TestCase
             ->once()
             ->andThrow($exception);
 
-        Log::shouldReceive('info')->once();
-        Log::shouldReceive('critical')->once();
-
         $job = $this->createJobMock();
         $job->shouldReceive('fail')
             ->once()
@@ -226,7 +204,7 @@ final class SyncBingAdsToMixpanelJobTest extends TestCase
 
         $this->expectException(AuthenticationExpiredException::class);
 
-        $job->handle($this->mockUseCase);
+        $job->handle($this->mockUseCase, $this->mockLogger);
     }
 
     /*
@@ -245,9 +223,7 @@ final class SyncBingAdsToMixpanelJobTest extends TestCase
             ->once()
             ->andThrow($exception);
 
-        Log::shouldReceive('info')->once();
-
-        Log::shouldReceive('warning')
+        $this->mockLogger->shouldReceive('warning')
             ->once()
             ->withArgs(static fn(string $message, array $context): bool => $message === 'Bing Ads sync service unavailable, will retry'
                     && $context['service'] === 'Bing Ads'
@@ -260,7 +236,7 @@ final class SyncBingAdsToMixpanelJobTest extends TestCase
             ->with(180);
         $job->shouldReceive('attempts')->andReturn(1);
 
-        $job->handle($this->mockUseCase);
+        $job->handle($this->mockUseCase, $this->mockLogger);
     }
 
     #[Test]
@@ -273,9 +249,7 @@ final class SyncBingAdsToMixpanelJobTest extends TestCase
             ->once()
             ->andThrow($exception);
 
-        Log::shouldReceive('info')->once();
-
-        Log::shouldReceive('warning')
+        $this->mockLogger->shouldReceive('warning')
             ->once()
             ->withArgs(static fn(string $message, array $context): bool => $context['from'] === self::TEST_DATE
                     && $context['to'] === self::TEST_DATE
@@ -289,7 +263,7 @@ final class SyncBingAdsToMixpanelJobTest extends TestCase
             ->with(60);
         $job->shouldReceive('attempts')->andReturn(2);
 
-        $job->handle($this->mockUseCase);
+        $job->handle($this->mockUseCase, $this->mockLogger);
     }
 
     /*
@@ -308,9 +282,7 @@ final class SyncBingAdsToMixpanelJobTest extends TestCase
             ->once()
             ->andThrow($exception);
 
-        Log::shouldReceive('info')->once();
-
-        Log::shouldReceive('warning')
+        $this->mockLogger->shouldReceive('warning')
             ->once()
             ->withArgs(static fn(string $message, array $context): bool => $context['retry_after'] === null);
 
@@ -320,7 +292,7 @@ final class SyncBingAdsToMixpanelJobTest extends TestCase
 
         $this->expectException(ExternalServiceUnavailableException::class);
 
-        $job->handle($this->mockUseCase);
+        $job->handle($this->mockUseCase, $this->mockLogger);
     }
 
     #[Test]
@@ -333,9 +305,7 @@ final class SyncBingAdsToMixpanelJobTest extends TestCase
             ->once()
             ->andThrow($exception);
 
-        Log::shouldReceive('info')->once();
-
-        Log::shouldReceive('warning')
+        $this->mockLogger->shouldReceive('warning')
             ->once()
             ->withArgs(static fn(string $message, array $context): bool => $message === 'Bing Ads sync service unavailable, will retry'
                     && $context['service'] === 'Bing Ads'
@@ -346,7 +316,7 @@ final class SyncBingAdsToMixpanelJobTest extends TestCase
         $job->shouldReceive('attempts')->andReturn(4);
 
         try {
-            $job->handle($this->mockUseCase);
+            $job->handle($this->mockUseCase, $this->mockLogger);
         } catch (ExternalServiceUnavailableException) {
             // Expected
         }
@@ -368,13 +338,6 @@ final class SyncBingAdsToMixpanelJobTest extends TestCase
             ->once()
             ->andThrow($exception);
 
-        Log::shouldReceive('info')->once();
-
-        Log::shouldReceive('critical')
-            ->once()
-            ->withArgs(static fn(string $message, array $context): bool => \str_contains($message, 'Unexpected exception')
-                    && $context['exception'] === RuntimeException::class);
-
         $job = $this->createJobMock();
         $job->shouldReceive('fail')
             ->once()
@@ -384,7 +347,7 @@ final class SyncBingAdsToMixpanelJobTest extends TestCase
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('Unexpected database error');
 
-        $job->handle($this->mockUseCase);
+        $job->handle($this->mockUseCase, $this->mockLogger);
     }
 
     #[Test]
@@ -397,9 +360,6 @@ final class SyncBingAdsToMixpanelJobTest extends TestCase
             ->once()
             ->andThrow($exception);
 
-        Log::shouldReceive('info')->once();
-        Log::shouldReceive('critical')->once();
-
         $job = $this->createJobMock();
         $job->shouldReceive('fail')
             ->once()
@@ -409,7 +369,7 @@ final class SyncBingAdsToMixpanelJobTest extends TestCase
 
         $this->expectException(RuntimeException::class);
 
-        $job->handle($this->mockUseCase);
+        $job->handle($this->mockUseCase, $this->mockLogger);
     }
 
     /*
@@ -423,7 +383,7 @@ final class SyncBingAdsToMixpanelJobTest extends TestCase
     {
         $exception = new RuntimeException('Something went terribly wrong');
 
-        Log::shouldReceive('error')
+        Log::shouldReceive('critical')
             ->once()
             ->with('Bing Ads to Mixpanel sync job failed', [
                 'from' => self::TEST_DATE,

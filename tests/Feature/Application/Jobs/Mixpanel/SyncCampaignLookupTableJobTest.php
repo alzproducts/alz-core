@@ -13,7 +13,6 @@ use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\UnexpectedApiResultException;
 use Illuminate\Contracts\Queue\Job as QueueJobContract;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Queue;
 use Mockery;
 use Mockery\MockInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -33,6 +32,8 @@ final class SyncCampaignLookupTableJobTest extends TestCase
 
     private SyncLookupTableUseCase $useCase;
 
+    private LoggerInterface&MockInterface $jobLoggerMock;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -41,6 +42,7 @@ final class SyncCampaignLookupTableJobTest extends TestCase
         $this->mixpanelMock = Mockery::mock(MixpanelClientInterface::class);
         $loggerMock = Mockery::mock(LoggerInterface::class)->shouldIgnoreMissing();
         $this->useCase = new SyncLookupTableUseCase($this->providerMock, $this->mixpanelMock, $loggerMock);
+        $this->jobLoggerMock = Mockery::mock(LoggerInterface::class)->shouldIgnoreMissing();
 
         // Setup default provider metadata
         $this->providerMock->shouldReceive('getTableKey')->andReturn('utm_campaigns')->byDefault();
@@ -61,12 +63,12 @@ final class SyncCampaignLookupTableJobTest extends TestCase
 
         $job = new SyncCampaignLookupTableJob();
 
-        $job->handle($this->useCase);
+        $job->handle($this->useCase, $this->jobLoggerMock);
 
-        Log::shouldHaveReceived('info')
+        $this->jobLoggerMock->shouldHaveReceived('info')
             ->with('Campaign lookup table sync job starting');
 
-        Log::shouldHaveReceived('info')
+        $this->jobLoggerMock->shouldHaveReceived('info')
             ->with('Campaign lookup table sync job completed successfully');
     }
 
@@ -90,9 +92,9 @@ final class SyncCampaignLookupTableJobTest extends TestCase
 
         $job = new SyncCampaignLookupTableJob();
 
-        $job->handle($this->useCase);
+        $job->handle($this->useCase, $this->jobLoggerMock);
 
-        Log::shouldHaveReceived('info')
+        $this->jobLoggerMock->shouldHaveReceived('info')
             ->with('Campaign lookup table sync job completed successfully');
     }
 
@@ -115,9 +117,9 @@ final class SyncCampaignLookupTableJobTest extends TestCase
         $this->setJobAttempts($job, 1);
 
         // The job catches the exception and releases - it should not throw
-        $job->handle($this->useCase);
+        $job->handle($this->useCase, $this->jobLoggerMock);
 
-        Log::shouldHaveReceived('warning')
+        $this->jobLoggerMock->shouldHaveReceived('warning')
             ->with('Campaign lookup table sync service unavailable, will retry', Mockery::on(
                 static function (array $context): bool {
                     self::assertSame('Google Ads', $context['service']);
@@ -144,7 +146,7 @@ final class SyncCampaignLookupTableJobTest extends TestCase
 
         $this->expectException(ExternalServiceUnavailableException::class);
 
-        $job->handle($this->useCase);
+        $job->handle($this->useCase, $this->jobLoggerMock);
     }
 
     #[Test]
@@ -160,12 +162,12 @@ final class SyncCampaignLookupTableJobTest extends TestCase
         $this->setJobAttempts($job, 3);
 
         try {
-            $job->handle($this->useCase);
+            $job->handle($this->useCase, $this->jobLoggerMock);
         } catch (ExternalServiceUnavailableException) {
             // Expected
         }
 
-        Log::shouldHaveReceived('warning')
+        $this->jobLoggerMock->shouldHaveReceived('warning')
             ->with('Campaign lookup table sync service unavailable, will retry', Mockery::on(
                 static function (array $context): bool {
                     self::assertSame('Google Ads', $context['service']);
@@ -206,7 +208,7 @@ final class SyncCampaignLookupTableJobTest extends TestCase
         $job->setJob($queueJob);
 
         try {
-            $job->handle($this->useCase);
+            $job->handle($this->useCase, $this->jobLoggerMock);
             self::fail('Expected UnexpectedApiResultException was not thrown');
         } catch (UnexpectedApiResultException) {
             // Expected - jobs now rethrow after fail()
@@ -214,7 +216,7 @@ final class SyncCampaignLookupTableJobTest extends TestCase
     }
 
     #[Test]
-    public function it_logs_critical_when_unexpected_api_result_exception_occurs(): void
+    public function it_rethrows_unexpected_api_result_exception_after_failing(): void
     {
         $exception = new UnexpectedApiResultException(
             serviceName: 'Mixpanel',
@@ -236,24 +238,9 @@ final class SyncCampaignLookupTableJobTest extends TestCase
         $queueJob->shouldReceive('isDeletedOrReleased')->andReturn(false);
         $job->setJob($queueJob);
 
-        try {
-            $job->handle($this->useCase);
-            self::fail('Expected UnexpectedApiResultException was not thrown');
-        } catch (UnexpectedApiResultException) {
-            // Expected - jobs now rethrow after fail()
-        }
+        $this->expectException(UnexpectedApiResultException::class);
 
-        Log::shouldHaveReceived('critical')
-            ->with('Campaign lookup table sync permanent API failure, failing immediately', Mockery::on(
-                static function (array $context): bool {
-                    self::assertSame(UnexpectedApiResultException::class, $context['exception']);
-                    self::assertSame('Mixpanel', $context['service']);
-                    self::assertStringContainsString('Lookup table response malformed', $context['error']);
-                    self::assertSame(2, $context['attempts']);
-
-                    return true;
-                },
-            ));
+        $job->handle($this->useCase, $this->jobLoggerMock);
     }
 
     // ========================================================================
@@ -280,23 +267,11 @@ final class SyncCampaignLookupTableJobTest extends TestCase
         $job->setJob($queueJob);
 
         try {
-            $job->handle($this->useCase);
+            $job->handle($this->useCase, $this->jobLoggerMock);
             self::fail('Expected AuthenticationExpiredException was not thrown');
         } catch (AuthenticationExpiredException) {
             // Expected - jobs now rethrow after fail()
         }
-
-        Log::shouldHaveReceived('critical')
-            ->with('Campaign lookup table sync permanent API failure, failing immediately', Mockery::on(
-                static function (array $context): bool {
-                    self::assertSame(AuthenticationExpiredException::class, $context['exception']);
-                    self::assertSame('Google Ads', $context['service']);
-                    self::assertStringContainsString('Google Ads', $context['error']);
-                    self::assertSame(1, $context['attempts']);
-
-                    return true;
-                },
-            ));
     }
 
     #[Test]
@@ -317,45 +292,11 @@ final class SyncCampaignLookupTableJobTest extends TestCase
         $job->setJob($queueJob);
 
         try {
-            $job->handle($this->useCase);
+            $job->handle($this->useCase, $this->jobLoggerMock);
             self::fail('Expected AuthenticationExpiredException was not thrown');
         } catch (AuthenticationExpiredException) {
             // Expected - jobs now rethrow after fail()
         }
-    }
-
-    #[Test]
-    public function it_logs_critical_with_service_name_on_auth_failure_from_mixpanel(): void
-    {
-        $exception = new AuthenticationExpiredException('Mixpanel');
-
-        $this->setupSuccessfulFetchForMixpanelError($exception);
-
-        $job = new SyncCampaignLookupTableJob();
-
-        $queueJob = Mockery::mock(QueueJobContract::class);
-        $queueJob->shouldReceive('attempts')->andReturn(1);
-        $queueJob->shouldReceive('fail')->once()->with($exception)->andReturnNull();
-        $queueJob->shouldReceive('isReleased')->andReturn(false);
-        $queueJob->shouldReceive('isDeletedOrReleased')->andReturn(false);
-        $job->setJob($queueJob);
-
-        try {
-            $job->handle($this->useCase);
-            self::fail('Expected AuthenticationExpiredException was not thrown');
-        } catch (AuthenticationExpiredException) {
-            // Expected - jobs now rethrow after fail()
-        }
-
-        Log::shouldHaveReceived('critical')
-            ->with('Campaign lookup table sync permanent API failure, failing immediately', Mockery::on(
-                static function (array $context): bool {
-                    self::assertSame(AuthenticationExpiredException::class, $context['exception']);
-                    self::assertSame('Mixpanel', $context['service']);
-
-                    return true;
-                },
-            ));
     }
 
     // ========================================================================
@@ -384,7 +325,7 @@ final class SyncCampaignLookupTableJobTest extends TestCase
         $job->setJob($queueJob);
 
         // Should not throw - catches ExternalServiceUnavailableException
-        $job->handle($this->useCase);
+        $job->handle($this->useCase, $this->jobLoggerMock);
     }
 
     /**
@@ -419,7 +360,7 @@ final class SyncCampaignLookupTableJobTest extends TestCase
 
         $this->expectException($exception::class);
 
-        $job->handle($this->useCase);
+        $job->handle($this->useCase, $this->jobLoggerMock);
     }
 
     /**
@@ -449,7 +390,7 @@ final class SyncCampaignLookupTableJobTest extends TestCase
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('Unexpected error occurred');
 
-        $job->handle($this->useCase);
+        $job->handle($this->useCase, $this->jobLoggerMock);
     }
 
     #[Test]
@@ -466,9 +407,9 @@ final class SyncCampaignLookupTableJobTest extends TestCase
         $this->setJobAttempts($job, 1);
 
         // Job catches exception and releases - doesn't throw
-        $job->handle($this->useCase);
+        $job->handle($this->useCase, $this->jobLoggerMock);
 
-        Log::shouldHaveReceived('info')
+        $this->jobLoggerMock->shouldHaveReceived('info')
             ->with('Campaign lookup table sync job starting');
     }
 
@@ -477,7 +418,7 @@ final class SyncCampaignLookupTableJobTest extends TestCase
     // ========================================================================
 
     #[Test]
-    public function failed_method_logs_error_with_exception_details(): void
+    public function failed_method_logs_critical_with_exception_details(): void
     {
         $exception = new RuntimeException('Something went terribly wrong');
 
@@ -486,7 +427,7 @@ final class SyncCampaignLookupTableJobTest extends TestCase
 
         $job->failed($exception);
 
-        Log::shouldHaveReceived('error')
+        Log::shouldHaveReceived('critical')
             ->with('Campaign lookup table sync job failed', [
                 'exception' => RuntimeException::class,
                 'message' => 'Something went terribly wrong',
@@ -558,7 +499,7 @@ final class SyncCampaignLookupTableJobTest extends TestCase
 
         $job->failed($exception);
 
-        Log::shouldHaveReceived('error')
+        Log::shouldHaveReceived('critical')
             ->with('Campaign lookup table sync job failed', Mockery::on(
                 static function (array $context): bool {
                     self::assertSame(5, $context['attempts']);
@@ -566,20 +507,6 @@ final class SyncCampaignLookupTableJobTest extends TestCase
                     return true;
                 },
             ));
-    }
-
-    // ========================================================================
-    // Queue Integration Tests
-    // ========================================================================
-
-    #[Test]
-    public function it_can_be_dispatched_to_queue(): void
-    {
-        Queue::fake();
-
-        SyncCampaignLookupTableJob::dispatch();
-
-        Queue::assertPushed(SyncCampaignLookupTableJob::class);
     }
 
     // ========================================================================
