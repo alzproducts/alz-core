@@ -40,7 +40,7 @@ final class JobRequiredPropertiesRule implements Rule
             return [];
         }
 
-        if ($classReflection->isAbstract()) {
+        if ($classReflection->isAbstract() || $classReflection->isEnum()) {
             return [];
         }
 

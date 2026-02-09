@@ -5,14 +5,17 @@ declare(strict_types=1);
 namespace App\Application\Jobs\Feeds;
 
 use App\Application\Feeds\ProcessProductSearchFeedUseCase;
+use App\Application\Jobs\Enums\QueueName;
+use App\Domain\Exceptions\Api\AbstractApiException;
 use App\Domain\Exceptions\Api\TransientApiFailure;
 use App\Domain\Exceptions\Infrastructure\StorageOperationFailedException;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
+use Psr\Log\LoggerInterface;
 use Throwable;
 
 /**
@@ -22,12 +25,11 @@ use Throwable;
  * display title), and uploads to cloud storage for site search consumption.
  * Scheduled daily at 1:00 AM UK time.
  */
-final class ProcessProductSearchFeedJob implements ShouldQueue
+final class ProcessProductSearchFeedJob implements ShouldBeUnique, ShouldQueue
 {
     use Dispatchable;
     use InteractsWithQueue;
     use Queueable;
-    use SerializesModels;
 
     /**
      * Maximum number of attempts before giving up.
@@ -52,22 +54,38 @@ final class ProcessProductSearchFeedJob implements ShouldQueue
     public int $timeout = 600;
 
     /**
+     * Seconds the job can be uniquely locked.
+     */
+    public int $uniqueFor = 900;
+
+    public function uniqueId(): string
+    {
+        return 'process-product-search-feed';
+    }
+
+    public function __construct()
+    {
+        $this->onQueue(QueueName::Low->value);
+    }
+
+    /**
      * Execute the job.
      *
      * @throws TransientApiFailure When source feed unavailable (triggers retry)
      * @throws StorageOperationFailedException When S3 upload fails - will retry
      * @throws Throwable When unexpected errors occur - indicates code update required
      */
-    public function handle(ProcessProductSearchFeedUseCase $useCase): void
+    public function handle(ProcessProductSearchFeedUseCase $useCase, LoggerInterface $logger): void
     {
-        Log::info('Product search feed processing job starting');
+        $logger->info('Product search feed processing job starting');
 
         try {
             $useCase->execute();
 
-            Log::info('Product search feed processing job completed');
+            $logger->info('Product search feed processing job completed');
         } catch (TransientApiFailure $e) {
-            Log::warning('Product search feed service unavailable, will retry', [
+            // Dual retry: API-provided delay via release(), or Laravel backoff via rethrow
+            $logger->warning('Product search feed service unavailable, will retry', [
                 'service' => $e->serviceName,
                 'retry_after' => $e->retryAfter,
                 'attempts' => $this->attempts(),
@@ -79,7 +97,7 @@ final class ProcessProductSearchFeedJob implements ShouldQueue
                 throw $e;
             }
         } catch (StorageOperationFailedException $e) {
-            Log::warning('Storage operation failed, will retry', [
+            $logger->warning('Storage operation failed, will retry', [
                 'message' => $e->getMessage(),
                 'attempts' => $this->attempts(),
             ]);
@@ -87,15 +105,6 @@ final class ProcessProductSearchFeedJob implements ShouldQueue
             // Let Laravel retry with backoff
             throw $e;
         } catch (Throwable $e) {
-            // Unexpected exception = code needs updating
-            // Fail immediately - don't waste retries on unknown errors
-            Log::critical('Unexpected exception in product feed job - code update required', [
-                'job' => self::class,
-                'exception' => $e::class,
-                'message' => $e->getMessage(),
-                'attempts' => $this->attempts(),
-            ]);
-
             $this->fail($e);
             throw $e;
         }
@@ -106,10 +115,16 @@ final class ProcessProductSearchFeedJob implements ShouldQueue
      */
     public function failed(Throwable $exception): void
     {
-        Log::critical('Product search feed processing job failed permanently', [
+        $context = [
             'exception' => $exception::class,
             'message' => $exception->getMessage(),
             'attempts' => $this->attempts(),
-        ]);
+        ];
+
+        if ($exception instanceof AbstractApiException) {
+            Log::error('Product search feed processing job failed permanently', $context);
+        } else {
+            Log::critical('Product search feed processing job failed permanently', $context);
+        }
     }
 }

@@ -4,15 +4,18 @@ declare(strict_types=1);
 
 namespace App\Application\Jobs\Linnworks;
 
+use App\Application\Jobs\Enums\QueueName;
 use App\Application\Linnworks\UseCases\SyncAllStockItemsUseCase;
+use App\Domain\Exceptions\Api\AbstractApiException;
 use App\Domain\Exceptions\Api\PermanentApiFailure;
 use App\Domain\Exceptions\Api\TransientApiFailure;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
+use Psr\Log\LoggerInterface;
 use Throwable;
 
 /**
@@ -24,12 +27,11 @@ use Throwable;
  * Usage:
  * - Full sync: SyncLinnworksStockItemsJob::dispatch() — daily at 5am, ~2-5 min
  */
-final class SyncLinnworksStockItemsJob implements ShouldQueue
+final class SyncLinnworksStockItemsJob implements ShouldBeUnique, ShouldQueue
 {
     use Dispatchable;
     use InteractsWithQueue;
     use Queueable;
-    use SerializesModels;
 
     /**
      * Maximum number of attempts before giving up.
@@ -37,6 +39,13 @@ final class SyncLinnworksStockItemsJob implements ShouldQueue
      * Low retry count since job runs every 15 min — next scheduled run is implicit retry.
      */
     public int $tries = 2;
+
+    /**
+     * Maximum number of unhandled exceptions to allow before failing.
+     *
+     * Matches $tries to ensure any exception type can trigger both retry attempts.
+     */
+    public int $maxExceptions = 2;
 
     /**
      * Seconds to wait before retrying.
@@ -55,9 +64,22 @@ final class SyncLinnworksStockItemsJob implements ShouldQueue
      */
     public int $timeout = 3600;
 
+    /**
+     * Seconds this job should remain unique.
+     */
+    public int $uniqueFor = 4200;
+
+    /**
+     * Get the unique ID for the job.
+     */
+    public function uniqueId(): string
+    {
+        return 'sync-linnworks-stock-items';
+    }
+
     public function __construct()
     {
-        $this->onQueue('low');
+        $this->onQueue(QueueName::Low->value);
     }
 
     /**
@@ -67,20 +89,21 @@ final class SyncLinnworksStockItemsJob implements ShouldQueue
      * @throws PermanentApiFailure When permanent API failure occurs (fails immediately)
      * @throws Throwable When unexpected errors occur - indicates code update required
      */
-    public function handle(SyncAllStockItemsUseCase $useCase): void
+    public function handle(SyncAllStockItemsUseCase $useCase, LoggerInterface $logger): void
     {
-        Log::info('Linnworks stock item sync job starting');
+        $logger->info('Linnworks stock item sync job starting');
 
         try {
             $result = $useCase->execute();
 
-            Log::info('Linnworks stock item sync job completed', [
+            $logger->info('Linnworks stock item sync job completed', [
                 'fetched' => $result->fetched,
                 'saved' => $result->saved,
                 'failed' => $result->failed,
             ]);
         } catch (TransientApiFailure $e) {
-            Log::warning('Linnworks stock item sync service unavailable, will retry', [
+            // Dual retry: API-provided delay via release(), or Laravel backoff via rethrow
+            $logger->warning('Linnworks stock item sync service unavailable, will retry', [
                 'service' => $e->serviceName,
                 'retry_after' => $e->retryAfter,
                 'attempts' => $this->attempts(),
@@ -92,24 +115,9 @@ final class SyncLinnworksStockItemsJob implements ShouldQueue
                 throw $e;
             }
         } catch (PermanentApiFailure $e) {
-            Log::critical('Linnworks stock item sync permanent API failure, failing immediately', [
-                'exception' => $e::class,
-                'service' => $e->serviceName,
-                'error' => $e->getMessage(),
-                'attempts' => $this->attempts(),
-            ]);
-
             $this->fail($e);
             throw $e;
         } catch (Throwable $e) {
-            // Unexpected exception = code needs updating
-            Log::critical('Unexpected exception in Linnworks stock item sync - code update required', [
-                'job' => self::class,
-                'exception' => $e::class,
-                'message' => $e->getMessage(),
-                'attempts' => $this->attempts(),
-            ]);
-
             $this->fail($e);
             throw $e;
         }
@@ -120,10 +128,16 @@ final class SyncLinnworksStockItemsJob implements ShouldQueue
      */
     public function failed(Throwable $exception): void
     {
-        Log::error('Linnworks stock item sync job failed permanently', [
+        $context = [
             'exception' => $exception::class,
             'message' => $exception->getMessage(),
             'attempts' => $this->attempts(),
-        ]);
+        ];
+
+        if ($exception instanceof AbstractApiException) {
+            Log::error('Linnworks stock item sync job failed permanently', $context);
+        } else {
+            Log::critical('Linnworks stock item sync job failed permanently', $context);
+        }
     }
 }

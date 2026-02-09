@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Application\Jobs\Inventory;
 
 use App\Application\Inventory\UseCases\UpdateSkuUseCase;
+use App\Application\Jobs\Enums\QueueName;
+use App\Domain\Exceptions\Api\AbstractApiException;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
@@ -19,8 +21,8 @@ use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
+use Psr\Log\LoggerInterface;
 use Throwable;
 
 /**
@@ -46,12 +48,16 @@ final class UpdateSkuJob implements ShouldBeUnique, ShouldQueue
     use Dispatchable;
     use InteractsWithQueue;
     use Queueable;
-    use SerializesModels;
 
     /**
      * Maximum attempts before permanent failure.
      */
     public int $tries = 3;
+
+    /**
+     * Maximum exceptions before permanent failure.
+     */
+    public int $maxExceptions = 3;
 
     /**
      * Unique lock duration in seconds.
@@ -90,7 +96,7 @@ final class UpdateSkuJob implements ShouldBeUnique, ShouldQueue
     public function __construct(
         public readonly UpdateSkuCommand $command,
     ) {
-        $this->onQueue('default');
+        $this->onQueue(QueueName::Default->value);
     }
 
     /**
@@ -99,9 +105,9 @@ final class UpdateSkuJob implements ShouldBeUnique, ShouldQueue
      * @throws TransientApiFailure When services unavailable (triggers retry)
      * @throws Throwable On unexpected errors
      */
-    public function handle(UpdateSkuUseCase $useCase): void
+    public function handle(UpdateSkuUseCase $useCase, LoggerInterface $logger): void
     {
-        Log::info('UpdateSkuJob starting', [
+        $logger->info('UpdateSkuJob starting', [
             'old_sku' => $this->command->oldSku,
             'new_sku' => $this->command->newSku?->value,
             'type' => $this->command->type->value,
@@ -111,42 +117,28 @@ final class UpdateSkuJob implements ShouldBeUnique, ShouldQueue
         try {
             $useCase->execute($this->command);
 
-            Log::info('UpdateSkuJob completed', ['old_sku' => $this->command->oldSku]);
+            $logger->info('UpdateSkuJob completed', ['old_sku' => $this->command->oldSku]);
         } catch (SkuUpdateFailedException $e) {
             // CRITICAL: Compensation failed - systems out of sync, DO NOT retry
-            Log::critical('SKU update compensation failed - manual intervention required', [
-                'old_sku' => $e->oldSku,
-                'new_sku' => $e->newSku,
-                'failed_system' => $e->failedSystem,
-            ]);
 
             $this->fail($e);
 
             throw $e;
         } catch (InvalidApiResponseException|AuthenticationExpiredException $e) {
             // Permanent failure - API contract or credentials need fixing
-            Log::critical('SKU update failed with permanent error', [
-                'exception' => $e::class,
-                'service' => $e->serviceName,
-                'attempt' => $this->attempts(),
-            ]);
 
             $this->fail($e);
 
             throw $e;
         } catch (InvalidApiRequestException|InvalidSkuException|SkuGenerationFailedException|ResourceNotFoundException $e) {
             // Permanent failure - data/request issues that won't resolve on retry
-            Log::error('SKU update failed with permanent error', [
-                'exception' => $e::class,
-                'message' => $e->getMessage(),
-                'old_sku' => $this->command->oldSku,
-            ]);
 
             $this->fail($e);
 
             throw $e;
         } catch (TransientApiFailure $e) {
-            Log::warning('SKU update service unavailable, will retry', [
+            // Dual retry: API-provided delay via release(), or Laravel backoff via rethrow
+            $logger->warning('SKU update service unavailable, will retry', [
                 'service' => $e->serviceName,
                 'retry_after' => $e->retryAfter,
                 'attempt' => $this->attempts(),
@@ -158,14 +150,6 @@ final class UpdateSkuJob implements ShouldBeUnique, ShouldQueue
                 throw $e;
             }
         } catch (Throwable $e) {
-            // Unexpected exception = code needs updating
-            Log::critical('Unexpected exception in UpdateSkuJob - code update required', [
-                'job' => self::class,
-                'exception' => $e::class,
-                'message' => $e->getMessage(),
-                'attempt' => $this->attempts(),
-            ]);
-
             $this->fail($e);
 
             throw $e;
@@ -177,10 +161,21 @@ final class UpdateSkuJob implements ShouldBeUnique, ShouldQueue
      */
     public function failed(Throwable $exception): void
     {
-        Log::error('UpdateSkuJob exhausted all retries', [
+        $context = [
             'old_sku' => $this->command->oldSku,
             'exception' => $exception::class,
             'attempts' => $this->attempts(),
-        ]);
+        ];
+
+        if ($exception instanceof SkuUpdateFailedException) {
+            $context['new_sku'] = $exception->newSku;
+            $context['failed_system'] = $exception->failedSystem;
+        }
+
+        if ($exception instanceof AbstractApiException) {
+            Log::error('UpdateSkuJob failed permanently', $context);
+        } else {
+            Log::critical('UpdateSkuJob failed permanently', $context);
+        }
     }
 }

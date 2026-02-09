@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Application\Jobs\Mixpanel;
 
 use App\Application\AdSpend\UseCases\SyncAdSpendUseCase;
+use App\Application\Jobs\Enums\QueueName;
+use App\Domain\Exceptions\Api\AbstractApiException;
 use App\Domain\Exceptions\Api\PermanentApiFailure;
 use App\Domain\Exceptions\Api\TransientApiFailure;
 use App\Domain\ValueObjects\DateRange;
@@ -13,8 +15,8 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
+use Psr\Log\LoggerInterface;
 use Throwable;
 
 /**
@@ -28,7 +30,6 @@ final class SyncGoogleAdsToMixpanelJob implements ShouldQueue
     use Dispatchable;
     use InteractsWithQueue;
     use Queueable;
-    use SerializesModels;
 
     /**
      * Maximum number of attempts before giving up.
@@ -55,7 +56,7 @@ final class SyncGoogleAdsToMixpanelJob implements ShouldQueue
         private readonly DateTimeImmutable $from,
         private readonly DateTimeImmutable $to,
     ) {
-        $this->onQueue('default');
+        $this->onQueue(QueueName::Default->value);
     }
 
     /**
@@ -65,13 +66,13 @@ final class SyncGoogleAdsToMixpanelJob implements ShouldQueue
      * @throws PermanentApiFailure When permanent API failure occurs (fails immediately)
      * @throws Throwable When unexpected errors occur - indicates code update required
      */
-    public function handle(SyncAdSpendUseCase $useCase): void
+    public function handle(SyncAdSpendUseCase $useCase, LoggerInterface $logger): void
     {
         $dateRange = new DateRange($this->from, $this->to);
         $fromString = $this->from->format('Y-m-d');
         $toString = $this->to->format('Y-m-d');
 
-        Log::info('Queued Google Ads to Mixpanel sync starting', [
+        $logger->info('Queued Google Ads to Mixpanel sync starting', [
             'from' => $fromString,
             'to' => $toString,
         ]);
@@ -79,12 +80,13 @@ final class SyncGoogleAdsToMixpanelJob implements ShouldQueue
         try {
             $useCase->execute($dateRange);
 
-            Log::info('Queued Google Ads to Mixpanel sync completed', [
+            $logger->info('Queued Google Ads to Mixpanel sync completed', [
                 'from' => $fromString,
                 'to' => $toString,
             ]);
         } catch (TransientApiFailure $e) {
-            Log::warning('Google Ads sync service unavailable, will retry', [
+            // Dual retry: API-provided delay via release(), or Laravel backoff via rethrow
+            $logger->warning('Google Ads sync service unavailable, will retry', [
                 'from' => $fromString,
                 'to' => $toString,
                 'service' => $e->serviceName,
@@ -98,29 +100,9 @@ final class SyncGoogleAdsToMixpanelJob implements ShouldQueue
                 throw $e;
             }
         } catch (PermanentApiFailure $e) {
-            Log::critical('Google Ads sync permanent API failure, failing immediately', [
-                'from' => $fromString,
-                'to' => $toString,
-                'exception' => $e::class,
-                'service' => $e->serviceName,
-                'error' => $e->getMessage(),
-                'attempts' => $this->attempts(),
-            ]);
-
             $this->fail($e);
             throw $e;
         } catch (Throwable $e) {
-            // Unexpected exception = code needs updating
-            // Fail immediately - don't waste retries on unknown errors
-            Log::critical('Unexpected exception in Google Ads sync - code update required', [
-                'job' => self::class,
-                'exception' => $e::class,
-                'message' => $e->getMessage(),
-                'from' => $fromString,
-                'to' => $toString,
-                'attempts' => $this->attempts(),
-            ]);
-
             $this->fail($e);
             throw $e;
         }
@@ -131,12 +113,18 @@ final class SyncGoogleAdsToMixpanelJob implements ShouldQueue
      */
     public function failed(Throwable $exception): void
     {
-        Log::error('Google Ads to Mixpanel sync job failed', [
+        $context = [
             'from' => $this->from->format('Y-m-d'),
             'to' => $this->to->format('Y-m-d'),
             'exception' => $exception::class,
             'message' => $exception->getMessage(),
             'attempts' => $this->attempts(),
-        ]);
+        ];
+
+        if ($exception instanceof AbstractApiException) {
+            Log::error('Google Ads to Mixpanel sync job failed', $context);
+        } else {
+            Log::critical('Google Ads to Mixpanel sync job failed', $context);
+        }
     }
 }

@@ -16,6 +16,7 @@ use Mockery\MockInterface;
 use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use Psr\Log\LoggerInterface;
 use RuntimeException;
 use Tests\TestCase;
 
@@ -34,6 +35,7 @@ final class ProcessProductSearchFeedJobTest extends TestCase
 {
     private ProcessProductSearchFeedUseCase&MockInterface $mockUseCase;
     private ProcessProductSearchFeedJob $job;
+    private LoggerInterface&MockInterface $mockLogger;
 
     #[Override]
     protected function setUp(): void
@@ -41,6 +43,7 @@ final class ProcessProductSearchFeedJobTest extends TestCase
         parent::setUp();
 
         $this->mockUseCase = Mockery::mock(ProcessProductSearchFeedUseCase::class);
+        $this->mockLogger = Mockery::mock(LoggerInterface::class)->shouldIgnoreMissing();
         $this->job = new ProcessProductSearchFeedJob();
     }
 
@@ -58,15 +61,15 @@ final class ProcessProductSearchFeedJobTest extends TestCase
             ->once()
             ->andReturnNull();
 
-        Log::shouldReceive('info')
+        $this->mockLogger->shouldReceive('info')
             ->once()
             ->with('Product search feed processing job starting');
 
-        Log::shouldReceive('info')
+        $this->mockLogger->shouldReceive('info')
             ->once()
             ->with('Product search feed processing job completed');
 
-        $this->job->handle($this->mockUseCase);
+        $this->job->handle($this->mockUseCase, $this->mockLogger);
     }
 
     /*
@@ -85,16 +88,6 @@ final class ProcessProductSearchFeedJobTest extends TestCase
             ->once()
             ->andThrow($exception);
 
-        Log::shouldReceive('info')->once(); // starting log
-
-        Log::shouldReceive('critical')
-            ->once()
-            ->withArgs(static fn(string $message, array $context): bool => $message === 'Unexpected exception in product feed job - code update required'
-                    && \str_contains($context['job'], 'ProcessProductSearchFeedJob')
-                    && $context['exception'] === InvalidArgumentException::class
-                    && $context['message'] === 'Invalid source URL provided'
-                    && \array_key_exists('attempts', $context));
-
         // Create a partial mock to verify fail() is called
         $job = Mockery::mock(ProcessProductSearchFeedJob::class)->makePartial();
         $job->shouldReceive('fail')
@@ -104,7 +97,7 @@ final class ProcessProductSearchFeedJobTest extends TestCase
 
         $this->expectException(InvalidArgumentException::class);
 
-        $job->handle($this->mockUseCase);
+        $job->handle($this->mockUseCase, $this->mockLogger);
     }
 
     /*
@@ -126,16 +119,6 @@ final class ProcessProductSearchFeedJobTest extends TestCase
             ->once()
             ->andThrow($exception);
 
-        Log::shouldReceive('info')->once();
-
-        Log::shouldReceive('critical')
-            ->once()
-            ->withArgs(static fn(string $message, array $context): bool => $message === 'Unexpected exception in product feed job - code update required'
-                    && \str_contains($context['job'], 'ProcessProductSearchFeedJob')
-                    && $context['exception'] === MalformedFeedDataException::class
-                    && \str_contains($context['message'], 'Missing required title element')
-                    && \array_key_exists('attempts', $context));
-
         $job = Mockery::mock(ProcessProductSearchFeedJob::class)->makePartial();
         $job->shouldReceive('fail')
             ->once()
@@ -144,7 +127,7 @@ final class ProcessProductSearchFeedJobTest extends TestCase
 
         $this->expectException(MalformedFeedDataException::class);
 
-        $job->handle($this->mockUseCase);
+        $job->handle($this->mockUseCase, $this->mockLogger);
     }
 
     /*
@@ -166,9 +149,7 @@ final class ProcessProductSearchFeedJobTest extends TestCase
             ->once()
             ->andThrow($exception);
 
-        Log::shouldReceive('info')->once();
-
-        Log::shouldReceive('warning')
+        $this->mockLogger->shouldReceive('warning')
             ->once()
             ->withArgs(static fn(string $message, array $context): bool => $message === 'Product search feed service unavailable, will retry'
                     && $context['service'] === 'Doofinder Feed'
@@ -181,7 +162,7 @@ final class ProcessProductSearchFeedJobTest extends TestCase
             ->with(120);
         $job->shouldReceive('attempts')->andReturn(1);
 
-        $job->handle($this->mockUseCase);
+        $job->handle($this->mockUseCase, $this->mockLogger);
     }
 
     /*
@@ -203,9 +184,7 @@ final class ProcessProductSearchFeedJobTest extends TestCase
             ->once()
             ->andThrow($exception);
 
-        Log::shouldReceive('info')->once();
-
-        Log::shouldReceive('warning')
+        $this->mockLogger->shouldReceive('warning')
             ->once()
             ->withArgs(static fn(string $message, array $context): bool => $message === 'Product search feed service unavailable, will retry'
                     && $context['service'] === 'Doofinder Feed'
@@ -218,7 +197,7 @@ final class ProcessProductSearchFeedJobTest extends TestCase
 
         $this->expectException(ExternalServiceUnavailableException::class);
 
-        $job->handle($this->mockUseCase);
+        $job->handle($this->mockUseCase, $this->mockLogger);
     }
 
     /*
@@ -241,9 +220,7 @@ final class ProcessProductSearchFeedJobTest extends TestCase
             ->once()
             ->andThrow($exception);
 
-        Log::shouldReceive('info')->once();
-
-        Log::shouldReceive('warning')
+        $this->mockLogger->shouldReceive('warning')
             ->once()
             ->withArgs(static fn(string $message, array $context): bool => $message === 'Storage operation failed, will retry'
                     && \str_contains($context['message'], 'S3 connection timeout')
@@ -254,7 +231,7 @@ final class ProcessProductSearchFeedJobTest extends TestCase
 
         $this->expectException(StorageOperationFailedException::class);
 
-        $job->handle($this->mockUseCase);
+        $job->handle($this->mockUseCase, $this->mockLogger);
     }
 
     /*
@@ -289,7 +266,7 @@ final class ProcessProductSearchFeedJobTest extends TestCase
             retryAfter: 60,
         );
 
-        Log::shouldReceive('critical')
+        Log::shouldReceive('error')
             ->once()
             ->withArgs(static fn(string $message, array $context): bool => $context['exception'] === ExternalServiceUnavailableException::class);
 
