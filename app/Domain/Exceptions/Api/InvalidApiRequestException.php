@@ -23,13 +23,13 @@ use Throwable;
  * @see InvalidApiResponseException For malformed responses from the API
  * @see ExternalServiceUnavailableException For transient failures (rate limits, outages)
  */
-final class InvalidApiRequestException extends AbstractApiException
+final class InvalidApiRequestException extends PermanentApiFailure
 {
     public function __construct(
-        public readonly string $serviceName,
+        string $serviceName,
         string $message = 'API request validation failed',
         ?Throwable $previous = null,
     ) {
-        parent::__construct("{$serviceName}: {$message}", 0, $previous);
+        parent::__construct($serviceName, "{$serviceName}: {$message}", $previous);
     }
 }

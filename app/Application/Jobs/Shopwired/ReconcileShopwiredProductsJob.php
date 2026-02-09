@@ -4,16 +4,18 @@ declare(strict_types=1);
 
 namespace App\Application\Jobs\Shopwired;
 
+use App\Application\Jobs\Enums\QueueName;
 use App\Application\Shopwired\UseCases\ReconcileProductsUseCase;
-use App\Domain\Exceptions\Api\AuthenticationExpiredException;
-use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
-use App\Domain\Exceptions\Api\InvalidApiResponseException;
+use App\Domain\Exceptions\Api\AbstractApiException;
+use App\Domain\Exceptions\Api\PermanentApiFailure;
+use App\Domain\Exceptions\Api\TransientApiFailure;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
+use Psr\Log\LoggerInterface;
 use Throwable;
 
 /**
@@ -27,25 +29,16 @@ use Throwable;
  *
  * Schedule: Run after main sync completes to ensure local data is current.
  */
-final class ReconcileShopwiredProductsJob implements ShouldQueue
+final class ReconcileShopwiredProductsJob implements ShouldBeUnique, ShouldQueue
 {
     use Dispatchable;
     use InteractsWithQueue;
     use Queueable;
-    use SerializesModels;
 
     /**
      * Maximum number of attempts before giving up.
      */
     public int $tries = 3;
-
-    /**
-     * Create a new job instance.
-     */
-    public function __construct()
-    {
-        $this->onQueue('low');
-    }
 
     /**
      * Seconds to wait before retrying (exponential backoff).
@@ -64,76 +57,71 @@ final class ReconcileShopwiredProductsJob implements ShouldQueue
     public int $timeout = 300;
 
     /**
+     * Seconds this job should remain unique.
+     */
+    public int $uniqueFor = 600;
+
+    /**
+     * Get the unique ID for the job.
+     */
+    public function uniqueId(): string
+    {
+        return 'reconcile-shopwired-products';
+    }
+
+    /**
+     * Create a new job instance.
+     */
+    public function __construct()
+    {
+        $this->onQueue(QueueName::Low->value);
+    }
+
+    /**
      * Execute the job.
      *
-     * @throws ExternalServiceUnavailableException When ShopWired API unavailable - will retry
-     * @throws InvalidApiResponseException When API contract violation (permanent failure)
-     * @throws AuthenticationExpiredException When credentials invalid (permanent failure)
+     * @throws TransientApiFailure When ShopWired API unavailable (triggers retry)
+     * @throws PermanentApiFailure When permanent API failure occurs (fails immediately)
      * @throws Throwable When unexpected errors occur - indicates code update required
      */
-    public function handle(ReconcileProductsUseCase $useCase): void
+    public function handle(ReconcileProductsUseCase $useCase, LoggerInterface $logger): void
     {
-        Log::info('ShopWired product reconciliation job starting');
+        $logger->info('ShopWired product reconciliation job starting');
 
         try {
             $result = $useCase->execute();
 
             if ($result->wasSkipped()) {
-                Log::warning('ShopWired product reconciliation job skipped (safety check)', [
+                $logger->warning('ShopWired product reconciliation job skipped (safety check)', [
                     'local_count' => $result->localCount,
                 ]);
 
                 return;
             }
 
-            Log::info('ShopWired product reconciliation job completed', [
+            $logger->info('ShopWired product reconciliation job completed', [
                 'api_count' => $result->apiCount,
                 'local_count' => $result->localCount,
                 'orphans_found' => $result->orphansFound,
                 'orphans_deleted' => $result->orphansDeleted,
             ]);
-        } catch (InvalidApiResponseException $e) {
-            // Permanent failure - API contract changed, code needs updating
-            Log::critical('API response validation failed during ShopWired product reconciliation', [
+        } catch (TransientApiFailure $e) {
+            // Dual retry: API-provided delay via release(), or Laravel backoff via rethrow
+            $logger->warning('ShopWired product reconciliation service unavailable, will retry', [
                 'service' => $e->serviceName,
-                'error' => $e->getMessage(),
+                'retry_after' => $e->retryAfter,
                 'attempts' => $this->attempts(),
             ]);
 
-            $this->fail($e);
-            throw $e;
-        } catch (AuthenticationExpiredException $e) {
-            // Permanent failure - credentials need fixing, don't waste retries
-            Log::critical('Authentication failed during ShopWired product reconciliation', [
-                'service' => $e->serviceName,
-                'error' => $e->getMessage(),
-                'attempts' => $this->attempts(),
-            ]);
-
-            $this->fail($e);
-            throw $e;
-        } catch (ExternalServiceUnavailableException $e) {
-            Log::warning('ShopWired API unavailable during product reconciliation, will retry', [
-                'service' => $e->serviceName,
-                'retry_after' => $e->retryAfter ?? 'using backoff',
-                'attempts' => $this->attempts(),
-            ]);
-
-            // Use API's retry delay if provided, otherwise let Laravel use backoff array
             if ($e->retryAfter !== null) {
                 $this->release($e->retryAfter);
             } else {
                 throw $e;
             }
+        } catch (PermanentApiFailure $e) {
+            $this->fail($e);
+            throw $e;
         } catch (Throwable $e) {
-            // Unexpected exception = code needs updating
-            Log::critical('Unexpected exception in ShopWired product reconciliation - code update required', [
-                'job' => self::class,
-                'exception' => $e::class,
-                'message' => $e->getMessage(),
-                'attempts' => $this->attempts(),
-            ]);
-
             $this->fail($e);
             throw $e;
         }
@@ -144,10 +132,16 @@ final class ReconcileShopwiredProductsJob implements ShouldQueue
      */
     public function failed(Throwable $exception): void
     {
-        Log::error('ShopWired product reconciliation job failed permanently', [
+        $context = [
             'exception' => $exception::class,
             'message' => $exception->getMessage(),
             'attempts' => $this->attempts(),
-        ]);
+        ];
+
+        if ($exception instanceof AbstractApiException) {
+            Log::error('ShopWired product reconciliation job failed permanently', $context);
+        } else {
+            Log::critical('ShopWired product reconciliation job failed permanently', $context);
+        }
     }
 }

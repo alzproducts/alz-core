@@ -5,20 +5,29 @@ declare(strict_types=1);
 namespace App\Domain\Exceptions\Api;
 
 use App\Domain\Exceptions\DomainException;
+use Throwable;
 
 /**
- * Marker base class for API-related exceptions.
+ * Base class for all API-related exceptions.
  *
- * Enables type-based catching for all API exceptions:
- * - AuthenticationExpiredException
- * - ExternalServiceUnavailableException
- * - InvalidApiRequestException
- * - InvalidApiResponseException
- * - PayloadSerializationException
- * - ResourceNotFoundException
- * - UnexpectedApiResultException
+ * Provides the `serviceName` property shared by all API exceptions.
+ * Concrete exceptions extend one of the two category base classes:
+ *
+ * - {@see PermanentApiFailure} — Non-retryable (auth, validation, not-found)
+ * - {@see TransientApiFailure} — Retryable with optional backoff (rate limits, outages)
  *
  * Usage:
- *   catch (AbstractApiException $e) { ... } // Catches all API-related failures
+ *   catch (AbstractApiException $e) { ... }      // All API failures
+ *   catch (PermanentApiFailure $e) { ... }        // Non-retryable only
+ *   catch (TransientApiFailure $e) { ... }        // Retryable only
  */
-abstract class AbstractApiException extends DomainException {}
+abstract class AbstractApiException extends DomainException
+{
+    public function __construct(
+        public readonly string $serviceName,
+        string $message,
+        ?Throwable $previous = null,
+    ) {
+        parent::__construct($message, 0, $previous);
+    }
+}

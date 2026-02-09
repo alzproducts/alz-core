@@ -4,18 +4,19 @@ declare(strict_types=1);
 
 namespace App\Application\Jobs\Mixpanel;
 
+use App\Application\Jobs\Enums\QueueName;
 use App\Application\Mixpanel\UseCases\SyncOrdersToMixpanelUseCase;
-use App\Domain\Exceptions\Api\AuthenticationExpiredException;
-use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
-use App\Domain\Exceptions\Api\UnexpectedApiResultException;
+use App\Domain\Exceptions\Api\AbstractApiException;
+use App\Domain\Exceptions\Api\PermanentApiFailure;
+use App\Domain\Exceptions\Api\TransientApiFailure;
 use App\Domain\Exceptions\Data\MissingRequiredDataException;
 use DateTimeImmutable;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
+use Psr\Log\LoggerInterface;
 use Throwable;
 
 /**
@@ -50,7 +51,6 @@ final class SyncOrdersToMixpanelJob implements ShouldQueue
     use Dispatchable;
     use InteractsWithQueue;
     use Queueable;
-    use SerializesModels;
 
     /**
      * Maximum number of attempts before giving up.
@@ -79,24 +79,23 @@ final class SyncOrdersToMixpanelJob implements ShouldQueue
         private readonly DateTimeImmutable $from,
         private readonly DateTimeImmutable $to,
     ) {
-        $this->onQueue('low');
+        $this->onQueue(QueueName::Low->value);
     }
 
     /**
      * Execute the job.
      *
-     * @throws ExternalServiceUnavailableException When Mixpanel API unavailable - will retry
-     * @throws UnexpectedApiResultException When export data invalid (permanent failure)
-     * @throws AuthenticationExpiredException When credentials invalid (permanent failure)
+     * @throws TransientApiFailure When Mixpanel API unavailable (triggers retry)
+     * @throws PermanentApiFailure When permanent API failure occurs (fails immediately)
      * @throws MissingRequiredDataException When customer data missing (permanent failure)
      * @throws Throwable When unexpected errors occur - indicates code update required
      */
-    public function handle(SyncOrdersToMixpanelUseCase $useCase): void
+    public function handle(SyncOrdersToMixpanelUseCase $useCase, LoggerInterface $logger): void
     {
         $fromString = $this->from->format('Y-m-d H:i:s');
         $toString = $this->to->format('Y-m-d H:i:s');
 
-        Log::info('Mixpanel order sync job starting', [
+        $logger->info('Mixpanel order sync job starting', [
             'from' => $fromString,
             'to' => $toString,
         ]);
@@ -104,7 +103,7 @@ final class SyncOrdersToMixpanelJob implements ShouldQueue
         try {
             $result = $useCase->execute($this->from, $this->to);
 
-            Log::info('Mixpanel order sync job completed', [
+            $logger->info('Mixpanel order sync job completed', [
                 'from' => $fromString,
                 'to' => $toString,
                 'orders_in_range' => $result->ordersInRange,
@@ -113,70 +112,28 @@ final class SyncOrdersToMixpanelJob implements ShouldQueue
                 'checkout_events' => $result->checkoutEventsCreated,
                 'product_events' => $result->productEventsCreated,
             ]);
-        } catch (UnexpectedApiResultException $e) {
-            // Permanent failure - Mixpanel export data is invalid or missing
-            // Could indicate frontend tracking issues
-            Log::critical('Mixpanel export data invalid during order sync', [
-                'from' => $fromString,
-                'to' => $toString,
-                'service' => $e->serviceName,
-                'error' => $e->getMessage(),
-                'attempts' => $this->attempts(),
-            ]);
-
-            $this->fail($e);
-            throw $e;
-        } catch (AuthenticationExpiredException $e) {
-            // Permanent failure - credentials need fixing, don't waste retries
-            Log::critical('Authentication failed during Mixpanel order sync', [
-                'from' => $fromString,
-                'to' => $toString,
-                'service' => $e->serviceName,
-                'error' => $e->getMessage(),
-                'attempts' => $this->attempts(),
-            ]);
-
-            $this->fail($e);
-            throw $e;
         } catch (MissingRequiredDataException $e) {
-            // Permanent failure - prerequisite data not available
-            Log::critical('Missing required data during Mixpanel order sync', [
-                'from' => $fromString,
-                'to' => $toString,
-                'data_type' => $e->dataType,
-                'operation' => $e->operation,
-                'resolution' => $e->resolution,
-                'attempts' => $this->attempts(),
-            ]);
-
             $this->fail($e);
             throw $e;
-        } catch (ExternalServiceUnavailableException $e) {
-            Log::warning('Mixpanel API unavailable, will retry', [
+        } catch (TransientApiFailure $e) {
+            // Dual retry: API-provided delay via release(), or Laravel backoff via rethrow
+            $logger->warning('Mixpanel order sync service unavailable, will retry', [
                 'from' => $fromString,
                 'to' => $toString,
                 'service' => $e->serviceName,
-                'retry_after' => $e->retryAfter ?? 'using backoff',
+                'retry_after' => $e->retryAfter,
                 'attempts' => $this->attempts(),
             ]);
 
-            // Use API's retry delay if provided, otherwise let Laravel use backoff array
             if ($e->retryAfter !== null) {
                 $this->release($e->retryAfter);
             } else {
                 throw $e;
             }
+        } catch (PermanentApiFailure $e) {
+            $this->fail($e);
+            throw $e;
         } catch (Throwable $e) {
-            // Unexpected exception = code needs updating
-            Log::critical('Unexpected exception in Mixpanel order sync - code update required', [
-                'job' => self::class,
-                'exception' => $e::class,
-                'message' => $e->getMessage(),
-                'from' => $fromString,
-                'to' => $toString,
-                'attempts' => $this->attempts(),
-            ]);
-
             $this->fail($e);
             throw $e;
         }
@@ -187,12 +144,24 @@ final class SyncOrdersToMixpanelJob implements ShouldQueue
      */
     public function failed(Throwable $exception): void
     {
-        Log::error('Mixpanel order sync job failed permanently', [
+        $context = [
             'from' => $this->from->format('Y-m-d H:i:s'),
             'to' => $this->to->format('Y-m-d H:i:s'),
             'exception' => $exception::class,
             'message' => $exception->getMessage(),
             'attempts' => $this->attempts(),
-        ]);
+        ];
+
+        if ($exception instanceof MissingRequiredDataException) {
+            $context['data_type'] = $exception->dataType;
+            $context['operation'] = $exception->operation;
+            $context['resolution'] = $exception->resolution;
+        }
+
+        if ($exception instanceof AbstractApiException) {
+            Log::error('Mixpanel order sync job failed permanently', $context);
+        } else {
+            Log::critical('Mixpanel order sync job failed permanently', $context);
+        }
     }
 }
