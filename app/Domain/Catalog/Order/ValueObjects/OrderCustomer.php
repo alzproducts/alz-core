@@ -32,7 +32,7 @@ final readonly class OrderCustomer
         public ?string $dateOfBirth,
         public array $deviceInfo = [],
     ) {
-        Assert::greaterThan($id, 0, 'Customer ID must be positive');
+        Assert::greaterThanEq($id, 0, 'Customer ID must be non-negative');
         Assert::range($type, 0, 3, 'Customer type must be between 0 and 3');
     }
 
