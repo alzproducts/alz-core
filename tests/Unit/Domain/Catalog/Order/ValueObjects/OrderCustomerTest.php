@@ -78,10 +78,10 @@ final class OrderCustomerTest extends TestCase
 
     #[Test]
     #[DataProvider('invalidIdProvider')]
-    public function it_throws_if_id_is_not_positive(int $invalidId): void
+    public function it_throws_if_id_is_negative(int $invalidId): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Customer ID must be positive');
+        $this->expectExceptionMessage('Customer ID must be non-negative');
 
         $this->createOrderCustomer(['id' => $invalidId]);
     }
@@ -92,7 +92,6 @@ final class OrderCustomerTest extends TestCase
     public static function invalidIdProvider(): array
     {
         return [
-            'zero id' => [0],
             'negative id' => [-1],
             'large negative id' => [-99999],
         ];
@@ -104,6 +103,14 @@ final class OrderCustomerTest extends TestCase
         $customer = $this->createOrderCustomer(['id' => 1]);
 
         $this->assertSame(1, $customer->id);
+    }
+
+    #[Test]
+    public function it_accepts_zero_id_for_legacy_guest_orders(): void
+    {
+        $customer = $this->createOrderCustomer(['id' => 0]);
+
+        $this->assertSame(0, $customer->id);
     }
 
     /*
