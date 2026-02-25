@@ -243,6 +243,10 @@ parameters:
         -
             identifier: missingType.checkedException
             path: app/Domain/Catalog/CustomFields/ValueObjects/DateTimeCustomFieldValue.php
+        # DateInterval constructor throws DateMalformedIntervalStringException, but chunk size is a validated positive-int.
+        -
+            identifier: missingType.checkedException
+            path: app/Domain/ValueObjects/DateRange.php
         # PHP Insights config references PHP_CodeSniffer classes as config keys (not loaded via Composer autoload)
         -
             message: '#^Class PHP_CodeSniffer\\.*#'
