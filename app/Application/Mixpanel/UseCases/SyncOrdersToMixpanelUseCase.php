@@ -17,6 +17,7 @@ use App\Domain\Exceptions\Api\PayloadSerializationException;
 use App\Domain\Exceptions\Api\UnexpectedApiResultException;
 use App\Domain\Exceptions\Data\MissingRequiredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
+use App\Domain\ValueObjects\DateRange;
 use DateTimeImmutable;
 use Psr\Log\LoggerInterface;
 
@@ -47,6 +48,14 @@ final readonly class SyncOrdersToMixpanelUseCase
      * Catches orders placed just before sync window that may have been tracked late.
      */
     private const int EXPORT_LOOKBACK_HOURS = 24;
+
+    /**
+     * Maximum days per Export API query chunk.
+     *
+     * At ~156KB/day JSONL, 7 days ≈ 1MB (normal) or ~3MB (2-3x peak).
+     * Keeps each request well under the 30s timeout / ~3.9MB limit.
+     */
+    private const int EXPORT_CHUNK_DAYS = 7;
 
     public function __construct(
         private OrderRepositoryInterface $orderRepository,
@@ -160,6 +169,7 @@ final readonly class SyncOrdersToMixpanelUseCase
      * Get existing order hashes from Mixpanel for deduplication.
      *
      * Queries a wider date range (from - 24h to to) to catch edge cases.
+     * Large ranges are chunked into 7-day windows to avoid Export API timeouts.
      *
      * @return array<string>
      *
@@ -173,7 +183,40 @@ final readonly class SyncOrdersToMixpanelUseCase
         // Expand query range to catch orders tracked late
         $exportFrom = $from->modify('-' . self::EXPORT_LOOKBACK_HOURS . ' hours');
 
-        return $this->mixpanel->getExistingOrderHashes($exportFrom, $to);
+        $exportRange = new DateRange($exportFrom, $to);
+        $chunks = $exportRange->chunk(self::EXPORT_CHUNK_DAYS);
+
+        // Single chunk: direct call, no overhead for normal nightly runs
+        if (\count($chunks) === 1) {
+            return $this->mixpanel->getExistingOrderHashes($chunks[0]->from, $chunks[0]->to);
+        }
+
+        $this->logger->info('Chunking Mixpanel export query', [
+            'chunks' => \count($chunks),
+            'from' => $exportFrom->format('Y-m-d H:i:s'),
+            'to' => $to->format('Y-m-d H:i:s'),
+        ]);
+
+        // Use array keys for O(1) dedup across chunks, then extract values
+        $hashSet = [];
+
+        foreach ($chunks as $index => $chunk) {
+            $chunkHashes = $this->mixpanel->getExistingOrderHashes($chunk->from, $chunk->to);
+
+            foreach ($chunkHashes as $hash) {
+                $hashSet[$hash] = true;
+            }
+
+            $this->logger->debug('Export chunk completed', [
+                'chunk' => $index + 1,
+                'of' => \count($chunks),
+                'hashes' => \count($chunkHashes),
+                'from' => $chunk->from->format('Y-m-d H:i:s'),
+                'to' => $chunk->to->format('Y-m-d H:i:s'),
+            ]);
+        }
+
+        return \array_keys($hashSet);
     }
 
     /**
