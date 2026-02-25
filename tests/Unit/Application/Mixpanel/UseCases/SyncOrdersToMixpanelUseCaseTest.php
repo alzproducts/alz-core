@@ -17,6 +17,7 @@ use App\Domain\Catalog\Order\ValueObjects\OrderProduct;
 use App\Domain\Catalog\Order\ValueObjects\OrderStatus;
 use App\Domain\Catalog\Order\ValueObjects\OrderStatusType;
 use App\Domain\Catalog\Order\ValueObjects\PaymentMethod;
+use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Data\MissingRequiredDataException;
 use DateTimeImmutable;
 use Mockery;
@@ -56,6 +57,7 @@ final class SyncOrdersToMixpanelUseCaseTest extends TestCase
         $this->mixpanel = Mockery::mock(MixpanelClientInterface::class);
         $this->logger = Mockery::mock(LoggerInterface::class);
         $this->logger->shouldReceive('info')->byDefault();
+        $this->logger->shouldReceive('debug')->byDefault();
 
         $this->useCase = new SyncOrdersToMixpanelUseCase(
             $this->orderRepository,
@@ -373,5 +375,89 @@ final class SyncOrdersToMixpanelUseCaseTest extends TestCase
         $this->assertSame(1, $result->ordersInRange);
         $this->assertSame(0, $result->skipped);
         $this->assertSame(1, $result->synced);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Export API Chunking Tests (Issue #231)
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function short_range_makes_single_export_call(): void
+    {
+        // 3-day range + 24h lookback = 4 days → single chunk (< 7 days)
+        $from = new DateTimeImmutable('2025-12-01 00:00:00');
+        $to = new DateTimeImmutable('2025-12-04 00:00:00');
+
+        $this->mixpanel->shouldReceive('getExistingOrderHashes')
+            ->once()
+            ->andReturn([]);
+        $this->orderRepository->shouldReceive('getOrdersInDateRange')->andReturn([]);
+
+        $this->useCase->execute($from, $to);
+    }
+
+    #[Test]
+    public function long_range_makes_multiple_export_calls(): void
+    {
+        // 25 days + 24h lookback = 26 days → 4 chunks (7+7+7+5)
+        $from = new DateTimeImmutable('2025-11-01 00:00:00');
+        $to = new DateTimeImmutable('2025-11-26 00:00:00');
+
+        $this->mixpanel->shouldReceive('getExistingOrderHashes')
+            ->times(4)
+            ->andReturn(['hash_a'], ['hash_b'], ['hash_c'], ['hash_d']);
+        $this->orderRepository->shouldReceive('getOrdersInDateRange')->andReturn([]);
+
+        $this->useCase->execute($from, $to);
+    }
+
+    #[Test]
+    public function hashes_from_multiple_chunks_are_merged_and_deduplicated(): void
+    {
+        // 14 days + 24h lookback = Oct 17 → Oct 31 (15 inclusive days) → 3 chunks (7+7+1)
+        $from = new DateTimeImmutable('2025-10-18 00:00:00');
+        $to = new DateTimeImmutable('2025-10-31 00:00:00');
+
+        $order = $this->createOrder(1, 10001);
+        $hash = OrderAnalyticsHash::fromReference($order->reference, $this->salt);
+
+        // Chunks return overlapping hashes — "duplicate_hash" appears twice
+        $this->mixpanel->shouldReceive('getExistingOrderHashes')
+            ->times(3)
+            ->andReturn(
+                [$hash->value, 'duplicate_hash'],
+                ['duplicate_hash', 'unique_hash_b'],
+                ['unique_hash_c'],
+            );
+
+        $this->orderRepository->shouldReceive('getOrdersInDateRange')->andReturn([$order]);
+
+        $result = $this->useCase->execute($from, $to);
+
+        // Order's hash was found → should be skipped
+        $this->assertSame(1, $result->skipped);
+        $this->assertSame(0, $result->synced);
+    }
+
+    #[Test]
+    public function export_chunk_failure_aborts_entire_sync(): void
+    {
+        // Same range as above — 3 chunks, second chunk fails
+        $from = new DateTimeImmutable('2025-10-18 00:00:00');
+        $to = new DateTimeImmutable('2025-10-31 00:00:00');
+
+        // First chunk succeeds, second chunk throws
+        $this->mixpanel->shouldReceive('getExistingOrderHashes')
+            ->once()
+            ->andReturn(['hash_from_chunk_1']);
+        $this->mixpanel->shouldReceive('getExistingOrderHashes')
+            ->once()
+            ->andThrow(new ExternalServiceUnavailableException('Mixpanel'));
+
+        $this->expectException(ExternalServiceUnavailableException::class);
+
+        $this->useCase->execute($from, $to);
     }
 }
