@@ -10,10 +10,12 @@ use App\Domain\Catalog\Order\ValueObjects\OrderAdminComment;
 use App\Domain\Catalog\Order\ValueObjects\OrderDiscount;
 use App\Domain\Catalog\Order\ValueObjects\OrderProduct;
 use App\Domain\Catalog\Order\ValueObjects\OrderRefund;
+use App\Domain\Catalog\Order\ValueObjects\OrderStatus;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use App\Domain\ValueObjects\IntId;
 use App\Infrastructure\Repositories\AbstractEloquentRepository;
 use App\Infrastructure\Shopwired\Mappers\OrderModelMapper;
 use App\Infrastructure\Shopwired\Models\OrderAdminCommentModel;
@@ -23,6 +25,7 @@ use App\Infrastructure\Shopwired\Models\OrderProductModel;
 use App\Infrastructure\Shopwired\Models\OrderRefundModel;
 use DateTimeImmutable;
 use Illuminate\Support\Collection;
+use RuntimeException;
 
 /**
  * Eloquent implementation of ShopWired order repository.
@@ -183,6 +186,90 @@ final class EloquentOrderRepository extends AbstractEloquentRepository implement
                     ->all(),
             );
         });
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Webhook Partial Update Methods
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * {@inheritDoc}
+     *
+     * @throws ResourceNotFoundException
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function updateStatus(IntId $externalId, OrderStatus $status): void
+    {
+        $affected = $this->eloquentGateway->updateWhere(
+            modelClass: self::MODEL_CLASS,
+            column: 'external_id',
+            value: $externalId->value,
+            data: [
+                'status_id' => $status->id,
+                'status_name' => $status->name->value,
+                'status_type' => $status->type,
+                'status_sort_order' => $status->sortOrder,
+            ],
+        );
+
+        if ($affected === 0) {
+            throw new ResourceNotFoundException('Database', $this->getEntityTypeName(), $externalId->value);
+        }
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @throws ResourceNotFoundException
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     * @throws RuntimeException If fillForInsert returns unexpected result (programming error)
+     */
+    public function addRefund(IntId $orderExternalId, OrderRefund $refund): void
+    {
+        $this->eloquentGateway->query(function () use ($orderExternalId, $refund): void {
+            /** @var string|null $orderUuid */
+            $orderUuid = self::MODEL_CLASS::query()
+                ->where('external_id', $orderExternalId->value)
+                ->value('id');
+
+            if ($orderUuid === null) {
+                throw new ResourceNotFoundException('Database', $this->getEntityTypeName(), $orderExternalId->value);
+            }
+
+            $this->eloquentGateway->insertOne(
+                modelClass: OrderRefundModel::class,
+                attributes: [
+                    'order_id' => $orderUuid,
+                    'order_external_id' => $orderExternalId->value,
+                    ...OrderRefundModel::fromDomainAttributes($refund),
+                ],
+            );
+        });
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @throws ResourceNotFoundException
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function deleteByExternalId(IntId $externalId): void
+    {
+        $deleted = $this->eloquentGateway->deleteWhere(
+            modelClass: self::MODEL_CLASS,
+            column: 'external_id',
+            value: $externalId->value,
+        );
+
+        if ($deleted === 0) {
+            throw new ResourceNotFoundException('Database', $this->getEntityTypeName(), $externalId->value);
+        }
     }
 
     // ─────────────────────────────────────────────────────────────────────────

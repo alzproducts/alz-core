@@ -83,7 +83,7 @@ final readonly class GenerateVariantSkusUseCase
         // 1. Fetch ShopWired product and sync to local DB (so variation lookups work)
         $product = $this->productSyncService->refreshById($command->productId->value);
 
-        if ($product->variations === []) {
+        if ($product->variations === null || $product->variations === []) {
             $this->logger->info('Product has no variations', ['product_id' => $command->productId->value]);
 
             return GenerateVariantSkusResult::noVariations($product->title);
@@ -202,10 +202,10 @@ final readonly class GenerateVariantSkusUseCase
 
         $this->logger->info('Loaded standard sign product for price matching', [
             'product_id' => $standardProduct->id,
-            'variation_count' => \count($standardProduct->variations),
+            'variation_count' => \count($standardProduct->variations ?? []),
         ]);
 
-        return $standardProduct->variations;
+        return $standardProduct->variations ?? [];
     }
 
     /**

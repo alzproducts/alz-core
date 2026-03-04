@@ -8,8 +8,10 @@ use App\Application\Contracts\Shopwired\CustomerRepositoryInterface;
 use App\Application\Results\SaveManyResult;
 use App\Domain\Customer\ValueObjects\Customer;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use App\Domain\ValueObjects\IntId;
 use App\Infrastructure\Repositories\AbstractEloquentRepository;
 use App\Infrastructure\Shopwired\Mappers\CustomerModelMapper;
 use App\Infrastructure\Shopwired\Models\CustomerModel;
@@ -69,6 +71,31 @@ final class EloquentCustomerRepository extends AbstractEloquentRepository implem
             upsertKeys: ['external_id'],
             batchSize: $batchSize,
         );
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Webhook Partial Update Methods
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * {@inheritDoc}
+     *
+     * @throws ResourceNotFoundException
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function deleteByExternalId(IntId $externalId): void
+    {
+        $deleted = $this->eloquentGateway->deleteWhere(
+            modelClass: self::MODEL_CLASS,
+            column: 'external_id',
+            value: $externalId->value,
+        );
+
+        if ($deleted === 0) {
+            throw new ResourceNotFoundException('Database', $this->getEntityTypeName(), $externalId->value);
+        }
     }
 
     // ─────────────────────────────────────────────────────────────────────────

@@ -160,4 +160,20 @@ interface ProductRepositoryInterface extends RepositoryWriteInterface
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      */
     public function getSkusGroupedByProductId(): array;
+
+    /**
+     * Update stock quantity for a product or variation by external ID.
+     *
+     * Used by `product.stock_changed` webhook. Updates the stock column
+     * on either the products or product_variations table.
+     *
+     * @param IntId $externalId ShopWired product or variation ID
+     * @param bool $isVariation Whether the ID refers to a variation
+     * @param int $newQuantity New stock quantity
+     *
+     * @throws ResourceNotFoundException When no product/variation found with this external ID
+     * @throws DatabaseOperationFailedException On query failure
+     * @throws ExternalServiceUnavailableException When database temporarily unavailable
+     */
+    public function updateStock(IntId $externalId, bool $isVariation, int $newQuantity): void;
 }

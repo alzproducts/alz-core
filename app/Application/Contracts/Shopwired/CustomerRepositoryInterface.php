@@ -8,7 +8,10 @@ use App\Application\Contracts\RepositoryWriteInterface;
 use App\Application\Results\SaveManyResult;
 use App\Domain\Customer\ValueObjects\Customer;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
+use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use App\Domain\ValueObjects\IntId;
 
 /**
  * Repository for ShopWired customer persistence.
@@ -43,4 +46,16 @@ interface CustomerRepositoryInterface extends RepositoryWriteInterface
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      */
     public function saveCustomersBulk(array $customers, int $batchSize = 500): SaveManyResult;
+
+    /**
+     * Delete a customer by their ShopWired external ID.
+     *
+     * Used by `customer.deleted` webhook.
+     *
+     * @throws ResourceNotFoundException When no customer found with this external ID
+     * @throws DatabaseOperationFailedException On deletion failure
+     * @throws DuplicateRecordException On constraint violation
+     * @throws ExternalServiceUnavailableException When database temporarily unavailable
+     */
+    public function deleteByExternalId(IntId $externalId): void;
 }

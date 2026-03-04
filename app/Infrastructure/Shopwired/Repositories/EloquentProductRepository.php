@@ -457,6 +457,35 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+    // Webhook Partial Update Methods
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * {@inheritDoc}
+     *
+     * @throws ResourceNotFoundException
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function updateStock(IntId $externalId, bool $isVariation, int $newQuantity): void
+    {
+        $modelClass = $isVariation ? ProductVariationModel::class : self::MODEL_CLASS;
+
+        $affected = $this->eloquentGateway->updateWhere(
+            modelClass: $modelClass,
+            column: 'external_id',
+            value: $externalId->value,
+            data: ['stock' => $newQuantity],
+        );
+
+        if ($affected === 0) {
+            $entityType = $isVariation ? 'ProductVariation' : $this->getEntityTypeName();
+            throw new ResourceNotFoundException('Database', $entityType, $externalId->value);
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
     // Persistence Helpers
     // ─────────────────────────────────────────────────────────────────────────
 

@@ -6,9 +6,13 @@ namespace App\Application\Contracts\Shopwired;
 
 use App\Application\Contracts\RepositoryWriteInterface;
 use App\Domain\Catalog\Order\ValueObjects\Order;
+use App\Domain\Catalog\Order\ValueObjects\OrderRefund;
+use App\Domain\Catalog\Order\ValueObjects\OrderStatus;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
+use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use App\Domain\ValueObjects\IntId;
 use DateTimeImmutable;
 
 /**
@@ -66,4 +70,43 @@ interface OrderRepositoryInterface extends RepositoryWriteInterface
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      */
     public function getAllOrdersInDateRange(DateTimeImmutable $from, DateTimeImmutable $to): array;
+
+    /**
+     * Update an order's status by its ShopWired external ID.
+     *
+     * Used by `order.status_changed` webhook for partial updates.
+     * Only updates status columns — does not touch child tables.
+     *
+     * @throws ResourceNotFoundException When no order found with this external ID
+     * @throws DatabaseOperationFailedException On query failure
+     * @throws DuplicateRecordException On constraint violation
+     * @throws ExternalServiceUnavailableException When database temporarily unavailable
+     */
+    public function updateStatus(IntId $externalId, OrderStatus $status): void;
+
+    /**
+     * Add a refund to an existing order.
+     *
+     * Used by `order.refund.created` webhook. Inserts a new refund row
+     * without replacing existing refunds.
+     *
+     * @throws ResourceNotFoundException When no order found with this external ID
+     * @throws DatabaseOperationFailedException On query failure
+     * @throws DuplicateRecordException On constraint violation
+     * @throws ExternalServiceUnavailableException When database temporarily unavailable
+     */
+    public function addRefund(IntId $orderExternalId, OrderRefund $refund): void;
+
+    /**
+     * Delete an order by its ShopWired external ID.
+     *
+     * Used by `order.deleted` webhook. Cascades to child tables
+     * (products, discounts, refunds, admin comments) via FK constraints.
+     *
+     * @throws ResourceNotFoundException When no order found with this external ID
+     * @throws DatabaseOperationFailedException On deletion failure
+     * @throws DuplicateRecordException On constraint violation
+     * @throws ExternalServiceUnavailableException When database temporarily unavailable
+     */
+    public function deleteByExternalId(IntId $externalId): void;
 }
