@@ -20,6 +20,8 @@ use App\Infrastructure\Repositories\AbstractEloquentRepository;
 use App\Infrastructure\Shopwired\Mappers\ProductModelMapper;
 use App\Infrastructure\Shopwired\Models\ProductModel;
 use App\Infrastructure\Shopwired\Models\ProductVariationModel;
+use Carbon\CarbonImmutable;
+use DateTimeImmutable;
 use Generator;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Log;
@@ -482,6 +484,68 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
         if ($affected === 0) {
             $entityType = $isVariation ? 'ProductVariation' : $this->getEntityTypeName();
             throw new ResourceNotFoundException('Database', $entityType, $externalId->value);
+        }
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @throws ResourceNotFoundException
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function deleteByExternalId(IntId $externalId): void
+    {
+        $deleted = $this->eloquentGateway->deleteWhere(
+            modelClass: self::MODEL_CLASS,
+            column: 'external_id',
+            value: $externalId->value,
+        );
+
+        if ($deleted === 0) {
+            throw new ResourceNotFoundException('Database', $this->getEntityTypeName(), $externalId->value);
+        }
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function getWebhookTimestamp(IntId $externalId): ?DateTimeImmutable
+    {
+        return $this->eloquentGateway->query(static function () use ($externalId): ?DateTimeImmutable {
+            /** @var string|null $timestamp */
+            $timestamp = self::MODEL_CLASS::query()
+                ->where('external_id', $externalId->value)
+                ->value('shopwired_webhook_at');
+
+            return $timestamp !== null ? CarbonImmutable::parse($timestamp)->toDateTimeImmutable() : null;
+        });
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @throws ResourceNotFoundException
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function updateWebhookTimestamp(IntId $externalId, DateTimeImmutable $timestamp): void
+    {
+        $affected = $this->eloquentGateway->updateWhere(
+            modelClass: self::MODEL_CLASS,
+            column: 'external_id',
+            value: $externalId->value,
+            data: ['shopwired_webhook_at' => $timestamp],
+        );
+
+        if ($affected === 0) {
+            throw new ResourceNotFoundException('Database', $this->getEntityTypeName(), $externalId->value);
         }
     }
 

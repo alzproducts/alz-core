@@ -12,7 +12,9 @@ use App\Domain\Catalog\Product\ValueObjects\Sku;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
+use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\IntId;
+use DateTimeImmutable;
 use Generator;
 
 /**
@@ -176,4 +178,40 @@ interface ProductRepositoryInterface extends RepositoryWriteInterface
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      */
     public function updateStock(IntId $externalId, bool $isVariation, int $newQuantity): void;
+
+    /**
+     * Delete a product by its ShopWired external ID.
+     *
+     * Used by `product.deleted` webhook. Cascades to variations via FK constraint.
+     *
+     * @throws ResourceNotFoundException When no product found with this external ID
+     * @throws DatabaseOperationFailedException On deletion failure
+     * @throws DuplicateRecordException On constraint violation
+     * @throws ExternalServiceUnavailableException When database temporarily unavailable
+     */
+    public function deleteByExternalId(IntId $externalId): void;
+
+    /**
+     * Get the webhook timestamp for a product by its ShopWired external ID.
+     *
+     * Returns null if the product doesn't exist or has no webhook timestamp.
+     * Used for webhook idempotency checks — compare against event timestamp.
+     *
+     * @throws DatabaseOperationFailedException On query failure
+     * @throws ExternalServiceUnavailableException When database temporarily unavailable
+     */
+    public function getWebhookTimestamp(IntId $externalId): ?DateTimeImmutable;
+
+    /**
+     * Update the webhook timestamp for a product by its ShopWired external ID.
+     *
+     * Sets `shopwired_webhook_at` to track the most recent webhook event
+     * for idempotency and out-of-order protection.
+     *
+     * @throws ResourceNotFoundException When no product found with this external ID
+     * @throws DatabaseOperationFailedException On query failure
+     * @throws DuplicateRecordException On constraint violation
+     * @throws ExternalServiceUnavailableException When database temporarily unavailable
+     */
+    public function updateWebhookTimestamp(IntId $externalId, DateTimeImmutable $timestamp): void;
 }
