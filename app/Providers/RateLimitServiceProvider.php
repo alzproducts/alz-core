@@ -44,8 +44,9 @@ final class RateLimitServiceProvider extends ServiceProvider
             return Limit::perMinute(60)->by($rateLimitKey);
         });
 
-        // Webhooks rate limiter: 100 requests per minute per IP
-        RateLimiter::for('webhooks', static fn(Request $request): Limit => Limit::perMinute(100)->by($request->ip()));
+        // Webhooks rate limiter: 300 requests per minute per IP
+        // Increased from 100 to accommodate ShopWired webhook bursts (e.g. bulk order updates)
+        RateLimiter::for('webhooks', static fn(Request $request): Limit => Limit::perMinute(300)->by($request->ip()));
 
         // Global rate limiter: 120 requests per minute per IP
         RateLimiter::for('global', static fn(Request $request): Limit => Limit::perMinute(120)->by($request->ip()));
