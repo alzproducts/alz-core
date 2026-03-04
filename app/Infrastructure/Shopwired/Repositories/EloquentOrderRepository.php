@@ -72,11 +72,20 @@ final class EloquentOrderRepository extends AbstractEloquentRepository implement
                 ->where('external_id', $entity->id)
                 ->value('id');
 
-            // 3. Sync child tables
+            // 3. Sync child tables (null = not provided by caller, skip sync)
             $this->syncProducts($orderUuid, $entity);
-            $this->syncDiscounts($orderUuid, $entity);
-            $this->syncRefunds($orderUuid, $entity);
-            $this->syncAdminComments($orderUuid, $entity);
+
+            if ($entity->discounts !== null) {
+                $this->syncDiscounts($orderUuid, $entity);
+            }
+
+            if ($entity->refunds !== null) {
+                $this->syncRefunds($orderUuid, $entity);
+            }
+
+            if ($entity->adminComments !== null) {
+                $this->syncAdminComments($orderUuid, $entity);
+            }
         }, attempts: 3);
     }
 
@@ -325,7 +334,7 @@ final class EloquentOrderRepository extends AbstractEloquentRepository implement
         );
 
         // 2. Bulk insert fresh discounts (single query vs N queries)
-        if ($order->discounts !== []) {
+        if ($order->discounts !== null && $order->discounts !== []) {
             /** @var list<array<string, mixed>> $rows */
             $rows = \array_values(\array_map(
                 static fn(OrderDiscount $discount): array => [
@@ -362,7 +371,7 @@ final class EloquentOrderRepository extends AbstractEloquentRepository implement
         );
 
         // 2. Bulk insert fresh refunds (single query vs N queries)
-        if ($order->refunds !== []) {
+        if ($order->refunds !== null && $order->refunds !== []) {
             /** @var list<array<string, mixed>> $rows */
             $rows = \array_values(\array_map(
                 static fn(OrderRefund $refund): array => [
@@ -399,7 +408,7 @@ final class EloquentOrderRepository extends AbstractEloquentRepository implement
         );
 
         // 2. Bulk insert fresh admin comments (single query vs N queries)
-        if ($order->adminComments !== []) {
+        if ($order->adminComments !== null && $order->adminComments !== []) {
             /** @var list<array<string, mixed>> $rows */
             $rows = \array_values(\array_map(
                 static fn(OrderAdminComment $comment): array => [

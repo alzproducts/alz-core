@@ -81,7 +81,10 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
                 );
 
                 // 2. Sync variations (requires product UUID for FK)
-                $this->syncVariations($entity);
+                // null = not provided by caller (e.g. webhook), skip sync
+                if ($entity->variations !== null) {
+                    $this->syncVariations($entity);
+                }
             }, attempts: 3);
         } catch (DatabaseOperationFailedException $e) {
             $this->logCrossTableSkuConflictIfApplicable($e, $entity);
@@ -480,13 +483,14 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
         );
 
         // 2. Bulk insert fresh variations (single query vs N queries)
-        if ($product->variations !== []) {
+        if ($product->variations !== null && $product->variations !== []) {
             // Fetch product UUID for FK (single column query after upsert)
             /** @var string $productUuid */
             $productUuid = self::MODEL_CLASS::query()
                 ->where('external_id', $product->id)
                 ->value('id');
 
+            /** @var list<array<string, mixed>> $rows */
             $rows = \array_map(
                 static fn(ProductVariation $v): array => [
                     'product_id' => $productUuid,

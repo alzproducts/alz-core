@@ -54,7 +54,7 @@ final readonly class Product implements BasicProductInterface
      * @param string|null $metaTitle SEO title
      * @param string|null $metaDescription SEO description
      * @param list<int> $categoryIds ShopWired category IDs
-     * @param list<ProductVariation> $variations Product variations
+     * @param list<ProductVariation>|null $variations Product variations (null=not provided, []=none)
      * @param list<ProductImage> $images Product images
      * @param array<string, mixed> $rawCustomFields Raw custom field data (name => value) for storage
      * @param list<AbstractCustomFieldValue> $customFields Typed custom field values (populated on read)
@@ -83,7 +83,7 @@ final readonly class Product implements BasicProductInterface
         public ?string $metaTitle,
         public ?string $metaDescription,
         public array $categoryIds,
-        public array $variations,
+        public ?array $variations,
         public array $images,
         public array $rawCustomFields,
         public array $customFields,
@@ -104,7 +104,7 @@ final readonly class Product implements BasicProductInterface
      */
     public function hasVariations(): bool
     {
-        return $this->variations !== [];
+        return $this->variations !== null && $this->variations !== [];
     }
 
     /**
@@ -112,7 +112,7 @@ final readonly class Product implements BasicProductInterface
      */
     public function totalStock(): int
     {
-        if (!$this->hasVariations()) {
+        if ($this->variations === null || $this->variations === []) {
             return $this->stock;
         }
 
