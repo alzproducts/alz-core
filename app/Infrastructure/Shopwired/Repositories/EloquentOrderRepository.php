@@ -25,7 +25,6 @@ use App\Infrastructure\Shopwired\Models\OrderProductModel;
 use App\Infrastructure\Shopwired\Models\OrderRefundModel;
 use DateTimeImmutable;
 use Illuminate\Support\Collection;
-use RuntimeException;
 
 /**
  * Eloquent implementation of ShopWired order repository.
@@ -222,11 +221,13 @@ final class EloquentOrderRepository extends AbstractEloquentRepository implement
     /**
      * {@inheritDoc}
      *
+     * Idempotent via upsert on (order_external_id, external_id) unique constraint.
+     * Duplicate webhooks for the same refund will update rather than insert.
+     *
      * @throws ResourceNotFoundException
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
-     * @throws RuntimeException If fillForInsert returns unexpected result (programming error)
      */
     public function addRefund(IntId $orderExternalId, OrderRefund $refund): void
     {
@@ -240,13 +241,14 @@ final class EloquentOrderRepository extends AbstractEloquentRepository implement
                 throw new ResourceNotFoundException('Database', $this->getEntityTypeName(), $orderExternalId->value);
             }
 
-            $this->eloquentGateway->insertOne(
+            $this->eloquentGateway->upsertOne(
                 modelClass: OrderRefundModel::class,
                 attributes: [
                     'order_id' => $orderUuid,
                     'order_external_id' => $orderExternalId->value,
                     ...OrderRefundModel::fromDomainAttributes($refund),
                 ],
+                uniqueBy: ['order_external_id', 'external_id'],
             );
         });
     }
