@@ -70,26 +70,49 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
      */
     public function save(object $entity): void
     {
+        /** @var Product $entity */
+        $this->performSave($entity);
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function saveFromWebhook(Product $product, DateTimeImmutable $webhookAt): void
+    {
+        $this->performSave($product, ['shopwired_webhook_at' => $webhookAt]);
+    }
+
+    /**
+     * @param array<string, mixed> $extra Additional attributes merged into the product upsert.
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    private function performSave(Product $product, array $extra = []): void
+    {
         try {
-            $this->eloquentGateway->transact(function () use ($entity): void {
-                // 1. Upsert product (single INSERT ON CONFLICT query)
+            $this->eloquentGateway->transact(function () use ($product, $extra): void {
                 $this->eloquentGateway->upsertOne(
                     modelClass: self::MODEL_CLASS,
                     attributes: [
-                        'external_id' => $entity->id,
-                        ...ProductModelMapper::toModelAttributes($entity),
+                        'external_id' => $product->id,
+                        ...ProductModelMapper::toModelAttributes($product),
+                        ...$extra,
                     ],
                     uniqueBy: ['external_id'],
                 );
 
-                // 2. Sync variations (requires product UUID for FK)
-                // null = not provided by caller (e.g. webhook), skip sync
-                if ($entity->variations !== null) {
-                    $this->syncVariations($entity);
+                if ($product->variations !== null) {
+                    $this->syncVariations($product);
                 }
             }, attempts: 3);
         } catch (DatabaseOperationFailedException $e) {
-            $this->logCrossTableSkuConflictIfApplicable($e, $entity);
+            $this->logCrossTableSkuConflictIfApplicable($e, $product);
 
             throw $e;
         }
@@ -470,20 +493,20 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      */
-    public function updateStock(IntId $externalId, bool $isVariation, int $newQuantity): void
+    public function updateStock(Sku $sku, bool $isVariation, int $newQuantity): void
     {
         $modelClass = $isVariation ? ProductVariationModel::class : self::MODEL_CLASS;
 
         $affected = $this->eloquentGateway->updateWhere(
             modelClass: $modelClass,
-            column: 'external_id',
-            value: $externalId->value,
+            column: 'sku',
+            value: $sku->value,
             data: ['stock' => $newQuantity],
         );
 
         if ($affected === 0) {
             $entityType = $isVariation ? 'ProductVariation' : $this->getEntityTypeName();
-            throw new ResourceNotFoundException('Database', $entityType, $externalId->value);
+            throw new ResourceNotFoundException('Database', $entityType, $sku->value);
         }
     }
 

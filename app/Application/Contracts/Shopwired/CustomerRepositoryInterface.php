@@ -49,6 +49,15 @@ interface CustomerRepositoryInterface extends RepositoryWriteInterface
     public function saveCustomersBulk(array $customers, int $batchSize = 500): SaveManyResult;
 
     /**
+     * Upsert a customer and record the webhook event timestamp in one operation.
+     *
+     * @throws DatabaseOperationFailedException On query failure
+     * @throws DuplicateRecordException On constraint violation
+     * @throws ExternalServiceUnavailableException When database temporarily unavailable
+     */
+    public function saveFromWebhook(Customer $customer, DateTimeImmutable $webhookAt): void;
+
+    /**
      * Delete a customer by their ShopWired external ID.
      *
      * Used by `customer.deleted` webhook.

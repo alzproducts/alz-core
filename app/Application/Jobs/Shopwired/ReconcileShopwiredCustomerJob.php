@@ -4,21 +4,21 @@ declare(strict_types=1);
 
 namespace App\Application\Jobs\Shopwired;
 
-use App\Application\Contracts\Shopwired\OrderClientInterface;
-use App\Application\Contracts\Shopwired\OrderRepositoryInterface;
+use App\Application\Contracts\Shopwired\CustomerClientInterface;
+use App\Application\Contracts\Shopwired\CustomerRepositoryInterface;
 use App\Domain\Exceptions\Api\PermanentApiFailure;
 use App\Domain\Exceptions\Api\TransientApiFailure;
 use Psr\Log\LoggerInterface;
 use Throwable;
 
 /**
- * Fetch the current state of a ShopWired order from the API and persist it.
+ * Fetch the current state of a ShopWired customer from the API and persist it.
  *
  * Dispatched by webhook use cases after a partial update. Ensures the local
  * record reflects the authoritative API state even if the webhook payload
  * was partial or arrived out of order.
  */
-final class ReconcileShopwiredOrderJob extends AbstractReconcileShopwiredEntityJob
+final class ReconcileShopwiredCustomerJob extends AbstractReconcileShopwiredEntityJob
 {
     /**
      * @throws TransientApiFailure
@@ -26,26 +26,26 @@ final class ReconcileShopwiredOrderJob extends AbstractReconcileShopwiredEntityJ
      * @throws Throwable
      */
     public function handle(
-        OrderClientInterface $client,
-        OrderRepositoryInterface $repo,
+        CustomerClientInterface $client,
+        CustomerRepositoryInterface $repo,
         LoggerInterface $logger,
     ): void {
-        $order = $client->getOrderById($this->entityId->value);
-        $this->executeSync($order, $repo, $logger);
+        $customer = $client->getCustomerById($this->entityId->value);
+        $this->executeSync($customer, $repo, $logger);
     }
 
     protected function uniqueIdPrefix(): string
     {
-        return 'reconcile-shopwired-order-';
+        return 'reconcile-shopwired-customer-';
     }
 
     protected function contextKey(): string
     {
-        return 'order_id';
+        return 'customer_id';
     }
 
     protected function entityLabel(): string
     {
-        return 'Order';
+        return 'Customer';
     }
 }

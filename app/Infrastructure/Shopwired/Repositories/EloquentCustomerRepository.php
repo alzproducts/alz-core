@@ -75,6 +75,26 @@ final class EloquentCustomerRepository extends AbstractEloquentRepository implem
         );
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function saveFromWebhook(Customer $customer, DateTimeImmutable $webhookAt): void
+    {
+        $this->eloquentGateway->upsertOne(
+            modelClass: self::MODEL_CLASS,
+            attributes: [
+                'external_id' => $customer->id,
+                ...CustomerModelMapper::toModelAttributes($customer),
+                'shopwired_webhook_at' => $webhookAt,
+            ],
+            uniqueBy: ['external_id'],
+        );
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
     // Webhook Partial Update Methods
     // ─────────────────────────────────────────────────────────────────────────

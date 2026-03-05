@@ -72,6 +72,15 @@ interface OrderRepositoryInterface extends RepositoryWriteInterface
     public function getAllOrdersInDateRange(DateTimeImmutable $from, DateTimeImmutable $to): array;
 
     /**
+     * Upsert an order and record the webhook event timestamp in one operation.
+     *
+     * @throws DatabaseOperationFailedException On query failure
+     * @throws DuplicateRecordException On constraint violation
+     * @throws ExternalServiceUnavailableException When database temporarily unavailable
+     */
+    public function saveFromWebhook(Order $order, DateTimeImmutable $webhookAt): void;
+
+    /**
      * Update an order's status by its ShopWired external ID.
      *
      * Used by `order.status_changed` webhook for partial updates.

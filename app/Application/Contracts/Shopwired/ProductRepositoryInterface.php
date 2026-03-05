@@ -164,20 +164,29 @@ interface ProductRepositoryInterface extends RepositoryWriteInterface
     public function getSkusGroupedByProductId(): array;
 
     /**
-     * Update stock quantity for a product or variation by external ID.
+     * Update stock quantity for a product or variation by SKU.
      *
      * Used by `product.stock_changed` webhook. Updates the stock column
      * on either the products or product_variations table.
      *
-     * @param IntId $externalId ShopWired product or variation ID
-     * @param bool $isVariation Whether the ID refers to a variation
+     * @param Sku $sku SKU of the product or variation to update
+     * @param bool $isVariation Whether the SKU refers to a variation
      * @param int $newQuantity New stock quantity
      *
-     * @throws ResourceNotFoundException When no product/variation found with this external ID
+     * @throws ResourceNotFoundException When no product/variation found with this SKU
      * @throws DatabaseOperationFailedException On query failure
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      */
-    public function updateStock(IntId $externalId, bool $isVariation, int $newQuantity): void;
+    public function updateStock(Sku $sku, bool $isVariation, int $newQuantity): void;
+
+    /**
+     * Upsert a product (and its variations) and record the webhook event timestamp in one operation.
+     *
+     * @throws DatabaseOperationFailedException On query failure
+     * @throws DuplicateRecordException On constraint violation
+     * @throws ExternalServiceUnavailableException When database temporarily unavailable
+     */
+    public function saveFromWebhook(Product $product, DateTimeImmutable $webhookAt): void;
 
     /**
      * Delete a product by its ShopWired external ID.

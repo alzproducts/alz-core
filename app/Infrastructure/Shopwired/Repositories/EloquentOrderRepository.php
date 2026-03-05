@@ -58,13 +58,39 @@ final class EloquentOrderRepository extends AbstractEloquentRepository implement
      */
     public function save(object $entity): void
     {
-        $this->eloquentGateway->transact(function () use ($entity): void {
+        /** @var Order $entity */
+        $this->performSave($entity);
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function saveFromWebhook(Order $order, DateTimeImmutable $webhookAt): void
+    {
+        $this->performSave($order, ['shopwired_webhook_at' => $webhookAt]);
+    }
+
+    /**
+     * @param array<string, mixed> $extra Additional attributes merged into the order upsert.
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    private function performSave(Order $order, array $extra = []): void
+    {
+        $this->eloquentGateway->transact(function () use ($order, $extra): void {
             // 1. Upsert order (single INSERT ON CONFLICT query)
             $this->eloquentGateway->upsertOne(
                 modelClass: self::MODEL_CLASS,
                 attributes: [
-                    'external_id' => $entity->id,
-                    ...OrderModelMapper::toModelAttributes($entity),
+                    'external_id' => $order->id,
+                    ...OrderModelMapper::toModelAttributes($order),
+                    ...$extra,
                 ],
                 uniqueBy: ['external_id'],
             );
@@ -72,22 +98,22 @@ final class EloquentOrderRepository extends AbstractEloquentRepository implement
             // 2. Fetch order UUID for FK relationships on child tables
             /** @var string $orderUuid */
             $orderUuid = self::MODEL_CLASS::query()
-                ->where('external_id', $entity->id)
+                ->where('external_id', $order->id)
                 ->value('id');
 
             // 3. Sync child tables (null = not provided by caller, skip sync)
-            $this->syncProducts($orderUuid, $entity);
+            $this->syncProducts($orderUuid, $order);
 
-            if ($entity->discounts !== null) {
-                $this->syncDiscounts($orderUuid, $entity);
+            if ($order->discounts !== null) {
+                $this->syncDiscounts($orderUuid, $order);
             }
 
-            if ($entity->refunds !== null) {
-                $this->syncRefunds($orderUuid, $entity);
+            if ($order->refunds !== null) {
+                $this->syncRefunds($orderUuid, $order);
             }
 
-            if ($entity->adminComments !== null) {
-                $this->syncAdminComments($orderUuid, $entity);
+            if ($order->adminComments !== null) {
+                $this->syncAdminComments($orderUuid, $order);
             }
         }, attempts: 3);
     }

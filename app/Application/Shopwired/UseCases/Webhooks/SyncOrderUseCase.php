@@ -45,7 +45,8 @@ final readonly class SyncOrderUseCase
             return;
         }
 
-        $existing = $this->orderRepository->getWebhookTimestamp(IntId::from($order->id));
+        $orderId = IntId::from($order->id);
+        $existing = $this->orderRepository->getWebhookTimestamp($orderId);
 
         if ($existing !== null && $existing >= $eventTime) {
             $this->logger->info('Discarding already-processed order webhook', $context);
@@ -55,7 +56,7 @@ final readonly class SyncOrderUseCase
 
         $this->orderRepository->saveFromWebhook($order, $eventTime);
 
-        ReconcileShopwiredOrderJob::dispatch(IntId::from($order->id));
+        ReconcileShopwiredOrderJob::dispatch($orderId);
 
         $this->logger->info('Order webhook processed — reconciliation queued', $context);
     }
