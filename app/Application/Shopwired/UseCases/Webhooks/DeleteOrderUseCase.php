@@ -9,6 +9,7 @@ use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use App\Domain\Notifications\Events\AdminAlertEvent;
 use App\Domain\ValueObjects\IntId;
 use Psr\Log\LoggerInterface;
 
@@ -44,6 +45,12 @@ final readonly class DeleteOrderUseCase
             return;
         }
 
-        $this->logger->info('Order deleted via webhook', $context);
+        $this->logger->info('Order deleted', $context);
+
+        \event(new AdminAlertEvent(
+            title: 'ShopWired Order Deleted',
+            message: "Order #{$orderId->value} was deleted in ShopWired. Please investigate if this was unexpected.",
+            context: $context,
+        ));
     }
 }
