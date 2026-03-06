@@ -74,9 +74,8 @@ final class OrderResponse extends Data implements DomainConvertibleInterface
         public readonly bool $marketing,
         public readonly string $comments,
 
-        // URLs (always present, empty string if not set)
+        // URLs (trackingUrl always present, empty string if not set)
         public readonly string $trackingUrl,
-        public readonly string $invoiceUrl,
 
         // Source tracking (always present)
         public readonly int $referrerId,
@@ -113,6 +112,7 @@ final class OrderResponse extends Data implements DomainConvertibleInterface
         public readonly array $fileArchives = [],
 
         // Genuinely nullable (business data may not exist)
+        public readonly ?string $invoiceUrl = null, // Should always be present (even as empty string), but rarely omitted by the API for unknown reasons
         public readonly ?string $packageWeight = null,
         public readonly ?string $deliveryDate = null,
         public readonly ?string $customerSource = null,
