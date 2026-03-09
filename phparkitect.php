@@ -233,6 +233,7 @@ return static function (Config $config): void {
                                'RuntimeException',
                                'InvalidArgumentException',
                                'LogicException',
+                               'ValueError',
                                'Throwable',
                                'JsonException',
                                'Spatie\LaravelData',

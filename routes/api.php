@@ -9,9 +9,13 @@ use App\Presentation\Http\Controllers\ContactForm\ContactFormController;
 use App\Presentation\Http\Controllers\HelpScout\ConversationsController;
 use App\Presentation\Http\Controllers\HelpScout\ProfileController;
 use App\Presentation\Http\Controllers\Shopwired\ProductUpdateController;
+use App\Presentation\Http\Controllers\Shopwired\Webhooks\ShopwiredWebhookCustomerController;
+use App\Presentation\Http\Controllers\Shopwired\Webhooks\ShopwiredWebhookOrderController;
+use App\Presentation\Http\Controllers\Shopwired\Webhooks\ShopwiredWebhookProductController;
 use App\Presentation\Http\HelpScout\Middleware\DetectRefreshMiddleware;
 use App\Presentation\Http\HelpScout\Middleware\HandleHelpScoutExceptionsMiddleware;
 use App\Presentation\Http\Middleware\RejectHoneypotMiddleware;
+use App\Presentation\Http\Middleware\VerifyShopwiredWebhookSignatureMiddleware;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -30,6 +34,24 @@ Route::middleware([
 ])->group(static function (): void {
     Route::post('contact', ContactFormController::class);
 });
+
+/*
+|--------------------------------------------------------------------------
+| ShopWired Webhook Routes
+|--------------------------------------------------------------------------
+|
+| Authenticated via HMAC signature verification (not JWT).
+| VerifyShopwiredWebhookSignatureMiddleware validates the X-SW-Signature header.
+|
+*/
+
+Route::prefix('webhooks/shopwired')
+    ->middleware(VerifyShopwiredWebhookSignatureMiddleware::class)
+    ->group(static function (): void {
+        Route::post('orders', ShopwiredWebhookOrderController::class);
+        Route::post('products', ShopwiredWebhookProductController::class);
+        Route::post('customers', ShopwiredWebhookCustomerController::class);
+    });
 
 /*
 |--------------------------------------------------------------------------
