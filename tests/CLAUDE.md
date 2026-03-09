@@ -209,9 +209,11 @@ ignore:
 
 ---
 
-## Queue::fake() must be inline, never in setUp()
+## Testing ShouldBeUnique jobs: flush cache in setUp()
 
-Call `Queue::fake()` inside the specific test method that needs it — not in `setUp()`. A setUp-based fake persists across all tests in the class and causes intermittent `assertPushed` failures under parallel execution. Tests that don't dispatch jobs need no queue fake at all.
+`ShouldBeUnique` jobs acquire a cache lock at dispatch time. With `Queue::fake()`, the job never runs so the lock is never released. In parallel, the next test in the same worker finds the lock held and silently skips the dispatch — causing intermittent `assertPushed` failures.
+
+Fix: call `Cache::flush()` in `setUp()` to clear stale unique locks before each test.
 
 ---
 
