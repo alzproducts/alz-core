@@ -15,7 +15,7 @@ use App\Domain\Catalog\Order\ValueObjects\OrderStatus;
 use App\Domain\Catalog\Order\ValueObjects\OrderStatusType;
 use App\Domain\Catalog\Order\ValueObjects\PaymentMethod;
 use DateTimeImmutable;
-use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Bus;
 use Mockery;
 use Mockery\MockInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -44,7 +44,7 @@ final class SyncOrderUseCaseTest extends TestCase
     {
         parent::setUp();
 
-        Queue::fake();
+        Bus::fake();
 
         $this->repository = Mockery::mock(OrderRepositoryInterface::class);
         $this->logger = Mockery::mock(LoggerInterface::class);
@@ -76,7 +76,7 @@ final class SyncOrderUseCaseTest extends TestCase
 
         $this->useCase->execute(eventTime: $staleEventTime, webhookId: 99, order: $order);
 
-        Queue::assertNothingPushed();
+        Bus::assertNothingDispatched();
     }
 
     /*
@@ -102,7 +102,7 @@ final class SyncOrderUseCaseTest extends TestCase
 
         $this->useCase->execute(eventTime: $eventTime, webhookId: 99, order: $order);
 
-        Queue::assertNothingPushed();
+        Bus::assertNothingDispatched();
     }
 
     #[Test]
@@ -121,7 +121,7 @@ final class SyncOrderUseCaseTest extends TestCase
 
         $this->useCase->execute(eventTime: $eventTime, webhookId: 99, order: $order);
 
-        Queue::assertNothingPushed();
+        Bus::assertNothingDispatched();
     }
 
     /*
@@ -145,7 +145,7 @@ final class SyncOrderUseCaseTest extends TestCase
 
         $this->useCase->execute(eventTime: $eventTime, webhookId: 99, order: $order);
 
-        Queue::assertPushed(SyncShopwiredOrderJob::class);
+        Bus::assertDispatched(SyncShopwiredOrderJob::class);
     }
 
     #[Test]
@@ -164,7 +164,7 @@ final class SyncOrderUseCaseTest extends TestCase
 
         $this->useCase->execute(eventTime: $eventTime, webhookId: 99, order: $order);
 
-        Queue::assertPushed(SyncShopwiredOrderJob::class);
+        Bus::assertDispatched(SyncShopwiredOrderJob::class);
     }
 
     /*

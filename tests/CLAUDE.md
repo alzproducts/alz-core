@@ -209,9 +209,9 @@ ignore:
 
 ---
 
-## Queue::fake() Requires tests/Feature/
+## Use Bus::fake() for SomeJob::dispatch() assertions
 
-If the class under test calls `SomeJob::dispatch()`, the test must live in `tests/Feature/`, not `tests/Unit/`. Static job dispatches route through the Laravel container — `Queue::fake()` is unreliable in Unit tests under parallel execution and causes intermittent `assertPushed` failures.
+`SomeJob::dispatch()` routes through the Bus/Dispatcher (`PendingDispatch::__destruct()` calls `app(Dispatcher::class)->dispatch()`), not the queue driver directly. Use `Bus::fake()` + `Bus::assertDispatched()` — not `Queue::fake()` + `Queue::assertPushed()`. `Queue::fake()` intercepts one level too low and is unreliable under parallel test execution.
 
 ---
 
