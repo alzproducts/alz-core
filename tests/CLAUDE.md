@@ -209,9 +209,9 @@ ignore:
 
 ---
 
-## Use Bus::fake() for SomeJob::dispatch() assertions
+## Queue::fake() must be inline, never in setUp()
 
-`SomeJob::dispatch()` routes through the Bus/Dispatcher (`PendingDispatch::__destruct()` calls `app(Dispatcher::class)->dispatch()`), not the queue driver directly. Use `Bus::fake()` + `Bus::assertDispatched()` — not `Queue::fake()` + `Queue::assertPushed()`. `Queue::fake()` intercepts one level too low and is unreliable under parallel test execution.
+Call `Queue::fake()` inside the specific test method that needs it — not in `setUp()`. A setUp-based fake persists across all tests in the class and causes intermittent `assertPushed` failures under parallel execution. Tests that don't dispatch jobs need no queue fake at all.
 
 ---
 

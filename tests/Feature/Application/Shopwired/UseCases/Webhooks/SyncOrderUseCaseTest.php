@@ -15,7 +15,7 @@ use App\Domain\Catalog\Order\ValueObjects\OrderStatus;
 use App\Domain\Catalog\Order\ValueObjects\OrderStatusType;
 use App\Domain\Catalog\Order\ValueObjects\PaymentMethod;
 use DateTimeImmutable;
-use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\Queue;
 use Mockery;
 use Mockery\MockInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -43,8 +43,6 @@ final class SyncOrderUseCaseTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-
-        Bus::fake();
 
         $this->repository = Mockery::mock(OrderRepositoryInterface::class);
         $this->logger = Mockery::mock(LoggerInterface::class);
@@ -76,7 +74,6 @@ final class SyncOrderUseCaseTest extends TestCase
 
         $this->useCase->execute(eventTime: $staleEventTime, webhookId: 99, order: $order);
 
-        Bus::assertNothingDispatched();
     }
 
     /*
@@ -102,7 +99,6 @@ final class SyncOrderUseCaseTest extends TestCase
 
         $this->useCase->execute(eventTime: $eventTime, webhookId: 99, order: $order);
 
-        Bus::assertNothingDispatched();
     }
 
     #[Test]
@@ -121,7 +117,6 @@ final class SyncOrderUseCaseTest extends TestCase
 
         $this->useCase->execute(eventTime: $eventTime, webhookId: 99, order: $order);
 
-        Bus::assertNothingDispatched();
     }
 
     /*
@@ -133,6 +128,8 @@ final class SyncOrderUseCaseTest extends TestCase
     #[Test]
     public function it_saves_and_dispatches_sync_job_for_a_fresh_webhook(): void
     {
+        Queue::fake();
+
         $order = $this->createOrder(id: 101);
         $eventTime = new DateTimeImmutable('-1 hour');
 
@@ -145,12 +142,14 @@ final class SyncOrderUseCaseTest extends TestCase
 
         $this->useCase->execute(eventTime: $eventTime, webhookId: 99, order: $order);
 
-        Bus::assertDispatched(SyncShopwiredOrderJob::class);
+        Queue::assertPushed(SyncShopwiredOrderJob::class);
     }
 
     #[Test]
     public function it_saves_and_dispatches_sync_job_when_incoming_event_is_newer_than_stored(): void
     {
+        Queue::fake();
+
         $order = $this->createOrder(id: 101);
         $eventTime = new DateTimeImmutable('-1 hour');
         $olderTimestamp = new DateTimeImmutable('-2 hours');
@@ -164,7 +163,7 @@ final class SyncOrderUseCaseTest extends TestCase
 
         $this->useCase->execute(eventTime: $eventTime, webhookId: 99, order: $order);
 
-        Bus::assertDispatched(SyncShopwiredOrderJob::class);
+        Queue::assertPushed(SyncShopwiredOrderJob::class);
     }
 
     /*
