@@ -4,21 +4,21 @@ declare(strict_types=1);
 
 namespace App\Application\Jobs\Shopwired;
 
-use App\Application\Contracts\Shopwired\ProductClientInterface;
-use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
+use App\Application\Contracts\Shopwired\CustomerClientInterface;
+use App\Application\Contracts\Shopwired\CustomerRepositoryInterface;
 use App\Domain\Exceptions\Api\PermanentApiFailure;
 use App\Domain\Exceptions\Api\TransientApiFailure;
 use Psr\Log\LoggerInterface;
 use Throwable;
 
 /**
- * Fetch the current state of a ShopWired product from the API and persist it.
+ * Fetch the current state of a ShopWired customer from the API and persist it.
  *
  * Dispatched by webhook use cases after a partial update. Ensures the local
  * record reflects the authoritative API state even if the webhook payload
  * was partial or arrived out of order.
  */
-final class ReconcileShopwiredProductJob extends AbstractReconcileShopwiredEntityJob
+final class SyncShopwiredCustomerJob extends AbstractSyncShopwiredEntityJob
 {
     /**
      * @throws TransientApiFailure
@@ -26,26 +26,26 @@ final class ReconcileShopwiredProductJob extends AbstractReconcileShopwiredEntit
      * @throws Throwable
      */
     public function handle(
-        ProductClientInterface $client,
-        ProductRepositoryInterface $repo,
+        CustomerClientInterface $client,
+        CustomerRepositoryInterface $repo,
         LoggerInterface $logger,
     ): void {
-        $product = $client->getProductById($this->entityId->value);
-        $this->executeSync($product, $repo, $logger);
+        $customer = $client->getCustomerById($this->entityId->value);
+        $this->executeSync($customer, $repo, $logger);
     }
 
     protected function uniqueIdPrefix(): string
     {
-        return 'reconcile-shopwired-product-';
+        return 'sync-shopwired-customer-';
     }
 
     protected function contextKey(): string
     {
-        return 'product_id';
+        return 'customer_id';
     }
 
     protected function entityLabel(): string
     {
-        return 'Product';
+        return 'Customer';
     }
 }

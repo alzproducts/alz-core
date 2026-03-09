@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Application\Shopwired\UseCases\Webhooks;
 
 use App\Application\Contracts\Shopwired\OrderRepositoryInterface;
-use App\Application\Jobs\Shopwired\ReconcileShopwiredOrderJob;
+use App\Application\Jobs\Shopwired\SyncShopwiredOrderJob;
 use App\Domain\Catalog\Order\ValueObjects\Order;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
@@ -18,7 +18,7 @@ use Psr\Log\LoggerInterface;
  * Handle `order.updated` and `order.finalized` webhook events.
  *
  * Applies staleness and idempotency guards, persists the order from the webhook
- * payload with its timestamp, then queues a full API reconciliation.
+ * payload with its timestamp, then queues a full API sync.
  */
 final readonly class SyncOrderUseCase
 {
@@ -56,8 +56,8 @@ final readonly class SyncOrderUseCase
 
         $this->orderRepository->saveFromWebhook($order, $eventTime);
 
-        ReconcileShopwiredOrderJob::dispatch($orderId);
+        SyncShopwiredOrderJob::dispatch($orderId);
 
-        $this->logger->info('Order webhook processed — reconciliation queued', $context);
+        $this->logger->info('Order webhook processed — sync queued', $context);
     }
 }

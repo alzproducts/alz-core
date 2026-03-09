@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Application\Shopwired\UseCases\Webhooks;
 
 use App\Application\Contracts\Shopwired\OrderRepositoryInterface;
-use App\Application\Jobs\Shopwired\ReconcileShopwiredOrderJob;
+use App\Application\Jobs\Shopwired\SyncShopwiredOrderJob;
 use App\Domain\Catalog\Order\ValueObjects\OrderRefund;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
@@ -19,7 +19,7 @@ use Psr\Log\LoggerInterface;
  * Handle `order.refund.created` webhook events.
  *
  * Applies staleness guard, inserts refund (idempotent via unique constraint
- * on refund external ID), then queues a full API reconciliation.
+ * on refund external ID), then queues a full API sync.
  */
 final readonly class CreateOrderRefundUseCase
 {
@@ -54,8 +54,8 @@ final readonly class CreateOrderRefundUseCase
             return;
         }
 
-        ReconcileShopwiredOrderJob::dispatch($orderId);
+        SyncShopwiredOrderJob::dispatch($orderId);
 
-        $this->logger->info('Order refund webhook processed — reconciliation queued', $context);
+        $this->logger->info('Order refund webhook processed — sync queued', $context);
     }
 }

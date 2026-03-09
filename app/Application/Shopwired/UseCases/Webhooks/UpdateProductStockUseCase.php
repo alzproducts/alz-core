@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Application\Shopwired\UseCases\Webhooks;
 
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
-use App\Application\Jobs\Shopwired\ReconcileShopwiredProductJob;
+use App\Application\Jobs\Shopwired\SyncShopwiredProductJob;
 use App\Domain\Catalog\Product\ValueObjects\Sku;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
@@ -19,7 +19,7 @@ use Psr\Log\LoggerInterface;
  * Handle `product.stock_changed` webhook events.
  *
  * Applies staleness and idempotency guards, updates stock quantity by SKU,
- * records webhook timestamp, then queues a full API reconciliation.
+ * records webhook timestamp, then queues a full API sync.
  */
 final readonly class UpdateProductStockUseCase
 {
@@ -64,8 +64,8 @@ final readonly class UpdateProductStockUseCase
         $this->productRepository->updateStock($sku, $isVariation, $newQuantity);
         $this->productRepository->updateWebhookTimestamp($productId, $eventTime);
 
-        ReconcileShopwiredProductJob::dispatch($productId);
+        SyncShopwiredProductJob::dispatch($productId);
 
-        $this->logger->info('Product stock webhook processed — reconciliation queued', $context);
+        $this->logger->info('Product stock webhook processed — sync queued', $context);
     }
 }

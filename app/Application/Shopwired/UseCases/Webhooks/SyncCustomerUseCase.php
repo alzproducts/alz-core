@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Application\Shopwired\UseCases\Webhooks;
 
 use App\Application\Contracts\Shopwired\CustomerRepositoryInterface;
-use App\Application\Jobs\Shopwired\ReconcileShopwiredCustomerJob;
+use App\Application\Jobs\Shopwired\SyncShopwiredCustomerJob;
 use App\Domain\Customer\ValueObjects\Customer;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
@@ -18,7 +18,7 @@ use Psr\Log\LoggerInterface;
  * Handle `customer.updated` webhook events.
  *
  * Applies staleness and idempotency guards, persists the customer from the webhook
- * payload with its timestamp, then queues a full API reconciliation.
+ * payload with its timestamp, then queues a full API sync.
  */
 final readonly class SyncCustomerUseCase
 {
@@ -56,8 +56,8 @@ final readonly class SyncCustomerUseCase
 
         $this->customerRepository->saveFromWebhook($customer, $eventTime);
 
-        ReconcileShopwiredCustomerJob::dispatch($customerId);
+        SyncShopwiredCustomerJob::dispatch($customerId);
 
-        $this->logger->info('Customer webhook processed — reconciliation queued', $context);
+        $this->logger->info('Customer webhook processed — sync queued', $context);
     }
 }

@@ -18,7 +18,7 @@ use Throwable;
  * record reflects the authoritative API state even if the webhook payload
  * was partial or arrived out of order.
  */
-final class ReconcileShopwiredOrderJob extends AbstractReconcileShopwiredEntityJob
+final class SyncShopwiredOrderJob extends AbstractSyncShopwiredEntityJob
 {
     /**
      * @throws TransientApiFailure
@@ -36,7 +36,7 @@ final class ReconcileShopwiredOrderJob extends AbstractReconcileShopwiredEntityJ
 
     protected function uniqueIdPrefix(): string
     {
-        return 'reconcile-shopwired-order-';
+        return 'sync-shopwired-order-';
     }
 
     protected function contextKey(): string

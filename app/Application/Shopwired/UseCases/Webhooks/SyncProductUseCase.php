@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Application\Shopwired\UseCases\Webhooks;
 
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
-use App\Application\Jobs\Shopwired\ReconcileShopwiredProductJob;
+use App\Application\Jobs\Shopwired\SyncShopwiredProductJob;
 use App\Domain\Catalog\Product\ValueObjects\Product;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
@@ -18,7 +18,7 @@ use Psr\Log\LoggerInterface;
  * Handle `product.updated` webhook events.
  *
  * Applies staleness and idempotency guards, persists the product from the webhook
- * payload with its timestamp, then queues a full API reconciliation.
+ * payload with its timestamp, then queues a full API sync.
  */
 final readonly class SyncProductUseCase
 {
@@ -56,8 +56,8 @@ final readonly class SyncProductUseCase
 
         $this->productRepository->saveFromWebhook($product, $eventTime);
 
-        ReconcileShopwiredProductJob::dispatch($productId);
+        SyncShopwiredProductJob::dispatch($productId);
 
-        $this->logger->info('Product webhook processed — reconciliation queued', $context);
+        $this->logger->info('Product webhook processed — sync queued', $context);
     }
 }

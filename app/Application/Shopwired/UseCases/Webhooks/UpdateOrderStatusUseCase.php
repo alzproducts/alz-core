@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Application\Shopwired\UseCases\Webhooks;
 
 use App\Application\Contracts\Shopwired\OrderRepositoryInterface;
-use App\Application\Jobs\Shopwired\ReconcileShopwiredOrderJob;
+use App\Application\Jobs\Shopwired\SyncShopwiredOrderJob;
 use App\Domain\Catalog\Order\ValueObjects\OrderStatus;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
@@ -19,7 +19,7 @@ use Psr\Log\LoggerInterface;
  * Handle `order.status_changed` webhook events.
  *
  * Applies staleness and idempotency guards, updates order status fields
- * and webhook timestamp, then queues a full API reconciliation.
+ * and webhook timestamp, then queues a full API sync.
  */
 final readonly class UpdateOrderStatusUseCase
 {
@@ -58,8 +58,8 @@ final readonly class UpdateOrderStatusUseCase
         $this->orderRepository->updateStatus($orderId, $status);
         $this->orderRepository->updateWebhookTimestamp($orderId, $eventTime);
 
-        ReconcileShopwiredOrderJob::dispatch($orderId);
+        SyncShopwiredOrderJob::dispatch($orderId);
 
-        $this->logger->info('Order status webhook processed — reconciliation queued', $context);
+        $this->logger->info('Order status webhook processed — sync queued', $context);
     }
 }

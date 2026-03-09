@@ -20,14 +20,14 @@ use Psr\Log\LoggerInterface;
 use Throwable;
 
 /**
- * Base class for ShopWired entity reconciliation jobs.
+ * Base class for ShopWired entity sync jobs.
  *
  * Provides the shared error-handling, retry, and logging algorithm
  * for fetching an entity from the ShopWired API and persisting it locally.
  * Subclasses supply the entity-specific fetch logic via handle() DI
  * and pass the result into the shared algorithm.
  */
-abstract class AbstractReconcileShopwiredEntityJob implements ShouldBeUnique, ShouldQueue
+abstract class AbstractSyncShopwiredEntityJob implements ShouldBeUnique, ShouldQueue
 {
     use Dispatchable;
     use InteractsWithQueue;
@@ -57,7 +57,7 @@ abstract class AbstractReconcileShopwiredEntityJob implements ShouldBeUnique, Sh
     }
 
     /**
-     * Execute the reconciliation algorithm with uniform error handling.
+     * Execute the sync algorithm with uniform error handling.
      *
      * @template TEntity of object
      *
@@ -78,9 +78,9 @@ abstract class AbstractReconcileShopwiredEntityJob implements ShouldBeUnique, Sh
         try {
             $repo->save($entity);
 
-            $logger->info("{$this->entityLabel()} reconciliation complete", $context);
+            $logger->info("{$this->entityLabel()} sync complete", $context);
         } catch (TransientApiFailure $e) {
-            $logger->warning("{$this->entityLabel()} reconciliation service unavailable, will retry", [
+            $logger->warning("{$this->entityLabel()} sync service unavailable, will retry", [
                 ...$context,
                 'retry_after' => $e->retryAfter,
                 'attempts' => $this->attempts(),
@@ -110,9 +110,9 @@ abstract class AbstractReconcileShopwiredEntityJob implements ShouldBeUnique, Sh
         ];
 
         if ($exception instanceof AbstractApiException) {
-            Log::error("{$this->entityLabel()} reconciliation job failed permanently", $context);
+            Log::error("{$this->entityLabel()} sync job failed permanently", $context);
         } else {
-            Log::critical("{$this->entityLabel()} reconciliation job failed permanently", $context);
+            Log::critical("{$this->entityLabel()} sync job failed permanently", $context);
         }
     }
 
