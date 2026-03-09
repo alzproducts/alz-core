@@ -26,6 +26,7 @@ use App\Application\Contracts\Shopwired\ProductUpdateClientInterface;
 use App\Application\Contracts\Shopwired\ProductWebhookEventResolverInterface;
 use App\Application\Contracts\Shopwired\ProductWebhookParserInterface;
 use App\Application\Contracts\Shopwired\StockClientInterface;
+use App\Application\Contracts\Shopwired\WebhookClientInterface;
 use App\Infrastructure\Shopwired\Clients\BasicProductUpdateClient;
 use App\Infrastructure\Shopwired\Clients\ProductClient;
 use App\Infrastructure\Shopwired\Clients\ProductUpdateClient;
@@ -205,6 +206,12 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
                 $app->make(ProductRepositoryInterface::class),
             ),
         );
+
+        // Webhook client - for health monitoring of registered webhooks
+        $this->app->singleton(
+            WebhookClientInterface::class,
+            static fn(): WebhookClientInterface => ShopwiredClientFactory::createWebhookClient(),
+        );
     }
 
     /**
@@ -242,6 +249,7 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
             ProductWebhookEventResolverInterface::class,
             ProductWebhookParserInterface::class,
             StockClientInterface::class,
+            WebhookClientInterface::class,
         ];
     }
 }
