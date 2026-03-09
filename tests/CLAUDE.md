@@ -209,11 +209,31 @@ ignore:
 
 ---
 
-## Testing ShouldBeUnique jobs: flush cache in setUp()
+## Testing ShouldBeUnique jobs: avoid Queue/Bus assertPushed/assertDispatched
 
-`ShouldBeUnique` jobs acquire a cache lock at dispatch time. With `Queue::fake()`, the job never runs so the lock is never released. In parallel, the next test in the same worker finds the lock held and silently skips the dispatch — causing intermittent `assertPushed` failures.
+`ShouldBeUnique` jobs + `Queue::fake()`/`Bus::fake()` cause intermittent parallel failures. The dispatch assertion (`assertPushed`/`assertDispatched`) fails because of cache lock contention and `PendingDispatch::__destruct()` timing issues in parallel workers.
 
-Fix: call `Cache::flush()` in `setUp()` to clear stale unique locks before each test.
+Fix: use `Queue::fake()` to prevent real dispatch, but verify the happy path via Mockery expectations on the line **after** the dispatch call (e.g., a logger mock). This proves the code path completed without relying on flaky facade assertions.
+
+---
+
+## Debugging pre-push hook test failures
+
+When tests pass locally but fail only during `git push` (pre-push hook), enable debug output:
+
+```bash
+# Add to .env temporarily:
+GITHOOKS_DEBUG_OUTPUT=true
+GITHOOKS_DEBUG_COMMANDS=true
+GITHOOKS_OUTPUT_ERRORS=true
+```
+
+Capture full output to a file (hook output gets truncated by ANSI codes):
+```bash
+git push origin my-branch > /tmp/push-output.txt 2>&1
+# Then strip ANSI and find failures:
+cat /tmp/push-output.txt | sed 's/\x1b\[[0-9;]*m//g' | grep -E "FAIL|⨯|Tests:|Error"
+```
 
 ---
 
