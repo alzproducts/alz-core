@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Tests\Unit\Application\Shopwired\UseCases\Webhooks;
+namespace Tests\Feature\Application\Shopwired\UseCases\Webhooks;
 
 use App\Application\Contracts\Shopwired\OrderRepositoryInterface;
 use App\Application\Jobs\Shopwired\SyncShopwiredOrderJob;

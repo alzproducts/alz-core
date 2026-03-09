@@ -209,6 +209,12 @@ ignore:
 
 ---
 
+## Queue::fake() Requires tests/Feature/
+
+If the class under test calls `SomeJob::dispatch()`, the test must live in `tests/Feature/`, not `tests/Unit/`. Static job dispatches route through the Laravel container — `Queue::fake()` is unreliable in Unit tests under parallel execution and causes intermittent `assertPushed` failures.
+
+---
+
 ## Mocking External SDKs with Strict Return Types
 
 **Key lesson**: Third-party SDKs (Google Ads, Firebase, etc.) enforce strict return type checking on mocks. This isn't a limitation—it's a feature preventing production bugs.
