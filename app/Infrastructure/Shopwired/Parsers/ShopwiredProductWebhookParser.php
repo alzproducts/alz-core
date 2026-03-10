@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace App\Infrastructure\Shopwired\Parsers;
 
 use App\Application\Contracts\Shopwired\ProductWebhookParserInterface;
+use App\Application\Shopwired\DTOs\StockChangeDTO;
 use App\Domain\Catalog\Product\ValueObjects\Product;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Infrastructure\Shopwired\Factories\ProductDomainFactory;
 use App\Infrastructure\Shopwired\Responses\ProductResponse;
+use App\Infrastructure\Shopwired\Responses\ProductStockChangedResponse;
 use Illuminate\Support\Facades\Log;
 use TypeError;
 
@@ -31,6 +33,27 @@ final readonly class ShopwiredProductWebhookParser implements ProductWebhookPars
             return $this->factory->fromResponse(ProductResponse::from($data['object']));
         } catch (TypeError $e) {
             Log::error('ShopWired product webhook payload type mismatch', ['error' => $e->getMessage()]);
+            throw new InvalidApiResponseException('ShopWired', previous: $e);
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     *
+     * @throws InvalidApiResponseException When the payload structure does not match the expected schema
+     */
+    public function parseStockChange(array $data): StockChangeDTO
+    {
+        try {
+            $response = ProductStockChangedResponse::from($data);
+
+            return new StockChangeDTO(
+                sku: $response->sku,
+                isVariation: $response->isVariation,
+                newQuantity: $response->newQuantity,
+            );
+        } catch (TypeError $e) {
+            Log::error('ShopWired product stock webhook payload type mismatch', ['error' => $e->getMessage()]);
             throw new InvalidApiResponseException('ShopWired', previous: $e);
         }
     }

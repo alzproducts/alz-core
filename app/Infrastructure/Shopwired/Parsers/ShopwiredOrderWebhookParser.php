@@ -6,8 +6,10 @@ namespace App\Infrastructure\Shopwired\Parsers;
 
 use App\Application\Contracts\Shopwired\OrderWebhookParserInterface;
 use App\Domain\Catalog\Order\ValueObjects\Order;
+use App\Domain\Catalog\Order\ValueObjects\OrderRefund;
 use App\Domain\Catalog\Order\ValueObjects\OrderStatus;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
+use App\Infrastructure\Shopwired\Responses\OrderRefundCreatedResponse;
 use App\Infrastructure\Shopwired\Responses\OrderResponse;
 use App\Infrastructure\Shopwired\Responses\OrderStatusChangedResponse;
 use Illuminate\Support\Facades\Log;
@@ -46,6 +48,21 @@ final readonly class ShopwiredOrderWebhookParser implements OrderWebhookParserIn
             return OrderStatusChangedResponse::from($data['newStatus'])->toDomain();
         } catch (TypeError $e) {
             Log::error('ShopWired order status webhook payload type mismatch', ['error' => $e->getMessage()]);
+            throw new InvalidApiResponseException('ShopWired', previous: $e);
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     *
+     * @throws InvalidApiResponseException When the payload structure does not match the expected schema
+     */
+    public function parseOrderRefund(array $data): OrderRefund
+    {
+        try {
+            return OrderRefundCreatedResponse::from($data)->toDomain();
+        } catch (TypeError $e) {
+            Log::error('ShopWired order refund webhook payload type mismatch', ['error' => $e->getMessage()]);
             throw new InvalidApiResponseException('ShopWired', previous: $e);
         }
     }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Application\Contracts\Shopwired;
 
+use App\Application\Shopwired\DTOs\StockChangeDTO;
 use App\Domain\Catalog\Product\ValueObjects\Product;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
 
@@ -23,4 +24,13 @@ interface ProductWebhookParserInterface
      * @throws InvalidApiResponseException When the payload structure does not match the expected schema
      */
     public function parseProduct(array $data): Product;
+
+    /**
+     * Parse stock change data from a `product.stock_changed` event.data payload.
+     *
+     * @param array<string, mixed> $data The event.data payload (contains sku, is_variation, new_quantity)
+     *
+     * @throws InvalidApiResponseException When the payload structure does not match the expected schema
+     */
+    public function parseStockChange(array $data): StockChangeDTO;
 }

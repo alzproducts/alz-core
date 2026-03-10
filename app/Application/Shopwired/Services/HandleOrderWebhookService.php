@@ -11,14 +11,12 @@ use App\Application\Shopwired\UseCases\Webhooks\DeleteOrderUseCase;
 use App\Application\Shopwired\UseCases\Webhooks\SyncOrderUseCase;
 use App\Application\Shopwired\UseCases\Webhooks\UpdateOrderStatusUseCase;
 use App\Domain\Catalog\Order\Enums\OrderWebhookIntent;
-use App\Domain\Catalog\Order\ValueObjects\OrderRefund;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\IntId;
-use DateMalformedStringException;
 use DateTimeImmutable;
 
 /**
@@ -38,7 +36,6 @@ final readonly class HandleOrderWebhookService
     /**
      * @param array<string, mixed> $data
      *
-     * @throws DateMalformedStringException
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws InvalidApiResponseException
@@ -72,7 +69,7 @@ final readonly class HandleOrderWebhookService
                 eventTime: $eventTime,
                 webhookId: $webhookId,
                 orderId: $orderId,
-                refund: self::buildOrderRefund($data),
+                refund: $this->orderParser->parseOrderRefund($data),
             ),
 
             OrderWebhookIntent::Sync => $this->syncOrderUseCase->execute(
@@ -83,19 +80,4 @@ final readonly class HandleOrderWebhookService
         };
     }
 
-    /**
-     * @param array<string, mixed> $data
-     *
-     * @throws DateMalformedStringException
-     */
-    private static function buildOrderRefund(array $data): OrderRefund
-    {
-        /** @var array{id: int, description: string, amount: float, created_at: string} $data */
-        return new OrderRefund(
-            externalId: $data['id'],
-            name: $data['description'],
-            value: $data['amount'],
-            createdAt: new DateTimeImmutable($data['created_at']),
-        );
-    }
 }

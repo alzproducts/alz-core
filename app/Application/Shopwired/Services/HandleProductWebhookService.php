@@ -77,6 +77,7 @@ final readonly class HandleProductWebhookService
     /**
      * @param array<string, mixed> $data
      *
+     * @throws InvalidApiResponseException
      * @throws InvalidSkuException
      * @throws ResourceNotFoundException
      * @throws DatabaseOperationFailedException
@@ -89,14 +90,15 @@ final readonly class HandleProductWebhookService
         IntId $productId,
         array $data,
     ): void {
-        /** @var array{sku: string, is_variation: bool, new_quantity: int} $data */
+        $stockChange = $this->productParser->parseStockChange($data);
+
         $this->updateProductStockUseCase->execute(
             eventTime: $eventTime,
             webhookId: $webhookId,
             productId: $productId,
-            sku: Sku::fromString($data['sku']),
-            isVariation: $data['is_variation'],
-            newQuantity: $data['new_quantity'],
+            sku: Sku::fromString($stockChange->sku),
+            isVariation: $stockChange->isVariation,
+            newQuantity: $stockChange->newQuantity,
         );
     }
 }
