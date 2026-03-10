@@ -46,7 +46,7 @@ Route::middleware([
 */
 
 Route::prefix('webhooks/shopwired')
-    ->middleware(VerifyShopwiredWebhookSignatureMiddleware::class)
+    ->middleware(['throttle:webhooks', VerifyShopwiredWebhookSignatureMiddleware::class])
     ->group(static function (): void {
         Route::post('orders', ShopwiredWebhookOrderController::class);
         Route::post('products', ShopwiredWebhookProductController::class);
