@@ -21,6 +21,7 @@ use App\Domain\Exceptions\Data\InsufficientDataException;
 use App\Domain\Exceptions\Data\MalformedStoredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\ValueObjects\IntId;
+use Illuminate\Contracts\Events\Dispatcher;
 use Psr\Log\LoggerInterface;
 use Throwable;
 
@@ -46,6 +47,7 @@ final readonly class ProcessContactSubmissionUseCase
         private EmailValidationServiceInterface $emailValidator,
         private LoggerInterface $logger,
         private HelpScoutSystemUserId $helpScoutSystemUserId,
+        private Dispatcher $eventDispatcher,
     ) {}
 
     /**
@@ -92,7 +94,7 @@ final readonly class ProcessContactSubmissionUseCase
         $this->actionRepository->markCompleted($actionId, (string) $conversationId);
 
         // Fire success event for notifications (queued listener handles Slack)
-        \event(new ContactFormProcessedEvent(
+        $this->eventDispatcher->dispatch(new ContactFormProcessedEvent(
             submissionId: $submissionId,
             conversationId: IntId::from($conversationId),
             customerName: $submission->form->name,

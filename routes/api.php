@@ -41,7 +41,7 @@ Route::middleware([
 |--------------------------------------------------------------------------
 |
 | Authenticated via HMAC signature verification (not JWT).
-| VerifyShopwiredWebhookSignatureMiddleware validates the X-SW-Signature header.
+| VerifyShopwiredWebhookSignatureMiddleware validates the X-ShopWired-Signature header.
 |
 */
 

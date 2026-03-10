@@ -12,6 +12,7 @@ use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Notifications\Events\AdminAlertEvent;
+use Illuminate\Contracts\Events\Dispatcher;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -26,6 +27,7 @@ final readonly class CheckShopwiredWebhookHealthUseCase
     public function __construct(
         private WebhookClientInterface $webhookClient,
         private LoggerInterface $logger,
+        private Dispatcher $eventDispatcher,
     ) {}
 
     /**
@@ -65,7 +67,7 @@ final readonly class CheckShopwiredWebhookHealthUseCase
             );
         }
 
-        \event(new AdminAlertEvent(
+        $this->eventDispatcher->dispatch(new AdminAlertEvent(
             title: 'ShopWired Webhooks Unhealthy',
             message: \sprintf(
                 '%d of %d ShopWired webhook(s) are disabled or unverified. Data sync may be silently failing.',

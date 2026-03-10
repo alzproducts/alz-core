@@ -11,6 +11,7 @@ use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\Notifications\Events\AdminAlertEvent;
 use App\Domain\ValueObjects\IntId;
+use Illuminate\Contracts\Events\Dispatcher;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -26,6 +27,7 @@ final readonly class DeleteOrderUseCase
     public function __construct(
         private OrderRepositoryInterface $orderRepository,
         private LoggerInterface $logger,
+        private Dispatcher $eventDispatcher,
     ) {}
 
     /**
@@ -47,7 +49,7 @@ final readonly class DeleteOrderUseCase
 
         $this->logger->info('Order deleted', $context);
 
-        \event(new AdminAlertEvent(
+        $this->eventDispatcher->dispatch(new AdminAlertEvent(
             title: 'ShopWired Order Deleted',
             message: "Order #{$orderId->value} was deleted in ShopWired. Please investigate if this was unexpected.",
             context: $context,

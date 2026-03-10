@@ -28,6 +28,7 @@ use App\Domain\Exceptions\Inventory\InvalidTemplateException;
 use App\Domain\Inventory\Events\VariantSkusGeneratedEvent;
 use App\Domain\Inventory\ValueObjects\StockItemFull;
 use App\Domain\ValueObjects\IntId;
+use Illuminate\Contracts\Events\Dispatcher;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -54,6 +55,7 @@ final readonly class GenerateVariantSkusUseCase
         private ProductRepositoryInterface $productRepository,
         private LoggerInterface $logger,
         private int $standardSignProductId,
+        private Dispatcher $eventDispatcher,
     ) {}
 
     /**
@@ -214,7 +216,7 @@ final readonly class GenerateVariantSkusUseCase
     private function dispatchNotificationEvent(GenerateVariantSkusResult $result, GenerateVariantSkusCommand $command): void
     {
         if ($result->created > 0) {
-            \event(new VariantSkusGeneratedEvent(
+            $this->eventDispatcher->dispatch(new VariantSkusGeneratedEvent(
                 productId: $command->productId->value,
                 productTitle: $result->productTitle,
                 created: $result->created,

@@ -150,6 +150,7 @@ return static function (Config $config): void {
                                'DateInterval',
                                'DatePeriod',
                                'Psr\Log\LoggerInterface',
+                               'Illuminate\Contracts\Events',
                                'Psr\SimpleCache\CacheInterface',
                                'Closure',
                                'Generator',
