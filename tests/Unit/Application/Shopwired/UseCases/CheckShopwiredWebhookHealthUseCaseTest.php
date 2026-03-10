@@ -8,6 +8,7 @@ use App\Application\Contracts\Shopwired\WebhookClientInterface;
 use App\Application\Shopwired\DTOs\WebhookDTO;
 use App\Application\Shopwired\UseCases\CheckShopwiredWebhookHealthUseCase;
 use App\Domain\Notifications\Events\AdminAlertEvent;
+use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Support\Facades\Event;
 use Mockery;
 use Mockery\MockInterface;
@@ -45,6 +46,7 @@ final class CheckShopwiredWebhookHealthUseCaseTest extends TestCase
         $this->useCase = new CheckShopwiredWebhookHealthUseCase(
             webhookClient: $this->webhookClient,
             logger: $this->logger,
+            eventDispatcher: \app(Dispatcher::class),
         );
     }
 

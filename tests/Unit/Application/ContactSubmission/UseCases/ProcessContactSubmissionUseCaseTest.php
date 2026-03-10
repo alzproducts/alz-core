@@ -26,6 +26,7 @@ use App\Domain\CustomerService\Enums\Mailbox;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\ValueObjects\IntId;
 use DateTimeImmutable;
+use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Support\Facades\Event;
 use Mockery;
 use Mockery\MockInterface;
@@ -88,6 +89,7 @@ final class ProcessContactSubmissionUseCaseTest extends TestCase
             emailValidator: $this->emailValidator,
             logger: $this->logger,
             helpScoutSystemUserId: new HelpScoutSystemUserId(IntId::from(self::SYSTEM_USER_ID)),
+            eventDispatcher: \app(Dispatcher::class),
         );
     }
 

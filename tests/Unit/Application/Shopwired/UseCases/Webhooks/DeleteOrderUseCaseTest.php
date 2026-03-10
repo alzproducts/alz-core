@@ -9,6 +9,7 @@ use App\Application\Shopwired\UseCases\Webhooks\DeleteOrderUseCase;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Notifications\Events\AdminAlertEvent;
 use App\Domain\ValueObjects\IntId;
+use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Support\Facades\Event;
 use Mockery;
 use Mockery\MockInterface;
@@ -43,6 +44,7 @@ final class DeleteOrderUseCaseTest extends TestCase
         $this->useCase = new DeleteOrderUseCase(
             orderRepository: $this->repository,
             logger: $this->logger,
+            eventDispatcher: \app(Dispatcher::class),
         );
     }
 
