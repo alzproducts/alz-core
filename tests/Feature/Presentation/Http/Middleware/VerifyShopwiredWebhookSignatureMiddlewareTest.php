@@ -51,7 +51,7 @@ final class VerifyShopwiredWebhookSignatureMiddlewareTest extends TestCase
     {
         \config(['shopwired.webhook_secret' => null]);
 
-        $response = $this->post(self::BODY, signature: 'any-value');
+        $response = $this->postWebhook(self::BODY, signature: 'any-value');
 
         $response->assertInternalServerError();
         $response->assertJson(['error' => 'Webhook secret not configured']);
@@ -62,7 +62,7 @@ final class VerifyShopwiredWebhookSignatureMiddlewareTest extends TestCase
     {
         \config(['shopwired.webhook_secret' => '']);
 
-        $response = $this->post(self::BODY, signature: 'any-value');
+        $response = $this->postWebhook(self::BODY, signature: 'any-value');
 
         $response->assertInternalServerError();
         $response->assertJson(['error' => 'Webhook secret not configured']);
@@ -77,7 +77,7 @@ final class VerifyShopwiredWebhookSignatureMiddlewareTest extends TestCase
     #[Test]
     public function it_returns_403_when_signature_header_is_absent(): void
     {
-        $response = $this->post(self::BODY, signature: null);
+        $response = $this->postWebhook(self::BODY, signature: null);
 
         $response->assertForbidden();
         $response->assertJson(['error' => 'Missing signature']);
@@ -86,7 +86,7 @@ final class VerifyShopwiredWebhookSignatureMiddlewareTest extends TestCase
     #[Test]
     public function it_returns_403_when_signature_does_not_match_body(): void
     {
-        $response = $this->post(self::BODY, signature: 'wrong-signature');
+        $response = $this->postWebhook(self::BODY, signature: 'wrong-signature');
 
         $response->assertForbidden();
         $response->assertJson(['error' => 'Invalid signature']);
@@ -101,7 +101,7 @@ final class VerifyShopwiredWebhookSignatureMiddlewareTest extends TestCase
     #[Test]
     public function it_passes_to_next_handler_when_signature_is_valid(): void
     {
-        $response = $this->post(self::BODY, signature: $this->sign(self::BODY));
+        $response = $this->postWebhook(self::BODY, signature: $this->sign(self::BODY));
 
         $response->assertOk();
         $response->assertJson(['ok' => true]);
@@ -119,7 +119,7 @@ final class VerifyShopwiredWebhookSignatureMiddlewareTest extends TestCase
         $payload = '{"verificationToken":"shopwired-challenge-abc"}';
         $expectedHash = \hash_hmac('sha256', 'shopwired-challenge-abc', self::SECRET);
 
-        $response = $this->post($payload, signature: $this->sign($payload));
+        $response = $this->postWebhook($payload, signature: $this->sign($payload));
 
         // Short-circuits before reaching the next handler — only the hashed token is returned.
         $response->assertOk();
@@ -131,7 +131,7 @@ final class VerifyShopwiredWebhookSignatureMiddlewareTest extends TestCase
     {
         $payload = '{"verificationToken":""}';
 
-        $response = $this->post($payload, signature: $this->sign($payload));
+        $response = $this->postWebhook($payload, signature: $this->sign($payload));
 
         // An empty verificationToken must NOT trigger the handshake.
         $response->assertOk();
@@ -158,7 +158,7 @@ final class VerifyShopwiredWebhookSignatureMiddlewareTest extends TestCase
      * @param string      $body      Raw request body (JSON)
      * @param string|null $signature Value for X-ShopWired-Signature header; null omits the header entirely
      */
-    private function post(string $body, ?string $signature): TestResponse
+    private function postWebhook(string $body, ?string $signature): TestResponse
     {
         $server = ['CONTENT_TYPE' => 'application/json'];
 
