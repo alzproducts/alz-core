@@ -74,6 +74,7 @@ final class CustomerModel extends Model implements EloquentDomainMappableInterfa
             'accepts_marketing' => 'boolean',
             'custom_fields' => 'array',
             'shopwired_created_at' => 'immutable_datetime',
+            'shopwired_webhook_at' => 'immutable_datetime',
             'created_at' => 'immutable_datetime',
             'updated_at' => 'immutable_datetime',
         ];

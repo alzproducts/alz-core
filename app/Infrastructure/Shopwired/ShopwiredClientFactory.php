@@ -11,6 +11,7 @@ use App\Application\Contracts\Shopwired\CustomFieldClientInterface;
 use App\Application\Contracts\Shopwired\FilterGroupClientInterface;
 use App\Application\Contracts\Shopwired\OrderClientInterface;
 use App\Application\Contracts\Shopwired\StockClientInterface;
+use App\Application\Contracts\Shopwired\WebhookClientInterface;
 use App\Domain\Exceptions\InvalidConfigurationException;
 use App\Infrastructure\Shopwired\Clients\CategoryClient;
 use App\Infrastructure\Shopwired\Clients\CustomerClient;
@@ -18,6 +19,7 @@ use App\Infrastructure\Shopwired\Clients\CustomFieldClient;
 use App\Infrastructure\Shopwired\Clients\FilterGroupClient;
 use App\Infrastructure\Shopwired\Clients\OrderClient;
 use App\Infrastructure\Shopwired\Clients\StockClient;
+use App\Infrastructure\Shopwired\Clients\WebhookClient;
 use App\Infrastructure\Shopwired\Contracts\ShopwiredTransportInterface;
 use App\Infrastructure\Shopwired\Enums\ShopwiredLogLevel;
 use Illuminate\Support\Facades\Config;
@@ -92,6 +94,14 @@ final class ShopwiredClientFactory
     public static function createStockClient(): StockClientInterface
     {
         return new StockClient(self::getTransport());
+    }
+
+    /**
+     * Create the webhook client for webhook health monitoring.
+     */
+    public static function createWebhookClient(): WebhookClientInterface
+    {
+        return new WebhookClient(self::getTransport());
     }
 
     /**

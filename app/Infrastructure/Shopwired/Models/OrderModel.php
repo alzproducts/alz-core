@@ -125,6 +125,7 @@ final class OrderModel extends Model implements EloquentDomainMappableInterface
             // Timestamps
             'order_placed_at' => 'immutable_datetime',
             'delivery_date' => 'immutable_date',
+            'shopwired_webhook_at' => 'immutable_datetime',
             'created_at' => 'immutable_datetime',
             'updated_at' => 'immutable_datetime',
         ];

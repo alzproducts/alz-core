@@ -8,6 +8,7 @@ use App\Application\Contracts\ContactSubmission\ContactSubmissionActionRepositor
 use App\Application\Contracts\ContactSubmission\ContactSubmissionRepositoryInterface;
 use App\Application\Contracts\EmailValidationServiceInterface;
 use App\Domain\ContactSubmission\Events\ContactFormProcessingFailedEvent;
+use Illuminate\Contracts\Events\Dispatcher;
 use Psr\Log\LoggerInterface;
 use Throwable;
 
@@ -29,6 +30,7 @@ final readonly class HandleContactSubmissionFailureUseCase
         private ContactSubmissionRepositoryInterface $submissionRepository,
         private EmailValidationServiceInterface $emailValidator,
         private LoggerInterface $logger,
+        private Dispatcher $eventDispatcher,
     ) {}
 
     /**
@@ -50,7 +52,7 @@ final readonly class HandleContactSubmissionFailureUseCase
 
         $emailValid = $this->validateEmail($submissionId);
 
-        \event(new ContactFormProcessingFailedEvent(
+        $this->eventDispatcher->dispatch(new ContactFormProcessingFailedEvent(
             submissionId: $submissionId,
             exceptionMessage: $exceptionMessage,
             emailValid: $emailValid,

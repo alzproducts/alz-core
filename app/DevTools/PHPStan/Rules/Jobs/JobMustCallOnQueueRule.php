@@ -11,6 +11,7 @@ use PhpParser\Node\Stmt\ClassMethod;
 use PhpParser\Node\Stmt\Expression;
 use PHPStan\Analyser\Scope;
 use PHPStan\Node\InClassNode;
+use PHPStan\Reflection\ClassReflection;
 use PHPStan\Rules\IdentifierRuleError;
 use PHPStan\Rules\Rule;
 use PHPStan\Rules\RuleErrorBuilder;
@@ -49,17 +50,13 @@ final class JobMustCallOnQueueRule implements Rule
             return [];
         }
 
-        // Find __construct in the AST
-        $classNode = $node->getOriginalNode();
-        $constructor = null;
-        foreach ($classNode->stmts as $stmt) {
-            if ($stmt instanceof ClassMethod && $stmt->name->toString() === '__construct') {
-                $constructor = $stmt;
-                break;
-            }
-        }
+        $constructor = $this->findConstructor($node);
 
         if ($constructor === null) {
+            if ($this->parentProvidesOnQueue($classReflection)) {
+                return [];
+            }
+
             return [
                 RuleErrorBuilder::message(
                     'Job must have a constructor that calls $this->onQueue() to explicitly assign a queue tier.',
@@ -69,11 +66,8 @@ final class JobMustCallOnQueueRule implements Rule
             ];
         }
 
-        // Check constructor contains onQueue() call
-        foreach ($constructor->stmts ?? [] as $stmt) {
-            if ($this->containsOnQueueCall($stmt)) {
-                return [];
-            }
+        if ($this->constructorCallsOnQueue($constructor)) {
+            return [];
         }
 
         return [
@@ -88,6 +82,37 @@ final class JobMustCallOnQueueRule implements Rule
     private function isJobClass(string $className): bool
     {
         return \str_contains($className, 'App\\Application\\Jobs\\');
+    }
+
+    private function findConstructor(InClassNode $node): ?ClassMethod
+    {
+        foreach ($node->getOriginalNode()->stmts as $stmt) {
+            if ($stmt instanceof ClassMethod && $stmt->name->toString() === '__construct') {
+                return $stmt;
+            }
+        }
+
+        return null;
+    }
+
+    private function constructorCallsOnQueue(ClassMethod $constructor): bool
+    {
+        foreach ($constructor->stmts ?? [] as $stmt) {
+            if ($this->containsOnQueueCall($stmt)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function parentProvidesOnQueue(ClassReflection $classReflection): bool
+    {
+        $parentClass = $classReflection->getParentClass();
+
+        return $parentClass !== null
+            && $parentClass->isAbstract()
+            && \str_contains($parentClass->getName(), 'App\\Application\\Jobs\\');
     }
 
     private function containsOnQueueCall(Node $stmt): bool

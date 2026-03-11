@@ -81,7 +81,7 @@ final class ShopwiredAuditProductSyncCommand extends Command
         foreach ($apiProducts as $product) {
             $productIds[] = $product->id;
 
-            foreach ($product->variations as $variation) {
+            foreach ($product->variations ?? [] as $variation) {
                 $variationIds[] = $variation->id;
             }
         }

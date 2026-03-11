@@ -79,6 +79,31 @@ return [
 
     'standard_sign_product_id' => env('SHOPWIRED_STANDARD_SIGN_PRODUCT_ID'),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Webhook Verification
+    |--------------------------------------------------------------------------
+    |
+    | HMAC secret used to verify incoming webhook signatures from ShopWired.
+    | Webhooks include an X-ShopWired-Signature header containing a SHA-256
+    | HMAC of the request body signed with this secret.
+    |
+    */
+
+    'webhook_secret' => env('SHOPWIRED_WEBHOOK_SECRET'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Webhook Staleness Window
+    |--------------------------------------------------------------------------
+    |
+    | Webhook events older than this many hours are discarded without processing.
+    | Protects against replayed or severely delayed events causing stale writes.
+    |
+    */
+
+    'webhook_staleness_hours' => 24,
+
     'excluded_customer_emails' => array_values(array_filter(
         [
             env('EMAIL_TOM_MAIN'),

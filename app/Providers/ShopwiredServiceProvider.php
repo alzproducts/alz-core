@@ -9,17 +9,24 @@ use App\Application\Contracts\Shopwired\CategoryClientInterface;
 use App\Application\Contracts\Shopwired\ConnectivityClientInterface;
 use App\Application\Contracts\Shopwired\CustomerClientInterface;
 use App\Application\Contracts\Shopwired\CustomerRepositoryInterface;
+use App\Application\Contracts\Shopwired\CustomerWebhookEventResolverInterface;
+use App\Application\Contracts\Shopwired\CustomerWebhookParserInterface;
 use App\Application\Contracts\Shopwired\CustomFieldClientInterface;
 use App\Application\Contracts\Shopwired\CustomFieldRepositoryInterface;
 use App\Application\Contracts\Shopwired\FilterGroupClientInterface;
 use App\Application\Contracts\Shopwired\FilterGroupRepositoryInterface;
 use App\Application\Contracts\Shopwired\OrderClientInterface;
 use App\Application\Contracts\Shopwired\OrderRepositoryInterface;
+use App\Application\Contracts\Shopwired\OrderWebhookEventResolverInterface;
+use App\Application\Contracts\Shopwired\OrderWebhookParserInterface;
 use App\Application\Contracts\Shopwired\ProductClientInterface;
 use App\Application\Contracts\Shopwired\ProductIdentifierResolverInterface;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Application\Contracts\Shopwired\ProductUpdateClientInterface;
+use App\Application\Contracts\Shopwired\ProductWebhookEventResolverInterface;
+use App\Application\Contracts\Shopwired\ProductWebhookParserInterface;
 use App\Application\Contracts\Shopwired\StockClientInterface;
+use App\Application\Contracts\Shopwired\WebhookClientInterface;
 use App\Infrastructure\Shopwired\Clients\BasicProductUpdateClient;
 use App\Infrastructure\Shopwired\Clients\ProductClient;
 use App\Infrastructure\Shopwired\Clients\ProductUpdateClient;
@@ -27,11 +34,17 @@ use App\Infrastructure\Shopwired\Factories\ProductCustomFieldFactory;
 use App\Infrastructure\Shopwired\Factories\ProductDomainFactory;
 use App\Infrastructure\Shopwired\Factories\ProductFilterFactory;
 use App\Infrastructure\Shopwired\Mappers\ProductModelMapper;
+use App\Infrastructure\Shopwired\Parsers\ShopwiredCustomerWebhookParser;
+use App\Infrastructure\Shopwired\Parsers\ShopwiredOrderWebhookParser;
+use App\Infrastructure\Shopwired\Parsers\ShopwiredProductWebhookParser;
 use App\Infrastructure\Shopwired\Repositories\EloquentCustomerRepository;
 use App\Infrastructure\Shopwired\Repositories\EloquentCustomFieldRepository;
 use App\Infrastructure\Shopwired\Repositories\EloquentFilterGroupRepository;
 use App\Infrastructure\Shopwired\Repositories\EloquentOrderRepository;
 use App\Infrastructure\Shopwired\Repositories\EloquentProductRepository;
+use App\Infrastructure\Shopwired\Resolvers\ShopwiredCustomerWebhookEventResolver;
+use App\Infrastructure\Shopwired\Resolvers\ShopwiredOrderWebhookEventResolver;
+use App\Infrastructure\Shopwired\Resolvers\ShopwiredProductWebhookEventResolver;
 use App\Infrastructure\Shopwired\Services\ProductIdentifierResolver;
 use App\Infrastructure\Shopwired\ShopwiredClientFactory;
 use Illuminate\Contracts\Foundation\Application;
@@ -164,6 +177,18 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
             ProductIdentifierResolver::class,
         );
 
+        // Webhook event resolvers - map topic strings to domain intents (stateless)
+        $this->app->singleton(OrderWebhookEventResolverInterface::class, ShopwiredOrderWebhookEventResolver::class);
+        $this->app->singleton(ProductWebhookEventResolverInterface::class, ShopwiredProductWebhookEventResolver::class);
+        $this->app->singleton(CustomerWebhookEventResolverInterface::class, ShopwiredCustomerWebhookEventResolver::class);
+
+        // Webhook parsers - parse webhook payloads to domain objects
+        // Order and customer parsers are stateless → singleton
+        $this->app->singleton(OrderWebhookParserInterface::class, ShopwiredOrderWebhookParser::class);
+        $this->app->singleton(CustomerWebhookParserInterface::class, ShopwiredCustomerWebhookParser::class);
+        // Product parser depends on scoped ProductDomainFactory → must also be scoped
+        $this->app->scoped(ProductWebhookParserInterface::class, ShopwiredProductWebhookParser::class);
+
         // Product update client - scoped because it depends on scoped ProductClientInterface
         $this->app->scoped(
             ProductUpdateClientInterface::class,
@@ -181,6 +206,12 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
                 $app->make(ProductRepositoryInterface::class),
             ),
         );
+
+        // Webhook client - for health monitoring of registered webhooks
+        $this->app->singleton(
+            WebhookClientInterface::class,
+            static fn(): WebhookClientInterface => ShopwiredClientFactory::createWebhookClient(),
+        );
     }
 
     /**
@@ -197,12 +228,16 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
             ConnectivityClientInterface::class,
             CustomFieldClientInterface::class,
             CustomFieldRepositoryInterface::class,
-            FilterGroupClientInterface::class,
-            FilterGroupRepositoryInterface::class,
             CustomerClientInterface::class,
             CustomerRepositoryInterface::class,
+            CustomerWebhookEventResolverInterface::class,
+            CustomerWebhookParserInterface::class,
+            FilterGroupClientInterface::class,
+            FilterGroupRepositoryInterface::class,
             OrderClientInterface::class,
             OrderRepositoryInterface::class,
+            OrderWebhookEventResolverInterface::class,
+            OrderWebhookParserInterface::class,
             ProductClientInterface::class,
             ProductCustomFieldFactory::class,
             ProductDomainFactory::class,
@@ -211,7 +246,10 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
             ProductModelMapper::class,
             ProductRepositoryInterface::class,
             ProductUpdateClientInterface::class,
+            ProductWebhookEventResolverInterface::class,
+            ProductWebhookParserInterface::class,
             StockClientInterface::class,
+            WebhookClientInterface::class,
         ];
     }
 }
