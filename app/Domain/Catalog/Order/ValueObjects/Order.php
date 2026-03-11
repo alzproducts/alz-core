@@ -19,11 +19,11 @@ use Webmozart\Assert\Assert;
  * - Standard: products=null, customFields=null (not requested)
  * - Detail: products=[], customFields=[] (requested, possibly empty)
  *
- * @property array<int, OrderProduct>|null $products Null=not requested, []=empty
- * @property array<int, OrderDiscount> $discounts
- * @property array<int, OrderRefund> $refunds
- * @property array<int, OrderAdminComment> $adminComments
- * @property array<string, mixed>|null $customFields Null=not requested, []=empty
+ * @property array<int, OrderProduct>|null $products Null=not provided, []=empty
+ * @property array<int, OrderDiscount>|null $discounts Null=not provided (webhook partial update), []=empty
+ * @property array<int, OrderRefund>|null $refunds Null=not provided (webhook partial update), []=empty
+ * @property array<int, OrderAdminComment>|null $adminComments Null=not provided (webhook partial update), []=empty
+ * @property array<string, mixed>|null $customFields Null=not provided, []=empty
  */
 final readonly class Order
 {
@@ -51,11 +51,11 @@ final readonly class Order
      * @param string|null $transactionId Payment transaction ID
      * @param DateTimeImmutable|null $deliveryDate Expected/actual delivery date
      * @param PreOrderStatus $preOrderStatus Derived from product-level isPreorder flags
-     * @param array<int, OrderProduct>|null $products Null=Standard mode, array=Detail mode
-     * @param array<int, OrderDiscount> $discounts
-     * @param array<int, OrderRefund> $refunds
-     * @param array<int, OrderAdminComment> $adminComments
-     * @param array<string, mixed>|null $customFields Null=Standard mode, array=Detail mode
+     * @param array<int, OrderProduct>|null $products Null=not provided, array=provided
+     * @param array<int, OrderDiscount>|null $discounts Null=not provided (skip sync), array=provided
+     * @param array<int, OrderRefund>|null $refunds Null=not provided (skip sync), array=provided
+     * @param array<int, OrderAdminComment>|null $adminComments Null=not provided (skip sync), array=provided
+     * @param array<string, mixed>|null $customFields Null=not provided, array=provided
      * @param string|null $customerReferenceNumber Extracted from comments (null if not present/extractable)
      */
     public function __construct(
@@ -84,9 +84,9 @@ final readonly class Order
         public ?string $invoiceUrl = null,
         public ?string $transactionId = null,
         public ?DateTimeImmutable $deliveryDate = null,
-        public array $discounts = [],
-        public array $refunds = [],
-        public array $adminComments = [],
+        public ?array $discounts = null,
+        public ?array $refunds = null,
+        public ?array $adminComments = null,
         public ?array $products = null,
         public ?array $customFields = null,
         public ?string $customerReferenceNumber = null,
@@ -112,7 +112,7 @@ final readonly class Order
      */
     public function hasDiscounts(): bool
     {
-        return $this->discounts !== [];
+        return $this->discounts !== null && $this->discounts !== [];
     }
 
     /**
@@ -120,6 +120,10 @@ final readonly class Order
      */
     public function totalDiscountValue(): float
     {
+        if ($this->discounts === null) {
+            return 0.0;
+        }
+
         return \array_reduce(
             $this->discounts,
             static fn(float $carry, OrderDiscount $discount): float => $carry + $discount->value,
@@ -132,7 +136,7 @@ final readonly class Order
      */
     public function hasRefunds(): bool
     {
-        return $this->refunds !== [];
+        return $this->refunds !== null && $this->refunds !== [];
     }
 
     /**
@@ -140,6 +144,10 @@ final readonly class Order
      */
     public function totalRefundValue(): float
     {
+        if ($this->refunds === null) {
+            return 0.0;
+        }
+
         return \array_reduce(
             $this->refunds,
             static fn(float $carry, OrderRefund $refund): float => $carry + $refund->value,
@@ -152,7 +160,7 @@ final readonly class Order
      */
     public function hasAdminComments(): bool
     {
-        return $this->adminComments !== [];
+        return $this->adminComments !== null && $this->adminComments !== [];
     }
 
     /**

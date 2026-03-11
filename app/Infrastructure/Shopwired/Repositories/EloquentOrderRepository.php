@@ -10,10 +10,12 @@ use App\Domain\Catalog\Order\ValueObjects\OrderAdminComment;
 use App\Domain\Catalog\Order\ValueObjects\OrderDiscount;
 use App\Domain\Catalog\Order\ValueObjects\OrderProduct;
 use App\Domain\Catalog\Order\ValueObjects\OrderRefund;
+use App\Domain\Catalog\Order\ValueObjects\OrderStatus;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use App\Domain\ValueObjects\IntId;
 use App\Infrastructure\Repositories\AbstractEloquentRepository;
 use App\Infrastructure\Shopwired\Mappers\OrderModelMapper;
 use App\Infrastructure\Shopwired\Models\OrderAdminCommentModel;
@@ -21,6 +23,7 @@ use App\Infrastructure\Shopwired\Models\OrderDiscountModel;
 use App\Infrastructure\Shopwired\Models\OrderModel;
 use App\Infrastructure\Shopwired\Models\OrderProductModel;
 use App\Infrastructure\Shopwired\Models\OrderRefundModel;
+use Carbon\CarbonImmutable;
 use DateTimeImmutable;
 use Illuminate\Support\Collection;
 
@@ -55,13 +58,39 @@ final class EloquentOrderRepository extends AbstractEloquentRepository implement
      */
     public function save(object $entity): void
     {
-        $this->eloquentGateway->transact(function () use ($entity): void {
+        /** @var Order $entity */
+        $this->performSave($entity);
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function saveFromWebhook(Order $order, DateTimeImmutable $webhookAt): void
+    {
+        $this->performSave($order, ['shopwired_webhook_at' => $webhookAt]);
+    }
+
+    /**
+     * @param array<string, mixed> $extra Additional attributes merged into the order upsert.
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    private function performSave(Order $order, array $extra = []): void
+    {
+        $this->eloquentGateway->transact(function () use ($order, $extra): void {
             // 1. Upsert order (single INSERT ON CONFLICT query)
             $this->eloquentGateway->upsertOne(
                 modelClass: self::MODEL_CLASS,
                 attributes: [
-                    'external_id' => $entity->id,
-                    ...OrderModelMapper::toModelAttributes($entity),
+                    'external_id' => $order->id,
+                    ...OrderModelMapper::toModelAttributes($order),
+                    ...$extra,
                 ],
                 uniqueBy: ['external_id'],
             );
@@ -69,14 +98,23 @@ final class EloquentOrderRepository extends AbstractEloquentRepository implement
             // 2. Fetch order UUID for FK relationships on child tables
             /** @var string $orderUuid */
             $orderUuid = self::MODEL_CLASS::query()
-                ->where('external_id', $entity->id)
+                ->where('external_id', $order->id)
                 ->value('id');
 
-            // 3. Sync child tables
-            $this->syncProducts($orderUuid, $entity);
-            $this->syncDiscounts($orderUuid, $entity);
-            $this->syncRefunds($orderUuid, $entity);
-            $this->syncAdminComments($orderUuid, $entity);
+            // 3. Sync child tables (null = not provided by caller, skip sync)
+            $this->syncProducts($orderUuid, $order);
+
+            if ($order->discounts !== null) {
+                $this->syncDiscounts($orderUuid, $order);
+            }
+
+            if ($order->refunds !== null) {
+                $this->syncRefunds($orderUuid, $order);
+            }
+
+            if ($order->adminComments !== null) {
+                $this->syncAdminComments($orderUuid, $order);
+            }
         }, attempts: 3);
     }
 
@@ -174,6 +212,134 @@ final class EloquentOrderRepository extends AbstractEloquentRepository implement
                     ->all(),
             );
         });
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Webhook Partial Update Methods
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * {@inheritDoc}
+     *
+     * @throws ResourceNotFoundException
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function updateStatus(IntId $externalId, OrderStatus $status): void
+    {
+        $affected = $this->eloquentGateway->updateWhere(
+            modelClass: self::MODEL_CLASS,
+            column: 'external_id',
+            value: $externalId->value,
+            data: [
+                'status_id' => $status->id,
+                'status_name' => $status->name->value,
+                'status_type' => $status->type,
+                'status_sort_order' => $status->sortOrder,
+            ],
+        );
+
+        if ($affected === 0) {
+            throw new ResourceNotFoundException('Database', $this->getEntityTypeName(), $externalId->value);
+        }
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * Idempotent via upsert on (order_external_id, external_id) unique constraint.
+     * Duplicate webhooks for the same refund will update rather than insert.
+     *
+     * @throws ResourceNotFoundException
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function addRefund(IntId $orderExternalId, OrderRefund $refund): void
+    {
+        $this->eloquentGateway->query(function () use ($orderExternalId, $refund): void {
+            /** @var string|null $orderUuid */
+            $orderUuid = self::MODEL_CLASS::query()
+                ->where('external_id', $orderExternalId->value)
+                ->value('id');
+
+            if ($orderUuid === null) {
+                throw new ResourceNotFoundException('Database', $this->getEntityTypeName(), $orderExternalId->value);
+            }
+
+            $this->eloquentGateway->upsertOne(
+                modelClass: OrderRefundModel::class,
+                attributes: [
+                    'order_id' => $orderUuid,
+                    'order_external_id' => $orderExternalId->value,
+                    ...OrderRefundModel::fromDomainAttributes($refund),
+                ],
+                uniqueBy: ['order_external_id', 'external_id'],
+            );
+        });
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @throws ResourceNotFoundException
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function deleteByExternalId(IntId $externalId): void
+    {
+        $deleted = $this->eloquentGateway->deleteWhere(
+            modelClass: self::MODEL_CLASS,
+            column: 'external_id',
+            value: $externalId->value,
+        );
+
+        if ($deleted === 0) {
+            throw new ResourceNotFoundException('Database', $this->getEntityTypeName(), $externalId->value);
+        }
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function getWebhookTimestamp(IntId $externalId): ?DateTimeImmutable
+    {
+        return $this->eloquentGateway->query(static function () use ($externalId): ?DateTimeImmutable {
+            /** @var string|null $timestamp */
+            $timestamp = self::MODEL_CLASS::query()
+                ->where('external_id', $externalId->value)
+                ->value('shopwired_webhook_at');
+
+            return $timestamp !== null ? CarbonImmutable::parse($timestamp)->toDateTimeImmutable() : null;
+        });
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @throws ResourceNotFoundException
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function updateWebhookTimestamp(IntId $externalId, DateTimeImmutable $timestamp): void
+    {
+        $affected = $this->eloquentGateway->updateWhere(
+            modelClass: self::MODEL_CLASS,
+            column: 'external_id',
+            value: $externalId->value,
+            data: ['shopwired_webhook_at' => $timestamp],
+        );
+
+        if ($affected === 0) {
+            throw new ResourceNotFoundException('Database', $this->getEntityTypeName(), $externalId->value);
+        }
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -325,7 +491,7 @@ final class EloquentOrderRepository extends AbstractEloquentRepository implement
         );
 
         // 2. Bulk insert fresh discounts (single query vs N queries)
-        if ($order->discounts !== []) {
+        if ($order->discounts !== null && $order->discounts !== []) {
             /** @var list<array<string, mixed>> $rows */
             $rows = \array_values(\array_map(
                 static fn(OrderDiscount $discount): array => [
@@ -362,7 +528,7 @@ final class EloquentOrderRepository extends AbstractEloquentRepository implement
         );
 
         // 2. Bulk insert fresh refunds (single query vs N queries)
-        if ($order->refunds !== []) {
+        if ($order->refunds !== null && $order->refunds !== []) {
             /** @var list<array<string, mixed>> $rows */
             $rows = \array_values(\array_map(
                 static fn(OrderRefund $refund): array => [
@@ -399,7 +565,7 @@ final class EloquentOrderRepository extends AbstractEloquentRepository implement
         );
 
         // 2. Bulk insert fresh admin comments (single query vs N queries)
-        if ($order->adminComments !== []) {
+        if ($order->adminComments !== null && $order->adminComments !== []) {
             /** @var list<array<string, mixed>> $rows */
             $rows = \array_values(\array_map(
                 static fn(OrderAdminComment $comment): array => [

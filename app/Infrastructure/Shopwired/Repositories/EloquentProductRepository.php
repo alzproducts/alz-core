@@ -20,6 +20,8 @@ use App\Infrastructure\Repositories\AbstractEloquentRepository;
 use App\Infrastructure\Shopwired\Mappers\ProductModelMapper;
 use App\Infrastructure\Shopwired\Models\ProductModel;
 use App\Infrastructure\Shopwired\Models\ProductVariationModel;
+use Carbon\CarbonImmutable;
+use DateTimeImmutable;
 use Generator;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Log;
@@ -68,23 +70,49 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
      */
     public function save(object $entity): void
     {
+        /** @var Product $entity */
+        $this->performSave($entity);
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function saveFromWebhook(Product $product, DateTimeImmutable $webhookAt): void
+    {
+        $this->performSave($product, ['shopwired_webhook_at' => $webhookAt]);
+    }
+
+    /**
+     * @param array<string, mixed> $extra Additional attributes merged into the product upsert.
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    private function performSave(Product $product, array $extra = []): void
+    {
         try {
-            $this->eloquentGateway->transact(function () use ($entity): void {
-                // 1. Upsert product (single INSERT ON CONFLICT query)
+            $this->eloquentGateway->transact(function () use ($product, $extra): void {
                 $this->eloquentGateway->upsertOne(
                     modelClass: self::MODEL_CLASS,
                     attributes: [
-                        'external_id' => $entity->id,
-                        ...ProductModelMapper::toModelAttributes($entity),
+                        'external_id' => $product->id,
+                        ...ProductModelMapper::toModelAttributes($product),
+                        ...$extra,
                     ],
                     uniqueBy: ['external_id'],
                 );
 
-                // 2. Sync variations (requires product UUID for FK)
-                $this->syncVariations($entity);
+                if ($product->variations !== null) {
+                    $this->syncVariations($product);
+                }
             }, attempts: 3);
         } catch (DatabaseOperationFailedException $e) {
-            $this->logCrossTableSkuConflictIfApplicable($e, $entity);
+            $this->logCrossTableSkuConflictIfApplicable($e, $product);
 
             throw $e;
         }
@@ -454,6 +482,97 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+    // Webhook Partial Update Methods
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * {@inheritDoc}
+     *
+     * @throws ResourceNotFoundException
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function updateStock(Sku $sku, bool $isVariation, int $newQuantity): void
+    {
+        $modelClass = $isVariation ? ProductVariationModel::class : self::MODEL_CLASS;
+
+        $affected = $this->eloquentGateway->updateWhere(
+            modelClass: $modelClass,
+            column: 'sku',
+            value: $sku->value,
+            data: ['stock' => $newQuantity],
+        );
+
+        if ($affected === 0) {
+            $entityType = $isVariation ? 'ProductVariation' : $this->getEntityTypeName();
+            throw new ResourceNotFoundException('Database', $entityType, $sku->value);
+        }
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @throws ResourceNotFoundException
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function deleteByExternalId(IntId $externalId): void
+    {
+        $deleted = $this->eloquentGateway->deleteWhere(
+            modelClass: self::MODEL_CLASS,
+            column: 'external_id',
+            value: $externalId->value,
+        );
+
+        if ($deleted === 0) {
+            throw new ResourceNotFoundException('Database', $this->getEntityTypeName(), $externalId->value);
+        }
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function getWebhookTimestamp(IntId $externalId): ?DateTimeImmutable
+    {
+        return $this->eloquentGateway->query(static function () use ($externalId): ?DateTimeImmutable {
+            /** @var string|null $timestamp */
+            $timestamp = self::MODEL_CLASS::query()
+                ->where('external_id', $externalId->value)
+                ->value('shopwired_webhook_at');
+
+            return $timestamp !== null ? CarbonImmutable::parse($timestamp)->toDateTimeImmutable() : null;
+        });
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @throws ResourceNotFoundException
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function updateWebhookTimestamp(IntId $externalId, DateTimeImmutable $timestamp): void
+    {
+        $affected = $this->eloquentGateway->updateWhere(
+            modelClass: self::MODEL_CLASS,
+            column: 'external_id',
+            value: $externalId->value,
+            data: ['shopwired_webhook_at' => $timestamp],
+        );
+
+        if ($affected === 0) {
+            throw new ResourceNotFoundException('Database', $this->getEntityTypeName(), $externalId->value);
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
     // Persistence Helpers
     // ─────────────────────────────────────────────────────────────────────────
 
@@ -480,13 +599,14 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
         );
 
         // 2. Bulk insert fresh variations (single query vs N queries)
-        if ($product->variations !== []) {
+        if ($product->variations !== null && $product->variations !== []) {
             // Fetch product UUID for FK (single column query after upsert)
             /** @var string $productUuid */
             $productUuid = self::MODEL_CLASS::query()
                 ->where('external_id', $product->id)
                 ->value('id');
 
+            /** @var list<array<string, mixed>> $rows */
             $rows = \array_map(
                 static fn(ProductVariation $v): array => [
                     'product_id' => $productUuid,

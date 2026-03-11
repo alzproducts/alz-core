@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Providers\Schedule;
 
+use App\Application\Jobs\Shopwired\ProcessShopwiredWebhookHealthJob;
 use App\Application\Jobs\Shopwired\SyncShopwiredCustomersJob;
 use App\Application\Jobs\Shopwired\SyncShopwiredOrdersJob;
 use Carbon\Carbon;
@@ -32,6 +33,7 @@ final class ShopwiredScheduleServiceProvider extends ServiceProvider
 
         $this->registerOrderSchedules($skipDuringWeeklySync);
         $this->registerCustomerSchedules($skipDuringWeeklySync);
+        $this->registerWebhookHealthSchedule();
     }
 
     /**
@@ -84,6 +86,23 @@ final class ShopwiredScheduleServiceProvider extends ServiceProvider
             ->onOneServer()
             ->withoutOverlapping(2)
             ->skip($skipDuringWeeklySync);
+    }
+
+    /**
+     * ShopWired Webhook Health Check: daily monitoring for disabled/unverified webhooks.
+     *
+     * Runs at 03:00 UK time — before weekly syncs (04:00/05:30) so alerts
+     * are visible before the high-volume sync window begins.
+     *
+     * @throws RuntimeException
+     */
+    private function registerWebhookHealthSchedule(): void
+    {
+        Schedule::job(new ProcessShopwiredWebhookHealthJob())
+            ->name('check-shopwired-webhook-health')
+            ->dailyAt('03:00')
+            ->timezone('Europe/London')
+            ->onOneServer();
     }
 
     /**
