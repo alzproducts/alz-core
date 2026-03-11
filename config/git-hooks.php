@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\DevTools\GitHooks\DeptracPrePushHook;
 use App\DevTools\GitHooks\PestPrePushHook;
 use App\DevTools\GitHooks\PHPArkitectPreCommitHook;
 use App\DevTools\GitHooks\PHPArkitectPrePushHook;
@@ -29,7 +30,7 @@ return [
     |--------------------------------------------------------------------------
     | Pre-Push Hooks
     |--------------------------------------------------------------------------
-    | Runs full test suite + code quality analysis (~15 seconds with native PHP)
+    | Runs full test suite + code quality analysis (~17 seconds with native PHP)
     | All tests use mocks/fakes - no external dependencies
     |
     | Coverage checks: Run `make test-coverage` manually before PRs
@@ -39,6 +40,7 @@ return [
         PestPrePushHook::class,
         PHPInsightsPrePushHook::class,
         PHPArkitectPrePushHook::class,
+        DeptracPrePushHook::class,
         TLintPrePushHook::class,
     ],
 

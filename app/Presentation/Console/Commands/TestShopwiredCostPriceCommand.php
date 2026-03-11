@@ -66,7 +66,7 @@ final class TestShopwiredCostPriceCommand extends Command
         }
 
         $product = $syncService->refreshById($productId);
-        $variation = \array_find($product->variations, static fn(ProductVariation $v) => $v->sku === $sku);
+        $variation = \array_find($product->variations ?? [], static fn(ProductVariation $v) => $v->sku === $sku);
 
         if ($variation === null) {
             $this->error("Variation with SKU '{$sku}' not found on product {$productId}");

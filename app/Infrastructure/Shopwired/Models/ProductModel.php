@@ -83,6 +83,7 @@ final class ProductModel extends Model
             // Timestamps
             'shopwired_created_at' => 'immutable_datetime',
             'shopwired_updated_at' => 'immutable_datetime',
+            'shopwired_webhook_at' => 'immutable_datetime',
             'created_at' => 'immutable_datetime',
             'updated_at' => 'immutable_datetime',
         ];

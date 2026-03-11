@@ -60,6 +60,17 @@ final class JobHandleMustCatchThrowableRule implements Rule
             return [];
         }
 
+        // Abstract parent in the same namespace may provide the catch(Throwable) via a shared method
+        $classReflection = $scope->getClassReflection();
+        $parentClass = $classReflection->getParentClass();
+
+        if ($parentClass !== null
+            && $parentClass->isAbstract()
+            && \str_contains($parentClass->getName(), 'App\\Application\\Jobs\\')
+        ) {
+            return [];
+        }
+
         return [
             RuleErrorBuilder::message(
                 'Job handle() method must contain a catch(\\Throwable) block '
