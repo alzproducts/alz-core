@@ -64,11 +64,22 @@ deptrac:
         - type: classLike
           value: ^Psr\\.*
 
-    # Laravel framework
-    - name: LaravelFramework
+    # Illuminate\Contracts\Events - stable event dispatcher contract (same allowance as PHPArkitect)
+    - name: IlluminateContractsEvents
       collectors:
         - type: classLike
-          value: ^Illuminate\\.*
+          value: ^Illuminate\\Contracts\\Events\\.*
+
+    # Laravel framework (excludes Illuminate\Contracts\Events\* — allowed in Application layer)
+    - name: LaravelFramework
+      collectors:
+        - type: bool
+          must:
+            - type: classLike
+              value: ^Illuminate\\.*
+          must_not:
+            - type: classLike
+              value: ^Illuminate\\Contracts\\Events\\.*
 
     # Spatie LaravelData - DTOs
     - name: SpatieData
@@ -164,6 +175,7 @@ deptrac:
       - Domain
       - ApplicationJobs
       - PsrInterfaces
+      - IlluminateContractsEvents
       - AssertionLibrary
 
     # ApplicationJobs: Application + Laravel framework access for queue infrastructure
@@ -224,6 +236,7 @@ deptrac:
     # External layers have no outbound dependencies
     AssertionLibrary: ~
     PsrInterfaces: ~
+    IlluminateContractsEvents: ~
     LaravelFramework: ~
     SpatieData: ~
     GoogleAdsSdk: ~

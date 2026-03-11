@@ -28,6 +28,7 @@ use App\Domain\Exceptions\Inventory\InvalidTemplateException;
 use App\Domain\Inventory\Events\VariantSkusGeneratedEvent;
 use App\Domain\Inventory\ValueObjects\StockItemFull;
 use App\Domain\ValueObjects\IntId;
+use Illuminate\Contracts\Events\Dispatcher;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -54,6 +55,7 @@ final readonly class GenerateVariantSkusUseCase
         private ProductRepositoryInterface $productRepository,
         private LoggerInterface $logger,
         private int $standardSignProductId,
+        private Dispatcher $eventDispatcher,
     ) {}
 
     /**
@@ -83,7 +85,7 @@ final readonly class GenerateVariantSkusUseCase
         // 1. Fetch ShopWired product and sync to local DB (so variation lookups work)
         $product = $this->productSyncService->refreshById($command->productId->value);
 
-        if ($product->variations === []) {
+        if ($product->variations === null || $product->variations === []) {
             $this->logger->info('Product has no variations', ['product_id' => $command->productId->value]);
 
             return GenerateVariantSkusResult::noVariations($product->title);
@@ -202,10 +204,10 @@ final readonly class GenerateVariantSkusUseCase
 
         $this->logger->info('Loaded standard sign product for price matching', [
             'product_id' => $standardProduct->id,
-            'variation_count' => \count($standardProduct->variations),
+            'variation_count' => \count($standardProduct->variations ?? []),
         ]);
 
-        return $standardProduct->variations;
+        return $standardProduct->variations ?? [];
     }
 
     /**
@@ -214,7 +216,7 @@ final readonly class GenerateVariantSkusUseCase
     private function dispatchNotificationEvent(GenerateVariantSkusResult $result, GenerateVariantSkusCommand $command): void
     {
         if ($result->created > 0) {
-            \event(new VariantSkusGeneratedEvent(
+            $this->eventDispatcher->dispatch(new VariantSkusGeneratedEvent(
                 productId: $command->productId->value,
                 productTitle: $result->productTitle,
                 created: $result->created,

@@ -27,6 +27,7 @@ use App\Domain\ValueObjects\IntId;
 use App\Domain\ValueObjects\Money;
 use App\Domain\ValueObjects\TaxRate;
 use DateTimeImmutable;
+use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Support\Facades\Event;
 use Mockery;
 use Mockery\MockInterface;
@@ -81,6 +82,7 @@ final class GenerateVariantSkusUseCaseTest extends TestCase
             $this->productRepository,
             $this->logger,
             standardSignProductId: 99999,
+            eventDispatcher: \app(Dispatcher::class),
         );
     }
 
