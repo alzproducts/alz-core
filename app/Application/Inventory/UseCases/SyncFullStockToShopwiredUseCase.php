@@ -34,7 +34,7 @@ use Psr\Log\LoggerInterface;
  */
 final readonly class SyncFullStockToShopwiredUseCase
 {
-    private const int LOCK_TIMEOUT_SECONDS = 120;
+    private const int LOCK_TIMEOUT_SECONDS = 90;
 
     public function __construct(
         private StockDashboardsClientInterface $linnworksClient,
