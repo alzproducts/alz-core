@@ -130,12 +130,12 @@ final readonly class LoggingShopwiredTransport implements ShopwiredTransportInte
      */
     public function poolPost(array $requests): array
     {
-        self::logPoolRequest($requests);
+        $this->logPoolRequest($requests);
         $start = \microtime(true);
 
         $responses = $this->inner->poolPost($requests);
 
-        self::logPoolResponse($responses, \microtime(true) - $start);
+        $this->logPoolResponse($responses, \microtime(true) - $start);
 
         return $responses;
     }
@@ -179,7 +179,7 @@ final readonly class LoggingShopwiredTransport implements ShopwiredTransportInte
      *
      * @param array<string, array{endpoint: string, data: array<mixed>}> $requests
      */
-    private static function logPoolRequest(array $requests): void
+    private function logPoolRequest(array $requests): void
     {
         $endpoints = \array_map(
             static fn(array $r): string => $r['endpoint'],
@@ -192,6 +192,13 @@ final readonly class LoggingShopwiredTransport implements ShopwiredTransportInte
             'endpoints' => $endpoints,
         ];
 
+        if ($this->logLevel === ShopwiredLogLevel::Debug) {
+            $context['bodies'] = \array_map(
+                static fn(array $r): string => self::truncate(self::safeJsonEncode($r['data'])),
+                $requests,
+            );
+        }
+
         Log::debug(self::SERVICE_NAME . ' API pool request', $context);
     }
 
@@ -200,12 +207,19 @@ final readonly class LoggingShopwiredTransport implements ShopwiredTransportInte
      *
      * @param array<string, Response> $responses
      */
-    private static function logPoolResponse(array $responses, float $duration): void
+    private function logPoolResponse(array $responses, float $duration): void
     {
         $context = [
             'response_count' => \count($responses),
             'duration_ms' => \round($duration * 1000, 2),
         ];
+
+        if ($this->logLevel === ShopwiredLogLevel::Debug) {
+            $context['bodies'] = \array_map(
+                static fn(Response $r): string => self::truncate($r->body()),
+                $responses,
+            );
+        }
 
         Log::debug(self::SERVICE_NAME . ' API pool response', $context);
     }

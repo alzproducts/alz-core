@@ -115,27 +115,36 @@ final readonly class StockClient implements StockClientInterface
     /**
      * Format a batch of ItemStockLevel objects for the API.
      *
+     * The stock endpoint expects a wrapped object: {"items": [{sku, quantity}, ...]}.
+     *
      * @param list<ItemStockLevel> $batch
      *
-     * @return list<array{sku: string, quantity: int}>
+     * @return array{items: list<array{sku: string, quantity: int}>}
      */
     private static function formatBatchData(array $batch): array
     {
-        return \array_map(
-            static fn(ItemStockLevel $item): array => [
-                'sku' => $item->sku->value,
-                'quantity' => $item->quantity,
-            ],
-            $batch,
-        );
+        return [
+            'items' => \array_map(
+                static fn(ItemStockLevel $item): array => [
+                    'sku' => $item->sku->value,
+                    'quantity' => $item->quantity,
+                ],
+                $batch,
+            ),
+        ];
     }
 
     /**
-     * Retry each item in a mismatched batch individually to isolate failures.
+     * Retry each item in a mismatched batch individually to isolate HTTP failures.
      *
      * Only called when a batch returns HTTP 200 but with an updated count that
-     * does not match the batch size. Transport errors (429, 5xx) on individual
-     * requests are not caught here — they propagate for job-level retry.
+     * does not match the batch size. Any HTTP 200 response (including updated=0)
+     * is treated as success — ShopWired returns updated=0 when the stock is already
+     * at the requested value, which is still a correct end-state. Only transport
+     * exceptions (4xx/5xx/connection) indicate a genuine failure.
+     *
+     * Transport errors (429, 5xx) on individual requests are not caught here —
+     * they propagate for job-level retry.
      *
      * @param list<ItemStockLevel> $items
      *
@@ -153,16 +162,20 @@ final readonly class StockClient implements StockClientInterface
         $failed = [];
 
         foreach ($items as $item) {
-            $response = $this->transport->post(
-                self::ENDPOINT_STOCK,
-                self::formatBatchData([$item]),
-            );
-
-            $updated = self::parseUpdatedResponse($response->json());
-
-            if ($updated === 1) {
+            try {
+                $this->transport->post(
+                    self::ENDPOINT_STOCK,
+                    self::formatBatchData([$item]),
+                );
+                // HTTP 200 = accepted. updated=0 means stock was already at the
+                // requested value — still a correct end-state, not a failure.
                 $succeeded[] = $item;
-            } else {
+            } catch (InvalidApiRequestException $e) {
+                // Permanent per-item failure (e.g. SKU not found, 422).
+                Log::warning('ShopWired stock: individual retry permanently failed', [
+                    'sku'     => $item->sku->value,
+                    'message' => $e->getMessage(),
+                ]);
                 $failed[] = $item;
             }
         }
