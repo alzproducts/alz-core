@@ -47,9 +47,8 @@ final class AdminAlertNotification extends Notification
             });
 
         if ($this->context !== []) {
-            $contextText = \implode(' | ', \array_map(
-                static fn(string $key, mixed $value): string => \sprintf('*%s:* %s', $key, \print_r($value, true)),
-                \array_keys($this->context),
+            $contextText = \implode("\n", \array_map(
+                static fn(mixed $value): string => \sprintf('• %s', \print_r($value, true)),
                 $this->context,
             ));
 

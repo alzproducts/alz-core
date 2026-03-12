@@ -24,6 +24,7 @@ final class WebhookResponse extends Data implements DomainConvertibleInterface
     public function __construct(
         public readonly int $id,
         public readonly string $topic,
+        #[MapInputName('url')]
         public readonly string $address,
         public readonly bool $enabled,
         public readonly bool $verified,
