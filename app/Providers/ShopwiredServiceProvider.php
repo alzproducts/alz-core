@@ -27,6 +27,13 @@ use App\Application\Contracts\Shopwired\ProductWebhookEventResolverInterface;
 use App\Application\Contracts\Shopwired\ProductWebhookParserInterface;
 use App\Application\Contracts\Shopwired\StockClientInterface;
 use App\Application\Contracts\Shopwired\WebhookClientInterface;
+use App\Application\Shopwired\UseCases\Webhooks\CreateOrderRefundUseCase;
+use App\Application\Shopwired\UseCases\Webhooks\SyncCustomerUseCase;
+use App\Application\Shopwired\UseCases\Webhooks\SyncOrderUseCase;
+use App\Application\Shopwired\UseCases\Webhooks\SyncProductUseCase;
+use App\Application\Shopwired\UseCases\Webhooks\UpdateOrderStatusUseCase;
+use App\Application\Shopwired\UseCases\Webhooks\UpdateProductStockUseCase;
+use App\Domain\Exceptions\InvalidConfigurationException;
 use App\Infrastructure\Shopwired\Clients\BasicProductUpdateClient;
 use App\Infrastructure\Shopwired\Clients\ProductClient;
 use App\Infrastructure\Shopwired\Clients\ProductUpdateClient;
@@ -212,6 +219,28 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
             WebhookClientInterface::class,
             static fn(): WebhookClientInterface => ShopwiredClientFactory::createWebhookClient(),
         );
+
+        // Webhook staleness threshold - shared across all webhook use cases
+        $this->app->when([
+            SyncProductUseCase::class,
+            SyncOrderUseCase::class,
+            SyncCustomerUseCase::class,
+            UpdateProductStockUseCase::class,
+            UpdateOrderStatusUseCase::class,
+            CreateOrderRefundUseCase::class,
+        ])->needs('$webhookStalenessHours')
+            ->give(static function (): int {
+                $value = \config('shopwired.webhook_staleness_hours');
+
+                if (! \is_numeric($value)) {
+                    throw new InvalidConfigurationException(
+                        'shopwired.webhook_staleness_hours',
+                        'shopwired.webhook_staleness_hours must be a numeric value',
+                    );
+                }
+
+                return (int) $value;
+            });
     }
 
     /**
@@ -226,6 +255,7 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
             BasicProductUpdateClientInterface::class,
             CategoryClientInterface::class,
             ConnectivityClientInterface::class,
+            CreateOrderRefundUseCase::class,
             CustomFieldClientInterface::class,
             CustomFieldRepositoryInterface::class,
             CustomerClientInterface::class,
@@ -249,6 +279,11 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
             ProductWebhookEventResolverInterface::class,
             ProductWebhookParserInterface::class,
             StockClientInterface::class,
+            SyncCustomerUseCase::class,
+            SyncOrderUseCase::class,
+            SyncProductUseCase::class,
+            UpdateOrderStatusUseCase::class,
+            UpdateProductStockUseCase::class,
             WebhookClientInterface::class,
         ];
     }
