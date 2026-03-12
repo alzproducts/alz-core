@@ -14,18 +14,14 @@ use App\Application\Inventory\DTOs\StockLevelDeltaDTO;
 use App\Application\Inventory\Enums\LockName;
 use App\Application\Results\StockUpdateResult;
 use App\Domain\Catalog\Product\ValueObjects\Sku;
-use App\Domain\Exceptions\Api\AuthenticationExpiredException;
-use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
-use App\Domain\Exceptions\Api\InvalidApiRequestException;
+use App\Domain\Exceptions\Api\AbstractApiException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
-use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\Exceptions\Infrastructure\LockAcquisitionException;
 use App\Domain\Inventory\ValueObjects\ItemStockLevel;
 use DateTimeImmutable;
 use Psr\Log\LoggerInterface;
-use RuntimeException;
 
 /**
  * Synchronise recently-changed stock levels from Linnworks to ShopWired.
@@ -76,14 +72,10 @@ final readonly class SyncDeltaStockToShopwiredUseCase
      * Execute the delta stock sync.
      *
      * @throws LockAcquisitionException When lock cannot be acquired within timeout
-     * @throws AuthenticationExpiredException When Linnworks or ShopWired credentials invalid
-     * @throws InvalidApiRequestException When request parameters are invalid
-     * @throws ResourceNotFoundException When a resource is not found (404)
-     * @throws ExternalServiceUnavailableException When either API or DB is unavailable
+     * @throws AbstractApiException Re-thrown from partial batch transport failure (TransientApiFailure → retry, PermanentApiFailure → fail)
      * @throws InvalidApiResponseException When API response parsing fails
      * @throws DatabaseOperationFailedException When local DB operations fail
      * @throws DuplicateRecordException When a unique constraint violation occurs
-     * @throws RuntimeException When HTTP pool initialisation fails
      */
     public function execute(): void
     {
@@ -138,7 +130,7 @@ final readonly class SyncDeltaStockToShopwiredUseCase
             'since' => $since->format('Y-m-d H:i:s'),
             'delta_count' => \count($delta),
             'to_update' => \count($toUpdate),
-            'succeeded' => $result !== null ? \count($result->succeeded) : 0,
+            'pushed' => $result !== null ? \count($result->pushed) : 0,
             'new_cursor' => $newCursor->format('Y-m-d H:i:s'),
         ]);
     }
@@ -185,14 +177,10 @@ final readonly class SyncDeltaStockToShopwiredUseCase
      *
      * @return array{toUpdate: list<ItemStockLevel>, result: StockUpdateResult|null}
      *
-     * @throws AuthenticationExpiredException
-     * @throws InvalidApiRequestException
-     * @throws ResourceNotFoundException
-     * @throws ExternalServiceUnavailableException
+     * @throws AbstractApiException Re-thrown from partial batch transport failure (TransientApiFailure → retry, PermanentApiFailure → fail)
      * @throws InvalidApiResponseException
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
-     * @throws RuntimeException
      */
     private function syncUnderLock(array $delta, array $skus): array
     {
@@ -205,8 +193,22 @@ final readonly class SyncDeltaStockToShopwiredUseCase
 
         $result = $this->shopwiredClient->updateStockQuantity($toUpdate);
 
-        if ($result->succeeded !== []) {
-            $this->stockRepository->updateStockLevels($result->succeeded);
+        // Always update local DB for items that made it through
+        if ($result->pushed !== []) {
+            $this->stockRepository->updateStockLevels($result->pushed);
+        }
+
+        // Re-throw transport failure after local DB is updated — job will retry
+        // and only items from failed batches will still appear as diffs.
+        $transportFailure = $result->transportFailure;
+
+        if ($transportFailure !== null) {
+            $this->logger->warning('Delta stock sync: batch transport failure, local DB updated for pushed items', [
+                'pushed_count' => \count($result->pushed),
+                'total_attempted' => \count($toUpdate),
+            ]);
+
+            throw $transportFailure;
         }
 
         return ['toUpdate' => $toUpdate, 'result' => $result];

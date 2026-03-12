@@ -4,27 +4,30 @@ declare(strict_types=1);
 
 namespace App\Application\Results;
 
+use App\Domain\Exceptions\Api\AbstractApiException;
 use App\Domain\Inventory\ValueObjects\ItemStockLevel;
 
 /**
  * Result of a bulk ShopWired stock update operation.
  *
- * All items in a successful push are considered succeeded — ShopWired
- * silently accepts unknown SKUs (returning updated=0) without signalling
- * failure. Per-item failure tracking is not possible via this API.
- * Any transport exception (4xx/5xx) propagates before this result is created.
+ * Contains items successfully pushed to ShopWired (2xx response) and
+ * an optional transport failure from a failed batch. Callers should:
+ * 1. Update local DB for $pushed items
+ * 2. Re-throw $transportFailure so the job retries failed batches
  */
 final readonly class StockUpdateResult
 {
     /**
-     * @param list<ItemStockLevel> $succeeded Items accepted by ShopWired (2xx, no transport exception)
+     * @param list<ItemStockLevel> $pushed Items pushed to ShopWired (2xx, no transport exception)
+     * @param ?AbstractApiException $transportFailure First batch transport failure, if any
      */
     public function __construct(
-        public array $succeeded,
+        public array $pushed,
+        public ?AbstractApiException $transportFailure = null,
     ) {}
 
     public static function empty(): self
     {
-        return new self(succeeded: []);
+        return new self(pushed: []);
     }
 }

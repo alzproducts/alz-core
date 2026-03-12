@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Shopwired;
 
+use App\Domain\Exceptions\Api\AbstractApiException;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
@@ -195,40 +196,48 @@ final readonly class ShopwiredHttpTransport implements ShopwiredTransportInterfa
      *
      * Uses Http::pool() for parallel execution of multiple POST requests.
      * Each request is configured with auth, timeout, and Background retry logic.
-     * Returns keyed Response array - caller handles validation of responses.
+     *
+     * Individual batch transport failures (AbstractApiException) are captured in the
+     * result rather than thrown immediately, allowing callers to process partial
+     * successes. Non-transport exceptions (LogicException) still propagate immediately.
      *
      * @param array<string, array{endpoint: string, data: array<mixed>}> $requests Keyed array of endpoint/data pairs
      *
-     * @return array<string, Response> Keyed responses matching input keys
-     *
-     * @throws InvalidApiRequestException When request parameters are invalid (400)
-     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
-     * @throws ResourceNotFoundException When resource not found (404)
-     * @throws ExternalServiceUnavailableException When API unavailable, rate limited, or connection fails
-     * @throws RuntimeException When HTTP pool initialization fails (Laravel/Guzzle internals)
+     * @throws ExternalServiceUnavailableException When HTTP pool initialization fails (Laravel/Guzzle internals)
      */
-    public function poolPost(array $requests): array
+    public function poolPost(array $requests): PoolPostResult
     {
         if ($requests === []) {
-            return [];
+            return new PoolPostResult([]);
         }
 
-        /**
-         * Pool executes requests concurrently after closure returns.
-         * Connection failures appear as Throwable in results array.
-         *
-         * @var array<string, Response|Throwable> $poolResults
-         */
-        $poolResults = Http::pool(fn(Pool $pool): array => $this->buildPoolRequests($pool, $requests));
+        try {
+            /**
+             * Pool executes requests concurrently after closure returns.
+             * Connection failures appear as Throwable in results array.
+             *
+             * @var array<string, Response|Throwable> $poolResults
+             */
+            $poolResults = Http::pool(fn(Pool $pool): array => $this->buildPoolRequests($pool, $requests));
+        } catch (RuntimeException $e) {
+            throw $this->handleUnexpectedException($e);
+        }
 
         /** @var array<string, Response> $responses */
         $responses = [];
+        $firstFailure = null;
 
         foreach ($poolResults as $key => $result) {
-            $responses[$key] = $this->handlePoolResult($key, $result, $requests);
+            try {
+                $responses[$key] = $this->handlePoolResult($key, $result, $requests);
+            } catch (AbstractApiException $e) {
+                // handlePoolResult already logged the failure with context.
+                // Store the first failure; continue processing remaining results.
+                $firstFailure ??= $e;
+            }
         }
 
-        return $responses;
+        return new PoolPostResult($responses, $firstFailure);
     }
 
     /**

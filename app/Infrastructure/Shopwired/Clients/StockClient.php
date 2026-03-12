@@ -6,16 +6,12 @@ namespace App\Infrastructure\Shopwired\Clients;
 
 use App\Application\Contracts\Shopwired\StockClientInterface;
 use App\Application\Results\StockUpdateResult;
-use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
-use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
-use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Inventory\ValueObjects\ItemStockLevel;
 use App\Infrastructure\Shopwired\Contracts\ShopwiredTransportInterface;
 use App\Infrastructure\Shopwired\ShopwiredRequestBuilderTrait;
 use App\Infrastructure\Shopwired\ShopwiredResponseParserTrait;
-use RuntimeException;
 
 /**
  * ShopWired Stock API Client.
@@ -53,12 +49,8 @@ final readonly class StockClient implements StockClientInterface
      *
      * @param list<ItemStockLevel> $items
      *
-     * @throws InvalidApiRequestException When request parameters are invalid (400)
-     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
-     * @throws ResourceNotFoundException When resource not found (404)
-     * @throws ExternalServiceUnavailableException When API unavailable or connection fails
      * @throws InvalidApiResponseException When response parsing fails (API contract violation)
-     * @throws RuntimeException When HTTP pool initialization fails (Laravel/Guzzle internals)
+     * @throws ExternalServiceUnavailableException When HTTP pool initialization fails
      */
     public function updateStockQuantity(array $items): StockUpdateResult
     {
@@ -69,27 +61,30 @@ final readonly class StockClient implements StockClientInterface
         /** @var list<list<ItemStockLevel>> $batches */
         $batches = \array_chunk($items, self::BATCH_SIZE);
         $requests = self::buildPoolRequests($batches, self::ENDPOINT_STOCK, self::formatBatchData(...));
-        $responses = $this->transport->poolPost($requests);
+        $poolResult = $this->transport->poolPost($requests);
 
-        /** @var list<ItemStockLevel> $succeeded */
-        $succeeded = [];
+        /** @var list<ItemStockLevel> $pushed */
+        $pushed = [];
 
         foreach ($batches as $index => $batch) {
             $key = "batch_{$index}";
 
-            if (!\array_key_exists($key, $responses)) {
-                throw new InvalidApiResponseException('ShopWired', "HTTP pool did not return a response for '{$key}'");
+            if (!\array_key_exists($key, $poolResult->responses)) {
+                continue; // This batch failed at transport level — captured in $poolResult->transportFailure
             }
 
             // Validate response structure. updated=N reflects items whose stock value
             // changed; updated=0 is valid for idempotent pushes or unknown SKUs (both
             // silently accepted by ShopWired). Any 2xx with no transport exception = success.
-            self::parseUpdatedResponse($responses[$key]->json());
+            self::parseUpdatedResponse($poolResult->responses[$key]->json());
 
-            \array_push($succeeded, ...$batch);
+            \array_push($pushed, ...$batch);
         }
 
-        return new StockUpdateResult(succeeded: $succeeded);
+        return new StockUpdateResult(
+            pushed: $pushed,
+            transportFailure: $poolResult->transportFailure,
+        );
     }
 
     /**

@@ -8,9 +8,9 @@ use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Infrastructure\Shopwired\PoolPostResult;
 use App\Infrastructure\Shopwired\RetryStrategy;
 use Illuminate\Http\Client\Response;
-use RuntimeException;
 
 /**
  * HTTP transport contract for ShopWired API.
@@ -117,18 +117,16 @@ interface ShopwiredTransportInterface
      * Perform concurrent POST requests to ShopWired API.
      *
      * Uses Http::pool() for parallel execution of multiple POST requests.
-     * Each request is configured with auth and retry logic. Returns keyed
-     * Response array - caller handles validation of responses.
+     * Each request is configured with auth and retry logic. Returns a result
+     * containing successful responses and the first transport failure (if any).
+     *
+     * Individual batch transport failures are captured in the result rather than
+     * thrown immediately, allowing callers to process partial successes.
+     * Non-transport exceptions (LogicException) still propagate immediately.
      *
      * @param array<string, array{endpoint: string, data: array<mixed>}> $requests Keyed array of endpoint/data pairs
      *
-     * @return array<string, Response> Keyed responses matching input keys
-     *
-     * @throws InvalidApiRequestException When request parameters are invalid (400)
-     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
-     * @throws ResourceNotFoundException When resource not found (404)
-     * @throws ExternalServiceUnavailableException When API unavailable, rate limited, or connection fails
-     * @throws RuntimeException When HTTP pool initialization fails (Laravel/Guzzle internals)
+     * @throws ExternalServiceUnavailableException When HTTP pool initialization fails (Laravel/Guzzle internals)
      */
-    public function poolPost(array $requests): array;
+    public function poolPost(array $requests): PoolPostResult;
 }

@@ -13,7 +13,6 @@ use App\Infrastructure\Shopwired\Enums\ShopwiredLogLevel;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Log;
 use JsonException;
-use RuntimeException;
 
 /**
  * Logging decorator for ShopWired HTTP transport.
@@ -122,22 +121,18 @@ final readonly class LoggingShopwiredTransport implements ShopwiredTransportInte
     }
 
     /**
-     * @throws InvalidApiRequestException When request parameters are invalid (400)
-     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
-     * @throws ResourceNotFoundException When resource not found (404)
-     * @throws ExternalServiceUnavailableException When API unavailable, rate limited, or connection fails
-     * @throws RuntimeException When HTTP pool initialization fails (Laravel/Guzzle internals)
+     * @throws ExternalServiceUnavailableException When HTTP pool initialization fails
      */
-    public function poolPost(array $requests): array
+    public function poolPost(array $requests): PoolPostResult
     {
         $this->logPoolRequest($requests);
         $start = \microtime(true);
 
-        $responses = $this->inner->poolPost($requests);
+        $result = $this->inner->poolPost($requests);
 
-        $this->logPoolResponse($responses, \microtime(true) - $start);
+        $this->logPoolResponse($result->responses, \microtime(true) - $start);
 
-        return $responses;
+        return $result;
     }
 
     /**
