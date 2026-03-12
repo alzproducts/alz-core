@@ -13,7 +13,6 @@ use App\Domain\Exceptions\DomainException;
  * - ConfigurationNotFoundException
  * - DatabaseOperationFailedException
  * - DuplicateRecordException
- * - StockUpdateFailedException
  * - StorageOperationFailedException
  *
  * Usage:

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Shopwired;
 
+use App\Domain\Exceptions\Api\AbstractApiException;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
@@ -92,7 +93,7 @@ final readonly class ShopwiredHttpTransport implements ShopwiredTransportInterfa
      * Perform POST request to Shopwired API.
      *
      * @param string $endpoint API endpoint path (e.g., 'orders/123/status')
-     * @param array<string, mixed> $data Request body data (sent as JSON)
+     * @param array<mixed> $data Request body data (sent as JSON — accepts both maps and indexed lists)
      * @param bool $retry Whether to apply retry logic for transient failures
      * @param RetryStrategy $strategy Retry configuration (only used when $retry is true)
      *
@@ -194,41 +195,49 @@ final readonly class ShopwiredHttpTransport implements ShopwiredTransportInterfa
      * Perform concurrent POST requests to Shopwired API.
      *
      * Uses Http::pool() for parallel execution of multiple POST requests.
-     * Each request is configured with auth and retry logic. Returns keyed
-     * Response array - caller handles validation of responses.
+     * Each request is configured with auth, timeout, and Background retry logic.
+     *
+     * Individual batch transport failures (AbstractApiException) are captured in the
+     * result rather than thrown immediately, allowing callers to process partial
+     * successes. Non-transport exceptions (LogicException) still propagate immediately.
      *
      * @param array<string, array{endpoint: string, data: array<mixed>}> $requests Keyed array of endpoint/data pairs
      *
-     * @return array<string, Response> Keyed responses matching input keys
-     *
-     * @throws InvalidApiRequestException When request parameters are invalid (400)
-     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
-     * @throws ResourceNotFoundException When resource not found (404)
-     * @throws ExternalServiceUnavailableException When API unavailable, rate limited, or connection fails
-     * @throws RuntimeException When HTTP pool initialization fails (Laravel/Guzzle internals)
+     * @throws ExternalServiceUnavailableException When HTTP pool initialization fails (Laravel/Guzzle internals)
      */
-    public function poolPost(array $requests): array
+    public function poolPost(array $requests): PoolPostResult
     {
         if ($requests === []) {
-            return [];
+            return new PoolPostResult([]);
         }
 
-        /**
-         * Pool executes requests concurrently after closure returns.
-         * Connection failures appear as Throwable in results array.
-         *
-         * @var array<string, Response|Throwable> $poolResults
-         */
-        $poolResults = Http::pool(fn(Pool $pool): array => $this->buildPoolRequests($pool, $requests));
+        try {
+            /**
+             * Pool executes requests concurrently after closure returns.
+             * Connection failures appear as Throwable in results array.
+             *
+             * @var array<string, Response|Throwable> $poolResults
+             */
+            $poolResults = Http::pool(fn(Pool $pool): array => $this->buildPoolRequests($pool, $requests));
+        } catch (RuntimeException $e) {
+            throw $this->handleUnexpectedException($e);
+        }
 
         /** @var array<string, Response> $responses */
         $responses = [];
+        $firstFailure = null;
 
         foreach ($poolResults as $key => $result) {
-            $responses[$key] = $this->handlePoolResult($key, $result, $requests);
+            try {
+                $responses[$key] = $this->handlePoolResult($key, $result, $requests);
+            } catch (AbstractApiException $e) {
+                // handlePoolResult already logged the failure with context.
+                // Store the first failure; continue processing remaining results.
+                $firstFailure ??= $e;
+            }
         }
 
-        return $responses;
+        return new PoolPostResult($responses, $firstFailure);
     }
 
     /**
@@ -251,6 +260,10 @@ final readonly class ShopwiredHttpTransport implements ShopwiredTransportInterfa
 
             if ($result instanceof ConnectionException) {
                 throw $this->handleConnectionException($result);
+            }
+
+            if ($result instanceof RequestException) {
+                throw $this->handleRequestException($result, $requests[$key]['endpoint'] ?? 'unknown');
             }
 
             throw new ExternalServiceUnavailableException(self::SERVICE_NAME, previous: $result);
@@ -291,6 +304,11 @@ final readonly class ShopwiredHttpTransport implements ShopwiredTransportInterfa
                 ->baseUrl($this->config->baseUrl)
                 ->withBasicAuth($this->config->apiKey, $this->config->apiSecret)
                 ->timeout($this->config->timeout)
+                ->retry(
+                    times: RetryStrategy::Background->times(),
+                    sleepMilliseconds: $this->buildSleepClosure(RetryStrategy::Background),
+                    when: ApiRetryStrategy::defaultRetry(),
+                )
                 // @phpstan-ignore argument.type (data arrays always have int/string keys)
                 ->post($request['endpoint'], $request['data']);
         }
@@ -350,7 +368,7 @@ final readonly class ShopwiredHttpTransport implements ShopwiredTransportInterfa
         string $endpoint,
     ): InvalidApiRequestException|AuthenticationExpiredException|ResourceNotFoundException|ExternalServiceUnavailableException {
         return match ($e->response->status()) {
-            400 => $this->handleBadRequest($e),
+            400, 422 => $this->handleBadRequest($e),
             401, 403 => $this->handleAuthenticationFailure($e),
             404 => $this->handleNotFound($e, $endpoint),
             429 => $this->handleRateLimit($e),
