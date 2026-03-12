@@ -66,11 +66,11 @@ final readonly class DeltaStockLevelQuery extends AbstractLinnworksQuery
             SELECT
                 si.ItemNumber AS 'sku',
                 CASE WHEN (sl.Quantity - sl.InOrderBook) < 0 THEN 0 ELSE (sl.Quantity - sl.InOrderBook) END AS 'level',
-                CAST(sl.LastUpdateDate AS DATETIME) AS 'lastUpdateDate'
+                CAST(sl.LastUpdateDate AS DATETIME2(0)) AS 'lastUpdateDate'
             FROM StockLevel AS sl
             INNER JOIN [StockItem] AS si ON si.pkStockItemId = sl.fkStockItemId
             WHERE sl.fkStockLocationId = '{$locationId}'
-              AND CAST(sl.LastUpdateDate AS DATETIME) > {$escapedDate}
+              AND CAST(sl.LastUpdateDate AS DATETIME2(0)) > {$escapedDate}
               AND si.IsArchived = 'False'
             ORDER BY sl.LastUpdateDate ASC
             SQL;
