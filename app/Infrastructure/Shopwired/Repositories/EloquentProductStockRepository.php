@@ -44,11 +44,11 @@ final readonly class EloquentProductStockRepository implements ProductStockRepos
     {
         return $this->gateway->query(static function (): array {
             $sql = <<<'SQL'
-                SELECT sku, COALESCE(stock, 0) AS stock
+                SELECT sku, GREATEST(COALESCE(stock, 0), 0) AS stock
                 FROM shopwired.products
                 WHERE sku IS NOT NULL
                 UNION
-                SELECT sku, COALESCE(stock, 0) AS stock
+                SELECT sku, GREATEST(COALESCE(stock, 0), 0) AS stock
                 FROM shopwired.product_variations
                 WHERE sku IS NOT NULL
                 SQL;
@@ -82,11 +82,11 @@ final readonly class EloquentProductStockRepository implements ProductStockRepos
 
         return $this->gateway->query(static function () use ($skuValues, $placeholders): array {
             $sql = <<<SQL
-                SELECT sku, COALESCE(stock, 0) AS stock
+                SELECT sku, GREATEST(COALESCE(stock, 0), 0) AS stock
                 FROM shopwired.products
                 WHERE sku IN ({$placeholders})
                 UNION
-                SELECT sku, COALESCE(stock, 0) AS stock
+                SELECT sku, GREATEST(COALESCE(stock, 0), 0) AS stock
                 FROM shopwired.product_variations
                 WHERE sku IN ({$placeholders})
                 SQL;

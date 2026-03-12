@@ -22,6 +22,9 @@ interface ProductStockRepositoryInterface
     /**
      * Get stock levels for all SKU-bearing products and variations.
      *
+     * Stock values are floored at zero — ShopWired permits negative stock
+     * (overselling), but callers receive non-negative quantities only.
+     *
      * @return list<ItemStockLevel>
      *
      * @throws ExternalServiceUnavailableException
@@ -33,7 +36,9 @@ interface ProductStockRepositoryInterface
     /**
      * Get stock levels for a specific set of SKUs.
      *
-     * SKUs not found locally are omitted from the result.
+     * SKUs not found locally are omitted from the result. Stock values
+     * are floored at zero — ShopWired permits negative stock (overselling),
+     * but callers receive non-negative quantities only.
      *
      * @param list<Sku> $skus
      *
