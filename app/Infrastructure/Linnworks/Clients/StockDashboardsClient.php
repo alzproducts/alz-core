@@ -5,13 +5,18 @@ declare(strict_types=1);
 namespace App\Infrastructure\Linnworks\Clients;
 
 use App\Application\Contracts\Linnworks\StockDashboardsClientInterface;
+use App\Application\Inventory\DTOs\StockLevelDeltaDTO;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Domain\Inventory\ValueObjects\ItemStockLevel;
 use App\Domain\ValueObjects\Guid;
+use App\Infrastructure\Linnworks\Queries\DeltaStockLevelQuery;
+use App\Infrastructure\Linnworks\Queries\FullStockLevelQuery;
 use App\Infrastructure\Linnworks\Queries\StockItemBySkuQuery;
+use DateTimeImmutable;
 
 /**
  * Stock-related queries via Linnworks Dashboards SQL API.
@@ -44,5 +49,39 @@ final readonly class StockDashboardsClient implements StockDashboardsClientInter
 
         /** @var array<string, Guid> */
         return $this->dashboardsClient->execute(new StockItemBySkuQuery($skus));
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @return list<ItemStockLevel>
+     *
+     * @throws InvalidApiResponseException
+     * @throws InvalidApiRequestException
+     * @throws AuthenticationExpiredException
+     * @throws ResourceNotFoundException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function getAllStockLevels(): array
+    {
+        /** @var list<ItemStockLevel> */
+        return $this->dashboardsClient->execute(new FullStockLevelQuery());
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @return list<StockLevelDeltaDTO>
+     *
+     * @throws InvalidApiResponseException
+     * @throws InvalidApiRequestException
+     * @throws AuthenticationExpiredException
+     * @throws ResourceNotFoundException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function getStockLevelsSince(DateTimeImmutable $since): array
+    {
+        /** @var list<StockLevelDeltaDTO> */
+        return $this->dashboardsClient->execute(new DeltaStockLevelQuery($since));
     }
 }

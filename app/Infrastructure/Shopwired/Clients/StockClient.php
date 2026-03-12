@@ -83,7 +83,7 @@ final readonly class StockClient implements StockClientInterface
     {
         return \array_map(
             static fn(ItemStockLevel $item): array => [
-                'sku' => $item->sku,
+                'sku' => $item->sku->value,
                 'quantity' => $item->quantity,
             ],
             $batch,

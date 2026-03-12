@@ -19,4 +19,12 @@ enum LockName: string
      * creating/updating inventory items to claim the SKU.
      */
     case SkuGeneration = 'sku-generation';
+
+    /**
+     * Ensures full and delta stock syncs run serially.
+     *
+     * Prevents stock ping-pong where concurrent syncs overwrite each
+     * other with data from different time windows.
+     */
+    case StockSync = 'stock-sync-to-shopwired';
 }

@@ -4,10 +4,15 @@ declare(strict_types=1);
 
 namespace App\Application\Contracts\Linnworks;
 
+use App\Application\Inventory\DTOs\StockLevelDeltaDTO;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
+use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Domain\Inventory\ValueObjects\ItemStockLevel;
 use App\Domain\ValueObjects\Guid;
+use DateTimeImmutable;
 
 /**
  * Contract for Linnworks stock-related SQL queries.
@@ -36,4 +41,30 @@ interface StockDashboardsClientInterface
      * @throws ExternalServiceUnavailableException When API unavailable
      */
     public function findStockItemsBySku(array $skus): array;
+
+    /**
+     * Fetch all stock levels from Linnworks.
+     *
+     * @return list<ItemStockLevel>
+     *
+     * @throws InvalidApiRequestException
+     * @throws AuthenticationExpiredException
+     * @throws ResourceNotFoundException
+     * @throws ExternalServiceUnavailableException
+     * @throws InvalidApiResponseException
+     */
+    public function getAllStockLevels(): array;
+
+    /**
+     * Fetch stock levels changed since the given datetime.
+     *
+     * @return list<StockLevelDeltaDTO>
+     *
+     * @throws InvalidApiRequestException
+     * @throws AuthenticationExpiredException
+     * @throws ResourceNotFoundException
+     * @throws ExternalServiceUnavailableException
+     * @throws InvalidApiResponseException
+     */
+    public function getStockLevelsSince(DateTimeImmutable $since): array;
 }

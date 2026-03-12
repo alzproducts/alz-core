@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Domain\Inventory\ValueObjects;
 
+use App\Domain\Catalog\Product\ValueObjects\Sku;
 use App\Domain\Inventory\ValueObjects\ItemStockLevel;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -15,7 +16,8 @@ use Tests\TestCase;
  * ItemStockLevel Value Object Unit Tests.
  *
  * Tests the Domain value object for stock level update requests.
- * Validates assertion behavior for SKU and quantity constraints.
+ * Validates assertion behavior for quantity constraints.
+ * SKU validation is tested in SkuTest — ItemStockLevel delegates to the Sku type.
  */
 #[CoversClass(ItemStockLevel::class)]
 final class ItemStockLevelTest extends TestCase
@@ -29,16 +31,17 @@ final class ItemStockLevelTest extends TestCase
     #[Test]
     public function it_creates_a_valid_item_stock_level(): void
     {
-        $stockLevel = new ItemStockLevel(sku: 'TEST-001', quantity: 100);
+        $sku = Sku::fromTrusted('TEST-001');
+        $stockLevel = new ItemStockLevel(sku: $sku, quantity: 100);
 
-        $this->assertSame('TEST-001', $stockLevel->sku);
+        $this->assertSame('TEST-001', $stockLevel->sku->value);
         $this->assertSame(100, $stockLevel->quantity);
     }
 
     #[Test]
     public function it_accepts_zero_quantity(): void
     {
-        $stockLevel = new ItemStockLevel(sku: 'OUT-OF-STOCK', quantity: 0);
+        $stockLevel = new ItemStockLevel(sku: Sku::fromTrusted('OUT-OF-STOCK'), quantity: 0);
 
         $this->assertSame(0, $stockLevel->quantity);
     }
@@ -46,33 +49,25 @@ final class ItemStockLevelTest extends TestCase
     #[Test]
     public function it_accepts_large_quantities(): void
     {
-        $stockLevel = new ItemStockLevel(sku: 'BULK-ITEM', quantity: 999999);
+        $stockLevel = new ItemStockLevel(sku: Sku::fromTrusted('BULK-ITEM'), quantity: 999999);
 
         $this->assertSame(999999, $stockLevel->quantity);
     }
 
     /*
     |--------------------------------------------------------------------------
-    | SKU Assertion Tests
+    | SKU Tests
     |--------------------------------------------------------------------------
     */
 
     #[Test]
-    public function it_throws_when_sku_is_empty(): void
-    {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('SKU cannot be empty');
-
-        new ItemStockLevel(sku: '', quantity: 10);
-    }
-
-    #[Test]
     #[DataProvider('validSkuProvider')]
-    public function it_accepts_various_valid_sku_formats(string $sku): void
+    public function it_accepts_various_valid_sku_formats(string $skuValue): void
     {
+        $sku = Sku::fromTrusted($skuValue);
         $stockLevel = new ItemStockLevel(sku: $sku, quantity: 1);
 
-        $this->assertSame($sku, $stockLevel->sku);
+        $this->assertSame($skuValue, $stockLevel->sku->value);
     }
 
     /**
@@ -104,7 +99,7 @@ final class ItemStockLevelTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Quantity cannot be negative');
 
-        new ItemStockLevel(sku: 'TEST-001', quantity: -1);
+        new ItemStockLevel(sku: Sku::fromTrusted('TEST-001'), quantity: -1);
     }
 
     #[Test]
@@ -114,7 +109,7 @@ final class ItemStockLevelTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Quantity cannot be negative');
 
-        new ItemStockLevel(sku: 'TEST-001', quantity: $quantity);
+        new ItemStockLevel(sku: Sku::fromTrusted('TEST-001'), quantity: $quantity);
     }
 
     /**
@@ -128,5 +123,4 @@ final class ItemStockLevelTest extends TestCase
             'edge negative' => [-999999],
         ];
     }
-
 }
