@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\Inventory\ValueObjects;
 
+use App\Domain\Catalog\Product\ValueObjects\Sku;
 use Webmozart\Assert\Assert;
 
 /**
@@ -20,10 +21,9 @@ use Webmozart\Assert\Assert;
 final readonly class ItemStockLevel
 {
     public function __construct(
-        public string $sku,
+        public Sku $sku,
         public int $quantity,
     ) {
-        Assert::notEmpty($sku, 'SKU cannot be empty');
         Assert::greaterThanEq($quantity, 0, 'Quantity cannot be negative');
     }
 }

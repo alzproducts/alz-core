@@ -5,18 +5,13 @@ declare(strict_types=1);
 namespace App\Infrastructure\Shopwired\Clients;
 
 use App\Application\Contracts\Shopwired\StockClientInterface;
-use App\Domain\Exceptions\Api\AuthenticationExpiredException;
+use App\Application\Results\StockUpdateResult;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
-use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
-use App\Domain\Exceptions\Api\ResourceNotFoundException;
-use App\Domain\Exceptions\Infrastructure\StockUpdateFailedException;
 use App\Domain\Inventory\ValueObjects\ItemStockLevel;
 use App\Infrastructure\Shopwired\Contracts\ShopwiredTransportInterface;
 use App\Infrastructure\Shopwired\ShopwiredRequestBuilderTrait;
 use App\Infrastructure\Shopwired\ShopwiredResponseParserTrait;
-use Illuminate\Http\Client\Response;
-use RuntimeException;
 
 /**
  * ShopWired Stock API Client.
@@ -24,8 +19,10 @@ use RuntimeException;
  * Handles bulk stock quantity updates via POST /stock endpoint.
  * Items are auto-batched (max 15 per request) and sent concurrently.
  *
- * Response validation ensures all items were updated by comparing
- * API's "updated" count against input count.
+ * ShopWired returns HTTP 201 with {"updated": N} where N is the number of
+ * items whose stock VALUE actually changed. Unknown SKUs are silently ignored
+ * (updated=0), indistinguishable from idempotent pushes. Any HTTP 2xx
+ * response (no transport exception) is treated as full batch success.
  *
  * HTTP concerns (auth, retry, timeout) delegated to ShopwiredHttpTransport.
  *
@@ -48,74 +45,67 @@ final readonly class StockClient implements StockClientInterface
     ) {}
 
     /**
+     * {@inheritDoc}
+     *
      * @param list<ItemStockLevel> $items
      *
-     * @throws InvalidApiRequestException When request parameters are invalid (400)
-     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
-     * @throws ResourceNotFoundException When resource not found (404)
-     * @throws ExternalServiceUnavailableException When API unavailable or connection fails
      * @throws InvalidApiResponseException When response parsing fails (API contract violation)
-     * @throws StockUpdateFailedException When updated count doesn't match expected
-     * @throws RuntimeException When HTTP pool initialization fails (Laravel/Guzzle internals)
+     * @throws ExternalServiceUnavailableException When HTTP pool initialization fails
      */
-    public function updateStockQuantity(array $items): void
+    public function updateStockQuantity(array $items): StockUpdateResult
     {
         if ($items === []) {
-            return;
+            return StockUpdateResult::empty();
         }
 
         /** @var list<list<ItemStockLevel>> $batches */
         $batches = \array_chunk($items, self::BATCH_SIZE);
         $requests = self::buildPoolRequests($batches, self::ENDPOINT_STOCK, self::formatBatchData(...));
-        $responses = $this->transport->poolPost($requests);
+        $poolResult = $this->transport->poolPost($requests);
 
-        $this->validateResponses($responses, $items);
+        /** @var list<ItemStockLevel> $pushed */
+        $pushed = [];
+
+        foreach ($batches as $index => $batch) {
+            $key = "batch_{$index}";
+
+            if (!\array_key_exists($key, $poolResult->responses)) {
+                continue; // This batch failed at transport level — captured in $poolResult->transportFailure
+            }
+
+            // Validate response structure. updated=N reflects items whose stock value
+            // changed; updated=0 is valid for idempotent pushes or unknown SKUs (both
+            // silently accepted by ShopWired). Any 2xx with no transport exception = success.
+            self::parseUpdatedResponse($poolResult->responses[$key]->json());
+
+            \array_push($pushed, ...$batch);
+        }
+
+        return new StockUpdateResult(
+            pushed: $pushed,
+            transportFailure: $poolResult->transportFailure,
+        );
     }
 
     /**
      * Format a batch of ItemStockLevel objects for the API.
      *
+     * The stock endpoint expects a wrapped object: {"items": [{sku, quantity}, ...]}.
+     *
      * @param list<ItemStockLevel> $batch
      *
-     * @return list<array{sku: string, quantity: int}>
+     * @return array{items: list<array{sku: string, quantity: int}>}
      */
     private static function formatBatchData(array $batch): array
     {
-        return \array_map(
-            static fn(ItemStockLevel $item): array => [
-                'sku' => $item->sku,
-                'quantity' => $item->quantity,
-            ],
-            $batch,
-        );
-    }
-
-    /**
-     * Validate all batch responses and ensure total updated matches expected.
-     *
-     * @param array<string, Response> $responses
-     * @param list<ItemStockLevel> $items Original items sent for update (for diagnostics)
-     *
-     * @throws InvalidApiResponseException When response parsing fails (API contract violation)
-     * @throws StockUpdateFailedException When updated count doesn't match expected
-     */
-    private function validateResponses(array $responses, array $items): void
-    {
-        $totalUpdated = 0;
-
-        foreach ($responses as $response) {
-            $totalUpdated += self::parseUpdatedResponse($response->json());
-        }
-
-        $expectedTotal = \count($items);
-
-        if ($totalUpdated !== $expectedTotal) {
-            throw new StockUpdateFailedException(
-                expected: $expectedTotal,
-                actual: $totalUpdated,
-                reason: "Expected {$expectedTotal} items updated, but API reported {$totalUpdated}",
-                attemptedItems: $items,
-            );
-        }
+        return [
+            'items' => \array_map(
+                static fn(ItemStockLevel $item): array => [
+                    'sku' => $item->sku->value,
+                    'quantity' => $item->quantity,
+                ],
+                $batch,
+            ),
+        ];
     }
 }
