@@ -4,14 +4,10 @@ declare(strict_types=1);
 
 namespace App\Application\Contracts\Shopwired;
 
-use App\Domain\Exceptions\Api\AuthenticationExpiredException;
+use App\Application\Results\StockUpdateResult;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
-use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
-use App\Domain\Exceptions\Api\ResourceNotFoundException;
-use App\Domain\Exceptions\Infrastructure\StockUpdateFailedException;
 use App\Domain\Inventory\ValueObjects\ItemStockLevel;
-use RuntimeException;
 
 /**
  * ShopWired Stock API client.
@@ -20,28 +16,24 @@ use RuntimeException;
  * Implementation handles HTTP communication, batching, and response validation.
  *
  * Key behaviors:
- * - Auto-batches requests (max 15 items per API call)
- * - Validates response count matches input count
- * - Uses concurrent requests for large batches
+ * - Auto-batches requests (max 15 items per API call) and sends concurrently
+ * - Returns partial results on batch transport failures (caller must check $transportFailure)
+ * - Caller should update local DB for pushed items, then re-throw transportFailure for job retry
  */
 interface StockClientInterface
 {
     /**
      * Update stock quantities for multiple items.
      *
-     * Batches items into groups of 15 (API limit) and sends
-     * concurrent requests. Validates that the total number of
-     * updated items matches the input count.
+     * Sends items in concurrent batches of 15. On partial batch transport
+     * failures, successful batches are still included in the result. The
+     * caller must check $transportFailure and re-throw after updating
+     * the local DB for pushed items.
      *
-     * @param list<ItemStockLevel> $items Items to update (empty = no-op)
+     * @param list<ItemStockLevel> $items Items to update (empty = StockUpdateResult::empty())
      *
-     * @throws InvalidApiRequestException When request parameters are invalid (400)
-     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
-     * @throws ResourceNotFoundException When resource not found (404)
-     * @throws ExternalServiceUnavailableException When API unavailable or connection fails
      * @throws InvalidApiResponseException When response parsing fails (API contract violation)
-     * @throws StockUpdateFailedException When updated count doesn't match expected
-     * @throws RuntimeException When HTTP pool initialization fails (Laravel/Guzzle internals)
+     * @throws ExternalServiceUnavailableException When HTTP pool initialization fails
      */
-    public function updateStockQuantity(array $items): void;
+    public function updateStockQuantity(array $items): StockUpdateResult;
 }
