@@ -24,6 +24,8 @@ use Psr\Log\LoggerInterface;
  */
 final readonly class CheckShopwiredWebhookHealthUseCase
 {
+    private const string WEBHOOKS_ADMIN_URL = 'https://admin.myshopwired.uk/business/api-webhooks';
+
     public function __construct(
         private WebhookClientInterface $webhookClient,
         private LoggerInterface $logger,
@@ -70,9 +72,10 @@ final readonly class CheckShopwiredWebhookHealthUseCase
         $this->eventDispatcher->dispatch(new AdminAlertEvent(
             title: 'ShopWired Webhooks Unhealthy',
             message: \sprintf(
-                '%d of %d ShopWired webhook(s) are disabled or unverified. Data sync may be silently failing.',
+                '%d of %d ShopWired webhook(s) are disabled or unverified. Data sync may be silently failing. Re-enable them at: %s',
                 \count($unhealthy),
                 \count($webhooks),
+                self::WEBHOOKS_ADMIN_URL,
             ),
             context: $context,
         ));

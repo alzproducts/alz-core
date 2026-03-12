@@ -154,7 +154,7 @@ final class CheckShopwiredWebhookHealthUseCaseTest extends TestCase
 
         Event::assertDispatched(
             AdminAlertEvent::class,
-            static fn(AdminAlertEvent $e): bool => $e->message === '2 of 3 ShopWired webhook(s) are disabled or unverified. Data sync may be silently failing.'
+            static fn(AdminAlertEvent $e): bool => $e->message === '2 of 3 ShopWired webhook(s) are disabled or unverified. Data sync may be silently failing. Re-enable them at: https://admin.myshopwired.uk/business/api-webhooks'
                 && $e->title === 'ShopWired Webhooks Unhealthy',
         );
     }
