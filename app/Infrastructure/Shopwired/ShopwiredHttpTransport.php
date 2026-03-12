@@ -194,8 +194,8 @@ final readonly class ShopwiredHttpTransport implements ShopwiredTransportInterfa
      * Perform concurrent POST requests to Shopwired API.
      *
      * Uses Http::pool() for parallel execution of multiple POST requests.
-     * Each request is configured with auth and retry logic. Returns keyed
-     * Response array - caller handles validation of responses.
+     * Each request is configured with auth, timeout, and Background retry logic.
+     * Returns keyed Response array - caller handles validation of responses.
      *
      * @param array<string, array{endpoint: string, data: array<mixed>}> $requests Keyed array of endpoint/data pairs
      *
@@ -253,6 +253,10 @@ final readonly class ShopwiredHttpTransport implements ShopwiredTransportInterfa
                 throw $this->handleConnectionException($result);
             }
 
+            if ($result instanceof RequestException) {
+                throw $this->handleRequestException($result, $requests[$key]['endpoint'] ?? 'unknown');
+            }
+
             throw new ExternalServiceUnavailableException(self::SERVICE_NAME, previous: $result);
         }
 
@@ -291,6 +295,11 @@ final readonly class ShopwiredHttpTransport implements ShopwiredTransportInterfa
                 ->baseUrl($this->config->baseUrl)
                 ->withBasicAuth($this->config->apiKey, $this->config->apiSecret)
                 ->timeout($this->config->timeout)
+                ->retry(
+                    times: RetryStrategy::Background->times(),
+                    sleepMilliseconds: $this->buildSleepClosure(RetryStrategy::Background),
+                    when: ApiRetryStrategy::defaultRetry(),
+                )
                 // @phpstan-ignore argument.type (data arrays always have int/string keys)
                 ->post($request['endpoint'], $request['data']);
         }
@@ -350,7 +359,7 @@ final readonly class ShopwiredHttpTransport implements ShopwiredTransportInterfa
         string $endpoint,
     ): InvalidApiRequestException|AuthenticationExpiredException|ResourceNotFoundException|ExternalServiceUnavailableException {
         return match ($e->response->status()) {
-            400 => $this->handleBadRequest($e),
+            400, 422 => $this->handleBadRequest($e),
             401, 403 => $this->handleAuthenticationFailure($e),
             404 => $this->handleNotFound($e, $endpoint),
             429 => $this->handleRateLimit($e),
