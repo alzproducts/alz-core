@@ -45,14 +45,14 @@ final class WebhookClientTest extends TestCase
                 [
                     'id' => 1,
                     'topic' => 'order.created',
-                    'address' => 'https://example.com/webhooks/orders',
+                    'url' => 'https://example.com/webhooks/orders',
                     'enabled' => true,
                     'verified' => true,
                 ],
                 [
                     'id' => 2,
                     'topic' => 'product.updated',
-                    'address' => 'https://example.com/webhooks/products',
+                    'url' => 'https://example.com/webhooks/products',
                     'enabled' => false,
                     'verified' => true,
                 ],
