@@ -123,7 +123,8 @@ final class VerifyShopwiredWebhookSignatureMiddlewareTest extends TestCase
 
         // Short-circuits before reaching the next handler — only the hashed token is returned.
         $response->assertOk();
-        $response->assertExactJson(['verificationToken' => $expectedHash]);
+        $response->assertHeader('Content-Type', 'text/plain; charset=UTF-8');
+        $response->assertContent($expectedHash);
     }
 
     #[Test]
