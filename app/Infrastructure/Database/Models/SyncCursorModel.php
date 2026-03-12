@@ -28,6 +28,9 @@ final class SyncCursorModel extends Model
 
     protected $guarded = [];
 
+    /** Preserve sub-second precision for cursor timestamps (Linnworks has millisecond granularity). */
+    protected $dateFormat = 'Y-m-d H:i:s.u';
+
     public $incrementing = false;
 
     protected $keyType = 'string';

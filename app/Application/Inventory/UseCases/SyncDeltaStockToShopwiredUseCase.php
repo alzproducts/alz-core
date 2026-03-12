@@ -83,7 +83,7 @@ final readonly class SyncDeltaStockToShopwiredUseCase
         $since = $this->resolveSince($storedCursor);
 
         $this->logger->info('Delta stock sync: starting', [
-            'since' => $since->format('Y-m-d H:i:s'),
+            'since' => $since->format('Y-m-d H:i:s.v'),
         ]);
 
         // Linnworks is a read-only source here — fetch outside the lock.
@@ -91,7 +91,7 @@ final readonly class SyncDeltaStockToShopwiredUseCase
 
         if ($delta === []) {
             $this->logger->info('Delta stock sync: no changes since cursor', [
-                'since' => $since->format('Y-m-d H:i:s'),
+                'since' => $since->format('Y-m-d H:i:s.v'),
             ]);
 
             return;
@@ -127,11 +127,11 @@ final readonly class SyncDeltaStockToShopwiredUseCase
         $toUpdate = $outcome['toUpdate'];
 
         $this->logger->info('Delta stock sync: completed', [
-            'since' => $since->format('Y-m-d H:i:s'),
+            'since' => $since->format('Y-m-d H:i:s.v'),
             'delta_count' => \count($delta),
             'to_update' => \count($toUpdate),
             'pushed' => $result !== null ? \count($result->pushed) : 0,
-            'new_cursor' => $newCursor->format('Y-m-d H:i:s'),
+            'new_cursor' => $newCursor->format('Y-m-d H:i:s.v'),
         ]);
     }
 

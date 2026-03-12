@@ -60,7 +60,7 @@ final readonly class DeltaStockLevelQuery extends AbstractLinnworksQuery
     protected function buildQueryBody(): string
     {
         $locationId = StockLevelLocationResponse::DEFAULT_LOCATION_ID;
-        $escapedDate = SqlQueryBuilder::escapeString($this->since->format('Y-m-d H:i:s'));
+        $escapedDate = SqlQueryBuilder::escapeString($this->since->format('Y-m-d H:i:s.v'));
 
         return <<<SQL
             SELECT
