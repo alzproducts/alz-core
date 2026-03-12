@@ -15,7 +15,6 @@ use App\Domain\Inventory\ValueObjects\ItemStockLevel;
 use App\Infrastructure\Shopwired\Contracts\ShopwiredTransportInterface;
 use App\Infrastructure\Shopwired\ShopwiredRequestBuilderTrait;
 use App\Infrastructure\Shopwired\ShopwiredResponseParserTrait;
-use Illuminate\Support\Facades\Log;
 use RuntimeException;
 
 /**
@@ -24,9 +23,10 @@ use RuntimeException;
  * Handles bulk stock quantity updates via POST /stock endpoint.
  * Items are auto-batched (max 15 per request) and sent concurrently.
  *
- * On a count mismatch within a batch (HTTP 200 but updated < batch size),
- * each item in that batch is retried individually to isolate failures.
- * This gives per-SKU observability without impacting healthy batches.
+ * ShopWired returns HTTP 201 with {"updated": N} where N is the number of
+ * items whose stock VALUE actually changed. Unknown SKUs are silently ignored
+ * (updated=0), indistinguishable from idempotent pushes. Any HTTP 2xx
+ * response (no transport exception) is treated as full batch success.
  *
  * HTTP concerns (auth, retry, timeout) delegated to ShopwiredHttpTransport.
  *
@@ -73,8 +73,6 @@ final readonly class StockClient implements StockClientInterface
 
         /** @var list<ItemStockLevel> $succeeded */
         $succeeded = [];
-        /** @var list<ItemStockLevel> $failed */
-        $failed = [];
 
         foreach ($batches as $index => $batch) {
             $key = "batch_{$index}";
@@ -83,33 +81,15 @@ final readonly class StockClient implements StockClientInterface
                 throw new InvalidApiResponseException('ShopWired', "HTTP pool did not return a response for '{$key}'");
             }
 
-            $updated = self::parseUpdatedResponse($responses[$key]->json());
+            // Validate response structure. updated=N reflects items whose stock value
+            // changed; updated=0 is valid for idempotent pushes or unknown SKUs (both
+            // silently accepted by ShopWired). Any 2xx with no transport exception = success.
+            self::parseUpdatedResponse($responses[$key]->json());
 
-            if ($updated === \count($batch)) {
-                \array_push($succeeded, ...$batch);
-            } else {
-                // Count mismatch on HTTP 200 — fan out to individual requests to
-                // isolate which specific SKUs ShopWired does not recognise.
-                Log::warning('ShopWired stock batch count mismatch — retrying individually', [
-                    'batch_index' => $index,
-                    'expected'    => \count($batch),
-                    'updated'     => $updated,
-                ]);
-                [$batchSucceeded, $batchFailed] = $this->retryBatchIndividually($batch);
-                \array_push($succeeded, ...$batchSucceeded);
-                \array_push($failed, ...$batchFailed);
-            }
+            \array_push($succeeded, ...$batch);
         }
 
-        if ($failed !== []) {
-            Log::error('ShopWired stock update: SKUs not updated after individual retry', [
-                'failed_skus' => \array_map(static fn(ItemStockLevel $i): string => $i->sku->value, $failed),
-                'failed_count' => \count($failed),
-                'succeeded_count' => \count($succeeded),
-            ]);
-        }
-
-        return new StockUpdateResult(succeeded: $succeeded, failed: $failed);
+        return new StockUpdateResult(succeeded: $succeeded);
     }
 
     /**
@@ -132,54 +112,5 @@ final readonly class StockClient implements StockClientInterface
                 $batch,
             ),
         ];
-    }
-
-    /**
-     * Retry each item in a mismatched batch individually to isolate HTTP failures.
-     *
-     * Only called when a batch returns HTTP 200 but with an updated count that
-     * does not match the batch size. Any HTTP 200 response (including updated=0)
-     * is treated as success — ShopWired returns updated=0 when the stock is already
-     * at the requested value, which is still a correct end-state. Only transport
-     * exceptions (4xx/5xx/connection) indicate a genuine failure.
-     *
-     * Transport errors (429, 5xx) on individual requests are not caught here —
-     * they propagate for job-level retry.
-     *
-     * @param list<ItemStockLevel> $items
-     *
-     * @return array{0: list<ItemStockLevel>, 1: list<ItemStockLevel>} [succeeded, failed]
-     *
-     * @throws InvalidApiRequestException
-     * @throws AuthenticationExpiredException
-     * @throws ResourceNotFoundException
-     * @throws ExternalServiceUnavailableException
-     * @throws InvalidApiResponseException
-     */
-    private function retryBatchIndividually(array $items): array
-    {
-        $succeeded = [];
-        $failed = [];
-
-        foreach ($items as $item) {
-            try {
-                $this->transport->post(
-                    self::ENDPOINT_STOCK,
-                    self::formatBatchData([$item]),
-                );
-                // HTTP 200 = accepted. updated=0 means stock was already at the
-                // requested value — still a correct end-state, not a failure.
-                $succeeded[] = $item;
-            } catch (InvalidApiRequestException $e) {
-                // Permanent per-item failure (e.g. SKU not found, 422).
-                Log::warning('ShopWired stock: individual retry permanently failed', [
-                    'sku'     => $item->sku->value,
-                    'message' => $e->getMessage(),
-                ]);
-                $failed[] = $item;
-            }
-        }
-
-        return [$succeeded, $failed];
     }
 }

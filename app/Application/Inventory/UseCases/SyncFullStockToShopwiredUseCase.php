@@ -88,18 +88,10 @@ final readonly class SyncFullStockToShopwiredUseCase
             return;
         }
 
-        if ($result?->hasFailures() === true) {
-            $this->logger->warning('Full stock sync: some SKUs failed to update', [
-                'failed_skus' => \array_map(static fn(ItemStockLevel $i): string => $i->sku->value, $result->failed),
-                'failed_count' => \count($result->failed),
-            ]);
-        }
-
         $this->logger->info('Full stock sync: completed', [
             'linnworks_count' => \count($linnworksStock),
             'attempted' => \count($toUpdate),
             'succeeded' => $result !== null ? \count($result->succeeded) : 0,
-            'failed' => $result !== null ? \count($result->failed) : 0,
         ]);
     }
 

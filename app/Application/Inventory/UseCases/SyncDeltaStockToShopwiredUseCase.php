@@ -134,19 +134,11 @@ final readonly class SyncDeltaStockToShopwiredUseCase
         $result = $outcome['result'];
         $toUpdate = $outcome['toUpdate'];
 
-        if ($result?->hasFailures() === true) {
-            $this->logger->warning('Delta stock sync: some SKUs failed to update', [
-                'failed_skus' => \array_map(static fn(ItemStockLevel $i): string => $i->sku->value, $result->failed),
-                'failed_count' => \count($result->failed),
-            ]);
-        }
-
         $this->logger->info('Delta stock sync: completed', [
             'since' => $since->format('Y-m-d H:i:s'),
             'delta_count' => \count($delta),
             'to_update' => \count($toUpdate),
             'succeeded' => $result !== null ? \count($result->succeeded) : 0,
-            'failed' => $result !== null ? \count($result->failed) : 0,
             'new_cursor' => $newCursor->format('Y-m-d H:i:s'),
         ]);
     }
