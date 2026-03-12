@@ -64,7 +64,7 @@ final class VerifyShopwiredWebhookSignatureMiddleware
         if (\is_string($verificationToken) && $verificationToken !== '') {
             $hashedToken = \hash_hmac('sha256', $verificationToken, $secret);
 
-            return new JsonResponse(['verificationToken' => $hashedToken], Response::HTTP_OK);
+            return new Response($hashedToken, Response::HTTP_OK, ['Content-Type' => 'text/plain']);
         }
 
         return $next($request);
