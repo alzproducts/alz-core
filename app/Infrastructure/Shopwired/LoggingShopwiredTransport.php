@@ -13,7 +13,6 @@ use App\Infrastructure\Shopwired\Enums\ShopwiredLogLevel;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Log;
 use JsonException;
-use RuntimeException;
 
 /**
  * Logging decorator for ShopWired HTTP transport.
@@ -122,28 +121,24 @@ final readonly class LoggingShopwiredTransport implements ShopwiredTransportInte
     }
 
     /**
-     * @throws InvalidApiRequestException When request parameters are invalid (400)
-     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
-     * @throws ResourceNotFoundException When resource not found (404)
-     * @throws ExternalServiceUnavailableException When API unavailable, rate limited, or connection fails
-     * @throws RuntimeException When HTTP pool initialization fails (Laravel/Guzzle internals)
+     * @throws ExternalServiceUnavailableException When HTTP pool initialization fails
      */
-    public function poolPost(array $requests): array
+    public function poolPost(array $requests): PoolPostResult
     {
-        self::logPoolRequest($requests);
+        $this->logPoolRequest($requests);
         $start = \microtime(true);
 
-        $responses = $this->inner->poolPost($requests);
+        $result = $this->inner->poolPost($requests);
 
-        self::logPoolResponse($responses, \microtime(true) - $start);
+        $this->logPoolResponse($result->responses, \microtime(true) - $start);
 
-        return $responses;
+        return $result;
     }
 
     /**
      * Log outgoing request details.
      *
-     * @param array<string, mixed> $data
+     * @param array<mixed> $data
      */
     private function logRequest(string $method, string $endpoint, array $data): void
     {
@@ -179,7 +174,7 @@ final readonly class LoggingShopwiredTransport implements ShopwiredTransportInte
      *
      * @param array<string, array{endpoint: string, data: array<mixed>}> $requests
      */
-    private static function logPoolRequest(array $requests): void
+    private function logPoolRequest(array $requests): void
     {
         $endpoints = \array_map(
             static fn(array $r): string => $r['endpoint'],
@@ -192,6 +187,13 @@ final readonly class LoggingShopwiredTransport implements ShopwiredTransportInte
             'endpoints' => $endpoints,
         ];
 
+        if ($this->logLevel === ShopwiredLogLevel::Debug) {
+            $context['bodies'] = \array_map(
+                static fn(array $r): string => self::truncate(self::safeJsonEncode($r['data'])),
+                $requests,
+            );
+        }
+
         Log::debug(self::SERVICE_NAME . ' API pool request', $context);
     }
 
@@ -200,12 +202,19 @@ final readonly class LoggingShopwiredTransport implements ShopwiredTransportInte
      *
      * @param array<string, Response> $responses
      */
-    private static function logPoolResponse(array $responses, float $duration): void
+    private function logPoolResponse(array $responses, float $duration): void
     {
         $context = [
             'response_count' => \count($responses),
             'duration_ms' => \round($duration * 1000, 2),
         ];
+
+        if ($this->logLevel === ShopwiredLogLevel::Debug) {
+            $context['bodies'] = \array_map(
+                static fn(Response $r): string => self::truncate($r->body()),
+                $responses,
+            );
+        }
 
         Log::debug(self::SERVICE_NAME . ' API pool response', $context);
     }
@@ -223,7 +232,7 @@ final readonly class LoggingShopwiredTransport implements ShopwiredTransportInte
     /**
      * Safely encode data to JSON, returning fallback on failure.
      *
-     * @param array<string, mixed> $data
+     * @param array<mixed> $data
      */
     private static function safeJsonEncode(array $data): string
     {

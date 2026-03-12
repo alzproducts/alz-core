@@ -380,6 +380,7 @@ return static function (Config $config): void {
                    ->andThat(new NotHaveNameMatching('GracefulCache'))
                    ->andThat(new NotResideInTheseNamespaces(
                        'App\Application\HelpScout\Config',
+                       'App\Application\Enums',
                        'App\Application\HelpScout\Queries\Conversation\Enums',
                        'App\Application\Inventory\Enums',
                        'App\Application\Jobs\Enums',
