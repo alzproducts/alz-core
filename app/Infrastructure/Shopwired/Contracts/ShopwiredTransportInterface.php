@@ -48,7 +48,7 @@ interface ShopwiredTransportInterface
      * Perform POST request to ShopWired API.
      *
      * @param string $endpoint API endpoint path (e.g., 'orders/123/status')
-     * @param array<string, mixed> $data Request body data (sent as JSON)
+     * @param array<mixed> $data Request body data (sent as JSON)
      * @param bool $retry Whether to apply retry logic for transient failures
      * @param RetryStrategy $strategy Retry configuration (only used when $retry is true)
      *

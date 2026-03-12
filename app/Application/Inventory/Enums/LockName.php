@@ -23,8 +23,13 @@ enum LockName: string
     /**
      * Ensures full and delta stock syncs run serially.
      *
-     * Prevents stock ping-pong where concurrent syncs overwrite each
-     * other with data from different time windows.
+     * Covers only the critical section: reading the local ShopWired DB snapshot,
+     * computing differences, pushing updates to the ShopWired API, and writing
+     * results back to the local DB. Linnworks reads happen outside this lock —
+     * they are read-only and not affected by concurrent sync operations.
+     *
+     * Prevents stock ping-pong where concurrent syncs overwrite each other
+     * with stock levels from different time windows.
      */
     case StockSync = 'stock-sync-to-shopwired';
 }

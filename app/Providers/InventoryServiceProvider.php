@@ -4,10 +4,16 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Application\Contracts\Inventory\ProductStockRepositoryInterface;
+use App\Application\Contracts\Inventory\SyncCursorRepositoryInterface;
+use App\Application\Contracts\Linnworks\StockDashboardsClientInterface;
 use App\Application\Inventory\UseCases\GenerateVariantSkusUseCase;
 use App\Domain\Exceptions\InvalidConfigurationException;
 use App\Domain\Inventory\Events\VariantSkusGeneratedEvent;
+use App\Infrastructure\Database\Repositories\EloquentSyncCursorRepository;
+use App\Infrastructure\Linnworks\Clients\DashboardsClient;
 use App\Infrastructure\Notifications\Listeners\VariantSkusGeneratedSlackListener;
+use App\Infrastructure\Shopwired\Repositories\EloquentProductStockRepository;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 use Override;
@@ -21,6 +27,10 @@ final class InventoryServiceProvider extends ServiceProvider
     #[Override]
     public function register(): void
     {
+        $this->app->bind(StockDashboardsClientInterface::class, DashboardsClient::class);
+        $this->app->bind(SyncCursorRepositoryInterface::class, EloquentSyncCursorRepository::class);
+        $this->app->bind(ProductStockRepositoryInterface::class, EloquentProductStockRepository::class);
+
         $this->app->when(GenerateVariantSkusUseCase::class)
             ->needs('$standardSignProductId')
             ->give(static function (): int {

@@ -21,6 +21,7 @@ use App\Providers\RlsDatabaseServiceProvider;
 use App\Providers\Schedule\AdsScheduleServiceProvider;
 use App\Providers\Schedule\ContactFormScheduleServiceProvider;
 use App\Providers\Schedule\FeedsScheduleServiceProvider;
+use App\Providers\Schedule\InventoryScheduleServiceProvider;
 use App\Providers\Schedule\LinnworksScheduleServiceProvider;
 use App\Providers\Schedule\MixpanelScheduleServiceProvider;
 use App\Providers\Schedule\ReviewsIoScheduleServiceProvider;
@@ -56,6 +57,7 @@ return [
     LinnworksScheduleServiceProvider::class,
     MixpanelScheduleServiceProvider::class,
     ReviewsIoScheduleServiceProvider::class,
+    InventoryScheduleServiceProvider::class,
     ShopwiredScheduleServiceProvider::class,
 
     ...app()->environment('local') ? [TelescopeServiceProvider::class] : [],

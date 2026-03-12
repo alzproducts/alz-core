@@ -58,6 +58,9 @@ interface StockDashboardsClientInterface
     /**
      * Fetch stock levels changed since the given datetime.
      *
+     * Results are ordered by LastUpdateDate ASC — callers rely on this
+     * to advance cursors from the final element.
+     *
      * @return list<StockLevelDeltaDTO>
      *
      * @throws InvalidApiRequestException

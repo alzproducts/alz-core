@@ -143,7 +143,7 @@ final readonly class LoggingShopwiredTransport implements ShopwiredTransportInte
     /**
      * Log outgoing request details.
      *
-     * @param array<string, mixed> $data
+     * @param array<mixed> $data
      */
     private function logRequest(string $method, string $endpoint, array $data): void
     {
@@ -223,7 +223,7 @@ final readonly class LoggingShopwiredTransport implements ShopwiredTransportInte
     /**
      * Safely encode data to JSON, returning fallback on failure.
      *
-     * @param array<string, mixed> $data
+     * @param array<mixed> $data
      */
     private static function safeJsonEncode(array $data): string
     {
