@@ -11,7 +11,6 @@ use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Presentation\Http\Shopwired\Webhooks\DTOs\WebhookEnvelopeDTO;
-use DateMalformedStringException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -27,7 +26,6 @@ final readonly class ShopwiredWebhookOrderController
     public function __construct(private HandleOrderWebhookService $service) {}
 
     /**
-     * @throws DateMalformedStringException
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
