@@ -74,8 +74,8 @@ final class OrderResponse extends Data implements DomainConvertibleInterface
         public readonly bool $marketing,
         public readonly ?string $comments,
 
-        // URLs (trackingUrl always present, empty string if not set)
-        public readonly string $trackingUrl,
+        // URLs (nullable when no tracking set)
+        public readonly ?string $trackingUrl,
 
         // Source tracking (always present)
         public readonly int $referrerId,
