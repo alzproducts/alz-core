@@ -13,8 +13,10 @@ use App\Infrastructure\Shopwired\Responses\ProductImageResponse;
 use App\Infrastructure\Shopwired\Responses\ProductResponse;
 use App\Infrastructure\Shopwired\Responses\ProductVariationOptionResponse;
 use App\Infrastructure\Shopwired\Responses\ProductVariationResponse;
+use App\Infrastructure\Shopwired\Responses\ProductWebhookResponse;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Log;
+use Spatie\LaravelData\Optional;
 
 /**
  * Factory for creating Product domain objects from API responses (write path).
@@ -62,6 +64,50 @@ final class ProductDomainFactory
             rawCustomFields: $response->customFields,
             customFields: [],
             rawFilters: $response->filters,
+            filters: [],
+            createdAt: CarbonImmutable::parse($response->createdAt)->toDateTimeImmutable(),
+            updatedAt: CarbonImmutable::parse($response->updatedAt)->toDateTimeImmutable(),
+        );
+    }
+
+    /**
+     * Create a Product domain object from a webhook response.
+     *
+     * Handles Optional embed fields by substituting safe defaults.
+     * The defaults are only used to satisfy the Product constructor — embed-dependent
+     * columns are excluded from the DB upsert by the mapper when not present.
+     */
+    public function fromWebhookResponse(ProductWebhookResponse $response): Product
+    {
+        return new Product(
+            id: $response->id,
+            sku: $response->sku === '' ? null : $response->sku,
+            gtin: $this->buildGtin($response->gtin, $response->id),
+            title: $response->title,
+            description: $response->description,
+            slug: $response->slug,
+            url: $response->url,
+            price: $response->price,
+            costPrice: $response->costPrice,
+            salePrice: $response->salePrice,
+            comparePrice: $response->comparePrice,
+            stock: $response->stock,
+            isActive: $response->isActive,
+            vatExclusive: $response->vatExclusive,
+            vatRelief: $response->vatRelief instanceof Optional ? false : $response->vatRelief,
+            weight: $response->weight,
+            metaTitle: $response->metaTitle,
+            metaDescription: $response->metaDescription,
+            categoryIds: $response->getCategoryIds(),
+            variations: $response->variations instanceof Optional
+                ? []
+                : $this->buildVariations($response->id, $response->variations),
+            images: $response->images instanceof Optional
+                ? []
+                : $this->buildImages($response->images),
+            rawCustomFields: $response->customFields instanceof Optional ? [] : $response->customFields,
+            customFields: [],
+            rawFilters: $response->filters instanceof Optional ? [] : $response->filters,
             filters: [],
             createdAt: CarbonImmutable::parse($response->createdAt)->toDateTimeImmutable(),
             updatedAt: CarbonImmutable::parse($response->updatedAt)->toDateTimeImmutable(),

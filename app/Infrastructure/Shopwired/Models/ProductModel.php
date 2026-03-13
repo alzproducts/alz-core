@@ -33,7 +33,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int|null $stock Master stock quantity
  * @property bool $is_active Published/visible
  * @property bool $vat_exclusive Price excludes VAT
- * @property bool $vat_relief VAT relief eligible
+ * @property bool|null $vat_relief VAT relief eligible (null = unknown, awaiting full sync)
  * @property float|null $weight Weight in configured unit
  * @property string|null $meta_title SEO title
  * @property string|null $meta_description SEO description
