@@ -6,11 +6,13 @@ namespace App\Application\Shopwired\Services;
 
 use App\Application\Contracts\Shopwired\CustomerWebhookEventResolverInterface;
 use App\Application\Contracts\Shopwired\CustomerWebhookParserInterface;
+use App\Application\Shopwired\Enums\WebhookTopic;
 use App\Application\Shopwired\UseCases\Webhooks\DeleteCustomerUseCase;
 use App\Application\Shopwired\UseCases\Webhooks\SyncCustomerUseCase;
 use App\Domain\Customer\Enums\CustomerWebhookIntent;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
+use App\Domain\Exceptions\Data\InvalidEnumValueException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\IntId;
@@ -32,6 +34,7 @@ final readonly class HandleCustomerWebhookService
      * @param array<string, mixed> $data
      *
      * @throws InvalidApiResponseException
+     * @throws InvalidEnumValueException
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
@@ -44,6 +47,8 @@ final readonly class HandleCustomerWebhookService
         array $data,
     ): void {
         $intent = $this->resolver->resolve($topic);
+        $webhookTopic = WebhookTopic::tryFrom($topic)
+            ?? throw InvalidEnumValueException::invalidBackingValue(WebhookTopic::class, $topic);
         $customerId = IntId::from($subjectId);
 
         match ($intent) {
@@ -55,6 +60,7 @@ final readonly class HandleCustomerWebhookService
             CustomerWebhookIntent::Sync => $this->handleSync(
                 eventTime: $eventTime,
                 webhookId: $webhookId,
+                topic: $webhookTopic,
                 data: $data,
             ),
         };
@@ -68,13 +74,14 @@ final readonly class HandleCustomerWebhookService
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      */
-    private function handleSync(DateTimeImmutable $eventTime, int $webhookId, array $data): void
+    private function handleSync(DateTimeImmutable $eventTime, int $webhookId, WebhookTopic $topic, array $data): void
     {
         $result = $this->customerParser->parseCustomer($data);
 
         $this->syncCustomerUseCase->execute(
             eventTime: $eventTime,
             webhookId: $webhookId,
+            topic: $topic,
             customer: $result->customer,
             presentEmbeds: $result->presentEmbeds,
         );

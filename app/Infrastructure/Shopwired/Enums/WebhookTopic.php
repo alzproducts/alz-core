@@ -11,6 +11,10 @@ namespace App\Infrastructure\Shopwired\Enums;
  * the event is a deletion. Standard events include the full entity
  * in `data.object`; custom events have lightweight payloads.
  *
+ * IMPORTANT: A separate {@see \App\Application\Shopwired\Enums\WebhookTopic}
+ * exists in the Application layer for idempotency tracking (subset of handled
+ * topics only). When adding new handled topics, update BOTH enums.
+ *
  * @see https://shopwired.readme.io/reference/webhooks
  */
 enum WebhookTopic: string
