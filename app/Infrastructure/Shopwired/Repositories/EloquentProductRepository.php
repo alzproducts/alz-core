@@ -81,9 +81,9 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      */
-    public function saveFromWebhook(Product $product, DateTimeImmutable $webhookAt): void
+    public function saveFromWebhook(Product $product, DateTimeImmutable $webhookAt, array $presentEmbeds = []): void
     {
-        $this->performSave($product, ['shopwired_webhook_at' => $webhookAt]);
+        $this->performWebhookSave($product, $presentEmbeds, ['shopwired_webhook_at' => $webhookAt]);
     }
 
     /**
@@ -95,19 +95,53 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
      */
     private function performSave(Product $product, array $extra = []): void
     {
+        $this->performUpsert(
+            product: $product,
+            attributes: [...ProductModelMapper::toModelAttributes($product), ...$extra],
+            shouldSyncVariations: $product->variations !== null,
+        );
+    }
+
+    /**
+     * Persist a product from webhook data, only including embed-dependent columns
+     * that were actually present in the webhook payload.
+     *
+     * @param list<string> $presentEmbeds Embed names present in webhook payload
+     * @param array<string, mixed> $extra Additional attributes merged into the product upsert
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    private function performWebhookSave(Product $product, array $presentEmbeds, array $extra = []): void
+    {
+        $this->performUpsert(
+            product: $product,
+            attributes: [...ProductModelMapper::toWebhookAttributes($product, $presentEmbeds), ...$extra],
+            shouldSyncVariations: \in_array('variations', $presentEmbeds, true) && $product->variations !== null,
+        );
+    }
+
+    /**
+     * Shared upsert + variation sync with error handling.
+     *
+     * @param array<string, mixed> $attributes Model attributes for the upsert
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    private function performUpsert(Product $product, array $attributes, bool $shouldSyncVariations): void
+    {
         try {
-            $this->eloquentGateway->transact(function () use ($product, $extra): void {
+            $this->eloquentGateway->transact(function () use ($product, $attributes, $shouldSyncVariations): void {
                 $this->eloquentGateway->upsertOne(
                     modelClass: self::MODEL_CLASS,
-                    attributes: [
-                        'external_id' => $product->id,
-                        ...ProductModelMapper::toModelAttributes($product),
-                        ...$extra,
-                    ],
+                    attributes: $attributes,
                     uniqueBy: ['external_id'],
                 );
 
-                if ($product->variations !== null) {
+                if ($shouldSyncVariations) {
                     $this->syncVariations($product);
                 }
             }, attempts: 3);

@@ -69,7 +69,7 @@ final class ProductModelMapper
             stock: $model->stock ?? 0,
             isActive: $model->is_active,
             vatExclusive: $model->vat_exclusive,
-            vatRelief: $model->vat_relief,
+            vatRelief: $model->vat_relief ?? false,
             weight: $model->weight,
             metaTitle: $model->meta_title,
             metaDescription: $model->meta_description,
@@ -96,6 +96,63 @@ final class ProductModelMapper
     public static function toModelAttributes(Product $product): array
     {
         return [
+            ...self::coreAttributes($product),
+            ...self::embedAttributes($product),
+        ];
+    }
+
+    /**
+     * Convert Domain Product to model attributes for webhook partial save.
+     *
+     * Only includes embed-dependent columns that were actually present
+     * in the webhook payload. Core scalar fields are always included.
+     *
+     * @param list<string> $presentEmbeds Embed names present in webhook payload
+     *
+     * @return array<string, mixed>
+     */
+    public static function toWebhookAttributes(Product $product, array $presentEmbeds): array
+    {
+        $attributes = self::coreAttributes($product);
+
+        if (\in_array('vat_relief', $presentEmbeds, true)) {
+            $attributes['vat_relief'] = $product->vatRelief;
+        }
+
+        if (\in_array('categories', $presentEmbeds, true)) {
+            $attributes['category_ids'] = $product->categoryIds;
+        }
+
+        if (\in_array('images', $presentEmbeds, true)) {
+            $attributes['images'] = \array_map(
+                static fn(ProductImage $img): array => $img->toArray(),
+                $product->images,
+            );
+        }
+
+        if (\in_array('custom_fields', $presentEmbeds, true)) {
+            $attributes['custom_fields'] = $product->rawCustomFields;
+        }
+
+        if (\in_array('filters', $presentEmbeds, true)) {
+            $attributes['filters'] = $product->rawFilters;
+        }
+
+        return $attributes;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Private Helpers
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Core scalar attributes shared by full and webhook save paths.
+     *
+     * @return array<string, mixed>
+     */
+    private static function coreAttributes(Product $product): array
+    {
+        return [
             'external_id' => $product->id,
             'sku' => $product->sku,
             'gtin' => $product->gtin?->value,
@@ -110,10 +167,23 @@ final class ProductModelMapper
             'stock' => $product->stock,
             'is_active' => $product->isActive,
             'vat_exclusive' => $product->vatExclusive,
-            'vat_relief' => $product->vatRelief,
             'weight' => $product->weight,
             'meta_title' => $product->metaTitle,
             'meta_description' => $product->metaDescription,
+            'shopwired_created_at' => $product->createdAt,
+            'shopwired_updated_at' => $product->updatedAt,
+        ];
+    }
+
+    /**
+     * Embed-dependent attributes (always written by full save, conditionally by webhook save).
+     *
+     * @return array<string, mixed>
+     */
+    private static function embedAttributes(Product $product): array
+    {
+        return [
+            'vat_relief' => $product->vatRelief,
             'category_ids' => $product->categoryIds,
             'images' => \array_map(
                 static fn(ProductImage $img): array => $img->toArray(),
@@ -121,14 +191,8 @@ final class ProductModelMapper
             ),
             'custom_fields' => $product->rawCustomFields,
             'filters' => $product->rawFilters,
-            'shopwired_created_at' => $product->createdAt,
-            'shopwired_updated_at' => $product->updatedAt,
         ];
     }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // Private Helpers
-    // ─────────────────────────────────────────────────────────────────────────
 
     /**
      * Convert JSONB images array to ProductImage objects.

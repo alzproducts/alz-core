@@ -66,12 +66,35 @@ final readonly class HandleProductWebhookService
                 data: $data,
             ),
 
-            ProductWebhookIntent::Sync => $this->syncProductUseCase->execute(
+            ProductWebhookIntent::Sync => $this->executeSyncProduct(
                 eventTime: $eventTime,
                 webhookId: $webhookId,
-                product: $this->productParser->parseProduct($data),
+                data: $data,
             ),
         };
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     *
+     * @throws InvalidApiResponseException
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    private function executeSyncProduct(
+        DateTimeImmutable $eventTime,
+        int $webhookId,
+        array $data,
+    ): void {
+        $result = $this->productParser->parseProduct($data);
+
+        $this->syncProductUseCase->execute(
+            eventTime: $eventTime,
+            webhookId: $webhookId,
+            product: $result->product,
+            presentEmbeds: $result->presentEmbeds,
+        );
     }
 
     /**
