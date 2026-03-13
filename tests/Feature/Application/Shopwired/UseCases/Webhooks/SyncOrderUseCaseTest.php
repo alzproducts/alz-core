@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Tests\Feature\Application\Shopwired\UseCases\Webhooks;
 
 use App\Application\Contracts\Shopwired\OrderRepositoryInterface;
+use App\Application\Contracts\Shopwired\WebhookIdempotencyServiceInterface;
+use App\Application\Shopwired\Enums\WebhookTopic;
 use App\Application\Shopwired\UseCases\Webhooks\SyncOrderUseCase;
 use App\Domain\Catalog\Order\Enums\PreOrderStatus;
 use App\Domain\Catalog\Order\ValueObjects\Order;
@@ -36,6 +38,8 @@ final class SyncOrderUseCaseTest extends TestCase
 
     private OrderRepositoryInterface&MockInterface $repository;
 
+    private WebhookIdempotencyServiceInterface&MockInterface $idempotency;
+
     private LoggerInterface&MockInterface $logger;
 
     private SyncOrderUseCase $useCase;
@@ -47,10 +51,12 @@ final class SyncOrderUseCaseTest extends TestCase
         Cache::flush();
 
         $this->repository = Mockery::mock(OrderRepositoryInterface::class);
+        $this->idempotency = Mockery::mock(WebhookIdempotencyServiceInterface::class);
         $this->logger = Mockery::mock(LoggerInterface::class);
 
         $this->useCase = new SyncOrderUseCase(
             orderRepository: $this->repository,
+            idempotency: $this->idempotency,
             logger: $this->logger,
             webhookStalenessHours: self::STALENESS_HOURS,
         );
@@ -76,10 +82,16 @@ final class SyncOrderUseCaseTest extends TestCase
             ->once()
             ->with('Discarding stale order webhook', Mockery::type('array'));
 
+        $this->idempotency->shouldNotReceive('isSuperseded');
         $this->repository->shouldNotReceive('saveFromWebhook');
+        $this->idempotency->shouldNotReceive('record');
 
-        $this->useCase->execute(eventTime: $staleEventTime, webhookId: 99, order: $order);
-
+        $this->useCase->execute(
+            eventTime: $staleEventTime,
+            webhookId: 99,
+            topic: WebhookTopic::OrderUpdated,
+            order: $order,
+        );
     }
 
     /*
@@ -89,13 +101,14 @@ final class SyncOrderUseCaseTest extends TestCase
     */
 
     #[Test]
-    public function it_discards_events_when_a_newer_webhook_was_already_processed(): void
+    public function it_discards_events_when_webhook_is_superseded(): void
     {
         $order = $this->createOrder(id: 101);
         $eventTime = new DateTimeImmutable('-1 hour');
-        $newerTimestamp = new DateTimeImmutable('now');
 
-        $this->repository->shouldReceive('getWebhookTimestamp')->once()->andReturn($newerTimestamp);
+        $this->idempotency->shouldReceive('isSuperseded')
+            ->once()
+            ->andReturnTrue();
 
         $this->logger->shouldReceive('info')
             ->once()
@@ -106,31 +119,14 @@ final class SyncOrderUseCaseTest extends TestCase
             ->with('Discarding already-processed order webhook', Mockery::type('array'));
 
         $this->repository->shouldNotReceive('saveFromWebhook');
+        $this->idempotency->shouldNotReceive('record');
 
-        $this->useCase->execute(eventTime: $eventTime, webhookId: 99, order: $order);
-
-    }
-
-    #[Test]
-    public function it_discards_events_when_the_exact_same_webhook_timestamp_was_already_processed(): void
-    {
-        $order = $this->createOrder(id: 101);
-        $eventTime = new DateTimeImmutable('-1 hour');
-
-        $this->repository->shouldReceive('getWebhookTimestamp')->once()->andReturn($eventTime);
-
-        $this->logger->shouldReceive('info')
-            ->once()
-            ->with('Processing order webhook', Mockery::type('array'));
-
-        $this->logger->shouldReceive('info')
-            ->once()
-            ->with('Discarding already-processed order webhook', Mockery::type('array'));
-
-        $this->repository->shouldNotReceive('saveFromWebhook');
-
-        $this->useCase->execute(eventTime: $eventTime, webhookId: 99, order: $order);
-
+        $this->useCase->execute(
+            eventTime: $eventTime,
+            webhookId: 99,
+            topic: WebhookTopic::OrderUpdated,
+            order: $order,
+        );
     }
 
     /*
@@ -147,33 +143,53 @@ final class SyncOrderUseCaseTest extends TestCase
         $order = $this->createOrder(id: 101);
         $eventTime = new DateTimeImmutable('-1 hour');
 
-        $this->repository->shouldReceive('getWebhookTimestamp')->once()->andReturn(null);
-        $this->repository->shouldReceive('saveFromWebhook')->once()->with($order, $eventTime);
+        $this->idempotency->shouldReceive('isSuperseded')
+            ->once()
+            ->andReturnFalse();
+
+        $this->repository->shouldReceive('saveFromWebhook')
+            ->once()
+            ->with($order);
+
+        $this->idempotency->shouldReceive('record')
+            ->once();
 
         $this->logger->shouldReceive('info')
             ->once()
             ->with('Processing order webhook', Mockery::type('array'));
 
         // The logger expectation fires AFTER the dispatch call, proving the
-        // full happy path (save → dispatch → log) executed successfully.
+        // full happy path (save → record → dispatch → log) executed successfully.
         $this->logger->shouldReceive('info')
             ->once()
             ->with('Order webhook processed — sync queued', Mockery::type('array'));
 
-        $this->useCase->execute(eventTime: $eventTime, webhookId: 99, order: $order);
+        $this->useCase->execute(
+            eventTime: $eventTime,
+            webhookId: 99,
+            topic: WebhookTopic::OrderUpdated,
+            order: $order,
+        );
     }
 
     #[Test]
-    public function it_saves_and_dispatches_sync_job_when_incoming_event_is_newer_than_stored(): void
+    public function it_saves_and_dispatches_sync_job_when_not_superseded(): void
     {
         Queue::fake();
 
         $order = $this->createOrder(id: 102);
         $eventTime = new DateTimeImmutable('-1 hour');
-        $olderTimestamp = new DateTimeImmutable('-2 hours');
 
-        $this->repository->shouldReceive('getWebhookTimestamp')->once()->andReturn($olderTimestamp);
-        $this->repository->shouldReceive('saveFromWebhook')->once()->with($order, $eventTime);
+        $this->idempotency->shouldReceive('isSuperseded')
+            ->once()
+            ->andReturnFalse();
+
+        $this->repository->shouldReceive('saveFromWebhook')
+            ->once()
+            ->with($order);
+
+        $this->idempotency->shouldReceive('record')
+            ->once();
 
         $this->logger->shouldReceive('info')
             ->once()
@@ -183,7 +199,12 @@ final class SyncOrderUseCaseTest extends TestCase
             ->once()
             ->with('Order webhook processed — sync queued', Mockery::type('array'));
 
-        $this->useCase->execute(eventTime: $eventTime, webhookId: 99, order: $order);
+        $this->useCase->execute(
+            eventTime: $eventTime,
+            webhookId: 99,
+            topic: WebhookTopic::OrderFinalized,
+            order: $order,
+        );
     }
 
     /*

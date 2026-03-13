@@ -6,6 +6,7 @@ namespace App\Application\Shopwired\Services;
 
 use App\Application\Contracts\Shopwired\OrderWebhookEventResolverInterface;
 use App\Application\Contracts\Shopwired\OrderWebhookParserInterface;
+use App\Application\Shopwired\Enums\WebhookTopic;
 use App\Application\Shopwired\UseCases\Webhooks\CreateOrderRefundUseCase;
 use App\Application\Shopwired\UseCases\Webhooks\DeleteOrderUseCase;
 use App\Application\Shopwired\UseCases\Webhooks\SyncOrderUseCase;
@@ -14,6 +15,7 @@ use App\Domain\Catalog\Order\Enums\OrderWebhookIntent;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Domain\Exceptions\Data\InvalidEnumValueException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\IntId;
@@ -39,6 +41,7 @@ final readonly class HandleOrderWebhookService
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws InvalidApiResponseException
+     * @throws InvalidEnumValueException
      * @throws ExternalServiceUnavailableException
      * @throws ResourceNotFoundException
      */
@@ -50,6 +53,8 @@ final readonly class HandleOrderWebhookService
         array $data,
     ): void {
         $intent = $this->resolver->resolve($topic);
+        $webhookTopic = WebhookTopic::tryFrom($topic)
+            ?? throw InvalidEnumValueException::invalidBackingValue(WebhookTopic::class, $topic);
         $orderId = IntId::from($subjectId);
 
         match ($intent) {
@@ -61,6 +66,7 @@ final readonly class HandleOrderWebhookService
             OrderWebhookIntent::StatusChanged => $this->updateStatusUseCase->execute(
                 eventTime: $eventTime,
                 webhookId: $webhookId,
+                topic: $webhookTopic,
                 orderId: $orderId,
                 status: $this->orderParser->parseOrderStatus($data),
             ),
@@ -75,6 +81,7 @@ final readonly class HandleOrderWebhookService
             OrderWebhookIntent::Sync => $this->syncOrderUseCase->execute(
                 eventTime: $eventTime,
                 webhookId: $webhookId,
+                topic: $webhookTopic,
                 order: $this->orderParser->parseOrder($data),
             ),
         };
