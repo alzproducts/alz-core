@@ -488,10 +488,8 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
      */
     protected function entityToAttributes(object $entity): array
     {
-        return [
-            'external_id' => $entity->id,
-            ...ProductModelMapper::toModelAttributes($entity),
-        ];
+        /** @var Product $entity */
+        return ProductModelMapper::toModelAttributes($entity);
     }
 
     /**

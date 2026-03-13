@@ -12,6 +12,7 @@ use App\Infrastructure\Shopwired\Factories\ProductDomainFactory;
 use App\Infrastructure\Shopwired\Responses\ProductStockChangedResponse;
 use App\Infrastructure\Shopwired\Responses\ProductWebhookResponse;
 use Illuminate\Support\Facades\Log;
+use RuntimeException;
 use Spatie\LaravelData\Exceptions\CannotCreateData;
 use TypeError;
 
@@ -30,6 +31,10 @@ final readonly class ShopwiredProductWebhookParser implements ProductWebhookPars
     public function parseProduct(array $data): WebhookProductResultDTO
     {
         try {
+            if (!\array_key_exists('object', $data)) {
+                throw new InvalidApiResponseException('ShopWired', previous: new RuntimeException('Missing "object" key in webhook payload'));
+            }
+
             /** @var array{object: array<string, mixed>} $data */
             $response = ProductWebhookResponse::from($data['object']);
 
@@ -58,7 +63,7 @@ final readonly class ShopwiredProductWebhookParser implements ProductWebhookPars
                 isVariation: $response->isVariation,
                 newQuantity: $response->newQuantity,
             );
-        } catch (TypeError $e) {
+        } catch (TypeError|CannotCreateData $e) {
             Log::error('ShopWired product stock webhook payload type mismatch', ['error' => $e->getMessage()]);
             throw new InvalidApiResponseException('ShopWired', previous: $e);
         }
