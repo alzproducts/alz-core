@@ -36,14 +36,21 @@ final class CustomerModelMapper
             phone: $model->phone,
             mobilePhone: $model->mobile_phone,
             acceptsMarketing: $model->accepts_marketing,
-            address: self::buildAddress($model),
+            address: CustomerAddress::fromNullableFields(
+                $model->address_line1,
+                $model->address_line2,
+                $model->address_line3,
+                $model->city,
+                $model->province,
+                $model->postcode,
+            ),
             notes: $model->notes,
             customFields: $model->custom_fields ?? [],
         );
     }
 
     /**
-     * Convert Domain Customer to Eloquent model attributes.
+     * Convert Domain Customer to Eloquent model attributes (full API/bulk path).
      *
      * Note: Does NOT include 'external_id' - that's used as the upsert key
      * and should be handled separately by the repository.
@@ -51,6 +58,40 @@ final class CustomerModelMapper
      * @return array<string, mixed>
      */
     public static function toModelAttributes(Customer $customer): array
+    {
+        return [
+            ...self::coreAttributes($customer),
+            'custom_fields' => $customer->customFields,
+        ];
+    }
+
+    /**
+     * Convert Domain Customer to Eloquent model attributes for webhook persistence.
+     *
+     * Only includes embed columns (custom_fields) when they were actually present
+     * in the webhook payload, preventing silent overwrites with empty arrays.
+     *
+     * @param list<string> $presentEmbeds Embed names present in the webhook payload
+     *
+     * @return array<string, mixed>
+     */
+    public static function toWebhookAttributes(Customer $customer, array $presentEmbeds): array
+    {
+        $attributes = self::coreAttributes($customer);
+
+        if (\in_array('custom_fields', $presentEmbeds, true)) {
+            $attributes['custom_fields'] = $customer->customFields;
+        }
+
+        return $attributes;
+    }
+
+    /**
+     * Core attributes shared between full and webhook persistence paths.
+     *
+     * @return array<string, mixed>
+     */
+    private static function coreAttributes(Customer $customer): array
     {
         return [
             'email' => $customer->email,
@@ -70,34 +111,8 @@ final class CustomerModelMapper
             'province' => $customer->address?->province,
             'postcode' => $customer->address?->postcode,
             'notes' => $customer->notes,
-            'custom_fields' => $customer->customFields,
             'shopwired_created_at' => $customer->createdAt,
         ];
     }
 
-    /**
-     * Build CustomerAddress from flat model columns.
-     */
-    private static function buildAddress(CustomerModel $model): ?CustomerAddress
-    {
-        // Return null if all address fields are empty
-        if ($model->address_line1 === null
-            && $model->address_line2 === null
-            && $model->address_line3 === null
-            && $model->city === null
-            && $model->province === null
-            && $model->postcode === null
-        ) {
-            return null;
-        }
-
-        return new CustomerAddress(
-            line1: $model->address_line1,
-            line2: $model->address_line2,
-            line3: $model->address_line3,
-            city: $model->city,
-            province: $model->province,
-            postcode: $model->postcode,
-        );
-    }
 }
