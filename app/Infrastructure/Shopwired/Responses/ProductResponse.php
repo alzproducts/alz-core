@@ -64,14 +64,16 @@ final class ProductResponse extends Data
         public readonly string $createdAt,
         public readonly string $updatedAt,
 
-        // Relations (must come after required fields)
+        // Embeds (always present when requested via DEFAULT_EMBEDS)
         #[DataCollectionOf(ProductVariationResponse::class)]
-        public readonly array $variations = [],
+        public readonly array $variations,
         #[DataCollectionOf(ProductImageResponse::class)]
-        public readonly array $images = [],
-        public readonly array $categories = [],
+        public readonly array $images,
+        public readonly array $categories,
+        public readonly array $filters,
+
+        // customFields: API omits this key entirely when entity has no custom fields defined (observed on categories/customers)
         public readonly array $customFields = [],
-        public readonly array $filters = [],
     ) {}
 
     /**

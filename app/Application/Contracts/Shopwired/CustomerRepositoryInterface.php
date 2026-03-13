@@ -51,11 +51,16 @@ interface CustomerRepositoryInterface extends RepositoryWriteInterface
     /**
      * Upsert a customer and record the webhook event timestamp in one operation.
      *
+     * When $presentEmbeds is non-empty, only persists embed columns that were
+     * actually present in the webhook payload (prevents overwriting with empty arrays).
+     *
+     * @param list<string> $presentEmbeds Embed names present in webhook payload
+     *
      * @throws DatabaseOperationFailedException On query failure
      * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      */
-    public function saveFromWebhook(Customer $customer, DateTimeImmutable $webhookAt): void;
+    public function saveFromWebhook(Customer $customer, DateTimeImmutable $webhookAt, array $presentEmbeds = []): void;
 
     /**
      * Delete a customer by their ShopWired external ID.

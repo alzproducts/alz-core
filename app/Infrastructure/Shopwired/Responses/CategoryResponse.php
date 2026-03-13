@@ -42,7 +42,13 @@ final class CategoryResponse extends Data implements DomainConvertibleInterface
         public readonly ?string $metaDescription,
         public readonly ?string $metaKeywords,
         public readonly bool $metaNoIndex,
+
+        // Standard nullable field (not an embed)
         public readonly ?CategoryImageResponse $image = null,
+
+        // Embeds: require = [] defaults because:
+        // - parents: nested parent objects don't recursively include their own parents
+        // - customFields: API omits key entirely when entity has no custom fields defined
         #[DataCollectionOf(CategoryResponse::class)]
         public readonly array $parents = [],
         public readonly array $customFields = [],

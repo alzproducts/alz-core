@@ -21,6 +21,24 @@ final readonly class CustomerAddress
     ) {}
 
     /**
+     * Create from nullable API fields, returning null when all fields are absent.
+     *
+     * Consolidates the "all-null = no address" check used across response DTOs and mappers.
+     */
+    public static function fromNullableFields(
+        ?string $line1,
+        ?string $line2,
+        ?string $line3,
+        ?string $city,
+        ?string $province,
+        ?string $postcode,
+    ): ?self {
+        $address = new self($line1, $line2, $line3, $city, $province, $postcode);
+
+        return $address->isEmpty() ? null : $address;
+    }
+
+    /**
      * Check if address has minimum required fields for shipping.
      */
     public function isShippable(): bool
