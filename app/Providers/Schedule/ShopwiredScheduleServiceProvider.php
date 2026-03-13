@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Providers\Schedule;
 
+use App\Application\Jobs\Shopwired\CleanupWebhookEventsJob;
 use App\Application\Jobs\Shopwired\ProcessShopwiredWebhookHealthJob;
 use App\Application\Jobs\Shopwired\SyncShopwiredCustomersJob;
 use App\Application\Jobs\Shopwired\SyncShopwiredOrdersJob;
@@ -34,6 +35,7 @@ final class ShopwiredScheduleServiceProvider extends ServiceProvider
         $this->registerOrderSchedules($skipDuringWeeklySync);
         $this->registerCustomerSchedules($skipDuringWeeklySync);
         $this->registerWebhookHealthSchedule();
+        $this->registerWebhookCleanupSchedule();
     }
 
     /**
@@ -101,6 +103,21 @@ final class ShopwiredScheduleServiceProvider extends ServiceProvider
         Schedule::job(new ProcessShopwiredWebhookHealthJob())
             ->name('check-shopwired-webhook-health')
             ->dailyAt('03:00')
+            ->timezone('Europe/London')
+            ->onOneServer();
+    }
+
+    /**
+     * ShopWired Webhook Events Cleanup: weekly retention pruning.
+     *
+     * Runs Sundays at 02:00 UK time — before webhook health check (03:00) and weekly syncs (04:00+).
+     * Removes idempotency records older than the retention window (90 days).
+     */
+    private function registerWebhookCleanupSchedule(): void
+    {
+        Schedule::job(new CleanupWebhookEventsJob())
+            ->name('cleanup-shopwired-webhook-events')
+            ->weeklyOn(Carbon::SUNDAY, '02:00')
             ->timezone('Europe/London')
             ->onOneServer();
     }

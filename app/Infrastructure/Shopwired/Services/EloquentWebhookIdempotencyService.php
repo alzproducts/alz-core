@@ -72,4 +72,18 @@ final readonly class EloquentWebhookIdempotencyService implements WebhookIdempot
             ]);
         }
     }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function cleanup(DateTimeImmutable $before): int
+    {
+        return $this->eloquentGateway->query(
+            static fn(): int => WebhookEventModel::where('created_at', '<', $before)->toBase()->delete(),
+        );
+    }
 }

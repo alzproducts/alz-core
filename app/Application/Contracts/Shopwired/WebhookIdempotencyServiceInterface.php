@@ -38,4 +38,14 @@ interface WebhookIdempotencyServiceInterface
      * @throws ExternalServiceUnavailableException
      */
     public function record(IntId $subjectId, WebhookTopic $topic, int $webhookId, DateTimeImmutable $eventTime): void;
+
+    /**
+     * Delete webhook events older than the given cutoff date.
+     *
+     * @return int Number of deleted rows
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function cleanup(DateTimeImmutable $before): int;
 }
