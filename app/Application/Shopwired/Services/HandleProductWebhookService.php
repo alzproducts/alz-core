@@ -6,6 +6,7 @@ namespace App\Application\Shopwired\Services;
 
 use App\Application\Contracts\Shopwired\ProductWebhookEventResolverInterface;
 use App\Application\Contracts\Shopwired\ProductWebhookParserInterface;
+use App\Application\Shopwired\Enums\WebhookTopic;
 use App\Application\Shopwired\UseCases\Webhooks\DeleteProductUseCase;
 use App\Application\Shopwired\UseCases\Webhooks\SyncProductUseCase;
 use App\Application\Shopwired\UseCases\Webhooks\UpdateProductStockUseCase;
@@ -14,6 +15,7 @@ use App\Domain\Catalog\Product\ValueObjects\Sku;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Domain\Exceptions\Data\InvalidEnumValueException;
 use App\Domain\Exceptions\Data\InvalidSkuException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
@@ -37,6 +39,7 @@ final readonly class HandleProductWebhookService
      * @param array<string, mixed> $data
      *
      * @throws InvalidApiResponseException
+     * @throws InvalidEnumValueException
      * @throws InvalidSkuException
      * @throws ResourceNotFoundException
      * @throws DatabaseOperationFailedException
@@ -51,6 +54,8 @@ final readonly class HandleProductWebhookService
         array $data,
     ): void {
         $intent = $this->resolver->resolve($topic);
+        $webhookTopic = WebhookTopic::tryFrom($topic)
+            ?? throw InvalidEnumValueException::invalidBackingValue(WebhookTopic::class, $topic);
         $productId = IntId::from($subjectId);
 
         match ($intent) {
@@ -62,6 +67,7 @@ final readonly class HandleProductWebhookService
             ProductWebhookIntent::StockChanged => $this->executeStockChanged(
                 eventTime: $eventTime,
                 webhookId: $webhookId,
+                topic: $webhookTopic,
                 productId: $productId,
                 data: $data,
             ),
@@ -69,6 +75,7 @@ final readonly class HandleProductWebhookService
             ProductWebhookIntent::Sync => $this->executeSyncProduct(
                 eventTime: $eventTime,
                 webhookId: $webhookId,
+                topic: $webhookTopic,
                 data: $data,
             ),
         };
@@ -85,6 +92,7 @@ final readonly class HandleProductWebhookService
     private function executeSyncProduct(
         DateTimeImmutable $eventTime,
         int $webhookId,
+        WebhookTopic $topic,
         array $data,
     ): void {
         $result = $this->productParser->parseProduct($data);
@@ -92,6 +100,7 @@ final readonly class HandleProductWebhookService
         $this->syncProductUseCase->execute(
             eventTime: $eventTime,
             webhookId: $webhookId,
+            topic: $topic,
             product: $result->product,
             presentEmbeds: $result->presentEmbeds,
         );
@@ -110,6 +119,7 @@ final readonly class HandleProductWebhookService
     private function executeStockChanged(
         DateTimeImmutable $eventTime,
         int $webhookId,
+        WebhookTopic $topic,
         IntId $productId,
         array $data,
     ): void {
@@ -118,6 +128,7 @@ final readonly class HandleProductWebhookService
         $this->updateProductStockUseCase->execute(
             eventTime: $eventTime,
             webhookId: $webhookId,
+            topic: $topic,
             productId: $productId,
             sku: Sku::fromString($stockChange->sku),
             isVariation: $stockChange->isVariation,

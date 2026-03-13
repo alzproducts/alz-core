@@ -12,7 +12,6 @@ use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\IntId;
-use DateTimeImmutable;
 
 /**
  * Repository for ShopWired customer persistence.
@@ -49,7 +48,7 @@ interface CustomerRepositoryInterface extends RepositoryWriteInterface
     public function saveCustomersBulk(array $customers, int $batchSize = 500): SaveManyResult;
 
     /**
-     * Upsert a customer and record the webhook event timestamp in one operation.
+     * Upsert a customer from webhook data.
      *
      * When $presentEmbeds is non-empty, only persists embed columns that were
      * actually present in the webhook payload (prevents overwriting with empty arrays).
@@ -60,7 +59,7 @@ interface CustomerRepositoryInterface extends RepositoryWriteInterface
      * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      */
-    public function saveFromWebhook(Customer $customer, DateTimeImmutable $webhookAt, array $presentEmbeds = []): void;
+    public function saveFromWebhook(Customer $customer, array $presentEmbeds = []): void;
 
     /**
      * Delete a customer by their ShopWired external ID.
@@ -73,28 +72,4 @@ interface CustomerRepositoryInterface extends RepositoryWriteInterface
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      */
     public function deleteByExternalId(IntId $externalId): void;
-
-    /**
-     * Get the webhook timestamp for a customer by its ShopWired external ID.
-     *
-     * Returns null if the customer doesn't exist or has no webhook timestamp.
-     * Used for webhook idempotency checks — compare against event timestamp.
-     *
-     * @throws DatabaseOperationFailedException On query failure
-     * @throws ExternalServiceUnavailableException When database temporarily unavailable
-     */
-    public function getWebhookTimestamp(IntId $externalId): ?DateTimeImmutable;
-
-    /**
-     * Update the webhook timestamp for a customer by its ShopWired external ID.
-     *
-     * Sets `shopwired_webhook_at` to track the most recent webhook event
-     * for idempotency and out-of-order protection.
-     *
-     * @throws ResourceNotFoundException When no customer found with this external ID
-     * @throws DatabaseOperationFailedException On query failure
-     * @throws DuplicateRecordException On constraint violation
-     * @throws ExternalServiceUnavailableException When database temporarily unavailable
-     */
-    public function updateWebhookTimestamp(IntId $externalId, DateTimeImmutable $timestamp): void;
 }

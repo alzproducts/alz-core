@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Tests\Unit\Application\Shopwired\UseCases\Webhooks;
 
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
+use App\Application\Contracts\Shopwired\WebhookIdempotencyServiceInterface;
 use App\Application\Jobs\Shopwired\SyncShopwiredProductJob;
+use App\Application\Shopwired\Enums\WebhookTopic;
 use App\Application\Shopwired\UseCases\Webhooks\SyncProductUseCase;
 use App\Domain\Catalog\Product\ValueObjects\Product;
 use App\Domain\ValueObjects\IntId;
@@ -29,6 +31,8 @@ final class SyncProductUseCaseTest extends TestCase
 {
     private ProductRepositoryInterface&MockInterface $repository;
 
+    private WebhookIdempotencyServiceInterface&MockInterface $idempotency;
+
     private LoggerInterface&MockInterface $logger;
 
     private SyncProductUseCase $useCase;
@@ -41,10 +45,12 @@ final class SyncProductUseCaseTest extends TestCase
         Queue::fake([SyncShopwiredProductJob::class]);
 
         $this->repository = Mockery::mock(ProductRepositoryInterface::class);
+        $this->idempotency = Mockery::mock(WebhookIdempotencyServiceInterface::class);
         $this->logger = Mockery::mock(LoggerInterface::class);
 
         $this->useCase = new SyncProductUseCase(
             productRepository: $this->repository,
+            idempotency: $this->idempotency,
             logger: $this->logger,
             webhookStalenessHours: 24,
         );
@@ -61,14 +67,18 @@ final class SyncProductUseCaseTest extends TestCase
         $eventTime = new DateTimeImmutable('now');
         $presentEmbeds = ['vat_relief', 'categories'];
 
-        $this->repository->shouldReceive('getWebhookTimestamp')
+        $this->idempotency->shouldReceive('isSuperseded')
             ->once()
-            ->with(Mockery::on(static fn(IntId $id): bool => $id->value === 12345))
-            ->andReturnNull();
+            ->with(Mockery::on(static fn(IntId $id): bool => $id->value === 12345), WebhookTopic::ProductUpdated, 1)
+            ->andReturnFalse();
 
         $this->repository->shouldReceive('saveFromWebhook')
             ->once()
-            ->with($product, $eventTime, $presentEmbeds);
+            ->with($product, $presentEmbeds);
+
+        $this->idempotency->shouldReceive('record')
+            ->once()
+            ->with(Mockery::on(static fn(IntId $id): bool => $id->value === 12345), WebhookTopic::ProductUpdated, 1, $eventTime);
 
         $this->logger->shouldReceive('info')
             ->once()
@@ -81,6 +91,7 @@ final class SyncProductUseCaseTest extends TestCase
         $this->useCase->execute(
             eventTime: $eventTime,
             webhookId: 1,
+            topic: WebhookTopic::ProductUpdated,
             product: $product,
             presentEmbeds: $presentEmbeds,
         );
@@ -92,13 +103,16 @@ final class SyncProductUseCaseTest extends TestCase
         $product = self::buildProduct();
         $eventTime = new DateTimeImmutable('now');
 
-        $this->repository->shouldReceive('getWebhookTimestamp')
+        $this->idempotency->shouldReceive('isSuperseded')
             ->once()
-            ->andReturnNull();
+            ->andReturnFalse();
 
         $this->repository->shouldReceive('saveFromWebhook')
             ->once()
-            ->with($product, $eventTime, []);
+            ->with($product, []);
+
+        $this->idempotency->shouldReceive('record')
+            ->once();
 
         $this->logger->shouldReceive('info')
             ->once()
@@ -111,6 +125,7 @@ final class SyncProductUseCaseTest extends TestCase
         $this->useCase->execute(
             eventTime: $eventTime,
             webhookId: 1,
+            topic: WebhookTopic::ProductUpdated,
             product: $product,
         );
     }
@@ -125,8 +140,9 @@ final class SyncProductUseCaseTest extends TestCase
         $product = self::buildProduct();
         $staleTime = new DateTimeImmutable('-48 hours');
 
-        $this->repository->shouldNotReceive('getWebhookTimestamp');
+        $this->idempotency->shouldNotReceive('isSuperseded');
         $this->repository->shouldNotReceive('saveFromWebhook');
+        $this->idempotency->shouldNotReceive('record');
 
         $this->logger->shouldReceive('info')
             ->once()
@@ -139,6 +155,7 @@ final class SyncProductUseCaseTest extends TestCase
         $this->useCase->execute(
             eventTime: $staleTime,
             webhookId: 1,
+            topic: WebhookTopic::ProductUpdated,
             product: $product,
             presentEmbeds: ['vat_relief'],
         );
@@ -153,13 +170,13 @@ final class SyncProductUseCaseTest extends TestCase
     {
         $product = self::buildProduct();
         $eventTime = new DateTimeImmutable('now');
-        $existingTimestamp = new DateTimeImmutable('+1 hour');
 
-        $this->repository->shouldReceive('getWebhookTimestamp')
+        $this->idempotency->shouldReceive('isSuperseded')
             ->once()
-            ->andReturn($existingTimestamp);
+            ->andReturnTrue();
 
         $this->repository->shouldNotReceive('saveFromWebhook');
+        $this->idempotency->shouldNotReceive('record');
 
         $this->logger->shouldReceive('info')
             ->once()
@@ -172,6 +189,7 @@ final class SyncProductUseCaseTest extends TestCase
         $this->useCase->execute(
             eventTime: $eventTime,
             webhookId: 1,
+            topic: WebhookTopic::ProductUpdated,
             product: $product,
         );
     }

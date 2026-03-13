@@ -8,6 +8,7 @@ use App\Application\Shopwired\Services\HandleProductWebhookService;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Domain\Exceptions\Data\InvalidEnumValueException;
 use App\Domain\Exceptions\Data\InvalidSkuException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
@@ -31,6 +32,7 @@ final readonly class ShopwiredWebhookProductController
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      * @throws InvalidApiResponseException
+     * @throws InvalidEnumValueException
      * @throws InvalidSkuException
      * @throws ResourceNotFoundException
      */

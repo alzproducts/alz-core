@@ -7,6 +7,7 @@ namespace App\Presentation\Http\Controllers\Shopwired\Webhooks;
 use App\Application\Shopwired\Services\HandleCustomerWebhookService;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
+use App\Domain\Exceptions\Data\InvalidEnumValueException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Presentation\Http\Shopwired\Webhooks\DTOs\WebhookEnvelopeDTO;
@@ -29,6 +30,7 @@ final readonly class ShopwiredWebhookCustomerController
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      * @throws InvalidApiResponseException
+     * @throws InvalidEnumValueException
      */
     public function __invoke(Request $request): JsonResponse
     {
