@@ -13,6 +13,7 @@ use App\Infrastructure\Shopwired\Responses\OrderRefundCreatedResponse;
 use App\Infrastructure\Shopwired\Responses\OrderResponse;
 use App\Infrastructure\Shopwired\Responses\OrderStatusChangedResponse;
 use Illuminate\Support\Facades\Log;
+use Spatie\LaravelData\Exceptions\CannotCreateData;
 use TypeError;
 
 /**
@@ -30,7 +31,7 @@ final readonly class ShopwiredOrderWebhookParser implements OrderWebhookParserIn
         try {
             /** @var array{object: array<string, mixed>} $data */
             return OrderResponse::from($data['object'])->toDomain();
-        } catch (TypeError $e) {
+        } catch (TypeError|CannotCreateData $e) {
             Log::error('ShopWired order webhook payload type mismatch', ['error' => $e->getMessage()]);
             throw new InvalidApiResponseException('ShopWired', previous: $e);
         }
@@ -46,7 +47,7 @@ final readonly class ShopwiredOrderWebhookParser implements OrderWebhookParserIn
         try {
             /** @var array{newStatus: array<string, mixed>} $data */
             return OrderStatusChangedResponse::from($data['newStatus'])->toDomain();
-        } catch (TypeError $e) {
+        } catch (TypeError|CannotCreateData $e) {
             Log::error('ShopWired order status webhook payload type mismatch', ['error' => $e->getMessage()]);
             throw new InvalidApiResponseException('ShopWired', previous: $e);
         }
@@ -61,7 +62,7 @@ final readonly class ShopwiredOrderWebhookParser implements OrderWebhookParserIn
     {
         try {
             return OrderRefundCreatedResponse::from($data)->toDomain();
-        } catch (TypeError $e) {
+        } catch (TypeError|CannotCreateData $e) {
             Log::error('ShopWired order refund webhook payload type mismatch', ['error' => $e->getMessage()]);
             throw new InvalidApiResponseException('ShopWired', previous: $e);
         }
