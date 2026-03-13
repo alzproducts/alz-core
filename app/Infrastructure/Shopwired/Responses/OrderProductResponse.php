@@ -49,7 +49,7 @@ final class OrderProductResponse extends Data
         public readonly float $vatRate,
 
         // Notes
-        public readonly string $comments,
+        public readonly ?string $comments = null,
 
         // Optional fields (must come last in PHP 8+)
         public readonly ?float $costPrice = null,  // Nullable: older orders may not have cost data
@@ -77,7 +77,7 @@ final class OrderProductResponse extends Data
             costPrice: $this->costPrice,
             quantity: $this->quantity,
             vatRate: $this->vatRate,
-            comments: $this->comments,
+            comments: $this->comments ?? '',
             isPreorder: $isPreorder,
             preorderDate: $preorderDate,
             variation: \array_map(ProductVariation::fromArray(...), $this->variation),
@@ -96,6 +96,10 @@ final class OrderProductResponse extends Data
      */
     private function parsePreorderInfo(): array
     {
+        if ($this->comments === null || $this->comments === '') {
+            return [false, null];
+        }
+
         $lower = \mb_strtolower($this->comments);
         $pos = \mb_strpos($lower, 'preorder:');
 

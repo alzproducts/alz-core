@@ -9,6 +9,7 @@ use App\Domain\Customer\ValueObjects\Customer;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Infrastructure\Shopwired\Responses\CustomerResponse;
 use Illuminate\Support\Facades\Log;
+use Spatie\LaravelData\Exceptions\CannotCreateData;
 use TypeError;
 
 /**
@@ -26,7 +27,7 @@ final readonly class ShopwiredCustomerWebhookParser implements CustomerWebhookPa
         try {
             /** @var array{object: array<string, mixed>} $data */
             return CustomerResponse::from($data['object'])->toDomain();
-        } catch (TypeError $e) {
+        } catch (TypeError|CannotCreateData $e) {
             Log::error('ShopWired customer webhook payload type mismatch', ['error' => $e->getMessage()]);
             throw new InvalidApiResponseException('ShopWired', previous: $e);
         }

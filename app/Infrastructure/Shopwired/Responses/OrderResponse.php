@@ -72,7 +72,7 @@ final class OrderResponse extends Data implements DomainConvertibleInterface
 
         // Customer preferences (always present)
         public readonly bool $marketing,
-        public readonly string $comments,
+        public readonly ?string $comments,
 
         // URLs (trackingUrl always present, empty string if not set)
         public readonly string $trackingUrl,
@@ -164,7 +164,7 @@ final class OrderResponse extends Data implements DomainConvertibleInterface
             shippingTotalNet: $this->shippingTotal,
             originalShippingTotalNet: $this->originalShippingTotal,
             paymentMethod: PaymentMethodRaw::fromApiValue($this->paymentMethod)->toDomain(),
-            comments: $this->comments,
+            comments: $this->comments ?? '',
             marketing: $this->marketing,
             hasVatRelief: $this->hasVatRelief(),
             isArchived: $this->archived,
@@ -195,7 +195,7 @@ final class OrderResponse extends Data implements DomainConvertibleInterface
             ),
             products: $products,
             customFields: $this->customFields,
-            customerReferenceNumber: Order::extractCustomerReferenceNumber($this->comments),
+            customerReferenceNumber: Order::extractCustomerReferenceNumber($this->comments ?? ''),
         );
     }
 
@@ -207,6 +207,10 @@ final class OrderResponse extends Data implements DomainConvertibleInterface
      */
     private function hasVatRelief(): bool
     {
+        if ($this->comments === null || $this->comments === '') {
+            return false;
+        }
+
         $comments = \mb_strtolower($this->comments);
 
         return \str_contains($comments, 'vat relief') || \str_contains($comments, 'vat-relief');
