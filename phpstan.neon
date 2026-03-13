@@ -206,9 +206,12 @@ parameters:
                 - app/Presentation/Console/Commands/UpdateSkusCommand.php
         # ProductModel uses dedicated ProductModelMapper instead of implementing
         # EloquentDomainMappableInterface — custom field typing requires the factory (#211).
+        # WebhookEventModel is an infrastructure-only model with no Domain counterpart (#272).
         -
             identifier: alz.shopwiredModelMustImplementMappable
-            path: app/Infrastructure/Shopwired/Models/ProductModel.php
+            paths:
+                - app/Infrastructure/Shopwired/Models/ProductModel.php
+                - app/Infrastructure/Shopwired/Models/WebhookEventModel.php
         # Eloquent query builder returns dynamic proxies - static analysis can't track fluent chains.
         # Methods like exists(), whereNotIn() on Builder are instance methods called on static chain.
         # DatabaseManager also proxies to Connection (transaction() call in DatabaseGateway).
@@ -219,6 +222,7 @@ parameters:
                 - app/Infrastructure/*/Repositories/*
                 - app/Infrastructure/Database/DatabaseGateway.php
                 - app/Infrastructure/Persistence/EloquentGateway.php
+                - app/Infrastructure/Shopwired/Services/EloquentWebhookIdempotencyService.php
         # Laravel service providers use closures/callbacks for deferred binding resolution.
         # These ARE invoked synchronously when the service is resolved, but ShipMonk can't verify this.
         -
