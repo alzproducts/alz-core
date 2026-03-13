@@ -285,7 +285,11 @@ final readonly class CustomerClient implements CustomerClientInterface
      */
     public function listNonTradeCustomers(): array
     {
-        $response = $this->transport->get(self::ENDPOINT_CUSTOMERS);
+        $params = (new ShopwiredQueryParams())
+            ->withEmbeds(self::DEFAULT_EMBEDS)
+            ->withFields(self::DEFAULT_FIELDS);
+
+        $response = $this->transport->get(self::ENDPOINT_CUSTOMERS, $params->toArray());
 
         /** @var list<DomainCustomer> */
         return self::parseArrayToDomain($response->json(), CustomerResponse::class);
@@ -304,7 +308,11 @@ final readonly class CustomerClient implements CustomerClientInterface
      */
     public function getCustomerById(int $id): DomainCustomer
     {
-        $response = $this->transport->get(self::ENDPOINT_CUSTOMERS . '/' . $id);
+        $params = (new ShopwiredQueryParams())
+            ->withEmbeds(self::DEFAULT_EMBEDS)
+            ->withFields(self::DEFAULT_FIELDS);
+
+        $response = $this->transport->get(self::ENDPOINT_CUSTOMERS . '/' . $id, $params->toArray());
 
         /** @var DomainCustomer */
         return self::parseSingleToDomain($response->json(), CustomerResponse::class);
