@@ -38,6 +38,7 @@ final readonly class UpdateOrderStatusUseCase
     public function execute(DateTimeImmutable $eventTime, int $webhookId, IntId $orderId, OrderStatus $status): void
     {
         $context = ['webhook_id' => $webhookId, 'subject_id' => $orderId->value];
+        $this->logger->info('Processing order status webhook', $context);
 
         $cutoff = (new DateTimeImmutable())->setTimestamp(\time() - ($this->webhookStalenessHours * 3600));
 

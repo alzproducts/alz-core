@@ -44,6 +44,7 @@ final readonly class UpdateProductStockUseCase
         int $newQuantity,
     ): void {
         $context = ['webhook_id' => $webhookId, 'subject_id' => $productId->value, 'sku' => $sku->value];
+        $this->logger->info('Processing product stock webhook', $context);
 
         $cutoff = (new DateTimeImmutable())->setTimestamp(\time() - ($this->webhookStalenessHours * 3600));
 

@@ -70,6 +70,10 @@ final class SyncOrderUseCaseTest extends TestCase
 
         $this->logger->shouldReceive('info')
             ->once()
+            ->with('Processing order webhook', Mockery::type('array'));
+
+        $this->logger->shouldReceive('info')
+            ->once()
             ->with('Discarding stale order webhook', Mockery::type('array'));
 
         $this->repository->shouldNotReceive('saveFromWebhook');
@@ -95,6 +99,10 @@ final class SyncOrderUseCaseTest extends TestCase
 
         $this->logger->shouldReceive('info')
             ->once()
+            ->with('Processing order webhook', Mockery::type('array'));
+
+        $this->logger->shouldReceive('info')
+            ->once()
             ->with('Discarding already-processed order webhook', Mockery::type('array'));
 
         $this->repository->shouldNotReceive('saveFromWebhook');
@@ -110,6 +118,10 @@ final class SyncOrderUseCaseTest extends TestCase
         $eventTime = new DateTimeImmutable('-1 hour');
 
         $this->repository->shouldReceive('getWebhookTimestamp')->once()->andReturn($eventTime);
+
+        $this->logger->shouldReceive('info')
+            ->once()
+            ->with('Processing order webhook', Mockery::type('array'));
 
         $this->logger->shouldReceive('info')
             ->once()
@@ -138,6 +150,10 @@ final class SyncOrderUseCaseTest extends TestCase
         $this->repository->shouldReceive('getWebhookTimestamp')->once()->andReturn(null);
         $this->repository->shouldReceive('saveFromWebhook')->once()->with($order, $eventTime);
 
+        $this->logger->shouldReceive('info')
+            ->once()
+            ->with('Processing order webhook', Mockery::type('array'));
+
         // The logger expectation fires AFTER the dispatch call, proving the
         // full happy path (save → dispatch → log) executed successfully.
         $this->logger->shouldReceive('info')
@@ -158,6 +174,10 @@ final class SyncOrderUseCaseTest extends TestCase
 
         $this->repository->shouldReceive('getWebhookTimestamp')->once()->andReturn($olderTimestamp);
         $this->repository->shouldReceive('saveFromWebhook')->once()->with($order, $eventTime);
+
+        $this->logger->shouldReceive('info')
+            ->once()
+            ->with('Processing order webhook', Mockery::type('array'));
 
         $this->logger->shouldReceive('info')
             ->once()

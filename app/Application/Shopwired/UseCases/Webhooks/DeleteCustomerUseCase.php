@@ -34,6 +34,7 @@ final readonly class DeleteCustomerUseCase
     public function execute(int $webhookId, IntId $customerId): void
     {
         $context = ['webhook_id' => $webhookId, 'subject_id' => $customerId->value];
+        $this->logger->info('Processing customer delete webhook', $context);
 
         try {
             $this->customerRepository->deleteByExternalId($customerId);
