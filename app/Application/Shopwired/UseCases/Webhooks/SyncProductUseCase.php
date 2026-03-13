@@ -29,11 +29,13 @@ final readonly class SyncProductUseCase
     ) {}
 
     /**
+     * @param list<string> $presentEmbeds Embed names present in webhook payload
+     *
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      */
-    public function execute(DateTimeImmutable $eventTime, int $webhookId, Product $product): void
+    public function execute(DateTimeImmutable $eventTime, int $webhookId, Product $product, array $presentEmbeds = []): void
     {
         $context = ['webhook_id' => $webhookId, 'subject_id' => $product->id];
 
@@ -54,7 +56,7 @@ final readonly class SyncProductUseCase
             return;
         }
 
-        $this->productRepository->saveFromWebhook($product, $eventTime);
+        $this->productRepository->saveFromWebhook($product, $eventTime, $presentEmbeds);
 
         SyncShopwiredProductJob::dispatch($productId);
 

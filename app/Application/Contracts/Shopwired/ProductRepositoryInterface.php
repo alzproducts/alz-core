@@ -180,13 +180,19 @@ interface ProductRepositoryInterface extends RepositoryWriteInterface
     public function updateStock(Sku $sku, bool $isVariation, int $newQuantity): void;
 
     /**
-     * Upsert a product (and its variations) and record the webhook event timestamp in one operation.
+     * Upsert a product from webhook data and record the webhook event timestamp.
+     *
+     * Only persists embed-dependent columns (vat_relief, categories, images, etc.)
+     * that were actually present in the webhook payload. Core scalar fields are
+     * always persisted.
+     *
+     * @param list<string> $presentEmbeds Embed names present in webhook payload
      *
      * @throws DatabaseOperationFailedException On query failure
      * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      */
-    public function saveFromWebhook(Product $product, DateTimeImmutable $webhookAt): void;
+    public function saveFromWebhook(Product $product, DateTimeImmutable $webhookAt, array $presentEmbeds = []): void;
 
     /**
      * Delete a product by its ShopWired external ID.

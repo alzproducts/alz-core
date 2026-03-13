@@ -6,12 +6,14 @@ namespace App\Infrastructure\Shopwired\Parsers;
 
 use App\Application\Contracts\Shopwired\ProductWebhookParserInterface;
 use App\Application\Shopwired\DTOs\StockChangeDTO;
-use App\Domain\Catalog\Product\ValueObjects\Product;
+use App\Application\Shopwired\DTOs\WebhookProductResultDTO;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Infrastructure\Shopwired\Factories\ProductDomainFactory;
-use App\Infrastructure\Shopwired\Responses\ProductResponse;
 use App\Infrastructure\Shopwired\Responses\ProductStockChangedResponse;
+use App\Infrastructure\Shopwired\Responses\ProductWebhookResponse;
 use Illuminate\Support\Facades\Log;
+use RuntimeException;
+use Spatie\LaravelData\Exceptions\CannotCreateData;
 use TypeError;
 
 /**
@@ -26,12 +28,21 @@ final readonly class ShopwiredProductWebhookParser implements ProductWebhookPars
      *
      * @throws InvalidApiResponseException When the payload structure does not match the expected schema
      */
-    public function parseProduct(array $data): Product
+    public function parseProduct(array $data): WebhookProductResultDTO
     {
         try {
+            if (!\array_key_exists('object', $data)) {
+                throw new InvalidApiResponseException('ShopWired', previous: new RuntimeException('Missing "object" key in webhook payload'));
+            }
+
             /** @var array{object: array<string, mixed>} $data */
-            return $this->factory->fromResponse(ProductResponse::from($data['object']));
-        } catch (TypeError $e) {
+            $response = ProductWebhookResponse::from($data['object']);
+
+            return new WebhookProductResultDTO(
+                product: $this->factory->fromWebhookResponse($response),
+                presentEmbeds: $response->presentEmbeds(),
+            );
+        } catch (TypeError|CannotCreateData $e) {
             Log::error('ShopWired product webhook payload type mismatch', ['error' => $e->getMessage()]);
             throw new InvalidApiResponseException('ShopWired', previous: $e);
         }
@@ -52,7 +63,7 @@ final readonly class ShopwiredProductWebhookParser implements ProductWebhookPars
                 isVariation: $response->isVariation,
                 newQuantity: $response->newQuantity,
             );
-        } catch (TypeError $e) {
+        } catch (TypeError|CannotCreateData $e) {
             Log::error('ShopWired product stock webhook payload type mismatch', ['error' => $e->getMessage()]);
             throw new InvalidApiResponseException('ShopWired', previous: $e);
         }
