@@ -119,7 +119,7 @@ Types: `feat` | `fix` | `refactor` | `test` | `docs` | `chore` | `perf` | `ci`
 | On protected branch | Report error, await instruction |
 | Merge conflict | Report to user, await instruction |
 
-**PR Creation:** Check existing (`gh pr view`) → If none, ask user via AskUserQuestion → Include `Closes #123`
+**PR Creation:** Always use the `/pr` skill (never raw `gh pr create`). It handles pre-flight checks, commit analysis, issue linking, and CI monitoring.
 
 **Merge:** Feature→develop = squash | Develop→main = merge commit
 

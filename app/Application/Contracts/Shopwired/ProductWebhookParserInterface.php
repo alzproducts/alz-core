@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Application\Contracts\Shopwired;
 
 use App\Application\Shopwired\DTOs\StockChangeDTO;
-use App\Domain\Catalog\Product\ValueObjects\Product;
+use App\Application\Shopwired\DTOs\WebhookProductResultDTO;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
 
 /**
@@ -17,13 +17,16 @@ use App\Domain\Exceptions\Api\InvalidApiResponseException;
 interface ProductWebhookParserInterface
 {
     /**
-     * Parse a full Product domain object from the webhook event.data payload.
+     * Parse a product from the webhook event.data payload.
+     *
+     * Returns the domain Product along with which embed fields were present,
+     * so downstream consumers can conditionally persist embed-dependent columns.
      *
      * @param array<string, mixed> $data The event.data payload (contains 'object' key)
      *
      * @throws InvalidApiResponseException When the payload structure does not match the expected schema
      */
-    public function parseProduct(array $data): Product;
+    public function parseProduct(array $data): WebhookProductResultDTO;
 
     /**
      * Parse stock change data from a `product.stock_changed` event.data payload.
