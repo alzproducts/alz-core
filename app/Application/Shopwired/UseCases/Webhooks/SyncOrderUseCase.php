@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Application\Shopwired\UseCases\Webhooks;
 
 use App\Application\Contracts\Shopwired\OrderRepositoryInterface;
+use App\Application\Contracts\Shopwired\WebhookIdempotencyServiceInterface;
 use App\Application\Jobs\Shopwired\SyncShopwiredOrderJob;
+use App\Application\Shopwired\Enums\WebhookTopic;
 use App\Domain\Catalog\Order\ValueObjects\Order;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
@@ -18,12 +20,13 @@ use Psr\Log\LoggerInterface;
  * Handle `order.updated` and `order.finalized` webhook events.
  *
  * Applies staleness and idempotency guards, persists the order from the webhook
- * payload with its timestamp, then queues a full API sync.
+ * payload, records the webhook event, then queues a full API sync.
  */
 final readonly class SyncOrderUseCase
 {
     public function __construct(
         private OrderRepositoryInterface $orderRepository,
+        private WebhookIdempotencyServiceInterface $idempotency,
         private LoggerInterface $logger,
         private int $webhookStalenessHours,
     ) {}
@@ -33,7 +36,7 @@ final readonly class SyncOrderUseCase
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      */
-    public function execute(DateTimeImmutable $eventTime, int $webhookId, Order $order): void
+    public function execute(DateTimeImmutable $eventTime, int $webhookId, WebhookTopic $topic, Order $order): void
     {
         $context = ['webhook_id' => $webhookId, 'subject_id' => $order->id];
         $this->logger->info('Processing order webhook', $context);
@@ -47,15 +50,15 @@ final readonly class SyncOrderUseCase
         }
 
         $orderId = IntId::from($order->id);
-        $existing = $this->orderRepository->getWebhookTimestamp($orderId);
 
-        if ($existing !== null && $existing >= $eventTime) {
+        if ($this->idempotency->isSuperseded($orderId, $topic, $webhookId)) {
             $this->logger->info('Discarding already-processed order webhook', $context);
 
             return;
         }
 
-        $this->orderRepository->saveFromWebhook($order, $eventTime);
+        $this->orderRepository->saveFromWebhook($order);
+        $this->idempotency->record($orderId, $topic, $webhookId, $eventTime);
 
         SyncShopwiredOrderJob::dispatch($orderId);
 

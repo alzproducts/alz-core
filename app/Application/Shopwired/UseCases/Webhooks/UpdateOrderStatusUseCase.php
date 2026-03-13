@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Application\Shopwired\UseCases\Webhooks;
 
 use App\Application\Contracts\Shopwired\OrderRepositoryInterface;
+use App\Application\Contracts\Shopwired\WebhookIdempotencyServiceInterface;
 use App\Application\Jobs\Shopwired\SyncShopwiredOrderJob;
+use App\Application\Shopwired\Enums\WebhookTopic;
 use App\Domain\Catalog\Order\ValueObjects\OrderStatus;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
@@ -18,13 +20,14 @@ use Psr\Log\LoggerInterface;
 /**
  * Handle `order.status_changed` webhook events.
  *
- * Applies staleness and idempotency guards, updates order status fields
- * and webhook timestamp, then queues a full API sync.
+ * Applies staleness and idempotency guards, updates order status fields,
+ * records the webhook event, then queues a full API sync.
  */
 final readonly class UpdateOrderStatusUseCase
 {
     public function __construct(
         private OrderRepositoryInterface $orderRepository,
+        private WebhookIdempotencyServiceInterface $idempotency,
         private LoggerInterface $logger,
         private int $webhookStalenessHours,
     ) {}
@@ -35,7 +38,7 @@ final readonly class UpdateOrderStatusUseCase
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      */
-    public function execute(DateTimeImmutable $eventTime, int $webhookId, IntId $orderId, OrderStatus $status): void
+    public function execute(DateTimeImmutable $eventTime, int $webhookId, WebhookTopic $topic, IntId $orderId, OrderStatus $status): void
     {
         $context = ['webhook_id' => $webhookId, 'subject_id' => $orderId->value];
         $this->logger->info('Processing order status webhook', $context);
@@ -48,16 +51,14 @@ final readonly class UpdateOrderStatusUseCase
             return;
         }
 
-        $existing = $this->orderRepository->getWebhookTimestamp($orderId);
-
-        if ($existing !== null && $existing >= $eventTime) {
+        if ($this->idempotency->isSuperseded($orderId, $topic, $webhookId)) {
             $this->logger->info('Discarding superseded order status webhook', $context);
 
             return;
         }
 
         $this->orderRepository->updateStatus($orderId, $status);
-        $this->orderRepository->updateWebhookTimestamp($orderId, $eventTime);
+        $this->idempotency->record($orderId, $topic, $webhookId, $eventTime);
 
         SyncShopwiredOrderJob::dispatch($orderId);
 

@@ -27,6 +27,7 @@ use App\Application\Contracts\Shopwired\ProductWebhookEventResolverInterface;
 use App\Application\Contracts\Shopwired\ProductWebhookParserInterface;
 use App\Application\Contracts\Shopwired\StockClientInterface;
 use App\Application\Contracts\Shopwired\WebhookClientInterface;
+use App\Application\Contracts\Shopwired\WebhookIdempotencyServiceInterface;
 use App\Application\Shopwired\UseCases\Webhooks\CreateOrderRefundUseCase;
 use App\Application\Shopwired\UseCases\Webhooks\SyncCustomerUseCase;
 use App\Application\Shopwired\UseCases\Webhooks\SyncOrderUseCase;
@@ -52,6 +53,7 @@ use App\Infrastructure\Shopwired\Repositories\EloquentProductRepository;
 use App\Infrastructure\Shopwired\Resolvers\ShopwiredCustomerWebhookEventResolver;
 use App\Infrastructure\Shopwired\Resolvers\ShopwiredOrderWebhookEventResolver;
 use App\Infrastructure\Shopwired\Resolvers\ShopwiredProductWebhookEventResolver;
+use App\Infrastructure\Shopwired\Services\EloquentWebhookIdempotencyService;
 use App\Infrastructure\Shopwired\Services\ProductIdentifierResolver;
 use App\Infrastructure\Shopwired\ShopwiredClientFactory;
 use Illuminate\Contracts\Foundation\Application;
@@ -214,6 +216,12 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
             ),
         );
 
+        // Webhook idempotency service - centralised dedup via webhook_events table
+        $this->app->singleton(
+            WebhookIdempotencyServiceInterface::class,
+            EloquentWebhookIdempotencyService::class,
+        );
+
         // Webhook client - for health monitoring of registered webhooks
         $this->app->singleton(
             WebhookClientInterface::class,
@@ -285,6 +293,7 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
             UpdateOrderStatusUseCase::class,
             UpdateProductStockUseCase::class,
             WebhookClientInterface::class,
+            WebhookIdempotencyServiceInterface::class,
         ];
     }
 }

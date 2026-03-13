@@ -8,6 +8,7 @@ use App\Application\Shopwired\Services\HandleOrderWebhookService;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Domain\Exceptions\Data\InvalidEnumValueException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Presentation\Http\Shopwired\Webhooks\DTOs\WebhookEnvelopeDTO;
@@ -30,6 +31,7 @@ final readonly class ShopwiredWebhookOrderController
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      * @throws InvalidApiResponseException
+     * @throws InvalidEnumValueException
      * @throws ResourceNotFoundException
      */
     public function __invoke(Request $request): JsonResponse
