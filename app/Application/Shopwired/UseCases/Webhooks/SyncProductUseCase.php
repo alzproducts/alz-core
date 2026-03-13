@@ -38,6 +38,7 @@ final readonly class SyncProductUseCase
     public function execute(DateTimeImmutable $eventTime, int $webhookId, Product $product, array $presentEmbeds = []): void
     {
         $context = ['webhook_id' => $webhookId, 'subject_id' => $product->id];
+        $this->logger->info('Processing product webhook', $context);
 
         $cutoff = (new DateTimeImmutable())->setTimestamp(\time() - ($this->webhookStalenessHours * 3600));
 

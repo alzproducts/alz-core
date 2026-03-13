@@ -37,6 +37,7 @@ final readonly class CreateOrderRefundUseCase
     public function execute(DateTimeImmutable $eventTime, int $webhookId, IntId $orderId, OrderRefund $refund): void
     {
         $context = ['webhook_id' => $webhookId, 'order_id' => $orderId->value, 'refund_id' => $refund->externalId];
+        $this->logger->info('Processing order refund webhook', $context);
 
         $cutoff = (new DateTimeImmutable())->setTimestamp(\time() - ($this->webhookStalenessHours * 3600));
 

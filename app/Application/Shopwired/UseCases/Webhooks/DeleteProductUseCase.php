@@ -34,6 +34,7 @@ final readonly class DeleteProductUseCase
     public function execute(int $webhookId, IntId $productId): void
     {
         $context = ['webhook_id' => $webhookId, 'subject_id' => $productId->value];
+        $this->logger->info('Processing product delete webhook', $context);
 
         try {
             $this->productRepository->deleteByExternalId($productId);

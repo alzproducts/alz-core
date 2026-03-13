@@ -38,6 +38,7 @@ final readonly class DeleteOrderUseCase
     public function execute(int $webhookId, IntId $orderId): void
     {
         $context = ['webhook_id' => $webhookId, 'subject_id' => $orderId->value];
+        $this->logger->info('Processing order delete webhook', $context);
 
         try {
             $this->orderRepository->deleteByExternalId($orderId);

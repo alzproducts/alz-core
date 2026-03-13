@@ -72,6 +72,10 @@ final class SyncProductUseCaseTest extends TestCase
 
         $this->logger->shouldReceive('info')
             ->once()
+            ->with('Processing product webhook', Mockery::type('array'));
+
+        $this->logger->shouldReceive('info')
+            ->once()
             ->with('Product webhook processed — sync queued', Mockery::type('array'));
 
         $this->useCase->execute(
@@ -98,6 +102,10 @@ final class SyncProductUseCaseTest extends TestCase
 
         $this->logger->shouldReceive('info')
             ->once()
+            ->with('Processing product webhook', Mockery::type('array'));
+
+        $this->logger->shouldReceive('info')
+            ->once()
             ->with('Product webhook processed — sync queued', Mockery::type('array'));
 
         $this->useCase->execute(
@@ -119,6 +127,10 @@ final class SyncProductUseCaseTest extends TestCase
 
         $this->repository->shouldNotReceive('getWebhookTimestamp');
         $this->repository->shouldNotReceive('saveFromWebhook');
+
+        $this->logger->shouldReceive('info')
+            ->once()
+            ->with('Processing product webhook', Mockery::type('array'));
 
         $this->logger->shouldReceive('info')
             ->once()
@@ -148,6 +160,10 @@ final class SyncProductUseCaseTest extends TestCase
             ->andReturn($existingTimestamp);
 
         $this->repository->shouldNotReceive('saveFromWebhook');
+
+        $this->logger->shouldReceive('info')
+            ->once()
+            ->with('Processing product webhook', Mockery::type('array'));
 
         $this->logger->shouldReceive('info')
             ->once()
