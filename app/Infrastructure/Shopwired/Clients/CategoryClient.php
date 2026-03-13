@@ -63,6 +63,7 @@ final readonly class CategoryClient implements CategoryClientInterface
         'metaDescription',
         'metaNoIndex',
         'image',
+        'parents',
         'customFields',
     ];
 
@@ -104,7 +105,11 @@ final readonly class CategoryClient implements CategoryClientInterface
      */
     public function listCategories(): array
     {
-        $response = $this->transport->get(self::ENDPOINT_CATEGORIES);
+        $params = (new ShopwiredQueryParams())
+            ->withEmbeds(self::DEFAULT_EMBEDS)
+            ->withFields(self::DEFAULT_FIELDS);
+
+        $response = $this->transport->get(self::ENDPOINT_CATEGORIES, $params->toArray());
 
         /** @var list<DomainCategory> */
         return self::parseArrayToDomain($response->json(), CategoryResponse::class);
@@ -119,7 +124,11 @@ final readonly class CategoryClient implements CategoryClientInterface
      */
     public function getCategoryById(int $id): DomainCategory
     {
-        $response = $this->transport->get(self::ENDPOINT_CATEGORIES . '/' . $id);
+        $params = (new ShopwiredQueryParams())
+            ->withEmbeds(self::DEFAULT_EMBEDS)
+            ->withFields(self::DEFAULT_FIELDS);
+
+        $response = $this->transport->get(self::ENDPOINT_CATEGORIES . '/' . $id, $params->toArray());
 
         /** @var DomainCategory */
         return self::parseSingleToDomain($response->json(), CategoryResponse::class);

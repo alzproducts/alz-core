@@ -82,13 +82,15 @@ final class EloquentCustomerRepository extends AbstractEloquentRepository implem
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      */
-    public function saveFromWebhook(Customer $customer, DateTimeImmutable $webhookAt): void
+    public function saveFromWebhook(Customer $customer, DateTimeImmutable $webhookAt, array $presentEmbeds = []): void
     {
+        $attributes = CustomerModelMapper::toWebhookAttributes($customer, $presentEmbeds);
+
         $this->eloquentGateway->upsertOne(
             modelClass: self::MODEL_CLASS,
             attributes: [
                 'external_id' => $customer->id,
-                ...CustomerModelMapper::toModelAttributes($customer),
+                ...$attributes,
                 'shopwired_webhook_at' => $webhookAt,
             ],
             uniqueBy: ['external_id'],
