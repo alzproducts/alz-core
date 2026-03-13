@@ -5,10 +5,14 @@ declare(strict_types=1);
 namespace App\Application\Shopwired\Enums;
 
 /**
- * All ShopWired webhook topics.
+ * ShopWired webhook topics for idempotency tracking.
  *
  * Used for per-topic idempotency tracking in the webhook_events table.
  * The string values match ShopWired's topic identifiers exactly.
+ *
+ * IMPORTANT: A separate {@see \App\Infrastructure\Shopwired\Enums\WebhookTopic}
+ * exists in the Infrastructure layer for webhook routing/parsing (includes all
+ * topics + helper methods). When adding new topics, update BOTH enums.
  */
 enum WebhookTopic: string
 {

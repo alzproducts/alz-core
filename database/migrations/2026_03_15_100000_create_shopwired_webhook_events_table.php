@@ -22,7 +22,7 @@ return new class extends Migration {
 
             $table->integer('subject_id');
             $table->string('topic', 50);
-            $table->integer('webhook_id')->unique();
+            $table->bigInteger('webhook_id')->unique();
             $table->timestampTz('event_time');
 
             $table->timestampTz('created_at');
