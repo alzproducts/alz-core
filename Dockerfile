@@ -42,10 +42,8 @@ RUN docker-php-ext-install -j$(nproc) \
     opcache \
     soap
 
-# Install Swoole via PECL
-# Using latest version for PHP 8.4 compatibility (installs 6.1.2 as of Jan 2025)
-# Note: Specific version pinning caused build failures with PHP 8.4
-RUN pecl install swoole && \
+# Install Swoole via PECL (pinned to avoid cache-busting on new releases)
+RUN pecl install swoole-6.1.2 && \
     docker-php-ext-enable swoole
 
 # Verify Redis extension from base image
