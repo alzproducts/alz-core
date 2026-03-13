@@ -7,58 +7,49 @@ namespace App\Infrastructure\Shopwired\Responses;
 use App\Domain\Customer\ValueObjects\Customer as DomainCustomer;
 use App\Domain\Customer\ValueObjects\CustomerAddress;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
-use App\Infrastructure\Contracts\DomainConvertibleInterface;
 use DateMalformedStringException;
 use DateTimeImmutable;
 use Spatie\LaravelData\Attributes\DataCollectionOf;
 use Spatie\LaravelData\Attributes\MapInputName;
 use Spatie\LaravelData\Data;
 use Spatie\LaravelData\Mappers\SnakeCaseMapper;
+use Spatie\LaravelData\Optional;
 
 /**
- * ShopWired API Response: Customer.
+ * ShopWired Webhook Response: Customer.
  *
- * Infrastructure DTO for parsing customer API responses.
- * Handles snake_case → camelCase mapping automatically.
+ * Webhook payloads don't include embed data (wishlists, customFields).
+ * Uses Spatie Optional for embed fields so missing data is detected
+ * rather than silently defaulting to empty arrays.
  *
+ * @see CustomerResponse for the strict API client DTO (all embeds required)
  * @see https://shopwired.readme.io/reference/listcustomers
  */
 #[MapInputName(SnakeCaseMapper::class)]
-final class CustomerResponse extends Data implements DomainConvertibleInterface
+final class CustomerWebhookResponse extends Data
 {
     /**
-     * @param list<CustomerWishlistResponse> $wishlists Customer wishlists (embedded, not converted to domain)
-     * @param array<string, mixed> $customFields Custom field key-value pairs
+     * @param list<CustomerWishlistResponse> $wishlists
+     * @param array<string, mixed> $customFields
      */
     public function __construct(
-        // Identifiers
+        // Core fields — always present in webhooks
         public readonly int $id,
         public readonly string $createdAt,
-
-        // Infrastructure-only fields (not in Domain)
         public readonly ?int $tradeGroupId,
         public readonly bool $adminCreated,
         public readonly bool $autoCreated,
-
-        // Identity
         public readonly string $email,
         public readonly string $firstName,
         public readonly ?string $lastName,
         public readonly ?string $companyName,
-
-        // Classification
         public readonly bool $trade,
         public readonly bool $active,
-
-        // Contact
         public readonly ?string $phone,
         public readonly ?string $mobilePhone,
         public readonly ?string $website,
         public readonly ?string $vatNumber,
         public readonly bool $acceptsMarketing,
-
-        // Address (flat fields from API)
-        // Note: Explicit mapping needed for numeric suffixes (SnakeCaseMapper doesn't handle them)
         #[MapInputName('address_line_1')]
         public readonly ?string $addressLine1,
         #[MapInputName('address_line_2')]
@@ -68,17 +59,8 @@ final class CustomerResponse extends Data implements DomainConvertibleInterface
         public readonly ?string $city,
         public readonly ?string $province,
         public readonly ?string $postcode,
-
-        // Loyalty
         public readonly int $rewardPoints,
-
-        // Notes
         public readonly ?string $notes,
-
-        // Embeds (always present when requested via DEFAULT_EMBEDS)
-        // Note: country/state return only IDs from API - ignored until needed
-        #[DataCollectionOf(CustomerWishlistResponse::class)]
-        public readonly array $wishlists,
 
         // Optional fields (trade-specific, not returned for regular customers)
         public readonly ?float $discount = null,
@@ -86,15 +68,38 @@ final class CustomerResponse extends Data implements DomainConvertibleInterface
         #[MapInputName('credit')]
         public readonly ?bool $creditEnabled = null,
 
-        // customFields: API omits this key entirely when entity has no custom fields defined
-        public readonly array $customFields = [],
+        // Embed fields — Optional (may be absent from webhooks)
+        #[DataCollectionOf(CustomerWishlistResponse::class)]
+        public readonly array|Optional $wishlists = new Optional(),
+        public readonly array|Optional $customFields = new Optional(),
     ) {}
+
+    /**
+     * Returns the list of embed names that were actually present in the payload.
+     *
+     * @return list<string> Embed names (matching ShopWired API embed names)
+     */
+    public function presentEmbeds(): array
+    {
+        $embeds = [];
+
+        if (! $this->wishlists instanceof Optional) {
+            $embeds[] = 'wishlists';
+        }
+
+        if (! $this->customFields instanceof Optional) {
+            $embeds[] = 'custom_fields';
+        }
+
+        return $embeds;
+    }
 
     /**
      * Convert to Domain Value Object.
      *
-     * Note: wishlists are intentionally NOT converted to domain
-     * as they are ShopWired-specific with no business logic use.
+     * Optional embed fields are coalesced to empty arrays for the domain layer,
+     * which always expects concrete values. Use presentEmbeds() to determine
+     * which fields should be persisted.
      *
      * @throws InvalidApiResponseException When date format is invalid
      */
@@ -132,7 +137,7 @@ final class CustomerResponse extends Data implements DomainConvertibleInterface
                 $this->postcode,
             ),
             notes: $this->notes,
-            customFields: $this->customFields,
+            customFields: $this->customFields instanceof Optional ? [] : $this->customFields,
         );
     }
 
