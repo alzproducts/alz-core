@@ -57,6 +57,10 @@ final class DeleteOrderUseCaseTest extends TestCase
 
         $this->logger->shouldReceive('info')
             ->once()
+            ->with('Processing order delete webhook', Mockery::type('array'));
+
+        $this->logger->shouldReceive('info')
+            ->once()
             ->with('Order deleted', Mockery::type('array'));
 
         $this->useCase->execute(webhookId: 1, orderId: $orderId);
@@ -76,6 +80,10 @@ final class DeleteOrderUseCaseTest extends TestCase
         $this->repository->shouldReceive('deleteByExternalId')
             ->once()
             ->andThrow(new ResourceNotFoundException('ShopWired', 'order', 42));
+
+        $this->logger->shouldReceive('info')
+            ->once()
+            ->with('Processing order delete webhook', Mockery::type('array'));
 
         $this->logger->shouldReceive('info')
             ->once()

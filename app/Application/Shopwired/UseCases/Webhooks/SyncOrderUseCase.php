@@ -36,6 +36,7 @@ final readonly class SyncOrderUseCase
     public function execute(DateTimeImmutable $eventTime, int $webhookId, Order $order): void
     {
         $context = ['webhook_id' => $webhookId, 'subject_id' => $order->id];
+        $this->logger->info('Processing order webhook', $context);
 
         $cutoff = (new DateTimeImmutable())->setTimestamp(\time() - ($this->webhookStalenessHours * 3600));
 
