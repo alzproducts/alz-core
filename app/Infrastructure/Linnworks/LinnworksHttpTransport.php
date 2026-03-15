@@ -325,7 +325,7 @@ final readonly class LinnworksHttpTransport implements LinnworksTransportInterfa
         string $endpoint,
     ): InvalidApiRequestException|AuthenticationExpiredException|ResourceNotFoundException|ExternalServiceUnavailableException {
         return match ($e->response->status()) {
-            400 => $this->handleBadRequest($e),
+            400, 422 => $this->handleBadRequest($e),
             401, 403 => $this->handleAuthenticationFailure($e),
             404 => $this->handleNotFound($e, $endpoint),
             429 => $this->handleRateLimit($e),
@@ -334,14 +334,14 @@ final readonly class LinnworksHttpTransport implements LinnworksTransportInterfa
     }
 
     /**
-     * Handle 400 Bad Request (malformed request - programming error).
+     * Handle 400/422 Bad Request (malformed request - programming error).
      */
     private function handleBadRequest(RequestException $e): InvalidApiRequestException
     {
         $message = $e->response->json('Message');
 
         Log::error(self::SERVICE_NAME . ' API invalid request', [
-            'status' => 400,
+            'status' => $e->response->status(),
             'error' => $e->getMessage(),
             'response_message' => \is_string($message) ? $message : 'No message provided',
         ]);

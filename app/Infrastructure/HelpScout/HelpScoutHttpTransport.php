@@ -153,10 +153,15 @@ final readonly class HelpScoutHttpTransport
             Log::error(self::SERVICE_NAME . ' API pool request failed', [
                 'key' => $key,
                 'error' => $result->getMessage(),
+                'exception_class' => $result::class,
             ]);
 
             if ($result instanceof ConnectionException) {
                 throw $this->handleConnectionException($result);
+            }
+
+            if ($result instanceof RequestException) {
+                throw $this->handleRequestException($result);
             }
 
             throw new ExternalServiceUnavailableException(self::SERVICE_NAME, previous: $result);
@@ -203,7 +208,7 @@ final readonly class HelpScoutHttpTransport
         RequestException $e,
     ): InvalidApiRequestException|AuthenticationExpiredException|ExternalServiceUnavailableException {
         return match ($e->response->status()) {
-            400 => $this->handleBadRequest($e),
+            400, 422 => $this->handleBadRequest($e),
             401, 403 => $this->handleAuthenticationFailure($e),
             429 => $this->handleRateLimit($e),
             default => $this->handleServerError($e),
@@ -211,17 +216,19 @@ final readonly class HelpScoutHttpTransport
     }
 
     /**
-     * Handle 400 Bad Request (malformed request - programming error).
+     * Handle 400/422 Bad Request (malformed request - programming error).
      */
     private function handleBadRequest(RequestException $e): InvalidApiRequestException
     {
+        $body = $e->response->json();
+
         Log::error(self::SERVICE_NAME . ' API invalid request', [
-            'status' => 400,
+            'status' => $e->response->status(),
             'error' => $e->getMessage(),
-            'response' => $e->response->json(),
+            'response' => $body,
         ]);
 
-        $message = $e->response->json('message');
+        $message = \is_array($body) ? ($body['message'] ?? null) : null;
 
         return new InvalidApiRequestException(
             self::SERVICE_NAME,
