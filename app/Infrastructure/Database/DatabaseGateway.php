@@ -194,8 +194,21 @@ final readonly class DatabaseGateway implements DatabaseGatewayInterface
     {
         $previous = $e->getPrevious();
 
-        if (($previous instanceof PDOException) && \is_string($previous->getCode())) {
-            return $previous->getCode();
+        if (!$previous instanceof PDOException) {
+            return null;
+        }
+
+        // Query-time PDOExceptions return SQLSTATE as string (e.g., '23505')
+        $code = $previous->getCode();
+        if (\is_string($code) && $code !== '' && $code !== '0') {
+            return $code;
+        }
+
+        // Connection-time PDOExceptions (PDO::connect) return integer driver
+        // codes instead of SQLSTATE strings. Parse from the standardised
+        // "SQLSTATE[XXXXX]" prefix in the message as a fallback.
+        if (\preg_match('/SQLSTATE\[(\w{5})]/', $previous->getMessage(), $matches) === 1) {
+            return $matches[1];
         }
 
         return null;
