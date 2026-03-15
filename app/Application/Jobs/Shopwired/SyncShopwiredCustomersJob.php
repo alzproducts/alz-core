@@ -21,12 +21,11 @@ use Throwable;
 /**
  * Asynchronously synchronize ShopWired customers to local database.
  *
- * Supports full sync, quick sync, and micro sync modes with page limits.
+ * Supports full sync and quick sync modes with page limits.
  *
  * Usage:
- * - Full sync: SyncShopwiredCustomersJob::dispatch() — daily, ~45 min
- * - Quick sync: SyncShopwiredCustomersJob::dispatch(null, 5) — all trade + 5 non-trade pages, ~2 min
- * - Micro sync: SyncShopwiredCustomersJob::dispatch(1, 1) — every 5 min, ~30s
+ * - Full sync: SyncShopwiredCustomersJob::dispatch() — monthly, ~45 min
+ * - Quick sync: SyncShopwiredCustomersJob::dispatch(5, 5) — every 6 hours, ~2 min
  */
 final class SyncShopwiredCustomersJob implements ShouldBeUnique, ShouldQueue
 {
@@ -52,13 +51,13 @@ final class SyncShopwiredCustomersJob implements ShouldBeUnique, ShouldQueue
      * Set to max expected runtime + buffer. If job completes sooner,
      * lock releases immediately. If job times out, lock auto-releases.
      */
-    public int $uniqueFor = 4500;
+    public int $uniqueFor = 10000;
 
     /**
      * Get the unique ID for this job.
      *
      * Returns a fixed ID (ignores constructor params) so ALL sync modes
-     * (full/quick/micro) share one lock. This prevents quick/micro syncs from
+     * (full/quick) share one lock. This prevents quick syncs from
      * running while a full sync is in progress.
      */
     public function uniqueId(): string
@@ -92,10 +91,9 @@ final class SyncShopwiredCustomersJob implements ShouldBeUnique, ShouldQueue
     /**
      * Job timeout in seconds.
      *
-     * Set to 70 minutes to accommodate full sync of ~68k customers with buffer.
-     * Actual runtime observed: ~46-60 minutes for 67,717 customers.
+     * Set to 2.5 hours to accommodate full sync of ~68k customers with buffer.
      */
-    public int $timeout = 4200;
+    public int $timeout = 9000;
 
     /**
      * Execute the job.
@@ -106,11 +104,7 @@ final class SyncShopwiredCustomersJob implements ShouldBeUnique, ShouldQueue
      */
     public function handle(SyncCustomersUseCase $useCase, LoggerInterface $logger): void
     {
-        $syncType = match (true) {
-            $this->maxTradePages === null && $this->maxNonTradePages === null => 'full',
-            $this->maxTradePages === 1 && $this->maxNonTradePages === 1 => 'micro',
-            default => 'quick',
-        };
+        $syncType = $this->maxTradePages === null && $this->maxNonTradePages === null ? 'full' : 'quick';
         $logger->info("ShopWired customer sync job starting ({$syncType})", [
             'max_trade_pages' => $this->maxTradePages,
             'max_non_trade_pages' => $this->maxNonTradePages,
