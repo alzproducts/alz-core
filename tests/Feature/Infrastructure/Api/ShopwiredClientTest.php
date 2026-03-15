@@ -14,6 +14,7 @@ use App\Infrastructure\Shopwired\ShopwiredHttpTransport;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use LogicException;
 use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -55,15 +56,21 @@ final class ShopwiredClientTest extends TestCase
      */
     private function createClient(int $timeout = 30): ShopwiredClient
     {
+        return new ShopwiredClient($this->createTransport($timeout));
+    }
+
+    /**
+     * Create a ShopwiredHttpTransport with default test configuration.
+     */
+    private function createTransport(int $timeout = 30): ShopwiredHttpTransport
+    {
         $config = new ShopwiredConfig(
             apiKey: self::TEST_API_KEY,
             apiSecret: self::TEST_API_SECRET,
             timeout: $timeout,
         );
 
-        $transport = new ShopwiredHttpTransport($config);
-
-        return new ShopwiredClient($transport);
+        return new ShopwiredHttpTransport($config);
     }
 
     /*
@@ -435,5 +442,84 @@ final class ShopwiredClientTest extends TestCase
             'leading slash on endpoint' => ['https://api.test.com/v1', '/business', 'https://api.test.com/v1/business'],
             'both slashes' => ['https://api.test.com/v1/', '/business', 'https://api.test.com/v1/business'],
         ];
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | HTTP 422 Handling Tests
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function it_throws_invalid_request_on_http_422(): void
+    {
+        Http::fake(['*' => Http::response(['message' => 'Unprocessable Entity'], 422)]);
+
+        $this->expectException(InvalidApiRequestException::class);
+        $this->expectExceptionMessage('Unprocessable Entity');
+
+        $this->client->verifyConnectivity();
+    }
+
+    #[Test]
+    public function it_logs_actual_status_code_for_422(): void
+    {
+        Http::fake(['*' => Http::response(['message' => 'Validation failed'], 422)]);
+
+        Log::shouldReceive('error')
+            ->once()
+            ->withArgs(static fn(string $message, array $context): bool => $message === 'Shopwired API invalid request'
+                    && $context['status'] === 422);
+
+        try {
+            $this->client->verifyConnectivity();
+        } catch (InvalidApiRequestException) {
+            // Expected
+        }
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Pool Error Routing Tests
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function pool_routes_422_response_to_invalid_api_request_exception(): void
+    {
+        Http::fake(['*' => Http::response(['message' => 'Unprocessable'], 422)]);
+
+        $transport = $this->createTransport();
+        $result = $transport->poolPost([
+            'batch-1' => ['endpoint' => 'orders/123/status', 'data' => ['status' => 'shipped']],
+        ]);
+
+        $this->assertInstanceOf(InvalidApiRequestException::class, $result->transportFailure);
+    }
+
+    #[Test]
+    public function pool_routes_500_response_to_external_service_unavailable_exception(): void
+    {
+        Http::fake(['*' => Http::response(['error' => 'Internal Server Error'], 500)]);
+
+        $transport = $this->createTransport();
+        $result = $transport->poolPost([
+            'batch-1' => ['endpoint' => 'orders/123/status', 'data' => ['status' => 'shipped']],
+        ]);
+
+        $this->assertInstanceOf(ExternalServiceUnavailableException::class, $result->transportFailure);
+    }
+
+    #[Test]
+    public function pool_routes_connection_failure_to_external_service_unavailable_exception(): void
+    {
+        Http::fake(static fn() => throw new ConnectionException('Connection refused'));
+
+        $transport = $this->createTransport();
+        $result = $transport->poolPost([
+            'batch-1' => ['endpoint' => 'orders/123/status', 'data' => ['status' => 'shipped']],
+        ]);
+
+        $this->assertInstanceOf(ExternalServiceUnavailableException::class, $result->transportFailure);
     }
 }
