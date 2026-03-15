@@ -58,7 +58,7 @@ return [
         'stack' => [
             'driver' => 'stack',
             'channels' => explode(',', (string) env('LOG_STACK', 'single')),
-            'ignore_exceptions' => false,
+            'ignore_exceptions' => true,
         ],
 
         'single' => [
@@ -133,7 +133,7 @@ return [
         'security' => [
             'driver' => 'stack',
             'channels' => env('APP_ENV') === 'production' ? ['stderr'] : ['security_daily'],
-            'ignore_exceptions' => false,
+            'ignore_exceptions' => true,
         ],
 
         'security_daily' => [
