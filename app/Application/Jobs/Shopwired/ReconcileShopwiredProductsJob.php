@@ -25,9 +25,9 @@ use Throwable;
  * that no longer exist in ShopWired.
  *
  * Usage:
- * - Reconciliation: ReconcileShopwiredProductsJob::dispatch() — daily overnight
+ * - Reconciliation: ReconcileShopwiredProductsJob::dispatch() — monthly (first Sunday), after product sync
  *
- * Schedule: Run after main sync completes to ensure local data is current.
+ * Schedule: Runs 30 minutes after product sync to ensure local data is current.
  */
 final class ReconcileShopwiredProductsJob implements ShouldBeUnique, ShouldQueue
 {

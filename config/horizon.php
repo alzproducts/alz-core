@@ -237,7 +237,7 @@ return [
             'maxJobs' => 0,
             'memory' => 512,
             'tries' => 1,
-            'timeout' => 4200, // 70 min - matches job timeout
+            'timeout' => 9000, // 2.5 hours - matches job timeout
             'nice' => 0,
         ],
     ],
@@ -254,10 +254,11 @@ return [
                 'maxJobs' => 100,
             ],
             'supervisor-low' => [
+                'minProcesses' => 2,
                 'maxProcesses' => 6,
                 'tries' => 3,
-                'timeout' => 4200, // 70 min - matches job timeout
-                'maxTime' => 9000, // 2.5 hours - allows job to complete + buffer
+                'timeout' => 9000, // 2.5 hours - matches job timeout
+                'maxTime' => 10800, // 3 hours - worker lifecycle buffer above job timeout
             ],
         ],
 

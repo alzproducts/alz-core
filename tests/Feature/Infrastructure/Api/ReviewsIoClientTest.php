@@ -404,14 +404,14 @@ final class ReviewsIoClientTest extends TestCase
     }
 
     #[Test]
-    public function it_throws_request_exception_on_http_422_validation_error_from_api(): void
+    public function it_throws_invalid_request_on_http_422_validation_error_from_api(): void
     {
         Http::fake(['*' => Http::response([
             'message' => 'Validation failed',
             'errors' => ['sku' => ['Invalid SKU format']],
         ], 422)]);
 
-        $this->expectException(ExternalServiceUnavailableException::class);
+        $this->expectException(InvalidApiRequestException::class);
 
         $this->client->getProductRatingBatch(['INVALID']);
     }

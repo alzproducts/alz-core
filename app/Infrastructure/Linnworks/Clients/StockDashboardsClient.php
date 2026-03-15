@@ -6,6 +6,7 @@ namespace App\Infrastructure\Linnworks\Clients;
 
 use App\Application\Contracts\Linnworks\StockDashboardsClientInterface;
 use App\Application\Inventory\DTOs\StockLevelDeltaDTO;
+use App\Application\Linnworks\DTOs\ModifiedStockItemDTO;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
@@ -15,6 +16,7 @@ use App\Domain\Inventory\ValueObjects\ItemStockLevel;
 use App\Domain\ValueObjects\Guid;
 use App\Infrastructure\Linnworks\Queries\DeltaStockLevelQuery;
 use App\Infrastructure\Linnworks\Queries\FullStockLevelQuery;
+use App\Infrastructure\Linnworks\Queries\ModifiedStockItemQuery;
 use App\Infrastructure\Linnworks\Queries\StockItemBySkuQuery;
 use DateTimeImmutable;
 
@@ -83,5 +85,22 @@ final readonly class StockDashboardsClient implements StockDashboardsClientInter
     {
         /** @var list<StockLevelDeltaDTO> */
         return $this->dashboardsClient->execute(new DeltaStockLevelQuery($since));
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @return list<ModifiedStockItemDTO>
+     *
+     * @throws InvalidApiResponseException
+     * @throws InvalidApiRequestException
+     * @throws AuthenticationExpiredException
+     * @throws ResourceNotFoundException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function getModifiedStockItemIdsSince(DateTimeImmutable $since): array
+    {
+        /** @var list<ModifiedStockItemDTO> */
+        return $this->dashboardsClient->execute(new ModifiedStockItemQuery($since));
     }
 }

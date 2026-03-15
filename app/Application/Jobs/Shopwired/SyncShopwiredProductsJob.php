@@ -25,7 +25,7 @@ use Throwable;
  * date-based sorting, making incremental sync impractical.
  *
  * Usage:
- * - Full sync: SyncShopwiredProductsJob::dispatch() — daily, ~2-5 min
+ * - Full sync: SyncShopwiredProductsJob::dispatch() — monthly (first Sunday), ~2-5 min
  */
 final class SyncShopwiredProductsJob implements ShouldBeUnique, ShouldQueue
 {
