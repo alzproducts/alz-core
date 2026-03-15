@@ -256,6 +256,7 @@ final readonly class ShopwiredHttpTransport implements ShopwiredTransportInterfa
             Log::error(self::SERVICE_NAME . ' API pool request failed', [
                 'key' => $key,
                 'error' => $result->getMessage(),
+                'exception_class' => $result::class,
             ]);
 
             if ($result instanceof ConnectionException) {
@@ -368,7 +369,7 @@ final readonly class ShopwiredHttpTransport implements ShopwiredTransportInterfa
         string $endpoint,
     ): InvalidApiRequestException|AuthenticationExpiredException|ResourceNotFoundException|ExternalServiceUnavailableException {
         return match ($e->response->status()) {
-            400, 422 => $this->handleBadRequest($e),
+            400, 422 => $this->handleBadRequest($e, $endpoint),
             401, 403 => $this->handleAuthenticationFailure($e),
             404 => $this->handleNotFound($e, $endpoint),
             429 => $this->handleRateLimit($e),
@@ -377,17 +378,20 @@ final readonly class ShopwiredHttpTransport implements ShopwiredTransportInterfa
     }
 
     /**
-     * Handle 400 Bad Request (malformed request - programming error).
+     * Handle 400/422 Bad Request (malformed request - programming error).
      */
-    private function handleBadRequest(RequestException $e): InvalidApiRequestException
+    private function handleBadRequest(RequestException $e, string $endpoint): InvalidApiRequestException
     {
+        $body = $e->response->json();
+
         Log::error(self::SERVICE_NAME . ' API invalid request', [
-            'status' => 400,
+            'status' => $e->response->status(),
+            'endpoint' => $endpoint,
             'error' => $e->getMessage(),
-            'response' => $e->response->json(),
+            'response' => $body,
         ]);
 
-        $message = $e->response->json('message');
+        $message = \is_array($body) ? ($body['message'] ?? null) : null;
 
         return new InvalidApiRequestException(
             self::SERVICE_NAME,
