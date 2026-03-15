@@ -93,8 +93,8 @@ final class ShopwiredScheduleServiceProvider extends ServiceProvider
     /**
      * ShopWired Webhook Health Check: daily monitoring for disabled/unverified webhooks.
      *
-     * Runs at 03:00 UK time — before monthly syncs (01:00 is orders, but health check
-     * is lightweight and non-conflicting). Alerts are visible before high-volume windows.
+     * Runs at 03:00 UK time — between order sync (01:00) and customer sync (04:00).
+     * Lightweight and non-conflicting with full syncs.
      *
      * @throws RuntimeException
      */
@@ -110,7 +110,7 @@ final class ShopwiredScheduleServiceProvider extends ServiceProvider
     /**
      * ShopWired Webhook Events Cleanup: weekly retention pruning.
      *
-     * Runs Sundays at 02:00 UK time — before webhook health check (03:00) and weekly syncs (04:00+).
+     * Runs Sundays at 02:00 UK time — before webhook health check (03:00) and monthly full syncs (01:00+).
      * Removes idempotency records older than the retention window (90 days).
      */
     private function registerWebhookCleanupSchedule(): void
