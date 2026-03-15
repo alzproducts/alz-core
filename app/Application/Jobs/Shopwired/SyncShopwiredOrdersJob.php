@@ -21,12 +21,11 @@ use Throwable;
 /**
  * Asynchronously synchronize ShopWired orders to local database.
  *
- * Supports full sync, quick sync, and micro sync modes with page limits.
+ * Supports full sync and quick sync modes with page limits.
  *
  * Usage:
- * - Full sync: SyncShopwiredOrdersJob::dispatch() — daily, all orders
- * - Quick sync: SyncShopwiredOrdersJob::dispatch(5) — hourly, ~500 orders
- * - Micro sync: SyncShopwiredOrdersJob::dispatch(1) — every 5 min, ~100 orders
+ * - Full sync: SyncShopwiredOrdersJob::dispatch() — monthly, all orders
+ * - Quick sync: SyncShopwiredOrdersJob::dispatch(5) — every 6 hours, ~500 orders
  *
  * @see SyncShopwiredOrdersRangeJob For date-range based sync
  */
@@ -54,13 +53,13 @@ final class SyncShopwiredOrdersJob implements ShouldBeUnique, ShouldQueue
      * Set to max expected runtime + buffer. If job completes sooner,
      * lock releases immediately. If job times out, lock auto-releases.
      */
-    public int $uniqueFor = 4500;
+    public int $uniqueFor = 10000;
 
     /**
      * Get the unique ID for this job.
      *
      * Returns a fixed ID (ignores constructor params) so ALL sync modes
-     * (full/quick/micro) share one lock. This prevents quick/micro syncs from
+     * (full/quick) share one lock. This prevents quick syncs from
      * running while a full sync is in progress.
      */
     public function uniqueId(): string
@@ -92,9 +91,9 @@ final class SyncShopwiredOrdersJob implements ShouldBeUnique, ShouldQueue
     /**
      * Job timeout in seconds.
      *
-     * Set to 70 minutes to accommodate full sync of all orders with buffer.
+     * Set to 2.5 hours to accommodate full sync of all orders with buffer.
      */
-    public int $timeout = 4200;
+    public int $timeout = 9000;
 
     /**
      * Execute the job.
@@ -105,11 +104,7 @@ final class SyncShopwiredOrdersJob implements ShouldBeUnique, ShouldQueue
      */
     public function handle(SyncOrdersUseCase $useCase, LoggerInterface $logger): void
     {
-        $syncType = match (true) {
-            $this->maxPages === null => 'full',
-            $this->maxPages === 1 => 'micro',
-            default => 'quick',
-        };
+        $syncType = $this->maxPages === null ? 'full' : 'quick';
         $logger->info("ShopWired order sync job starting ({$syncType})", [
             'max_pages' => $this->maxPages,
         ]);
