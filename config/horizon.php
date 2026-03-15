@@ -254,6 +254,7 @@ return [
                 'maxJobs' => 100,
             ],
             'supervisor-low' => [
+                'minProcesses' => 2,
                 'maxProcesses' => 6,
                 'tries' => 3,
                 'timeout' => 4200, // 70 min - matches job timeout

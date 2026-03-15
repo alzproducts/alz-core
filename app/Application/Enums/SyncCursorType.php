@@ -19,4 +19,12 @@ enum SyncCursorType: string
      * so the next delta query fetches only newer changes.
      */
     case LinnworksStockDelta = 'linnworks_stock_delta';
+
+    /**
+     * Cursor for the Linnworks StockItemFull incremental sync.
+     *
+     * Tracks the most recent StockItem.ModifiedDate seen,
+     * so the next query fetches only items modified since then.
+     */
+    case LinnworksStockItemFull = 'linnworks_stock_item_full';
 }
