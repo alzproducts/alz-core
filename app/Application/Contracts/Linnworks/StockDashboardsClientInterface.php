@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Application\Contracts\Linnworks;
 
 use App\Application\Inventory\DTOs\StockLevelDeltaDTO;
+use App\Application\Linnworks\DTOs\ModifiedStockItemDTO;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
@@ -70,4 +71,21 @@ interface StockDashboardsClientInterface
      * @throws InvalidApiResponseException
      */
     public function getStockLevelsSince(DateTimeImmutable $since): array;
+
+    /**
+     * Fetch stock item IDs modified since the given datetime.
+     *
+     * Results are ordered by ModifiedDate ASC — callers rely on this
+     * to advance cursors from the final element. Returns up to 500 rows;
+     * if exactly 500 are returned, the caller should assume overflow.
+     *
+     * @return list<ModifiedStockItemDTO>
+     *
+     * @throws InvalidApiRequestException
+     * @throws AuthenticationExpiredException
+     * @throws ResourceNotFoundException
+     * @throws ExternalServiceUnavailableException
+     * @throws InvalidApiResponseException
+     */
+    public function getModifiedStockItemIdsSince(DateTimeImmutable $since): array;
 }
