@@ -770,4 +770,49 @@ final readonly class EloquentGateway
 
         return $deleted;
     }
+
+    /**
+     * Delete records whose column value is NOT in the provided list.
+     *
+     * Used for full-replace reconciliation: after upserting all records from
+     * an external source, delete any local records not present in the source.
+     *
+     * Safety: returns 0 immediately if $idsToKeep is empty — never deletes
+     * all records without an explicit scope.
+     *
+     * @param class-string<Model> $modelClass
+     * @param list<int|string> $idsToKeep Values to exclude from deletion
+     *
+     * @return int Number of rows deleted
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function reconcileWhereNotIn(string $modelClass, string $column, array $idsToKeep): int
+    {
+        if ($idsToKeep === []) {
+            return 0;
+        }
+
+        $modelName = \class_basename($modelClass);
+
+        $deleted = $this->dbGateway->transact(
+            static function () use ($modelClass, $column, $idsToKeep): int {
+                /** @var int */
+                return $modelClass::query()
+                    ->whereNotIn($column, $idsToKeep)
+                    ->delete();
+            },
+        );
+
+        Log::debug('Reconcile delete completed', [
+            'model' => $modelName,
+            'column' => $column,
+            'excluded_count' => \count($idsToKeep),
+            'deleted' => $deleted,
+        ]);
+
+        return $deleted;
+    }
 }

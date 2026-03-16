@@ -4,19 +4,19 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Linnworks\Responses;
 
-use App\Domain\Inventory\ValueObjects\StockItemSupplier;
+use App\Domain\Inventory\ValueObjects\Supplier;
 use App\Infrastructure\Contracts\DomainConvertibleInterface;
 use App\Infrastructure\Linnworks\Support\PascalCaseMapper;
 use Spatie\LaravelData\Attributes\MapInputName;
 use Spatie\LaravelData\Data;
 
 /**
- * Linnworks Supplier API response DTO.
+ * Linnworks supplier directory API response DTO.
  *
- * Maps fields from GetStockItemsFull endpoint's Suppliers array.
- * The API field "Supplier" is the supplier name (not ID).
+ * Maps fields from the GetSuppliers endpoint (master supplier directory).
+ * Distinct from StockItemSupplierResponse which maps supplier-to-stock-item junction data.
  *
- * @see https://apps.linnworks.net/Api/Class/linnworks-spa-commondata-Inventory-ClassBase-StockItemSupplierStat
+ * @see https://apps.linnworks.net/Api/Method/Inventory-GetSuppliers
  *
  * @template-pattern Infrastructure Response DTO
  */
@@ -24,35 +24,42 @@ use Spatie\LaravelData\Data;
 final class SupplierResponse extends Data implements DomainConvertibleInterface
 {
     public function __construct(
-        #[MapInputName('SupplierID')]
-        public readonly string $supplierId,
-        /** @note Linnworks uses "Supplier" for the name, not "SupplierName" */
-        public readonly string $supplier,
-        public readonly ?string $code,
-        public readonly ?string $supplierBarcode,
-        public readonly float $purchasePrice,
-        public readonly bool $isDefault,
-        public readonly ?int $leadTime,
-        public readonly ?string $supplierCurrency,
-        public readonly ?float $minPrice,
-        public readonly ?float $maxPrice,
-        public readonly ?float $averagePrice,
+        #[MapInputName('pkSupplierID')]
+        public readonly string $pkSupplierId,
+        public readonly string $supplierName,
+        public readonly ?string $contactName,
+        public readonly ?string $address,
+        public readonly ?string $alternativeAddress,
+        public readonly ?string $city,
+        public readonly ?string $region,
+        public readonly ?string $country,
+        public readonly ?string $postCode,
+        public readonly ?string $telephoneNumber,
+        public readonly ?string $secondaryTelNumber,
+        public readonly ?string $faxNumber,
+        public readonly ?string $email,
+        public readonly ?string $webPage,
+        public readonly ?string $currency,
     ) {}
 
-    public function toDomain(): StockItemSupplier
+    public function toDomain(): Supplier
     {
-        return new StockItemSupplier(
-            supplierId: $this->supplierId,
-            supplierName: $this->supplier,
-            code: $this->code,
-            supplierBarcode: $this->supplierBarcode,
-            purchasePrice: $this->purchasePrice,
-            isDefault: $this->isDefault,
-            leadTime: $this->leadTime,
-            supplierCurrency: $this->supplierCurrency,
-            minPrice: $this->minPrice,
-            maxPrice: $this->maxPrice,
-            averagePrice: $this->averagePrice,
+        return new Supplier(
+            pkSupplierId: $this->pkSupplierId,
+            supplierName: $this->supplierName,
+            contactName: $this->contactName,
+            address: $this->address,
+            alternativeAddress: $this->alternativeAddress,
+            city: $this->city,
+            region: $this->region,
+            country: $this->country,
+            postCode: $this->postCode,
+            telephoneNumber: $this->telephoneNumber,
+            secondaryTelNumber: $this->secondaryTelNumber,
+            faxNumber: $this->faxNumber,
+            email: $this->email,
+            webPage: $this->webPage,
+            currency: $this->currency,
         );
     }
 }

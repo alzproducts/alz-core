@@ -14,11 +14,13 @@ use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Data\InvalidSkuException;
 use App\Domain\Inventory\ValueObjects\StockItem;
 use App\Domain\Inventory\ValueObjects\StockItemFull;
+use App\Domain\Inventory\ValueObjects\Supplier;
 use App\Domain\ValueObjects\Guid;
 use App\Infrastructure\Linnworks\Contracts\LinnworksTransportInterface;
 use App\Infrastructure\Linnworks\Responses\SkuStockIdMappingResponse;
 use App\Infrastructure\Linnworks\Responses\StockItemFullResponse;
 use App\Infrastructure\Linnworks\Responses\StockItemResponse;
+use App\Infrastructure\Linnworks\Responses\SupplierResponse;
 use App\Infrastructure\Linnworks\Support\LinnworksResponseParserTrait;
 use Generator;
 
@@ -286,6 +288,28 @@ final readonly class InventoryClient implements InventoryClientInterface
         }
 
         return $items[0];
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @return list<Supplier>
+     *
+     * @throws AuthenticationExpiredException When credentials are invalid
+     * @throws ExternalServiceUnavailableException When API is unavailable
+     * @throws InvalidApiRequestException When request parameters are invalid
+     * @throws InvalidApiResponseException When API response structure is invalid
+     * @throws ResourceNotFoundException When resource not found (404)
+     */
+    public function getSuppliers(): array
+    {
+        $response = $this->transport->post(
+            endpoint: '/api/Inventory/GetSuppliers',
+            data: [],
+        );
+
+        /** @var list<Supplier> */
+        return self::parseDirectArrayToDomain($response->json(), SupplierResponse::class);
     }
 
     /**

@@ -12,6 +12,7 @@ use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Inventory\ValueObjects\StockItem;
 use App\Domain\Inventory\ValueObjects\StockItemFull;
+use App\Domain\Inventory\ValueObjects\Supplier;
 use App\Domain\ValueObjects\Guid;
 use Generator;
 
@@ -90,4 +91,19 @@ interface InventoryClientInterface
      * @throws InvalidApiResponseException When API response structure is invalid
      */
     public function getStockItemFull(Sku|Guid $identifier): StockItemFull;
+
+    /**
+     * Fetch all suppliers from the Linnworks master supplier directory.
+     *
+     * Returns the complete list of suppliers (small dataset, no pagination).
+     *
+     * @return list<Supplier>
+     *
+     * @throws AuthenticationExpiredException When credentials are invalid
+     * @throws ExternalServiceUnavailableException When API is unavailable
+     * @throws InvalidApiRequestException When request parameters are invalid
+     * @throws InvalidApiResponseException When API response structure is invalid
+     * @throws ResourceNotFoundException When resource not found (404)
+     */
+    public function getSuppliers(): array;
 }
