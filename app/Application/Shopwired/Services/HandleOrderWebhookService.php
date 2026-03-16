@@ -71,11 +71,10 @@ final readonly class HandleOrderWebhookService
                 status: $this->orderParser->parseOrderStatus($data),
             ),
 
-            OrderWebhookIntent::RefundCreated => $this->createRefundUseCase->execute(
+            OrderWebhookIntent::RefundCreated => $this->handleRefundCreated(
                 eventTime: $eventTime,
                 webhookId: $webhookId,
-                orderId: $orderId,
-                refund: $this->orderParser->parseOrderRefund($data),
+                data: $data,
             ),
 
             OrderWebhookIntent::Sync => $this->syncOrderUseCase->execute(
@@ -87,4 +86,25 @@ final readonly class HandleOrderWebhookService
         };
     }
 
+    /**
+     * Handle refund webhooks where subjectId is the refund ID, not the order ID.
+     *
+     * @param array<string, mixed> $data
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws ExternalServiceUnavailableException
+     * @throws InvalidApiResponseException
+     * @throws ResourceNotFoundException
+     */
+    private function handleRefundCreated(DateTimeImmutable $eventTime, int $webhookId, array $data): void
+    {
+        $result = $this->orderParser->parseOrderRefund($data);
+
+        $this->createRefundUseCase->execute(
+            eventTime: $eventTime,
+            webhookId: $webhookId,
+            orderId: $result->orderId,
+            refund: $result->refund,
+        );
+    }
 }
