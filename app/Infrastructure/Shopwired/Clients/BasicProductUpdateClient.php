@@ -14,6 +14,7 @@ use App\Domain\Catalog\Product\ValueObjects\ProductVariation;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
+use App\Domain\Exceptions\Api\ResourceNotAvailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Infrastructure\Shopwired\Contracts\ShopwiredTransportInterface;
@@ -46,6 +47,7 @@ final readonly class BasicProductUpdateClient implements BasicProductUpdateClien
      * {@inheritDoc}
      *
      * @throws ResourceNotFoundException When product/variation not found locally
+     * @throws ResourceNotAvailableException When product/variation not found in ShopWired
      * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
      * @throws InvalidApiRequestException When update parameters invalid
      * @throws AuthenticationExpiredException When credentials invalid
@@ -135,7 +137,7 @@ final readonly class BasicProductUpdateClient implements BasicProductUpdateClien
      *
      * @throws InvalidApiRequestException When update parameters invalid
      * @throws AuthenticationExpiredException When credentials invalid
-     * @throws ResourceNotFoundException When product not found in ShopWired
+     * @throws ResourceNotAvailableException When product not found in ShopWired
      * @throws ExternalServiceUnavailableException When API unavailable
      */
     private function updateProduct(int $productId, array $payload): void
@@ -153,7 +155,7 @@ final readonly class BasicProductUpdateClient implements BasicProductUpdateClien
      *
      * @throws InvalidApiRequestException When update parameters invalid
      * @throws AuthenticationExpiredException When credentials invalid
-     * @throws ResourceNotFoundException When variation not found in ShopWired
+     * @throws ResourceNotAvailableException When variation not found in ShopWired
      * @throws ExternalServiceUnavailableException When API unavailable
      */
     private function updateVariation(ProductVariation $variation, array $payload): void

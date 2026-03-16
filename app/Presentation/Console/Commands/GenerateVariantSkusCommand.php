@@ -13,6 +13,7 @@ use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
+use App\Domain\Exceptions\Api\ResourceNotAvailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Data\InvalidSkuException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
@@ -50,6 +51,7 @@ final class GenerateVariantSkusCommand extends Command
 
     /**
      * @throws InvalidCustomFieldValueException When product custom fields invalid
+     * @throws ResourceNotAvailableException When ShopWired resource not yet available
      */
     public function handle(GenerateVariantSkusUseCase $useCase): int
     {

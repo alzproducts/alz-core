@@ -11,7 +11,6 @@ use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
-use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
 
@@ -36,7 +35,6 @@ final readonly class SyncBrandsUseCase
      *
      * @throws AuthenticationExpiredException When ShopWired credentials invalid/expired
      * @throws InvalidApiRequestException When request parameters are invalid
-     * @throws ResourceNotFoundException When requested resource not found (404)
      * @throws ExternalServiceUnavailableException When ShopWired API unavailable
      * @throws InvalidApiResponseException When API response parsing fails
      * @throws RuntimeException When API returns zero brands (unexpected)

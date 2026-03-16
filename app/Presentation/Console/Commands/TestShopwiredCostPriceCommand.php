@@ -13,6 +13,7 @@ use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
+use App\Domain\Exceptions\Api\ResourceNotAvailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
@@ -44,6 +45,7 @@ final class TestShopwiredCostPriceCommand extends Command
      * @throws ExternalServiceUnavailableException
      * @throws InvalidApiRequestException
      * @throws InvalidApiResponseException
+     * @throws ResourceNotAvailableException
      * @throws ResourceNotFoundException
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
