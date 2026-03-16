@@ -79,7 +79,7 @@ final class BrandResponse extends Data implements DomainConvertibleInterface
             metaTitle: $this->metaTitle,
             metaKeywords: $this->metaKeywords,
             metaDescription: $this->metaDescription,
-            image: $this->image?->toDomain(),
+            image: $this->image?->url !== null ? $this->image->toDomain() : null,
             customFields: $this->customFields,
         );
     }
