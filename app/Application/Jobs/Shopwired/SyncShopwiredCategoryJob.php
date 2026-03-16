@@ -30,8 +30,10 @@ final class SyncShopwiredCategoryJob extends AbstractSyncShopwiredEntityJob
         CategoryRepositoryInterface $repo,
         LoggerInterface $logger,
     ): void {
-        $category = $client->getCategoryById($this->entityId->value);
-        $this->executeSync($category, $repo, $logger);
+        $this->withErrorHandling($logger, function () use ($client, $repo): void {
+            $category = $client->getCategoryById($this->entityId->value);
+            $repo->save($category);
+        });
     }
 
     protected function uniqueIdPrefix(): string

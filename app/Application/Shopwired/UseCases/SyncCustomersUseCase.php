@@ -12,7 +12,7 @@ use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
-use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Domain\Exceptions\Api\ResourceNotAvailableException;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -66,7 +66,7 @@ final readonly class SyncCustomersUseCase
      *
      * @throws AuthenticationExpiredException When ShopWired credentials invalid/expired
      * @throws InvalidApiRequestException When request parameters are invalid
-     * @throws ResourceNotFoundException When requested resource not found (404)
+     * @throws ResourceNotAvailableException When requested resource not found (404)
      * @throws ExternalServiceUnavailableException When ShopWired API unavailable
      * @throws InvalidApiResponseException When API response parsing fails
      */

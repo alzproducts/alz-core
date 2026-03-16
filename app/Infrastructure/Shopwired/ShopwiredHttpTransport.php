@@ -8,7 +8,7 @@ use App\Domain\Exceptions\Api\AbstractApiException;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
-use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Domain\Exceptions\Api\ResourceNotAvailableException;
 use App\Infrastructure\Shopwired\Contracts\ShopwiredTransportInterface;
 use App\Infrastructure\Support\ApiRetryStrategy;
 use App\Infrastructure\Support\RetryAfterParser;
@@ -66,7 +66,7 @@ final readonly class ShopwiredHttpTransport implements ShopwiredTransportInterfa
      *
      * @throws InvalidApiRequestException When request parameters are invalid (400)
      * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
-     * @throws ResourceNotFoundException When resource not found (404)
+     * @throws ResourceNotAvailableException When resource not found (404) - treated as transient (consistency lag)
      * @throws ExternalServiceUnavailableException When API unavailable, rate limited, or connection fails
      */
     public function get(
@@ -101,7 +101,7 @@ final readonly class ShopwiredHttpTransport implements ShopwiredTransportInterfa
      *
      * @throws InvalidApiRequestException When request parameters are invalid (400)
      * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
-     * @throws ResourceNotFoundException When resource not found (404)
+     * @throws ResourceNotAvailableException When resource not found (404) - treated as transient (consistency lag)
      * @throws ExternalServiceUnavailableException When API unavailable, rate limited, or connection fails
      */
     public function post(
@@ -136,7 +136,7 @@ final readonly class ShopwiredHttpTransport implements ShopwiredTransportInterfa
      *
      * @throws InvalidApiRequestException When request parameters are invalid (400)
      * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
-     * @throws ResourceNotFoundException When resource not found (404)
+     * @throws ResourceNotAvailableException When resource not found (404) - treated as transient (consistency lag)
      * @throws ExternalServiceUnavailableException When API unavailable, rate limited, or connection fails
      */
     public function put(
@@ -163,7 +163,7 @@ final readonly class ShopwiredHttpTransport implements ShopwiredTransportInterfa
      * Fetch a single resource by ID with proper 404 context.
      *
      * Use this for single-resource fetches (getOrderById, getCustomerById, etc.)
-     * where 404 should throw ResourceNotFoundException with meaningful context.
+     * where 404 should throw ResourceNotAvailableException with meaningful context.
      *
      * @param string $resourceType Resource type for exception context (e.g., 'Order', 'Customer')
      * @param int|string $id Resource ID
@@ -174,7 +174,7 @@ final readonly class ShopwiredHttpTransport implements ShopwiredTransportInterfa
      *
      * @throws InvalidApiRequestException When request parameters are invalid (400)
      * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
-     * @throws ResourceNotFoundException When resource not found (404) - with proper context
+     * @throws ResourceNotAvailableException When resource not found (404) - treated as transient (consistency lag) - with proper context
      * @throws ExternalServiceUnavailableException When API unavailable, rate limited, or connection fails
      */
     public function getResource(
@@ -185,9 +185,9 @@ final readonly class ShopwiredHttpTransport implements ShopwiredTransportInterfa
     ): Response {
         try {
             return $this->get("{$endpoint}/{$id}", $query);
-        } catch (ResourceNotFoundException $e) {
+        } catch (ResourceNotAvailableException $e) {
             // Re-throw with proper resource context instead of generic endpoint
-            throw new ResourceNotFoundException(self::SERVICE_NAME, $resourceType, $id, $e);
+            throw new ResourceNotAvailableException(self::SERVICE_NAME, $resourceType, $id, retryAfter: 30, previous: $e);
         }
     }
 
@@ -247,7 +247,7 @@ final readonly class ShopwiredHttpTransport implements ShopwiredTransportInterfa
      *
      * @throws InvalidApiRequestException When request parameters are invalid (400)
      * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
-     * @throws ResourceNotFoundException When resource not found (404)
+     * @throws ResourceNotAvailableException When resource not found (404) - treated as transient (consistency lag)
      * @throws ExternalServiceUnavailableException When API unavailable or connection fails
      */
     private function handlePoolResult(string $key, Response|Throwable $result, array $requests): Response
@@ -367,7 +367,7 @@ final readonly class ShopwiredHttpTransport implements ShopwiredTransportInterfa
     private function handleRequestException(
         RequestException $e,
         string $endpoint,
-    ): InvalidApiRequestException|AuthenticationExpiredException|ResourceNotFoundException|ExternalServiceUnavailableException {
+    ): InvalidApiRequestException|AuthenticationExpiredException|ResourceNotAvailableException|ExternalServiceUnavailableException {
         return match ($e->response->status()) {
             400, 422 => $this->handleBadRequest($e, $endpoint),
             401, 403 => $this->handleAuthenticationFailure($e),
@@ -420,16 +420,16 @@ final readonly class ShopwiredHttpTransport implements ShopwiredTransportInterfa
     }
 
     /**
-     * Handle 404 Not Found (resource doesn't exist - permanent).
+     * Handle 404 Not Found — treated as transient (possible consistency lag).
      */
-    private function handleNotFound(RequestException $e, string $endpoint): ResourceNotFoundException
+    private function handleNotFound(RequestException $e, string $endpoint): ResourceNotAvailableException
     {
-        Log::warning(self::SERVICE_NAME . ' API resource not found', [
+        Log::warning(self::SERVICE_NAME . ' API returned 404, treating as transient (possible consistency lag)', [
             'endpoint' => $endpoint,
             'error' => $e->getMessage(),
         ]);
 
-        return new ResourceNotFoundException(self::SERVICE_NAME, $endpoint, 'unknown');
+        return new ResourceNotAvailableException(self::SERVICE_NAME, $endpoint, 'unknown', retryAfter: 30, previous: $e);
     }
 
     /**

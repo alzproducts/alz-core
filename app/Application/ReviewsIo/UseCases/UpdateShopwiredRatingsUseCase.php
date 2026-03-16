@@ -11,7 +11,7 @@ use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
-use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Domain\Exceptions\Api\ResourceNotAvailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use Psr\Log\LoggerInterface;
@@ -42,6 +42,7 @@ final readonly class UpdateShopwiredRatingsUseCase
      * @throws AuthenticationExpiredException When credentials invalid
      * @throws InvalidApiRequestException When request invalid
      * @throws InvalidApiResponseException When response parsing fails
+     * @throws ResourceNotAvailableException When ShopWired resource not available
      */
     public function execute(): RatingsUpdateResult
     {
@@ -72,8 +73,8 @@ final readonly class UpdateShopwiredRatingsUseCase
                     self::FIELD_NUM_RATINGS => (string) $change->newNumRatings,
                 ]);
                 $updated++;
-            } catch (ResourceNotFoundException) {
-                $this->logger->warning('Product not found in ShopWired', [
+            } catch (ResourceNotAvailableException) {
+                $this->logger->warning('Product not available in ShopWired', [
                     'product_id' => $change->productId->value,
                 ]);
                 $failed++;
