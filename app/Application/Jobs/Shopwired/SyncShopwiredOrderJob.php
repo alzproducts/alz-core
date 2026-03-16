@@ -30,8 +30,10 @@ final class SyncShopwiredOrderJob extends AbstractSyncShopwiredEntityJob
         OrderRepositoryInterface $repo,
         LoggerInterface $logger,
     ): void {
-        $order = $client->getOrderById($this->entityId->value);
-        $this->executeSync($order, $repo, $logger);
+        $this->withErrorHandling($logger, function () use ($client, $repo): void {
+            $order = $client->getOrderById($this->entityId->value);
+            $repo->save($order);
+        });
     }
 
     protected function uniqueIdPrefix(): string

@@ -11,7 +11,7 @@ use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
-use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Domain\Exceptions\Api\ResourceNotAvailableException;
 use App\Infrastructure\Shopwired\Contracts\ShopwiredTransportInterface;
 use App\Infrastructure\Shopwired\Enums\OrderSort;
 use App\Infrastructure\Shopwired\Mappers\OrderLifecycleStatusMapper;
@@ -138,7 +138,7 @@ final readonly class OrderClient implements OrderClientInterface
      *
      * @throws InvalidApiRequestException When request parameters are invalid (400)
      * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
-     * @throws ResourceNotFoundException When resource not found (404)
+     * @throws ResourceNotAvailableException When resource not found (404)
      * @throws ExternalServiceUnavailableException When API unavailable or connection fails
      * @throws InvalidApiResponseException When response parsing fails (API contract violation)
      */
@@ -164,7 +164,7 @@ final readonly class OrderClient implements OrderClientInterface
      *
      * @throws InvalidApiRequestException When request parameters are invalid (400)
      * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
-     * @throws ResourceNotFoundException When resource not found (404)
+     * @throws ResourceNotAvailableException When resource not found (404)
      * @throws ExternalServiceUnavailableException When API unavailable or connection fails
      * @throws InvalidApiResponseException When response parsing fails (API contract violation)
      */
@@ -188,7 +188,7 @@ final readonly class OrderClient implements OrderClientInterface
     /**
      * @throws InvalidApiRequestException When request parameters are invalid (400)
      * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
-     * @throws ResourceNotFoundException When order not found (404)
+     * @throws ResourceNotAvailableException When order not found (404)
      * @throws ExternalServiceUnavailableException When API unavailable or connection fails
      * @throws InvalidApiResponseException When response parsing fails (API contract violation)
      */
@@ -212,7 +212,7 @@ final readonly class OrderClient implements OrderClientInterface
     /**
      * @throws InvalidApiRequestException When request parameters are invalid (400)
      * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
-     * @throws ResourceNotFoundException When resource not found (404)
+     * @throws ResourceNotAvailableException When resource not found (404)
      * @throws ExternalServiceUnavailableException When API unavailable or connection fails
      * @throws InvalidApiResponseException When response parsing fails (API contract violation)
      */
@@ -226,7 +226,7 @@ final readonly class OrderClient implements OrderClientInterface
     /**
      * @throws InvalidApiRequestException When request parameters are invalid (400)
      * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
-     * @throws ResourceNotFoundException When resource not found (404)
+     * @throws ResourceNotAvailableException When resource not found (404)
      * @throws ExternalServiceUnavailableException When API unavailable or connection fails
      * @throws InvalidApiResponseException When response parsing fails (API contract violation)
      */
@@ -245,7 +245,7 @@ final readonly class OrderClient implements OrderClientInterface
      *
      * @throws InvalidApiRequestException When request parameters are invalid (400)
      * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
-     * @throws ResourceNotFoundException When resource not found (404)
+     * @throws ResourceNotAvailableException When resource not found (404)
      * @throws ExternalServiceUnavailableException When API unavailable or connection fails
      * @throws InvalidApiResponseException When response parsing fails (API contract violation)
      */
@@ -263,7 +263,7 @@ final readonly class OrderClient implements OrderClientInterface
     /**
      * @throws InvalidApiRequestException When request parameters are invalid (400)
      * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
-     * @throws ResourceNotFoundException When order not found (404)
+     * @throws ResourceNotAvailableException When order not found (404)
      * @throws ExternalServiceUnavailableException When API unavailable or connection fails
      */
     public function updateOrderStatus(
@@ -295,7 +295,7 @@ final readonly class OrderClient implements OrderClientInterface
      *
      * @throws InvalidApiRequestException When request parameters are invalid (400)
      * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
-     * @throws ResourceNotFoundException When resource not found (404)
+     * @throws ResourceNotAvailableException When resource not found (404)
      * @throws ExternalServiceUnavailableException When API unavailable or connection fails
      * @throws InvalidApiResponseException When response parsing fails (API contract violation)
      */
@@ -324,7 +324,7 @@ final readonly class OrderClient implements OrderClientInterface
      *
      * @throws InvalidApiRequestException When request parameters are invalid (400)
      * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
-     * @throws ResourceNotFoundException When resource not found (404)
+     * @throws ResourceNotAvailableException When resource not found (404)
      * @throws ExternalServiceUnavailableException When API unavailable or connection fails
      * @throws InvalidApiResponseException When response parsing fails (API contract violation)
      */

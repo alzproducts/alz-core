@@ -11,7 +11,7 @@ use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
-use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Domain\Exceptions\Api\ResourceNotAvailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 
@@ -37,7 +37,7 @@ final readonly class ProductSyncService
      *
      * @return Product The refreshed product
      *
-     * @throws ResourceNotFoundException When product not found in ShopWired
+     * @throws ResourceNotAvailableException When product not found in ShopWired
      * @throws AuthenticationExpiredException When ShopWired credentials invalid
      * @throws InvalidApiRequestException When request parameters invalid
      * @throws InvalidApiResponseException When API response parsing fails

@@ -8,7 +8,7 @@ use App\Application\Contracts\Shopwired\ConnectivityClientInterface;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
-use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Domain\Exceptions\Api\ResourceNotAvailableException;
 use App\Infrastructure\Shopwired\Contracts\ShopwiredTransportInterface;
 
 /**
@@ -47,7 +47,7 @@ final readonly class ShopwiredClient implements ConnectivityClientInterface
      *
      * @throws InvalidApiRequestException When request parameters are invalid (400)
      * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
-     * @throws ResourceNotFoundException When resource not found (404)
+     * @throws ResourceNotAvailableException When resource not found (404) - treated as transient (consistency lag)
      * @throws ExternalServiceUnavailableException When API unavailable or connection fails
      */
     public function verifyConnectivity(): void

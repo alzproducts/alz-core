@@ -30,8 +30,10 @@ final class SyncShopwiredProductJob extends AbstractSyncShopwiredEntityJob
         ProductRepositoryInterface $repo,
         LoggerInterface $logger,
     ): void {
-        $product = $client->getProductById($this->entityId->value);
-        $this->executeSync($product, $repo, $logger);
+        $this->withErrorHandling($logger, function () use ($client, $repo): void {
+            $product = $client->getProductById($this->entityId->value);
+            $repo->save($product);
+        });
     }
 
     protected function uniqueIdPrefix(): string

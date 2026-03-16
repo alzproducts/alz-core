@@ -8,7 +8,7 @@ use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
-use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Domain\Exceptions\Api\ResourceNotAvailableException;
 
 /**
  * Client for updating ShopWired products.
@@ -29,7 +29,7 @@ interface ProductUpdateClientInterface
      * @param array<string, string|int|bool|null> $customFields Field name => value pairs
      *                                                          (null removes the field)
      *
-     * @throws ResourceNotFoundException When product not found (404)
+     * @throws ResourceNotAvailableException When product not found (404)
      * @throws InvalidApiRequestException When request parameters are invalid (400)
      * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
      * @throws ExternalServiceUnavailableException When API unavailable or connection fails
@@ -48,7 +48,7 @@ interface ProductUpdateClientInterface
      * @param array<int, list<string>|null> $filters optionNo => values pairs
      *                                               (null removes the filter)
      *
-     * @throws ResourceNotFoundException When product not found (404)
+     * @throws ResourceNotAvailableException When product not found (404)
      * @throws InvalidApiRequestException When request parameters are invalid (400)
      * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
      * @throws ExternalServiceUnavailableException When API unavailable or connection fails
