@@ -92,6 +92,39 @@ final class SyncBrandUseCaseTest extends TestCase
         );
     }
 
+    #[Test]
+    public function it_defaults_to_empty_present_embeds(): void
+    {
+        $brand = self::buildBrand();
+        $eventTime = new DateTimeImmutable('now');
+
+        $this->idempotency->shouldReceive('isSuperseded')
+            ->once()
+            ->andReturnFalse();
+
+        $this->repository->shouldReceive('saveFromWebhook')
+            ->once()
+            ->with($brand, []);
+
+        $this->idempotency->shouldReceive('record')
+            ->once();
+
+        $this->logger->shouldReceive('info')
+            ->once()
+            ->with('Processing brand webhook', Mockery::type('array'));
+
+        $this->logger->shouldReceive('info')
+            ->once()
+            ->with('Brand webhook processed — sync queued', Mockery::type('array'));
+
+        $this->useCase->execute(
+            eventTime: $eventTime,
+            webhookId: 1,
+            topic: WebhookTopic::BrandUpdated,
+            brand: $brand,
+        );
+    }
+
     // ========================================================================
     // Staleness Guard
     // ========================================================================
