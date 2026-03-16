@@ -20,6 +20,7 @@ use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
+use App\Domain\Exceptions\Api\ResourceNotAvailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
@@ -61,7 +62,8 @@ final readonly class GenerateVariantSkusUseCase
     /**
      * Execute variant SKU generation.
      *
-     * @throws ResourceNotFoundException When product or template not found
+     * @throws ResourceNotAvailableException When product not found in ShopWired
+     * @throws ResourceNotFoundException When template not found in Linnworks
      * @throws AuthenticationExpiredException When credentials invalid
      * @throws ExternalServiceUnavailableException When APIs unavailable
      * @throws InvalidApiRequestException When request parameters invalid

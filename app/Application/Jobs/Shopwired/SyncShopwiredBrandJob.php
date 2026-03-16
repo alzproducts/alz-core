@@ -30,8 +30,10 @@ final class SyncShopwiredBrandJob extends AbstractSyncShopwiredEntityJob
         BrandRepositoryInterface $repo,
         LoggerInterface $logger,
     ): void {
-        $brand = $client->getBrandById($this->entityId->value);
-        $this->executeSync($brand, $repo, $logger);
+        $this->withErrorHandling($logger, function () use ($client, $repo): void {
+            $brand = $client->getBrandById($this->entityId->value);
+            $repo->save($brand);
+        });
     }
 
     protected function uniqueIdPrefix(): string

@@ -16,6 +16,7 @@ use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
+use App\Domain\Exceptions\Api\ResourceNotAvailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Data\InvalidSkuException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
@@ -69,7 +70,8 @@ final readonly class UpdateSkuUseCase
      * @throws SkuGenerationFailedException When auto-generation fails
      * @throws LockAcquisitionException When SKU generation lock cannot be acquired
      * @throws SkuUpdateFailedException When compensation fails (systems out of sync - DO NOT RETRY)
-     * @throws ResourceNotFoundException When SKU not found in either system
+     * @throws ResourceNotFoundException When SKU not found in Linnworks
+     * @throws ResourceNotAvailableException When SKU not found in ShopWired
      * @throws AuthenticationExpiredException When credentials invalid
      * @throws ExternalServiceUnavailableException When services unavailable
      * @throws InvalidApiRequestException When request parameters invalid
@@ -127,7 +129,7 @@ final readonly class UpdateSkuUseCase
                 identifier: $oldSkuValue,
                 newSku: $newSku,
             ));
-        } catch (ResourceNotFoundException|InvalidApiRequestException|InvalidApiResponseException|AuthenticationExpiredException|ExternalServiceUnavailableException $e) {
+        } catch (ResourceNotFoundException|ResourceNotAvailableException|InvalidApiRequestException|InvalidApiResponseException|AuthenticationExpiredException|ExternalServiceUnavailableException $e) {
             $this->compensateAndRethrow($auditId, $command->oldSku, $newSku, $e);
         }
 
@@ -167,6 +169,7 @@ final readonly class UpdateSkuUseCase
      *
      * @throws SkuUpdateFailedException When compensation fails (systems out of sync)
      * @throws ResourceNotFoundException Re-thrown when compensation succeeds
+     * @throws ResourceNotAvailableException Re-thrown when compensation succeeds
      * @throws InvalidApiRequestException Re-thrown when compensation succeeds
      * @throws InvalidApiResponseException Re-thrown when compensation succeeds
      * @throws AuthenticationExpiredException Re-thrown when compensation succeeds
@@ -177,7 +180,7 @@ final readonly class UpdateSkuUseCase
         string $auditId,
         string $oldSku,
         Sku $newSku,
-        ResourceNotFoundException|InvalidApiRequestException|InvalidApiResponseException|AuthenticationExpiredException|ExternalServiceUnavailableException $originalError,
+        ResourceNotFoundException|ResourceNotAvailableException|InvalidApiRequestException|InvalidApiResponseException|AuthenticationExpiredException|ExternalServiceUnavailableException $originalError,
     ): never {
         $this->logger->warning('ShopWired update failed, attempting Linnworks compensation', [
             'old_sku' => $oldSku,

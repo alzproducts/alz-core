@@ -7,7 +7,7 @@ namespace Tests\Feature\Infrastructure\Api;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
-use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Domain\Exceptions\Api\ResourceNotAvailableException;
 use App\Infrastructure\Shopwired\ShopwiredClient;
 use App\Infrastructure\Shopwired\ShopwiredConfig;
 use App\Infrastructure\Shopwired\ShopwiredHttpTransport;
@@ -196,7 +196,7 @@ final class ShopwiredClientTest extends TestCase
     {
         Http::fake(['*' => Http::response(['error' => 'Not Found'], 404)]);
 
-        $this->expectException(ResourceNotFoundException::class);
+        $this->expectException(ResourceNotAvailableException::class);
 
         $this->client->verifyConnectivity();
     }

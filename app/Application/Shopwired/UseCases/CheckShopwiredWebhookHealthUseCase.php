@@ -10,7 +10,7 @@ use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
-use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Domain\Exceptions\Api\ResourceNotAvailableException;
 use App\Domain\Notifications\Events\AdminAlertEvent;
 use Illuminate\Contracts\Events\Dispatcher;
 use Psr\Log\LoggerInterface;
@@ -35,7 +35,7 @@ final readonly class CheckShopwiredWebhookHealthUseCase
     /**
      * @throws InvalidApiRequestException When request parameters are invalid
      * @throws AuthenticationExpiredException When credentials invalid/expired
-     * @throws ResourceNotFoundException When resource not found
+     * @throws ResourceNotAvailableException When resource not found
      * @throws ExternalServiceUnavailableException When API unavailable
      * @throws InvalidApiResponseException When response parsing fails
      */
