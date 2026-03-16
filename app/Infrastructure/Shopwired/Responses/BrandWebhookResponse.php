@@ -4,98 +4,100 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Shopwired\Responses;
 
-use App\Domain\Catalog\ValueObjects\Category as DomainCategory;
+use App\Domain\Catalog\ValueObjects\Brand as DomainBrand;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
-use App\Infrastructure\Contracts\DomainConvertibleInterface;
 use DateMalformedStringException;
 use DateTimeImmutable;
-use Spatie\LaravelData\Attributes\DataCollectionOf;
 use Spatie\LaravelData\Attributes\MapInputName;
 use Spatie\LaravelData\Data;
 use Spatie\LaravelData\Mappers\SnakeCaseMapper;
+use Spatie\LaravelData\Optional;
 
 /**
- * ShopWired API Response: Category
+ * ShopWired Webhook Response: Brand.
  *
- * Infrastructure DTO for parsing category API responses.
- * Handles snake_case → camelCase mapping automatically.
+ * Webhook payloads don't include embed data (customFields).
+ * Uses Spatie Optional for embed fields so missing data is detected
+ * rather than silently defaulting to empty arrays.
  *
- * @see https://shopwired.readme.io/docs/categories
+ * @see BrandResponse for the strict API client DTO (all embeds required)
  */
 #[MapInputName(SnakeCaseMapper::class)]
-final class CategoryResponse extends Data implements DomainConvertibleInterface
+final class BrandWebhookResponse extends Data
 {
     /**
-     * @param list<CategoryResponse> $parents Parent categories (closest first, root last)
-     * @param array<string, mixed> $customFields Custom field key-value pairs (requires custom_fields embed)
+     * @param array<string, mixed> $customFields
      */
     public function __construct(
+        // Core fields — always present in webhooks
         public readonly int $id,
         public readonly string $createdAt,
         public readonly string $title,
         public readonly ?string $description,
-        public readonly ?string $description2,
         public readonly string $slug,
         public readonly string $url,
         public readonly bool $active,
         public readonly bool $featured,
-        public readonly bool $tradeOnly,
         public readonly int $sortOrder,
         public readonly ?string $metaTitle,
-        public readonly ?string $metaDescription,
         public readonly ?string $metaKeywords,
-        public readonly bool $metaNoIndex,
+        public readonly ?string $metaDescription,
 
         // Standard nullable field (not an embed)
-        public readonly ?CategoryImageResponse $image = null,
+        public readonly ?BrandImageResponse $image = null,
 
-        // Embeds: require = [] defaults because:
-        // - parents: nested parent objects don't recursively include their own parents
-        // - customFields: API omits key entirely when entity has no custom fields defined
-        #[DataCollectionOf(CategoryResponse::class)]
-        public readonly array $parents = [],
-        public readonly array $customFields = [],
+        // Embed field — Optional (may be absent from webhooks)
+        public readonly array|Optional $customFields = new Optional(),
     ) {}
+
+    /**
+     * Returns the list of embed names that were actually present in the payload.
+     *
+     * @return list<string> Embed names (matching ShopWired API embed names)
+     */
+    public function presentEmbeds(): array
+    {
+        $embeds = [];
+
+        if (! $this->customFields instanceof Optional) {
+            $embeds[] = 'custom_fields';
+        }
+
+        return $embeds;
+    }
 
     /**
      * Convert to Domain Value Object.
      *
      * @throws InvalidApiResponseException When date format is invalid
      */
-    public function toDomain(): DomainCategory
+    public function toDomain(): DomainBrand
     {
         try {
             $createdAt = new DateTimeImmutable($this->createdAt);
         } catch (DateMalformedStringException $e) {
             throw new InvalidApiResponseException(
                 serviceName: 'Shopwired',
-                message: "Invalid date format in category {$this->id}",
+                message: "Invalid date format in brand {$this->id}",
                 previous: $e,
             );
         }
 
-        return new DomainCategory(
+        return new DomainBrand(
             id: $this->id,
             createdAt: $createdAt,
             title: $this->title,
             description: $this->description,
-            description2: $this->description2,
             slug: $this->slug,
             url: $this->url,
             active: $this->active,
             featured: $this->featured,
-            tradeOnly: $this->tradeOnly,
             sortOrder: $this->sortOrder,
             metaTitle: $this->metaTitle,
-            metaDescription: $this->metaDescription,
             metaKeywords: $this->metaKeywords,
-            metaNoIndex: $this->metaNoIndex,
+            metaDescription: $this->metaDescription,
             image: $this->image?->toDomain(),
-            parentIds: \array_map(
-                static fn(CategoryResponse $parent): int => $parent->id,
-                $this->parents,
-            ),
-            customFields: $this->customFields,
+            customFields: $this->customFields instanceof Optional ? [] : $this->customFields,
         );
     }
 }

@@ -161,6 +161,7 @@ return static function (Config $config): void {
                                'Exception',
                                'Throwable',
                                'Psr\SimpleCache\CacheException',
+                               'Override',
                            ],
                        ),
                    )

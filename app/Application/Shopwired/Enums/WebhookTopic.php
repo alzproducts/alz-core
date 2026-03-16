@@ -29,4 +29,10 @@ enum WebhookTopic: string
     case CustomerCreated = 'customer.created';
     case CustomerUpdated = 'customer.updated';
     case CustomerDeleted = 'customer.deleted';
+    case CategoryCreated = 'category.created';
+    case CategoryUpdated = 'category.updated';
+    case CategoryDeleted = 'category.deleted';
+    case BrandCreated = 'brand.created';
+    case BrandUpdated = 'brand.updated';
+    case BrandDeleted = 'brand.deleted';
 }

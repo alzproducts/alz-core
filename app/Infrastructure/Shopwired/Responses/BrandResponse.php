@@ -4,29 +4,27 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Shopwired\Responses;
 
-use App\Domain\Catalog\ValueObjects\Category as DomainCategory;
+use App\Domain\Catalog\ValueObjects\Brand as DomainBrand;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Infrastructure\Contracts\DomainConvertibleInterface;
 use DateMalformedStringException;
 use DateTimeImmutable;
-use Spatie\LaravelData\Attributes\DataCollectionOf;
 use Spatie\LaravelData\Attributes\MapInputName;
 use Spatie\LaravelData\Data;
 use Spatie\LaravelData\Mappers\SnakeCaseMapper;
 
 /**
- * ShopWired API Response: Category
+ * ShopWired API Response: Brand
  *
- * Infrastructure DTO for parsing category API responses.
+ * Infrastructure DTO for parsing brand API responses.
  * Handles snake_case → camelCase mapping automatically.
  *
- * @see https://shopwired.readme.io/docs/categories
+ * @see https://shopwired.readme.io/docs/brands
  */
 #[MapInputName(SnakeCaseMapper::class)]
-final class CategoryResponse extends Data implements DomainConvertibleInterface
+final class BrandResponse extends Data implements DomainConvertibleInterface
 {
     /**
-     * @param list<CategoryResponse> $parents Parent categories (closest first, root last)
      * @param array<string, mixed> $customFields Custom field key-value pairs (requires custom_fields embed)
      */
     public function __construct(
@@ -34,26 +32,20 @@ final class CategoryResponse extends Data implements DomainConvertibleInterface
         public readonly string $createdAt,
         public readonly string $title,
         public readonly ?string $description,
-        public readonly ?string $description2,
         public readonly string $slug,
         public readonly string $url,
         public readonly bool $active,
         public readonly bool $featured,
-        public readonly bool $tradeOnly,
         public readonly int $sortOrder,
         public readonly ?string $metaTitle,
-        public readonly ?string $metaDescription,
         public readonly ?string $metaKeywords,
-        public readonly bool $metaNoIndex,
+        public readonly ?string $metaDescription,
 
         // Standard nullable field (not an embed)
-        public readonly ?CategoryImageResponse $image = null,
+        public readonly ?BrandImageResponse $image = null,
 
-        // Embeds: require = [] defaults because:
-        // - parents: nested parent objects don't recursively include their own parents
-        // - customFields: API omits key entirely when entity has no custom fields defined
-        #[DataCollectionOf(CategoryResponse::class)]
-        public readonly array $parents = [],
+        // Embed: customFields requires embed=custom_fields
+        // API omits key entirely when entity has no custom fields defined
         public readonly array $customFields = [],
     ) {}
 
@@ -62,39 +54,32 @@ final class CategoryResponse extends Data implements DomainConvertibleInterface
      *
      * @throws InvalidApiResponseException When date format is invalid
      */
-    public function toDomain(): DomainCategory
+    public function toDomain(): DomainBrand
     {
         try {
             $createdAt = new DateTimeImmutable($this->createdAt);
         } catch (DateMalformedStringException $e) {
             throw new InvalidApiResponseException(
                 serviceName: 'Shopwired',
-                message: "Invalid date format in category {$this->id}",
+                message: "Invalid date format in brand {$this->id}",
                 previous: $e,
             );
         }
 
-        return new DomainCategory(
+        return new DomainBrand(
             id: $this->id,
             createdAt: $createdAt,
             title: $this->title,
             description: $this->description,
-            description2: $this->description2,
             slug: $this->slug,
             url: $this->url,
             active: $this->active,
             featured: $this->featured,
-            tradeOnly: $this->tradeOnly,
             sortOrder: $this->sortOrder,
             metaTitle: $this->metaTitle,
-            metaDescription: $this->metaDescription,
             metaKeywords: $this->metaKeywords,
-            metaNoIndex: $this->metaNoIndex,
+            metaDescription: $this->metaDescription,
             image: $this->image?->toDomain(),
-            parentIds: \array_map(
-                static fn(CategoryResponse $parent): int => $parent->id,
-                $this->parents,
-            ),
             customFields: $this->customFields,
         );
     }

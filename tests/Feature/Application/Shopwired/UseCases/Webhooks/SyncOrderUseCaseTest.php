@@ -7,6 +7,7 @@ namespace Tests\Feature\Application\Shopwired\UseCases\Webhooks;
 use App\Application\Contracts\Shopwired\OrderRepositoryInterface;
 use App\Application\Contracts\Shopwired\WebhookIdempotencyServiceInterface;
 use App\Application\Shopwired\Enums\WebhookTopic;
+use App\Application\Shopwired\UseCases\Webhooks\AbstractSyncEntityWebhookUseCase;
 use App\Application\Shopwired\UseCases\Webhooks\SyncOrderUseCase;
 use App\Domain\Catalog\Order\Enums\PreOrderStatus;
 use App\Domain\Catalog\Order\ValueObjects\Order;
@@ -32,6 +33,7 @@ use Tests\TestCase;
  * duplicate webhook payloads from triggering unnecessary DB writes and jobs.
  */
 #[CoversClass(SyncOrderUseCase::class)]
+#[CoversClass(AbstractSyncEntityWebhookUseCase::class)]
 final class SyncOrderUseCaseTest extends TestCase
 {
     private const int STALENESS_HOURS = 24;
