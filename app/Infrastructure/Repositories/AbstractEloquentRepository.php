@@ -266,4 +266,30 @@ abstract class AbstractEloquentRepository implements RepositoryWriteInterface
             failedReferences: $failedReferences,
         );
     }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Delete Operations
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Delete records whose column value is NOT in the provided list.
+     *
+     * Convenience wrapper for full-replace reconciliation pattern.
+     *
+     * @param list<int|string> $idsToKeep
+     *
+     * @return int Number of rows deleted
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    protected function reconcileDelete(string $column, array $idsToKeep): int
+    {
+        return $this->eloquentGateway->reconcileWhereNotIn(
+            $this->getModelClass(),
+            $column,
+            $idsToKeep,
+        );
+    }
 }

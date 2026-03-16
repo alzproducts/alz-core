@@ -10,11 +10,13 @@ use App\Application\Contracts\Linnworks\InventoryClientInterface;
 use App\Application\Contracts\Linnworks\InventoryUpdateClientInterface;
 use App\Application\Contracts\Linnworks\StockDashboardsClientInterface;
 use App\Application\Contracts\Linnworks\StockItemRepositoryInterface;
+use App\Application\Contracts\Linnworks\SupplierRepositoryInterface;
 use App\Application\Contracts\LockableCacheInterface;
 use App\Infrastructure\Linnworks\LinnworksClientFactory;
 use App\Infrastructure\Linnworks\LinnworksConfig;
 use App\Infrastructure\Linnworks\LinnworksSessionManager;
 use App\Infrastructure\Linnworks\Repositories\EloquentStockItemRepository;
+use App\Infrastructure\Linnworks\Repositories\EloquentSupplierRepository;
 use App\Infrastructure\Persistence\EloquentGateway;
 use Illuminate\Contracts\Container\Container;
 use Illuminate\Contracts\Support\DeferrableProvider;
@@ -89,6 +91,15 @@ final class LinnworksServiceProvider extends ServiceProvider implements Deferrab
                 $app->make(EloquentGateway::class),
             ),
         );
+
+        // Supplier repository - for persisting synced supplier directory
+        $this->app->singleton(
+            SupplierRepositoryInterface::class,
+            static fn(Container $app): SupplierRepositoryInterface => new EloquentSupplierRepository(
+                $app->make(DatabaseGatewayInterface::class),
+                $app->make(EloquentGateway::class),
+            ),
+        );
     }
 
     /**
@@ -106,6 +117,7 @@ final class LinnworksServiceProvider extends ServiceProvider implements Deferrab
             LinnworksSessionManager::class,
             StockDashboardsClientInterface::class,
             StockItemRepositoryInterface::class,
+            SupplierRepositoryInterface::class,
         ];
     }
 
