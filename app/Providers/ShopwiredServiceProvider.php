@@ -5,7 +5,14 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Application\Contracts\Shopwired\BasicProductUpdateClientInterface;
+use App\Application\Contracts\Shopwired\BrandClientInterface;
+use App\Application\Contracts\Shopwired\BrandRepositoryInterface;
+use App\Application\Contracts\Shopwired\BrandWebhookEventResolverInterface;
+use App\Application\Contracts\Shopwired\BrandWebhookParserInterface;
 use App\Application\Contracts\Shopwired\CategoryClientInterface;
+use App\Application\Contracts\Shopwired\CategoryRepositoryInterface;
+use App\Application\Contracts\Shopwired\CategoryWebhookEventResolverInterface;
+use App\Application\Contracts\Shopwired\CategoryWebhookParserInterface;
 use App\Application\Contracts\Shopwired\ConnectivityClientInterface;
 use App\Application\Contracts\Shopwired\CustomerClientInterface;
 use App\Application\Contracts\Shopwired\CustomerRepositoryInterface;
@@ -29,6 +36,8 @@ use App\Application\Contracts\Shopwired\StockClientInterface;
 use App\Application\Contracts\Shopwired\WebhookClientInterface;
 use App\Application\Contracts\Shopwired\WebhookIdempotencyServiceInterface;
 use App\Application\Shopwired\UseCases\Webhooks\CreateOrderRefundUseCase;
+use App\Application\Shopwired\UseCases\Webhooks\SyncBrandUseCase;
+use App\Application\Shopwired\UseCases\Webhooks\SyncCategoryUseCase;
 use App\Application\Shopwired\UseCases\Webhooks\SyncCustomerUseCase;
 use App\Application\Shopwired\UseCases\Webhooks\SyncOrderUseCase;
 use App\Application\Shopwired\UseCases\Webhooks\SyncProductUseCase;
@@ -42,14 +51,20 @@ use App\Infrastructure\Shopwired\Factories\ProductCustomFieldFactory;
 use App\Infrastructure\Shopwired\Factories\ProductDomainFactory;
 use App\Infrastructure\Shopwired\Factories\ProductFilterFactory;
 use App\Infrastructure\Shopwired\Mappers\ProductModelMapper;
+use App\Infrastructure\Shopwired\Parsers\ShopwiredBrandWebhookParser;
+use App\Infrastructure\Shopwired\Parsers\ShopwiredCategoryWebhookParser;
 use App\Infrastructure\Shopwired\Parsers\ShopwiredCustomerWebhookParser;
 use App\Infrastructure\Shopwired\Parsers\ShopwiredOrderWebhookParser;
 use App\Infrastructure\Shopwired\Parsers\ShopwiredProductWebhookParser;
+use App\Infrastructure\Shopwired\Repositories\EloquentBrandRepository;
+use App\Infrastructure\Shopwired\Repositories\EloquentCategoryRepository;
 use App\Infrastructure\Shopwired\Repositories\EloquentCustomerRepository;
 use App\Infrastructure\Shopwired\Repositories\EloquentCustomFieldRepository;
 use App\Infrastructure\Shopwired\Repositories\EloquentFilterGroupRepository;
 use App\Infrastructure\Shopwired\Repositories\EloquentOrderRepository;
 use App\Infrastructure\Shopwired\Repositories\EloquentProductRepository;
+use App\Infrastructure\Shopwired\Resolvers\ShopwiredBrandWebhookEventResolver;
+use App\Infrastructure\Shopwired\Resolvers\ShopwiredCategoryWebhookEventResolver;
 use App\Infrastructure\Shopwired\Resolvers\ShopwiredCustomerWebhookEventResolver;
 use App\Infrastructure\Shopwired\Resolvers\ShopwiredOrderWebhookEventResolver;
 use App\Infrastructure\Shopwired\Resolvers\ShopwiredProductWebhookEventResolver;
@@ -89,6 +104,12 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
         $this->app->singleton(
             ConnectivityClientInterface::class,
             static fn(): ConnectivityClientInterface => ShopwiredClientFactory::createConnectivityClient(),
+        );
+
+        // Brand client - for brand operations
+        $this->app->singleton(
+            BrandClientInterface::class,
+            static fn(): BrandClientInterface => ShopwiredClientFactory::createBrandClient(),
         );
 
         // Category client - for category operations
@@ -159,6 +180,18 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
             EloquentCustomFieldRepository::class,
         );
 
+        // Category repository - for local database persistence
+        $this->app->singleton(
+            CategoryRepositoryInterface::class,
+            EloquentCategoryRepository::class,
+        );
+
+        // Brand repository - for local database persistence
+        $this->app->singleton(
+            BrandRepositoryInterface::class,
+            EloquentBrandRepository::class,
+        );
+
         // Filter group repository - for local database persistence
         $this->app->singleton(
             FilterGroupRepositoryInterface::class,
@@ -190,11 +223,15 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
         $this->app->singleton(OrderWebhookEventResolverInterface::class, ShopwiredOrderWebhookEventResolver::class);
         $this->app->singleton(ProductWebhookEventResolverInterface::class, ShopwiredProductWebhookEventResolver::class);
         $this->app->singleton(CustomerWebhookEventResolverInterface::class, ShopwiredCustomerWebhookEventResolver::class);
+        $this->app->singleton(CategoryWebhookEventResolverInterface::class, ShopwiredCategoryWebhookEventResolver::class);
+        $this->app->singleton(BrandWebhookEventResolverInterface::class, ShopwiredBrandWebhookEventResolver::class);
 
         // Webhook parsers - parse webhook payloads to domain objects
-        // Order and customer parsers are stateless → singleton
+        // Order, customer, category, and brand parsers are stateless → singleton
         $this->app->singleton(OrderWebhookParserInterface::class, ShopwiredOrderWebhookParser::class);
         $this->app->singleton(CustomerWebhookParserInterface::class, ShopwiredCustomerWebhookParser::class);
+        $this->app->singleton(CategoryWebhookParserInterface::class, ShopwiredCategoryWebhookParser::class);
+        $this->app->singleton(BrandWebhookParserInterface::class, ShopwiredBrandWebhookParser::class);
         // Product parser depends on scoped ProductDomainFactory → must also be scoped
         $this->app->scoped(ProductWebhookParserInterface::class, ShopwiredProductWebhookParser::class);
 
@@ -233,6 +270,8 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
             SyncProductUseCase::class,
             SyncOrderUseCase::class,
             SyncCustomerUseCase::class,
+            SyncCategoryUseCase::class,
+            SyncBrandUseCase::class,
             UpdateProductStockUseCase::class,
             UpdateOrderStatusUseCase::class,
             CreateOrderRefundUseCase::class,
@@ -261,7 +300,14 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
     {
         return [
             BasicProductUpdateClientInterface::class,
+            BrandClientInterface::class,
+            BrandRepositoryInterface::class,
+            BrandWebhookEventResolverInterface::class,
+            BrandWebhookParserInterface::class,
             CategoryClientInterface::class,
+            CategoryRepositoryInterface::class,
+            CategoryWebhookEventResolverInterface::class,
+            CategoryWebhookParserInterface::class,
             ConnectivityClientInterface::class,
             CreateOrderRefundUseCase::class,
             CustomFieldClientInterface::class,
@@ -287,6 +333,8 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
             ProductWebhookEventResolverInterface::class,
             ProductWebhookParserInterface::class,
             StockClientInterface::class,
+            SyncBrandUseCase::class,
+            SyncCategoryUseCase::class,
             SyncCustomerUseCase::class,
             SyncOrderUseCase::class,
             SyncProductUseCase::class,

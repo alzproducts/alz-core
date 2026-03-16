@@ -8,15 +8,14 @@ use DateTimeImmutable;
 use Webmozart\Assert\Assert;
 
 /**
- * Category Value Object.
+ * Brand Value Object.
  *
- * Represents a product category with its metadata.
- * Used for category listing and business logic operations.
+ * Represents a product brand with its metadata.
+ * Used for brand listing and business logic operations.
  */
-final readonly class Category
+final readonly class Brand
 {
     /**
-     * @param list<int> $parentIds Parent category external IDs (closest first, root last)
      * @param array<string, mixed> $customFields Custom field key-value pairs
      */
     public function __construct(
@@ -24,19 +23,15 @@ final readonly class Category
         public DateTimeImmutable $createdAt,
         public string $title,
         public ?string $description,
-        public ?string $description2,
         public string $slug,
         public string $url,
         public bool $active,
         public bool $featured,
-        public bool $tradeOnly,
         public int $sortOrder,
         public ?string $metaTitle,
-        public ?string $metaDescription,
         public ?string $metaKeywords,
-        public bool $metaNoIndex,
-        public ?CategoryImage $image = null,
-        public array $parentIds = [],
+        public ?string $metaDescription,
+        public ?BrandImage $image = null,
         public array $customFields = [],
     ) {
         Assert::greaterThan($id, 0);

@@ -14,6 +14,7 @@ use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\IntId;
 use DateTimeImmutable;
+use Override;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -22,14 +23,16 @@ use Psr\Log\LoggerInterface;
  * Applies staleness and idempotency guards, persists the order from the webhook
  * payload, records the webhook event, then queues a full API sync.
  */
-final readonly class SyncOrderUseCase
+final readonly class SyncOrderUseCase extends AbstractSyncEntityWebhookUseCase
 {
     public function __construct(
         private OrderRepositoryInterface $orderRepository,
-        private WebhookIdempotencyServiceInterface $idempotency,
-        private LoggerInterface $logger,
-        private int $webhookStalenessHours,
-    ) {}
+        WebhookIdempotencyServiceInterface $idempotency,
+        LoggerInterface $logger,
+        int $webhookStalenessHours,
+    ) {
+        parent::__construct($idempotency, $logger, $webhookStalenessHours);
+    }
 
     /**
      * @throws DatabaseOperationFailedException
@@ -38,30 +41,32 @@ final readonly class SyncOrderUseCase
      */
     public function execute(DateTimeImmutable $eventTime, int $webhookId, WebhookTopic $topic, Order $order): void
     {
-        $context = ['webhook_id' => $webhookId, 'subject_id' => $order->id];
-        $this->logger->info('Processing order webhook', $context);
+        $this->process($eventTime, $webhookId, $topic, $order->id, $order);
+    }
 
-        $cutoff = (new DateTimeImmutable())->setTimestamp(\time() - ($this->webhookStalenessHours * 3600));
+    /**
+     * @param list<string> $presentEmbeds
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    #[Override]
+    protected function saveEntity(object $entity, array $presentEmbeds): void
+    {
+        /** @var Order $entity */
+        $this->orderRepository->saveFromWebhook($entity);
+    }
 
-        if ($eventTime < $cutoff) {
-            $this->logger->info('Discarding stale order webhook', $context);
+    #[Override]
+    protected function dispatchSyncJob(IntId $entityId): void
+    {
+        SyncShopwiredOrderJob::dispatch($entityId);
+    }
 
-            return;
-        }
-
-        $orderId = IntId::from($order->id);
-
-        if ($this->idempotency->isSuperseded($orderId, $topic, $webhookId)) {
-            $this->logger->info('Discarding already-processed order webhook', $context);
-
-            return;
-        }
-
-        $this->orderRepository->saveFromWebhook($order);
-        $this->idempotency->record($orderId, $topic, $webhookId, $eventTime);
-
-        SyncShopwiredOrderJob::dispatch($orderId);
-
-        $this->logger->info('Order webhook processed — sync queued', $context);
+    #[Override]
+    protected function entityLabel(): string
+    {
+        return 'Order';
     }
 }

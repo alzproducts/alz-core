@@ -6,30 +6,32 @@ namespace App\Infrastructure\Shopwired\Responses;
 
 use App\Domain\Catalog\ValueObjects\Category as DomainCategory;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
-use App\Infrastructure\Contracts\DomainConvertibleInterface;
 use DateMalformedStringException;
 use DateTimeImmutable;
 use Spatie\LaravelData\Attributes\DataCollectionOf;
 use Spatie\LaravelData\Attributes\MapInputName;
 use Spatie\LaravelData\Data;
 use Spatie\LaravelData\Mappers\SnakeCaseMapper;
+use Spatie\LaravelData\Optional;
 
 /**
- * ShopWired API Response: Category
+ * ShopWired Webhook Response: Category.
  *
- * Infrastructure DTO for parsing category API responses.
- * Handles snake_case → camelCase mapping automatically.
+ * Webhook payloads don't include embed data (parents, customFields).
+ * Uses Spatie Optional for embed fields so missing data is detected
+ * rather than silently defaulting to empty arrays.
  *
- * @see https://shopwired.readme.io/docs/categories
+ * @see CategoryResponse for the strict API client DTO (all embeds required)
  */
 #[MapInputName(SnakeCaseMapper::class)]
-final class CategoryResponse extends Data implements DomainConvertibleInterface
+final class CategoryWebhookResponse extends Data
 {
     /**
-     * @param list<CategoryResponse> $parents Parent categories (closest first, root last)
-     * @param array<string, mixed> $customFields Custom field key-value pairs (requires custom_fields embed)
+     * @param list<CategoryResponse> $parents
+     * @param array<string, mixed> $customFields
      */
     public function __construct(
+        // Core fields — always present in webhooks
         public readonly int $id,
         public readonly string $createdAt,
         public readonly string $title,
@@ -49,16 +51,38 @@ final class CategoryResponse extends Data implements DomainConvertibleInterface
         // Standard nullable field (not an embed)
         public readonly ?CategoryImageResponse $image = null,
 
-        // Embeds: require = [] defaults because:
-        // - parents: nested parent objects don't recursively include their own parents
-        // - customFields: API omits key entirely when entity has no custom fields defined
+        // Embed fields — Optional (may be absent from webhooks)
         #[DataCollectionOf(CategoryResponse::class)]
-        public readonly array $parents = [],
-        public readonly array $customFields = [],
+        public readonly array|Optional $parents = new Optional(),
+        public readonly array|Optional $customFields = new Optional(),
     ) {}
 
     /**
+     * Returns the list of embed names that were actually present in the payload.
+     *
+     * @return list<string> Embed names (matching ShopWired API embed names)
+     */
+    public function presentEmbeds(): array
+    {
+        $embeds = [];
+
+        if (! $this->parents instanceof Optional) {
+            $embeds[] = 'parents';
+        }
+
+        if (! $this->customFields instanceof Optional) {
+            $embeds[] = 'custom_fields';
+        }
+
+        return $embeds;
+    }
+
+    /**
      * Convert to Domain Value Object.
+     *
+     * Optional embed fields are coalesced to empty arrays for the domain layer,
+     * which always expects concrete values. Use presentEmbeds() to determine
+     * which fields should be persisted.
      *
      * @throws InvalidApiResponseException When date format is invalid
      */
@@ -73,6 +97,10 @@ final class CategoryResponse extends Data implements DomainConvertibleInterface
                 previous: $e,
             );
         }
+
+        $parentIds = $this->parents instanceof Optional
+            ? []
+            : \array_map(static fn(CategoryResponse $parent): int => $parent->id, $this->parents);
 
         return new DomainCategory(
             id: $this->id,
@@ -91,11 +119,8 @@ final class CategoryResponse extends Data implements DomainConvertibleInterface
             metaKeywords: $this->metaKeywords,
             metaNoIndex: $this->metaNoIndex,
             image: $this->image?->toDomain(),
-            parentIds: \array_map(
-                static fn(CategoryResponse $parent): int => $parent->id,
-                $this->parents,
-            ),
-            customFields: $this->customFields,
+            parentIds: $parentIds,
+            customFields: $this->customFields instanceof Optional ? [] : $this->customFields,
         );
     }
 }
