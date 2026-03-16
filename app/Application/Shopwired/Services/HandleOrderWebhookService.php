@@ -8,6 +8,7 @@ use App\Application\Contracts\Shopwired\OrderWebhookEventResolverInterface;
 use App\Application\Contracts\Shopwired\OrderWebhookParserInterface;
 use App\Application\Shopwired\Enums\WebhookTopic;
 use App\Application\Shopwired\UseCases\Webhooks\CreateOrderRefundUseCase;
+use App\Application\Shopwired\UseCases\Webhooks\DeleteOrderRefundUseCase;
 use App\Application\Shopwired\UseCases\Webhooks\DeleteOrderUseCase;
 use App\Application\Shopwired\UseCases\Webhooks\SyncOrderUseCase;
 use App\Application\Shopwired\UseCases\Webhooks\UpdateOrderStatusUseCase;
@@ -30,6 +31,7 @@ final readonly class HandleOrderWebhookService
         private SyncOrderUseCase $syncOrderUseCase,
         private UpdateOrderStatusUseCase $updateStatusUseCase,
         private CreateOrderRefundUseCase $createRefundUseCase,
+        private DeleteOrderRefundUseCase $deleteRefundUseCase,
         private DeleteOrderUseCase $deleteOrderUseCase,
         private OrderWebhookParserInterface $orderParser,
         private OrderWebhookEventResolverInterface $resolver,
@@ -75,6 +77,12 @@ final readonly class HandleOrderWebhookService
                 eventTime: $eventTime,
                 webhookId: $webhookId,
                 data: $data,
+            ),
+
+            OrderWebhookIntent::RefundDeleted => $this->deleteRefundUseCase->execute(
+                webhookId: $webhookId,
+                orderId: $orderId,
+                refundExternalId: $this->orderParser->parseRefundExternalId($data),
             ),
 
             OrderWebhookIntent::Sync => $this->syncOrderUseCase->execute(

@@ -7,6 +7,7 @@ namespace Tests\Unit\Infrastructure\Shopwired\Parsers;
 use App\Application\Shopwired\DTOs\WebhookOrderRefundResultDTO;
 use App\Domain\Catalog\Order\ValueObjects\OrderRefund;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
+use App\Domain\ValueObjects\IntId;
 use App\Infrastructure\Shopwired\Parsers\ShopwiredOrderWebhookParser;
 use DateTimeImmutable;
 use Illuminate\Support\Facades\Log;
@@ -18,8 +19,8 @@ use Tests\TestCase;
 /**
  * ShopwiredOrderWebhookParser Unit Tests.
  *
- * Tests parseOrderRefund() payload parsing, nested key extraction,
- * and exception handling for malformed payloads.
+ * Tests parseOrderRefund() and parseRefundExternalId() payload parsing,
+ * nested key extraction, and exception handling for malformed payloads.
  */
 #[CoversClass(ShopwiredOrderWebhookParser::class)]
 final class ShopwiredOrderWebhookParserTest extends TestCase
@@ -75,6 +76,49 @@ final class ShopwiredOrderWebhookParserTest extends TestCase
         $this->expectException(InvalidApiResponseException::class);
 
         $this->parser->parseOrderRefund(['object' => ['id' => 123]]);
+    }
+
+    // ========================================================================
+    // parseRefundExternalId — Happy Path
+    // ========================================================================
+
+    #[Test]
+    public function it_parses_a_valid_refund_external_id(): void
+    {
+        $data = ['object' => ['id' => 128409325]];
+
+        $result = $this->parser->parseRefundExternalId($data);
+
+        self::assertInstanceOf(IntId::class, $result);
+        self::assertSame(128409325, $result->value);
+    }
+
+    // ========================================================================
+    // parseRefundExternalId — Error Paths
+    // ========================================================================
+
+    #[Test]
+    public function it_throws_when_object_key_is_missing_in_refund_delete(): void
+    {
+        $this->expectException(InvalidApiResponseException::class);
+
+        $this->parser->parseRefundExternalId(['event' => 'order.refund.deleted']);
+    }
+
+    #[Test]
+    public function it_throws_when_id_is_missing_in_refund_delete_object(): void
+    {
+        $this->expectException(InvalidApiResponseException::class);
+
+        $this->parser->parseRefundExternalId(['object' => ['orderId' => 123]]);
+    }
+
+    #[Test]
+    public function it_throws_when_id_is_not_an_integer_in_refund_delete(): void
+    {
+        $this->expectException(InvalidApiResponseException::class);
+
+        $this->parser->parseRefundExternalId(['object' => ['id' => 'abc']]);
     }
 
     // ========================================================================

@@ -287,6 +287,29 @@ final class EloquentOrderRepository extends AbstractEloquentRepository implement
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      */
+    public function deleteRefund(IntId $orderExternalId, IntId $refundExternalId): void
+    {
+        $this->eloquentGateway->query(static function () use ($orderExternalId, $refundExternalId): void {
+            /** @var int */
+            $deleted = OrderRefundModel::query()
+                ->where('order_external_id', $orderExternalId->value)
+                ->where('external_id', $refundExternalId->value)
+                ->delete();
+
+            if ($deleted === 0) {
+                throw new ResourceNotFoundException('Database', 'order_refund', $refundExternalId->value);
+            }
+        });
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @throws ResourceNotFoundException
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
     public function deleteByExternalId(IntId $externalId): void
     {
         $deleted = $this->eloquentGateway->deleteWhere(
