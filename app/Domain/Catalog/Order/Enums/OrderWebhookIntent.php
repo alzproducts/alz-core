@@ -21,6 +21,9 @@ enum OrderWebhookIntent
     /** A refund was created against the order */
     case RefundCreated;
 
+    /** A refund was deleted from the order */
+    case RefundDeleted;
+
     /** Order was hard-deleted */
     case Deleted;
 }
