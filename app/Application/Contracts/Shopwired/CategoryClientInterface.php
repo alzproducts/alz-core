@@ -35,19 +35,6 @@ interface CategoryClientInterface
     public function listAllCategories(): array;
 
     /**
-     * List categories (single page).
-     *
-     * @return list<Category>
-     *
-     * @throws InvalidApiRequestException When request parameters are invalid (400)
-     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
-     * @throws ResourceNotFoundException When resource not found (404)
-     * @throws ExternalServiceUnavailableException When API unavailable or connection fails
-     * @throws InvalidApiResponseException When response parsing fails (API contract violation)
-     */
-    public function listCategories(): array;
-
-    /**
      * Get a single category by ID.
      *
      * @throws InvalidApiRequestException When request parameters are invalid (400)

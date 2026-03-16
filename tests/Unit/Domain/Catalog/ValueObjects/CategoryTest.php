@@ -6,9 +6,11 @@ namespace Tests\Unit\Domain\Catalog\ValueObjects;
 
 use App\Domain\Catalog\ValueObjects\Category;
 use App\Domain\Catalog\ValueObjects\CategoryImage;
+use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use Webmozart\Assert\InvalidArgumentException;
 
 #[CoversClass(Category::class)]
 final class CategoryTest extends TestCase
@@ -18,25 +20,13 @@ final class CategoryTest extends TestCase
     {
         // Arrange
         $image = new CategoryImage('https://example.com/image.jpg');
-        $parentCategory = new Category(
-            'Parent',
-            null,
-            null,
-            'parent',
-            '/parent',
-            true,
-            false,
-            false,
-            1,
-            null,
-            null,
-            null,
-            false,
-        );
-        $parents = [$parentCategory];
+        $createdAt = new DateTimeImmutable('2026-01-15T10:30:00Z');
+        $parentIds = [10, 5];
 
         // Act
         $category = new Category(
+            id: 42,
+            createdAt: $createdAt,
             title: 'Test Category',
             description: 'A test description.',
             description2: 'A second test description.',
@@ -51,10 +41,12 @@ final class CategoryTest extends TestCase
             metaKeywords: 'keyword1, keyword2',
             metaNoIndex: true,
             image: $image,
-            parents: $parents,
+            parentIds: $parentIds,
         );
 
         // Assert
+        self::assertSame(42, $category->id);
+        self::assertSame($createdAt, $category->createdAt);
         self::assertSame('Test Category', $category->title);
         self::assertSame('A test description.', $category->description);
         self::assertSame('A second test description.', $category->description2);
@@ -69,7 +61,7 @@ final class CategoryTest extends TestCase
         self::assertSame('keyword1, keyword2', $category->metaKeywords);
         self::assertTrue($category->metaNoIndex);
         self::assertSame($image, $category->image);
-        self::assertSame($parents, $category->parents);
+        self::assertSame($parentIds, $category->parentIds);
     }
 
     #[Test]
@@ -77,6 +69,8 @@ final class CategoryTest extends TestCase
     {
         // Arrange & Act
         $category = new Category(
+            id: 1,
+            createdAt: new DateTimeImmutable('2026-01-01'),
             title: 'Minimal Category',
             description: 'Desc',
             description2: null,
@@ -94,7 +88,8 @@ final class CategoryTest extends TestCase
 
         // Assert
         self::assertNull($category->image, 'Image should default to null.');
-        self::assertSame([], $category->parents, 'Parents should default to an empty array.');
+        self::assertSame([], $category->parentIds, 'Parent IDs should default to an empty array.');
+        self::assertSame([], $category->customFields, 'Custom fields should default to an empty array.');
     }
 
     #[Test]
@@ -102,6 +97,8 @@ final class CategoryTest extends TestCase
     {
         // Arrange & Act
         $category = new Category(
+            id: 99,
+            createdAt: new DateTimeImmutable('2026-02-01'),
             title: 'Nullable Category',
             description: null,
             description2: null,
@@ -128,15 +125,15 @@ final class CategoryTest extends TestCase
     }
 
     #[Test]
-    public function it_preserves_parent_category_hierarchy_and_order(): void
+    public function it_preserves_parent_id_order(): void
     {
-        // Arrange: Create a grandparent -> parent hierarchy
-        $grandparent = new Category('Grandparent', null, null, 'gp', '/gp', true, false, false, 1, null, null, null, false);
-        $parent = new Category('Parent', null, null, 'p', '/p', true, false, false, 2, null, null, null, false, null, [$grandparent]);
-        $parentsList = [$parent, $grandparent]; // Closest first, root last
+        // Arrange: Parent IDs closest first, root last
+        $parentIds = [30, 20, 10];
 
         // Act
         $category = new Category(
+            id: 40,
+            createdAt: new DateTimeImmutable('2026-03-01'),
             title: 'Child Category',
             description: null,
             description2: null,
@@ -151,13 +148,61 @@ final class CategoryTest extends TestCase
             metaKeywords: null,
             metaNoIndex: false,
             image: null,
-            parents: $parentsList,
+            parentIds: $parentIds,
         );
 
         // Assert
-        self::assertCount(2, $category->parents);
-        self::assertSame($parentsList, $category->parents, 'The parents array reference and order should be preserved.');
-        self::assertSame($parent, $category->parents[0]);
-        self::assertSame($grandparent, $category->parents[1]);
+        self::assertCount(3, $category->parentIds);
+        self::assertSame($parentIds, $category->parentIds, 'The parent IDs array and order should be preserved.');
+        self::assertSame(30, $category->parentIds[0]);
+        self::assertSame(10, $category->parentIds[2]);
+    }
+
+    #[Test]
+    public function it_rejects_zero_id(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        new Category(
+            id: 0,
+            createdAt: new DateTimeImmutable(),
+            title: 'Bad',
+            description: null,
+            description2: null,
+            slug: 'bad',
+            url: '/bad',
+            active: true,
+            featured: false,
+            tradeOnly: false,
+            sortOrder: 0,
+            metaTitle: null,
+            metaDescription: null,
+            metaKeywords: null,
+            metaNoIndex: false,
+        );
+    }
+
+    #[Test]
+    public function it_rejects_negative_id(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        new Category(
+            id: -1,
+            createdAt: new DateTimeImmutable(),
+            title: 'Bad',
+            description: null,
+            description2: null,
+            slug: 'bad',
+            url: '/bad',
+            active: true,
+            featured: false,
+            tradeOnly: false,
+            sortOrder: 0,
+            metaTitle: null,
+            metaDescription: null,
+            metaKeywords: null,
+            metaNoIndex: false,
+        );
     }
 }

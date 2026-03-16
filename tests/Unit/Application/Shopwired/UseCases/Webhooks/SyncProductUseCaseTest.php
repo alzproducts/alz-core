@@ -8,6 +8,7 @@ use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Application\Contracts\Shopwired\WebhookIdempotencyServiceInterface;
 use App\Application\Jobs\Shopwired\SyncShopwiredProductJob;
 use App\Application\Shopwired\Enums\WebhookTopic;
+use App\Application\Shopwired\UseCases\Webhooks\AbstractSyncEntityWebhookUseCase;
 use App\Application\Shopwired\UseCases\Webhooks\SyncProductUseCase;
 use App\Domain\Catalog\Product\ValueObjects\Product;
 use App\Domain\ValueObjects\IntId;
@@ -27,6 +28,7 @@ use Tests\TestCase;
  * Tests staleness guard, idempotency guard, and presentEmbeds threading.
  */
 #[CoversClass(SyncProductUseCase::class)]
+#[CoversClass(AbstractSyncEntityWebhookUseCase::class)]
 final class SyncProductUseCaseTest extends TestCase
 {
     private ProductRepositoryInterface&MockInterface $repository;

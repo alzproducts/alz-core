@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Domain\Catalog\ValueObjects;
 
+use DateTimeImmutable;
+use Webmozart\Assert\Assert;
+
 /**
  * Category Value Object.
  *
@@ -13,10 +16,12 @@ namespace App\Domain\Catalog\ValueObjects;
 final readonly class Category
 {
     /**
-     * @param list<Category> $parents Parent categories (closest first, root last)
+     * @param list<int> $parentIds Parent category external IDs (closest first, root last)
      * @param array<string, mixed> $customFields Custom field key-value pairs
      */
     public function __construct(
+        public int $id,
+        public DateTimeImmutable $createdAt,
         public string $title,
         public ?string $description,
         public ?string $description2,
@@ -31,7 +36,9 @@ final readonly class Category
         public ?string $metaKeywords,
         public bool $metaNoIndex,
         public ?CategoryImage $image = null,
-        public array $parents = [],
+        public array $parentIds = [],
         public array $customFields = [],
-    ) {}
+    ) {
+        Assert::greaterThan($id, 0);
+    }
 }

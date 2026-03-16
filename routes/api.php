@@ -9,6 +9,8 @@ use App\Presentation\Http\Controllers\ContactForm\ContactFormController;
 use App\Presentation\Http\Controllers\HelpScout\ConversationsController;
 use App\Presentation\Http\Controllers\HelpScout\ProfileController;
 use App\Presentation\Http\Controllers\Shopwired\ProductUpdateController;
+use App\Presentation\Http\Controllers\Shopwired\Webhooks\ShopwiredWebhookBrandController;
+use App\Presentation\Http\Controllers\Shopwired\Webhooks\ShopwiredWebhookCategoryController;
 use App\Presentation\Http\Controllers\Shopwired\Webhooks\ShopwiredWebhookCustomerController;
 use App\Presentation\Http\Controllers\Shopwired\Webhooks\ShopwiredWebhookOrderController;
 use App\Presentation\Http\Controllers\Shopwired\Webhooks\ShopwiredWebhookProductController;
@@ -51,6 +53,8 @@ Route::prefix('webhooks/shopwired')
         Route::post('orders', ShopwiredWebhookOrderController::class);
         Route::post('products', ShopwiredWebhookProductController::class);
         Route::post('customers', ShopwiredWebhookCustomerController::class);
+        Route::post('categories', ShopwiredWebhookCategoryController::class);
+        Route::post('brands', ShopwiredWebhookBrandController::class);
     });
 
 /*

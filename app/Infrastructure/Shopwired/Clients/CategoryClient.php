@@ -95,27 +95,6 @@ final readonly class CategoryClient implements CategoryClientInterface
     }
 
     /**
-     * @return list<DomainCategory>
-     *
-     * @throws InvalidApiRequestException When request parameters are invalid (400)
-     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
-     * @throws ResourceNotFoundException When resource not found (404)
-     * @throws ExternalServiceUnavailableException When API unavailable or connection fails
-     * @throws InvalidApiResponseException When response parsing fails (API contract violation)
-     */
-    public function listCategories(): array
-    {
-        $params = (new ShopwiredQueryParams())
-            ->withEmbeds(self::DEFAULT_EMBEDS)
-            ->withFields(self::DEFAULT_FIELDS);
-
-        $response = $this->transport->get(self::ENDPOINT_CATEGORIES, $params->toArray());
-
-        /** @var list<DomainCategory> */
-        return self::parseArrayToDomain($response->json(), CategoryResponse::class);
-    }
-
-    /**
      * @throws InvalidApiRequestException When request parameters are invalid (400)
      * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
      * @throws ResourceNotFoundException When category not found (404)

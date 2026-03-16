@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace App\Infrastructure\Shopwired\Responses;
 
 use App\Domain\Catalog\ValueObjects\Category as DomainCategory;
+use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Infrastructure\Contracts\DomainConvertibleInterface;
+use DateMalformedStringException;
+use DateTimeImmutable;
 use Spatie\LaravelData\Attributes\DataCollectionOf;
 use Spatie\LaravelData\Attributes\MapInputName;
 use Spatie\LaravelData\Data;
@@ -56,10 +59,24 @@ final class CategoryResponse extends Data implements DomainConvertibleInterface
 
     /**
      * Convert to Domain Value Object.
+     *
+     * @throws InvalidApiResponseException When date format is invalid
      */
     public function toDomain(): DomainCategory
     {
+        try {
+            $createdAt = new DateTimeImmutable($this->createdAt);
+        } catch (DateMalformedStringException $e) {
+            throw new InvalidApiResponseException(
+                serviceName: 'Shopwired',
+                message: "Invalid date format in category {$this->id}",
+                previous: $e,
+            );
+        }
+
         return new DomainCategory(
+            id: $this->id,
+            createdAt: $createdAt,
             title: $this->title,
             description: $this->description,
             description2: $this->description2,
@@ -74,8 +91,8 @@ final class CategoryResponse extends Data implements DomainConvertibleInterface
             metaKeywords: $this->metaKeywords,
             metaNoIndex: $this->metaNoIndex,
             image: $this->image?->toDomain(),
-            parents: \array_map(
-                static fn(CategoryResponse $parent): DomainCategory => $parent->toDomain(),
+            parentIds: \array_map(
+                static fn(CategoryResponse $parent): int => $parent->id,
                 $this->parents,
             ),
             customFields: $this->customFields,
