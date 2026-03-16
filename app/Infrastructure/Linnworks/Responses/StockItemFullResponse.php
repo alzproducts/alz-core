@@ -35,7 +35,7 @@ final class StockItemFullResponse extends Data implements DomainConvertibleInter
     /**
      * @param list<StockLevelResponse> $stockLevels Per-location stock levels
      * @param list<ExtendedPropertyResponse> $itemExtendedProperties API returns ItemExtendedProperties
-     * @param list<SupplierResponse> $suppliers Supplier relationships for this item
+     * @param list<StockItemSupplierResponse> $suppliers Supplier relationships for this item
      */
     public function __construct(
         public readonly string $stockItemId,
@@ -60,7 +60,7 @@ final class StockItemFullResponse extends Data implements DomainConvertibleInter
         public readonly array $stockLevels = [],
         #[DataCollectionOf(ExtendedPropertyResponse::class)]
         public readonly array $itemExtendedProperties = [],
-        #[DataCollectionOf(SupplierResponse::class)]
+        #[DataCollectionOf(StockItemSupplierResponse::class)]
         public readonly array $suppliers = [],
     ) {}
 
@@ -129,7 +129,7 @@ final class StockItemFullResponse extends Data implements DomainConvertibleInter
     private function mapSuppliers(): array
     {
         return \array_map(
-            static fn(SupplierResponse $supplier): StockItemSupplier => $supplier->toDomain(),
+            static fn(StockItemSupplierResponse $supplier): StockItemSupplier => $supplier->toDomain(),
             $this->suppliers,
         );
     }
