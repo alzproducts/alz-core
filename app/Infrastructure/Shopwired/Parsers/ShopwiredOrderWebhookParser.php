@@ -5,10 +5,11 @@ declare(strict_types=1);
 namespace App\Infrastructure\Shopwired\Parsers;
 
 use App\Application\Contracts\Shopwired\OrderWebhookParserInterface;
+use App\Application\Shopwired\DTOs\WebhookOrderRefundResultDTO;
 use App\Domain\Catalog\Order\ValueObjects\Order;
-use App\Domain\Catalog\Order\ValueObjects\OrderRefund;
 use App\Domain\Catalog\Order\ValueObjects\OrderStatus;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
+use App\Domain\ValueObjects\IntId;
 use App\Infrastructure\Shopwired\Responses\OrderRefundCreatedResponse;
 use App\Infrastructure\Shopwired\Responses\OrderResponse;
 use App\Infrastructure\Shopwired\Responses\OrderStatusChangedResponse;
@@ -59,7 +60,7 @@ final readonly class ShopwiredOrderWebhookParser implements OrderWebhookParserIn
      *
      * @throws InvalidApiResponseException When the payload structure does not match the expected schema
      */
-    public function parseOrderRefund(array $data): OrderRefund
+    public function parseOrderRefund(array $data): WebhookOrderRefundResultDTO
     {
         try {
             if (!\array_key_exists('object', $data)) {
@@ -67,7 +68,12 @@ final readonly class ShopwiredOrderWebhookParser implements OrderWebhookParserIn
             }
 
             /** @var array{object: array<string, mixed>} $data */
-            return OrderRefundCreatedResponse::from($data['object'])->toDomain();
+            $response = OrderRefundCreatedResponse::from($data['object']);
+
+            return new WebhookOrderRefundResultDTO(
+                orderId: IntId::from($response->orderId),
+                refund: $response->toDomain(),
+            );
         } catch (TypeError|CannotCreateData $e) {
             Log::error('ShopWired order refund webhook payload type mismatch', ['error' => $e->getMessage()]);
             throw new InvalidApiResponseException('ShopWired', previous: $e);
