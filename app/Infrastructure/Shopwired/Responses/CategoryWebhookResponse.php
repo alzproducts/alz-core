@@ -118,7 +118,7 @@ final class CategoryWebhookResponse extends Data
             metaDescription: $this->metaDescription,
             metaKeywords: $this->metaKeywords,
             metaNoIndex: $this->metaNoIndex,
-            image: $this->image?->toDomain(),
+            image: $this->image?->url !== null ? $this->image->toDomain() : null,
             parentIds: $parentIds,
             customFields: $this->customFields instanceof Optional ? [] : $this->customFields,
         );
