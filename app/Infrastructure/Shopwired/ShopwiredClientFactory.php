@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Shopwired;
 
+use App\Application\Contracts\Shopwired\BrandClientInterface;
 use App\Application\Contracts\Shopwired\CategoryClientInterface;
 use App\Application\Contracts\Shopwired\ConnectivityClientInterface;
 use App\Application\Contracts\Shopwired\CustomerClientInterface;
@@ -13,6 +14,7 @@ use App\Application\Contracts\Shopwired\OrderClientInterface;
 use App\Application\Contracts\Shopwired\StockClientInterface;
 use App\Application\Contracts\Shopwired\WebhookClientInterface;
 use App\Domain\Exceptions\InvalidConfigurationException;
+use App\Infrastructure\Shopwired\Clients\BrandClient;
 use App\Infrastructure\Shopwired\Clients\CategoryClient;
 use App\Infrastructure\Shopwired\Clients\CustomerClient;
 use App\Infrastructure\Shopwired\Clients\CustomFieldClient;
@@ -46,6 +48,14 @@ final class ShopwiredClientFactory
     public static function createConnectivityClient(): ConnectivityClientInterface
     {
         return new ShopwiredClient(self::getTransport());
+    }
+
+    /**
+     * Create the brand client for brand operations.
+     */
+    public static function createBrandClient(): BrandClientInterface
+    {
+        return new BrandClient(self::getTransport());
     }
 
     /**
