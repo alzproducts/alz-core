@@ -20,6 +20,7 @@ final class ShopwiredOrderWebhookEventResolver implements OrderWebhookEventResol
             'order.updated', 'order.finalized' => OrderWebhookIntent::Sync,
             'order.status_changed'             => OrderWebhookIntent::StatusChanged,
             'order.refund.created'             => OrderWebhookIntent::RefundCreated,
+            'order.refund.deleted'             => OrderWebhookIntent::RefundDeleted,
             'order.deleted'                    => OrderWebhookIntent::Deleted,
             default => throw new InvalidApiResponseException(
                 'ShopWired',

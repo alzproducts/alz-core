@@ -27,6 +27,7 @@ enum WebhookTopic: string
 
     // Order Refunds
     case OrderRefundCreated = 'order.refund.created';
+    case OrderRefundDeleted = 'order.refund.deleted';
 
     // Products
     case ProductCreated = 'product.created';
@@ -65,7 +66,8 @@ enum WebhookTopic: string
             self::OrderFinalized,
             self::OrderStatusChanged => WebhookSubjectType::Order,
 
-            self::OrderRefundCreated => WebhookSubjectType::OrderRefund,
+            self::OrderRefundCreated,
+            self::OrderRefundDeleted => WebhookSubjectType::OrderRefund,
 
             self::ProductCreated,
             self::ProductUpdated,
@@ -96,6 +98,7 @@ enum WebhookTopic: string
     {
         return match ($this) {
             self::OrderDeleted,
+            self::OrderRefundDeleted,
             self::ProductDeleted,
             self::CustomerDeleted,
             self::CategoryDeleted,
