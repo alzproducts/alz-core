@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Providers\Schedule;
 
 use App\Application\Jobs\Linnworks\SyncLinnworksStockItemsJob;
+use App\Application\Jobs\Linnworks\SyncLinnworksSuppliersJob;
 use App\Application\Jobs\Linnworks\SyncStockItemsWithCursorJob;
 use Illuminate\Support\Facades\Schedule;
 use Illuminate\Support\ServiceProvider;
@@ -30,6 +31,14 @@ final class LinnworksScheduleServiceProvider extends ServiceProvider
             ->daily()
             ->onOneServer()
             ->withoutOverlapping(60); // 60 min lock - job runs 8-12 min in prod
+
+        // HOURLY: Supplier directory sync
+        // Full-replace strategy — small dataset, fetches complete supplier list
+        Schedule::job(new SyncLinnworksSuppliersJob())
+            ->name('sync-linnworks-suppliers')
+            ->hourly()
+            ->onOneServer()
+            ->withoutOverlapping(10);
 
         // EVERY 5 MIN: Cursor-based incremental stock item sync
         // Detects recently-modified items and dispatches per-item sync jobs

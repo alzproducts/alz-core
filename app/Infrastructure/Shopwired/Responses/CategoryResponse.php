@@ -90,7 +90,7 @@ final class CategoryResponse extends Data implements DomainConvertibleInterface
             metaDescription: $this->metaDescription,
             metaKeywords: $this->metaKeywords,
             metaNoIndex: $this->metaNoIndex,
-            image: $this->image?->toDomain(),
+            image: $this->image?->url !== null ? $this->image->toDomain() : null,
             parentIds: \array_map(
                 static fn(CategoryResponse $parent): int => $parent->id,
                 $this->parents,
