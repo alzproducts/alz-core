@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Infrastructure\Shopwired\Parsers;
 
+use App\Application\Shopwired\DTOs\WebhookOrderRefundResultDTO;
 use App\Domain\Catalog\Order\ValueObjects\OrderRefund;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Infrastructure\Shopwired\Parsers\ShopwiredOrderWebhookParser;
@@ -43,11 +44,13 @@ final class ShopwiredOrderWebhookParserTest extends TestCase
 
         $result = $this->parser->parseOrderRefund($data);
 
-        self::assertInstanceOf(OrderRefund::class, $result);
-        self::assertSame(128409325, $result->externalId);
-        self::assertSame('Date:16-03-2026>14.95*DOR-SSD1*Not big enough>', $result->name);
-        self::assertSame(14.95, $result->value);
-        self::assertEquals(new DateTimeImmutable('Mon, 16 Mar 2026 10:35:33 +0000'), $result->createdAt);
+        self::assertInstanceOf(WebhookOrderRefundResultDTO::class, $result);
+        self::assertSame(11479559, $result->orderId->value);
+        self::assertInstanceOf(OrderRefund::class, $result->refund);
+        self::assertSame(128409325, $result->refund->externalId);
+        self::assertSame('Date:16-03-2026>14.95*DOR-SSD1*Not big enough>', $result->refund->name);
+        self::assertSame(14.95, $result->refund->value);
+        self::assertEquals(new DateTimeImmutable('Mon, 16 Mar 2026 10:35:33 +0000'), $result->refund->createdAt);
     }
 
     // ========================================================================
