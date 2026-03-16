@@ -8,7 +8,7 @@ use App\Application\Contracts\ReviewsIo\ProductRatingRepositoryInterface;
 use App\Application\Contracts\Shopwired\ProductUpdateClientInterface;
 use App\Application\ReviewsIo\DTOs\ProductRatingChangeDTO;
 use App\Application\ReviewsIo\UseCases\UpdateShopwiredRatingsUseCase;
-use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Domain\Exceptions\Api\ResourceNotAvailableException;
 use App\Domain\ValueObjects\IntId;
 use Mockery;
 use Mockery\MockInterface;
@@ -23,7 +23,7 @@ use Tests\TestCase;
  * Tests the orchestration logic:
  * - Empty changes handling (no products to update)
  * - Successful update flow
- * - Partial failure handling (ResourceNotFoundException)
+ * - Partial failure handling (ResourceNotAvailableException)
  */
 #[CoversClass(UpdateShopwiredRatingsUseCase::class)]
 final class UpdateShopwiredRatingsUseCaseTest extends TestCase
@@ -121,7 +121,7 @@ final class UpdateShopwiredRatingsUseCaseTest extends TestCase
 
     /*
     |--------------------------------------------------------------------------
-    | Partial Failure Branch (ResourceNotFoundException)
+    | Partial Failure Branch (ResourceNotAvailableException)
     |--------------------------------------------------------------------------
     */
 
@@ -150,7 +150,7 @@ final class UpdateShopwiredRatingsUseCaseTest extends TestCase
             ->shouldReceive('updateCustomFields')
             ->once()
             ->with(9999, ['average_rating' => '4.8000', 'num_ratings' => '50'])
-            ->andThrow(new ResourceNotFoundException('ShopWired', 'Product', '9999'));
+            ->andThrow(new ResourceNotAvailableException('ShopWired', 'Product', '9999'));
 
         // Third product succeeds
         $this->updateClient
@@ -160,7 +160,7 @@ final class UpdateShopwiredRatingsUseCaseTest extends TestCase
 
         $this->logger->shouldReceive('info')->with('Starting ShopWired ratings update');
         $this->logger->shouldReceive('info')->with('Found products with changed ratings', ['count' => 3]);
-        $this->logger->shouldReceive('warning')->with('Product not found in ShopWired', ['product_id' => 9999]);
+        $this->logger->shouldReceive('warning')->with('Product not available in ShopWired', ['product_id' => 9999]);
         $this->logger->shouldReceive('info')->with('ShopWired ratings update completed', Mockery::type('array'));
 
         $result = $this->useCase->execute();

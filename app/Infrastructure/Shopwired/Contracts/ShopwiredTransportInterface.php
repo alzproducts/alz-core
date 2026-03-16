@@ -7,7 +7,7 @@ namespace App\Infrastructure\Shopwired\Contracts;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
-use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Domain\Exceptions\Api\ResourceNotAvailableException;
 use App\Infrastructure\Shopwired\PoolPostResult;
 use App\Infrastructure\Shopwired\RetryStrategy;
 use Illuminate\Http\Client\Response;
@@ -34,7 +34,7 @@ interface ShopwiredTransportInterface
      *
      * @throws InvalidApiRequestException When request parameters are invalid (400)
      * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
-     * @throws ResourceNotFoundException When resource not found (404)
+     * @throws ResourceNotAvailableException When resource not found (404) - treated as transient (consistency lag)
      * @throws ExternalServiceUnavailableException When API unavailable, rate limited, or connection fails
      */
     public function get(
@@ -56,7 +56,7 @@ interface ShopwiredTransportInterface
      *
      * @throws InvalidApiRequestException When request parameters are invalid (400)
      * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
-     * @throws ResourceNotFoundException When resource not found (404)
+     * @throws ResourceNotAvailableException When resource not found (404) - treated as transient (consistency lag)
      * @throws ExternalServiceUnavailableException When API unavailable, rate limited, or connection fails
      */
     public function post(
@@ -78,7 +78,7 @@ interface ShopwiredTransportInterface
      *
      * @throws InvalidApiRequestException When request parameters are invalid (400)
      * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
-     * @throws ResourceNotFoundException When resource not found (404)
+     * @throws ResourceNotAvailableException When resource not found (404) - treated as transient (consistency lag)
      * @throws ExternalServiceUnavailableException When API unavailable, rate limited, or connection fails
      */
     public function put(
@@ -92,7 +92,7 @@ interface ShopwiredTransportInterface
      * Fetch a single resource by ID with proper 404 context.
      *
      * Use this for single-resource fetches (getOrderById, getCustomerById, etc.)
-     * where 404 should throw ResourceNotFoundException with meaningful context.
+     * where 404 should throw ResourceNotAvailableException with meaningful context.
      *
      * @param string $resourceType Resource type for exception context (e.g., 'Order', 'Customer')
      * @param int|string $id Resource ID
@@ -103,7 +103,7 @@ interface ShopwiredTransportInterface
      *
      * @throws InvalidApiRequestException When request parameters are invalid (400)
      * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
-     * @throws ResourceNotFoundException When resource not found (404) - with proper context
+     * @throws ResourceNotAvailableException When resource not found (404) - treated as transient (consistency lag) - with proper context
      * @throws ExternalServiceUnavailableException When API unavailable, rate limited, or connection fails
      */
     public function getResource(

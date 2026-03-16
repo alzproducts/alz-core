@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace App\Application\Jobs\Shopwired;
 
-use App\Application\Contracts\RepositoryWriteInterface;
 use App\Application\Jobs\Enums\QueueName;
 use App\Domain\Exceptions\Api\AbstractApiException;
 use App\Domain\Exceptions\Api\PermanentApiFailure;
 use App\Domain\Exceptions\Api\TransientApiFailure;
 use App\Domain\ValueObjects\IntId;
+use Closure;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -23,9 +23,8 @@ use Throwable;
  * Base class for ShopWired entity sync jobs.
  *
  * Provides the shared error-handling, retry, and logging algorithm
- * for fetching an entity from the ShopWired API and persisting it locally.
- * Subclasses supply the entity-specific fetch logic via handle() DI
- * and pass the result into the shared algorithm.
+ * for ShopWired entity sync jobs. Subclasses supply all work (fetch + save)
+ * as a Closure to withErrorHandling(), which provides the error envelope.
  */
 abstract class AbstractSyncShopwiredEntityJob implements ShouldBeUnique, ShouldQueue
 {
@@ -57,26 +56,23 @@ abstract class AbstractSyncShopwiredEntityJob implements ShouldBeUnique, ShouldQ
     }
 
     /**
-     * Execute the sync algorithm with uniform error handling.
+     * Execute the given work within the shared error-handling envelope.
      *
-     * @template TEntity of object
+     * The Closure encapsulates all work (fetch + save). This method provides
+     * uniform retry/fail logic for transient and permanent API failures.
      *
-     * @param TEntity $entity
-     * @param RepositoryWriteInterface<TEntity> $repo
+     * @param-immediately-invoked-callable $work
      *
      * @throws TransientApiFailure
      * @throws PermanentApiFailure
      * @throws Throwable
      */
-    protected function executeSync(
-        object $entity,
-        RepositoryWriteInterface $repo,
-        LoggerInterface $logger,
-    ): void {
+    protected function withErrorHandling(LoggerInterface $logger, Closure $work): void
+    {
         $context = [$this->contextKey() => $this->entityId->value];
 
         try {
-            $repo->save($entity);
+            $work();
 
             $logger->info("{$this->entityLabel()} sync complete", $context);
         } catch (TransientApiFailure $e) {
