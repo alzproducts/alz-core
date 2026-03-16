@@ -14,6 +14,7 @@ use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\IntId;
 use DateTimeImmutable;
+use Override;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -22,14 +23,16 @@ use Psr\Log\LoggerInterface;
  * Applies staleness and idempotency guards, persists the product from the webhook
  * payload, records the webhook event, then queues a full API sync.
  */
-final readonly class SyncProductUseCase
+final readonly class SyncProductUseCase extends AbstractSyncEntityWebhookUseCase
 {
     public function __construct(
         private ProductRepositoryInterface $productRepository,
-        private WebhookIdempotencyServiceInterface $idempotency,
-        private LoggerInterface $logger,
-        private int $webhookStalenessHours,
-    ) {}
+        WebhookIdempotencyServiceInterface $idempotency,
+        LoggerInterface $logger,
+        int $webhookStalenessHours,
+    ) {
+        parent::__construct($idempotency, $logger, $webhookStalenessHours);
+    }
 
     /**
      * @param list<string> $presentEmbeds Embed names present in webhook payload
@@ -40,30 +43,32 @@ final readonly class SyncProductUseCase
      */
     public function execute(DateTimeImmutable $eventTime, int $webhookId, WebhookTopic $topic, Product $product, array $presentEmbeds = []): void
     {
-        $context = ['webhook_id' => $webhookId, 'subject_id' => $product->id];
-        $this->logger->info('Processing product webhook', $context);
+        $this->process($eventTime, $webhookId, $topic, $product->id, $product, $presentEmbeds);
+    }
 
-        $cutoff = (new DateTimeImmutable())->setTimestamp(\time() - ($this->webhookStalenessHours * 3600));
+    /**
+     * @param list<string> $presentEmbeds
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    #[Override]
+    protected function saveEntity(object $entity, array $presentEmbeds): void
+    {
+        /** @var Product $entity */
+        $this->productRepository->saveFromWebhook($entity, $presentEmbeds);
+    }
 
-        if ($eventTime < $cutoff) {
-            $this->logger->info('Discarding stale product webhook', $context);
+    #[Override]
+    protected function dispatchSyncJob(IntId $entityId): void
+    {
+        SyncShopwiredProductJob::dispatch($entityId);
+    }
 
-            return;
-        }
-
-        $productId = IntId::from($product->id);
-
-        if ($this->idempotency->isSuperseded($productId, $topic, $webhookId)) {
-            $this->logger->info('Discarding already-processed product webhook', $context);
-
-            return;
-        }
-
-        $this->productRepository->saveFromWebhook($product, $presentEmbeds);
-        $this->idempotency->record($productId, $topic, $webhookId, $eventTime);
-
-        SyncShopwiredProductJob::dispatch($productId);
-
-        $this->logger->info('Product webhook processed — sync queued', $context);
+    #[Override]
+    protected function entityLabel(): string
+    {
+        return 'Product';
     }
 }

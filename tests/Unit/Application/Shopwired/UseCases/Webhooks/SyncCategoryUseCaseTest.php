@@ -8,6 +8,7 @@ use App\Application\Contracts\Shopwired\CategoryRepositoryInterface;
 use App\Application\Contracts\Shopwired\WebhookIdempotencyServiceInterface;
 use App\Application\Jobs\Shopwired\SyncShopwiredCategoryJob;
 use App\Application\Shopwired\Enums\WebhookTopic;
+use App\Application\Shopwired\UseCases\Webhooks\AbstractSyncEntityWebhookUseCase;
 use App\Application\Shopwired\UseCases\Webhooks\SyncCategoryUseCase;
 use App\Domain\Catalog\ValueObjects\Category;
 use App\Domain\ValueObjects\IntId;
@@ -22,6 +23,7 @@ use Psr\Log\LoggerInterface;
 use Tests\TestCase;
 
 #[CoversClass(SyncCategoryUseCase::class)]
+#[CoversClass(AbstractSyncEntityWebhookUseCase::class)]
 final class SyncCategoryUseCaseTest extends TestCase
 {
     private CategoryRepositoryInterface&MockInterface $repository;

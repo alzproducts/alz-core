@@ -8,6 +8,7 @@ use App\Application\Contracts\Shopwired\BrandRepositoryInterface;
 use App\Application\Contracts\Shopwired\WebhookIdempotencyServiceInterface;
 use App\Application\Jobs\Shopwired\SyncShopwiredBrandJob;
 use App\Application\Shopwired\Enums\WebhookTopic;
+use App\Application\Shopwired\UseCases\Webhooks\AbstractSyncEntityWebhookUseCase;
 use App\Application\Shopwired\UseCases\Webhooks\SyncBrandUseCase;
 use App\Domain\Catalog\ValueObjects\Brand;
 use App\Domain\ValueObjects\IntId;
@@ -22,6 +23,7 @@ use Psr\Log\LoggerInterface;
 use Tests\TestCase;
 
 #[CoversClass(SyncBrandUseCase::class)]
+#[CoversClass(AbstractSyncEntityWebhookUseCase::class)]
 final class SyncBrandUseCaseTest extends TestCase
 {
     private BrandRepositoryInterface&MockInterface $repository;
