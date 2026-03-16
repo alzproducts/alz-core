@@ -7,6 +7,7 @@ namespace App\Infrastructure\Shopwired\Responses;
 use App\Domain\Catalog\ValueObjects\CategoryImage as DomainCategoryImage;
 use App\Infrastructure\Contracts\DomainConvertibleInterface;
 use Spatie\LaravelData\Data;
+use Webmozart\Assert\Assert;
 
 /**
  * ShopWired API Response: Category Image
@@ -19,7 +20,7 @@ use Spatie\LaravelData\Data;
 final class CategoryImageResponse extends Data implements DomainConvertibleInterface
 {
     public function __construct(
-        public readonly string $url,
+        public readonly ?string $url,
     ) {}
 
     /**
@@ -27,6 +28,8 @@ final class CategoryImageResponse extends Data implements DomainConvertibleInter
      */
     public function toDomain(): DomainCategoryImage
     {
+        Assert::notNull($this->url, 'toDomain() must not be called when url is null');
+
         return new DomainCategoryImage(
             url: $this->url,
         );
