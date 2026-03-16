@@ -7,6 +7,8 @@ namespace App\Providers\Schedule;
 use App\Application\Jobs\Shopwired\CleanupWebhookEventsJob;
 use App\Application\Jobs\Shopwired\ProcessShopwiredWebhookHealthJob;
 use App\Application\Jobs\Shopwired\ReconcileShopwiredProductsJob;
+use App\Application\Jobs\Shopwired\SyncShopwiredBrandsJob;
+use App\Application\Jobs\Shopwired\SyncShopwiredCategoriesJob;
 use App\Application\Jobs\Shopwired\SyncShopwiredCustomersJob;
 use App\Application\Jobs\Shopwired\SyncShopwiredOrdersJob;
 use App\Application\Jobs\Shopwired\SyncShopwiredProductsJob;
@@ -40,6 +42,8 @@ final class ShopwiredScheduleServiceProvider extends ServiceProvider
         $this->registerOrderSchedules($skipDuringMonthlySync);
         $this->registerCustomerSchedules($skipDuringMonthlySync);
         $this->registerProductSchedules();
+        $this->registerCategorySchedules();
+        $this->registerBrandSchedules();
         $this->registerWebhookHealthSchedule();
         $this->registerWebhookCleanupSchedule();
     }
@@ -88,6 +92,36 @@ final class ShopwiredScheduleServiceProvider extends ServiceProvider
             ->onOneServer()
             ->withoutOverlapping(5)
             ->skip($skipDuringMonthlySync);
+    }
+
+    /**
+     * ShopWired Category Sync: daily sync of small, stable dataset (~50 items).
+     *
+     * Webhooks handle real-time create/update/delete events. Daily polling is a safety net.
+     */
+    private function registerCategorySchedules(): void
+    {
+        Schedule::job(new SyncShopwiredCategoriesJob())
+            ->name('sync-shopwired-categories')
+            ->dailyAt('08:00')
+            ->timezone('Europe/London')
+            ->onOneServer()
+            ->withoutOverlapping(5);
+    }
+
+    /**
+     * ShopWired Brand Sync: daily sync of small, stable dataset (~30 items).
+     *
+     * Webhooks handle real-time create/update/delete events. Daily polling is a safety net.
+     */
+    private function registerBrandSchedules(): void
+    {
+        Schedule::job(new SyncShopwiredBrandsJob())
+            ->name('sync-shopwired-brands')
+            ->dailyAt('08:05')
+            ->timezone('Europe/London')
+            ->onOneServer()
+            ->withoutOverlapping(5);
     }
 
     /**
