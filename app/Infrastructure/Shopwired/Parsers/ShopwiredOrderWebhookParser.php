@@ -13,6 +13,7 @@ use App\Infrastructure\Shopwired\Responses\OrderRefundCreatedResponse;
 use App\Infrastructure\Shopwired\Responses\OrderResponse;
 use App\Infrastructure\Shopwired\Responses\OrderStatusChangedResponse;
 use Illuminate\Support\Facades\Log;
+use RuntimeException;
 use Spatie\LaravelData\Exceptions\CannotCreateData;
 use TypeError;
 
@@ -61,7 +62,12 @@ final readonly class ShopwiredOrderWebhookParser implements OrderWebhookParserIn
     public function parseOrderRefund(array $data): OrderRefund
     {
         try {
-            return OrderRefundCreatedResponse::from($data)->toDomain();
+            if (!\array_key_exists('object', $data)) {
+                throw new InvalidApiResponseException('ShopWired', previous: new RuntimeException('Missing "object" key in refund webhook payload'));
+            }
+
+            /** @var array{object: array<string, mixed>} $data */
+            return OrderRefundCreatedResponse::from($data['object'])->toDomain();
         } catch (TypeError|CannotCreateData $e) {
             Log::error('ShopWired order refund webhook payload type mismatch', ['error' => $e->getMessage()]);
             throw new InvalidApiResponseException('ShopWired', previous: $e);
