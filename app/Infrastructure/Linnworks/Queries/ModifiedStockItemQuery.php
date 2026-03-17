@@ -65,7 +65,7 @@ final readonly class ModifiedStockItemQuery extends AbstractLinnworksQuery
         return <<<SQL
             SELECT TOP 500 pkStockItemID, CAST(ModifiedDate AS DATETIME2(0)) AS 'ModifiedDate'
             FROM [StockItem]
-            WHERE ModifiedDate > {$escapedDate}
+            WHERE CAST(ModifiedDate AS DATETIME2(0)) > {$escapedDate}
             ORDER BY ModifiedDate ASC
             SQL;
     }

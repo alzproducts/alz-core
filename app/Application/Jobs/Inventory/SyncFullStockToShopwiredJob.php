@@ -26,7 +26,7 @@ use Throwable;
  * snapshot, and pushes any differences. Acts as a safety net to catch drift
  * that the delta sync may miss (e.g., order lock/unlock changes).
  *
- * Frequency: every 15 minutes.
+ * @see InventoryScheduleServiceProvider for schedule frequency.
  *
  * @see SyncFullStockToShopwiredUseCase
  */
@@ -44,9 +44,9 @@ final class SyncFullStockToShopwiredJob implements ShouldBeUnique, ShouldQueue
     public int $timeout = 120;
 
     /**
-     * Unique for 15 minutes — matches the schedule frequency.
+     * Unique for 10 minutes — matches the schedule frequency.
      */
-    public int $uniqueFor = 900;
+    public int $uniqueFor = 600;
 
     public function uniqueId(): string
     {

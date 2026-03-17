@@ -84,6 +84,7 @@ final readonly class SyncStockItemWithCursorUseCase
         $since = $this->resolveSince($storedCursor);
 
         $this->logger->info('Stock item cursor sync: starting', [
+            'stored_cursor' => $storedCursor?->format('Y-m-d H:i:s.v'),
             'since' => $since->format('Y-m-d H:i:s.v'),
         ]);
 

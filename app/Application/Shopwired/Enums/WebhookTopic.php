@@ -25,6 +25,7 @@ enum WebhookTopic: string
     case OrderFinalized = 'order.finalized';
     case OrderStatusChanged = 'order.status_changed';
     case OrderRefundCreated = 'order.refund.created';
+    case OrderRefundDeleted = 'order.refund.deleted';
     case OrderDeleted = 'order.deleted';
     case CustomerCreated = 'customer.created';
     case CustomerUpdated = 'customer.updated';
