@@ -213,7 +213,7 @@ final class SyncDeltaStockToShopwiredUseCaseTest extends TestCase
     #[Test]
     public function it_caps_stale_cursor_to_max_lookback(): void
     {
-        // Cursor is 48 hours old — should be capped to 12 hours
+        // Cursor is 48 hours old — should be capped to 1 hour
         $staleCursor = new DateTimeImmutable('-48 hours');
 
         $this->cursorRepository->shouldReceive('getLastSyncDate')
@@ -222,15 +222,15 @@ final class SyncDeltaStockToShopwiredUseCaseTest extends TestCase
         $this->linnworksClient->shouldReceive('getStockLevelsSince')
             ->once()
             ->withArgs(static function (DateTimeImmutable $since): bool {
-                // Max lookback is 12 hours — should be capped
+                // Max lookback is 1 hour — should be capped
                 $diff = (new DateTimeImmutable())->getTimestamp() - $since->getTimestamp();
 
-                return $diff >= 43_100 && $diff <= 43_300; // 12h ± ~100s
+                return $diff >= 3_500 && $diff <= 3_700; // 1h ± ~100s
             })
             ->andReturn([]);
 
-        // Verify warning is logged for stale cursor
-        $this->logger->shouldReceive('warning')
+        // Verify stale cursor is logged at info level (expected during quiet periods)
+        $this->logger->shouldReceive('info')
             ->once()
             ->withArgs(static fn(string $msg) => \str_contains($msg, 'stale'));
 
@@ -240,7 +240,7 @@ final class SyncDeltaStockToShopwiredUseCaseTest extends TestCase
     #[Test]
     public function it_uses_cursor_as_is_when_within_max_lookback(): void
     {
-        $recentCursor = new DateTimeImmutable('-2 hours');
+        $recentCursor = new DateTimeImmutable('-30 minutes');
 
         $this->cursorRepository->shouldReceive('getLastSyncDate')
             ->andReturn($recentCursor);

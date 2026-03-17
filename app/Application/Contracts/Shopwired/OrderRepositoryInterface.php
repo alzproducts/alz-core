@@ -107,6 +107,19 @@ interface OrderRepositoryInterface extends RepositoryWriteInterface
     public function addRefund(IntId $orderExternalId, OrderRefund $refund): void;
 
     /**
+     * Delete a specific refund from an order.
+     *
+     * Used by `order.refund.deleted` webhook. Removes a single refund row
+     * matching both the order and refund external IDs.
+     *
+     * @throws ResourceNotFoundException When no refund found with these external IDs
+     * @throws DatabaseOperationFailedException On deletion failure
+     * @throws DuplicateRecordException On constraint violation
+     * @throws ExternalServiceUnavailableException When database temporarily unavailable
+     */
+    public function deleteRefund(IntId $orderExternalId, IntId $refundExternalId): void;
+
+    /**
      * Delete an order by its ShopWired external ID.
      *
      * Used by `order.deleted` webhook. Cascades to child tables
