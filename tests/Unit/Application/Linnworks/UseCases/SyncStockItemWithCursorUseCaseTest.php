@@ -130,8 +130,8 @@ final class SyncStockItemWithCursorUseCaseTest extends TestCase
     {
         Queue::fake();
 
-        $cursor = new DateTimeImmutable('2026-03-15 10:00:00');
-        $newestDate = new DateTimeImmutable('2026-03-15 10:05:00');
+        $cursor = new DateTimeImmutable('-1 hour');
+        $newestDate = new DateTimeImmutable('-30 minutes');
 
         $this->cursorRepository->shouldReceive('getLastSyncDate')
             ->andReturn($cursor);
