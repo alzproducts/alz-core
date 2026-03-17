@@ -270,13 +270,14 @@ Columns:
     base_price_gross     DECIMAL(14,6) NOT NULL    — ShopWired selling price (tax-inclusive)
     sale_price_gross     DECIMAL(14,6) NULL        — ShopWired sale price (tax-inclusive, null = no sale)
     effective_price_gross DECIMAL(14,6) NOT NULL   — snapshot: (sale_price_gross > 0) ? sale_price_gross : base_price_gross
-    tax_rate_percent     DECIMAL(5,2) NOT NULL     — VAT rate at time of update (e.g. 20.00)
+    price_has_tax        BOOLEAN NOT NULL           — false if zero-rated (no VAT applies)
     effective_from       TIMESTAMPTZ NOT NULL       — when this price period started (our processing time)
     effective_to         TIMESTAMPTZ NULL           — when this period ended (NULL = current)
     created_at           TIMESTAMPTZ DEFAULT now()
 
-tax_rate_percent sourced from Money VO's TaxRate. Enables net price derivation:
-  net = gross / (1 + tax_rate_percent / 100)
+price_has_tax sourced from ProductRetailPricing::taxType(). When the UK VAT rate
+eventually changes, a date-based rate lookup table + price_has_tax + effective_from
+will derive the correct net price.
 
 Indexes:
     UNIQUE (sku) WHERE effective_to IS NULL    — one "current" row per SKU
@@ -284,7 +285,7 @@ Indexes:
 
 Write mechanics (per confirmed SKU, in transaction):
     UPDATE ... SET effective_to = now() WHERE sku = ? AND effective_to IS NULL;
-    INSERT ... (sku, base_price_gross, sale_price_gross, effective_price_gross, tax_rate_percent, effective_from)
+    INSERT ... (sku, base_price_gross, sale_price_gross, effective_price_gross, price_has_tax, effective_from)
     VALUES (?, ..., now());
     First update for a SKU: UPDATE matches nothing → INSERT succeeds.
 ```
@@ -309,7 +310,7 @@ final readonly class RecordPricePeriodUseCase
     __construct(PricePeriodRepositoryInterface $repo)
     execute(Sku $sku, ProductRetailPricing $newPrices): void
     - Constructs full SCD2 record from ProductRetailPricing:
-      base_price_gross, sale_price_gross, effective_price_gross, tax_rate_percent
+      base_price_gross, sale_price_gross, effective_price_gross, price_has_tax
     - Calls PricePeriodRepositoryInterface::recordPriceChange()
 ```
 
