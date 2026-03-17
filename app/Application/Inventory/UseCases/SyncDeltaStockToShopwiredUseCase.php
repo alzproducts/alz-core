@@ -31,15 +31,15 @@ use Psr\Log\LoggerInterface;
  * local ShopWired DB snapshot are pushed to the ShopWired API.
  *
  * The cursor advances to the max LastUpdateDate from the delta results after
- * each run. A 12-hour cap prevents unbounded catch-up queries if the system
- * falls behind — the full sync (every 15 min) handles any missed changes.
+ * each run. A short lookback cap keeps the delta lightweight — the full
+ * sync handles the majority of stock updates.
  *
  * Acquires a blocking lock shared with SyncFullStockToShopwiredUseCase so
  * that full and delta syncs cannot run concurrently (preventing stock ping-pong).
  * The Linnworks fetch and pre/post processing happen outside the lock — only
  * the local DB read, ShopWired push, and local DB write are protected.
  *
- * Intended frequency: every 5 minutes.
+ * @see InventoryScheduleServiceProvider for schedule frequency.
  */
 final readonly class SyncDeltaStockToShopwiredUseCase
 {
@@ -53,11 +53,13 @@ final readonly class SyncDeltaStockToShopwiredUseCase
     /**
      * Maximum lookback window when cursor is stale.
      *
-     * Caps the query window to prevent unbounded catch-up queries after
-     * an outage. Any stock changes further back will be caught by the
-     * full sync safety net.
+     * Caps the query window to keep the delta lightweight — anything
+     * older is already covered by the full sync (every 10 min).
+     * The StockLevel.LastUpdateDate only tracks direct modifications
+     * (booking in, scrapping, manual adjustments), so staleness is
+     * expected during quiet periods.
      */
-    private const int MAX_LOOKBACK_HOURS = 12;
+    private const int MAX_LOOKBACK_HOURS = 1;
 
     public function __construct(
         private StockDashboardsClientInterface $linnworksClient,
@@ -83,6 +85,7 @@ final readonly class SyncDeltaStockToShopwiredUseCase
         $since = $this->resolveSince($storedCursor);
 
         $this->logger->info('Delta stock sync: starting', [
+            'stored_cursor' => $storedCursor?->format('Y-m-d H:i:s.v'),
             'since' => $since->format('Y-m-d H:i:s.v'),
         ]);
 
@@ -101,7 +104,13 @@ final readonly class SyncDeltaStockToShopwiredUseCase
         // Linnworks can emit multiple rows for the same SKU when stock is
         // updated in rapid succession. Rows are ordered ASC, so the last
         // occurrence always holds the most recent level.
+        $rawCount = \count($delta);
         $delta = self::deduplicateBySku($delta);
+
+        $this->logger->debug('Delta stock sync: fetched from Linnworks', [
+            'raw_rows' => $rawCount,
+            'after_dedup' => \count($delta),
+        ]);
 
         $skus = \array_map(static fn(StockLevelDeltaDTO $d): Sku => $d->sku, $delta);
 
@@ -155,7 +164,7 @@ final readonly class SyncDeltaStockToShopwiredUseCase
         $maxLookback = new DateTimeImmutable(\sprintf('-%d hours', self::MAX_LOOKBACK_HOURS));
 
         if ($cursor < $maxLookback) {
-            $this->logger->warning('Delta stock sync: cursor is stale, capping lookback window', [
+            $this->logger->info('Delta stock sync: cursor is stale, capping lookback window', [
                 'cursor' => $cursor->format('Y-m-d H:i:s'),
                 'capped_to' => $maxLookback->format('Y-m-d H:i:s'),
             ]);

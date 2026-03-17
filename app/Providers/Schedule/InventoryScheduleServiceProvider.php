@@ -14,8 +14,8 @@ use RuntimeException;
  * Inventory Schedule Definitions
  *
  * Registers the two-tier Linnworks → ShopWired stock sync strategy:
- * - Delta sync (every 5 min): incremental, cursor-based, fast path
- * - Full sync (every 15 min): safety net for drift delta may miss
+ * - Delta sync (every 5 min): incremental, cursor-based, catches direct StockLevel modifications
+ * - Full sync (every 10 min): primary sync, catches all changes including order lock/unlock
  *
  * Mutual exclusion between the two syncs is handled at the use-case level
  * via a shared blocking cache lock — not at the schedule level.
@@ -28,20 +28,20 @@ final class InventoryScheduleServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        // EVERY 5 MIN: Incremental stock sync from Linnworks → ShopWired
-        // Queries only SKUs changed since the last cursor for near-real-time accuracy.
+        // Delta: incremental stock sync from Linnworks → ShopWired
+        // Catches direct StockLevel modifications (booking in, scrapping, manual adjustments).
         Schedule::job(new SyncDeltaStockToShopwiredJob())
             ->name('sync-delta-stock-to-shopwired')
             ->everyFiveMinutes()
             ->onOneServer()
             ->withoutOverlapping(5);
 
-        // EVERY 15 MIN: Full stock sync from Linnworks → ShopWired
-        // Catches any drift the delta sync may miss (e.g., order lock/unlock changes).
+        // Full: primary stock sync from Linnworks → ShopWired
+        // Catches all changes including order lock/unlock — handles the majority of updates.
         Schedule::job(new SyncFullStockToShopwiredJob())
             ->name('sync-full-stock-to-shopwired')
-            ->everyFifteenMinutes()
+            ->everyTenMinutes()
             ->onOneServer()
-            ->withoutOverlapping(15);
+            ->withoutOverlapping(10);
     }
 }

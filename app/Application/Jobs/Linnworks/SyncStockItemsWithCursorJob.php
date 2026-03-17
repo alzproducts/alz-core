@@ -85,15 +85,29 @@ final class SyncStockItemsWithCursorJob implements ShouldBeUnique, ShouldQueue
         try {
             $useCase->execute();
         } catch (TransientApiFailure $e) {
+            Log::warning('Stock item cursor sync job: service unavailable, will retry', [
+                'service' => $e->serviceName,
+                'retry_after' => $e->retryAfter,
+                'attempts' => $this->attempts(),
+            ]);
+
             if ($e->retryAfter !== null) {
                 $this->release($e->retryAfter);
             } else {
                 throw $e;
             }
         } catch (PermanentApiFailure $e) {
+            Log::error('Stock item cursor sync job: permanent API failure', [
+                'service' => $e->serviceName,
+                'message' => $e->getMessage(),
+            ]);
             $this->fail($e);
             throw $e;
         } catch (Throwable $e) {
+            Log::critical('Stock item cursor sync job: unexpected error', [
+                'exception' => $e::class,
+                'message' => $e->getMessage(),
+            ]);
             $this->fail($e);
             throw $e;
         }
