@@ -47,6 +47,12 @@ final class DeltaStockLevelRow extends Data
  * Excludes archived items and non-default locations.
  * Results are ordered ASC so the last element holds the latest update date.
  *
+ * Important: StockLevel.LastUpdateDate only updates on direct stock level
+ * modifications — booking in, scrapping, manual staff adjustments. It does
+ * NOT update for order-driven changes (InOrderBook adjustments, order
+ * allocation/deallocation). Those changes are caught by the full sync
+ * which queries View_FullStockLevels instead.
+ *
  * @extends AbstractLinnworksQuery<list<StockLevelDeltaDTO>>
  *
  * @template-pattern Query Object
