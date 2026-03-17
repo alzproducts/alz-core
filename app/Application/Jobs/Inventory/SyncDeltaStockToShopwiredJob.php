@@ -26,9 +26,8 @@ use Throwable;
  * the differences to ShopWired. Fast, incremental path for near-real-time
  * stock accuracy. The full sync job handles any drift this misses.
  *
- * Frequency: every 5 minutes.
- *
  * @see SyncDeltaStockToShopwiredUseCase
+ * @see InventoryScheduleServiceProvider for schedule frequency.
  */
 final class SyncDeltaStockToShopwiredJob implements ShouldBeUnique, ShouldQueue
 {

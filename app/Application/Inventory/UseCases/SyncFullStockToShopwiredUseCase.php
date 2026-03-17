@@ -30,7 +30,7 @@ use Psr\Log\LoggerInterface;
  * The Linnworks fetch happens outside the lock — only the local DB read,
  * ShopWired push, and local DB write are protected.
  *
- * Intended frequency: every 15 minutes.
+ * @see InventoryScheduleServiceProvider for schedule frequency.
  */
 final readonly class SyncFullStockToShopwiredUseCase
 {
@@ -60,9 +60,13 @@ final readonly class SyncFullStockToShopwiredUseCase
         // Linnworks is a read-only source here — fetch outside the lock.
         $linnworksStock = $this->linnworksClient->getAllStockLevels();
 
+        $this->logger->debug('Full stock sync: fetched from Linnworks', [
+            'linnworks_count' => \count($linnworksStock),
+        ]);
+
         // Lock covers: local DB read → diff → ShopWired push → local DB write.
         // Logging happens after the lock is released.
-        /** @var array{toUpdate: list<ItemStockLevel>, result: StockUpdateResult|null} $outcome */
+        /** @var array{toUpdate: list<ItemStockLevel>, result: StockUpdateResult|null, local_count: int} $outcome */
         $outcome = $this->lockManager->withLock(
             LockName::StockSync->value,
             self::LOCK_TIMEOUT_SECONDS,
@@ -71,10 +75,12 @@ final readonly class SyncFullStockToShopwiredUseCase
 
         $toUpdate = $outcome['toUpdate'];
         $result = $outcome['result'];
+        $localCount = $outcome['local_count'];
 
         if ($toUpdate === []) {
             $this->logger->info('Full stock sync: no differences found', [
                 'linnworks_count' => \count($linnworksStock),
+                'local_count' => $localCount,
             ]);
 
             return;
@@ -82,6 +88,7 @@ final readonly class SyncFullStockToShopwiredUseCase
 
         $this->logger->info('Full stock sync: completed', [
             'linnworks_count' => \count($linnworksStock),
+            'local_count' => $localCount,
             'attempted' => \count($toUpdate),
             'pushed' => $result !== null ? \count($result->pushed) : 0,
         ]);
@@ -99,7 +106,7 @@ final readonly class SyncFullStockToShopwiredUseCase
      *
      * @param list<ItemStockLevel> $linnworksStock
      *
-     * @return array{toUpdate: list<ItemStockLevel>, result: StockUpdateResult|null}
+     * @return array{toUpdate: list<ItemStockLevel>, result: StockUpdateResult|null, local_count: int}
      *
      * @throws AbstractApiException Re-thrown from partial batch transport failure (TransientApiFailure → retry, PermanentApiFailure → fail)
      * @throws InvalidApiResponseException
@@ -109,10 +116,11 @@ final readonly class SyncFullStockToShopwiredUseCase
     private function syncUnderLock(array $linnworksStock): array
     {
         $localStock = $this->stockRepository->getAllStockLevels();
+        $localCount = \count($localStock);
         $toUpdate = self::findDifferences($linnworksStock, $localStock);
 
         if ($toUpdate === []) {
-            return ['toUpdate' => [], 'result' => null];
+            return ['toUpdate' => [], 'result' => null, 'local_count' => $localCount];
         }
 
         $result = $this->shopwiredClient->updateStockQuantity($toUpdate);
@@ -135,7 +143,7 @@ final readonly class SyncFullStockToShopwiredUseCase
             throw $transportFailure;
         }
 
-        return ['toUpdate' => $toUpdate, 'result' => $result];
+        return ['toUpdate' => $toUpdate, 'result' => $result, 'local_count' => $localCount];
     }
 
     /**
