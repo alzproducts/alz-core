@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\Catalog\Product\ValueObjects;
 
-use App\Domain\ValueObjects\Money;
+use App\Domain\Shared\Money\ValueObjects\Money;
 use App\Domain\ValueObjects\TaxType;
 
 /**

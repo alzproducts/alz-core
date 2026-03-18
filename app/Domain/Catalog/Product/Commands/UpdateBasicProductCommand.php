@@ -8,8 +8,8 @@ use App\Domain\Catalog\Product\Enums\ProductType;
 use App\Domain\Catalog\Product\ValueObjects\Gtin;
 use App\Domain\Catalog\Product\ValueObjects\Sku;
 use App\Domain\Inventory\ValueObjects\Weight;
+use App\Domain\Shared\Money\ValueObjects\Money;
 use App\Domain\ValueObjects\IntId;
-use App\Domain\ValueObjects\Money;
 
 /**
  * Update non-price product/variation attributes via PUT endpoint.

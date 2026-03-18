@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Domain\ValueObjects;
 
-use App\Domain\ValueObjects\Money;
+use App\Domain\Shared\Money\ValueObjects\Money;
 use App\Domain\ValueObjects\TaxRate;
 use App\Domain\ValueObjects\TaxType;
 use PHPUnit\Framework\Attributes\CoversClass;

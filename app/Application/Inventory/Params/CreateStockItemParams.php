@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Application\Inventory\Params;
 
 use App\Domain\Catalog\Product\ValueObjects\Gtin;
+use App\Domain\Shared\Money\ValueObjects\Money;
 use App\Domain\ValueObjects\Guid;
-use App\Domain\ValueObjects\Money;
 use App\Domain\ValueObjects\TaxRate;
 
 /**

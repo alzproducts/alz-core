@@ -2,8 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Domain\ValueObjects;
+namespace App\Domain\Shared\Money\ValueObjects;
 
+use App\Domain\ValueObjects\TaxRate;
+use App\Domain\ValueObjects\TaxType;
 use Webmozart\Assert\Assert;
 
 /**

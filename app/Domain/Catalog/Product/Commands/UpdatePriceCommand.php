@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\Catalog\Product\Commands;
 
 use App\Domain\Catalog\Product\ValueObjects\Sku;
-use App\Domain\ValueObjects\Money;
+use App\Domain\Shared\Money\ValueObjects\Money;
 use Webmozart\Assert\Assert;
 
 /**
