@@ -12,6 +12,7 @@ use App\Domain\Catalog\CustomFields\ValueObjects\StringCustomFieldValue;
 use App\Domain\Catalog\Product\ValueObjects\Product;
 use App\Domain\Catalog\Product\ValueObjects\ProductImage;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariation;
+use App\Domain\Catalog\Product\ValueObjects\Sku;
 use DateTimeImmutable;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -520,6 +521,94 @@ final class ProductTest extends TestCase
         $product = self::createProduct();
 
         self::assertFalse($product->hasCustomField('brand'));
+    }
+
+    // ========================================================================
+    // allSkus()
+    // ========================================================================
+
+    #[Test]
+    public function all_skus_returns_master_sku_only_for_simple_product(): void
+    {
+        $product = self::createProduct(['sku' => 'MASTER-001']);
+
+        $skus = $product->allSkus();
+
+        self::assertCount(1, $skus);
+        self::assertSame('MASTER-001', $skus[0]->value);
+    }
+
+    #[Test]
+    public function all_skus_returns_master_and_variation_skus(): void
+    {
+        $variations = [
+            self::createVariation(1, 'VAR-001', 10),
+            self::createVariation(2, 'VAR-002', 20),
+        ];
+        $product = self::createProduct(['sku' => 'MASTER-001'], variations: $variations);
+
+        $skus = $product->allSkus();
+        $values = \array_map(static fn(Sku $s): string => $s->value, $skus);
+
+        self::assertSame(['MASTER-001', 'VAR-001', 'VAR-002'], $values);
+    }
+
+    #[Test]
+    public function all_skus_excludes_null_master_sku(): void
+    {
+        $variations = [
+            self::createVariation(1, 'VAR-001', 10),
+        ];
+        $product = self::createProduct(['sku' => null], variations: $variations);
+
+        $skus = $product->allSkus();
+
+        self::assertCount(1, $skus);
+        self::assertSame('VAR-001', $skus[0]->value);
+    }
+
+    #[Test]
+    public function all_skus_excludes_null_variation_skus(): void
+    {
+        $variationWithSku = self::createVariation(1, 'VAR-001', 10);
+        $variationWithoutSku = new ProductVariation(
+            id: 2,
+            productExternalId: 12345,
+            sku: null,
+            price: 29.99,
+            costPrice: null,
+            salePrice: null,
+            stock: 5,
+            weight: null,
+            gtin: null,
+            mpn: null,
+            imageIndex: null,
+        );
+        $product = self::createProduct(
+            ['sku' => 'MASTER-001'],
+            variations: [$variationWithSku, $variationWithoutSku],
+        );
+
+        $skus = $product->allSkus();
+        $values = \array_map(static fn(Sku $s): string => $s->value, $skus);
+
+        self::assertSame(['MASTER-001', 'VAR-001'], $values);
+    }
+
+    #[Test]
+    public function all_skus_returns_empty_when_no_skus(): void
+    {
+        $product = self::createProduct(['sku' => null, 'variations' => null]);
+
+        self::assertSame([], $product->allSkus());
+    }
+
+    #[Test]
+    public function all_skus_returns_empty_for_empty_variations_and_null_sku(): void
+    {
+        $product = self::createProduct(['sku' => null, 'variations' => []]);
+
+        self::assertSame([], $product->allSkus());
     }
 
     // ========================================================================

@@ -388,10 +388,10 @@ return static function (Config $config): void {
                        'App\Application\Shopwired\Enums',
                    ))
                    ->should(
-                       new MatchOneOfTheseNames(['*UseCase', '*Service', '*Transformer', '*Formatter', '*Sorter', '*Resolver', '*Interface', '*DTO', '*Exception', '*Result', '*Params', '*Command', '*Job']),
+                       new MatchOneOfTheseNames(['*UseCase', '*Service', '*Transformer', '*Formatter', '*Sorter', '*Resolver', '*Interface', '*DTO', '*Exception', '*Result', '*Params', '*Command', '*Job', '*Validator']),
                    )
                    ->because(
-                       'Application layer classes should be clearly identifiable as use cases, services, transformers, formatters, sorters, resolvers, interfaces, jobs, commands, or parameter objects.',
+                       'Application layer classes should be clearly identifiable as use cases, services, transformers, formatters, sorters, resolvers, interfaces, jobs, commands, validators, or parameter objects.',
                    );
 
     // RULE 5: No interfaces in Infrastructure
@@ -607,10 +607,11 @@ return static function (Config $config): void {
                        'App\Domain\*\Commands',
                        'App\Domain\*\Resolvers',
                        'App\Domain\*\Events',
+                       'App\Domain\*\Validators',
                    ))
                    ->because(
                        'Domain classes must be organized into Value Objects, Entities, Enums, Exceptions, '
-                       . 'Contracts, Concerns, Commands, Resolvers, or Events subdirectories for discoverability and maintainability.',
+                       . 'Contracts, Concerns, Commands, Resolvers, Events, or Validators subdirectories for discoverability and maintainability.',
                    );
 
     // RULE 10: All Exceptions must end with *Exception suffix
