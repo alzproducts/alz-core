@@ -409,6 +409,20 @@ final class ProductPricingUpdatedSlackListener implements ShouldQueue
 | 38 | Create | Unit test for ProductPricingUpdatedSlackListener | Tests |
 | 39 | Create | Integration test for getRetailPricingByProductId query | Tests |
 
+## Deferred: Money Promotion to Domain/Shared/Money/
+
+`Money`, `TaxType`, and `TaxRate` currently live at `app/Domain/ValueObjects/`. They should be promoted to `app/Domain/Shared/Money/` to give the concept its own directory (validators, potential future formatters). **NOT YET** — touching Money requires updating all importing classes. Do after this feature is committed and stable.
+
+Target structure:
+```
+Domain/Shared/Money/
+├── Money.php
+├── TaxType.php
+├── TaxRate.php
+└── Validators/
+    └── MoneyGrossComparisonValidator.php  ← created now in advance
+```
+
 ## Reusable Existing Code
 
 - `Money` — `app/Domain/ValueObjects/Money.php` (price VOs, `->toGross()`)

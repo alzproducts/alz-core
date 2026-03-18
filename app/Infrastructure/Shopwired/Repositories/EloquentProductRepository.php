@@ -547,6 +547,45 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
+     * @throws InvalidCustomFieldValueException
+     */
+    public function getProductByAnySku(Sku $sku): Product
+    {
+        // Try product master SKU first
+        try {
+            return $this->getProduct($sku);
+        } catch (ResourceNotFoundException) {
+            Log::debug('Product not found by master SKU, trying variations', ['sku' => $sku->value]);
+        }
+
+        // Find variation by SKU → get parent product's external ID
+        /** @var int|null $productExternalId */
+        $productExternalId = $this->eloquentGateway->query(
+            static function () use ($sku): ?int {
+                /** @var int|null $id */
+                $id = ProductVariationModel::query()
+                    ->where('sku', $sku->value)
+                    ->value('product_external_id');
+
+                return $id;
+            },
+        );
+
+        if ($productExternalId === null) {
+            throw new ResourceNotFoundException('Database', 'Product', $sku->value);
+        }
+
+        // Load parent product with variations
+        return $this->getProduct(IntId::from($productExternalId));
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @throws ResourceNotFoundException
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
      */
     public function deleteByExternalId(IntId $externalId): void
     {

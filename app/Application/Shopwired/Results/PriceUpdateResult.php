@@ -1,0 +1,46 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Application\Shopwired\Results;
+
+/**
+ * Outcome of a product-scoped price update operation.
+ *
+ * Tracks per-SKU outcomes across all three categories:
+ * - Skipped: pre-flight determined no change needed
+ * - Succeeded: API confirmed the update
+ * - Failed: validation rejected or API failed (permanent or temporary)
+ */
+final readonly class PriceUpdateResult
+{
+    /**
+     * @param int $total Total SKUs submitted
+     * @param int $succeeded API confirmed updated: true
+     * @param list<array{sku: string}> $skipped Pre-flight: prices unchanged
+     * @param list<array{sku: string, error: string}> $permanentFailures Validation rejected or API updated: false
+     * @param list<array{sku: string, error: string}> $temporaryFailures TransientApiFailure from API
+     */
+    public function __construct(
+        public int $total,
+        public int $succeeded,
+        public array $skipped = [],
+        public array $permanentFailures = [],
+        public array $temporaryFailures = [],
+    ) {}
+
+    public function hasFailures(): bool
+    {
+        return $this->permanentFailures !== [] || $this->temporaryFailures !== [];
+    }
+
+    public function allSucceeded(): bool
+    {
+        return ! $this->hasFailures() && $this->succeeded === $this->total;
+    }
+
+    public function isPartialSuccess(): bool
+    {
+        return $this->succeeded > 0 && $this->hasFailures();
+    }
+}
