@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Application\Shopwired\Results;
+namespace App\Application\Shopwired\PricingUpdate\Results;
 
 /**
  * Outcome of a product-scoped price update operation.

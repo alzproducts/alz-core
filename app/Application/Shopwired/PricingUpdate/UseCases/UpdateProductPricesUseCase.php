@@ -2,11 +2,13 @@
 
 declare(strict_types=1);
 
-namespace App\Application\Shopwired\UseCases;
+namespace App\Application\Shopwired\PricingUpdate\UseCases;
 
 use App\Application\Contracts\Shopwired\PriceUpdateClientInterface;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
-use App\Application\Shopwired\Results\PriceUpdateResult;
+use App\Application\Shopwired\PricingUpdate\Results\BatchApiResult;
+use App\Application\Shopwired\PricingUpdate\Results\PreFlightValidationResult;
+use App\Application\Shopwired\PricingUpdate\Results\PriceUpdateResult;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\Product\Commands\UpdatePriceCommand;
 use App\Domain\Catalog\Product\Events\ProductPricingUpdatedEvent;
@@ -17,6 +19,7 @@ use App\Domain\Catalog\Product\Validators\SkuBelongsToProductValidator;
 use App\Domain\Catalog\Product\ValueObjects\PriceUpdateItemResult;
 use App\Domain\Catalog\Product\ValueObjects\Product;
 use App\Domain\Catalog\Product\ValueObjects\ProductRetailPricing;
+use App\Domain\Catalog\Product\ValueObjects\ResolvedPriceUpdate;
 use App\Domain\Catalog\Product\ValueObjects\Sku;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
@@ -41,7 +44,7 @@ use Webmozart\Assert\Assert;
  *
  * Flow:
  * 1. Resolve owning product from the first SKU
- * 2. Validate and filter commands (ownership, unchanged, price relationships)
+ * 2. Pre-flight: validate and filter commands (ownership, unchanged, price relationships)
  * 3. Send validated commands to API
  * 4. Dispatch events for confirmed updates
  * 5. Return structured result
@@ -77,78 +80,73 @@ final readonly class UpdateProductPricesUseCase
         $productId = IntId::fromTrusted($product->id);
         $currentPrices = self::buildPricingMap($product);
 
-        // 2. Validate and filter
-        $validated = $this->validateCommands($skuUpdates, $product, $currentPrices, $productId);
+        // 2. Pre-flight validation
+        $preFlight = $this->validateCommands($skuUpdates, $product, $currentPrices, $productId);
 
-        if ($validated['commands'] === []) {
+        if (! $preFlight->hasValidated()) {
             return new PriceUpdateResult(
                 total: $total,
                 succeeded: 0,
-                skipped: $validated['skipped'],
-                permanentFailures: $validated['permanentFailures'],
+                skipped: $preFlight->skipped,
+                permanentFailures: $preFlight->permanentFailures,
             );
         }
 
-        // 3. Send to API and process results
-        $apiOutcome = $this->sendToApi($validated['commands']);
+        // 3. Send to API
+        $commands = \array_map(
+            static fn(ResolvedPriceUpdate $r): UpdatePriceCommand => $r->command,
+            $preFlight->validated,
+        );
+        $apiResult = $this->sendToApi($commands);
 
         // 4. Dispatch events for confirmed updates
-        if ($apiOutcome['updatedSkus'] !== []) {
-            $this->dispatchEvents($productId, $apiOutcome['updatedSkus'], $currentPrices, $validated['commandsBySku']);
+        if ($apiResult->updatedSkus !== []) {
+            $this->dispatchEvents($productId, $apiResult->updatedSkus, $preFlight->resolvedBySku());
         }
 
         /** @var list<array{sku: string, error: string}> $allPermanent */
-        $allPermanent = [...$validated['permanentFailures'], ...$apiOutcome['permanentFailures']];
+        $allPermanent = [...$preFlight->permanentFailures, ...$apiResult->permanentFailures];
 
         $this->logger->info('Product price update completed', [
             'product_id' => $productId->value,
             'total' => $total,
-            'succeeded' => $apiOutcome['succeeded'],
-            'skipped' => \count($validated['skipped']),
+            'succeeded' => $apiResult->succeeded,
+            'skipped' => \count($preFlight->skipped),
             'permanent_failures' => \count($allPermanent),
-            'temporary_failures' => \count($apiOutcome['temporaryFailures']),
+            'temporary_failures' => \count($apiResult->temporaryFailures),
         ]);
 
         return new PriceUpdateResult(
             total: $total,
-            succeeded: $apiOutcome['succeeded'],
-            skipped: $validated['skipped'],
+            succeeded: $apiResult->succeeded,
+            skipped: $preFlight->skipped,
             permanentFailures: $allPermanent,
-            temporaryFailures: $apiOutcome['temporaryFailures'],
+            temporaryFailures: $apiResult->temporaryFailures,
         );
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Validation
-    // ─────────────────────────────────────────────────────────────────────────
+    // -----------------------------------------------------------------------
+    // Pre-flight Validation
+    // -----------------------------------------------------------------------
 
     /**
      * Validate commands: ownership, unchanged, price relationships.
      *
      * @param list<UpdatePriceCommand> $skuUpdates
      * @param array<string, ProductRetailPricing> $currentPrices
-     *
-     * @return array{
-     *     commands: list<UpdatePriceCommand>,
-     *     commandsBySku: array<string, UpdatePriceCommand>,
-     *     skipped: list<array{sku: string}>,
-     *     permanentFailures: list<array{sku: string, error: string}>,
-     * }
      */
     private function validateCommands(
         array $skuUpdates,
         Product $product,
         array $currentPrices,
         IntId $productId,
-    ): array {
+    ): PreFlightValidationResult {
         /** @var list<array{sku: string}> $skipped */
         $skipped = [];
         /** @var list<array{sku: string, error: string}> $permanentFailures */
         $permanentFailures = [];
-        /** @var list<UpdatePriceCommand> $commands */
-        $commands = [];
-        /** @var array<string, UpdatePriceCommand> $commandsBySku */
-        $commandsBySku = [];
+        /** @var list<ResolvedPriceUpdate> $validated */
+        $validated = [];
 
         // 1. SKU ownership check (batch-level, gates everything)
         $submittedSkus = \array_map(
@@ -182,12 +180,12 @@ final readonly class UpdateProductPricesUseCase
             $currentPricing = $currentPrices[$skuValue] ?? null;
             Assert::notNull($currentPricing, "Owned SKU {$skuValue} must have pricing data");
 
-            // Build effective pricing (carry-forward: command field ?? current field)
-            $effectivePricing = self::buildEffectivePricing($command, $currentPricing);
+            // Resolve effective pricing via carry-forward (single source of truth)
+            $resolved = ResolvedPriceUpdate::fromCommand($command, $currentPricing);
 
-            // 2. Skip unchanged prices (soft: failed → skip)
+            // 2. Skip unchanged prices (soft: failed = skip)
             $changeResult = (new PriceChangedValidator(
-                proposed: $effectivePricing,
+                proposed: $resolved->effectivePricing,
                 current: $currentPricing,
             ))->validate();
 
@@ -197,9 +195,9 @@ final readonly class UpdateProductPricesUseCase
                 continue;
             }
 
-            // 3. Validate price relationships (soft: failed → permanent failure)
+            // 3. Validate price relationships (soft: failed = permanent failure)
             $pricingResult = (new HasValidRetailPricingValidator(
-                pricing: $effectivePricing,
+                pricing: $resolved->effectivePricing,
             ))->validate();
 
             if ($pricingResult->failed()) {
@@ -208,62 +206,31 @@ final readonly class UpdateProductPricesUseCase
                 continue;
             }
 
-            $commands[] = $command;
-            $commandsBySku[$skuValue] = $command;
+            $validated[] = $resolved;
         }
 
-        return [
-            'commands' => $commands,
-            'commandsBySku' => $commandsBySku,
-            'skipped' => $skipped,
-            'permanentFailures' => $permanentFailures,
-        ];
-    }
-
-    /**
-     * Build effective ProductRetailPricing from command + current (carry-forward).
-     *
-     * Command field takes precedence; null fields carry forward from current pricing.
-     * A zero sale price is converted to null (clearing the sale).
-     */
-    private static function buildEffectivePricing(
-        UpdatePriceCommand $command,
-        ProductRetailPricing $current,
-    ): ProductRetailPricing {
-        $effectiveBase = $command->price ?? $current->basePrice;
-
-        $effectiveSale = $command->salePrice !== null
-            ? ($command->salePrice->isZero() ? null : $command->salePrice)
-            : $current->salePrice;
-
-        return new ProductRetailPricing(
-            basePrice: $effectiveBase,
-            salePrice: $effectiveSale,
+        return new PreFlightValidationResult(
+            validated: $validated,
+            skipped: $skipped,
+            permanentFailures: $permanentFailures,
         );
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
+    // -----------------------------------------------------------------------
     // API Communication
-    // ─────────────────────────────────────────────────────────────────────────
+    // -----------------------------------------------------------------------
 
     /**
      * Send validated commands to the API and classify results.
      *
      * @param list<UpdatePriceCommand> $commands
      *
-     * @return array{
-     *     succeeded: int,
-     *     updatedSkus: list<Sku>,
-     *     permanentFailures: list<array{sku: string, error: string}>,
-     *     temporaryFailures: list<array{sku: string, error: string}>,
-     * }
-     *
      * @throws InvalidApiRequestException When all chunks fail (programming error)
      * @throws AuthenticationExpiredException When all chunks fail (auth)
      * @throws ExternalServiceUnavailableException When all chunks fail (transient)
      * @throws InvalidApiResponseException When all chunks fail (contract violation)
      */
-    private function sendToApi(array $commands): array
+    private function sendToApi(array $commands): BatchApiResult
     {
         /** @var list<PriceUpdateItemResult> $apiResults */
         $apiResults = [];
@@ -304,17 +271,17 @@ final readonly class UpdateProductPricesUseCase
             ];
         }
 
-        return [
-            'succeeded' => $succeeded,
-            'updatedSkus' => $updatedSkus,
-            'permanentFailures' => $permanentFailures,
-            'temporaryFailures' => $temporaryFailures,
-        ];
+        return new BatchApiResult(
+            succeeded: $succeeded,
+            updatedSkus: $updatedSkus,
+            permanentFailures: $permanentFailures,
+            temporaryFailures: $temporaryFailures,
+        );
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
+    // -----------------------------------------------------------------------
     // Pricing Map
-    // ─────────────────────────────────────────────────────────────────────────
+    // -----------------------------------------------------------------------
 
     /**
      * Build a pricing map from a Product VO (master + all variations).
@@ -346,40 +313,29 @@ final readonly class UpdateProductPricesUseCase
         return $map;
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
+    // -----------------------------------------------------------------------
     // Events
-    // ─────────────────────────────────────────────────────────────────────────
+    // -----------------------------------------------------------------------
 
     /**
      * Dispatch per-SKU and per-product events for confirmed updates.
      *
      * @param list<Sku> $updatedSkus
-     * @param array<string, ProductRetailPricing> $currentPrices
-     * @param array<string, UpdatePriceCommand> $commandsBySku
+     * @param array<string, ResolvedPriceUpdate> $resolvedBySku
      */
     private function dispatchEvents(
         IntId $productId,
         array $updatedSkus,
-        array $currentPrices,
-        array $commandsBySku,
+        array $resolvedBySku,
     ): void {
         foreach ($updatedSkus as $sku) {
-            $previous = $currentPrices[$sku->value] ?? null;
-            $command = $commandsBySku[$sku->value] ?? null;
-            Assert::notNull($previous, "Updated SKU {$sku->value} must have pricing data");
-            Assert::notNull($command, "Updated SKU {$sku->value} must have a command");
-
-            $newPrices = new ProductRetailPricing(
-                basePrice: $command->price ?? $previous->basePrice,
-                salePrice: $command->salePrice !== null
-                    ? ($command->salePrice->isZero() ? null : $command->salePrice)
-                    : $previous->salePrice,
-            );
+            $resolved = $resolvedBySku[$sku->value] ?? null;
+            Assert::notNull($resolved, "Updated SKU {$sku->value} must have a resolved price update");
 
             $this->events->dispatch(new SkuRetailPricingUpdatedEvent(
                 sku: $sku,
-                previousPrices: $previous,
-                newPrices: $newPrices,
+                previousPrices: $resolved->currentPricing,
+                newPrices: $resolved->effectivePricing,
             ));
         }
 
