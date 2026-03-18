@@ -231,6 +231,10 @@ interface GoogleAdsClientInterface
 
 If "no" to any, it probably belongs in Infrastructure or is too generic.
 
+## Validators
+
+Validators live in `Validators/` subdirectories alongside their domain concept (e.g., `Catalog/Product/Validators/`). Validation infrastructure (contracts, traits) lives in `Shared/Validation/` — see `Shared/Validation/CLAUDE.md`.
+
 ## Integer IDs
 
 **Use `IntId` value object** for all integer identifiers, not primitive `int`.

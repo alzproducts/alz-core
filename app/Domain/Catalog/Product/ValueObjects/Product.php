@@ -160,6 +160,30 @@ final readonly class Product implements BasicProductInterface
     }
 
     /**
+     * Get all SKUs from this product (master + variations) as typed Sku objects.
+     *
+     * @return list<Sku>
+     */
+    public function allSkus(): array
+    {
+        $skus = [];
+
+        if ($this->sku !== null) {
+            $skus[] = Sku::fromTrusted($this->sku);
+        }
+
+        if ($this->variations !== null) {
+            foreach ($this->variations as $variation) {
+                if ($variation->sku !== null) {
+                    $skus[] = Sku::fromTrusted($variation->sku);
+                }
+            }
+        }
+
+        return $skus;
+    }
+
+    /**
      * Get the primary (first) image, if any.
      */
     public function primaryImage(): ?ProductImage
