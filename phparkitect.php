@@ -388,10 +388,10 @@ return static function (Config $config): void {
                        'App\Application\Shopwired\Enums',
                    ))
                    ->should(
-                       new MatchOneOfTheseNames(['*UseCase', '*Service', '*Transformer', '*Formatter', '*Sorter', '*Resolver', '*Interface', '*DTO', '*Exception', '*Result', '*Params', '*Command', '*Job']),
+                       new MatchOneOfTheseNames(['*UseCase', '*Service', '*Transformer', '*Formatter', '*Sorter', '*Resolver', '*Interface', '*DTO', '*Exception', '*Result', '*Params', '*Command', '*Job', '*Validator']),
                    )
                    ->because(
-                       'Application layer classes should be clearly identifiable as use cases, services, transformers, formatters, sorters, resolvers, interfaces, jobs, commands, or parameter objects.',
+                       'Application layer classes should be clearly identifiable as use cases, services, transformers, formatters, sorters, resolvers, interfaces, jobs, commands, validators, or parameter objects.',
                    );
 
     // RULE 5: No interfaces in Infrastructure
@@ -613,6 +613,41 @@ return static function (Config $config): void {
                        'Domain classes must be organized into Value Objects, Entities, Enums, Exceptions, '
                        . 'Contracts, Concerns, Commands, Resolvers, Events, or Validators subdirectories for discoverability and maintainability.',
                    );
+
+    // RULE V1: Validator Placement - *Validator classes in Domain must be in Validators/ namespace
+    //
+    // WHY: Validators co-locate with their domain concept for discoverability.
+    // Without this, validators can be dropped in ValueObjects/, Entities/, etc.
+    //
+    // CORRECT:
+    // ✅ namespace App\Domain\Catalog\Product\Validators;
+    //    class SkuBelongsToProductValidator { }
+    //
+    // VIOLATION:
+    // ❌ namespace App\Domain\Catalog\Product\ValueObjects;
+    //    class SkuBelongsToProductValidator { }  // Wrong directory!
+    //
+    $rules[] = Rule::allClasses()
+                   ->that(new HaveNameMatching('*Validator'))
+                   ->andThat(new ResideInOneOfTheseNamespaces($domain))
+                   ->should(new ResideInOneOfTheseNamespaces('App\Domain\*\Validators'))
+                   ->because('Domain validators must reside in Validators/ subdirectories alongside their domain concept.');
+
+    // RULE V2: Validators/ directories only contain Validators and Results
+    //
+    // WHY: Keeps Validators/ directories focused. Prevents enums, helpers, etc. from creeping in.
+    //
+    // CORRECT:
+    // ✅ SkuBelongsToProductValidator, SkuBelongsToProductResult
+    //
+    // VIOLATION:
+    // ❌ namespace App\Domain\Catalog\Product\Validators;
+    //    enum ValidationStatus { }  // Wrong! Enums go in Enums/
+    //
+    $rules[] = Rule::allClasses()
+                   ->that(new ResideInOneOfTheseNamespaces('App\Domain\*\Validators'))
+                   ->should(new MatchOneOfTheseNames(['*Validator', '*Result']))
+                   ->because('Validators/ directories may only contain *Validator and *Result classes.');
 
     // RULE 10: All Exceptions must end with *Exception suffix
     //
