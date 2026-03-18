@@ -614,6 +614,41 @@ return static function (Config $config): void {
                        . 'Contracts, Concerns, Commands, Resolvers, Events, or Validators subdirectories for discoverability and maintainability.',
                    );
 
+    // RULE V1: Validator Placement - *Validator classes in Domain must be in Validators/ namespace
+    //
+    // WHY: Validators co-locate with their domain concept for discoverability.
+    // Without this, validators can be dropped in ValueObjects/, Entities/, etc.
+    //
+    // CORRECT:
+    // ✅ namespace App\Domain\Catalog\Product\Validators;
+    //    class SkuBelongsToProductValidator { }
+    //
+    // VIOLATION:
+    // ❌ namespace App\Domain\Catalog\Product\ValueObjects;
+    //    class SkuBelongsToProductValidator { }  // Wrong directory!
+    //
+    $rules[] = Rule::allClasses()
+                   ->that(new HaveNameMatching('*Validator'))
+                   ->andThat(new ResideInOneOfTheseNamespaces($domain))
+                   ->should(new ResideInOneOfTheseNamespaces('App\Domain\*\Validators'))
+                   ->because('Domain validators must reside in Validators/ subdirectories alongside their domain concept.');
+
+    // RULE V2: Validators/ directories only contain Validators and Results
+    //
+    // WHY: Keeps Validators/ directories focused. Prevents enums, helpers, etc. from creeping in.
+    //
+    // CORRECT:
+    // ✅ SkuBelongsToProductValidator, SkuBelongsToProductResult
+    //
+    // VIOLATION:
+    // ❌ namespace App\Domain\Catalog\Product\Validators;
+    //    enum ValidationStatus { }  // Wrong! Enums go in Enums/
+    //
+    $rules[] = Rule::allClasses()
+                   ->that(new ResideInOneOfTheseNamespaces('App\Domain\*\Validators'))
+                   ->should(new MatchOneOfTheseNames(['*Validator', '*Result']))
+                   ->because('Validators/ directories may only contain *Validator and *Result classes.');
+
     // RULE 10: All Exceptions must end with *Exception suffix
     //
     // WHY: Immediate clarity that a class is throwable/catchable.
