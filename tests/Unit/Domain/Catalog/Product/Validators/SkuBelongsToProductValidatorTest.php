@@ -38,6 +38,8 @@ final class SkuBelongsToProductValidatorTest extends TestCase
         self::assertTrue($result->passed());
         self::assertFalse($result->failed());
         self::assertSame([], $result->missingSkus());
+        self::assertSame('', $result->reason());
+        self::assertSame([], $result->context());
     }
 
     #[Test]

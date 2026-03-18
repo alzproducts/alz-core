@@ -11,7 +11,9 @@ use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\Product\Commands\UpdatePriceCommand;
 use App\Domain\Catalog\Product\Events\ProductPricingUpdatedEvent;
 use App\Domain\Catalog\Product\Events\SkuRetailPricingUpdatedEvent;
-use App\Domain\Catalog\Product\Validators\ProductSkuValidator;
+use App\Domain\Catalog\Product\Validators\HasValidRetailPricingValidator;
+use App\Domain\Catalog\Product\Validators\PriceChangedValidator;
+use App\Domain\Catalog\Product\Validators\SkuBelongsToProductValidator;
 use App\Domain\Catalog\Product\ValueObjects\PriceUpdateItemResult;
 use App\Domain\Catalog\Product\ValueObjects\Product;
 use App\Domain\Catalog\Product\ValueObjects\ProductRetailPricing;
@@ -148,16 +150,20 @@ final readonly class UpdateProductPricesUseCase
         /** @var array<string, UpdatePriceCommand> $commandsBySku */
         $commandsBySku = [];
 
-        // SKU ownership check via domain validator
+        // 1. SKU ownership check (batch-level, gates everything)
         $submittedSkus = \array_map(
             static fn(UpdatePriceCommand $cmd): Sku => $cmd->sku,
             $skuUpdates,
         );
-        $unownedSkus = ProductSkuValidator::findUnownedSkus($product, $submittedSkus);
+
+        $ownershipResult = (new SkuBelongsToProductValidator(
+            product: $product,
+            requiredSkus: $submittedSkus,
+        ))->validate();
 
         /** @var array<string, true> $unownedLookup */
         $unownedLookup = [];
-        foreach ($unownedSkus as $sku) {
+        foreach ($ownershipResult->missingSkus() as $sku) {
             $unownedLookup[$sku->value] = true;
         }
 
@@ -176,17 +182,28 @@ final readonly class UpdateProductPricesUseCase
             $currentPricing = $currentPrices[$skuValue] ?? null;
             Assert::notNull($currentPricing, "Owned SKU {$skuValue} must have pricing data");
 
-            // Skip unchanged prices
-            if (self::isPriceUnchanged($command, $currentPricing)) {
+            // Build effective pricing (carry-forward: command field ?? current field)
+            $effectivePricing = self::buildEffectivePricing($command, $currentPricing);
+
+            // 2. Skip unchanged prices (soft: failed → skip)
+            $changeResult = (new PriceChangedValidator(
+                proposed: $effectivePricing,
+                current: $currentPricing,
+            ))->validate();
+
+            if ($changeResult->failed()) {
                 $skipped[] = ['sku' => $skuValue];
 
                 continue;
             }
 
-            // Validate price relationships (carry-forward logic)
-            $validationError = self::validatePriceRelationship($command, $currentPricing);
-            if ($validationError !== null) {
-                $permanentFailures[] = ['sku' => $skuValue, 'error' => $validationError];
+            // 3. Validate price relationships (soft: failed → permanent failure)
+            $pricingResult = (new HasValidRetailPricingValidator(
+                pricing: $effectivePricing,
+            ))->validate();
+
+            if ($pricingResult->failed()) {
+                $permanentFailures[] = ['sku' => $skuValue, 'error' => $pricingResult->reason()];
 
                 continue;
             }
@@ -204,48 +221,25 @@ final readonly class UpdateProductPricesUseCase
     }
 
     /**
-     * Compare command against current prices (2dp rounding via ->toGross()).
-     */
-    private static function isPriceUnchanged(UpdatePriceCommand $command, ProductRetailPricing $current): bool
-    {
-        if ($command->price !== null && $command->price->toGross() !== $current->basePrice->toGross()) {
-            return false;
-        }
-
-        if ($command->salePrice !== null) {
-            $currentSaleGross = $current->salePrice?->toGross() ?? 0.0;
-            if ($command->salePrice->toGross() !== $currentSaleGross) {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    /**
-     * Validate that the effective sale price would be less than the effective base price.
+     * Build effective ProductRetailPricing from command + current (carry-forward).
      *
-     * Uses carry-forward: if the command only sets one field, the other comes from current prices.
+     * Command field takes precedence; null fields carry forward from current pricing.
+     * A zero sale price is converted to null (clearing the sale).
      */
-    private static function validatePriceRelationship(UpdatePriceCommand $command, ProductRetailPricing $current): ?string
-    {
-        $effectiveBaseGross = $command->price?->toGross() ?? $current->basePrice->toGross();
-        $effectiveSaleGross = $command->salePrice?->toGross() ?? $current->salePrice?->toGross() ?? 0.0;
+    private static function buildEffectivePricing(
+        UpdatePriceCommand $command,
+        ProductRetailPricing $current,
+    ): ProductRetailPricing {
+        $effectiveBase = $command->price ?? $current->basePrice;
 
-        // Clearing sale price (0) is always valid
-        if ($effectiveSaleGross === 0.0) {
-            return null;
-        }
+        $effectiveSale = $command->salePrice !== null
+            ? ($command->salePrice->isZero() ? null : $command->salePrice)
+            : $current->salePrice;
 
-        if ($effectiveSaleGross >= $effectiveBaseGross) {
-            return \sprintf(
-                'salePrice (£%s) must be less than basePrice (£%s)',
-                \number_format($effectiveSaleGross, 2),
-                \number_format($effectiveBaseGross, 2),
-            );
-        }
-
-        return null;
+        return new ProductRetailPricing(
+            basePrice: $effectiveBase,
+            salePrice: $effectiveSale,
+        );
     }
 
     // ─────────────────────────────────────────────────────────────────────────
