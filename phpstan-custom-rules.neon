@@ -54,3 +54,7 @@ rules:
     - App\DevTools\PHPStan\Rules\Infrastructure\ShopwiredModelMustImplementMappableRule
     - App\DevTools\PHPStan\Rules\Infrastructure\RowDtoMustBeInternalRule
     - App\DevTools\PHPStan\Rules\Infrastructure\RowClassNotImportedOutsideQueriesRule
+    # Batch 6: Validation rules
+    - App\DevTools\PHPStan\Rules\Validation\ValidatorMustHaveValidateMethodRule
+    - App\DevTools\PHPStan\Rules\Validation\ValidationResultMustUseTraitRule
+    - App\DevTools\PHPStan\Rules\Validation\ValidationResultMustNotOverrideOrFailRule
