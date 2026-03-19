@@ -269,6 +269,10 @@ final readonly class LinnworksHttpTransport implements LinnworksTransportInterfa
             );
         }
 
+        Log::debug(self::SERVICE_NAME . ' full request URL', [
+            'url' => \mb_rtrim($session->serverUrl, '/') . '/' . \mb_ltrim($endpoint, '/'),
+        ]);
+
         try {
             return $request($session);
         } catch (RequestException $e) {
