@@ -31,6 +31,35 @@ final readonly class ProductRetailPricing
     ) {}
 
     /**
+     * Create from a master product's gross prices.
+     *
+     * @param float $price Base selling price (always set for master products)
+     * @param float|null $salePrice Sale price (null = no sale)
+     */
+    public static function forMainProduct(float $price, ?float $salePrice): self
+    {
+        return new self(
+            basePrice: Money::inclusive($price),
+            salePrice: $salePrice !== null ? Money::inclusive($salePrice) : null,
+        );
+    }
+
+    /**
+     * Create from a variation's gross prices, with parent price fallback.
+     *
+     * @param float|null $variationPrice Variation's own price (null = inherit parent)
+     * @param float|null $salePrice Sale price (null = no sale)
+     * @param float $parentPrice Parent product's base price (used when variation price is null)
+     */
+    public static function forVariation(?float $variationPrice, ?float $salePrice, float $parentPrice): self
+    {
+        return new self(
+            basePrice: Money::inclusive($variationPrice ?? $parentPrice),
+            salePrice: $salePrice !== null ? Money::inclusive($salePrice) : null,
+        );
+    }
+
+    /**
      * Whether a sale is currently active (non-null, non-zero sale price).
      */
     public function saleActive(): bool

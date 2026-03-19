@@ -13,6 +13,7 @@ use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\Product\Commands\UpdatePriceCommand;
 use App\Domain\Catalog\Product\Events\ProductPricingUpdatedEvent;
 use App\Domain\Catalog\Product\Events\SkuRetailPricingUpdatedEvent;
+use App\Domain\Catalog\Product\Transformers\ProductRetailPricingTransformer;
 use App\Domain\Catalog\Product\Validators\HasValidRetailPricingValidator;
 use App\Domain\Catalog\Product\Validators\PriceChangedValidator;
 use App\Domain\Catalog\Product\Validators\SkuBelongsToProductValidator;
@@ -29,7 +30,6 @@ use App\Domain\Exceptions\Api\PartialBatchFailureException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Api\TransientApiFailure;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
-use App\Domain\Shared\Money\ValueObjects\Money;
 use App\Domain\ValueObjects\IntId;
 use Illuminate\Contracts\Events\Dispatcher;
 use Psr\Log\LoggerInterface;
@@ -78,10 +78,10 @@ final readonly class UpdateProductPricesUseCase
         // 1. Resolve owning product and build current pricing map
         $product = $this->productRepo->getProductByAnySku($skuUpdates[0]->sku);
         $productId = IntId::fromTrusted($product->id);
-        $currentPrices = self::buildPricingMap($product);
+        $currentPrices = ProductRetailPricingTransformer::fromProduct($product);
 
         // 2. Pre-flight validation
-        $preFlight = $this->validateCommands($skuUpdates, $product, $currentPrices, $productId);
+        $preFlight = $this->validateCommands($skuUpdates, $product, $currentPrices);
 
         if (! $preFlight->hasValidated()) {
             return new PriceUpdateResult(
@@ -139,7 +139,6 @@ final readonly class UpdateProductPricesUseCase
         array $skuUpdates,
         Product $product,
         array $currentPrices,
-        IntId $productId,
     ): PreFlightValidationResult {
         /** @var list<array{sku: string}> $skipped */
         $skipped = [];
@@ -171,7 +170,7 @@ final readonly class UpdateProductPricesUseCase
             if (isset($unownedLookup[$skuValue])) {
                 $permanentFailures[] = [
                     'sku' => $skuValue,
-                    'error' => "SKU does not belong to product {$productId->value}",
+                    'error' => "SKU does not belong to product {$product->id}",
                 ];
 
                 continue;
@@ -277,40 +276,6 @@ final readonly class UpdateProductPricesUseCase
             permanentFailures: $permanentFailures,
             temporaryFailures: $temporaryFailures,
         );
-    }
-
-    // -----------------------------------------------------------------------
-    // Pricing Map
-    // -----------------------------------------------------------------------
-
-    /**
-     * Build a pricing map from a Product VO (master + all variations).
-     *
-     * @return array<string, ProductRetailPricing>
-     */
-    private static function buildPricingMap(Product $product): array
-    {
-        $map = [];
-
-        if ($product->sku !== null && $product->sku !== '') {
-            $map[$product->sku] = new ProductRetailPricing(
-                basePrice: Money::inclusive($product->price),
-                salePrice: $product->salePrice !== null ? Money::inclusive($product->salePrice) : null,
-            );
-        }
-
-        foreach ($product->variations ?? [] as $variation) {
-            if ($variation->sku === null || $variation->sku === '') {
-                continue;
-            }
-
-            $map[$variation->sku] = new ProductRetailPricing(
-                basePrice: Money::inclusive($variation->price ?? $product->price),
-                salePrice: $variation->salePrice !== null ? Money::inclusive($variation->salePrice) : null,
-            );
-        }
-
-        return $map;
     }
 
     // -----------------------------------------------------------------------

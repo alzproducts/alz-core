@@ -606,12 +606,13 @@ return static function (Config $config): void {
                        'App\Domain\*\Concerns',
                        'App\Domain\*\Commands',
                        'App\Domain\*\Resolvers',
+                       'App\Domain\*\Transformers',
                        'App\Domain\*\Events',
                        'App\Domain\*\Validators',
                    ))
                    ->because(
                        'Domain classes must be organized into Value Objects, Entities, Enums, Exceptions, '
-                       . 'Contracts, Concerns, Commands, Resolvers, Events, or Validators subdirectories for discoverability and maintainability.',
+                       . 'Contracts, Concerns, Commands, Resolvers, Transformers, Events, or Validators subdirectories for discoverability and maintainability.',
                    );
 
     // RULE V1: Validator Placement - *Validator classes in Domain must be in Validators/ namespace
