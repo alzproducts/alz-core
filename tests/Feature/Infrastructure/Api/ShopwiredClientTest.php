@@ -494,7 +494,7 @@ final class ShopwiredClientTest extends TestCase
             'batch-1' => ['endpoint' => 'orders/123/status', 'data' => ['status' => 'shipped']],
         ]);
 
-        $this->assertInstanceOf(InvalidApiRequestException::class, $result->transportFailure);
+        $this->assertInstanceOf(InvalidApiRequestException::class, $result->transportFailures[0]);
     }
 
     #[Test]
@@ -507,7 +507,7 @@ final class ShopwiredClientTest extends TestCase
             'batch-1' => ['endpoint' => 'orders/123/status', 'data' => ['status' => 'shipped']],
         ]);
 
-        $this->assertInstanceOf(ExternalServiceUnavailableException::class, $result->transportFailure);
+        $this->assertInstanceOf(ExternalServiceUnavailableException::class, $result->transportFailures[0]);
     }
 
     #[Test]
@@ -520,6 +520,6 @@ final class ShopwiredClientTest extends TestCase
             'batch-1' => ['endpoint' => 'orders/123/status', 'data' => ['status' => 'shipped']],
         ]);
 
-        $this->assertInstanceOf(ExternalServiceUnavailableException::class, $result->transportFailure);
+        $this->assertInstanceOf(ExternalServiceUnavailableException::class, $result->transportFailures[0]);
     }
 }

@@ -20,6 +20,7 @@ use App\Domain\Exceptions\Api\ResourceNotAvailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Data\InvalidSkuException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
+use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\Exceptions\Infrastructure\LockAcquisitionException;
 use App\Domain\Exceptions\Inventory\SkuGenerationFailedException;
 use App\Domain\Exceptions\Inventory\SkuUpdateFailedException;
@@ -77,6 +78,7 @@ final readonly class UpdateSkuUseCase
      * @throws InvalidApiRequestException When request parameters invalid
      * @throws InvalidApiResponseException When API response malformed
      * @throws DatabaseOperationFailedException When audit record operations fail
+     * @throws DuplicateRecordException When audit record unique constraint violated
      */
     public function execute(UpdateSkuCommand $command): void
     {

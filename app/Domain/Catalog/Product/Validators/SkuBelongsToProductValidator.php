@@ -15,14 +15,14 @@ use App\Domain\Shared\Validation\Contracts\ValidatorInterface;
  * against the list of required SKUs. Any SKU not found on the product is reported
  * as missing in the result.
  */
-final class SkuBelongsToProductValidator implements ValidatorInterface
+final readonly class SkuBelongsToProductValidator implements ValidatorInterface
 {
     /**
      * @param  list<Sku>  $requiredSkus
      */
     public function __construct(
-        private readonly Product $product,
-        private readonly array $requiredSkus,
+        private Product $product,
+        private array $requiredSkus,
     ) {}
 
     public function validate(): SkuBelongsToProductResult

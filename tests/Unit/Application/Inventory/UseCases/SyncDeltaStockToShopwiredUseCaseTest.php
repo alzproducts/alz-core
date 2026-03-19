@@ -367,7 +367,7 @@ final class SyncDeltaStockToShopwiredUseCaseTest extends TestCase
 
         $this->shopwiredClient->shouldReceive('updateStockQuantity')
             ->once()
-            ->andReturn(new StockUpdateResult(pushed: $pushed, transportFailure: $transportFailure));
+            ->andReturn(new StockUpdateResult(pushed: $pushed, transportFailures: [$transportFailure]));
 
         // Local DB should be updated for SKU-A (the pushed item)
         $this->stockRepository->shouldReceive('updateStockLevels')

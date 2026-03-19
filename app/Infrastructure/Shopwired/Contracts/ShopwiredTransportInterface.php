@@ -118,7 +118,7 @@ interface ShopwiredTransportInterface
      *
      * Uses Http::pool() for parallel execution of multiple POST requests.
      * Each request is configured with auth and retry logic. Returns a result
-     * containing successful responses and the first transport failure (if any).
+     * containing successful responses and all transport failures encountered.
      *
      * Individual batch transport failures are captured in the result rather than
      * thrown immediately, allowing callers to process partial successes.

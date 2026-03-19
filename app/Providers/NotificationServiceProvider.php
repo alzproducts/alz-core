@@ -4,15 +4,37 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
-use App\Domain\Notifications\Events\AdminAlertEvent;
-use App\Infrastructure\Notifications\Listeners\AdminAlertSlackListener;
-use Illuminate\Support\Facades\Event;
+use App\Application\Contracts\ChatNotificationInterface;
+use App\Infrastructure\Notifications\SlackChatNotificationClient;
+use Illuminate\Contracts\Support\DeferrableProvider;
 use Illuminate\Support\ServiceProvider;
+use Override;
 
-final class NotificationServiceProvider extends ServiceProvider
+/**
+ * Notification Service Provider.
+ *
+ * Deferred provider for notification delivery bindings.
+ * Services are only loaded when a listener or UseCase requests them.
+ */
+final class NotificationServiceProvider extends ServiceProvider implements DeferrableProvider
 {
-    public function boot(): void
+    #[Override]
+    public function register(): void
     {
-        Event::listen(AdminAlertEvent::class, AdminAlertSlackListener::class);
+        $this->app->bind(
+            ChatNotificationInterface::class,
+            SlackChatNotificationClient::class,
+        );
+    }
+
+    /**
+     * @return list<class-string>
+     */
+    #[Override]
+    public function provides(): array
+    {
+        return [
+            ChatNotificationInterface::class,
+        ];
     }
 }
