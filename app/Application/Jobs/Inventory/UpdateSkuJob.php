@@ -13,6 +13,8 @@ use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Api\TransientApiFailure;
 use App\Domain\Exceptions\Data\InvalidSkuException;
+use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
+use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\Exceptions\Inventory\SkuGenerationFailedException;
 use App\Domain\Exceptions\Inventory\SkuUpdateFailedException;
 use App\Domain\Inventory\Commands\UpdateSkuCommand;
@@ -149,6 +151,14 @@ final class UpdateSkuJob implements ShouldBeUnique, ShouldQueue
             } else {
                 throw $e;
             }
+        } catch (DatabaseOperationFailedException|DuplicateRecordException $e) {
+            Log::error('UpdateSkuJob: database failure', [
+                'old_sku' => $this->command->oldSku,
+                'exception' => $e::class,
+                'message' => $e->getMessage(),
+            ]);
+            $this->fail($e);
+            throw $e;
         } catch (Throwable $e) {
             $this->fail($e);
 
