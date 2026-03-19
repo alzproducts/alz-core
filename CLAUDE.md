@@ -230,11 +230,11 @@ See layer-specific guides for detailed patterns.
 **Target**: PHP 8.4+ features and best practices
 
 ### PHP 8.4 Features
-- **Property Hooks**: Use where appropriate (getters/setters on properties)
+- **Property Hooks**: Prefer for computed/derived getters and validated setters. Keeps logic co-located with the property instead of scattered in methods.
 - **Asymmetric Visibility**: Use `public private(set)` for read-only properties
 - **Array Functions**: Use `array_find()`, `array_find_key()`, `array_any()`, `array_all()`
 - **Static Functions**: Always use static methods and closures for pure/stateless operations (transformations, utilities, factories). Never use static properties for state—Octane persists them across requests.
-- **Readonly Classes**: Mark classes as `readonly` when all properties are immutable (DTOs, value objects, transformers)
+- **Readonly Classes**: Mark classes as `readonly` when all properties are immutable (DTOs, value objects, transformers). **Exception**: classes needing property hooks cannot be `readonly` — use per-property `readonly` on the non-hooked properties instead.
 - **Import All Classes**: All classes must be imported with `use` statements—including in docblocks (`@throws`, `@param`, `@return`)
 - **@throws Propagation**: Implementations must copy `@throws` from interface and any called methods
 
