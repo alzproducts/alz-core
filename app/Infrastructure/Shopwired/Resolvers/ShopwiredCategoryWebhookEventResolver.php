@@ -18,7 +18,7 @@ final class ShopwiredCategoryWebhookEventResolver implements CategoryWebhookEven
     {
         return match ($topic) {
             'category.created', 'category.updated' => CategoryWebhookIntent::Sync,
-            'category.deleted'                     => CategoryWebhookIntent::Deleted,
+            'category.deleted' => CategoryWebhookIntent::Deleted,
             default => throw new InvalidApiResponseException(
                 'ShopWired',
                 "Unrecognised category webhook topic: '{$topic}'",

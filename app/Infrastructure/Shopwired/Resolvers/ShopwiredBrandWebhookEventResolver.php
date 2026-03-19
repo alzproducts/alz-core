@@ -18,7 +18,7 @@ final class ShopwiredBrandWebhookEventResolver implements BrandWebhookEventResol
     {
         return match ($topic) {
             'brand.created', 'brand.updated' => BrandWebhookIntent::Sync,
-            'brand.deleted'                  => BrandWebhookIntent::Deleted,
+            'brand.deleted' => BrandWebhookIntent::Deleted,
             default => throw new InvalidApiResponseException(
                 'ShopWired',
                 "Unrecognised brand webhook topic: '{$topic}'",

@@ -64,7 +64,7 @@ final readonly class LinnworksHttpTransport implements LinnworksTransportInterfa
     {
         return $this->executeWithAuthRetry(
             // @phpstan-ignore missingType.checkedException, missingType.checkedException (closure exceptions caught in executeWithAuthRetry)
-            fn(LinnworksSession $session): Response => $this->createBaseRequest($session)
+            fn(LinnworksSession $session): Response => $this->createBaseRequest($session, $endpoint)
                 ->send('GET', $endpoint, ['query' => $query])
                 ->throw(),
             $endpoint,
@@ -106,7 +106,7 @@ final readonly class LinnworksHttpTransport implements LinnworksTransportInterfa
 
         return $this->executeWithAuthRetry(
             // @phpstan-ignore missingType.checkedException, missingType.checkedException (closure exceptions caught in executeWithAuthRetry)
-            fn(LinnworksSession $session): Response => $this->createBaseRequest($session)
+            fn(LinnworksSession $session): Response => $this->createBaseRequest($session, $endpoint)
                 ->send('POST', $endpoint, ['form_params' => $formData])
                 ->throw(),
             $endpoint,
@@ -135,7 +135,7 @@ final readonly class LinnworksHttpTransport implements LinnworksTransportInterfa
     {
         return $this->executeWithAuthRetry(
             // @phpstan-ignore missingType.checkedException, missingType.checkedException (closure exceptions caught in executeWithAuthRetry)
-            fn(LinnworksSession $session): Response => $this->createBaseRequest($session)
+            fn(LinnworksSession $session): Response => $this->createBaseRequest($session, $endpoint)
                 ->asJson()
                 ->post($endpoint, $data)
                 ->throw(),
@@ -169,7 +169,7 @@ final readonly class LinnworksHttpTransport implements LinnworksTransportInterfa
 
         return $this->executeWithAuthRetry(
             // @phpstan-ignore missingType.checkedException, missingType.checkedException (closure exceptions caught in executeWithAuthRetry)
-            fn(LinnworksSession $session): Response => $this->createBaseRequest($session)
+            fn(LinnworksSession $session): Response => $this->createBaseRequest($session, $endpoint)
                 ->asForm()
                 ->post($endpoint, $formParams)
                 ->throw(),
@@ -308,13 +308,32 @@ final readonly class LinnworksHttpTransport implements LinnworksTransportInterfa
     /**
      * Create configured HTTP request for a session.
      *
+     * Routes v2 endpoints to the v2 API host (eu-api) while legacy /api/
+     * endpoints continue using the session's default server (eu-ext).
+     *
      * @throws RuntimeException When HTTP client configuration fails
      */
-    private function createBaseRequest(LinnworksSession $session): PendingRequest
+    private function createBaseRequest(LinnworksSession $session, string $endpoint): PendingRequest
     {
-        return Http::baseUrl($session->serverUrl)
+        return Http::baseUrl(self::resolveBaseUrl($session->serverUrl, $endpoint))
             ->withHeaders(['Authorization' => $session->token])
             ->timeout($this->config->timeout);
+    }
+
+    /**
+     * Resolve the correct base URL based on endpoint prefix.
+     *
+     * Linnworks v2 endpoints live on a different host (eu-api.linnworks.net)
+     * than legacy endpoints (eu-ext.linnworks.net). The session always returns
+     * the legacy host, so we derive the v2 host by replacing the subdomain.
+     */
+    private static function resolveBaseUrl(string $serverUrl, string $endpoint): string
+    {
+        if (\str_starts_with($endpoint, '/v2/')) {
+            return (string) \preg_replace('#://[^.]+\.#', '://eu-api.', $serverUrl);
+        }
+
+        return $serverUrl;
     }
 
     /**

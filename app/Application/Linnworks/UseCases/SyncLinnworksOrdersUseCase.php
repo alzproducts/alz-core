@@ -4,58 +4,52 @@ declare(strict_types=1);
 
 namespace App\Application\Linnworks\UseCases;
 
-use App\Application\Contracts\Linnworks\InventoryClientInterface;
-use App\Application\Contracts\Linnworks\StockItemRepositoryInterface;
+use App\Application\Contracts\Linnworks\LinnworksOrderRepositoryInterface;
+use App\Application\Contracts\Linnworks\OrderClientInterface;
+use App\Application\Results\SaveManyResult;
 use App\Application\Results\SyncResult;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
-use App\Domain\Inventory\ValueObjects\StockItemFull;
+use App\Domain\Linnworks\ValueObjects\LinnworksOrder;
+use DateTimeImmutable;
 use Psr\Log\LoggerInterface;
 
 /**
- * Orchestrate stock item synchronization from Linnworks API to local database.
+ * Core order sync logic shared by all 5 tiers.
  *
- * Full sync strategy: fetches all ~10k stock items with extended properties
- * and upserts them to the database. Designed for daily 5am execution.
+ * Iterates batches from the OrderClient Generator, buffers pages,
+ * and flushes via bulk upsert. Tracks the max LastUpdated across
+ * all orders for cursor advancement.
  *
- * Uses generator-based pagination for memory efficiency.
- *
- * Batching strategy:
- * - API returns ~200 items per page
- * - Buffer 5 pages (~1000 items) before DB write
- * - Reduces DB round-trips while keeping memory bounded
+ * Pattern: follows SyncAllStockItemsUseCase — iterate Generator,
+ * buffer pages, flush batches, continue-on-failure.
  */
-final readonly class SyncAllStockItemsUseCase
+final readonly class SyncLinnworksOrdersUseCase
 {
     /**
      * Number of pages to buffer before writing to database.
-     * 5 pages × ~200 items/page = ~1000 items per batch.
+     * 5 pages × ~200 orders/page = ~1000 orders per batch.
      */
     private const int PAGES_PER_BATCH = 5;
 
     /**
      * Log progress every N batches at info level.
-     * 5 batches × ~1000 items/batch = ~5,000 items between progress logs.
      */
     private const int PROGRESS_LOG_INTERVAL = 5;
 
     public function __construct(
-        private InventoryClientInterface $inventoryClient,
-        private StockItemRepositoryInterface $stockItemRepository,
+        private OrderClientInterface $orderClient,
+        private LinnworksOrderRepositoryInterface $orderRepository,
         private LoggerInterface $logger,
     ) {}
 
     /**
-     * Synchronize all stock items from Linnworks API to local database.
+     * Synchronize orders updated since fromDate to local database.
      *
-     * Iterates through stock item pages, buffering PAGES_PER_BATCH pages
-     * before flushing to database. Uses continue-on-failure semantics:
-     * individual save failures are logged and counted, but processing continues.
-     *
-     * @return SyncResult Results with fetched/saved/failed counts
+     * @return SyncResult Results with fetched/saved/failed counts and latestLastUpdated
      *
      * @throws AuthenticationExpiredException When Linnworks credentials invalid/expired
      * @throws InvalidApiRequestException When request parameters are invalid
@@ -63,36 +57,42 @@ final readonly class SyncAllStockItemsUseCase
      * @throws ExternalServiceUnavailableException When Linnworks API unavailable
      * @throws InvalidApiResponseException When API response parsing fails
      */
-    public function execute(): SyncResult
+    public function execute(DateTimeImmutable $fromDate): SyncResult
     {
-        $this->logger->info('Starting full stock item sync from Linnworks');
+        $this->logger->info('Linnworks order sync starting', [
+            'from_date' => $fromDate->format('Y-m-d H:i:s'),
+        ]);
 
         $totalFetched = 0;
         $totalSaved = 0;
         $totalFailed = 0;
         /** @var list<string> $allFailedReferences */
         $allFailedReferences = [];
+        $latestLastUpdated = null;
 
-        /** @var list<StockItemFull> $buffer */
+        /** @var list<LinnworksOrder> $buffer */
         $buffer = [];
         $pagesBuffered = 0;
         $batchesFlushed = 0;
 
-        foreach ($this->inventoryClient->iterateStockItemBatches() as $pageNumber => $stockItems) {
-            $totalFetched += \count($stockItems);
-            \array_push($buffer, ...$stockItems);
+        /** @var list<LinnworksOrder> $orders */
+        foreach ($this->orderClient->iterateProcessedOrders($fromDate) as $pageNumber => $orders) {
+            $totalFetched += \count($orders);
+            \array_push($buffer, ...$orders);
             $pagesBuffered++;
 
-            $this->logger->debug('Fetched stock item page from API', [
+            // Track max LastUpdated across all orders
+            $latestLastUpdated = self::maxLastUpdated($latestLastUpdated, $orders);
+
+            $this->logger->debug('Fetched order page from API', [
                 'page' => $pageNumber,
-                'count' => \count($stockItems),
+                'count' => \count($orders),
                 'buffer_size' => \count($buffer),
             ]);
 
-            // Flush buffer when we've accumulated enough pages
             if ($pagesBuffered >= self::PAGES_PER_BATCH) {
                 $result = $this->flushBuffer($buffer, $pageNumber);
-                $totalSaved += $result->saved;
+                $totalSaved += $result->succeeded;
                 $totalFailed += $result->failed;
                 \array_push($allFailedReferences, ...$result->failedReferences);
 
@@ -100,9 +100,8 @@ final readonly class SyncAllStockItemsUseCase
                 $pagesBuffered = 0;
                 $batchesFlushed++;
 
-                // Log progress at info level periodically for operator visibility
                 if ($batchesFlushed % self::PROGRESS_LOG_INTERVAL === 0) {
-                    $this->logger->info('Stock item sync progress', [
+                    $this->logger->info('Linnworks order sync progress', [
                         'fetched' => $totalFetched,
                         'saved' => $totalSaved,
                         'failed' => $totalFailed,
@@ -114,61 +113,75 @@ final readonly class SyncAllStockItemsUseCase
         // Flush remaining items in buffer
         if ($buffer !== []) {
             $result = $this->flushBuffer($buffer, 'final');
-            $totalSaved += $result->saved;
+            $totalSaved += $result->succeeded;
             $totalFailed += $result->failed;
             \array_push($allFailedReferences, ...$result->failedReferences);
         }
 
         if ($totalFetched === 0) {
-            $this->logger->info('Stock item sync completed: no items found in Linnworks');
+            $this->logger->info('Linnworks order sync completed: no orders found', [
+                'from_date' => $fromDate->format('Y-m-d H:i:s'),
+            ]);
 
             return SyncResult::empty();
         }
 
-        $this->logger->info('Stock item sync completed', [
+        $this->logger->info('Linnworks order sync completed', [
             'fetched' => $totalFetched,
             'saved' => $totalSaved,
             'failed' => $totalFailed,
+            'latest_last_updated' => $latestLastUpdated?->format('Y-m-d H:i:s'),
         ]);
 
         return new SyncResult(
             fetched: $totalFetched,
             saved: $totalSaved,
             failed: $totalFailed,
+            latestLastUpdated: $latestLastUpdated,
             failedReferences: $allFailedReferences,
         );
     }
 
     /**
-     * Flush buffered stock items to database.
+     * Flush buffered orders to database via bulk upsert.
      *
-     * @param list<StockItemFull> $stockItems Items to save
-     * @param int|string $batchIdentifier For logging (page number or 'final')
+     * @param list<LinnworksOrder> $orders
      *
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      */
-    private function flushBuffer(array $stockItems, int|string $batchIdentifier): SyncResult
+    private function flushBuffer(array $orders, int|string $batchIdentifier): SaveManyResult
     {
-        $this->logger->debug('Flushing stock item batch to database', [
+        $this->logger->debug('Flushing order batch to database', [
             'batch' => $batchIdentifier,
-            'count' => \count($stockItems),
+            'count' => \count($orders),
         ]);
 
-        $saveResult = $this->stockItemRepository->saveMany($stockItems);
+        $saveResult = $this->orderRepository->saveOrdersBulk($orders);
 
         if ($saveResult->hasFailures()) {
-            $this->logger->error('Failed to save some stock items to database', [
+            $this->logger->error('Failed to save some orders to database', [
                 'batch' => $batchIdentifier,
                 'failed_count' => $saveResult->failed,
                 'failed_ids' => $saveResult->failedReferences,
             ]);
         }
 
-        return new SyncResult(
-            fetched: \count($stockItems),
-            saved: $saveResult->succeeded,
-            failed: $saveResult->failed,
-            failedReferences: $saveResult->failedReferences,
-        );
+        return $saveResult;
+    }
+
+    /**
+     * Track the maximum LastUpdated across a batch of orders.
+     *
+     * @param list<LinnworksOrder> $orders
+     */
+    private static function maxLastUpdated(?DateTimeImmutable $current, array $orders): ?DateTimeImmutable
+    {
+        foreach ($orders as $order) {
+            if ($current === null || $order->lastUpdated > $current) {
+                $current = $order->lastUpdated;
+            }
+        }
+
+        return $current;
     }
 }

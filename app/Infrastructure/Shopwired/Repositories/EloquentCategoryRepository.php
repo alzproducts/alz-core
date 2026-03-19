@@ -123,17 +123,11 @@ final class EloquentCategoryRepository extends AbstractEloquentRepository implem
     // Abstract Method Implementations
     // ─────────────────────────────────────────────────────────────────────────
 
-    /**
-     * {@inheritDoc}
-     */
     protected function getModelClass(): string
     {
         return self::MODEL_CLASS;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     protected function getEntityIdentifier(object $entity): int
     {
         /** @var Category $entity */

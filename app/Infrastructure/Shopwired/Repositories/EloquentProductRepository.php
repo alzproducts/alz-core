@@ -448,25 +448,16 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
     // Abstract Method Implementations
     // ─────────────────────────────────────────────────────────────────────────
 
-    /**
-     * {@inheritDoc}
-     */
     protected function getModelClass(): string
     {
         return self::MODEL_CLASS;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     protected function getEagerLoadRelations(): array
     {
         return self::EAGER_LOAD_RELATIONS;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     protected function getEntityIdentifier(object $entity): int
     {
         /** @var Product $entity */

@@ -18,10 +18,10 @@ final class ShopwiredOrderWebhookEventResolver implements OrderWebhookEventResol
     {
         return match ($topic) {
             'order.updated', 'order.finalized' => OrderWebhookIntent::Sync,
-            'order.status_changed'             => OrderWebhookIntent::StatusChanged,
-            'order.refund.created'             => OrderWebhookIntent::RefundCreated,
-            'order.refund.deleted'             => OrderWebhookIntent::RefundDeleted,
-            'order.deleted'                    => OrderWebhookIntent::Deleted,
+            'order.status_changed' => OrderWebhookIntent::StatusChanged,
+            'order.refund.created' => OrderWebhookIntent::RefundCreated,
+            'order.refund.deleted' => OrderWebhookIntent::RefundDeleted,
+            'order.deleted' => OrderWebhookIntent::Deleted,
             default => throw new InvalidApiResponseException(
                 'ShopWired',
                 "Unrecognised order webhook topic: '{$topic}'",
