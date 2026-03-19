@@ -7,6 +7,7 @@ namespace App\Infrastructure\Linnworks;
 use App\Application\Contracts\Linnworks\ConnectivityClientInterface;
 use App\Application\Contracts\Linnworks\InventoryClientInterface;
 use App\Application\Contracts\Linnworks\InventoryUpdateClientInterface;
+use App\Application\Contracts\Linnworks\OrderClientInterface;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\InvalidConfigurationException;
@@ -14,6 +15,7 @@ use App\Infrastructure\Linnworks\Clients\ConnectivityClient;
 use App\Infrastructure\Linnworks\Clients\DashboardsClient;
 use App\Infrastructure\Linnworks\Clients\InventoryClient;
 use App\Infrastructure\Linnworks\Clients\InventoryUpdateClient;
+use App\Infrastructure\Linnworks\Clients\OrderClient;
 use App\Infrastructure\Linnworks\Clients\StockDashboardsClient;
 use App\Infrastructure\Linnworks\Contracts\LinnworksTransportInterface;
 use App\Infrastructure\Linnworks\Enums\LinnworksLogLevel;
@@ -75,6 +77,14 @@ final class LinnworksClientFactory
     public static function createDashboardsClient(): DashboardsClient
     {
         return new DashboardsClient(self::getTransport());
+    }
+
+    /**
+     * Create the order client for processed order operations.
+     */
+    public static function createOrderClient(): OrderClientInterface
+    {
+        return new OrderClient(self::getTransport());
     }
 
     /**

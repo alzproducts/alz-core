@@ -80,7 +80,7 @@ final readonly class SyncAllStockItemsUseCase
 
         foreach ($this->inventoryClient->iterateStockItemBatches() as $pageNumber => $stockItems) {
             $totalFetched += \count($stockItems);
-            $buffer = [...$buffer, ...$stockItems];
+            \array_push($buffer, ...$stockItems);
             $pagesBuffered++;
 
             $this->logger->debug('Fetched stock item page from API', [
@@ -94,7 +94,7 @@ final readonly class SyncAllStockItemsUseCase
                 $result = $this->flushBuffer($buffer, $pageNumber);
                 $totalSaved += $result->saved;
                 $totalFailed += $result->failed;
-                $allFailedReferences = [...$allFailedReferences, ...$result->failedReferences];
+                \array_push($allFailedReferences, ...$result->failedReferences);
 
                 $buffer = [];
                 $pagesBuffered = 0;
@@ -116,7 +116,7 @@ final readonly class SyncAllStockItemsUseCase
             $result = $this->flushBuffer($buffer, 'final');
             $totalSaved += $result->saved;
             $totalFailed += $result->failed;
-            $allFailedReferences = [...$allFailedReferences, ...$result->failedReferences];
+            \array_push($allFailedReferences, ...$result->failedReferences);
         }
 
         if ($totalFetched === 0) {

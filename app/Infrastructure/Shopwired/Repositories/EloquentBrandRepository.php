@@ -119,17 +119,11 @@ final class EloquentBrandRepository extends AbstractEloquentRepository implement
     // Abstract Method Implementations
     // ─────────────────────────────────────────────────────────────────────────
 
-    /**
-     * {@inheritDoc}
-     */
     protected function getModelClass(): string
     {
         return self::MODEL_CLASS;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     protected function getEntityIdentifier(object $entity): int
     {
         /** @var Brand $entity */

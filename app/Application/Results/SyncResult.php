@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Application\Results;
 
+use DateTimeImmutable;
+
 /**
  * Result of a sync operation from external API to local database.
  *
@@ -18,12 +20,14 @@ final readonly class SyncResult
      * @param int<0, max> $fetched Number of entities fetched from external API
      * @param int<0, max> $saved Number of entities saved to local database
      * @param int<0, max> $failed Number of entities that failed to save
+     * @param DateTimeImmutable|null $latestLastUpdated Max timestamp seen (for cursor advancement)
      * @param list<int|string> $failedReferences IDs of entities that failed
      */
     public function __construct(
         public int $fetched,
         public int $saved,
         public int $failed,
+        public ?DateTimeImmutable $latestLastUpdated = null,
         public array $failedReferences = [],
     ) {}
 

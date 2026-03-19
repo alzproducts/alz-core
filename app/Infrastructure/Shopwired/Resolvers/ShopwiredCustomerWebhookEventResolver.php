@@ -18,7 +18,7 @@ final class ShopwiredCustomerWebhookEventResolver implements CustomerWebhookEven
     {
         return match ($topic) {
             'customer.created', 'customer.updated' => CustomerWebhookIntent::Sync,
-            'customer.deleted'                     => CustomerWebhookIntent::Deleted,
+            'customer.deleted' => CustomerWebhookIntent::Deleted,
             default => throw new InvalidApiResponseException(
                 'ShopWired',
                 "Unrecognised customer webhook topic: '{$topic}'",

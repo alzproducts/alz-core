@@ -123,17 +123,11 @@ final class EloquentCustomerRepository extends AbstractEloquentRepository implem
     // Abstract Method Implementations
     // ─────────────────────────────────────────────────────────────────────────
 
-    /**
-     * {@inheritDoc}
-     */
     protected function getModelClass(): string
     {
         return self::MODEL_CLASS;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     protected function getEntityIdentifier(object $entity): int
     {
         /** @var Customer $entity */

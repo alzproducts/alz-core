@@ -327,9 +327,6 @@ final class EloquentOrderRepository extends AbstractEloquentRepository implement
     // Abstract Method Implementations
     // ─────────────────────────────────────────────────────────────────────────
 
-    /**
-     * {@inheritDoc}
-     */
     protected function getModelClass(): string
     {
         return self::MODEL_CLASS;

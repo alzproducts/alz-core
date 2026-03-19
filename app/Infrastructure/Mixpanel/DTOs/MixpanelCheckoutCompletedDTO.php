@@ -221,8 +221,9 @@ final readonly class MixpanelCheckoutCompletedDTO
                 'price' => $product->price,
                 'quantity' => $product->quantity,
                 'total' => $product->total,
-                'position' => $position++,
+                'position' => $position,
             ];
+            $position++;
         }
 
         return $cart;
