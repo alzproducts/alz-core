@@ -63,6 +63,19 @@ Job class names must start with: `Sync`, `Process`, `Reconcile`, `Set`, `Update`
 
 **Why:** Dependency Inversion Principle — higher layers define contracts, lower layers fulfill them.
 
+### Interface @throws Declarations
+
+**Interfaces must declare all `@throws` from their implementations.** PHPStan cannot verify this — it has no body to analyse on interface methods, so under-declared `@throws` silently propagates incomplete exception information up the call chain.
+
+When creating interfaces that wrap database or external API operations:
+
+| Implementation uses | Interface must declare |
+|---|---|
+| `DatabaseGateway::transact()` / `query()` | `DatabaseOperationFailedException`, `DuplicateRecordException`, `ExternalServiceUnavailableException` |
+| External API transport (HTTP clients) | All translated domain exceptions the implementation can throw |
+
+**Why this matters:** If the interface under-declares, every UseCase and listener calling it inherits the gap. Jobs won't know about transient exceptions and can't retry appropriately.
+
 ## Purpose
 Application layer **rarely catches exceptions**. It orchestrates Domain logic and lets exceptions bubble to Presentation. Only catch when business coordination requires it.
 
