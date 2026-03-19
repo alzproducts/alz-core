@@ -207,17 +207,16 @@ final readonly class SyncDeltaStockToShopwiredUseCase
             $this->stockRepository->updateStockLevels($result->pushed);
         }
 
-        // Re-throw transport failure after local DB is updated — job will retry
+        // Re-throw first transport failure after local DB is updated — job will retry
         // and only items from failed batches will still appear as diffs.
-        $transportFailure = $result->transportFailure;
-
-        if ($transportFailure !== null) {
+        if ($result->transportFailures !== []) {
             $this->logger->warning('Delta stock sync: batch transport failure, local DB updated for pushed items', [
                 'pushed_count' => \count($result->pushed),
                 'total_attempted' => \count($toUpdate),
+                'failure_count' => \count($result->transportFailures),
             ]);
 
-            throw $transportFailure;
+            throw $result->transportFailures[0];
         }
 
         return ['toUpdate' => $toUpdate, 'result' => $result];

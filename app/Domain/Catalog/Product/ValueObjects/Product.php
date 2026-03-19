@@ -160,7 +160,7 @@ final readonly class Product implements BasicProductInterface
     }
 
     /**
-     * Get all SKUs from this product (master + variations) as typed Sku objects.
+     * Get all SKUs owned by this product (master + variations).
      *
      * @return list<Sku>
      */
@@ -168,15 +168,13 @@ final readonly class Product implements BasicProductInterface
     {
         $skus = [];
 
-        if ($this->sku !== null) {
+        if ($this->sku !== null && $this->sku !== '') {
             $skus[] = Sku::fromTrusted($this->sku);
         }
 
-        if ($this->variations !== null) {
-            foreach ($this->variations as $variation) {
-                if ($variation->sku !== null) {
-                    $skus[] = Sku::fromTrusted($variation->sku);
-                }
+        foreach ($this->variations ?? [] as $variation) {
+            if ($variation->sku !== null && $variation->sku !== '') {
+                $skus[] = Sku::fromTrusted($variation->sku);
             }
         }
 

@@ -606,12 +606,13 @@ return static function (Config $config): void {
                        'App\Domain\*\Concerns',
                        'App\Domain\*\Commands',
                        'App\Domain\*\Resolvers',
+                       'App\Domain\*\Transformers',
                        'App\Domain\*\Events',
                        'App\Domain\*\Validators',
                    ))
                    ->because(
                        'Domain classes must be organized into Value Objects, Entities, Enums, Exceptions, '
-                       . 'Contracts, Concerns, Commands, Resolvers, Events, or Validators subdirectories for discoverability and maintainability.',
+                       . 'Contracts, Concerns, Commands, Resolvers, Transformers, Events, or Validators subdirectories for discoverability and maintainability.',
                    );
 
     // RULE V1: Validator Placement - *Validator classes in Domain must be in Validators/ namespace
@@ -706,6 +707,18 @@ return static function (Config $config): void {
                        'App\Infrastructure\*\Listeners',
                    ))
                    ->because('Listeners handle side effects and must reside in Infrastructure layer Listeners/ subdirectories.');
+
+    // RULE 13: Validators must be in Validators/ directories and end with *Validator suffix
+    //
+    // WHY: Co-located validators are discoverable alongside the thing they validate.
+    // Naming convention gives PHPArkitect a reliable signal for enforcement.
+    //
+    $rules[] = Rule::allClasses()
+                   ->that(new HaveNameMatching('*Validator'))
+                   ->should(new ResideInOneOfTheseNamespaces(
+                       'App\Domain\*\Validators',
+                   ))
+                   ->because('Validators must be co-located with their domain concept (e.g., Domain/Catalog/Product/Validators/), not in a top-level catch-all.');
 
     $config->add($classSet, ...$rules);
     /*

@@ -7,7 +7,7 @@ namespace Tests\Unit\Domain\Inventory\Commands;
 use App\Domain\Catalog\Product\ValueObjects\Gtin;
 use App\Domain\Catalog\Product\ValueObjects\Sku;
 use App\Domain\Inventory\Commands\AddInventoryItemCommand;
-use App\Domain\ValueObjects\Money;
+use App\Domain\Shared\Money\ValueObjects\Money;
 use App\Domain\ValueObjects\TaxRate;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;

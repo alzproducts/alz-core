@@ -70,7 +70,7 @@ final readonly class StockClient implements StockClientInterface
             $key = "batch_{$index}";
 
             if (!\array_key_exists($key, $poolResult->responses)) {
-                continue; // This batch failed at transport level — captured in $poolResult->transportFailure
+                continue; // This batch failed at transport level — captured in $poolResult->transportFailures
             }
 
             // Validate response structure. updated=N reflects items whose stock value
@@ -83,7 +83,7 @@ final readonly class StockClient implements StockClientInterface
 
         return new StockUpdateResult(
             pushed: $pushed,
-            transportFailure: $poolResult->transportFailure,
+            transportFailures: $poolResult->transportFailures,
         );
     }
 

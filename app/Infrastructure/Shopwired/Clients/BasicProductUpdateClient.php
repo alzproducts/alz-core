@@ -105,17 +105,10 @@ final readonly class BasicProductUpdateClient implements BasicProductUpdateClien
             $payload['sku'] = $command->newSku->value;
         }
 
-        // ShopWired expects all prices as gross (tax-inclusive)
-        if ($command->price !== null) {
-            $payload['price'] = $command->price->toGross();
-        }
-
+        // ShopWired expects costPrice as gross (tax-inclusive)
+        // price/salePrice use the dedicated POST products/prices endpoint
         if ($command->costPrice !== null) {
             $payload['costPrice'] = $command->costPrice->toGross();
-        }
-
-        if ($command->salePrice !== null) {
-            $payload['salePrice'] = $command->salePrice->toGross();
         }
 
         // ShopWired expects weight in kilograms

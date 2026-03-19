@@ -63,6 +63,19 @@ Job class names must start with: `Sync`, `Process`, `Reconcile`, `Set`, `Update`
 
 **Why:** Dependency Inversion Principle — higher layers define contracts, lower layers fulfill them.
 
+### Interface @throws Declarations
+
+**Interfaces must declare all `@throws` from their implementations.** PHPStan cannot verify this — it has no body to analyse on interface methods, so under-declared `@throws` silently propagates incomplete exception information up the call chain.
+
+When creating interfaces that wrap database or external API operations:
+
+| Implementation uses | Interface must declare |
+|---|---|
+| `DatabaseGateway::transact()` / `query()` | `DatabaseOperationFailedException`, `DuplicateRecordException`, `ExternalServiceUnavailableException` |
+| External API transport (HTTP clients) | All translated domain exceptions the implementation can throw |
+
+**Why this matters:** If the interface under-declares, every UseCase and listener calling it inherits the gap. Jobs won't know about transient exceptions and can't retry appropriately.
+
 ## Purpose
 Application layer **rarely catches exceptions**. It orchestrates Domain logic and lets exceptions bubble to Presentation. Only catch when business coordination requires it.
 
@@ -253,3 +266,14 @@ test('use case bubbles exceptions', function () {
 - [ ] Can Presentation handle this better? (usually yes)
 
 If "no" to most, **don't catch** - let it bubble.
+
+---
+
+## Complex Use Case Reference
+
+**`Shopwired/PricingUpdate/`** — Multi-phase batch orchestration pattern:
+
+- Typed result objects (`SkippedPriceUpdateResult`, `FailedPriceUpdateResult`) over array shapes
+- Phase-scoped results per step, merged via `PriceUpdateResult::fromPhases()` factory
+- Single-item validation extracted with union return type, sorted by `match(true)` on `instanceof`
+- `execute()` stays a thin 5-step pipeline delegating to focused private methods
