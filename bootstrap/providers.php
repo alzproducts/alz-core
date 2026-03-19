@@ -8,6 +8,7 @@ use App\Providers\BingAdsServiceProvider;
 use App\Providers\CacheServiceProvider;
 use App\Providers\ContactSubmissionServiceProvider;
 use App\Providers\DatabaseServiceProvider;
+use App\Providers\EventServiceProvider;
 use App\Providers\GoogleAdsServiceProvider;
 use App\Providers\HelpScoutServiceProvider;
 use App\Providers\HorizonServiceProvider;
@@ -49,6 +50,7 @@ return [
     ShopwiredServiceProvider::class,
     StorageServiceProvider::class,
     DatabaseServiceProvider::class,
+    EventServiceProvider::class,
     HorizonServiceProvider::class,
     InventoryServiceProvider::class,
 
