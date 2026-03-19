@@ -162,12 +162,10 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
     public function getAllExternalIds(): array
     {
         return $this->eloquentGateway->query(static function (): array {
-            /** @var list<int> $ids */
-            $ids = self::MODEL_CLASS::query()
+            /** @var list<int> */
+            return self::MODEL_CLASS::query()
                 ->pluck('external_id')
                 ->all();
-
-            return $ids;
         });
     }
 
@@ -183,12 +181,10 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
     public function getAllVariationExternalIds(): array
     {
         return $this->eloquentGateway->query(static function (): array {
-            /** @var list<int> $ids */
-            $ids = ProductVariationModel::query()
+            /** @var list<int> */
+            return ProductVariationModel::query()
                 ->pluck('external_id')
                 ->all();
-
-            return $ids;
         });
     }
 
@@ -388,8 +384,8 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
     public function getAllSkus(): array
     {
         return $this->eloquentGateway->query(static function (): array {
-            /** @var list<string> $skus */
-            $skus = self::MODEL_CLASS::query()
+            /** @var list<string> */
+            return self::MODEL_CLASS::query()
                 ->whereNotNull('sku')
                 ->where('sku', '!=', '')
                 ->select('sku')
@@ -401,8 +397,6 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
                 )
                 ->pluck('sku')
                 ->all();
-
-            return $skus;
         });
     }
 
@@ -562,12 +556,10 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
         /** @var int|null $productExternalId */
         $productExternalId = $this->eloquentGateway->query(
             static function () use ($sku): ?int {
-                /** @var int|null $id */
-                $id = ProductVariationModel::query()
+                /** @var int|null */
+                return ProductVariationModel::query()
                     ->where('sku', $sku->value)
                     ->value('product_external_id');
-
-                return $id;
             },
         );
 
