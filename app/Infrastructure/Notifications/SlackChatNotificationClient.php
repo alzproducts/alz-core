@@ -66,12 +66,16 @@ final readonly class SlackChatNotificationClient implements ChatNotificationInte
     public function sendPriceUpdateAlert(
         IntId $productId,
         array $priceChanges,
+        ?string $productTitle = null,
+        ?string $productUrl = null,
     ): void {
         $this->send(
             self::CHANNEL_VERBOSE,
             new ProductPricingUpdatedNotification(
                 productId: $productId->value,
                 priceChanges: $priceChanges,
+                productTitle: $productTitle,
+                productUrl: $productUrl,
             ),
         );
     }

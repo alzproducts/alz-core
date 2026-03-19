@@ -257,6 +257,8 @@ final class TestSlackNotificationCommand extends Command
                     newPrices: new ProductRetailPricing(Money::inclusive(34.99), Money::inclusive(29.99)),
                 ),
             ],
+            productTitle: 'Bathroom Sign - Budget & Premium Range',
+            productUrl: 'https://www.alzproducts.co.uk/bathroom-sign-budget-premium-range',
         );
     }
 

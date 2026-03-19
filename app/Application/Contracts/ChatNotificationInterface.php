@@ -42,6 +42,8 @@ interface ChatNotificationInterface
     public function sendPriceUpdateAlert(
         IntId $productId,
         array $priceChanges,
+        ?string $productTitle = null,
+        ?string $productUrl = null,
     ): void;
 
     /**
