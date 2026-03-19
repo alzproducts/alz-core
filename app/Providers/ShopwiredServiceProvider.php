@@ -26,6 +26,7 @@ use App\Application\Contracts\Shopwired\OrderClientInterface;
 use App\Application\Contracts\Shopwired\OrderRepositoryInterface;
 use App\Application\Contracts\Shopwired\OrderWebhookEventResolverInterface;
 use App\Application\Contracts\Shopwired\OrderWebhookParserInterface;
+use App\Application\Contracts\Shopwired\PriceUpdateClientInterface;
 use App\Application\Contracts\Shopwired\ProductClientInterface;
 use App\Application\Contracts\Shopwired\ProductIdentifierResolverInterface;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
@@ -146,6 +147,12 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
         $this->app->singleton(
             StockClientInterface::class,
             static fn(): StockClientInterface => ShopwiredClientFactory::createStockClient(),
+        );
+
+        // Price update client - for batch price updates via POST products/prices
+        $this->app->singleton(
+            PriceUpdateClientInterface::class,
+            static fn(): PriceUpdateClientInterface => ShopwiredClientFactory::createPriceUpdateClient(),
         );
 
         // Product domain factory - scoped to prevent stale state in Octane
@@ -326,6 +333,7 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
             ProductCustomFieldFactory::class,
             ProductDomainFactory::class,
             ProductFilterFactory::class,
+            PriceUpdateClientInterface::class,
             ProductIdentifierResolverInterface::class,
             ProductModelMapper::class,
             ProductRepositoryInterface::class,
