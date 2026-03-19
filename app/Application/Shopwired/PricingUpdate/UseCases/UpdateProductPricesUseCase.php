@@ -19,16 +19,12 @@ use App\Domain\Catalog\Product\Transformers\ProductRetailPricingTransformer;
 use App\Domain\Catalog\Product\Validators\HasValidRetailPricingValidator;
 use App\Domain\Catalog\Product\Validators\PriceChangedValidator;
 use App\Domain\Catalog\Product\Validators\SkuBelongsToProductValidator;
-use App\Domain\Catalog\Product\ValueObjects\PriceUpdateItemResult;
 use App\Domain\Catalog\Product\ValueObjects\Product;
 use App\Domain\Catalog\Product\ValueObjects\ProductRetailPricing;
 use App\Domain\Catalog\Product\ValueObjects\ResolvedPriceUpdate;
 use App\Domain\Catalog\Product\ValueObjects\Sku;
-use App\Domain\Exceptions\Api\AuthenticationExpiredException;
-use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
-use App\Domain\Exceptions\Api\InvalidApiRequestException;
+use App\Domain\Exceptions\Api\AbstractApiException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
-use App\Domain\Exceptions\Api\PartialBatchFailureException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Api\TransientApiFailure;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
@@ -64,10 +60,8 @@ final readonly class UpdateProductPricesUseCase
      * @param list<UpdatePriceCommand> $skuUpdates Price changes (all SKUs must belong to same product)
      *
      * @throws ResourceNotFoundException When the SKU's product is not found locally
-     * @throws InvalidApiRequestException When all API chunks fail (programming error)
-     * @throws AuthenticationExpiredException When all API chunks fail (auth)
-     * @throws ExternalServiceUnavailableException When all API chunks fail or DB unavailable
-     * @throws InvalidApiResponseException When all API chunks fail (contract violation)
+     * @throws AbstractApiException When all API chunks fail — re-thrown for Job retry
+     * @throws InvalidApiResponseException When API response parsing fails (contract violation)
      * @throws DatabaseOperationFailedException When local product lookup fails
      * @throws InvalidCustomFieldValueException When custom field mapping fails during product lookup
      */
@@ -229,43 +223,38 @@ final readonly class UpdateProductPricesUseCase
     /**
      * Send validated commands to the API and classify results.
      *
+     * Uses the StockClient pattern: the client returns all valid information
+     * (successful batch results + optional transport failure), and we decide
+     * how to classify and handle here.
+     *
+     * If ALL chunks failed (no results), re-throws the transport failure
+     * so the calling Job can retry. If some succeeded, we process those
+     * results and classify the transport failure alongside.
+     *
      * @param list<UpdatePriceCommand> $commands
      *
-     * @throws InvalidApiRequestException When all chunks fail (programming error)
-     * @throws AuthenticationExpiredException When all chunks fail (auth)
-     * @throws ExternalServiceUnavailableException When all chunks fail (transient)
-     * @throws InvalidApiResponseException When all chunks fail (contract violation)
+     * @throws AbstractApiException When all chunks fail — re-thrown for Job retry
+     * @throws InvalidApiResponseException When response parsing fails (contract violation)
      */
     private function sendToApi(array $commands): BatchApiResult
     {
-        /** @var list<PriceUpdateItemResult> $apiResults */
-        $apiResults = [];
-        /** @var list<FailedPriceUpdateResult> $permanentFailures */
-        $permanentFailures = [];
-        /** @var list<FailedPriceUpdateResult> $temporaryFailures */
-        $temporaryFailures = [];
+        $clientResult = $this->priceClient->updatePrices($commands);
 
-        try {
-            $apiResults = $this->priceClient->updatePrices($commands);
-        } catch (PartialBatchFailureException $e) {
-            foreach ($e->failures as $failure) {
-                $entry = new FailedPriceUpdateResult(
-                    sku: null,
-                    error: $failure->getMessage(),
-                );
-
-                if ($failure instanceof TransientApiFailure) {
-                    $temporaryFailures[] = $entry;
-                } else {
-                    $permanentFailures[] = $entry;
-                }
-            }
+        // No successful results at all — propagate first failure for Job retry
+        if ($clientResult->transportFailures !== [] && $clientResult->results === []) {
+            throw $clientResult->transportFailures[0];
         }
 
+        // Classify transport failures as permanent/temporary
+        [$permanentFailures, $temporaryFailures] = self::classifyTransportFailures(
+            $clientResult->transportFailures,
+        );
+
+        // Classify per-item results from successful batches
         /** @var list<Sku> $updatedSkus */
         $updatedSkus = [];
 
-        foreach ($apiResults as $result) {
+        foreach ($clientResult->results as $result) {
             if ($result->updated) {
                 $updatedSkus[] = $result->sku;
 
@@ -283,6 +272,36 @@ final readonly class UpdateProductPricesUseCase
             permanentFailures: $permanentFailures,
             temporaryFailures: $temporaryFailures,
         );
+    }
+
+    /**
+     * Classify transport failures as permanent or temporary.
+     *
+     * @param list<AbstractApiException> $failures
+     *
+     * @return array{list<FailedPriceUpdateResult>, list<FailedPriceUpdateResult>} [permanent, temporary]
+     */
+    private static function classifyTransportFailures(array $failures): array
+    {
+        /** @var list<FailedPriceUpdateResult> $permanent */
+        $permanent = [];
+        /** @var list<FailedPriceUpdateResult> $temporary */
+        $temporary = [];
+
+        foreach ($failures as $failure) {
+            $entry = new FailedPriceUpdateResult(
+                sku: null,
+                error: $failure->getMessage(),
+            );
+
+            if ($failure instanceof TransientApiFailure) {
+                $temporary[] = $entry;
+            } else {
+                $permanent[] = $entry;
+            }
+        }
+
+        return [$permanent, $temporary];
     }
 
     // -----------------------------------------------------------------------

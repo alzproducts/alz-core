@@ -4,13 +4,10 @@ declare(strict_types=1);
 
 namespace App\Application\Contracts\Shopwired;
 
+use App\Application\Shopwired\PricingUpdate\Results\PriceUpdateClientResult;
 use App\Domain\Catalog\Product\Commands\UpdatePriceCommand;
-use App\Domain\Catalog\Product\ValueObjects\PriceUpdateItemResult;
-use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
-use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
-use App\Domain\Exceptions\Api\PartialBatchFailureException;
 
 /**
  * Client for batch price updates via POST products/prices.
@@ -18,27 +15,26 @@ use App\Domain\Exceptions\Api\PartialBatchFailureException;
  * Accepts any number of commands — the client handles chunking into
  * batches of 15 (ShopWired's limit) internally.
  *
- * Hybrid error model (AWS/Google batch pattern + AggregateException):
- * - Per-item failures (updated: false) → included in returned list
- * - Full transport failure (all chunks fail) → throws standard domain exceptions
- * - Partial transport failure (some chunks succeed, some fail) →
- *   returns successful results AND throws PartialBatchFailureException
- *   wrapping the actual domain exceptions from failed chunks
+ * Returns partial results on batch transport failures (caller must
+ * check $transportFailures). Per-item failures (updated: false) are
+ * included in the results list for the caller to classify.
+ *
+ * Follows the StockClientInterface pattern: return all valid information
+ * and let the caller decide how to handle failures.
  */
 interface PriceUpdateClientInterface
 {
     /**
+     * Update prices for the given commands via batch API.
+     *
+     * Sends items in concurrent batches of 15. On partial batch transport
+     * failures, successful batches are still included in the result. The
+     * caller must check $transportFailures and handle accordingly.
+     *
      * @param list<UpdatePriceCommand> $commands Any size — client handles chunking
      *
-     * @return list<PriceUpdateItemResult>
-     *
-     * @throws InvalidApiRequestException All chunks failed (programming error)
-     * @throws AuthenticationExpiredException All chunks failed (auth)
-     * @throws ExternalServiceUnavailableException All chunks failed (transient)
-     * @throws InvalidApiResponseException All chunks failed (contract violation)
-     * @throws PartialBatchFailureException Some chunks succeeded, some failed —
-     *                                      $failures contains the domain exceptions,
-     *                                      return value contains successful results
+     * @throws InvalidApiResponseException When response parsing fails (API contract violation)
+     * @throws ExternalServiceUnavailableException When HTTP pool initialization fails
      */
-    public function updatePrices(array $commands): array;
+    public function updatePrices(array $commands): PriceUpdateClientResult;
 }
