@@ -20,10 +20,13 @@ enum OrderSyncTier: string
     case Hourly = 'hourly';
     case Daily = 'daily';
     case Weekly = 'weekly';
-    case Full = 'full';
+    case Monthly = 'monthly';
 
     /**
      * Calculate the lookback fromDate for this tier.
+     *
+     * The v2 GetOrders API has a hard ~30 day lookback limit.
+     * Monthly tier uses 28 days for safe margin.
      *
      * IMPORTANT: Call in handle(), not constructor (Octane safety).
      */
@@ -33,7 +36,7 @@ enum OrderSyncTier: string
             self::Hourly => new DateTimeImmutable('-1 hour'),
             self::Daily => new DateTimeImmutable('-2 days'),
             self::Weekly => new DateTimeImmutable('-2 weeks'),
-            self::Full => new DateTimeImmutable('-90 days'),
+            self::Monthly => new DateTimeImmutable('-28 days'),
         };
     }
 }

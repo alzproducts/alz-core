@@ -80,5 +80,13 @@ final class LinnworksScheduleServiceProvider extends ServiceProvider
             ->weekly()
             ->onOneServer()
             ->withoutOverlapping(60);
+
+        // WEEKLY (offset): Widest safety net — 28 day lookback (v2 API caps at ~30 days)
+        // Runs mid-week to stagger with Weekly tier
+        Schedule::job(new SyncLinnworksOrdersJob(OrderSyncTier::Monthly))
+            ->name('sync-linnworks-orders-monthly')
+            ->weeklyOn(3) // Wednesday
+            ->onOneServer()
+            ->withoutOverlapping(60);
     }
 }
