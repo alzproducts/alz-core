@@ -52,6 +52,7 @@ final class EloquentLinnworksOrderRepository extends AbstractEloquentRepository 
             'external_reference_num' => $entity->externalReferenceNum,
             'secondary_reference' => $entity->secondaryReference,
             'status' => $entity->status,
+            'is_cancelled' => $entity->isCancelled,
             'hold_or_cancel' => $entity->holdOrCancel,
             'marker' => $entity->marker,
             'is_parked' => $entity->isParked,
@@ -67,6 +68,8 @@ final class EloquentLinnworksOrderRepository extends AbstractEloquentRepository 
             'subtotal' => $entity->subtotal,
             'tax' => $entity->tax,
             'payment_method' => $entity->paymentMethod,
+            'payment_method_id' => $entity->paymentMethodId->value,
+            'currency' => $entity->currency,
 
             // ShippingInfo
             'postal_service_name' => $entity->postalServiceName,

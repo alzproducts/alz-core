@@ -20,7 +20,6 @@ use Spatie\LaravelData\Data;
 final class OrderAddressResponse extends Data
 {
     public function __construct(
-        public readonly string $emailAddress,
         public readonly string $fullName,
         public readonly string $company,
         public readonly string $address1,
@@ -29,5 +28,6 @@ final class OrderAddressResponse extends Data
         public readonly string $town,
         public readonly string $postCode,
         public readonly string $country,
+        public readonly ?string $emailAddress = null,
     ) {}
 }

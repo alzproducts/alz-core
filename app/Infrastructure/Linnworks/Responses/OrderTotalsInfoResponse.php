@@ -21,5 +21,9 @@ final class OrderTotalsInfoResponse extends Data
         public readonly float $subtotal,
         public readonly float $tax,
         public readonly string $paymentMethod,
+        public readonly float $postageCost,
+        public readonly float $postageCostExTax,
+        public readonly string $currency,
+        public readonly string $paymentMethodId,
     ) {}
 }

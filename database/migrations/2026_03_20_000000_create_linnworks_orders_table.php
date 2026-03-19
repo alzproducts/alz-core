@@ -22,16 +22,17 @@ return new class extends Migration {
             // GeneralInfo (flattened)
             $table->string('reference_num', 50);
             $table->string('external_reference_num', 100);
-            $table->string('secondary_reference', 100);
+            $table->string('secondary_reference', 100)->nullable();
             $table->smallInteger('status');
-            $table->boolean('hold_or_cancel');
+            $table->boolean('is_cancelled');
+            $table->boolean('hold_or_cancel')->nullable();
             $table->smallInteger('marker')->nullable();
-            $table->boolean('is_parked');
+            $table->boolean('is_parked')->nullable();
             $table->string('source', 50);
             $table->string('sub_source', 50);
             $table->timestampTz('despatch_by_date')->nullable();
             $table->string('fulfilment_location_id', 36);
-            $table->string('location', 36);
+            $table->string('location', 36)->nullable();
             $table->jsonb('folder_names');
 
             // TotalsInfo (flattened)
@@ -39,6 +40,8 @@ return new class extends Migration {
             $table->decimal('subtotal', 10, 2);
             $table->decimal('tax', 10, 2);
             $table->string('payment_method', 100);
+            $table->uuid('payment_method_id');
+            $table->string('currency', 10);
 
             // ShippingInfo (flattened)
             $table->string('postal_service_name', 100);
@@ -60,7 +63,7 @@ return new class extends Migration {
             $table->string('ship_country', 100);
 
             // CustomerInfo — Billing Address
-            $table->string('bill_email', 200);
+            $table->string('bill_email', 200)->nullable();
             $table->string('bill_full_name', 200);
             $table->string('bill_company', 200);
             $table->string('bill_address1', 200);

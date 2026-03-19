@@ -19,14 +19,14 @@ final class OrderGeneralInfoResponse extends Data
     public function __construct(
         public readonly string $referenceNum,
         public readonly string $externalReferenceNum,
-        public readonly string $secondaryReferenceNumber,
         public readonly int $status,
-        public readonly bool $holdOrCancel,
-        public readonly bool $isParked,
+        public readonly bool $isCancelled,
         public readonly string $source,
         public readonly string $subSource,
-        public readonly string $fulfilmentLocationId,
-        public readonly string $location,
+        public readonly ?string $secondaryReference = null,
+        public readonly ?bool $holdOrCancel = null, // Not observed in v2 processed orders — may be v1 only
+        public readonly ?bool $isParked = null, // Present in open orders, not confirmed in processed
+        public readonly ?string $location = null, // Not observed in v2 — may be v1 only
         public readonly ?int $marker = null,
         public readonly ?string $despatchByDate = null,
         public readonly ?string $receivedDate = null,

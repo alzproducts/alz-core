@@ -35,27 +35,26 @@ final readonly class LinnworksOrder
         // ── GeneralInfo (flattened) ──
         public string $referenceNum,
         public string $externalReferenceNum,
-        public string $secondaryReference,
         public int $status,
-        public bool $holdOrCancel,
-        public bool $isParked,
+        public bool $isCancelled,
+        public string $fulfilmentLocationId,
         public string $source,
         public string $subSource,
-        public string $fulfilmentLocationId,
-        public string $location,
 
         // ── TotalsInfo (flattened) ──
         public float $totalCharge,
         public float $subtotal,
         public float $tax,
         public string $paymentMethod,
+        public Guid $paymentMethodId,
+        public string $currency,
 
         // ── ShippingInfo (flattened) ──
         public string $postalServiceName,
         public string $vendor,
+        public string $trackingNumber,
         public float $postageCost,
         public float $postageCostExTax,
-        public string $trackingNumber,
 
         // ── CustomerInfo — Shipping Address ──
         public string $channelBuyerName,
@@ -70,7 +69,6 @@ final readonly class LinnworksOrder
         public string $shipCountry,
 
         // ── CustomerInfo — Billing Address ──
-        public string $billEmail,
         public string $billFullName,
         public string $billCompany,
         public string $billAddress1,
@@ -81,6 +79,11 @@ final readonly class LinnworksOrder
         public string $billCountry,
 
         // ── Nullable fields ──
+        public ?string $billEmail = null,
+        public ?string $secondaryReference = null,
+        public ?bool $holdOrCancel = null,
+        public ?bool $isParked = null,
+        public ?string $location = null,
         public ?DateTimeImmutable $processedOn = null,
         public ?DateTimeImmutable $paidOn = null,
         public ?DateTimeImmutable $receivedDate = null,

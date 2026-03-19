@@ -34,6 +34,7 @@ final class OrderResponse extends Data implements DomainConvertibleInterface
         public readonly int $numOrderId,
         public readonly bool $processed,
         public readonly string $lastUpdated,
+        public readonly string $fulfilmentLocationId,
         public readonly OrderGeneralInfoResponse $generalInfo,
         public readonly OrderTotalsInfoResponse $totalsInfo,
         public readonly OrderShippingInfoResponse $shippingInfo,
@@ -58,13 +59,14 @@ final class OrderResponse extends Data implements DomainConvertibleInterface
             // GeneralInfo
             referenceNum: $this->generalInfo->referenceNum,
             externalReferenceNum: $this->generalInfo->externalReferenceNum,
-            secondaryReference: $this->generalInfo->secondaryReferenceNumber,
+            secondaryReference: $this->generalInfo->secondaryReference,
             status: $this->generalInfo->status,
+            isCancelled: $this->generalInfo->isCancelled,
             holdOrCancel: $this->generalInfo->holdOrCancel,
             isParked: $this->generalInfo->isParked,
             source: $this->generalInfo->source,
             subSource: $this->generalInfo->subSource,
-            fulfilmentLocationId: $this->generalInfo->fulfilmentLocationId,
+            fulfilmentLocationId: $this->fulfilmentLocationId,
             location: $this->generalInfo->location,
 
             // TotalsInfo
@@ -72,17 +74,21 @@ final class OrderResponse extends Data implements DomainConvertibleInterface
             subtotal: $this->totalsInfo->subtotal,
             tax: $this->totalsInfo->tax,
             paymentMethod: $this->totalsInfo->paymentMethod,
+            paymentMethodId: new Guid($this->totalsInfo->paymentMethodId),
+            currency: $this->totalsInfo->currency,
 
             // ShippingInfo
             postalServiceName: $this->shippingInfo->postalServiceName,
             vendor: $this->shippingInfo->vendor,
-            postageCost: $this->shippingInfo->postageCost,
-            postageCostExTax: $this->shippingInfo->postageCostExTax,
             trackingNumber: $this->shippingInfo->trackingNumber,
+
+            // TotalsInfo — postage costs live here in the v2 API
+            postageCost: $this->totalsInfo->postageCost,
+            postageCostExTax: $this->totalsInfo->postageCostExTax,
 
             // CustomerInfo — Shipping
             channelBuyerName: $this->customerInfo->channelBuyerName,
-            shipEmail: $shipping->emailAddress,
+            shipEmail: $shipping->emailAddress ?? '',
             shipFullName: $shipping->fullName,
             shipCompany: $shipping->company,
             shipAddress1: $shipping->address1,

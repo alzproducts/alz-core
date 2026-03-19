@@ -19,8 +19,6 @@ final class OrderShippingInfoResponse extends Data
     public function __construct(
         public readonly string $postalServiceName,
         public readonly string $vendor,
-        public readonly float $postageCost,
-        public readonly float $postageCostExTax,
         public readonly string $trackingNumber,
     ) {}
 }
