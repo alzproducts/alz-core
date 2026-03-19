@@ -8,6 +8,8 @@ use App\Application\Contracts\DatabaseGatewayInterface;
 use App\Application\Contracts\Linnworks\ConnectivityClientInterface;
 use App\Application\Contracts\Linnworks\InventoryClientInterface;
 use App\Application\Contracts\Linnworks\InventoryUpdateClientInterface;
+use App\Application\Contracts\Linnworks\LinnworksOrderRepositoryInterface;
+use App\Application\Contracts\Linnworks\OrderClientInterface;
 use App\Application\Contracts\Linnworks\StockDashboardsClientInterface;
 use App\Application\Contracts\Linnworks\StockItemRepositoryInterface;
 use App\Application\Contracts\Linnworks\SupplierRepositoryInterface;
@@ -15,6 +17,7 @@ use App\Application\Contracts\LockableCacheInterface;
 use App\Infrastructure\Linnworks\LinnworksClientFactory;
 use App\Infrastructure\Linnworks\LinnworksConfig;
 use App\Infrastructure\Linnworks\LinnworksSessionManager;
+use App\Infrastructure\Linnworks\Repositories\EloquentLinnworksOrderRepository;
 use App\Infrastructure\Linnworks\Repositories\EloquentStockItemRepository;
 use App\Infrastructure\Linnworks\Repositories\EloquentSupplierRepository;
 use App\Infrastructure\Persistence\EloquentGateway;
@@ -100,6 +103,21 @@ final class LinnworksServiceProvider extends ServiceProvider implements Deferrab
                 $app->make(EloquentGateway::class),
             ),
         );
+
+        // Order client - for fetching processed orders from v2 GetOrders API
+        $this->app->singleton(
+            OrderClientInterface::class,
+            static fn(): OrderClientInterface => LinnworksClientFactory::createOrderClient(),
+        );
+
+        // Order repository - for persisting synced processed orders
+        $this->app->singleton(
+            LinnworksOrderRepositoryInterface::class,
+            static fn(Container $app): LinnworksOrderRepositoryInterface => new EloquentLinnworksOrderRepository(
+                $app->make(DatabaseGatewayInterface::class),
+                $app->make(EloquentGateway::class),
+            ),
+        );
     }
 
     /**
@@ -114,7 +132,9 @@ final class LinnworksServiceProvider extends ServiceProvider implements Deferrab
             ConnectivityClientInterface::class,
             InventoryClientInterface::class,
             InventoryUpdateClientInterface::class,
+            LinnworksOrderRepositoryInterface::class,
             LinnworksSessionManager::class,
+            OrderClientInterface::class,
             StockDashboardsClientInterface::class,
             StockItemRepositoryInterface::class,
             SupplierRepositoryInterface::class,
