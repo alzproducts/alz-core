@@ -16,8 +16,8 @@ final readonly class PreFlightValidationResult
 {
     /**
      * @param list<ResolvedPriceUpdate> $validated Commands that passed all checks, resolved with carry-forward
-     * @param list<array{sku: string}> $skipped Pre-flight: prices unchanged
-     * @param list<array{sku: string, error: string}> $permanentFailures Validation rejected (ownership, price relationships)
+     * @param list<SkippedPriceUpdateResult> $skipped Pre-flight: prices unchanged
+     * @param list<FailedPriceUpdateResult> $permanentFailures Validation rejected (ownership, price relationships)
      */
     public function __construct(
         public array $validated,

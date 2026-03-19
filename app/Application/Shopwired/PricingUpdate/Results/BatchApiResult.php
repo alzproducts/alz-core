@@ -12,18 +12,19 @@ use App\Domain\Catalog\Product\ValueObjects\Sku;
  * Classifies API responses into succeeded, permanent failures (API rejected),
  * and temporary failures (transient errors eligible for retry).
  */
-final readonly class BatchApiResult
+final class BatchApiResult
 {
+    /** Derived from updatedSkus — no separate counter to drift out of sync. */
+    public int $succeeded { get => \count($this->updatedSkus); }
+
     /**
-     * @param int $succeeded Count of SKUs confirmed updated by API
      * @param list<Sku> $updatedSkus SKUs that were successfully updated
-     * @param list<array{sku: string, error: string}> $permanentFailures API rejected or SKU not found
-     * @param list<array{sku: string, error: string}> $temporaryFailures TransientApiFailure from API
+     * @param list<FailedPriceUpdateResult> $permanentFailures API rejected or SKU not found
+     * @param list<FailedPriceUpdateResult> $temporaryFailures TransientApiFailure from API
      */
     public function __construct(
-        public int $succeeded,
-        public array $updatedSkus,
-        public array $permanentFailures,
-        public array $temporaryFailures,
+        public readonly array $updatedSkus,
+        public readonly array $permanentFailures,
+        public readonly array $temporaryFailures,
     ) {}
 }

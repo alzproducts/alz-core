@@ -7,8 +7,10 @@ namespace App\Application\Shopwired\PricingUpdate\UseCases;
 use App\Application\Contracts\Shopwired\PriceUpdateClientInterface;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Application\Shopwired\PricingUpdate\Results\BatchApiResult;
+use App\Application\Shopwired\PricingUpdate\Results\FailedPriceUpdateResult;
 use App\Application\Shopwired\PricingUpdate\Results\PreFlightValidationResult;
 use App\Application\Shopwired\PricingUpdate\Results\PriceUpdateResult;
+use App\Application\Shopwired\PricingUpdate\Results\SkippedPriceUpdateResult;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\Product\Commands\UpdatePriceCommand;
 use App\Domain\Catalog\Product\Events\ProductPricingUpdatedEvent;
@@ -84,12 +86,7 @@ final readonly class UpdateProductPricesUseCase
         $preFlight = $this->validateCommands($skuUpdates, $product, $currentPrices);
 
         if (! $preFlight->hasValidated()) {
-            return new PriceUpdateResult(
-                total: $total,
-                succeeded: 0,
-                skipped: $preFlight->skipped,
-                permanentFailures: $preFlight->permanentFailures,
-            );
+            return PriceUpdateResult::fromPhases($total, $preFlight, null);
         }
 
         // 3. Send to API
@@ -104,25 +101,19 @@ final readonly class UpdateProductPricesUseCase
             $this->dispatchEvents($productId, $apiResult->updatedSkus, $preFlight->resolvedBySku());
         }
 
-        /** @var list<array{sku: string, error: string}> $allPermanent */
-        $allPermanent = [...$preFlight->permanentFailures, ...$apiResult->permanentFailures];
+        // 5. Build result and log
+        $result = PriceUpdateResult::fromPhases($total, $preFlight, $apiResult);
 
         $this->logger->info('Product price update completed', [
             'product_id' => $productId->value,
-            'total' => $total,
-            'succeeded' => $apiResult->succeeded,
-            'skipped' => \count($preFlight->skipped),
-            'permanent_failures' => \count($allPermanent),
-            'temporary_failures' => \count($apiResult->temporaryFailures),
+            'total' => $result->total,
+            'succeeded' => $result->succeeded,
+            'skipped' => \count($result->skipped),
+            'permanent_failures' => \count($result->permanentFailures),
+            'temporary_failures' => \count($result->temporaryFailures),
         ]);
 
-        return new PriceUpdateResult(
-            total: $total,
-            succeeded: $apiResult->succeeded,
-            skipped: $preFlight->skipped,
-            permanentFailures: $allPermanent,
-            temporaryFailures: $apiResult->temporaryFailures,
-        );
+        return $result;
     }
 
     // -----------------------------------------------------------------------
@@ -140,9 +131,9 @@ final readonly class UpdateProductPricesUseCase
         Product $product,
         array $currentPrices,
     ): PreFlightValidationResult {
-        /** @var list<array{sku: string}> $skipped */
+        /** @var list<SkippedPriceUpdateResult> $skipped */
         $skipped = [];
-        /** @var list<array{sku: string, error: string}> $permanentFailures */
+        /** @var list<FailedPriceUpdateResult> $permanentFailures */
         $permanentFailures = [];
         /** @var list<ResolvedPriceUpdate> $validated */
         $validated = [];
@@ -165,47 +156,25 @@ final readonly class UpdateProductPricesUseCase
         }
 
         foreach ($skuUpdates as $command) {
-            $skuValue = $command->sku->value;
-
-            if (isset($unownedLookup[$skuValue])) {
-                $permanentFailures[] = [
-                    'sku' => $skuValue,
-                    'error' => "SKU does not belong to product {$product->id}",
-                ];
+            if (isset($unownedLookup[$command->sku->value])) {
+                $permanentFailures[] = new FailedPriceUpdateResult(
+                    sku: $command->sku,
+                    error: "SKU does not belong to product {$product->id}",
+                );
 
                 continue;
             }
 
-            $currentPricing = $currentPrices[$skuValue] ?? null;
-            Assert::notNull($currentPricing, "Owned SKU {$skuValue} must have pricing data");
+            $currentPricing = $currentPrices[$command->sku->value] ?? null;
+            Assert::notNull($currentPricing, "Owned SKU {$command->sku->value} must have pricing data");
 
-            // Resolve effective pricing via carry-forward (single source of truth)
-            $resolved = ResolvedPriceUpdate::fromCommand($command, $currentPricing);
+            $outcome = $this->validateSingleCommand($command, $currentPricing);
 
-            // 2. Skip unchanged prices (soft: failed = skip)
-            $changeResult = (new PriceChangedValidator(
-                proposed: $resolved->effectivePricing,
-                current: $currentPricing,
-            ))->validate();
-
-            if ($changeResult->failed()) {
-                $skipped[] = ['sku' => $skuValue];
-
-                continue;
-            }
-
-            // 3. Validate price relationships (soft: failed = permanent failure)
-            $pricingResult = (new HasValidRetailPricingValidator(
-                pricing: $resolved->effectivePricing,
-            ))->validate();
-
-            if ($pricingResult->failed()) {
-                $permanentFailures[] = ['sku' => $skuValue, 'error' => $pricingResult->reason()];
-
-                continue;
-            }
-
-            $validated[] = $resolved;
+            match (true) {
+                $outcome instanceof ResolvedPriceUpdate => $validated[] = $outcome,
+                $outcome instanceof SkippedPriceUpdateResult => $skipped[] = $outcome,
+                $outcome instanceof FailedPriceUpdateResult => $permanentFailures[] = $outcome,
+            };
         }
 
         return new PreFlightValidationResult(
@@ -213,6 +182,44 @@ final readonly class UpdateProductPricesUseCase
             skipped: $skipped,
             permanentFailures: $permanentFailures,
         );
+    }
+
+    /**
+     * Validate a single command: resolve carry-forward, check unchanged, check price relationships.
+     */
+    private function validateSingleCommand(
+        UpdatePriceCommand $command,
+        ProductRetailPricing $currentPricing,
+    ): ResolvedPriceUpdate|SkippedPriceUpdateResult|FailedPriceUpdateResult {
+        // Resolve effective pricing via carry-forward (single source of truth)
+        $resolved = ResolvedPriceUpdate::fromCommand($command, $currentPricing);
+
+        // Skip unchanged prices (soft: failed = skip)
+        $changeResult = (new PriceChangedValidator(
+            proposed: $resolved->effectivePricing,
+            current: $currentPricing,
+        ))->validate();
+
+        if ($changeResult->failed()) {
+            return new SkippedPriceUpdateResult(
+                sku: $command->sku,
+                reason: $changeResult->reason(),
+            );
+        }
+
+        // Validate price relationships (soft: failed = permanent failure)
+        $pricingResult = (new HasValidRetailPricingValidator(
+            pricing: $resolved->effectivePricing,
+        ))->validate();
+
+        if ($pricingResult->failed()) {
+            return new FailedPriceUpdateResult(
+                sku: $command->sku,
+                error: $pricingResult->reason(),
+            );
+        }
+
+        return $resolved;
     }
 
     // -----------------------------------------------------------------------
@@ -233,16 +240,19 @@ final readonly class UpdateProductPricesUseCase
     {
         /** @var list<PriceUpdateItemResult> $apiResults */
         $apiResults = [];
-        /** @var list<array{sku: string, error: string}> $permanentFailures */
+        /** @var list<FailedPriceUpdateResult> $permanentFailures */
         $permanentFailures = [];
-        /** @var list<array{sku: string, error: string}> $temporaryFailures */
+        /** @var list<FailedPriceUpdateResult> $temporaryFailures */
         $temporaryFailures = [];
 
         try {
             $apiResults = $this->priceClient->updatePrices($commands);
         } catch (PartialBatchFailureException $e) {
             foreach ($e->failures as $failure) {
-                $entry = ['sku' => 'unknown', 'error' => $failure->getMessage()];
+                $entry = new FailedPriceUpdateResult(
+                    sku: null,
+                    error: $failure->getMessage(),
+                );
 
                 if ($failure instanceof TransientApiFailure) {
                     $temporaryFailures[] = $entry;
@@ -252,26 +262,23 @@ final readonly class UpdateProductPricesUseCase
             }
         }
 
-        $succeeded = 0;
         /** @var list<Sku> $updatedSkus */
         $updatedSkus = [];
 
         foreach ($apiResults as $result) {
             if ($result->updated) {
-                $succeeded++;
                 $updatedSkus[] = $result->sku;
 
                 continue;
             }
 
-            $permanentFailures[] = [
-                'sku' => $result->sku->value,
-                'error' => 'SKU not updated — not found or API rejected',
-            ];
+            $permanentFailures[] = new FailedPriceUpdateResult(
+                sku: $result->sku,
+                error: 'SKU not updated — not found or API rejected',
+            );
         }
 
         return new BatchApiResult(
-            succeeded: $succeeded,
             updatedSkus: $updatedSkus,
             permanentFailures: $permanentFailures,
             temporaryFailures: $temporaryFailures,

@@ -253,3 +253,14 @@ test('use case bubbles exceptions', function () {
 - [ ] Can Presentation handle this better? (usually yes)
 
 If "no" to most, **don't catch** - let it bubble.
+
+---
+
+## Complex Use Case Reference
+
+**`Shopwired/PricingUpdate/`** — Multi-phase batch orchestration pattern:
+
+- Typed result objects (`SkippedPriceUpdateResult`, `FailedPriceUpdateResult`) over array shapes
+- Phase-scoped results per step, merged via `PriceUpdateResult::fromPhases()` factory
+- Single-item validation extracted with union return type, sorted by `match(true)` on `instanceof`
+- `execute()` stays a thin 5-step pipeline delegating to focused private methods

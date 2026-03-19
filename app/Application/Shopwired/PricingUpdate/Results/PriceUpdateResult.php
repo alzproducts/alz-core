@@ -17,9 +17,9 @@ final readonly class PriceUpdateResult
     /**
      * @param int $total Total SKUs submitted
      * @param int $succeeded API confirmed updated: true
-     * @param list<array{sku: string}> $skipped Pre-flight: prices unchanged
-     * @param list<array{sku: string, error: string}> $permanentFailures Validation rejected or API updated: false
-     * @param list<array{sku: string, error: string}> $temporaryFailures TransientApiFailure from API
+     * @param list<SkippedPriceUpdateResult> $skipped Pre-flight: prices unchanged
+     * @param list<FailedPriceUpdateResult> $permanentFailures Validation rejected or API updated: false
+     * @param list<FailedPriceUpdateResult> $temporaryFailures TransientApiFailure from API
      */
     public function __construct(
         public int $total,
@@ -28,6 +28,37 @@ final readonly class PriceUpdateResult
         public array $permanentFailures = [],
         public array $temporaryFailures = [],
     ) {}
+
+    /**
+     * Build result from pre-flight and optional API phases.
+     *
+     * When nothing passes pre-flight, $apiResult is null (no API call made).
+     */
+    public static function fromPhases(
+        int $total,
+        PreFlightValidationResult $preFlight,
+        ?BatchApiResult $apiResult,
+    ): self {
+        if ($apiResult === null) {
+            return new self(
+                total: $total,
+                succeeded: 0,
+                skipped: $preFlight->skipped,
+                permanentFailures: $preFlight->permanentFailures,
+            );
+        }
+
+        return new self(
+            total: $total,
+            succeeded: $apiResult->succeeded,
+            skipped: $preFlight->skipped,
+            permanentFailures: [
+                ...$preFlight->permanentFailures,
+                ...$apiResult->permanentFailures,
+            ],
+            temporaryFailures: $apiResult->temporaryFailures,
+        );
+    }
 
     public function hasFailures(): bool
     {
