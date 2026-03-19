@@ -15,7 +15,6 @@ use App\Providers\HorizonServiceProvider;
 use App\Providers\InventoryServiceProvider;
 use App\Providers\LinnworksServiceProvider;
 use App\Providers\MixpanelServiceProvider;
-use App\Providers\NotificationServiceProvider;
 use App\Providers\ProductSearchFeedServiceProvider;
 use App\Providers\RateLimitServiceProvider;
 use App\Providers\ReviewsIoServiceProvider;
@@ -42,7 +41,6 @@ return [
     HelpScoutServiceProvider::class,
     LinnworksServiceProvider::class,
     MixpanelServiceProvider::class,
-    NotificationServiceProvider::class,
     ProductSearchFeedServiceProvider::class,
     RateLimitServiceProvider::class,
     ReviewsIoServiceProvider::class,

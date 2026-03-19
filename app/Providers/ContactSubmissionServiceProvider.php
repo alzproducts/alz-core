@@ -9,19 +9,13 @@ use App\Application\Contracts\ContactSubmission\ContactSubmissionActionRepositor
 use App\Application\Contracts\ContactSubmission\ContactSubmissionRepositoryInterface;
 use App\Application\Contracts\EmailValidationServiceInterface;
 use App\Application\Contracts\HelpScout\ConversationWriteClientInterface;
-use App\Domain\ContactSubmission\Events\ContactFormProcessedEvent;
-use App\Domain\ContactSubmission\Events\ContactFormProcessingFailedEvent;
 use App\Infrastructure\HelpScout\HelpScoutClientFactory;
 use App\Infrastructure\Ingest\ContactSubmission\Repositories\EloquentContactSubmissionActionRepository;
 use App\Infrastructure\Ingest\ContactSubmission\Repositories\EloquentContactSubmissionRepository;
-use App\Infrastructure\Notifications\Listeners\ContactFormFailedSlackListener;
-use App\Infrastructure\Notifications\Listeners\ContactFormProcessedSlackListener;
 use App\Infrastructure\Validation\EmailValidationService;
 use Illuminate\Contracts\Support\DeferrableProvider;
-use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 use Override;
-use RuntimeException;
 
 /**
  * Contact Submission Service Provider.
@@ -60,15 +54,6 @@ final class ContactSubmissionServiceProvider extends ServiceProvider implements 
             EmailValidationServiceInterface::class,
             EmailValidationService::class,
         );
-    }
-
-    /**
-     * @throws RuntimeException If event registration fails
-     */
-    public function boot(): void
-    {
-        Event::listen(ContactFormProcessedEvent::class, ContactFormProcessedSlackListener::class);
-        Event::listen(ContactFormProcessingFailedEvent::class, ContactFormFailedSlackListener::class);
     }
 
     /**

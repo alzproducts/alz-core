@@ -8,19 +8,18 @@ use App\Application\Contracts\Inventory\ProductStockRepositoryInterface;
 use App\Application\Contracts\Inventory\SyncCursorRepositoryInterface;
 use App\Application\Inventory\UseCases\GenerateVariantSkusUseCase;
 use App\Domain\Exceptions\InvalidConfigurationException;
-use App\Domain\Inventory\Events\VariantSkusGeneratedEvent;
 use App\Infrastructure\Database\Repositories\EloquentSyncCursorRepository;
-use App\Infrastructure\Notifications\Listeners\VariantSkusGeneratedSlackListener;
 use App\Infrastructure\Shopwired\Repositories\EloquentProductStockRepository;
-use Illuminate\Support\Facades\Event;
+use Illuminate\Contracts\Support\DeferrableProvider;
 use Illuminate\Support\ServiceProvider;
 use Override;
-use RuntimeException;
 
 /**
- * Inventory-related bindings and configuration.
+ * Inventory-related bindings.
+ *
+ * Deferred — event wiring lives in EventServiceProvider.
  */
-final class InventoryServiceProvider extends ServiceProvider
+final class InventoryServiceProvider extends ServiceProvider implements DeferrableProvider
 {
     #[Override]
     public function register(): void
@@ -45,10 +44,15 @@ final class InventoryServiceProvider extends ServiceProvider
     }
 
     /**
-     * @throws RuntimeException If event registration fails
+     * @return list<class-string>
      */
-    public function boot(): void
+    #[Override]
+    public function provides(): array
     {
-        Event::listen(VariantSkusGeneratedEvent::class, VariantSkusGeneratedSlackListener::class);
+        return [
+            SyncCursorRepositoryInterface::class,
+            ProductStockRepositoryInterface::class,
+            GenerateVariantSkusUseCase::class,
+        ];
     }
 }
