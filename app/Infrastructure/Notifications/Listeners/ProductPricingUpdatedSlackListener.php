@@ -4,17 +4,16 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Notifications\Listeners;
 
+use App\Application\Contracts\ChatNotificationInterface;
 use App\Domain\Catalog\Product\Events\ProductPricingUpdatedEvent;
-use App\Infrastructure\Notifications\Slack\ProductPricingUpdatedNotification;
+use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\InvalidConfigurationException;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Notification;
 use Throwable;
 
 /**
  * Sends Slack notification when product prices are updated.
- *
- * Only sends if SLACK_VERBOSE_CHANNEL is configured.
  */
 final class ProductPricingUpdatedSlackListener implements ShouldQueue
 {
@@ -22,18 +21,20 @@ final class ProductPricingUpdatedSlackListener implements ShouldQueue
 
     public int $backoff = 60;
 
+    public function __construct(
+        private readonly ChatNotificationInterface $chat,
+    ) {}
+
+    /**
+     * @throws InvalidConfigurationException When Slack channel is not configured
+     * @throws ExternalServiceUnavailableException On Slack delivery failure
+     */
     public function handle(ProductPricingUpdatedEvent $event): void
     {
-        $channel = \config('services.slack.notifications.verbose_channel');
-        if (! \is_string($channel) || $channel === '') {
-            return;
-        }
-
-        Notification::route('slack', $channel)
-            ->notify(new ProductPricingUpdatedNotification(
-                productId: $event->productId->value,
-                priceChanges: $event->priceChanges,
-            ));
+        $this->chat->sendPriceUpdateAlert(
+            productId: $event->productId,
+            priceChanges: $event->priceChanges,
+        );
     }
 
     public function failed(ProductPricingUpdatedEvent $event, Throwable $e): void

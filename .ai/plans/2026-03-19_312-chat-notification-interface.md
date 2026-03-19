@@ -51,6 +51,8 @@ interface ChatNotificationInterface
 
 Each method silently skips if its channel is not configured (consistent with current behaviour). No return value needed — fire-and-forget from the caller's perspective.
 
+All methods declare `@throws ExternalServiceUnavailableException` — the implementation translates Slack/Guzzle transport failures to domain exceptions, following the project's "nothing leaves Infrastructure without a domain exception passport" rule (matching `MixpanelClient`, `GoogleAdsClient` patterns).
+
 ### Channel Routing
 
 The implementation owns channel routing. Callers don't specify channels — each notification type has a fixed channel:
@@ -82,13 +84,25 @@ final readonly class SlackChatNotificationClient implements ChatNotificationInte
 
     // ... other methods follow same pattern
 
+    /**
+     * @throws ExternalServiceUnavailableException On Slack API/transport failure
+     */
     private function send(string $configKey, Notification $notification): void
     {
         $channel = config("services.slack.notifications.{$configKey}");
         if (!is_string($channel) || $channel === '') {
             return;
         }
-        Notification::route('slack', $channel)->notify($notification);
+
+        try {
+            Notification::route('slack', $channel)->notify($notification);
+        } catch (\Exception $e) {
+            Log::error('Slack notification delivery failed', [
+                'channel' => $configKey,
+                'exception' => $e->getMessage(),
+            ]);
+            throw new ExternalServiceUnavailableException('Slack');
+        }
     }
 }
 ```
@@ -169,7 +183,8 @@ None of the 5 listeners need UseCase extraction. The interface itself absorbs wh
 |--------|------|-------|
 | Create | `app/Application/Contracts/ChatNotificationInterface.php` | 5 methods, domain types only |
 | Create | `app/Infrastructure/Notifications/SlackChatNotificationClient.php` | Implements interface, owns channel routing |
-| Edit | Service provider | Bind `ChatNotificationInterface` → `SlackChatNotificationClient` |
+| Create | `app/Providers/NotificationServiceProvider.php` | Bind `ChatNotificationInterface` → `SlackChatNotificationClient` |
+| Edit | `bootstrap/providers.php` | Register `NotificationServiceProvider` |
 | Edit | `phparkitect.php` | Only if naming rule triggers (client naming convention check) |
 
 ### Phase 2: Migrate 5 Listeners (5 edits)
