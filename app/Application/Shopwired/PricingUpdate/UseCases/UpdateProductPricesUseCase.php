@@ -24,6 +24,7 @@ use App\Domain\Catalog\Product\ValueObjects\ProductRetailPricing;
 use App\Domain\Catalog\Product\ValueObjects\ResolvedPriceUpdate;
 use App\Domain\Catalog\Product\ValueObjects\Sku;
 use App\Domain\Exceptions\Api\AbstractApiException;
+use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Api\TransientApiFailure;
@@ -60,8 +61,8 @@ final readonly class UpdateProductPricesUseCase
      * @param list<UpdatePriceCommand> $skuUpdates Price changes (all SKUs must belong to same product)
      *
      * @throws ResourceNotFoundException When the SKU's product is not found locally
-     * @throws AbstractApiException When all API chunks fail — re-thrown for Job retry
      * @throws InvalidApiResponseException When API response parsing fails (contract violation)
+     * @throws ExternalServiceUnavailableException When API transport initialization fails
      * @throws DatabaseOperationFailedException When local product lookup fails
      * @throws InvalidCustomFieldValueException When custom field mapping fails during product lookup
      */
@@ -224,26 +225,19 @@ final readonly class UpdateProductPricesUseCase
      * Send validated commands to the API and classify results.
      *
      * Uses the StockClient pattern: the client returns all valid information
-     * (successful batch results + optional transport failure), and we decide
-     * how to classify and handle here.
+     * (successful batch results + transport failures), and we classify here.
      *
-     * If ALL chunks failed (no results), re-throws the transport failure
-     * so the calling Job can retry. If some succeeded, we process those
-     * results and classify the transport failure alongside.
+     * All transport failures are classified as permanent or temporary and
+     * returned in the BatchApiResult. The calling Job decides retry strategy.
      *
      * @param list<UpdatePriceCommand> $commands
      *
-     * @throws AbstractApiException When all chunks fail — re-thrown for Job retry
      * @throws InvalidApiResponseException When response parsing fails (contract violation)
+     * @throws ExternalServiceUnavailableException When HTTP pool initialization fails
      */
     private function sendToApi(array $commands): BatchApiResult
     {
         $clientResult = $this->priceClient->updatePrices($commands);
-
-        // No successful results at all — propagate first failure for Job retry
-        if ($clientResult->transportFailures !== [] && $clientResult->results === []) {
-            throw $clientResult->transportFailures[0];
-        }
 
         // Classify transport failures as permanent/temporary
         [$permanentFailures, $temporaryFailures] = self::classifyTransportFailures(
