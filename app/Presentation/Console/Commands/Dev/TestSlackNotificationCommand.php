@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Presentation\Console\Commands\Dev;
 
+use App\Domain\Catalog\Product\ValueObjects\ProductRetailPricing;
+use App\Domain\Catalog\Product\ValueObjects\Sku;
+use App\Domain\Catalog\Product\ValueObjects\SkuPriceChange;
 use App\Domain\ContactSubmission\Enums\ContactReason;
 use App\Domain\ContactSubmission\ValueObjects\ConsentStatus;
 use App\Domain\ContactSubmission\ValueObjects\ContactFormData;
@@ -11,9 +14,11 @@ use App\Domain\ContactSubmission\ValueObjects\ContactSubmission;
 use App\Domain\ContactSubmission\ValueObjects\MarketingAttribution;
 use App\Domain\ContactSubmission\ValueObjects\SelectedProduct;
 use App\Domain\ContactSubmission\ValueObjects\SubmissionContext;
+use App\Domain\Shared\Money\ValueObjects\Money;
 use App\Domain\ValueObjects\IntId;
 use App\Infrastructure\Notifications\Slack\ContactFormFailedNotification;
 use App\Infrastructure\Notifications\Slack\ContactFormProcessedNotification;
+use App\Infrastructure\Notifications\Slack\ProductPricingUpdatedNotification;
 use App\Infrastructure\Notifications\Slack\VariantSkusGeneratedNotification;
 use DateTimeImmutable;
 use Illuminate\Console\Command;
@@ -35,7 +40,7 @@ final class TestSlackNotificationCommand extends Command
     protected $signature = 'slack:test
         {channel? : The Slack channel to send to (e.g., #dev-notifications)}
         {message? : Custom message to send}
-        {--notification= : Test a notification class (contact-failed, contact-processed, variant-skus)}';
+        {--notification= : Test a notification class (contact-failed, contact-processed, variant-skus, pricing-updated)}';
 
     protected $description = 'Send a test notification to Slack';
 
@@ -142,12 +147,13 @@ final class TestSlackNotificationCommand extends Command
             'contact-failed' => $this->buildContactFailedNotification(),
             'contact-processed' => $this->buildContactProcessedNotification(),
             'variant-skus' => $this->buildVariantSkusNotification(),
+            'pricing-updated' => $this->buildPricingUpdatedNotification(),
             default => null,
         };
 
         if ($notification === null) {
             $this->error("Unknown notification type: {$type}");
-            $this->line('  Available: contact-failed, contact-processed, variant-skus');
+            $this->line('  Available: contact-failed, contact-processed, variant-skus, pricing-updated');
 
             return self::FAILURE;
         }
@@ -158,14 +164,14 @@ final class TestSlackNotificationCommand extends Command
 
         if ($channel === null) {
             $channel = match ($type) {
-                'contact-processed' => \config('services.slack.notifications.verbose_channel'),
+                'contact-processed', 'pricing-updated' => \config('services.slack.notifications.verbose_channel'),
                 default => \config('services.slack.notifications.channel'),
             };
         }
 
         if (! \is_string($channel) || $channel === '') {
             $configKey = match ($type) {
-                'contact-processed' => 'SLACK_VERBOSE_CHANNEL',
+                'contact-processed', 'pricing-updated' => 'SLACK_VERBOSE_CHANNEL',
                 default => 'SLACK_BOT_USER_DEFAULT_CHANNEL',
             };
             $this->error("No channel specified and {$configKey} is not set.");
@@ -244,6 +250,35 @@ final class TestSlackNotificationCommand extends Command
             conversationId: 123456789,
             customerName: 'Jane Doe',
             customerEmail: 'jane.doe@example.com',
+        );
+    }
+
+    private function buildPricingUpdatedNotification(): ProductPricingUpdatedNotification
+    {
+        return new ProductPricingUpdatedNotification(
+            productId: 5585518,
+            priceChanges: [
+                new SkuPriceChange(
+                    sku: Sku::fromTrusted('WEB-15424'),
+                    previousPrices: new ProductRetailPricing(Money::inclusive(24.99)),
+                    newPrices: new ProductRetailPricing(Money::inclusive(19.99), Money::inclusive(19.99)),
+                ),
+                new SkuPriceChange(
+                    sku: Sku::fromTrusted('WEB-15424-001'),
+                    previousPrices: new ProductRetailPricing(Money::inclusive(29.99), Money::inclusive(24.99)),
+                    newPrices: new ProductRetailPricing(Money::inclusive(29.99)),
+                ),
+                new SkuPriceChange(
+                    sku: Sku::fromTrusted('WEB-15424-002'),
+                    previousPrices: new ProductRetailPricing(Money::inclusive(34.99)),
+                    newPrices: new ProductRetailPricing(Money::inclusive(27.99)),
+                ),
+                new SkuPriceChange(
+                    sku: Sku::fromTrusted('WEB-15424-003'),
+                    previousPrices: new ProductRetailPricing(Money::inclusive(39.99)),
+                    newPrices: new ProductRetailPricing(Money::inclusive(34.99), Money::inclusive(29.99)),
+                ),
+            ],
         );
     }
 

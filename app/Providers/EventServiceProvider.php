@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Domain\Catalog\Product\Events\ProductPricingUpdatedEvent;
 use App\Domain\Catalog\Product\Events\SkuRetailPricingUpdatedEvent;
 use App\Domain\ContactSubmission\Events\ContactFormProcessedEvent;
 use App\Domain\ContactSubmission\Events\ContactFormProcessingFailedEvent;
@@ -12,6 +13,7 @@ use App\Domain\Notifications\Events\AdminAlertEvent;
 use App\Infrastructure\Notifications\Listeners\AdminAlertSlackListener;
 use App\Infrastructure\Notifications\Listeners\ContactFormFailedSlackListener;
 use App\Infrastructure\Notifications\Listeners\ContactFormProcessedSlackListener;
+use App\Infrastructure\Notifications\Listeners\ProductPricingUpdatedSlackListener;
 use App\Infrastructure\Notifications\Listeners\VariantSkusGeneratedSlackListener;
 use App\Infrastructure\Operations\Listeners\RecordPricePeriodListener;
 use Illuminate\Support\Facades\Event;
@@ -28,8 +30,9 @@ final class EventServiceProvider extends ServiceProvider
 {
     public function boot(): void
     {
-        // Pricing — SCD2 price period recording
+        // Pricing — SCD2 price period recording + Slack notification
         Event::listen(SkuRetailPricingUpdatedEvent::class, RecordPricePeriodListener::class);
+        Event::listen(ProductPricingUpdatedEvent::class, ProductPricingUpdatedSlackListener::class);
 
         // Inventory — Slack notification for variant SKU generation
         Event::listen(VariantSkusGeneratedEvent::class, VariantSkusGeneratedSlackListener::class);

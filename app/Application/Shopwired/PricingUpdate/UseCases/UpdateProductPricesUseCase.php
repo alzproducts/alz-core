@@ -23,6 +23,7 @@ use App\Domain\Catalog\Product\ValueObjects\Product;
 use App\Domain\Catalog\Product\ValueObjects\ProductRetailPricing;
 use App\Domain\Catalog\Product\ValueObjects\ResolvedPriceUpdate;
 use App\Domain\Catalog\Product\ValueObjects\Sku;
+use App\Domain\Catalog\Product\ValueObjects\SkuPriceChange;
 use App\Domain\Exceptions\Api\AbstractApiException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
@@ -313,6 +314,9 @@ final readonly class UpdateProductPricesUseCase
         array $updatedSkus,
         array $resolvedBySku,
     ): void {
+        /** @var list<SkuPriceChange> $priceChanges */
+        $priceChanges = [];
+
         foreach ($updatedSkus as $sku) {
             $resolved = $resolvedBySku[$sku->value] ?? null;
             Assert::notNull($resolved, "Updated SKU {$sku->value} must have a resolved price update");
@@ -322,11 +326,17 @@ final readonly class UpdateProductPricesUseCase
                 previousPrices: $resolved->currentPricing,
                 newPrices: $resolved->effectivePricing,
             ));
+
+            $priceChanges[] = new SkuPriceChange(
+                sku: $sku,
+                previousPrices: $resolved->currentPricing,
+                newPrices: $resolved->effectivePricing,
+            );
         }
 
         $this->events->dispatch(new ProductPricingUpdatedEvent(
             productId: $productId,
-            updatedSkus: $updatedSkus,
+            priceChanges: $priceChanges,
         ));
     }
 }
