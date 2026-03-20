@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace App\Providers\Schedule;
 
-use App\Application\Jobs\Shopwired\CleanupWebhookEventsJob;
-use App\Application\Jobs\Shopwired\ProcessShopwiredWebhookHealthJob;
-use App\Application\Jobs\Shopwired\ReconcileShopwiredProductsJob;
-use App\Application\Jobs\Shopwired\SyncShopwiredBrandsJob;
-use App\Application\Jobs\Shopwired\SyncShopwiredCategoriesJob;
-use App\Application\Jobs\Shopwired\SyncShopwiredCustomersJob;
-use App\Application\Jobs\Shopwired\SyncShopwiredOrdersJob;
-use App\Application\Jobs\Shopwired\SyncShopwiredProductsJob;
+use App\Infrastructure\Jobs\Shopwired\CleanupWebhookEventsJob;
+use App\Infrastructure\Jobs\Shopwired\ProcessShopwiredWebhookHealthJob;
+use App\Infrastructure\Jobs\Shopwired\ReconcileShopwiredProductsJob;
+use App\Infrastructure\Jobs\Shopwired\SyncShopwiredBrandsJob;
+use App\Infrastructure\Jobs\Shopwired\SyncShopwiredCategoriesJob;
+use App\Infrastructure\Jobs\Shopwired\SyncShopwiredCustomersJob;
+use App\Infrastructure\Jobs\Shopwired\SyncShopwiredOrdersJob;
+use App\Infrastructure\Jobs\Shopwired\SyncShopwiredProductsJob;
 use Carbon\Carbon;
 use Closure;
 use Illuminate\Support\Facades\Schedule;

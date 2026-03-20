@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Application\Shopwired\UseCases\Webhooks;
 
 use App\Application\Contracts\Shopwired\OrderRepositoryInterface;
-use App\Application\Jobs\Shopwired\SyncShopwiredOrderJob;
+use App\Application\Contracts\Shopwired\ShopwiredSyncDispatcherInterface;
 use App\Domain\Catalog\Order\ValueObjects\OrderRefund;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
@@ -25,6 +25,7 @@ final readonly class CreateOrderRefundUseCase
 {
     public function __construct(
         private OrderRepositoryInterface $orderRepository,
+        private ShopwiredSyncDispatcherInterface $dispatcher,
         private LoggerInterface $logger,
         private int $webhookStalenessHours,
     ) {}
@@ -55,7 +56,7 @@ final readonly class CreateOrderRefundUseCase
             return;
         }
 
-        SyncShopwiredOrderJob::dispatch($orderId);
+        $this->dispatcher->dispatchOrderSync($orderId);
 
         $this->logger->info('Order refund webhook processed — sync queued', $context);
     }

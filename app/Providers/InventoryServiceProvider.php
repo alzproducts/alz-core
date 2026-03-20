@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Application\Contracts\Inventory\InventoryDispatcherInterface;
 use App\Application\Contracts\Inventory\ProductStockRepositoryInterface;
 use App\Application\Contracts\Inventory\SyncCursorRepositoryInterface;
 use App\Application\Inventory\UseCases\GenerateVariantSkusUseCase;
 use App\Domain\Exceptions\InvalidConfigurationException;
 use App\Infrastructure\Database\Repositories\EloquentSyncCursorRepository;
+use App\Infrastructure\Linnworks\Dispatchers\QueuedInventoryDispatcher;
 use App\Infrastructure\Shopwired\Repositories\EloquentProductStockRepository;
 use Illuminate\Contracts\Support\DeferrableProvider;
 use Illuminate\Support\ServiceProvider;
@@ -26,6 +28,7 @@ final class InventoryServiceProvider extends ServiceProvider implements Deferrab
     {
         $this->app->bind(SyncCursorRepositoryInterface::class, EloquentSyncCursorRepository::class);
         $this->app->bind(ProductStockRepositoryInterface::class, EloquentProductStockRepository::class);
+        $this->app->singleton(InventoryDispatcherInterface::class, QueuedInventoryDispatcher::class);
 
         $this->app->when(GenerateVariantSkusUseCase::class)
             ->needs('$standardSignProductId')
@@ -50,6 +53,7 @@ final class InventoryServiceProvider extends ServiceProvider implements Deferrab
     public function provides(): array
     {
         return [
+            InventoryDispatcherInterface::class,
             SyncCursorRepositoryInterface::class,
             ProductStockRepositoryInterface::class,
             GenerateVariantSkusUseCase::class,

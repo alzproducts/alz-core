@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace Tests\Unit\Application\Linnworks\UseCases;
 
 use App\Application\Contracts\Inventory\SyncCursorRepositoryInterface;
+use App\Application\Contracts\Linnworks\LinnworksSyncDispatcherInterface;
 use App\Application\Contracts\Linnworks\StockDashboardsClientInterface;
 use App\Application\Enums\SyncCursorType;
 use App\Application\Linnworks\DTOs\ModifiedStockItemDTO;
 use App\Application\Linnworks\UseCases\SyncStockItemWithCursorUseCase;
 use App\Domain\ValueObjects\Guid;
 use DateTimeImmutable;
-use Illuminate\Support\Facades\Queue;
 use Mockery;
 use Mockery\MockInterface;
 use Override;
@@ -36,6 +36,8 @@ final class SyncStockItemWithCursorUseCaseTest extends TestCase
 
     private SyncCursorRepositoryInterface&MockInterface $cursorRepository;
 
+    private LinnworksSyncDispatcherInterface&MockInterface $dispatcher;
+
     private LoggerInterface&MockInterface $logger;
 
     private SyncStockItemWithCursorUseCase $useCase;
@@ -47,11 +49,13 @@ final class SyncStockItemWithCursorUseCaseTest extends TestCase
 
         $this->dashboardsClient = Mockery::mock(StockDashboardsClientInterface::class);
         $this->cursorRepository = Mockery::mock(SyncCursorRepositoryInterface::class);
+        $this->dispatcher = Mockery::mock(LinnworksSyncDispatcherInterface::class);
         $this->logger = Mockery::mock(LoggerInterface::class)->shouldIgnoreMissing();
 
         $this->useCase = new SyncStockItemWithCursorUseCase(
             $this->dashboardsClient,
             $this->cursorRepository,
+            $this->dispatcher,
             $this->logger,
         );
     }
@@ -92,8 +96,6 @@ final class SyncStockItemWithCursorUseCaseTest extends TestCase
     #[Test]
     public function it_dispatches_bulk_sync_when_overflow_threshold_reached(): void
     {
-        Queue::fake();
-
         $this->cursorRepository->shouldReceive('getLastSyncDate')
             ->andReturn(new DateTimeImmutable('2026-03-15 10:00:00'));
 
@@ -102,6 +104,9 @@ final class SyncStockItemWithCursorUseCaseTest extends TestCase
         $this->dashboardsClient->shouldReceive('getModifiedStockItemIdsSince')
             ->once()
             ->andReturn($items);
+
+        $this->dispatcher->shouldReceive('dispatchFullStockItemsSync')
+            ->once();
 
         // Cursor should advance to now (not to last item's date)
         $this->cursorRepository->shouldReceive('updateLastSyncDate')
@@ -128,8 +133,6 @@ final class SyncStockItemWithCursorUseCaseTest extends TestCase
     #[Test]
     public function it_dispatches_per_item_jobs_and_advances_cursor(): void
     {
-        Queue::fake();
-
         $cursor = new DateTimeImmutable('-1 hour');
         $newestDate = new DateTimeImmutable('-30 minutes');
 
@@ -152,6 +155,9 @@ final class SyncStockItemWithCursorUseCaseTest extends TestCase
             ->with($cursor)
             ->andReturn($items);
 
+        $this->dispatcher->shouldReceive('dispatchStockItemSync')
+            ->twice();
+
         // Cursor advances to last element's modifiedDate (newest)
         $this->cursorRepository->shouldReceive('updateLastSyncDate')
             ->once()
@@ -168,8 +174,6 @@ final class SyncStockItemWithCursorUseCaseTest extends TestCase
     #[Test]
     public function it_dispatches_single_item_job_and_advances_cursor(): void
     {
-        Queue::fake();
-
         $itemDate = new DateTimeImmutable('2026-03-15 10:03:00');
 
         $this->cursorRepository->shouldReceive('getLastSyncDate')
@@ -179,6 +183,9 @@ final class SyncStockItemWithCursorUseCaseTest extends TestCase
             ->andReturn([
                 new ModifiedStockItemDTO(Guid::fromTrusted('00000000-0000-0000-0000-000000000001'), $itemDate),
             ]);
+
+        $this->dispatcher->shouldReceive('dispatchStockItemSync')
+            ->once();
 
         $this->cursorRepository->shouldReceive('updateLastSyncDate')
             ->once()

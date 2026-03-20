@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Application\Shopwired\UseCases\Webhooks;
 
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
+use App\Application\Contracts\Shopwired\ShopwiredSyncDispatcherInterface;
 use App\Application\Contracts\Shopwired\WebhookIdempotencyServiceInterface;
-use App\Application\Jobs\Shopwired\SyncShopwiredProductJob;
 use App\Application\Shopwired\Enums\WebhookTopic;
 use App\Domain\Catalog\Product\ValueObjects\Sku;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
@@ -27,6 +27,7 @@ final readonly class UpdateProductStockUseCase
 {
     public function __construct(
         private ProductRepositoryInterface $productRepository,
+        private ShopwiredSyncDispatcherInterface $dispatcher,
         private WebhookIdempotencyServiceInterface $idempotency,
         private LoggerInterface $logger,
         private int $webhookStalenessHours,
@@ -67,7 +68,7 @@ final readonly class UpdateProductStockUseCase
         $this->productRepository->updateStock($sku, $isVariation, $newQuantity);
         $this->idempotency->record($productId, $topic, $webhookId, $eventTime);
 
-        SyncShopwiredProductJob::dispatch($productId);
+        $this->dispatcher->dispatchProductSync($productId);
 
         $this->logger->info('Product stock webhook processed — sync queued', $context);
     }

@@ -5,10 +5,9 @@ declare(strict_types=1);
 namespace App\Application\Linnworks\UseCases;
 
 use App\Application\Contracts\Inventory\SyncCursorRepositoryInterface;
+use App\Application\Contracts\Linnworks\LinnworksSyncDispatcherInterface;
 use App\Application\Contracts\Linnworks\StockDashboardsClientInterface;
 use App\Application\Enums\SyncCursorType;
-use App\Application\Jobs\Linnworks\SyncLinnworksStockItemsJob;
-use App\Application\Jobs\Linnworks\SyncStockItemJob;
 use App\Application\Linnworks\DTOs\ModifiedStockItemDTO;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
@@ -65,6 +64,7 @@ final readonly class SyncStockItemWithCursorUseCase
     public function __construct(
         private StockDashboardsClientInterface $dashboardsClient,
         private SyncCursorRepositoryInterface $cursorRepository,
+        private LinnworksSyncDispatcherInterface $dispatcher,
         private LoggerInterface $logger,
     ) {}
 
@@ -105,7 +105,7 @@ final readonly class SyncStockItemWithCursorUseCase
                 'threshold' => self::OVERFLOW_THRESHOLD,
             ]);
 
-            SyncLinnworksStockItemsJob::dispatch();
+            $this->dispatcher->dispatchFullStockItemsSync();
 
             $this->cursorRepository->updateLastSyncDate(
                 SyncCursorType::LinnworksStockItemFull,
@@ -117,7 +117,7 @@ final readonly class SyncStockItemWithCursorUseCase
 
         // Normal path: dispatch per-item sync jobs
         foreach ($modifiedItems as $item) {
-            SyncStockItemJob::dispatch($item->stockItemId);
+            $this->dispatcher->dispatchStockItemSync($item->stockItemId);
         }
 
         // Rows ordered ASC — last element holds the newest ModifiedDate.
