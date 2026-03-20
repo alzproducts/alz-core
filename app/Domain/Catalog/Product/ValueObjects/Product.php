@@ -8,6 +8,7 @@ use App\Domain\Catalog\CustomFields\ValueObjects\AbstractCustomFieldValue;
 use App\Domain\Catalog\Filters\ValueObjects\ProductFilter;
 use App\Domain\Catalog\Product\Concerns\BasicProductTrait;
 use App\Domain\Catalog\Product\Contracts\BasicProductInterface;
+use App\Infrastructure\Shopwired\Factories\ProductDomainFactory;
 use DateTimeImmutable;
 use Webmozart\Assert\Assert;
 
@@ -26,8 +27,8 @@ use Webmozart\Assert\Assert;
  * - `filters`: Typed ProductFilter values from FilterGroupRegistry (populated on read)
  *
  * **Creation**:
- * - Write path: {@see \App\Infrastructure\Shopwired\Factories\ProductDomainFactory::fromResponse()}
- * - Read path: {@see \App\Infrastructure\Shopwired\Factories\ProductDomainFactory::fromModel()}
+ * - Write path: {@see ProductDomainFactory::fromResponse()}
+ * - Read path: {@see ProductDomainFactory::fromModel()}
  *
  * @see https://shopwired.readme.io/reference/getproduct
  */
