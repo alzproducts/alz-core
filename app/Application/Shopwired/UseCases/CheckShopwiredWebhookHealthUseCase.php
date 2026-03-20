@@ -11,14 +11,14 @@ use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Api\ResourceNotAvailableException;
-use App\Domain\Notifications\Events\AdminAlertEvent;
+use App\Domain\Notifications\Events\ManagerAlertEvent;
 use Illuminate\Contracts\Events\Dispatcher;
 use Psr\Log\LoggerInterface;
 
 /**
  * Check ShopWired webhook registrations for health issues.
  *
- * Fetches all registered webhooks and fires an AdminAlertEvent if any
+ * Fetches all registered webhooks and fires a ManagerAlertEvent if any
  * are disabled or unverified — conditions that cause silent data sync gaps
  * without triggering any application-level error.
  */
@@ -69,7 +69,7 @@ final readonly class CheckShopwiredWebhookHealthUseCase
             );
         }
 
-        $this->eventDispatcher->dispatch(new AdminAlertEvent(
+        $this->eventDispatcher->dispatch(new ManagerAlertEvent(
             title: 'ShopWired Webhooks Unhealthy',
             message: \sprintf(
                 '%d of %d ShopWired webhook(s) are disabled or unverified. Data sync may be silently failing. Re-enable them at: %s',
