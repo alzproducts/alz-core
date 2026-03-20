@@ -50,7 +50,6 @@
         "laravel/telescope": "^5.14",
         "mockery/mockery": "^1.6",
         "nunomaduro/collision": "^8.6",
-        "nunomaduro/phpinsights": "^2.13",
         "pestphp/pest": "^4.0",
         "pestphp/pest-plugin-arch": "^4.0",
         "pestphp/pest-plugin-laravel": "^4.0",
@@ -110,7 +109,6 @@
         "pint": "make pint",
         "pint:test": "make pint-test",
         "analyse": "make analyse",
-        "insights": "make insights",
         "phparkitect": "make phparkitect",
         "stan": "@analyse",
         "check": "make check",
@@ -132,7 +130,6 @@
         "pest:mutate": "make pest-mutate",
         "test:ai": "make test-ai",
         "test:mutate": "make test-mutate",
-        "check:full": "make check-full",
         "ide-helper": "make ide-helper",
         "rector": "make rector",
         "rector:dry-run": "make rector-dry-run",
@@ -151,7 +148,6 @@
         "preferred-install": "dist",
         "sort-packages": true,
         "allow-plugins": {
-            "dealerdirect/phpcodesniffer-composer-installer": true,
             "pestphp/pest-plugin": true,
             "php-http/discovery": true,
             "infection/extension-installer": true
