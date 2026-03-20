@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Application\Shopwired\UseCases;
 
-use App\Application\Jobs\Shopwired\SyncShopwiredOrdersRangeJob;
+use App\Application\Contracts\Shopwired\ShopwiredSyncDispatcherInterface;
 use DateTimeImmutable;
 
 /**
@@ -15,6 +15,10 @@ use DateTimeImmutable;
  */
 final readonly class BackfillShopwiredOrdersUseCase
 {
+    public function __construct(
+        private ShopwiredSyncDispatcherInterface $dispatcher,
+    ) {}
+
     /**
      * @param list<array{from: DateTimeImmutable, to: DateTimeImmutable}> $ranges
      *
@@ -23,7 +27,7 @@ final readonly class BackfillShopwiredOrdersUseCase
     public function execute(array $ranges): int
     {
         foreach ($ranges as $range) {
-            SyncShopwiredOrdersRangeJob::dispatch($range['from'], $range['to']);
+            $this->dispatcher->dispatchOrdersRangeSync($range['from'], $range['to']);
         }
 
         return \count($ranges);

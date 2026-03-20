@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Application\Shopwired\UseCases\Webhooks;
 
 use App\Application\Contracts\Shopwired\BrandRepositoryInterface;
+use App\Application\Contracts\Shopwired\ShopwiredSyncDispatcherInterface;
 use App\Application\Contracts\Shopwired\WebhookIdempotencyServiceInterface;
-use App\Application\Jobs\Shopwired\SyncShopwiredBrandJob;
 use App\Application\Shopwired\Enums\WebhookTopic;
 use App\Domain\Catalog\ValueObjects\Brand;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
@@ -27,6 +27,7 @@ final readonly class SyncBrandUseCase extends AbstractSyncEntityWebhookUseCase
 {
     public function __construct(
         private BrandRepositoryInterface $brandRepository,
+        private ShopwiredSyncDispatcherInterface $dispatcher,
         WebhookIdempotencyServiceInterface $idempotency,
         LoggerInterface $logger,
         int $webhookStalenessHours,
@@ -63,7 +64,7 @@ final readonly class SyncBrandUseCase extends AbstractSyncEntityWebhookUseCase
     #[Override]
     protected function dispatchSyncJob(IntId $entityId): void
     {
-        SyncShopwiredBrandJob::dispatch($entityId);
+        $this->dispatcher->dispatchBrandSync($entityId);
     }
 
     #[Override]
