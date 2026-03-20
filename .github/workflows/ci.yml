@@ -1,18 +1,11 @@
 name: Laravel 12 CI Pipeline
 
 on:
-  push:
-    branches: [develop]  # Only develop - main is validated via PR before merge
-    paths-ignore:
-      - '**.md'
-      - 'docs/**'
   pull_request:
     branches: [main, develop]
 
 concurrency:
-  # PRs use PR number, pushes use branch name - keeps them in separate groups
-  # This prevents PR checks from being cancelled by push events (which breaks branch protection)
-  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.ref_name }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 env:
