@@ -13,6 +13,7 @@ use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
+use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use DateTimeImmutable;
 use Psr\Log\LoggerInterface;
 
@@ -54,6 +55,7 @@ final readonly class SyncLinnworksCursorUseCase
      * @throws ExternalServiceUnavailableException When Linnworks API or database unavailable
      * @throws InvalidApiResponseException When API response parsing fails
      * @throws DatabaseOperationFailedException When cursor persistence fails
+     * @throws DuplicateRecordException On cursor constraint violation
      */
     public function execute(): SyncResult
     {

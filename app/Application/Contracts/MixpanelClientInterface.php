@@ -12,6 +12,7 @@ use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\PayloadSerializationException;
 use App\Domain\Exceptions\Api\UnexpectedApiResultException;
+use App\Domain\Exceptions\InvalidConfigurationException;
 use DateTimeImmutable;
 
 interface MixpanelClientInterface
@@ -59,6 +60,7 @@ interface MixpanelClientInterface
      *
      * @throws AuthenticationExpiredException When credentials invalid/expired
      * @throws InvalidApiRequestException When request parameters are invalid
+     * @throws InvalidConfigurationException When lookup table key is not configured
      * @throws ExternalServiceUnavailableException When API unavailable or request fails
      */
     public function replaceLookupTable(string $tableKey, array $headers, array $rows): void;

@@ -7,6 +7,7 @@ namespace App\Application\Contracts\Inventory;
 use App\Application\Enums\SyncCursorType;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
+use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use DateTimeImmutable;
 
 /**
@@ -22,16 +23,18 @@ interface SyncCursorRepositoryInterface
      *
      * Returns null if no sync has run yet.
      *
-     * @throws ExternalServiceUnavailableException
      * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
      */
     public function getLastSyncDate(SyncCursorType $syncType): ?DateTimeImmutable;
 
     /**
      * Update the last successful sync datetime for the given type.
      *
-     * @throws ExternalServiceUnavailableException
      * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
      */
     public function updateLastSyncDate(SyncCursorType $syncType, DateTimeImmutable $date): void;
 }

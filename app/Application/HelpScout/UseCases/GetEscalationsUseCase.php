@@ -12,6 +12,8 @@ use App\Domain\CustomerService\ValueObjects\EscalationsConfig;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Infrastructure\ConfigurationNotFoundException;
+use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
+use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 
 /**
  * Orchestrates escalation queries across mailboxes.
@@ -42,6 +44,8 @@ final readonly class GetEscalationsUseCase
      * @return list<Conversation>
      *
      * @throws ConfigurationNotFoundException When escalations config missing or disabled
+     * @throws DatabaseOperationFailedException On query failure
+     * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When API or database unavailable
      * @throws InvalidApiResponseException When API response structure is invalid
      */

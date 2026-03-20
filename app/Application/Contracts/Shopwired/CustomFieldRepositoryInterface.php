@@ -9,6 +9,7 @@ use App\Domain\Catalog\CustomFields\Enums\CustomFieldItemType;
 use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldDefinition;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
+use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 
 /**
  * Repository for ShopWired custom field definition persistence.
@@ -21,6 +22,7 @@ interface CustomFieldRepositoryInterface extends RepositoryWriteInterface
      * Find a custom field definition by its name.
      *
      * @throws DatabaseOperationFailedException On query failure
+     * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      */
     public function findByName(string $name): ?CustomFieldDefinition;
@@ -31,6 +33,7 @@ interface CustomFieldRepositoryInterface extends RepositoryWriteInterface
      * @return list<CustomFieldDefinition>
      *
      * @throws DatabaseOperationFailedException On query failure
+     * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      */
     public function findByItemType(CustomFieldItemType $itemType): array;
@@ -41,6 +44,7 @@ interface CustomFieldRepositoryInterface extends RepositoryWriteInterface
      * @return list<CustomFieldDefinition>
      *
      * @throws DatabaseOperationFailedException On query failure
+     * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      */
     public function findAll(): array;
