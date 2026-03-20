@@ -42,7 +42,6 @@
         "driftingly/rector-laravel": "^2.1",
         "fakerphp/faker": "^1.23",
         "igorsgm/laravel-git-hooks": "^2.0",
-        "infection/infection": "^0.32",
         "kcs/phpstan-strict-rules": "^2.1",
         "larastan/larastan": "^3.0",
         "laravel/pail": "^1.2",
@@ -120,11 +119,6 @@
         "test:domain:coverage": "make test-domain-coverage",
         "test:app": "make test-app",
         "test:app:coverage": "make test-app-coverage",
-        "infection": "make infection",
-        "infection:strict": "make infection-strict",
-        "infection:fast": "make infection-fast",
-        "infection:incremental": "make infection-incremental",
-        "infection:ci": "make infection-ci",
         "mutate:domain": "make mutate-domain",
         "mutate:app": "make mutate-app",
         "pest:mutate": "make pest-mutate",
@@ -149,8 +143,7 @@
         "sort-packages": true,
         "allow-plugins": {
             "pestphp/pest-plugin": true,
-            "php-http/discovery": true,
-            "infection/extension-installer": true
+            "php-http/discovery": true
         },
         "platform": {
             "php": "8.4.3"
