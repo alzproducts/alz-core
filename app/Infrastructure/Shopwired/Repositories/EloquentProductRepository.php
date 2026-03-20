@@ -357,9 +357,10 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
      *
      * @return Generator<int, Product>
      *
-     * @throws InvalidCustomFieldValueException During iteration - value type mismatch
      * @throws DatabaseOperationFailedException During iteration - query failure
+     * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException During iteration - DB unavailable
+     * @throws InvalidCustomFieldValueException During iteration - value type mismatch
      */
     public function streamAll(): Generator
     {
@@ -486,9 +487,10 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
     /**
      * {@inheritDoc}
      *
-     * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
      * @throws DatabaseOperationFailedException When custom field registry fails to load
+     * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
+     * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
      */
     protected function mapModelToDomain(Model $model): Product
     {

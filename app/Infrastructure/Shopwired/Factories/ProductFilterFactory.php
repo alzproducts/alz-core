@@ -8,6 +8,7 @@ use App\Application\Contracts\Shopwired\FilterGroupRepositoryInterface;
 use App\Domain\Catalog\Filters\ValueObjects\ProductFilter;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
+use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Infrastructure\Shopwired\Filters\FilterGroupRegistry;
 use Illuminate\Support\Facades\Log;
 
@@ -39,6 +40,7 @@ final class ProductFilterFactory
      * @return list<ProductFilter>
      *
      * @throws DatabaseOperationFailedException When filter group registry fails to load
+     * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      */
     public function fromRawFilters(array $rawFilters): array
@@ -73,6 +75,7 @@ final class ProductFilterFactory
      * Get the filter group registry, lazy-loading on first access.
      *
      * @throws DatabaseOperationFailedException When query fails
+     * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      */
     private function registry(): FilterGroupRegistry
