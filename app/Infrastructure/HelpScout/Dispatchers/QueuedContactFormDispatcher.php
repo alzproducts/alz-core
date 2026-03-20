@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Infrastructure\HelpScout\Dispatchers;
 
 use App\Application\Contracts\ContactSubmission\ContactFormDispatcherInterface;
-use App\Application\Jobs\ContactForm\ProcessContactSubmissionJob;
+use App\Infrastructure\Jobs\ContactForm\ProcessContactSubmissionJob;
 use Override;
 
 /**

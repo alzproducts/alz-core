@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Infrastructure\Mixpanel\Dispatchers;
 
 use App\Application\Contracts\Mixpanel\MixpanelSyncDispatcherInterface;
-use App\Application\Jobs\Mixpanel\SyncCampaignLookupTableJob;
+use App\Infrastructure\Jobs\Mixpanel\SyncCampaignLookupTableJob;
 use Override;
 
 /**

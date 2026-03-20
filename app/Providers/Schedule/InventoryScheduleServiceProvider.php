@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Providers\Schedule;
 
-use App\Application\Jobs\Inventory\SyncDeltaStockToShopwiredJob;
-use App\Application\Jobs\Inventory\SyncFullStockToShopwiredJob;
+use App\Infrastructure\Jobs\Inventory\SyncDeltaStockToShopwiredJob;
+use App\Infrastructure\Jobs\Inventory\SyncFullStockToShopwiredJob;
 use Illuminate\Support\Facades\Schedule;
 use Illuminate\Support\ServiceProvider;
 use RuntimeException;

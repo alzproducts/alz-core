@@ -5,15 +5,15 @@ declare(strict_types=1);
 namespace App\Infrastructure\Shopwired\Dispatchers;
 
 use App\Application\Contracts\Shopwired\ShopwiredSyncDispatcherInterface;
-use App\Application\Jobs\Shopwired\SetProductFreeDeliveryJob;
-use App\Application\Jobs\Shopwired\SyncShopwiredBrandJob;
-use App\Application\Jobs\Shopwired\SyncShopwiredCategoryJob;
-use App\Application\Jobs\Shopwired\SyncShopwiredCustomerJob;
-use App\Application\Jobs\Shopwired\SyncShopwiredOrderJob;
-use App\Application\Jobs\Shopwired\SyncShopwiredOrdersRangeJob;
-use App\Application\Jobs\Shopwired\SyncShopwiredProductJob;
 use App\Domain\Catalog\Product\Commands\SetFreeDeliveryCommand;
 use App\Domain\ValueObjects\IntId;
+use App\Infrastructure\Jobs\Shopwired\SetProductFreeDeliveryJob;
+use App\Infrastructure\Jobs\Shopwired\SyncShopwiredBrandJob;
+use App\Infrastructure\Jobs\Shopwired\SyncShopwiredCategoryJob;
+use App\Infrastructure\Jobs\Shopwired\SyncShopwiredCustomerJob;
+use App\Infrastructure\Jobs\Shopwired\SyncShopwiredOrderJob;
+use App\Infrastructure\Jobs\Shopwired\SyncShopwiredOrdersRangeJob;
+use App\Infrastructure\Jobs\Shopwired\SyncShopwiredProductJob;
 use DateTimeImmutable;
 use Override;
 

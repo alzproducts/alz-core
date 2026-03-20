@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Infrastructure\Linnworks\Dispatchers;
 
 use App\Application\Contracts\Linnworks\LinnworksSyncDispatcherInterface;
-use App\Application\Jobs\Linnworks\SyncLinnworksStockItemsJob;
-use App\Application\Jobs\Linnworks\SyncStockItemJob;
 use App\Domain\ValueObjects\Guid;
+use App\Infrastructure\Jobs\Linnworks\SyncLinnworksStockItemsJob;
+use App\Infrastructure\Jobs\Linnworks\SyncStockItemJob;
 use Override;
 
 /**

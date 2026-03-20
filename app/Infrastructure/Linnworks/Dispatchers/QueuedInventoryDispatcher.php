@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Infrastructure\Linnworks\Dispatchers;
 
 use App\Application\Contracts\Inventory\InventoryDispatcherInterface;
-use App\Application\Jobs\Inventory\UpdateSkuJob;
 use App\Domain\Inventory\Commands\UpdateSkuCommand;
+use App\Infrastructure\Jobs\Inventory\UpdateSkuJob;
 use Override;
 
 /**

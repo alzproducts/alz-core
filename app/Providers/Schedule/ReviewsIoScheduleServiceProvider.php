@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Providers\Schedule;
 
-use App\Application\Jobs\ReviewsIo\SyncProductRatingsJob;
-use App\Application\Jobs\ReviewsIo\UpdateShopwiredRatingsJob;
+use App\Infrastructure\Jobs\ReviewsIo\SyncProductRatingsJob;
+use App\Infrastructure\Jobs\ReviewsIo\UpdateShopwiredRatingsJob;
 use Illuminate\Support\Facades\Schedule;
 use Illuminate\Support\ServiceProvider;
 use RuntimeException;
