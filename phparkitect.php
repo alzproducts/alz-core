@@ -221,6 +221,7 @@ return static function (Config $config): void {
                                'SimpleXMLElement',
                                'PDOException',
                                'Override',
+                               'Laravel\Horizon',
                                'Sentry*',
                                'Monolog*',
                                'Symfony\Component\HttpFoundation',

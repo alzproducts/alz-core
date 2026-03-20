@@ -10,7 +10,7 @@ use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
-use App\Domain\Notifications\Events\AdminAlertEvent;
+use App\Domain\Notifications\Events\ManagerAlertEvent;
 use App\Domain\ValueObjects\IntId;
 use Illuminate\Contracts\Events\Dispatcher;
 use Psr\Log\LoggerInterface;
@@ -21,7 +21,7 @@ use Psr\Log\LoggerInterface;
  * Deletes the refund by external ID. Idempotent — logs and returns
  * silently if the refund no longer exists. No staleness check — delete
  * events are one-time. Queues a full order sync for reconciliation
- * and dispatches an admin alert (refund deletion is unusual).
+ * and dispatches a manager alert (refund deletion is unusual).
  */
 final readonly class DeleteOrderRefundUseCase
 {
@@ -54,7 +54,7 @@ final readonly class DeleteOrderRefundUseCase
 
         $this->logger->info('Order refund deleted — sync queued', $context);
 
-        $this->eventDispatcher->dispatch(new AdminAlertEvent(
+        $this->eventDispatcher->dispatch(new ManagerAlertEvent(
             title: 'ShopWired Order Refund Deleted',
             message: "Refund #{$refundExternalId->value} on order #{$orderId->value} was deleted in ShopWired. Please investigate if this was unexpected.",
             context: $context,
