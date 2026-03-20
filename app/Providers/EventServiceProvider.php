@@ -10,14 +10,18 @@ use App\Domain\ContactSubmission\Events\ContactFormProcessedEvent;
 use App\Domain\ContactSubmission\Events\ContactFormProcessingFailedEvent;
 use App\Domain\Inventory\Events\VariantSkusGeneratedEvent;
 use App\Domain\Notifications\Events\AdminAlertEvent;
+use App\Domain\Notifications\Events\ManagerAlertEvent;
 use App\Infrastructure\Notifications\Listeners\AdminAlertSlackListener;
 use App\Infrastructure\Notifications\Listeners\ContactFormFailedSlackListener;
 use App\Infrastructure\Notifications\Listeners\ContactFormProcessedSlackListener;
+use App\Infrastructure\Notifications\Listeners\HorizonLongWaitSlackListener;
+use App\Infrastructure\Notifications\Listeners\ManagerAlertSlackListener;
 use App\Infrastructure\Notifications\Listeners\ProductPricingUpdatedSlackListener;
 use App\Infrastructure\Notifications\Listeners\VariantSkusGeneratedSlackListener;
 use App\Infrastructure\Operations\Listeners\RecordPricePeriodListener;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
+use Laravel\Horizon\Events\LongWaitDetected;
 
 /**
  * Centralised event → listener wiring.
@@ -41,7 +45,13 @@ final class EventServiceProvider extends ServiceProvider
         Event::listen(ContactFormProcessedEvent::class, ContactFormProcessedSlackListener::class);
         Event::listen(ContactFormProcessingFailedEvent::class, ContactFormFailedSlackListener::class);
 
-        // Admin alerts — Slack notification
+        // Admin alerts — infrastructure/system-level (queue issues, deployment)
         Event::listen(AdminAlertEvent::class, AdminAlertSlackListener::class);
+
+        // Manager alerts — business-notable events (order deletions, webhook health)
+        Event::listen(ManagerAlertEvent::class, ManagerAlertSlackListener::class);
+
+        // Horizon — route long wait alerts to Slack (not queued — queue may be backed up)
+        Event::listen(LongWaitDetected::class, HorizonLongWaitSlackListener::class);
     }
 }

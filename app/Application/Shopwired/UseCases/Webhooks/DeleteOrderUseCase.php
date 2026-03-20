@@ -9,7 +9,7 @@ use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
-use App\Domain\Notifications\Events\AdminAlertEvent;
+use App\Domain\Notifications\Events\ManagerAlertEvent;
 use App\Domain\ValueObjects\IntId;
 use Illuminate\Contracts\Events\Dispatcher;
 use Psr\Log\LoggerInterface;
@@ -50,7 +50,7 @@ final readonly class DeleteOrderUseCase
 
         $this->logger->info('Order deleted', $context);
 
-        $this->eventDispatcher->dispatch(new AdminAlertEvent(
+        $this->eventDispatcher->dispatch(new ManagerAlertEvent(
             title: 'ShopWired Order Deleted',
             message: "Order #{$orderId->value} was deleted in ShopWired. Please investigate if this was unexpected.",
             context: $context,

@@ -8,7 +8,7 @@ use App\Application\Contracts\Shopwired\OrderRepositoryInterface;
 use App\Application\Contracts\Shopwired\ShopwiredSyncDispatcherInterface;
 use App\Application\Shopwired\UseCases\Webhooks\DeleteOrderRefundUseCase;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
-use App\Domain\Notifications\Events\AdminAlertEvent;
+use App\Domain\Notifications\Events\ManagerAlertEvent;
 use App\Domain\ValueObjects\IntId;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Support\Facades\Event;
@@ -39,7 +39,7 @@ final class DeleteOrderRefundUseCaseTest extends TestCase
     {
         parent::setUp();
 
-        Event::fake([AdminAlertEvent::class]);
+        Event::fake([ManagerAlertEvent::class]);
 
         $this->repository = Mockery::mock(OrderRepositoryInterface::class);
         $this->dispatcher = Mockery::mock(ShopwiredSyncDispatcherInterface::class);
@@ -78,8 +78,8 @@ final class DeleteOrderRefundUseCaseTest extends TestCase
         $this->useCase->execute(webhookId: 1, orderId: $orderId, refundExternalId: $refundId);
 
         Event::assertDispatched(
-            AdminAlertEvent::class,
-            static fn(AdminAlertEvent $e): bool => $e->title === 'ShopWired Order Refund Deleted'
+            ManagerAlertEvent::class,
+            static fn(ManagerAlertEvent $e): bool => $e->title === 'ShopWired Order Refund Deleted'
                 && \str_contains($e->message, '999')
                 && \str_contains($e->message, '100'),
         );
@@ -105,6 +105,6 @@ final class DeleteOrderRefundUseCaseTest extends TestCase
 
         $this->useCase->execute(webhookId: 1, orderId: $orderId, refundExternalId: $refundId);
 
-        Event::assertNotDispatched(AdminAlertEvent::class);
+        Event::assertNotDispatched(ManagerAlertEvent::class);
     }
 }

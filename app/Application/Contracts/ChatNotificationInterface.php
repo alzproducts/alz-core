@@ -34,6 +34,19 @@ interface ChatNotificationInterface
     ): void;
 
     /**
+     * @param array<string, mixed> $context Key-value pairs shown as context in the notification
+     *
+     * @throws InvalidConfigurationException When target channel is not configured
+     * @throws ExternalServiceUnavailableException On delivery failure
+     */
+    public function sendManagerAlert(
+        string $title,
+        string $message,
+        array $context,
+        DateTimeImmutable $firedAt,
+    ): void;
+
+    /**
      * @param list<SkuPriceChange> $priceChanges Confirmed price changes per SKU
      *
      * @throws InvalidConfigurationException When target channel is not configured

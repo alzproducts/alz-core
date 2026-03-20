@@ -36,6 +36,7 @@ return [
             'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
             'verbose_channel' => env('SLACK_VERBOSE_CHANNEL'),
             'admin_alerts_channel' => env('SLACK_ADMIN_ALERTS_CHANNEL'),
+            'manager_alerts_channel' => env('SLACK_MANAGER_ALERTS_CHANNEL'),
         ],
     ],
 
