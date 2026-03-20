@@ -132,8 +132,8 @@ We maintain strict code quality with automated linting:
 
 - **Laravel Pint** - Code style (PER preset with strict rules)
 - **PHPStan Level max** - Static analysis with bleeding edge features
-- **PHP Insights** - Architecture and complexity metrics
 - **PHPArkitect** - Clean Architecture layer enforcement
+- **Deptrac** - Layer dependency analysis
 
 ```bash
 # Fast linting (pre-commit) - ~5-10 seconds
