@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Jobs\Mixpanel;
 
-use App\Infrastructure\Jobs\Enums\QueueName;
 use App\Application\Mixpanel\UseCases\SyncOrdersToMixpanelUseCase;
 use App\Domain\Exceptions\Api\AbstractApiException;
 use App\Domain\Exceptions\Api\PermanentApiFailure;
 use App\Domain\Exceptions\Api\TransientApiFailure;
 use App\Domain\Exceptions\Data\MissingRequiredDataException;
+use App\Infrastructure\Jobs\Enums\QueueName;
 use DateTimeImmutable;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;

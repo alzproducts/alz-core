@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Infrastructure\Jobs\Inventory;
 
 use App\Application\Inventory\UseCases\UpdateSkuUseCase;
-use App\Infrastructure\Jobs\Enums\QueueName;
 use App\Domain\Exceptions\Api\AbstractApiException;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
@@ -18,6 +17,7 @@ use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\Exceptions\Inventory\SkuGenerationFailedException;
 use App\Domain\Exceptions\Inventory\SkuUpdateFailedException;
 use App\Domain\Inventory\Commands\UpdateSkuCommand;
+use App\Infrastructure\Jobs\Enums\QueueName;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;

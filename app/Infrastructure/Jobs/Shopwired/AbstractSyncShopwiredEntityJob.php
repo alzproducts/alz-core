@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Jobs\Shopwired;
 
-use App\Infrastructure\Jobs\Enums\QueueName;
 use App\Domain\Exceptions\Api\AbstractApiException;
 use App\Domain\Exceptions\Api\PermanentApiFailure;
 use App\Domain\Exceptions\Api\TransientApiFailure;
 use App\Domain\ValueObjects\IntId;
+use App\Infrastructure\Jobs\Enums\QueueName;
 use Closure;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;

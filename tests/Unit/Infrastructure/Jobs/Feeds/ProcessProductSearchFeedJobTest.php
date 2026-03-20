@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Tests\Unit\Infrastructure\Jobs\Feeds;
 
 use App\Application\Feeds\ProcessProductSearchFeedUseCase;
-use App\Infrastructure\Jobs\Feeds\ProcessProductSearchFeedJob;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Data\MalformedFeedDataException;
 use App\Domain\Exceptions\Infrastructure\StorageOperationFailedException;
+use App\Infrastructure\Jobs\Feeds\ProcessProductSearchFeedJob;
 use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
 use Mockery;

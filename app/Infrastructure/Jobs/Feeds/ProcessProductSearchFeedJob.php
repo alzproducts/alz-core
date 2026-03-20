@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace App\Infrastructure\Jobs\Feeds;
 
 use App\Application\Feeds\ProcessProductSearchFeedUseCase;
-use App\Infrastructure\Jobs\Enums\QueueName;
 use App\Domain\Exceptions\Api\AbstractApiException;
 use App\Domain\Exceptions\Api\TransientApiFailure;
 use App\Domain\Exceptions\Infrastructure\StorageOperationFailedException;
+use App\Infrastructure\Jobs\Enums\QueueName;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;

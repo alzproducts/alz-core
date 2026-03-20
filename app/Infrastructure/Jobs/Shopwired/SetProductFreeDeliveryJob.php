@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Jobs\Shopwired;
 
-use App\Infrastructure\Jobs\Enums\QueueName;
 use App\Application\Results\BatchUpdateResult;
 use App\Application\Shopwired\UseCases\SetProductFreeDeliveryUseCase;
 use App\Domain\Catalog\Product\Commands\SetFreeDeliveryCommand;
 use App\Domain\Exceptions\AllItemsFailedException;
 use App\Domain\Exceptions\Api\AbstractApiException;
+use App\Infrastructure\Jobs\Enums\QueueName;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;

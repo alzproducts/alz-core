@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Infrastructure\Jobs\Mixpanel;
 
-use App\Infrastructure\Jobs\Mixpanel\SyncOrdersToMixpanelJob;
 use App\Application\Mixpanel\Results\SyncOrdersToMixpanelResult;
 use App\Application\Mixpanel\UseCases\SyncOrdersToMixpanelUseCase;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\UnexpectedApiResultException;
 use App\Domain\Exceptions\Data\MissingRequiredDataException;
+use App\Infrastructure\Jobs\Mixpanel\SyncOrdersToMixpanelJob;
 use DateTimeImmutable;
 use Illuminate\Support\Facades\Log;
 use Mockery;

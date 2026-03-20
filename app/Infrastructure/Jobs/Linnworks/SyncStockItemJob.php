@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Jobs\Linnworks;
 
-use App\Infrastructure\Jobs\Enums\QueueName;
 use App\Application\Linnworks\UseCases\SyncStockItemUseCase;
 use App\Domain\Exceptions\Api\AbstractApiException;
 use App\Domain\Exceptions\Api\PermanentApiFailure;
 use App\Domain\Exceptions\Api\TransientApiFailure;
 use App\Domain\ValueObjects\Guid;
+use App\Infrastructure\Jobs\Enums\QueueName;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;

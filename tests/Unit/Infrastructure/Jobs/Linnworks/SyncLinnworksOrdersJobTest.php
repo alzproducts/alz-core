@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Infrastructure\Jobs\Linnworks;
 
-use App\Infrastructure\Jobs\Linnworks\SyncLinnworksOrdersJob;
 use App\Application\Linnworks\Enums\OrderSyncTier;
 use App\Application\Linnworks\UseCases\SyncLinnworksOrdersUseCase;
 use App\Application\Results\SyncResult;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Infrastructure\Jobs\Linnworks\SyncLinnworksOrdersJob;
 use DateTimeImmutable;
 use Illuminate\Support\Facades\Log;
 use Mockery;

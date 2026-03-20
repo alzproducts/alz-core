@@ -100,13 +100,21 @@ final class NoEventDispatchOutsideApplicationRule implements Rule
             && $node->name instanceof Identifier
             && $node->name->toString() === 'dispatch'
         ) {
-            return true;
+            return ! self::isSelfDispatch($node);
         }
 
         // $event->dispatch()
         return $node instanceof MethodCall
             && $node->name instanceof Identifier
             && $node->name->toString() === 'dispatch';
+    }
+
+    /**
+     * Check if a static call is self::dispatch() — a queue job self-retry pattern, not event dispatching.
+     */
+    private static function isSelfDispatch(StaticCall $node): bool
+    {
+        return $node->class instanceof Name && $node->class->toString() === 'self';
     }
 
     private static function isExemptNamespace(string $namespace): bool

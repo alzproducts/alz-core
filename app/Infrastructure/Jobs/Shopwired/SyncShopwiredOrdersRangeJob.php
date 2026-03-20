@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Jobs\Shopwired;
 
-use App\Infrastructure\Jobs\Enums\QueueName;
 use App\Application\Shopwired\UseCases\SyncOrdersRangeUseCase;
 use App\Domain\Exceptions\Api\AbstractApiException;
 use App\Domain\Exceptions\Api\PermanentApiFailure;
 use App\Domain\Exceptions\Api\TransientApiFailure;
+use App\Infrastructure\Jobs\Enums\QueueName;
 use DateTimeImmutable;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;

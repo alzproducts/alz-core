@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Infrastructure\Jobs\Linnworks;
 
-use App\Infrastructure\Jobs\Linnworks\SyncStockItemJob;
 use App\Application\Linnworks\UseCases\SyncStockItemUseCase;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\ValueObjects\Guid;
+use App\Infrastructure\Jobs\Linnworks\SyncStockItemJob;
 use Illuminate\Support\Facades\Log;
 use Mockery;
 use Mockery\MockInterface;

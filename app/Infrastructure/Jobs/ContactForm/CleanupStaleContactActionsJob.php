@@ -4,11 +4,12 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Jobs\ContactForm;
 
+use App\Application\Contracts\ContactSubmission\ContactFormDispatcherInterface;
 use App\Application\Contracts\ContactSubmission\ContactSubmissionActionRepositoryInterface;
-use App\Infrastructure\Jobs\Enums\QueueName;
 use App\Domain\Exceptions\Api\AbstractApiException;
 use App\Domain\Exceptions\Api\TransientApiFailure;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
+use App\Infrastructure\Jobs\Enums\QueueName;
 use DateTimeImmutable;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
@@ -81,8 +82,11 @@ final class CleanupStaleContactActionsJob implements ShouldBeUnique, ShouldQueue
      * @throws TransientApiFailure On transient failure (triggers retry)
      * @throws Throwable On unexpected errors (fails immediately)
      */
-    public function handle(ContactSubmissionActionRepositoryInterface $repository, LoggerInterface $logger): void
-    {
+    public function handle(
+        ContactSubmissionActionRepositoryInterface $repository,
+        ContactFormDispatcherInterface $dispatcher,
+        LoggerInterface $logger,
+    ): void {
         try {
             $threshold = new DateTimeImmutable(\sprintf('-%d hours', self::STALE_THRESHOLD_HOURS));
             $staleActions = $repository->findStaleProcessing($threshold);
@@ -101,7 +105,7 @@ final class CleanupStaleContactActionsJob implements ShouldBeUnique, ShouldQueue
 
             foreach ($staleActions as $action) {
                 try {
-                    $this->resetAndRedispatch($repository, $action, $logger);
+                    $this->resetAndRedispatch($repository, $dispatcher, $action, $logger);
                     $resetCount++;
                 } catch (DatabaseOperationFailedException $e) {
                     // Log and continue - don't let one failure stop others
@@ -144,6 +148,7 @@ final class CleanupStaleContactActionsJob implements ShouldBeUnique, ShouldQueue
      */
     private function resetAndRedispatch(
         ContactSubmissionActionRepositoryInterface $repository,
+        ContactFormDispatcherInterface $dispatcher,
         array $action,
         LoggerInterface $logger,
     ): void {
@@ -154,7 +159,7 @@ final class CleanupStaleContactActionsJob implements ShouldBeUnique, ShouldQueue
 
         $repository->resetToPending($action['action_id']);
 
-        ProcessContactSubmissionJob::dispatch(
+        $dispatcher->dispatchContactSubmissionProcessing(
             $action['parent_id'],
             $action['action_id'],
         );
