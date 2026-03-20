@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Application\Shopwired\UseCases\Webhooks;
 
 use App\Application\Contracts\Shopwired\OrderRepositoryInterface;
-use App\Application\Jobs\Shopwired\SyncShopwiredOrderJob;
+use App\Application\Contracts\Shopwired\ShopwiredSyncDispatcherInterface;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
@@ -27,6 +27,7 @@ final readonly class DeleteOrderRefundUseCase
 {
     public function __construct(
         private OrderRepositoryInterface $orderRepository,
+        private ShopwiredSyncDispatcherInterface $dispatcher,
         private LoggerInterface $logger,
         private Dispatcher $eventDispatcher,
     ) {}
@@ -49,7 +50,7 @@ final readonly class DeleteOrderRefundUseCase
             return;
         }
 
-        SyncShopwiredOrderJob::dispatch($orderId);
+        $this->dispatcher->dispatchOrderSync($orderId);
 
         $this->logger->info('Order refund deleted — sync queued', $context);
 

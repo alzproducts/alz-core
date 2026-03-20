@@ -33,6 +33,7 @@ use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Application\Contracts\Shopwired\ProductUpdateClientInterface;
 use App\Application\Contracts\Shopwired\ProductWebhookEventResolverInterface;
 use App\Application\Contracts\Shopwired\ProductWebhookParserInterface;
+use App\Application\Contracts\Shopwired\ShopwiredSyncDispatcherInterface;
 use App\Application\Contracts\Shopwired\StockClientInterface;
 use App\Application\Contracts\Shopwired\WebhookClientInterface;
 use App\Application\Contracts\Shopwired\WebhookIdempotencyServiceInterface;
@@ -48,6 +49,7 @@ use App\Domain\Exceptions\InvalidConfigurationException;
 use App\Infrastructure\Shopwired\Clients\BasicProductUpdateClient;
 use App\Infrastructure\Shopwired\Clients\ProductClient;
 use App\Infrastructure\Shopwired\Clients\ProductUpdateClient;
+use App\Infrastructure\Shopwired\Dispatchers\QueuedShopwiredSyncDispatcher;
 use App\Infrastructure\Shopwired\Factories\ProductCustomFieldFactory;
 use App\Infrastructure\Shopwired\Factories\ProductDomainFactory;
 use App\Infrastructure\Shopwired\Factories\ProductFilterFactory;
@@ -96,6 +98,7 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
         $this->registerClients();
         $this->registerRepositories();
         $this->registerFactories();
+        $this->registerDispatchers();
         $this->registerWebhookServices();
         $this->registerWebhookBindings();
     }
@@ -184,6 +187,11 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
         $this->app->singleton(WebhookIdempotencyServiceInterface::class, EloquentWebhookIdempotencyService::class);
     }
 
+    private function registerDispatchers(): void
+    {
+        $this->app->singleton(ShopwiredSyncDispatcherInterface::class, QueuedShopwiredSyncDispatcher::class);
+    }
+
     private function registerWebhookBindings(): void
     {
         $this->app->when([
@@ -253,6 +261,7 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
             ProductUpdateClientInterface::class,
             ProductWebhookEventResolverInterface::class,
             ProductWebhookParserInterface::class,
+            ShopwiredSyncDispatcherInterface::class,
             StockClientInterface::class,
             SyncBrandUseCase::class,
             SyncCategoryUseCase::class,

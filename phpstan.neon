@@ -157,7 +157,7 @@ parameters:
         -
             identifier: shipmonk.publicPropertyNotReadonly
             paths:
-                - app/Application/Jobs/*
+                - app/Infrastructure/Jobs/*
                 - app/Infrastructure/*/Listeners/*
         # Application classes using config() — flagged as tech debt (#211).
         # TODO: Refactor to constructor injection.

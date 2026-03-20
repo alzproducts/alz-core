@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace Tests\Unit\Application\Shopwired\UseCases\Webhooks;
 
 use App\Application\Contracts\Shopwired\OrderRepositoryInterface;
+use App\Application\Contracts\Shopwired\ShopwiredSyncDispatcherInterface;
 use App\Application\Shopwired\UseCases\Webhooks\DeleteOrderRefundUseCase;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Notifications\Events\ManagerAlertEvent;
 use App\Domain\ValueObjects\IntId;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Support\Facades\Event;
-use Illuminate\Support\Facades\Queue;
 use Mockery;
 use Mockery\MockInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -29,6 +29,8 @@ final class DeleteOrderRefundUseCaseTest extends TestCase
 {
     private OrderRepositoryInterface&MockInterface $repository;
 
+    private ShopwiredSyncDispatcherInterface&MockInterface $dispatcher;
+
     private LoggerInterface&MockInterface $logger;
 
     private DeleteOrderRefundUseCase $useCase;
@@ -38,13 +40,14 @@ final class DeleteOrderRefundUseCaseTest extends TestCase
         parent::setUp();
 
         Event::fake([ManagerAlertEvent::class]);
-        Queue::fake();
 
         $this->repository = Mockery::mock(OrderRepositoryInterface::class);
+        $this->dispatcher = Mockery::mock(ShopwiredSyncDispatcherInterface::class);
         $this->logger = Mockery::mock(LoggerInterface::class);
 
         $this->useCase = new DeleteOrderRefundUseCase(
             orderRepository: $this->repository,
+            dispatcher: $this->dispatcher,
             logger: $this->logger,
             eventDispatcher: \app(Dispatcher::class),
         );
@@ -60,12 +63,14 @@ final class DeleteOrderRefundUseCaseTest extends TestCase
             ->once()
             ->with($orderId, $refundId);
 
+        $this->dispatcher->shouldReceive('dispatchOrderSync')
+            ->once()
+            ->with($orderId);
+
         $this->logger->shouldReceive('info')
             ->once()
             ->with('Processing order refund delete webhook', Mockery::type('array'));
 
-        // Verifying this log message proves SyncShopwiredOrderJob::dispatch() completed
-        // (ShouldBeUnique + Queue::fake = flaky assertPushed, so we verify via post-dispatch log)
         $this->logger->shouldReceive('info')
             ->once()
             ->with('Order refund deleted — sync queued', Mockery::type('array'));

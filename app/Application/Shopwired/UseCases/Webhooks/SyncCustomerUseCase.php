@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Application\Shopwired\UseCases\Webhooks;
 
 use App\Application\Contracts\Shopwired\CustomerRepositoryInterface;
+use App\Application\Contracts\Shopwired\ShopwiredSyncDispatcherInterface;
 use App\Application\Contracts\Shopwired\WebhookIdempotencyServiceInterface;
-use App\Application\Jobs\Shopwired\SyncShopwiredCustomerJob;
 use App\Application\Shopwired\Enums\WebhookTopic;
 use App\Domain\Customer\ValueObjects\Customer;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
@@ -27,6 +27,7 @@ final readonly class SyncCustomerUseCase extends AbstractSyncEntityWebhookUseCas
 {
     public function __construct(
         private CustomerRepositoryInterface $customerRepository,
+        private ShopwiredSyncDispatcherInterface $dispatcher,
         WebhookIdempotencyServiceInterface $idempotency,
         LoggerInterface $logger,
         int $webhookStalenessHours,
@@ -63,7 +64,7 @@ final readonly class SyncCustomerUseCase extends AbstractSyncEntityWebhookUseCas
     #[Override]
     protected function dispatchSyncJob(IntId $entityId): void
     {
-        SyncShopwiredCustomerJob::dispatch($entityId);
+        $this->dispatcher->dispatchCustomerSync($entityId);
     }
 
     #[Override]
