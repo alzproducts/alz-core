@@ -4,14 +4,16 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Application\Contracts\Mixpanel\MixpanelSyncDispatcherInterface;
 use App\Application\Contracts\MixpanelClientInterface;
 use App\Application\Contracts\Shopwired\CustomerRepositoryInterface;
 use App\Application\Contracts\Shopwired\OrderRepositoryInterface;
-use App\Application\Jobs\Mixpanel\SyncOrderLookupTableJob;
-use App\Application\Jobs\Mixpanel\SyncProductLookupTableJob;
 use App\Application\Mixpanel\UseCases\SyncLookupTableUseCase;
 use App\Application\Mixpanel\UseCases\SyncOrdersToMixpanelUseCase;
 use App\Infrastructure\Database\DatabaseGateway;
+use App\Infrastructure\Jobs\Mixpanel\SyncOrderLookupTableJob;
+use App\Infrastructure\Jobs\Mixpanel\SyncProductLookupTableJob;
+use App\Infrastructure\Mixpanel\Dispatchers\QueuedMixpanelSyncDispatcher;
 use App\Infrastructure\Mixpanel\LookupTables\OrderLookupTableProvider;
 use App\Infrastructure\Mixpanel\LookupTables\ProductLookupTableProvider;
 use App\Infrastructure\Mixpanel\MixpanelClientFactory;
@@ -42,6 +44,8 @@ final class MixpanelServiceProvider extends ServiceProvider implements Deferrabl
     #[Override]
     public function register(): void
     {
+        $this->app->singleton(MixpanelSyncDispatcherInterface::class, QueuedMixpanelSyncDispatcher::class);
+
         $this->app->singleton(MixpanelConfig::class, static fn(): MixpanelConfig => MixpanelClientFactory::createConfig());
 
         $this->app->singleton(MixpanelClientInterface::class, static fn(): MixpanelClientInterface => MixpanelClientFactory::create());
@@ -110,6 +114,7 @@ final class MixpanelServiceProvider extends ServiceProvider implements Deferrabl
         return [
             MixpanelConfig::class,
             MixpanelClientInterface::class,
+            MixpanelSyncDispatcherInterface::class,
             SyncOrdersToMixpanelUseCase::class,
         ];
     }

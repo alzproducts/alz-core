@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Application\Inventory\UseCases;
 
-use App\Application\Jobs\Inventory\UpdateSkuJob;
+use App\Application\Contracts\Inventory\InventoryDispatcherInterface;
 use App\Domain\Inventory\Commands\UpdateSkuCommand;
 
 /**
@@ -15,6 +15,10 @@ use App\Domain\Inventory\Commands\UpdateSkuCommand;
  */
 final readonly class ProcessSkuUpdatesUseCase
 {
+    public function __construct(
+        private InventoryDispatcherInterface $dispatcher,
+    ) {}
+
     /**
      * @param list<UpdateSkuCommand> $commands
      *
@@ -23,7 +27,7 @@ final readonly class ProcessSkuUpdatesUseCase
     public function execute(array $commands): int
     {
         foreach ($commands as $command) {
-            UpdateSkuJob::dispatch($command);
+            $this->dispatcher->dispatchSkuUpdate($command);
         }
 
         return \count($commands);

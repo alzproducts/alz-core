@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Providers\Schedule;
 
-use App\Application\Jobs\Feeds\ProcessProductSearchFeedJob;
+use App\Infrastructure\Jobs\Feeds\ProcessProductSearchFeedJob;
 use Illuminate\Support\Facades\Schedule;
 use Illuminate\Support\ServiceProvider;
 use RuntimeException;

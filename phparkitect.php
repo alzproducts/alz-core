@@ -51,9 +51,8 @@ return static function (Config $config): void {
      | LAYERS:
      | - Domain: Business logic (Order, Product, calculations)
      | - Application: Use cases (SyncOrders, ProcessWebhook)
-     | - Infrastructure: Implementations (EloquentOrderRepository, ApiClient)
+     | - Infrastructure: Implementations (EloquentOrderRepository, ApiClient, Jobs)
      | - Presentation: Entry points (Controllers, Console commands)
-     | - Application Jobs: Queue jobs (orchestrate use cases, need Laravel framework)
      |
      | RESOURCES:
      | - Clean Architecture: https://blog.cleancoder.com/uncle-bob/2012/08/13/the-clean-architecture.html
@@ -137,7 +136,6 @@ return static function (Config $config): void {
     //
     $rules[] = Rule::allClasses()
                    ->that(new ResideInOneOfTheseNamespaces($application))
-                   ->andThat(new NotResideInTheseNamespaces('App\Application\Jobs'))
                    ->should(
                        new NotHaveDependencyOutsideNamespace(
                            $application,
@@ -166,40 +164,6 @@ return static function (Config $config): void {
                        ),
                    )
                    ->because('the Application layer can only depend on the Domain layer.');
-
-    // RULE 2b: Application Jobs - Framework Access for Queue Infrastructure
-    //
-    // WHY: Jobs orchestrate use cases but need Laravel queue primitives (ShouldQueue,
-    // InteractsWithQueue, etc.), Carbon for date calculations, and Sentry for error tracking.
-    // They are excluded from Rule 2's strict dependency check.
-    //
-    $rules[] = Rule::allClasses()
-                   ->that(new ResideInOneOfTheseNamespaces('App\Application\Jobs'))
-                   ->should(
-                       new NotHaveDependencyOutsideNamespace(
-                           $application,
-                           [
-                               $domain,
-                               'Illuminate',
-                               'Carbon',
-                               'Sentry',
-                               'DateTime',
-                               'DateTimeImmutable',
-                               'DateTimeZone',
-                               'DateTimeInterface',
-                               'DateInterval',
-                               'DatePeriod',
-                               'Psr\Log\LoggerInterface',
-                               'Closure',
-                               Assert::class,
-                               'RuntimeException',
-                               'LogicException',
-                               'Exception',
-                               'Throwable',
-                           ],
-                       ),
-                   )
-                   ->because('Application Jobs need Laravel queue primitives but must not depend on Infrastructure.');
 
     // RULE 3: Infrastructure Implements Domain/Application Interfaces
     //
@@ -358,7 +322,7 @@ return static function (Config $config): void {
     // ❌ namespace App\Presentation\Http;
     //    class WebhookHandler { }  // Missing *Controller/*Command suffix
     //
-    // NOTE: Jobs live in Application layer (App\Application\Jobs\*), not Presentation.
+    // NOTE: Jobs live in Infrastructure layer (App\Infrastructure\Jobs\*), not Presentation.
     //
     $rules[] = Rule::allClasses()
                    ->that(new ResideInOneOfTheseNamespaces($presentation))
@@ -384,15 +348,14 @@ return static function (Config $config): void {
                        'App\Application\Enums',
                        'App\Application\HelpScout\Queries\Conversation\Enums',
                        'App\Application\Inventory\Enums',
-                       'App\Application\Jobs\Enums',
                        'App\Application\Linnworks\Enums',
                        'App\Application\Shopwired\Enums',
                    ))
                    ->should(
-                       new MatchOneOfTheseNames(['*UseCase', '*Service', '*Transformer', '*Formatter', '*Sorter', '*Resolver', '*Interface', '*DTO', '*Exception', '*Result', '*Params', '*Command', '*Job', '*Validator']),
+                       new MatchOneOfTheseNames(['*UseCase', '*Service', '*Transformer', '*Formatter', '*Sorter', '*Resolver', '*Interface', '*DTO', '*Exception', '*Result', '*Params', '*Command', '*Validator']),
                    )
                    ->because(
-                       'Application layer classes should be clearly identifiable as use cases, services, transformers, formatters, sorters, resolvers, interfaces, jobs, commands, validators, or parameter objects.',
+                       'Application layer classes should be clearly identifiable as use cases, services, transformers, formatters, sorters, resolvers, interfaces, commands, validators, or parameter objects.',
                    );
 
     // RULE 5: No interfaces in Infrastructure

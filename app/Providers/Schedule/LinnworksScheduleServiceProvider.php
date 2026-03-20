@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace App\Providers\Schedule;
 
-use App\Application\Jobs\Linnworks\SyncLinnworksOrdersByCursorJob;
-use App\Application\Jobs\Linnworks\SyncLinnworksOrdersJob;
-use App\Application\Jobs\Linnworks\SyncLinnworksStockItemsJob;
-use App\Application\Jobs\Linnworks\SyncLinnworksSuppliersJob;
-use App\Application\Jobs\Linnworks\SyncStockItemsWithCursorJob;
 use App\Application\Linnworks\Enums\OrderSyncTier;
+use App\Infrastructure\Jobs\Linnworks\SyncLinnworksOrdersByCursorJob;
+use App\Infrastructure\Jobs\Linnworks\SyncLinnworksOrdersJob;
+use App\Infrastructure\Jobs\Linnworks\SyncLinnworksStockItemsJob;
+use App\Infrastructure\Jobs\Linnworks\SyncLinnworksSuppliersJob;
+use App\Infrastructure\Jobs\Linnworks\SyncStockItemsWithCursorJob;
 use Illuminate\Support\Facades\Schedule;
 use Illuminate\Support\ServiceProvider;
 use RuntimeException;

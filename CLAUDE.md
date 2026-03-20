@@ -162,9 +162,9 @@ This project follows **Clean Architecture** (Robert C. Martin) — dependencies 
 
 - **Presentation** (`App\Presentation`) — Entry points: HTTP controllers, console commands. Delegates to Application layer. *Naming: `*Controller`*
 
-- **Infrastructure** (`App\Infrastructure`) — External world: API clients, database repositories, SDK wrappers. Implements Domain interfaces. Validates external data with exceptions. *Naming: `*Client`, `*Repository`*
+- **Infrastructure** (`App\Infrastructure`) — External world: API clients, database repositories, SDK wrappers, queue jobs. Implements Domain interfaces. Validates external data with exceptions. Jobs are delivery mechanisms (like controllers for HTTP). *Naming: `*Client`, `*Repository`, `*Job`*
 
-- **Application** (`App\Application`) — Use cases: orchestrates Domain objects and Infrastructure services to accomplish tasks. Contains jobs (in `ApplicationJobs` sub-layer with Laravel framework access), transformers. *Naming: `*UseCase`, `*Service`, `*Job`*
+- **Application** (`App\Application`) — Use cases: orchestrates Domain objects and Infrastructure services to accomplish tasks. Dispatches async work via dispatcher interfaces (not job classes directly). *Naming: `*UseCase`, `*Service`*
 
 - **Domain** (`App\Domain`) — Pure business logic: value objects, entities, interfaces, domain exceptions. Zero external dependencies. Validates internal contracts with assertions.
 
