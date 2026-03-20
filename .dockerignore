@@ -33,7 +33,6 @@ tests/
 .phpunit.result.cache
 phpunit.xml
 pest.xml
-infection.json.php
 phpstan.neon
 phpstan-baseline.neon
 pint.json
