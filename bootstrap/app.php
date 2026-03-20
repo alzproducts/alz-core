@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Presentation\Http\Auth\Middleware\ValidateSupabaseJwtMiddleware;
 use App\Presentation\Http\Middleware\EnsureUserApprovedMiddleware;
+use App\Presentation\Http\Middleware\SetRequestContextMiddleware;
 use App\Presentation\Http\Middleware\SetRlsContextMiddleware;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -30,6 +31,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // This is safe because Railway's network is isolated and all traffic
         // goes through their proxy - direct access to the container is not possible
         $middleware->trustProxies(at: '*');
+
+        // Correlation IDs: trace_id for all requests, propagates to queued jobs
+        $middleware->append(SetRequestContextMiddleware::class);
 
         // Supabase Auth: JWT validation + user approval check + RLS context
         // Apply to all protected API routes

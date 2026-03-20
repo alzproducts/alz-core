@@ -13,11 +13,13 @@ use App\Domain\Notifications\Events\AdminAlertEvent;
 use App\Infrastructure\Notifications\Listeners\AdminAlertSlackListener;
 use App\Infrastructure\Notifications\Listeners\ContactFormFailedSlackListener;
 use App\Infrastructure\Notifications\Listeners\ContactFormProcessedSlackListener;
+use App\Infrastructure\Notifications\Listeners\HorizonLongWaitSlackListener;
 use App\Infrastructure\Notifications\Listeners\ProductPricingUpdatedSlackListener;
 use App\Infrastructure\Notifications\Listeners\VariantSkusGeneratedSlackListener;
 use App\Infrastructure\Operations\Listeners\RecordPricePeriodListener;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
+use Laravel\Horizon\Events\LongWaitDetected;
 
 /**
  * Centralised event → listener wiring.
@@ -43,5 +45,8 @@ final class EventServiceProvider extends ServiceProvider
 
         // Admin alerts — Slack notification
         Event::listen(AdminAlertEvent::class, AdminAlertSlackListener::class);
+
+        // Horizon — route long wait alerts to Slack (not queued — queue may be backed up)
+        Event::listen(LongWaitDetected::class, HorizonLongWaitSlackListener::class);
     }
 }

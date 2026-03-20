@@ -147,6 +147,12 @@ deptrac:
         - type: classLike
           value: ^Carbon\\.*
 
+    # Laravel Horizon (queue monitoring)
+    - name: LaravelHorizon
+      collectors:
+        - type: classLike
+          value: ^Laravel\\Horizon\\.*
+
     # Monolog logging library (Laravel dependency)
     - name: MonologLogging
       collectors:
@@ -188,11 +194,12 @@ deptrac:
       - AssertionLibrary
       - SentrySdk
 
-    # Infrastructure: All internal + Laravel, Spatie, Google, Bing, Guzzle, PSR, Flysystem, Assertions, Sentry, Symfony, Carbon, Monolog, TheIconic, libphonenumber
+    # Infrastructure: All internal + Laravel, Spatie, Google, Bing, Guzzle, PSR, Flysystem, Assertions, Sentry, Symfony, Carbon, Monolog, Horizon, TheIconic, libphonenumber
     Infrastructure:
       - Application
       - Domain
       - LaravelFramework
+      - LaravelHorizon
       - SpatieData
       - GoogleAdsSdk
       - BingAdsSdk
@@ -251,4 +258,5 @@ deptrac:
     CarbonDateTime: ~
     MonologLogging: ~
     TheIconicNameParser: ~
+    LaravelHorizon: ~
     LibPhoneNumber: ~
