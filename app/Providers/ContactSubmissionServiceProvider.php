@@ -5,23 +5,19 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Application\ContactSubmission\UseCases\ProcessContactSubmissionUseCase;
+use App\Application\Contracts\ContactSubmission\ContactFormDispatcherInterface;
 use App\Application\Contracts\ContactSubmission\ContactSubmissionActionRepositoryInterface;
 use App\Application\Contracts\ContactSubmission\ContactSubmissionRepositoryInterface;
 use App\Application\Contracts\EmailValidationServiceInterface;
 use App\Application\Contracts\HelpScout\ConversationWriteClientInterface;
-use App\Domain\ContactSubmission\Events\ContactFormProcessedEvent;
-use App\Domain\ContactSubmission\Events\ContactFormProcessingFailedEvent;
+use App\Infrastructure\HelpScout\Dispatchers\QueuedContactFormDispatcher;
 use App\Infrastructure\HelpScout\HelpScoutClientFactory;
 use App\Infrastructure\Ingest\ContactSubmission\Repositories\EloquentContactSubmissionActionRepository;
 use App\Infrastructure\Ingest\ContactSubmission\Repositories\EloquentContactSubmissionRepository;
-use App\Infrastructure\Notifications\Listeners\ContactFormFailedSlackListener;
-use App\Infrastructure\Notifications\Listeners\ContactFormProcessedSlackListener;
 use App\Infrastructure\Validation\EmailValidationService;
 use Illuminate\Contracts\Support\DeferrableProvider;
-use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 use Override;
-use RuntimeException;
 
 /**
  * Contact Submission Service Provider.
@@ -38,6 +34,9 @@ final class ContactSubmissionServiceProvider extends ServiceProvider implements 
     #[Override]
     public function register(): void
     {
+        // Dispatcher binding
+        $this->app->singleton(ContactFormDispatcherInterface::class, QueuedContactFormDispatcher::class);
+
         // Repository bindings
         $this->app->singleton(
             ContactSubmissionRepositoryInterface::class,
@@ -63,21 +62,13 @@ final class ContactSubmissionServiceProvider extends ServiceProvider implements 
     }
 
     /**
-     * @throws RuntimeException If event registration fails
-     */
-    public function boot(): void
-    {
-        Event::listen(ContactFormProcessedEvent::class, ContactFormProcessedSlackListener::class);
-        Event::listen(ContactFormProcessingFailedEvent::class, ContactFormFailedSlackListener::class);
-    }
-
-    /**
      * @return list<class-string>
      */
     #[Override]
     public function provides(): array
     {
         return [
+            ContactFormDispatcherInterface::class,
             ContactSubmissionRepositoryInterface::class,
             ContactSubmissionActionRepositoryInterface::class,
             ConversationWriteClientInterface::class,

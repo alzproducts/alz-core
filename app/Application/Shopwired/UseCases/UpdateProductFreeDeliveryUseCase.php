@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Application\Shopwired\UseCases;
 
-use App\Application\Jobs\Shopwired\SetProductFreeDeliveryJob;
+use App\Application\Contracts\Shopwired\ShopwiredSyncDispatcherInterface;
 use App\Domain\Catalog\Product\Commands\SetFreeDeliveryCommand;
 
 /**
@@ -17,6 +17,10 @@ use App\Domain\Catalog\Product\Commands\SetFreeDeliveryCommand;
 final readonly class UpdateProductFreeDeliveryUseCase
 {
     private const int CHUNK_SIZE = 25;
+
+    public function __construct(
+        private ShopwiredSyncDispatcherInterface $dispatcher,
+    ) {}
 
     /**
      * @param list<SetFreeDeliveryCommand> $commands
@@ -33,7 +37,7 @@ final readonly class UpdateProductFreeDeliveryUseCase
         $chunks = \array_chunk($commands, self::CHUNK_SIZE);
 
         foreach ($chunks as $chunk) {
-            SetProductFreeDeliveryJob::dispatch($chunk);
+            $this->dispatcher->dispatchFreeDeliveryUpdate($chunk);
         }
 
         return \count($chunks);

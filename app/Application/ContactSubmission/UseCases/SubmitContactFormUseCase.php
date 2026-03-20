@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace App\Application\ContactSubmission\UseCases;
 
 use App\Application\ContactSubmission\Results\SubmitContactFormResult;
+use App\Application\Contracts\ContactSubmission\ContactFormDispatcherInterface;
 use App\Application\Contracts\ContactSubmission\ContactSubmissionActionRepositoryInterface;
 use App\Application\Contracts\ContactSubmission\ContactSubmissionRepositoryInterface;
 use App\Application\Contracts\DatabaseGatewayInterface;
-use App\Application\Jobs\ContactForm\ProcessContactSubmissionJob;
 use App\Domain\ContactSubmission\Enums\ActionType;
 use App\Domain\ContactSubmission\ValueObjects\ContactSubmission;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
@@ -30,6 +30,7 @@ final readonly class SubmitContactFormUseCase
         private ContactSubmissionRepositoryInterface $submissionRepository,
         private ContactSubmissionActionRepositoryInterface $actionRepository,
         private DatabaseGatewayInterface $database,
+        private ContactFormDispatcherInterface $dispatcher,
     ) {}
 
     /**
@@ -58,7 +59,7 @@ final readonly class SubmitContactFormUseCase
             );
         });
 
-        ProcessContactSubmissionJob::dispatch($result->submissionId, $result->actionId);
+        $this->dispatcher->dispatchContactSubmissionProcessing($result->submissionId, $result->actionId);
 
         return $result;
     }

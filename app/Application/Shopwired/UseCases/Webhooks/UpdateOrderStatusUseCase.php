@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Application\Shopwired\UseCases\Webhooks;
 
 use App\Application\Contracts\Shopwired\OrderRepositoryInterface;
+use App\Application\Contracts\Shopwired\ShopwiredSyncDispatcherInterface;
 use App\Application\Contracts\Shopwired\WebhookIdempotencyServiceInterface;
-use App\Application\Jobs\Shopwired\SyncShopwiredOrderJob;
 use App\Application\Shopwired\Enums\WebhookTopic;
 use App\Domain\Catalog\Order\ValueObjects\OrderStatus;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
@@ -27,6 +27,7 @@ final readonly class UpdateOrderStatusUseCase
 {
     public function __construct(
         private OrderRepositoryInterface $orderRepository,
+        private ShopwiredSyncDispatcherInterface $dispatcher,
         private WebhookIdempotencyServiceInterface $idempotency,
         private LoggerInterface $logger,
         private int $webhookStalenessHours,
@@ -60,7 +61,7 @@ final readonly class UpdateOrderStatusUseCase
         $this->orderRepository->updateStatus($orderId, $status);
         $this->idempotency->record($orderId, $topic, $webhookId, $eventTime);
 
-        SyncShopwiredOrderJob::dispatch($orderId);
+        $this->dispatcher->dispatchOrderSync($orderId);
 
         $this->logger->info('Order status webhook processed — sync queued', $context);
     }

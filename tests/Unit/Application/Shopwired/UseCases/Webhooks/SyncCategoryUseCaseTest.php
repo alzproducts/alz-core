@@ -5,15 +5,14 @@ declare(strict_types=1);
 namespace Tests\Unit\Application\Shopwired\UseCases\Webhooks;
 
 use App\Application\Contracts\Shopwired\CategoryRepositoryInterface;
+use App\Application\Contracts\Shopwired\ShopwiredSyncDispatcherInterface;
 use App\Application\Contracts\Shopwired\WebhookIdempotencyServiceInterface;
-use App\Application\Jobs\Shopwired\SyncShopwiredCategoryJob;
 use App\Application\Shopwired\Enums\WebhookTopic;
 use App\Application\Shopwired\UseCases\Webhooks\AbstractSyncEntityWebhookUseCase;
 use App\Application\Shopwired\UseCases\Webhooks\SyncCategoryUseCase;
 use App\Domain\Catalog\ValueObjects\Category;
 use App\Domain\ValueObjects\IntId;
 use DateTimeImmutable;
-use Illuminate\Support\Facades\Queue;
 use Mockery;
 use Mockery\MockInterface;
 use Override;
@@ -28,6 +27,8 @@ final class SyncCategoryUseCaseTest extends TestCase
 {
     private CategoryRepositoryInterface&MockInterface $repository;
 
+    private ShopwiredSyncDispatcherInterface&MockInterface $dispatcher;
+
     private WebhookIdempotencyServiceInterface&MockInterface $idempotency;
 
     private LoggerInterface&MockInterface $logger;
@@ -39,14 +40,14 @@ final class SyncCategoryUseCaseTest extends TestCase
     {
         parent::setUp();
 
-        Queue::fake([SyncShopwiredCategoryJob::class]);
-
         $this->repository = Mockery::mock(CategoryRepositoryInterface::class);
+        $this->dispatcher = Mockery::mock(ShopwiredSyncDispatcherInterface::class);
         $this->idempotency = Mockery::mock(WebhookIdempotencyServiceInterface::class);
         $this->logger = Mockery::mock(LoggerInterface::class);
 
         $this->useCase = new SyncCategoryUseCase(
             categoryRepository: $this->repository,
+            dispatcher: $this->dispatcher,
             idempotency: $this->idempotency,
             logger: $this->logger,
             webhookStalenessHours: 24,
@@ -76,6 +77,10 @@ final class SyncCategoryUseCaseTest extends TestCase
         $this->idempotency->shouldReceive('record')
             ->once()
             ->with(Mockery::on(static fn(IntId $id): bool => $id->value === 42), WebhookTopic::CategoryUpdated, 1, $eventTime);
+
+        $this->dispatcher->shouldReceive('dispatchCategorySync')
+            ->once()
+            ->with(Mockery::on(static fn(IntId $id): bool => $id->value === 42));
 
         $this->logger->shouldReceive('info')
             ->once()
@@ -111,6 +116,9 @@ final class SyncCategoryUseCaseTest extends TestCase
         $this->idempotency->shouldReceive('record')
             ->once();
 
+        $this->dispatcher->shouldReceive('dispatchCategorySync')
+            ->once();
+
         $this->logger->shouldReceive('info')
             ->once()
             ->with('Processing category webhook', Mockery::type('array'));
@@ -140,6 +148,7 @@ final class SyncCategoryUseCaseTest extends TestCase
         $this->idempotency->shouldNotReceive('isSuperseded');
         $this->repository->shouldNotReceive('saveFromWebhook');
         $this->idempotency->shouldNotReceive('record');
+        $this->dispatcher->shouldNotReceive('dispatchCategorySync');
 
         $this->logger->shouldReceive('info')
             ->once()
@@ -173,6 +182,7 @@ final class SyncCategoryUseCaseTest extends TestCase
 
         $this->repository->shouldNotReceive('saveFromWebhook');
         $this->idempotency->shouldNotReceive('record');
+        $this->dispatcher->shouldNotReceive('dispatchCategorySync');
 
         $this->logger->shouldReceive('info')
             ->once()

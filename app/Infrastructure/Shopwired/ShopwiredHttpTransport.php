@@ -225,19 +225,20 @@ final readonly class ShopwiredHttpTransport implements ShopwiredTransportInterfa
 
         /** @var array<string, Response> $responses */
         $responses = [];
-        $firstFailure = null;
+        /** @var list<AbstractApiException> $failures */
+        $failures = [];
 
         foreach ($poolResults as $key => $result) {
             try {
                 $responses[$key] = $this->handlePoolResult($key, $result, $requests);
             } catch (AbstractApiException $e) {
                 // handlePoolResult already logged the failure with context.
-                // Store the first failure; continue processing remaining results.
-                $firstFailure ??= $e;
+                // Collect all failures; callers decide how to handle.
+                $failures[] = $e;
             }
         }
 
-        return new PoolPostResult($responses, $firstFailure);
+        return new PoolPostResult($responses, $failures);
     }
 
     /**

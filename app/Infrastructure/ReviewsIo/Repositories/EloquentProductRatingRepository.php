@@ -108,17 +108,11 @@ final class EloquentProductRatingRepository extends AbstractEloquentRepository i
     // Abstract Method Implementations
     // ─────────────────────────────────────────────────────────────────────────
 
-    /**
-     * {@inheritDoc}
-     */
     protected function getModelClass(): string
     {
         return self::MODEL_CLASS;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     protected function getEntityIdentifier(object $entity): string
     {
         /** @var ProductRating $entity */

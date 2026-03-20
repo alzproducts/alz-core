@@ -6,7 +6,7 @@ namespace App\Domain\Inventory\Commands;
 
 use App\Domain\Catalog\Product\ValueObjects\Gtin;
 use App\Domain\Catalog\Product\ValueObjects\Sku;
-use App\Domain\ValueObjects\Money;
+use App\Domain\Shared\Money\ValueObjects\Money;
 use App\Domain\ValueObjects\TaxRate;
 use Webmozart\Assert\Assert;
 

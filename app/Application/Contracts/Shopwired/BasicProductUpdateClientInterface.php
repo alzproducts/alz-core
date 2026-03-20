@@ -12,7 +12,10 @@ use App\Domain\Exceptions\Api\ResourceNotAvailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 
 /**
- * Update basic attributes on ShopWired products and variations.
+ * Update non-price attributes on ShopWired products and variations via PUT.
+ *
+ * Supports: SKU, costPrice, weight, GTIN.
+ * Price/salePrice use the dedicated POST products/prices endpoint.
  *
  * Handles product vs variation endpoint routing internally based on SKU lookup.
  */

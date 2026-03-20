@@ -47,7 +47,7 @@ final class JobHandleMustCatchThrowableRule implements Rule
 
         $className = $scope->getClassReflection()->getName();
 
-        if (! \str_contains($className, 'App\\Application\\Jobs\\')) {
+        if (! \str_contains($className, 'App\\Infrastructure\\Jobs\\')) {
             return [];
         }
 
@@ -66,7 +66,7 @@ final class JobHandleMustCatchThrowableRule implements Rule
 
         if ($parentClass !== null
             && $parentClass->isAbstract()
-            && \str_contains($parentClass->getName(), 'App\\Application\\Jobs\\')
+            && \str_contains($parentClass->getName(), 'App\\Infrastructure\\Jobs\\')
         ) {
             return [];
         }

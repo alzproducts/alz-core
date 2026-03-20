@@ -10,19 +10,18 @@ use Illuminate\Http\Client\Response;
 /**
  * Result of a concurrent pool POST operation.
  *
- * Contains successful responses keyed by batch name, plus the first
- * transport failure encountered (if any). Allows callers to process
- * partial successes before propagating the failure.
+ * Contains successful responses keyed by batch name, plus all
+ * transport failures encountered. Allows callers to process
+ * partial successes and inspect every failure individually.
  */
 final readonly class PoolPostResult
 {
     /**
      * @param array<string, Response> $responses Successfully completed pool responses
-     * @param ?AbstractApiException $transportFailure First translated transport failure (null = all succeeded)
+     * @param list<AbstractApiException> $transportFailures All translated transport failures (empty = all succeeded)
      */
     public function __construct(
         public array $responses,
-        public ?AbstractApiException $transportFailure = null,
+        public array $transportFailures = [],
     ) {}
-
 }

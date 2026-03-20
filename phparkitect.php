@@ -51,9 +51,8 @@ return static function (Config $config): void {
      | LAYERS:
      | - Domain: Business logic (Order, Product, calculations)
      | - Application: Use cases (SyncOrders, ProcessWebhook)
-     | - Infrastructure: Implementations (EloquentOrderRepository, ApiClient)
+     | - Infrastructure: Implementations (EloquentOrderRepository, ApiClient, Jobs)
      | - Presentation: Entry points (Controllers, Console commands)
-     | - Application Jobs: Queue jobs (orchestrate use cases, need Laravel framework)
      |
      | RESOURCES:
      | - Clean Architecture: https://blog.cleancoder.com/uncle-bob/2012/08/13/the-clean-architecture.html
@@ -137,7 +136,6 @@ return static function (Config $config): void {
     //
     $rules[] = Rule::allClasses()
                    ->that(new ResideInOneOfTheseNamespaces($application))
-                   ->andThat(new NotResideInTheseNamespaces('App\Application\Jobs'))
                    ->should(
                        new NotHaveDependencyOutsideNamespace(
                            $application,
@@ -166,40 +164,6 @@ return static function (Config $config): void {
                        ),
                    )
                    ->because('the Application layer can only depend on the Domain layer.');
-
-    // RULE 2b: Application Jobs - Framework Access for Queue Infrastructure
-    //
-    // WHY: Jobs orchestrate use cases but need Laravel queue primitives (ShouldQueue,
-    // InteractsWithQueue, etc.), Carbon for date calculations, and Sentry for error tracking.
-    // They are excluded from Rule 2's strict dependency check.
-    //
-    $rules[] = Rule::allClasses()
-                   ->that(new ResideInOneOfTheseNamespaces('App\Application\Jobs'))
-                   ->should(
-                       new NotHaveDependencyOutsideNamespace(
-                           $application,
-                           [
-                               $domain,
-                               'Illuminate',
-                               'Carbon',
-                               'Sentry',
-                               'DateTime',
-                               'DateTimeImmutable',
-                               'DateTimeZone',
-                               'DateTimeInterface',
-                               'DateInterval',
-                               'DatePeriod',
-                               'Psr\Log\LoggerInterface',
-                               'Closure',
-                               Assert::class,
-                               'RuntimeException',
-                               'LogicException',
-                               'Exception',
-                               'Throwable',
-                           ],
-                       ),
-                   )
-                   ->because('Application Jobs need Laravel queue primitives but must not depend on Infrastructure.');
 
     // RULE 3: Infrastructure Implements Domain/Application Interfaces
     //
@@ -358,7 +322,7 @@ return static function (Config $config): void {
     // ❌ namespace App\Presentation\Http;
     //    class WebhookHandler { }  // Missing *Controller/*Command suffix
     //
-    // NOTE: Jobs live in Application layer (App\Application\Jobs\*), not Presentation.
+    // NOTE: Jobs live in Infrastructure layer (App\Infrastructure\Jobs\*), not Presentation.
     //
     $rules[] = Rule::allClasses()
                    ->that(new ResideInOneOfTheseNamespaces($presentation))
@@ -384,14 +348,14 @@ return static function (Config $config): void {
                        'App\Application\Enums',
                        'App\Application\HelpScout\Queries\Conversation\Enums',
                        'App\Application\Inventory\Enums',
-                       'App\Application\Jobs\Enums',
+                       'App\Application\Linnworks\Enums',
                        'App\Application\Shopwired\Enums',
                    ))
                    ->should(
-                       new MatchOneOfTheseNames(['*UseCase', '*Service', '*Transformer', '*Formatter', '*Sorter', '*Resolver', '*Interface', '*DTO', '*Exception', '*Result', '*Params', '*Command', '*Job']),
+                       new MatchOneOfTheseNames(['*UseCase', '*Service', '*Transformer', '*Formatter', '*Sorter', '*Resolver', '*Interface', '*DTO', '*Exception', '*Result', '*Params', '*Command', '*Validator']),
                    )
                    ->because(
-                       'Application layer classes should be clearly identifiable as use cases, services, transformers, formatters, sorters, resolvers, interfaces, jobs, commands, or parameter objects.',
+                       'Application layer classes should be clearly identifiable as use cases, services, transformers, formatters, sorters, resolvers, interfaces, commands, validators, or parameter objects.',
                    );
 
     // RULE 5: No interfaces in Infrastructure
@@ -606,12 +570,49 @@ return static function (Config $config): void {
                        'App\Domain\*\Concerns',
                        'App\Domain\*\Commands',
                        'App\Domain\*\Resolvers',
+                       'App\Domain\*\Transformers',
                        'App\Domain\*\Events',
+                       'App\Domain\*\Validators',
                    ))
                    ->because(
                        'Domain classes must be organized into Value Objects, Entities, Enums, Exceptions, '
-                       . 'Contracts, Concerns, Commands, Resolvers, or Events subdirectories for discoverability and maintainability.',
+                       . 'Contracts, Concerns, Commands, Resolvers, Transformers, Events, or Validators subdirectories for discoverability and maintainability.',
                    );
+
+    // RULE V1: Validator Placement - *Validator classes in Domain must be in Validators/ namespace
+    //
+    // WHY: Validators co-locate with their domain concept for discoverability.
+    // Without this, validators can be dropped in ValueObjects/, Entities/, etc.
+    //
+    // CORRECT:
+    // ✅ namespace App\Domain\Catalog\Product\Validators;
+    //    class SkuBelongsToProductValidator { }
+    //
+    // VIOLATION:
+    // ❌ namespace App\Domain\Catalog\Product\ValueObjects;
+    //    class SkuBelongsToProductValidator { }  // Wrong directory!
+    //
+    $rules[] = Rule::allClasses()
+                   ->that(new HaveNameMatching('*Validator'))
+                   ->andThat(new ResideInOneOfTheseNamespaces($domain))
+                   ->should(new ResideInOneOfTheseNamespaces('App\Domain\*\Validators'))
+                   ->because('Domain validators must reside in Validators/ subdirectories alongside their domain concept.');
+
+    // RULE V2: Validators/ directories only contain Validators and Results
+    //
+    // WHY: Keeps Validators/ directories focused. Prevents enums, helpers, etc. from creeping in.
+    //
+    // CORRECT:
+    // ✅ SkuBelongsToProductValidator, SkuBelongsToProductResult
+    //
+    // VIOLATION:
+    // ❌ namespace App\Domain\Catalog\Product\Validators;
+    //    enum ValidationStatus { }  // Wrong! Enums go in Enums/
+    //
+    $rules[] = Rule::allClasses()
+                   ->that(new ResideInOneOfTheseNamespaces('App\Domain\*\Validators'))
+                   ->should(new MatchOneOfTheseNames(['*Validator', '*Result']))
+                   ->because('Validators/ directories may only contain *Validator and *Result classes.');
 
     // RULE 10: All Exceptions must end with *Exception suffix
     //
@@ -670,6 +671,18 @@ return static function (Config $config): void {
                        'App\Infrastructure\*\Listeners',
                    ))
                    ->because('Listeners handle side effects and must reside in Infrastructure layer Listeners/ subdirectories.');
+
+    // RULE 13: Validators must be in Validators/ directories and end with *Validator suffix
+    //
+    // WHY: Co-located validators are discoverable alongside the thing they validate.
+    // Naming convention gives PHPArkitect a reliable signal for enforcement.
+    //
+    $rules[] = Rule::allClasses()
+                   ->that(new HaveNameMatching('*Validator'))
+                   ->should(new ResideInOneOfTheseNamespaces(
+                       'App\Domain\*\Validators',
+                   ))
+                   ->because('Validators must be co-located with their domain concept (e.g., Domain/Catalog/Product/Validators/), not in a top-level catch-all.');
 
     $config->add($classSet, ...$rules);
     /*

@@ -38,6 +38,7 @@ rules:
     - App\DevTools\PHPStan\Rules\Architecture\NoStaticPropertiesRule
     - App\DevTools\PHPStan\Rules\Architecture\NoTryCatchInControllerRule
     - App\DevTools\PHPStan\Rules\Architecture\NoEventDispatchOutsideApplicationRule
+    - App\DevTools\PHPStan\Rules\Architecture\NoEventListenOutsideEventServiceProviderRule
     # Batch 3: Job rules
     - App\DevTools\PHPStan\Rules\Jobs\JobMustImplementShouldQueueRule
     - App\DevTools\PHPStan\Rules\Jobs\JobRequiredPropertiesRule
@@ -54,3 +55,7 @@ rules:
     - App\DevTools\PHPStan\Rules\Infrastructure\ShopwiredModelMustImplementMappableRule
     - App\DevTools\PHPStan\Rules\Infrastructure\RowDtoMustBeInternalRule
     - App\DevTools\PHPStan\Rules\Infrastructure\RowClassNotImportedOutsideQueriesRule
+    # Batch 6: Validation rules
+    - App\DevTools\PHPStan\Rules\Validation\ValidatorMustHaveValidateMethodRule
+    - App\DevTools\PHPStan\Rules\Validation\ValidationResultMustUseTraitRule
+    - App\DevTools\PHPStan\Rules\Validation\ValidationResultMustNotOverrideOrFailRule

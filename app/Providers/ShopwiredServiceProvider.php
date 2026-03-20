@@ -26,12 +26,14 @@ use App\Application\Contracts\Shopwired\OrderClientInterface;
 use App\Application\Contracts\Shopwired\OrderRepositoryInterface;
 use App\Application\Contracts\Shopwired\OrderWebhookEventResolverInterface;
 use App\Application\Contracts\Shopwired\OrderWebhookParserInterface;
+use App\Application\Contracts\Shopwired\PriceUpdateClientInterface;
 use App\Application\Contracts\Shopwired\ProductClientInterface;
 use App\Application\Contracts\Shopwired\ProductIdentifierResolverInterface;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Application\Contracts\Shopwired\ProductUpdateClientInterface;
 use App\Application\Contracts\Shopwired\ProductWebhookEventResolverInterface;
 use App\Application\Contracts\Shopwired\ProductWebhookParserInterface;
+use App\Application\Contracts\Shopwired\ShopwiredSyncDispatcherInterface;
 use App\Application\Contracts\Shopwired\StockClientInterface;
 use App\Application\Contracts\Shopwired\WebhookClientInterface;
 use App\Application\Contracts\Shopwired\WebhookIdempotencyServiceInterface;
@@ -47,6 +49,7 @@ use App\Domain\Exceptions\InvalidConfigurationException;
 use App\Infrastructure\Shopwired\Clients\BasicProductUpdateClient;
 use App\Infrastructure\Shopwired\Clients\ProductClient;
 use App\Infrastructure\Shopwired\Clients\ProductUpdateClient;
+use App\Infrastructure\Shopwired\Dispatchers\QueuedShopwiredSyncDispatcher;
 use App\Infrastructure\Shopwired\Factories\ProductCustomFieldFactory;
 use App\Infrastructure\Shopwired\Factories\ProductDomainFactory;
 use App\Infrastructure\Shopwired\Factories\ProductFilterFactory;
@@ -89,71 +92,30 @@ use Override;
  */
 final class ShopwiredServiceProvider extends ServiceProvider implements DeferrableProvider
 {
-    /**
-     * Register ShopWired API clients.
-     *
-     * Delegates to ShopwiredClientFactory which handles:
-     * - Configuration validation (fail-fast with RuntimeException)
-     * - Dependency wiring (Config → Transport → Client)
-     * - Transport singleton management (shared across all clients)
-     */
     #[Override]
     public function register(): void
     {
-        // Connectivity client - for API health checks
-        $this->app->singleton(
-            ConnectivityClientInterface::class,
-            static fn(): ConnectivityClientInterface => ShopwiredClientFactory::createConnectivityClient(),
-        );
+        $this->registerClients();
+        $this->registerRepositories();
+        $this->registerFactories();
+        $this->registerDispatchers();
+        $this->registerWebhookServices();
+        $this->registerWebhookBindings();
+    }
 
-        // Brand client - for brand operations
-        $this->app->singleton(
-            BrandClientInterface::class,
-            static fn(): BrandClientInterface => ShopwiredClientFactory::createBrandClient(),
-        );
+    private function registerClients(): void
+    {
+        $this->app->singleton(ConnectivityClientInterface::class, static fn(): ConnectivityClientInterface => ShopwiredClientFactory::createConnectivityClient());
+        $this->app->singleton(BrandClientInterface::class, static fn(): BrandClientInterface => ShopwiredClientFactory::createBrandClient());
+        $this->app->singleton(CategoryClientInterface::class, static fn(): CategoryClientInterface => ShopwiredClientFactory::createCategoryClient());
+        $this->app->singleton(CustomFieldClientInterface::class, static fn(): CustomFieldClientInterface => ShopwiredClientFactory::createCustomFieldClient());
+        $this->app->singleton(FilterGroupClientInterface::class, static fn(): FilterGroupClientInterface => ShopwiredClientFactory::createFilterGroupClient());
+        $this->app->singleton(CustomerClientInterface::class, static fn(): CustomerClientInterface => ShopwiredClientFactory::createCustomerClient());
+        $this->app->singleton(OrderClientInterface::class, static fn(): OrderClientInterface => ShopwiredClientFactory::createOrderClient());
+        $this->app->singleton(StockClientInterface::class, static fn(): StockClientInterface => ShopwiredClientFactory::createStockClient());
+        $this->app->singleton(PriceUpdateClientInterface::class, static fn(): PriceUpdateClientInterface => ShopwiredClientFactory::createPriceUpdateClient());
 
-        // Category client - for category operations
-        $this->app->singleton(
-            CategoryClientInterface::class,
-            static fn(): CategoryClientInterface => ShopwiredClientFactory::createCategoryClient(),
-        );
-
-        // Custom field client - for custom field definitions
-        $this->app->singleton(
-            CustomFieldClientInterface::class,
-            static fn(): CustomFieldClientInterface => ShopwiredClientFactory::createCustomFieldClient(),
-        );
-
-        // Filter group client - for filter group definitions
-        $this->app->singleton(
-            FilterGroupClientInterface::class,
-            static fn(): FilterGroupClientInterface => ShopwiredClientFactory::createFilterGroupClient(),
-        );
-
-        // Customer client - for customer operations
-        $this->app->singleton(
-            CustomerClientInterface::class,
-            static fn(): CustomerClientInterface => ShopwiredClientFactory::createCustomerClient(),
-        );
-
-        // Order client - for order operations
-        $this->app->singleton(
-            OrderClientInterface::class,
-            static fn(): OrderClientInterface => ShopwiredClientFactory::createOrderClient(),
-        );
-
-        // Stock client - for stock quantity updates
-        $this->app->singleton(
-            StockClientInterface::class,
-            static fn(): StockClientInterface => ShopwiredClientFactory::createStockClient(),
-        );
-
-        // Product domain factory - scoped to prevent stale state in Octane
-        // Used by ProductClient (write path) for DTO→Domain transformation
-        $this->app->scoped(ProductDomainFactory::class);
-
-        // Product client - scoped because it depends on scoped ProductDomainFactory
-        // Uses closure to wire transport from factory + scoped factory from container
+        // Scoped: depends on scoped ProductDomainFactory (Octane isolation)
         $this->app->scoped(
             ProductClientInterface::class,
             static fn(Application $app): ProductClientInterface => new ProductClient(
@@ -162,80 +124,7 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
             ),
         );
 
-        // Order repository - for local database persistence
-        $this->app->singleton(
-            OrderRepositoryInterface::class,
-            EloquentOrderRepository::class,
-        );
-
-        // Customer repository - for local database persistence
-        $this->app->singleton(
-            CustomerRepositoryInterface::class,
-            EloquentCustomerRepository::class,
-        );
-
-        // Custom field repository - for local database persistence
-        $this->app->singleton(
-            CustomFieldRepositoryInterface::class,
-            EloquentCustomFieldRepository::class,
-        );
-
-        // Category repository - for local database persistence
-        $this->app->singleton(
-            CategoryRepositoryInterface::class,
-            EloquentCategoryRepository::class,
-        );
-
-        // Brand repository - for local database persistence
-        $this->app->singleton(
-            BrandRepositoryInterface::class,
-            EloquentBrandRepository::class,
-        );
-
-        // Filter group repository - for local database persistence
-        $this->app->singleton(
-            FilterGroupRepositoryInterface::class,
-            EloquentFilterGroupRepository::class,
-        );
-
-        // Product custom field factory - scoped to prevent stale registry in Octane
-        $this->app->scoped(ProductCustomFieldFactory::class);
-
-        // Product filter factory - scoped to prevent stale registry in Octane
-        $this->app->scoped(ProductFilterFactory::class);
-
-        // Product model mapper - scoped as it depends on ProductCustomFieldFactory and ProductFilterFactory
-        $this->app->scoped(ProductModelMapper::class);
-
-        // Product repository - scoped for fresh mapper per queue job
-        $this->app->scoped(
-            ProductRepositoryInterface::class,
-            EloquentProductRepository::class,
-        );
-
-        // Product identifier resolver - resolves SKU/ID to ShopWired product ID
-        $this->app->singleton(
-            ProductIdentifierResolverInterface::class,
-            ProductIdentifierResolver::class,
-        );
-
-        // Webhook event resolvers - map topic strings to domain intents (stateless)
-        $this->app->singleton(OrderWebhookEventResolverInterface::class, ShopwiredOrderWebhookEventResolver::class);
-        $this->app->singleton(ProductWebhookEventResolverInterface::class, ShopwiredProductWebhookEventResolver::class);
-        $this->app->singleton(CustomerWebhookEventResolverInterface::class, ShopwiredCustomerWebhookEventResolver::class);
-        $this->app->singleton(CategoryWebhookEventResolverInterface::class, ShopwiredCategoryWebhookEventResolver::class);
-        $this->app->singleton(BrandWebhookEventResolverInterface::class, ShopwiredBrandWebhookEventResolver::class);
-
-        // Webhook parsers - parse webhook payloads to domain objects
-        // Order, customer, category, and brand parsers are stateless → singleton
-        $this->app->singleton(OrderWebhookParserInterface::class, ShopwiredOrderWebhookParser::class);
-        $this->app->singleton(CustomerWebhookParserInterface::class, ShopwiredCustomerWebhookParser::class);
-        $this->app->singleton(CategoryWebhookParserInterface::class, ShopwiredCategoryWebhookParser::class);
-        $this->app->singleton(BrandWebhookParserInterface::class, ShopwiredBrandWebhookParser::class);
-        // Product parser depends on scoped ProductDomainFactory → must also be scoped
-        $this->app->scoped(ProductWebhookParserInterface::class, ShopwiredProductWebhookParser::class);
-
-        // Product update client - scoped because it depends on scoped ProductClientInterface
+        // Scoped: depends on scoped ProductClientInterface
         $this->app->scoped(
             ProductUpdateClientInterface::class,
             static fn(Application $app): ProductUpdateClientInterface => new ProductUpdateClient(
@@ -244,7 +133,7 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
             ),
         );
 
-        // Basic product update client - scoped because it depends on scoped ProductRepositoryInterface
+        // Scoped: depends on scoped ProductRepositoryInterface
         $this->app->scoped(
             BasicProductUpdateClientInterface::class,
             static fn(Application $app): BasicProductUpdateClientInterface => new BasicProductUpdateClient(
@@ -253,19 +142,58 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
             ),
         );
 
-        // Webhook idempotency service - centralised dedup via webhook_events table
-        $this->app->singleton(
-            WebhookIdempotencyServiceInterface::class,
-            EloquentWebhookIdempotencyService::class,
-        );
+        $this->app->singleton(WebhookClientInterface::class, static fn(): WebhookClientInterface => ShopwiredClientFactory::createWebhookClient());
+    }
 
-        // Webhook client - for health monitoring of registered webhooks
-        $this->app->singleton(
-            WebhookClientInterface::class,
-            static fn(): WebhookClientInterface => ShopwiredClientFactory::createWebhookClient(),
-        );
+    private function registerRepositories(): void
+    {
+        $this->app->singleton(OrderRepositoryInterface::class, EloquentOrderRepository::class);
+        $this->app->singleton(CustomerRepositoryInterface::class, EloquentCustomerRepository::class);
+        $this->app->singleton(CustomFieldRepositoryInterface::class, EloquentCustomFieldRepository::class);
+        $this->app->singleton(CategoryRepositoryInterface::class, EloquentCategoryRepository::class);
+        $this->app->singleton(BrandRepositoryInterface::class, EloquentBrandRepository::class);
+        $this->app->singleton(FilterGroupRepositoryInterface::class, EloquentFilterGroupRepository::class);
+        $this->app->singleton(ProductIdentifierResolverInterface::class, ProductIdentifierResolver::class);
 
-        // Webhook staleness threshold - shared across all webhook use cases
+        // Scoped: fresh mapper per queue job (Octane isolation)
+        $this->app->scoped(ProductRepositoryInterface::class, EloquentProductRepository::class);
+    }
+
+    private function registerFactories(): void
+    {
+        // All scoped to prevent stale state in Octane
+        $this->app->scoped(ProductDomainFactory::class);
+        $this->app->scoped(ProductCustomFieldFactory::class);
+        $this->app->scoped(ProductFilterFactory::class);
+        $this->app->scoped(ProductModelMapper::class);
+    }
+
+    private function registerWebhookServices(): void
+    {
+        // Event resolvers — map topic strings to domain intents (stateless)
+        $this->app->singleton(OrderWebhookEventResolverInterface::class, ShopwiredOrderWebhookEventResolver::class);
+        $this->app->singleton(ProductWebhookEventResolverInterface::class, ShopwiredProductWebhookEventResolver::class);
+        $this->app->singleton(CustomerWebhookEventResolverInterface::class, ShopwiredCustomerWebhookEventResolver::class);
+        $this->app->singleton(CategoryWebhookEventResolverInterface::class, ShopwiredCategoryWebhookEventResolver::class);
+        $this->app->singleton(BrandWebhookEventResolverInterface::class, ShopwiredBrandWebhookEventResolver::class);
+
+        // Parsers — stateless → singleton, except product (scoped via ProductDomainFactory)
+        $this->app->singleton(OrderWebhookParserInterface::class, ShopwiredOrderWebhookParser::class);
+        $this->app->singleton(CustomerWebhookParserInterface::class, ShopwiredCustomerWebhookParser::class);
+        $this->app->singleton(CategoryWebhookParserInterface::class, ShopwiredCategoryWebhookParser::class);
+        $this->app->singleton(BrandWebhookParserInterface::class, ShopwiredBrandWebhookParser::class);
+        $this->app->scoped(ProductWebhookParserInterface::class, ShopwiredProductWebhookParser::class);
+
+        $this->app->singleton(WebhookIdempotencyServiceInterface::class, EloquentWebhookIdempotencyService::class);
+    }
+
+    private function registerDispatchers(): void
+    {
+        $this->app->singleton(ShopwiredSyncDispatcherInterface::class, QueuedShopwiredSyncDispatcher::class);
+    }
+
+    private function registerWebhookBindings(): void
+    {
         $this->app->when([
             SyncProductUseCase::class,
             SyncOrderUseCase::class,
@@ -326,12 +254,14 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
             ProductCustomFieldFactory::class,
             ProductDomainFactory::class,
             ProductFilterFactory::class,
+            PriceUpdateClientInterface::class,
             ProductIdentifierResolverInterface::class,
             ProductModelMapper::class,
             ProductRepositoryInterface::class,
             ProductUpdateClientInterface::class,
             ProductWebhookEventResolverInterface::class,
             ProductWebhookParserInterface::class,
+            ShopwiredSyncDispatcherInterface::class,
             StockClientInterface::class,
             SyncBrandUseCase::class,
             SyncCategoryUseCase::class,

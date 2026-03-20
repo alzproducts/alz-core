@@ -214,7 +214,7 @@ final class SyncFullStockToShopwiredUseCaseTest extends TestCase
 
         $this->shopwiredClient->shouldReceive('updateStockQuantity')
             ->once()
-            ->andReturn(new StockUpdateResult(pushed: $pushed, transportFailure: $transportFailure));
+            ->andReturn(new StockUpdateResult(pushed: $pushed, transportFailures: [$transportFailure]));
 
         // Local DB should be updated for SKU-A (the pushed item)
         $this->stockRepository->shouldReceive('updateStockLevels')
@@ -244,7 +244,7 @@ final class SyncFullStockToShopwiredUseCaseTest extends TestCase
 
         $this->shopwiredClient->shouldReceive('updateStockQuantity')
             ->once()
-            ->andReturn(new StockUpdateResult(pushed: [], transportFailure: $transportFailure));
+            ->andReturn(new StockUpdateResult(pushed: [], transportFailures: [$transportFailure]));
 
         // Local DB should NOT be updated
         $this->stockRepository->shouldNotReceive('updateStockLevels');

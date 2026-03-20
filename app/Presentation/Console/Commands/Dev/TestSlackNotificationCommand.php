@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace App\Presentation\Console\Commands\Dev;
 
+use App\Application\Contracts\ChatNotificationInterface;
+use App\Domain\Catalog\Product\ValueObjects\ProductRetailPricing;
+use App\Domain\Catalog\Product\ValueObjects\Sku;
+use App\Domain\Catalog\Product\ValueObjects\SkuPriceChange;
 use App\Domain\ContactSubmission\Enums\ContactReason;
 use App\Domain\ContactSubmission\ValueObjects\ConsentStatus;
 use App\Domain\ContactSubmission\ValueObjects\ContactFormData;
@@ -11,33 +15,42 @@ use App\Domain\ContactSubmission\ValueObjects\ContactSubmission;
 use App\Domain\ContactSubmission\ValueObjects\MarketingAttribution;
 use App\Domain\ContactSubmission\ValueObjects\SelectedProduct;
 use App\Domain\ContactSubmission\ValueObjects\SubmissionContext;
+use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Shared\Money\ValueObjects\Money;
 use App\Domain\ValueObjects\IntId;
-use App\Infrastructure\Notifications\Slack\ContactFormFailedNotification;
-use App\Infrastructure\Notifications\Slack\ContactFormProcessedNotification;
-use App\Infrastructure\Notifications\Slack\VariantSkusGeneratedNotification;
 use DateTimeImmutable;
 use Illuminate\Console\Command;
+use Illuminate\Contracts\Notifications\Dispatcher as NotificationDispatcher;
+use Illuminate\Notifications\AnonymousNotifiable;
 use Illuminate\Notifications\Notification;
 use Illuminate\Notifications\Slack\BlockKit\Blocks\ContextBlock;
 use Illuminate\Notifications\Slack\BlockKit\Blocks\SectionBlock;
 use Illuminate\Notifications\Slack\SlackMessage;
-use Illuminate\Support\Facades\Notification as NotificationFacade;
+use InvalidArgumentException;
 use Throwable;
 
 /**
  * Test Slack notification connectivity.
  *
- * Sends a test message to verify that Slack bot credentials are configured
- * correctly and the bot has permission to post to the target channel.
+ * Two modes:
+ * - Basic: sends a simple test message to verify Slack credentials (raw connectivity)
+ * - --notification: sends a real notification via ChatNotificationInterface (end-to-end)
  */
 final class TestSlackNotificationCommand extends Command
 {
     protected $signature = 'slack:test
         {channel? : The Slack channel to send to (e.g., #dev-notifications)}
         {message? : Custom message to send}
-        {--notification= : Test a notification class (contact-failed, contact-processed, variant-skus)}';
+        {--notification= : Test via ChatNotificationInterface (admin-alert, contact-failed, contact-processed, variant-skus, pricing-updated)}';
 
     protected $description = 'Send a test notification to Slack';
+
+    public function __construct(
+        private readonly ChatNotificationInterface $chat,
+        private readonly NotificationDispatcher $dispatcher,
+    ) {
+        parent::__construct();
+    }
 
     public function handle(): int
     {
@@ -48,6 +61,16 @@ final class TestSlackNotificationCommand extends Command
             return $this->handleNotification($notificationType);
         }
 
+        return $this->handleBasicTest();
+    }
+
+    /**
+     * Basic connectivity test — sends a simple message directly to Slack.
+     *
+     * Bypasses ChatNotificationInterface to isolate Slack credential issues.
+     */
+    private function handleBasicTest(): int
+    {
         /** @var string|null $channel */
         $channel = $this->argument('channel');
         /** @var string|null $message */
@@ -79,8 +102,8 @@ final class TestSlackNotificationCommand extends Command
         $this->info("Sending test notification to {$channel}...");
 
         try {
-            NotificationFacade::route('slack', $channel)
-                ->notify($this->buildNotification($message, $channel));
+            $notifiable = (new AnonymousNotifiable())->route('slack', $channel);
+            $this->dispatcher->send($notifiable, $this->buildBasicNotification($message, $channel));
 
             $this->info('✓ Notification sent successfully');
             $this->line("  Channel: {$channel}");
@@ -100,7 +123,170 @@ final class TestSlackNotificationCommand extends Command
         }
     }
 
-    private function buildNotification(string $message, string $channel): Notification
+    /**
+     * End-to-end test — sends a notification via ChatNotificationInterface.
+     *
+     * Tests the full stack: interface → SlackChatNotificationClient → Slack API.
+     */
+    private function handleNotification(string $type): int
+    {
+        $this->info("Sending {$type} notification via ChatNotificationInterface...");
+
+        try {
+            match ($type) {
+                'admin-alert' => $this->sendAdminAlert(),
+                'contact-failed' => $this->sendContactFormFailed(),
+                'contact-processed' => $this->sendContactFormProcessed(),
+                'variant-skus' => $this->sendVariantSkusGenerated(),
+                'pricing-updated' => $this->sendPricingUpdated(),
+                default => throw new InvalidArgumentException("Unknown notification type: {$type}"),
+            };
+
+            $this->info('✓ Notification sent successfully');
+            $this->line("  Type: {$type}");
+
+            return self::SUCCESS;
+        } catch (InvalidArgumentException $e) {
+            $this->error($e->getMessage());
+            $this->line('  Available: admin-alert, contact-failed, contact-processed, variant-skus, pricing-updated');
+
+            return self::FAILURE;
+        } catch (Throwable $e) { // @ignoreException - connectivity test: report failure to user
+            $this->error('✗ Failed to send notification');
+            $this->line("  Error: {$e->getMessage()}");
+
+            return self::FAILURE;
+        }
+    }
+
+    /**
+     * @throws ExternalServiceUnavailableException
+     */
+    private function sendAdminAlert(): void
+    {
+        $this->chat->sendAdminAlert(
+            title: 'Test Admin Alert',
+            message: 'This is a test admin alert from `slack:test --notification=admin-alert`.',
+            context: [
+                'environment' => \app()->environment(),
+                'triggered_by' => 'slack:test command',
+            ],
+            firedAt: new DateTimeImmutable(),
+        );
+    }
+
+    /**
+     * @throws ExternalServiceUnavailableException
+     */
+    private function sendContactFormFailed(): void
+    {
+        $submittedAt = new DateTimeImmutable('-15 minutes');
+
+        $submission = new ContactSubmission(
+            form: new ContactFormData(
+                name: 'John Smith',
+                email: 'john.smith@example.com',
+                reason: ContactReason::MyOrderDelivery,
+                message: "Hi, I ordered a mobility scooter 3 days ago and the tracking still shows 'pending'. Can you please check on this? My elderly mother really needs it urgently.\n\nOrder was placed on Monday.",
+                phone: '07700 900123',
+                orderNumber: 'ALZ-12345',
+                deliveryPostcode: 'SW1A 1AA',
+            ),
+            consent: ConsentStatus::denied(),
+            attribution: MarketingAttribution::empty(),
+            context: new SubmissionContext(
+                clientTimestamp: new DateTimeImmutable(),
+                ipAddress: '192.168.1.1',
+                pageUrl: 'https://alzproducts.co.uk/contact',
+            ),
+            product: new SelectedProduct(
+                productId: IntId::from(123456),
+                sku: null,
+                title: 'Folding Mobility Scooter - Blue',
+                price: '£899.00',
+            ),
+            submittedAt: $submittedAt,
+        );
+
+        $this->chat->sendContactFormFailed(
+            submission: $submission,
+            submissionId: 'test-' . \now()->format('YmdHis'),
+            errorMessage: 'HelpScout API error: 503 Service Unavailable - The server is temporarily unable to handle the request.',
+            emailValid: false,
+        );
+    }
+
+    /**
+     * @throws ExternalServiceUnavailableException
+     */
+    private function sendContactFormProcessed(): void
+    {
+        $this->chat->sendContactFormProcessed(
+            conversationId: IntId::from(123456789),
+            customerName: 'Jane Doe',
+            customerEmail: 'jane.doe@example.com',
+        );
+    }
+
+    /**
+     * @throws ExternalServiceUnavailableException
+     */
+    private function sendPricingUpdated(): void
+    {
+        $this->chat->sendPriceUpdateAlert(
+            productId: IntId::from(5585518),
+            priceChanges: [
+                new SkuPriceChange(
+                    sku: Sku::fromTrusted('WEB-15424'),
+                    previousPrices: new ProductRetailPricing(Money::inclusive(24.99)),
+                    newPrices: new ProductRetailPricing(Money::inclusive(19.99), Money::inclusive(19.99)),
+                ),
+                new SkuPriceChange(
+                    sku: Sku::fromTrusted('WEB-15424-001'),
+                    previousPrices: new ProductRetailPricing(Money::inclusive(29.99), Money::inclusive(24.99)),
+                    newPrices: new ProductRetailPricing(Money::inclusive(29.99)),
+                ),
+                new SkuPriceChange(
+                    sku: Sku::fromTrusted('WEB-15424-002'),
+                    previousPrices: new ProductRetailPricing(Money::inclusive(34.99)),
+                    newPrices: new ProductRetailPricing(Money::inclusive(27.99)),
+                ),
+                new SkuPriceChange(
+                    sku: Sku::fromTrusted('WEB-15424-003'),
+                    previousPrices: new ProductRetailPricing(Money::inclusive(39.99)),
+                    newPrices: new ProductRetailPricing(Money::inclusive(34.99), Money::inclusive(29.99)),
+                ),
+            ],
+            productTitle: 'Bathroom Sign - Budget & Premium Range',
+            productUrl: 'https://www.alzproducts.co.uk/bathroom-sign-budget-premium-range',
+        );
+    }
+
+    /**
+     * @throws ExternalServiceUnavailableException
+     */
+    private function sendVariantSkusGenerated(): void
+    {
+        $this->chat->sendVariantSkusGenerated(
+            productId: 5585518,
+            productTitle: 'Bathroom Sign - Budget & Premium Range',
+            created: 8,
+            skipped: 4,
+            failed: 1,
+            createdVariants: [
+                'WEB-15424-001 - Budget Self-Adhesive 300mm Blue',
+                'WEB-15424-002 - Budget Self-Adhesive 300mm Green',
+                'WEB-15424-003 - Budget Self-Adhesive 300mm Red',
+                'WEB-15424-004 - Budget Self-Adhesive 300mm Yellow',
+                'WEB-15424-005 - Budget Fixings 300mm Blue',
+                'WEB-15424-006 - Budget Fixings 300mm Green',
+                'WEB-15424-007 - Premium Self-Adhesive 300mm Blue',
+                'WEB-15424-008 - Premium Self-Adhesive 300mm Green',
+            ],
+        );
+    }
+
+    private function buildBasicNotification(string $message, string $channel): Notification
     {
         return new class ($message, $channel) extends Notification {
             public function __construct(
@@ -134,137 +320,5 @@ final class TestSlackNotificationCommand extends Command
                     });
             }
         };
-    }
-
-    private function handleNotification(string $type): int
-    {
-        $notification = match ($type) {
-            'contact-failed' => $this->buildContactFailedNotification(),
-            'contact-processed' => $this->buildContactProcessedNotification(),
-            'variant-skus' => $this->buildVariantSkusNotification(),
-            default => null,
-        };
-
-        if ($notification === null) {
-            $this->error("Unknown notification type: {$type}");
-            $this->line('  Available: contact-failed, contact-processed, variant-skus');
-
-            return self::FAILURE;
-        }
-
-        // Determine channel based on notification type
-        /** @var string|null $channel */
-        $channel = $this->argument('channel');
-
-        if ($channel === null) {
-            $channel = match ($type) {
-                'contact-processed' => \config('services.slack.notifications.verbose_channel'),
-                default => \config('services.slack.notifications.channel'),
-            };
-        }
-
-        if (! \is_string($channel) || $channel === '') {
-            $configKey = match ($type) {
-                'contact-processed' => 'SLACK_VERBOSE_CHANNEL',
-                default => 'SLACK_BOT_USER_DEFAULT_CHANNEL',
-            };
-            $this->error("No channel specified and {$configKey} is not set.");
-
-            return self::FAILURE;
-        }
-
-        $token = \config('services.slack.notifications.bot_user_oauth_token');
-
-        if (! \is_string($token) || $token === '') {
-            $this->error('SLACK_BOT_USER_OAUTH_TOKEN is not configured.');
-
-            return self::FAILURE;
-        }
-
-        $this->info("Sending {$type} notification to {$channel}...");
-
-        try {
-            NotificationFacade::route('slack', $channel)->notify($notification);
-
-            $this->info('✓ Notification sent successfully');
-            $this->line("  Type: {$type}");
-            $this->line("  Channel: {$channel}");
-
-            return self::SUCCESS;
-        } catch (Throwable $e) { // @ignoreException - connectivity test: report failure to user
-            $this->error('✗ Failed to send notification');
-            $this->line("  Error: {$e->getMessage()}");
-
-            return self::FAILURE;
-        }
-    }
-
-    private function buildContactFailedNotification(): ContactFormFailedNotification
-    {
-        // Simulate a submission from ~15 minutes ago to test time display
-        $submittedAt = new DateTimeImmutable('-15 minutes');
-
-        $submission = new ContactSubmission(
-            form: new ContactFormData(
-                name: 'John Smith',
-                email: 'john.smith@example.com',
-                reason: ContactReason::MyOrderDelivery,
-                message: "Hi, I ordered a mobility scooter 3 days ago and the tracking still shows 'pending'. Can you please check on this? My elderly mother really needs it urgently.\n\nOrder was placed on Monday.",
-                phone: '07700 900123',
-                orderNumber: 'ALZ-12345',
-                deliveryPostcode: 'SW1A 1AA',
-            ),
-            consent: ConsentStatus::denied(),
-            attribution: MarketingAttribution::empty(),
-            context: new SubmissionContext(
-                clientTimestamp: new DateTimeImmutable(),
-                ipAddress: '192.168.1.1',
-                pageUrl: 'https://alzproducts.co.uk/contact',
-            ),
-            product: new SelectedProduct(
-                productId: IntId::from(123456),
-                sku: null, // Testing product with ID but no SKU
-                title: 'Folding Mobility Scooter - Blue',
-                price: '£899.00',
-            ),
-            submittedAt: $submittedAt,
-        );
-
-        return new ContactFormFailedNotification(
-            submission: $submission,
-            submissionId: 'test-' . \now()->format('YmdHis'),
-            errorMessage: 'HelpScout API error: 503 Service Unavailable - The server is temporarily unable to handle the request.',
-            emailValid: false, // Test the email validity warning display
-        );
-    }
-
-    private function buildContactProcessedNotification(): ContactFormProcessedNotification
-    {
-        return new ContactFormProcessedNotification(
-            conversationId: 123456789,
-            customerName: 'Jane Doe',
-            customerEmail: 'jane.doe@example.com',
-        );
-    }
-
-    private function buildVariantSkusNotification(): VariantSkusGeneratedNotification
-    {
-        return new VariantSkusGeneratedNotification(
-            productId: 5585518,
-            productTitle: 'Bathroom Sign - Budget & Premium Range',
-            created: 8,
-            skipped: 4,
-            failed: 1,
-            createdVariants: [
-                'WEB-15424-001 - Budget Self-Adhesive 300mm Blue',
-                'WEB-15424-002 - Budget Self-Adhesive 300mm Green',
-                'WEB-15424-003 - Budget Self-Adhesive 300mm Red',
-                'WEB-15424-004 - Budget Self-Adhesive 300mm Yellow',
-                'WEB-15424-005 - Budget Fixings 300mm Blue',
-                'WEB-15424-006 - Budget Fixings 300mm Green',
-                'WEB-15424-007 - Premium Self-Adhesive 300mm Blue',
-                'WEB-15424-008 - Premium Self-Adhesive 300mm Green',
-            ],
-        );
     }
 }

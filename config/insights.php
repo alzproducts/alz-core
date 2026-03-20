@@ -13,9 +13,11 @@ use PHP_CodeSniffer\Standards\Generic\Sniffs\Files\OneClassPerFileSniff;
 use PHP_CodeSniffer\Standards\Generic\Sniffs\Formatting\SpaceAfterCastSniff;
 use PHP_CodeSniffer\Standards\Generic\Sniffs\Formatting\SpaceAfterNotSniff;
 use PHP_CodeSniffer\Standards\Generic\Sniffs\Functions\OpeningFunctionBraceBsdAllmanSniff;
+use PHP_CodeSniffer\Standards\Generic\Sniffs\Strings\UnnecessaryStringConcatSniff;
 use PHP_CodeSniffer\Standards\PEAR\Sniffs\Classes\ClassDeclarationSniff;
 use PHP_CodeSniffer\Standards\PEAR\Sniffs\WhiteSpace\ScopeClosingBraceSniff;
 use PHP_CodeSniffer\Standards\PSR1\Sniffs\Classes\ClassDeclarationSniff as Psr1ClassDeclarationSniff;
+use PHP_CodeSniffer\Standards\PSR2\Sniffs\Classes\PropertyDeclarationSniff;
 use PHP_CodeSniffer\Standards\PSR2\Sniffs\Methods\FunctionClosingBraceSniff;
 use PhpCsFixer\Fixer\Basic\BracesFixer;
 use PhpCsFixer\Fixer\ClassNotation\ClassDefinitionFixer;
@@ -31,7 +33,10 @@ use SlevomatCodingStandard\Sniffs\Commenting\DocCommentSpacingSniff;
 use SlevomatCodingStandard\Sniffs\Commenting\InlineDocCommentDeclarationSniff;
 use SlevomatCodingStandard\Sniffs\Commenting\UselessFunctionDocCommentSniff;
 use SlevomatCodingStandard\Sniffs\Functions\FunctionLengthSniff;
+use SlevomatCodingStandard\Sniffs\Functions\UnusedParameterSniff;
 use SlevomatCodingStandard\Sniffs\Namespaces\AlphabeticallySortedUsesSniff;
+use SlevomatCodingStandard\Sniffs\Namespaces\UseSpacingSniff;
+use SlevomatCodingStandard\Sniffs\PHP\UselessParenthesesSniff;
 use SlevomatCodingStandard\Sniffs\TypeHints\DeclareStrictTypesSniff;
 use SlevomatCodingStandard\Sniffs\TypeHints\DisallowMixedTypeHintSniff;
 use SlevomatCodingStandard\Sniffs\TypeHints\ParameterTypeHintSniff;
@@ -150,6 +155,15 @@ return [
 
         // Line length - delegate to Pint (PER preset)
         LineLengthSniff::class,                 // Let Pint handle line length
+
+        // Use spacing - conflicts with Pint PER preset grouping (blank line between use groups)
+        UseSpacingSniff::class,
+
+        // Useless parentheses - too aggressive, risks changing operator precedence or harming readability
+        UselessParenthesesSniff::class,
+
+        // String concat - deliberate line-splitting for readability (PHPStan rule messages, SQL)
+        UnnecessaryStringConcatSniff::class,
     ],
 
     'config' => [
@@ -185,6 +199,7 @@ return [
         ForbiddenPublicPropertySniff::class => [
             'exclude' => [
                 'app/Application/Jobs',
+                'app/Infrastructure/Shopwired/Models',   // Laravel requires public $incrementing
             ],
         ],
 
@@ -203,6 +218,29 @@ return [
         Psr1ClassDeclarationSniff::class => [
             'exclude' => [
                 'app/Infrastructure/Linnworks/Queries',
+            ],
+        ],
+
+        // Unused parameters — required by Laravel/framework callback signatures
+        UnusedParameterSniff::class => [
+            'exclude' => [
+                'app/Infrastructure/Notifications/Slack',      // Laravel $notifiable contract
+                'app/Presentation/Http/HelpScout/Resources',   // Laravel $request contract
+                'app/Presentation/Http/Auth',                   // Middleware callback signatures
+                'app/Providers',                                // Laravel callback signatures
+                'app/DevTools/PHPStan/Rules',                   // PHPStan Rule interface requires $scope
+                'app/Infrastructure/Sentry',                    // Laravel callback signatures
+                'app/Infrastructure/Shopwired/ShopwiredHttpTransport.php', // Retry callback signatures
+                'app/Infrastructure/ReviewsIo/Validation',      // Laravel validation $attribute
+                'app/Presentation/Console/Commands/Dev',        // Test command stubs
+                'app/Application/Shopwired/UseCases/Webhooks/SyncOrderUseCase.php', // Unused $presentEmbeds param
+            ],
+        ],
+
+        // PHP 8.4 property hooks confuse PropertyDeclarationSniff
+        PropertyDeclarationSniff::class => [
+            'exclude' => [
+                'app/Application/Shopwired/PricingUpdate/Results/BatchApiResult.php',
             ],
         ],
     ],

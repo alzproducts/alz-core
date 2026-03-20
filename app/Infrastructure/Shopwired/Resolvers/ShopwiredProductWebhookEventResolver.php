@@ -18,8 +18,8 @@ final class ShopwiredProductWebhookEventResolver implements ProductWebhookEventR
     {
         return match ($topic) {
             'product.created', 'product.updated' => ProductWebhookIntent::Sync,
-            'product.stock_changed'              => ProductWebhookIntent::StockChanged,
-            'product.deleted'                    => ProductWebhookIntent::Deleted,
+            'product.stock_changed' => ProductWebhookIntent::StockChanged,
+            'product.deleted' => ProductWebhookIntent::Deleted,
             default => throw new InvalidApiResponseException(
                 'ShopWired',
                 "Unrecognised product webhook topic: '{$topic}'",

@@ -17,8 +17,8 @@ use App\Domain\Inventory\ValueObjects\ItemStockLevel;
  *
  * Key behaviors:
  * - Auto-batches requests (max 15 items per API call) and sends concurrently
- * - Returns partial results on batch transport failures (caller must check $transportFailure)
- * - Caller should update local DB for pushed items, then re-throw transportFailure for job retry
+ * - Returns partial results on batch transport failures (caller must check $transportFailures)
+ * - Caller should update local DB for pushed items, then re-throw first failure for job retry
  */
 interface StockClientInterface
 {
@@ -27,7 +27,7 @@ interface StockClientInterface
      *
      * Sends items in concurrent batches of 15. On partial batch transport
      * failures, successful batches are still included in the result. The
-     * caller must check $transportFailure and re-throw after updating
+     * caller must check $transportFailures and re-throw after updating
      * the local DB for pushed items.
      *
      * @param list<ItemStockLevel> $items Items to update (empty = StockUpdateResult::empty())
