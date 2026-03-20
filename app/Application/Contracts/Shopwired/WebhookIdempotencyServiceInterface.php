@@ -7,6 +7,7 @@ namespace App\Application\Contracts\Shopwired;
 use App\Application\Shopwired\Enums\WebhookTopic;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
+use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\IntId;
 use DateTimeImmutable;
 
@@ -24,6 +25,7 @@ interface WebhookIdempotencyServiceInterface
      * for this (subject_id, topic) pair.
      *
      * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      */
     public function isSuperseded(IntId $subjectId, WebhookTopic $topic, int $webhookId): bool;
@@ -35,6 +37,7 @@ interface WebhookIdempotencyServiceInterface
      * are not incorrectly rejected as duplicates.
      *
      * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      */
     public function record(IntId $subjectId, WebhookTopic $topic, int $webhookId, DateTimeImmutable $eventTime): void;
@@ -45,6 +48,7 @@ interface WebhookIdempotencyServiceInterface
      * @return int Number of deleted rows
      *
      * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      */
     public function cleanup(DateTimeImmutable $before): int;

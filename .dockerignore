@@ -37,7 +37,6 @@ infection.json.php
 phpstan.neon
 phpstan-baseline.neon
 pint.json
-phpinsights.php
 phparkitect.php
 rector.php
 

@@ -17,6 +17,7 @@ use App\Domain\Catalog\CustomFields\ValueObjects\ToggleCustomFieldValue;
 use App\Domain\Catalog\CustomFields\ValueObjects\ValueListCustomFieldValue;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
+use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Infrastructure\Shopwired\CustomFields\CustomFieldDefinitionRegistry;
 use Illuminate\Support\Facades\Log;
 
@@ -48,9 +49,10 @@ final class ProductCustomFieldFactory
      *
      * @return list<AbstractCustomFieldValue>
      *
-     * @throws InvalidCustomFieldValueException When value type mismatches definition
      * @throws DatabaseOperationFailedException When custom field registry fails to load
+     * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
+     * @throws InvalidCustomFieldValueException When value type mismatches definition
      */
     public function fromRawFields(array $rawFields): array
     {
@@ -213,6 +215,7 @@ final class ProductCustomFieldFactory
      * Get the custom field definition registry, lazy-loading on first access.
      *
      * @throws DatabaseOperationFailedException When query fails
+     * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      */
     private function registry(): CustomFieldDefinitionRegistry

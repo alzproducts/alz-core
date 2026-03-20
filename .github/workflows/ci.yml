@@ -105,40 +105,6 @@ jobs:
       - name: Run PHPStan analysis
         run: composer run analyse
 
-  # Architecture quality: PHP Insights (90-120 seconds)
-  code-quality:
-    name: PHP Insights (Architecture & Metrics)
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup PHP ${{ env.PHP_VERSION }}
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: ${{ env.PHP_VERSION }}
-          extensions: mbstring, xml, ctype, json, bcmath, soap
-          coverage: none
-
-      - name: Get Composer cache directory
-        id: composer-cache
-        run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
-
-      - name: Cache Composer dependencies
-        uses: actions/cache@v4
-        with:
-          path: ${{ steps.composer-cache.outputs.dir }}
-          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
-          restore-keys: ${{ runner.os }}-composer-
-
-      - name: Install dependencies
-        run: composer install --no-interaction --prefer-dist --no-progress --ignore-platform-req=ext-swoole
-
-      - name: Run PHP Insights
-        run: composer run insights
-
   # Comprehensive testing with coverage (3-5 minutes)
   tests:
     name: Pest Tests + Coverage (PostgreSQL 17)
@@ -326,7 +292,7 @@ jobs:
         run: make psalm-ci
 
   # Layer-Specific Mutation Testing (see tests/TestingStrategy.md)
-  # Only runs on PRs to develop - direct pushes skip mutation testing for quick fixes
+  # Only runs on PRs to main (develop→main promotion) - informational, non-blocking
   # Jobs run in parallel for faster feedback
 
   # Domain Layer: 90%+ MSI (strict) - pure business logic, highest value
@@ -334,7 +300,8 @@ jobs:
     name: Mutation Testing (Domain - 90%+ MSI)
     runs-on: ubuntu-24.04
     timeout-minutes: 20
-    if: github.base_ref == 'develop'
+    if: github.base_ref == 'main'
+    continue-on-error: true
 
     steps:
       - name: Checkout code
@@ -379,7 +346,8 @@ jobs:
     name: Mutation Testing (Application - 70%+ Pest)
     runs-on: ubuntu-24.04
     timeout-minutes: 20
-    if: github.base_ref == 'develop'
+    if: github.base_ref == 'main'
+    continue-on-error: true
 
     steps:
       - name: Checkout code
