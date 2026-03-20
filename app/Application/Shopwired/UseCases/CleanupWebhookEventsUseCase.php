@@ -7,6 +7,7 @@ namespace App\Application\Shopwired\UseCases;
 use App\Application\Contracts\Shopwired\WebhookIdempotencyServiceInterface;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
+use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use DateTimeImmutable;
 use Psr\Log\LoggerInterface;
 
@@ -28,6 +29,7 @@ final readonly class CleanupWebhookEventsUseCase
 
     /**
      * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      */
     public function execute(): void

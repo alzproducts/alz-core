@@ -9,6 +9,7 @@ use App\Domain\Catalog\Filters\ValueObjects\FilterGroupDefinition;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
+use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 
 /**
  * Repository for ShopWired filter group definition persistence.
@@ -22,9 +23,10 @@ interface FilterGroupRepositoryInterface extends RepositoryWriteInterface
      *
      * This is the primary lookup method used when resolving product filter data.
      *
-     * @throws ResourceNotFoundException When no filter group exists with the given optionNo
      * @throws DatabaseOperationFailedException On query failure
+     * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
+     * @throws ResourceNotFoundException When no filter group exists with the given optionNo
      */
     public function getByOptionNo(int $optionNo): FilterGroupDefinition;
 
@@ -34,6 +36,7 @@ interface FilterGroupRepositoryInterface extends RepositoryWriteInterface
      * @return list<FilterGroupDefinition>
      *
      * @throws DatabaseOperationFailedException On query failure
+     * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      */
     public function findAll(): array;

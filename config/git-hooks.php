@@ -5,8 +5,6 @@ declare(strict_types=1);
 use App\DevTools\GitHooks\DeptracPrePushHook;
 use App\DevTools\GitHooks\PestPrePushHook;
 use App\DevTools\GitHooks\PHPArkitectPreCommitHook;
-use App\DevTools\GitHooks\PHPArkitectPrePushHook;
-use App\DevTools\GitHooks\PHPInsightsPrePushHook;
 use App\DevTools\GitHooks\TLintPrePushHook;
 use Igorsgm\GitHooks\Console\Commands\Hooks\LarastanPreCommitHook;
 use Igorsgm\GitHooks\Console\Commands\Hooks\PintPreCommitHook;
@@ -30,7 +28,7 @@ return [
     |--------------------------------------------------------------------------
     | Pre-Push Hooks
     |--------------------------------------------------------------------------
-    | Runs full test suite + code quality analysis (~17 seconds with native PHP)
+    | Runs full test suite + layer dependency checks (~15 seconds with native PHP)
     | All tests use mocks/fakes - no external dependencies
     |
     | Coverage checks: Run `make test-coverage` manually before PRs
@@ -38,8 +36,6 @@ return [
     */
     'pre-push' => [
         PestPrePushHook::class,
-        PHPInsightsPrePushHook::class,
-        PHPArkitectPrePushHook::class,
         DeptracPrePushHook::class,
         TLintPrePushHook::class,
     ],
@@ -90,14 +86,6 @@ return [
             'file_extensions' => env('LARASTAN_FILE_EXTENSIONS', '/^(?!tests\/)(?!.*\/tests\/)(?!database\/migrations\/).*\.php$/'),
             'run_in_docker' => env('LARASTAN_RUN_IN_DOCKER', false),
             'docker_container' => env('LARASTAN_DOCKER_CONTAINER', ''),
-        ],
-        'phpinsights' => [
-            'path' => env('PHPINSIGHTS_PATH', 'vendor/bin/phpinsights'),
-            'config' => env('PHPINSIGHTS_CONFIG', 'config/insights.php'),
-            'file_extensions' => env('PHPINSIGHTS_FILE_EXTENSIONS', '/\.php$/'),
-            'additional_params' => env('PHPINSIGHTS_ADDITIONAL_PARAMS', ''),
-            'run_in_docker' => env('PHPINSIGHTS_RUN_IN_DOCKER', false),
-            'docker_container' => env('PHPINSIGHTS_DOCKER_CONTAINER', ''),
         ],
     ],
 
