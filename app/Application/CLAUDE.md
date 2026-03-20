@@ -22,27 +22,9 @@
 
 ---
 
-## Jobs (`Application/Jobs/`)
+## Async Dispatch
 
-Jobs live in the Application layer (not Presentation) because they orchestrate business logic and aren't tied to a specific delivery mechanism. They are in a Deptrac/PHPArkitect sub-layer (`ApplicationJobs`) with explicit Laravel framework access.
-
-### Queue Priority Tiers
-
-| Queue | Timeout | Use Case |
-|-------|---------|----------|
-| `high` | 90s | Time-sensitive, user-facing (webhooks, notifications) |
-| `default` | 90s | Normal priority (order sync, daily jobs) |
-| `low` | 3600s | Bulk/background work (full customer sync, data migrations) |
-
-Route jobs via constructor: `$this->onQueue('low')`. Config: `config/horizon.php`.
-
-### Required Job Properties
-
-Every job must define: `$tries`, `$timeout`, `backoff()` (property or method), `failed()` method, and call `$this->onQueue()` in the constructor. Enforced by custom PHPStan rules in `DevTools/PHPStan/Rules/Jobs/`.
-
-### Naming Convention
-
-Job class names must start with: `Sync`, `Process`, `Reconcile`, `Set`, `Update`, or `Cleanup`.
+Application dispatches async work via **dispatcher interfaces** (e.g., `ShopwiredSyncDispatcherInterface`), not job classes directly. Jobs live in `Infrastructure/Jobs/` — see `app/Infrastructure/Jobs/CLAUDE.md`.
 
 ---
 
