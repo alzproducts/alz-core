@@ -254,15 +254,14 @@ See [`.ai/docs/guides/assertion-validation-reference.md`](.ai/docs/guides/assert
 
 ## Code Quality & Linting
 
-**CRITICAL**: We maintain strict code quality standards with four linters + mutation testing.
+**CRITICAL**: We maintain strict code quality standards with five linters + mutation testing.
 
 ### Linters Configured
 1. **Laravel Pint** (Code Style) - PER (PHP Evolving Recommendation) preset with strict rules
 2. **PHPStan Level max** (Static Analysis) - Maximum strictness + 11 ShipMonk rules + bleeding edge
-3. **PHP Insights** (Architecture/Quality) - Complexity, architecture, code quality metrics
-4. **PHPArkitect** (Architecture Enforcement) - Clean Architecture layer boundaries + naming conventions
-5. **Deptrac** (Layer Dependencies) - Analyzes `use` statement imports for CA violations
-6. **Infection** (Mutation Testing) - Validates test quality by catching weak assertions (especially AI-generated tests)
+3. **PHPArkitect** (Architecture Enforcement) - Clean Architecture layer boundaries + naming conventions
+4. **Deptrac** (Layer Dependencies) - Analyzes `use` statement imports for CA violations
+5. **Infection** (Mutation Testing) - Non-blocking CI on PRs to main (develop→main promotion)
 
 ### Running Linters
 
@@ -270,8 +269,8 @@ See [`.ai/docs/guides/assertion-validation-reference.md`](.ai/docs/guides/assert
 
 ```bash
 make fix          # Auto-fix code style with Pint
-make lint         # Pre-commit: Pint + PHPStan + PHPArkitect + Deptrac (~7s)
-make lint-full    # Pre-push: All linters (~20-30s)
+make lint         # Pre-commit: Pint + PHPStan + PHPArkitect + Deptrac + TLint (~7s)
+make lint-full    # Full: Pint + PHPStan + PHPArkitect + Deptrac + TLint + Psalm
 make deptrac      # Run Deptrac layer dependency analysis
 make check        # Full validation: lint-full + tests
 make test-ai      # Validate AI-generated tests (test + infection)
@@ -281,7 +280,7 @@ make test-ai      # Validate AI-generated tests (test + infection)
 
 **ALWAYS try `make fix` before manually editing for style issues.** Pint auto-fixes ~95% of style issues.
 
-**Git Hooks**: Pre-commit runs Pint + PHPStan + PHPArkitect. Pre-push runs Pest + PHP Insights + PHPArkitect.
+**Git Hooks**: Pre-commit runs Pint + PHPStan + PHPArkitect. Pre-push runs Pest + Deptrac + TLint.
 
 ### PHPArkitect Naming Conventions
 

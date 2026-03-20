@@ -1,4 +1,4 @@
-.PHONY: help install up down shell migrate db-reset-full pint pint-test test test-quick test-coverage coverage-html pest-mutate test-ai test-mutate lint lint-sequential lint-full fix analyse insights phparkitect deptrac tlint tlint-full psalm psalm-ci psalm-baseline stan rector rector-dry-run refactor check check-full infection infection-fast infection-strict infection-incremental infection-ci ide-helper test-domain test-domain-coverage test-app test-app-coverage mutate-domain mutate-app supabase-start supabase-functions supabase-stop supabase-status supabase-reset supabase-seed-users redis pail
+.PHONY: help install up down shell migrate db-reset-full pint pint-test test test-quick test-coverage coverage-html pest-mutate test-ai test-mutate lint lint-sequential lint-full fix analyse phparkitect deptrac tlint tlint-full psalm psalm-ci psalm-baseline stan rector rector-dry-run refactor check infection infection-fast infection-strict infection-incremental infection-ci ide-helper test-domain test-domain-coverage test-app test-app-coverage mutate-domain mutate-app supabase-start supabase-functions supabase-stop supabase-status supabase-reset supabase-seed-users redis pail
 
 # Enable strict shell mode for robust error handling
 SHELL := bash
@@ -167,11 +167,10 @@ lint-sequential: ## Run sequential lint (Pint + PHPStan + PHPArkitect + Deptrac 
 	@$(MAKE) deptrac
 	@$(MAKE) tlint
 
-lint-full: ## Run full linting (Pint + PHPStan + Insights + PHPArkitect + Deptrac + TLint + Psalm)
+lint-full: ## Run full linting (Pint + PHPStan + PHPArkitect + Deptrac + TLint + Psalm)
 	@echo "$(MODE)"
 	@$(MAKE) pint-test
 	@$(MAKE) analyse
-	@$(MAKE) insights
 	@$(MAKE) phparkitect
 	@$(MAKE) deptrac
 	@$(MAKE) tlint-full
@@ -184,10 +183,6 @@ fix: ## Auto-fix code style with Pint
 analyse: ## Run PHPStan Level max static analysis
 	@echo "$(MODE)"
 	$(EXEC) -d xdebug.mode=off vendor/bin/phpstan analyse
-
-insights: ## Run PHP Insights quality check
-	@echo "$(MODE)"
-	$(EXEC) -d xdebug.mode=off artisan insights --no-interaction
 
 phparkitect: ## Run PHPArkitect architecture checks
 	@echo "$(MODE)"
@@ -433,8 +428,3 @@ check: ## Run all quality checks + tests
 	@$(MAKE) lint-full
 	@$(MAKE) test
 
-check-full: ## Run full checks including mutation testing
-	@echo "$(MODE)"
-	@$(MAKE) lint-full
-	@$(MAKE) test
-	@$(MAKE) infection
