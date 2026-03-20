@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+**Architecture guide**: [`.ai/docs/architecture-overview.md`](.ai/docs/architecture-overview.md) — high-level system context, deployment topology, layer diagrams, and key data flows. Use as orientation only; always verify details against the code.
+
 ## ⚠️ Important: Stop Hooks
 
 **Account-level stop hooks run automatically when you finish responding.** These hooks execute:
