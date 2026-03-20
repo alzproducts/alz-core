@@ -103,7 +103,9 @@ return [
     */
 
     'waits' => [
+        'redis:high' => 30,
         'redis:default' => 60,
+        'redis-long:low' => 120,
     ],
 
     /*
@@ -220,21 +222,21 @@ return [
             'balance' => 'auto',
             'autoScalingStrategy' => 'time',
             'maxProcesses' => 1,
-            'maxTime' => 0,
-            'maxJobs' => 0,
+            'maxTime' => 3600,
+            'maxJobs' => 500,
             'memory' => 512,
             'tries' => 1,
             'timeout' => 60,
             'nice' => 0,
         ],
         'supervisor-low' => [
-            'connection' => 'redis',
+            'connection' => 'redis-long',
             'queue' => ['low'],
             'balance' => 'auto',
             'autoScalingStrategy' => 'time',
             'maxProcesses' => 1,
-            'maxTime' => 0,
-            'maxJobs' => 0,
+            'maxTime' => 3600,
+            'maxJobs' => 500,
             'memory' => 512,
             'tries' => 1,
             'timeout' => 9000, // 2.5 hours - matches job timeout
@@ -259,6 +261,7 @@ return [
                 'tries' => 3,
                 'timeout' => 9000, // 2.5 hours - matches job timeout
                 'maxTime' => 10800, // 3 hours - worker lifecycle buffer above job timeout
+                'nice' => 10, // Lower CPU priority for bulk work — gives high/default queues preference
             ],
         ],
 
