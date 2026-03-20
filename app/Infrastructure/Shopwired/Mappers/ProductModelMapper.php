@@ -11,6 +11,7 @@ use App\Domain\Catalog\Product\ValueObjects\ProductImage;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariation;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
+use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Infrastructure\Shopwired\Factories\ProductCustomFieldFactory;
 use App\Infrastructure\Shopwired\Factories\ProductFilterFactory;
 use App\Infrastructure\Shopwired\Models\ProductModel;
@@ -37,9 +38,10 @@ final class ProductModelMapper
      *
      * @param ProductModel $model The Eloquent model with loaded relations
      *
-     * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
      * @throws DatabaseOperationFailedException When custom field registry fails to load
+     * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
+     * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
      */
     public function toDomain(ProductModel $model): Product
     {

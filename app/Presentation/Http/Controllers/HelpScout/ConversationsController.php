@@ -13,6 +13,8 @@ use App\Domain\CustomerService\Exceptions\CustomerServiceAgentNotFoundException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Infrastructure\ConfigurationNotFoundException;
+use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
+use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Presentation\Http\HelpScout\Resources\ConversationResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -94,6 +96,8 @@ final readonly class ConversationsController
      * conversations from Support and Purchase Orders mailboxes.
      *
      * @throws ConfigurationNotFoundException When escalations config missing or disabled
+     * @throws DatabaseOperationFailedException On query failure
+     * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When HelpScout API or database unavailable
      * @throws InvalidApiResponseException When API response structure is invalid
      */

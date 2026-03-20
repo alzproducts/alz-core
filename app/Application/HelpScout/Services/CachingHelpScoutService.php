@@ -21,6 +21,8 @@ use App\Domain\CustomerService\ValueObjects\SupportAgent;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Infrastructure\ConfigurationNotFoundException;
+use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
+use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use LogicException;
 
 /**
@@ -219,6 +221,8 @@ final readonly class CachingHelpScoutService
      * Get escalations configuration with caching.
      *
      * @throws ConfigurationNotFoundException When config missing or disabled
+     * @throws DatabaseOperationFailedException On query failure
+     * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database unavailable
      */
     public function getEscalationsConfig(): EscalationsConfig
