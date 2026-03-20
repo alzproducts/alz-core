@@ -7,7 +7,7 @@ namespace Tests\Unit\Application\Shopwired\UseCases\Webhooks;
 use App\Application\Contracts\Shopwired\OrderRepositoryInterface;
 use App\Application\Shopwired\UseCases\Webhooks\DeleteOrderUseCase;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
-use App\Domain\Notifications\Events\AdminAlertEvent;
+use App\Domain\Notifications\Events\ManagerAlertEvent;
 use App\Domain\ValueObjects\IntId;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Support\Facades\Event;
@@ -36,7 +36,7 @@ final class DeleteOrderUseCaseTest extends TestCase
     {
         parent::setUp();
 
-        Event::fake([AdminAlertEvent::class]);
+        Event::fake([ManagerAlertEvent::class]);
 
         $this->repository = Mockery::mock(OrderRepositoryInterface::class);
         $this->logger = Mockery::mock(LoggerInterface::class);
@@ -66,8 +66,8 @@ final class DeleteOrderUseCaseTest extends TestCase
         $this->useCase->execute(webhookId: 1, orderId: $orderId);
 
         Event::assertDispatched(
-            AdminAlertEvent::class,
-            static fn(AdminAlertEvent $e): bool => $e->title === 'ShopWired Order Deleted'
+            ManagerAlertEvent::class,
+            static fn(ManagerAlertEvent $e): bool => $e->title === 'ShopWired Order Deleted'
                 && \str_contains($e->message, '42'),
         );
     }
@@ -91,6 +91,6 @@ final class DeleteOrderUseCaseTest extends TestCase
 
         $this->useCase->execute(webhookId: 1, orderId: $orderId);
 
-        Event::assertNotDispatched(AdminAlertEvent::class);
+        Event::assertNotDispatched(ManagerAlertEvent::class);
     }
 }

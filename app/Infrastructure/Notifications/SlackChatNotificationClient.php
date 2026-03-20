@@ -36,6 +36,7 @@ final readonly class SlackChatNotificationClient implements ChatNotificationInte
     private const string CHANNEL_DEFAULT = 'channel';
     private const string CHANNEL_VERBOSE = 'verbose_channel';
     private const string CHANNEL_ADMIN_ALERTS = 'admin_alerts_channel';
+    private const string CHANNEL_MANAGER_ALERTS = 'manager_alerts_channel';
     private const string SLACK_DRIVER = 'slack';
 
     public function __construct(
@@ -54,6 +55,22 @@ final readonly class SlackChatNotificationClient implements ChatNotificationInte
     ): void {
         $this->send(
             self::CHANNEL_ADMIN_ALERTS,
+            new AdminAlertNotification($title, $message, $context, $firedAt),
+        );
+    }
+
+    /**
+     * @throws InvalidConfigurationException When target channel is not configured
+     * @throws ExternalServiceUnavailableException On delivery failure
+     */
+    public function sendManagerAlert(
+        string $title,
+        string $message,
+        array $context,
+        DateTimeImmutable $firedAt,
+    ): void {
+        $this->send(
+            self::CHANNEL_MANAGER_ALERTS,
             new AdminAlertNotification($title, $message, $context, $firedAt),
         );
     }

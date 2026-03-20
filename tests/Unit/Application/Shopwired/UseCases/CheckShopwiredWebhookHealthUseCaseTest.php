@@ -7,7 +7,7 @@ namespace Tests\Unit\Application\Shopwired\UseCases;
 use App\Application\Contracts\Shopwired\WebhookClientInterface;
 use App\Application\Shopwired\DTOs\WebhookDTO;
 use App\Application\Shopwired\UseCases\CheckShopwiredWebhookHealthUseCase;
-use App\Domain\Notifications\Events\AdminAlertEvent;
+use App\Domain\Notifications\Events\ManagerAlertEvent;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Support\Facades\Event;
 use Mockery;
@@ -22,7 +22,7 @@ use Tests\TestCase;
  *
  * Tests the webhook health check business logic:
  * - No action when all webhooks are healthy
- * - AdminAlertEvent fired when webhooks are disabled or unverified
+ * - ManagerAlertEvent fired when webhooks are disabled or unverified
  * - Correct counts and context keys in the alert
  */
 #[CoversClass(CheckShopwiredWebhookHealthUseCase::class)]
@@ -38,7 +38,7 @@ final class CheckShopwiredWebhookHealthUseCaseTest extends TestCase
     {
         parent::setUp();
 
-        Event::fake([AdminAlertEvent::class]);
+        Event::fake([ManagerAlertEvent::class]);
 
         $this->webhookClient = Mockery::mock(WebhookClientInterface::class);
         $this->logger = Mockery::mock(LoggerInterface::class);
@@ -74,7 +74,7 @@ final class CheckShopwiredWebhookHealthUseCaseTest extends TestCase
 
         $this->useCase->execute();
 
-        Event::assertNotDispatched(AdminAlertEvent::class);
+        Event::assertNotDispatched(ManagerAlertEvent::class);
     }
 
     #[Test]
@@ -92,7 +92,7 @@ final class CheckShopwiredWebhookHealthUseCaseTest extends TestCase
 
         $this->useCase->execute();
 
-        Event::assertNotDispatched(AdminAlertEvent::class);
+        Event::assertNotDispatched(ManagerAlertEvent::class);
     }
 
     /*
@@ -116,7 +116,7 @@ final class CheckShopwiredWebhookHealthUseCaseTest extends TestCase
 
         $this->useCase->execute();
 
-        Event::assertDispatched(AdminAlertEvent::class);
+        Event::assertDispatched(ManagerAlertEvent::class);
     }
 
     #[Test]
@@ -133,7 +133,7 @@ final class CheckShopwiredWebhookHealthUseCaseTest extends TestCase
 
         $this->useCase->execute();
 
-        Event::assertDispatched(AdminAlertEvent::class);
+        Event::assertDispatched(ManagerAlertEvent::class);
     }
 
     #[Test]
@@ -153,8 +153,8 @@ final class CheckShopwiredWebhookHealthUseCaseTest extends TestCase
         $this->useCase->execute();
 
         Event::assertDispatched(
-            AdminAlertEvent::class,
-            static fn(AdminAlertEvent $e): bool => $e->message === '2 of 3 ShopWired webhook(s) are disabled or unverified. Data sync may be silently failing. Re-enable them at: https://admin.myshopwired.uk/business/api-webhooks'
+            ManagerAlertEvent::class,
+            static fn(ManagerAlertEvent $e): bool => $e->message === '2 of 3 ShopWired webhook(s) are disabled or unverified. Data sync may be silently failing. Re-enable them at: https://admin.myshopwired.uk/business/api-webhooks'
                 && $e->title === 'ShopWired Webhooks Unhealthy',
         );
     }
@@ -175,8 +175,8 @@ final class CheckShopwiredWebhookHealthUseCaseTest extends TestCase
         $this->useCase->execute();
 
         Event::assertDispatched(
-            AdminAlertEvent::class,
-            static fn(AdminAlertEvent $e): bool => \array_key_exists('webhook_42', $e->context)
+            ManagerAlertEvent::class,
+            static fn(ManagerAlertEvent $e): bool => \array_key_exists('webhook_42', $e->context)
                 && ! \array_key_exists('webhook_99', $e->context),
         );
     }

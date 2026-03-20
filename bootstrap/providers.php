@@ -17,6 +17,7 @@ use App\Providers\LinnworksServiceProvider;
 use App\Providers\MixpanelServiceProvider;
 use App\Providers\NotificationServiceProvider;
 use App\Providers\ProductSearchFeedServiceProvider;
+use App\Providers\QueueObservabilityServiceProvider;
 use App\Providers\RateLimitServiceProvider;
 use App\Providers\ReviewsIoServiceProvider;
 use App\Providers\RlsDatabaseServiceProvider;
@@ -26,6 +27,7 @@ use App\Providers\Schedule\FeedsScheduleServiceProvider;
 use App\Providers\Schedule\InventoryScheduleServiceProvider;
 use App\Providers\Schedule\LinnworksScheduleServiceProvider;
 use App\Providers\Schedule\MixpanelScheduleServiceProvider;
+use App\Providers\Schedule\QueueMaintenanceScheduleServiceProvider;
 use App\Providers\Schedule\ReviewsIoScheduleServiceProvider;
 use App\Providers\Schedule\ShopwiredScheduleServiceProvider;
 use App\Providers\ShopwiredServiceProvider;
@@ -43,6 +45,7 @@ return [
     LinnworksServiceProvider::class,
     MixpanelServiceProvider::class,
     NotificationServiceProvider::class,
+    QueueObservabilityServiceProvider::class,
     ProductSearchFeedServiceProvider::class,
     RateLimitServiceProvider::class,
     ReviewsIoServiceProvider::class,
@@ -60,6 +63,7 @@ return [
     FeedsScheduleServiceProvider::class,
     LinnworksScheduleServiceProvider::class,
     MixpanelScheduleServiceProvider::class,
+    QueueMaintenanceScheduleServiceProvider::class,
     ReviewsIoScheduleServiceProvider::class,
     InventoryScheduleServiceProvider::class,
     ShopwiredScheduleServiceProvider::class,
