@@ -162,9 +162,9 @@ This project follows **Clean Architecture** (Robert C. Martin) — dependencies 
 
 - **Presentation** (`App\Presentation`) — Entry points: HTTP controllers, console commands. Delegates to Application layer. *Naming: `*Controller`*
 
-- **Infrastructure** (`App\Infrastructure`) — External world: API clients, database repositories, SDK wrappers. Implements Domain interfaces. Validates external data with exceptions. *Naming: `*Client`, `*Repository`*
+- **Infrastructure** (`App\Infrastructure`) — External world: API clients, database repositories, SDK wrappers, queue jobs. Implements Domain interfaces. Validates external data with exceptions. Jobs are delivery mechanisms (like controllers for HTTP). *Naming: `*Client`, `*Repository`, `*Job`*
 
-- **Application** (`App\Application`) — Use cases: orchestrates Domain objects and Infrastructure services to accomplish tasks. Contains jobs (in `ApplicationJobs` sub-layer with Laravel framework access), transformers. *Naming: `*UseCase`, `*Service`, `*Job`*
+- **Application** (`App\Application`) — Use cases: orchestrates Domain objects and Infrastructure services to accomplish tasks. Dispatches async work via dispatcher interfaces (not job classes directly). *Naming: `*UseCase`, `*Service`*
 
 - **Domain** (`App\Domain`) — Pure business logic: value objects, entities, interfaces, domain exceptions. Zero external dependencies. Validates internal contracts with assertions.
 
@@ -230,11 +230,11 @@ See layer-specific guides for detailed patterns.
 **Target**: PHP 8.4+ features and best practices
 
 ### PHP 8.4 Features
-- **Property Hooks**: Use where appropriate (getters/setters on properties)
+- **Property Hooks**: Prefer for computed/derived getters and validated setters. Keeps logic co-located with the property instead of scattered in methods.
 - **Asymmetric Visibility**: Use `public private(set)` for read-only properties
 - **Array Functions**: Use `array_find()`, `array_find_key()`, `array_any()`, `array_all()`
 - **Static Functions**: Always use static methods and closures for pure/stateless operations (transformations, utilities, factories). Never use static properties for state—Octane persists them across requests.
-- **Readonly Classes**: Mark classes as `readonly` when all properties are immutable (DTOs, value objects, transformers)
+- **Readonly Classes**: Mark classes as `readonly` when all properties are immutable (DTOs, value objects, transformers). **Exception**: classes needing property hooks cannot be `readonly` — use per-property `readonly` on the non-hooked properties instead.
 - **Import All Classes**: All classes must be imported with `use` statements—including in docblocks (`@throws`, `@param`, `@return`)
 - **@throws Propagation**: Implementations must copy `@throws` from interface and any called methods
 

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Application\Shopwired\UseCases\Webhooks;
 
 use App\Application\Contracts\Shopwired\OrderRepositoryInterface;
+use App\Application\Contracts\Shopwired\ShopwiredSyncDispatcherInterface;
 use App\Application\Contracts\Shopwired\WebhookIdempotencyServiceInterface;
 use App\Application\Shopwired\Enums\WebhookTopic;
 use App\Application\Shopwired\UseCases\Webhooks\AbstractSyncEntityWebhookUseCase;
@@ -18,7 +19,6 @@ use App\Domain\Catalog\Order\ValueObjects\OrderStatusType;
 use App\Domain\Catalog\Order\ValueObjects\PaymentMethod;
 use DateTimeImmutable;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Queue;
 use Mockery;
 use Mockery\MockInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -40,6 +40,8 @@ final class SyncOrderUseCaseTest extends TestCase
 
     private OrderRepositoryInterface&MockInterface $repository;
 
+    private ShopwiredSyncDispatcherInterface&MockInterface $dispatcher;
+
     private WebhookIdempotencyServiceInterface&MockInterface $idempotency;
 
     private LoggerInterface&MockInterface $logger;
@@ -53,11 +55,13 @@ final class SyncOrderUseCaseTest extends TestCase
         Cache::flush();
 
         $this->repository = Mockery::mock(OrderRepositoryInterface::class);
+        $this->dispatcher = Mockery::mock(ShopwiredSyncDispatcherInterface::class);
         $this->idempotency = Mockery::mock(WebhookIdempotencyServiceInterface::class);
         $this->logger = Mockery::mock(LoggerInterface::class);
 
         $this->useCase = new SyncOrderUseCase(
             orderRepository: $this->repository,
+            dispatcher: $this->dispatcher,
             idempotency: $this->idempotency,
             logger: $this->logger,
             webhookStalenessHours: self::STALENESS_HOURS,
@@ -87,6 +91,7 @@ final class SyncOrderUseCaseTest extends TestCase
         $this->idempotency->shouldNotReceive('isSuperseded');
         $this->repository->shouldNotReceive('saveFromWebhook');
         $this->idempotency->shouldNotReceive('record');
+        $this->dispatcher->shouldNotReceive('dispatchOrderSync');
 
         $this->useCase->execute(
             eventTime: $staleEventTime,
@@ -122,6 +127,7 @@ final class SyncOrderUseCaseTest extends TestCase
 
         $this->repository->shouldNotReceive('saveFromWebhook');
         $this->idempotency->shouldNotReceive('record');
+        $this->dispatcher->shouldNotReceive('dispatchOrderSync');
 
         $this->useCase->execute(
             eventTime: $eventTime,
@@ -140,7 +146,6 @@ final class SyncOrderUseCaseTest extends TestCase
     #[Test]
     public function it_saves_and_dispatches_sync_job_for_a_fresh_webhook(): void
     {
-        Queue::fake();
 
         $order = $this->createOrder(id: 101);
         $eventTime = new DateTimeImmutable('-1 hour');
@@ -156,12 +161,13 @@ final class SyncOrderUseCaseTest extends TestCase
         $this->idempotency->shouldReceive('record')
             ->once();
 
+        $this->dispatcher->shouldReceive('dispatchOrderSync')
+            ->once();
+
         $this->logger->shouldReceive('info')
             ->once()
             ->with('Processing order webhook', Mockery::type('array'));
 
-        // The logger expectation fires AFTER the dispatch call, proving the
-        // full happy path (save → record → dispatch → log) executed successfully.
         $this->logger->shouldReceive('info')
             ->once()
             ->with('Order webhook processed — sync queued', Mockery::type('array'));
@@ -177,7 +183,6 @@ final class SyncOrderUseCaseTest extends TestCase
     #[Test]
     public function it_saves_and_dispatches_sync_job_when_not_superseded(): void
     {
-        Queue::fake();
 
         $order = $this->createOrder(id: 102);
         $eventTime = new DateTimeImmutable('-1 hour');
@@ -191,6 +196,9 @@ final class SyncOrderUseCaseTest extends TestCase
             ->with($order);
 
         $this->idempotency->shouldReceive('record')
+            ->once();
+
+        $this->dispatcher->shouldReceive('dispatchOrderSync')
             ->once();
 
         $this->logger->shouldReceive('info')

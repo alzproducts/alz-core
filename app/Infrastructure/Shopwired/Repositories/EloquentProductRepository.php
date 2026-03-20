@@ -162,12 +162,10 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
     public function getAllExternalIds(): array
     {
         return $this->eloquentGateway->query(static function (): array {
-            /** @var list<int> $ids */
-            $ids = self::MODEL_CLASS::query()
+            /** @var list<int> */
+            return self::MODEL_CLASS::query()
                 ->pluck('external_id')
                 ->all();
-
-            return $ids;
         });
     }
 
@@ -183,12 +181,10 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
     public function getAllVariationExternalIds(): array
     {
         return $this->eloquentGateway->query(static function (): array {
-            /** @var list<int> $ids */
-            $ids = ProductVariationModel::query()
+            /** @var list<int> */
+            return ProductVariationModel::query()
                 ->pluck('external_id')
                 ->all();
-
-            return $ids;
         });
     }
 
@@ -388,8 +384,8 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
     public function getAllSkus(): array
     {
         return $this->eloquentGateway->query(static function (): array {
-            /** @var list<string> $skus */
-            $skus = self::MODEL_CLASS::query()
+            /** @var list<string> */
+            return self::MODEL_CLASS::query()
                 ->whereNotNull('sku')
                 ->where('sku', '!=', '')
                 ->select('sku')
@@ -401,8 +397,6 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
                 )
                 ->pluck('sku')
                 ->all();
-
-            return $skus;
         });
     }
 
@@ -454,25 +448,16 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
     // Abstract Method Implementations
     // ─────────────────────────────────────────────────────────────────────────
 
-    /**
-     * {@inheritDoc}
-     */
     protected function getModelClass(): string
     {
         return self::MODEL_CLASS;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     protected function getEagerLoadRelations(): array
     {
         return self::EAGER_LOAD_RELATIONS;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     protected function getEntityIdentifier(object $entity): int
     {
         /** @var Product $entity */
@@ -538,6 +523,43 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
             $entityType = $isVariation ? 'ProductVariation' : $this->getEntityTypeName();
             throw new ResourceNotFoundException('Database', $entityType, $sku->value);
         }
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @throws ResourceNotFoundException
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     * @throws InvalidCustomFieldValueException
+     */
+    public function getProductByAnySku(Sku $sku): Product
+    {
+        // Try product master SKU first
+        try {
+            return $this->getProduct($sku);
+        } catch (ResourceNotFoundException) {
+            Log::debug('Product not found by master SKU, trying variations', ['sku' => $sku->value]);
+        }
+
+        // Find variation by SKU → get parent product's external ID
+        /** @var int|null $productExternalId */
+        $productExternalId = $this->eloquentGateway->query(
+            static function () use ($sku): ?int {
+                /** @var int|null */
+                return ProductVariationModel::query()
+                    ->where('sku', $sku->value)
+                    ->value('product_external_id');
+            },
+        );
+
+        if ($productExternalId === null) {
+            throw new ResourceNotFoundException('Database', 'Product', $sku->value);
+        }
+
+        // Load parent product with variations
+        return $this->getProduct(IntId::from($productExternalId));
     }
 
     /**

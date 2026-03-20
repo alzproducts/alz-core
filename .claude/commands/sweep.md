@@ -1,0 +1,102 @@
+---
+description: Post-implementation quality sweep — review and fix common issues before human review
+allowed-tools: Bash(git *), Bash(make *), mcp__sequential-thinking__sequentialthinking, mcp__phpstorm__*, mcp__webstorm__*, mcp__intellij__*, Read, Grep, Glob, Edit, Write, AskUserQuestion, TaskCreate, TaskUpdate, TaskList, TaskGet
+---
+
+# Post-Implementation Quality Sweep
+
+Use ultrathink and the mcp__sequential-thinking__sequentialthinking tool throughout this review.
+
+Review and fix common issues that get missed during implementation. This is a tidy-up pass before human review — not a full audit.
+
+## Scope Discipline
+
+**Stay strictly within the review checklist below.** If you encounter bugs, inconsistencies, or improvements outside the scope of this checklist, **do not fix them**. Note them for the summary section and move on.
+
+If any individual check is blocked by complications or ambiguity, **skip it** — log your reasoning and all relevant context in the summary, then continue with the next check. Never abandon the sweep because of a single issue.
+
+## Scope Detection
+
+1. Check for uncommitted changes (`git diff` and `git status`)
+2. If uncommitted changes exist → review those files
+3. If no uncommitted changes → identify the base branch and review all changes on the current feature branch (`git diff <base>...HEAD`)
+
+## How to Apply Fixes
+
+- **Reference existing code** in the codebase as the canonical example for how fixes should be applied. Do not invent patterns.
+- Use `TaskCreate` to build a checklist from the review items below, and `TaskUpdate` to track progress as you work through them.
+
+---
+
+## Review Checklist
+
+### Presentation Layer
+
+- **Thin controllers** — Controllers should delegate to Application layer use cases. No business logic in controllers.
+
+### Application Layer
+
+- **Feature sub-namespaces** — Is this feature complex enough to warrant its own sub-namespace? (e.g., `Application/ContactSubmission`, `Application/ShopWired/PricingUpdate`). Check similar features for precedent.
+- **`@throws` propagation** — Every interface and its concrete implementation must declare `@throws` tags for all exceptions they may throw. Carefully trace through the call chain to ensure complete propagation.
+
+#### Use Cases
+
+- **No untyped data arrays** — If keyed arrays with PHPStan annotations are used internally instead of typed PHP classes, extract proper classes.
+- **Clarity and simplicity** — Any moderately complex use case likely needs refactoring. Can complex logic be extracted into private methods? Can code be moved outside the use case where appropriate — e.g., static factories on domain objects, dedicated mappers for complex transformations, domain value objects? Only create these if justified, but usually they can be.
+- **Note:** Use cases are typically the most complex part of a feature. Make small, obvious improvements during this sweep (extracting a private method, moving a factory). For anything larger, skip it — provide recommendations in the summary and defer to a focused, collaborative refactoring session with the user.
+
+#### Jobs
+
+- **Pattern consistency** — Compare against existing jobs in the codebase; most follow a very similar structure.
+- **Thin dispatch** — Jobs should dispatch to a use case with minimal surrounding logic.
+- **Queue configuration** — Verify queue name, retry attempts, and backoff are appropriate for the job's workload.
+
+### Infrastructure Layer
+
+#### Exception Handling
+
+- **Catch, log, translate** — All infrastructure exceptions from code we don't control (third-party SDKs, API calls) must be caught, logged with context, and translated to domain exceptions.
+- **Failure paths throw** — Failure conditions must throw domain exceptions, not return silently.
+- **Preserve context** — Pass all relevant information up the chain. For batch operations, consider returning a result object instead of throwing on first failure.
+
+#### Other
+
+- **Logging** — Important operations should have logging at key points (start, success, failure) with useful context. Not excessive, but enough to trace issues.
+
+### Domain Layer
+
+- **Domain types** — Use project-specific types where appropriate: `SKU`, `IntId`, `Money`, etc.
+- **Native exception handling** — For PHP/native exceptions, search the domain layer for existing patterns showing how they are handled. Usually we catch and rethrow as domain exceptions, but there may be other established approaches (e.g., wrapping via Carbon for date handling). If no existing pattern is found, log it as something to discuss with the user.
+
+### General
+
+- **Code placement** — Is code in the correct architectural layer? Are feature sub-namespaces used consistently with similar features nearby? Compare against the structure of similar features in each layer.
+
+### Testing
+
+- **If tests were created** — verify they follow `tests/TestingStrategy.md` and `tests/CLAUDE.md`.
+
+---
+
+## Process
+
+### Step 1: Review
+Perform all checks above against the detected scope. Fix issues as you find them.
+
+### Step 2: Lint
+Run `make fix` then `make lint`. Fix any failures.
+
+### Step 3: Test
+Run `make test`. Fix any failures.
+
+### Step 4: Second Pass
+Did linting or test fixes surface new issues? For example, PHPStan catching missing checked exceptions may require job exception handling to be revisited. If so, repeat the relevant review items.
+
+### Step 5: Summary
+Present a summary to the user covering:
+
+1. **Issues found and fixed** — Brief description of each change made
+2. **Out-of-scope observations** — Errors, inconsistencies, or improvements noticed during review that fall outside this sweep's scope
+3. **Unresolved complications** — Changes that couldn't be made due to ambiguity or valid reasons to deviate from guidelines, along with your reasoning
+
+If you have recommended solutions for any unresolved items, present them to the user using the `AskUserQuestion` tool.

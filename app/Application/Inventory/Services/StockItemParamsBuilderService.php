@@ -13,8 +13,8 @@ use App\Domain\Catalog\Product\ValueObjects\Product;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariation;
 use App\Domain\Inventory\Enums\ExtendedPropertyName;
 use App\Domain\Inventory\ValueObjects\StockItemFull;
+use App\Domain\Shared\Money\ValueObjects\Money;
 use App\Domain\ValueObjects\Guid;
-use App\Domain\ValueObjects\Money;
 use App\Domain\ValueObjects\TaxRate;
 use Webmozart\Assert\Assert;
 

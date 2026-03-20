@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Application\Contracts\Operations;
 
 use App\Domain\Catalog\Product\ValueObjects\Sku;
+use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
+use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\Inventory\Enums\SkuUpdateReason;
 
 /**
@@ -20,7 +22,9 @@ interface SkuChangeRepositoryInterface
      *
      * @return string UUID of the created audit record
      *
-     * @throws DatabaseOperationFailedException On insert failure
+     * @throws DatabaseOperationFailedException On permanent database failure
+     * @throws DuplicateRecordException On unique constraint violation
+     * @throws ExternalServiceUnavailableException On transient database failure (retryable)
      */
     public function create(
         string $oldSku,
@@ -33,7 +37,9 @@ interface SkuChangeRepositoryInterface
      *
      * @param string $id UUID of the audit record
      *
-     * @throws DatabaseOperationFailedException On update failure
+     * @throws DatabaseOperationFailedException On permanent database failure
+     * @throws DuplicateRecordException On unique constraint violation
+     * @throws ExternalServiceUnavailableException On transient database failure (retryable)
      */
     public function markComplete(string $id): void;
 

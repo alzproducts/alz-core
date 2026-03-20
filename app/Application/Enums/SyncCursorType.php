@@ -27,4 +27,12 @@ enum SyncCursorType: string
      * so the next query fetches only items modified since then.
      */
     case LinnworksStockItemFull = 'linnworks_stock_item_full';
+
+    /**
+     * Cursor for the Linnworks processed orders incremental sync.
+     *
+     * Tracks the most recent Order.LastUpdated seen,
+     * so the next query fetches only orders modified since then.
+     */
+    case LinnworksOrdersCursor = 'linnworks_orders_cursor';
 }

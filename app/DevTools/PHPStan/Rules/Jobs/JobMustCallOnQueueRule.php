@@ -81,7 +81,7 @@ final class JobMustCallOnQueueRule implements Rule
 
     private function isJobClass(string $className): bool
     {
-        return \str_contains($className, 'App\\Application\\Jobs\\');
+        return \str_contains($className, 'App\\Infrastructure\\Jobs\\');
     }
 
     private function findConstructor(InClassNode $node): ?ClassMethod
@@ -112,7 +112,7 @@ final class JobMustCallOnQueueRule implements Rule
 
         return $parentClass !== null
             && $parentClass->isAbstract()
-            && \str_contains($parentClass->getName(), 'App\\Application\\Jobs\\');
+            && \str_contains($parentClass->getName(), 'App\\Infrastructure\\Jobs\\');
     }
 
     private function containsOnQueueCall(Node $stmt): bool

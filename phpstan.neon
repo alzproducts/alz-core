@@ -157,7 +157,7 @@ parameters:
         -
             identifier: shipmonk.publicPropertyNotReadonly
             paths:
-                - app/Application/Jobs/*
+                - app/Infrastructure/Jobs/*
                 - app/Infrastructure/*/Listeners/*
         # Application classes using config() — flagged as tech debt (#211).
         # TODO: Refactor to constructor injection.
@@ -278,6 +278,7 @@ parameters:
             identifier: shipmonk.checkedExceptionInYieldingMethod
             paths:
                 - app/Infrastructure/Linnworks/Clients/InventoryClient.php
+                - app/Infrastructure/Linnworks/Clients/OrderClient.php
                 - app/Infrastructure/Shopwired/Clients/CustomerClient.php
                 - app/Infrastructure/Shopwired/Clients/OrderClient.php
                 - app/Infrastructure/Shopwired/Clients/ProductClient.php
@@ -287,6 +288,11 @@ parameters:
         -
             identifier: symplify.multipleClassLikeInFile
             path: app/Infrastructure/Linnworks/Queries/*
+        # AggregatesChildResultsTrait is delivered as validation infrastructure ahead of its first consumer.
+        # No aggregate validator exists yet (deferred by design — see .ai/plans/2026-03-18_309-domain-validation-system.md).
+        -
+            identifier: trait.unused
+            path: app/Domain/Shared/Validation/Concerns/AggregatesChildResultsTrait.php
         # SdkExceptionTranslator uses @param-immediately-invoked-callable to propagate SDK exceptions,
         # but PHPStan can't see that the translator's catch blocks handle ValidationErrorException.
         # The exceptions ARE caught and translated - this is a PHPStan limitation with closure exception tracking.

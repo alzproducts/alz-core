@@ -194,6 +194,19 @@ interface ProductRepositoryInterface extends RepositoryWriteInterface
     public function saveFromWebhook(Product $product, array $presentEmbeds = []): void;
 
     /**
+     * Get the parent product that owns a SKU (master or variation).
+     *
+     * Searches products (master SKU) first, then variations (variant SKU).
+     * Always returns the full parent Product with variations loaded.
+     *
+     * @throws ResourceNotFoundException When no product or variation has this SKU
+     * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
+     * @throws DatabaseOperationFailedException On query failure
+     * @throws ExternalServiceUnavailableException When database temporarily unavailable
+     */
+    public function getProductByAnySku(Sku $sku): Product;
+
+    /**
      * Delete a product by its ShopWired external ID.
      *
      * Used by `product.deleted` webhook. Cascades to variations via FK constraint.

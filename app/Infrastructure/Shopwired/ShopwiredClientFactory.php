@@ -11,6 +11,7 @@ use App\Application\Contracts\Shopwired\CustomerClientInterface;
 use App\Application\Contracts\Shopwired\CustomFieldClientInterface;
 use App\Application\Contracts\Shopwired\FilterGroupClientInterface;
 use App\Application\Contracts\Shopwired\OrderClientInterface;
+use App\Application\Contracts\Shopwired\PriceUpdateClientInterface;
 use App\Application\Contracts\Shopwired\StockClientInterface;
 use App\Application\Contracts\Shopwired\WebhookClientInterface;
 use App\Domain\Exceptions\InvalidConfigurationException;
@@ -20,6 +21,7 @@ use App\Infrastructure\Shopwired\Clients\CustomerClient;
 use App\Infrastructure\Shopwired\Clients\CustomFieldClient;
 use App\Infrastructure\Shopwired\Clients\FilterGroupClient;
 use App\Infrastructure\Shopwired\Clients\OrderClient;
+use App\Infrastructure\Shopwired\Clients\PriceUpdateClient;
 use App\Infrastructure\Shopwired\Clients\StockClient;
 use App\Infrastructure\Shopwired\Clients\WebhookClient;
 use App\Infrastructure\Shopwired\Contracts\ShopwiredTransportInterface;
@@ -104,6 +106,14 @@ final class ShopwiredClientFactory
     public static function createStockClient(): StockClientInterface
     {
         return new StockClient(self::getTransport());
+    }
+
+    /**
+     * Create the price update client for batch price updates.
+     */
+    public static function createPriceUpdateClient(): PriceUpdateClientInterface
+    {
+        return new PriceUpdateClient(self::getTransport());
     }
 
     /**
