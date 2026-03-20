@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+**Architecture guide**: [`.ai/docs/architecture-overview.md`](.ai/docs/architecture-overview.md) — high-level system context, deployment topology, layer diagrams, and key data flows. Use as orientation only; always verify details against the code.
+
 ## ⚠️ Important: Stop Hooks
 
 **Account-level stop hooks run automatically when you finish responding.** These hooks execute:
@@ -273,7 +275,7 @@ make lint         # Pre-commit: Pint + PHPStan + PHPArkitect + Deptrac + TLint (
 make lint-full    # Full: Pint + PHPStan + PHPArkitect + Deptrac + TLint + Psalm
 make deptrac      # Run Deptrac layer dependency analysis
 make check        # Full validation: lint-full + tests
-make test-ai      # Validate AI-generated tests (test + infection)
+make test-ai      # Validate AI-generated tests (test + pest mutate)
 ```
 
 ### Pint Style Fixes

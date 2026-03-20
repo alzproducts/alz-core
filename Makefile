@@ -1,4 +1,4 @@
-.PHONY: help install up down shell migrate db-reset-full pint pint-test test test-quick test-coverage coverage-html pest-mutate test-ai test-mutate lint lint-sequential lint-full fix analyse phparkitect deptrac tlint tlint-full psalm psalm-ci psalm-baseline stan rector rector-dry-run refactor check infection infection-fast infection-strict infection-incremental infection-ci ide-helper test-domain test-domain-coverage test-app test-app-coverage mutate-domain mutate-app supabase-start supabase-functions supabase-stop supabase-status supabase-reset supabase-seed-users redis pail
+.PHONY: help install up down shell migrate db-reset-full pint pint-test test test-quick test-coverage coverage-html pest-mutate test-ai test-mutate lint lint-sequential lint-full fix analyse phparkitect deptrac tlint tlint-full psalm psalm-ci psalm-baseline stan rector rector-dry-run refactor check ide-helper test-domain test-domain-coverage test-app test-app-coverage mutate-domain mutate-app supabase-start supabase-functions supabase-stop supabase-status supabase-reset supabase-seed-users redis pail
 
 # Enable strict shell mode for robust error handling
 SHELL := bash
@@ -281,30 +281,7 @@ pest-mutate: ## Run Pest mutation testing
 	@echo "$(MODE)"
 	$(EXEC) -d xdebug.mode=off vendor/bin/pest --mutate --everything --covered-only --min=85 --parallel --processes=9
 
-infection: ## Run Infection mutation testing
-	@echo "$(MODE)"
-	$(EXEC) -d xdebug.mode=off vendor/bin/infection --no-progress --show-mutations --test-framework-options="--testsuite=Unit"
-
-infection-strict: ## Run Infection with strict thresholds
-	@echo "$(MODE)"
-	$(EXEC) -d xdebug.mode=off vendor/bin/infection --no-progress --show-mutations --min-msi=80 --min-covered-msi=85 --test-framework-options="--testsuite=Unit"
-
-infection-fast: ## Run Infection with cached coverage (fastest)
-	@echo "$(MODE)"
-	$(EXEC) -d xdebug.mode=coverage vendor/bin/pest --testsuite=Unit --log-junit=build/logs/junit.xml --coverage-xml=build/logs/coverage-xml --coverage-clover=build/logs/clover.xml
-	$(EXEC) -d xdebug.mode=off vendor/bin/infection --coverage=build/logs --skip-initial-tests --no-progress --show-mutations --min-msi=80 --min-covered-msi=85 --test-framework-options="--testsuite=Unit"
-
-infection-incremental: ## Run Infection on changed lines only (vs develop branch)
-	@echo "$(MODE)"
-	$(EXEC) -d xdebug.mode=off vendor/bin/infection --git-diff-lines --git-diff-base=develop --no-progress --show-mutations --min-msi=80 --min-covered-msi=85 --test-framework-options="--testsuite=Unit"
-
-infection-ci: ## Run Infection for CI with GitHub logger
-	@echo "$(MODE)"
-	$(EXEC) -d xdebug.mode=off vendor/bin/infection --no-progress --logger-github --min-msi=80 --min-covered-msi=85 --test-framework-options="--testsuite=Unit"
-
 # Layer-specific mutation testing (see tests/TestingStrategy.md)
-# NOTE: Infection 0.31.9 is broken with PHPUnit 12.5.x (GitHub issue #2698)
-# Using Pest mutate for both layers until Infection is fixed.
 
 mutate-domain: ## Run Pest mutation testing on Domain layer (90%+ min score)
 	@echo "$(MODE)"
@@ -324,13 +301,13 @@ mutate-app: ## Run Pest mutation testing on Application layer (70%+ min score)
 test-ai: ## Validate AI-generated tests with mutation testing
 	@echo "$(MODE)"
 	@$(MAKE) test
-	@$(MAKE) infection
+	@$(MAKE) pest-mutate
 
 test-mutate: ## Run full mutation testing suite
 	@echo "$(MODE)"
 	@$(MAKE) test
-	@$(MAKE) pest-mutate
-	@$(MAKE) infection-strict
+	@$(MAKE) mutate-domain
+	@$(MAKE) mutate-app
 
 # Database
 migrate: ## Run database migrations
