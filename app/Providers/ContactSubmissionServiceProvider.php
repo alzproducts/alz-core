@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Application\ContactSubmission\UseCases\ProcessContactSubmissionUseCase;
+use App\Application\Contracts\ContactSubmission\ContactFormDispatcherInterface;
 use App\Application\Contracts\ContactSubmission\ContactSubmissionActionRepositoryInterface;
 use App\Application\Contracts\ContactSubmission\ContactSubmissionRepositoryInterface;
 use App\Application\Contracts\EmailValidationServiceInterface;
 use App\Application\Contracts\HelpScout\ConversationWriteClientInterface;
+use App\Infrastructure\HelpScout\Dispatchers\QueuedContactFormDispatcher;
 use App\Infrastructure\HelpScout\HelpScoutClientFactory;
 use App\Infrastructure\Ingest\ContactSubmission\Repositories\EloquentContactSubmissionActionRepository;
 use App\Infrastructure\Ingest\ContactSubmission\Repositories\EloquentContactSubmissionRepository;
@@ -32,6 +34,9 @@ final class ContactSubmissionServiceProvider extends ServiceProvider implements 
     #[Override]
     public function register(): void
     {
+        // Dispatcher binding
+        $this->app->singleton(ContactFormDispatcherInterface::class, QueuedContactFormDispatcher::class);
+
         // Repository bindings
         $this->app->singleton(
             ContactSubmissionRepositoryInterface::class,
@@ -63,6 +68,7 @@ final class ContactSubmissionServiceProvider extends ServiceProvider implements 
     public function provides(): array
     {
         return [
+            ContactFormDispatcherInterface::class,
             ContactSubmissionRepositoryInterface::class,
             ContactSubmissionActionRepositoryInterface::class,
             ConversationWriteClientInterface::class,

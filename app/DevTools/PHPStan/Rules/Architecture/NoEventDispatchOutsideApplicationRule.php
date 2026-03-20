@@ -34,6 +34,15 @@ final class NoEventDispatchOutsideApplicationRule implements Rule
         'App\\Infrastructure' => true,
     ];
 
+    /**
+     * Namespace segments that indicate a class is an explicit bridge for Job::dispatch().
+     *
+     * @var array<string, true>
+     */
+    private const array EXEMPT_NAMESPACE_SEGMENTS = [
+        'Dispatchers' => true,
+    ];
+
     public function getNodeType(): string
     {
         return CallLike::class;
@@ -56,6 +65,11 @@ final class NoEventDispatchOutsideApplicationRule implements Rule
 
         foreach (self::BANNED_NAMESPACES as $banned => $_) {
             if (\str_starts_with($namespace, $banned)) {
+                // Dispatcher classes are explicit bridges for Job::dispatch()
+                if (self::isExemptNamespace($namespace)) {
+                    return [];
+                }
+
                 return [
                     RuleErrorBuilder::message(
                         'Dispatch events from the Application layer, not '
@@ -93,6 +107,17 @@ final class NoEventDispatchOutsideApplicationRule implements Rule
         return $node instanceof MethodCall
             && $node->name instanceof Identifier
             && $node->name->toString() === 'dispatch';
+    }
+
+    private static function isExemptNamespace(string $namespace): bool
+    {
+        foreach (\explode('\\', $namespace) as $segment) {
+            if (isset(self::EXEMPT_NAMESPACE_SEGMENTS[$segment])) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static function layerName(string $namespace): string
