@@ -19,7 +19,7 @@
         "ext-zip": "*",
         "firebase/php-jwt": "*",
         "giggsey/libphonenumber-for-php-lite": "^9.0",
-        "googleads/google-ads-php": "^31.1",
+        "googleads/google-ads-php": "^32.2",
         "helpscout/api-laravel": "^2.1",
         "laravel/framework": "^12.0",
         "laravel/horizon": "^5.35",

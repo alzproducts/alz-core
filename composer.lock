@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "f4dd374e9b8ae7723a14d7f294d8a88d",
+    "content-hash": "eba4c907e5efc406ce151c220db107ec",
     "packages": [
         {
             "name": "aws/aws-crt-php",
@@ -1232,21 +1232,22 @@
         },
         {
             "name": "googleads/google-ads-php",
-            "version": "v31.1.0",
+            "version": "v32.2.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/googleads/google-ads-php.git",
-                "reference": "98f419ec802a6568e96d061c18df212f6a357d56"
+                "reference": "4b0649ce2cc17637688be18843b98cbe70a7aa79"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/googleads/google-ads-php/zipball/98f419ec802a6568e96d061c18df212f6a357d56",
-                "reference": "98f419ec802a6568e96d061c18df212f6a357d56",
+                "url": "https://api.github.com/repos/googleads/google-ads-php/zipball/4b0649ce2cc17637688be18843b98cbe70a7aa79",
+                "reference": "4b0649ce2cc17637688be18843b98cbe70a7aa79",
                 "shasum": ""
             },
             "require": {
-                "google/gax": "^1.19.1",
-                "google/protobuf": "^3.21.5 || >=4.26 <=4.30.0",
+                "google/auth": "^1.30 || ^2.0",
+                "google/gax": "^1.36.1",
+                "google/protobuf": "^3.21.5 || >=4.26 <4.31.0",
                 "grpc/grpc": ">=1.36.0 <=1.57.0",
                 "monolog/monolog": "^1.26 || ^2.0 || ^3.0",
                 "php": ">=8.1"
@@ -1255,7 +1256,7 @@
                 "composer/composer": "^2.0",
                 "ext-bcmath": "*",
                 "ext-grpc": ">=1.57.0 <=1.66.0",
-                "ext-protobuf": "3.21.5 || >=4.26 <=4.30.0",
+                "ext-protobuf": "^3.21.5 || ^4.26",
                 "phpunit/phpunit": "^9.5",
                 "react/http": "^1.2.0",
                 "squizlabs/php_codesniffer": "^3.5",
@@ -1289,9 +1290,9 @@
             "homepage": "https://github.com/googleads/google-ads-php",
             "support": {
                 "issues": "https://github.com/googleads/google-ads-php/issues",
-                "source": "https://github.com/googleads/google-ads-php/tree/v31.1.0"
+                "source": "https://github.com/googleads/google-ads-php/tree/v32.2.0"
             },
-            "time": "2025-10-15T20:31:52+00:00"
+            "time": "2026-02-25T23:14:19+00:00"
         },
         {
             "name": "graham-campbell/result-type",
