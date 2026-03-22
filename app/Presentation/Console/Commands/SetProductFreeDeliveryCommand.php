@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Presentation\Console\Commands;
 
-use App\Application\Shopwired\UseCases\UpdateProductFreeDeliveryUseCase;
+use App\Application\Shopwired\UseCases\DispatchProductFreeDeliveryJobsUseCase;
 use App\Domain\Catalog\Product\Commands\SetFreeDeliveryCommand;
 use App\Domain\Catalog\Product\Enums\FreeDeliveryType;
 use Illuminate\Console\Command;
@@ -31,7 +31,7 @@ final class SetProductFreeDeliveryCommand extends Command
 
     protected $description = 'Set free delivery type on ShopWired products';
 
-    public function handle(UpdateProductFreeDeliveryUseCase $dispatchUseCase): int
+    public function handle(DispatchProductFreeDeliveryJobsUseCase $dispatchUseCase): int
     {
         /** @var list<string> $identifiers */
         $identifiers = $this->argument('identifiers');
@@ -73,10 +73,10 @@ final class SetProductFreeDeliveryCommand extends Command
             return self::SUCCESS;
         }
 
-        $jobCount = $dispatchUseCase->execute($commands);
+        $dispatchUseCase->execute($commands);
 
         $this->newLine();
-        $this->info("✓ {$jobCount} job(s) dispatched for " . \count($commands) . ' product(s).');
+        $this->info('✓ ' . \count($commands) . ' job(s) dispatched.');
         $this->line('  Monitor progress: php artisan horizon');
 
         return self::SUCCESS;

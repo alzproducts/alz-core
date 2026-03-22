@@ -106,6 +106,7 @@ return [
         'redis:high' => 30,
         'redis:default' => 60,
         'redis-long:low' => 120,
+        'redis:bulk' => 120,
     ],
 
     /*
@@ -242,6 +243,19 @@ return [
             'timeout' => 9000, // 2.5 hours - matches job timeout
             'nice' => 0,
         ],
+        'supervisor-bulk' => [
+            'connection' => 'redis',
+            'queue' => ['bulk'],
+            'balance' => 'auto',
+            'autoScalingStrategy' => 'time',
+            'maxProcesses' => 1,
+            'maxTime' => 3600,
+            'maxJobs' => 1000, // Higher than default — many small jobs, reduce worker restart overhead
+            'memory' => 512,
+            'tries' => 1,
+            'timeout' => 60,
+            'nice' => 0,
+        ],
     ],
 
     'environments' => [
@@ -263,6 +277,13 @@ return [
                 'maxTime' => 10800, // 3 hours - worker lifecycle buffer above job timeout
                 'nice' => 10, // Lower CPU priority for bulk work — gives high/default queues preference
             ],
+            'supervisor-bulk' => [
+                'minProcesses' => 1,
+                'maxProcesses' => 3,
+                'tries' => 3,
+                'timeout' => 90,
+                'nice' => 10, // Lower CPU priority — don't compete with syncs
+            ],
         ],
 
         'local' => [
@@ -270,6 +291,9 @@ return [
                 'maxProcesses' => 3,
             ],
             'supervisor-low' => [
+                'maxProcesses' => 1,
+            ],
+            'supervisor-bulk' => [
                 'maxProcesses' => 1,
             ],
         ],
