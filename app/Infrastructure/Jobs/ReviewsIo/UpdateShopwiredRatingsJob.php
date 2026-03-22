@@ -5,17 +5,15 @@ declare(strict_types=1);
 namespace App\Infrastructure\Jobs\ReviewsIo;
 
 use App\Application\ReviewsIo\UseCases\UpdateShopwiredRatingsUseCase;
-use App\Domain\Exceptions\Api\TransientApiFailure;
 use App\Infrastructure\Jobs\Enums\QueueName;
 use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
+use App\Infrastructure\Jobs\Middleware\ServiceCircuitBreaker;
 use DateTimeImmutable;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Queue\Middleware\ThrottlesExceptions;
-use Throwable;
 
 /**
  * Push product ratings from local database to ShopWired custom fields.
@@ -52,9 +50,7 @@ final class UpdateShopwiredRatingsJob implements ShouldBeUnique, ShouldQueue
     public function middleware(): array
     {
         return [
-            (new ThrottlesExceptions(maxAttempts: 10, decaySeconds: 300))
-                ->by('reviewsio')
-                ->when(static fn(Throwable $e): bool => $e instanceof TransientApiFailure),
+            ServiceCircuitBreaker::reviewsio(),
             new HandleApiExceptions(),
         ];
     }

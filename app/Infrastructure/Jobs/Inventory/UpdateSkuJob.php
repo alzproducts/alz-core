@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Infrastructure\Jobs\Inventory;
 
 use App\Application\Inventory\UseCases\UpdateSkuUseCase;
-use App\Domain\Exceptions\Api\TransientApiFailure;
 use App\Domain\Exceptions\Data\InvalidSkuException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
@@ -14,13 +13,13 @@ use App\Domain\Exceptions\Inventory\SkuUpdateFailedException;
 use App\Domain\Inventory\Commands\UpdateSkuCommand;
 use App\Infrastructure\Jobs\Enums\QueueName;
 use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
+use App\Infrastructure\Jobs\Middleware\ServiceCircuitBreaker;
 use DateTimeImmutable;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Queue\Middleware\ThrottlesExceptions;
 use Throwable;
 
 /**
@@ -108,9 +107,7 @@ final class UpdateSkuJob implements ShouldBeUnique, ShouldQueue
     public function middleware(): array
     {
         return [
-            (new ThrottlesExceptions(maxAttempts: 10, decaySeconds: 300))
-                ->by('linnworks')
-                ->when(static fn(Throwable $e): bool => $e instanceof TransientApiFailure),
+            ServiceCircuitBreaker::linnworks(),
             new HandleApiExceptions(),
         ];
     }

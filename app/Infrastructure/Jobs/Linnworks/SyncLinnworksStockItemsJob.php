@@ -5,17 +5,15 @@ declare(strict_types=1);
 namespace App\Infrastructure\Jobs\Linnworks;
 
 use App\Application\Linnworks\UseCases\SyncAllStockItemsUseCase;
-use App\Domain\Exceptions\Api\TransientApiFailure;
 use App\Infrastructure\Jobs\Enums\QueueName;
 use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
+use App\Infrastructure\Jobs\Middleware\ServiceCircuitBreaker;
 use DateTimeImmutable;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Queue\Middleware\ThrottlesExceptions;
-use Throwable;
 
 /**
  * Asynchronously synchronize Linnworks stock items to local database.
@@ -89,9 +87,7 @@ final class SyncLinnworksStockItemsJob implements ShouldBeUnique, ShouldQueue
     public function middleware(): array
     {
         return [
-            (new ThrottlesExceptions(maxAttempts: 10, decaySeconds: 300))
-                ->by('linnworks')
-                ->when(static fn(Throwable $e): bool => $e instanceof TransientApiFailure),
+            ServiceCircuitBreaker::linnworks(),
             new HandleApiExceptions(),
         ];
     }
