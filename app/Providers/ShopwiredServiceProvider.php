@@ -6,15 +6,18 @@ namespace App\Providers;
 
 use App\Application\Contracts\Shopwired\BasicProductUpdateClientInterface;
 use App\Application\Contracts\Shopwired\BrandClientInterface;
+use App\Application\Contracts\Shopwired\BrandFieldUpdateClientInterface;
 use App\Application\Contracts\Shopwired\BrandRepositoryInterface;
 use App\Application\Contracts\Shopwired\BrandWebhookEventResolverInterface;
 use App\Application\Contracts\Shopwired\BrandWebhookParserInterface;
 use App\Application\Contracts\Shopwired\CategoryClientInterface;
+use App\Application\Contracts\Shopwired\CategoryFieldUpdateClientInterface;
 use App\Application\Contracts\Shopwired\CategoryRepositoryInterface;
 use App\Application\Contracts\Shopwired\CategoryWebhookEventResolverInterface;
 use App\Application\Contracts\Shopwired\CategoryWebhookParserInterface;
 use App\Application\Contracts\Shopwired\ConnectivityClientInterface;
 use App\Application\Contracts\Shopwired\CustomerClientInterface;
+use App\Application\Contracts\Shopwired\CustomerFieldUpdateClientInterface;
 use App\Application\Contracts\Shopwired\CustomerRepositoryInterface;
 use App\Application\Contracts\Shopwired\CustomerWebhookEventResolverInterface;
 use App\Application\Contracts\Shopwired\CustomerWebhookParserInterface;
@@ -28,6 +31,7 @@ use App\Application\Contracts\Shopwired\OrderWebhookEventResolverInterface;
 use App\Application\Contracts\Shopwired\OrderWebhookParserInterface;
 use App\Application\Contracts\Shopwired\PriceUpdateClientInterface;
 use App\Application\Contracts\Shopwired\ProductClientInterface;
+use App\Application\Contracts\Shopwired\ProductFieldUpdateClientInterface;
 use App\Application\Contracts\Shopwired\ProductIdentifierResolverInterface;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Application\Contracts\Shopwired\ProductUpdateClientInterface;
@@ -47,7 +51,11 @@ use App\Application\Shopwired\UseCases\Webhooks\UpdateOrderStatusUseCase;
 use App\Application\Shopwired\UseCases\Webhooks\UpdateProductStockUseCase;
 use App\Domain\Exceptions\InvalidConfigurationException;
 use App\Infrastructure\Shopwired\Clients\BasicProductUpdateClient;
+use App\Infrastructure\Shopwired\Clients\BrandFieldUpdateClient;
+use App\Infrastructure\Shopwired\Clients\CategoryFieldUpdateClient;
+use App\Infrastructure\Shopwired\Clients\CustomerFieldUpdateClient;
 use App\Infrastructure\Shopwired\Clients\ProductClient;
+use App\Infrastructure\Shopwired\Clients\ProductFieldUpdateClient;
 use App\Infrastructure\Shopwired\Clients\ProductUpdateClient;
 use App\Infrastructure\Shopwired\Dispatchers\QueuedShopwiredSyncDispatcher;
 use App\Infrastructure\Shopwired\Factories\ProductCustomFieldFactory;
@@ -143,6 +151,12 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
         );
 
         $this->app->singleton(WebhookClientInterface::class, static fn(): WebhookClientInterface => ShopwiredClientFactory::createWebhookClient());
+
+        // FieldUpdate clients — simple PUT field updates per entity
+        $this->app->singleton(ProductFieldUpdateClientInterface::class, static fn(): ProductFieldUpdateClientInterface => new ProductFieldUpdateClient(ShopwiredClientFactory::getTransport()));
+        $this->app->singleton(CustomerFieldUpdateClientInterface::class, static fn(): CustomerFieldUpdateClientInterface => new CustomerFieldUpdateClient(ShopwiredClientFactory::getTransport()));
+        $this->app->singleton(CategoryFieldUpdateClientInterface::class, static fn(): CategoryFieldUpdateClientInterface => new CategoryFieldUpdateClient(ShopwiredClientFactory::getTransport()));
+        $this->app->singleton(BrandFieldUpdateClientInterface::class, static fn(): BrandFieldUpdateClientInterface => new BrandFieldUpdateClient(ShopwiredClientFactory::getTransport()));
     }
 
     private function registerRepositories(): void
@@ -229,10 +243,12 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
         return [
             BasicProductUpdateClientInterface::class,
             BrandClientInterface::class,
+            BrandFieldUpdateClientInterface::class,
             BrandRepositoryInterface::class,
             BrandWebhookEventResolverInterface::class,
             BrandWebhookParserInterface::class,
             CategoryClientInterface::class,
+            CategoryFieldUpdateClientInterface::class,
             CategoryRepositoryInterface::class,
             CategoryWebhookEventResolverInterface::class,
             CategoryWebhookParserInterface::class,
@@ -241,6 +257,7 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
             CustomFieldClientInterface::class,
             CustomFieldRepositoryInterface::class,
             CustomerClientInterface::class,
+            CustomerFieldUpdateClientInterface::class,
             CustomerRepositoryInterface::class,
             CustomerWebhookEventResolverInterface::class,
             CustomerWebhookParserInterface::class,
@@ -252,6 +269,7 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
             OrderWebhookParserInterface::class,
             ProductClientInterface::class,
             ProductCustomFieldFactory::class,
+            ProductFieldUpdateClientInterface::class,
             ProductDomainFactory::class,
             ProductFilterFactory::class,
             PriceUpdateClientInterface::class,
