@@ -5,18 +5,17 @@ declare(strict_types=1);
 namespace App\Infrastructure\Jobs\Shopwired;
 
 use App\Application\Shopwired\UseCases\SyncBrandsUseCase;
-use App\Domain\Exceptions\Api\AbstractApiException;
-use App\Domain\Exceptions\Api\PermanentApiFailure;
-use App\Domain\Exceptions\Api\TransientApiFailure;
 use App\Infrastructure\Jobs\Enums\QueueName;
+use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
+use App\Infrastructure\Jobs\Middleware\ServiceCircuitBreaker;
+use App\Infrastructure\Jobs\Middleware\ServiceRateLimiter;
+use DateTimeImmutable;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Support\Facades\Log;
-use Psr\Log\LoggerInterface;
-use Throwable;
+use RuntimeException;
 
 /**
  * Asynchronously synchronize ShopWired brands to local database.
@@ -34,7 +33,11 @@ final class SyncShopwiredBrandsJob implements ShouldBeUnique, ShouldQueue
     use InteractsWithQueue;
     use Queueable;
 
-    public int $tries = 3;
+    public int $tries = 6;
+
+    public int $maxExceptions = 3;
+
+    public bool $failOnTimeout = true;
 
     /** @var array<int> */
     public array $backoff = [30, 60, 120];
@@ -53,56 +56,27 @@ final class SyncShopwiredBrandsJob implements ShouldBeUnique, ShouldQueue
         $this->onQueue(QueueName::Low->value);
     }
 
-    /**
-     * @throws TransientApiFailure When ShopWired API unavailable (triggers retry)
-     * @throws PermanentApiFailure When permanent API failure occurs (fails immediately)
-     * @throws Throwable When unexpected errors occur
-     */
-    public function handle(SyncBrandsUseCase $useCase, LoggerInterface $logger): void
+    /** @return list<object> */
+    public function middleware(): array
     {
-        $logger->info('ShopWired brand sync job starting');
-
-        try {
-            $result = $useCase->execute();
-
-            $logger->info('ShopWired brand sync job completed', [
-                'fetched' => $result->fetched,
-                'saved' => $result->saved,
-                'failed' => $result->failed,
-            ]);
-        } catch (TransientApiFailure $e) {
-            $logger->warning('ShopWired brand sync service unavailable, will retry', [
-                'service' => $e->serviceName,
-                'retry_after' => $e->retryAfter,
-                'attempts' => $this->attempts(),
-            ]);
-
-            if ($e->retryAfter !== null) {
-                $this->release($e->retryAfter);
-            } else {
-                throw $e;
-            }
-        } catch (PermanentApiFailure $e) {
-            $this->fail($e);
-            throw $e;
-        } catch (Throwable $e) {
-            $this->fail($e);
-            throw $e;
-        }
-    }
-
-    public function failed(Throwable $exception): void
-    {
-        $context = [
-            'exception' => $exception::class,
-            'message' => $exception->getMessage(),
-            'attempts' => $this->attempts(),
+        return [
+            ServiceRateLimiter::shopwiredApi(),
+            ServiceCircuitBreaker::shopwired(),
+            new HandleApiExceptions(),
         ];
-
-        if ($exception instanceof AbstractApiException) {
-            Log::error('ShopWired brand sync job failed permanently', $context);
-        } else {
-            Log::critical('ShopWired brand sync job failed permanently', $context);
-        }
     }
+
+    public function retryUntil(): DateTimeImmutable
+    {
+        return \now()->addHours(24)->toDateTimeImmutable();
+    }
+
+    /**
+     * @throws RuntimeException
+     */
+    public function handle(SyncBrandsUseCase $useCase): void
+    {
+        $useCase->execute();
+    }
+
 }

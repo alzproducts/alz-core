@@ -5,18 +5,17 @@ declare(strict_types=1);
 namespace App\Infrastructure\Jobs\Linnworks;
 
 use App\Application\Linnworks\UseCases\SyncSuppliersUseCase;
-use App\Domain\Exceptions\Api\AbstractApiException;
-use App\Domain\Exceptions\Api\PermanentApiFailure;
-use App\Domain\Exceptions\Api\TransientApiFailure;
+use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
+use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Infrastructure\Jobs\Enums\QueueName;
+use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
+use App\Infrastructure\Jobs\Middleware\ServiceCircuitBreaker;
+use DateTimeImmutable;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Support\Facades\Log;
-use Psr\Log\LoggerInterface;
-use Throwable;
 
 /**
  * Asynchronously synchronize Linnworks supplier directory to local database.
@@ -33,12 +32,14 @@ final class SyncLinnworksSuppliersJob implements ShouldBeUnique, ShouldQueue
     /**
      * Maximum number of attempts before giving up.
      */
-    public int $tries = 2;
+    public int $tries = 4;
 
     /**
      * Maximum number of unhandled exceptions to allow before failing.
      */
     public int $maxExceptions = 2;
+
+    public bool $failOnTimeout = true;
 
     /**
      * Seconds to wait before retrying.
@@ -73,60 +74,34 @@ final class SyncLinnworksSuppliersJob implements ShouldBeUnique, ShouldQueue
     }
 
     /**
-     * Execute the job.
+     * Get the middleware the job should pass through.
      *
-     * @throws TransientApiFailure When Linnworks API unavailable (triggers retry)
-     * @throws PermanentApiFailure When permanent API failure occurs (fails immediately)
-     * @throws Throwable When unexpected errors occur - indicates code update required
+     * @return list<object>
      */
-    public function handle(SyncSuppliersUseCase $useCase, LoggerInterface $logger): void
+    public function middleware(): array
     {
-        $logger->info('Linnworks supplier directory sync job starting');
-
-        try {
-            $result = $useCase->execute();
-
-            $logger->info('Linnworks supplier directory sync job completed', [
-                'fetched' => $result->fetched,
-                'saved' => $result->saved,
-                'failed' => $result->failed,
-            ]);
-        } catch (TransientApiFailure $e) {
-            $logger->warning('Linnworks supplier directory sync service unavailable, will retry', [
-                'service' => $e->serviceName,
-                'retry_after' => $e->retryAfter,
-                'attempts' => $this->attempts(),
-            ]);
-
-            if ($e->retryAfter !== null) {
-                $this->release($e->retryAfter);
-            } else {
-                throw $e;
-            }
-        } catch (PermanentApiFailure $e) {
-            $this->fail($e);
-            throw $e;
-        } catch (Throwable $e) {
-            $this->fail($e);
-            throw $e;
-        }
+        return [
+            ServiceCircuitBreaker::linnworks(),
+            new HandleApiExceptions(),
+        ];
     }
 
     /**
-     * Handle job failure after all retries exhausted.
+     * Determine the time at which the job should timeout.
      */
-    public function failed(Throwable $exception): void
+    public function retryUntil(): DateTimeImmutable
     {
-        $context = [
-            'exception' => $exception::class,
-            'message' => $exception->getMessage(),
-            'attempts' => $this->attempts(),
-        ];
+        return \now()->addHours(24)->toDateTimeImmutable();
+    }
 
-        if ($exception instanceof AbstractApiException) {
-            Log::error('Linnworks supplier directory sync job failed permanently', $context);
-        } else {
-            Log::critical('Linnworks supplier directory sync job failed permanently', $context);
-        }
+    /**
+     * Execute the job.
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     */
+    public function handle(SyncSuppliersUseCase $useCase): void
+    {
+        $useCase->execute();
     }
 }

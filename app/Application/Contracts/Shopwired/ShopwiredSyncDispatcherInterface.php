@@ -28,8 +28,5 @@ interface ShopwiredSyncDispatcherInterface
 
     public function dispatchOrdersRangeSync(DateTimeImmutable $from, DateTimeImmutable $to): void;
 
-    /**
-     * @param list<SetFreeDeliveryCommand> $commands
-     */
-    public function dispatchFreeDeliveryUpdate(array $commands): void;
+    public function dispatchFreeDeliveryUpdate(SetFreeDeliveryCommand $command): void;
 }

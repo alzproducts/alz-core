@@ -16,8 +16,9 @@ use PHPStan\Rules\RuleErrorBuilder;
  *
  * - backoff (property or method): Controls retry delay strategy. Without it,
  *   Laravel retries immediately, which can overwhelm external APIs.
- * - failed(): Runs after all retries exhausted. Used for cleanup, alerting,
- *   and preventing infinite retry loops.
+ * - failed(): Only required when the job has no HandleApiExceptions middleware.
+ *   Jobs using middleware get centralised failure logging; failed() is only
+ *   needed for side effects (e.g. marking a database record as failed).
  *
  * @implements Rule<InClassNode>
  */
@@ -54,7 +55,17 @@ final class JobRequiredMethodsRule implements Rule
                 ->build();
         }
 
-        if (! $classReflection->hasNativeMethod('failed')) {
+        // failed() is not required when the job (or parent) has middleware() —
+        // HandleApiExceptions centralises failure handling, and Queue::failing
+        // provides logging + Sentry capture for all permanent failures.
+        $hasMiddleware = $classReflection->hasNativeMethod('middleware');
+        $parentClass = $classReflection->getParentClass();
+
+        if (! $hasMiddleware && $parentClass !== null) {
+            $hasMiddleware = $parentClass->hasNativeMethod('middleware');
+        }
+
+        if (! $hasMiddleware && ! $classReflection->hasNativeMethod('failed')) {
             $errors[] = RuleErrorBuilder::message(
                 'Job must define a failed() method for cleanup after retries are exhausted.',
             )

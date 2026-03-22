@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Presentation\Http\Controllers\Shopwired;
 
-use App\Application\Shopwired\UseCases\UpdateProductFreeDeliveryUseCase;
+use App\Application\Shopwired\UseCases\DispatchProductFreeDeliveryJobsUseCase;
 use App\Domain\Catalog\Product\Commands\SetFreeDeliveryCommand;
 use App\Domain\Catalog\Product\Enums\FreeDeliveryType;
 use App\Presentation\Http\Requests\SetFreeDeliveryRequest;
@@ -20,7 +20,7 @@ use ValueError;
 final readonly class ProductUpdateController
 {
     public function __construct(
-        private UpdateProductFreeDeliveryUseCase $dispatchUseCase,
+        private DispatchProductFreeDeliveryJobsUseCase $dispatchUseCase,
     ) {}
 
     /**
@@ -44,13 +44,12 @@ final readonly class ProductUpdateController
             $updates,
         );
 
-        $jobsDispatched = $this->dispatchUseCase->execute($commands);
+        $this->dispatchUseCase->execute($commands);
 
         return new JsonResponse(
             [
                 'message' => 'Updates queued for processing',
-                'total' => \count($commands),
-                'jobs_dispatched' => $jobsDispatched,
+                'jobs_dispatched' => \count($commands),
             ],
             Response::HTTP_ACCEPTED,
         );

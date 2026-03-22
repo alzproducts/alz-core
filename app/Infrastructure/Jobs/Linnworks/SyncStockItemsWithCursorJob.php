@@ -5,17 +5,17 @@ declare(strict_types=1);
 namespace App\Infrastructure\Jobs\Linnworks;
 
 use App\Application\Linnworks\UseCases\SyncStockItemWithCursorUseCase;
-use App\Domain\Exceptions\Api\AbstractApiException;
-use App\Domain\Exceptions\Api\PermanentApiFailure;
-use App\Domain\Exceptions\Api\TransientApiFailure;
+use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
+use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Infrastructure\Jobs\Enums\QueueName;
+use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
+use App\Infrastructure\Jobs\Middleware\ServiceCircuitBreaker;
+use DateTimeImmutable;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Support\Facades\Log;
-use Throwable;
 
 /**
  * Scheduled orchestrator for cursor-based stock item sync.
@@ -34,12 +34,14 @@ final class SyncStockItemsWithCursorJob implements ShouldBeUnique, ShouldQueue
      *
      * Low retry count since job runs every 5 min — next scheduled run is implicit retry.
      */
-    public int $tries = 2;
+    public int $tries = 4;
 
     /**
      * Maximum number of unhandled exceptions to allow before failing.
      */
     public int $maxExceptions = 2;
+
+    public bool $failOnTimeout = true;
 
     /**
      * Seconds to wait before retrying.
@@ -74,60 +76,34 @@ final class SyncStockItemsWithCursorJob implements ShouldBeUnique, ShouldQueue
     }
 
     /**
-     * Execute the job.
+     * Get the middleware the job should pass through.
      *
-     * @throws TransientApiFailure When Linnworks API unavailable (triggers retry)
-     * @throws PermanentApiFailure When permanent API failure occurs (fails immediately)
-     * @throws Throwable When unexpected errors occur
+     * @return list<object>
      */
-    public function handle(SyncStockItemWithCursorUseCase $useCase): void
+    public function middleware(): array
     {
-        try {
-            $useCase->execute();
-        } catch (TransientApiFailure $e) {
-            Log::warning('Stock item cursor sync job: service unavailable, will retry', [
-                'service' => $e->serviceName,
-                'retry_after' => $e->retryAfter,
-                'attempts' => $this->attempts(),
-            ]);
-
-            if ($e->retryAfter !== null) {
-                $this->release($e->retryAfter);
-            } else {
-                throw $e;
-            }
-        } catch (PermanentApiFailure $e) {
-            Log::error('Stock item cursor sync job: permanent API failure', [
-                'service' => $e->serviceName,
-                'message' => $e->getMessage(),
-            ]);
-            $this->fail($e);
-            throw $e;
-        } catch (Throwable $e) {
-            Log::critical('Stock item cursor sync job: unexpected error', [
-                'exception' => $e::class,
-                'message' => $e->getMessage(),
-            ]);
-            $this->fail($e);
-            throw $e;
-        }
+        return [
+            ServiceCircuitBreaker::linnworks(),
+            new HandleApiExceptions(),
+        ];
     }
 
     /**
-     * Handle job failure after all retries exhausted.
+     * Determine the time at which the job should timeout.
      */
-    public function failed(Throwable $exception): void
+    public function retryUntil(): DateTimeImmutable
     {
-        $context = [
-            'exception' => $exception::class,
-            'message' => $exception->getMessage(),
-            'attempts' => $this->attempts(),
-        ];
+        return \now()->addHours(4)->toDateTimeImmutable();
+    }
 
-        if ($exception instanceof AbstractApiException) {
-            Log::error('Stock item cursor sync job failed permanently', $context);
-        } else {
-            Log::critical('Stock item cursor sync job failed permanently', $context);
-        }
+    /**
+     * Execute the job.
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     */
+    public function handle(SyncStockItemWithCursorUseCase $useCase): void
+    {
+        $useCase->execute();
     }
 }
