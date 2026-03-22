@@ -233,11 +233,13 @@ parameters:
         -
             identifier: missingType.checkedException
             path: app/Providers/*
-        # Job handle() methods delegate exception handling to HandleApiExceptions middleware.
-        # PHPStan can't model middleware wrapping, so it reports uncaught checked exceptions.
-        # The middleware catches TransientApiFailure (release/rethrow) and Throwable (fail).
+        # Job handle() methods delegate API exception handling to HandleApiExceptions middleware.
+        # PHPStan can't model middleware wrapping, so it reports these as uncaught.
+        # Only suppress API exceptions (TransientApiFailure/PermanentApiFailure hierarchy) —
+        # non-API checked exceptions (Data/, Infrastructure/, etc.) are still enforced.
         -
             identifier: missingType.checkedException
+            message: '#throws checked exception App\\Domain\\Exceptions\\Api\\#'
             path: app/Infrastructure/Jobs/*
         # HandleApiExceptions is queue middleware, not a job — exclude from all job-specific rules.
         # It lives under Jobs/Middleware/ for co-location but doesn't implement ShouldQueue.
