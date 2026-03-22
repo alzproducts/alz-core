@@ -4,27 +4,25 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Jobs\Shopwired;
 
-use App\Domain\Exceptions\Api\AbstractApiException;
-use App\Domain\Exceptions\Api\PermanentApiFailure;
 use App\Domain\Exceptions\Api\TransientApiFailure;
 use App\Domain\ValueObjects\IntId;
 use App\Infrastructure\Jobs\Enums\QueueName;
-use Closure;
+use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
+use DateTimeImmutable;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Support\Facades\Log;
-use Psr\Log\LoggerInterface;
+use Illuminate\Queue\Middleware\ThrottlesExceptions;
 use Throwable;
 
 /**
  * Base class for ShopWired entity sync jobs.
  *
- * Provides the shared error-handling, retry, and logging algorithm
- * for ShopWired entity sync jobs. Subclasses supply all work (fetch + save)
- * as a Closure to withErrorHandling(), which provides the error envelope.
+ * Provides shared retry configuration, middleware, and failure logging
+ * for ShopWired entity sync jobs. Error handling is delegated to
+ * {@see HandleApiExceptions} middleware.
  */
 abstract class AbstractSyncShopwiredEntityJob implements ShouldBeUnique, ShouldQueue
 {
@@ -32,9 +30,11 @@ abstract class AbstractSyncShopwiredEntityJob implements ShouldBeUnique, ShouldQ
     use InteractsWithQueue;
     use Queueable;
 
-    public int $tries = 3;
+    public int $tries = 6;
 
     public int $maxExceptions = 3;
+
+    public bool $failOnTimeout = true;
 
     /** Lock duration in seconds — auto-releases if job gets stuck. */
     public int $uniqueFor = 300;
@@ -55,66 +55,22 @@ abstract class AbstractSyncShopwiredEntityJob implements ShouldBeUnique, ShouldQ
         return $this->uniqueIdPrefix() . $this->entityId->value;
     }
 
-    /**
-     * Execute the given work within the shared error-handling envelope.
-     *
-     * The Closure encapsulates all work (fetch + save). This method provides
-     * uniform retry/fail logic for transient and permanent API failures.
-     *
-     * @param-immediately-invoked-callable $work
-     *
-     * @throws TransientApiFailure
-     * @throws PermanentApiFailure
-     * @throws Throwable
-     */
-    protected function withErrorHandling(LoggerInterface $logger, Closure $work): void
+    /** @return list<object> */
+    public function middleware(): array
     {
-        $context = [$this->contextKey() => $this->entityId->value];
-
-        try {
-            $work();
-
-            $logger->info("{$this->entityLabel()} sync complete", $context);
-        } catch (TransientApiFailure $e) {
-            $logger->warning("{$this->entityLabel()} sync service unavailable, will retry", [
-                ...$context,
-                'retry_after' => $e->retryAfter,
-                'attempts' => $this->attempts(),
-            ]);
-
-            if ($e->retryAfter !== null) {
-                $this->release($e->retryAfter);
-            } else {
-                throw $e;
-            }
-        } catch (PermanentApiFailure $e) {
-            $this->fail($e);
-            throw $e;
-        } catch (Throwable $e) {
-            $this->fail($e);
-            throw $e;
-        }
+        return [
+            (new ThrottlesExceptions(maxAttempts: 10, decaySeconds: 300))
+                ->by('shopwired')
+                ->when(static fn(Throwable $e): bool => $e instanceof TransientApiFailure),
+            new HandleApiExceptions(),
+        ];
     }
 
-    public function failed(Throwable $exception): void
+    public function retryUntil(): DateTimeImmutable
     {
-        $context = [
-            $this->contextKey() => $this->entityId->value,
-            'exception' => $exception::class,
-            'message' => $exception->getMessage(),
-            'attempts' => $this->attempts(),
-        ];
-
-        if ($exception instanceof AbstractApiException) {
-            Log::error("{$this->entityLabel()} sync job failed permanently", $context);
-        } else {
-            Log::critical("{$this->entityLabel()} sync job failed permanently", $context);
-        }
+        return \now()->addHours(4)->toDateTimeImmutable();
     }
 
     abstract protected function uniqueIdPrefix(): string;
 
-    abstract protected function contextKey(): string;
-
-    abstract protected function entityLabel(): string;
 }

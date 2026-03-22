@@ -6,10 +6,7 @@ namespace App\Infrastructure\Jobs\Shopwired;
 
 use App\Application\Contracts\Shopwired\CustomerClientInterface;
 use App\Application\Contracts\Shopwired\CustomerRepositoryInterface;
-use App\Domain\Exceptions\Api\PermanentApiFailure;
-use App\Domain\Exceptions\Api\TransientApiFailure;
 use Psr\Log\LoggerInterface;
-use Throwable;
 
 /**
  * Fetch the current state of a ShopWired customer from the API and persist it.
@@ -20,20 +17,14 @@ use Throwable;
  */
 final class SyncShopwiredCustomerJob extends AbstractSyncShopwiredEntityJob
 {
-    /**
-     * @throws TransientApiFailure
-     * @throws PermanentApiFailure
-     * @throws Throwable
-     */
     public function handle(
         CustomerClientInterface $client,
         CustomerRepositoryInterface $repo,
         LoggerInterface $logger,
     ): void {
-        $this->withErrorHandling($logger, function () use ($client, $repo): void {
-            $customer = $client->getCustomerById($this->entityId->value);
-            $repo->save($customer);
-        });
+        $customer = $client->getCustomerById($this->entityId->value);
+        $repo->save($customer);
+        $logger->info('Customer sync complete', ['customer_id' => $this->entityId->value]);
     }
 
     protected function uniqueIdPrefix(): string
@@ -41,13 +32,4 @@ final class SyncShopwiredCustomerJob extends AbstractSyncShopwiredEntityJob
         return 'sync-shopwired-customer-';
     }
 
-    protected function contextKey(): string
-    {
-        return 'customer_id';
-    }
-
-    protected function entityLabel(): string
-    {
-        return 'Customer';
-    }
 }

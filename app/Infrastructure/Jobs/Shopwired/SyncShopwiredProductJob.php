@@ -6,10 +6,7 @@ namespace App\Infrastructure\Jobs\Shopwired;
 
 use App\Application\Contracts\Shopwired\ProductClientInterface;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
-use App\Domain\Exceptions\Api\PermanentApiFailure;
-use App\Domain\Exceptions\Api\TransientApiFailure;
 use Psr\Log\LoggerInterface;
-use Throwable;
 
 /**
  * Fetch the current state of a ShopWired product from the API and persist it.
@@ -20,20 +17,14 @@ use Throwable;
  */
 final class SyncShopwiredProductJob extends AbstractSyncShopwiredEntityJob
 {
-    /**
-     * @throws TransientApiFailure
-     * @throws PermanentApiFailure
-     * @throws Throwable
-     */
     public function handle(
         ProductClientInterface $client,
         ProductRepositoryInterface $repo,
         LoggerInterface $logger,
     ): void {
-        $this->withErrorHandling($logger, function () use ($client, $repo): void {
-            $product = $client->getProductById($this->entityId->value);
-            $repo->save($product);
-        });
+        $product = $client->getProductById($this->entityId->value);
+        $repo->save($product);
+        $logger->info('Product sync complete', ['product_id' => $this->entityId->value]);
     }
 
     protected function uniqueIdPrefix(): string
@@ -41,13 +32,4 @@ final class SyncShopwiredProductJob extends AbstractSyncShopwiredEntityJob
         return 'sync-shopwired-product-';
     }
 
-    protected function contextKey(): string
-    {
-        return 'product_id';
-    }
-
-    protected function entityLabel(): string
-    {
-        return 'Product';
-    }
 }
