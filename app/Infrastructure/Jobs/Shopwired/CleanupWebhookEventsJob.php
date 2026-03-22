@@ -5,16 +5,16 @@ declare(strict_types=1);
 namespace App\Infrastructure\Jobs\Shopwired;
 
 use App\Application\Shopwired\UseCases\CleanupWebhookEventsUseCase;
-use App\Domain\Exceptions\Api\AbstractApiException;
 use App\Domain\Exceptions\Api\TransientApiFailure;
 use App\Infrastructure\Jobs\Enums\QueueName;
+use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
+use DateTimeImmutable;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Support\Facades\Log;
-use Psr\Log\LoggerInterface;
+use Illuminate\Queue\Middleware\ThrottlesExceptions;
 use Throwable;
 
 /**
@@ -29,9 +29,11 @@ final class CleanupWebhookEventsJob implements ShouldBeUnique, ShouldQueue
     use InteractsWithQueue;
     use Queueable;
 
-    public int $tries = 3;
+    public int $tries = 6;
 
     public int $maxExceptions = 3;
+
+    public bool $failOnTimeout = true;
 
     public int $uniqueFor = 3600;
 
@@ -50,44 +52,24 @@ final class CleanupWebhookEventsJob implements ShouldBeUnique, ShouldQueue
         return 'cleanup-shopwired-webhook-events';
     }
 
-    /**
-     * @throws TransientApiFailure When database unavailable (triggers retry)
-     * @throws Throwable When unexpected errors occur — indicates code update required
-     */
-    public function handle(CleanupWebhookEventsUseCase $useCase, LoggerInterface $logger): void
+    /** @return list<object> */
+    public function middleware(): array
     {
-        try {
-            $useCase->execute();
-        } catch (TransientApiFailure $e) {
-            $logger->warning('Webhook events cleanup failed — database unavailable, will retry', [
-                'service' => $e->serviceName,
-                'retry_after' => $e->retryAfter,
-                'attempts' => $this->attempts(),
-            ]);
-
-            if ($e->retryAfter !== null) {
-                $this->release($e->retryAfter);
-            } else {
-                throw $e;
-            }
-        } catch (Throwable $e) {
-            $this->fail($e);
-            throw $e;
-        }
+        return [
+            (new ThrottlesExceptions(maxAttempts: 10, decaySeconds: 300))
+                ->by('shopwired')
+                ->when(static fn(Throwable $e): bool => $e instanceof TransientApiFailure),
+            new HandleApiExceptions(),
+        ];
     }
 
-    public function failed(Throwable $exception): void
+    public function retryUntil(): DateTimeImmutable
     {
-        $context = [
-            'exception' => $exception::class,
-            'message' => $exception->getMessage(),
-            'attempts' => $this->attempts(),
-        ];
+        return \now()->addHours(24)->toDateTimeImmutable();
+    }
 
-        if ($exception instanceof AbstractApiException) {
-            Log::error('Webhook events cleanup job failed permanently', $context);
-        } else {
-            Log::critical('Webhook events cleanup job failed permanently', $context);
-        }
+    public function handle(CleanupWebhookEventsUseCase $useCase): void
+    {
+        $useCase->execute();
     }
 }

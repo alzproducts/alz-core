@@ -5,17 +5,16 @@ declare(strict_types=1);
 namespace App\Infrastructure\Jobs\Shopwired;
 
 use App\Application\Shopwired\UseCases\CheckShopwiredWebhookHealthUseCase;
-use App\Domain\Exceptions\Api\AbstractApiException;
-use App\Domain\Exceptions\Api\PermanentApiFailure;
 use App\Domain\Exceptions\Api\TransientApiFailure;
 use App\Infrastructure\Jobs\Enums\QueueName;
+use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
+use DateTimeImmutable;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Support\Facades\Log;
-use Psr\Log\LoggerInterface;
+use Illuminate\Queue\Middleware\ThrottlesExceptions;
 use Throwable;
 
 /**
@@ -30,9 +29,11 @@ final class ProcessShopwiredWebhookHealthJob implements ShouldBeUnique, ShouldQu
     use InteractsWithQueue;
     use Queueable;
 
-    public int $tries = 3;
+    public int $tries = 6;
 
     public int $maxExceptions = 3;
+
+    public bool $failOnTimeout = true;
 
     public int $uniqueFor = 3600;
 
@@ -51,48 +52,24 @@ final class ProcessShopwiredWebhookHealthJob implements ShouldBeUnique, ShouldQu
         return 'check-shopwired-webhook-health';
     }
 
-    /**
-     * @throws TransientApiFailure When ShopWired API unavailable (triggers retry)
-     * @throws PermanentApiFailure When permanent API failure occurs (fails immediately)
-     * @throws Throwable When unexpected errors occur — indicates code update required
-     */
-    public function handle(CheckShopwiredWebhookHealthUseCase $useCase, LoggerInterface $logger): void
+    /** @return list<object> */
+    public function middleware(): array
     {
-        try {
-            $useCase->execute();
-        } catch (TransientApiFailure $e) {
-            $logger->warning('ShopWired webhook health check failed — API unavailable, will retry', [
-                'service' => $e->serviceName,
-                'retry_after' => $e->retryAfter,
-                'attempts' => $this->attempts(),
-            ]);
-
-            if ($e->retryAfter !== null) {
-                $this->release($e->retryAfter);
-            } else {
-                throw $e;
-            }
-        } catch (PermanentApiFailure $e) {
-            $this->fail($e);
-            throw $e;
-        } catch (Throwable $e) {
-            $this->fail($e);
-            throw $e;
-        }
+        return [
+            (new ThrottlesExceptions(maxAttempts: 10, decaySeconds: 300))
+                ->by('shopwired')
+                ->when(static fn(Throwable $e): bool => $e instanceof TransientApiFailure),
+            new HandleApiExceptions(),
+        ];
     }
 
-    public function failed(Throwable $exception): void
+    public function retryUntil(): DateTimeImmutable
     {
-        $context = [
-            'exception' => $exception::class,
-            'message' => $exception->getMessage(),
-            'attempts' => $this->attempts(),
-        ];
+        return \now()->addHours(4)->toDateTimeImmutable();
+    }
 
-        if ($exception instanceof AbstractApiException) {
-            Log::error('ShopWired webhook health check job failed permanently', $context);
-        } else {
-            Log::critical('ShopWired webhook health check job failed permanently', $context);
-        }
+    public function handle(CheckShopwiredWebhookHealthUseCase $useCase): void
+    {
+        $useCase->execute();
     }
 }

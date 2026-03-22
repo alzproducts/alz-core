@@ -112,6 +112,11 @@ final class SyncOrdersRangeUseCaseTest extends TestCase
 
         $this->logger->shouldNotReceive('warning');
 
+        $this->logger
+            ->shouldReceive('info')
+            ->once()
+            ->with('Order range sync completed', Mockery::type('array'));
+
         $result = $this->useCase->execute($from, $to);
 
         $this->assertSame(2, $result->fetched);
@@ -148,6 +153,11 @@ final class SyncOrdersRangeUseCaseTest extends TestCase
             ->shouldReceive('warning')
             ->once()
             ->with('Some orders failed to save', ['failed_references' => $failedRefs]);
+
+        $this->logger
+            ->shouldReceive('info')
+            ->once()
+            ->with('Order range sync completed', Mockery::type('array'));
 
         $result = $this->useCase->execute($from, $to);
 

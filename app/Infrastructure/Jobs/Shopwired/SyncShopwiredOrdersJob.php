@@ -5,17 +5,16 @@ declare(strict_types=1);
 namespace App\Infrastructure\Jobs\Shopwired;
 
 use App\Application\Shopwired\UseCases\SyncOrdersUseCase;
-use App\Domain\Exceptions\Api\AbstractApiException;
-use App\Domain\Exceptions\Api\PermanentApiFailure;
 use App\Domain\Exceptions\Api\TransientApiFailure;
 use App\Infrastructure\Jobs\Enums\QueueName;
+use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
+use DateTimeImmutable;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Support\Facades\Log;
-use Psr\Log\LoggerInterface;
+use Illuminate\Queue\Middleware\ThrottlesExceptions;
 use Throwable;
 
 /**
@@ -40,12 +39,14 @@ final class SyncShopwiredOrdersJob implements ShouldBeUnique, ShouldQueue
      *
      * 3 attempts: quick retries for transient issues + 1hr fallback for longer outages.
      */
-    public int $tries = 3;
+    public int $tries = 6;
 
     /**
      * Maximum exceptions allowed before failing.
      */
     public int $maxExceptions = 3;
+
+    public bool $failOnTimeout = true;
 
     /**
      * Unique lock duration in seconds.
@@ -78,6 +79,22 @@ final class SyncShopwiredOrdersJob implements ShouldBeUnique, ShouldQueue
         $this->onQueue(QueueName::Low->value);
     }
 
+    /** @return list<object> */
+    public function middleware(): array
+    {
+        return [
+            (new ThrottlesExceptions(maxAttempts: 10, decaySeconds: 300))
+                ->by('shopwired')
+                ->when(static fn(Throwable $e): bool => $e instanceof TransientApiFailure),
+            new HandleApiExceptions(),
+        ];
+    }
+
+    public function retryUntil(): DateTimeImmutable
+    {
+        return \now()->addHours(24)->toDateTimeImmutable();
+    }
+
     /**
      * Seconds to wait before retrying.
      *
@@ -95,66 +112,9 @@ final class SyncShopwiredOrdersJob implements ShouldBeUnique, ShouldQueue
      */
     public int $timeout = 9000;
 
-    /**
-     * Execute the job.
-     *
-     * @throws TransientApiFailure When ShopWired API unavailable (triggers retry)
-     * @throws PermanentApiFailure When permanent API failure occurs (fails immediately)
-     * @throws Throwable When unexpected errors occur - indicates code update required
-     */
-    public function handle(SyncOrdersUseCase $useCase, LoggerInterface $logger): void
+    public function handle(SyncOrdersUseCase $useCase): void
     {
-        $syncType = $this->maxPages === null ? 'full' : 'quick';
-        $logger->info("ShopWired order sync job starting ({$syncType})", [
-            'max_pages' => $this->maxPages,
-        ]);
-
-        try {
-            $result = $useCase->execute($this->maxPages);
-
-            $logger->info('ShopWired order sync job completed', [
-                'fetched' => $result->fetched,
-                'saved' => $result->saved,
-                'failed' => $result->failed,
-            ]);
-        } catch (TransientApiFailure $e) {
-            // Dual retry: API-provided delay via release(), or Laravel backoff via rethrow
-            $logger->warning('ShopWired order sync service unavailable, will retry', [
-                'service' => $e->serviceName,
-                'retry_after' => $e->retryAfter,
-                'attempts' => $this->attempts(),
-            ]);
-
-            if ($e->retryAfter !== null) {
-                $this->release($e->retryAfter);
-            } else {
-                throw $e;
-            }
-        } catch (PermanentApiFailure $e) {
-            $this->fail($e);
-            throw $e;
-        } catch (Throwable $e) {
-            $this->fail($e);
-            throw $e;
-        }
+        $useCase->execute($this->maxPages);
     }
 
-    /**
-     * Handle job failure after all retries exhausted.
-     */
-    public function failed(Throwable $exception): void
-    {
-        $context = [
-            'max_pages' => $this->maxPages,
-            'exception' => $exception::class,
-            'message' => $exception->getMessage(),
-            'attempts' => $this->attempts(),
-        ];
-
-        if ($exception instanceof AbstractApiException) {
-            Log::error('ShopWired order sync job failed permanently', $context);
-        } else {
-            Log::critical('ShopWired order sync job failed permanently', $context);
-        }
-    }
 }
