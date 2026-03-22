@@ -61,7 +61,7 @@ final readonly class NameFormatterService
         // "John Michael Smith" → firstName: "John", lastName: "Michael Smith"
         if ($middleName !== '' && $lastName !== '') {
             $lastName = $middleName . ' ' . $lastName;
-        } elseif ($middleName !== '' && $lastName === '') {
+        } elseif ($middleName !== '') {
             $lastName = $middleName;
         }
 
