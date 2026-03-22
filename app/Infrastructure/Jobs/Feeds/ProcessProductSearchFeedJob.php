@@ -5,18 +5,14 @@ declare(strict_types=1);
 namespace App\Infrastructure\Jobs\Feeds;
 
 use App\Application\Feeds\ProcessProductSearchFeedUseCase;
-use App\Domain\Exceptions\Api\AbstractApiException;
-use App\Domain\Exceptions\Api\TransientApiFailure;
-use App\Domain\Exceptions\Infrastructure\StorageOperationFailedException;
 use App\Infrastructure\Jobs\Enums\QueueName;
+use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
+use DateTimeImmutable;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Support\Facades\Log;
-use Psr\Log\LoggerInterface;
-use Throwable;
 
 /**
  * Process product search feed asynchronously.
@@ -31,12 +27,11 @@ final class ProcessProductSearchFeedJob implements ShouldBeUnique, ShouldQueue
     use InteractsWithQueue;
     use Queueable;
 
-    /**
-     * Maximum number of attempts before giving up.
-     *
-     * 3 attempts: quick retries for transient issues + 1hr fallback for longer outages.
-     */
-    public int $tries = 3;
+    public int $tries = 6;
+
+    public int $maxExceptions = 3;
+
+    public bool $failOnTimeout = true;
 
     /**
      * Seconds to wait before retrying.
@@ -68,63 +63,19 @@ final class ProcessProductSearchFeedJob implements ShouldBeUnique, ShouldQueue
         $this->onQueue(QueueName::Low->value);
     }
 
-    /**
-     * Execute the job.
-     *
-     * @throws TransientApiFailure When source feed unavailable (triggers retry)
-     * @throws StorageOperationFailedException When S3 upload fails - will retry
-     * @throws Throwable When unexpected errors occur - indicates code update required
-     */
-    public function handle(ProcessProductSearchFeedUseCase $useCase, LoggerInterface $logger): void
+    /** @return list<object> */
+    public function middleware(): array
     {
-        $logger->info('Product search feed processing job starting');
-
-        try {
-            $useCase->execute();
-
-            $logger->info('Product search feed processing job completed');
-        } catch (TransientApiFailure $e) {
-            // Dual retry: API-provided delay via release(), or Laravel backoff via rethrow
-            $logger->warning('Product search feed service unavailable, will retry', [
-                'service' => $e->serviceName,
-                'retry_after' => $e->retryAfter,
-                'attempts' => $this->attempts(),
-            ]);
-
-            if ($e->retryAfter !== null) {
-                $this->release($e->retryAfter);
-            } else {
-                throw $e;
-            }
-        } catch (StorageOperationFailedException $e) {
-            $logger->warning('Storage operation failed, will retry', [
-                'message' => $e->getMessage(),
-                'attempts' => $this->attempts(),
-            ]);
-
-            // Let Laravel retry with backoff
-            throw $e;
-        } catch (Throwable $e) {
-            $this->fail($e);
-            throw $e;
-        }
+        return [new HandleApiExceptions()];
     }
 
-    /**
-     * Handle job failure after all retries exhausted.
-     */
-    public function failed(Throwable $exception): void
+    public function retryUntil(): DateTimeImmutable
     {
-        $context = [
-            'exception' => $exception::class,
-            'message' => $exception->getMessage(),
-            'attempts' => $this->attempts(),
-        ];
+        return \now()->addHours(24)->toDateTimeImmutable();
+    }
 
-        if ($exception instanceof AbstractApiException) {
-            Log::error('Product search feed processing job failed permanently', $context);
-        } else {
-            Log::critical('Product search feed processing job failed permanently', $context);
-        }
+    public function handle(ProcessProductSearchFeedUseCase $useCase): void
+    {
+        $useCase->execute();
     }
 }

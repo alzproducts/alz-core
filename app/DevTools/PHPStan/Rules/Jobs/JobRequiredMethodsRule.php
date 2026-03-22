@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\DevTools\PHPStan\Rules\Jobs;
 
-use App\Infrastructure\Jobs\Feeds\ProcessProductSearchFeedJob;
 use PhpParser\Node;
 use PHPStan\Analyser\Scope;
 use PHPStan\Node\InClassNode;
@@ -25,15 +24,6 @@ use PHPStan\Rules\RuleErrorBuilder;
  */
 final class JobRequiredMethodsRule implements Rule
 {
-    /**
-     * Jobs exempt from the failed() requirement due to inline error handling.
-     *
-     * @var list<class-string>
-     */
-    private const array FAILED_EXEMPT = [
-        ProcessProductSearchFeedJob::class,
-    ];
-
     public function getNodeType(): string
     {
         return InClassNode::class;
@@ -65,9 +55,9 @@ final class JobRequiredMethodsRule implements Rule
                 ->build();
         }
 
-        // failed() is not required when:
-        // 1. The job (or parent) has middleware() — HandleApiExceptions centralises failure logging
-        // 2. The job is explicitly exempt (inline error handling with catch(Throwable))
+        // failed() is not required when the job (or parent) has middleware() —
+        // HandleApiExceptions centralises failure handling, and Queue::failing
+        // provides logging + Sentry capture for all permanent failures.
         $hasMiddleware = $classReflection->hasNativeMethod('middleware');
         $parentClass = $classReflection->getParentClass();
 
@@ -75,9 +65,7 @@ final class JobRequiredMethodsRule implements Rule
             $hasMiddleware = $parentClass->hasNativeMethod('middleware');
         }
 
-        $isExempt = \in_array($classReflection->getName(), self::FAILED_EXEMPT, true);
-
-        if (! $hasMiddleware && ! $isExempt && ! $classReflection->hasNativeMethod('failed')) {
+        if (! $hasMiddleware && ! $classReflection->hasNativeMethod('failed')) {
             $errors[] = RuleErrorBuilder::message(
                 'Job must define a failed() method for cleanup after retries are exhausted.',
             )
