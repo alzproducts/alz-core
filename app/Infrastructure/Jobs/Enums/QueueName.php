@@ -14,4 +14,5 @@ enum QueueName: string
     case High = 'high';
     case Default = 'default';
     case Low = 'low';
+    case Bulk = 'bulk';
 }

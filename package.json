@@ -1,4 +1,5 @@
 {
+  "name": "alz-core",
   "devDependencies": {
     "chokidar": "^5.0.0"
   }

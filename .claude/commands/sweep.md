@@ -50,6 +50,7 @@ If any individual check is blocked by complications or ambiguity, **skip it** �
 - **Pattern consistency** — Compare against existing jobs in the codebase; most follow a very similar structure.
 - **Thin dispatch** — Jobs should dispatch to a use case with minimal surrounding logic.
 - **Queue configuration** — Verify queue name, retry attempts, and backoff are appropriate for the job's workload.
+- **No redundant logging** — Jobs should NOT log "starting" (Queue::before handles this) or completion results that the UseCase already logs. Only keep job-level logs that add unique context not available elsewhere (e.g., input parameters like date ranges, sync modes). If a job is returning result data just to log it, move that logging to the UseCase.
 
 ### Infrastructure Layer
 
@@ -61,7 +62,7 @@ If any individual check is blocked by complications or ambiguity, **skip it** �
 
 #### Other
 
-- **Logging** — Important operations should have logging at key points (start, success, failure) with useful context. Not excessive, but enough to trace issues.
+- **Logging** — Infrastructure should log SDK/technical details before translating exceptions. Not excessive, but enough to trace issues. Do not log data that higher layers will log (avoid duplication across layers).
 
 ### Domain Layer
 
@@ -71,6 +72,7 @@ If any individual check is blocked by complications or ambiguity, **skip it** �
 ### General
 
 - **Code placement** — Is code in the correct architectural layer? Are feature sub-namespaces used consistently with similar features nearby? Compare against the structure of similar features in each layer.
+- **Logging at the right layer** — Each layer should only log what it uniquely knows. Data should not be passed across layers just to be logged elsewhere. If a result is returned from a UseCase to a Job solely for logging, move the logging into the UseCase. Infrastructure logs SDK/technical details, Application logs business milestones/results, Presentation (jobs/controllers) logs only delivery-specific context (input parameters, queue metadata).
 
 ### Testing
 

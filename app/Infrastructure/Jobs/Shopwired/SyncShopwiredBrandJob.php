@@ -6,10 +6,9 @@ namespace App\Infrastructure\Jobs\Shopwired;
 
 use App\Application\Contracts\Shopwired\BrandClientInterface;
 use App\Application\Contracts\Shopwired\BrandRepositoryInterface;
-use App\Domain\Exceptions\Api\PermanentApiFailure;
-use App\Domain\Exceptions\Api\TransientApiFailure;
+use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
+use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use Psr\Log\LoggerInterface;
-use Throwable;
 
 /**
  * Fetch the current state of a ShopWired brand from the API and persist it.
@@ -21,19 +20,17 @@ use Throwable;
 final class SyncShopwiredBrandJob extends AbstractSyncShopwiredEntityJob
 {
     /**
-     * @throws TransientApiFailure
-     * @throws PermanentApiFailure
-     * @throws Throwable
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
      */
     public function handle(
         BrandClientInterface $client,
         BrandRepositoryInterface $repo,
         LoggerInterface $logger,
     ): void {
-        $this->withErrorHandling($logger, function () use ($client, $repo): void {
-            $brand = $client->getBrandById($this->entityId->value);
-            $repo->save($brand);
-        });
+        $brand = $client->getBrandById($this->entityId->value);
+        $repo->save($brand);
+        $logger->info('Brand sync complete', ['brand_id' => $this->entityId->value]);
     }
 
     protected function uniqueIdPrefix(): string
@@ -41,13 +38,4 @@ final class SyncShopwiredBrandJob extends AbstractSyncShopwiredEntityJob
         return 'sync-shopwired-brand-';
     }
 
-    protected function contextKey(): string
-    {
-        return 'brand_id';
-    }
-
-    protected function entityLabel(): string
-    {
-        return 'Brand';
-    }
 }

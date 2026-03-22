@@ -5,18 +5,17 @@ declare(strict_types=1);
 namespace App\Infrastructure\Jobs\Shopwired;
 
 use App\Application\Shopwired\UseCases\SyncFilterGroupsUseCase;
-use App\Domain\Exceptions\Api\AbstractApiException;
-use App\Domain\Exceptions\Api\PermanentApiFailure;
-use App\Domain\Exceptions\Api\TransientApiFailure;
 use App\Infrastructure\Jobs\Enums\QueueName;
+use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
+use App\Infrastructure\Jobs\Middleware\ServiceCircuitBreaker;
+use App\Infrastructure\Jobs\Middleware\ServiceRateLimiter;
+use DateTimeImmutable;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Support\Facades\Log;
-use Psr\Log\LoggerInterface;
-use Throwable;
+use RuntimeException;
 
 /**
  * Asynchronously synchronize ShopWired filter group definitions to local database.
@@ -39,7 +38,14 @@ final class SyncShopwiredFilterGroupsJob implements ShouldBeUnique, ShouldQueue
     /**
      * Maximum number of attempts before giving up.
      */
-    public int $tries = 3;
+    public int $tries = 6;
+
+    /**
+     * Maximum exceptions allowed before failing.
+     */
+    public int $maxExceptions = 3;
+
+    public bool $failOnTimeout = true;
 
     /**
      * Seconds to wait before retrying (exponential backoff).
@@ -76,62 +82,29 @@ final class SyncShopwiredFilterGroupsJob implements ShouldBeUnique, ShouldQueue
         $this->onQueue(QueueName::Low->value);
     }
 
+    /** @return list<object> */
+    public function middleware(): array
+    {
+        return [
+            ServiceRateLimiter::shopwiredApi(),
+            ServiceCircuitBreaker::shopwired(),
+            new HandleApiExceptions(),
+        ];
+    }
+
+    public function retryUntil(): DateTimeImmutable
+    {
+        return \now()->addHours(24)->toDateTimeImmutable();
+    }
+
     /**
      * Execute the job.
      *
-     * @throws TransientApiFailure When ShopWired API unavailable (triggers retry)
-     * @throws PermanentApiFailure When permanent API failure occurs (fails immediately)
-     * @throws Throwable When unexpected errors occur - indicates code update required
+     * @throws RuntimeException
      */
-    public function handle(SyncFilterGroupsUseCase $useCase, LoggerInterface $logger): void
+    public function handle(SyncFilterGroupsUseCase $useCase): void
     {
-        $logger->info('ShopWired filter group definitions sync job starting');
-
-        try {
-            $result = $useCase->execute();
-
-            $logger->info('ShopWired filter group definitions sync job completed', [
-                'fetched' => $result->fetched,
-                'saved' => $result->saved,
-                'failed' => $result->failed,
-            ]);
-        } catch (TransientApiFailure $e) {
-            // Dual retry: API-provided delay via release(), or Laravel backoff via rethrow
-            $logger->warning('ShopWired filter group sync service unavailable, will retry', [
-                'service' => $e->serviceName,
-                'retry_after' => $e->retryAfter,
-                'attempts' => $this->attempts(),
-            ]);
-
-            if ($e->retryAfter !== null) {
-                $this->release($e->retryAfter);
-            } else {
-                throw $e;
-            }
-        } catch (PermanentApiFailure $e) {
-            $this->fail($e);
-            throw $e;
-        } catch (Throwable $e) {
-            $this->fail($e);
-            throw $e;
-        }
+        $useCase->execute();
     }
 
-    /**
-     * Handle job failure after all retries exhausted.
-     */
-    public function failed(Throwable $exception): void
-    {
-        $context = [
-            'exception' => $exception::class,
-            'message' => $exception->getMessage(),
-            'attempts' => $this->attempts(),
-        ];
-
-        if ($exception instanceof AbstractApiException) {
-            Log::error('ShopWired filter group definitions sync job failed permanently', $context);
-        } else {
-            Log::critical('ShopWired filter group definitions sync job failed permanently', $context);
-        }
-    }
 }

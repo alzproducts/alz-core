@@ -6,10 +6,9 @@ namespace App\Infrastructure\Jobs\Shopwired;
 
 use App\Application\Contracts\Shopwired\OrderClientInterface;
 use App\Application\Contracts\Shopwired\OrderRepositoryInterface;
-use App\Domain\Exceptions\Api\PermanentApiFailure;
-use App\Domain\Exceptions\Api\TransientApiFailure;
+use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
+use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use Psr\Log\LoggerInterface;
-use Throwable;
 
 /**
  * Fetch the current state of a ShopWired order from the API and persist it.
@@ -21,19 +20,17 @@ use Throwable;
 final class SyncShopwiredOrderJob extends AbstractSyncShopwiredEntityJob
 {
     /**
-     * @throws TransientApiFailure
-     * @throws PermanentApiFailure
-     * @throws Throwable
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
      */
     public function handle(
         OrderClientInterface $client,
         OrderRepositoryInterface $repo,
         LoggerInterface $logger,
     ): void {
-        $this->withErrorHandling($logger, function () use ($client, $repo): void {
-            $order = $client->getOrderById($this->entityId->value);
-            $repo->save($order);
-        });
+        $order = $client->getOrderById($this->entityId->value);
+        $repo->save($order);
+        $logger->info('Order sync complete', ['order_id' => $this->entityId->value]);
     }
 
     protected function uniqueIdPrefix(): string
@@ -41,13 +38,4 @@ final class SyncShopwiredOrderJob extends AbstractSyncShopwiredEntityJob
         return 'sync-shopwired-order-';
     }
 
-    protected function contextKey(): string
-    {
-        return 'order_id';
-    }
-
-    protected function entityLabel(): string
-    {
-        return 'Order';
-    }
 }

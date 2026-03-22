@@ -54,5 +54,14 @@ final class RateLimitServiceProvider extends ServiceProvider
         // Contact form rate limiter: 5 requests per minute per IP
         // Prevents spam floods while allowing legitimate resubmissions after validation errors
         RateLimiter::for('contact-form', static fn(Request $request): Limit => Limit::perMinute(5)->by($request->ip()));
+
+        // Queue rate limiters: proactive rate limiting for outbound API calls
+        // These run in queue worker context (no Request object) — use static closures
+
+        // ShopWired API: 55 req/min (leaves headroom below actual limit)
+        RateLimiter::for('shopwired-api', static fn(): Limit => Limit::perMinute(55));
+
+        // ShopWired API bulk: 30 req/min for high-volume single-item jobs (e.g. free delivery updates)
+        RateLimiter::for('shopwired-api-bulk', static fn(): Limit => Limit::perMinute(30));
     }
 }

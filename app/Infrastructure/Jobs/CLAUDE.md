@@ -9,12 +9,17 @@ Jobs are **queue delivery mechanisms** — they receive a queued message and inv
 | `high` | 90s | Time-sensitive, user-facing (webhooks, notifications) |
 | `default` | 90s | Normal priority (order sync, daily jobs) |
 | `low` | 3600s | Bulk/background work (full customer sync, data migrations) |
+| `bulk` | 60s | High-volume single-item jobs (free delivery updates) |
 
 Route jobs via constructor: `$this->onQueue('low')`. Config: `config/horizon.php`.
 
 ## Required Job Properties
 
-Every job must define: `$tries`, `$timeout`, `backoff()` (property or method), `failed()` method, and call `$this->onQueue()` in the constructor. Enforced by custom PHPStan rules in `DevTools/PHPStan/Rules/Jobs/`.
+Every job must define: `$tries`, `$timeout`, `backoff()` (property or method), and call `$this->onQueue()` in the constructor. Jobs using `HandleApiExceptions` middleware don't need `failed()` — only define it for side effects (e.g. marking a DB record as failed). Enforced by custom PHPStan rules in `DevTools/PHPStan/Rules/Jobs/`.
+
+## Logging
+
+Jobs should rarely log. Log where context is most relevant — if a job passes input params straight to a UseCase, the UseCase should log them, not the job. `Queue::before`/`Queue::after`/`Queue::failing` handle start/completion/failure logging for all jobs centrally.
 
 ## Naming Convention
 
