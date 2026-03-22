@@ -13,15 +13,16 @@ use PHPStan\Rules\Rule;
 use PHPStan\Rules\RuleErrorBuilder;
 
 /**
- * Job handle() methods must have a catch(\Throwable) block.
+ * Job handle() methods must have error handling for API exceptions.
  *
- * Every job must catch unexpected exceptions to:
- * 1. Log critical context (exception class, message, job name)
- * 2. Call $this->fail() to prevent silent retry loops
- * 3. Rethrow for Laravel's failure tracking
+ * Accepted patterns:
+ * 1. Inline catch(\Throwable) in handle()
+ * 2. Abstract parent class providing error handling via shared method
+ * 3. HandleApiExceptions middleware (declared via middleware() method)
  *
- * Without this, unexpected exceptions cause retries with no logging,
- * making production debugging impossible.
+ * Jobs using middleware delegate TransientApiFailure release logic and
+ * PermanentApiFailure fail-fast to the middleware. Unexpected exceptions
+ * bubble to the Worker naturally and are logged/captured via Queue::failing.
  *
  * @implements Rule<ClassMethod>
  */
@@ -47,7 +48,9 @@ final class JobHandleMustCatchThrowableRule implements Rule
 
         $className = $scope->getClassReflection()->getName();
 
-        if (! \str_contains($className, 'App\\Infrastructure\\Jobs\\')) {
+        if (! \str_contains($className, 'App\\Infrastructure\\Jobs\\')
+            || \str_contains($className, 'App\\Infrastructure\\Jobs\\Middleware\\')
+        ) {
             return [];
         }
 
@@ -60,14 +63,20 @@ final class JobHandleMustCatchThrowableRule implements Rule
             return [];
         }
 
-        // Abstract parent in the same namespace may provide the catch(Throwable) via a shared method
         $classReflection = $scope->getClassReflection();
+
+        // Abstract parent in the same namespace may provide the catch(Throwable) via a shared method
         $parentClass = $classReflection->getParentClass();
 
         if ($parentClass !== null
             && $parentClass->isAbstract()
             && \str_contains($parentClass->getName(), 'App\\Infrastructure\\Jobs\\')
         ) {
+            return [];
+        }
+
+        // Jobs with a middleware() method delegate error handling to HandleApiExceptions middleware
+        if ($classReflection->hasMethod('middleware') || ($parentClass !== null && $parentClass->hasMethod('middleware'))) {
             return [];
         }
 

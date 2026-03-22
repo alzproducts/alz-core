@@ -56,6 +56,7 @@ Note: `railway run` is local-only with env vars, not remote execution.
 - Clean Architecture decisions (naming, layer placement, pattern choices)
 - Linting/PHPArkitect failures that aren't obvious syntax errors
 - Any architectural trade-offs or deviations from established patterns
+- Changes to custom PHPStan rules, PHPArkitect rules, or Deptrac config
 
 **Use `AskUserQuestion` tool** when presenting options or seeking decisions.
 

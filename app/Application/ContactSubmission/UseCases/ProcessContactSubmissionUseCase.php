@@ -75,7 +75,8 @@ final readonly class ProcessContactSubmissionUseCase
             return null;
         }
 
-        // Mark as processing (sets processing_started_at for stale detection)
+        // Track attempt count for monitoring and mark as processing
+        $this->actionRepository->incrementAttempts($actionId);
         $this->actionRepository->markProcessing($actionId);
 
         // Load submission from database

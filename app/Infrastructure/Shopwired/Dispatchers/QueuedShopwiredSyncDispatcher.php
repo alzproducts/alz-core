@@ -60,12 +60,9 @@ final readonly class QueuedShopwiredSyncDispatcher implements ShopwiredSyncDispa
         SyncShopwiredOrdersRangeJob::dispatch($from, $to);
     }
 
-    /**
-     * @param list<SetFreeDeliveryCommand> $commands
-     */
     #[Override]
-    public function dispatchFreeDeliveryUpdate(array $commands): void
+    public function dispatchFreeDeliveryUpdate(SetFreeDeliveryCommand $command): void
     {
-        SetProductFreeDeliveryJob::dispatch($commands);
+        SetProductFreeDeliveryJob::dispatch($command);
     }
 }

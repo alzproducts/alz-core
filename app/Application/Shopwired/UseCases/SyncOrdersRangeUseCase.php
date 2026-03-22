@@ -71,11 +71,21 @@ final readonly class SyncOrdersRangeUseCase
             ]);
         }
 
-        return new SyncResult(
+        $result = new SyncResult(
             fetched: \count($orders),
             saved: $saveResult->succeeded,
             failed: $saveResult->failed,
             failedReferences: $saveResult->failedReferences,
         );
+
+        $this->logger->info('Order range sync completed', [
+            'from' => $from->format('Y-m-d H:i:s'),
+            'to' => $to->format('Y-m-d H:i:s'),
+            'fetched' => $result->fetched,
+            'saved' => $result->saved,
+            'failed' => $result->failed,
+        ]);
+
+        return $result;
     }
 }

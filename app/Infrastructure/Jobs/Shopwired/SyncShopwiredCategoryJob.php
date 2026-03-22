@@ -6,10 +6,9 @@ namespace App\Infrastructure\Jobs\Shopwired;
 
 use App\Application\Contracts\Shopwired\CategoryClientInterface;
 use App\Application\Contracts\Shopwired\CategoryRepositoryInterface;
-use App\Domain\Exceptions\Api\PermanentApiFailure;
-use App\Domain\Exceptions\Api\TransientApiFailure;
+use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
+use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use Psr\Log\LoggerInterface;
-use Throwable;
 
 /**
  * Fetch the current state of a ShopWired category from the API and persist it.
@@ -21,19 +20,17 @@ use Throwable;
 final class SyncShopwiredCategoryJob extends AbstractSyncShopwiredEntityJob
 {
     /**
-     * @throws TransientApiFailure
-     * @throws PermanentApiFailure
-     * @throws Throwable
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
      */
     public function handle(
         CategoryClientInterface $client,
         CategoryRepositoryInterface $repo,
         LoggerInterface $logger,
     ): void {
-        $this->withErrorHandling($logger, function () use ($client, $repo): void {
-            $category = $client->getCategoryById($this->entityId->value);
-            $repo->save($category);
-        });
+        $category = $client->getCategoryById($this->entityId->value);
+        $repo->save($category);
+        $logger->info('Category sync complete', ['category_id' => $this->entityId->value]);
     }
 
     protected function uniqueIdPrefix(): string
@@ -41,13 +38,4 @@ final class SyncShopwiredCategoryJob extends AbstractSyncShopwiredEntityJob
         return 'sync-shopwired-category-';
     }
 
-    protected function contextKey(): string
-    {
-        return 'category_id';
-    }
-
-    protected function entityLabel(): string
-    {
-        return 'Category';
-    }
 }
