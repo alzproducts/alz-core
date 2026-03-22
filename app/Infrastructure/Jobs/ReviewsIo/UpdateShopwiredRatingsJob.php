@@ -5,20 +5,17 @@ declare(strict_types=1);
 namespace App\Infrastructure\Jobs\ReviewsIo;
 
 use App\Application\ReviewsIo\UseCases\UpdateShopwiredRatingsUseCase;
-use App\Domain\Exceptions\Api\AbstractApiException;
-use App\Domain\Exceptions\Api\PermanentApiFailure;
-use App\Domain\Exceptions\Api\TransientApiFailure;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Infrastructure\Jobs\Enums\QueueName;
+use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
+use App\Infrastructure\Jobs\Middleware\ServiceCircuitBreaker;
+use DateTimeImmutable;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Support\Facades\Log;
-use Psr\Log\LoggerInterface;
-use Throwable;
 
 /**
  * Push product ratings from local database to ShopWired custom fields.
@@ -32,8 +29,10 @@ final class UpdateShopwiredRatingsJob implements ShouldBeUnique, ShouldQueue
     use InteractsWithQueue;
     use Queueable;
 
-    public int $tries = 5;
+    public int $tries = 10;
+    public int $maxExceptions = 5;
     public int $timeout = 900;
+    public bool $failOnTimeout = true;
     public int $uniqueFor = 1200;
 
     /** @var array<int> */
@@ -49,60 +48,26 @@ final class UpdateShopwiredRatingsJob implements ShouldBeUnique, ShouldQueue
         $this->onQueue(QueueName::Low->value);
     }
 
-    /**
-     * @throws DatabaseOperationFailedException When database query fails
-     * @throws DuplicateRecordException On constraint violation
-     * @throws TransientApiFailure When ShopWired API unavailable (triggers retry)
-     * @throws PermanentApiFailure When permanent API failure occurs (fails immediately)
-     * @throws Throwable When unexpected errors occur
-     */
-    public function handle(UpdateShopwiredRatingsUseCase $useCase, LoggerInterface $logger): void
+    /** @return list<object> */
+    public function middleware(): array
     {
-        $logger->info('ShopWired ratings update job starting');
-
-        try {
-            $result = $useCase->execute();
-
-            $logger->info('ShopWired ratings update job completed', [
-                'processed' => $result->processed,
-                'updated' => $result->updated,
-                'skipped' => $result->skipped,
-                'failed' => $result->failed,
-            ]);
-        } catch (TransientApiFailure $e) {
-            // Dual retry: API-provided delay via release(), or Laravel backoff via rethrow
-            $logger->warning('ShopWired ratings update service unavailable, will retry', [
-                'service' => $e->serviceName,
-                'retry_after' => $e->retryAfter,
-                'attempts' => $this->attempts(),
-            ]);
-
-            if ($e->retryAfter !== null) {
-                $this->release($e->retryAfter);
-            } else {
-                throw $e;
-            }
-        } catch (PermanentApiFailure $e) {
-            $this->fail($e);
-            throw $e;
-        } catch (Throwable $e) {
-            $this->fail($e);
-            throw $e;
-        }
+        return [
+            ServiceCircuitBreaker::reviewsio(),
+            new HandleApiExceptions(),
+        ];
     }
 
-    public function failed(Throwable $exception): void
+    public function retryUntil(): DateTimeImmutable
     {
-        $context = [
-            'exception' => $exception::class,
-            'message' => $exception->getMessage(),
-            'attempts' => $this->attempts(),
-        ];
+        return \now()->addHours(24)->toDateTimeImmutable();
+    }
 
-        if ($exception instanceof AbstractApiException) {
-            Log::error('ShopWired ratings update job failed permanently', $context);
-        } else {
-            Log::critical('ShopWired ratings update job failed permanently', $context);
-        }
+    /**
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     */
+    public function handle(UpdateShopwiredRatingsUseCase $useCase): void
+    {
+        $useCase->execute();
     }
 }

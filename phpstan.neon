@@ -233,6 +233,36 @@ parameters:
         -
             identifier: missingType.checkedException
             path: app/Providers/*
+        # Job handle() methods delegate API exception handling to HandleApiExceptions middleware.
+        # PHPStan can't model middleware wrapping, so it reports these as uncaught.
+        # Only suppress API exceptions (TransientApiFailure/PermanentApiFailure hierarchy) —
+        # non-API checked exceptions (Data/, Infrastructure/, etc.) are still enforced.
+        -
+            identifier: missingType.checkedException
+            message: '#throws checked exception App\\Domain\\Exceptions\\Api\\#'
+            path: app/Infrastructure/Jobs/*
+        # HandleApiExceptions is queue middleware, not a job — exclude from all job-specific rules.
+        # It lives under Jobs/Middleware/ for co-location but doesn't implement ShouldQueue.
+        # The object $job parameter uses InteractsWithQueue trait methods (release, fail) which
+        # PHPStan can't resolve on the native `object` type — same pattern as Laravel's ThrottlesExceptions.
+        -
+            identifier: alz.jobNamingPrefix
+            path: app/Infrastructure/Jobs/Middleware/*
+        -
+            identifier: alz.jobRequiredMethod
+            path: app/Infrastructure/Jobs/Middleware/*
+        -
+            identifier: alz.jobRequiredProperty
+            path: app/Infrastructure/Jobs/Middleware/*
+        -
+            identifier: alz.jobMustCallOnQueue
+            path: app/Infrastructure/Jobs/Middleware/*
+        -
+            identifier: alz.jobMustImplementShouldQueue
+            path: app/Infrastructure/Jobs/Middleware/*
+        -
+            identifier: method.notFound
+            path: app/Infrastructure/Jobs/Middleware/*
         # Laravel route files use closures for route grouping and definitions.
         # All exceptions are handled by Laravel's exception handler, not the closure caller.
         -

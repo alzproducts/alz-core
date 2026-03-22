@@ -4,38 +4,21 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Jobs\ContactForm;
 
-use App\Application\Contracts\ContactSubmission\ContactFormDispatcherInterface;
-use App\Application\Contracts\ContactSubmission\ContactSubmissionActionRepositoryInterface;
-use App\Domain\Exceptions\Api\AbstractApiException;
-use App\Domain\Exceptions\Api\TransientApiFailure;
-use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
+use App\Application\ContactSubmission\UseCases\CleanupStaleContactActionsUseCase;
 use App\Infrastructure\Jobs\Enums\QueueName;
+use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
 use DateTimeImmutable;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Support\Facades\Log;
-use Psr\Log\LoggerInterface;
-use Throwable;
 
 /**
  * Cleans up contact submission actions stuck in 'processing' status.
  *
- * Scheduled to run hourly. Finds actions that have been processing
- * for longer than the threshold (1 hour) and resets them to 'pending',
- * then re-dispatches the processing job.
- *
- * This handles edge cases like:
- * - Worker crash during processing
- * - Network partition preventing job completion
- * - HelpScout call succeeded but DB update failed
- *
- * Exception Strategy:
- * - ExternalServiceUnavailableException: Retry with backoff (transient DB issue)
- * - Per-action failures: Log and continue (don't fail entire batch)
- * - Unexpected errors: Fail immediately (code needs fixing)
+ * Scheduled to run hourly. Delegates to UseCase which finds stale actions,
+ * resets them to 'pending', and re-dispatches the processing job.
  */
 final class CleanupStaleContactActionsJob implements ShouldBeUnique, ShouldQueue
 {
@@ -43,16 +26,12 @@ final class CleanupStaleContactActionsJob implements ShouldBeUnique, ShouldQueue
     use InteractsWithQueue;
     use Queueable;
 
-    private const int STALE_THRESHOLD_HOURS = 1;
+    public int $tries = 6;
 
-    /**
-     * Maximum attempts before permanent failure.
-     */
-    public int $tries = 3;
+    public int $maxExceptions = 3;
 
-    /**
-     * Job timeout in seconds.
-     */
+    public bool $failOnTimeout = true;
+
     public int $timeout = 120;
 
     /**
@@ -78,108 +57,19 @@ final class CleanupStaleContactActionsJob implements ShouldBeUnique, ShouldQueue
         $this->onQueue(QueueName::Default->value);
     }
 
-    /**
-     * @throws TransientApiFailure On transient failure (triggers retry)
-     * @throws Throwable On unexpected errors (fails immediately)
-     */
-    public function handle(
-        ContactSubmissionActionRepositoryInterface $repository,
-        ContactFormDispatcherInterface $dispatcher,
-        LoggerInterface $logger,
-    ): void {
-        try {
-            $threshold = new DateTimeImmutable(\sprintf('-%d hours', self::STALE_THRESHOLD_HOURS));
-            $staleActions = $repository->findStaleProcessing($threshold);
-
-            if ($staleActions === []) {
-                return;
-            }
-
-            $logger->info('Found stale contact submission actions', [
-                'count' => \count($staleActions),
-                'threshold_hours' => self::STALE_THRESHOLD_HOURS,
-            ]);
-
-            $resetCount = 0;
-            $failedCount = 0;
-
-            foreach ($staleActions as $action) {
-                try {
-                    $this->resetAndRedispatch($repository, $dispatcher, $action, $logger);
-                    $resetCount++;
-                } catch (DatabaseOperationFailedException $e) {
-                    // Log and continue - don't let one failure stop others
-                    $logger->error('Failed to reset stale contact action', [
-                        'action_id' => $action['action_id'],
-                        'submission_id' => $action['parent_id'],
-                        'error' => $e->getMessage(),
-                    ]);
-                    $failedCount++;
-                }
-            }
-
-            $logger->info('Completed stale contact action cleanup', [
-                'reset_count' => $resetCount,
-                'failed_count' => $failedCount,
-                'total_found' => \count($staleActions),
-            ]);
-        } catch (TransientApiFailure $e) {
-            $logger->warning('Stale action cleanup service unavailable, will retry', [
-                'service' => $e->serviceName,
-                'retry_after' => $e->retryAfter,
-                'attempt' => $this->attempts(),
-            ]);
-
-            throw $e;
-        } catch (Throwable $e) {
-            $this->fail($e);
-
-            throw $e;
-        }
-    }
-
-    /**
-     * Reset a single action and re-dispatch its processing job.
-     *
-     * @param array{action_id: string, parent_id: string} $action
-     *
-     * @throws DatabaseOperationFailedException On reset failure
-     * @throws TransientApiFailure On transient failure
-     */
-    private function resetAndRedispatch(
-        ContactSubmissionActionRepositoryInterface $repository,
-        ContactFormDispatcherInterface $dispatcher,
-        array $action,
-        LoggerInterface $logger,
-    ): void {
-        $logger->warning('Resetting stale contact action', [
-            'action_id' => $action['action_id'],
-            'submission_id' => $action['parent_id'],
-        ]);
-
-        $repository->resetToPending($action['action_id']);
-
-        $dispatcher->dispatchContactSubmissionProcessing(
-            $action['parent_id'],
-            $action['action_id'],
-        );
-    }
-
-    /**
-     * Handle job failure after all retries exhausted.
-     */
-    public function failed(Throwable $exception): void
+    /** @return list<object> */
+    public function middleware(): array
     {
-        $context = [
-            'exception' => $exception::class,
-            'message' => $exception->getMessage(),
-            'attempts' => $this->attempts(),
-        ];
+        return [new HandleApiExceptions()];
+    }
 
-        if ($exception instanceof AbstractApiException) {
-            Log::error('CleanupStaleContactActionsJob exhausted all retries', $context);
-        } else {
-            Log::critical('CleanupStaleContactActionsJob exhausted all retries', $context);
-        }
+    public function retryUntil(): DateTimeImmutable
+    {
+        return \now()->addHours(4)->toDateTimeImmutable();
+    }
+
+    public function handle(CleanupStaleContactActionsUseCase $useCase): void
+    {
+        $useCase->execute();
     }
 }

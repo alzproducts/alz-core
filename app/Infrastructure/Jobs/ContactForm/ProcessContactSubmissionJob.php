@@ -6,21 +6,18 @@ namespace App\Infrastructure\Jobs\ContactForm;
 
 use App\Application\ContactSubmission\UseCases\HandleContactSubmissionFailureUseCase;
 use App\Application\ContactSubmission\UseCases\ProcessContactSubmissionUseCase;
-use App\Application\Contracts\ContactSubmission\ContactSubmissionActionRepositoryInterface;
-use App\Domain\Exceptions\Api\AuthenticationExpiredException;
-use App\Domain\Exceptions\Api\InvalidApiRequestException;
-use App\Domain\Exceptions\Api\ResourceNotFoundException;
-use App\Domain\Exceptions\Api\TransientApiFailure;
-use App\Domain\Exceptions\Api\UnexpectedApiResultException;
 use App\Domain\Exceptions\Data\InsufficientDataException;
 use App\Domain\Exceptions\Data\MalformedStoredDataException;
+use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Infrastructure\Jobs\Enums\QueueName;
+use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
+use App\Infrastructure\Jobs\Middleware\ServiceCircuitBreaker;
+use DateTimeImmutable;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
-use Psr\Log\LoggerInterface;
 use Throwable;
 
 /**
@@ -30,11 +27,10 @@ use Throwable;
  * if the job is retried while another instance is still processing.
  *
  * Exception Strategy:
- * - ExternalServiceUnavailableException: Retry with backoff (transient)
- * - AuthenticationExpiredException: Fail immediately (credentials need updating)
- * - InvalidApiRequestException/UnexpectedApiResultException: Fail immediately (code needs fixing)
- * - ResourceNotFoundException/MalformedStoredDataException: Fail immediately (data issue)
- * - InsufficientDataException: Fail immediately (validation should have caught this)
+ * - TransientApiFailure: Handled by {@see HandleApiExceptions} middleware (release/rethrow)
+ * - PermanentApiFailure: Handled by {@see HandleApiExceptions} middleware (fail immediately)
+ * - Data exceptions: Caught in handle() → fail immediately (non-API permanent failures)
+ * - Unexpected Throwable: Retried by Laravel, failed() on exhaustion
  */
 final class ProcessContactSubmissionJob implements ShouldBeUnique, ShouldQueue
 {
@@ -48,28 +44,22 @@ final class ProcessContactSubmissionJob implements ShouldBeUnique, ShouldQueue
      */
     public int $tries = 5;
 
-    /**
-     * Maximum exceptions before permanent failure.
-     */
     public int $maxExceptions = 5;
 
-    /**
-     * Job timeout in seconds.
-     */
+    public bool $failOnTimeout = true;
+
     public int $timeout = 60;
 
     /**
-     * Backoff delays in seconds.
-     * 1min, 5min, 1hr, 12hr - progressive delays for transient failures.
+     * Seconds to wait before retrying.
+     *
+     * 1min, 5min, 1hr, 12hr: progressive delays for transient failures.
      *
      * @var array<int>
      */
     public array $backoff = [60, 300, 3600, 43200];
 
-    /**
-     * Unique lock duration in seconds.
-     * Set to max expected runtime + buffer.
-     */
+    /** Unique lock duration in seconds. */
     public int $uniqueFor = 300;
 
     public function __construct(
@@ -79,101 +69,43 @@ final class ProcessContactSubmissionJob implements ShouldBeUnique, ShouldQueue
         $this->onQueue(QueueName::Default->value);
     }
 
-    /**
-     * Get the unique ID for this job.
-     * Prevents duplicate processing of the same submission.
-     */
     public function uniqueId(): string
     {
         return $this->submissionId;
     }
 
+    /** @return list<object> */
+    public function middleware(): array
+    {
+        return [
+            ServiceCircuitBreaker::helpscout(),
+            new HandleApiExceptions(),
+        ];
+    }
+
+    public function retryUntil(): DateTimeImmutable
+    {
+        return \now()->addHours(14)->toDateTimeImmutable();
+    }
+
     /**
-     * Execute the job.
-     *
-     * @throws TransientApiFailure When HelpScout unavailable (triggers retry)
-     * @throws Throwable On unexpected errors
+     * @throws DatabaseOperationFailedException
      */
-    public function handle(
-        ProcessContactSubmissionUseCase $useCase,
-        ContactSubmissionActionRepositoryInterface $actionRepository,
-        LoggerInterface $logger,
-    ): void {
-        $logger->info('ProcessContactSubmissionJob starting', [
-            'submission_id' => $this->submissionId,
-            'action_id' => $this->actionId,
-            'attempt' => $this->attempts(),
-        ]);
-
-        // Track attempt count for monitoring
-        $actionRepository->incrementAttempts($this->actionId);
-
+    public function handle(ProcessContactSubmissionUseCase $useCase): void
+    {
         try {
-            $conversationId = $useCase->execute($this->submissionId, $this->actionId);
-
-            $logger->info('ProcessContactSubmissionJob completed', [
-                'submission_id' => $this->submissionId,
-                'conversation_id' => $conversationId,
-            ]);
-        } catch (TransientApiFailure $e) {
-            // Dual retry: API-provided delay via release(), or Laravel backoff via rethrow
-            $logger->warning('Contact processing service unavailable, will retry', [
-                'submission_id' => $this->submissionId,
-                'service' => $e->serviceName,
-                'retry_after' => $e->retryAfter,
-                'attempt' => $this->attempts(),
-            ]);
-
-            if ($e->retryAfter !== null) {
-                $this->release($e->retryAfter);
-            } else {
-                throw $e;
-            }
-        } catch (AuthenticationExpiredException $e) {
-            // Permanent failure - credentials need updating
-
-            $actionRepository->markFailed($this->actionId, "Authentication expired: {$e->getMessage()}");
+            $useCase->execute($this->submissionId, $this->actionId);
+        } catch (InsufficientDataException|MalformedStoredDataException $e) {
             $this->fail($e);
-
-            throw $e;
-        } catch (InvalidApiRequestException|UnexpectedApiResultException $e) {
-            // Permanent failure - code needs fixing
-
-            $actionRepository->markFailed($this->actionId, "API error: {$e->getMessage()}");
-            $this->fail($e);
-
-            throw $e;
-        } catch (ResourceNotFoundException|MalformedStoredDataException $e) {
-            // Permanent failure - data issue
-
-            $actionRepository->markFailed($this->actionId, "Data error: {$e->getMessage()}");
-            $this->fail($e);
-
-            throw $e;
-        } catch (InsufficientDataException $e) {
-            // Permanent failure - validation should have caught this
-
-            $actionRepository->markFailed($this->actionId, "Insufficient data: {$e->getMessage()}");
-            $this->fail($e);
-
-            throw $e;
-        } catch (Throwable $e) {
-            $actionRepository->markFailed($this->actionId, "Unexpected error: {$e->getMessage()}");
-            $this->fail($e);
-
-            throw $e;
         }
     }
 
     /**
      * Handle job failure after all retries exhausted.
      *
-     * This is called when:
-     * - ExternalServiceUnavailableException exhausts all retries (transient failures)
-     * - Any exception causes Laravel to give up
-     *
-     * Critical: Must mark action as failed to prevent infinite loop with
-     * CleanupStaleContactActionsJob (which resets 'processing' → 'pending').
+     * Delegates to {@see HandleContactSubmissionFailureUseCase} which marks the
+     * action as failed (preventing infinite cleanup loop), validates the email,
+     * and fires a failure notification event.
      */
     public function failed(Throwable $exception): void
     {

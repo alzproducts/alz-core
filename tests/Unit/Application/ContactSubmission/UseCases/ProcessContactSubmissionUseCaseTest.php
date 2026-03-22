@@ -109,6 +109,7 @@ final class ProcessContactSubmissionUseCaseTest extends TestCase
             ->andReturn(ActionStatus::Completed);
 
         // Should NOT call any other methods
+        $this->actionRepository->shouldNotReceive('incrementAttempts');
         $this->actionRepository->shouldNotReceive('markProcessing');
         $this->submissionRepository->shouldNotReceive('findById');
         $this->helpScoutClient->shouldNotReceive('createConversationFromCustomer');
@@ -156,12 +157,18 @@ final class ProcessContactSubmissionUseCaseTest extends TestCase
     */
 
     #[Test]
-    public function execute_marks_action_as_processing_before_work(): void
+    public function execute_increments_attempts_and_marks_processing_before_work(): void
     {
         $callOrder = [];
 
         $this->actionRepository->expects('getStatus')
             ->andReturn(ActionStatus::Pending);
+
+        $this->actionRepository->expects('incrementAttempts')
+            ->with(self::ACTION_ID)
+            ->andReturnUsing(static function () use (&$callOrder): void {
+                $callOrder[] = 'incrementAttempts';
+            });
 
         $this->actionRepository->expects('markProcessing')
             ->with(self::ACTION_ID)
@@ -190,7 +197,7 @@ final class ProcessContactSubmissionUseCaseTest extends TestCase
 
         $this->useCase->execute(self::SUBMISSION_ID, self::ACTION_ID);
 
-        self::assertSame(['markProcessing', 'findById'], $callOrder);
+        self::assertSame(['incrementAttempts', 'markProcessing', 'findById'], $callOrder);
     }
 
     #[Test]
@@ -238,6 +245,7 @@ final class ProcessContactSubmissionUseCaseTest extends TestCase
 
         $this->actionRepository->expects('getStatus')
             ->andReturn(ActionStatus::Pending);
+        $this->actionRepository->allows('incrementAttempts');
         $this->actionRepository->allows('markProcessing');
         $this->submissionRepository->expects('findById')
             ->andReturn($submission);
@@ -268,6 +276,7 @@ final class ProcessContactSubmissionUseCaseTest extends TestCase
 
         $this->actionRepository->expects('getStatus')
             ->andReturn(ActionStatus::Pending);
+        $this->actionRepository->allows('incrementAttempts');
         $this->actionRepository->expects('markProcessing');
         $this->submissionRepository->expects('findById')
             ->andReturn($submission);
@@ -306,6 +315,7 @@ final class ProcessContactSubmissionUseCaseTest extends TestCase
 
         $this->actionRepository->expects('getStatus')
             ->andReturn(ActionStatus::Pending);
+        $this->actionRepository->allows('incrementAttempts');
         $this->actionRepository->allows('markProcessing');
         $this->submissionRepository->expects('findById')
             ->andReturn($submission);
@@ -330,6 +340,7 @@ final class ProcessContactSubmissionUseCaseTest extends TestCase
 
         $this->actionRepository->expects('getStatus')
             ->andReturn(ActionStatus::Pending);
+        $this->actionRepository->allows('incrementAttempts');
         $this->actionRepository->expects('markProcessing');
         $this->submissionRepository->expects('findById')
             ->andReturn($submission);
@@ -374,6 +385,7 @@ final class ProcessContactSubmissionUseCaseTest extends TestCase
 
         $this->actionRepository->expects('getStatus')
             ->andReturn($initialStatus);
+        $this->actionRepository->allows('incrementAttempts');
         $this->actionRepository->allows('markProcessing');
         $this->submissionRepository->expects('findById')
             ->andReturn($submission);
