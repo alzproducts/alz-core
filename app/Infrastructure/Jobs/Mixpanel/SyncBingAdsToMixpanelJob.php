@@ -5,18 +5,16 @@ declare(strict_types=1);
 namespace App\Infrastructure\Jobs\Mixpanel;
 
 use App\Application\AdSpend\UseCases\SyncAdSpendUseCase;
-use App\Domain\Exceptions\Api\AbstractApiException;
-use App\Domain\Exceptions\Api\PermanentApiFailure;
 use App\Domain\Exceptions\Api\TransientApiFailure;
 use App\Domain\ValueObjects\DateRange;
 use App\Infrastructure\Jobs\Enums\QueueName;
+use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
 use DateTimeImmutable;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Support\Facades\Log;
-use Psr\Log\LoggerInterface;
+use Illuminate\Queue\Middleware\ThrottlesExceptions;
 use Throwable;
 
 /**
@@ -37,9 +35,22 @@ final class SyncBingAdsToMixpanelJob implements ShouldQueue
     /**
      * Maximum number of attempts before giving up.
      *
-     * 3 attempts: quick retries for transient issues + 1hr fallback for longer outages.
+     * Doubled from original 3 to allow middleware-consumed attempts.
      */
-    public int $tries = 3;
+    public int $tries = 6;
+
+    /**
+     * Maximum number of unhandled exceptions before failing.
+     *
+     * Matches original $tries — middleware-handled exceptions (release/fail)
+     * don't count, only rethrown exceptions decrement this.
+     */
+    public int $maxExceptions = 3;
+
+    /**
+     * Fail the job if it times out.
+     */
+    public bool $failOnTimeout = true;
 
     /**
      * Job timeout in seconds.
@@ -65,71 +76,33 @@ final class SyncBingAdsToMixpanelJob implements ShouldQueue
     }
 
     /**
-     * Execute the job.
+     * Job middleware pipeline.
      *
-     * @throws TransientApiFailure When Bing Ads API unavailable (triggers retry)
-     * @throws PermanentApiFailure When permanent API failure occurs (fails immediately)
-     * @throws Throwable When unexpected errors occur - indicates code update required
+     * @return list<object>
      */
-    public function handle(SyncAdSpendUseCase $useCase, LoggerInterface $logger): void
+    public function middleware(): array
     {
-        $dateRange = new DateRange($this->from, $this->to);
-        $fromString = $this->from->format('Y-m-d');
-        $toString = $this->to->format('Y-m-d');
-
-        $logger->info('Queued Bing Ads to Mixpanel sync starting', [
-            'from' => $fromString,
-            'to' => $toString,
-        ]);
-
-        try {
-            $useCase->execute($dateRange);
-
-            $logger->info('Queued Bing Ads to Mixpanel sync completed', [
-                'from' => $fromString,
-                'to' => $toString,
-            ]);
-        } catch (TransientApiFailure $e) {
-            // Dual retry: API-provided delay via release(), or Laravel backoff via rethrow
-            $logger->warning('Bing Ads sync service unavailable, will retry', [
-                'from' => $fromString,
-                'to' => $toString,
-                'service' => $e->serviceName,
-                'retry_after' => $e->retryAfter,
-                'attempts' => $this->attempts(),
-            ]);
-
-            if ($e->retryAfter !== null) {
-                $this->release($e->retryAfter);
-            } else {
-                throw $e;
-            }
-        } catch (PermanentApiFailure $e) {
-            $this->fail($e);
-            throw $e;
-        } catch (Throwable $e) {
-            $this->fail($e);
-            throw $e;
-        }
+        return [
+            (new ThrottlesExceptions(maxAttempts: 10, decaySeconds: 300))
+                ->by('mixpanel')
+                ->when(static fn(Throwable $e): bool => $e instanceof TransientApiFailure),
+            new HandleApiExceptions(),
+        ];
     }
 
     /**
-     * Handle job failure.
+     * Determine the time at which the job should timeout.
      */
-    public function failed(Throwable $exception): void
+    public function retryUntil(): DateTimeImmutable
     {
-        $context = [
-            'from' => $this->from->format('Y-m-d'),
-            'to' => $this->to->format('Y-m-d'),
-            'exception' => $exception::class,
-            'message' => $exception->getMessage(),
-            'attempts' => $this->attempts(),
-        ];
+        return \now()->addHours(4)->toDateTimeImmutable();
+    }
 
-        if ($exception instanceof AbstractApiException) {
-            Log::error('Bing Ads to Mixpanel sync job failed', $context);
-        } else {
-            Log::critical('Bing Ads to Mixpanel sync job failed', $context);
-        }
+    /**
+     * Execute the job.
+     */
+    public function handle(SyncAdSpendUseCase $useCase): void
+    {
+        $useCase->execute(new DateRange($this->from, $this->to));
     }
 }

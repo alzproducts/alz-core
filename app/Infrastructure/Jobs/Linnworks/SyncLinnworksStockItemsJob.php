@@ -5,17 +5,16 @@ declare(strict_types=1);
 namespace App\Infrastructure\Jobs\Linnworks;
 
 use App\Application\Linnworks\UseCases\SyncAllStockItemsUseCase;
-use App\Domain\Exceptions\Api\AbstractApiException;
-use App\Domain\Exceptions\Api\PermanentApiFailure;
 use App\Domain\Exceptions\Api\TransientApiFailure;
 use App\Infrastructure\Jobs\Enums\QueueName;
+use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
+use DateTimeImmutable;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Support\Facades\Log;
-use Psr\Log\LoggerInterface;
+use Illuminate\Queue\Middleware\ThrottlesExceptions;
 use Throwable;
 
 /**
@@ -38,14 +37,14 @@ final class SyncLinnworksStockItemsJob implements ShouldBeUnique, ShouldQueue
      *
      * Low retry count since job runs every 15 min — next scheduled run is implicit retry.
      */
-    public int $tries = 2;
+    public int $tries = 4;
 
     /**
      * Maximum number of unhandled exceptions to allow before failing.
-     *
-     * Matches $tries to ensure any exception type can trigger both retry attempts.
      */
     public int $maxExceptions = 2;
+
+    public bool $failOnTimeout = true;
 
     /**
      * Seconds to wait before retrying.
@@ -83,61 +82,33 @@ final class SyncLinnworksStockItemsJob implements ShouldBeUnique, ShouldQueue
     }
 
     /**
-     * Execute the job.
+     * Get the middleware the job should pass through.
      *
-     * @throws TransientApiFailure When Linnworks API unavailable (triggers retry)
-     * @throws PermanentApiFailure When permanent API failure occurs (fails immediately)
-     * @throws Throwable When unexpected errors occur - indicates code update required
+     * @return list<object>
      */
-    public function handle(SyncAllStockItemsUseCase $useCase, LoggerInterface $logger): void
+    public function middleware(): array
     {
-        $logger->info('Linnworks stock item sync job starting');
-
-        try {
-            $result = $useCase->execute();
-
-            $logger->info('Linnworks stock item sync job completed', [
-                'fetched' => $result->fetched,
-                'saved' => $result->saved,
-                'failed' => $result->failed,
-            ]);
-        } catch (TransientApiFailure $e) {
-            // Dual retry: API-provided delay via release(), or Laravel backoff via rethrow
-            $logger->warning('Linnworks stock item sync service unavailable, will retry', [
-                'service' => $e->serviceName,
-                'retry_after' => $e->retryAfter,
-                'attempts' => $this->attempts(),
-            ]);
-
-            if ($e->retryAfter !== null) {
-                $this->release($e->retryAfter);
-            } else {
-                throw $e;
-            }
-        } catch (PermanentApiFailure $e) {
-            $this->fail($e);
-            throw $e;
-        } catch (Throwable $e) {
-            $this->fail($e);
-            throw $e;
-        }
+        return [
+            (new ThrottlesExceptions(maxAttempts: 10, decaySeconds: 300))
+                ->by('linnworks')
+                ->when(static fn(Throwable $e): bool => $e instanceof TransientApiFailure),
+            new HandleApiExceptions(),
+        ];
     }
 
     /**
-     * Handle job failure after all retries exhausted.
+     * Determine the time at which the job should timeout.
      */
-    public function failed(Throwable $exception): void
+    public function retryUntil(): DateTimeImmutable
     {
-        $context = [
-            'exception' => $exception::class,
-            'message' => $exception->getMessage(),
-            'attempts' => $this->attempts(),
-        ];
+        return \now()->addHours(24)->toDateTimeImmutable();
+    }
 
-        if ($exception instanceof AbstractApiException) {
-            Log::error('Linnworks stock item sync job failed permanently', $context);
-        } else {
-            Log::critical('Linnworks stock item sync job failed permanently', $context);
-        }
+    /**
+     * Execute the job.
+     */
+    public function handle(SyncAllStockItemsUseCase $useCase): void
+    {
+        $useCase->execute();
     }
 }

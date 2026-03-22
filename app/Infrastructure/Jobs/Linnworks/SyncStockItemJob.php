@@ -5,17 +5,17 @@ declare(strict_types=1);
 namespace App\Infrastructure\Jobs\Linnworks;
 
 use App\Application\Linnworks\UseCases\SyncStockItemUseCase;
-use App\Domain\Exceptions\Api\AbstractApiException;
-use App\Domain\Exceptions\Api\PermanentApiFailure;
 use App\Domain\Exceptions\Api\TransientApiFailure;
 use App\Domain\ValueObjects\Guid;
 use App\Infrastructure\Jobs\Enums\QueueName;
+use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
+use DateTimeImmutable;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Support\Facades\Log;
+use Illuminate\Queue\Middleware\ThrottlesExceptions;
 use Throwable;
 
 /**
@@ -33,12 +33,14 @@ final class SyncStockItemJob implements ShouldBeUnique, ShouldQueue
     /**
      * Maximum number of attempts before giving up.
      */
-    public int $tries = 3;
+    public int $tries = 6;
 
     /**
      * Maximum number of unhandled exceptions to allow before failing.
      */
     public int $maxExceptions = 3;
+
+    public bool $failOnTimeout = true;
 
     /**
      * Seconds to wait before retrying.
@@ -78,47 +80,33 @@ final class SyncStockItemJob implements ShouldBeUnique, ShouldQueue
     }
 
     /**
-     * Execute the job.
+     * Get the middleware the job should pass through.
      *
-     * @throws TransientApiFailure When Linnworks API unavailable (triggers retry)
-     * @throws PermanentApiFailure When permanent API failure occurs (fails immediately)
-     * @throws Throwable When unexpected errors occur
+     * @return list<object>
      */
-    public function handle(SyncStockItemUseCase $useCase): void
+    public function middleware(): array
     {
-        try {
-            $useCase->execute($this->stockItemId);
-        } catch (TransientApiFailure $e) {
-            if ($e->retryAfter !== null) {
-                $this->release($e->retryAfter);
-            } else {
-                throw $e;
-            }
-        } catch (PermanentApiFailure $e) {
-            $this->fail($e);
-            throw $e;
-        } catch (Throwable $e) {
-            $this->fail($e);
-            throw $e;
-        }
+        return [
+            (new ThrottlesExceptions(maxAttempts: 10, decaySeconds: 300))
+                ->by('linnworks')
+                ->when(static fn(Throwable $e): bool => $e instanceof TransientApiFailure),
+            new HandleApiExceptions(),
+        ];
     }
 
     /**
-     * Handle job failure after all retries exhausted.
+     * Determine the time at which the job should timeout.
      */
-    public function failed(Throwable $exception): void
+    public function retryUntil(): DateTimeImmutable
     {
-        $context = [
-            'stock_item_id' => $this->stockItemId->value,
-            'exception' => $exception::class,
-            'message' => $exception->getMessage(),
-            'attempts' => $this->attempts(),
-        ];
+        return \now()->addHours(4)->toDateTimeImmutable();
+    }
 
-        if ($exception instanceof AbstractApiException) {
-            Log::error('Stock item sync job failed permanently', $context);
-        } else {
-            Log::critical('Stock item sync job failed permanently', $context);
-        }
+    /**
+     * Execute the job.
+     */
+    public function handle(SyncStockItemUseCase $useCase): void
+    {
+        $useCase->execute($this->stockItemId);
     }
 }
