@@ -5,11 +5,6 @@ declare(strict_types=1);
 namespace App\Infrastructure\Jobs\Inventory;
 
 use App\Application\Inventory\UseCases\UpdateSkuUseCase;
-use App\Domain\Exceptions\Api\AbstractApiException;
-use App\Domain\Exceptions\Api\AuthenticationExpiredException;
-use App\Domain\Exceptions\Api\InvalidApiRequestException;
-use App\Domain\Exceptions\Api\InvalidApiResponseException;
-use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Api\TransientApiFailure;
 use App\Domain\Exceptions\Data\InvalidSkuException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
@@ -18,13 +13,14 @@ use App\Domain\Exceptions\Inventory\SkuGenerationFailedException;
 use App\Domain\Exceptions\Inventory\SkuUpdateFailedException;
 use App\Domain\Inventory\Commands\UpdateSkuCommand;
 use App\Infrastructure\Jobs\Enums\QueueName;
+use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
+use DateTimeImmutable;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Support\Facades\Log;
-use Psr\Log\LoggerInterface;
+use Illuminate\Queue\Middleware\ThrottlesExceptions;
 use Throwable;
 
 /**
@@ -40,8 +36,9 @@ use Throwable;
  *
  * Exception Strategy:
  * - SkuUpdateFailedException: Fail immediately (compensation failed, manual intervention)
- * - ExternalServiceUnavailableException: Retry with backoff (transient)
- * - Auth/validation errors: Fail immediately (permanent - code/config fix needed)
+ * - Domain data exceptions: Fail immediately (won't resolve on retry)
+ * - TransientApiFailure: HandleApiExceptions middleware retries with backoff
+ * - PermanentApiFailure: HandleApiExceptions middleware fails immediately
  *
  * @see UpdateSkuUseCase For orchestration and compensation logic
  */
@@ -74,6 +71,8 @@ final class UpdateSkuJob implements ShouldBeUnique, ShouldQueue
      */
     public int $timeout = 120;
 
+    public bool $failOnTimeout = true;
+
     /**
      * Backoff delays in seconds.
      *
@@ -102,90 +101,42 @@ final class UpdateSkuJob implements ShouldBeUnique, ShouldQueue
     }
 
     /**
-     * Execute the job.
+     * Get the middleware the job should pass through.
      *
-     * @throws TransientApiFailure When services unavailable (triggers retry)
-     * @throws Throwable On unexpected errors
+     * @return list<object>
      */
-    public function handle(UpdateSkuUseCase $useCase, LoggerInterface $logger): void
+    public function middleware(): array
     {
-        $logger->info('UpdateSkuJob starting', [
-            'old_sku' => $this->command->oldSku,
-            'new_sku' => $this->command->newSku?->value,
-            'type' => $this->command->type->value,
-            'attempt' => $this->attempts(),
-        ]);
-
-        try {
-            $useCase->execute($this->command);
-
-            $logger->info('UpdateSkuJob completed', ['old_sku' => $this->command->oldSku]);
-        } catch (SkuUpdateFailedException $e) {
-            // CRITICAL: Compensation failed - systems out of sync, DO NOT retry
-
-            $this->fail($e);
-
-            throw $e;
-        } catch (InvalidApiResponseException|AuthenticationExpiredException $e) {
-            // Permanent failure - API contract or credentials need fixing
-
-            $this->fail($e);
-
-            throw $e;
-        } catch (InvalidApiRequestException|InvalidSkuException|SkuGenerationFailedException|ResourceNotFoundException $e) {
-            // Permanent failure - data/request issues that won't resolve on retry
-
-            $this->fail($e);
-
-            throw $e;
-        } catch (TransientApiFailure $e) {
-            // Dual retry: API-provided delay via release(), or Laravel backoff via rethrow
-            $logger->warning('SKU update service unavailable, will retry', [
-                'service' => $e->serviceName,
-                'retry_after' => $e->retryAfter,
-                'attempt' => $this->attempts(),
-            ]);
-
-            if ($e->retryAfter !== null) {
-                $this->release($e->retryAfter);
-            } else {
-                throw $e;
-            }
-        } catch (DatabaseOperationFailedException|DuplicateRecordException $e) {
-            Log::error('UpdateSkuJob: database failure', [
-                'old_sku' => $this->command->oldSku,
-                'exception' => $e::class,
-                'message' => $e->getMessage(),
-            ]);
-            $this->fail($e);
-            throw $e;
-        } catch (Throwable $e) {
-            $this->fail($e);
-
-            throw $e;
-        }
+        return [
+            (new ThrottlesExceptions(maxAttempts: 10, decaySeconds: 300))
+                ->by('linnworks')
+                ->when(static fn(Throwable $e): bool => $e instanceof TransientApiFailure),
+            new HandleApiExceptions(),
+        ];
     }
 
     /**
-     * Handle job failure after all retries exhausted.
+     * Determine the time at which the job should timeout.
      */
-    public function failed(Throwable $exception): void
+    public function retryUntil(): DateTimeImmutable
     {
-        $context = [
-            'old_sku' => $this->command->oldSku,
-            'exception' => $exception::class,
-            'attempts' => $this->attempts(),
-        ];
+        return \now()->addHours(4)->toDateTimeImmutable();
+    }
 
-        if ($exception instanceof SkuUpdateFailedException) {
-            $context['new_sku'] = $exception->newSku;
-            $context['failed_system'] = $exception->failedSystem;
-        }
-
-        if ($exception instanceof AbstractApiException) {
-            Log::error('UpdateSkuJob failed permanently', $context);
-        } else {
-            Log::critical('UpdateSkuJob failed permanently', $context);
+    /**
+     * Execute the job.
+     *
+     * @throws Throwable On unexpected errors (Worker handles retry/fail)
+     */
+    public function handle(UpdateSkuUseCase $useCase): void
+    {
+        try {
+            $useCase->execute($this->command);
+        } catch (SkuUpdateFailedException|InvalidSkuException|SkuGenerationFailedException|DatabaseOperationFailedException|DuplicateRecordException $e) {
+            // Permanent failures that won't resolve on retry — fail immediately.
+            // SkuUpdateFailedException: compensation failed, systems out of sync.
+            // Others: data/infrastructure issues requiring manual intervention.
+            $this->fail($e);
         }
     }
 }
