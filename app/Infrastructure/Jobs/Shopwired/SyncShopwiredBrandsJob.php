@@ -15,6 +15,7 @@ use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
+use RuntimeException;
 
 /**
  * Asynchronously synchronize ShopWired brands to local database.
@@ -70,6 +71,9 @@ final class SyncShopwiredBrandsJob implements ShouldBeUnique, ShouldQueue
         return \now()->addHours(24)->toDateTimeImmutable();
     }
 
+    /**
+     * @throws RuntimeException
+     */
     public function handle(SyncBrandsUseCase $useCase): void
     {
         $useCase->execute();

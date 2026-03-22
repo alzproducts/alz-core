@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace App\Infrastructure\Jobs\Inventory;
 
 use App\Application\Inventory\UseCases\SyncDeltaStockToShopwiredUseCase;
+use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
+use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use App\Domain\Exceptions\Infrastructure\LockAcquisitionException;
 use App\Infrastructure\Jobs\Enums\QueueName;
 use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
 use App\Infrastructure\Jobs\Middleware\ServiceCircuitBreaker;
@@ -70,6 +73,11 @@ final class SyncDeltaStockToShopwiredJob implements ShouldBeUnique, ShouldQueue
         return \now()->addHours(4)->toDateTimeImmutable();
     }
 
+    /**
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws LockAcquisitionException
+     */
     public function handle(SyncDeltaStockToShopwiredUseCase $useCase): void
     {
         $useCase->execute();

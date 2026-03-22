@@ -6,6 +6,8 @@ namespace App\Infrastructure\Jobs\Shopwired;
 
 use App\Application\Contracts\Shopwired\BrandClientInterface;
 use App\Application\Contracts\Shopwired\BrandRepositoryInterface;
+use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
+use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -17,6 +19,10 @@ use Psr\Log\LoggerInterface;
  */
 final class SyncShopwiredBrandJob extends AbstractSyncShopwiredEntityJob
 {
+    /**
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     */
     public function handle(
         BrandClientInterface $client,
         BrandRepositoryInterface $repo,

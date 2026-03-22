@@ -6,6 +6,8 @@ namespace App\Infrastructure\Jobs\Shopwired;
 
 use App\Application\Contracts\Shopwired\CustomerClientInterface;
 use App\Application\Contracts\Shopwired\CustomerRepositoryInterface;
+use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
+use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -17,6 +19,10 @@ use Psr\Log\LoggerInterface;
  */
 final class SyncShopwiredCustomerJob extends AbstractSyncShopwiredEntityJob
 {
+    /**
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     */
     public function handle(
         CustomerClientInterface $client,
         CustomerRepositoryInterface $repo,

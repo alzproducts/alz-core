@@ -8,6 +8,7 @@ use App\Application\ContactSubmission\UseCases\HandleContactSubmissionFailureUse
 use App\Application\ContactSubmission\UseCases\ProcessContactSubmissionUseCase;
 use App\Domain\Exceptions\Data\InsufficientDataException;
 use App\Domain\Exceptions\Data\MalformedStoredDataException;
+use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Infrastructure\Jobs\Enums\QueueName;
 use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
 use App\Infrastructure\Jobs\Middleware\ServiceCircuitBreaker;
@@ -88,8 +89,7 @@ final class ProcessContactSubmissionJob implements ShouldBeUnique, ShouldQueue
     }
 
     /**
-     * @throws InsufficientDataException When required data missing (permanent — fails job)
-     * @throws MalformedStoredDataException When stored data is corrupt (permanent — fails job)
+     * @throws DatabaseOperationFailedException
      */
     public function handle(ProcessContactSubmissionUseCase $useCase): void
     {

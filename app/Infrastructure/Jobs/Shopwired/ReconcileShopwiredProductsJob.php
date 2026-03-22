@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Infrastructure\Jobs\Shopwired;
 
 use App\Application\Shopwired\UseCases\ReconcileProductsUseCase;
+use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Infrastructure\Jobs\Enums\QueueName;
 use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
 use App\Infrastructure\Jobs\Middleware\ServiceCircuitBreaker;
@@ -99,6 +100,8 @@ final class ReconcileShopwiredProductsJob implements ShouldBeUnique, ShouldQueue
 
     /**
      * Execute the job.
+     *
+     * @throws DatabaseOperationFailedException
      */
     public function handle(ReconcileProductsUseCase $useCase): void
     {

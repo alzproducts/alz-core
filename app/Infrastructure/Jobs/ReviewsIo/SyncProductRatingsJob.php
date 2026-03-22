@@ -14,6 +14,7 @@ use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
+use RuntimeException;
 
 /**
  * Sync product ratings from Reviews.io API to local database.
@@ -60,6 +61,9 @@ final class SyncProductRatingsJob implements ShouldBeUnique, ShouldQueue
         return \now()->addHours(24)->toDateTimeImmutable();
     }
 
+    /**
+     * @throws RuntimeException
+     */
     public function handle(SyncProductRatingsUseCase $useCase): void
     {
         $useCase->execute();

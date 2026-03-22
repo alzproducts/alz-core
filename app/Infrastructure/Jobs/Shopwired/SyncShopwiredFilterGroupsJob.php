@@ -15,6 +15,7 @@ use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
+use RuntimeException;
 
 /**
  * Asynchronously synchronize ShopWired filter group definitions to local database.
@@ -98,6 +99,8 @@ final class SyncShopwiredFilterGroupsJob implements ShouldBeUnique, ShouldQueue
 
     /**
      * Execute the job.
+     *
+     * @throws RuntimeException
      */
     public function handle(SyncFilterGroupsUseCase $useCase): void
     {

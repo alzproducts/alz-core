@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Infrastructure\Jobs\Mixpanel;
 
 use App\Application\Mixpanel\UseCases\SyncOrdersToMixpanelUseCase;
+use App\Domain\Exceptions\Data\MissingRequiredDataException;
+use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Infrastructure\Jobs\Enums\QueueName;
 use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
 use App\Infrastructure\Jobs\Middleware\ServiceCircuitBreaker;
@@ -113,9 +115,15 @@ final class SyncOrdersToMixpanelJob implements ShouldQueue
 
     /**
      * Execute the job.
+     *
+     * @throws DatabaseOperationFailedException
      */
     public function handle(SyncOrdersToMixpanelUseCase $useCase): void
     {
-        $useCase->execute($this->from, $this->to);
+        try {
+            $useCase->execute($this->from, $this->to);
+        } catch (MissingRequiredDataException $e) {
+            $this->fail($e);
+        }
     }
 }

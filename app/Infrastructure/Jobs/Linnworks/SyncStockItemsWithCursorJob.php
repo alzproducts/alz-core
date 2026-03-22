@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Infrastructure\Jobs\Linnworks;
 
 use App\Application\Linnworks\UseCases\SyncStockItemWithCursorUseCase;
+use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
+use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Infrastructure\Jobs\Enums\QueueName;
 use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
 use App\Infrastructure\Jobs\Middleware\ServiceCircuitBreaker;
@@ -96,6 +98,9 @@ final class SyncStockItemsWithCursorJob implements ShouldBeUnique, ShouldQueue
 
     /**
      * Execute the job.
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
      */
     public function handle(SyncStockItemWithCursorUseCase $useCase): void
     {

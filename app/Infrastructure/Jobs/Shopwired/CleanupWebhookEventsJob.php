@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Infrastructure\Jobs\Shopwired;
 
 use App\Application\Shopwired\UseCases\CleanupWebhookEventsUseCase;
+use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
+use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Infrastructure\Jobs\Enums\QueueName;
 use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
 use App\Infrastructure\Jobs\Middleware\ServiceCircuitBreaker;
@@ -66,6 +68,10 @@ final class CleanupWebhookEventsJob implements ShouldBeUnique, ShouldQueue
         return \now()->addHours(24)->toDateTimeImmutable();
     }
 
+    /**
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     */
     public function handle(CleanupWebhookEventsUseCase $useCase): void
     {
         $useCase->execute();

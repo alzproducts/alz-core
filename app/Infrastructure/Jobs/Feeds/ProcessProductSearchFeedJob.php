@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Infrastructure\Jobs\Feeds;
 
 use App\Application\Feeds\ProcessProductSearchFeedUseCase;
+use App\Domain\Exceptions\Data\MalformedFeedDataException;
+use App\Domain\Exceptions\Infrastructure\StorageOperationFailedException;
 use App\Infrastructure\Jobs\Enums\QueueName;
 use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
 use DateTimeImmutable;
@@ -74,8 +76,15 @@ final class ProcessProductSearchFeedJob implements ShouldBeUnique, ShouldQueue
         return \now()->addHours(24)->toDateTimeImmutable();
     }
 
+    /**
+     * @throws StorageOperationFailedException
+     */
     public function handle(ProcessProductSearchFeedUseCase $useCase): void
     {
-        $useCase->execute();
+        try {
+            $useCase->execute();
+        } catch (MalformedFeedDataException $e) {
+            $this->fail($e);
+        }
     }
 }

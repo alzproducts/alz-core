@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace App\Infrastructure\Jobs\Inventory;
 
 use App\Application\Inventory\UseCases\SyncFullStockToShopwiredUseCase;
+use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
+use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use App\Domain\Exceptions\Infrastructure\LockAcquisitionException;
 use App\Infrastructure\Jobs\Enums\QueueName;
 use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
 use App\Infrastructure\Jobs\Middleware\ServiceCircuitBreaker;
@@ -71,6 +74,11 @@ final class SyncFullStockToShopwiredJob implements ShouldBeUnique, ShouldQueue
         return \now()->addHours(4)->toDateTimeImmutable();
     }
 
+    /**
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws LockAcquisitionException
+     */
     public function handle(SyncFullStockToShopwiredUseCase $useCase): void
     {
         $useCase->execute();

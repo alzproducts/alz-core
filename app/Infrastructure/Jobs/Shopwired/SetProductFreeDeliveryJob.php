@@ -7,6 +7,7 @@ namespace App\Infrastructure\Jobs\Shopwired;
 use App\Application\Shopwired\UseCases\SetProductFreeDeliveryUseCase;
 use App\Domain\Catalog\Product\Commands\SetFreeDeliveryCommand;
 use App\Domain\Catalog\Product\Exceptions\ProductIdentifierResolutionException;
+use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Infrastructure\Jobs\Enums\QueueName;
 use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
 use App\Infrastructure\Jobs\Middleware\ServiceCircuitBreaker;
@@ -72,7 +73,7 @@ final class SetProductFreeDeliveryJob implements ShouldQueue
     /**
      * Execute the job.
      *
-     * @throws ProductIdentifierResolutionException When identifier cannot be resolved (permanent — fails job)
+     * @throws DatabaseOperationFailedException
      */
     public function handle(SetProductFreeDeliveryUseCase $useCase): void
     {
