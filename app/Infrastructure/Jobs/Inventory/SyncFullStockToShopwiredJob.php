@@ -41,7 +41,7 @@ final class SyncFullStockToShopwiredJob implements ShouldBeUnique, ShouldQueue
     /** @var array<int> */
     public array $backoff = [60];
 
-    public int $timeout = 120;
+    public int $timeout = 90;
     public bool $failOnTimeout = true;
 
     /**
