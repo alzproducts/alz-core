@@ -23,12 +23,12 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 
 /**
- * Updates is_in_sale and last_sale_end_date EPs on Linnworks.
+ * Updates is_in_sale EP on Linnworks.
  *
  * - Added to sale: sets is_in_sale = '1'
- * - Removed from sale: sets is_in_sale = '0' and last_sale_end_date = now
+ * - Removed from sale: sets is_in_sale = '0'
  *
- * Fixes legacy bug: auto-removals now always update Linnworks EPs.
+ * Idempotent — always writes the EP regardless of current value.
  */
 final class UpdateLinnworksSaleStateJob implements ShouldQueue
 {
@@ -75,13 +75,11 @@ final class UpdateLinnworksSaleStateJob implements ShouldQueue
      */
     public function handle(InventoryUpdateClientInterface $inventoryUpdateClient): void
     {
-        $properties = $this->addedToSale
-            ? [ExtendedPropertyWrite::create(ExtendedPropertyName::IsInSale, '1')]
-            : [
-                ExtendedPropertyWrite::create(ExtendedPropertyName::IsInSale, '0'),
-                ExtendedPropertyWrite::create(ExtendedPropertyName::LastSaleEndDate, \now()->format('Y-m-d H:i:s')),
-            ];
-
-        $inventoryUpdateClient->setExtendedProperties($this->sku, $properties);
+        $inventoryUpdateClient->setExtendedProperties($this->sku, [
+            ExtendedPropertyWrite::create(
+                ExtendedPropertyName::IsInSale,
+                $this->addedToSale ? '1' : '0',
+            ),
+        ]);
     }
 }
