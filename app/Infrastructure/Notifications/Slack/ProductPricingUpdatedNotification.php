@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Notifications\Slack;
 
+use App\Domain\Catalog\Product\ValueObjects\SaleSettings;
 use App\Domain\Catalog\Product\ValueObjects\SkuPriceChange;
 use Illuminate\Notifications\Notification;
 use Illuminate\Notifications\Slack\BlockKit\Blocks\ActionsBlock;
@@ -15,6 +16,8 @@ use Illuminate\Notifications\Slack\SlackMessage;
  * Slack notification sent when product prices are updated via batch API.
  *
  * Displays product title (with link) and per-SKU price changes showing previous → new effective prices.
+ * When sale settings are present, enriches the notification with sale context
+ * (reason, discount %, end date, removal reason).
  */
 final class ProductPricingUpdatedNotification extends Notification
 {
@@ -25,12 +28,14 @@ final class ProductPricingUpdatedNotification extends Notification
      * @param list<SkuPriceChange> $priceChanges Confirmed price changes per SKU
      * @param string|null $productTitle Product title for display
      * @param string|null $productUrl Product page URL for linking
+     * @param SaleSettings|null $saleSettings Optional sale context for enrichment
      */
     public function __construct(
         public readonly int $productId,
         public readonly array $priceChanges,
         private readonly ?string $productTitle = null,
         private readonly ?string $productUrl = null,
+        private readonly ?SaleSettings $saleSettings = null,
     ) {}
 
     /**
@@ -55,6 +60,14 @@ final class ProductPricingUpdatedNotification extends Notification
             ->sectionBlock(function (SectionBlock $block): void {
                 $block->text($this->buildPriceChangeList())->markdown();
             });
+
+        // Add sale context section when present
+        $saleContext = $this->buildSaleContext();
+        if ($saleContext !== null) {
+            $message->sectionBlock(static function (SectionBlock $block) use ($saleContext): void {
+                $block->text($saleContext)->markdown();
+            });
+        }
 
         if ($this->productUrl !== null) {
             $message->actionsBlock(function (ActionsBlock $block): void {
@@ -94,5 +107,52 @@ final class ProductPricingUpdatedNotification extends Notification
         }
 
         return $text;
+    }
+
+    private function buildSaleContext(): ?string
+    {
+        if ($this->saleSettings === null) {
+            return null;
+        }
+
+        $lines = [];
+
+        if ($this->saleSettings->removalReason !== null) {
+            $lines[] = "*Removal reason:* {$this->saleSettings->removalReason->label()}";
+        }
+
+        if ($this->saleSettings->saleReason !== '') {
+            $lines[] = "*Sale reason:* {$this->saleSettings->saleReason}";
+        }
+
+        $discountPct = $this->calculateDiscountPercentage();
+        if ($discountPct !== null) {
+            $lines[] = "*Discount:* {$discountPct}%";
+        }
+
+        if ($this->saleSettings->saleEndDate !== null) {
+            $lines[] = "*Sale ends:* {$this->saleSettings->saleEndDate->format('Y-m-d')}";
+        }
+
+        if ($this->saleSettings->saleEndsStock !== null) {
+            $lines[] = "*Stock threshold:* {$this->saleSettings->saleEndsStock} units";
+        }
+
+        return $lines !== [] ? \implode("\n", $lines) : null;
+    }
+
+    private function calculateDiscountPercentage(): ?string
+    {
+        foreach ($this->priceChanges as $change) {
+            if ($change->addedToSale()) {
+                $base = $change->newPrices->basePrice->toGross();
+                $sale = $change->newPrices->effectivePrice()->toGross();
+                if ($base > 0 && $sale < $base) {
+                    return \number_format((($base - $sale) / $base) * 100, 0);
+                }
+            }
+        }
+
+        return null;
     }
 }

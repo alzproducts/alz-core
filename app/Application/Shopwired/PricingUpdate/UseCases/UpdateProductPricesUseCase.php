@@ -22,6 +22,7 @@ use App\Domain\Catalog\Product\Validators\SkuBelongsToProductValidator;
 use App\Domain\Catalog\Product\ValueObjects\Product;
 use App\Domain\Catalog\Product\ValueObjects\ProductRetailPricing;
 use App\Domain\Catalog\Product\ValueObjects\ResolvedPriceUpdate;
+use App\Domain\Catalog\Product\ValueObjects\SaleSettings;
 use App\Domain\Catalog\Product\ValueObjects\Sku;
 use App\Domain\Catalog\Product\ValueObjects\SkuPriceChange;
 use App\Domain\Exceptions\Api\AbstractApiException;
@@ -60,6 +61,7 @@ final readonly class UpdateProductPricesUseCase
 
     /**
      * @param list<UpdatePriceCommand> $skuUpdates Price changes (all SKUs must belong to same product)
+     * @param SaleSettings|null $saleSettings Optional sale metadata threaded to downstream listeners
      *
      * @throws ResourceNotFoundException When the SKU's product is not found locally
      * @throws InvalidApiResponseException When API response parsing fails (contract violation)
@@ -67,7 +69,7 @@ final readonly class UpdateProductPricesUseCase
      * @throws DatabaseOperationFailedException When local product lookup fails
      * @throws InvalidCustomFieldValueException When custom field mapping fails during product lookup
      */
-    public function execute(array $skuUpdates): PriceUpdateResult
+    public function execute(array $skuUpdates, ?SaleSettings $saleSettings = null): PriceUpdateResult
     {
         Assert::notEmpty($skuUpdates, 'At least one SKU update is required');
 
@@ -94,7 +96,7 @@ final readonly class UpdateProductPricesUseCase
 
         // 4. Dispatch events for confirmed updates
         if ($apiResult->updatedSkus !== []) {
-            $this->dispatchEvents($productId, $apiResult->updatedSkus, $preFlight->resolvedBySku());
+            $this->dispatchEvents($productId, $apiResult->updatedSkus, $preFlight->resolvedBySku(), $saleSettings);
         }
 
         // 5. Build result and log
@@ -313,6 +315,7 @@ final readonly class UpdateProductPricesUseCase
         IntId $productId,
         array $updatedSkus,
         array $resolvedBySku,
+        ?SaleSettings $saleSettings,
     ): void {
         /** @var list<SkuPriceChange> $priceChanges */
         $priceChanges = [];
@@ -337,6 +340,7 @@ final readonly class UpdateProductPricesUseCase
         $this->events->dispatch(new ProductPricingUpdatedEvent(
             productId: $productId,
             priceChanges: $priceChanges,
+            saleSettings: $saleSettings,
         ));
     }
 }

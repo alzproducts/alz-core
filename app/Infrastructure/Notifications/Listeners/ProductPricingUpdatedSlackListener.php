@@ -56,6 +56,7 @@ final class ProductPricingUpdatedSlackListener implements ShouldQueue
             priceChanges: $event->priceChanges,
             productTitle: $productTitle,
             productUrl: $productUrl,
+            saleSettings: $event->saleSettings,
         );
     }
 

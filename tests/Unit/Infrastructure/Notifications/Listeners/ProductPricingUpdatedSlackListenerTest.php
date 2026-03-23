@@ -60,6 +60,7 @@ final class ProductPricingUpdatedSlackListenerTest extends TestCase
                 Mockery::type('array'),
                 'Test Product',
                 'https://example.com/test',
+                null,
             );
 
         $this->listener->handle($event);
@@ -86,6 +87,7 @@ final class ProductPricingUpdatedSlackListenerTest extends TestCase
             ->with(
                 Mockery::on(static fn(IntId $id): bool => $id->value === 42),
                 Mockery::type('array'),
+                null,
                 null,
                 null,
             );

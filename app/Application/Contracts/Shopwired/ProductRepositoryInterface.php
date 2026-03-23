@@ -217,4 +217,18 @@ interface ProductRepositoryInterface extends RepositoryWriteInterface
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      */
     public function deleteByExternalId(IntId $externalId): void;
+
+    /**
+     * Get all products currently on sale (non-null, non-zero sale price).
+     *
+     * Used by the automatic sale removal cron to evaluate expiration conditions.
+     *
+     * @return list<Product>
+     *
+     * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
+     * @throws DatabaseOperationFailedException On query failure
+     * @throws DuplicateRecordException On constraint violation
+     * @throws ExternalServiceUnavailableException When database temporarily unavailable
+     */
+    public function getProductsOnSale(): array;
 }

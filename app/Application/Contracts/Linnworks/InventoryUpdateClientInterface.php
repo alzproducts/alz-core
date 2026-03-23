@@ -11,6 +11,7 @@ use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Inventory\Commands\AddInventoryItemCommand;
+use App\Domain\Inventory\ValueObjects\ExtendedPropertyWrite;
 use App\Domain\Shared\Money\ValueObjects\Money;
 use App\Domain\ValueObjects\Guid;
 
@@ -94,6 +95,27 @@ interface InventoryUpdateClientInterface
      * @throws ExternalServiceUnavailableException When API unavailable
      */
     public function addExtendedProperty(Sku|Guid $identifier, string $name, string $value): void;
+
+    /**
+     * Set extended properties on a stock item (create or update).
+     *
+     * Reads current EPs, compares values, and only writes when different:
+     * - Existing EP with different value → update
+     * - Missing EP → create
+     * - Existing EP with same value → skip (no write)
+     *
+     * Accepts multiple properties to avoid repeated reads.
+     *
+     * @param Sku|Guid $identifier SKU (resolved internally) or stockItemId (used directly)
+     * @param list<ExtendedPropertyWrite> $properties EPs to set
+     *
+     * @throws ResourceNotFoundException When stock item not found
+     * @throws InvalidApiRequestException When parameters invalid
+     * @throws InvalidApiResponseException When API response malformed
+     * @throws AuthenticationExpiredException When credentials invalid
+     * @throws ExternalServiceUnavailableException When API unavailable
+     */
+    public function setExtendedProperties(Sku|Guid $identifier, array $properties): void;
 
     /**
      * Add an image to a stock item.

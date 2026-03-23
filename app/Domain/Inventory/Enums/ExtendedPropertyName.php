@@ -19,4 +19,16 @@ enum ExtendedPropertyName: string
      * Used for cross-system reconciliation and debugging.
      */
     case ShopId = 'ShopID';
+
+    /** Gross selling price synced from ShopWired. */
+    case SellingPriceGross = 'SellingPriceGross';
+
+    /** Net selling price calculated from gross via tax type. */
+    case SellingPriceNet = 'SellingPriceNet';
+
+    /** Whether the product is currently on sale ('1' or '0'). */
+    case IsInSale = 'is_in_sale';
+
+    /** Date/time when the product was last removed from sale. */
+    case LastSaleEndDate = 'last_sale_end_date';
 }

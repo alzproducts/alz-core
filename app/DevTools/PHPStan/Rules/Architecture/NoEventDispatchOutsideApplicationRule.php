@@ -41,6 +41,7 @@ final class NoEventDispatchOutsideApplicationRule implements Rule
      */
     private const array EXEMPT_NAMESPACE_SEGMENTS = [
         'Dispatchers' => true,
+        'Listeners' => true,
     ];
 
     public function getNodeType(): string

@@ -567,6 +567,30 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
     /**
      * {@inheritDoc}
      *
+     * @return list<Product>
+     *
+     * @throws InvalidCustomFieldValueException
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function getProductsOnSale(): array
+    {
+        return $this->eloquentGateway->query(function (): array {
+            /** @var list<Product> */
+            return self::MODEL_CLASS::query()
+                ->with(self::EAGER_LOAD_RELATIONS)
+                ->whereNotNull('sale_price')
+                ->where('sale_price', '>', 0)
+                ->get()
+                ->map(fn(ProductModel $model): Product => $this->mapModelToDomain($model))
+                ->all();
+        });
+    }
+
+    /**
+     * {@inheritDoc}
+     *
      * @throws ResourceNotFoundException
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
