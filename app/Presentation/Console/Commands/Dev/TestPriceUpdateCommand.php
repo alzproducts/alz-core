@@ -29,13 +29,11 @@ final class TestPriceUpdateCommand extends Command
 
     protected $description = 'Set a sale price on the test product to trigger the full pricing event chain';
 
-    public function __construct(
-        private readonly UpdateProductPricesUseCase $useCase,
-    ) {
-        parent::__construct();
-    }
-
-    public function handle(): int
+    /**
+     * Dependencies resolved in handle() to avoid eager resolution during
+     * artisan command discovery (which would require API keys in CI).
+     */
+    public function handle(UpdateProductPricesUseCase $useCase): int
     {
         /** @var string $sku */
         $sku = \config('shopwired.test_product.sku');
@@ -71,7 +69,7 @@ final class TestPriceUpdateCommand extends Command
         $this->info("Updating SKU {$sku} → sale price £{$salePriceArg}");
 
         try {
-            $result = $this->useCase->execute(
+            $result = $useCase->execute(
                 skuUpdates: [
                     new UpdatePriceCommand(
                         sku: Sku::fromTrusted($sku),
