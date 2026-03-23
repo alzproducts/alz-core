@@ -5,16 +5,21 @@ declare(strict_types=1);
 namespace App\Infrastructure\Jobs\Linnworks;
 
 use App\Application\Contracts\Linnworks\InventoryUpdateClientInterface;
+use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
+use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\Product\ValueObjects\Sku;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Inventory\Enums\ExtendedPropertyName;
 use App\Domain\Inventory\ValueObjects\ExtendedPropertyWrite;
+use App\Domain\ValueObjects\IntId;
 use App\Infrastructure\Jobs\Enums\QueueName;
 use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
+use App\Infrastructure\Jobs\Middleware\HandleDatabaseExceptions;
 use App\Infrastructure\Jobs\Middleware\ServiceCircuitBreaker;
 use DateTimeImmutable;
 use Illuminate\Bus\Queueable;
@@ -25,10 +30,11 @@ use Illuminate\Queue\InteractsWithQueue;
 /**
  * Updates is_in_sale EP on Linnworks.
  *
- * - Added to sale: sets is_in_sale = '1'
- * - Removed from sale: sets is_in_sale = '0'
+ * Reads current sale state from the local DB to determine the correct value,
+ * ensuring idempotency even when retried after delays.
  *
- * Idempotent — always writes the EP regardless of current value.
+ * - On sale: sets is_in_sale = '1'
+ * - Not on sale: sets is_in_sale = '0'
  */
 final class UpdateLinnworksSaleStateJob implements ShouldQueue
 {
@@ -46,8 +52,8 @@ final class UpdateLinnworksSaleStateJob implements ShouldQueue
     public int $timeout = 30;
 
     public function __construct(
+        public readonly IntId $productId,
         public readonly Sku $sku,
-        public readonly bool $addedToSale,
     ) {
         $this->onQueue(QueueName::Bulk->value);
     }
@@ -56,6 +62,7 @@ final class UpdateLinnworksSaleStateJob implements ShouldQueue
     public function middleware(): array
     {
         return [
+            new HandleDatabaseExceptions(),
             ServiceCircuitBreaker::linnworks(),
             new HandleApiExceptions(),
         ];
@@ -67,18 +74,24 @@ final class UpdateLinnworksSaleStateJob implements ShouldQueue
     }
 
     /**
-     * @throws ResourceNotFoundException When stock item not found
+     * @throws ResourceNotFoundException When product not found in DB or stock item not found
+     * @throws InvalidCustomFieldValueException When custom field mapping fails
+     * @throws DatabaseOperationFailedException On DB query failure
      * @throws InvalidApiRequestException When parameters invalid
      * @throws InvalidApiResponseException When API response malformed
      * @throws AuthenticationExpiredException When credentials invalid
-     * @throws ExternalServiceUnavailableException When API unavailable
+     * @throws ExternalServiceUnavailableException When API or DB unavailable
      */
-    public function handle(InventoryUpdateClientInterface $inventoryUpdateClient): void
-    {
+    public function handle(
+        ProductRepositoryInterface $productRepo,
+        InventoryUpdateClientInterface $inventoryUpdateClient,
+    ): void {
+        $product = $productRepo->getProduct($this->productId);
+
         $inventoryUpdateClient->setExtendedProperties($this->sku, [
             ExtendedPropertyWrite::create(
                 ExtendedPropertyName::IsInSale,
-                $this->addedToSale ? '1' : '0',
+                $product->isOnSale() ? '1' : '0',
             ),
         ]);
     }

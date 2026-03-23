@@ -28,7 +28,4 @@ enum ExtendedPropertyName: string
 
     /** Whether the product is currently on sale ('1' or '0'). */
     case IsInSale = 'is_in_sale';
-
-    /** Date/time when the product was last removed from sale. */
-    case LastSaleEndDate = 'last_sale_end_date';
 }

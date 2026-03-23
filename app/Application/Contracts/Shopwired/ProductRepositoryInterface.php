@@ -231,4 +231,36 @@ interface ProductRepositoryInterface extends RepositoryWriteInterface
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      */
     public function getProductsOnSale(): array;
+
+    /**
+     * Check whether a single product has sale state drift.
+     *
+     * Detects two types of drift:
+     * - On sale (sale_price > 0, < price) but NOT in sale category or missing sale custom fields
+     * - NOT on sale but still in sale category or has sale custom fields
+     *
+     * @param IntId $productId Product external ID to check
+     * @param int $saleCategoryId The ShopWired sale category ID
+     *
+     * @throws DatabaseOperationFailedException On query failure
+     * @throws DuplicateRecordException On constraint violation
+     * @throws ExternalServiceUnavailableException When database temporarily unavailable
+     */
+    public function hasSaleStateDrift(IntId $productId, int $saleCategoryId): bool;
+
+    /**
+     * Find all products with sale state drift.
+     *
+     * Scans the entire catalog for products where DB sale state is
+     * inconsistent with expected state. Used by the bulk reconciliation job.
+     *
+     * @param int $saleCategoryId The ShopWired sale category ID
+     *
+     * @return list<int> External IDs of products with sale state drift
+     *
+     * @throws DatabaseOperationFailedException On query failure
+     * @throws DuplicateRecordException On constraint violation
+     * @throws ExternalServiceUnavailableException When database temporarily unavailable
+     */
+    public function getAllProductsWithSaleStateDrift(int $saleCategoryId): array;
 }

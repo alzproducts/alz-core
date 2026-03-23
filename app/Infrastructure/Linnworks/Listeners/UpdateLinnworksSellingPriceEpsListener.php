@@ -16,8 +16,8 @@ final class UpdateLinnworksSellingPriceEpsListener
     public function handle(SkuRetailPricingUpdatedEvent $event): void
     {
         UpdateLinnworksSellingPriceEpsJob::dispatch(
+            productId: $event->productId,
             sku: $event->sku,
-            effectivePrice: $event->newPrices->effectivePrice(),
         );
     }
 }

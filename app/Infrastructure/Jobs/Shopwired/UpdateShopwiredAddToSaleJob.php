@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Jobs\Shopwired;
 
-use App\Application\Contracts\Shopwired\ProductClientInterface;
 use App\Application\Contracts\Shopwired\ProductFieldUpdateClientInterface;
+use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Application\Contracts\Shopwired\ProductUpdateClientInterface;
+use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\Product\Enums\SaleCustomField;
 use App\Domain\Catalog\Product\ValueObjects\ProductFieldUpdate;
 use App\Domain\Catalog\Product\ValueObjects\SaleSettings;
@@ -15,9 +16,12 @@ use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Api\ResourceNotAvailableException;
+use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\ValueObjects\IntId;
 use App\Infrastructure\Jobs\Enums\QueueName;
 use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
+use App\Infrastructure\Jobs\Middleware\HandleDatabaseExceptions;
 use App\Infrastructure\Jobs\Middleware\ServiceCircuitBreaker;
 use App\Infrastructure\Jobs\Middleware\ServiceRateLimiter;
 use DateTimeImmutable;
@@ -58,6 +62,7 @@ final class UpdateShopwiredAddToSaleJob implements ShouldQueue
     public function middleware(): array
     {
         return [
+            new HandleDatabaseExceptions(),
             ServiceRateLimiter::shopwiredApi(),
             ServiceCircuitBreaker::shopwired(),
             new HandleApiExceptions(),
@@ -70,19 +75,22 @@ final class UpdateShopwiredAddToSaleJob implements ShouldQueue
     }
 
     /**
-     * @throws ResourceNotAvailableException When product not found
+     * @throws ResourceNotFoundException When product not found in DB
+     * @throws InvalidCustomFieldValueException When custom field mapping fails
+     * @throws DatabaseOperationFailedException On DB query failure
+     * @throws ResourceNotAvailableException When product not found on API
      * @throws InvalidApiRequestException When request parameters invalid
      * @throws AuthenticationExpiredException When credentials invalid
-     * @throws ExternalServiceUnavailableException When API unavailable
+     * @throws ExternalServiceUnavailableException When API or DB unavailable
      * @throws InvalidApiResponseException When response parsing fails
      */
     public function handle(
-        ProductClientInterface $productClient,
+        ProductRepositoryInterface $productRepo,
         ProductFieldUpdateClientInterface $fieldUpdateClient,
         ProductUpdateClientInterface $productUpdateClient,
     ): void {
         $productId = $this->productId->value;
-        $product = $productClient->getProductById($productId);
+        $product = $productRepo->getProduct($this->productId);
 
         // 1. Update category + sort order in a single PUT
         $fieldUpdates = [ProductFieldUpdate::sortOrder(self::SALE_SORT_ORDER)];

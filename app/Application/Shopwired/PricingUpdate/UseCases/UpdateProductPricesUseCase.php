@@ -6,11 +6,13 @@ namespace App\Application\Shopwired\PricingUpdate\UseCases;
 
 use App\Application\Contracts\Shopwired\PriceUpdateClientInterface;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
+use App\Application\Contracts\Shopwired\SaleReconciliationDispatcherInterface;
 use App\Application\Shopwired\PricingUpdate\Results\BatchApiResult;
 use App\Application\Shopwired\PricingUpdate\Results\FailedPriceUpdateResult;
 use App\Application\Shopwired\PricingUpdate\Results\PreFlightValidationResult;
 use App\Application\Shopwired\PricingUpdate\Results\PriceUpdateResult;
 use App\Application\Shopwired\PricingUpdate\Results\SkippedPriceUpdateResult;
+use App\Application\Shopwired\Services\ProductSyncService;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\Product\Commands\UpdatePriceCommand;
 use App\Domain\Catalog\Product\Events\ProductPricingUpdatedEvent;
@@ -34,6 +36,7 @@ use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\ValueObjects\IntId;
 use Illuminate\Contracts\Events\Dispatcher;
 use Psr\Log\LoggerInterface;
+use Throwable;
 use Webmozart\Assert\Assert;
 
 /**
@@ -47,14 +50,17 @@ use Webmozart\Assert\Assert;
  * 1. Resolve owning product from the first SKU
  * 2. Pre-flight: validate and filter commands (ownership, unchanged, price relationships)
  * 3. Send validated commands to API
- * 4. Dispatch events for confirmed updates
- * 5. Return structured result
+ * 4. Best-effort DB sync (non-blocking)
+ * 5. Dispatch events + delayed sale state reconciliation for confirmed updates
+ * 6. Return structured result
  */
 final readonly class UpdateProductPricesUseCase
 {
     public function __construct(
         private PriceUpdateClientInterface $priceClient,
         private ProductRepositoryInterface $productRepo,
+        private ProductSyncService $productSyncService,
+        private SaleReconciliationDispatcherInterface $saleReconciliationDispatcher,
         private Dispatcher $events,
         private LoggerInterface $logger,
     ) {}
@@ -94,12 +100,23 @@ final readonly class UpdateProductPricesUseCase
         );
         $apiResult = $this->sendToApi($commands);
 
-        // 4. Dispatch events for confirmed updates
-        if ($apiResult->updatedSkus !== []) {
-            $this->dispatchEvents($productId, $apiResult->updatedSkus, $preFlight->resolvedBySku(), $saleSettings);
+        // 4. Best-effort DB sync — must NOT block events or reconciliation
+        try {
+            $this->productSyncService->refreshById($productId->value);
+        } catch (Throwable $e) { // @ignoreException — best-effort sync must not block events
+            $this->logger->warning('Post-update product sync failed (non-blocking)', [
+                'product_id' => $productId->value,
+                'exception' => $e->getMessage(),
+            ]);
         }
 
-        // 5. Build result and log
+        // 5. Dispatch events + reconciliation for confirmed updates
+        if ($apiResult->updatedSkus !== []) {
+            $this->dispatchEvents($productId, $apiResult->updatedSkus, $preFlight->resolvedBySku(), $saleSettings);
+            $this->saleReconciliationDispatcher->dispatchReconciliation($productId, $saleSettings);
+        }
+
+        // 6. Build result and log
         $result = PriceUpdateResult::fromPhases($total, $preFlight, $apiResult);
 
         $this->logger->info('Product price update completed', [
@@ -325,6 +342,7 @@ final readonly class UpdateProductPricesUseCase
             Assert::notNull($resolved, "Updated SKU {$sku->value} must have a resolved price update");
 
             $this->events->dispatch(new SkuRetailPricingUpdatedEvent(
+                productId: $productId,
                 sku: $sku,
                 previousPrices: $resolved->currentPricing,
                 newPrices: $resolved->effectivePricing,

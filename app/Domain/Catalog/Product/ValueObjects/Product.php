@@ -8,6 +8,7 @@ use App\Domain\Catalog\CustomFields\ValueObjects\AbstractCustomFieldValue;
 use App\Domain\Catalog\Filters\ValueObjects\ProductFilter;
 use App\Domain\Catalog\Product\Concerns\BasicProductTrait;
 use App\Domain\Catalog\Product\Contracts\BasicProductInterface;
+use App\Domain\Catalog\Product\Enums\SaleCustomField;
 use App\Infrastructure\Shopwired\Factories\ProductDomainFactory;
 use DateTimeImmutable;
 use Webmozart\Assert\Assert;
@@ -218,6 +219,41 @@ final readonly class Product implements BasicProductInterface
     public function hasCustomField(string $name): bool
     {
         return $this->getCustomField($name) !== null;
+    }
+
+    /**
+     * Check if any sale-indicator custom fields are populated (non-empty).
+     *
+     * Uses rawCustomFields directly because the typed customFields depend on
+     * the Infrastructure-layer CustomFieldDefinitionRegistry being populated,
+     * which isn't guaranteed in all contexts (stale sync, new fields).
+     * DefaultSortOrder is excluded — it's metadata, not a sale indicator.
+     */
+    public function hasAnySaleCustomField(): bool
+    {
+        foreach (SaleCustomField::cases() as $field) {
+            if ($field === SaleCustomField::DefaultSortOrder) {
+                continue;
+            }
+
+            $value = $this->rawCustomFields[$field->value] ?? null;
+            if (\is_string($value) && $value !== '') {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Single source of truth for whether a sale is active at given prices.
+     *
+     * A sale is active when salePrice is set, greater than zero (0 = "no sale" in ShopWired),
+     * and less than the regular price.
+     */
+    public static function isSaleActive(?float $salePrice, float $price): bool
+    {
+        return $salePrice !== null && $salePrice > 0 && $salePrice < $price;
     }
 
     /**
