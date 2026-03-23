@@ -7,6 +7,8 @@ namespace App\Application\Shopwired\SaleManagement\Services;
 use App\Domain\Catalog\Product\Events\ProductAddedToSaleEvent;
 use App\Domain\Catalog\Product\Events\ProductPricingUpdatedEvent;
 use App\Domain\Catalog\Product\Events\ProductRemovedFromSaleEvent;
+use App\Domain\Catalog\Product\Events\SkuAddedToSaleEvent;
+use App\Domain\Catalog\Product\Events\SkuRemovedFromSaleEvent;
 use App\Domain\Catalog\Product\ValueObjects\Sku;
 use App\Domain\Catalog\Product\ValueObjects\SkuPriceChange;
 use Illuminate\Contracts\Events\Dispatcher;
@@ -15,9 +17,11 @@ use Webmozart\Assert\Assert;
 /**
  * Detects sale state transitions from pricing events and dispatches sale-specific events.
  *
- * Inspects SkuPriceChange transitions on ProductPricingUpdatedEvent:
- * - Any SKU addedToSale() → dispatches ProductAddedToSaleEvent
- * - Any SKU removedFromSale() → dispatches ProductRemovedFromSaleEvent
+ * Dispatches two tiers of events from ProductPricingUpdatedEvent:
+ * - Product-level: one ProductAddedToSaleEvent/ProductRemovedFromSaleEvent per product
+ *   (for ShopWired: category, custom fields, sort order)
+ * - SKU-level: one SkuAddedToSaleEvent/SkuRemovedFromSaleEvent per variation
+ *   (for Linnworks: per-SKU EP updates like is_in_sale)
  *
  * Lives in Application layer because it dispatches domain events (business logic),
  * not in Infrastructure which is only the delivery mechanism.
@@ -30,9 +34,9 @@ final readonly class SaleStateDetectionService
 
     public function detectAndDispatch(ProductPricingUpdatedEvent $event): void
     {
-        [$addedSku, $removedSku] = $this->findSaleTransitions($event->priceChanges);
+        [$addedSkus, $removedSkus] = $this->findSaleTransitions($event->priceChanges);
 
-        if ($addedSku === null && $removedSku === null) {
+        if ($addedSkus === [] && $removedSkus === []) {
             return;
         }
 
@@ -41,19 +45,33 @@ final readonly class SaleStateDetectionService
             "Sale state change detected for product {$event->productId->value} but no SaleSettings provided",
         );
 
-        if ($addedSku !== null) {
+        // Product-level events (one per product) — for ShopWired side-effects
+        if ($addedSkus !== []) {
             $this->events->dispatch(new ProductAddedToSaleEvent(
                 productId: $event->productId,
-                sku: $addedSku,
                 saleSettings: $event->saleSettings,
             ));
         }
 
-        if ($removedSku !== null) {
+        if ($removedSkus !== []) {
             $this->events->dispatch(new ProductRemovedFromSaleEvent(
                 productId: $event->productId,
-                sku: $removedSku,
                 saleSettings: $event->saleSettings,
+            ));
+        }
+
+        // SKU-level events (one per variation) — for Linnworks EP updates
+        foreach ($addedSkus as $sku) {
+            $this->events->dispatch(new SkuAddedToSaleEvent(
+                productId: $event->productId,
+                sku: $sku,
+            ));
+        }
+
+        foreach ($removedSkus as $sku) {
+            $this->events->dispatch(new SkuRemovedFromSaleEvent(
+                productId: $event->productId,
+                sku: $sku,
             ));
         }
     }
@@ -61,27 +79,25 @@ final readonly class SaleStateDetectionService
     /**
      * @param list<SkuPriceChange> $priceChanges
      *
-     * @return array{Sku|null, Sku|null} [addedSku, removedSku]
+     * @return array{list<Sku>, list<Sku>} [addedSkus, removedSkus]
      */
     private function findSaleTransitions(array $priceChanges): array
     {
-        $addedSku = null;
-        $removedSku = null;
+        /** @var list<Sku> $addedSkus */
+        $addedSkus = [];
+        /** @var list<Sku> $removedSkus */
+        $removedSkus = [];
 
         foreach ($priceChanges as $change) {
-            if ($addedSku === null && $change->addedToSale()) {
-                $addedSku = $change->sku;
+            if ($change->addedToSale()) {
+                $addedSkus[] = $change->sku;
             }
 
-            if ($removedSku === null && $change->removedFromSale()) {
-                $removedSku = $change->sku;
-            }
-
-            if ($addedSku !== null && $removedSku !== null) {
-                break;
+            if ($change->removedFromSale()) {
+                $removedSkus[] = $change->sku;
             }
         }
 
-        return [$addedSku, $removedSku];
+        return [$addedSkus, $removedSkus];
     }
 }

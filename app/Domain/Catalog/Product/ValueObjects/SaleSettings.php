@@ -18,6 +18,7 @@ final readonly class SaleSettings
     public function __construct(
         public string $saleReason,
         public ?string $saleComments = null,
+        public ?DateTimeImmutable $saleStartDate = null,
         public ?DateTimeImmutable $saleEndDate = null,
         public ?int $saleEndsStock = null,
         public ?SaleRemovalReason $removalReason = null,

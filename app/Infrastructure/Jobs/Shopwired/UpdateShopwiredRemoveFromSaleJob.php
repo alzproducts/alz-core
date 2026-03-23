@@ -47,7 +47,7 @@ final class UpdateShopwiredRemoveFromSaleJob implements ShouldQueue
         public readonly IntId $productId,
         public readonly int $saleCategoryId,
     ) {
-        $this->onQueue(QueueName::Default->value);
+        $this->onQueue(QueueName::Bulk->value);
     }
 
     /** @return list<object> */
@@ -83,10 +83,11 @@ final class UpdateShopwiredRemoveFromSaleJob implements ShouldQueue
         // 1. Remove category + restore sort order in a single PUT (where applicable)
         $fieldUpdates = [];
 
-        if ($product->isInCategory($this->saleCategoryId)) {
+        $saleCategoryId = $this->saleCategoryId;
+        if ($product->isInCategory($saleCategoryId)) {
             $filteredCategories = \array_values(\array_filter(
                 $product->categoryIds,
-                fn(int $id): bool => $id !== $this->saleCategoryId,
+                static fn(int $id): bool => $id !== $saleCategoryId,
             ));
             $fieldUpdates[] = ProductFieldUpdate::categories($filteredCategories);
         }

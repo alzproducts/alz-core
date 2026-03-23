@@ -9,6 +9,8 @@ use App\Domain\Catalog\Product\Enums\SaleRemovalReason;
 use App\Domain\Catalog\Product\Events\ProductAddedToSaleEvent;
 use App\Domain\Catalog\Product\Events\ProductPricingUpdatedEvent;
 use App\Domain\Catalog\Product\Events\ProductRemovedFromSaleEvent;
+use App\Domain\Catalog\Product\Events\SkuAddedToSaleEvent;
+use App\Domain\Catalog\Product\Events\SkuRemovedFromSaleEvent;
 use App\Domain\Catalog\Product\ValueObjects\ProductRetailPricing;
 use App\Domain\Catalog\Product\ValueObjects\SaleSettings;
 use App\Domain\Catalog\Product\ValueObjects\Sku;
@@ -35,6 +37,8 @@ final class SaleStateDetectionServiceTest extends TestCase
         Event::fake([
             ProductAddedToSaleEvent::class,
             ProductRemovedFromSaleEvent::class,
+            SkuAddedToSaleEvent::class,
+            SkuRemovedFromSaleEvent::class,
         ]);
 
         $this->service = new SaleStateDetectionService(
@@ -55,9 +59,10 @@ final class SaleStateDetectionServiceTest extends TestCase
         $this->service->detectAndDispatch($event);
 
         Event::assertDispatched(ProductAddedToSaleEvent::class, static fn(ProductAddedToSaleEvent $e): bool => $e->productId->value === 42
-                && $e->sku->value === 'TEST-001'
                 && $e->saleSettings === $saleSettings);
+        Event::assertDispatched(SkuAddedToSaleEvent::class, static fn(SkuAddedToSaleEvent $e): bool => $e->sku->value === 'TEST-001');
         Event::assertNotDispatched(ProductRemovedFromSaleEvent::class);
+        Event::assertNotDispatched(SkuRemovedFromSaleEvent::class);
     }
 
     #[Test]
@@ -69,9 +74,10 @@ final class SaleStateDetectionServiceTest extends TestCase
         $this->service->detectAndDispatch($event);
 
         Event::assertDispatched(ProductRemovedFromSaleEvent::class, static fn(ProductRemovedFromSaleEvent $e): bool => $e->productId->value === 42
-                && $e->sku->value === 'TEST-001'
                 && $e->saleSettings === $saleSettings);
+        Event::assertDispatched(SkuRemovedFromSaleEvent::class, static fn(SkuRemovedFromSaleEvent $e): bool => $e->sku->value === 'TEST-001');
         Event::assertNotDispatched(ProductAddedToSaleEvent::class);
+        Event::assertNotDispatched(SkuAddedToSaleEvent::class);
     }
 
     #[Test]
@@ -99,8 +105,10 @@ final class SaleStateDetectionServiceTest extends TestCase
 
         $this->service->detectAndDispatch($event);
 
-        Event::assertDispatched(ProductAddedToSaleEvent::class, static fn(ProductAddedToSaleEvent $e): bool => $e->sku->value === 'SKU-ADD');
-        Event::assertDispatched(ProductRemovedFromSaleEvent::class, static fn(ProductRemovedFromSaleEvent $e): bool => $e->sku->value === 'SKU-REM');
+        Event::assertDispatched(ProductAddedToSaleEvent::class);
+        Event::assertDispatched(ProductRemovedFromSaleEvent::class);
+        Event::assertDispatched(SkuAddedToSaleEvent::class, static fn(SkuAddedToSaleEvent $e): bool => $e->sku->value === 'SKU-ADD');
+        Event::assertDispatched(SkuRemovedFromSaleEvent::class, static fn(SkuRemovedFromSaleEvent $e): bool => $e->sku->value === 'SKU-REM');
     }
 
     // ========================================================================
@@ -125,6 +133,8 @@ final class SaleStateDetectionServiceTest extends TestCase
 
         Event::assertNotDispatched(ProductAddedToSaleEvent::class);
         Event::assertNotDispatched(ProductRemovedFromSaleEvent::class);
+        Event::assertNotDispatched(SkuAddedToSaleEvent::class);
+        Event::assertNotDispatched(SkuRemovedFromSaleEvent::class);
     }
 
     #[Test]
@@ -139,6 +149,8 @@ final class SaleStateDetectionServiceTest extends TestCase
 
         Event::assertNotDispatched(ProductAddedToSaleEvent::class);
         Event::assertNotDispatched(ProductRemovedFromSaleEvent::class);
+        Event::assertNotDispatched(SkuAddedToSaleEvent::class);
+        Event::assertNotDispatched(SkuRemovedFromSaleEvent::class);
     }
 
     // ========================================================================
@@ -168,11 +180,11 @@ final class SaleStateDetectionServiceTest extends TestCase
     }
 
     // ========================================================================
-    // Early Break — Only First SKU Per Transition Type
+    // Multi-SKU — Per-SKU Events for All Variations
     // ========================================================================
 
     #[Test]
-    public function uses_first_added_sku_when_multiple_skus_added(): void
+    public function dispatches_sku_event_per_variation_when_multiple_skus_added(): void
     {
         $saleSettings = new SaleSettings(saleReason: 'Bulk sale');
 
@@ -196,10 +208,13 @@ final class SaleStateDetectionServiceTest extends TestCase
 
         $this->service->detectAndDispatch($event);
 
-        Event::assertDispatched(
-            ProductAddedToSaleEvent::class,
-            static fn(ProductAddedToSaleEvent $e): bool => $e->sku->value === 'FIRST',
-        );
+        // One product-level event for ShopWired
+        Event::assertDispatched(ProductAddedToSaleEvent::class, 1);
+
+        // One SKU-level event per variation for Linnworks
+        Event::assertDispatched(SkuAddedToSaleEvent::class, 2);
+        Event::assertDispatched(SkuAddedToSaleEvent::class, static fn(SkuAddedToSaleEvent $e): bool => $e->sku->value === 'FIRST');
+        Event::assertDispatched(SkuAddedToSaleEvent::class, static fn(SkuAddedToSaleEvent $e): bool => $e->sku->value === 'SECOND');
     }
 
     // ========================================================================

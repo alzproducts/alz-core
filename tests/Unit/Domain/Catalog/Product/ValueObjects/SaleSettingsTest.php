@@ -17,11 +17,13 @@ final class SaleSettingsTest extends TestCase
     #[Test]
     public function constructor_sets_all_properties(): void
     {
+        $startDate = new DateTimeImmutable('2026-03-23');
         $endDate = new DateTimeImmutable('2026-04-01');
 
         $settings = new SaleSettings(
             saleReason: 'Spring clearance',
             saleComments: 'End of season',
+            saleStartDate: $startDate,
             saleEndDate: $endDate,
             saleEndsStock: 5,
             removalReason: SaleRemovalReason::Manual,
@@ -29,6 +31,7 @@ final class SaleSettingsTest extends TestCase
 
         self::assertSame('Spring clearance', $settings->saleReason);
         self::assertSame('End of season', $settings->saleComments);
+        self::assertSame($startDate, $settings->saleStartDate);
         self::assertSame($endDate, $settings->saleEndDate);
         self::assertSame(5, $settings->saleEndsStock);
         self::assertSame(SaleRemovalReason::Manual, $settings->removalReason);
@@ -41,6 +44,7 @@ final class SaleSettingsTest extends TestCase
 
         self::assertSame('Flash sale', $settings->saleReason);
         self::assertNull($settings->saleComments);
+        self::assertNull($settings->saleStartDate);
         self::assertNull($settings->saleEndDate);
         self::assertNull($settings->saleEndsStock);
         self::assertNull($settings->removalReason);
@@ -61,6 +65,7 @@ final class SaleSettingsTest extends TestCase
         $settings = SaleSettings::forRemoval(SaleRemovalReason::ProductInactive);
 
         self::assertNull($settings->saleComments);
+        self::assertNull($settings->saleStartDate);
         self::assertNull($settings->saleEndDate);
         self::assertNull($settings->saleEndsStock);
     }

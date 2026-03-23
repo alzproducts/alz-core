@@ -49,7 +49,7 @@ final class UpdateLinnworksSaleStateJob implements ShouldQueue
         public readonly Sku $sku,
         public readonly bool $addedToSale,
     ) {
-        $this->onQueue(QueueName::Default->value);
+        $this->onQueue(QueueName::Bulk->value);
     }
 
     /** @return list<object> */

@@ -47,7 +47,7 @@ final class UpdateLinnworksSellingPriceEpsJob implements ShouldQueue
         public readonly Sku $sku,
         public readonly Money $effectivePrice,
     ) {
-        $this->onQueue(QueueName::Default->value);
+        $this->onQueue(QueueName::Bulk->value);
     }
 
     /** @return list<object> */

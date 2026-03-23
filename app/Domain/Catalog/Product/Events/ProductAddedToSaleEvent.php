@@ -5,22 +5,21 @@ declare(strict_types=1);
 namespace App\Domain\Catalog\Product\Events;
 
 use App\Domain\Catalog\Product\ValueObjects\SaleSettings;
-use App\Domain\Catalog\Product\ValueObjects\Sku;
 use App\Domain\ValueObjects\IntId;
 
 /**
- * Domain event fired when a product is added to sale.
+ * Domain event fired once per product when it is added to sale.
  *
- * Dispatched by DetectSaleStateChangeListener when any SkuPriceChange
+ * Dispatched by SaleStateDetectionService when any SkuPriceChange
  * in a ProductPricingUpdatedEvent indicates addedToSale().
  *
- * Listeners: UpdateShopwiredSaleStateListener, UpdateLinnworksSaleStateListener.
+ * Product-level: used by ShopWired listeners (category, custom fields, sort order).
+ * Per-SKU Linnworks updates use SkuAddedToSaleEvent instead.
  */
 final readonly class ProductAddedToSaleEvent
 {
     public function __construct(
         public IntId $productId,
-        public Sku $sku,
         public SaleSettings $saleSettings,
     ) {}
 }

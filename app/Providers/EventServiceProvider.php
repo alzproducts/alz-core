@@ -7,6 +7,8 @@ namespace App\Providers;
 use App\Domain\Catalog\Product\Events\ProductAddedToSaleEvent;
 use App\Domain\Catalog\Product\Events\ProductPricingUpdatedEvent;
 use App\Domain\Catalog\Product\Events\ProductRemovedFromSaleEvent;
+use App\Domain\Catalog\Product\Events\SkuAddedToSaleEvent;
+use App\Domain\Catalog\Product\Events\SkuRemovedFromSaleEvent;
 use App\Domain\Catalog\Product\Events\SkuRetailPricingUpdatedEvent;
 use App\Domain\ContactSubmission\Events\ContactFormProcessedEvent;
 use App\Domain\ContactSubmission\Events\ContactFormProcessingFailedEvent;
@@ -70,11 +72,13 @@ final class EventServiceProvider extends ServiceProvider
         Event::listen(ProductPricingUpdatedEvent::class, ProductPricingUpdatedSlackListener::class);
         Event::listen(ProductPricingUpdatedEvent::class, DetectSaleStateChangeListener::class);
 
-        // Sale state — ShopWired + Linnworks side-effects
+        // Sale state — ShopWired side-effects (product-level: one event per product)
         Event::listen(ProductAddedToSaleEvent::class, AddProductToSaleListener::class);
-        Event::listen(ProductAddedToSaleEvent::class, UpdateLinnworksSaleStateListener::class);
         Event::listen(ProductRemovedFromSaleEvent::class, RemoveProductFromSaleListener::class);
-        Event::listen(ProductRemovedFromSaleEvent::class, UpdateLinnworksSaleStateListener::class);
+
+        // Sale state — Linnworks EP updates (SKU-level: one event per variation)
+        Event::listen(SkuAddedToSaleEvent::class, UpdateLinnworksSaleStateListener::class);
+        Event::listen(SkuRemovedFromSaleEvent::class, UpdateLinnworksSaleStateListener::class);
 
         // Inventory — Slack notification for variant SKU generation
         Event::listen(VariantSkusGeneratedEvent::class, VariantSkusGeneratedSlackListener::class);

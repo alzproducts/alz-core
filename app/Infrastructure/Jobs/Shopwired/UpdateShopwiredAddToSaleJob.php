@@ -51,7 +51,7 @@ final class UpdateShopwiredAddToSaleJob implements ShouldQueue
         public readonly SaleSettings $saleSettings,
         public readonly int $saleCategoryId,
     ) {
-        $this->onQueue(QueueName::Default->value);
+        $this->onQueue(QueueName::Bulk->value);
     }
 
     /** @return list<object> */
@@ -95,7 +95,7 @@ final class UpdateShopwiredAddToSaleJob implements ShouldQueue
 
         // 2. Write sale metadata custom fields
         $productUpdateClient->updateCustomFields($productId, [
-            SaleCustomField::DateStart->value => \now()->format('Y-m-d'),
+            SaleCustomField::DateStart->value => $this->saleSettings->saleStartDate?->format('Y-m-d') ?? \now()->format('Y-m-d'),
             SaleCustomField::DefaultSortOrder->value => '',
             SaleCustomField::Reason->value => $this->saleSettings->saleReason,
             SaleCustomField::Comments->value => $this->saleSettings->saleComments ?? '',
