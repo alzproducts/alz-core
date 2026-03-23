@@ -37,10 +37,15 @@ use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Application\Contracts\Shopwired\ProductUpdateClientInterface;
 use App\Application\Contracts\Shopwired\ProductWebhookEventResolverInterface;
 use App\Application\Contracts\Shopwired\ProductWebhookParserInterface;
+use App\Application\Contracts\Shopwired\SaleReconciliationDispatcherInterface;
+use App\Application\Contracts\Shopwired\SaleSettingsRepositoryInterface;
 use App\Application\Contracts\Shopwired\ShopwiredSyncDispatcherInterface;
 use App\Application\Contracts\Shopwired\StockClientInterface;
 use App\Application\Contracts\Shopwired\WebhookClientInterface;
 use App\Application\Contracts\Shopwired\WebhookIdempotencyServiceInterface;
+use App\Application\Shopwired\SaleManagement\Resolvers\ProductSaleStateResolver;
+use App\Application\Shopwired\SaleManagement\UseCases\ReconcileBulkSaleStateUseCase;
+use App\Application\Shopwired\SaleManagement\UseCases\ReconcileProductSaleStateUseCase;
 use App\Application\Shopwired\UseCases\Webhooks\CreateOrderRefundUseCase;
 use App\Application\Shopwired\UseCases\Webhooks\SyncBrandUseCase;
 use App\Application\Shopwired\UseCases\Webhooks\SyncCategoryUseCase;
@@ -57,6 +62,7 @@ use App\Infrastructure\Shopwired\Clients\CustomerFieldUpdateClient;
 use App\Infrastructure\Shopwired\Clients\ProductClient;
 use App\Infrastructure\Shopwired\Clients\ProductFieldUpdateClient;
 use App\Infrastructure\Shopwired\Clients\ProductUpdateClient;
+use App\Infrastructure\Shopwired\Dispatchers\QueuedSaleReconciliationDispatcher;
 use App\Infrastructure\Shopwired\Dispatchers\QueuedShopwiredSyncDispatcher;
 use App\Infrastructure\Shopwired\Factories\ProductCustomFieldFactory;
 use App\Infrastructure\Shopwired\Factories\ProductDomainFactory;
@@ -74,6 +80,7 @@ use App\Infrastructure\Shopwired\Repositories\EloquentCustomFieldRepository;
 use App\Infrastructure\Shopwired\Repositories\EloquentFilterGroupRepository;
 use App\Infrastructure\Shopwired\Repositories\EloquentOrderRepository;
 use App\Infrastructure\Shopwired\Repositories\EloquentProductRepository;
+use App\Infrastructure\Shopwired\Repositories\EloquentSaleSettingsRepository;
 use App\Infrastructure\Shopwired\Resolvers\ShopwiredBrandWebhookEventResolver;
 use App\Infrastructure\Shopwired\Resolvers\ShopwiredCategoryWebhookEventResolver;
 use App\Infrastructure\Shopwired\Resolvers\ShopwiredCustomerWebhookEventResolver;
@@ -109,6 +116,7 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
         $this->registerDispatchers();
         $this->registerWebhookServices();
         $this->registerWebhookBindings();
+        $this->registerSaleManagementBindings();
     }
 
     private function registerClients(): void
@@ -168,6 +176,7 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
         $this->app->singleton(BrandRepositoryInterface::class, EloquentBrandRepository::class);
         $this->app->singleton(FilterGroupRepositoryInterface::class, EloquentFilterGroupRepository::class);
         $this->app->singleton(ProductIdentifierResolverInterface::class, ProductIdentifierResolver::class);
+        $this->app->singleton(SaleSettingsRepositoryInterface::class, EloquentSaleSettingsRepository::class);
 
         // Scoped: fresh mapper per queue job (Octane isolation)
         $this->app->scoped(ProductRepositoryInterface::class, EloquentProductRepository::class);
@@ -204,6 +213,28 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
     private function registerDispatchers(): void
     {
         $this->app->singleton(ShopwiredSyncDispatcherInterface::class, QueuedShopwiredSyncDispatcher::class);
+        $this->app->singleton(SaleReconciliationDispatcherInterface::class, QueuedSaleReconciliationDispatcher::class);
+    }
+
+    private function registerSaleManagementBindings(): void
+    {
+        $this->app->when([
+            ReconcileProductSaleStateUseCase::class,
+            ReconcileBulkSaleStateUseCase::class,
+            ProductSaleStateResolver::class,
+        ])->needs('$saleCategoryId')
+            ->give(static function (): int {
+                $value = \config('shopwired.sale_category_id');
+
+                if (! \is_numeric($value)) {
+                    throw new InvalidConfigurationException(
+                        'shopwired.sale_category_id',
+                        'shopwired.sale_category_id must be a numeric value',
+                    );
+                }
+
+                return (int) $value;
+            });
     }
 
     private function registerWebhookBindings(): void
@@ -279,6 +310,8 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
             ProductUpdateClientInterface::class,
             ProductWebhookEventResolverInterface::class,
             ProductWebhookParserInterface::class,
+            SaleReconciliationDispatcherInterface::class,
+            SaleSettingsRepositoryInterface::class,
             ShopwiredSyncDispatcherInterface::class,
             StockClientInterface::class,
             SyncBrandUseCase::class,

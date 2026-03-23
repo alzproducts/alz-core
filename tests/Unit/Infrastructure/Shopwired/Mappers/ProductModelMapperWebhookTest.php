@@ -165,6 +165,7 @@ final class ProductModelMapperWebhookTest extends TestCase
             customFields: [],
             rawFilters: $rawFilters,
             filters: [],
+            sortOrder: null,
             createdAt: new DateTimeImmutable('2025-01-01'),
             updatedAt: new DateTimeImmutable('2025-06-15'),
         );

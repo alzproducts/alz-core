@@ -98,6 +98,7 @@ final class ProductTest extends TestCase
             customFields: $data['customFields'],
             rawFilters: $data['rawFilters'],
             filters: $data['filters'],
+            sortOrder: null,
             createdAt: $data['createdAt'],
             updatedAt: $data['updatedAt'],
         );

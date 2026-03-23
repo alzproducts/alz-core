@@ -49,4 +49,9 @@ final readonly class ProductFieldUpdate
     {
         return new self(ProductUpdatableField::Categories, $categoryIds);
     }
+
+    public static function sortOrder(int $sortOrder): self
+    {
+        return new self(ProductUpdatableField::SortOrder, $sortOrder);
+    }
 }

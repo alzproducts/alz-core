@@ -44,6 +44,7 @@ final class ProductWebhookResponse extends Data
         public readonly ?float $salePrice,
         public readonly ?float $comparePrice,
         public readonly int $stock,
+        public readonly ?int $sortOrder,
         #[MapInputName('active')]
         public readonly bool $isActive,
         public readonly bool $vatExclusive,

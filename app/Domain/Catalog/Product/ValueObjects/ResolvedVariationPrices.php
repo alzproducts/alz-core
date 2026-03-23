@@ -40,7 +40,7 @@ final readonly class ResolvedVariationPrices
      */
     public function isOnSale(): bool
     {
-        return $this->salePrice !== null && $this->salePrice < $this->price;
+        return Product::isSaleActive($this->salePrice, $this->price);
     }
 
     /**
@@ -48,9 +48,11 @@ final readonly class ResolvedVariationPrices
      */
     public function effectivePrice(): float
     {
-        // Inline the null check so PHPStan can narrow the type
-        if ($this->salePrice !== null && $this->salePrice < $this->price) {
-            return $this->salePrice;
+        if (Product::isSaleActive($this->salePrice, $this->price)) {
+            /** @var float $salePrice PHPStan: isSaleActive guarantees non-null, positive salePrice */
+            $salePrice = $this->salePrice;
+
+            return $salePrice;
         }
 
         return $this->price;

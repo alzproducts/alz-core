@@ -82,6 +82,7 @@ final class ProductModelMapper
             customFields: $this->customFieldFactory->fromRawFields($rawCustomFields),
             rawFilters: $rawFilters,
             filters: $this->filterFactory->fromRawFilters($rawFilters),
+            sortOrder: $model->sort_order,
             createdAt: $model->shopwired_created_at->toDateTimeImmutable(),
             updatedAt: $model->shopwired_updated_at->toDateTimeImmutable(),
         );
@@ -172,6 +173,7 @@ final class ProductModelMapper
             'weight' => $product->weight,
             'meta_title' => $product->metaTitle,
             'meta_description' => $product->metaDescription,
+            'sort_order' => $product->sortOrder,
             'shopwired_created_at' => $product->createdAt,
             'shopwired_updated_at' => $product->updatedAt,
         ];

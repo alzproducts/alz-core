@@ -6,6 +6,7 @@ namespace Tests\Unit\Infrastructure\Notifications\Listeners;
 
 use App\Application\Contracts\ChatNotificationInterface;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
+use App\Application\Contracts\Shopwired\SaleSettingsRepositoryInterface;
 use App\Domain\Catalog\Product\Events\ProductPricingUpdatedEvent;
 use App\Domain\Catalog\Product\ValueObjects\Product;
 use App\Domain\Catalog\Product\ValueObjects\ProductRetailPricing;
@@ -31,6 +32,8 @@ final class ProductPricingUpdatedSlackListenerTest extends TestCase
 
     private ProductRepositoryInterface&MockInterface $productRepo;
 
+    private SaleSettingsRepositoryInterface&MockInterface $saleSettingsRepo;
+
     private ProductPricingUpdatedSlackListener $listener;
 
     protected function setUp(): void
@@ -39,7 +42,13 @@ final class ProductPricingUpdatedSlackListenerTest extends TestCase
 
         $this->chat = Mockery::mock(ChatNotificationInterface::class);
         $this->productRepo = Mockery::mock(ProductRepositoryInterface::class);
-        $this->listener = new ProductPricingUpdatedSlackListener($this->chat, $this->productRepo);
+        $this->saleSettingsRepo = Mockery::mock(SaleSettingsRepositoryInterface::class)->shouldIgnoreMissing();
+
+        $this->listener = new ProductPricingUpdatedSlackListener(
+            $this->chat,
+            $this->productRepo,
+            $this->saleSettingsRepo,
+        );
     }
 
     #[Test]
@@ -60,6 +69,8 @@ final class ProductPricingUpdatedSlackListenerTest extends TestCase
                 Mockery::type('array'),
                 'Test Product',
                 'https://example.com/test',
+                null,
+                null,
             );
 
         $this->listener->handle($event);
@@ -86,6 +97,8 @@ final class ProductPricingUpdatedSlackListenerTest extends TestCase
             ->with(
                 Mockery::on(static fn(IntId $id): bool => $id->value === 42),
                 Mockery::type('array'),
+                null,
+                null,
                 null,
                 null,
             );
@@ -162,6 +175,7 @@ final class ProductPricingUpdatedSlackListenerTest extends TestCase
             customFields: [],
             rawFilters: [],
             filters: [],
+            sortOrder: null,
             createdAt: new DateTimeImmutable('2024-01-01'),
             updatedAt: new DateTimeImmutable('2024-01-01'),
         );

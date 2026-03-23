@@ -46,6 +46,7 @@ final class ProductResponse extends Data
 
         // Inventory
         public readonly int $stock,
+        public readonly ?int $sortOrder,
 
         // Flags
         #[MapInputName('active')]

@@ -66,4 +66,13 @@ final class ProductFieldUpdateTest extends TestCase
         self::assertSame(ProductUpdatableField::Categories, $update->field);
         self::assertSame([], $update->value);
     }
+
+    #[Test]
+    public function sort_order_factory_creates_correct_update(): void
+    {
+        $update = ProductFieldUpdate::sortOrder(3);
+
+        self::assertSame(ProductUpdatableField::SortOrder, $update->field);
+        self::assertSame(3, $update->value);
+    }
 }

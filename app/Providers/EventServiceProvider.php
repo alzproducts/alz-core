@@ -11,6 +11,7 @@ use App\Domain\ContactSubmission\Events\ContactFormProcessingFailedEvent;
 use App\Domain\Inventory\Events\VariantSkusGeneratedEvent;
 use App\Domain\Notifications\Events\AdminAlertEvent;
 use App\Domain\Notifications\Events\ManagerAlertEvent;
+use App\Infrastructure\Linnworks\Listeners\UpdateLinnworksSellingPriceEpsListener;
 use App\Infrastructure\Notifications\Listeners\AdminAlertSlackListener;
 use App\Infrastructure\Notifications\Listeners\ContactFormFailedSlackListener;
 use App\Infrastructure\Notifications\Listeners\ContactFormProcessedSlackListener;
@@ -36,6 +37,7 @@ final class EventServiceProvider extends ServiceProvider
     {
         // Pricing — SCD2 price period recording + Slack notification
         Event::listen(SkuRetailPricingUpdatedEvent::class, RecordPricePeriodListener::class);
+        Event::listen(SkuRetailPricingUpdatedEvent::class, UpdateLinnworksSellingPriceEpsListener::class);
         Event::listen(ProductPricingUpdatedEvent::class, ProductPricingUpdatedSlackListener::class);
 
         // Inventory — Slack notification for variant SKU generation

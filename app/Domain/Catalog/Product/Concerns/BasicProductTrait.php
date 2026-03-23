@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Domain\Catalog\Product\Concerns;
 
+use App\Domain\Catalog\Product\ValueObjects\Product;
+
 /**
  * Shared implementation for BasicProductInterface pricing methods.
  *
@@ -19,7 +21,7 @@ trait BasicProductTrait
      */
     public function isOnSale(): bool
     {
-        return $this->salePrice !== null && $this->salePrice < $this->price;
+        return Product::isSaleActive($this->salePrice, $this->price);
     }
 
     /**
@@ -27,8 +29,11 @@ trait BasicProductTrait
      */
     public function effectivePrice(): float
     {
-        if ($this->salePrice !== null && $this->salePrice < $this->price) {
-            return $this->salePrice;
+        if (Product::isSaleActive($this->salePrice, $this->price)) {
+            /** @var float $salePrice PHPStan: isSaleActive guarantees non-null, positive salePrice */
+            $salePrice = $this->salePrice;
+
+            return $salePrice;
         }
 
         return $this->price;
