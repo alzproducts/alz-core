@@ -7,6 +7,7 @@ namespace App\Infrastructure\Jobs\Shopwired;
 use App\Application\Contracts\Shopwired\ProductFieldUpdateClientInterface;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Application\Contracts\Shopwired\ProductUpdateClientInterface;
+use App\Application\Contracts\Shopwired\SaleSettingsRepositoryInterface;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\Product\Enums\SaleCustomField;
 use App\Domain\Catalog\Product\ValueObjects\ProductFieldUpdate;
@@ -18,6 +19,7 @@ use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Api\ResourceNotAvailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
+use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\IntId;
 use App\Infrastructure\Jobs\Enums\QueueName;
 use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
@@ -29,9 +31,13 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
+use Illuminate\Queue\Middleware\Skip;
 
 /**
  * Adds a product to sale on ShopWired: sale category, sort order, and custom fields.
+ *
+ * Idempotent: skipped via Skip::when if the product is no longer on sale by execution time.
+ * Reads SaleSettings fresh from DB at execution time to avoid stale serialized payload data.
  */
 final class UpdateShopwiredAddToSaleJob implements ShouldQueue
 {
@@ -52,7 +58,6 @@ final class UpdateShopwiredAddToSaleJob implements ShouldQueue
 
     public function __construct(
         public readonly IntId $productId,
-        public readonly SaleSettings $saleSettings,
         public readonly int $saleCategoryId,
     ) {
         $this->onQueue(QueueName::Bulk->value);
@@ -62,6 +67,8 @@ final class UpdateShopwiredAddToSaleJob implements ShouldQueue
     public function middleware(): array
     {
         return [
+            // @phpstan-ignore-next-line shipmonk.checkedExceptionInCallable (Skip invokes immediately; DB exceptions bubble to queue retry)
+            Skip::when(fn(): bool => !\app(ProductRepositoryInterface::class)->getProduct($this->productId)->isOnSale()),
             new HandleDatabaseExceptions(),
             ServiceRateLimiter::shopwiredApi(),
             ServiceCircuitBreaker::shopwired(),
@@ -75,7 +82,8 @@ final class UpdateShopwiredAddToSaleJob implements ShouldQueue
     }
 
     /**
-     * @throws ResourceNotFoundException When product not found in DB
+     * @throws ResourceNotFoundException When product not found in DB or sale settings missing (permanent)
+     * @throws DuplicateRecordException On sale settings DB constraint violation
      * @throws InvalidCustomFieldValueException When custom field mapping fails
      * @throws DatabaseOperationFailedException On DB query failure
      * @throws ResourceNotAvailableException When product not found on API
@@ -88,9 +96,14 @@ final class UpdateShopwiredAddToSaleJob implements ShouldQueue
         ProductRepositoryInterface $productRepo,
         ProductFieldUpdateClientInterface $fieldUpdateClient,
         ProductUpdateClientInterface $productUpdateClient,
+        SaleSettingsRepositoryInterface $saleSettingsRepo,
     ): void {
         $productId = $this->productId->value;
         $product = $productRepo->getProduct($this->productId);
+
+        // Attempt to read persisted settings — do not fail yet if missing.
+        // We apply what we can and throw a permanent error at the very end.
+        $saleSettings = $saleSettingsRepo->findByProduct($this->productId);
 
         // 1. Update category + sort order in a single PUT
         $fieldUpdates = [ProductFieldUpdate::sortOrder(self::SALE_SORT_ORDER)];
@@ -101,16 +114,40 @@ final class UpdateShopwiredAddToSaleJob implements ShouldQueue
 
         $fieldUpdateClient->update($productId, ...$fieldUpdates);
 
-        // 2. Write sale metadata custom fields
-        $productUpdateClient->updateCustomFields($productId, [
-            SaleCustomField::DateStart->value => $this->saleSettings->saleStartDate?->format('Y-m-d') ?? \now()->format('Y-m-d'),
-            SaleCustomField::DefaultSortOrder->value => (string) ($product->sortOrder ?? ''),
-            SaleCustomField::Reason->value => $this->saleSettings->saleReason,
-            SaleCustomField::Comments->value => $this->saleSettings->saleComments ?? '',
-            SaleCustomField::DateEnd->value => $this->saleSettings->saleEndDate?->format('Y-m-d') ?? '',
-            SaleCustomField::EndsStock->value => $this->saleSettings->saleEndsStock !== null
-                ? (string) $this->saleSettings->saleEndsStock
+        // 2. Write sale metadata custom fields (best-effort if settings missing)
+        $productUpdateClient->updateCustomFields($productId, self::buildCustomFieldsArray($saleSettings, $product->sortOrder));
+
+        // 3. If settings were missing, fail permanently now — category + sort order were applied
+        //    but custom fields contain empty/default values only.
+        if ($saleSettings === null) {
+            throw new ResourceNotFoundException(
+                serviceName: 'shopwired',
+                resourceType: 'ProductSaleSettings',
+                resourceId: $productId,
+            );
+        }
+    }
+
+    /**
+     * Build the custom fields payload for the sale update.
+     *
+     * When $settings is null (settings row missing), writes empty/default values so the
+     * custom fields block still exists on the product. The caller is expected to fail
+     * permanently after this to signal incomplete data.
+     *
+     * @return array<string, string>
+     */
+    private static function buildCustomFieldsArray(?SaleSettings $settings, ?int $defaultSortOrder): array
+    {
+        return [
+            SaleCustomField::DateStart->value => $settings?->saleStartDate?->format('Y-m-d') ?? \now()->format('Y-m-d'),
+            SaleCustomField::DefaultSortOrder->value => (string) ($defaultSortOrder ?? ''),
+            SaleCustomField::Reason->value => $settings !== null ? $settings->saleReason : '',
+            SaleCustomField::Comments->value => $settings !== null ? ($settings->saleComments ?? '') : '',
+            SaleCustomField::DateEnd->value => $settings?->saleEndDate?->format('Y-m-d') ?? '',
+            SaleCustomField::EndsStock->value => $settings?->saleEndsStock !== null
+                ? (string) $settings->saleEndsStock
                 : '',
-        ]);
+        ];
     }
 }

@@ -77,15 +77,15 @@ final class ReconcileBulkSaleStateUseCaseTest extends TestCase
 
         $this->dispatcher->shouldReceive('dispatchReconciliation')
             ->once()
-            ->with(Mockery::on(static fn(IntId $id): bool => $id->value === 101), null);
+            ->with(Mockery::on(static fn(IntId $id): bool => $id->value === 101));
 
         $this->dispatcher->shouldReceive('dispatchReconciliation')
             ->once()
-            ->with(Mockery::on(static fn(IntId $id): bool => $id->value === 202), null);
+            ->with(Mockery::on(static fn(IntId $id): bool => $id->value === 202));
 
         $this->dispatcher->shouldReceive('dispatchReconciliation')
             ->once()
-            ->with(Mockery::on(static fn(IntId $id): bool => $id->value === 303), null);
+            ->with(Mockery::on(static fn(IntId $id): bool => $id->value === 303));
 
         $this->useCase->execute();
     }
@@ -104,7 +104,7 @@ final class ReconcileBulkSaleStateUseCaseTest extends TestCase
 
         $this->dispatcher->shouldReceive('dispatchReconciliation')
             ->once()
-            ->with(Mockery::on(static fn(IntId $id): bool => $id->value === 42), null);
+            ->with(Mockery::on(static fn(IntId $id): bool => $id->value === 42));
 
         $this->useCase->execute();
     }

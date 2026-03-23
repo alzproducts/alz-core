@@ -38,7 +38,7 @@ final readonly class ReconcileBulkSaleStateUseCase
         $count = \count($driftedIds);
 
         foreach ($driftedIds as $id) {
-            $this->dispatcher->dispatchReconciliation(IntId::fromTrusted($id), null);
+            $this->dispatcher->dispatchReconciliation(IntId::fromTrusted($id));
         }
 
         $this->logger->info('Bulk sale state reconciliation completed', [

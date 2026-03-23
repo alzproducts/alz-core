@@ -6,6 +6,7 @@ namespace App\Infrastructure\Notifications;
 
 use App\Application\Contracts\ChatNotificationInterface;
 use App\Domain\Catalog\Product\ValueObjects\SaleSettings;
+use App\Domain\Catalog\Product\ValueObjects\SaleSubmissionContext;
 use App\Domain\Catalog\Product\ValueObjects\SkuPriceChange;
 use App\Domain\ContactSubmission\ValueObjects\ContactSubmission;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
@@ -87,6 +88,7 @@ final readonly class SlackChatNotificationClient implements ChatNotificationInte
         ?string $productTitle = null,
         ?string $productUrl = null,
         ?SaleSettings $saleSettings = null,
+        ?SaleSubmissionContext $saleSubmissionContext = null,
     ): void {
         $this->send(
             self::CHANNEL_VERBOSE,
@@ -96,6 +98,7 @@ final readonly class SlackChatNotificationClient implements ChatNotificationInte
                 productTitle: $productTitle,
                 productUrl: $productUrl,
                 saleSettings: $saleSettings,
+                saleSubmissionContext: $saleSubmissionContext,
             ),
         );
     }

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Application\Contracts\Shopwired;
 
-use App\Domain\Catalog\Product\ValueObjects\SaleSettings;
 use App\Domain\Catalog\Product\ValueObjects\Sku;
 use App\Domain\ValueObjects\IntId;
 
@@ -15,8 +14,10 @@ interface SaleReconciliationDispatcherInterface
 {
     /**
      * Dispatch add-to-sale corrections for a product.
+     *
+     * SaleSettings are read from DB by the job at execution time.
      */
-    public function dispatchAddToSale(IntId $productId, SaleSettings $saleSettings, int $saleCategoryId): void;
+    public function dispatchAddToSale(IntId $productId, int $saleCategoryId): void;
 
     /**
      * Dispatch remove-from-sale corrections for a product.
@@ -33,5 +34,5 @@ interface SaleReconciliationDispatcherInterface
     /**
      * Dispatch a delayed reconciliation check for a product.
      */
-    public function dispatchReconciliation(IntId $productId, ?SaleSettings $saleSettings): void;
+    public function dispatchReconciliation(IntId $productId): void;
 }

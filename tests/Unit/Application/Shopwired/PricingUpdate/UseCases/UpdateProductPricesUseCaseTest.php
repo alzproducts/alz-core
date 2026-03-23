@@ -7,6 +7,7 @@ namespace Tests\Unit\Application\Shopwired\PricingUpdate\UseCases;
 use App\Application\Contracts\Shopwired\PriceUpdateClientInterface;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Application\Contracts\Shopwired\SaleReconciliationDispatcherInterface;
+use App\Application\Contracts\Shopwired\SaleSettingsRepositoryInterface;
 use App\Application\Shopwired\PricingUpdate\Results\PriceUpdateClientResult;
 use App\Application\Shopwired\PricingUpdate\UseCases\UpdateProductPricesUseCase;
 use App\Application\Shopwired\Services\ProductSyncService;
@@ -49,6 +50,8 @@ final class UpdateProductPricesUseCaseTest extends TestCase
 
     private SaleReconciliationDispatcherInterface&MockInterface $saleReconciliationDispatcher;
 
+    private SaleSettingsRepositoryInterface&MockInterface $saleSettingsRepo;
+
     private UpdateProductPricesUseCase $useCase;
 
     #[Override]
@@ -65,6 +68,7 @@ final class UpdateProductPricesUseCaseTest extends TestCase
         $this->productRepo = Mockery::mock(ProductRepositoryInterface::class);
         $this->productSyncService = Mockery::mock(ProductSyncService::class)->shouldIgnoreMissing();
         $this->saleReconciliationDispatcher = Mockery::mock(SaleReconciliationDispatcherInterface::class)->shouldIgnoreMissing();
+        $this->saleSettingsRepo = Mockery::mock(SaleSettingsRepositoryInterface::class)->shouldIgnoreMissing();
         $this->logger = Mockery::mock(LoggerInterface::class)->shouldIgnoreMissing();
 
         $this->useCase = new UpdateProductPricesUseCase(
@@ -72,6 +76,7 @@ final class UpdateProductPricesUseCaseTest extends TestCase
             productRepo: $this->productRepo,
             productSyncService: $this->productSyncService,
             saleReconciliationDispatcher: $this->saleReconciliationDispatcher,
+            saleSettingsRepo: $this->saleSettingsRepo,
             events: Event::getFacadeRoot(),
             logger: $this->logger,
         );

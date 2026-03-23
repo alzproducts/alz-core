@@ -6,7 +6,6 @@ namespace App\Infrastructure\Jobs\Shopwired;
 
 use App\Application\Shopwired\SaleManagement\UseCases\ReconcileProductSaleStateUseCase;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
-use App\Domain\Catalog\Product\ValueObjects\SaleSettings;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
@@ -47,7 +46,6 @@ final class ReconcileProductSaleStateJob implements ShouldBeUnique, ShouldQueue
 
     public function __construct(
         public readonly IntId $productId,
-        public readonly ?SaleSettings $saleSettings,
     ) {
         $this->onQueue(QueueName::Bulk->value);
     }
@@ -79,6 +77,6 @@ final class ReconcileProductSaleStateJob implements ShouldBeUnique, ShouldQueue
      */
     public function handle(ReconcileProductSaleStateUseCase $useCase): void
     {
-        $useCase->execute($this->productId, $this->saleSettings);
+        $useCase->execute($this->productId);
     }
 }

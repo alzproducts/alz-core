@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Infrastructure\Shopwired\Dispatchers;
 
 use App\Application\Contracts\Shopwired\SaleReconciliationDispatcherInterface;
-use App\Domain\Catalog\Product\ValueObjects\SaleSettings;
 use App\Domain\Catalog\Product\ValueObjects\Sku;
 use App\Domain\ValueObjects\IntId;
 use App\Infrastructure\Jobs\Linnworks\UpdateLinnworksSaleStateJob;
@@ -24,9 +23,9 @@ final readonly class QueuedSaleReconciliationDispatcher implements SaleReconcili
     private const int RECONCILIATION_DELAY_SECONDS = 300;
 
     #[Override]
-    public function dispatchAddToSale(IntId $productId, SaleSettings $saleSettings, int $saleCategoryId): void
+    public function dispatchAddToSale(IntId $productId, int $saleCategoryId): void
     {
-        UpdateShopwiredAddToSaleJob::dispatch($productId, $saleSettings, $saleCategoryId);
+        UpdateShopwiredAddToSaleJob::dispatch($productId, $saleCategoryId);
     }
 
     #[Override]
@@ -42,9 +41,9 @@ final readonly class QueuedSaleReconciliationDispatcher implements SaleReconcili
     }
 
     #[Override]
-    public function dispatchReconciliation(IntId $productId, ?SaleSettings $saleSettings): void
+    public function dispatchReconciliation(IntId $productId): void
     {
-        ReconcileProductSaleStateJob::dispatch($productId, $saleSettings)
+        ReconcileProductSaleStateJob::dispatch($productId)
             ->delay(\now()->addSeconds(self::RECONCILIATION_DELAY_SECONDS));
     }
 }

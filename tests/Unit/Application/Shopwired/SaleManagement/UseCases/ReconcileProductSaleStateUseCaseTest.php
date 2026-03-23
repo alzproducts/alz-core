@@ -6,6 +6,7 @@ namespace Tests\Unit\Application\Shopwired\SaleManagement\UseCases;
 
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Application\Contracts\Shopwired\SaleReconciliationDispatcherInterface;
+use App\Application\Contracts\Shopwired\SaleSettingsRepositoryInterface;
 use App\Application\Shopwired\SaleManagement\Resolvers\ProductSaleStateResolver;
 use App\Application\Shopwired\SaleManagement\Results\ProductSaleStateResult;
 use App\Application\Shopwired\SaleManagement\Results\SkuSaleStateResult;
@@ -32,6 +33,8 @@ final class ReconcileProductSaleStateUseCaseTest extends TestCase
 
     private SaleReconciliationDispatcherInterface&MockInterface $dispatcher;
 
+    private SaleSettingsRepositoryInterface&MockInterface $saleSettingsRepo;
+
     private ProductSaleStateResolver&MockInterface $specification;
 
     private LoggerInterface&MockInterface $logger;
@@ -45,12 +48,14 @@ final class ReconcileProductSaleStateUseCaseTest extends TestCase
 
         $this->productRepo = Mockery::mock(ProductRepositoryInterface::class);
         $this->dispatcher = Mockery::mock(SaleReconciliationDispatcherInterface::class);
+        $this->saleSettingsRepo = Mockery::mock(SaleSettingsRepositoryInterface::class);
         $this->specification = Mockery::mock(ProductSaleStateResolver::class);
         $this->logger = Mockery::mock(LoggerInterface::class)->shouldIgnoreMissing();
 
         $this->useCase = new ReconcileProductSaleStateUseCase(
             productRepo: $this->productRepo,
             dispatcher: $this->dispatcher,
+            saleSettingsRepo: $this->saleSettingsRepo,
             specification: $this->specification,
             logger: $this->logger,
             saleCategoryId: self::SALE_CATEGORY_ID,
@@ -79,20 +84,21 @@ final class ReconcileProductSaleStateUseCaseTest extends TestCase
         $this->dispatcher->shouldNotReceive('dispatchAddToSale');
         $this->dispatcher->shouldNotReceive('dispatchRemoveFromSale');
         $this->dispatcher->shouldNotReceive('dispatchUpdateSaleState');
+        $this->saleSettingsRepo->shouldNotReceive('findByProduct');
 
         $this->useCase->execute($productId);
     }
 
     // ========================================================================
-    // Drift detected: needs add to sale (with provided SaleSettings)
+    // Drift detected: needs add to sale (settings already in DB)
     // ========================================================================
 
     #[Test]
-    public function dispatches_add_to_sale_and_sku_updates_when_drift_needs_add(): void
+    public function dispatches_add_to_sale_when_drift_needs_add_and_settings_in_db(): void
     {
         $productId = IntId::from(10);
         $product = self::createProduct(id: 10, sku: 'SKU-010');
-        $saleSettings = new SaleSettings(saleReason: 'Flash Sale');
+        $dbSettings = new SaleSettings(saleReason: 'Flash Sale');
 
         $sku1 = Sku::fromTrusted('SKU-010');
         $sku2 = Sku::fromTrusted('SKU-010-VAR');
@@ -119,11 +125,17 @@ final class ReconcileProductSaleStateUseCaseTest extends TestCase
             ->with($product)
             ->andReturn($result);
 
+        // DB has existing settings — no save needed
+        $this->saleSettingsRepo->shouldReceive('findByProduct')
+            ->once()
+            ->with(Mockery::on(static fn(IntId $id): bool => $id->value === 10))
+            ->andReturn($dbSettings);
+        $this->saleSettingsRepo->shouldNotReceive('save');
+
         $this->dispatcher->shouldReceive('dispatchAddToSale')
             ->once()
             ->with(
                 Mockery::on(static fn(IntId $id): bool => $id->value === 10),
-                Mockery::on(static fn(SaleSettings $s): bool => $s->saleReason === 'Flash Sale'),
                 self::SALE_CATEGORY_ID,
             );
 
@@ -143,7 +155,7 @@ final class ReconcileProductSaleStateUseCaseTest extends TestCase
                 Mockery::on(static fn(Sku $s): bool => $s->value === 'SKU-010-VAR'),
             );
 
-        $this->useCase->execute($productId, $saleSettings);
+        $this->useCase->execute($productId);
     }
 
     // ========================================================================
@@ -180,6 +192,7 @@ final class ReconcileProductSaleStateUseCaseTest extends TestCase
             ->andReturn($result);
 
         $this->dispatcher->shouldNotReceive('dispatchAddToSale');
+        $this->saleSettingsRepo->shouldNotReceive('findByProduct');
 
         $this->dispatcher->shouldReceive('dispatchRemoveFromSale')
             ->once()
@@ -227,16 +240,17 @@ final class ReconcileProductSaleStateUseCaseTest extends TestCase
         $this->dispatcher->shouldNotReceive('dispatchAddToSale');
         $this->dispatcher->shouldNotReceive('dispatchRemoveFromSale');
         $this->dispatcher->shouldNotReceive('dispatchUpdateSaleState');
+        $this->saleSettingsRepo->shouldNotReceive('findByProduct');
 
         $this->useCase->execute($productId);
     }
 
     // ========================================================================
-    // Drift detected, needs add, no SaleSettings → reconstructs from custom fields
+    // Drift detected, needs add, no DB row → reconstruct from custom fields and persist
     // ========================================================================
 
     #[Test]
-    public function reconstructs_sale_settings_from_product_custom_fields_when_none_provided(): void
+    public function reconstructs_and_persists_sale_settings_from_custom_fields_when_no_db_row(): void
     {
         $productId = IntId::from(40);
         $product = self::createProduct(id: 40, sku: 'SKU-040', rawCustomFields: [
@@ -262,29 +276,41 @@ final class ReconcileProductSaleStateUseCaseTest extends TestCase
         $this->productRepo->shouldReceive('getProduct')->once()->andReturn($product);
         $this->specification->shouldReceive('evaluate')->once()->andReturn($result);
 
-        $this->dispatcher->shouldReceive('dispatchAddToSale')
+        // No DB row — triggers fallback build + persist
+        $this->saleSettingsRepo->shouldReceive('findByProduct')
+            ->once()
+            ->with(Mockery::on(static fn(IntId $id): bool => $id->value === 40))
+            ->andReturnNull();
+
+        $this->saleSettingsRepo->shouldReceive('save')
             ->once()
             ->with(
                 Mockery::on(static fn(IntId $id): bool => $id->value === 40),
                 Mockery::on(static fn(SaleSettings $s): bool => $s->saleReason === 'Clearance'
-                        && $s->saleComments === 'End of line'
-                        && $s->saleEndDate instanceof DateTimeImmutable
-                        && $s->saleEndDate->format('Y-m-d') === '2099-12-31'
-                        && $s->saleEndsStock === 10),
+                    && $s->saleComments === 'End of line'
+                    && $s->saleEndDate instanceof DateTimeImmutable
+                    && $s->saleEndDate->format('Y-m-d') === '2099-12-31'
+                    && $s->saleEndsStock === 10),
+            );
+
+        $this->dispatcher->shouldReceive('dispatchAddToSale')
+            ->once()
+            ->with(
+                Mockery::on(static fn(IntId $id): bool => $id->value === 40),
                 self::SALE_CATEGORY_ID,
             );
 
         $this->dispatcher->shouldReceive('dispatchUpdateSaleState')->once();
 
-        $this->useCase->execute($productId, null);
+        $this->useCase->execute($productId);
     }
 
     // ========================================================================
-    // Drift detected, needs add, no SaleSettings, no custom fields → fallback
+    // Drift detected, needs add, no DB row, no custom fields → fallback reason
     // ========================================================================
 
     #[Test]
-    public function uses_fallback_reconciliation_reason_when_no_custom_fields(): void
+    public function uses_fallback_reconciliation_reason_when_no_db_row_and_no_custom_fields(): void
     {
         $productId = IntId::from(50);
         $product = self::createProduct(id: 50, sku: 'SKU-050', rawCustomFields: []);
@@ -305,20 +331,30 @@ final class ReconcileProductSaleStateUseCaseTest extends TestCase
         $this->productRepo->shouldReceive('getProduct')->once()->andReturn($product);
         $this->specification->shouldReceive('evaluate')->once()->andReturn($result);
 
-        $this->dispatcher->shouldReceive('dispatchAddToSale')
+        $this->saleSettingsRepo->shouldReceive('findByProduct')
+            ->once()
+            ->andReturnNull();
+
+        $this->saleSettingsRepo->shouldReceive('save')
             ->once()
             ->with(
-                Mockery::on(static fn(IntId $id): bool => $id->value === 50),
+                Mockery::any(),
                 Mockery::on(static fn(SaleSettings $s): bool => $s->saleReason === 'Reconciliation'
                     && $s->saleComments === null
                     && $s->saleEndDate === null
                     && $s->saleEndsStock === null),
+            );
+
+        $this->dispatcher->shouldReceive('dispatchAddToSale')
+            ->once()
+            ->with(
+                Mockery::on(static fn(IntId $id): bool => $id->value === 50),
                 self::SALE_CATEGORY_ID,
             );
 
         $this->dispatcher->shouldReceive('dispatchUpdateSaleState')->once();
 
-        $this->useCase->execute($productId, null);
+        $this->useCase->execute($productId);
     }
 
     // ========================================================================

@@ -6,8 +6,11 @@ namespace App\Infrastructure\Notifications\Listeners;
 
 use App\Application\Contracts\ChatNotificationInterface;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
+use App\Application\Contracts\Shopwired\SaleSettingsRepositoryInterface;
 use App\Domain\Catalog\Product\Events\ProductPricingUpdatedEvent;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
+use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\Exceptions\InvalidConfigurationException;
 use Exception;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -18,6 +21,8 @@ use Throwable;
  * Sends Slack notification when product prices are updated.
  *
  * Enriches the notification with product title and URL from the database.
+ * For add-to-sale events, reads SaleSettings from DB for the sale context block.
+ * For removal events, uses the SaleSubmissionContext snapshot from the event.
  * Falls back gracefully if the product lookup fails.
  */
 final class ProductPricingUpdatedSlackListener implements ShouldQueue
@@ -29,11 +34,14 @@ final class ProductPricingUpdatedSlackListener implements ShouldQueue
     public function __construct(
         private readonly ChatNotificationInterface $chat,
         private readonly ProductRepositoryInterface $productRepository,
+        private readonly SaleSettingsRepositoryInterface $saleSettingsRepo,
     ) {}
 
     /**
      * @throws InvalidConfigurationException When Slack channel is not configured
      * @throws ExternalServiceUnavailableException On Slack delivery failure
+     * @throws DatabaseOperationFailedException On sale settings DB query failure
+     * @throws DuplicateRecordException On sale settings DB constraint violation
      */
     public function handle(ProductPricingUpdatedEvent $event): void
     {
@@ -51,12 +59,19 @@ final class ProductPricingUpdatedSlackListener implements ShouldQueue
             ]);
         }
 
+        // For add-to-sale: read persisted settings from DB.
+        // For removals: SaleSubmissionContext snapshot is in the event (DB row already deleted).
+        $saleSettings = $event->saleSubmissionContext === null
+            ? $this->saleSettingsRepo->findByProduct($event->productId)
+            : null;
+
         $this->chat->sendPriceUpdateAlert(
             productId: $event->productId,
             priceChanges: $event->priceChanges,
             productTitle: $productTitle,
             productUrl: $productUrl,
-            saleSettings: $event->saleSettings,
+            saleSettings: $saleSettings,
+            saleSubmissionContext: $event->saleSubmissionContext,
         );
     }
 

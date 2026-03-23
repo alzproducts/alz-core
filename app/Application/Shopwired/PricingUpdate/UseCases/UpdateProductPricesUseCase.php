@@ -7,6 +7,7 @@ namespace App\Application\Shopwired\PricingUpdate\UseCases;
 use App\Application\Contracts\Shopwired\PriceUpdateClientInterface;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Application\Contracts\Shopwired\SaleReconciliationDispatcherInterface;
+use App\Application\Contracts\Shopwired\SaleSettingsRepositoryInterface;
 use App\Application\Shopwired\PricingUpdate\Results\BatchApiResult;
 use App\Application\Shopwired\PricingUpdate\Results\FailedPriceUpdateResult;
 use App\Application\Shopwired\PricingUpdate\Results\PreFlightValidationResult;
@@ -25,6 +26,7 @@ use App\Domain\Catalog\Product\ValueObjects\Product;
 use App\Domain\Catalog\Product\ValueObjects\ProductRetailPricing;
 use App\Domain\Catalog\Product\ValueObjects\ResolvedPriceUpdate;
 use App\Domain\Catalog\Product\ValueObjects\SaleSettings;
+use App\Domain\Catalog\Product\ValueObjects\SaleSubmissionContext;
 use App\Domain\Catalog\Product\ValueObjects\Sku;
 use App\Domain\Catalog\Product\ValueObjects\SkuPriceChange;
 use App\Domain\Exceptions\Api\AbstractApiException;
@@ -33,6 +35,7 @@ use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Api\TransientApiFailure;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
+use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\IntId;
 use Illuminate\Contracts\Events\Dispatcher;
 use Psr\Log\LoggerInterface;
@@ -61,6 +64,7 @@ final readonly class UpdateProductPricesUseCase
         private ProductRepositoryInterface $productRepo,
         private ProductSyncService $productSyncService,
         private SaleReconciliationDispatcherInterface $saleReconciliationDispatcher,
+        private SaleSettingsRepositoryInterface $saleSettingsRepo,
         private Dispatcher $events,
         private LoggerInterface $logger,
     ) {}
@@ -73,6 +77,7 @@ final readonly class UpdateProductPricesUseCase
      * @throws InvalidApiResponseException When API response parsing fails (contract violation)
      * @throws ExternalServiceUnavailableException When API transport initialization fails
      * @throws DatabaseOperationFailedException When local product lookup fails
+     * @throws DuplicateRecordException On sale settings DB constraint violation
      * @throws InvalidCustomFieldValueException When custom field mapping fails during product lookup
      */
     public function execute(array $skuUpdates, ?SaleSettings $saleSettings = null): PriceUpdateResult
@@ -93,6 +98,9 @@ final readonly class UpdateProductPricesUseCase
             return PriceUpdateResult::fromPhases($total, $preFlight, null);
         }
 
+        // 2b. Persist or clear sale settings before API call so jobs always read fresh state.
+        $saleSubmissionContext = $this->persistSaleState($productId, $saleSettings);
+
         // 3. Send to API
         $commands = \array_map(
             static fn(ResolvedPriceUpdate $r): UpdatePriceCommand => $r->command,
@@ -112,8 +120,8 @@ final readonly class UpdateProductPricesUseCase
 
         // 5. Dispatch events + reconciliation for confirmed updates
         if ($apiResult->updatedSkus !== []) {
-            $this->dispatchEvents($productId, $apiResult->updatedSkus, $preFlight->resolvedBySku(), $saleSettings);
-            $this->saleReconciliationDispatcher->dispatchReconciliation($productId, $saleSettings);
+            $this->dispatchEvents($productId, $apiResult->updatedSkus, $preFlight->resolvedBySku(), $saleSubmissionContext);
+            $this->saleReconciliationDispatcher->dispatchReconciliation($productId);
         }
 
         // 6. Build result and log
@@ -238,6 +246,39 @@ final readonly class UpdateProductPricesUseCase
     }
 
     // -----------------------------------------------------------------------
+    // Sale State Persistence
+    // -----------------------------------------------------------------------
+
+    /**
+     * Persist or clear sale settings before the API call.
+     *
+     * For removals: snapshots the existing DB row for Slack context, then deletes it.
+     * For additions: upserts the new settings so AddToSaleJob reads fresh data on execution.
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    private function persistSaleState(IntId $productId, ?SaleSettings $saleSettings): ?SaleSubmissionContext
+    {
+        if ($saleSettings !== null && $saleSettings->removalReason !== null) {
+            $existingSettings = $this->saleSettingsRepo->findByProduct($productId);
+            $saleSubmissionContext = $existingSettings !== null
+                ? SaleSubmissionContext::fromSaleSettings($existingSettings, $saleSettings->removalReason)
+                : new SaleSubmissionContext(removalReason: $saleSettings->removalReason);
+            $this->saleSettingsRepo->delete($productId);
+
+            return $saleSubmissionContext;
+        }
+
+        if ($saleSettings !== null) {
+            $this->saleSettingsRepo->save($productId, $saleSettings);
+        }
+
+        return null;
+    }
+
+    // -----------------------------------------------------------------------
     // API Communication
     // -----------------------------------------------------------------------
 
@@ -332,7 +373,7 @@ final readonly class UpdateProductPricesUseCase
         IntId $productId,
         array $updatedSkus,
         array $resolvedBySku,
-        ?SaleSettings $saleSettings,
+        ?SaleSubmissionContext $saleSubmissionContext,
     ): void {
         /** @var list<SkuPriceChange> $priceChanges */
         $priceChanges = [];
@@ -358,7 +399,7 @@ final readonly class UpdateProductPricesUseCase
         $this->events->dispatch(new ProductPricingUpdatedEvent(
             productId: $productId,
             priceChanges: $priceChanges,
-            saleSettings: $saleSettings,
+            saleSubmissionContext: $saleSubmissionContext,
         ));
     }
 }

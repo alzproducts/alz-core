@@ -38,6 +38,7 @@ use App\Application\Contracts\Shopwired\ProductUpdateClientInterface;
 use App\Application\Contracts\Shopwired\ProductWebhookEventResolverInterface;
 use App\Application\Contracts\Shopwired\ProductWebhookParserInterface;
 use App\Application\Contracts\Shopwired\SaleReconciliationDispatcherInterface;
+use App\Application\Contracts\Shopwired\SaleSettingsRepositoryInterface;
 use App\Application\Contracts\Shopwired\ShopwiredSyncDispatcherInterface;
 use App\Application\Contracts\Shopwired\StockClientInterface;
 use App\Application\Contracts\Shopwired\WebhookClientInterface;
@@ -79,6 +80,7 @@ use App\Infrastructure\Shopwired\Repositories\EloquentCustomFieldRepository;
 use App\Infrastructure\Shopwired\Repositories\EloquentFilterGroupRepository;
 use App\Infrastructure\Shopwired\Repositories\EloquentOrderRepository;
 use App\Infrastructure\Shopwired\Repositories\EloquentProductRepository;
+use App\Infrastructure\Shopwired\Repositories\EloquentSaleSettingsRepository;
 use App\Infrastructure\Shopwired\Resolvers\ShopwiredBrandWebhookEventResolver;
 use App\Infrastructure\Shopwired\Resolvers\ShopwiredCategoryWebhookEventResolver;
 use App\Infrastructure\Shopwired\Resolvers\ShopwiredCustomerWebhookEventResolver;
@@ -174,6 +176,7 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
         $this->app->singleton(BrandRepositoryInterface::class, EloquentBrandRepository::class);
         $this->app->singleton(FilterGroupRepositoryInterface::class, EloquentFilterGroupRepository::class);
         $this->app->singleton(ProductIdentifierResolverInterface::class, ProductIdentifierResolver::class);
+        $this->app->singleton(SaleSettingsRepositoryInterface::class, EloquentSaleSettingsRepository::class);
 
         // Scoped: fresh mapper per queue job (Octane isolation)
         $this->app->scoped(ProductRepositoryInterface::class, EloquentProductRepository::class);
@@ -308,6 +311,7 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
             ProductWebhookEventResolverInterface::class,
             ProductWebhookParserInterface::class,
             SaleReconciliationDispatcherInterface::class,
+            SaleSettingsRepositoryInterface::class,
             ShopwiredSyncDispatcherInterface::class,
             StockClientInterface::class,
             SyncBrandUseCase::class,

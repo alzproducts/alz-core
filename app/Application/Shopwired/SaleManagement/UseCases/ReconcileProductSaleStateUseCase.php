@@ -6,6 +6,7 @@ namespace App\Application\Shopwired\SaleManagement\UseCases;
 
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Application\Contracts\Shopwired\SaleReconciliationDispatcherInterface;
+use App\Application\Contracts\Shopwired\SaleSettingsRepositoryInterface;
 use App\Application\Shopwired\SaleManagement\Resolvers\ProductSaleStateResolver;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\Product\Enums\SaleCustomField;
@@ -30,6 +31,7 @@ final readonly class ReconcileProductSaleStateUseCase
     public function __construct(
         private ProductRepositoryInterface $productRepo,
         private SaleReconciliationDispatcherInterface $dispatcher,
+        private SaleSettingsRepositoryInterface $saleSettingsRepo,
         private ProductSaleStateResolver $specification,
         private LoggerInterface $logger,
         private int $saleCategoryId,
@@ -42,7 +44,7 @@ final readonly class ReconcileProductSaleStateUseCase
      * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database unavailable
      */
-    public function execute(IntId $productId, ?SaleSettings $saleSettings = null): void
+    public function execute(IntId $productId): void
     {
         // Fast-path: check drift without loading the full Product VO
         if (! $this->productRepo->hasSaleStateDrift($productId, $this->saleCategoryId)) {
@@ -68,8 +70,16 @@ final readonly class ReconcileProductSaleStateUseCase
         ]);
 
         if ($result->needsAddToSale) {
-            $effectiveSettings = $saleSettings ?? self::buildSaleSettingsFromProduct($product);
-            $this->dispatcher->dispatchAddToSale($productId, $effectiveSettings, $this->saleCategoryId);
+            // Prefer DB-persisted settings; fall back to custom fields for legacy products
+            // (added to sale before this feature was deployed — no DB row exists yet).
+            $dbSettings = $this->saleSettingsRepo->findByProduct($productId);
+
+            if ($dbSettings === null) {
+                $dbSettings = self::buildSaleSettingsFromProduct($product);
+                $this->saleSettingsRepo->save($productId, $dbSettings);
+            }
+
+            $this->dispatcher->dispatchAddToSale($productId, $this->saleCategoryId);
         }
 
         if ($result->needsRemoveFromSale) {

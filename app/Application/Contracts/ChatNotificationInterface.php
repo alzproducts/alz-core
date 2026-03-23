@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Application\Contracts;
 
 use App\Domain\Catalog\Product\ValueObjects\SaleSettings;
+use App\Domain\Catalog\Product\ValueObjects\SaleSubmissionContext;
 use App\Domain\Catalog\Product\ValueObjects\SkuPriceChange;
 use App\Domain\ContactSubmission\ValueObjects\ContactSubmission;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
@@ -59,6 +60,7 @@ interface ChatNotificationInterface
         ?string $productTitle = null,
         ?string $productUrl = null,
         ?SaleSettings $saleSettings = null,
+        ?SaleSubmissionContext $saleSubmissionContext = null,
     ): void;
 
     /**

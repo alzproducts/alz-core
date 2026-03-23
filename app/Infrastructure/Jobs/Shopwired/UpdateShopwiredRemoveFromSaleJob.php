@@ -7,6 +7,7 @@ namespace App\Infrastructure\Jobs\Shopwired;
 use App\Application\Contracts\Shopwired\ProductFieldUpdateClientInterface;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Application\Contracts\Shopwired\ProductUpdateClientInterface;
+use App\Application\Contracts\Shopwired\SaleSettingsRepositoryInterface;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\Product\Enums\SaleCustomField;
 use App\Domain\Catalog\Product\ValueObjects\ProductFieldUpdate;
@@ -17,6 +18,7 @@ use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Api\ResourceNotAvailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
+use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\IntId;
 use App\Infrastructure\Jobs\Enums\QueueName;
 use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
@@ -77,6 +79,7 @@ final class UpdateShopwiredRemoveFromSaleJob implements ShouldQueue
 
     /**
      * @throws ResourceNotFoundException When product not found in DB
+     * @throws DuplicateRecordException On sale settings DB constraint violation
      * @throws InvalidCustomFieldValueException When custom field mapping fails
      * @throws DatabaseOperationFailedException On DB query failure
      * @throws ResourceNotAvailableException When product not found on API
@@ -89,6 +92,7 @@ final class UpdateShopwiredRemoveFromSaleJob implements ShouldQueue
         ProductRepositoryInterface $productRepo,
         ProductFieldUpdateClientInterface $fieldUpdateClient,
         ProductUpdateClientInterface $productUpdateClient,
+        SaleSettingsRepositoryInterface $saleSettingsRepo,
     ): void {
         $productId = $this->productId->value;
         $product = $productRepo->getProduct($this->productId);
@@ -123,5 +127,9 @@ final class UpdateShopwiredRemoveFromSaleJob implements ShouldQueue
             SaleCustomField::EndsStock->value => '',
             SaleCustomField::DefaultSortOrder->value => '',
         ]);
+
+        // 3. Safety-net: ensure sale settings row is cleared
+        //    (normally deleted by UseCase before dispatch, but handles retries/edge cases)
+        $saleSettingsRepo->delete($this->productId);
     }
 }
