@@ -42,6 +42,7 @@ If any individual check is blocked by complications or ambiguity, **skip it** �
 #### Use Cases
 
 - **No untyped data arrays** — If keyed arrays with PHPStan annotations are used internally instead of typed PHP classes, extract proper classes.
+- **Business logging** — Every use case must inject `LoggerInterface` and log business milestones at `info` level. At minimum: entry (what operation, key identifiers/context) and exit (outcome/result summary). Log all code paths — early returns, no-op conditions, and error recovery should all produce a log entry so operators can trace what happened. Use structured context arrays with snake_case keys, never string interpolation in log messages. Reference existing use cases (e.g., `UpdateSkuUseCase`, `SyncProductsUseCase`) for the established pattern.
 - **Clarity and simplicity** — Any moderately complex use case likely needs refactoring. Can complex logic be extracted into private methods? Can code be moved outside the use case where appropriate — e.g., static factories on domain objects, dedicated mappers for complex transformations, domain value objects? Only create these if justified, but usually they can be.
 - **Note:** Use cases are typically the most complex part of a feature. Make small, obvious improvements during this sweep (extracting a private method, moving a factory). For anything larger, skip it — provide recommendations in the summary and defer to a focused, collaborative refactoring session with the user.
 
@@ -59,6 +60,11 @@ If any individual check is blocked by complications or ambiguity, **skip it** �
 - **Catch, log, translate** — All infrastructure exceptions from code we don't control (third-party SDKs, API calls) must be caught, logged with context, and translated to domain exceptions.
 - **Failure paths throw** — Failure conditions must throw domain exceptions, not return silently.
 - **Preserve context** — Pass all relevant information up the chain. For batch operations, consider returning a result object instead of throwing on first failure.
+
+#### API Client Methods
+
+- **Typed parameters** — Client methods should accept domain objects, Commands, or DTOs — not raw primitives/arrays. Place the type in Domain if it fits; otherwise Infrastructure-level is fine. Exception: trivial single-scalar calls (e.g., delete by ID) are acceptable as-is.
+- **Domain types over primitives** — Use domain value objects (`Money`, `SKU`, `IntId`, `Guid`, etc.) instead of raw `string`/`int`/`float` where applicable.
 
 #### Other
 
