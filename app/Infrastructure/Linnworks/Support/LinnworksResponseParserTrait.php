@@ -208,6 +208,29 @@ trait LinnworksResponseParserTrait
     }
 
     /**
+     * Validate that a response is an array and return it.
+     *
+     * Used for endpoints that return raw arrays without converting to domain objects.
+     *
+     * @return array<array-key, mixed>
+     *
+     * @throws InvalidApiResponseException When response is not an array
+     */
+    private static function validateArrayResponse(mixed $data, string $context): array
+    {
+        if (!\is_array($data)) {
+            self::logParsingFailure($context, $data);
+
+            throw new InvalidApiResponseException(
+                serviceName: self::SERVICE_NAME,
+                message: $context,
+            );
+        }
+
+        return $data;
+    }
+
+    /**
      * Log parsing failure for debugging API contract changes.
      */
     private static function logParsingFailure(string $error, mixed $data): void

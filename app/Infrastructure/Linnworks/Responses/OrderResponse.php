@@ -4,13 +4,14 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Linnworks\Responses;
 
+use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Linnworks\ValueObjects\LinnworksOrder;
 use App\Domain\ValueObjects\Guid;
 use App\Domain\ValueObjects\IntId;
 use App\Infrastructure\Contracts\DomainConvertibleInterface;
+use App\Infrastructure\Linnworks\Support\LinnworksDateParser;
 use App\Infrastructure\Linnworks\Support\PascalCaseMapper;
 use Carbon\CarbonImmutable;
-use DateTimeImmutable;
 use Spatie\LaravelData\Attributes\MapInputName;
 use Spatie\LaravelData\Data;
 
@@ -44,6 +45,9 @@ final class OrderResponse extends Data implements DomainConvertibleInterface
         public readonly array $folderName = [],
     ) {}
 
+    /**
+     * @throws InvalidApiResponseException When date parsing fails
+     */
     public function toDomain(): LinnworksOrder
     {
         $shipping = $this->customerInfo->address;
@@ -110,21 +114,13 @@ final class OrderResponse extends Data implements DomainConvertibleInterface
             billCountry: $billing->country,
 
             // Nullable fields
-            processedOn: self::parseDate($this->processedOn),
-            paidOn: self::parseDate($this->paidOn),
-            receivedDate: self::parseDate($this->generalInfo->receivedDate),
-            despatchByDate: self::parseDate($this->generalInfo->despatchByDate),
+            processedOn: LinnworksDateParser::parse($this->processedOn),
+            paidOn: LinnworksDateParser::parse($this->paidOn),
+            receivedDate: LinnworksDateParser::parse($this->generalInfo->receivedDate),
+            despatchByDate: LinnworksDateParser::parse($this->generalInfo->despatchByDate),
             marker: $this->generalInfo->marker,
             folderNames: $this->folderName,
         );
     }
 
-    private static function parseDate(?string $value): ?DateTimeImmutable
-    {
-        if ($value === null || $value === '') {
-            return null;
-        }
-
-        return CarbonImmutable::parse($value)->toDateTimeImmutable();
-    }
 }
