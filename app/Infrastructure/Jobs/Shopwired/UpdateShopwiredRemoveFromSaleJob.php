@@ -28,9 +28,12 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
+use Illuminate\Queue\Middleware\Skip;
 
 /**
  * Removes a product from sale on ShopWired: sale category, sort order restore, and custom field cleanup.
+ *
+ * Idempotent: skipped via Skip::when if the product is back on sale by execution time.
  */
 final class UpdateShopwiredRemoveFromSaleJob implements ShouldQueue
 {
@@ -58,6 +61,8 @@ final class UpdateShopwiredRemoveFromSaleJob implements ShouldQueue
     public function middleware(): array
     {
         return [
+            // @phpstan-ignore-next-line shipmonk.checkedExceptionInCallable (Skip invokes immediately; DB exceptions bubble to queue retry)
+            Skip::when(fn(): bool => \app(ProductRepositoryInterface::class)->getProduct($this->productId)->isOnSale()),
             new HandleDatabaseExceptions(),
             ServiceRateLimiter::shopwiredApi(),
             ServiceCircuitBreaker::shopwired(),

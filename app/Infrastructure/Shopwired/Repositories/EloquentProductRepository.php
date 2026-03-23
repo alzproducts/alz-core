@@ -643,17 +643,21 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
                                 ->orWhereRaw("custom_fields->>'sale_reason' = ''");
                         });
                 })
-                // Case 2: NOT on sale but still in sale category
-                // Note: sale custom fields (sale_reason etc.) are NOT checked here —
-                // they sometimes get left behind and should not trigger reconciliation alone.
-                // The specification will clean them up when reconciliation runs for other reasons.
+                // Case 2: NOT on sale but still in sale category or has orphaned sale custom fields
                 ->orWhere(static function (Builder $notOnSale) use ($saleCategoryJson): void {
                     $notOnSale->where(static function (Builder $notSale): void {
                         $notSale->whereNull('sale_price')
                             ->orWhere('sale_price', '<=', 0)
                             ->orWhereRaw('sale_price >= price');
                     })
-                    ->whereRaw('category_ids @> ?::jsonb', [$saleCategoryJson]);
+                    ->where(static function (Builder $hasArtifacts) use ($saleCategoryJson): void {
+                        $hasArtifacts->whereRaw('category_ids @> ?::jsonb', [$saleCategoryJson])
+                            ->orWhereRaw("(custom_fields->>'sale_reason') IS NOT NULL AND (custom_fields->>'sale_reason') != ''")
+                            ->orWhereRaw("(custom_fields->>'sale_date_start') IS NOT NULL AND (custom_fields->>'sale_date_start') != ''")
+                            ->orWhereRaw("(custom_fields->>'sale_date_end') IS NOT NULL AND (custom_fields->>'sale_date_end') != ''")
+                            ->orWhereRaw("(custom_fields->>'sale_comments') IS NOT NULL AND (custom_fields->>'sale_comments') != ''")
+                            ->orWhereRaw("(custom_fields->>'sale_ends_stock') IS NOT NULL AND (custom_fields->>'sale_ends_stock') != ''");
+                    });
                 });
             });
     }

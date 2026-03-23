@@ -13,9 +13,8 @@ use App\Domain\ValueObjects\IntId;
 /**
  * Pure calculation: given a Product, determines what sale state corrections are needed.
  *
- * "On sale" means: salePrice is not null, greater than zero, and less than price.
- * This matches the getProductsOnSale() query semantics (sale_price > 0), NOT
- * BasicProductTrait::isOnSale() which returns true for salePrice=0.00 (used for removal).
+ * "On sale" is defined by Product::isSaleActive() — salePrice is not null, > 0, and < price.
+ * This matches the SQL drift query in EloquentProductRepository::buildSaleStateDriftQuery().
  */
 final readonly class ProductSaleStateResolver
 {
