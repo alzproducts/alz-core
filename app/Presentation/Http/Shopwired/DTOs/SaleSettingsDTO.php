@@ -7,10 +7,12 @@ namespace App\Presentation\Http\Shopwired\DTOs;
 use App\Domain\Catalog\Product\Enums\SaleRemovalReason;
 use App\Domain\Catalog\Product\ValueObjects\SaleSettings;
 use DateTimeImmutable;
+use Spatie\LaravelData\Attributes\MapInputName;
 use Spatie\LaravelData\Attributes\Validation\Min;
 use Spatie\LaravelData\Attributes\WithCast;
 use Spatie\LaravelData\Casts\DateTimeInterfaceCast;
 use Spatie\LaravelData\Data;
+use Spatie\LaravelData\Mappers\SnakeCaseMapper;
 
 /**
  * Sale metadata from the HTTP request body.
@@ -21,6 +23,7 @@ use Spatie\LaravelData\Data;
  * removalReason is cast to SaleRemovalReason automatically by Spatie Data
  * (backed enum casting from string value).
  */
+#[MapInputName(SnakeCaseMapper::class)]
 final class SaleSettingsDTO extends Data
 {
     public function __construct(

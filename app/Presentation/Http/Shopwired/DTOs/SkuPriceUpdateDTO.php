@@ -7,12 +7,15 @@ namespace App\Presentation\Http\Shopwired\DTOs;
 use App\Domain\Catalog\Product\Commands\UpdatePriceCommand;
 use App\Domain\Catalog\Product\ValueObjects\Sku;
 use App\Domain\Shared\Money\ValueObjects\Money;
+use Spatie\LaravelData\Attributes\MapInputName;
 use Spatie\LaravelData\Attributes\Validation\Min;
 use Spatie\LaravelData\Data;
+use Spatie\LaravelData\Mappers\SnakeCaseMapper;
 
 /**
  * Per-SKU price update from the HTTP request body.
  */
+#[MapInputName(SnakeCaseMapper::class)]
 final class SkuPriceUpdateDTO extends Data
 {
     public function __construct(
