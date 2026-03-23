@@ -59,7 +59,8 @@ interface BasicProductInterface
     /**
      * Check if this item is currently on sale.
      *
-     * True when salePrice is set AND is less than regular price.
+     * True when salePrice is set, greater than zero, AND less than regular price.
+     * A salePrice of 0 means "no sale" in ShopWired.
      */
     public function isOnSale(): bool;
 

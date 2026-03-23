@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Providers\Schedule;
 
 use App\Infrastructure\Jobs\Shopwired\CleanupWebhookEventsJob;
+use App\Infrastructure\Jobs\Shopwired\ProcessExpiredSalesJob;
 use App\Infrastructure\Jobs\Shopwired\ProcessShopwiredWebhookHealthJob;
+use App\Infrastructure\Jobs\Shopwired\ReconcileBulkSaleStateJob;
 use App\Infrastructure\Jobs\Shopwired\ReconcileShopwiredProductsJob;
 use App\Infrastructure\Jobs\Shopwired\SyncShopwiredBrandsJob;
 use App\Infrastructure\Jobs\Shopwired\SyncShopwiredCategoriesJob;
@@ -46,6 +48,8 @@ final class ShopwiredScheduleServiceProvider extends ServiceProvider
         $this->registerBrandSchedules();
         $this->registerWebhookHealthSchedule();
         $this->registerWebhookCleanupSchedule();
+        $this->registerExpiredSalesSchedule();
+        $this->registerSaleReconciliationSchedule();
     }
 
     /**
@@ -153,6 +157,34 @@ final class ShopwiredScheduleServiceProvider extends ServiceProvider
             ->name('cleanup-shopwired-webhook-events')
             ->weeklyOn(Carbon::SUNDAY, '02:00')
             ->timezone('Europe/London')
+            ->onOneServer();
+    }
+
+    /**
+     * Automatic Sale Removal: check hourly for expired sales.
+     *
+     * Evaluates 4 removal conditions (inactive, end date, out of stock, units sold)
+     * and processes removals through the standard pricing flow.
+     */
+    private function registerExpiredSalesSchedule(): void
+    {
+        Schedule::job(new ProcessExpiredSalesJob())
+            ->name('check-expired-sales')
+            ->hourly()
+            ->onOneServer();
+    }
+
+    /**
+     * Bulk Sale State Reconciliation: hourly safety net.
+     *
+     * Scans all products for sale state drift (e.g., manual changes in ShopWired admin,
+     * webhook failures) and dispatches per-product reconciliation jobs.
+     */
+    private function registerSaleReconciliationSchedule(): void
+    {
+        Schedule::job(new ReconcileBulkSaleStateJob())
+            ->name('reconcile-sale-state')
+            ->hourly()
             ->onOneServer();
     }
 

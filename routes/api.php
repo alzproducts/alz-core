@@ -123,6 +123,8 @@ Route::middleware([
     Route::prefix('shopwired')->group(static function (): void {
         Route::prefix('products')->group(static function (): void {
             Route::post('free-delivery', [ProductUpdateController::class, 'updateFreeDelivery']);
+            Route::post('{productId}/prices', [ProductUpdateController::class, 'updatePrices'])
+                ->whereNumber('productId');
         });
     });
 });

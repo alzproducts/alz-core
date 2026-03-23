@@ -59,6 +59,7 @@ final readonly class ProductFieldUpdateClient implements ProductFieldUpdateClien
             ProductUpdatableField::MetaTitle => 'metaTitle',
             ProductUpdatableField::MetaDescription => 'metaDescription',
             ProductUpdatableField::Categories => 'categories',
+            ProductUpdatableField::SortOrder => 'sortOrder',
         };
     }
 }

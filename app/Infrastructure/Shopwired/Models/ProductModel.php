@@ -35,6 +35,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property bool $vat_exclusive Price excludes VAT
  * @property bool|null $vat_relief VAT relief eligible (null = unknown, awaiting full sync)
  * @property float|null $weight Weight in configured unit
+ * @property int|null $sort_order ShopWired sort order
  * @property string|null $meta_title SEO title
  * @property string|null $meta_description SEO description
  * @property string|null $gtin Global Trade Item Number (barcode)
