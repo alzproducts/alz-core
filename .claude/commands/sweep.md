@@ -73,6 +73,7 @@ If any individual check is blocked by complications or ambiguity, **skip it** �
 
 - **Code placement** — Is code in the correct architectural layer? Are feature sub-namespaces used consistently with similar features nearby? Compare against the structure of similar features in each layer.
 - **Logging at the right layer** — Each layer should only log what it uniquely knows. Data should not be passed across layers just to be logged elsewhere. If a result is returned from a UseCase to a Job solely for logging, move the logging into the UseCase. Infrastructure logs SDK/technical details, Application logs business milestones/results, Presentation (jobs/controllers) logs only delivery-specific context (input parameters, queue metadata).
+- **Linting bypasses** — Scan changed files for `@phpstan-ignore`, `@psalm-suppress`, baseline additions, or similar suppression annotations. Each must have explicit user approval and a documented justification. Check `.ai/docs/guides/common-linting-errors.md` for ranked alternatives before accepting any bypass. Compare against existing bypasses in the codebase for precedent.
 
 ### Testing
 
