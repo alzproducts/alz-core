@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Domain\Linnworks\ValueObjects;
 
 use App\Domain\Linnworks\ValueObjects\PurchaseOrderReference;
+use App\Domain\ValueObjects\IntId;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -53,27 +54,18 @@ final class PurchaseOrderReferenceTest extends TestCase
     #[Test]
     public function for_dropship_produces_po_prefix_random_dash_order_id_format(): void
     {
-        $reference = PurchaseOrderReference::forDropship('ORD-12345');
+        $reference = PurchaseOrderReference::forDropship(IntId::from(12345));
 
-        $this->assertMatchesRegularExpression('/^PO\d{5}-ORD-12345$/', $reference->value);
+        $this->assertMatchesRegularExpression('/^PO\d{5}-12345$/', $reference->value);
     }
 
     #[Test]
     public function for_dropship_embeds_order_id_after_dash(): void
     {
-        $reference = PurchaseOrderReference::forDropship('MY-ORDER-99');
+        $reference = PurchaseOrderReference::forDropship(IntId::from(99));
 
-        $this->assertStringContainsString('-MY-ORDER-99', $reference->value);
+        $this->assertStringContainsString('-99', $reference->value);
         $this->assertStringStartsWith('PO', $reference->value);
-    }
-
-    #[Test]
-    public function for_dropship_throws_on_empty_order_id(): void
-    {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Order ID must not be empty for dropship reference');
-
-        PurchaseOrderReference::forDropship('');
     }
 
     /*

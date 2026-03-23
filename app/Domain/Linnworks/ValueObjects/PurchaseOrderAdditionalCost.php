@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Domain\Linnworks\ValueObjects;
 
+use App\Domain\ValueObjects\TaxRate;
+
 /**
  * Linnworks purchase order additional cost value object.
  *
@@ -18,7 +20,7 @@ final readonly class PurchaseOrderAdditionalCost
         public ?int $additionalCostTypeId,
         public ?string $reference,
         public float $subTotalLineCost,
-        public float $taxRate,
+        public TaxRate $taxRate,
         public float $tax,
         public ?string $currency,
         public float $conversionRate,

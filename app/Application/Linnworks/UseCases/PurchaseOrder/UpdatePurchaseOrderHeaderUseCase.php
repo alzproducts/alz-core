@@ -11,8 +11,6 @@ use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
-use App\Domain\ValueObjects\Guid;
-use DateTimeImmutable;
 use JsonException;
 use Psr\Log\LoggerInterface;
 
@@ -39,34 +37,21 @@ final readonly class UpdatePurchaseOrderHeaderUseCase
      * @throws InvalidApiRequestException When request parameters are invalid
      * @throws InvalidApiResponseException When API response structure is invalid
      */
-    public function execute(
-        Guid $purchaseId,
-        ?string $supplierReferenceNumber = null,
-        ?DateTimeImmutable $quotedDeliveryDate = null,
-        ?float $postagePaid = null,
-    ): void {
+    public function execute(UpdatePurchaseOrderHeaderCommand $command): void
+    {
         $this->logger->info('Updating purchase order header', [
-            'purchase_id' => $purchaseId->value,
-            'fields' => \array_keys(\array_filter([
-                'supplier_reference_number' => $supplierReferenceNumber,
-                'quoted_delivery_date' => $quotedDeliveryDate,
-                'postage_paid' => $postagePaid,
-            ], static fn(mixed $v): bool => $v !== null)),
+            'purchase_id' => $command->purchaseId->value,
+            'fields' => $command->changedFields(),
         ]);
 
-        $current = $this->client->getPurchaseOrder($purchaseId);
+        $current = $this->client->getPurchaseOrder($command->purchaseId);
 
-        $updateParams = PurchaseOrderHeaderUpdateDTO::fromHeader(
-            $current,
-            $supplierReferenceNumber,
-            $quotedDeliveryDate,
-            $postagePaid,
-        );
+        $updateParams = PurchaseOrderHeaderUpdateDTO::fromHeaderWithOverrides($current, $command);
 
         $this->client->updatePurchaseOrderHeader($updateParams);
 
         $this->logger->info('Updated purchase order header', [
-            'purchase_id' => $purchaseId->value,
+            'purchase_id' => $command->purchaseId->value,
         ]);
     }
 }

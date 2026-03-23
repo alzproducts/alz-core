@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Application\Linnworks\DTOs\PurchaseOrder;
 
+use App\Domain\ValueObjects\TaxRate;
+
 /**
  * Line item to add to a purchase order.
  */
@@ -13,7 +15,7 @@ final readonly class PurchaseOrderLineItemDTO
         public string $fkStockItemId,
         public int $quantity,
         public float $cost,
-        public float $taxRate = 20.00,
+        public TaxRate $taxRate,
         public ?int $packQuantity = null,
         public ?int $packSize = null,
     ) {}
@@ -28,7 +30,7 @@ final readonly class PurchaseOrderLineItemDTO
             'fkStockItemId' => $this->fkStockItemId,
             'Qty' => $this->quantity,
             'Cost' => $this->cost,
-            'TaxRate' => $this->taxRate,
+            'TaxRate' => $this->taxRate->percentage,
             'PackQuantity' => $this->packQuantity,
             'PackSize' => $this->packSize,
         ];

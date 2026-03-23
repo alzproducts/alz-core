@@ -97,14 +97,10 @@ final readonly class PurchaseOrderClient implements PurchaseOrderClientInterface
             params: ['searchParameter' => \json_encode($searchParams, JSON_THROW_ON_ERROR)],
         );
 
-        $data = $response->json();
-
-        if (!\is_array($data)) {
-            throw new InvalidApiResponseException(
-                self::SERVICE_NAME,
-                'Search_PurchaseOrders returned non-array response',
-            );
-        }
+        $data = self::validateArrayResponse(
+            $response->json(),
+            'Search_PurchaseOrders returned non-array response',
+        );
 
         /** @var list<array<string, mixed>> $results */
         $results = $data['Result'] ?? [];
@@ -184,17 +180,11 @@ final readonly class PurchaseOrderClient implements PurchaseOrderClientInterface
             endpoint: '/api/PurchaseOrder/Get_AdditionalCostTypes',
         );
 
-        $data = $response->json();
-
-        if (!\is_array($data)) {
-            throw new InvalidApiResponseException(
-                self::SERVICE_NAME,
-                'Get_AdditionalCostTypes returned non-array response',
-            );
-        }
-
         /** @var array<string, mixed> */
-        return $data;
+        return self::validateArrayResponse(
+            $response->json(),
+            'Get_AdditionalCostTypes returned non-array response',
+        );
     }
 
     /**
@@ -245,17 +235,11 @@ final readonly class PurchaseOrderClient implements PurchaseOrderClientInterface
             ], JSON_THROW_ON_ERROR)],
         );
 
-        $data = $response->json();
-
-        if (!\is_array($data)) {
-            throw new InvalidApiResponseException(
-                self::SERVICE_NAME,
-                'GetPurchaseOrdersWithStockItems returned non-array response',
-            );
-        }
-
         /** @var list<string> */
-        return $data;
+        return self::validateArrayResponse(
+            $response->json(),
+            'GetPurchaseOrdersWithStockItems returned non-array response',
+        );
     }
 
     // ── Write Operations ──
@@ -283,8 +267,8 @@ final readonly class PurchaseOrderClient implements PurchaseOrderClientInterface
                 'UnitAmountTaxIncludedType' => $command->unitAmountTaxIncludedType,
                 'DateOfPurchase' => ($command->dateOfPurchase ?? new DateTimeImmutable())->format('Y-m-d\TH:i:s'),
                 'QuotedDeliveryDate' => $command->quotedDeliveryDate?->format('Y-m-d\TH:i:s'),
-                'PostagePaid' => $command->postagePaid,
-                'ShippingTaxRate' => $command->shippingTaxRate,
+                'PostagePaid' => $command->postagePaid->toNet(),
+                'ShippingTaxRate' => $command->shippingTaxRate->percentage,
                 'ConversionRate' => $command->conversionRate,
             ], JSON_THROW_ON_ERROR)],
         );

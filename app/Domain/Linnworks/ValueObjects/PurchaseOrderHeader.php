@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Domain\Linnworks\ValueObjects;
 
 use App\Domain\Linnworks\Enums\PurchaseOrderStatus;
+use App\Domain\Shared\Money\ValueObjects\Money;
 use App\Domain\ValueObjects\Guid;
+use App\Domain\ValueObjects\TaxRate;
 use DateTimeImmutable;
 
 /**
@@ -37,10 +39,10 @@ final readonly class PurchaseOrderHeader
         public string $currency,
         public string $supplierReferenceNumber,
         public int $unitAmountTaxIncludedType,
-        public float $postagePaid,
+        public Money $postagePaid,
         public float $totalCost,
         public float $taxPaid,
-        public float $shippingTaxRate,
+        public TaxRate $shippingTaxRate,
         public float $conversionRate,
         public float $convertedShippingCost,
         public float $convertedShippingTax,

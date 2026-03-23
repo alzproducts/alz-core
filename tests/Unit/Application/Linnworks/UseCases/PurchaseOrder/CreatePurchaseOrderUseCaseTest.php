@@ -10,7 +10,10 @@ use App\Application\Linnworks\DTOs\PurchaseOrder\PurchaseOrderLineItemDTO;
 use App\Application\Linnworks\UseCases\PurchaseOrder\CreatePurchaseOrderCommand;
 use App\Application\Linnworks\UseCases\PurchaseOrder\CreatePurchaseOrderUseCase;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
+use App\Domain\Linnworks\ValueObjects\PurchaseOrderReference;
+use App\Domain\Shared\Money\ValueObjects\Money;
 use App\Domain\ValueObjects\Guid;
+use App\Domain\ValueObjects\TaxRate;
 use Mockery;
 use Mockery\MockInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -38,6 +41,8 @@ final class CreatePurchaseOrderUseCaseTest extends TestCase
 
     private Guid $locationGuid;
 
+    private PurchaseOrderReference $reference;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -53,6 +58,7 @@ final class CreatePurchaseOrderUseCaseTest extends TestCase
 
         $this->supplierGuid = Guid::fromTrusted('a1b2c3d4-e5f6-7890-abcd-ef1234567890');
         $this->locationGuid = Guid::fromTrusted('b2c3d4e5-f6a7-8901-bcde-f12345678901');
+        $this->reference = PurchaseOrderReference::fromString('PO-TEST-001');
     }
 
     /*
@@ -64,12 +70,10 @@ final class CreatePurchaseOrderUseCaseTest extends TestCase
     #[Test]
     public function execute_calls_create_initial_then_add_item_for_each_item_and_returns_purchase_id(): void
     {
-        $item1 = new PurchaseOrderLineItemDTO(fkStockItemId: 'stock-1', quantity: 10, cost: 5.00);
-        $item2 = new PurchaseOrderLineItemDTO(fkStockItemId: 'stock-2', quantity: 5, cost: 12.50);
+        $item1 = new PurchaseOrderLineItemDTO(fkStockItemId: 'stock-1', quantity: 10, cost: 5.00, taxRate: TaxRate::standard());
+        $item2 = new PurchaseOrderLineItemDTO(fkStockItemId: 'stock-2', quantity: 5, cost: 12.50, taxRate: TaxRate::standard());
 
-        $command = new CreatePurchaseOrderCommand(
-            fkSupplierId: $this->supplierGuid,
-            fkLocationId: $this->locationGuid,
+        $command = $this->makeCommand(
             items: [$item1, $item2],
         );
 
@@ -92,9 +96,7 @@ final class CreatePurchaseOrderUseCaseTest extends TestCase
     #[Test]
     public function execute_with_no_items_returns_purchase_id_without_adding_items(): void
     {
-        $command = new CreatePurchaseOrderCommand(
-            fkSupplierId: $this->supplierGuid,
-            fkLocationId: $this->locationGuid,
+        $command = $this->makeCommand(
             items: [],
         );
 
@@ -124,9 +126,7 @@ final class CreatePurchaseOrderUseCaseTest extends TestCase
     {
         $ep = new DesiredExtendedPropertyDTO('IsDropship', 'true');
 
-        $command = new CreatePurchaseOrderCommand(
-            fkSupplierId: $this->supplierGuid,
-            fkLocationId: $this->locationGuid,
+        $command = $this->makeCommand(
             items: [],
             extendedProperties: [$ep],
         );
@@ -151,9 +151,7 @@ final class CreatePurchaseOrderUseCaseTest extends TestCase
     #[Test]
     public function execute_does_not_call_add_extended_properties_when_none_provided(): void
     {
-        $command = new CreatePurchaseOrderCommand(
-            fkSupplierId: $this->supplierGuid,
-            fkLocationId: $this->locationGuid,
+        $command = $this->makeCommand(
             items: [],
             extendedProperties: [],
         );
@@ -180,11 +178,9 @@ final class CreatePurchaseOrderUseCaseTest extends TestCase
     #[Test]
     public function execute_deletes_purchase_order_and_rethrows_when_add_item_fails(): void
     {
-        $item = new PurchaseOrderLineItemDTO(fkStockItemId: 'stock-1', quantity: 1, cost: 10.00);
+        $item = new PurchaseOrderLineItemDTO(fkStockItemId: 'stock-1', quantity: 1, cost: 10.00, taxRate: TaxRate::standard());
 
-        $command = new CreatePurchaseOrderCommand(
-            fkSupplierId: $this->supplierGuid,
-            fkLocationId: $this->locationGuid,
+        $command = $this->makeCommand(
             items: [$item],
         );
 
@@ -220,11 +216,9 @@ final class CreatePurchaseOrderUseCaseTest extends TestCase
     #[Test]
     public function execute_logs_error_and_rethrows_original_when_cleanup_also_fails(): void
     {
-        $item = new PurchaseOrderLineItemDTO(fkStockItemId: 'stock-1', quantity: 1, cost: 10.00);
+        $item = new PurchaseOrderLineItemDTO(fkStockItemId: 'stock-1', quantity: 1, cost: 10.00, taxRate: TaxRate::standard());
 
-        $command = new CreatePurchaseOrderCommand(
-            fkSupplierId: $this->supplierGuid,
-            fkLocationId: $this->locationGuid,
+        $command = $this->makeCommand(
             items: [$item],
         );
 
@@ -260,5 +254,34 @@ final class CreatePurchaseOrderUseCaseTest extends TestCase
         $this->expectExceptionMessage('linnworks: Item error');
 
         $this->useCase->execute($command);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Helpers
+    |--------------------------------------------------------------------------
+    */
+
+    /**
+     * @param list<PurchaseOrderLineItemDTO> $items
+     * @param list<DesiredExtendedPropertyDTO> $extendedProperties
+     */
+    private function makeCommand(
+        array $items = [],
+        array $extendedProperties = [],
+    ): CreatePurchaseOrderCommand {
+        return new CreatePurchaseOrderCommand(
+            fkSupplierId: $this->supplierGuid,
+            fkLocationId: $this->locationGuid,
+            reference: $this->reference,
+            items: $items,
+            currency: 'GBP',
+            supplierReferenceNumber: '',
+            unitAmountTaxIncludedType: null,
+            dateOfPurchase: null,
+            postagePaid: Money::exclusive(0.00),
+            shippingTaxRate: TaxRate::standard(),
+            extendedProperties: $extendedProperties,
+        );
     }
 }

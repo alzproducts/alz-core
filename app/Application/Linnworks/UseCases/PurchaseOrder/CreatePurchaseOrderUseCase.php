@@ -11,11 +11,9 @@ use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
-use App\Domain\Linnworks\ValueObjects\PurchaseOrderReference;
 use App\Domain\ValueObjects\Guid;
 use JsonException;
 use Psr\Log\LoggerInterface;
-use Random\RandomException;
 use Throwable;
 
 /**
@@ -38,7 +36,6 @@ final readonly class CreatePurchaseOrderUseCase
      * @return Guid The new purchase order ID
      *
      * @throws JsonException When JSON encoding fails
-     * @throws RandomException When random number generation fails
      * @throws AuthenticationExpiredException When credentials are invalid
      * @throws ExternalServiceUnavailableException When API is unavailable
      * @throws InvalidApiRequestException When request parameters are invalid
@@ -47,17 +44,13 @@ final readonly class CreatePurchaseOrderUseCase
      */
     public function execute(CreatePurchaseOrderCommand $command): Guid
     {
-        $reference = $command->externalInvoiceNumber !== null
-            ? PurchaseOrderReference::fromString($command->externalInvoiceNumber)
-            : PurchaseOrderReference::generate();
-
-        $purchaseId = $this->client->createPurchaseOrderInitial($command, $reference);
+        $purchaseId = $this->client->createPurchaseOrderInitial($command, $command->reference);
 
         $this->logger->info('Purchase order created', [
-            'purchaseId' => $purchaseId->value,
-            'reference' => $reference->value,
-            'supplierId' => $command->fkSupplierId->value,
-            'itemCount' => \count($command->items),
+            'purchase_id' => $purchaseId->value,
+            'reference' => $command->reference->value,
+            'supplier_id' => $command->fkSupplierId->value,
+            'item_count' => \count($command->items),
         ]);
 
         try {
@@ -71,7 +64,7 @@ final readonly class CreatePurchaseOrderUseCase
 
         $this->logger->info('Purchase order creation completed', [
             'purchase_id' => $purchaseId->value,
-            'reference' => $reference->value,
+            'reference' => $command->reference->value,
             'item_count' => \count($command->items),
             'extended_property_count' => \count($command->extendedProperties),
         ]);

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Infrastructure\Linnworks\Responses\PurchaseOrder;
 
 use App\Domain\Linnworks\ValueObjects\PurchaseOrderAdditionalCost;
+use App\Domain\ValueObjects\TaxRate;
 use App\Infrastructure\Contracts\DomainConvertibleInterface;
 use App\Infrastructure\Linnworks\Support\PascalCaseMapper;
 use Spatie\LaravelData\Attributes\MapInputName;
@@ -49,7 +50,7 @@ final class PurchaseOrderAdditionalCostResponse extends Data implements DomainCo
             additionalCostTypeId: $this->additionalCostTypeId,
             reference: $this->reference,
             subTotalLineCost: $this->subTotalLineCost,
-            taxRate: $this->taxRate,
+            taxRate: TaxRate::fromPercentage($this->taxRate),
             tax: $this->tax,
             currency: $this->currency,
             conversionRate: $this->conversionRate,

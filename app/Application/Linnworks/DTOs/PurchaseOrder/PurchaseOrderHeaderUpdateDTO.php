@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace App\Application\Linnworks\DTOs\PurchaseOrder;
 
+use App\Application\Linnworks\UseCases\PurchaseOrder\UpdatePurchaseOrderHeaderCommand;
 use App\Domain\Linnworks\Enums\PurchaseOrderStatus;
 use App\Domain\Linnworks\ValueObjects\PurchaseOrderHeader;
+use App\Domain\Shared\Money\ValueObjects\Money;
 use App\Domain\ValueObjects\Guid;
+use App\Domain\ValueObjects\TaxRate;
 use DateTimeImmutable;
 
 /**
@@ -27,8 +30,8 @@ final readonly class PurchaseOrderHeaderUpdateDTO
         public string $currency,
         public string $supplierReferenceNumber,
         public int $unitAmountTaxIncludedType,
-        public float $postagePaid,
-        public float $shippingTaxRate,
+        public Money $postagePaid,
+        public TaxRate $shippingTaxRate,
         public float $conversionRate,
         public ?DateTimeImmutable $quotedDeliveryDate = null,
     ) {}
@@ -47,21 +50,19 @@ final readonly class PurchaseOrderHeaderUpdateDTO
             'Currency' => $this->currency,
             'SupplierReferenceNumber' => $this->supplierReferenceNumber,
             'UnitAmountTaxIncludedType' => $this->unitAmountTaxIncludedType,
-            'PostagePaid' => $this->postagePaid,
-            'ShippingTaxRate' => $this->shippingTaxRate,
+            'PostagePaid' => $this->postagePaid->toNet(),
+            'ShippingTaxRate' => $this->shippingTaxRate->percentage,
             'ConversionRate' => $this->conversionRate,
             'QuotedDeliveryDate' => $this->quotedDeliveryDate?->format('Y-m-d\TH:i:s'),
         ];
     }
 
     /**
-     * Build from current header state with optional field overrides.
+     * Build from current header state with command overrides applied.
      */
-    public static function fromHeader(
+    public static function fromHeaderWithOverrides(
         PurchaseOrderHeader $header,
-        ?string $supplierReferenceNumber = null,
-        ?DateTimeImmutable $quotedDeliveryDate = null,
-        ?float $postagePaid = null,
+        UpdatePurchaseOrderHeaderCommand $command,
     ): self {
         return new self(
             pkPurchaseId: $header->pkPurchaseId,
@@ -70,12 +71,12 @@ final readonly class PurchaseOrderHeaderUpdateDTO
             externalInvoiceNumber: $header->externalInvoiceNumber,
             status: $header->status,
             currency: $header->currency,
-            supplierReferenceNumber: $supplierReferenceNumber ?? $header->supplierReferenceNumber,
+            supplierReferenceNumber: $command->supplierReferenceNumber ?? $header->supplierReferenceNumber,
             unitAmountTaxIncludedType: $header->unitAmountTaxIncludedType,
-            postagePaid: $postagePaid ?? $header->postagePaid,
+            postagePaid: $command->postagePaid ?? $header->postagePaid,
             shippingTaxRate: $header->shippingTaxRate,
             conversionRate: $header->conversionRate,
-            quotedDeliveryDate: $quotedDeliveryDate ?? $header->quotedDeliveryDate,
+            quotedDeliveryDate: $command->quotedDeliveryDate ?? $header->quotedDeliveryDate,
         );
     }
 }

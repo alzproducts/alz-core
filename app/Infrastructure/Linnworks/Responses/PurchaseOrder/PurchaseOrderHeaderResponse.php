@@ -7,7 +7,9 @@ namespace App\Infrastructure\Linnworks\Responses\PurchaseOrder;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Linnworks\Enums\PurchaseOrderStatus;
 use App\Domain\Linnworks\ValueObjects\PurchaseOrderHeader;
+use App\Domain\Shared\Money\ValueObjects\Money;
 use App\Domain\ValueObjects\Guid;
+use App\Domain\ValueObjects\TaxRate;
 use App\Infrastructure\Contracts\DomainConvertibleInterface;
 use App\Infrastructure\Linnworks\Support\LinnworksDateParser;
 use App\Infrastructure\Linnworks\Support\PascalCaseMapper;
@@ -87,10 +89,10 @@ final class PurchaseOrderHeaderResponse extends Data implements DomainConvertibl
             currency: $this->currency,
             supplierReferenceNumber: $this->supplierReferenceNumber,
             unitAmountTaxIncludedType: $this->unitAmountTaxIncludedType,
-            postagePaid: $this->postagePaid,
+            postagePaid: Money::exclusive($this->postagePaid),
             totalCost: $this->totalCost,
             taxPaid: $this->taxPaid,
-            shippingTaxRate: $this->shippingTaxRate,
+            shippingTaxRate: TaxRate::fromPercentage($this->shippingTaxRate),
             conversionRate: $this->conversionRate,
             convertedShippingCost: $this->convertedShippingCost,
             convertedShippingTax: $this->convertedShippingTax,

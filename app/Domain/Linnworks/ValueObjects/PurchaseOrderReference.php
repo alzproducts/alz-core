@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\Linnworks\ValueObjects;
 
+use App\Domain\ValueObjects\IntId;
 use Random\RandomException;
 use Webmozart\Assert\Assert;
 
@@ -13,7 +14,7 @@ use Webmozart\Assert\Assert;
  * Stored in the `ExternalInvoiceNumber` API field.
  * Two formats:
  * - Standard: `PO{10-digit-random}` (e.g., PO1234567890)
- * - Dropship: `PO{random}-{orderId}` (e.g., PO12345-ORD-789)
+ * - Dropship: `PO{random}-{orderId}` (e.g., PO12345-42)
  *
  * @template-pattern Domain Value Object
  */
@@ -40,11 +41,9 @@ final readonly class PurchaseOrderReference
      *
      * @throws RandomException When random number generation fails
      */
-    public static function forDropship(string $orderId): self
+    public static function forDropship(IntId $orderId): self
     {
-        Assert::stringNotEmpty($orderId, 'Order ID must not be empty for dropship reference');
-
-        return new self('PO' . \random_int(10_000, 99_999) . '-' . $orderId);
+        return new self('PO' . \random_int(10_000, 99_999) . '-' . $orderId->value);
     }
 
     /**
