@@ -125,4 +125,19 @@ return [
         static fn(mixed $email): bool => is_string($email) && $email !== '',
     )),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Test Product
+    |--------------------------------------------------------------------------
+    |
+    | Known product used for development testing (e.g., price updates,
+    | SKU operations). Safe to use for manual API calls during development.
+    |
+    */
+
+    'test_product' => [
+        'product_id' => 5585518,
+        'sku' => '1005356',
+    ],
+
 ];
