@@ -376,6 +376,7 @@ final class UpdateProductPricesUseCaseTest extends TestCase
             customFields: [],
             rawFilters: [],
             filters: [],
+            sortOrder: null,
             createdAt: new DateTimeImmutable('2024-01-01'),
             updatedAt: new DateTimeImmutable('2024-01-01'),
         );

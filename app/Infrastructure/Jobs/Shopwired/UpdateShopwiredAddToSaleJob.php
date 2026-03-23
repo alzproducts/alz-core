@@ -96,7 +96,7 @@ final class UpdateShopwiredAddToSaleJob implements ShouldQueue
         // 2. Write sale metadata custom fields
         $productUpdateClient->updateCustomFields($productId, [
             SaleCustomField::DateStart->value => $this->saleSettings->saleStartDate?->format('Y-m-d') ?? \now()->format('Y-m-d'),
-            SaleCustomField::DefaultSortOrder->value => '',
+            SaleCustomField::DefaultSortOrder->value => (string) ($product->sortOrder ?? ''),
             SaleCustomField::Reason->value => $this->saleSettings->saleReason,
             SaleCustomField::Comments->value => $this->saleSettings->saleComments ?? '',
             SaleCustomField::DateEnd->value => $this->saleSettings->saleEndDate?->format('Y-m-d') ?? '',

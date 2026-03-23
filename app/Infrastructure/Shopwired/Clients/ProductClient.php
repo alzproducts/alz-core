@@ -65,6 +65,7 @@ final readonly class ProductClient implements ProductClientInterface
         'salePrice',
         'comparePrice',
         'stock',
+        'sortOrder',
         'active',
         'vatExclusive',
         'vatRelief',

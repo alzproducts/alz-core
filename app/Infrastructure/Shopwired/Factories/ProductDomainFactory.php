@@ -65,6 +65,7 @@ final class ProductDomainFactory
             customFields: [],
             rawFilters: $response->filters,
             filters: [],
+            sortOrder: $response->sortOrder,
             createdAt: CarbonImmutable::parse($response->createdAt)->toDateTimeImmutable(),
             updatedAt: CarbonImmutable::parse($response->updatedAt)->toDateTimeImmutable(),
         );
@@ -109,6 +110,7 @@ final class ProductDomainFactory
             customFields: [],
             rawFilters: $response->filters instanceof Optional ? [] : $response->filters,
             filters: [],
+            sortOrder: $response->sortOrder,
             createdAt: CarbonImmutable::parse($response->createdAt)->toDateTimeImmutable(),
             updatedAt: CarbonImmutable::parse($response->updatedAt)->toDateTimeImmutable(),
         );

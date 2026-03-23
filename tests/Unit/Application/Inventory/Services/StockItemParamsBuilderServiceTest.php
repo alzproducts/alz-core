@@ -477,6 +477,7 @@ final class StockItemParamsBuilderServiceTest extends TestCase
             customFields: [],
             rawFilters: [],
             filters: [],
+            sortOrder: null,
             createdAt: new DateTimeImmutable(),
             updatedAt: new DateTimeImmutable(),
         );

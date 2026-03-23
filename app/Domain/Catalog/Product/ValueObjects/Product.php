@@ -62,6 +62,7 @@ final readonly class Product implements BasicProductInterface
      * @param list<AbstractCustomFieldValue> $customFields Typed custom field values (populated on read)
      * @param array<int|string, list<string>> $rawFilters Raw filter data (optionNo => values) for storage
      * @param list<ProductFilter> $filters Typed filter values (populated on read)
+     * @param int|null $sortOrder ShopWired sort order (null = unknown/not fetched)
      * @param DateTimeImmutable $createdAt ShopWired creation timestamp
      * @param DateTimeImmutable $updatedAt ShopWired last update timestamp
      */
@@ -91,6 +92,7 @@ final readonly class Product implements BasicProductInterface
         public array $customFields,
         public array $rawFilters,
         public array $filters,
+        public ?int $sortOrder,
         public DateTimeImmutable $createdAt,
         public DateTimeImmutable $updatedAt,
     ) {
