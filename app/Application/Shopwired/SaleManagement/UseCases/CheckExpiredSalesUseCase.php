@@ -162,6 +162,7 @@ final readonly class CheckExpiredSalesUseCase
      * @throws InvalidApiResponseException When API response parsing fails
      * @throws ExternalServiceUnavailableException When API unavailable
      * @throws DatabaseOperationFailedException When local product lookup fails
+     * @throws DuplicateRecordException On sale settings DB constraint violation
      * @throws InvalidCustomFieldValueException When custom field mapping fails
      */
     private function removeSale(string $sku, SaleRemovalReason $reason): void
