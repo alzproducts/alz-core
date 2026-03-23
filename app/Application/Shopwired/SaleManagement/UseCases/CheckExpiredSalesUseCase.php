@@ -7,6 +7,7 @@ namespace App\Application\Shopwired\SaleManagement\UseCases;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Application\Shopwired\PricingUpdate\UseCases\UpdateProductPricesUseCase;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
+use App\Domain\Catalog\CustomFields\ValueObjects\StringCustomFieldValue;
 use App\Domain\Catalog\Product\Commands\UpdatePriceCommand;
 use App\Domain\Catalog\Product\Enums\SaleCustomField;
 use App\Domain\Catalog\Product\Enums\SaleRemovalReason;
@@ -121,7 +122,7 @@ final readonly class CheckExpiredSalesUseCase
             return SaleRemovalReason::EndDateReached;
         }
 
-        if ($product->totalStock() <= 0 && $this->getRawCustomFieldString($product, 'discontinued') !== null) {
+        if ($product->totalStock() <= 0 && $product->hasCustomField('discontinued')) {
             return SaleRemovalReason::OutOfStockDiscontinued;
         }
 
@@ -130,14 +131,14 @@ final readonly class CheckExpiredSalesUseCase
 
     private function isSaleEndDateReached(Product $product, DateTimeImmutable $today): bool
     {
-        $saleEndDate = $this->getRawCustomFieldString($product, SaleCustomField::DateEnd->value);
+        $field = $product->getCustomField(SaleCustomField::DateEnd->value);
 
-        if ($saleEndDate === null) {
+        if (! $field instanceof StringCustomFieldValue || $field->value === '') {
             return false;
         }
 
         try {
-            return new DateTimeImmutable($saleEndDate) <= $today;
+            return new DateTimeImmutable($field->value) <= $today;
         } catch (DateMalformedStringException) { // @ignoreException — invalid date format in custom field, skip condition
             return false;
         }
@@ -145,13 +146,13 @@ final readonly class CheckExpiredSalesUseCase
 
     private function evaluateStockThreshold(Product $product): ?SaleRemovalReason
     {
-        $saleEndsStock = $this->getRawCustomFieldString($product, SaleCustomField::EndsStock->value);
+        $field = $product->getCustomField(SaleCustomField::EndsStock->value);
 
-        if ($saleEndsStock === null || ! \is_numeric($saleEndsStock)) {
+        if (! $field instanceof StringCustomFieldValue || ! \is_numeric($field->value)) {
             return null;
         }
 
-        return $product->totalStock() <= (int) $saleEndsStock
+        return $product->totalStock() <= (int) $field->value
             ? SaleRemovalReason::SaleUnitsSold
             : null;
     }
@@ -174,19 +175,5 @@ final readonly class CheckExpiredSalesUseCase
             skuUpdates: [$command],
             saleSettings: SaleSettings::forRemoval($reason),
         );
-    }
-
-    /**
-     * Get a non-empty string custom field value, or null if absent/empty.
-     */
-    private function getRawCustomFieldString(Product $product, string $name): ?string
-    {
-        $value = $product->rawCustomFields[$name] ?? null;
-
-        if (! \is_string($value) || $value === '') {
-            return null;
-        }
-
-        return $value;
     }
 }

@@ -19,8 +19,9 @@ use Webmozart\Assert\Assert;
  * Excludes unused ShopWired fields (freeDelivery, deliveryPrice, isNew, isBundle, isPreOrder, outOfStockStatus).
  *
  * **Custom Fields**: Products have two custom field representations:
- * - `rawCustomFields`: Raw name → value map for storage (always populated)
- * - `customFields`: Typed values from CustomFieldDefinitionRegistry (populated on read)
+ * - `rawCustomFields`: Raw name → value map for storage/persistence only. Do NOT read from this directly —
+ *    use {@see getCustomField()} or {@see hasCustomField()} instead for typed access.
+ * - `customFields`: Typed values from CustomFieldDefinitionRegistry (populated on DB read)
  *
  * **Filters**: Products have two filter representations (same pattern):
  * - `rawFilters`: Raw optionNo → values map for storage (always populated)

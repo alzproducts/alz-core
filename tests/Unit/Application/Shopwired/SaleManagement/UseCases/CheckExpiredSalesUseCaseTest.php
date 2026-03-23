@@ -7,6 +7,11 @@ namespace Tests\Unit\Application\Shopwired\SaleManagement\UseCases;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Application\Shopwired\PricingUpdate\UseCases\UpdateProductPricesUseCase;
 use App\Application\Shopwired\SaleManagement\UseCases\CheckExpiredSalesUseCase;
+use App\Domain\Catalog\CustomFields\Enums\CustomFieldItemType;
+use App\Domain\Catalog\CustomFields\Enums\CustomFieldType;
+use App\Domain\Catalog\CustomFields\ValueObjects\AbstractCustomFieldValue;
+use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldDefinition;
+use App\Domain\Catalog\CustomFields\ValueObjects\StringCustomFieldValue;
 use App\Domain\Catalog\Product\Enums\SaleRemovalReason;
 use App\Domain\Catalog\Product\ValueObjects\Product;
 use App\Domain\Catalog\Product\ValueObjects\SaleSettings;
@@ -382,7 +387,7 @@ final class CheckExpiredSalesUseCaseTest extends TestCase
     // ========================================================================
 
     /**
-     * @param array<string, mixed> $customFields
+     * @param array<string, string> $customFields Raw name => value pairs, converted to typed StringCustomFieldValue
      */
     private static function createProduct(
         int $id,
@@ -391,6 +396,8 @@ final class CheckExpiredSalesUseCaseTest extends TestCase
         int $stock = 100,
         array $customFields = [],
     ): Product {
+        $typedFields = self::buildTypedCustomFields($customFields);
+
         return new Product(
             id: $id,
             sku: $sku,
@@ -414,11 +421,39 @@ final class CheckExpiredSalesUseCaseTest extends TestCase
             variations: null,
             images: [],
             rawCustomFields: $customFields,
-            customFields: [],
+            customFields: $typedFields,
             rawFilters: [],
             filters: [],
             createdAt: new DateTimeImmutable('2024-01-01'),
             updatedAt: new DateTimeImmutable('2024-01-01'),
         );
+    }
+
+    /**
+     * @param array<string, string> $rawFields
+     *
+     * @return list<AbstractCustomFieldValue>
+     */
+    private static function buildTypedCustomFields(array $rawFields): array
+    {
+        $typed = [];
+        $id = 0;
+
+        foreach ($rawFields as $name => $value) {
+            $typed[] = new StringCustomFieldValue(
+                definition: new CustomFieldDefinition(
+                    id: ++$id,
+                    name: $name,
+                    type: CustomFieldType::Text,
+                    label: $name,
+                    itemType: CustomFieldItemType::Product,
+                    sortOrder: null,
+                    allowedValues: null,
+                ),
+                value: $value,
+            );
+        }
+
+        return $typed;
     }
 }
