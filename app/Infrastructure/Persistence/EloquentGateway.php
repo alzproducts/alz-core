@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Infrastructure\Persistence;
 
 use App\Application\Contracts\DatabaseGatewayInterface;
+use App\Application\DTOs\PaginatedListDTO;
 use App\Application\Results\SaveManyResult;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
@@ -12,6 +13,7 @@ use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use Closure;
 use Generator;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Log;
@@ -245,6 +247,64 @@ final readonly class EloquentGateway
             /** @var TModel $model */
             yield $mapper !== null ? $mapper($model) : $model;
         }
+    }
+
+    /**
+     * Paginate records with query constraints, eager loading, and domain mapping.
+     *
+     * Builds a paginated query, maps each model through the provided closure,
+     * and returns a framework-free PaginatedListDTO. Reusable across repositories.
+     *
+     * @template TModel of Model
+     * @template TResult
+     *
+     * @param class-string<TModel> $modelClass
+     * @param Closure(Builder<covariant Model>): void $scope Query constraints (where clauses, ordering)
+     * @param list<string> $relations Relations to eager load
+     * @param-immediately-invoked-callable $mapper
+     * @param Closure(TModel): TResult $mapper Transform each model to a domain object
+     *
+     * @return PaginatedListDTO<TResult>
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function paginate(
+        string $modelClass,
+        Closure $scope,
+        array $relations,
+        Closure $mapper,
+        int $perPage,
+        int $page,
+    ): PaginatedListDTO {
+        /** @var PaginatedListDTO<TResult> */
+        return $this->dbGateway->query(static function () use ($modelClass, $scope, $relations, $mapper, $perPage, $page): PaginatedListDTO {
+            $query = $modelClass::query();
+
+            $scope($query);
+
+            if ($relations !== []) {
+                $query->with($relations);
+            }
+
+            $paginator = $query->paginate(perPage: $perPage, page: $page);
+
+            /** @var list<TResult> $items */
+            $items = $paginator->getCollection()
+                ->map(static function (Model $model) use ($mapper): mixed {
+                    /** @var TModel $model */
+                    return $mapper($model);
+                })
+                ->all();
+
+            return PaginatedListDTO::fromPage(
+                items: $items,
+                total: $paginator->total(),
+                perPage: $paginator->perPage(),
+                currentPage: $paginator->currentPage(),
+            );
+        });
     }
 
     // ─────────────────────────────────────────────────────────────────────────

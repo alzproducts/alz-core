@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Application\Contracts\Shopwired;
 
 use App\Application\Contracts\RepositoryWriteInterface;
+use App\Application\DTOs\PaginatedListDTO;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\Product\ValueObjects\Product;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariation;
@@ -25,6 +26,20 @@ use Generator;
  */
 interface ProductRepositoryInterface extends RepositoryWriteInterface
 {
+    /**
+     * Paginate active products with optional eager-loaded relations.
+     *
+     * @param list<string> $includes Relation names to eager-load (e.g., 'variations')
+     *
+     * @return PaginatedListDTO<Product>
+     *
+     * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
+     * @throws DatabaseOperationFailedException On query failure
+     * @throws DuplicateRecordException On constraint violation
+     * @throws ExternalServiceUnavailableException When database temporarily unavailable
+     */
+    public function paginate(int $perPage, int $page, array $includes = []): PaginatedListDTO;
+
     /**
      * Get all product external IDs stored locally.
      *

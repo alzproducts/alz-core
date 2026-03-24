@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Presentation\Http\Middleware;
 
 use App\Domain\Access\ValueObjects\AuthenticatedUser;
+use App\Presentation\Http\Api\Responses\ApiErrorResponseDTO;
+use App\Presentation\Http\Api\Responses\ApiErrorTypeEnum;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -43,7 +45,11 @@ final class EnsureUserApprovedMiddleware
                 'ip' => $request->ip(),
             ]);
 
-            return \response()->json(['error' => 'Unauthorized'], 401);
+            return (new ApiErrorResponseDTO(
+                type: ApiErrorTypeEnum::Unauthorized,
+                message: 'Unauthorized.',
+                status: Response::HTTP_UNAUTHORIZED,
+            ))->toJsonResponse();
         }
 
         if (!$authenticatedUser->hasBasicAuthorization()) {
@@ -55,10 +61,11 @@ final class EnsureUserApprovedMiddleware
                 'ip' => $request->ip(),
             ]);
 
-            return \response()->json([
-                'error' => 'Account pending approval',
-                'code' => 'ACCOUNT_NOT_APPROVED',
-            ], 403);
+            return (new ApiErrorResponseDTO(
+                type: ApiErrorTypeEnum::Forbidden,
+                message: 'Account pending approval.',
+                status: Response::HTTP_FORBIDDEN,
+            ))->toJsonResponse();
         }
 
         return $next($request);

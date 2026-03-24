@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Domain\Access\ValueObjects\AuthenticatedUser;
 use App\Infrastructure\Sentry\SentryUserContextMiddleware;
+use App\Presentation\Http\Api\Controllers\ProductController;
 use App\Presentation\Http\Auth\Middleware\ValidateSupabaseJwtMiddleware;
 use App\Presentation\Http\Controllers\ContactForm\ContactFormController;
 use App\Presentation\Http\Controllers\HelpScout\ConversationsController;
@@ -16,6 +17,7 @@ use App\Presentation\Http\Controllers\Shopwired\Webhooks\ShopwiredWebhookOrderCo
 use App\Presentation\Http\Controllers\Shopwired\Webhooks\ShopwiredWebhookProductController;
 use App\Presentation\Http\HelpScout\Middleware\DetectRefreshMiddleware;
 use App\Presentation\Http\HelpScout\Middleware\HandleHelpScoutExceptionsMiddleware;
+use App\Presentation\Http\Middleware\EnsureUserApprovedMiddleware;
 use App\Presentation\Http\Middleware\RejectHoneypotMiddleware;
 use App\Presentation\Http\Middleware\VerifyShopwiredWebhookSignatureMiddleware;
 use Illuminate\Support\Facades\Route;
@@ -128,3 +130,18 @@ Route::middleware([
         });
     });
 });
+
+/*
+|--------------------------------------------------------------------------
+| Consumer API Routes (Supabase Auth + Approval Gate)
+|--------------------------------------------------------------------------
+|
+| Domain-centric endpoints for the frontend application.
+| Auth: JWT + approval check (no RLS context — see issue for RLS design).
+|
+*/
+
+Route::middleware([ValidateSupabaseJwtMiddleware::class, EnsureUserApprovedMiddleware::class, 'throttle:api', SentryUserContextMiddleware::class])
+    ->group(static function (): void {
+        Route::get('products', [ProductController::class, 'index']);
+    });
