@@ -55,7 +55,7 @@ final class ProductControllerTest extends TestCase
         $response = $this->getJson('/api/products');
 
         $response->assertStatus(401);
-        $response->assertJson(['error' => 'Unauthorized']);
+        $response->assertJson(['error' => ['type' => 'unauthorized', 'message' => 'Missing authorization token.']]);
     }
 
     /*

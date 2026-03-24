@@ -111,7 +111,7 @@ final class ValidateSupabaseJwtTest extends TestCase
         $response = $this->getJson('/_test/protected-route');
 
         // Assert
-        $response->assertStatus(401)->assertJson(['error' => 'Unauthorized']);
+        $response->assertStatus(401)->assertJson(['error' => ['type' => 'unauthorized', 'message' => 'Missing authorization token.']]);
     }
 
     /**
@@ -143,7 +143,7 @@ final class ValidateSupabaseJwtTest extends TestCase
         $response = $this->withToken($token)->getJson('/_test/protected-route');
 
         // Assert
-        $response->assertStatus(401)->assertJson(['error' => 'Unauthorized']);
+        $response->assertStatus(401)->assertJson(['error' => ['type' => 'unauthorized', 'message' => 'Invalid or expired token.']]);
     }
 
     /**
@@ -176,7 +176,7 @@ final class ValidateSupabaseJwtTest extends TestCase
         $response = $this->withToken($token)->getJson('/_test/protected-route');
 
         // Assert
-        $response->assertStatus(401)->assertJson(['error' => 'Unauthorized']);
+        $response->assertStatus(401)->assertJson(['error' => ['type' => 'unauthorized', 'message' => 'Invalid or expired token.']]);
     }
 
     /**
@@ -209,7 +209,7 @@ final class ValidateSupabaseJwtTest extends TestCase
         $response = $this->withToken($token)->getJson('/_test/protected-route');
 
         // Assert
-        $response->assertStatus(401)->assertJson(['error' => 'Unauthorized']);
+        $response->assertStatus(401)->assertJson(['error' => ['type' => 'unauthorized', 'message' => 'Invalid or expired token.']]);
     }
 
     /**
@@ -239,7 +239,7 @@ final class ValidateSupabaseJwtTest extends TestCase
         $response = $this->withToken('this.is.not.a.jwt')->getJson('/_test/protected-route');
 
         // Assert
-        $response->assertStatus(401)->assertJson(['error' => 'Unauthorized']);
+        $response->assertStatus(401)->assertJson(['error' => ['type' => 'unauthorized', 'message' => 'Invalid or expired token.']]);
     }
 
     /**
@@ -272,7 +272,7 @@ final class ValidateSupabaseJwtTest extends TestCase
         $response = $this->withToken($token)->getJson('/_test/protected-route');
 
         // Assert
-        $response->assertStatus(401)->assertJson(['error' => 'Unauthorized']);
+        $response->assertStatus(401)->assertJson(['error' => ['type' => 'unauthorized', 'message' => 'Invalid or expired token.']]);
     }
 
     /**
@@ -328,7 +328,7 @@ final class ValidateSupabaseJwtTest extends TestCase
         $response = $this->withToken($token)->getJson('/_test/protected-route');
 
         // Assert
-        $response->assertStatus(401)->assertJson(['error' => 'Unauthorized']);
+        $response->assertStatus(401)->assertJson(['error' => ['type' => 'unauthorized', 'message' => 'Invalid or expired token.']]);
     }
 
     /**
@@ -358,7 +358,7 @@ final class ValidateSupabaseJwtTest extends TestCase
             ->getJson('/_test/protected-route');
 
         // Assert
-        $response->assertStatus(401)->assertJson(['error' => 'Unauthorized']);
+        $response->assertStatus(401)->assertJson(['error' => ['type' => 'unauthorized', 'message' => 'Missing authorization token.']]);
     }
 
     /**
@@ -391,7 +391,7 @@ final class ValidateSupabaseJwtTest extends TestCase
         $response = $this->withToken($token)->getJson('/_test/protected-route');
 
         // Assert
-        $response->assertStatus(401)->assertJson(['error' => 'Unauthorized']);
+        $response->assertStatus(401)->assertJson(['error' => ['type' => 'unauthorized', 'message' => 'Invalid or expired token.']]);
     }
 
     /**
@@ -430,8 +430,7 @@ final class ValidateSupabaseJwtTest extends TestCase
         // Assert
         $response->assertStatus(403)
             ->assertJson([
-                'error' => 'MFA verification required',
-                'code' => 'MFA_REQUIRED',
+                'error' => ['type' => 'forbidden', 'message' => 'MFA verification required.'],
             ]);
     }
 
@@ -572,7 +571,7 @@ final class ValidateSupabaseJwtTest extends TestCase
         $response = $this->withToken($token)->getJson('/_test/protected-route');
 
         // Assert
-        $response->assertStatus(401)->assertJson(['error' => 'Unauthorized']);
+        $response->assertStatus(401)->assertJson(['error' => ['type' => 'unauthorized', 'message' => 'Invalid or expired token.']]);
     }
 
     /**
@@ -608,6 +607,6 @@ final class ValidateSupabaseJwtTest extends TestCase
         $response = $this->withToken($token)->getJson('/_test/protected-route');
 
         // Assert
-        $response->assertStatus(401)->assertJson(['error' => 'Unauthorized']);
+        $response->assertStatus(401)->assertJson(['error' => ['type' => 'unauthorized', 'message' => 'Invalid or expired token.']]);
     }
 }
