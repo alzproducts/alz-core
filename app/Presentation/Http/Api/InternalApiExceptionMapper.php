@@ -93,6 +93,8 @@ final class InternalApiExceptionMapper
             $e instanceof LockAcquisitionException => ApiErrorTypeEnum::ServiceUnavailable,
             $e instanceof PermanentApiFailure => ApiErrorTypeEnum::UpstreamError,
             $e instanceof MethodNotAllowedHttpException => ApiErrorTypeEnum::MethodNotAllowed,
+            $status === Response::HTTP_UNAUTHORIZED => ApiErrorTypeEnum::Unauthorized,
+            $status === Response::HTTP_FORBIDDEN => ApiErrorTypeEnum::Forbidden,
             $status >= 500 => ApiErrorTypeEnum::ServerError,
             default => ApiErrorTypeEnum::Error,
         };

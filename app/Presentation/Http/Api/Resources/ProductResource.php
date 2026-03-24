@@ -36,7 +36,6 @@ final class ProductResource extends JsonResource
             'slug' => $product->slug,
             'url' => $product->url,
             'price' => $product->price,
-            'cost_price' => $product->costPrice,
             'sale_price' => $product->salePrice,
             'compare_price' => $product->comparePrice,
             'stock' => $product->stock,

@@ -12,6 +12,8 @@ namespace App\Presentation\Http\Api\Responses;
  */
 enum ApiErrorTypeEnum: string
 {
+    case Unauthorized = 'unauthorized';
+    case Forbidden = 'forbidden';
     case ValidationError = 'validation_error';
     case NotFound = 'not_found';
     case Conflict = 'conflict';
