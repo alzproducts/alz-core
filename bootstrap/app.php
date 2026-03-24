@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Presentation\Http\Api\ApiExceptionMapper;
 use App\Presentation\Http\Auth\Middleware\ValidateSupabaseJwtMiddleware;
 use App\Presentation\Http\Middleware\EnsureUserApprovedMiddleware;
 use App\Presentation\Http\Middleware\SetRequestContextMiddleware;
@@ -60,4 +61,7 @@ return Application::configure(basePath: dirname(__DIR__))
             // Return null to use Laravel's default 429 response
             return null;
         });
+
+        // Map domain exceptions to JSON responses for API routes
+        $exceptions->render(ApiExceptionMapper::render(...));
     })->create();

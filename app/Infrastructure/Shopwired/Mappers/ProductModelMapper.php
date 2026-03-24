@@ -89,6 +89,58 @@ final class ProductModelMapper
     }
 
     /**
+     * Convert Eloquent model to Domain Product for read-only API responses.
+     *
+     * Optimized for consumer API: skips custom field/filter factory calls
+     * and conditionally maps relations based on what was eager-loaded.
+     *
+     * - Variations: mapped only if `relationLoaded('variations')` is true
+     * - Custom fields/filters: always empty (not needed for API response)
+     *
+     * @param ProductModel $model The Eloquent model (variations optionally eager-loaded)
+     */
+    public static function toReadDomain(ProductModel $model): Product
+    {
+        /** @var list<ProductVariation>|null $variations */
+        $variations = $model->relationLoaded('variations')
+            ? $model->variations->map(
+                static fn(ProductVariationModel $m): ProductVariation => $m->toDomain(),
+            )->all()
+            : null;
+
+        return new Product(
+            id: $model->external_id,
+            sku: $model->sku,
+            gtin: $model->gtin !== null ? Gtin::fromTrusted($model->gtin) : null,
+            title: $model->title,
+            description: $model->description,
+            slug: $model->slug,
+            url: $model->url,
+            price: $model->price,
+            costPrice: $model->cost_price,
+            salePrice: $model->sale_price,
+            comparePrice: $model->compare_price,
+            stock: $model->stock ?? 0,
+            isActive: $model->is_active,
+            vatExclusive: $model->vat_exclusive,
+            vatRelief: $model->vat_relief ?? false,
+            weight: $model->weight,
+            metaTitle: $model->meta_title,
+            metaDescription: $model->meta_description,
+            categoryIds: $model->category_ids,
+            variations: $variations,
+            images: self::buildImages($model->images),
+            rawCustomFields: [],
+            customFields: [],
+            rawFilters: [],
+            filters: [],
+            sortOrder: $model->sort_order,
+            createdAt: $model->shopwired_created_at->toDateTimeImmutable(),
+            updatedAt: $model->shopwired_updated_at->toDateTimeImmutable(),
+        );
+    }
+
+    /**
      * Convert Domain Product to Eloquent model attributes.
      *
      * Does not include primary key or relationship IDs (handled by repository).

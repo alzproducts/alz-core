@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Domain\Access\ValueObjects\AuthenticatedUser;
 use App\Infrastructure\Sentry\SentryUserContextMiddleware;
+use App\Presentation\Http\Api\Controllers\ProductController;
 use App\Presentation\Http\Auth\Middleware\ValidateSupabaseJwtMiddleware;
 use App\Presentation\Http\Controllers\ContactForm\ContactFormController;
 use App\Presentation\Http\Controllers\HelpScout\ConversationsController;
@@ -128,3 +129,18 @@ Route::middleware([
         });
     });
 });
+
+/*
+|--------------------------------------------------------------------------
+| Consumer API Routes (Supabase Auth + Approval Gate)
+|--------------------------------------------------------------------------
+|
+| Domain-centric endpoints for the frontend application.
+| Full auth.supabase middleware group: JWT + approval check + RLS context.
+|
+*/
+
+Route::middleware(['auth.supabase', 'throttle:api', SentryUserContextMiddleware::class])
+    ->group(static function (): void {
+        Route::get('products', [ProductController::class, 'index']);
+    });

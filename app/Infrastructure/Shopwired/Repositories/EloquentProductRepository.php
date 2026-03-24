@@ -6,6 +6,7 @@ namespace App\Infrastructure\Shopwired\Repositories;
 
 use App\Application\Contracts\DatabaseGatewayInterface;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
+use App\Application\DTOs\PaginatedListDTO;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\Product\ValueObjects\Product;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariation;
@@ -57,6 +58,44 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
     // ─────────────────────────────────────────────────────────────────────────
     // Interface Implementation
     // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * {@inheritDoc}
+     *
+     * @return PaginatedListDTO<Product>
+     *
+     * @throws InvalidCustomFieldValueException
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function paginate(int $perPage, int $page, array $includes = []): PaginatedListDTO
+    {
+        return $this->eloquentGateway->query(static function () use ($perPage, $page, $includes): PaginatedListDTO {
+            $query = self::MODEL_CLASS::query()->where('is_active', true);
+
+            $relations = \array_values(\array_intersect($includes, ['variations']));
+
+            if ($relations !== []) {
+                $query->with($relations);
+            }
+
+            $paginator = $query->paginate(perPage: $perPage, page: $page);
+
+            /** @var list<Product> $items */
+            $items = $paginator->getCollection()
+                ->map(static fn(ProductModel $model): Product => ProductModelMapper::toReadDomain($model))
+                ->all();
+
+            return new PaginatedListDTO(
+                items: $items,
+                total: $paginator->total(),
+                perPage: $paginator->perPage(),
+                currentPage: $paginator->currentPage(),
+                lastPage: $paginator->lastPage(),
+            );
+        });
+    }
 
     /**
      * {@inheritDoc}
