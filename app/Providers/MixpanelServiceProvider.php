@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Application\Contracts\ErrorReporterInterface;
 use App\Application\Contracts\Mixpanel\MixpanelSyncDispatcherInterface;
 use App\Application\Contracts\MixpanelClientInterface;
 use App\Application\Contracts\Shopwired\CustomerRepositoryInterface;
@@ -64,6 +65,7 @@ final class MixpanelServiceProvider extends ServiceProvider implements Deferrabl
                 orderRepository: $this->app->make(OrderRepositoryInterface::class),
                 customerRepository: $this->app->make(CustomerRepositoryInterface::class),
                 mixpanel: $this->app->make(MixpanelClientInterface::class),
+                errorReporter: $this->app->make(ErrorReporterInterface::class),
                 analyticsSalt: $analyticsSalt,
                 logger: $this->app->make(LoggerInterface::class),
             );
