@@ -6,8 +6,11 @@ namespace Tests\Unit\Application\Shopwired\PricingUpdate\UseCases;
 
 use App\Application\Contracts\Shopwired\PriceUpdateClientInterface;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
+use App\Application\Contracts\Shopwired\SaleReconciliationDispatcherInterface;
+use App\Application\Contracts\Shopwired\SaleSettingsRepositoryInterface;
 use App\Application\Shopwired\PricingUpdate\Results\PriceUpdateClientResult;
 use App\Application\Shopwired\PricingUpdate\UseCases\UpdateProductPricesUseCase;
+use App\Application\Shopwired\Services\ProductSyncService;
 use App\Domain\Catalog\Product\Commands\UpdatePriceCommand;
 use App\Domain\Catalog\Product\Events\ProductPricingUpdatedEvent;
 use App\Domain\Catalog\Product\Events\SkuRetailPricingUpdatedEvent;
@@ -43,6 +46,12 @@ final class UpdateProductPricesUseCaseTest extends TestCase
 
     private LoggerInterface&MockInterface $logger;
 
+    private ProductSyncService&MockInterface $productSyncService;
+
+    private SaleReconciliationDispatcherInterface&MockInterface $saleReconciliationDispatcher;
+
+    private SaleSettingsRepositoryInterface&MockInterface $saleSettingsRepo;
+
     private UpdateProductPricesUseCase $useCase;
 
     #[Override]
@@ -57,11 +66,17 @@ final class UpdateProductPricesUseCaseTest extends TestCase
 
         $this->priceClient = Mockery::mock(PriceUpdateClientInterface::class);
         $this->productRepo = Mockery::mock(ProductRepositoryInterface::class);
+        $this->productSyncService = Mockery::mock(ProductSyncService::class)->shouldIgnoreMissing();
+        $this->saleReconciliationDispatcher = Mockery::mock(SaleReconciliationDispatcherInterface::class)->shouldIgnoreMissing();
+        $this->saleSettingsRepo = Mockery::mock(SaleSettingsRepositoryInterface::class)->shouldIgnoreMissing();
         $this->logger = Mockery::mock(LoggerInterface::class)->shouldIgnoreMissing();
 
         $this->useCase = new UpdateProductPricesUseCase(
             priceClient: $this->priceClient,
             productRepo: $this->productRepo,
+            productSyncService: $this->productSyncService,
+            saleReconciliationDispatcher: $this->saleReconciliationDispatcher,
+            saleSettingsRepo: $this->saleSettingsRepo,
             events: Event::getFacadeRoot(),
             logger: $this->logger,
         );
@@ -338,6 +353,83 @@ final class UpdateProductPricesUseCaseTest extends TestCase
     }
 
     // ========================================================================
+    // DB Sync + Reconciliation
+    // ========================================================================
+
+    #[Test]
+    public function db_sync_called_after_successful_api_update(): void
+    {
+        $product = self::createProduct('MASTER-001', 20.00, null);
+        $this->productRepo->shouldReceive('getProductByAnySku')->once()->andReturn($product);
+
+        $this->priceClient->shouldReceive('updatePrices')
+            ->once()
+            ->andReturn(new PriceUpdateClientResult(
+                results: [
+                    new PriceUpdateItemResult(Sku::fromTrusted('MASTER-001'), updated: true, productId: IntId::fromTrusted(1)),
+                ],
+            ));
+
+        $this->productSyncService->shouldReceive('refreshById')
+            ->once()
+            ->with(1);
+
+        $this->useCase->execute([
+            new UpdatePriceCommand(Sku::fromTrusted('MASTER-001'), price: Money::inclusive(30.00)),
+        ]);
+    }
+
+    #[Test]
+    public function reconciliation_dispatched_after_successful_api_update(): void
+    {
+        $product = self::createProduct('MASTER-001', 20.00, null);
+        $this->productRepo->shouldReceive('getProductByAnySku')->once()->andReturn($product);
+
+        $this->priceClient->shouldReceive('updatePrices')
+            ->once()
+            ->andReturn(new PriceUpdateClientResult(
+                results: [
+                    new PriceUpdateItemResult(Sku::fromTrusted('MASTER-001'), updated: true, productId: IntId::fromTrusted(1)),
+                ],
+            ));
+
+        $this->saleReconciliationDispatcher->shouldReceive('dispatchReconciliation')
+            ->once()
+            ->withArgs(static fn(IntId $id): bool => $id->value === 1);
+
+        $this->useCase->execute([
+            new UpdatePriceCommand(Sku::fromTrusted('MASTER-001'), price: Money::inclusive(30.00)),
+        ]);
+    }
+
+    #[Test]
+    public function events_still_fire_when_db_sync_throws(): void
+    {
+        $product = self::createProduct('MASTER-001', 20.00, null);
+        $this->productRepo->shouldReceive('getProductByAnySku')->once()->andReturn($product);
+
+        $this->priceClient->shouldReceive('updatePrices')
+            ->once()
+            ->andReturn(new PriceUpdateClientResult(
+                results: [
+                    new PriceUpdateItemResult(Sku::fromTrusted('MASTER-001'), updated: true, productId: IntId::fromTrusted(1)),
+                ],
+            ));
+
+        $this->productSyncService->shouldReceive('refreshById')
+            ->once()
+            ->andThrow(new ExternalServiceUnavailableException('Shopwired'));
+
+        $result = $this->useCase->execute([
+            new UpdatePriceCommand(Sku::fromTrusted('MASTER-001'), price: Money::inclusive(30.00)),
+        ]);
+
+        self::assertSame(1, $result->succeeded);
+        Event::assertDispatched(SkuRetailPricingUpdatedEvent::class, 1);
+        Event::assertDispatched(ProductPricingUpdatedEvent::class, 1);
+    }
+
+    // ========================================================================
     // Factory Helpers
     // ========================================================================
 
@@ -376,6 +468,7 @@ final class UpdateProductPricesUseCaseTest extends TestCase
             customFields: [],
             rawFilters: [],
             filters: [],
+            sortOrder: null,
             createdAt: new DateTimeImmutable('2024-01-01'),
             updatedAt: new DateTimeImmutable('2024-01-01'),
         );

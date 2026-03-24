@@ -6,11 +6,14 @@ namespace App\Application\Shopwired\PricingUpdate\UseCases;
 
 use App\Application\Contracts\Shopwired\PriceUpdateClientInterface;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
+use App\Application\Contracts\Shopwired\SaleReconciliationDispatcherInterface;
+use App\Application\Contracts\Shopwired\SaleSettingsRepositoryInterface;
 use App\Application\Shopwired\PricingUpdate\Results\BatchApiResult;
 use App\Application\Shopwired\PricingUpdate\Results\FailedPriceUpdateResult;
 use App\Application\Shopwired\PricingUpdate\Results\PreFlightValidationResult;
 use App\Application\Shopwired\PricingUpdate\Results\PriceUpdateResult;
 use App\Application\Shopwired\PricingUpdate\Results\SkippedPriceUpdateResult;
+use App\Application\Shopwired\Services\ProductSyncService;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\Product\Commands\UpdatePriceCommand;
 use App\Domain\Catalog\Product\Events\ProductPricingUpdatedEvent;
@@ -22,6 +25,8 @@ use App\Domain\Catalog\Product\Validators\SkuBelongsToProductValidator;
 use App\Domain\Catalog\Product\ValueObjects\Product;
 use App\Domain\Catalog\Product\ValueObjects\ProductRetailPricing;
 use App\Domain\Catalog\Product\ValueObjects\ResolvedPriceUpdate;
+use App\Domain\Catalog\Product\ValueObjects\SaleSettings;
+use App\Domain\Catalog\Product\ValueObjects\SaleSubmissionContext;
 use App\Domain\Catalog\Product\ValueObjects\Sku;
 use App\Domain\Catalog\Product\ValueObjects\SkuPriceChange;
 use App\Domain\Exceptions\Api\AbstractApiException;
@@ -30,9 +35,11 @@ use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Api\TransientApiFailure;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
+use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\IntId;
 use Illuminate\Contracts\Events\Dispatcher;
 use Psr\Log\LoggerInterface;
+use Throwable;
 use Webmozart\Assert\Assert;
 
 /**
@@ -46,28 +53,34 @@ use Webmozart\Assert\Assert;
  * 1. Resolve owning product from the first SKU
  * 2. Pre-flight: validate and filter commands (ownership, unchanged, price relationships)
  * 3. Send validated commands to API
- * 4. Dispatch events for confirmed updates
- * 5. Return structured result
+ * 4. Best-effort DB sync (non-blocking)
+ * 5. Dispatch events + delayed sale state reconciliation for confirmed updates
+ * 6. Return structured result
  */
 final readonly class UpdateProductPricesUseCase
 {
     public function __construct(
         private PriceUpdateClientInterface $priceClient,
         private ProductRepositoryInterface $productRepo,
+        private ProductSyncService $productSyncService,
+        private SaleReconciliationDispatcherInterface $saleReconciliationDispatcher,
+        private SaleSettingsRepositoryInterface $saleSettingsRepo,
         private Dispatcher $events,
         private LoggerInterface $logger,
     ) {}
 
     /**
      * @param list<UpdatePriceCommand> $skuUpdates Price changes (all SKUs must belong to same product)
+     * @param SaleSettings|null $saleSettings Optional sale metadata threaded to downstream listeners
      *
      * @throws ResourceNotFoundException When the SKU's product is not found locally
      * @throws InvalidApiResponseException When API response parsing fails (contract violation)
      * @throws ExternalServiceUnavailableException When API transport initialization fails
      * @throws DatabaseOperationFailedException When local product lookup fails
+     * @throws DuplicateRecordException On sale settings DB constraint violation
      * @throws InvalidCustomFieldValueException When custom field mapping fails during product lookup
      */
-    public function execute(array $skuUpdates): PriceUpdateResult
+    public function execute(array $skuUpdates, ?SaleSettings $saleSettings = null): PriceUpdateResult
     {
         Assert::notEmpty($skuUpdates, 'At least one SKU update is required');
 
@@ -85,6 +98,9 @@ final readonly class UpdateProductPricesUseCase
             return PriceUpdateResult::fromPhases($total, $preFlight, null);
         }
 
+        // 2b. Persist or clear sale settings before API call so jobs always read fresh state.
+        $saleSubmissionContext = $this->persistSaleState($productId, $saleSettings);
+
         // 3. Send to API
         $commands = \array_map(
             static fn(ResolvedPriceUpdate $r): UpdatePriceCommand => $r->command,
@@ -92,12 +108,23 @@ final readonly class UpdateProductPricesUseCase
         );
         $apiResult = $this->sendToApi($commands);
 
-        // 4. Dispatch events for confirmed updates
-        if ($apiResult->updatedSkus !== []) {
-            $this->dispatchEvents($productId, $apiResult->updatedSkus, $preFlight->resolvedBySku());
+        // 4. Best-effort DB sync — must NOT block events or reconciliation
+        try {
+            $this->productSyncService->refreshById($productId->value);
+        } catch (Throwable $e) { // @ignoreException — best-effort sync must not block events
+            $this->logger->warning('Post-update product sync failed (non-blocking)', [
+                'product_id' => $productId->value,
+                'exception' => $e->getMessage(),
+            ]);
         }
 
-        // 5. Build result and log
+        // 5. Dispatch events + reconciliation for confirmed updates
+        if ($apiResult->updatedSkus !== []) {
+            $this->dispatchEvents($productId, $apiResult->updatedSkus, $preFlight->resolvedBySku(), $saleSubmissionContext);
+            $this->saleReconciliationDispatcher->dispatchReconciliation($productId);
+        }
+
+        // 6. Build result and log
         $result = PriceUpdateResult::fromPhases($total, $preFlight, $apiResult);
 
         $this->logger->info('Product price update completed', [
@@ -219,6 +246,39 @@ final readonly class UpdateProductPricesUseCase
     }
 
     // -----------------------------------------------------------------------
+    // Sale State Persistence
+    // -----------------------------------------------------------------------
+
+    /**
+     * Persist or clear sale settings before the API call.
+     *
+     * For removals: snapshots the existing DB row for Slack context, then deletes it.
+     * For additions: upserts the new settings so AddToSaleJob reads fresh data on execution.
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    private function persistSaleState(IntId $productId, ?SaleSettings $saleSettings): ?SaleSubmissionContext
+    {
+        if ($saleSettings !== null && $saleSettings->removalReason !== null) {
+            $existingSettings = $this->saleSettingsRepo->findByProduct($productId);
+            $saleSubmissionContext = $existingSettings !== null
+                ? SaleSubmissionContext::fromSaleSettings($existingSettings, $saleSettings->removalReason)
+                : new SaleSubmissionContext(removalReason: $saleSettings->removalReason);
+            $this->saleSettingsRepo->delete($productId);
+
+            return $saleSubmissionContext;
+        }
+
+        if ($saleSettings !== null) {
+            $this->saleSettingsRepo->save($productId, $saleSettings);
+        }
+
+        return null;
+    }
+
+    // -----------------------------------------------------------------------
     // API Communication
     // -----------------------------------------------------------------------
 
@@ -313,6 +373,7 @@ final readonly class UpdateProductPricesUseCase
         IntId $productId,
         array $updatedSkus,
         array $resolvedBySku,
+        ?SaleSubmissionContext $saleSubmissionContext,
     ): void {
         /** @var list<SkuPriceChange> $priceChanges */
         $priceChanges = [];
@@ -322,6 +383,7 @@ final readonly class UpdateProductPricesUseCase
             Assert::notNull($resolved, "Updated SKU {$sku->value} must have a resolved price update");
 
             $this->events->dispatch(new SkuRetailPricingUpdatedEvent(
+                productId: $productId,
                 sku: $sku,
                 previousPrices: $resolved->currentPricing,
                 newPrices: $resolved->effectivePricing,
@@ -337,6 +399,7 @@ final readonly class UpdateProductPricesUseCase
         $this->events->dispatch(new ProductPricingUpdatedEvent(
             productId: $productId,
             priceChanges: $priceChanges,
+            saleSubmissionContext: $saleSubmissionContext,
         ));
     }
 }

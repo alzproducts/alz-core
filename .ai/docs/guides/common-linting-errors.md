@@ -141,6 +141,17 @@ RateLimiter::for('api', static function (Request $request): Limit {
 $poolResults = Http::pool(fn(Pool $pool): array => $this->buildPoolRequests($pool, $requests));
 ```
 
+**Example from codebase:** `app/Infrastructure/Jobs/Shopwired/UpdateShopwiredRemoveFromSaleJob.php`
+
+Laravel's `Skip::when()` middleware takes a closure that may query the DB. The closure is invoked
+immediately by the middleware pipeline, but ShipMonk can't verify this. Use `@phpstan-ignore-next-line`
+(not `/** */` docblock — that doesn't work for `@phpstan-ignore`):
+
+```php
+// @phpstan-ignore-next-line shipmonk.checkedExceptionInCallable (Skip invokes immediately; DB exceptions bubble to queue retry)
+Skip::when(fn (): bool => \app(ProductRepositoryInterface::class)->getProduct($this->productId)->isOnSale()),
+```
+
 **Why include justification:** Future maintainers (and Claude) understand why the ignore is safe.
 
 ---

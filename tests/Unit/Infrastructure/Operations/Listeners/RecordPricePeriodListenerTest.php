@@ -12,6 +12,7 @@ use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\Shared\Money\ValueObjects\Money;
+use App\Domain\ValueObjects\IntId;
 use App\Infrastructure\Operations\Listeners\RecordPricePeriodListener;
 use Illuminate\Support\Facades\Log;
 use Mockery;
@@ -213,6 +214,7 @@ final class RecordPricePeriodListenerTest extends TestCase
     private static function createEvent(): SkuRetailPricingUpdatedEvent
     {
         return new SkuRetailPricingUpdatedEvent(
+            productId: IntId::fromTrusted(1),
             sku: Sku::fromTrusted('TEST-001'),
             previousPrices: new ProductRetailPricing(
                 basePrice: Money::inclusive(20.00),

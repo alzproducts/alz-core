@@ -390,7 +390,7 @@ redis: ## Start Redis only (not PostgreSQL from compose.yaml)
 # Development Tools
 pail: ## Tail logs (respects LOG_LEVEL from .env, defaults to info)
 	@LOG_LEVEL=$$(grep -E '^LOG_LEVEL=' .env 2>/dev/null | cut -d'=' -f2 | tr -d '"'"'" || echo "info"); \
-	php artisan pail --level=$${LOG_LEVEL:-info}
+	php artisan pail --timeout=0 --level=$${LOG_LEVEL:-info}
 
 # IDE Helper
 ide-helper: ## Generate IDE helper files

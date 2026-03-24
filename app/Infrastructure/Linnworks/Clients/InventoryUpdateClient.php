@@ -14,6 +14,7 @@ use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Inventory\Commands\AddInventoryItemCommand;
 use App\Domain\Inventory\Enums\LinnworksInventoryField;
+use App\Domain\Inventory\ValueObjects\ExtendedPropertyWrite;
 use App\Domain\Shared\Money\ValueObjects\Money;
 use App\Domain\ValueObjects\Guid;
 use App\Infrastructure\Linnworks\Contracts\LinnworksTransportInterface;
@@ -129,7 +130,7 @@ final readonly class InventoryUpdateClient implements InventoryUpdateClientInter
      * {@inheritDoc}
      *
      * @throws ResourceNotFoundException When stock item not found
-     * @throws InvalidApiRequestException When parameters invalid
+     * @throws InvalidApiRequestException When parameters invalid or $name not a known EP
      * @throws InvalidApiResponseException When API response malformed
      * @throws AuthenticationExpiredException When credentials invalid
      * @throws ExternalServiceUnavailableException When API unavailable
@@ -138,17 +139,9 @@ final readonly class InventoryUpdateClient implements InventoryUpdateClientInter
     {
         $stockItemId = $this->inventoryClient->resolveStockItemId($identifier);
 
-        // Note: Linnworks API uses "ProperyName" (typo is intentional - API expects this)
-        $extendedProperty = [
-            'fkStockItemId' => $stockItemId->value,
-            'ProperyName' => $name,
-            'PropertyValue' => $value,
-            'PropertyType' => 'Attribute',
-        ];
-
-        $this->transport->postFormParams(
-            endpoint: '/api/Inventory/CreateInventoryItemExtendedProperties',
-            params: ['inventoryItemExtendedProperties' => [$extendedProperty]],
+        $this->createExtendedProperty(
+            ExtendedPropertyWrite::fromString($name, $value),
+            $stockItemId,
         );
     }
 
@@ -193,6 +186,102 @@ final readonly class InventoryUpdateClient implements InventoryUpdateClientInter
         $stockItemId = $this->inventoryClient->resolveStockItemId($identifier);
 
         $this->deleteInventoryItems([$stockItemId]);
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @throws ResourceNotFoundException When stock item not found
+     * @throws InvalidApiRequestException When parameters invalid
+     * @throws InvalidApiResponseException When API response malformed
+     * @throws AuthenticationExpiredException When credentials invalid
+     * @throws ExternalServiceUnavailableException When API unavailable
+     */
+    public function setExtendedProperties(Sku|Guid $identifier, array $properties): void
+    {
+        if ($properties === []) {
+            return;
+        }
+
+        $stockItem = $this->inventoryClient->getStockItemFull($identifier);
+        $stockItemId = new Guid($stockItem->stockItemId);
+
+        /** @var list<array<string, string>> $updates */
+        $updates = [];
+        /** @var list<array<string, string>> $creates */
+        $creates = [];
+
+        foreach ($properties as $property) {
+            $existing = $stockItem->getExtendedProperty($property->name->value);
+
+            if ($existing !== null && $existing->value === $property->value) {
+                continue; // Already matches — skip write
+            }
+
+            if ($existing !== null) {
+                $updates[] = self::buildExtendedPropertyPayload($property, $stockItemId, $existing->rowId);
+            } else {
+                $creates[] = self::buildExtendedPropertyPayload($property, $stockItemId);
+            }
+        }
+
+        if ($updates !== []) {
+            $this->transport->postFormParams(
+                endpoint: '/api/Inventory/UpdateInventoryItemExtendedProperties',
+                params: ['inventoryItemExtendedProperties' => $updates],
+            );
+        }
+
+        if ($creates !== []) {
+            $this->transport->postFormParams(
+                endpoint: '/api/Inventory/CreateInventoryItemExtendedProperties',
+                params: ['inventoryItemExtendedProperties' => $creates],
+            );
+        }
+    }
+
+    /**
+     * Create a new extended property on a stock item.
+     *
+     * @throws ResourceNotFoundException When stock item not found
+     * @throws InvalidApiRequestException When parameters invalid
+     * @throws InvalidApiResponseException When API response malformed
+     * @throws AuthenticationExpiredException When credentials invalid
+     * @throws ExternalServiceUnavailableException When API unavailable
+     */
+    private function createExtendedProperty(ExtendedPropertyWrite $property, Guid $stockItemId): void
+    {
+        $payload = self::buildExtendedPropertyPayload($property, $stockItemId);
+
+        $this->transport->postFormParams(
+            endpoint: '/api/Inventory/CreateInventoryItemExtendedProperties',
+            params: ['inventoryItemExtendedProperties' => [$payload]],
+        );
+    }
+
+    /**
+     * Build an extended property payload array for the Linnworks API.
+     *
+     * @return array<string, string>
+     */
+    private static function buildExtendedPropertyPayload(
+        ExtendedPropertyWrite $property,
+        Guid $stockItemId,
+        ?string $rowId = null,
+    ): array {
+        // Note: Linnworks API uses "ProperyName" (typo is intentional — API expects this)
+        $payload = [
+            'fkStockItemId' => $stockItemId->value,
+            'ProperyName' => $property->name->value,
+            'PropertyValue' => $property->value,
+            'PropertyType' => 'Attribute',
+        ];
+
+        if ($rowId !== null) {
+            $payload['pkRowId'] = $rowId;
+        }
+
+        return $payload;
     }
 
     /**

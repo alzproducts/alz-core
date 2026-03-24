@@ -94,6 +94,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Sale Category
+    |--------------------------------------------------------------------------
+    |
+    | ShopWired category ID for products currently on sale.
+    | Products are added to this category when entering sale and
+    | removed when the sale ends (manual or automatic).
+    |
+    */
+
+    'sale_category_id' => (int) env('SHOPWIRED_SALE_CATEGORY_ID', 64939),
+
+    /*
+    |--------------------------------------------------------------------------
     | Webhook Staleness Window
     |--------------------------------------------------------------------------
     |
@@ -111,5 +124,20 @@ return [
         ],
         static fn(mixed $email): bool => is_string($email) && $email !== '',
     )),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Test Product
+    |--------------------------------------------------------------------------
+    |
+    | Known product used for development testing (e.g., price updates,
+    | SKU operations). Safe to use for manual API calls during development.
+    |
+    */
+
+    'test_product' => [
+        'product_id' => 5585518,
+        'sku' => '1005356',
+    ],
 
 ];
