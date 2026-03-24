@@ -145,7 +145,7 @@ final class OrderModel extends Model implements EloquentDomainMappableInterface
      */
     public function products(): HasMany
     {
-        $relation = $this->hasMany(OrderProductModel::class, 'order_id', 'id');
+        $relation = $this->hasMany(OrderProductModel::class, 'shopwired.order_products_resolved.order_id', 'id');
         $relation->getBaseQuery()->from('shopwired.order_products_resolved');
 
         return $relation;
