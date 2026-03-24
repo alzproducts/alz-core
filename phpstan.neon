@@ -207,11 +207,13 @@ parameters:
         # ProductModel uses dedicated ProductModelMapper instead of implementing
         # EloquentDomainMappableInterface — custom field typing requires the factory (#211).
         # WebhookEventModel is an infrastructure-only model with no Domain counterpart (#272).
+        # OrderProductExtraDataModel is infrastructure-only metadata for manual SKU overrides (#353).
         -
             identifier: alz.shopwiredModelMustImplementMappable
             paths:
                 - app/Infrastructure/Shopwired/Models/ProductModel.php
                 - app/Infrastructure/Shopwired/Models/WebhookEventModel.php
+                - app/Infrastructure/Shopwired/Models/OrderProductExtraDataModel.php
         # Eloquent query builder returns dynamic proxies - static analysis can't track fluent chains.
         # Methods like exists(), whereNotIn() on Builder are instance methods called on static chain.
         # DatabaseManager also proxies to Connection (transaction() call in DatabaseGateway).
