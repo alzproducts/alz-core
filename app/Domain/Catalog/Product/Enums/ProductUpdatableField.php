@@ -17,4 +17,5 @@ enum ProductUpdatableField
     case MetaTitle;
     case MetaDescription;
     case Categories;
+    case SortOrder;
 }

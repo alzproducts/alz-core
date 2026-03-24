@@ -235,16 +235,17 @@ final class ResolvedVariationPricesTest extends TestCase
     }
 
     #[Test]
-    public function effective_price_returns_zero_sale_price_when_on_sale_at_zero(): void
+    public function effective_price_returns_regular_price_when_sale_price_is_zero(): void
     {
-        // Free item (sale price = 0)
+        // salePrice = 0 means "no sale" in ShopWired, not "free item"
         $prices = new ResolvedVariationPrices(
             price: 29.99,
             costPrice: null,
             salePrice: 0.0,
         );
 
-        self::assertSame(0.0, $prices->effectivePrice());
+        self::assertSame(29.99, $prices->effectivePrice());
+        self::assertFalse($prices->isOnSale());
     }
 
     /*

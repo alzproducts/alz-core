@@ -233,32 +233,22 @@ final class TestSlackNotificationCommand extends Command
      */
     private function sendPricingUpdated(): void
     {
+        /** @var int $productId */
+        $productId = \config('shopwired.test_product.product_id');
+        /** @var string $sku */
+        $sku = \config('shopwired.test_product.sku');
+
         $this->chat->sendPriceUpdateAlert(
-            productId: IntId::from(5585518),
+            productId: IntId::from($productId),
             priceChanges: [
                 new SkuPriceChange(
-                    sku: Sku::fromTrusted('WEB-15424'),
-                    previousPrices: new ProductRetailPricing(Money::inclusive(24.99)),
-                    newPrices: new ProductRetailPricing(Money::inclusive(19.99), Money::inclusive(19.99)),
-                ),
-                new SkuPriceChange(
-                    sku: Sku::fromTrusted('WEB-15424-001'),
-                    previousPrices: new ProductRetailPricing(Money::inclusive(29.99), Money::inclusive(24.99)),
-                    newPrices: new ProductRetailPricing(Money::inclusive(29.99)),
-                ),
-                new SkuPriceChange(
-                    sku: Sku::fromTrusted('WEB-15424-002'),
-                    previousPrices: new ProductRetailPricing(Money::inclusive(34.99)),
-                    newPrices: new ProductRetailPricing(Money::inclusive(27.99)),
-                ),
-                new SkuPriceChange(
-                    sku: Sku::fromTrusted('WEB-15424-003'),
-                    previousPrices: new ProductRetailPricing(Money::inclusive(39.99)),
-                    newPrices: new ProductRetailPricing(Money::inclusive(34.99), Money::inclusive(29.99)),
+                    sku: Sku::fromTrusted($sku),
+                    previousPrices: new ProductRetailPricing(Money::inclusive(10.00)),
+                    newPrices: new ProductRetailPricing(Money::inclusive(10.00), Money::inclusive(7.99)),
                 ),
             ],
-            productTitle: 'Bathroom Sign - Budget & Premium Range',
-            productUrl: 'https://www.alzproducts.co.uk/bathroom-sign-budget-premium-range',
+            productTitle: 'Test Product',
+            productUrl: 'https://www.alzproducts.co.uk/test-product',
         );
     }
 
@@ -267,21 +257,21 @@ final class TestSlackNotificationCommand extends Command
      */
     private function sendVariantSkusGenerated(): void
     {
+        /** @var int $productId */
+        $productId = \config('shopwired.test_product.product_id');
+        /** @var string $sku */
+        $sku = \config('shopwired.test_product.sku');
+
         $this->chat->sendVariantSkusGenerated(
-            productId: 5585518,
-            productTitle: 'Bathroom Sign - Budget & Premium Range',
-            created: 8,
-            skipped: 4,
-            failed: 1,
+            productId: $productId,
+            productTitle: 'Test Product',
+            created: 3,
+            skipped: 1,
+            failed: 0,
             createdVariants: [
-                'WEB-15424-001 - Budget Self-Adhesive 300mm Blue',
-                'WEB-15424-002 - Budget Self-Adhesive 300mm Green',
-                'WEB-15424-003 - Budget Self-Adhesive 300mm Red',
-                'WEB-15424-004 - Budget Self-Adhesive 300mm Yellow',
-                'WEB-15424-005 - Budget Fixings 300mm Blue',
-                'WEB-15424-006 - Budget Fixings 300mm Green',
-                'WEB-15424-007 - Premium Self-Adhesive 300mm Blue',
-                'WEB-15424-008 - Premium Self-Adhesive 300mm Green',
+                "{$sku}-001 - Variant A",
+                "{$sku}-002 - Variant B",
+                "{$sku}-003 - Variant C",
             ],
         );
     }

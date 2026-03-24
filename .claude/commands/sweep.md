@@ -42,15 +42,17 @@ If any individual check is blocked by complications or ambiguity, **skip it** �
 #### Use Cases
 
 - **No untyped data arrays** — If keyed arrays with PHPStan annotations are used internally instead of typed PHP classes, extract proper classes.
+- **Business logging** — Every use case must inject `LoggerInterface` and log business milestones at `info` level. At minimum: entry (what operation, key identifiers/context) and exit (outcome/result summary). Log all code paths — early returns, no-op conditions, and error recovery should all produce a log entry so operators can trace what happened. Use structured context arrays with snake_case keys, never string interpolation in log messages. Reference existing use cases (e.g., `UpdateSkuUseCase`, `SyncProductsUseCase`) for the established pattern.
 - **Clarity and simplicity** — Any moderately complex use case likely needs refactoring. Can complex logic be extracted into private methods? Can code be moved outside the use case where appropriate — e.g., static factories on domain objects, dedicated mappers for complex transformations, domain value objects? Only create these if justified, but usually they can be.
 - **Note:** Use cases are typically the most complex part of a feature. Make small, obvious improvements during this sweep (extracting a private method, moving a factory). For anything larger, skip it — provide recommendations in the summary and defer to a focused, collaborative refactoring session with the user.
 
-#### Jobs
+#### Jobs & Listeners
 
 - **Pattern consistency** — Compare against existing jobs in the codebase; most follow a very similar structure.
 - **Thin dispatch** — Jobs should dispatch to a use case with minimal surrounding logic.
 - **Queue configuration** — Verify queue name, retry attempts, and backoff are appropriate for the job's workload.
 - **No redundant logging** — Jobs should NOT log "starting" (Queue::before handles this) or completion results that the UseCase already logs. Only keep job-level logs that add unique context not available elsewhere (e.g., input parameters like date ranges, sync modes). If a job is returning result data just to log it, move that logging to the UseCase.
+- **Listeners must be thin** — Listeners should only perform simple logic checks, basic DB reads, and dispatch jobs. Any listener that calls an external API, performs heavy computation, or does complex multi-step work should instead dispatch a queued job to handle that work. This gives us retry/backoff resilience and keeps listeners fast. Compare against existing listeners for precedent.
 
 ### Infrastructure Layer
 
@@ -59,6 +61,11 @@ If any individual check is blocked by complications or ambiguity, **skip it** �
 - **Catch, log, translate** — All infrastructure exceptions from code we don't control (third-party SDKs, API calls) must be caught, logged with context, and translated to domain exceptions.
 - **Failure paths throw** — Failure conditions must throw domain exceptions, not return silently.
 - **Preserve context** — Pass all relevant information up the chain. For batch operations, consider returning a result object instead of throwing on first failure.
+
+#### API Client Methods
+
+- **Typed parameters** — Client methods should accept domain objects, Commands, or DTOs — not raw primitives/arrays. Place the type in Domain if it fits; otherwise Infrastructure-level is fine. Exception: trivial single-scalar calls (e.g., delete by ID) are acceptable as-is.
+- **Domain types over primitives** — Use domain value objects (`Money`, `SKU`, `IntId`, `Guid`, etc.) instead of raw `string`/`int`/`float` where applicable.
 
 #### Other
 
@@ -73,6 +80,8 @@ If any individual check is blocked by complications or ambiguity, **skip it** �
 
 - **Code placement** — Is code in the correct architectural layer? Are feature sub-namespaces used consistently with similar features nearby? Compare against the structure of similar features in each layer.
 - **Logging at the right layer** — Each layer should only log what it uniquely knows. Data should not be passed across layers just to be logged elsewhere. If a result is returned from a UseCase to a Job solely for logging, move the logging into the UseCase. Infrastructure logs SDK/technical details, Application logs business milestones/results, Presentation (jobs/controllers) logs only delivery-specific context (input parameters, queue metadata).
+- **No false nullables** — Review new/changed classes (VOs, DTOs, events, enums) for properties declared as `?Type $field = null` that are actually always present at construction time. If every caller passes a value, the property should be required (non-nullable, no default). Nullable defaults are only appropriate when the field is genuinely optional. This is especially common in newly created classes where `= null` was added for convenience during development.
+- **Linting bypasses** — Scan changed files for `@phpstan-ignore`, `@psalm-suppress`, baseline additions, or similar suppression annotations. Each must have explicit user approval and a documented justification. Check `.ai/docs/guides/common-linting-errors.md` for ranked alternatives before accepting any bypass. Compare against existing bypasses in the codebase for precedent.
 
 ### Testing
 

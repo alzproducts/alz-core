@@ -21,6 +21,7 @@ use App\Infrastructure\Shopwired\Mappers\ProductModelMapper;
 use App\Infrastructure\Shopwired\Models\ProductModel;
 use App\Infrastructure\Shopwired\Models\ProductVariationModel;
 use Generator;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Log;
 
@@ -562,6 +563,103 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
 
         // Load parent product with variations
         return $this->getProduct(IntId::from($productExternalId));
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @return list<Product>
+     *
+     * @throws InvalidCustomFieldValueException
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function getProductsOnSale(): array
+    {
+        return $this->eloquentGateway->query(function (): array {
+            /** @var list<Product> */
+            return self::MODEL_CLASS::query()
+                ->with(self::EAGER_LOAD_RELATIONS)
+                ->whereNotNull('sale_price')
+                ->where('sale_price', '>', 0)
+                ->get()
+                ->map(fn(ProductModel $model): Product => $this->mapModelToDomain($model))
+                ->all();
+        });
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function hasSaleStateDrift(IntId $productId, int $saleCategoryId): bool
+    {
+        return $this->eloquentGateway->query(static fn(): bool => self::buildSaleStateDriftQuery($saleCategoryId)
+                ->where('external_id', $productId->value)
+                ->exists());
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function getAllProductsWithSaleStateDrift(int $saleCategoryId): array
+    {
+        return $this->eloquentGateway->query(static function () use ($saleCategoryId): array {
+            /** @var list<int> */
+            return self::buildSaleStateDriftQuery($saleCategoryId)
+                ->pluck('external_id')
+                ->all();
+        });
+    }
+
+    /**
+     * Build the shared query for detecting sale state drift.
+     *
+     * @return Builder<ProductModel>
+     */
+    private static function buildSaleStateDriftQuery(int $saleCategoryId): Builder
+    {
+        $saleCategoryJson = '[' . $saleCategoryId . ']';
+
+        return self::MODEL_CLASS::query()
+            ->select('external_id')
+            ->where(static function (Builder $q) use ($saleCategoryJson): void {
+                // Case 1: On sale but NOT in sale category or missing sale custom fields
+                $q->where(static function (Builder $onSale) use ($saleCategoryJson): void {
+                    $onSale->whereNotNull('sale_price')
+                        ->where('sale_price', '>', 0)
+                        ->whereRaw('sale_price < price')
+                        ->where(static function (Builder $missing) use ($saleCategoryJson): void {
+                            $missing->whereRaw('NOT (category_ids @> ?::jsonb)', [$saleCategoryJson])
+                                ->orWhereRaw("custom_fields->>'sale_reason' IS NULL")
+                                ->orWhereRaw("custom_fields->>'sale_reason' = ''");
+                        });
+                })
+                // Case 2: NOT on sale but still in sale category or has orphaned sale custom fields
+                ->orWhere(static function (Builder $notOnSale) use ($saleCategoryJson): void {
+                    $notOnSale->where(static function (Builder $notSale): void {
+                        $notSale->whereNull('sale_price')
+                            ->orWhere('sale_price', '<=', 0)
+                            ->orWhereRaw('sale_price >= price');
+                    })
+                    ->where(static function (Builder $hasArtifacts) use ($saleCategoryJson): void {
+                        $hasArtifacts->whereRaw('category_ids @> ?::jsonb', [$saleCategoryJson])
+                            ->orWhereRaw("(custom_fields->>'sale_reason') IS NOT NULL AND (custom_fields->>'sale_reason') != ''")
+                            ->orWhereRaw("(custom_fields->>'sale_date_start') IS NOT NULL AND (custom_fields->>'sale_date_start') != ''")
+                            ->orWhereRaw("(custom_fields->>'sale_date_end') IS NOT NULL AND (custom_fields->>'sale_date_end') != ''")
+                            ->orWhereRaw("(custom_fields->>'sale_comments') IS NOT NULL AND (custom_fields->>'sale_comments') != ''")
+                            ->orWhereRaw("(custom_fields->>'sale_ends_stock') IS NOT NULL AND (custom_fields->>'sale_ends_stock') != ''");
+                    });
+                });
+            });
     }
 
     /**

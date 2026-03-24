@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\Catalog\Product\Events;
 
+use App\Domain\Catalog\Product\ValueObjects\SaleSubmissionContext;
 use App\Domain\Catalog\Product\ValueObjects\SkuPriceChange;
 use App\Domain\ValueObjects\IntId;
 
@@ -19,9 +20,11 @@ final readonly class ProductPricingUpdatedEvent
     /**
      * @param IntId $productId ShopWired product external ID
      * @param list<SkuPriceChange> $priceChanges Confirmed price changes per SKU
+     * @param SaleSubmissionContext|null $saleSubmissionContext Removal snapshot for Slack notification (null for add-to-sale)
      */
     public function __construct(
         public IntId $productId,
         public array $priceChanges,
+        public ?SaleSubmissionContext $saleSubmissionContext = null,
     ) {}
 }
