@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace App\Application\Mixpanel\UseCases;
 
+use App\Application\Contracts\ErrorReporterInterface;
 use App\Application\Contracts\MixpanelClientInterface;
 use App\Application\Contracts\Shopwired\CustomerRepositoryInterface;
 use App\Application\Contracts\Shopwired\OrderRepositoryInterface;
 use App\Application\Mixpanel\Results\SyncOrdersToMixpanelResult;
 use App\Domain\Catalog\Order\ValueObjects\Order;
 use App\Domain\Catalog\Order\ValueObjects\OrderAnalyticsHashMatcher;
+use App\Domain\Catalog\Order\ValueObjects\OrderProduct;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
@@ -61,6 +63,7 @@ final readonly class SyncOrdersToMixpanelUseCase
         private OrderRepositoryInterface $orderRepository,
         private CustomerRepositoryInterface $customerRepository,
         private MixpanelClientInterface $mixpanel,
+        private ErrorReporterInterface $errorReporter,
         private string $analyticsSalt,
         private LoggerInterface $logger,
     ) {}
@@ -141,26 +144,46 @@ final readonly class SyncOrdersToMixpanelUseCase
             );
         }
 
-        // Step 4: Get trade status for customers
-        $customerTradeMap = $this->getCustomerTradeMap($ordersToSync);
+        // Step 4: Filter out orders with any empty-SKU products (data quality gate)
+        $validOrders = $this->filterOrdersWithValidSkus($ordersToSync);
+        $emptySkuSkipped = \max(0, \count($ordersToSync) - \count($validOrders));
+        $skippedCount += $emptySkuSkipped;
 
-        // Step 5: Import orders to Mixpanel
-        $this->mixpanel->importOrders($ordersToSync, $customerTradeMap);
+        if ($validOrders === []) {
+            $this->logger->info('All remaining orders filtered out by empty-SKU gate', [
+                'orders_in_range' => \count($orders),
+                'skipped' => $skippedCount,
+            ]);
 
-        $productEventsCount = $this->countProductEvents($ordersToSync);
+            return new SyncOrdersToMixpanelResult(
+                ordersInRange: \count($orders),
+                skipped: $skippedCount,
+                synced: 0,
+                checkoutEventsCreated: 0,
+                productEventsCreated: 0,
+            );
+        }
+
+        // Step 5: Get trade status for customers
+        $customerTradeMap = $this->getCustomerTradeMap($validOrders);
+
+        // Step 6: Import orders to Mixpanel
+        $this->mixpanel->importOrders($validOrders, $customerTradeMap);
+
+        $productEventsCount = $this->countProductEvents($validOrders);
 
         $this->logger->info('Mixpanel order sync completed', [
-            'orders_synced' => \count($ordersToSync),
-            'checkout_events' => \count($ordersToSync),
+            'orders_synced' => \count($validOrders),
+            'checkout_events' => \count($validOrders),
             'product_events' => $productEventsCount,
-            'total_events' => \count($ordersToSync) + $productEventsCount,
+            'total_events' => \count($validOrders) + $productEventsCount,
         ]);
 
         return new SyncOrdersToMixpanelResult(
             ordersInRange: \count($orders),
             skipped: $skippedCount,
-            synced: \count($ordersToSync),
-            checkoutEventsCreated: \count($ordersToSync),
+            synced: \count($validOrders),
+            checkoutEventsCreated: \count($validOrders),
             productEventsCreated: $productEventsCount,
         );
     }
@@ -249,6 +272,77 @@ final readonly class SyncOrdersToMixpanelUseCase
         }
 
         return $newOrders;
+    }
+
+    /**
+     * Filter out orders where any product has an empty SKU.
+     *
+     * Orders with empty-SKU products are reported to Sentry so operators can
+     * apply overrides via the order_product_extra_data table.
+     *
+     * @param list<Order> $orders
+     *
+     * @return list<Order>
+     */
+    private function filterOrdersWithValidSkus(array $orders): array
+    {
+        $validOrders = [];
+
+        foreach ($orders as $order) {
+            if ($order->products !== null && !self::orderHasEmptySku($order)) {
+                $validOrders[] = $order;
+
+                continue;
+            }
+
+            $emptySkuProducts = $order->products !== null
+                ? \array_values(\array_filter(
+                    $order->products,
+                    static fn(OrderProduct $p): bool => $p->sku === '',
+                ))
+                : [];
+
+            $context = [
+                'order_id' => $order->id,
+                'order_reference' => $order->reference,
+                'empty_sku_product_ids' => \array_map(
+                    static fn(OrderProduct $p): int => $p->id,
+                    $emptySkuProducts,
+                ),
+            ];
+
+            $this->logger->warning('Skipping order with empty-SKU products from Mixpanel sync', $context);
+
+            $this->errorReporter->report(
+                new MissingRequiredDataException(
+                    dataType: 'product SKU',
+                    operation: 'Mixpanel order sync',
+                    resolution: \sprintf(
+                        'Order #%d has %d product(s) with empty SKU — apply overrides via order_product_extra_data',
+                        $order->reference,
+                        \count($emptySkuProducts),
+                    ),
+                ),
+                $context,
+            );
+        }
+
+        return $validOrders;
+    }
+
+    /**
+     * Check if any product in the order has an empty SKU.
+     */
+    private static function orderHasEmptySku(Order $order): bool
+    {
+        if ($order->products === null) {
+            return false;
+        }
+
+        return \array_any(
+            $order->products,
+            static fn(OrderProduct $product): bool => $product->sku === '',
+        );
     }
 
     /**

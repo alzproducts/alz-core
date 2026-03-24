@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Application\Mixpanel\UseCases;
 
+use App\Application\Contracts\ErrorReporterInterface;
 use App\Application\Contracts\MixpanelClientInterface;
 use App\Application\Contracts\Shopwired\CustomerRepositoryInterface;
 use App\Application\Contracts\Shopwired\OrderRepositoryInterface;
@@ -42,6 +43,8 @@ final class SyncOrdersToMixpanelUseCaseTest extends TestCase
 
     private MixpanelClientInterface&MockInterface $mixpanel;
 
+    private ErrorReporterInterface&MockInterface $errorReporter;
+
     private LoggerInterface&MockInterface $logger;
 
     private SyncOrdersToMixpanelUseCase $useCase;
@@ -55,14 +58,18 @@ final class SyncOrdersToMixpanelUseCaseTest extends TestCase
         $this->orderRepository = Mockery::mock(OrderRepositoryInterface::class);
         $this->customerRepository = Mockery::mock(CustomerRepositoryInterface::class);
         $this->mixpanel = Mockery::mock(MixpanelClientInterface::class);
+        $this->errorReporter = Mockery::mock(ErrorReporterInterface::class);
+        $this->errorReporter->shouldReceive('report')->byDefault();
         $this->logger = Mockery::mock(LoggerInterface::class);
         $this->logger->shouldReceive('info')->byDefault();
         $this->logger->shouldReceive('debug')->byDefault();
+        $this->logger->shouldReceive('warning')->byDefault();
 
         $this->useCase = new SyncOrdersToMixpanelUseCase(
             $this->orderRepository,
             $this->customerRepository,
             $this->mixpanel,
+            $this->errorReporter,
             $this->salt,
             $this->logger,
         );
@@ -128,13 +135,69 @@ final class SyncOrdersToMixpanelUseCaseTest extends TestCase
         $this->assertSame(2, $result->productEventsCreated);
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | Empty-SKU Filtering Tests (Issue #353)
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function skips_order_with_empty_sku_product_and_reports_to_sentry(): void
+    {
+        $from = new DateTimeImmutable('-30 days');
+        $to = new DateTimeImmutable('-7 days');
+
+        $orderWithEmptySku = $this->createOrderWithEmptySkuProduct(1, 10001);
+
+        $this->mixpanel->shouldReceive('getExistingOrderHashes')->andReturn([]);
+        $this->orderRepository->shouldReceive('getOrdersInDateRange')->andReturn([$orderWithEmptySku]);
+
+        $this->errorReporter->shouldReceive('report')
+            ->once()
+            ->withArgs(static fn(MissingRequiredDataException $exception, array $context): bool => $exception->dataType === 'product SKU'
+                    && $exception->operation === 'Mixpanel order sync'
+                    && \str_contains((string) $exception->resolution, '#10001')
+                    && $context['order_reference'] === 10001);
+
+        $result = $this->useCase->execute($from, $to);
+
+        $this->assertSame(1, $result->ordersInRange);
+        $this->assertSame(1, $result->skipped);
+        $this->assertSame(0, $result->synced);
+    }
+
+    #[Test]
+    public function syncs_valid_orders_and_skips_empty_sku_orders(): void
+    {
+        $from = new DateTimeImmutable('-30 days');
+        $to = new DateTimeImmutable('-7 days');
+
+        $validOrder = $this->createOrderWithProducts(1, 10001, productCount: 2);
+        $emptySkuOrder = $this->createOrderWithEmptySkuProduct(2, 10002);
+
+        $this->mixpanel->shouldReceive('getExistingOrderHashes')->andReturn([]);
+        $this->orderRepository->shouldReceive('getOrdersInDateRange')->andReturn([$validOrder, $emptySkuOrder]);
+        $this->customerRepository->shouldReceive('getTradeStatusByIds')
+            ->with([1])
+            ->andReturn([1 => false]);
+        $this->mixpanel->shouldReceive('importOrders')->once();
+        $this->errorReporter->shouldReceive('report')->once();
+
+        $result = $this->useCase->execute($from, $to);
+
+        $this->assertSame(2, $result->ordersInRange);
+        $this->assertSame(1, $result->skipped);
+        $this->assertSame(1, $result->synced);
+        $this->assertSame(2, $result->productEventsCreated);
+    }
+
     #[Test]
     public function throws_when_customer_missing_from_database(): void
     {
         $from = new DateTimeImmutable('-30 days');
         $to = new DateTimeImmutable('-7 days');
 
-        $order = $this->createOrder(customerId: 999, reference: 10001);
+        $order = $this->createOrderWithProducts(customerId: 999, reference: 10001, productCount: 1);
 
         $this->mixpanel->shouldReceive('getExistingOrderHashes')->andReturn([]);
         $this->orderRepository->shouldReceive('getOrdersInDateRange')->andReturn([$order]);
@@ -221,12 +284,74 @@ final class SyncOrdersToMixpanelUseCaseTest extends TestCase
         );
     }
 
+    private function createOrderWithEmptySkuProduct(int $customerId, int $reference): Order
+    {
+        $products = [
+            new OrderProduct(
+                id: 1,
+                orderExternalId: $reference,
+                title: 'Valid Product',
+                sku: 'SKU-1',
+                price: 45.0,
+                priceVat: 9.0,
+                total: 45.0,
+                totalVat: 9.0,
+                originalPrice: 45.0,
+                costPrice: null,
+                quantity: 1,
+                vatRate: 20.0,
+                comments: '',
+                isPreorder: false,
+            ),
+            new OrderProduct(
+                id: 2,
+                orderExternalId: $reference,
+                title: 'Missing SKU Product',
+                sku: '',
+                price: 30.0,
+                priceVat: 6.0,
+                total: 30.0,
+                totalVat: 6.0,
+                originalPrice: 30.0,
+                costPrice: null,
+                quantity: 1,
+                vatRate: 20.0,
+                comments: '',
+                isPreorder: false,
+            ),
+        ];
+
+        return new Order(
+            id: $reference,
+            reference: $reference,
+            orderPlacedAt: new DateTimeImmutable('-10 days'),
+            total: 75.0,
+            subTotalNet: 65.0,
+            shippingTotalNet: 10.0,
+            originalShippingTotalNet: 10.0,
+            paymentMethod: PaymentMethod::Card,
+            comments: '',
+            marketing: false,
+            hasVatRelief: false,
+            isArchived: false,
+            isAnonymized: false,
+            lineItemVatCalculation: false,
+            status: new OrderStatus(1, OrderStatusType::Completed, 'paid', 0),
+            customer: new OrderCustomer($customerId, 0, null, []),
+            shipping: null,
+            billingAddress: $this->createAddress(),
+            shippingAddress: $this->createAddress(),
+            preOrderStatus: PreOrderStatus::None,
+            products: $products,
+        );
+    }
+
     private function createAddress(): OrderAddress
     {
         return new OrderAddress(
             name: 'Test',
             emailAddress: 'test@example.com',
-            telephone: '01onal234567890',
+            telephone: '01234567890',
             companyName: '',
             addressLine1: '123 Test St',
             addressLine2: '',
@@ -356,8 +481,7 @@ final class SyncOrdersToMixpanelUseCaseTest extends TestCase
         $from = new DateTimeImmutable('-30 days');
         $to = new DateTimeImmutable('-7 days');
 
-        $orderPlacedAt = new DateTimeImmutable('2026-01-21 09:00:00 UTC');
-        $order = $this->createOrderWithDate(1, 10001, $orderPlacedAt);
+        $order = $this->createOrderWithProducts(1, 10001, 1);
 
         // Completely unrelated hash (order not in Mixpanel at all)
         $unrelatedHash = 'completely_different_hash_that_will_not_match';
