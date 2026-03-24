@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use App\Presentation\Http\Api\ApiExceptionMapper;
+use App\Presentation\Http\Api\InternalApiExceptionMapper;
 use App\Presentation\Http\Auth\Middleware\ValidateSupabaseJwtMiddleware;
 use App\Presentation\Http\Middleware\EnsureUserApprovedMiddleware;
 use App\Presentation\Http\Middleware\SetRequestContextMiddleware;
@@ -62,6 +62,6 @@ return Application::configure(basePath: dirname(__DIR__))
             return null;
         });
 
-        // Map domain exceptions to JSON responses for API routes
-        $exceptions->render(ApiExceptionMapper::render(...));
+        // Universal JSON error envelope for all API routes (consistent shape for frontend)
+        $exceptions->render(InternalApiExceptionMapper::render(...));
     })->create();
