@@ -14,8 +14,10 @@ enum ApiErrorTypeEnum: string
 {
     case ValidationError = 'validation_error';
     case NotFound = 'not_found';
-    case ServiceUnavailable = 'service_unavailable';
+    case Conflict = 'conflict';
     case MethodNotAllowed = 'method_not_allowed';
+    case ServiceUnavailable = 'service_unavailable';
+    case UpstreamError = 'upstream_error';
     case ServerError = 'server_error';
     case Error = 'error';
 }
