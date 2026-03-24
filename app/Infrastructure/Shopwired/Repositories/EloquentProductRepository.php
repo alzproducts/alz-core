@@ -6,6 +6,7 @@ namespace App\Infrastructure\Shopwired\Repositories;
 
 use App\Application\Contracts\DatabaseGatewayInterface;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
+use App\Application\DTOs\PaginatedListDTO;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\Product\ValueObjects\Product;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariation;
@@ -57,6 +58,30 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
     // ─────────────────────────────────────────────────────────────────────────
     // Interface Implementation
     // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * {@inheritDoc}
+     *
+     * @return PaginatedListDTO<Product>
+     *
+     * @throws InvalidCustomFieldValueException
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function paginate(int $perPage, int $page, array $includes = []): PaginatedListDTO
+    {
+        return $this->eloquentGateway->paginate(
+            modelClass: self::MODEL_CLASS,
+            scope: static function (Builder $q): void {
+                $q->where('is_active', true)->orderBy('external_id');
+            },
+            relations: \in_array('variations', $includes, true) ? ['variations'] : [],
+            mapper: static fn(ProductModel $model): Product => ProductModelMapper::toReadDomain($model),
+            perPage: $perPage,
+            page: $page,
+        );
+    }
 
     /**
      * {@inheritDoc}

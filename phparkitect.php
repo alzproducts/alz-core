@@ -328,9 +328,9 @@ return static function (Config $config): void {
     $rules[] = Rule::allClasses()
                    ->that(new ResideInOneOfTheseNamespaces($presentation))
                    ->andThat(new NotHaveNameMatching('*Exception'))
-                   ->should(new MatchOneOfTheseNames(['*Controller', '*Command', '*Middleware', '*Parser', '*Resource', '*Request', '*Trait', '*Factory', '*DTO', '*Mapper', '*Notification']))
+                   ->should(new MatchOneOfTheseNames(['*Controller', '*Command', '*Middleware', '*Parser', '*Resource', '*Request', '*Trait', '*Factory', '*DTO', '*Mapper', '*Notification', '*Enum']))
                    ->because(
-                       'Presentation layer classes should be clearly identifiable as controllers, commands, middleware, parsers, resources, form requests, traits, factories, DTOs, mappers, or notifications.',
+                       'Presentation layer classes should be clearly identifiable as controllers, commands, middleware, parsers, resources, form requests, traits, factories, DTOs, mappers, notifications, or enums.',
                    );
 
     // Application services must end with "UseCase", "Service", "Transformer", "Formatter", or "Interface"

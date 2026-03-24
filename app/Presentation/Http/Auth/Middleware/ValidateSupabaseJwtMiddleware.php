@@ -6,6 +6,8 @@ namespace App\Presentation\Http\Auth\Middleware;
 
 use App\Application\Auth\TestUserPersonaResolver;
 use App\Domain\Exceptions\InvalidConfigurationException;
+use App\Presentation\Http\Api\Responses\ApiErrorResponseDTO;
+use App\Presentation\Http\Api\Responses\ApiErrorTypeEnum;
 use App\Presentation\Http\Auth\SupabaseJwtParser;
 use Closure;
 use Firebase\JWT\JWT;
@@ -52,7 +54,11 @@ final class ValidateSupabaseJwtMiddleware
                 'user_agent' => $request->userAgent(),
             ]);
 
-            return \response()->json(['error' => 'Unauthorized'], 401);
+            return (new ApiErrorResponseDTO(
+                type: ApiErrorTypeEnum::Unauthorized,
+                message: 'Missing authorization token.',
+                status: Response::HTTP_UNAUTHORIZED,
+            ))->toJsonResponse();
         }
 
         try {
@@ -86,10 +92,11 @@ final class ValidateSupabaseJwtMiddleware
                     'path' => $request->path(),
                 ]);
 
-                return \response()->json([
-                    'error' => 'MFA verification required',
-                    'code' => 'MFA_REQUIRED',
-                ], 403);
+                return (new ApiErrorResponseDTO(
+                    type: ApiErrorTypeEnum::Forbidden,
+                    message: 'MFA verification required.',
+                    status: Response::HTTP_FORBIDDEN,
+                ))->toJsonResponse();
             }
 
             // Convert to domain value object and attach to request
@@ -107,7 +114,11 @@ final class ValidateSupabaseJwtMiddleware
                 'error' => $e->getMessage(),
             ]);
 
-            return \response()->json(['error' => 'Unauthorized'], 401);
+            return (new ApiErrorResponseDTO(
+                type: ApiErrorTypeEnum::Unauthorized,
+                message: 'Invalid or expired token.',
+                status: Response::HTTP_UNAUTHORIZED,
+            ))->toJsonResponse();
         }
     }
 
