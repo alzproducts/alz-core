@@ -24,4 +24,26 @@ final readonly class PaginatedListDTO
         public int $currentPage,
         public int $lastPage,
     ) {}
+
+    /**
+     * Create from paginator values, computing lastPage automatically.
+     *
+     * Preferred over the constructor when lastPage is derivable from total/perPage.
+     *
+     * @template TItem
+     *
+     * @param list<TItem> $items
+     *
+     * @return self<TItem>
+     */
+    public static function fromPage(array $items, int $total, int $perPage, int $currentPage): self
+    {
+        return new self(
+            items: $items,
+            total: $total,
+            perPage: $perPage,
+            currentPage: $currentPage,
+            lastPage: (int) \ceil($total / \max(1, $perPage)),
+        );
+    }
 }

@@ -71,30 +71,16 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
      */
     public function paginate(int $perPage, int $page, array $includes = []): PaginatedListDTO
     {
-        return $this->eloquentGateway->query(static function () use ($perPage, $page, $includes): PaginatedListDTO {
-            $query = self::MODEL_CLASS::query()->where('is_active', true);
-
-            $relations = \array_values(\array_intersect($includes, ['variations']));
-
-            if ($relations !== []) {
-                $query->with($relations);
-            }
-
-            $paginator = $query->paginate(perPage: $perPage, page: $page);
-
-            /** @var list<Product> $items */
-            $items = $paginator->getCollection()
-                ->map(static fn(ProductModel $model): Product => ProductModelMapper::toReadDomain($model))
-                ->all();
-
-            return new PaginatedListDTO(
-                items: $items,
-                total: $paginator->total(),
-                perPage: $paginator->perPage(),
-                currentPage: $paginator->currentPage(),
-                lastPage: $paginator->lastPage(),
-            );
-        });
+        return $this->eloquentGateway->paginate(
+            modelClass: self::MODEL_CLASS,
+            scope: static function (Builder $q): void {
+                $q->where('is_active', true);
+            },
+            relations: \in_array('variations', $includes, true) ? ['variations'] : [],
+            mapper: static fn(ProductModel $model): Product => ProductModelMapper::toReadDomain($model),
+            perPage: $perPage,
+            page: $page,
+        );
     }
 
     /**

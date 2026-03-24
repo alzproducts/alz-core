@@ -37,12 +37,15 @@ final readonly class ListProductsUseCase
      */
     public function execute(int $perPage, int $page, array $includes = []): PaginatedListDTO
     {
-        $result = $this->productRepository->paginate($perPage, $page, $includes);
-
-        $this->logger->info('Listed products', [
+        $this->logger->info('Listing products', [
             'page' => $page,
             'per_page' => $perPage,
             'includes' => $includes,
+        ]);
+
+        $result = $this->productRepository->paginate($perPage, $page, $includes);
+
+        $this->logger->info('Listed products', [
             'total' => $result->total,
             'returned' => \count($result->items),
         ]);
