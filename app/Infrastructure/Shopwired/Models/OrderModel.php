@@ -137,11 +137,18 @@ final class OrderModel extends Model implements EloquentDomainMappableInterface
     /**
      * Get the order's line items.
      *
+     * Reads from the order_products_resolved view which transparently applies
+     * SKU overrides via COALESCE(sku_override, sku). Writes still hit the
+     * base order_products table through OrderProductModel.
+     *
      * @return HasMany<OrderProductModel, $this>
      */
     public function products(): HasMany
     {
-        return $this->hasMany(OrderProductModel::class, 'order_id', 'id');
+        $relation = $this->hasMany(OrderProductModel::class, 'order_id', 'id');
+        $relation->getBaseQuery()->from('shopwired.order_products_resolved');
+
+        return $relation;
     }
 
     /**

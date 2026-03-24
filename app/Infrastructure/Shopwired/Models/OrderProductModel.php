@@ -11,6 +11,8 @@ use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use InvalidArgumentException;
+use JsonException;
 
 /**
  * Eloquent model for shopwired.order_products table.
@@ -37,6 +39,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property array<string, mixed>|null $custom_fields Dynamic custom fields
  * @property bool $is_preorder Whether this is a pre-order item
  * @property CarbonImmutable|null $preorder_date Expected availability date for pre-order items
+ * @property string|null $variation_hash SHA-256 hash (first 32 hex chars) of line item identity fields (price, totalVat, quantity, comments, variation)
  * @property CarbonImmutable $created_at
  * @property CarbonImmutable $updated_at
  *
@@ -95,6 +98,37 @@ final class OrderProductModel extends Model implements EloquentDomainMappableInt
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+    // Variation Hash
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Compute a stable hash for a line item's identity fields.
+     *
+     * Hashes price, totalVat, quantity, comments, and sorted variation data
+     * to disambiguate line items that share the same external_id within an order.
+     * Accepts the Eloquent model directly so field selection is centralised.
+     */
+    public static function computeLineItemHash(self $product): string
+    {
+        $variation = $product->variation ?? [];
+        \usort($variation, static fn(array $a, array $b): int => $a['name'] <=> $b['name']);
+
+        try {
+            $payload = \json_encode([
+                'price' => $product->price,
+                'totalVat' => $product->total_vat,
+                'quantity' => $product->quantity,
+                'comments' => $product->comments ?? '',
+                'variation' => $variation,
+            ], JSON_THROW_ON_ERROR);
+        } catch (JsonException $e) {
+            throw new InvalidArgumentException('Line item data cannot be JSON-encoded for hashing', previous: $e);
+        }
+
+        return \mb_substr(\hash('sha256', $payload), 0, 32);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
     // Domain Mapping (manual - has complex transformations)
     // ─────────────────────────────────────────────────────────────────────────
 
@@ -128,7 +162,12 @@ final class OrderProductModel extends Model implements EloquentDomainMappableInt
      */
     public static function fromDomainAttributes(object $entity): array
     {
-        return [
+        $variationArrays = \array_map(
+            static fn(ProductVariation $v): array => $v->toArray(),
+            $entity->variation,
+        );
+
+        $attributes = [
             'order_external_id' => $entity->orderExternalId,
             'external_id' => $entity->id,
             'title' => $entity->title,
@@ -144,12 +183,13 @@ final class OrderProductModel extends Model implements EloquentDomainMappableInt
             'comments' => $entity->comments,
             'is_preorder' => $entity->isPreorder,
             'preorder_date' => $entity->preorderDate,
-            'variation' => \array_map(
-                static fn(ProductVariation $v): array => $v->toArray(),
-                $entity->variation,
-            ),
+            'variation' => $variationArrays,
             'custom_fields' => $entity->customFields,
         ];
+
+        $attributes['variation_hash'] = self::computeLineItemHash(new self($attributes));
+
+        return $attributes;
     }
 
     /**

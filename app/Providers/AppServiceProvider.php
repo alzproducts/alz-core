@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Application\Contracts\ErrorReporterInterface;
 use App\Domain\Exceptions\InvalidConfigurationException;
+use App\Infrastructure\ErrorReporting\SentryErrorReporter;
 use App\Infrastructure\Sentry\SentryBeforeSendCallback;
 use Illuminate\Support\ServiceProvider;
 use Override;
@@ -35,6 +37,8 @@ final class AppServiceProvider extends ServiceProvider
     #[Override]
     public function register(): void
     {
+        $this->app->singleton(ErrorReporterInterface::class, SentryErrorReporter::class);
+
         // Set Sentry before_send callback before Sentry initializes
         // (must be in register(), not boot(), to run before Sentry's ServiceProvider)
         $this->app->booting(static function (): void {
