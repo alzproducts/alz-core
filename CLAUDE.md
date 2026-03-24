@@ -151,6 +151,12 @@ make test                         # Run all tests (unit + integration)
 make lint                         # Run linters
 ```
 
+### Local API Testing
+
+Consumer API endpoints use an `X-Local-Bypass` header instead of a JWT (local only, from `127.0.0.1`):
+- Set `SUPABASE_LOCAL_BYPASS_SECRET` + `SUPABASE_LOCAL_TEST_EMAIL` in `.env`
+- Send `X-Local-Bypass: <secret>` header — see `ValidateSupabaseJwtMiddleware`
+
 ### Queue Processing
 
 **Queue listener runs automatically** via the `Queue` run configuration (see `.run/Queue.run.xml`). Do NOT manually run queue workers.
