@@ -17,6 +17,7 @@ use App\Presentation\Http\Controllers\Shopwired\Webhooks\ShopwiredWebhookOrderCo
 use App\Presentation\Http\Controllers\Shopwired\Webhooks\ShopwiredWebhookProductController;
 use App\Presentation\Http\HelpScout\Middleware\DetectRefreshMiddleware;
 use App\Presentation\Http\HelpScout\Middleware\HandleHelpScoutExceptionsMiddleware;
+use App\Presentation\Http\Middleware\EnsureUserApprovedMiddleware;
 use App\Presentation\Http\Middleware\RejectHoneypotMiddleware;
 use App\Presentation\Http\Middleware\VerifyShopwiredWebhookSignatureMiddleware;
 use Illuminate\Support\Facades\Route;
@@ -136,11 +137,11 @@ Route::middleware([
 |--------------------------------------------------------------------------
 |
 | Domain-centric endpoints for the frontend application.
-| Full auth.supabase middleware group: JWT + approval check + RLS context.
+| Auth: JWT + approval check (no RLS context — see issue for RLS design).
 |
 */
 
-Route::middleware(['auth.supabase', 'throttle:api', SentryUserContextMiddleware::class])
+Route::middleware([ValidateSupabaseJwtMiddleware::class, EnsureUserApprovedMiddleware::class, 'throttle:api', SentryUserContextMiddleware::class])
     ->group(static function (): void {
         Route::get('products', [ProductController::class, 'index']);
     });
