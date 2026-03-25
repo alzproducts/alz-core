@@ -11,9 +11,16 @@ use App\Domain\Catalog\Product\ValueObjects\Gtin;
 use App\Domain\Catalog\Product\ValueObjects\Product;
 use App\Domain\Catalog\Product\ValueObjects\ProductImage;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariation;
+use App\Domain\Catalog\Product\ValueObjects\ProductVariationView;
+use App\Domain\Catalog\Product\ValueObjects\ProductView;
+use App\Domain\Catalog\Product\ValueObjects\Sku;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use App\Domain\Inventory\ValueObjects\Weight;
+use App\Domain\Shared\Money\ValueObjects\Money;
+use App\Domain\ValueObjects\IntId;
+use App\Domain\ValueObjects\TaxType;
 use App\Infrastructure\Catalog\Product\Factories\ProductCostPriceFactory;
 use App\Infrastructure\Catalog\Product\Models\ProductModel;
 use App\Infrastructure\Catalog\Product\Models\ProductVariationModel;
@@ -21,12 +28,11 @@ use App\Infrastructure\Shopwired\Factories\ProductCustomFieldFactory;
 use App\Infrastructure\Shopwired\Factories\ProductFilterFactory;
 
 /**
- * Maps between ProductModel (Eloquent) and Product (Domain).
+ * Maps between ProductModel (Eloquent) and Product/ProductView (Domain).
  *
- * Three mapping paths:
- * - `toDomain()`: Full conversion with custom fields/filters (internal use)
- * - `toReadDomain()`: Optimized list API (static, no factory calls)
- * - `toApiDomain()`: Show API with conditional includes (Linnworks cost prices)
+ * Two mapping paths:
+ * - `toDomain()`: Full conversion with custom fields/filters (internal use, returns Product)
+ * - `toViewDomain()`: API projection with domain types, Linnworks cost prices, and conditional includes (returns ProductView)
  *
  * **Write path**: Use static `toModelAttributes()` for persistence.
  */
@@ -98,104 +104,46 @@ final class ProductModelMapper
     }
 
     /**
-     * Convert Eloquent model to Domain Product for read-only API responses.
+     * Convert Eloquent model to ProductView for API responses.
      *
-     * Optimized for consumer API: skips custom field/filter factory calls
-     * and conditionally maps relations based on what was eager-loaded.
-     *
-     * - Variations: mapped only if `relationLoaded('variations')` is true
-     * - Custom fields/filters: always empty (not needed for API response)
+     * Always enriches cost prices from Linnworks (single lazy-loaded DB call per Octane lifecycle).
+     * Conditionally loads variations, custom fields, and filters based on includes.
      *
      * @param ProductModel $model The Eloquent model (variations optionally eager-loaded)
-     */
-    public static function toReadDomain(ProductModel $model): Product
-    {
-        /** @var list<ProductVariation>|null $variations */
-        $variations = $model->relationLoaded('variations')
-            ? $model->variations->map(
-                static fn(ProductVariationModel $m): ProductVariation => ProductVariationModelMapper::toDomain($m),
-            )->all()
-            : null;
-
-        return new Product(
-            id: $model->external_id,
-            sku: $model->sku,
-            gtin: $model->gtin !== null ? Gtin::fromTrusted($model->gtin) : null,
-            title: $model->title,
-            description: $model->description,
-            slug: $model->slug,
-            url: $model->url,
-            price: $model->price,
-            costPrice: $model->cost_price,
-            salePrice: $model->sale_price,
-            comparePrice: $model->compare_price,
-            stock: $model->stock ?? 0,
-            isActive: $model->is_active,
-            vatExclusive: $model->vat_exclusive,
-            vatRelief: $model->vat_relief ?? false,
-            weight: $model->weight,
-            metaTitle: $model->meta_title,
-            metaDescription: $model->meta_description,
-            categoryIds: $model->category_ids,
-            variations: $variations,
-            images: self::buildImages($model->images),
-            rawCustomFields: [],
-            customFields: [],
-            rawFilters: [],
-            filters: [],
-            sortOrder: $model->sort_order,
-            createdAt: $model->shopwired_created_at->toDateTimeImmutable(),
-            updatedAt: $model->shopwired_updated_at->toDateTimeImmutable(),
-        );
-    }
-
-    /**
-     * Convert Eloquent model to Domain Product for the show API endpoint.
-     *
-     * Conditionally enriches based on requested includes:
-     * - `variations`: Maps via ProductVariationModelMapper (with Linnworks cost prices)
-     * - `cost_price`: Enriches product cost price from Linnworks
-     * - `custom_fields`: Types via ProductCustomFieldFactory
-     * - `filters`: Types via ProductFilterFactory
-     * - `description`, `category_ids`: Always available on model, controlled by resource serialization
-     *
-     * @param ProductModel $model The Eloquent model (variations optionally eager-loaded)
-     * @param list<string> $includes Requested embed names
+     * @param list<string> $includes Requested embed names (controls variations, custom_fields, filters, description, category_ids)
      *
      * @throws DatabaseOperationFailedException On query failure
      * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
      */
-    public function toApiDomain(ProductModel $model, array $includes): Product
+    public function toViewDomain(ProductModel $model, array $includes = []): ProductView
     {
-        $includeCostPrice = \in_array('cost_price', $includes, true);
+        $taxType = $model->vat_exclusive ? TaxType::Exclusive : TaxType::Inclusive;
 
-        return new Product(
-            id: $model->external_id,
-            sku: $model->sku,
+        return new ProductView(
+            id: IntId::from($model->external_id),
+            sku: $model->sku !== null ? Sku::fromTrusted($model->sku) : null,
             gtin: $model->gtin !== null ? Gtin::fromTrusted($model->gtin) : null,
             title: $model->title,
             description: $model->description,
             slug: $model->slug,
             url: $model->url,
-            price: $model->price,
-            costPrice: $this->resolveCostPrice($model->sku, $model->cost_price, $includeCostPrice),
-            salePrice: $model->sale_price,
-            comparePrice: $model->compare_price,
+            price: Money::fromTaxType($model->price, $taxType),
+            costPrice: Money::nonZeroOrNull($this->getLinnworksCostPrice($model->sku), $taxType),
+            salePrice: Money::nonZeroOrNull($model->sale_price, $taxType),
+            comparePrice: Money::nonZeroOrNull($model->compare_price, $taxType),
             stock: $model->stock ?? 0,
             isActive: $model->is_active,
             vatExclusive: $model->vat_exclusive,
             vatRelief: $model->vat_relief ?? false,
-            weight: $model->weight,
+            weight: $model->weight !== null ? Weight::kilogram($model->weight) : null,
             metaTitle: $model->meta_title,
             metaDescription: $model->meta_description,
-            categoryIds: $model->category_ids,
-            variations: $this->mapEnrichedVariations($model, $includeCostPrice, $includes),
+            categoryIds: \array_map(static fn(int $id): IntId => IntId::from($id), $model->category_ids),
+            variations: $this->resolveVariations($model, $includes),
             images: self::buildImages($model->images),
-            rawCustomFields: [],
             customFields: $this->resolveCustomFields($model, $includes),
-            rawFilters: [],
             filters: $this->resolveFilters($model, $includes),
             sortOrder: $model->sort_order,
             createdAt: $model->shopwired_created_at->toDateTimeImmutable(),
@@ -314,41 +262,49 @@ final class ProductModelMapper
     }
 
     /**
-     * Map variations with optional Linnworks cost price enrichment.
+     * Resolve variations to ProductVariationView when loaded and included.
      *
      * @param list<string> $includes
      *
-     * @return list<ProductVariation>|null
+     * @return list<ProductVariationView>|null
      *
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      */
-    private function mapEnrichedVariations(ProductModel $model, bool $enrichCostPrice, array $includes): ?array
+    private function resolveVariations(ProductModel $model, array $includes): ?array
     {
         if (! $model->relationLoaded('variations') || ! \in_array('variations', $includes, true)) {
             return null;
         }
 
         return \array_values($model->variations->map(
-            fn(ProductVariationModel $m): ProductVariation => $this->variationMapper->toReadDomain($m, $enrichCostPrice),
+            fn(ProductVariationModel $m): ProductVariationView => $this->variationMapper->toViewDomain(
+                model: $m,
+                parentPrice: $model->price,
+                parentSalePrice: $model->sale_price,
+                vatExclusive: $model->vat_exclusive,
+            ),
         )->all());
     }
 
     /**
-     * Resolve Linnworks cost price with ShopWired fallback.
+     * Get cost price from Linnworks only (no ShopWired fallback).
+     *
+     * View models source cost prices exclusively from Linnworks.
+     * Returns null when the SKU is missing or Linnworks has no price.
      *
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      */
-    private function resolveCostPrice(?string $sku, ?float $fallback, bool $enrich): ?float
+    private function getLinnworksCostPrice(?string $sku): ?float
     {
-        if (! $enrich || $sku === null) {
-            return $fallback;
+        if ($sku === null) {
+            return null;
         }
 
-        return $this->costPriceFactory->getCostPrice($sku) ?? $fallback;
+        return $this->costPriceFactory->getCostPrice($sku);
     }
 
     /**

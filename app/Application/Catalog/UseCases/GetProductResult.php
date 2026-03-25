@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Application\Catalog\UseCases;
 
-use App\Domain\Catalog\Product\ValueObjects\Product;
+use App\Domain\Catalog\Product\ValueObjects\ProductView;
 
 /**
  * Result wrapper for GetProductUseCase.
@@ -18,7 +18,7 @@ final readonly class GetProductResult
      * @param list<string> $includes Requested embed names
      */
     public function __construct(
-        public Product $product,
+        public ProductView $product,
         public array $includes,
     ) {}
 

@@ -137,10 +137,62 @@ final readonly class Money
     }
 
     /**
+     * Create a Money instance only if the amount is non-zero, otherwise return null.
+     *
+     * In ShopWired, zero prices (costPrice, salePrice, comparePrice) mean "not set".
+     * This normalizes that convention at the domain boundary.
+     *
+     * Callers must sanitize sentinel/negative values before calling this method —
+     * Money enforces non-negative amounts and will reject negatives.
+     *
+     * @param float|null $amount The raw amount (null or 0.0 → null; must be non-negative)
+     * @param TaxType $taxType Tax treatment for the value
+     * @param string $currency Currency code (default: GBP)
+     * @param int|null $precision Decimal places to round to (null = no rounding)
+     */
+    public static function nonZeroOrNull(?float $amount, TaxType $taxType, string $currency = 'GBP', ?int $precision = self::DEFAULT_PRECISION): ?self
+    {
+        if ($amount === null || $amount === 0.0) {
+            return null;
+        }
+
+        $rounded = $precision !== null ? \round($amount, $precision) : $amount;
+
+        return new self($rounded, $taxType, $currency);
+    }
+
+    /**
      * Check if this represents zero value.
      */
     public function isZero(): bool
     {
         return $this->amount === 0.0;
+    }
+
+    /**
+     * Check if this amount is less than another Money amount.
+     *
+     * Compares raw amounts (ignoring tax type). For cross-tax-type comparisons,
+     * convert to a common base (toGross/toNet) first.
+     */
+    public function isLessThan(self $other): bool
+    {
+        return $this->amount < $other->amount;
+    }
+
+    /**
+     * Create a Money instance from a TaxType discriminator.
+     *
+     * Consolidates the common pattern of branching on TaxType to select
+     * the appropriate named constructor. Used by mappers that convert
+     * raw floats + tax type into domain Money values.
+     */
+    public static function fromTaxType(float $amount, TaxType $taxType, string $currency = 'GBP', ?int $precision = self::DEFAULT_PRECISION): self
+    {
+        return match ($taxType) {
+            TaxType::Exclusive => self::exclusive($amount, $currency, $precision),
+            TaxType::Inclusive => self::inclusive($amount, $currency, $precision),
+            TaxType::ZeroRated => self::zeroRated($amount, $currency, $precision),
+        };
     }
 }

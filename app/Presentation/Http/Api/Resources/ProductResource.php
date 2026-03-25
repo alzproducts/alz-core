@@ -4,19 +4,19 @@ declare(strict_types=1);
 
 namespace App\Presentation\Http\Api\Resources;
 
-use App\Domain\Catalog\Product\ValueObjects\Product;
 use App\Domain\Catalog\Product\ValueObjects\ProductImage;
+use App\Domain\Catalog\Product\ValueObjects\ProductView;
 use DateTimeInterface;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
- * API resource for Product domain value object.
+ * API resource for ProductView domain value object.
  *
  * Omits description (large HTML, not needed for list view),
  * custom fields, filters, and category IDs (internal use only).
  *
- * @mixin Product
+ * @mixin ProductView
  */
 final class ProductResource extends JsonResource
 {
@@ -25,7 +25,7 @@ final class ProductResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-        /** @var Product $product */
+        /** @var ProductView $product */
         $product = $this->resource;
 
         $data = self::baseFields($product);
@@ -42,23 +42,27 @@ final class ProductResource extends JsonResource
      *
      * @return array<string, mixed>
      */
-    public static function baseFields(Product $product): array
+    public static function baseFields(ProductView $product): array
     {
         return [
-            'id' => $product->id,
-            'sku' => $product->sku,
+            'id' => $product->id->value,
+            'sku' => $product->sku?->value,
             'gtin' => $product->gtin?->value,
             'title' => $product->title,
             'slug' => $product->slug,
             'url' => $product->url,
-            'price' => $product->price,
-            'sale_price' => $product->salePrice,
-            'compare_price' => $product->comparePrice,
+            'price' => $product->price->toGross(),
+            'cost_price' => $product->costPrice?->toGross(),
+            'sale_price' => $product->salePrice?->toGross(),
+            'compare_price' => $product->comparePrice?->toGross(),
+            'profit_margin' => $product->profitMargin,
             'stock' => $product->stock,
             'is_active' => $product->isActive,
+            'is_on_sale' => $product->isOnSale,
+            'has_any_sale' => $product->hasAnySale,
             'vat_exclusive' => $product->vatExclusive,
             'vat_relief' => $product->vatRelief,
-            'weight' => $product->weight,
+            'weight' => $product->weight?->value,
             'meta_title' => $product->metaTitle,
             'meta_description' => $product->metaDescription,
             'sort_order' => $product->sortOrder,

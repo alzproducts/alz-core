@@ -10,6 +10,7 @@ use App\Application\DTOs\PaginatedListDTO;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\Product\ValueObjects\Product;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariation;
+use App\Domain\Catalog\Product\ValueObjects\ProductView;
 use App\Domain\Catalog\Product\ValueObjects\Sku;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
@@ -63,7 +64,7 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
     /**
      * {@inheritDoc}
      *
-     * @return PaginatedListDTO<Product>
+     * @return PaginatedListDTO<ProductView>
      *
      * @throws InvalidCustomFieldValueException
      * @throws DatabaseOperationFailedException
@@ -78,7 +79,7 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
                 $q->where('is_active', true)->orderBy('title');
             },
             relations: \in_array('variations', $includes, true) ? ['variations'] : [],
-            mapper: static fn(ProductModel $model): Product => ProductModelMapper::toReadDomain($model),
+            mapper: fn(ProductModel $model): ProductView => $this->mapper->toViewDomain($model),
             perPage: $perPage,
             page: $page,
         );
@@ -93,7 +94,7 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      */
-    public function findProductForApi(IntId $productId, array $includes = []): Product
+    public function findProductForApi(IntId $productId, array $includes = []): ProductView
     {
         $relations = \in_array('variations', $includes, true) ? ['variations'] : [];
 
@@ -103,7 +104,7 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
             value: $productId->value,
             relations: $relations,
             entityTypeName: 'Product',
-            mapper: fn(ProductModel $model): Product => $this->mapper->toApiDomain($model, $includes),
+            mapper: fn(ProductModel $model): ProductView => $this->mapper->toViewDomain($model, $includes),
         );
     }
 

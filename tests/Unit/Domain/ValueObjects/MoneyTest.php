@@ -202,4 +202,78 @@ final class MoneyTest extends TestCase
 
         self::assertFalse($money->isZero());
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | nonZeroOrNull() Tests
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function non_zero_or_null_returns_null_for_zero_amount(): void
+    {
+        $result = Money::nonZeroOrNull(0.0, TaxType::Inclusive);
+
+        self::assertNull($result);
+    }
+
+    #[Test]
+    public function non_zero_or_null_returns_null_for_null_amount(): void
+    {
+        $result = Money::nonZeroOrNull(null, TaxType::Inclusive);
+
+        self::assertNull($result);
+    }
+
+    #[Test]
+    public function non_zero_or_null_returns_money_for_positive_amount(): void
+    {
+        $result = Money::nonZeroOrNull(9.99, TaxType::Inclusive);
+
+        self::assertNotNull($result);
+        self::assertSame(9.99, $result->toGross());
+        self::assertSame(TaxType::Inclusive, $result->taxType);
+    }
+
+    #[Test]
+    public function non_zero_or_null_preserves_tax_type(): void
+    {
+        $result = Money::nonZeroOrNull(15.00, TaxType::Exclusive);
+
+        self::assertNotNull($result);
+        self::assertSame(TaxType::Exclusive, $result->taxType);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | isLessThan() Tests
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function is_less_than_returns_true_when_amount_is_smaller(): void
+    {
+        $money1 = Money::inclusive(10.00);
+        $money2 = Money::inclusive(20.00);
+
+        self::assertTrue($money1->isLessThan($money2));
+    }
+
+    #[Test]
+    public function is_less_than_returns_false_when_equal(): void
+    {
+        $money1 = Money::inclusive(10.00);
+        $money2 = Money::inclusive(10.00);
+
+        self::assertFalse($money1->isLessThan($money2));
+    }
+
+    #[Test]
+    public function is_less_than_returns_false_when_amount_is_larger(): void
+    {
+        $money1 = Money::inclusive(20.00);
+        $money2 = Money::inclusive(10.00);
+
+        self::assertFalse($money1->isLessThan($money2));
+    }
 }

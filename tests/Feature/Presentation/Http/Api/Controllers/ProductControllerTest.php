@@ -7,7 +7,9 @@ namespace Tests\Feature\Presentation\Http\Api\Controllers;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Application\DTOs\PaginatedListDTO;
 use App\Domain\Access\ValueObjects\AuthenticatedUser;
-use App\Domain\Catalog\Product\ValueObjects\Product;
+use App\Domain\Catalog\Product\ValueObjects\ProductView;
+use App\Domain\Shared\Money\ValueObjects\Money;
+use App\Domain\ValueObjects\IntId;
 use App\Presentation\Http\Api\Controllers\ProductController;
 use App\Presentation\Http\Auth\Middleware\ValidateSupabaseJwtMiddleware;
 use App\Presentation\Http\Middleware\EnsureUserApprovedMiddleware;
@@ -227,17 +229,17 @@ final class ProductControllerTest extends TestCase
         return $this;
     }
 
-    private function createProduct(int $id, string $title): Product
+    private function createProduct(int $id, string $title): ProductView
     {
-        return new Product(
-            id: $id,
-            sku: 'SKU-' . $id,
+        return new ProductView(
+            id: IntId::from($id),
+            sku: null,
             gtin: null,
             title: $title,
             description: null,
             slug: 'test-product-' . $id,
             url: 'https://example.com/test-product-' . $id,
-            price: 9.99,
+            price: Money::inclusive(9.99),
             costPrice: null,
             salePrice: null,
             comparePrice: null,
@@ -251,9 +253,7 @@ final class ProductControllerTest extends TestCase
             categoryIds: [],
             variations: null,
             images: [],
-            rawCustomFields: [],
             customFields: [],
-            rawFilters: [],
             filters: [],
             sortOrder: null,
             createdAt: new DateTimeImmutable('2024-01-01'),

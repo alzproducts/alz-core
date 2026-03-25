@@ -7,6 +7,7 @@ namespace App\Presentation\Http\Api\Resources;
 use App\Application\Catalog\UseCases\GetProductResult;
 use App\Domain\Catalog\CustomFields\ValueObjects\AbstractCustomFieldValue;
 use App\Domain\Catalog\Filters\ValueObjects\ProductFilter;
+use App\Domain\ValueObjects\IntId;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -39,12 +40,11 @@ final class ProductDetailResource extends JsonResource
             $data['description'] = $product->description;
         }
 
-        if ($result->hasInclude('cost_price')) {
-            $data['cost_price'] = $product->costPrice;
-        }
-
         if ($result->hasInclude('category_ids')) {
-            $data['category_ids'] = $product->categoryIds;
+            $data['category_ids'] = \array_map(
+                static fn(IntId $id): int => $id->value,
+                $product->categoryIds,
+            );
         }
 
         if ($result->hasInclude('custom_fields')) {

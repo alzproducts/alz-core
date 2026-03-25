@@ -39,6 +39,6 @@ final class ShowProductRequestDTO extends Data
      */
     public static function allowedIncludes(): array
     {
-        return ['variations', 'description', 'cost_price', 'category_ids', 'custom_fields', 'filters'];
+        return ['variations', 'description', 'category_ids', 'custom_fields', 'filters'];
     }
 }

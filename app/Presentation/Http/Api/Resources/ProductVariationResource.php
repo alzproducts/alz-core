@@ -4,15 +4,15 @@ declare(strict_types=1);
 
 namespace App\Presentation\Http\Api\Resources;
 
-use App\Domain\Catalog\Product\ValueObjects\ProductVariation;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariationOption;
+use App\Domain\Catalog\Product\ValueObjects\ProductVariationView;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
- * API resource for ProductVariation domain value object.
+ * API resource for ProductVariationView domain value object.
  *
- * @mixin ProductVariation
+ * @mixin ProductVariationView
  */
 final class ProductVariationResource extends JsonResource
 {
@@ -21,18 +21,20 @@ final class ProductVariationResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-        /** @var ProductVariation $variation */
+        /** @var ProductVariationView $variation */
         $variation = $this->resource;
 
         return [
-            'id' => $variation->id,
-            'sku' => $variation->sku,
+            'id' => $variation->id->value,
+            'sku' => $variation->sku?->value,
             'gtin' => $variation->gtin?->value,
-            'price' => $variation->price,
-            'cost_price' => $variation->costPrice,
-            'sale_price' => $variation->salePrice,
+            'price' => $variation->price->toGross(),
+            'cost_price' => $variation->costPrice?->toGross(),
+            'sale_price' => $variation->salePrice?->toGross(),
+            'profit_margin' => $variation->profitMargin,
+            'is_on_sale' => $variation->isOnSale,
             'stock' => $variation->stock,
-            'weight' => $variation->weight,
+            'weight' => $variation->weight?->value,
             'image_index' => $variation->imageIndex,
             'options' => \array_map(
                 static fn(ProductVariationOption $opt): array => $opt->toArray(),

@@ -46,6 +46,11 @@ final readonly class GetProductUseCase
             $includes,
         );
 
+        $this->logger->info('Got product', [
+            'product_id' => $productId,
+            'title' => $product->title,
+        ]);
+
         return new GetProductResult(
             product: $product,
             includes: $includes,

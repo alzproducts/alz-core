@@ -9,6 +9,7 @@ use App\Application\DTOs\PaginatedListDTO;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\Product\ValueObjects\Product;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariation;
+use App\Domain\Catalog\Product\ValueObjects\ProductView;
 use App\Domain\Catalog\Product\ValueObjects\Sku;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
@@ -31,7 +32,7 @@ interface ProductRepositoryInterface extends RepositoryWriteInterface
      *
      * @param list<string> $includes Relation names to eager-load (e.g., 'variations')
      *
-     * @return PaginatedListDTO<Product>
+     * @return PaginatedListDTO<ProductView>
      *
      * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
      * @throws DatabaseOperationFailedException On query failure
@@ -54,7 +55,7 @@ interface ProductRepositoryInterface extends RepositoryWriteInterface
      * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      */
-    public function findProductForApi(IntId $productId, array $includes = []): Product;
+    public function findProductForApi(IntId $productId, array $includes = []): ProductView;
 
     /**
      * Get all product external IDs stored locally.

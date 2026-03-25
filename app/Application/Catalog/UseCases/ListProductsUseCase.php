@@ -7,7 +7,7 @@ namespace App\Application\Catalog\UseCases;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Application\DTOs\PaginatedListDTO;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
-use App\Domain\Catalog\Product\ValueObjects\Product;
+use App\Domain\Catalog\Product\ValueObjects\ProductView;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
@@ -28,7 +28,7 @@ final readonly class ListProductsUseCase
     /**
      * @param list<string> $includes Relation names to eager-load (e.g., 'variations')
      *
-     * @return PaginatedListDTO<Product>
+     * @return PaginatedListDTO<ProductView>
      *
      * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
      * @throws DatabaseOperationFailedException On query failure
