@@ -9,6 +9,7 @@ use App\Domain\Catalog\CustomFields\Enums\CustomFieldType;
 use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldDefinition;
 use App\Domain\Catalog\CustomFields\ValueObjects\DateTimeCustomFieldValue;
 use DateTimeImmutable;
+use DateTimeInterface;
 use DateTimeZone;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -136,6 +137,39 @@ final class DateTimeCustomFieldValueTest extends TestCase
         $value = new DateTimeCustomFieldValue($definition, new DateTimeImmutable());
 
         self::assertSame(CustomFieldType::DateTime, $value->type());
+    }
+
+    // ========================================================================
+    // toArray - DateTimeCustomFieldValue Override
+    // ========================================================================
+
+    #[Test]
+    public function to_array_formats_value_as_atom_string(): void
+    {
+        $definition = $this->createDateTimeDefinition();
+        $dateTime = new DateTimeImmutable('2024-06-15T14:30:00+00:00');
+        $value = new DateTimeCustomFieldValue($definition, $dateTime);
+
+        $result = $value->toArray();
+
+        self::assertSame($dateTime->format(DateTimeInterface::ATOM), $result['value']);
+        self::assertIsString($result['value']);
+    }
+
+    #[Test]
+    public function to_array_includes_definition_metadata(): void
+    {
+        $definition = $this->createDateTimeDefinition();
+        $dateTime = new DateTimeImmutable('2024-06-15T14:30:00+00:00');
+        $value = new DateTimeCustomFieldValue($definition, $dateTime);
+
+        $result = $value->toArray();
+
+        self::assertSame('published_at', $result['name']);
+        self::assertSame('date_time', $result['type']);
+        self::assertSame('Published At', $result['label']);
+        self::assertNull($result['allowed_values']);
+        self::assertSame(1, $result['sort_order']);
     }
 
     // ========================================================================

@@ -65,6 +65,22 @@ final class CustomFieldValueFactory implements CustomFieldValueFactoryInterface
                 );
             }
 
+            // Null means "clear this field" — skip type validation.
+            // The merge logic in ProductUpdateClient handles null by removing the field.
+            if ($value === null) {
+                continue;
+            }
+
+            // Write-path validation: reject invalid choice values before VO construction
+            if ($definition->hasAllowedValues() && \is_string($value) && !$definition->isValueAllowed($value)) {
+                throw new InvalidCustomFieldValueException(
+                    fieldName: $name,
+                    expectedType: $definition->type,
+                    actualType: 'string (invalid choice)',
+                    rawValue: $value,
+                );
+            }
+
             $result[] = self::createTypedValueFromDefinition($definition, $value);
         }
 

@@ -31,9 +31,9 @@ abstract readonly class AbstractCustomFieldValue
     /**
      * Get the raw value for serialization/storage.
      *
-     * @return string|bool|DateTimeImmutable|list<string>|list<int>
+     * @return string|bool|DateTimeImmutable|list<string>|list<int>|null
      */
-    abstract public function rawValue(): string|bool|array|DateTimeImmutable;
+    abstract public function rawValue(): string|bool|array|DateTimeImmutable|null;
 
     /**
      * Field name (identifier).
@@ -62,7 +62,7 @@ abstract readonly class AbstractCustomFieldValue
     /**
      * Serialize to API-friendly array with definition metadata.
      *
-     * @return array{name: string, type: string, label: ?string, value: string|bool|list<string>|list<int>|DateTimeImmutable, allowed_values: ?list<string>, sort_order: ?int}
+     * @return array{name: string, type: string, label: ?string, value: string|bool|list<string>|list<int>|DateTimeImmutable|null, allowed_values: ?list<string>, sort_order: ?int}
      */
     public function toArray(): array
     {
