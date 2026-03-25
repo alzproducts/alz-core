@@ -19,6 +19,7 @@ use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use App\Domain\Exceptions\UserInputValidationFailedException;
 use App\Domain\Shared\Money\ValueObjects\Money;
 use DateMalformedStringException;
 use DateTimeImmutable;
@@ -164,6 +165,7 @@ final readonly class CheckExpiredSalesUseCase
      * @throws DatabaseOperationFailedException When local product lookup fails
      * @throws DuplicateRecordException On sale settings DB constraint violation
      * @throws InvalidCustomFieldValueException When custom field mapping fails
+     * @throws UserInputValidationFailedException When price fails VAT round-trip check
      */
     private function removeSale(string $sku, SaleRemovalReason $reason): void
     {

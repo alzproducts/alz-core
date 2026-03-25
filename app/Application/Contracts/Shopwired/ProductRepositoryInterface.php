@@ -9,6 +9,7 @@ use App\Application\DTOs\PaginatedListDTO;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\Product\ValueObjects\Product;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariation;
+use App\Domain\Catalog\Product\ValueObjects\ProductView;
 use App\Domain\Catalog\Product\ValueObjects\Sku;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
@@ -31,7 +32,7 @@ interface ProductRepositoryInterface extends RepositoryWriteInterface
      *
      * @param list<string> $includes Relation names to eager-load (e.g., 'variations')
      *
-     * @return PaginatedListDTO<Product>
+     * @return PaginatedListDTO<ProductView>
      *
      * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
      * @throws DatabaseOperationFailedException On query failure
@@ -39,6 +40,22 @@ interface ProductRepositoryInterface extends RepositoryWriteInterface
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      */
     public function paginate(int $perPage, int $page, array $includes = []): PaginatedListDTO;
+
+    /**
+     * Find a product by external ID with conditional includes for the API.
+     *
+     * Follows the same pattern as paginate() — includes control what's loaded.
+     * Unloaded relations/enrichments are null on the Product VO.
+     *
+     * @param list<string> $includes Embed names to load (variations, cost_price, etc.)
+     *
+     * @throws ResourceNotFoundException When no product matches the ID
+     * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
+     * @throws DatabaseOperationFailedException On query failure
+     * @throws DuplicateRecordException On constraint violation
+     * @throws ExternalServiceUnavailableException When database temporarily unavailable
+     */
+    public function findProductForApi(IntId $productId, array $includes = []): ProductView;
 
     /**
      * Get all product external IDs stored locally.

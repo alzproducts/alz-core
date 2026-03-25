@@ -220,7 +220,8 @@ return [
 
     'watch' => [
         'app',
-        'bootstrap',
+        'bootstrap/app.php',
+        'bootstrap/providers.php',
         'config/**/*.php',
         'database/**/*.php',
         'public/**/*.php',

@@ -202,4 +202,113 @@ final class MoneyTest extends TestCase
 
         self::assertFalse($money->isZero());
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | nonZeroOrNull() Tests
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function non_zero_or_null_returns_null_for_zero_amount(): void
+    {
+        $result = Money::nonZeroOrNull(0.0, TaxType::Inclusive);
+
+        self::assertNull($result);
+    }
+
+    #[Test]
+    public function non_zero_or_null_returns_null_for_null_amount(): void
+    {
+        $result = Money::nonZeroOrNull(null, TaxType::Inclusive);
+
+        self::assertNull($result);
+    }
+
+    #[Test]
+    public function non_zero_or_null_returns_money_for_positive_amount(): void
+    {
+        $result = Money::nonZeroOrNull(9.99, TaxType::Inclusive);
+
+        self::assertNotNull($result);
+        self::assertSame(9.99, $result->toGross());
+        self::assertSame(TaxType::Inclusive, $result->taxType);
+    }
+
+    #[Test]
+    public function non_zero_or_null_preserves_tax_type(): void
+    {
+        $result = Money::nonZeroOrNull(15.00, TaxType::Exclusive);
+
+        self::assertNotNull($result);
+        self::assertSame(TaxType::Exclusive, $result->taxType);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | isVatRoundTripSafe() Tests
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function vat_round_trip_safe_passes_for_clean_prices(): void
+    {
+        $rate = TaxRate::standard();
+
+        self::assertTrue(Money::isVatRoundTripSafe(10.00, $rate));
+        self::assertTrue(Money::isVatRoundTripSafe(24.00, $rate));
+        self::assertTrue(Money::isVatRoundTripSafe(0.00, $rate));
+        self::assertTrue(Money::isVatRoundTripSafe(29.99, $rate));
+    }
+
+    #[Test]
+    public function vat_round_trip_safe_fails_for_prices_with_rounding_drift(): void
+    {
+        $rate = TaxRate::standard();
+
+        // £0.03 → net 0.03 → reconstructed 0.04 ≠ 0.03
+        self::assertFalse(Money::isVatRoundTripSafe(0.03, $rate));
+        // £0.09 → net 0.08 → reconstructed 0.10 ≠ 0.09
+        self::assertFalse(Money::isVatRoundTripSafe(0.09, $rate));
+    }
+
+    #[Test]
+    public function vat_round_trip_safe_with_custom_tax_rate(): void
+    {
+        self::assertTrue(Money::isVatRoundTripSafe(1.10, TaxRate::fromPercentage(10.0)));
+        self::assertTrue(Money::isVatRoundTripSafe(1.12, TaxRate::fromPercentage(10.0)));
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | isLessThan() Tests
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function is_less_than_returns_true_when_amount_is_smaller(): void
+    {
+        $money1 = Money::inclusive(10.00);
+        $money2 = Money::inclusive(20.00);
+
+        self::assertTrue($money1->isLessThan($money2));
+    }
+
+    #[Test]
+    public function is_less_than_returns_false_when_equal(): void
+    {
+        $money1 = Money::inclusive(10.00);
+        $money2 = Money::inclusive(10.00);
+
+        self::assertFalse($money1->isLessThan($money2));
+    }
+
+    #[Test]
+    public function is_less_than_returns_false_when_amount_is_larger(): void
+    {
+        $money1 = Money::inclusive(20.00);
+        $money2 = Money::inclusive(10.00);
+
+        self::assertFalse($money1->isLessThan($money2));
+    }
 }

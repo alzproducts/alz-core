@@ -58,4 +58,18 @@ abstract readonly class AbstractCustomFieldValue
     {
         return $this->definition->type;
     }
+
+    /**
+     * Serialize to API-friendly array.
+     *
+     * @return array{name: string, type: string, value: string|bool|list<string>|list<int>|DateTimeImmutable}
+     */
+    public function toArray(): array
+    {
+        return [
+            'name' => $this->name(),
+            'type' => $this->type()->value,
+            'value' => $this->rawValue(),
+        ];
+    }
 }

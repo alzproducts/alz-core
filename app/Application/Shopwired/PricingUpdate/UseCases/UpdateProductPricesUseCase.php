@@ -21,6 +21,7 @@ use App\Domain\Catalog\Product\Events\SkuRetailPricingUpdatedEvent;
 use App\Domain\Catalog\Product\Transformers\ProductRetailPricingTransformer;
 use App\Domain\Catalog\Product\Validators\HasValidRetailPricingValidator;
 use App\Domain\Catalog\Product\Validators\PriceChangedValidator;
+use App\Domain\Catalog\Product\Validators\PriceCommandsVatRoundTripValidator;
 use App\Domain\Catalog\Product\Validators\SkuBelongsToProductValidator;
 use App\Domain\Catalog\Product\ValueObjects\Product;
 use App\Domain\Catalog\Product\ValueObjects\ProductRetailPricing;
@@ -36,7 +37,9 @@ use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Api\TransientApiFailure;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use App\Domain\Exceptions\UserInputValidationFailedException;
 use App\Domain\ValueObjects\IntId;
+use App\Domain\ValueObjects\TaxRate;
 use Illuminate\Contracts\Events\Dispatcher;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -79,12 +82,16 @@ final readonly class UpdateProductPricesUseCase
      * @throws DatabaseOperationFailedException When local product lookup fails
      * @throws DuplicateRecordException On sale settings DB constraint violation
      * @throws InvalidCustomFieldValueException When custom field mapping fails during product lookup
+     * @throws UserInputValidationFailedException When any submitted price fails VAT round-trip check
      */
     public function execute(array $skuUpdates, ?SaleSettings $saleSettings = null): PriceUpdateResult
     {
         Assert::notEmpty($skuUpdates, 'At least one SKU update is required');
 
         $total = \count($skuUpdates);
+
+        // 0. VAT round-trip validation (fail-fast before any DB/API work)
+        $this->validateVatRoundTrip($skuUpdates);
 
         // 1. Resolve owning product and build current pricing map
         $product = $this->productRepo->getProductByAnySku($skuUpdates[0]->sku);
@@ -137,6 +144,36 @@ final readonly class UpdateProductPricesUseCase
         ]);
 
         return $result;
+    }
+
+    // -----------------------------------------------------------------------
+    // VAT Round-Trip Validation
+    // -----------------------------------------------------------------------
+
+    /**
+     * Validate all submitted prices survive the VAT gross→net→gross round trip.
+     *
+     * Runs before any DB/API work so invalid prices are rejected immediately.
+     *
+     * @param list<UpdatePriceCommand> $commands
+     *
+     * @throws UserInputValidationFailedException When any price fails the round-trip check
+     */
+    private function validateVatRoundTrip(array $commands): void
+    {
+        $aggregate = (new PriceCommandsVatRoundTripValidator(
+            commands: $commands,
+            taxRate: TaxRate::standard(),
+        ))->validate();
+
+        // Cannot use orFail() — must throw UserInputValidationFailedException
+        // (user input, excluded from Sentry) not ValidationFailedException
+        if ($aggregate->failed()) {
+            throw new UserInputValidationFailedException(
+                reason: $aggregate->reason(),
+                context: $aggregate->context(),
+            );
+        }
     }
 
     // -----------------------------------------------------------------------
