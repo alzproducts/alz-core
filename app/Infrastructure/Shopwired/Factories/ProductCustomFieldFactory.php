@@ -71,7 +71,7 @@ final class ProductCustomFieldFactory
                 continue;
             }
 
-            $result[] = $this->createTypedValue($definition, $value);
+            $result[] = self::createTypedValue($definition, $value);
         }
 
         return $result;
@@ -82,28 +82,28 @@ final class ProductCustomFieldFactory
      *
      * @throws InvalidCustomFieldValueException When value type mismatches definition
      */
-    private function createTypedValue(CustomFieldDefinition $definition, mixed $value): AbstractCustomFieldValue
+    private static function createTypedValue(CustomFieldDefinition $definition, mixed $value): AbstractCustomFieldValue
     {
         return match ($definition->type) {
             CustomFieldType::Text,
             CustomFieldType::Choice,
-            CustomFieldType::List => $this->createStringValue($definition, $value),
+            CustomFieldType::List => self::createStringValue($definition, $value),
 
-            CustomFieldType::Toggle => $this->createToggleValue($definition, $value),
+            CustomFieldType::Toggle => self::createToggleValue($definition, $value),
 
             CustomFieldType::Date,
-            CustomFieldType::DateTime => $this->createDateTimeValue($definition, $value),
+            CustomFieldType::DateTime => self::createDateTimeValue($definition, $value),
 
-            CustomFieldType::ValueList => $this->createValueListValue($definition, $value),
+            CustomFieldType::ValueList => self::createValueListValue($definition, $value),
 
-            CustomFieldType::ProductList => $this->createProductListValue($definition, $value),
+            CustomFieldType::ProductList => self::createProductListValue($definition, $value),
         };
     }
 
     /**
      * @throws InvalidCustomFieldValueException
      */
-    private function createStringValue(CustomFieldDefinition $definition, mixed $value): StringCustomFieldValue
+    private static function createStringValue(CustomFieldDefinition $definition, mixed $value): StringCustomFieldValue
     {
         if (!\is_string($value)) {
             throw new InvalidCustomFieldValueException(
@@ -120,7 +120,7 @@ final class ProductCustomFieldFactory
     /**
      * @throws InvalidCustomFieldValueException
      */
-    private function createToggleValue(CustomFieldDefinition $definition, mixed $value): ToggleCustomFieldValue
+    private static function createToggleValue(CustomFieldDefinition $definition, mixed $value): ToggleCustomFieldValue
     {
         if (!\is_bool($value)) {
             throw new InvalidCustomFieldValueException(
@@ -137,7 +137,7 @@ final class ProductCustomFieldFactory
     /**
      * @throws InvalidCustomFieldValueException
      */
-    private function createDateTimeValue(CustomFieldDefinition $definition, mixed $value): DateTimeCustomFieldValue
+    private static function createDateTimeValue(CustomFieldDefinition $definition, mixed $value): DateTimeCustomFieldValue
     {
         if (!\is_int($value)) {
             throw new InvalidCustomFieldValueException(
@@ -154,7 +154,7 @@ final class ProductCustomFieldFactory
     /**
      * @throws InvalidCustomFieldValueException
      */
-    private function createValueListValue(CustomFieldDefinition $definition, mixed $value): ValueListCustomFieldValue
+    private static function createValueListValue(CustomFieldDefinition $definition, mixed $value): ValueListCustomFieldValue
     {
         if (!\is_array($value)) {
             throw new InvalidCustomFieldValueException(
@@ -184,7 +184,7 @@ final class ProductCustomFieldFactory
     /**
      * @throws InvalidCustomFieldValueException
      */
-    private function createProductListValue(CustomFieldDefinition $definition, mixed $value): ProductListCustomFieldValue
+    private static function createProductListValue(CustomFieldDefinition $definition, mixed $value): ProductListCustomFieldValue
     {
         if (!\is_array($value)) {
             throw new InvalidCustomFieldValueException(
