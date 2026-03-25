@@ -144,4 +144,6 @@ Route::middleware([
 Route::middleware([ValidateSupabaseJwtMiddleware::class, EnsureUserApprovedMiddleware::class, 'throttle:api', SentryUserContextMiddleware::class])
     ->group(static function (): void {
         Route::get('products', [ProductController::class, 'index']);
+        Route::get('products/{productId}', [ProductController::class, 'show'])
+            ->whereNumber('productId');
     });

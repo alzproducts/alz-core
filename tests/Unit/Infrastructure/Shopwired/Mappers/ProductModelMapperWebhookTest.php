@@ -6,7 +6,7 @@ namespace Tests\Unit\Infrastructure\Shopwired\Mappers;
 
 use App\Domain\Catalog\Product\ValueObjects\Product;
 use App\Domain\Catalog\Product\ValueObjects\ProductImage;
-use App\Infrastructure\Shopwired\Mappers\ProductModelMapper;
+use App\Infrastructure\Catalog\Product\Mappers\ProductModelMapper;
 use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;

@@ -10,8 +10,8 @@ use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\Inventory\ValueObjects\ItemStockLevel;
+use App\Infrastructure\Catalog\Product\Models\ProductModel;
 use App\Infrastructure\Persistence\EloquentGateway;
-use App\Infrastructure\Shopwired\Models\ProductModel;
 
 /**
  * Reads and bulk-updates stock levels in the local ShopWired database.

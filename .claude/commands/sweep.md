@@ -74,6 +74,7 @@ If any individual check is blocked by complications or ambiguity, **skip it** �
 
 ### Domain Layer
 
+- **Self-sufficient models** — Domain models (entities, value objects) should own their own behavior: serialization (`toArray()`), construction (static factories), comparison, and transformation logic. If external code (use cases, mappers, controllers) is building arrays from model properties or deriving values that the model could compute itself, move that logic onto the model.
 - **Domain types** — Use project-specific types where appropriate: `SKU`, `IntId`, `Money`, etc.
 - **Native exception handling** — For PHP/native exceptions, search the domain layer for existing patterns showing how they are handled. Usually we catch and rethrow as domain exceptions, but there may be other established approaches (e.g., wrapping via Carbon for date handling). If no existing pattern is found, log it as something to discuss with the user.
 

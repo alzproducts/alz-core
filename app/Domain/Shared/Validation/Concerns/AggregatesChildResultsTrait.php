@@ -26,7 +26,7 @@ trait AggregatesChildResultsTrait
 
     public function passed(): bool
     {
-        return \array_all($this->childResults(), static fn($result) => ! $result->failed());
+        return \array_all($this->childResults(), static fn(DescribableValidationResultInterface $result) => ! $result->failed());
     }
 
     public function failed(): bool
