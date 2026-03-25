@@ -63,4 +63,17 @@ final readonly class ProductFilter
     {
         return $this->values[0] ?? null;
     }
+
+    /**
+     * Serialize to API-friendly array.
+     *
+     * @return array{title: string, values: list<string>}
+     */
+    public function toArray(): array
+    {
+        return [
+            'title' => $this->title(),
+            'values' => $this->values,
+        ];
+    }
 }

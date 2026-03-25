@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Domain\Exceptions\UserInputValidationFailedException;
 use App\Presentation\Http\Api\InternalApiExceptionMapper;
 use App\Presentation\Http\Auth\Middleware\ValidateSupabaseJwtMiddleware;
 use App\Presentation\Http\Middleware\EnsureUserApprovedMiddleware;
@@ -45,6 +46,9 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(static function (Exceptions $exceptions): void {
+        // User input validation errors are expected, not application faults — exclude from Sentry
+        $exceptions->dontReport(UserInputValidationFailedException::class);
+
         // Hook Sentry into Laravel's exception handler to capture all unhandled exceptions
         Integration::handles($exceptions);
 

@@ -35,8 +35,16 @@ final class ShopwiredModelMustImplementMappableRule implements Rule
         $classReflection = $node->getClassReflection();
         $className = $classReflection->getName();
 
-        // Only check classes in Shopwired\Models namespace
-        if (! \str_starts_with($className, 'App\\Infrastructure\\Shopwired\\Models\\')) {
+        // Only check Eloquent models in infrastructure model namespaces
+        if (
+            ! \str_starts_with($className, 'App\\Infrastructure\\Shopwired\\Models\\')
+            && ! \str_contains($className, '\\Infrastructure\\Catalog\\')
+        ) {
+            return [];
+        }
+
+        // Models outside a Models namespace are not subject to this rule
+        if (! \str_contains($className, '\\Models\\')) {
             return [];
         }
 

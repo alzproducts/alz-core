@@ -10,17 +10,19 @@ use App\Application\DTOs\PaginatedListDTO;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\Product\ValueObjects\Product;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariation;
+use App\Domain\Catalog\Product\ValueObjects\ProductView;
 use App\Domain\Catalog\Product\ValueObjects\Sku;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\IntId;
+use App\Infrastructure\Catalog\Product\Mappers\ProductModelMapper;
+use App\Infrastructure\Catalog\Product\Mappers\ProductVariationModelMapper;
+use App\Infrastructure\Catalog\Product\Models\ProductModel;
+use App\Infrastructure\Catalog\Product\Models\ProductVariationModel;
 use App\Infrastructure\Persistence\EloquentGateway;
 use App\Infrastructure\Repositories\AbstractEloquentRepository;
-use App\Infrastructure\Shopwired\Mappers\ProductModelMapper;
-use App\Infrastructure\Shopwired\Models\ProductModel;
-use App\Infrastructure\Shopwired\Models\ProductVariationModel;
 use Generator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -62,7 +64,7 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
     /**
      * {@inheritDoc}
      *
-     * @return PaginatedListDTO<Product>
+     * @return PaginatedListDTO<ProductView>
      *
      * @throws InvalidCustomFieldValueException
      * @throws DatabaseOperationFailedException
@@ -74,12 +76,35 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
         return $this->eloquentGateway->paginate(
             modelClass: self::MODEL_CLASS,
             scope: static function (Builder $q): void {
-                $q->where('is_active', true)->orderBy('external_id');
+                $q->where('is_active', true)->orderBy('title');
             },
             relations: \in_array('variations', $includes, true) ? ['variations'] : [],
-            mapper: static fn(ProductModel $model): Product => ProductModelMapper::toReadDomain($model),
+            mapper: fn(ProductModel $model): ProductView => $this->mapper->toViewDomain($model, $includes),
             perPage: $perPage,
             page: $page,
+        );
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @throws ResourceNotFoundException
+     * @throws InvalidCustomFieldValueException
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function findProductForApi(IntId $productId, array $includes = []): ProductView
+    {
+        $relations = \in_array('variations', $includes, true) ? ['variations'] : [];
+
+        return $this->eloquentGateway->findOrFail(
+            modelClass: self::MODEL_CLASS,
+            column: 'external_id',
+            value: $productId->value,
+            relations: $relations,
+            entityTypeName: 'Product',
+            mapper: fn(ProductModel $model): ProductView => $this->mapper->toViewDomain($model, $includes),
         );
     }
 
@@ -285,7 +310,7 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
             value: $id->value,
             relations: [],
             entityTypeName: 'Product or Variation',
-            mapper: static fn(ProductVariationModel $model): ProductVariation => $model->toDomain(),
+            mapper: static fn(ProductVariationModel $model): ProductVariation => ProductVariationModelMapper::toDomain($model),
         );
     }
 
@@ -323,7 +348,7 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
             value: $sku->value,
             relations: [],
             entityTypeName: 'Product or Variation',
-            mapper: static fn(ProductVariationModel $model): ProductVariation => $model->toDomain(),
+            mapper: static fn(ProductVariationModel $model): ProductVariation => ProductVariationModelMapper::toDomain($model),
         );
     }
 
@@ -364,7 +389,7 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
             value: $identifier->value,
             relations: [],
             entityTypeName: 'Variation',
-            mapper: static fn(ProductVariationModel $model): ProductVariation => $model->toDomain(),
+            mapper: static fn(ProductVariationModel $model): ProductVariation => ProductVariationModelMapper::toDomain($model),
         );
     }
 
@@ -746,7 +771,7 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
             $rows = \array_map(
                 static fn(ProductVariation $v): array => [
                     'product_id' => $productUuid,
-                    ...ProductVariationModel::fromDomainAttributes($v),
+                    ...ProductVariationModelMapper::toModelAttributes($v),
                 ],
                 $product->variations,
             );
