@@ -14,7 +14,7 @@ use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Api\ResourceNotAvailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
-use App\Domain\Exceptions\UserInputValidationFailedException;
+use App\Domain\Exceptions\ValidationFailedException;
 use App\Domain\ValueObjects\IntId;
 use Psr\Log\LoggerInterface;
 
@@ -35,7 +35,7 @@ final readonly class UpdateProductCustomFieldsUseCase
     /**
      * @param array<string, string|int|bool|null> $rawFields Custom field name => value pairs
      *
-     * @throws UserInputValidationFailedException When fields fail validation (unknown field or type mismatch)
+     * @throws ValidationFailedException When fields fail validation (unknown field or type mismatch)
      * @throws ResourceNotAvailableException When product not found (404)
      * @throws InvalidApiRequestException When request parameters are invalid (400)
      * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
@@ -52,14 +52,7 @@ final readonly class UpdateProductCustomFieldsUseCase
             'field_names' => \array_keys($rawFields),
         ]);
 
-        $result = (new CustomFieldSubmissionValidator($this->valueFactory, $rawFields))->validate();
-
-        if ($result->failed()) {
-            throw new UserInputValidationFailedException(
-                reason: $result->reason(),
-                context: $result->context(),
-            );
-        }
+        (new CustomFieldSubmissionValidator($this->valueFactory, $rawFields))->validate()->orFail();
 
         $this->productUpdateClient->updateCustomFields($productId->value, $rawFields);
 

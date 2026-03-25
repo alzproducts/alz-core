@@ -148,6 +148,6 @@ Route::middleware([ValidateSupabaseJwtMiddleware::class, EnsureUserApprovedMiddl
             ->whereNumber('productId');
         Route::get('products/{productId}/custom-fields', [ProductController::class, 'customFields'])
             ->whereNumber('productId');
-        Route::post('products/{productId}/custom-fields', [ProductController::class, 'updateCustomFields'])
+        Route::post('products/{productId}/custom-fields', [ProductUpdateController::class, 'updateCustomFields'])
             ->whereNumber('productId');
     });
