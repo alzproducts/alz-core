@@ -6,8 +6,8 @@ namespace App\Infrastructure\Shopwired\Services;
 
 use App\Application\Contracts\Shopwired\ProductIdentifierResolverInterface;
 use App\Domain\Catalog\Product\Exceptions\ProductIdentifierResolutionException;
-use App\Infrastructure\Shopwired\Models\ProductModel;
-use App\Infrastructure\Shopwired\Models\ProductVariationModel;
+use App\Infrastructure\Catalog\Product\Models\ProductModel;
+use App\Infrastructure\Catalog\Product\Models\ProductVariationModel;
 use Illuminate\Support\Facades\Log;
 
 /**

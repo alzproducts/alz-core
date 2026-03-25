@@ -156,6 +156,16 @@ make lint                         # Run linters
 Consumer API endpoints use an `X-Local-Bypass` header instead of a JWT (local only, from `127.0.0.1`):
 - Set `SUPABASE_LOCAL_BYPASS_SECRET` + `SUPABASE_LOCAL_TEST_EMAIL` in `.env`
 - Send `X-Local-Bypass: <secret>` header — see `ValidateSupabaseJwtMiddleware`
+- The bypass secret is available as `$API_BYPASS_SECRET` env var (set in `.claude/settings.local.json`)
+
+### Debugging & Logs
+
+| Log | Location | Contains |
+|-----|----------|----------|
+| Laravel | `storage/logs/laravel.log` | Application-level logs (use cases, jobs, exceptions) |
+| Octane | `storage/logs/octane.log` | Request-level output (status codes, auth rejections, startup errors) |
+
+**Check Octane log first** when API requests fail — middleware rejections (401, 403) don't reach Laravel's logger.
 
 ### Queue Processing
 
