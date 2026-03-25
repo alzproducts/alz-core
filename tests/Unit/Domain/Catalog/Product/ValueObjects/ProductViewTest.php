@@ -288,6 +288,60 @@ final class ProductViewTest extends TestCase
         ));
     }
 
+    #[Test]
+    public function retail_margin_with_zero_rated_price_and_exclusive_cost(): void
+    {
+        // Real-world: zero-rated product (book) with Linnworks cost (always exclusive)
+        // Net: (8 - 5) / 8 × 100 = 37.5%
+        // Would incorrectly return 25% if using toGross() (phantom VAT inflates cost to £6)
+        self::assertSame(37.5, ProductView::retailMargin(
+            Money::zeroRated(8.00),
+            Money::exclusive(5.00),
+        ));
+    }
+
+    #[Test]
+    public function retail_margin_with_inclusive_price_and_exclusive_cost(): void
+    {
+        // Real-world: standard-rated product with Linnworks cost (always exclusive)
+        // Net price: £24 / 1.2 = £20, net cost: £10
+        // (20 - 10) / 20 × 100 = 50%
+        self::assertSame(50.0, ProductView::retailMargin(
+            Money::inclusive(24.00),
+            Money::exclusive(10.00),
+        ));
+    }
+
+    #[Test]
+    public function profit_margin_uses_effective_price_when_on_sale(): void
+    {
+        $view = $this->createView(
+            price: Money::inclusive(100.00),
+            costPrice: Money::inclusive(40.00),
+            salePrice: Money::inclusive(60.00),
+        );
+
+        // Effective price is sale price (£60), not regular (£100)
+        // (60 - 40) / 60 × 100 = 33.33%
+        self::assertTrue($view->isOnSale);
+        self::assertSame(33.33, $view->profitMargin);
+    }
+
+    #[Test]
+    public function profit_margin_uses_regular_price_when_not_on_sale(): void
+    {
+        $view = $this->createView(
+            price: Money::inclusive(100.00),
+            costPrice: Money::inclusive(40.00),
+            salePrice: null,
+        );
+
+        // No sale → uses regular price
+        // (100 - 40) / 100 × 100 = 60%
+        self::assertFalse($view->isOnSale);
+        self::assertSame(60.0, $view->profitMargin);
+    }
+
     /*
     |--------------------------------------------------------------------------
     | Helpers

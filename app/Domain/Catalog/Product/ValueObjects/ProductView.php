@@ -91,7 +91,8 @@ final readonly class ProductView
         public ?SaleSettings $saleSettings = null,
     ) {
         $this->isOnSale = self::isSaleActive($this->salePrice, $this->price);
-        $this->profitMargin = self::retailMargin($this->price, $this->costPrice);
+        $pricing = new ProductRetailPricing($this->price, $this->salePrice);
+        $this->profitMargin = self::retailMargin($pricing->effectivePrice(), $this->costPrice);
         $this->hasAnySale = $this->isOnSale || self::anyVariationOnSale($this->variations);
     }
 

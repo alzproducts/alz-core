@@ -53,6 +53,7 @@ final readonly class ProductVariationView
         public array $options,
     ) {
         $this->isOnSale = ProductView::isSaleActive($this->salePrice, $this->price);
-        $this->profitMargin = ProductView::retailMargin($this->price, $this->costPrice);
+        $pricing = new ProductRetailPricing($this->price, $this->salePrice);
+        $this->profitMargin = ProductView::retailMargin($pricing->effectivePrice(), $this->costPrice);
     }
 }

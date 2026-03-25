@@ -38,10 +38,10 @@ final readonly class VatRoundTripResult implements DescribableValidationResultIn
         }
 
         return \sprintf(
-            'Price %s on %s (%s) does not survive VAT round trip',
+            '%s £%s on %s — VAT does not divide evenly, please try a different price',
+            $this->field,
             \number_format($this->amount, 2),
             $this->sku,
-            $this->field,
         );
     }
 
