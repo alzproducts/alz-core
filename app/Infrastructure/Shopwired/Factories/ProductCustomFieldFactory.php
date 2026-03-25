@@ -6,15 +6,8 @@ namespace App\Infrastructure\Shopwired\Factories;
 
 use App\Application\Contracts\Shopwired\CustomFieldRepositoryInterface;
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldItemType;
-use App\Domain\Catalog\CustomFields\Enums\CustomFieldType;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\CustomFields\ValueObjects\AbstractCustomFieldValue;
-use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldDefinition;
-use App\Domain\Catalog\CustomFields\ValueObjects\DateTimeCustomFieldValue;
-use App\Domain\Catalog\CustomFields\ValueObjects\ProductListCustomFieldValue;
-use App\Domain\Catalog\CustomFields\ValueObjects\StringCustomFieldValue;
-use App\Domain\Catalog\CustomFields\ValueObjects\ToggleCustomFieldValue;
-use App\Domain\Catalog\CustomFields\ValueObjects\ValueListCustomFieldValue;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
@@ -22,10 +15,13 @@ use App\Infrastructure\Shopwired\CustomFields\CustomFieldDefinitionRegistry;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Factory for typing raw custom field values into domain objects.
+ * Graceful-degradation wrapper around CustomFieldValueFactory for the sync/read path.
  *
- * Joins raw custom field data (name → value map) with the CustomFieldDefinitionRegistry
- * to produce typed AbstractCustomFieldValue instances.
+ * Delegates to CustomFieldValueFactory for typed value creation. Unknown fields
+ * (CustomFieldNotFoundException) are logged as warnings and skipped — preserving
+ * the read path's tolerance for out-of-sync field definitions.
+ *
+ * For strict validation (write path), use CustomFieldValueFactory directly.
  *
  * **Lifecycle**: Register with `scoped()` binding to ensure fresh instance per queue job.
  * This prevents stale custom field definitions in Octane long-running processes.
@@ -62,7 +58,6 @@ final class ProductCustomFieldFactory
             $definition = $this->registry()->findByName($name);
 
             if ($definition === null) {
-                // Field not in registry - likely a new field added in ShopWired
                 Log::warning('Unknown custom field in product - re-run SyncCustomFieldsJob', [
                     'field_name' => $name,
                     'item_type' => CustomFieldItemType::Product->value,
@@ -71,144 +66,10 @@ final class ProductCustomFieldFactory
                 continue;
             }
 
-            $result[] = self::createTypedValue($definition, $value);
+            $result[] = CustomFieldValueFactory::createTypedValueFromDefinition($definition, $value);
         }
 
         return $result;
-    }
-
-    /**
-     * Create a typed CustomFieldValue from a definition and raw value.
-     *
-     * @throws InvalidCustomFieldValueException When value type mismatches definition
-     */
-    private static function createTypedValue(CustomFieldDefinition $definition, mixed $value): AbstractCustomFieldValue
-    {
-        return match ($definition->type) {
-            CustomFieldType::Text,
-            CustomFieldType::Choice,
-            CustomFieldType::List => self::createStringValue($definition, $value),
-
-            CustomFieldType::Toggle => self::createToggleValue($definition, $value),
-
-            CustomFieldType::Date,
-            CustomFieldType::DateTime => self::createDateTimeValue($definition, $value),
-
-            CustomFieldType::ValueList => self::createValueListValue($definition, $value),
-
-            CustomFieldType::ProductList => self::createProductListValue($definition, $value),
-        };
-    }
-
-    /**
-     * @throws InvalidCustomFieldValueException
-     */
-    private static function createStringValue(CustomFieldDefinition $definition, mixed $value): StringCustomFieldValue
-    {
-        if (!\is_string($value)) {
-            throw new InvalidCustomFieldValueException(
-                fieldName: $definition->name,
-                expectedType: $definition->type,
-                actualType: \get_debug_type($value),
-                rawValue: $value,
-            );
-        }
-
-        return new StringCustomFieldValue($definition, $value);
-    }
-
-    /**
-     * @throws InvalidCustomFieldValueException
-     */
-    private static function createToggleValue(CustomFieldDefinition $definition, mixed $value): ToggleCustomFieldValue
-    {
-        if (!\is_bool($value)) {
-            throw new InvalidCustomFieldValueException(
-                fieldName: $definition->name,
-                expectedType: $definition->type,
-                actualType: \get_debug_type($value),
-                rawValue: $value,
-            );
-        }
-
-        return new ToggleCustomFieldValue($definition, $value);
-    }
-
-    /**
-     * @throws InvalidCustomFieldValueException
-     */
-    private static function createDateTimeValue(CustomFieldDefinition $definition, mixed $value): DateTimeCustomFieldValue
-    {
-        if (!\is_int($value)) {
-            throw new InvalidCustomFieldValueException(
-                fieldName: $definition->name,
-                expectedType: $definition->type,
-                actualType: \get_debug_type($value),
-                rawValue: $value,
-            );
-        }
-
-        return DateTimeCustomFieldValue::fromTimestamp($definition, $value);
-    }
-
-    /**
-     * @throws InvalidCustomFieldValueException
-     */
-    private static function createValueListValue(CustomFieldDefinition $definition, mixed $value): ValueListCustomFieldValue
-    {
-        if (!\is_array($value)) {
-            throw new InvalidCustomFieldValueException(
-                fieldName: $definition->name,
-                expectedType: $definition->type,
-                actualType: \get_debug_type($value),
-                rawValue: $value,
-            );
-        }
-
-        // Validate all items are strings
-        foreach ($value as $item) {
-            if (!\is_string($item)) {
-                throw new InvalidCustomFieldValueException(
-                    fieldName: $definition->name,
-                    expectedType: $definition->type,
-                    actualType: 'array with non-string element: ' . \get_debug_type($item),
-                    rawValue: $value,
-                );
-            }
-        }
-
-        /** @var list<string> $value */
-        return new ValueListCustomFieldValue($definition, $value);
-    }
-
-    /**
-     * @throws InvalidCustomFieldValueException
-     */
-    private static function createProductListValue(CustomFieldDefinition $definition, mixed $value): ProductListCustomFieldValue
-    {
-        if (!\is_array($value)) {
-            throw new InvalidCustomFieldValueException(
-                fieldName: $definition->name,
-                expectedType: $definition->type,
-                actualType: \get_debug_type($value),
-                rawValue: $value,
-            );
-        }
-
-        // Validate all items are positive integers
-        foreach ($value as $item) {
-            if (!\is_int($item) || $item <= 0) {
-                throw new InvalidCustomFieldValueException(
-                    fieldName: $definition->name,
-                    expectedType: $definition->type,
-                    actualType: 'array with invalid product ID: ' . \get_debug_type($item),
-                    rawValue: $value,
-                );
-            }
-        }
-
-        /** @var list<int> $value */
-        return new ProductListCustomFieldValue($definition, $value);
     }
 
     /**

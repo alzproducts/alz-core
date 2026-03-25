@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\Exceptions;
 
 use App\Domain\Exceptions\Contracts\UserInputValidationExceptionInterface;
+use Throwable;
 
 /**
  * Validation failure caused by user input (not an application fault).
@@ -23,8 +24,9 @@ final class UserInputValidationFailedException extends DomainException implement
     public function __construct(
         public readonly string $reason,
         public readonly array $context = [],
+        ?Throwable $previous = null,
     ) {
-        parent::__construct($reason);
+        parent::__construct($reason, previous: $previous);
     }
 
     public function reason(): string
