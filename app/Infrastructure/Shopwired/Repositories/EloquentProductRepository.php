@@ -16,11 +16,11 @@ use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\IntId;
+use App\Infrastructure\Catalog\Product\Mappers\ProductModelMapper;
+use App\Infrastructure\Catalog\Product\Models\ProductModel;
+use App\Infrastructure\Catalog\Product\Models\ProductVariationModel;
 use App\Infrastructure\Persistence\EloquentGateway;
 use App\Infrastructure\Repositories\AbstractEloquentRepository;
-use App\Infrastructure\Shopwired\Mappers\ProductModelMapper;
-use App\Infrastructure\Shopwired\Models\ProductModel;
-use App\Infrastructure\Shopwired\Models\ProductVariationModel;
 use Generator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -80,6 +80,29 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
             mapper: static fn(ProductModel $model): Product => ProductModelMapper::toReadDomain($model),
             perPage: $perPage,
             page: $page,
+        );
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @throws ResourceNotFoundException
+     * @throws InvalidCustomFieldValueException
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function findProductForApi(IntId $productId, array $includes = []): Product
+    {
+        $relations = \in_array('variations', $includes, true) ? ['variations'] : [];
+
+        return $this->eloquentGateway->findOrFail(
+            modelClass: self::MODEL_CLASS,
+            column: 'external_id',
+            value: $productId->value,
+            relations: $relations,
+            entityTypeName: 'Product',
+            mapper: fn(ProductModel $model): Product => $this->mapper->toApiDomain($model, $includes),
         );
     }
 

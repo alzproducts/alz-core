@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace App\Infrastructure\Linnworks\Repositories;
 
 use App\Application\Contracts\Linnworks\StockItemRepositoryInterface;
+use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
+use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\Inventory\ValueObjects\StockItemExtendedProperty;
 use App\Domain\Inventory\ValueObjects\StockItemFull;
 use App\Domain\Inventory\ValueObjects\StockItemSupplier;
@@ -100,6 +103,42 @@ final class EloquentStockItemRepository extends AbstractEloquentRepository imple
                 );
             }
         }, attempts: 3);
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @return array<string, float>
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function getCostPricesBySku(): array
+    {
+        return $this->eloquentGateway->query(static function (): array {
+            $sql = <<<'SQL'
+                SELECT si.item_number AS sku, s.purchase_price
+                FROM linnworks.stock_items si
+                JOIN linnworks.stock_item_suppliers s
+                    ON s.stock_item_id = si.stock_item_id AND s.is_default = true
+                WHERE si.item_number IS NOT NULL
+                    AND si.item_number != ''
+                    AND s.purchase_price IS NOT NULL
+                SQL;
+
+            /** @var list<object{sku: string, purchase_price: string|float}> $rows */
+            $rows = StockItemModel::query()->getConnection()->select($sql);
+
+            /** @var array<string, float> $result */
+            $result = [];
+
+            foreach ($rows as $row) {
+                $result[$row->sku] = (float) $row->purchase_price;
+            }
+
+            return $result;
+        });
     }
 
     protected function getModelClass(): string

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Infrastructure\Shopwired\Mappers;
+namespace App\Infrastructure\Catalog\Product\Mappers;
 
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\Product\ValueObjects\Gtin;
@@ -12,15 +12,20 @@ use App\Domain\Catalog\Product\ValueObjects\ProductVariation;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use App\Infrastructure\Catalog\Product\Factories\ProductCostPriceFactory;
+use App\Infrastructure\Catalog\Product\Models\ProductModel;
+use App\Infrastructure\Catalog\Product\Models\ProductVariationModel;
 use App\Infrastructure\Shopwired\Factories\ProductCustomFieldFactory;
 use App\Infrastructure\Shopwired\Factories\ProductFilterFactory;
-use App\Infrastructure\Shopwired\Models\ProductModel;
-use App\Infrastructure\Shopwired\Models\ProductVariationModel;
 
 /**
  * Maps between ProductModel (Eloquent) and Product (Domain).
  *
- * **Read path**: Use `toDomain()` for typed custom fields via ProductCustomFieldFactory.
+ * Three mapping paths:
+ * - `toDomain()`: Full conversion with custom fields/filters (internal use)
+ * - `toReadDomain()`: Optimized list API (static, no factory calls)
+ * - `toApiDomain()`: Show API with conditional includes (Linnworks cost prices)
+ *
  * **Write path**: Use static `toModelAttributes()` for persistence.
  */
 final class ProductModelMapper
@@ -28,6 +33,8 @@ final class ProductModelMapper
     public function __construct(
         private readonly ProductCustomFieldFactory $customFieldFactory,
         private readonly ProductFilterFactory $filterFactory,
+        private readonly ProductCostPriceFactory $costPriceFactory,
+        private readonly ProductVariationModelMapper $variationMapper,
     ) {}
 
     /**
@@ -134,6 +141,91 @@ final class ProductModelMapper
             customFields: [],
             rawFilters: [],
             filters: [],
+            sortOrder: $model->sort_order,
+            createdAt: $model->shopwired_created_at->toDateTimeImmutable(),
+            updatedAt: $model->shopwired_updated_at->toDateTimeImmutable(),
+        );
+    }
+
+    /**
+     * Convert Eloquent model to Domain Product for the show API endpoint.
+     *
+     * Conditionally enriches based on requested includes:
+     * - `variations`: Maps via ProductVariationModelMapper (with Linnworks cost prices)
+     * - `cost_price`: Enriches product cost price from Linnworks
+     * - `custom_fields`: Types via ProductCustomFieldFactory
+     * - `filters`: Types via ProductFilterFactory
+     * - `description`, `category_ids`: Always available on model, controlled by resource serialization
+     *
+     * @param ProductModel $model The Eloquent model (variations optionally eager-loaded)
+     * @param list<string> $includes Requested embed names
+     *
+     * @throws DatabaseOperationFailedException On query failure
+     * @throws DuplicateRecordException On constraint violation
+     * @throws ExternalServiceUnavailableException When database temporarily unavailable
+     * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
+     */
+    public function toApiDomain(ProductModel $model, array $includes): Product
+    {
+        $includeCostPrice = \in_array('cost_price', $includes, true);
+
+        // Variations: conditional, cost price enrichment only when requested
+        /** @var list<ProductVariation>|null $variations */
+        $variations = ($model->relationLoaded('variations') && \in_array('variations', $includes, true))
+            ? $model->variations->map(
+                fn(ProductVariationModel $m): ProductVariation => $this->variationMapper->toReadDomain($m, $includeCostPrice),
+            )->all()
+            : null;
+
+        // Cost price: conditional Linnworks enrichment
+        $costPrice = ($includeCostPrice && $model->sku !== null)
+            ? $this->costPriceFactory->getCostPrice($model->sku) ?? $model->cost_price
+            : $model->cost_price;
+
+        $includeCustomFields = \in_array('custom_fields', $includes, true);
+        $includeFilters = \in_array('filters', $includes, true);
+
+        /** @var array<string, mixed> $rawCustomFields */
+        $rawCustomFields = $includeCustomFields ? $model->custom_fields : [];
+
+        /** @var array<int|string, list<string>> $rawFilters */
+        $rawFilters = $includeFilters ? ($model->filters ?? []) : [];
+
+        // Custom fields/filters: conditional (avoid factory calls when not needed)
+        $customFields = $includeCustomFields
+            ? $this->customFieldFactory->fromRawFields($rawCustomFields)
+            : [];
+
+        $filters = $includeFilters
+            ? $this->filterFactory->fromRawFilters($rawFilters)
+            : [];
+
+        return new Product(
+            id: $model->external_id,
+            sku: $model->sku,
+            gtin: $model->gtin !== null ? Gtin::fromTrusted($model->gtin) : null,
+            title: $model->title,
+            description: $model->description,
+            slug: $model->slug,
+            url: $model->url,
+            price: $model->price,
+            costPrice: $costPrice,
+            salePrice: $model->sale_price,
+            comparePrice: $model->compare_price,
+            stock: $model->stock ?? 0,
+            isActive: $model->is_active,
+            vatExclusive: $model->vat_exclusive,
+            vatRelief: $model->vat_relief ?? false,
+            weight: $model->weight,
+            metaTitle: $model->meta_title,
+            metaDescription: $model->meta_description,
+            categoryIds: $model->category_ids,
+            variations: $variations,
+            images: self::buildImages($model->images),
+            rawCustomFields: $rawCustomFields,
+            customFields: $customFields,
+            rawFilters: $rawFilters,
+            filters: $filters,
             sortOrder: $model->sort_order,
             createdAt: $model->shopwired_created_at->toDateTimeImmutable(),
             updatedAt: $model->shopwired_updated_at->toDateTimeImmutable(),

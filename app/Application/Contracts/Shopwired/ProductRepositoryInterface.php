@@ -41,6 +41,22 @@ interface ProductRepositoryInterface extends RepositoryWriteInterface
     public function paginate(int $perPage, int $page, array $includes = []): PaginatedListDTO;
 
     /**
+     * Find a product by external ID with conditional includes for the API.
+     *
+     * Follows the same pattern as paginate() — includes control what's loaded.
+     * Unloaded relations/enrichments are null on the Product VO.
+     *
+     * @param list<string> $includes Embed names to load (variations, cost_price, etc.)
+     *
+     * @throws ResourceNotFoundException When no product matches the ID
+     * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
+     * @throws DatabaseOperationFailedException On query failure
+     * @throws DuplicateRecordException On constraint violation
+     * @throws ExternalServiceUnavailableException When database temporarily unavailable
+     */
+    public function findProductForApi(IntId $productId, array $includes = []): Product;
+
+    /**
      * Get all product external IDs stored locally.
      *
      * Returns ShopWired product IDs for all products in the database.

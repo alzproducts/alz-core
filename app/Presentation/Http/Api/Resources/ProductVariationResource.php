@@ -29,6 +29,7 @@ final class ProductVariationResource extends JsonResource
             'sku' => $variation->sku,
             'gtin' => $variation->gtin?->value,
             'price' => $variation->price,
+            'cost_price' => $variation->costPrice,
             'sale_price' => $variation->salePrice,
             'stock' => $variation->stock,
             'weight' => $variation->weight,

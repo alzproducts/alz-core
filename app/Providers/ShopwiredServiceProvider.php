@@ -55,6 +55,9 @@ use App\Application\Shopwired\UseCases\Webhooks\SyncProductUseCase;
 use App\Application\Shopwired\UseCases\Webhooks\UpdateOrderStatusUseCase;
 use App\Application\Shopwired\UseCases\Webhooks\UpdateProductStockUseCase;
 use App\Domain\Exceptions\InvalidConfigurationException;
+use App\Infrastructure\Catalog\Product\Factories\ProductCostPriceFactory;
+use App\Infrastructure\Catalog\Product\Mappers\ProductModelMapper;
+use App\Infrastructure\Catalog\Product\Mappers\ProductVariationModelMapper;
 use App\Infrastructure\Shopwired\Clients\BasicProductUpdateClient;
 use App\Infrastructure\Shopwired\Clients\BrandFieldUpdateClient;
 use App\Infrastructure\Shopwired\Clients\CategoryFieldUpdateClient;
@@ -67,7 +70,6 @@ use App\Infrastructure\Shopwired\Dispatchers\QueuedShopwiredSyncDispatcher;
 use App\Infrastructure\Shopwired\Factories\ProductCustomFieldFactory;
 use App\Infrastructure\Shopwired\Factories\ProductDomainFactory;
 use App\Infrastructure\Shopwired\Factories\ProductFilterFactory;
-use App\Infrastructure\Shopwired\Mappers\ProductModelMapper;
 use App\Infrastructure\Shopwired\Parsers\ShopwiredBrandWebhookParser;
 use App\Infrastructure\Shopwired\Parsers\ShopwiredCategoryWebhookParser;
 use App\Infrastructure\Shopwired\Parsers\ShopwiredCustomerWebhookParser;
@@ -188,6 +190,8 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
         $this->app->scoped(ProductDomainFactory::class);
         $this->app->scoped(ProductCustomFieldFactory::class);
         $this->app->scoped(ProductFilterFactory::class);
+        $this->app->scoped(ProductCostPriceFactory::class);
+        $this->app->scoped(ProductVariationModelMapper::class);
         $this->app->scoped(ProductModelMapper::class);
     }
 
@@ -305,8 +309,10 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
             ProductFilterFactory::class,
             PriceUpdateClientInterface::class,
             ProductIdentifierResolverInterface::class,
+            ProductCostPriceFactory::class,
             ProductModelMapper::class,
             ProductRepositoryInterface::class,
+            ProductVariationModelMapper::class,
             ProductUpdateClientInterface::class,
             ProductWebhookEventResolverInterface::class,
             ProductWebhookParserInterface::class,

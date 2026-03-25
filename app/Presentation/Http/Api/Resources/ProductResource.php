@@ -28,7 +28,23 @@ final class ProductResource extends JsonResource
         /** @var Product $product */
         $product = $this->resource;
 
-        $data = [
+        $data = self::baseFields($product);
+
+        if ($product->variations !== null) {
+            $data['variations'] = ProductVariationResource::collection($product->variations);
+        }
+
+        return $data;
+    }
+
+    /**
+     * Base scalar fields shared by list and detail resources.
+     *
+     * @return array<string, mixed>
+     */
+    public static function baseFields(Product $product): array
+    {
+        return [
             'id' => $product->id,
             'sku' => $product->sku,
             'gtin' => $product->gtin?->value,
@@ -53,11 +69,5 @@ final class ProductResource extends JsonResource
             'created_at' => $product->createdAt->format(DateTimeInterface::ATOM),
             'updated_at' => $product->updatedAt->format(DateTimeInterface::ATOM),
         ];
-
-        if ($product->variations !== null) {
-            $data['variations'] = ProductVariationResource::collection($product->variations);
-        }
-
-        return $data;
     }
 }

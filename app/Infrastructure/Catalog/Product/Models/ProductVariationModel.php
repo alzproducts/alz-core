@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Infrastructure\Shopwired\Models;
+namespace App\Infrastructure\Catalog\Product\Models;
 
 use App\Domain\Catalog\Product\ValueObjects\Gtin;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariation;
@@ -101,7 +101,7 @@ final class ProductVariationModel extends Model implements EloquentDomainMappabl
             gtin: $this->gtin !== null ? Gtin::fromTrusted($this->gtin) : null,
             mpn: $this->mpn,
             imageIndex: $this->image_index,
-            options: $this->buildOptions(),
+            options: self::buildOptions($this->options),
         );
     }
 
@@ -134,13 +134,17 @@ final class ProductVariationModel extends Model implements EloquentDomainMappabl
     /**
      * Convert DB options arrays to ProductVariationOption objects.
      *
+     * Public static so ProductVariationModelMapper can reuse without duplication.
+     *
+     * @param list<array{option_id: int, option_name: string, value_id: int, value_name: string}> $options
+     *
      * @return list<ProductVariationOption>
      */
-    private function buildOptions(): array
+    public static function buildOptions(array $options): array
     {
         return \array_map(
             static fn(array $opt): ProductVariationOption => ProductVariationOption::fromArray($opt),
-            $this->options,
+            $options,
         );
     }
 }
