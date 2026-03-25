@@ -56,6 +56,7 @@ final readonly class ProductView
      * @param list<ProductImage> $images Product images
      * @param list<AbstractCustomFieldValue> $customFields Typed custom field values
      * @param list<ProductFilter> $filters Typed filter values
+     * @param SaleSettings|null $saleSettings Sale metadata (null = not loaded or no sale)
      * @param int|null $sortOrder ShopWired sort order
      * @param DateTimeImmutable $createdAt ShopWired creation timestamp
      * @param DateTimeImmutable $updatedAt ShopWired last update timestamp
@@ -87,6 +88,7 @@ final readonly class ProductView
         public ?int $sortOrder,
         public DateTimeImmutable $createdAt,
         public DateTimeImmutable $updatedAt,
+        public ?SaleSettings $saleSettings = null,
     ) {
         $this->isOnSale = self::isSaleActive($this->salePrice, $this->price);
         $this->profitMargin = self::retailMargin($this->price, $this->costPrice);
@@ -110,7 +112,8 @@ final readonly class ProductView
      * Calculate retail profit margin: (price - costPrice) / price × 100.
      *
      * Returns null when cost is unknown or price is zero (division guard).
-     * Uses gross (tax-inclusive) values for both sides of the calculation.
+     * Uses net (tax-exclusive) values — VAT collected isn't revenue and
+     * VAT on purchases is reclaimable, so net gives the true business margin.
      *
      * @return float|null Margin percentage, rounded to 2 decimal places
      */
@@ -120,10 +123,10 @@ final readonly class ProductView
             return null;
         }
 
-        $priceGross = $price->toGross();
-        $costGross = $costPrice->toGross();
+        $priceNet = $price->toNet(precision: null);
+        $costNet = $costPrice->toNet(precision: null);
 
-        return \round(($priceGross - $costGross) / $priceGross * 100, 2);
+        return \round(($priceNet - $costNet) / $priceNet * 100, 2);
     }
 
     /**

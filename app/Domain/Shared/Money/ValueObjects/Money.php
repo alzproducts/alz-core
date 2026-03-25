@@ -181,6 +181,27 @@ final readonly class Money
     }
 
     /**
+     * Check whether a gross price survives the gross → net → gross round trip without rounding drift.
+     *
+     * Mirrors the frontend JS validation exactly:
+     *   net = round(gross / (1 + rate), 2)
+     *   reconstructed = round(net * (1 + rate), 2)
+     *   return round(gross, 2) === reconstructed
+     *
+     * Prices that fail this check would display inconsistent values between
+     * gross-based and net-based views.
+     */
+    public static function isVatRoundTripSafe(float $grossAmount, TaxRate $taxRate): bool
+    {
+        $rate = $taxRate->toDecimal();
+        $gross = \round($grossAmount, self::DEFAULT_PRECISION);
+        $net = \round($gross / (1 + $rate), self::DEFAULT_PRECISION);
+        $reconstructed = \round($net * (1 + $rate), self::DEFAULT_PRECISION);
+
+        return $gross === $reconstructed;
+    }
+
+    /**
      * Create a Money instance from a TaxType discriminator.
      *
      * Consolidates the common pattern of branching on TaxType to select

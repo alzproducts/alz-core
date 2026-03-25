@@ -246,6 +246,41 @@ final class MoneyTest extends TestCase
 
     /*
     |--------------------------------------------------------------------------
+    | isVatRoundTripSafe() Tests
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function vat_round_trip_safe_passes_for_clean_prices(): void
+    {
+        $rate = TaxRate::standard();
+
+        self::assertTrue(Money::isVatRoundTripSafe(10.00, $rate));
+        self::assertTrue(Money::isVatRoundTripSafe(24.00, $rate));
+        self::assertTrue(Money::isVatRoundTripSafe(0.00, $rate));
+        self::assertTrue(Money::isVatRoundTripSafe(29.99, $rate));
+    }
+
+    #[Test]
+    public function vat_round_trip_safe_fails_for_prices_with_rounding_drift(): void
+    {
+        $rate = TaxRate::standard();
+
+        // £0.03 → net 0.03 → reconstructed 0.04 ≠ 0.03
+        self::assertFalse(Money::isVatRoundTripSafe(0.03, $rate));
+        // £0.09 → net 0.08 → reconstructed 0.10 ≠ 0.09
+        self::assertFalse(Money::isVatRoundTripSafe(0.09, $rate));
+    }
+
+    #[Test]
+    public function vat_round_trip_safe_with_custom_tax_rate(): void
+    {
+        self::assertTrue(Money::isVatRoundTripSafe(1.10, TaxRate::fromPercentage(10.0)));
+        self::assertTrue(Money::isVatRoundTripSafe(1.12, TaxRate::fromPercentage(10.0)));
+    }
+
+    /*
+    |--------------------------------------------------------------------------
     | isLessThan() Tests
     |--------------------------------------------------------------------------
     */

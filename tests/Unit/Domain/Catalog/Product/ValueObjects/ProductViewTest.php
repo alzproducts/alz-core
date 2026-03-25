@@ -280,8 +280,8 @@ final class ProductViewTest extends TestCase
     #[Test]
     public function retail_margin_handles_exclusive_tax_prices(): void
     {
-        // Exclusive £20 price = £24 gross, exclusive £10 cost = £12 gross
-        // (24 - 12) / 24 × 100 = 50%
+        // Exclusive £20 net, exclusive £10 net
+        // (20 - 10) / 20 × 100 = 50%
         self::assertSame(50.0, ProductView::retailMargin(
             Money::exclusive(20.00),
             Money::exclusive(10.00),

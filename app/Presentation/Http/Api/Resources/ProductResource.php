@@ -52,7 +52,7 @@ final class ProductResource extends JsonResource
             'slug' => $product->slug,
             'url' => $product->url,
             'price' => $product->price->toGross(),
-            'cost_price' => $product->costPrice?->toGross(),
+            'cost_price' => $product->costPrice?->toNet(),
             'sale_price' => $product->salePrice?->toGross(),
             'compare_price' => $product->comparePrice?->toGross(),
             'profit_margin' => $product->profitMargin,

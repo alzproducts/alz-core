@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Catalog\Product\Mappers;
 
+use App\Application\Contracts\Shopwired\SaleSettingsRepositoryInterface;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\CustomFields\ValueObjects\AbstractCustomFieldValue;
 use App\Domain\Catalog\Filters\ValueObjects\ProductFilter;
@@ -13,6 +14,7 @@ use App\Domain\Catalog\Product\ValueObjects\ProductImage;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariation;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariationView;
 use App\Domain\Catalog\Product\ValueObjects\ProductView;
+use App\Domain\Catalog\Product\ValueObjects\SaleSettings;
 use App\Domain\Catalog\Product\ValueObjects\Sku;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
@@ -43,6 +45,7 @@ final class ProductModelMapper
         private readonly ProductFilterFactory $filterFactory,
         private readonly ProductCostPriceFactory $costPriceFactory,
         private readonly ProductVariationModelMapper $variationMapper,
+        private readonly SaleSettingsRepositoryInterface $saleSettingsRepo,
     ) {}
 
     /**
@@ -119,7 +122,7 @@ final class ProductModelMapper
      */
     public function toViewDomain(ProductModel $model, array $includes = []): ProductView
     {
-        $taxType = $model->vat_exclusive ? TaxType::Exclusive : TaxType::Inclusive;
+        $taxType = $model->vat_exclusive ? TaxType::ZeroRated : TaxType::Inclusive;
 
         return new ProductView(
             id: IntId::from($model->external_id),
@@ -130,7 +133,7 @@ final class ProductModelMapper
             slug: $model->slug,
             url: $model->url,
             price: Money::fromTaxType($model->price, $taxType),
-            costPrice: Money::nonZeroOrNull($this->getLinnworksCostPrice($model->sku), $taxType),
+            costPrice: Money::nonZeroOrNull($this->getLinnworksCostPrice($model->sku), TaxType::Exclusive),
             salePrice: Money::nonZeroOrNull($model->sale_price, $taxType),
             comparePrice: Money::nonZeroOrNull($model->compare_price, $taxType),
             stock: $model->stock ?? 0,
@@ -148,6 +151,7 @@ final class ProductModelMapper
             sortOrder: $model->sort_order,
             createdAt: $model->shopwired_created_at->toDateTimeImmutable(),
             updatedAt: $model->shopwired_updated_at->toDateTimeImmutable(),
+            saleSettings: $this->resolveSaleSettings($model, $includes),
         );
     }
 
@@ -352,6 +356,24 @@ final class ProductModelMapper
         $rawFilters = $model->filters ?? [];
 
         return $this->filterFactory->fromRawFilters($rawFilters);
+    }
+
+    /**
+     * Conditionally load sale settings from the repository.
+     *
+     * @param list<string> $includes
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    private function resolveSaleSettings(ProductModel $model, array $includes): ?SaleSettings
+    {
+        if (! \in_array('sale_settings', $includes, true)) {
+            return null;
+        }
+
+        return $this->saleSettingsRepo->findByProduct(IntId::from($model->external_id));
     }
 
     /**

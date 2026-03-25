@@ -61,6 +61,10 @@ final class ProductDetailResource extends JsonResource
             );
         }
 
+        if ($result->hasInclude('sale_settings') && $product->saleSettings !== null) {
+            $data['sale_settings'] = $product->saleSettings->toArray();
+        }
+
         return $data;
     }
 }

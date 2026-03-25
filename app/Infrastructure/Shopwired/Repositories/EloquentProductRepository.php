@@ -79,7 +79,7 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
                 $q->where('is_active', true)->orderBy('title');
             },
             relations: \in_array('variations', $includes, true) ? ['variations'] : [],
-            mapper: fn(ProductModel $model): ProductView => $this->mapper->toViewDomain($model),
+            mapper: fn(ProductModel $model): ProductView => $this->mapper->toViewDomain($model, $includes),
             perPage: $perPage,
             page: $page,
         );

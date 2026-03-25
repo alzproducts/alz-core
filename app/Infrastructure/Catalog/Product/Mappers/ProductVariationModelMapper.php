@@ -86,14 +86,14 @@ final class ProductVariationModelMapper
             parentSalePrice: $parentSalePrice,
         );
 
-        $taxType = $vatExclusive ? TaxType::Exclusive : TaxType::Inclusive;
+        $taxType = $vatExclusive ? TaxType::ZeroRated : TaxType::Inclusive;
 
         return new ProductVariationView(
             id: IntId::from($model->external_id),
             sku: $model->sku !== null && \mb_trim($model->sku) !== '' ? Sku::fromTrusted(\mb_trim($model->sku)) : null,
             gtin: $model->gtin !== null ? Gtin::fromTrusted($model->gtin) : null,
             price: Money::fromTaxType($resolved->price, $taxType),
-            costPrice: $model->sku !== null ? Money::nonZeroOrNull($this->costPriceFactory->getCostPrice($model->sku), $taxType) : null,
+            costPrice: $model->sku !== null ? Money::nonZeroOrNull($this->costPriceFactory->getCostPrice($model->sku), TaxType::Exclusive) : null,
             salePrice: Money::nonZeroOrNull($resolved->salePrice, $taxType),
             stock: $model->stock,
             weight: $model->weight !== null ? Weight::kilogram($model->weight) : null,
