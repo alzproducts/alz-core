@@ -86,7 +86,7 @@ final readonly class ProductUpdateClient implements ProductUpdateClientInterface
      * - Fields with null value in $newFields are removed
      *
      * @param array<string, mixed> $existing Current custom field values
-     * @param array<string, string|int|bool|null> $newFields Fields to update
+     * @param array<string, string|int|bool|list<string>|list<int>|null> $newFields Fields to update
      *
      * @return array<string, mixed> Merged custom fields
      */

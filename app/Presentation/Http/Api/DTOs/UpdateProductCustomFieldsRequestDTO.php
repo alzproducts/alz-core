@@ -14,7 +14,7 @@ use Spatie\LaravelData\Data;
 final class UpdateProductCustomFieldsRequestDTO extends Data
 {
     /**
-     * @param array<string, string|int|bool|null> $custom_fields Field name => value pairs
+     * @param array<string, string|int|bool|list<string>|list<int>|null> $custom_fields Field name => value pairs
      */
     public function __construct(
         public readonly array $custom_fields,

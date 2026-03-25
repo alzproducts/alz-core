@@ -33,7 +33,7 @@ final readonly class UpdateProductCustomFieldsUseCase
     ) {}
 
     /**
-     * @param array<string, string|int|bool|null> $rawFields Custom field name => value pairs
+     * @param array<string, string|int|bool|list<string>|list<int>|null> $rawFields Custom field name => value pairs
      *
      * @throws ValidationFailedException When fields fail validation (unknown field or type mismatch)
      * @throws ResourceNotAvailableException When product not found (404)
