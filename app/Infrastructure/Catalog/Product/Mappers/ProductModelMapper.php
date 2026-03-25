@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Infrastructure\Catalog\Product\Mappers;
 
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
+use App\Domain\Catalog\CustomFields\ValueObjects\AbstractCustomFieldValue;
+use App\Domain\Catalog\Filters\ValueObjects\ProductFilter;
 use App\Domain\Catalog\Product\ValueObjects\Gtin;
 use App\Domain\Catalog\Product\ValueObjects\Product;
 use App\Domain\Catalog\Product\ValueObjects\ProductImage;
@@ -54,7 +56,7 @@ final class ProductModelMapper
     {
         /** @var list<ProductVariation> $variations */
         $variations = $model->variations->map(
-            static fn(ProductVariationModel $m): ProductVariation => $m->toDomain(),
+            static fn(ProductVariationModel $m): ProductVariation => ProductVariationModelMapper::toDomain($m),
         )->all();
 
         /** @var array<string, mixed> $rawCustomFields */
@@ -111,7 +113,7 @@ final class ProductModelMapper
         /** @var list<ProductVariation>|null $variations */
         $variations = $model->relationLoaded('variations')
             ? $model->variations->map(
-                static fn(ProductVariationModel $m): ProductVariation => $m->toDomain(),
+                static fn(ProductVariationModel $m): ProductVariation => ProductVariationModelMapper::toDomain($m),
             )->all()
             : null;
 
@@ -169,37 +171,6 @@ final class ProductModelMapper
     {
         $includeCostPrice = \in_array('cost_price', $includes, true);
 
-        // Variations: conditional, cost price enrichment only when requested
-        /** @var list<ProductVariation>|null $variations */
-        $variations = ($model->relationLoaded('variations') && \in_array('variations', $includes, true))
-            ? $model->variations->map(
-                fn(ProductVariationModel $m): ProductVariation => $this->variationMapper->toReadDomain($m, $includeCostPrice),
-            )->all()
-            : null;
-
-        // Cost price: conditional Linnworks enrichment
-        $costPrice = ($includeCostPrice && $model->sku !== null)
-            ? $this->costPriceFactory->getCostPrice($model->sku) ?? $model->cost_price
-            : $model->cost_price;
-
-        $includeCustomFields = \in_array('custom_fields', $includes, true);
-        $includeFilters = \in_array('filters', $includes, true);
-
-        /** @var array<string, mixed> $rawCustomFields */
-        $rawCustomFields = $includeCustomFields ? $model->custom_fields : [];
-
-        /** @var array<int|string, list<string>> $rawFilters */
-        $rawFilters = $includeFilters ? ($model->filters ?? []) : [];
-
-        // Custom fields/filters: conditional (avoid factory calls when not needed)
-        $customFields = $includeCustomFields
-            ? $this->customFieldFactory->fromRawFields($rawCustomFields)
-            : [];
-
-        $filters = $includeFilters
-            ? $this->filterFactory->fromRawFilters($rawFilters)
-            : [];
-
         return new Product(
             id: $model->external_id,
             sku: $model->sku,
@@ -209,7 +180,7 @@ final class ProductModelMapper
             slug: $model->slug,
             url: $model->url,
             price: $model->price,
-            costPrice: $costPrice,
+            costPrice: $this->resolveCostPrice($model->sku, $model->cost_price, $includeCostPrice),
             salePrice: $model->sale_price,
             comparePrice: $model->compare_price,
             stock: $model->stock ?? 0,
@@ -220,12 +191,12 @@ final class ProductModelMapper
             metaTitle: $model->meta_title,
             metaDescription: $model->meta_description,
             categoryIds: $model->category_ids,
-            variations: $variations,
+            variations: $this->mapEnrichedVariations($model, $includeCostPrice, $includes),
             images: self::buildImages($model->images),
-            rawCustomFields: $rawCustomFields,
-            customFields: $customFields,
-            rawFilters: $rawFilters,
-            filters: $filters,
+            rawCustomFields: [],
+            customFields: $this->resolveCustomFields($model, $includes),
+            rawFilters: [],
+            filters: $this->resolveFilters($model, $includes),
             sortOrder: $model->sort_order,
             createdAt: $model->shopwired_created_at->toDateTimeImmutable(),
             updatedAt: $model->shopwired_updated_at->toDateTimeImmutable(),
@@ -340,6 +311,91 @@ final class ProductModelMapper
             'custom_fields' => $product->rawCustomFields,
             'filters' => $product->rawFilters,
         ];
+    }
+
+    /**
+     * Map variations with optional Linnworks cost price enrichment.
+     *
+     * @param list<string> $includes
+     *
+     * @return list<ProductVariation>|null
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    private function mapEnrichedVariations(ProductModel $model, bool $enrichCostPrice, array $includes): ?array
+    {
+        if (! $model->relationLoaded('variations') || ! \in_array('variations', $includes, true)) {
+            return null;
+        }
+
+        return \array_values($model->variations->map(
+            fn(ProductVariationModel $m): ProductVariation => $this->variationMapper->toReadDomain($m, $enrichCostPrice),
+        )->all());
+    }
+
+    /**
+     * Resolve Linnworks cost price with ShopWired fallback.
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    private function resolveCostPrice(?string $sku, ?float $fallback, bool $enrich): ?float
+    {
+        if (! $enrich || $sku === null) {
+            return $fallback;
+        }
+
+        return $this->costPriceFactory->getCostPrice($sku) ?? $fallback;
+    }
+
+    /**
+     * Conditionally type custom fields via factory.
+     *
+     * @param list<string> $includes
+     *
+     * @return list<AbstractCustomFieldValue>
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     * @throws InvalidCustomFieldValueException
+     */
+    private function resolveCustomFields(ProductModel $model, array $includes): array
+    {
+        if (! \in_array('custom_fields', $includes, true)) {
+            return [];
+        }
+
+        /** @var array<string, mixed> $rawCustomFields */
+        $rawCustomFields = $model->custom_fields;
+
+        return $this->customFieldFactory->fromRawFields($rawCustomFields);
+    }
+
+    /**
+     * Conditionally type filters via factory.
+     *
+     * @param list<string> $includes
+     *
+     * @return list<ProductFilter>
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    private function resolveFilters(ProductModel $model, array $includes): array
+    {
+        if (! \in_array('filters', $includes, true)) {
+            return [];
+        }
+
+        /** @var array<int|string, list<string>> $rawFilters */
+        $rawFilters = $model->filters ?? [];
+
+        return $this->filterFactory->fromRawFilters($rawFilters);
     }
 
     /**

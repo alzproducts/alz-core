@@ -4,10 +4,6 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Catalog\Product\Models;
 
-use App\Domain\Catalog\Product\ValueObjects\Gtin;
-use App\Domain\Catalog\Product\ValueObjects\ProductVariation;
-use App\Domain\Catalog\Product\ValueObjects\ProductVariationOption;
-use App\Infrastructure\Contracts\EloquentDomainMappableInterface;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
@@ -18,6 +14,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  *
  * Stores product variations synced from ShopWired API.
  * Uses composite unique key (product_external_id, external_id) for stable sync.
+ *
+ * **Domain Conversion**: Use ProductVariationModelMapper for all model ↔ domain conversion.
  *
  * @property string $id Internal UUID
  * @property string $product_id Parent product UUID (FK relationship)
@@ -35,10 +33,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property list<array{option_id: int, option_name: string, value_id: int, value_name: string}> $options Option attributes
  * @property CarbonImmutable $created_at
  * @property CarbonImmutable $updated_at
- *
- * @implements EloquentDomainMappableInterface<ProductVariation>
  */
-final class ProductVariationModel extends Model implements EloquentDomainMappableInterface
+final class ProductVariationModel extends Model
 {
     use HasUuids;
 
@@ -81,70 +77,5 @@ final class ProductVariationModel extends Model implements EloquentDomainMappabl
     public function product(): BelongsTo
     {
         return $this->belongsTo(ProductModel::class, 'product_id', 'id');
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // Domain Mapping (manual - has complex transformations)
-    // ─────────────────────────────────────────────────────────────────────────
-
-    public function toDomain(): ProductVariation
-    {
-        return new ProductVariation(
-            id: $this->external_id,
-            productExternalId: $this->product_external_id,
-            sku: $this->sku,
-            price: $this->price,
-            costPrice: $this->cost_price,
-            salePrice: $this->sale_price,
-            stock: $this->stock,
-            weight: $this->weight,
-            gtin: $this->gtin !== null ? Gtin::fromTrusted($this->gtin) : null,
-            mpn: $this->mpn,
-            imageIndex: $this->image_index,
-            options: self::buildOptions($this->options),
-        );
-    }
-
-    /**
-     * @param ProductVariation $entity
-     *
-     * @return array<string, mixed>
-     */
-    public static function fromDomainAttributes(object $entity): array
-    {
-        return [
-            'product_external_id' => $entity->productExternalId,
-            'external_id' => $entity->id,
-            'sku' => $entity->sku,
-            'price' => $entity->price,
-            'cost_price' => $entity->costPrice,
-            'sale_price' => $entity->salePrice,
-            'stock' => $entity->stock,
-            'weight' => $entity->weight,
-            'gtin' => $entity->gtin?->value,
-            'mpn' => $entity->mpn,
-            'image_index' => $entity->imageIndex,
-            'options' => \array_map(
-                static fn(ProductVariationOption $opt): array => $opt->toArray(),
-                $entity->options,
-            ),
-        ];
-    }
-
-    /**
-     * Convert DB options arrays to ProductVariationOption objects.
-     *
-     * Public static so ProductVariationModelMapper can reuse without duplication.
-     *
-     * @param list<array{option_id: int, option_name: string, value_id: int, value_name: string}> $options
-     *
-     * @return list<ProductVariationOption>
-     */
-    public static function buildOptions(array $options): array
-    {
-        return \array_map(
-            static fn(array $opt): ProductVariationOption => ProductVariationOption::fromArray($opt),
-            $options,
-        );
     }
 }

@@ -17,6 +17,7 @@ use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\IntId;
 use App\Infrastructure\Catalog\Product\Mappers\ProductModelMapper;
+use App\Infrastructure\Catalog\Product\Mappers\ProductVariationModelMapper;
 use App\Infrastructure\Catalog\Product\Models\ProductModel;
 use App\Infrastructure\Catalog\Product\Models\ProductVariationModel;
 use App\Infrastructure\Persistence\EloquentGateway;
@@ -308,7 +309,7 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
             value: $id->value,
             relations: [],
             entityTypeName: 'Product or Variation',
-            mapper: static fn(ProductVariationModel $model): ProductVariation => $model->toDomain(),
+            mapper: static fn(ProductVariationModel $model): ProductVariation => ProductVariationModelMapper::toDomain($model),
         );
     }
 
@@ -346,7 +347,7 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
             value: $sku->value,
             relations: [],
             entityTypeName: 'Product or Variation',
-            mapper: static fn(ProductVariationModel $model): ProductVariation => $model->toDomain(),
+            mapper: static fn(ProductVariationModel $model): ProductVariation => ProductVariationModelMapper::toDomain($model),
         );
     }
 
@@ -387,7 +388,7 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
             value: $identifier->value,
             relations: [],
             entityTypeName: 'Variation',
-            mapper: static fn(ProductVariationModel $model): ProductVariation => $model->toDomain(),
+            mapper: static fn(ProductVariationModel $model): ProductVariation => ProductVariationModelMapper::toDomain($model),
         );
     }
 
@@ -769,7 +770,7 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
             $rows = \array_map(
                 static fn(ProductVariation $v): array => [
                     'product_id' => $productUuid,
-                    ...ProductVariationModel::fromDomainAttributes($v),
+                    ...ProductVariationModelMapper::toModelAttributes($v),
                 ],
                 $product->variations,
             );

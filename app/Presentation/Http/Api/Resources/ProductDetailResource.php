@@ -7,7 +7,6 @@ namespace App\Presentation\Http\Api\Resources;
 use App\Application\Catalog\UseCases\GetProductResult;
 use App\Domain\Catalog\CustomFields\ValueObjects\AbstractCustomFieldValue;
 use App\Domain\Catalog\Filters\ValueObjects\ProductFilter;
-use DateTimeImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -49,50 +48,19 @@ final class ProductDetailResource extends JsonResource
         }
 
         if ($result->hasInclude('custom_fields')) {
-            $data['custom_fields'] = self::serializeCustomFields($product->customFields);
+            $data['custom_fields'] = \array_map(
+                static fn(AbstractCustomFieldValue $field): array => $field->toArray(),
+                $product->customFields,
+            );
         }
 
         if ($result->hasInclude('filters')) {
-            $data['filters'] = self::serializeFilters($product->filters);
+            $data['filters'] = \array_map(
+                static fn(ProductFilter $filter): array => $filter->toArray(),
+                $product->filters,
+            );
         }
 
         return $data;
-    }
-
-    /**
-     * Serialize custom fields to API-friendly format.
-     *
-     * @param list<AbstractCustomFieldValue> $customFields
-     *
-     * @return list<array{name: string, type: string, value: string|bool|array<mixed>|DateTimeImmutable}>
-     */
-    private static function serializeCustomFields(array $customFields): array
-    {
-        return \array_map(
-            static fn(AbstractCustomFieldValue $field): array => [
-                'name' => $field->name(),
-                'type' => $field->type()->value,
-                'value' => $field->rawValue(),
-            ],
-            $customFields,
-        );
-    }
-
-    /**
-     * Serialize filters to API-friendly format.
-     *
-     * @param list<ProductFilter> $filters
-     *
-     * @return list<array{title: string, values: list<string>}>
-     */
-    private static function serializeFilters(array $filters): array
-    {
-        return \array_map(
-            static fn(ProductFilter $filter): array => [
-                'title' => $filter->title(),
-                'values' => $filter->values,
-            ],
-            $filters,
-        );
     }
 }
