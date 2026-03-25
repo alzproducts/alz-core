@@ -75,7 +75,7 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
         return $this->eloquentGateway->paginate(
             modelClass: self::MODEL_CLASS,
             scope: static function (Builder $q): void {
-                $q->where('is_active', true)->orderBy('external_id');
+                $q->where('is_active', true)->orderBy('title');
             },
             relations: \in_array('variations', $includes, true) ? ['variations'] : [],
             mapper: static fn(ProductModel $model): Product => ProductModelMapper::toReadDomain($model),
