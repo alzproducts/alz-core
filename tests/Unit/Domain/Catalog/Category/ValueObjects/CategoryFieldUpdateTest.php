@@ -21,4 +21,31 @@ final class CategoryFieldUpdateTest extends TestCase
         self::assertSame(CategoryUpdatableField::Title, $update->field);
         self::assertSame('Electronics', $update->value);
     }
+
+    #[Test]
+    public function description_factory_creates_correct_update(): void
+    {
+        $update = CategoryFieldUpdate::description('All electronic goods');
+
+        self::assertSame(CategoryUpdatableField::Description, $update->field);
+        self::assertSame('All electronic goods', $update->value);
+    }
+
+    #[Test]
+    public function meta_title_factory_creates_correct_update(): void
+    {
+        $update = CategoryFieldUpdate::metaTitle('SEO Title');
+
+        self::assertSame(CategoryUpdatableField::MetaTitle, $update->field);
+        self::assertSame('SEO Title', $update->value);
+    }
+
+    #[Test]
+    public function meta_description_factory_creates_correct_update(): void
+    {
+        $update = CategoryFieldUpdate::metaDescription('SEO Description');
+
+        self::assertSame(CategoryUpdatableField::MetaDescription, $update->field);
+        self::assertSame('SEO Description', $update->value);
+    }
 }

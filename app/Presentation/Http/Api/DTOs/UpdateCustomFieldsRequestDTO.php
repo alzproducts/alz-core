@@ -7,11 +7,12 @@ namespace App\Presentation\Http\Api\DTOs;
 use Spatie\LaravelData\Data;
 
 /**
- * Request validation for POST /api/products/{productId}/custom-fields.
+ * Request validation for custom field write endpoints.
  *
- * Validates the `custom_fields` body payload as a key-value map.
+ * Shared across products, categories, and brands — the payload
+ * structure is identical for all entity types.
  */
-final class UpdateProductCustomFieldsRequestDTO extends Data
+final class UpdateCustomFieldsRequestDTO extends Data
 {
     /**
      * @param array<string, string|int|bool|list<string>|list<int>|null> $custom_fields Field name => value pairs

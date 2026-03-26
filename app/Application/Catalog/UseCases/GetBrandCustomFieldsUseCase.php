@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Application\Catalog\UseCases;
 
 use App\Application\Catalog\CustomFieldMergerService;
+use App\Application\Contracts\Shopwired\BrandRepositoryInterface;
 use App\Application\Contracts\Shopwired\CustomFieldRepositoryInterface;
-use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldItemType;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\CustomFields\ValueObjects\AbstractCustomFieldValue;
@@ -18,16 +18,16 @@ use App\Domain\ValueObjects\IntId;
 use Psr\Log\LoggerInterface;
 
 /**
- * Get enriched custom fields for a single product.
+ * Get enriched custom fields for a single brand.
  *
  * Returns ALL defined custom fields with definition metadata (label, allowed_values, sort_order),
- * including fields with no value on the product (represented as NullCustomFieldValue).
+ * including fields with no value on the brand (represented as NullCustomFieldValue).
  * Optionally filters to a subset of field names.
  */
-final readonly class GetProductCustomFieldsUseCase
+final readonly class GetBrandCustomFieldsUseCase
 {
     public function __construct(
-        private ProductRepositoryInterface $productRepository,
+        private BrandRepositoryInterface $brandRepository,
         private CustomFieldRepositoryInterface $customFieldRepository,
         private LoggerInterface $logger,
     ) {}
@@ -37,26 +37,26 @@ final readonly class GetProductCustomFieldsUseCase
      *
      * @return list<AbstractCustomFieldValue>
      *
-     * @throws ResourceNotFoundException When no product matches the ID
+     * @throws ResourceNotFoundException When no brand matches the ID
      * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
      * @throws DatabaseOperationFailedException On query failure
      * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      */
-    public function execute(int $productId, array $fieldNames = []): array
+    public function execute(int $brandId, array $fieldNames = []): array
     {
-        $this->logger->info('Getting product custom fields', [
-            'product_id' => $productId,
+        $this->logger->info('Getting brand custom fields', [
+            'brand_id' => $brandId,
             'field_filter' => $fieldNames,
         ]);
 
-        $product = $this->productRepository->findProductForApi(
-            IntId::from($productId),
+        $brand = $this->brandRepository->findBrandForApi(
+            IntId::from($brandId),
             ['custom_fields'],
         );
 
-        $definitions = $this->customFieldRepository->findByItemType(CustomFieldItemType::Product);
-        $fields = CustomFieldMergerService::mergeWithDefinitions($product->customFields, $definitions);
+        $definitions = $this->customFieldRepository->findByItemType(CustomFieldItemType::Brand);
+        $fields = CustomFieldMergerService::mergeWithDefinitions($brand->customFields ?? [], $definitions);
 
         // Apply field name filter after merge
         if ($fieldNames !== []) {
@@ -66,8 +66,8 @@ final readonly class GetProductCustomFieldsUseCase
             ));
         }
 
-        $this->logger->info('Got product custom fields', [
-            'product_id' => $productId,
+        $this->logger->info('Got brand custom fields', [
+            'brand_id' => $brandId,
             'field_count' => \count($fields),
         ]);
 

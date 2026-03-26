@@ -5,14 +5,16 @@ declare(strict_types=1);
 use App\Domain\Access\ValueObjects\AuthenticatedUser;
 use App\Infrastructure\Sentry\SentryUserContextMiddleware;
 use App\Presentation\Http\Api\Controllers\BrandController;
+use App\Presentation\Http\Api\Controllers\BrandUpdateController;
 use App\Presentation\Http\Api\Controllers\CategoryController;
+use App\Presentation\Http\Api\Controllers\CategoryUpdateController;
 use App\Presentation\Http\Api\Controllers\FilterGroupController;
 use App\Presentation\Http\Api\Controllers\ProductController;
+use App\Presentation\Http\Api\Controllers\ProductUpdateController;
 use App\Presentation\Http\Auth\Middleware\ValidateSupabaseJwtMiddleware;
 use App\Presentation\Http\Controllers\ContactForm\ContactFormController;
 use App\Presentation\Http\Controllers\HelpScout\ConversationsController;
 use App\Presentation\Http\Controllers\HelpScout\ProfileController;
-use App\Presentation\Http\Controllers\Shopwired\ProductUpdateController;
 use App\Presentation\Http\Controllers\Shopwired\Webhooks\ShopwiredWebhookBrandController;
 use App\Presentation\Http\Controllers\Shopwired\Webhooks\ShopwiredWebhookCategoryController;
 use App\Presentation\Http\Controllers\Shopwired\Webhooks\ShopwiredWebhookCustomerController;
@@ -117,21 +119,6 @@ Route::middleware([
         });
     });
 
-    /*
-    |--------------------------------------------------------------------------
-    | ShopWired Endpoints
-    |--------------------------------------------------------------------------
-    |
-    | Product management APIs for ShopWired integration.
-    |
-    */
-    Route::prefix('shopwired')->group(static function (): void {
-        Route::prefix('products')->group(static function (): void {
-            Route::post('free-delivery', [ProductUpdateController::class, 'updateFreeDelivery']);
-            Route::post('{productId}/prices', [ProductUpdateController::class, 'updatePrices'])
-                ->whereNumber('productId');
-        });
-    });
 });
 
 /*
@@ -146,20 +133,40 @@ Route::middleware([
 
 Route::middleware([ValidateSupabaseJwtMiddleware::class, EnsureUserApprovedMiddleware::class, 'throttle:api', SentryUserContextMiddleware::class])
     ->group(static function (): void {
+        // Product endpoints
         Route::get('products', [ProductController::class, 'index']);
         Route::get('products/{productId}', [ProductController::class, 'show'])
             ->whereNumber('productId');
+        Route::put('products/{productId}', [ProductUpdateController::class, 'updateFields'])
+            ->whereNumber('productId');
         Route::get('products/{productId}/custom-fields', [ProductController::class, 'customFields'])
             ->whereNumber('productId');
-        Route::post('products/{productId}/custom-fields', [ProductUpdateController::class, 'updateCustomFields'])
+        Route::put('products/{productId}/custom-fields', [ProductUpdateController::class, 'updateCustomFields'])
             ->whereNumber('productId');
+        Route::put('products/{productId}/prices', [ProductUpdateController::class, 'updatePrices'])
+            ->whereNumber('productId');
+        Route::post('products/free-delivery', [ProductUpdateController::class, 'updateFreeDelivery']);
 
+        // Category endpoints
         Route::get('categories', [CategoryController::class, 'index']);
         Route::get('categories/{categoryId}', [CategoryController::class, 'show'])
             ->whereNumber('categoryId');
+        Route::put('categories/{categoryId}', [CategoryUpdateController::class, 'updateFields'])
+            ->whereNumber('categoryId');
+        Route::get('categories/{categoryId}/custom-fields', [CategoryController::class, 'customFields'])
+            ->whereNumber('categoryId');
+        Route::put('categories/{categoryId}/custom-fields', [CategoryUpdateController::class, 'updateCustomFields'])
+            ->whereNumber('categoryId');
 
+        // Brand endpoints
         Route::get('brands', [BrandController::class, 'index']);
         Route::get('brands/{brandId}', [BrandController::class, 'show'])
+            ->whereNumber('brandId');
+        Route::put('brands/{brandId}', [BrandUpdateController::class, 'updateFields'])
+            ->whereNumber('brandId');
+        Route::get('brands/{brandId}/custom-fields', [BrandController::class, 'customFields'])
+            ->whereNumber('brandId');
+        Route::put('brands/{brandId}/custom-fields', [BrandUpdateController::class, 'updateCustomFields'])
             ->whereNumber('brandId');
 
         Route::get('filter-groups', [FilterGroupController::class, 'index']);
