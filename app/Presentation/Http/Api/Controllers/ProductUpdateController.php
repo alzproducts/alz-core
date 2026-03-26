@@ -24,7 +24,7 @@ use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\Exceptions\ValidationFailedException;
 use App\Domain\ValueObjects\IntId;
-use App\Presentation\Http\Api\DTOs\UpdateProductCustomFieldsRequestDTO;
+use App\Presentation\Http\Api\DTOs\UpdateCustomFieldsRequestDTO;
 use App\Presentation\Http\Api\DTOs\UpdateProductFieldsRequestDTO;
 use App\Presentation\Http\Requests\SetFreeDeliveryRequest;
 use App\Presentation\Http\Shopwired\DTOs\SkuPriceUpdateDTO;
@@ -159,7 +159,7 @@ final readonly class ProductUpdateController
      * @throws DatabaseOperationFailedException When custom field registry fails to load
      * @throws DuplicateRecordException On constraint violation
      */
-    public function updateCustomFields(int $productId, UpdateProductCustomFieldsRequestDTO $data): JsonResponse
+    public function updateCustomFields(int $productId, UpdateCustomFieldsRequestDTO $data): JsonResponse
     {
         $this->customFieldsUseCase->execute(
             productId: IntId::from($productId),

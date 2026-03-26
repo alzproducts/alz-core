@@ -4,28 +4,32 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Infrastructure\Shopwired\Clients;
 
+use App\Application\Contracts\Shopwired\CategoryClientInterface;
 use App\Domain\Catalog\Category\ValueObjects\CategoryFieldUpdate;
-use App\Infrastructure\Shopwired\Clients\CategoryFieldUpdateClient;
+use App\Infrastructure\Shopwired\Clients\CategoryUpdateClient;
 use App\Infrastructure\Shopwired\Contracts\ShopwiredTransportInterface;
 use Mockery;
 use Mockery\MockInterface;
+use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
-#[CoversClass(CategoryFieldUpdateClient::class)]
+#[CoversClass(CategoryUpdateClient::class)]
 final class CategoryFieldUpdateClientTest extends TestCase
 {
     private ShopwiredTransportInterface&MockInterface $transport;
 
-    private CategoryFieldUpdateClient $client;
+    private CategoryUpdateClient $client;
 
+    #[Override]
     protected function setUp(): void
     {
         parent::setUp();
 
         $this->transport = Mockery::mock(ShopwiredTransportInterface::class);
-        $this->client = new CategoryFieldUpdateClient($this->transport);
+        $categoryClient = Mockery::mock(CategoryClientInterface::class);
+        $this->client = new CategoryUpdateClient($this->transport, $categoryClient);
     }
 
     #[Test]

@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace App\Application\Catalog\UseCases;
 
-use App\Application\Contracts\Shopwired\BrandFieldUpdateClientInterface;
+use App\Application\Contracts\Shopwired\BrandUpdateClientInterface;
 use App\Domain\Catalog\Brand\ValueObjects\BrandFieldUpdate;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\ResourceNotAvailableException;
+use App\Domain\Exceptions\UnsupportedFieldException;
 use App\Domain\ValueObjects\IntId;
-use LogicException;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -23,7 +23,7 @@ use Psr\Log\LoggerInterface;
 final readonly class UpdateBrandFieldsUseCase
 {
     public function __construct(
-        private BrandFieldUpdateClientInterface $fieldUpdateClient,
+        private BrandUpdateClientInterface $updateClient,
         private LoggerInterface $logger,
     ) {}
 
@@ -49,11 +49,11 @@ final readonly class UpdateBrandFieldsUseCase
                 'description' => BrandFieldUpdate::description($value),
                 'meta_title' => BrandFieldUpdate::metaTitle($value),
                 'meta_description' => BrandFieldUpdate::metaDescription($value),
-                default => throw new LogicException("Unknown brand field: {$name}"),
+                default => throw new UnsupportedFieldException($name, 'brand'),
             };
         }
 
-        $this->fieldUpdateClient->update($brandId->value, ...$updates);
+        $this->updateClient->update($brandId->value, ...$updates);
 
         $this->logger->info('Updated brand fields', [
             'brand_id' => $brandId->value,

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Application\Contracts\Shopwired;
 
+use App\Domain\Catalog\Brand\ValueObjects\BrandFieldUpdate;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
@@ -13,11 +14,21 @@ use App\Domain\Exceptions\Api\ResourceNotAvailableException;
 /**
  * Client for updating ShopWired brands.
  *
- * Uses fetch-merge-PUT pattern to preserve existing values while updating
- * specific fields (e.g., custom fields).
+ * Scalar fields use simple PUT. Custom fields use fetch-merge-PUT
+ * to preserve existing values not included in the update.
  */
 interface BrandUpdateClientInterface
 {
+    /**
+     * Update scalar fields on a brand via simple PUT.
+     *
+     * @throws ResourceNotAvailableException When brand not found (404)
+     * @throws InvalidApiRequestException When request parameters invalid (400)
+     * @throws AuthenticationExpiredException When credentials invalid (401/403)
+     * @throws ExternalServiceUnavailableException When API unavailable
+     */
+    public function update(int $brandId, BrandFieldUpdate ...$updates): void;
+
     /**
      * Update custom fields on a brand.
      *

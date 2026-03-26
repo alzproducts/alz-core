@@ -141,9 +141,9 @@ Route::middleware([ValidateSupabaseJwtMiddleware::class, EnsureUserApprovedMiddl
             ->whereNumber('productId');
         Route::get('products/{productId}/custom-fields', [ProductController::class, 'customFields'])
             ->whereNumber('productId');
-        Route::post('products/{productId}/custom-fields', [ProductUpdateController::class, 'updateCustomFields'])
+        Route::put('products/{productId}/custom-fields', [ProductUpdateController::class, 'updateCustomFields'])
             ->whereNumber('productId');
-        Route::post('products/{productId}/prices', [ProductUpdateController::class, 'updatePrices'])
+        Route::put('products/{productId}/prices', [ProductUpdateController::class, 'updatePrices'])
             ->whereNumber('productId');
         Route::post('products/free-delivery', [ProductUpdateController::class, 'updateFreeDelivery']);
 
@@ -155,7 +155,7 @@ Route::middleware([ValidateSupabaseJwtMiddleware::class, EnsureUserApprovedMiddl
             ->whereNumber('categoryId');
         Route::get('categories/{categoryId}/custom-fields', [CategoryController::class, 'customFields'])
             ->whereNumber('categoryId');
-        Route::post('categories/{categoryId}/custom-fields', [CategoryUpdateController::class, 'updateCustomFields'])
+        Route::put('categories/{categoryId}/custom-fields', [CategoryUpdateController::class, 'updateCustomFields'])
             ->whereNumber('categoryId');
 
         // Brand endpoints
@@ -166,7 +166,7 @@ Route::middleware([ValidateSupabaseJwtMiddleware::class, EnsureUserApprovedMiddl
             ->whereNumber('brandId');
         Route::get('brands/{brandId}/custom-fields', [BrandController::class, 'customFields'])
             ->whereNumber('brandId');
-        Route::post('brands/{brandId}/custom-fields', [BrandUpdateController::class, 'updateCustomFields'])
+        Route::put('brands/{brandId}/custom-fields', [BrandUpdateController::class, 'updateCustomFields'])
             ->whereNumber('brandId');
 
         Route::get('filter-groups', [FilterGroupController::class, 'index']);

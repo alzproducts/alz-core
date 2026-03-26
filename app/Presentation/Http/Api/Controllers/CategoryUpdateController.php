@@ -15,8 +15,8 @@ use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\Exceptions\ValidationFailedException;
 use App\Domain\ValueObjects\IntId;
-use App\Presentation\Http\Api\DTOs\UpdateCategoryCustomFieldsRequestDTO;
 use App\Presentation\Http\Api\DTOs\UpdateCategoryFieldsRequestDTO;
+use App\Presentation\Http\Api\DTOs\UpdateCustomFieldsRequestDTO;
 use Illuminate\Http\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -62,7 +62,7 @@ final readonly class CategoryUpdateController
      * @throws DatabaseOperationFailedException When custom field registry fails to load
      * @throws DuplicateRecordException On constraint violation
      */
-    public function updateCustomFields(int $categoryId, UpdateCategoryCustomFieldsRequestDTO $data): JsonResponse
+    public function updateCustomFields(int $categoryId, UpdateCustomFieldsRequestDTO $data): JsonResponse
     {
         $this->customFieldsUseCase->execute(
             categoryId: IntId::from($categoryId),

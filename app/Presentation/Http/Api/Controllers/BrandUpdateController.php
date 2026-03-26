@@ -15,8 +15,8 @@ use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\Exceptions\ValidationFailedException;
 use App\Domain\ValueObjects\IntId;
-use App\Presentation\Http\Api\DTOs\UpdateBrandCustomFieldsRequestDTO;
 use App\Presentation\Http\Api\DTOs\UpdateBrandFieldsRequestDTO;
+use App\Presentation\Http\Api\DTOs\UpdateCustomFieldsRequestDTO;
 use Illuminate\Http\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -62,7 +62,7 @@ final readonly class BrandUpdateController
      * @throws DatabaseOperationFailedException When custom field registry fails to load
      * @throws DuplicateRecordException On constraint violation
      */
-    public function updateCustomFields(int $brandId, UpdateBrandCustomFieldsRequestDTO $data): JsonResponse
+    public function updateCustomFields(int $brandId, UpdateCustomFieldsRequestDTO $data): JsonResponse
     {
         $this->customFieldsUseCase->execute(
             brandId: IntId::from($brandId),

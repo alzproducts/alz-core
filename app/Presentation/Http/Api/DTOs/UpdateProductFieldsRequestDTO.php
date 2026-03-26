@@ -4,18 +4,18 @@ declare(strict_types=1);
 
 namespace App\Presentation\Http\Api\DTOs;
 
-use Illuminate\Validation\Validator;
+use App\Presentation\Http\Api\Traits\RejectsUnknownFieldKeysTrait;
 use Spatie\LaravelData\Data;
 
 /**
  * Request validation for PUT /api/products/{productId}.
  *
  * Validates the `fields` body payload as a key-value map with mixed types.
- * Unknown keys are rejected via an after-validation hook.
+ * Unknown keys are rejected via RejectsUnknownFieldKeysTrait.
  */
 final class UpdateProductFieldsRequestDTO extends Data
 {
-    private const array ALLOWED_KEYS = ['title', 'description', 'meta_title', 'meta_description', 'categories', 'sort_order'];
+    use RejectsUnknownFieldKeysTrait;
 
     /**
      * @param array<string, mixed> $fields Field name => value pairs
@@ -41,21 +41,11 @@ final class UpdateProductFieldsRequestDTO extends Data
         ];
     }
 
-    public static function withValidator(Validator $validator): void
+    /**
+     * @return list<string>
+     */
+    protected static function allowedFieldKeys(): array
     {
-        $validator->after(static function (Validator $validator): void {
-            $fields = $validator->getValue('fields');
-
-            if (! \is_array($fields)) {
-                return;
-            }
-
-            /** @var array<string, mixed> $fields */
-            $unknownKeys = \array_diff(\array_keys($fields), self::ALLOWED_KEYS);
-
-            foreach ($unknownKeys as $key) {
-                $validator->errors()->add('fields.' . $key, 'Unknown field: ' . $key);
-            }
-        });
+        return ['title', 'description', 'meta_title', 'meta_description', 'categories', 'sort_order'];
     }
 }

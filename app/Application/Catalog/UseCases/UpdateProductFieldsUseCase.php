@@ -10,8 +10,8 @@ use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\ResourceNotAvailableException;
+use App\Domain\Exceptions\UnsupportedFieldException;
 use App\Domain\ValueObjects\IntId;
-use LogicException;
 use Psr\Log\LoggerInterface;
 use Webmozart\Assert\Assert;
 
@@ -70,7 +70,7 @@ final readonly class UpdateProductFieldsUseCase
                 'meta_description' => self::mapStringField($name, $value),
                 'categories' => self::mapCategoriesField($value),
                 'sort_order' => self::mapSortOrderField($value),
-                default => throw new LogicException("Unknown product field: {$name}"),
+                default => throw new UnsupportedFieldException($name, 'product'),
             };
         }
 
@@ -86,7 +86,7 @@ final readonly class UpdateProductFieldsUseCase
             'description' => ProductFieldUpdate::description($value),
             'meta_title' => ProductFieldUpdate::metaTitle($value),
             'meta_description' => ProductFieldUpdate::metaDescription($value),
-            default => throw new LogicException("Unknown string field: {$name}"),
+            default => throw new UnsupportedFieldException($name, 'product'),
         };
     }
 

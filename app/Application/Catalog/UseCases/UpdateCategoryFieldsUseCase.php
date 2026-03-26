@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace App\Application\Catalog\UseCases;
 
-use App\Application\Contracts\Shopwired\CategoryFieldUpdateClientInterface;
+use App\Application\Contracts\Shopwired\CategoryUpdateClientInterface;
 use App\Domain\Catalog\Category\ValueObjects\CategoryFieldUpdate;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\ResourceNotAvailableException;
+use App\Domain\Exceptions\UnsupportedFieldException;
 use App\Domain\ValueObjects\IntId;
-use LogicException;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -23,7 +23,7 @@ use Psr\Log\LoggerInterface;
 final readonly class UpdateCategoryFieldsUseCase
 {
     public function __construct(
-        private CategoryFieldUpdateClientInterface $fieldUpdateClient,
+        private CategoryUpdateClientInterface $updateClient,
         private LoggerInterface $logger,
     ) {}
 
@@ -49,11 +49,11 @@ final readonly class UpdateCategoryFieldsUseCase
                 'description' => CategoryFieldUpdate::description($value),
                 'meta_title' => CategoryFieldUpdate::metaTitle($value),
                 'meta_description' => CategoryFieldUpdate::metaDescription($value),
-                default => throw new LogicException("Unknown category field: {$name}"),
+                default => throw new UnsupportedFieldException($name, 'category'),
             };
         }
 
-        $this->fieldUpdateClient->update($categoryId->value, ...$updates);
+        $this->updateClient->update($categoryId->value, ...$updates);
 
         $this->logger->info('Updated category fields', [
             'category_id' => $categoryId->value,
