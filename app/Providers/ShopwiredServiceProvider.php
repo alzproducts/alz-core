@@ -23,6 +23,7 @@ use App\Application\Contracts\Shopwired\CustomerWebhookEventResolverInterface;
 use App\Application\Contracts\Shopwired\CustomerWebhookParserInterface;
 use App\Application\Contracts\Shopwired\CustomFieldClientInterface;
 use App\Application\Contracts\Shopwired\CustomFieldRepositoryInterface;
+use App\Application\Contracts\Shopwired\CustomFieldValueFactoryInterface;
 use App\Application\Contracts\Shopwired\FilterGroupClientInterface;
 use App\Application\Contracts\Shopwired\FilterGroupRepositoryInterface;
 use App\Application\Contracts\Shopwired\OrderClientInterface;
@@ -67,6 +68,7 @@ use App\Infrastructure\Shopwired\Clients\ProductFieldUpdateClient;
 use App\Infrastructure\Shopwired\Clients\ProductUpdateClient;
 use App\Infrastructure\Shopwired\Dispatchers\QueuedSaleReconciliationDispatcher;
 use App\Infrastructure\Shopwired\Dispatchers\QueuedShopwiredSyncDispatcher;
+use App\Infrastructure\Shopwired\Factories\CustomFieldValueFactory;
 use App\Infrastructure\Shopwired\Factories\ProductCustomFieldFactory;
 use App\Infrastructure\Shopwired\Factories\ProductDomainFactory;
 use App\Infrastructure\Shopwired\Factories\ProductFilterFactory;
@@ -189,6 +191,7 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
         // All scoped to prevent stale state in Octane
         $this->app->scoped(ProductDomainFactory::class);
         $this->app->scoped(ProductCustomFieldFactory::class);
+        $this->app->scoped(CustomFieldValueFactoryInterface::class, CustomFieldValueFactory::class);
         $this->app->scoped(ProductFilterFactory::class);
         $this->app->scoped(ProductCostPriceFactory::class);
         $this->app->scoped(ProductVariationModelMapper::class);
@@ -304,6 +307,7 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
             OrderWebhookParserInterface::class,
             ProductClientInterface::class,
             ProductCustomFieldFactory::class,
+            CustomFieldValueFactoryInterface::class,
             ProductFieldUpdateClientInterface::class,
             ProductDomainFactory::class,
             ProductFilterFactory::class,

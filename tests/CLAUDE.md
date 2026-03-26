@@ -192,23 +192,53 @@ Fix: use `Queue::fake()` to prevent real dispatch, but verify the happy path via
 
 ---
 
-## Debugging pre-push hook test failures
+## Debugging test failures
 
-When tests pass locally but fail only during `git push` (pre-push hook), enable debug output:
+### Pre-push hook says "Tests failed!" but all tests look like they pass
 
+**Check Redis first**: `make redis` — if Redis is down, cache-dependent tests fail silently in `--parallel` mode.
+
+**Root cause**: `--parallel` (ParaTest) hides warnings and error details. PHPUnit warnings (not just failures) trigger exit code 1 when `failOnWarning="true"` in `phpunit.xml`. The parallel runner shows all dots as passes but returns non-zero.
+
+**Step 1 — Get the real error** by running sequentially and capturing output:
 ```bash
-# Add to .env temporarily:
-GITHOOKS_DEBUG_OUTPUT=true
-GITHOOKS_DEBUG_COMMANDS=true
-GITHOOKS_OUTPUT_ERRORS=true
+php vendor/bin/pest --no-progress > tmp/test-output.txt 2>&1; echo "EXIT: $?"
+cat tmp/test-output.txt | sed 's/\x1b\[[0-9;]*m//g' | tail -30
 ```
 
-Capture full output to a file (hook output gets truncated by ANSI codes):
+**Step 2 — Look for warnings (`!`)** in sequential output. Common causes:
+
+| Warning | Cause | Fix |
+|---------|-------|-----|
+| `not a valid target for code coverage` | `#[CoversClass]` on a class excluded in `phpunit.xml` (e.g. `*Factory.php`) | Use `#[CoversNothing]` instead |
+| Deprecation notices (`!` markers) | PHP 8.4 deprecations in app code | Fix the deprecated usage, or set `failOnDeprecation="false"` in `phpunit.xml` |
+| Skipped tests (`s` markers) | `markTestSkipped()` in `--parallel` mode | ParaTest may return exit 1 for skips — investigate the skip or exclude the test from parallel runs |
+
+**Step 3 — If output is truncated** (Claude Code / CI), redirect to a file and read the tail:
 ```bash
-git push origin my-branch > /tmp/push-output.txt 2>&1
-# Then strip ANSI and find failures:
-cat /tmp/push-output.txt | sed 's/\x1b\[[0-9;]*m//g' | grep -E "FAIL|⨯|Tests:|Error"
+make test > tmp/test-output.txt 2>&1
+cat tmp/test-output.txt | sed 's/\x1b\[[0-9;]*m//g' | tail -30
 ```
+
+### phpunit.xml exit code flags
+
+These flags in `phpunit.xml` control whether issues cause exit code 1:
+```xml
+failOnWarning="true"        <!-- PHPUnit warnings → exit 1 (our default) -->
+failOnDeprecation="false"   <!-- PHP deprecation notices → exit 0 -->
+failOnNotice="true"         <!-- PHP notices → exit 1 -->
+failOnPhpunitDeprecation="false"  <!-- PHPUnit internal deprecations → exit 0 -->
+```
+
+### GITHOOKS_DEBUG env vars
+
+Add to `.env` to debug the `igorsgm/laravel-git-hooks` package:
+```bash
+GITHOOKS_DEBUG_OUTPUT=true    # Show full output of each hook command
+GITHOOKS_DEBUG_COMMANDS=true  # Show the commands being executed
+GITHOOKS_OUTPUT_ERRORS=true   # Show error output from hooks
+```
+**Note**: These only affect the package's built-in analyzers (Pint, Larastan pre-commit hooks). Our custom `AbstractProcessHook` (used for Pest, Deptrac, TLint pre-push) uses Symfony Process directly and outputs results via `$process->getOutput()` — the debug flags above have no effect on it. For pre-push debugging, use Step 1 above.
 
 ---
 

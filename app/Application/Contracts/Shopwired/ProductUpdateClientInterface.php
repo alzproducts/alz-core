@@ -26,7 +26,7 @@ interface ProductUpdateClientInterface
      * explicitly included in the update.
      *
      * @param int $productId ShopWired product ID
-     * @param array<string, string|int|bool|null> $customFields Field name => value pairs
+     * @param array<string, string|int|bool|list<string>|list<int>|null> $customFields Field name => value pairs
      *                                                          (null removes the field)
      *
      * @throws ResourceNotAvailableException When product not found (404)

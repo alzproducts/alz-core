@@ -4,18 +4,22 @@ declare(strict_types=1);
 
 namespace App\Presentation\Http\Api\Controllers;
 
+use App\Application\Catalog\UseCases\GetProductCustomFieldsUseCase;
 use App\Application\Catalog\UseCases\GetProductUseCase;
 use App\Application\Catalog\UseCases\ListProductsUseCase;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
+use App\Domain\Catalog\CustomFields\ValueObjects\AbstractCustomFieldValue;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use App\Presentation\Http\Api\DTOs\GetProductCustomFieldsRequestDTO;
 use App\Presentation\Http\Api\DTOs\ListProductsRequestDTO;
 use App\Presentation\Http\Api\DTOs\ShowProductRequestDTO;
 use App\Presentation\Http\Api\Resources\ProductDetailResource;
 use App\Presentation\Http\Api\Resources\ProductResource;
 use App\Presentation\Http\Api\Traits\BuildsPaginatedResponseTrait;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\ResourceCollection;
 
 /**
@@ -34,6 +38,7 @@ final readonly class ProductController
     public function __construct(
         private ListProductsUseCase $listProductsUseCase,
         private GetProductUseCase $getProductUseCase,
+        private GetProductCustomFieldsUseCase $getProductCustomFieldsUseCase,
     ) {}
 
     /**
@@ -72,5 +77,29 @@ final readonly class ProductController
         );
 
         return new ProductDetailResource($result);
+    }
+
+    /**
+     * Get enriched custom fields for a product.
+     *
+     * @throws ResourceNotFoundException When product not found
+     * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
+     * @throws DatabaseOperationFailedException On query failure
+     * @throws DuplicateRecordException On constraint violation
+     * @throws ExternalServiceUnavailableException When database temporarily unavailable
+     */
+    public function customFields(int $productId, GetProductCustomFieldsRequestDTO $data): JsonResponse
+    {
+        $fields = $this->getProductCustomFieldsUseCase->execute(
+            productId: $productId,
+            fieldNames: $data->fieldNames(),
+        );
+
+        return new JsonResponse([
+            'data' => \array_map(
+                static fn(AbstractCustomFieldValue $field): array => $field->toArray(),
+                $fields,
+            ),
+        ]);
     }
 }

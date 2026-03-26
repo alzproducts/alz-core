@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Presentation\Http\Controllers\Shopwired;
 
+use App\Application\Catalog\UseCases\UpdateProductCustomFieldsUseCase;
 use App\Application\Shopwired\PricingUpdate\Results\FailedPriceUpdateResult;
 use App\Application\Shopwired\PricingUpdate\Results\SkippedPriceUpdateResult;
 use App\Application\Shopwired\PricingUpdate\UseCases\UpdateProductPricesUseCase;
@@ -12,12 +13,17 @@ use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\Product\Commands\SetFreeDeliveryCommand;
 use App\Domain\Catalog\Product\Commands\UpdatePriceCommand;
 use App\Domain\Catalog\Product\Enums\FreeDeliveryType;
+use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
+use App\Domain\Exceptions\Api\ResourceNotAvailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
-use App\Domain\Exceptions\UserInputValidationFailedException;
+use App\Domain\Exceptions\ValidationFailedException;
+use App\Domain\ValueObjects\IntId;
+use App\Presentation\Http\Api\DTOs\UpdateProductCustomFieldsRequestDTO;
 use App\Presentation\Http\Requests\SetFreeDeliveryRequest;
 use App\Presentation\Http\Shopwired\DTOs\SkuPriceUpdateDTO;
 use App\Presentation\Http\Shopwired\DTOs\UpdateProductPricesDTO;
@@ -35,6 +41,7 @@ final readonly class ProductUpdateController
     public function __construct(
         private DispatchProductFreeDeliveryJobsUseCase $dispatchUseCase,
         private UpdateProductPricesUseCase $priceUseCase,
+        private UpdateProductCustomFieldsUseCase $customFieldsUseCase,
     ) {}
 
     /**
@@ -85,7 +92,7 @@ final readonly class ProductUpdateController
      * @throws DatabaseOperationFailedException When local product lookup fails
      * @throws DuplicateRecordException On sale settings DB constraint violation
      * @throws InvalidCustomFieldValueException When custom field mapping fails
-     * @throws UserInputValidationFailedException When any submitted price fails VAT round-trip check
+     * @throws ValidationFailedException When any submitted price fails VAT round-trip check
      */
     public function updatePrices(UpdateProductPricesDTO $data, string $productId): JsonResponse
     {
@@ -124,5 +131,27 @@ final readonly class ProductUpdateController
                 $result->temporaryFailures,
             ),
         ]);
+    }
+
+    /**
+     * Update custom fields on a product.
+     *
+     * @throws ValidationFailedException When fields fail validation
+     * @throws ResourceNotAvailableException When product not found (404)
+     * @throws InvalidApiRequestException When request parameters are invalid (400)
+     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
+     * @throws ExternalServiceUnavailableException When API unavailable or connection fails
+     * @throws InvalidApiResponseException When response parsing fails
+     * @throws DatabaseOperationFailedException When custom field registry fails to load
+     * @throws DuplicateRecordException On constraint violation
+     */
+    public function updateCustomFields(int $productId, UpdateProductCustomFieldsRequestDTO $data): JsonResponse
+    {
+        $this->customFieldsUseCase->execute(
+            productId: IntId::from($productId),
+            rawFields: $data->custom_fields,
+        );
+
+        return new JsonResponse(null, Response::HTTP_NO_CONTENT);
     }
 }
