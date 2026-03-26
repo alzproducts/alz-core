@@ -71,6 +71,13 @@ final class CustomFieldFactory
                 continue;
             }
 
+            // Null means "clear this field" — skip type validation (same as write path).
+            // The merge logic in GetProductCustomFieldsUseCase::mergeWithDefinitions()
+            // fills null gaps with NullCustomFieldValue for API responses.
+            if ($value === null) {
+                continue;
+            }
+
             $result[] = CustomFieldValueFactory::createTypedValueFromDefinition($definition, $value);
         }
 
