@@ -6,6 +6,7 @@ namespace App\Presentation\Http\Api\Controllers;
 
 use App\Application\Catalog\UseCases\GetBrandUseCase;
 use App\Application\Catalog\UseCases\ListBrandsUseCase;
+use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
@@ -23,6 +24,7 @@ use Illuminate\Http\Resources\Json\ResourceCollection;
  * @throws DatabaseOperationFailedException
  * @throws DuplicateRecordException
  * @throws ExternalServiceUnavailableException
+ * @throws InvalidCustomFieldValueException
  * @throws ResourceNotFoundException
  */
 final readonly class BrandController
@@ -40,6 +42,7 @@ final readonly class BrandController
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
+     * @throws InvalidCustomFieldValueException
      */
     public function index(ListBrandsRequestDTO $data): ResourceCollection
     {
@@ -59,6 +62,7 @@ final readonly class BrandController
      * @throws DatabaseOperationFailedException On query failure
      * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
+     * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
      */
     public function show(int $brandId, ShowBrandRequestDTO $data): BrandDetailResource
     {

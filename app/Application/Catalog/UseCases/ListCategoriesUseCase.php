@@ -7,6 +7,7 @@ namespace App\Application\Catalog\UseCases;
 use App\Application\Contracts\Shopwired\CategoryRepositoryInterface;
 use App\Application\DTOs\PaginatedListDTO;
 use App\Domain\Catalog\Category\ValueObjects\CategoryView;
+use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
@@ -32,6 +33,7 @@ final readonly class ListCategoriesUseCase
      * @throws DatabaseOperationFailedException On query failure
      * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
+     * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
      */
     public function execute(int $perPage, int $page, array $includes = [], bool $includeInactive = false): PaginatedListDTO
     {

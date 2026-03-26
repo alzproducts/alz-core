@@ -46,7 +46,6 @@ final class BrandResource extends JsonResource
             'sort_order' => $brand->sortOrder,
             'meta_title' => $brand->metaTitle,
             'meta_description' => $brand->metaDescription,
-            'meta_keywords' => $brand->metaKeywords,
             'image_url' => $brand->image?->url,
             'created_at' => $brand->createdAt->format(DateTimeInterface::ATOM),
         ];

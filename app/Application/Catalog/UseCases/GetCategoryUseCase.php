@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Application\Catalog\UseCases;
 
 use App\Application\Contracts\Shopwired\CategoryRepositoryInterface;
+use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
@@ -31,6 +32,7 @@ final readonly class GetCategoryUseCase
      * @throws DatabaseOperationFailedException On query failure
      * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
+     * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
      */
     public function execute(int $categoryId, array $includes = []): GetCategoryResult
     {

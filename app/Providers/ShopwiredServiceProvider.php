@@ -55,6 +55,7 @@ use App\Application\Shopwired\UseCases\Webhooks\SyncOrderUseCase;
 use App\Application\Shopwired\UseCases\Webhooks\SyncProductUseCase;
 use App\Application\Shopwired\UseCases\Webhooks\UpdateOrderStatusUseCase;
 use App\Application\Shopwired\UseCases\Webhooks\UpdateProductStockUseCase;
+use App\Domain\Catalog\CustomFields\Enums\CustomFieldItemType;
 use App\Domain\Exceptions\InvalidConfigurationException;
 use App\Infrastructure\Catalog\Product\Factories\ProductCostPriceFactory;
 use App\Infrastructure\Catalog\Product\Mappers\ProductModelMapper;
@@ -68,8 +69,8 @@ use App\Infrastructure\Shopwired\Clients\ProductFieldUpdateClient;
 use App\Infrastructure\Shopwired\Clients\ProductUpdateClient;
 use App\Infrastructure\Shopwired\Dispatchers\QueuedSaleReconciliationDispatcher;
 use App\Infrastructure\Shopwired\Dispatchers\QueuedShopwiredSyncDispatcher;
+use App\Infrastructure\Shopwired\Factories\CustomFieldFactory;
 use App\Infrastructure\Shopwired\Factories\CustomFieldValueFactory;
-use App\Infrastructure\Shopwired\Factories\ProductCustomFieldFactory;
 use App\Infrastructure\Shopwired\Factories\ProductDomainFactory;
 use App\Infrastructure\Shopwired\Factories\ProductFilterFactory;
 use App\Infrastructure\Shopwired\Parsers\ShopwiredBrandWebhookParser;
@@ -176,8 +177,9 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
         $this->app->singleton(OrderRepositoryInterface::class, EloquentOrderRepository::class);
         $this->app->singleton(CustomerRepositoryInterface::class, EloquentCustomerRepository::class);
         $this->app->singleton(CustomFieldRepositoryInterface::class, EloquentCustomFieldRepository::class);
-        $this->app->singleton(CategoryRepositoryInterface::class, EloquentCategoryRepository::class);
-        $this->app->singleton(BrandRepositoryInterface::class, EloquentBrandRepository::class);
+        // Scoped: holds CustomFieldFactory with lazy-loaded registry (Octane isolation)
+        $this->app->scoped(CategoryRepositoryInterface::class, EloquentCategoryRepository::class);
+        $this->app->scoped(BrandRepositoryInterface::class, EloquentBrandRepository::class);
         $this->app->singleton(FilterGroupRepositoryInterface::class, EloquentFilterGroupRepository::class);
         $this->app->singleton(ProductIdentifierResolverInterface::class, ProductIdentifierResolver::class);
         $this->app->singleton(SaleSettingsRepositoryInterface::class, EloquentSaleSettingsRepository::class);
@@ -190,8 +192,30 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
     {
         // All scoped to prevent stale state in Octane
         $this->app->scoped(ProductDomainFactory::class);
-        $this->app->scoped(ProductCustomFieldFactory::class);
         $this->app->scoped(CustomFieldValueFactoryInterface::class, CustomFieldValueFactory::class);
+
+        // CustomFieldFactory is parameterised by item type — use contextual binding
+        // so each consumer gets a factory filtered to its entity's custom fields.
+        $this->app->when(ProductModelMapper::class)
+            ->needs(CustomFieldFactory::class)
+            ->give(static fn(Application $app): CustomFieldFactory => new CustomFieldFactory(
+                $app->make(CustomFieldRepositoryInterface::class),
+                CustomFieldItemType::Product,
+            ));
+
+        $this->app->when(EloquentCategoryRepository::class)
+            ->needs(CustomFieldFactory::class)
+            ->give(static fn(Application $app): CustomFieldFactory => new CustomFieldFactory(
+                $app->make(CustomFieldRepositoryInterface::class),
+                CustomFieldItemType::Category,
+            ));
+
+        $this->app->when(EloquentBrandRepository::class)
+            ->needs(CustomFieldFactory::class)
+            ->give(static fn(Application $app): CustomFieldFactory => new CustomFieldFactory(
+                $app->make(CustomFieldRepositoryInterface::class),
+                CustomFieldItemType::Brand,
+            ));
         $this->app->scoped(ProductFilterFactory::class);
         $this->app->scoped(ProductCostPriceFactory::class);
         $this->app->scoped(ProductVariationModelMapper::class);
@@ -306,7 +330,6 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
             OrderWebhookEventResolverInterface::class,
             OrderWebhookParserInterface::class,
             ProductClientInterface::class,
-            ProductCustomFieldFactory::class,
             CustomFieldValueFactoryInterface::class,
             ProductFieldUpdateClientInterface::class,
             ProductDomainFactory::class,

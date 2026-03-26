@@ -43,12 +43,9 @@ final class CategoryResource extends JsonResource
             'url' => $category->url,
             'active' => $category->active,
             'featured' => $category->featured,
-            'trade_only' => $category->tradeOnly,
             'sort_order' => $category->sortOrder,
             'meta_title' => $category->metaTitle,
             'meta_description' => $category->metaDescription,
-            'meta_keywords' => $category->metaKeywords,
-            'meta_no_index' => $category->metaNoIndex,
             'image_url' => $category->image?->url,
             'created_at' => $category->createdAt->format(DateTimeInterface::ATOM),
         ];

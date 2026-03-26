@@ -26,7 +26,7 @@ use App\Domain\ValueObjects\TaxType;
 use App\Infrastructure\Catalog\Product\Factories\ProductCostPriceFactory;
 use App\Infrastructure\Catalog\Product\Models\ProductModel;
 use App\Infrastructure\Catalog\Product\Models\ProductVariationModel;
-use App\Infrastructure\Shopwired\Factories\ProductCustomFieldFactory;
+use App\Infrastructure\Shopwired\Factories\CustomFieldFactory;
 use App\Infrastructure\Shopwired\Factories\ProductFilterFactory;
 
 /**
@@ -41,7 +41,7 @@ use App\Infrastructure\Shopwired\Factories\ProductFilterFactory;
 final class ProductModelMapper
 {
     public function __construct(
-        private readonly ProductCustomFieldFactory $customFieldFactory,
+        private readonly CustomFieldFactory $customFieldFactory,
         private readonly ProductFilterFactory $filterFactory,
         private readonly ProductCostPriceFactory $costPriceFactory,
         private readonly ProductVariationModelMapper $variationMapper,

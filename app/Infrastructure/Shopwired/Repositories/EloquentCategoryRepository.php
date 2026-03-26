@@ -4,16 +4,20 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Shopwired\Repositories;
 
+use App\Application\Contracts\DatabaseGatewayInterface;
 use App\Application\Contracts\Shopwired\CategoryRepositoryInterface;
 use App\Application\DTOs\PaginatedListDTO;
 use App\Domain\Catalog\Category\ValueObjects\Category;
 use App\Domain\Catalog\Category\ValueObjects\CategoryView;
+use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\IntId;
+use App\Infrastructure\Persistence\EloquentGateway;
 use App\Infrastructure\Repositories\AbstractEloquentRepository;
+use App\Infrastructure\Shopwired\Factories\CustomFieldFactory;
 use App\Infrastructure\Shopwired\Models\CategoryModel;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -29,6 +33,14 @@ final class EloquentCategoryRepository extends AbstractEloquentRepository implem
 {
     /** @var class-string<CategoryModel> */
     private const string MODEL_CLASS = CategoryModel::class;
+
+    public function __construct(
+        DatabaseGatewayInterface $gateway,
+        EloquentGateway $eloquentGateway,
+        private readonly CustomFieldFactory $customFieldFactory,
+    ) {
+        parent::__construct($gateway, $eloquentGateway);
+    }
 
     // ─────────────────────────────────────────────────────────────────────────
     // Interface Implementation
@@ -130,6 +142,7 @@ final class EloquentCategoryRepository extends AbstractEloquentRepository implem
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
+     * @throws InvalidCustomFieldValueException
      */
     public function paginate(int $perPage, int $page, array $includes = [], bool $includeInactive = false): PaginatedListDTO
     {
@@ -143,7 +156,7 @@ final class EloquentCategoryRepository extends AbstractEloquentRepository implem
                 $q->orderBy('sort_order')->orderBy('title');
             },
             relations: [],
-            mapper: static fn(CategoryModel $model): CategoryView => $model->toViewDomain($includes),
+            mapper: fn(CategoryModel $model): CategoryView => $model->toViewDomain($includes, $this->customFieldFactory),
             perPage: $perPage,
             page: $page,
         );
@@ -156,6 +169,7 @@ final class EloquentCategoryRepository extends AbstractEloquentRepository implem
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
+     * @throws InvalidCustomFieldValueException
      */
     public function findCategoryForApi(IntId $categoryId, array $includes = []): CategoryView
     {
@@ -164,7 +178,7 @@ final class EloquentCategoryRepository extends AbstractEloquentRepository implem
             column: 'external_id',
             value: $categoryId->value,
             entityTypeName: 'Category',
-            mapper: static fn(CategoryModel $model): CategoryView => $model->toViewDomain($includes),
+            mapper: fn(CategoryModel $model): CategoryView => $model->toViewDomain($includes, $this->customFieldFactory),
         );
     }
 

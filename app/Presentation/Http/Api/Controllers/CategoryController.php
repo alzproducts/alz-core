@@ -6,6 +6,7 @@ namespace App\Presentation\Http\Api\Controllers;
 
 use App\Application\Catalog\UseCases\GetCategoryUseCase;
 use App\Application\Catalog\UseCases\ListCategoriesUseCase;
+use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
@@ -23,6 +24,7 @@ use Illuminate\Http\Resources\Json\ResourceCollection;
  * @throws DatabaseOperationFailedException
  * @throws DuplicateRecordException
  * @throws ExternalServiceUnavailableException
+ * @throws InvalidCustomFieldValueException
  * @throws ResourceNotFoundException
  */
 final readonly class CategoryController
@@ -40,6 +42,7 @@ final readonly class CategoryController
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
+     * @throws InvalidCustomFieldValueException
      */
     public function index(ListCategoriesRequestDTO $data): ResourceCollection
     {
@@ -59,6 +62,7 @@ final readonly class CategoryController
      * @throws DatabaseOperationFailedException On query failure
      * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
+     * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
      */
     public function show(int $categoryId, ShowCategoryRequestDTO $data): CategoryDetailResource
     {

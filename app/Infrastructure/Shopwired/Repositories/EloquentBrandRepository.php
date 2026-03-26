@@ -4,16 +4,20 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Shopwired\Repositories;
 
+use App\Application\Contracts\DatabaseGatewayInterface;
 use App\Application\Contracts\Shopwired\BrandRepositoryInterface;
 use App\Application\DTOs\PaginatedListDTO;
 use App\Domain\Catalog\Brand\ValueObjects\Brand;
 use App\Domain\Catalog\Brand\ValueObjects\BrandView;
+use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\IntId;
+use App\Infrastructure\Persistence\EloquentGateway;
 use App\Infrastructure\Repositories\AbstractEloquentRepository;
+use App\Infrastructure\Shopwired\Factories\CustomFieldFactory;
 use App\Infrastructure\Shopwired\Models\BrandModel;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -29,6 +33,14 @@ final class EloquentBrandRepository extends AbstractEloquentRepository implement
 {
     /** @var class-string<BrandModel> */
     private const string MODEL_CLASS = BrandModel::class;
+
+    public function __construct(
+        DatabaseGatewayInterface $gateway,
+        EloquentGateway $eloquentGateway,
+        private readonly CustomFieldFactory $customFieldFactory,
+    ) {
+        parent::__construct($gateway, $eloquentGateway);
+    }
 
     // ─────────────────────────────────────────────────────────────────────────
     // Interface Implementation
@@ -126,6 +138,7 @@ final class EloquentBrandRepository extends AbstractEloquentRepository implement
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
+     * @throws InvalidCustomFieldValueException
      */
     public function paginate(int $perPage, int $page, array $includes = [], bool $includeInactive = false): PaginatedListDTO
     {
@@ -139,7 +152,7 @@ final class EloquentBrandRepository extends AbstractEloquentRepository implement
                 $q->orderBy('sort_order')->orderBy('title');
             },
             relations: [],
-            mapper: static fn(BrandModel $model): BrandView => $model->toViewDomain($includes),
+            mapper: fn(BrandModel $model): BrandView => $model->toViewDomain($includes, $this->customFieldFactory),
             perPage: $perPage,
             page: $page,
         );
@@ -152,6 +165,7 @@ final class EloquentBrandRepository extends AbstractEloquentRepository implement
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
+     * @throws InvalidCustomFieldValueException
      */
     public function findBrandForApi(IntId $brandId, array $includes = []): BrandView
     {
@@ -160,7 +174,7 @@ final class EloquentBrandRepository extends AbstractEloquentRepository implement
             column: 'external_id',
             value: $brandId->value,
             entityTypeName: 'Brand',
-            mapper: static fn(BrandModel $model): BrandView => $model->toViewDomain($includes),
+            mapper: fn(BrandModel $model): BrandView => $model->toViewDomain($includes, $this->customFieldFactory),
         );
     }
 

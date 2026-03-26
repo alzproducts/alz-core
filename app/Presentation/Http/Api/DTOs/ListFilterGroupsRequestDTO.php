@@ -18,7 +18,7 @@ final class ListFilterGroupsRequestDTO extends Data
 {
     public function __construct(
         #[IntegerType, Min(1), Max(500)]
-        public readonly int $per_page = 50,
+        public readonly int $per_page = 500,
         #[IntegerType, Min(1)]
         public readonly int $page = 1,
     ) {}

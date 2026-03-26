@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Presentation\Http\Api\DTOs;
 
+use App\Presentation\Http\Api\Enums\CategoryIncludeEnum;
 use App\Presentation\Http\Api\Traits\ValidatesIncludesTrait;
 use Spatie\LaravelData\Attributes\Validation\Nullable;
 use Spatie\LaravelData\Attributes\Validation\StringType;
@@ -39,6 +40,6 @@ final class ShowCategoryRequestDTO extends Data
      */
     public static function allowedIncludes(): array
     {
-        return ['description', 'description2', 'parent_ids', 'custom_fields'];
+        return CategoryIncludeEnum::values();
     }
 }

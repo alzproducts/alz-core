@@ -8,6 +8,7 @@ use App\Application\Contracts\RepositoryWriteInterface;
 use App\Application\DTOs\PaginatedListDTO;
 use App\Domain\Catalog\Category\ValueObjects\Category;
 use App\Domain\Catalog\Category\ValueObjects\CategoryView;
+use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
@@ -75,6 +76,7 @@ interface CategoryRepositoryInterface extends RepositoryWriteInterface
      * @throws DatabaseOperationFailedException On query failure
      * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
+     * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
      */
     public function paginate(int $perPage, int $page, array $includes = [], bool $includeInactive = false): PaginatedListDTO;
 
@@ -89,6 +91,7 @@ interface CategoryRepositoryInterface extends RepositoryWriteInterface
      * @throws DatabaseOperationFailedException On query failure
      * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
+     * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
      */
     public function findCategoryForApi(IntId $categoryId, array $includes = []): CategoryView;
 }

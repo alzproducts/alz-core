@@ -8,6 +8,7 @@ use App\Application\Catalog\UseCases\GetProductResult;
 use App\Domain\Catalog\CustomFields\ValueObjects\AbstractCustomFieldValue;
 use App\Domain\Catalog\Filters\ValueObjects\ProductFilter;
 use App\Domain\ValueObjects\IntId;
+use App\Presentation\Http\Api\Enums\ProductIncludeEnum;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -32,36 +33,36 @@ final class ProductDetailResource extends JsonResource
 
         $data = ProductResource::baseFields($product);
 
-        if ($result->hasInclude('variations') && $product->variations !== null) {
+        if ($result->hasInclude(ProductIncludeEnum::Variations->value) && $product->variations !== null) {
             $data['variations'] = ProductVariationResource::collection($product->variations);
         }
 
-        if ($result->hasInclude('description')) {
+        if ($result->hasInclude(ProductIncludeEnum::Description->value)) {
             $data['description'] = $product->description;
         }
 
-        if ($result->hasInclude('category_ids')) {
+        if ($result->hasInclude(ProductIncludeEnum::CategoryIds->value)) {
             $data['category_ids'] = \array_map(
                 static fn(IntId $id): int => $id->value,
                 $product->categoryIds,
             );
         }
 
-        if ($result->hasInclude('custom_fields')) {
+        if ($result->hasInclude(ProductIncludeEnum::CustomFields->value)) {
             $data['custom_fields'] = \array_map(
                 static fn(AbstractCustomFieldValue $field): array => $field->toArray(),
                 $product->customFields,
             );
         }
 
-        if ($result->hasInclude('filters')) {
+        if ($result->hasInclude(ProductIncludeEnum::Filters->value)) {
             $data['filters'] = \array_map(
                 static fn(ProductFilter $filter): array => $filter->toArray(),
                 $product->filters,
             );
         }
 
-        if ($result->hasInclude('sale_settings') && $product->saleSettings !== null) {
+        if ($result->hasInclude(ProductIncludeEnum::SaleSettings->value) && $product->saleSettings !== null) {
             $data['sale_settings'] = $product->saleSettings->toArray();
         }
 

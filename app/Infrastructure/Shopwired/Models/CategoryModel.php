@@ -7,11 +7,17 @@ namespace App\Infrastructure\Shopwired\Models;
 use App\Domain\Catalog\Category\ValueObjects\Category;
 use App\Domain\Catalog\Category\ValueObjects\CategoryImage;
 use App\Domain\Catalog\Category\ValueObjects\CategoryView;
+use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
+use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
+use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\IntId;
 use App\Infrastructure\Contracts\EloquentDomainMappableInterface;
+use App\Infrastructure\Shopwired\Factories\CustomFieldFactory;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
+use Webmozart\Assert\Assert;
 
 /**
  * Eloquent model for shopwired.categories table.
@@ -106,9 +112,21 @@ final class CategoryModel extends Model implements EloquentDomainMappableInterfa
      * based on the includes list. Unloaded fields are null.
      *
      * @param list<string> $includes Embed names to load
+     *
+     * @throws InvalidCustomFieldValueException When value type mismatches definition
+     * @throws ExternalServiceUnavailableException When database temporarily unavailable
+     * @throws DatabaseOperationFailedException When custom field registry fails to load
+     * @throws DuplicateRecordException On constraint violation
      */
-    public function toViewDomain(array $includes = []): CategoryView
+    public function toViewDomain(array $includes = [], ?CustomFieldFactory $customFieldFactory = null): CategoryView
     {
+        $customFields = null;
+
+        if (\in_array('custom_fields', $includes, true)) {
+            Assert::notNull($customFieldFactory, 'CustomFieldFactory required when custom_fields included');
+            $customFields = $customFieldFactory->fromRawFields($this->custom_fields);
+        }
+
         return new CategoryView(
             id: IntId::fromTrusted($this->external_id),
             title: $this->title,
@@ -116,12 +134,9 @@ final class CategoryModel extends Model implements EloquentDomainMappableInterfa
             url: $this->url,
             active: $this->active,
             featured: $this->featured,
-            tradeOnly: $this->trade_only,
             sortOrder: $this->sort_order,
             metaTitle: $this->meta_title,
             metaDescription: $this->meta_description,
-            metaKeywords: $this->meta_keywords,
-            metaNoIndex: $this->meta_no_index,
             image: $this->image_url !== null ? new CategoryImage($this->image_url) : null,
             createdAt: $this->shopwired_created_at->toDateTimeImmutable(),
             description: \in_array('description', $includes, true) ? $this->description : null,
@@ -129,7 +144,7 @@ final class CategoryModel extends Model implements EloquentDomainMappableInterfa
             parentIds: \in_array('parent_ids', $includes, true)
                 ? \array_map(static fn(int $id): IntId => IntId::fromTrusted($id), $this->parent_ids)
                 : null,
-            customFields: \in_array('custom_fields', $includes, true) ? $this->custom_fields : null,
+            customFields: $customFields,
         );
     }
 
