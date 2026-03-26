@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Application\Contracts\Shopwired;
 
 use App\Application\Contracts\RepositoryWriteInterface;
-use App\Domain\Catalog\ValueObjects\Brand;
+use App\Application\DTOs\PaginatedListDTO;
+use App\Domain\Catalog\Brand\ValueObjects\Brand;
+use App\Domain\Catalog\Brand\ValueObjects\BrandView;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
@@ -62,4 +64,31 @@ interface BrandRepositoryInterface extends RepositoryWriteInterface
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      */
     public function deleteByExternalId(IntId $externalId): void;
+
+    /**
+     * Paginate brands with optional includes and active filtering.
+     *
+     * @param list<string> $includes Embed names to conditionally load
+     *
+     * @return PaginatedListDTO<BrandView>
+     *
+     * @throws DatabaseOperationFailedException On query failure
+     * @throws DuplicateRecordException On constraint violation
+     * @throws ExternalServiceUnavailableException When database temporarily unavailable
+     */
+    public function paginate(int $perPage, int $page, array $includes = [], bool $includeInactive = false): PaginatedListDTO;
+
+    /**
+     * Find a brand by external ID for the API.
+     *
+     * Returns any brand regardless of active status (404 only if ID doesn't exist).
+     *
+     * @param list<string> $includes Embed names to load
+     *
+     * @throws ResourceNotFoundException When no brand matches the ID
+     * @throws DatabaseOperationFailedException On query failure
+     * @throws DuplicateRecordException On constraint violation
+     * @throws ExternalServiceUnavailableException When database temporarily unavailable
+     */
+    public function findBrandForApi(IntId $brandId, array $includes = []): BrandView;
 }

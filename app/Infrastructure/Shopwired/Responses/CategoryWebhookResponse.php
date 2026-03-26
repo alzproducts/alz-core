@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Shopwired\Responses;
 
-use App\Domain\Catalog\ValueObjects\Category as DomainCategory;
+use App\Domain\Catalog\Category\ValueObjects\Category as DomainCategory;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use DateMalformedStringException;
 use DateTimeImmutable;

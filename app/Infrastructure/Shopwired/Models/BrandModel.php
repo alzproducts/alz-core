@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Shopwired\Models;
 
-use App\Domain\Catalog\ValueObjects\Brand;
-use App\Domain\Catalog\ValueObjects\BrandImage;
+use App\Domain\Catalog\Brand\ValueObjects\Brand;
+use App\Domain\Catalog\Brand\ValueObjects\BrandImage;
+use App\Domain\Catalog\Brand\ValueObjects\BrandView;
+use App\Domain\ValueObjects\IntId;
 use App\Infrastructure\Contracts\EloquentDomainMappableInterface;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
@@ -83,6 +85,34 @@ final class BrandModel extends Model implements EloquentDomainMappableInterface
             metaDescription: $this->meta_description,
             image: $this->image_url !== null ? new BrandImage($this->image_url) : null,
             customFields: $this->custom_fields,
+        );
+    }
+
+    /**
+     * Convert this Eloquent model to the API view projection.
+     *
+     * Conditionally loads description and customFields based on the includes list.
+     * Unloaded fields are null.
+     *
+     * @param list<string> $includes Embed names to load
+     */
+    public function toViewDomain(array $includes = []): BrandView
+    {
+        return new BrandView(
+            id: IntId::fromTrusted($this->external_id),
+            title: $this->title,
+            slug: $this->slug,
+            url: $this->url,
+            active: $this->active,
+            featured: $this->featured,
+            sortOrder: $this->sort_order,
+            metaTitle: $this->meta_title,
+            metaDescription: $this->meta_description,
+            metaKeywords: $this->meta_keywords,
+            image: $this->image_url !== null ? new BrandImage($this->image_url) : null,
+            createdAt: $this->shopwired_created_at->toDateTimeImmutable(),
+            description: \in_array('description', $includes, true) ? $this->description : null,
+            customFields: \in_array('custom_fields', $includes, true) ? $this->custom_fields : null,
         );
     }
 

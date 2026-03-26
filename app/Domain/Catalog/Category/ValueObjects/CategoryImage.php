@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Domain\Catalog\ValueObjects;
+namespace App\Domain\Catalog\Category\ValueObjects;
 
 /**
  * Category Image Value Object.

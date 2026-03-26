@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Domain\Catalog\ValueObjects;
 
-use App\Domain\Catalog\ValueObjects\Brand;
-use App\Domain\Catalog\ValueObjects\BrandImage;
+use App\Domain\Catalog\Brand\ValueObjects\Brand;
+use App\Domain\Catalog\Brand\ValueObjects\BrandImage;
 use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
