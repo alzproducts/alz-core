@@ -31,7 +31,7 @@ final class CustomFieldValueFactoryTest extends TestCase
         parent::setUp();
 
         $this->repository = Mockery::mock(CustomFieldRepositoryInterface::class);
-        $this->factory = new CustomFieldValueFactory($this->repository);
+        $this->factory = new CustomFieldValueFactory($this->repository, CustomFieldItemType::Product);
     }
 
     // ========================================================================
