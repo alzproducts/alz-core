@@ -118,7 +118,7 @@ Types: `feat` | `fix` | `refactor` | `test` | `docs` | `chore` | `perf` | `ci`
 | Scenario | Action |
 |----------|--------|
 | Pre-commit hook fails | Fix issue, retry commit |
-| Pre-push hook fails | Fix, amend (local-only), retry push |
+| Pre-push hook fails | Check Redis is running (`make redis`), then fix, amend (local-only), retry push |
 | On protected branch | Report error, await instruction |
 | Merge conflict | Report to user, await instruction |
 

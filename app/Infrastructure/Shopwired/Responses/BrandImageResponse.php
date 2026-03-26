@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Shopwired\Responses;
 
-use App\Domain\Catalog\ValueObjects\BrandImage as DomainBrandImage;
+use App\Domain\Catalog\Brand\ValueObjects\BrandImage as DomainBrandImage;
 use App\Infrastructure\Contracts\DomainConvertibleInterface;
 use Spatie\LaravelData\Data;
 use Webmozart\Assert\Assert;

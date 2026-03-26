@@ -6,7 +6,6 @@ namespace Tests\Unit\Domain\Catalog\CustomFields\ValueObjects;
 
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldItemType;
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldType;
-use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldDefinition;
 use App\Domain\Catalog\CustomFields\ValueObjects\StringCustomFieldValue;
 use InvalidArgumentException;
@@ -194,43 +193,79 @@ final class StringCustomFieldValueTest extends TestCase
     }
 
     // ========================================================================
-    // Validation - Invalid Choice Value
+    // Stale Choice Values (read-path tolerance)
     // ========================================================================
 
     #[Test]
-    public function it_rejects_invalid_choice_value(): void
+    public function it_accepts_value_not_in_allowed_list(): void
     {
         $definition = $this->createChoiceDefinition(['Red', 'Green', 'Blue']);
 
-        $this->expectException(InvalidCustomFieldValueException::class);
+        // 'Yellow' was valid when saved but later removed from allowedValues.
+        // The VO must tolerate stale data so the read path never 500s.
+        $value = new StringCustomFieldValue($definition, 'Yellow');
 
-        new StringCustomFieldValue($definition, 'Yellow');
+        self::assertSame('Yellow', $value->value);
+        self::assertSame('Yellow', $value->rawValue());
     }
 
     #[Test]
-    public function it_rejects_invalid_list_value(): void
+    public function it_accepts_stale_list_value(): void
     {
         $definition = $this->createListDefinition(['Small', 'Medium', 'Large']);
 
-        $this->expectException(InvalidCustomFieldValueException::class);
+        $value = new StringCustomFieldValue($definition, 'Extra Large');
 
-        new StringCustomFieldValue($definition, 'Extra Large');
+        self::assertSame('Extra Large', $value->value);
+    }
+
+    // ========================================================================
+    // toArray - AbstractCustomFieldValue
+    // ========================================================================
+
+    #[Test]
+    public function to_array_includes_all_definition_metadata(): void
+    {
+        $definition = new CustomFieldDefinition(
+            id: 10,
+            name: 'material',
+            type: CustomFieldType::Text,
+            label: 'Material',
+            itemType: CustomFieldItemType::Product,
+            sortOrder: 3,
+            allowedValues: null,
+        );
+        $value = new StringCustomFieldValue($definition, 'Cotton');
+
+        $result = $value->toArray();
+
+        self::assertSame('material', $result['name']);
+        self::assertSame('text', $result['type']);
+        self::assertSame('Material', $result['label']);
+        self::assertSame('Cotton', $result['value']);
+        self::assertNull($result['allowed_values']);
+        self::assertSame(3, $result['sort_order']);
     }
 
     #[Test]
-    public function invalid_choice_exception_has_correct_properties(): void
+    public function to_array_includes_null_label_and_sort_order(): void
     {
-        $definition = $this->createChoiceDefinition(['Red', 'Green', 'Blue']);
+        $definition = new CustomFieldDefinition(
+            id: 11,
+            name: 'notes',
+            type: CustomFieldType::Text,
+            label: null,
+            itemType: CustomFieldItemType::Product,
+            sortOrder: null,
+            allowedValues: null,
+        );
+        $value = new StringCustomFieldValue($definition, 'some note');
 
-        try {
-            new StringCustomFieldValue($definition, 'Yellow');
-            self::fail('Expected InvalidCustomFieldValueException');
-        } catch (InvalidCustomFieldValueException $e) {
-            self::assertSame('color', $e->fieldName);
-            self::assertSame(CustomFieldType::Choice, $e->expectedType);
-            self::assertSame('string (invalid choice)', $e->actualType);
-            self::assertSame('Yellow', $e->rawValue);
-        }
+        $result = $value->toArray();
+
+        self::assertNull($result['label']);
+        self::assertNull($result['sort_order']);
+        self::assertSame('some note', $result['value']);
     }
 
     // ========================================================================
