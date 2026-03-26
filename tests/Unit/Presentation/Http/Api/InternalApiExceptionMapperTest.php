@@ -29,15 +29,26 @@ final class InternalApiExceptionMapperTest extends TestCase
 {
     /*
     |--------------------------------------------------------------------------
-    | Non-JSON requests
+    | Non-JSON requests / non-API routes
     |--------------------------------------------------------------------------
     */
 
     #[Test]
     public function render_returns_null_for_non_json_request(): void
     {
-        $request = Request::create('/test', 'GET');
+        $request = Request::create('/api/products', 'GET');
         $exception = new RuntimeException('Something broke');
+
+        $result = InternalApiExceptionMapper::render($exception, $request);
+
+        $this->assertNull($result);
+    }
+
+    #[Test]
+    public function render_returns_null_for_non_api_json_request(): void
+    {
+        $request = Request::create('/horizon/api/stats', 'GET', server: ['HTTP_ACCEPT' => 'application/json']);
+        $exception = new HttpException(401, 'Unauthorized');
 
         $result = InternalApiExceptionMapper::render($exception, $request);
 
@@ -301,6 +312,6 @@ final class InternalApiExceptionMapperTest extends TestCase
 
     private function jsonRequest(): Request
     {
-        return Request::create('/test', 'GET', server: ['HTTP_ACCEPT' => 'application/json']);
+        return Request::create('/api/test', 'GET', server: ['HTTP_ACCEPT' => 'application/json']);
     }
 }

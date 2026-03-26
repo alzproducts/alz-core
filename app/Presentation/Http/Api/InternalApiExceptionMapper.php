@@ -31,18 +31,20 @@ use Throwable;
  * Status codes are specific enough for ops triage from access logs alone.
  *
  * Registered in bootstrap/app.php via $exceptions->render().
- * Only activates when the request expects JSON (guards non-API routes).
+ * Only activates for consumer API routes (/api/*) that expect JSON.
+ * Non-API routes (e.g. /horizon/api/*) fall through to Laravel's default handler,
+ * preserving headers like WWW-Authenticate needed for Basic Auth negotiation.
  */
 final class InternalApiExceptionMapper
 {
     /**
      * Render any exception as a JSON error envelope.
      *
-     * Returns null for non-JSON requests to fall through to Laravel's default handler.
+     * Returns null for non-JSON requests or non-API routes to fall through to Laravel's default handler.
      */
     public static function render(Throwable $e, Request $request): ?JsonResponse
     {
-        if (! $request->expectsJson()) {
+        if (! $request->expectsJson() || ! $request->is('api/*')) {
             return null;
         }
 
