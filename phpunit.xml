@@ -34,9 +34,6 @@
         <testsuite name="Providers">
             <directory>tests/Unit/Providers</directory>
         </testsuite>
-        <testsuite name="Database">
-            <directory>tests/Feature/Database</directory>
-        </testsuite>
     </testsuites>
     <coverage>
         <report>

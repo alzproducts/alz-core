@@ -10,7 +10,6 @@ use App\Domain\Exceptions\Api\TransientApiFailure;
 use App\Domain\Exceptions\DomainException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\Exceptions\Infrastructure\LockAcquisitionException;
-use App\Domain\Exceptions\UserInputValidationFailedException;
 use App\Domain\Exceptions\ValidationFailedException;
 use App\Presentation\Http\Api\Responses\ApiErrorResponseDTO;
 use App\Presentation\Http\Api\Responses\ApiErrorTypeEnum;
@@ -32,18 +31,20 @@ use Throwable;
  * Status codes are specific enough for ops triage from access logs alone.
  *
  * Registered in bootstrap/app.php via $exceptions->render().
- * Only activates when the request expects JSON (guards non-API routes).
+ * Only activates for consumer API routes (/api/*) that expect JSON.
+ * Non-API routes (e.g. /horizon/api/*) fall through to Laravel's default handler,
+ * preserving headers like WWW-Authenticate needed for Basic Auth negotiation.
  */
 final class InternalApiExceptionMapper
 {
     /**
      * Render any exception as a JSON error envelope.
      *
-     * Returns null for non-JSON requests to fall through to Laravel's default handler.
+     * Returns null for non-JSON requests or non-API routes to fall through to Laravel's default handler.
      */
     public static function render(Throwable $e, Request $request): ?JsonResponse
     {
-        if (! $request->expectsJson()) {
+        if (! $request->expectsJson() || ! $request->is('api/*')) {
             return null;
         }
 
@@ -61,7 +62,6 @@ final class InternalApiExceptionMapper
     {
         return match (true) {
             // Domain exceptions (specific before catchall — order matters for inheritance)
-            $e instanceof UserInputValidationFailedException => Response::HTTP_UNPROCESSABLE_ENTITY,
             $e instanceof ValidationFailedException => Response::HTTP_UNPROCESSABLE_ENTITY,
             $e instanceof ResourceNotFoundException => Response::HTTP_NOT_FOUND,
             $e instanceof DuplicateRecordException => Response::HTTP_CONFLICT,
@@ -85,7 +85,6 @@ final class InternalApiExceptionMapper
     private static function errorType(Throwable $e, int $status): ApiErrorTypeEnum
     {
         return match (true) {
-            $e instanceof UserInputValidationFailedException,
             $e instanceof ValidationFailedException,
             $e instanceof ValidationException,
             $e instanceof CannotCreateData => ApiErrorTypeEnum::ValidationError,
@@ -152,10 +151,6 @@ final class InternalApiExceptionMapper
         if ($e instanceof ValidationException) {
             /** @var array<string, mixed> */
             return $e->errors();
-        }
-
-        if ($e instanceof UserInputValidationFailedException && $e->context !== []) {
-            return $e->context;
         }
 
         if ($e instanceof ValidationFailedException && $e->context !== []) {
