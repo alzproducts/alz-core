@@ -28,7 +28,7 @@ use App\Infrastructure\Shopwired\CustomFields\CustomFieldDefinitionRegistry;
  * Throws on ALL errors (unknown fields, type mismatches).
  * Used by the write path for validating user-submitted custom field data.
  *
- * @see ProductCustomFieldFactory For the graceful-degradation version (sync/read path)
+ * @see CustomFieldFactory For the graceful-degradation version (sync/read path)
  *
  * **Lifecycle**: Register with `scoped()` binding to ensure fresh instance per queue job.
  */

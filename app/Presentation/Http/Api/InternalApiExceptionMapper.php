@@ -116,7 +116,7 @@ final class InternalApiExceptionMapper
             return 'The service is temporarily unavailable. Please try again shortly.';
         }
 
-        if ($e instanceof PermanentApiFailure) {
+        if ($e instanceof PermanentApiFailure && ! $e instanceof ResourceNotFoundException) {
             return 'An upstream service encountered an error.';
         }
 

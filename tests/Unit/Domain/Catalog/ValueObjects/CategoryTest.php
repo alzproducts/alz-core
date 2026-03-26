@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Domain\Catalog\ValueObjects;
 
-use App\Domain\Catalog\ValueObjects\Category;
-use App\Domain\Catalog\ValueObjects\CategoryImage;
+use App\Domain\Catalog\Category\ValueObjects\Category;
+use App\Domain\Catalog\Category\ValueObjects\CategoryImage;
 use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;

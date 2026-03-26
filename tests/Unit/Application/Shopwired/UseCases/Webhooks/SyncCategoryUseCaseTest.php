@@ -10,7 +10,7 @@ use App\Application\Contracts\Shopwired\WebhookIdempotencyServiceInterface;
 use App\Application\Shopwired\Enums\WebhookTopic;
 use App\Application\Shopwired\UseCases\Webhooks\AbstractSyncEntityWebhookUseCase;
 use App\Application\Shopwired\UseCases\Webhooks\SyncCategoryUseCase;
-use App\Domain\Catalog\ValueObjects\Category;
+use App\Domain\Catalog\Category\ValueObjects\Category;
 use App\Domain\ValueObjects\IntId;
 use DateTimeImmutable;
 use Mockery;

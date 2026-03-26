@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Infrastructure\Shopwired\Clients;
 
 use App\Application\Contracts\Shopwired\BrandClientInterface;
-use App\Domain\Catalog\ValueObjects\Brand as DomainBrand;
+use App\Domain\Catalog\Brand\ValueObjects\Brand as DomainBrand;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;

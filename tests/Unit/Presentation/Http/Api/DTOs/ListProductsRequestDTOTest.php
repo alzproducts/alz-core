@@ -69,11 +69,11 @@ final class ListProductsRequestDTOTest extends TestCase
     */
 
     #[Test]
-    public function defaults_are_per_page_50_page_1_include_null(): void
+    public function defaults_are_per_page_500_page_1_include_null(): void
     {
         $dto = new ListProductsRequestDTO();
 
-        $this->assertSame(50, $dto->per_page);
+        $this->assertSame(500, $dto->per_page);
         $this->assertSame(1, $dto->page);
         $this->assertNull($dto->include);
     }

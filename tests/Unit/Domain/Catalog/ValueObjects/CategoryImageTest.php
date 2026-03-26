@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Domain\Catalog\ValueObjects;
 
-use App\Domain\Catalog\ValueObjects\CategoryImage;
+use App\Domain\Catalog\Category\ValueObjects\CategoryImage;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;

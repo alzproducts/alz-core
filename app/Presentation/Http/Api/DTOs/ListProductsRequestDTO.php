@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Presentation\Http\Api\DTOs;
 
+use App\Presentation\Http\Api\Enums\ProductIncludeEnum;
 use App\Presentation\Http\Api\Traits\ValidatesIncludesTrait;
 use Spatie\LaravelData\Attributes\Validation\IntegerType;
 use Spatie\LaravelData\Attributes\Validation\Max;
@@ -24,7 +25,7 @@ final class ListProductsRequestDTO extends Data
 
     public function __construct(
         #[IntegerType, Min(1), Max(500)]
-        public readonly int $per_page = 50,
+        public readonly int $per_page = 500,
         #[IntegerType, Min(1)]
         public readonly int $page = 1,
         #[Nullable, StringType]
@@ -46,6 +47,6 @@ final class ListProductsRequestDTO extends Data
      */
     public static function allowedIncludes(): array
     {
-        return ['variations'];
+        return [ProductIncludeEnum::Variations->value];
     }
 }
