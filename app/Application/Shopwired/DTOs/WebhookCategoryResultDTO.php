@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Application\Shopwired\DTOs;
 
-use App\Domain\Catalog\ValueObjects\Category;
+use App\Domain\Catalog\Category\ValueObjects\Category;
 
 /**
  * Result from parsing a category webhook payload.

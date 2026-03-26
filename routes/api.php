@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 use App\Domain\Access\ValueObjects\AuthenticatedUser;
 use App\Infrastructure\Sentry\SentryUserContextMiddleware;
+use App\Presentation\Http\Api\Controllers\BrandController;
+use App\Presentation\Http\Api\Controllers\CategoryController;
+use App\Presentation\Http\Api\Controllers\FilterGroupController;
 use App\Presentation\Http\Api\Controllers\ProductController;
 use App\Presentation\Http\Auth\Middleware\ValidateSupabaseJwtMiddleware;
 use App\Presentation\Http\Controllers\ContactForm\ContactFormController;
@@ -146,4 +149,18 @@ Route::middleware([ValidateSupabaseJwtMiddleware::class, EnsureUserApprovedMiddl
         Route::get('products', [ProductController::class, 'index']);
         Route::get('products/{productId}', [ProductController::class, 'show'])
             ->whereNumber('productId');
+        Route::get('products/{productId}/custom-fields', [ProductController::class, 'customFields'])
+            ->whereNumber('productId');
+        Route::post('products/{productId}/custom-fields', [ProductUpdateController::class, 'updateCustomFields'])
+            ->whereNumber('productId');
+
+        Route::get('categories', [CategoryController::class, 'index']);
+        Route::get('categories/{categoryId}', [CategoryController::class, 'show'])
+            ->whereNumber('categoryId');
+
+        Route::get('brands', [BrandController::class, 'index']);
+        Route::get('brands/{brandId}', [BrandController::class, 'show'])
+            ->whereNumber('brandId');
+
+        Route::get('filter-groups', [FilterGroupController::class, 'index']);
     });

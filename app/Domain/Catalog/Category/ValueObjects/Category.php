@@ -2,20 +2,21 @@
 
 declare(strict_types=1);
 
-namespace App\Domain\Catalog\ValueObjects;
+namespace App\Domain\Catalog\Category\ValueObjects;
 
 use DateTimeImmutable;
 use Webmozart\Assert\Assert;
 
 /**
- * Brand Value Object.
+ * Category Value Object.
  *
- * Represents a product brand with its metadata.
- * Used for brand listing and business logic operations.
+ * Represents a product category with its metadata.
+ * Used for category listing and business logic operations.
  */
-final readonly class Brand
+final readonly class Category
 {
     /**
+     * @param list<int> $parentIds Parent category external IDs (closest first, root last)
      * @param array<string, mixed> $customFields Custom field key-value pairs
      */
     public function __construct(
@@ -23,15 +24,19 @@ final readonly class Brand
         public DateTimeImmutable $createdAt,
         public string $title,
         public ?string $description,
+        public ?string $description2,
         public string $slug,
         public string $url,
         public bool $active,
         public bool $featured,
+        public bool $tradeOnly,
         public int $sortOrder,
         public ?string $metaTitle,
-        public ?string $metaKeywords,
         public ?string $metaDescription,
-        public ?BrandImage $image = null,
+        public ?string $metaKeywords,
+        public bool $metaNoIndex,
+        public ?CategoryImage $image = null,
+        public array $parentIds = [],
         public array $customFields = [],
     ) {
         Assert::greaterThan($id, 0);

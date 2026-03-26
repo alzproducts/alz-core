@@ -40,3 +40,32 @@ Live in `Validators/` subdirectories alongside their domain concept (e.g., `Cata
 ## Integer IDs
 
 **Use `IntId` value object** for all integer identifiers, not primitive `int`.
+
+## Native Domain Types
+
+All new domain code MUST use native domain types instead of primitives. Existing VOs are NOT retroactively updated unless explicitly scoped.
+
+| Concept | Domain Type | Namespace | NOT |
+|---------|------------|-----------|-----|
+| Entity/external IDs | `IntId` | `App\Domain\ValueObjects` | `int` |
+| UUID identifiers | `Guid` | `App\Domain\ValueObjects` | `string` |
+| Monetary values | `Money` | `App\Domain\Shared\Money\ValueObjects` | `float` |
+| Product identifiers | `Sku` | `App\Domain\Catalog\Product\ValueObjects` | `string` |
+| Barcodes | `Gtin` | `App\Domain\Catalog\Product\ValueObjects` | `string` |
+| Weight | `Weight` | `App\Domain\Inventory\ValueObjects` | `float` |
+| Dimensions | `Dimensions` | `App\Domain\Inventory\ValueObjects` | `float` |
+| Tax treatment | `TaxType` | `App\Domain\ValueObjects` | `string`/`bool` |
+| Tax rate | `TaxRate` | `App\Domain\ValueObjects` | `float` |
+| Date ranges | `DateRange` | `App\Domain\ValueObjects` | two `DateTimeImmutable` |
+
+### Money Tax Type Selection
+
+When creating `Money` instances, the tax type must be explicitly chosen:
+
+| Scenario | Constructor | Example |
+|----------|-----------|---------|
+| Customer-facing prices (incl VAT) | `Money::inclusive()` | Order total, sale price, refund value |
+| Trade/cost/net prices (excl VAT) | `Money::exclusive()` | Cost price, subtotal net, shipping net |
+| Tax amounts themselves | `Money::zeroRated()` | VAT value, priceVat, totalVat |
+| Items exempt from VAT | `Money::zeroRated()` | Zero-rated goods (books, children's clothing) |
+| Nullable "not set" amounts | `Money::nonZeroOrNull()` | Optional cost price, sale price |

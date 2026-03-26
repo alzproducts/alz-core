@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Infrastructure\Shopwired\Repositories;
 
 use App\Application\Contracts\Shopwired\FilterGroupRepositoryInterface;
+use App\Application\DTOs\PaginatedListDTO;
 use App\Domain\Catalog\Filters\ValueObjects\FilterGroupDefinition;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
@@ -12,6 +13,7 @@ use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Infrastructure\Repositories\AbstractEloquentRepository;
 use App\Infrastructure\Shopwired\Models\FilterGroupDefinitionModel;
+use Illuminate\Database\Eloquent\Builder;
 
 /**
  * Eloquent implementation of ShopWired filter group repository.
@@ -68,6 +70,29 @@ final class EloquentFilterGroupRepository extends AbstractEloquentRepository imp
                 ->map(static fn(FilterGroupDefinitionModel $model): FilterGroupDefinition => $model->toDomain())
                 ->all(),
         ));
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @return PaginatedListDTO<FilterGroupDefinition>
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function paginate(int $perPage, int $page): PaginatedListDTO
+    {
+        return $this->eloquentGateway->paginate(
+            modelClass: self::MODEL_CLASS,
+            scope: static function (Builder $q): void {
+                $q->orderBy('sort_order')->orderBy('title');
+            },
+            relations: [],
+            mapper: static fn(FilterGroupDefinitionModel $model): FilterGroupDefinition => $model->toDomain(),
+            perPage: $perPage,
+            page: $page,
+        );
     }
 
     // ─────────────────────────────────────────────────────────────────────────

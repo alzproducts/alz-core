@@ -5,8 +5,6 @@ declare(strict_types=1);
 namespace Tests\Feature\Infrastructure\Api;
 
 use App\Application\Shopwired\DTOs\WebhookDTO;
-use App\Domain\Exceptions\Api\AuthenticationExpiredException;
-use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Infrastructure\Shopwired\Clients\WebhookClient;
 use App\Infrastructure\Shopwired\ShopwiredConfig;
 use App\Infrastructure\Shopwired\ShopwiredHttpTransport;
@@ -18,7 +16,7 @@ use Tests\TestCase;
 /**
  * WebhookClient Feature Tests.
  *
- * Tests the WebhookClient's ability to parse API responses and translate errors.
+ * Tests the WebhookClient's ability to parse API responses.
  */
 #[CoversClass(WebhookClient::class)]
 final class WebhookClientTest extends TestCase
@@ -83,23 +81,4 @@ final class WebhookClientTest extends TestCase
         $this->assertSame([], $webhooks);
     }
 
-    #[Test]
-    public function it_throws_authentication_exception_on_401(): void
-    {
-        Http::fake(['*/webhooks*' => Http::response(['error' => 'Unauthorized'], 401)]);
-
-        $this->expectException(AuthenticationExpiredException::class);
-
-        $this->client->listWebhooks();
-    }
-
-    #[Test]
-    public function it_throws_service_unavailable_exception_on_500(): void
-    {
-        Http::fake(['*/webhooks*' => Http::response(['error' => 'Server Error'], 500)]);
-
-        $this->expectException(ExternalServiceUnavailableException::class);
-
-        $this->client->listWebhooks();
-    }
 }

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Infrastructure\Shopwired\Clients;
 
 use App\Application\Contracts\Shopwired\CategoryClientInterface;
-use App\Domain\Catalog\ValueObjects\Category as DomainCategory;
+use App\Domain\Catalog\Category\ValueObjects\Category as DomainCategory;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;

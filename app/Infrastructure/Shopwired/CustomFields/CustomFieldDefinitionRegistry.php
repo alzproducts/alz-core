@@ -63,6 +63,16 @@ final readonly class CustomFieldDefinitionRegistry
     }
 
     /**
+     * Get all registered definitions.
+     *
+     * @return list<CustomFieldDefinition>
+     */
+    public function definitions(): array
+    {
+        return \array_values($this->byName);
+    }
+
+    /**
      * Get all registered definition names.
      *
      * @return list<string>

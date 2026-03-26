@@ -4,15 +4,22 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Shopwired\Repositories;
 
+use App\Application\Contracts\DatabaseGatewayInterface;
 use App\Application\Contracts\Shopwired\BrandRepositoryInterface;
-use App\Domain\Catalog\ValueObjects\Brand;
+use App\Application\DTOs\PaginatedListDTO;
+use App\Domain\Catalog\Brand\ValueObjects\Brand;
+use App\Domain\Catalog\Brand\ValueObjects\BrandView;
+use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\IntId;
+use App\Infrastructure\Persistence\EloquentGateway;
 use App\Infrastructure\Repositories\AbstractEloquentRepository;
+use App\Infrastructure\Shopwired\Factories\CustomFieldFactory;
 use App\Infrastructure\Shopwired\Models\BrandModel;
+use Illuminate\Database\Eloquent\Builder;
 
 /**
  * Eloquent implementation of ShopWired brand repository.
@@ -26,6 +33,14 @@ final class EloquentBrandRepository extends AbstractEloquentRepository implement
 {
     /** @var class-string<BrandModel> */
     private const string MODEL_CLASS = BrandModel::class;
+
+    public function __construct(
+        DatabaseGatewayInterface $gateway,
+        EloquentGateway $eloquentGateway,
+        private readonly CustomFieldFactory $customFieldFactory,
+    ) {
+        parent::__construct($gateway, $eloquentGateway);
+    }
 
     // ─────────────────────────────────────────────────────────────────────────
     // Interface Implementation
@@ -113,6 +128,54 @@ final class EloquentBrandRepository extends AbstractEloquentRepository implement
         if ($deleted === 0) {
             throw new ResourceNotFoundException('Database', $this->getEntityTypeName(), $externalId->value);
         }
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @return PaginatedListDTO<BrandView>
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     * @throws InvalidCustomFieldValueException
+     */
+    public function paginate(int $perPage, int $page, array $includes = [], bool $includeInactive = false): PaginatedListDTO
+    {
+        return $this->eloquentGateway->paginate(
+            modelClass: self::MODEL_CLASS,
+            scope: static function (Builder $q) use ($includeInactive): void {
+                if (! $includeInactive) {
+                    $q->where('active', true);
+                }
+
+                $q->orderBy('sort_order')->orderBy('title');
+            },
+            relations: [],
+            mapper: fn(BrandModel $model): BrandView => $model->toViewDomain($includes, $this->customFieldFactory),
+            perPage: $perPage,
+            page: $page,
+        );
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @throws ResourceNotFoundException
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     * @throws InvalidCustomFieldValueException
+     */
+    public function findBrandForApi(IntId $brandId, array $includes = []): BrandView
+    {
+        return $this->eloquentGateway->findOrFail(
+            modelClass: self::MODEL_CLASS,
+            column: 'external_id',
+            value: $brandId->value,
+            entityTypeName: 'Brand',
+            mapper: fn(BrandModel $model): BrandView => $model->toViewDomain($includes, $this->customFieldFactory),
+        );
     }
 
     // ─────────────────────────────────────────────────────────────────────────

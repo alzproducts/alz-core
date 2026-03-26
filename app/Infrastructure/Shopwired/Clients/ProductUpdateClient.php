@@ -81,12 +81,15 @@ final readonly class ProductUpdateClient implements ProductUpdateClientInterface
     /**
      * Merge new custom field values with existing.
      *
+     * ShopWired requires the full merged set of custom fields on every PUT.
+     * To clear a field, send an empty string '' — ShopWired ignores missing fields.
+     *
      * - Existing fields not in $newFields are preserved
      * - Fields in $newFields overwrite existing
-     * - Fields with null value in $newFields are removed
+     * - Null values in $newFields clear the field (sent as empty string '')
      *
      * @param array<string, mixed> $existing Current custom field values
-     * @param array<string, string|int|bool|null> $newFields Fields to update
+     * @param array<string, string|int|bool|list<string>|list<int>|null> $newFields Fields to update
      *
      * @return array<string, mixed> Merged custom fields
      */
@@ -95,11 +98,7 @@ final readonly class ProductUpdateClient implements ProductUpdateClientInterface
         $merged = $existing;
 
         foreach ($newFields as $name => $value) {
-            if ($value === null) {
-                unset($merged[$name]);
-            } else {
-                $merged[$name] = $value;
-            }
+            $merged[$name] = $value ?? '';
         }
 
         return $merged;

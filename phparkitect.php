@@ -677,13 +677,16 @@ return static function (Config $config): void {
     //
     // WHY: Co-located validators are discoverable alongside the thing they validate.
     // Naming convention gives PHPArkitect a reliable signal for enforcement.
+    // Application-layer validators are allowed when they depend on Application contracts
+    // (e.g., CustomFieldSubmissionValidator depends on CustomFieldValueFactoryInterface).
     //
     $rules[] = Rule::allClasses()
                    ->that(new HaveNameMatching('*Validator'))
                    ->should(new ResideInOneOfTheseNamespaces(
                        'App\Domain\*\Validators',
+                       'App\Application\*\Validators',
                    ))
-                   ->because('Validators must be co-located with their domain concept (e.g., Domain/Catalog/Product/Validators/), not in a top-level catch-all.');
+                   ->because('Validators must be co-located with their concept (Domain or Application Validators/ subdirectories), not in a top-level catch-all.');
 
     $config->add($classSet, ...$rules);
     /*
