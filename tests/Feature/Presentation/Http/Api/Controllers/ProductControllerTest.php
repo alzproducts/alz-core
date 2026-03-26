@@ -92,12 +92,12 @@ final class ProductControllerTest extends TestCase
     #[Test]
     public function include_variations_parameter_passes_through_to_use_case(): void
     {
-        $dto = PaginatedListDTO::fromPage(items: [], total: 0, perPage: 50, currentPage: 1);
+        $dto = PaginatedListDTO::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
 
         $this->productRepository
             ->shouldReceive('paginate')
             ->once()
-            ->with(50, 1, ['variations'])
+            ->with(500, 1, ['variations'])
             ->andReturn($dto);
 
         $response = $this->asApprovedUser()->getJson('/api/products?include=variations');
@@ -148,21 +148,21 @@ final class ProductControllerTest extends TestCase
     */
 
     #[Test]
-    public function default_per_page_is_50_and_page_is_1(): void
+    public function default_per_page_is_500_and_page_is_1(): void
     {
-        $dto = PaginatedListDTO::fromPage(items: [], total: 0, perPage: 50, currentPage: 1);
+        $dto = PaginatedListDTO::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
 
         $this->productRepository
             ->shouldReceive('paginate')
             ->once()
-            ->with(50, 1, [])
+            ->with(500, 1, [])
             ->andReturn($dto);
 
         $response = $this->asApprovedUser()->getJson('/api/products');
 
         $response->assertStatus(200);
         $body = $response->json();
-        $this->assertSame(50, $body['meta']['per_page']);
+        $this->assertSame(500, $body['meta']['per_page']);
         $this->assertSame(1, $body['meta']['current_page']);
     }
 

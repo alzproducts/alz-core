@@ -8,7 +8,7 @@ use App\Application\Contracts\Shopwired\BrandRepositoryInterface;
 use App\Application\Contracts\Shopwired\ShopwiredSyncDispatcherInterface;
 use App\Application\Contracts\Shopwired\WebhookIdempotencyServiceInterface;
 use App\Application\Shopwired\Enums\WebhookTopic;
-use App\Domain\Catalog\ValueObjects\Brand;
+use App\Domain\Catalog\Brand\ValueObjects\Brand;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;

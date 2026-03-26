@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Application\Shopwired\DTOs;
 
-use App\Domain\Catalog\ValueObjects\Brand;
+use App\Domain\Catalog\Brand\ValueObjects\Brand;
 
 /**
  * Result from parsing a brand webhook payload.

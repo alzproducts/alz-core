@@ -24,7 +24,7 @@ use RuntimeException;
  * ShopWired Integration Schedule Definitions
  *
  * Syncs orders, customers, and products from ShopWired API to local PostgreSQL.
- * Uses 2-tier frequency: monthly full sync (first Sunday) + 6-hourly quick sync (safety net).
+ * Orders/customers: 2-tier frequency (monthly full + 6-hourly quick). Products: daily full sync.
  *
  * Webhooks handle real-time create/update/delete events. Polling serves as a safety net
  * to catch anything webhooks might miss (downtime, network issues, edge cases).
@@ -218,28 +218,33 @@ final class ShopwiredScheduleServiceProvider extends ServiceProvider
     }
 
     /**
-     * ShopWired Product Sync + Reconciliation: monthly on first Sunday.
+     * ShopWired Product Sync + Reconciliation.
      *
-     * Products are a smaller dataset (~1,500 items) and don't support date-based sorting,
-     * so every sync is effectively a full sync. Reconciliation removes orphaned products.
+     * Products are a smaller dataset (~1,500 items, ~2-5 min) and don't support
+     * date-based sorting, so every sync is effectively a full sync.
+     * Daily at 09:00 UK — after categories (08:00) and brands (08:05),
+     * and clear of the first-Sunday heavy sync window (01:00-08:00).
+     *
+     * Reconciliation stays monthly (first Sunday) — orphan cleanup doesn't need daily runs.
      *
      * @throws RuntimeException
      */
     private function registerProductSchedules(): void
     {
-        // MONTHLY: Full product sync on first Sunday at 07:00 UK time (after customers finish)
+        // DAILY: Full product sync at 09:00 UK time
+        // Skipped during first-Sunday monthly window to avoid rate limit contention
+        // with the heavy order/customer syncs
         Schedule::job(new SyncShopwiredProductsJob())
-            ->name('sync-shopwired-products-full')
-            ->cron('0 7 * * 0')
+            ->name('sync-shopwired-products')
+            ->dailyAt('09:00')
             ->timezone('Europe/London')
-            ->when(static fn(): bool => Carbon::now('Europe/London')->day <= 7)
             ->onOneServer()
             ->withoutOverlapping(20); // 15min timeout + buffer
 
-        // MONTHLY: Reconciliation on first Sunday at 07:30 UK time (after product sync)
+        // MONTHLY: Reconciliation on first Sunday at 09:30 UK time (after daily product sync)
         Schedule::job(new ReconcileShopwiredProductsJob())
             ->name('reconcile-shopwired-products')
-            ->cron('30 7 * * 0')
+            ->cron('30 9 * * 0')
             ->timezone('Europe/London')
             ->when(static fn(): bool => Carbon::now('Europe/London')->day <= 7)
             ->onOneServer()

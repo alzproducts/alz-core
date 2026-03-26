@@ -15,23 +15,28 @@ use App\Infrastructure\Shopwired\CustomFields\CustomFieldDefinitionRegistry;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Graceful-degradation wrapper around CustomFieldValueFactory for the sync/read path.
+ * Graceful-degradation factory for creating typed custom field values on the sync/read path.
  *
  * Delegates to CustomFieldValueFactory for typed value creation. Unknown fields
  * (CustomFieldNotFoundException) are logged as warnings and skipped — preserving
  * the read path's tolerance for out-of-sync field definitions.
  *
+ * Parameterised by CustomFieldItemType so the same factory serves Products,
+ * Categories, and Brands — each getting a registry filtered to their item type.
+ *
  * For strict validation (write path), use CustomFieldValueFactory directly.
  *
- * **Lifecycle**: Register with `scoped()` binding to ensure fresh instance per queue job.
- * This prevents stale custom field definitions in Octane long-running processes.
+ * **Lifecycle**: Lazy-loads and caches the custom field registry on first use.
+ * The consumer's binding lifecycle determines staleness — use `scoped()` binding
+ * (or inject into a scoped consumer) to ensure fresh definitions per queue job.
  */
-final class ProductCustomFieldFactory
+final class CustomFieldFactory
 {
     private ?CustomFieldDefinitionRegistry $registry = null;
 
     public function __construct(
         private readonly CustomFieldRepositoryInterface $customFieldRepository,
+        private readonly CustomFieldItemType $itemType,
     ) {}
 
     /**
@@ -58,9 +63,9 @@ final class ProductCustomFieldFactory
             $definition = $this->registry()->findByName($name);
 
             if ($definition === null) {
-                Log::warning('Unknown custom field in product - re-run SyncCustomFieldsJob', [
+                Log::warning('Unknown custom field - re-run SyncCustomFieldsJob', [
                     'field_name' => $name,
-                    'item_type' => CustomFieldItemType::Product->value,
+                    'item_type' => $this->itemType->value,
                 ]);
 
                 continue;
@@ -83,7 +88,7 @@ final class ProductCustomFieldFactory
     {
         if ($this->registry === null) {
             $definitions = $this->customFieldRepository->findAll();
-            $this->registry = CustomFieldDefinitionRegistry::forItemType($definitions, CustomFieldItemType::Product);
+            $this->registry = CustomFieldDefinitionRegistry::forItemType($definitions, $this->itemType);
         }
 
         return $this->registry;
