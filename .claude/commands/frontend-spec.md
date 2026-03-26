@@ -32,7 +32,7 @@ Process each input independently through the same Read → Catalogue → Write p
 
 ## Goal
 
-From the given backend file, produce a specification document in `alz-admin/.ai/specs/` that gives an LLM everything it needs to build the corresponding frontend feature. **Pointers to source files, not translations** — the consuming agent reads the backend files directly.
+From the given backend file, produce a specification document in `/Users/tom/WebstormProjects/alz-admin/.ai/specs/` that gives an LLM everything it needs to build the corresponding frontend feature. **Pointers to source files, not translations** — the consuming agent reads the backend files directly.
 
 ## Scope
 
@@ -46,7 +46,7 @@ Use JetBrains MCP tools and Explore agents in parallel for speed.
 
 1. **Read & trace** — Read the input file. Trace to the HTTP layer: find the controller, route, request DTO/FormRequest, and response shape. If no HTTP endpoint exists, ask user how to proceed.
 2. **Catalogue** — Collect all relevant backend files. Verify each exists. Note business rules and domain concepts that affect the frontend.
-3. **Write spec** — Output to `alz-admin/.ai/specs/{feature-name}.md` (kebab-case). If the file already exists, ask before overwriting.
+3. **Write spec** — Output to `/Users/tom/WebstormProjects/alz-admin/.ai/specs/{feature-name}.md` (kebab-case). If the file already exists, ask before overwriting.
 
 ## Output Format
 
