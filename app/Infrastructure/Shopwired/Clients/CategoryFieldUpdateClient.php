@@ -52,6 +52,9 @@ final readonly class CategoryFieldUpdateClient implements CategoryFieldUpdateCli
     {
         return match ($field) {
             CategoryUpdatableField::Title => 'title',
+            CategoryUpdatableField::Description => 'description',
+            CategoryUpdatableField::MetaTitle => 'metaTitle',
+            CategoryUpdatableField::MetaDescription => 'metaDescription',
         };
     }
 }

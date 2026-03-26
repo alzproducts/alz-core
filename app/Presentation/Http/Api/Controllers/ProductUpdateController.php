@@ -2,9 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Presentation\Http\Controllers\Shopwired;
+namespace App\Presentation\Http\Api\Controllers;
 
 use App\Application\Catalog\UseCases\UpdateProductCustomFieldsUseCase;
+use App\Application\Catalog\UseCases\UpdateProductFieldsUseCase;
 use App\Application\Shopwired\PricingUpdate\Results\FailedPriceUpdateResult;
 use App\Application\Shopwired\PricingUpdate\Results\SkippedPriceUpdateResult;
 use App\Application\Shopwired\PricingUpdate\UseCases\UpdateProductPricesUseCase;
@@ -24,6 +25,7 @@ use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\Exceptions\ValidationFailedException;
 use App\Domain\ValueObjects\IntId;
 use App\Presentation\Http\Api\DTOs\UpdateProductCustomFieldsRequestDTO;
+use App\Presentation\Http\Api\DTOs\UpdateProductFieldsRequestDTO;
 use App\Presentation\Http\Requests\SetFreeDeliveryRequest;
 use App\Presentation\Http\Shopwired\DTOs\SkuPriceUpdateDTO;
 use App\Presentation\Http\Shopwired\DTOs\UpdateProductPricesDTO;
@@ -32,9 +34,9 @@ use Symfony\Component\HttpFoundation\Response;
 use ValueError;
 
 /**
- * HTTP endpoints for ShopWired product updates.
+ * Consumer API endpoints for product updates.
  *
- * All endpoints require Supabase JWT authentication.
+ * All endpoints require Supabase JWT authentication + approval gate.
  */
 final readonly class ProductUpdateController
 {
@@ -42,7 +44,26 @@ final readonly class ProductUpdateController
         private DispatchProductFreeDeliveryJobsUseCase $dispatchUseCase,
         private UpdateProductPricesUseCase $priceUseCase,
         private UpdateProductCustomFieldsUseCase $customFieldsUseCase,
+        private UpdateProductFieldsUseCase $fieldsUseCase,
     ) {}
+
+    /**
+     * Update scalar fields on a product.
+     *
+     * @throws ResourceNotAvailableException When product not found (404)
+     * @throws InvalidApiRequestException When request parameters invalid (400)
+     * @throws AuthenticationExpiredException When credentials invalid (401/403)
+     * @throws ExternalServiceUnavailableException When API unavailable
+     */
+    public function updateFields(int $productId, UpdateProductFieldsRequestDTO $data): JsonResponse
+    {
+        $this->fieldsUseCase->execute(
+            productId: IntId::from($productId),
+            fields: $data->fields,
+        );
+
+        return new JsonResponse(null, Response::HTTP_NO_CONTENT);
+    }
 
     /**
      * Update free delivery type on multiple products.
@@ -78,13 +99,6 @@ final readonly class ProductUpdateController
 
     /**
      * Update retail prices for a single product's SKUs.
-     *
-     * Accepts a batch of SKU price changes. All SKUs must belong to the same
-     * product — enforced internally by the use case. The {productId} URL
-     * segment is for API clarity only and is not passed to the use case.
-     *
-     * Returns 200 with a structured result: succeeded count, skipped SKUs,
-     * and any permanent/temporary failures.
      *
      * @throws ResourceNotFoundException When the product is not found locally
      * @throws InvalidApiResponseException When API response parsing fails

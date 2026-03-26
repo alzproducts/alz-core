@@ -39,6 +39,27 @@ final class BrandFieldUpdateClientTest extends TestCase
     }
 
     #[Test]
+    public function it_maps_all_fields_correctly(): void
+    {
+        $this->transport->shouldReceive('put')
+            ->once()
+            ->with('brands/7', [
+                'title' => 'Acme',
+                'description' => 'A great brand',
+                'metaTitle' => 'SEO Title',
+                'metaDescription' => 'SEO Description',
+            ]);
+
+        $this->client->update(
+            7,
+            BrandFieldUpdate::title('Acme'),
+            BrandFieldUpdate::description('A great brand'),
+            BrandFieldUpdate::metaTitle('SEO Title'),
+            BrandFieldUpdate::metaDescription('SEO Description'),
+        );
+    }
+
+    #[Test]
     public function it_does_not_call_transport_on_empty_updates(): void
     {
         $this->transport->shouldNotReceive('put');

@@ -52,6 +52,9 @@ final readonly class BrandFieldUpdateClient implements BrandFieldUpdateClientInt
     {
         return match ($field) {
             BrandUpdatableField::Title => 'title',
+            BrandUpdatableField::Description => 'description',
+            BrandUpdatableField::MetaTitle => 'metaTitle',
+            BrandUpdatableField::MetaDescription => 'metaDescription',
         };
     }
 }
