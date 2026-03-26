@@ -14,11 +14,11 @@ use App\Infrastructure\Shopwired\Factories\CustomFieldValueFactory;
 use Mockery;
 use Mockery\MockInterface;
 use Override;
-use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
-#[CoversClass(CustomFieldValueFactory::class)]
+#[CoversNothing]
 final class CustomFieldValueFactoryTest extends TestCase
 {
     private CustomFieldRepositoryInterface&MockInterface $repository;
