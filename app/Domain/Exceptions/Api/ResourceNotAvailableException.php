@@ -29,8 +29,17 @@ final class ResourceNotAvailableException extends TransientApiFailure
         parent::__construct(
             $serviceName,
             $retryAfter,
-            "{$resourceType} with ID '{$resourceId}' not available in {$serviceName} — may not exist or may not be available yet",
+            'Resource not yet available in external service',
             $previous,
         );
+    }
+
+    public function context(): array
+    {
+        return [
+            ...parent::context(),
+            'resource_type' => $this->resourceType,
+            'resource_id' => $this->resourceId,
+        ];
     }
 }

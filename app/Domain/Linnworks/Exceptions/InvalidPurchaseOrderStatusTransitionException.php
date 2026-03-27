@@ -19,8 +19,11 @@ final class InvalidPurchaseOrderStatusTransitionException extends DomainExceptio
         public readonly PurchaseOrderStatus $from,
         public readonly PurchaseOrderStatus $to,
     ) {
-        parent::__construct(
-            "Cannot transition purchase order from {$from->value} to {$to->value}",
-        );
+        parent::__construct('Invalid purchase order status transition');
+    }
+
+    public function context(): array
+    {
+        return ['from' => $this->from->value, 'to' => $this->to->value];
     }
 }

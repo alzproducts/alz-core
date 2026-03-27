@@ -22,7 +22,7 @@ final class InvalidJwtClaimsException extends RuntimeException
         public readonly string $claim,
         public readonly string $reason,
     ) {
-        parent::__construct("Invalid JWT: {$reason} (claim: {$claim})");
+        parent::__construct('Invalid JWT claims');
     }
 
     public static function missingClaim(string $claim): self
@@ -38,5 +38,13 @@ final class InvalidJwtClaimsException extends RuntimeException
     public static function emptyClaim(string $claim): self
     {
         return new self($claim, "claim '{$claim}' cannot be empty");
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function context(): array
+    {
+        return ['claim' => $this->claim, 'reason' => $this->reason];
     }
 }

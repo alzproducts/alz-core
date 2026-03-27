@@ -19,6 +19,11 @@ final class SkuGenerationFailedException extends AbstractInfrastructureException
         public readonly string $reason,
         ?Throwable $previous = null,
     ) {
-        parent::__construct("Failed to generate new SKU: {$reason}", previous: $previous);
+        parent::__construct('Failed to generate new SKU', previous: $previous);
+    }
+
+    public function context(): array
+    {
+        return ['reason' => $this->reason];
     }
 }

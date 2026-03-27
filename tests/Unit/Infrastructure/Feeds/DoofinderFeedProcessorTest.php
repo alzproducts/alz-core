@@ -237,7 +237,7 @@ final class DoofinderFeedProcessorTest extends TestCase
         ]);
 
         $this->expectException(ExternalServiceUnavailableException::class);
-        $this->expectExceptionMessage("External service 'Doofinder Feed' is unavailable");
+        $this->expectExceptionMessage('External service unavailable');
 
         $this->processor->process('https://example.com/feed', 'feeds/output.xml');
     }
@@ -278,7 +278,7 @@ final class DoofinderFeedProcessorTest extends TestCase
         });
 
         $this->expectException(ExternalServiceUnavailableException::class);
-        $this->expectExceptionMessage("External service 'Doofinder Feed' is unavailable");
+        $this->expectExceptionMessage('External service unavailable');
 
         $this->processor->process('https://example.com/feed', 'feeds/output.xml');
     }
@@ -369,7 +369,7 @@ XML;
         ]);
 
         $this->expectException(MalformedFeedDataException::class);
-        $this->expectExceptionMessage('Feed contains no items');
+        $this->expectExceptionMessage('Malformed feed data');
 
         $this->processor->process('https://example.com/feed', 'feeds/output.xml');
     }
@@ -394,7 +394,7 @@ XML;
         ]);
 
         $this->expectException(MalformedFeedDataException::class);
-        $this->expectExceptionMessage('missing required title element');
+        $this->expectExceptionMessage('Malformed feed data');
 
         $this->processor->process('https://example.com/feed', 'feeds/output.xml');
     }
@@ -419,7 +419,7 @@ XML;
         ]);
 
         $this->expectException(MalformedFeedDataException::class);
-        $this->expectExceptionMessage('missing required d_title element');
+        $this->expectExceptionMessage('Malformed feed data');
 
         $this->processor->process('https://example.com/feed', 'feeds/output.xml');
     }
@@ -444,7 +444,7 @@ XML;
         ]);
 
         $this->expectException(MalformedFeedDataException::class);
-        $this->expectExceptionMessage('missing both title and d_title');
+        $this->expectExceptionMessage('Malformed feed data');
 
         $this->processor->process('https://example.com/feed', 'feeds/output.xml');
     }
@@ -479,7 +479,7 @@ XML;
 
         $this->expectException(MalformedFeedDataException::class);
         // XMLReader may fail at parse time or read time depending on the error
-        $this->expectExceptionMessage('malformed');
+        $this->expectExceptionMessage('Malformed feed data');
 
         $this->processor->process('https://example.com/feed', 'feeds/output.xml');
     }

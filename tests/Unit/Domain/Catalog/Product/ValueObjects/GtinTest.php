@@ -99,7 +99,7 @@ final class GtinTest extends TestCase
     {
         // Assert
         $this->expectException(InvalidGtinException::class);
-        $this->expectExceptionMessage($expectedReason);
+        $this->expectExceptionMessage('Invalid GTIN');
 
         // Act
         Gtin::fromString($invalidGtin);
@@ -136,7 +136,7 @@ final class GtinTest extends TestCase
     {
         // Assert
         $this->expectException(InvalidGtinException::class);
-        $this->expectExceptionMessage('invalid check digit');
+        $this->expectExceptionMessage('Invalid GTIN');
 
         // Act
         Gtin::fromString($gtinWithBadCheckDigit);
@@ -245,7 +245,7 @@ final class GtinTest extends TestCase
     {
         // Assert
         $this->expectException(InvalidGtinException::class);
-        $this->expectExceptionMessage('must contain only digits');
+        $this->expectExceptionMessage('Invalid GTIN');
 
         // Act
         Gtin::fromString('');
@@ -256,7 +256,7 @@ final class GtinTest extends TestCase
     {
         // Assert
         $this->expectException(InvalidGtinException::class);
-        $this->expectExceptionMessage('must contain only digits');
+        $this->expectExceptionMessage('Invalid GTIN');
 
         // Act
         Gtin::fromString('   ');

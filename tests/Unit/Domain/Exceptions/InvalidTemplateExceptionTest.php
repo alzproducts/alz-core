@@ -21,7 +21,9 @@ final class InvalidTemplateExceptionTest extends TestCase
         $exception = new InvalidTemplateException('TEMPLATE-SKU', 'missing category');
 
         self::assertSame('TEMPLATE-SKU', $exception->templateSku);
-        self::assertSame("Template SKU 'TEMPLATE-SKU' is invalid: missing category", $exception->getMessage());
+        self::assertSame('missing category', $exception->reason);
+        self::assertSame('Invalid template stock item', $exception->getMessage());
+        self::assertSame(['template_sku' => 'TEMPLATE-SKU', 'reason' => 'missing category'], $exception->context());
     }
 
     #[Test]
@@ -30,6 +32,7 @@ final class InvalidTemplateExceptionTest extends TestCase
         $exception = InvalidTemplateException::noDefaultSupplier('MY-TEMPLATE');
 
         self::assertSame('MY-TEMPLATE', $exception->templateSku);
-        self::assertSame("Template SKU 'MY-TEMPLATE' is invalid: no default supplier configured", $exception->getMessage());
+        self::assertSame('Invalid template stock item', $exception->getMessage());
+        self::assertSame('no default supplier configured', $exception->context()['reason']);
     }
 }

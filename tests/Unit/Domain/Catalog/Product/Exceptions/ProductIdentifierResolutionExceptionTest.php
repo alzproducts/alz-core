@@ -21,7 +21,8 @@ final class ProductIdentifierResolutionExceptionTest extends TestCase
 
         $this->assertSame('ABC-123', $exception->identifier);
         $this->assertSame('sku', $exception->identifierType);
-        $this->assertStringContainsString("SKU 'ABC-123' not found", $exception->getMessage());
+        $this->assertSame('Product identifier could not be resolved', $exception->getMessage());
+        $this->assertSame(['identifier' => 'ABC-123', 'identifier_type' => 'sku'], $exception->context());
     }
 
     #[Test]
@@ -31,6 +32,7 @@ final class ProductIdentifierResolutionExceptionTest extends TestCase
 
         $this->assertSame(12345, $exception->identifier);
         $this->assertSame('product_id', $exception->identifierType);
-        $this->assertStringContainsString('Product ID 12345 not found', $exception->getMessage());
+        $this->assertSame('Product identifier could not be resolved', $exception->getMessage());
+        $this->assertSame(['identifier' => 12345, 'identifier_type' => 'product_id'], $exception->context());
     }
 }

@@ -99,7 +99,7 @@ final class GoogleAdsClientTest extends TestCase
             ->andThrow($exception);
 
         $this->expectException(ExternalServiceUnavailableException::class);
-        $this->expectExceptionMessage("External service 'Google Ads' is unavailable");
+        $this->expectExceptionMessage('External service unavailable');
 
         $this->client->verifyConnectivity();
     }
@@ -218,7 +218,7 @@ final class GoogleAdsClientTest extends TestCase
             ->andThrow($exception);
 
         $this->expectException(ExternalServiceUnavailableException::class);
-        $this->expectExceptionMessage("External service 'Google Ads' is unavailable");
+        $this->expectExceptionMessage('External service unavailable');
 
         $this->client->getCampaignMetricsByDateRange(DateRange::singleDay(new DateTimeImmutable('2024-05-10')));
     }
@@ -233,7 +233,7 @@ final class GoogleAdsClientTest extends TestCase
             ->andThrow($exception);
 
         $this->expectException(InvalidApiRequestException::class);
-        $this->expectExceptionMessage('Invalid GAQL query');
+        $this->expectExceptionMessage('API request validation failed');
 
         $this->client->getCampaignMetricsByDateRange(DateRange::singleDay(new DateTimeImmutable('2024-05-10')));
     }
@@ -343,7 +343,7 @@ final class GoogleAdsClientTest extends TestCase
             ->andReturn($response);
 
         $this->expectException(ExternalServiceUnavailableException::class);
-        $this->expectExceptionMessage('Google Ads');
+        $this->expectExceptionMessage('External service unavailable');
 
         $this->client->getCampaignMetricsByDateRange(DateRange::singleDay(new DateTimeImmutable('2024-05-10')));
     }

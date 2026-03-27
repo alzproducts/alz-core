@@ -25,9 +25,11 @@ final class MalformedFeedDataException extends AbstractDataException
         public readonly string $reason,
         ?Throwable $previous = null,
     ) {
-        parent::__construct(
-            "Feed '{$feedName}' data is malformed: {$reason}",
-            previous: $previous,
-        );
+        parent::__construct('Malformed feed data', previous: $previous);
+    }
+
+    public function context(): array
+    {
+        return ['feed_name' => $this->feedName, 'reason' => $this->reason];
     }
 }

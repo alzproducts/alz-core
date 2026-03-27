@@ -24,7 +24,7 @@ final class ExternalServiceUnavailableException extends TransientApiFailure
         parent::__construct(
             $serviceName,
             $retryAfter,
-            "External service '{$serviceName}' is unavailable",
+            'External service unavailable',
             $previous,
         );
     }

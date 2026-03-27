@@ -18,9 +18,8 @@ final class ProductIdentifierResolutionException extends DomainException
     public function __construct(
         public readonly string|int $identifier,
         public readonly string $identifierType,
-        string $message,
     ) {
-        parent::__construct($message);
+        parent::__construct('Product identifier could not be resolved');
     }
 
     /**
@@ -28,11 +27,7 @@ final class ProductIdentifierResolutionException extends DomainException
      */
     public static function skuNotFound(string $sku): self
     {
-        return new self(
-            $sku,
-            'sku',
-            "SKU '{$sku}' not found in products or variations. Ensure the product has been synced.",
-        );
+        return new self($sku, 'sku');
     }
 
     /**
@@ -40,10 +35,14 @@ final class ProductIdentifierResolutionException extends DomainException
      */
     public static function productIdNotFound(int $productId): self
     {
-        return new self(
-            $productId,
-            'product_id',
-            "Product ID {$productId} not found. Ensure the product has been synced.",
-        );
+        return new self($productId, 'product_id');
+    }
+
+    public function context(): array
+    {
+        return [
+            'identifier' => $this->identifier,
+            'identifier_type' => $this->identifierType,
+        ];
     }
 }

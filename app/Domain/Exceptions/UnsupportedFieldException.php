@@ -19,6 +19,17 @@ final class UnsupportedFieldException extends LogicException
         public readonly string $fieldName,
         public readonly string $entityType,
     ) {
-        parent::__construct("Unsupported {$entityType} field: {$fieldName}");
+        parent::__construct('Unsupported field for entity');
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function context(): array
+    {
+        return [
+            'field_name' => $this->fieldName,
+            'entity_type' => $this->entityType,
+        ];
     }
 }

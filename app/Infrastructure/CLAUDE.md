@@ -6,6 +6,10 @@
 1. Define interface extending `RepositoryWriteInterface` in `Application/Contracts/`
 2. Create implementation extending `AbstractEloquentRepository`
 
+## Exception Messages
+
+- **Static messages** — When throwing domain exceptions, keep messages static. Pass dynamic details (IDs, field names, error reasons) as constructor parameters — they become context, not message content.
+
 ## Exception Handling: Catch and Translate
 
 Infrastructure **always catches** SDK/HTTP exceptions and **translates** to Domain exceptions. This is where technical → business translation happens.

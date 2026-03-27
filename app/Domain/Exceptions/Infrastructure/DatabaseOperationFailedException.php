@@ -23,6 +23,11 @@ final class DatabaseOperationFailedException extends AbstractInfrastructureExcep
         public readonly string $reason,
         ?Throwable $previous = null,
     ) {
-        parent::__construct("Database {$operation} failed: {$reason}", 0, $previous);
+        parent::__construct('Database operation failed', 0, $previous);
+    }
+
+    public function context(): array
+    {
+        return ['operation' => $this->operation, 'reason' => $this->reason];
     }
 }

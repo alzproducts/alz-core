@@ -24,9 +24,7 @@ final class DatabaseOperationFailedExceptionTest extends TestCase
             reason: 'Column not found',
         );
 
-        $this->assertSame(
-            'Database update failed: Column not found',
-            $exception->getMessage(),
-        );
+        $this->assertSame('Database operation failed', $exception->getMessage());
+        $this->assertSame(['operation' => 'update', 'reason' => 'Column not found'], $exception->context());
     }
 }

@@ -25,11 +25,19 @@ use Throwable;
  */
 final class InvalidApiRequestException extends PermanentApiFailure
 {
+    public readonly string $detail;
+
     public function __construct(
         string $serviceName,
         string $message = 'API request validation failed',
         ?Throwable $previous = null,
     ) {
-        parent::__construct($serviceName, "{$serviceName}: {$message}", $previous);
+        $this->detail = $message;
+        parent::__construct($serviceName, 'API request validation failed', $previous);
+    }
+
+    public function context(): array
+    {
+        return [...parent::context(), 'detail' => $this->detail];
     }
 }

@@ -159,7 +159,7 @@ final class UpdateSkuCommandTest extends TestCase
         $command = UpdateSkuCommand::generated('OLD', SkuUpdateReason::Other);
 
         $this->expectException(InvalidSkuException::class);
-        $this->expectExceptionMessage('newSku is required when update type is Provided');
+        $this->expectExceptionMessage('Invalid SKU');
 
         $command->getProvidedSku();
     }

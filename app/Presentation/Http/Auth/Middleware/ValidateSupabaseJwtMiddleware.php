@@ -106,13 +106,20 @@ final class ValidateSupabaseJwtMiddleware
             return $next($request);
 
         } catch (Throwable $e) { // @ignoreException - auth middleware: return 401 on any validation failure
-            Log::channel('security')->warning('Invalid JWT token', [
+            $logContext = [
                 'event' => 'api.auth.invalid_token',
                 'ip' => $request->ip(),
                 'path' => $request->path(),
                 'user_agent' => $request->userAgent(),
                 'error' => $e->getMessage(),
-            ]);
+            ];
+            if (\method_exists($e, 'context')) {
+                $context = $e->context();
+                if (\is_array($context)) {
+                    $logContext = \array_merge($logContext, $context);
+                }
+            }
+            Log::channel('security')->warning('Invalid JWT token', $logContext);
 
             return (new ApiErrorResponseDTO(
                 type: ApiErrorTypeEnum::Unauthorized,
