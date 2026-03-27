@@ -24,9 +24,7 @@ final class DuplicateRecordExceptionTest extends TestCase
             constraint: 'orders_reference_unique',
         );
 
-        $this->assertSame(
-            "Duplicate record in 'orders' (constraint: orders_reference_unique)",
-            $exception->getMessage(),
-        );
+        $this->assertSame('Duplicate record constraint violation', $exception->getMessage());
+        $this->assertSame(['table' => 'orders', 'constraint' => 'orders_reference_unique'], $exception->context());
     }
 }

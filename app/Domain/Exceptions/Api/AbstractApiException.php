@@ -30,4 +30,9 @@ abstract class AbstractApiException extends DomainException
     ) {
         parent::__construct($message, 0, $previous);
     }
+
+    public function context(): array
+    {
+        return ['service_name' => $this->serviceName];
+    }
 }

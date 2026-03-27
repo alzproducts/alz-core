@@ -21,13 +21,17 @@ abstract class TransientApiFailure extends AbstractApiException
     public function __construct(
         string $serviceName,
         public readonly ?int $retryAfter = null,
-        string $message = '',
+        string $message = 'External service unavailable',
         ?Throwable $previous = null,
     ) {
-        parent::__construct(
-            $serviceName,
-            $message !== '' ? $message : "External service '{$serviceName}' is unavailable",
-            $previous,
+        parent::__construct($serviceName, $message, $previous);
+    }
+
+    public function context(): array
+    {
+        return \array_filter(
+            [...parent::context(), 'retry_after' => $this->retryAfter],
+            static fn(mixed $value): bool => $value !== null,
         );
     }
 }

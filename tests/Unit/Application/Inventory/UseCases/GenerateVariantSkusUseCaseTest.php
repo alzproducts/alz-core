@@ -177,7 +177,7 @@ final class GenerateVariantSkusUseCaseTest extends TestCase
         $this->stockItemGenerator->shouldNotReceive('generate');
 
         $this->expectException(InvalidTemplateException::class);
-        $this->expectExceptionMessage('no default supplier');
+        $this->expectExceptionMessage('Invalid template stock item');
 
         $this->useCase->execute($command);
     }

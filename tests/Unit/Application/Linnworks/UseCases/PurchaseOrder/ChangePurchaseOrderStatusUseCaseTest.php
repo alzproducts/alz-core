@@ -94,9 +94,7 @@ final class ChangePurchaseOrderStatusUseCaseTest extends TestCase
         $this->client->shouldNotReceive('changePurchaseOrderStatus');
 
         $this->expectException(InvalidPurchaseOrderStatusTransitionException::class);
-        $this->expectExceptionMessage(
-            "Cannot transition purchase order from {$currentStatus->value} to {$targetStatus->value}",
-        );
+        $this->expectExceptionMessage('Invalid purchase order status transition');
 
         $this->useCase->execute($this->purchaseGuid, $currentStatus, $targetStatus);
     }

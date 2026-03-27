@@ -103,7 +103,7 @@ final class S3StorageClientTest extends TestCase
             ->andThrow($writeException);
 
         $this->expectException(StorageOperationFailedException::class);
-        $this->expectExceptionMessage("Storage upload failed for 'feeds/output.xml'");
+        $this->expectExceptionMessage('Storage operation failed');
 
         $this->client->put('feeds/output.xml', 'content');
     }
@@ -216,7 +216,7 @@ final class S3StorageClientTest extends TestCase
             ->andThrow(new RuntimeException('File not found'));
 
         $this->expectException(StorageOperationFailedException::class);
-        $this->expectExceptionMessage("Storage temporaryUrl failed for 'feeds/output.xml'");
+        $this->expectExceptionMessage('Storage operation failed');
 
         $this->client->temporaryUrl('feeds/output.xml', $expiration);
     }
@@ -282,7 +282,7 @@ final class S3StorageClientTest extends TestCase
             ->andThrow($existenceException);
 
         $this->expectException(StorageOperationFailedException::class);
-        $this->expectExceptionMessage("Storage exists failed for 'feeds/output.xml'");
+        $this->expectExceptionMessage('Storage operation failed');
 
         $this->client->exists('feeds/output.xml');
     }

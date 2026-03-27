@@ -19,9 +19,7 @@ final class CustomerServiceAgentNotFoundExceptionTest extends TestCase
     {
         $exception = new CustomerServiceAgentNotFoundException('agent@company.com');
 
-        $this->assertSame(
-            'No customer service account found for email: agent@company.com',
-            $exception->getMessage(),
-        );
+        $this->assertSame('Customer service agent not found', $exception->getMessage());
+        $this->assertSame(['email' => 'agent@company.com'], $exception->context());
     }
 }

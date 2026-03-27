@@ -142,17 +142,18 @@ final class AppServiceProviderTest extends TestCase
         // Arrange: Set up production env but with one key missing
         $this->setupProductionEnvironment([$missingKey => null]);
 
-        // Assert
-        $this->expectException(InvalidConfigurationException::class);
-        $this->expectExceptionMessage($expectedMessageFragment);
-        $this->expectExceptionMessage('Production deployment blocked');
-        // Verify complete message structure to kill concatenation mutations
-        $this->expectExceptionMessage('Application cannot start safely');
-        $this->expectExceptionMessage('Please configure these variables');
-        $this->expectExceptionMessage('in your deployment environment');
-
-        // Act
-        $this->provider->boot();
+        // Act & Assert
+        try {
+            $this->provider->boot();
+            $this->fail('Expected InvalidConfigurationException');
+        } catch (InvalidConfigurationException $e) {
+            $this->assertSame('Required configuration is missing or invalid', $e->getMessage());
+            $this->assertStringContainsString($expectedMessageFragment, $e->detail);
+            $this->assertStringContainsString('Production deployment blocked', $e->detail);
+            $this->assertStringContainsString('Application cannot start safely', $e->detail);
+            $this->assertStringContainsString('Please configure these variables', $e->detail);
+            $this->assertStringContainsString('in your deployment environment', $e->detail);
+        }
     }
 
     /**
@@ -180,12 +181,14 @@ final class AppServiceProviderTest extends TestCase
         // Arrange
         $this->setupProductionEnvironment([$emptyKey => $emptyValue]);
 
-        // Assert
-        $this->expectException(InvalidConfigurationException::class);
-        $this->expectExceptionMessage('Production deployment blocked');
-
-        // Act
-        $this->provider->boot();
+        // Act & Assert
+        try {
+            $this->provider->boot();
+            $this->fail('Expected InvalidConfigurationException');
+        } catch (InvalidConfigurationException $e) {
+            $this->assertSame('Required configuration is missing or invalid', $e->getMessage());
+            $this->assertStringContainsString('Production deployment blocked', $e->detail);
+        }
     }
 
     /**
@@ -207,14 +210,15 @@ final class AppServiceProviderTest extends TestCase
         // Arrange
         $this->setupProductionEnvironment(['app.key' => $invalidKey]);
 
-        // Assert
-        $this->expectException(InvalidConfigurationException::class);
-        $this->expectExceptionMessage('SECURITY: APP_KEY is too short or invalid.');
-        // Verify complete message structure to kill concatenation mutations
-        $this->expectExceptionMessage("Run 'php artisan key:generate' to create a secure key.");
-
-        // Act
-        $this->provider->boot();
+        // Act & Assert
+        try {
+            $this->provider->boot();
+            $this->fail('Expected InvalidConfigurationException');
+        } catch (InvalidConfigurationException $e) {
+            $this->assertSame('Required configuration is missing or invalid', $e->getMessage());
+            $this->assertStringContainsString('SECURITY: APP_KEY is too short or invalid.', $e->detail);
+            $this->assertStringContainsString("Run 'php artisan key:generate' to create a secure key.", $e->detail);
+        }
     }
 
     /**
@@ -238,14 +242,16 @@ final class AppServiceProviderTest extends TestCase
             'services.supabase.jwt_secret' => false,
         ]);
 
-        // Assert
-        $this->expectException(InvalidConfigurationException::class);
-        $this->expectExceptionMessage('Application encryption key (APP_KEY)');
-        $this->expectExceptionMessage('Database host (DB_HOST)');
-        $this->expectExceptionMessage('Supabase JWT secret (SUPABASE_JWT_SECRET)');
-
-        // Act
-        $this->provider->boot();
+        // Act & Assert
+        try {
+            $this->provider->boot();
+            $this->fail('Expected InvalidConfigurationException');
+        } catch (InvalidConfigurationException $e) {
+            $this->assertSame('Required configuration is missing or invalid', $e->getMessage());
+            $this->assertStringContainsString('Application encryption key (APP_KEY)', $e->detail);
+            $this->assertStringContainsString('Database host (DB_HOST)', $e->detail);
+            $this->assertStringContainsString('Supabase JWT secret (SUPABASE_JWT_SECRET)', $e->detail);
+        }
     }
 
     #[Test]

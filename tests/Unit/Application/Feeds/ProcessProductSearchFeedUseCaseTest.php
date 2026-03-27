@@ -120,7 +120,7 @@ final class ProcessProductSearchFeedUseCaseTest extends TestCase
         Config::set('feeds.doofinder', null);
 
         $this->expectException(InvalidConfigurationException::class);
-        $this->expectExceptionMessage('Product search feed configuration is missing');
+        $this->expectExceptionMessage('Required configuration is missing or invalid');
 
         $this->useCase->execute();
     }
@@ -131,7 +131,7 @@ final class ProcessProductSearchFeedUseCaseTest extends TestCase
         Config::set('feeds.doofinder', 'invalid');
 
         $this->expectException(InvalidConfigurationException::class);
-        $this->expectExceptionMessage('Product search feed configuration is missing');
+        $this->expectExceptionMessage('Required configuration is missing or invalid');
 
         $this->useCase->execute();
     }
@@ -145,7 +145,7 @@ final class ProcessProductSearchFeedUseCaseTest extends TestCase
         ]);
 
         $this->expectException(InvalidConfigurationException::class);
-        $this->expectExceptionMessage('missing required key: source_url');
+        $this->expectExceptionMessage('Required configuration is missing or invalid');
 
         $this->useCase->execute();
     }
@@ -159,7 +159,7 @@ final class ProcessProductSearchFeedUseCaseTest extends TestCase
         ]);
 
         $this->expectException(InvalidConfigurationException::class);
-        $this->expectExceptionMessage('missing required key: storage_path');
+        $this->expectExceptionMessage('Required configuration is missing or invalid');
 
         $this->useCase->execute();
     }
@@ -173,7 +173,7 @@ final class ProcessProductSearchFeedUseCaseTest extends TestCase
         ]);
 
         $this->expectException(InvalidConfigurationException::class);
-        $this->expectExceptionMessage('missing required key: storage_disk');
+        $this->expectExceptionMessage('Required configuration is missing or invalid');
 
         $this->useCase->execute();
     }
@@ -184,7 +184,7 @@ final class ProcessProductSearchFeedUseCaseTest extends TestCase
         Config::set('feeds.doofinder.source_url', '');
 
         $this->expectException(InvalidConfigurationException::class);
-        $this->expectExceptionMessage('missing required key: source_url');
+        $this->expectExceptionMessage('Required configuration is missing or invalid');
 
         $this->useCase->execute();
     }
@@ -195,7 +195,7 @@ final class ProcessProductSearchFeedUseCaseTest extends TestCase
         Config::set('feeds.doofinder.storage_path', '');
 
         $this->expectException(InvalidConfigurationException::class);
-        $this->expectExceptionMessage('missing required key: storage_path');
+        $this->expectExceptionMessage('Required configuration is missing or invalid');
 
         $this->useCase->execute();
     }
@@ -206,7 +206,7 @@ final class ProcessProductSearchFeedUseCaseTest extends TestCase
         Config::set('feeds.doofinder.source_url', 123);
 
         $this->expectException(InvalidConfigurationException::class);
-        $this->expectExceptionMessage('missing required key: source_url');
+        $this->expectExceptionMessage('Required configuration is missing or invalid');
 
         $this->useCase->execute();
     }
@@ -227,7 +227,7 @@ final class ProcessProductSearchFeedUseCaseTest extends TestCase
             ->andThrow($exception);
 
         $this->expectException(ExternalServiceUnavailableException::class);
-        $this->expectExceptionMessage("External service 'Doofinder Feed' is unavailable");
+        $this->expectExceptionMessage('External service unavailable');
 
         $this->useCase->execute();
     }
@@ -242,7 +242,7 @@ final class ProcessProductSearchFeedUseCaseTest extends TestCase
             ->andThrow($exception);
 
         $this->expectException(MalformedFeedDataException::class);
-        $this->expectExceptionMessage('Invalid XML');
+        $this->expectExceptionMessage('Malformed feed data');
 
         $this->useCase->execute();
     }
@@ -257,7 +257,7 @@ final class ProcessProductSearchFeedUseCaseTest extends TestCase
             ->andThrow($exception);
 
         $this->expectException(StorageOperationFailedException::class);
-        $this->expectExceptionMessage('S3 error');
+        $this->expectExceptionMessage('Storage operation failed');
 
         $this->useCase->execute();
     }

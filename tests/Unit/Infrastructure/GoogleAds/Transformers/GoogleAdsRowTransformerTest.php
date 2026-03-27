@@ -102,7 +102,7 @@ final class GoogleAdsRowTransformerTest extends TestCase
         $row = new GoogleAdsRow();
 
         $this->expectException(InvalidGoogleAdsResponseException::class);
-        $this->expectExceptionMessage('Google Ads response missing required field: campaign (row.campaign)');
+        $this->expectExceptionMessage('Invalid Google Ads API response');
 
         GoogleAdsRowTransformer::toCampaignMetrics($row);
     }
@@ -119,7 +119,7 @@ final class GoogleAdsRowTransformerTest extends TestCase
         // No setMetrics() call - getMetrics() returns null
 
         $this->expectException(InvalidGoogleAdsResponseException::class);
-        $this->expectExceptionMessage('Google Ads response missing required field: metrics (row.metrics)');
+        $this->expectExceptionMessage('Invalid Google Ads API response');
 
         GoogleAdsRowTransformer::toCampaignMetrics($row);
     }
@@ -143,7 +143,7 @@ final class GoogleAdsRowTransformerTest extends TestCase
         // No setSegments() call - getSegments() returns null
 
         $this->expectException(InvalidGoogleAdsResponseException::class);
-        $this->expectExceptionMessage('Google Ads response missing required field: segments (row.segments)');
+        $this->expectExceptionMessage('Invalid Google Ads API response');
 
         GoogleAdsRowTransformer::toCampaignMetrics($row);
     }

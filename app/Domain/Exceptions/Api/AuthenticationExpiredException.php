@@ -22,11 +22,19 @@ use Throwable;
  */
 final class AuthenticationExpiredException extends PermanentApiFailure
 {
+    public readonly string $detail;
+
     public function __construct(
         string $serviceName,
         string $message = 'Authentication failed',
         ?Throwable $previous = null,
     ) {
-        parent::__construct($serviceName, "{$serviceName}: {$message}", $previous);
+        $this->detail = $message;
+        parent::__construct($serviceName, 'Authentication failed', $previous);
+    }
+
+    public function context(): array
+    {
+        return [...parent::context(), 'detail' => $this->detail];
     }
 }

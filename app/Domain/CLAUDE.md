@@ -14,6 +14,7 @@ Domain exceptions represent **business concepts**: service unavailable, authenti
 ## Exception Design Rules
 
 - Must be `final` classes with `readonly` constructor-promoted properties carrying business context (IDs, amounts, status)
+- Exception messages MUST be static strings (no interpolated IDs/names/dynamic data) — dynamic data goes in `context()` via readonly properties, enabling Sentry grouping
 - Extend `\DomainException` or `\LogicException`
 - Use **named constructors** (`::fromFailedRecords()`) for complex creation logic
 - Document `@throws` on interface methods

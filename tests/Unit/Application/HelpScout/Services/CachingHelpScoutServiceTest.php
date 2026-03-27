@@ -106,7 +106,7 @@ final class CachingHelpScoutServiceTest extends TestCase
             ->andReturn(null);
 
         $this->expectException(CustomerServiceAgentNotFoundException::class);
-        $this->expectExceptionMessage('unknown@example.com');
+        $this->expectExceptionMessage('Customer service agent not found');
 
         $this->service->getAgentProfile('unknown@example.com');
     }

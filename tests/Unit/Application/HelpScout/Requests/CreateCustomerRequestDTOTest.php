@@ -90,8 +90,9 @@ final class CreateCustomerRequestDTOTest extends TestCase
             new CreateCustomerRequestDTO();
             self::fail('Expected InsufficientDataException');
         } catch (InsufficientDataException $e) {
-            self::assertStringContainsString('Customer', $e->getMessage());
-            self::assertStringContainsString('email or phone', $e->getMessage());
+            self::assertSame('Insufficient data for operation', $e->getMessage());
+            self::assertStringContainsString('Customer', $e->entityType);
+            self::assertStringContainsString('email or phone', $e->requirement);
         }
     }
 

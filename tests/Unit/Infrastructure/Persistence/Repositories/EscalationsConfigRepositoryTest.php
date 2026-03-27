@@ -145,7 +145,7 @@ final class EscalationsConfigRepositoryTest extends TestCase
             ->andReturn(null);
 
         $this->expectException(ConfigurationNotFoundException::class);
-        $this->expectExceptionMessage("Required configuration 'hs_escalations' not found or disabled");
+        $this->expectExceptionMessage('Required configuration not found');
 
         $this->repository->get();
     }

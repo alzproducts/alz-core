@@ -162,7 +162,7 @@ final class DoofinderItemTransformerTest extends TestCase
         $itemXml = '<item><d_title>Display Title</d_title><price>29.99</price></item>';
 
         $this->expectException(MalformedFeedDataException::class);
-        $this->expectExceptionMessage('missing required title element');
+        $this->expectExceptionMessage('Malformed feed data');
 
         $this->transformer->validateFirstItem($itemXml);
     }
@@ -173,7 +173,7 @@ final class DoofinderItemTransformerTest extends TestCase
         $itemXml = '<item><title>Original Title</title><price>29.99</price></item>';
 
         $this->expectException(MalformedFeedDataException::class);
-        $this->expectExceptionMessage('missing required d_title element');
+        $this->expectExceptionMessage('Malformed feed data');
 
         $this->transformer->validateFirstItem($itemXml);
     }
@@ -184,7 +184,7 @@ final class DoofinderItemTransformerTest extends TestCase
         $itemXml = '<item><price>29.99</price><description>Some product</description></item>';
 
         $this->expectException(MalformedFeedDataException::class);
-        $this->expectExceptionMessage('missing both title and d_title elements');
+        $this->expectExceptionMessage('Malformed feed data');
 
         $this->transformer->validateFirstItem($itemXml);
     }
@@ -208,7 +208,7 @@ final class DoofinderItemTransformerTest extends TestCase
         $malformedXml = '<item><title>Unclosed';
 
         $this->expectException(MalformedFeedDataException::class);
-        $this->expectExceptionMessage('Invalid item XML');
+        $this->expectExceptionMessage('Malformed feed data');
 
         $this->transformer->validateFirstItem($malformedXml);
     }
@@ -330,7 +330,7 @@ final class DoofinderItemTransformerTest extends TestCase
         $malformedXml = '<item><title>Unclosed';
 
         $this->expectException(MalformedFeedDataException::class);
-        $this->expectExceptionMessage('Invalid item XML');
+        $this->expectExceptionMessage('Malformed feed data');
 
         $this->transformer->transform($malformedXml);
     }

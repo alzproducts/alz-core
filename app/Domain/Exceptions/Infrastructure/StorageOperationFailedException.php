@@ -22,9 +22,15 @@ final class StorageOperationFailedException extends AbstractInfrastructureExcept
         public readonly string $reason,
         ?Throwable $previous = null,
     ) {
-        parent::__construct(
-            "Storage {$operation} failed for '{$path}': {$reason}",
-            previous: $previous,
-        );
+        parent::__construct('Storage operation failed', previous: $previous);
+    }
+
+    public function context(): array
+    {
+        return [
+            'operation' => $this->operation,
+            'path' => $this->path,
+            'reason' => $this->reason,
+        ];
     }
 }
