@@ -19,13 +19,18 @@ namespace App\Domain\Exceptions\Data;
 final class InsufficientDataException extends AbstractDataException
 {
     /**
-     * @param string $context The entity/context (e.g., "Customer", "Order")
+     * @param string $entityType The entity/context (e.g., "Customer", "Order")
      * @param string $requirement What's needed (e.g., "at least an email or phone number")
      */
     public function __construct(
-        public readonly string $context,
+        public readonly string $entityType,
         public readonly string $requirement,
     ) {
-        parent::__construct("{$context} requires {$requirement}");
+        parent::__construct('Insufficient data for operation');
+    }
+
+    public function context(): array
+    {
+        return ['entity_type' => $this->entityType, 'requirement' => $this->requirement];
     }
 }

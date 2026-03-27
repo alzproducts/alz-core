@@ -151,7 +151,7 @@ final class GenerateStockItemFromVariationServiceTest extends TestCase
             ->with(Mockery::on(static fn($id) => $id->value === '550e8400-e29b-41d4-a716-446655440011'));
 
         $this->expectException(InvalidApiRequestException::class);
-        $this->expectExceptionMessage('SKU already exists');
+        $this->expectExceptionMessage('API request validation failed');
 
         $this->service->generate($params, $variationId);
     }
@@ -232,7 +232,7 @@ final class GenerateStockItemFromVariationServiceTest extends TestCase
 
         // Original ShopWired exception still thrown (not rollback exception)
         $this->expectException(InvalidApiRequestException::class);
-        $this->expectExceptionMessage('Validation error');
+        $this->expectExceptionMessage('API request validation failed');
 
         $this->service->generate($params, $variationId);
     }

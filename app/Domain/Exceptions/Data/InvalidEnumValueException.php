@@ -14,17 +14,30 @@ use Throwable;
  */
 final class InvalidEnumValueException extends AbstractDataException
 {
+    public readonly string $enumName;
+
     /**
      * @param class-string $enumClass
      */
     public function __construct(
         public readonly string $enumClass,
         public readonly string $value,
-        public readonly string $context,
+        public readonly string $usage,
         ?Throwable $previous = null,
     ) {
-        $enumName = \class_basename($enumClass);
-        parent::__construct("Invalid {$enumName} value '{$value}': {$context}", 0, $previous);
+        $lastBackslash = \mb_strrchr($this->enumClass, '\\');
+        $this->enumName = $lastBackslash !== false ? \mb_substr($lastBackslash, 1) : $this->enumClass;
+        parent::__construct('Invalid enum value', 0, $previous);
+    }
+
+    public function context(): array
+    {
+        return [
+            'enum_class' => $this->enumClass,
+            'enum_name' => $this->enumName,
+            'value' => $this->value,
+            'usage' => $this->usage,
+        ];
     }
 
     /**
@@ -37,7 +50,7 @@ final class InvalidEnumValueException extends AbstractDataException
         return new self(
             enumClass: $enumClass,
             value: $label,
-            context: 'no matching enum case found',
+            usage: 'no matching enum case found',
         );
     }
 
@@ -51,7 +64,7 @@ final class InvalidEnumValueException extends AbstractDataException
         return new self(
             enumClass: $enumClass,
             value: $value,
-            context: 'not a valid backing value for this enum',
+            usage: 'not a valid backing value for this enum',
             previous: $previous,
         );
     }

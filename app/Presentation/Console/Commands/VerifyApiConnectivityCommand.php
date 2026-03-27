@@ -78,6 +78,22 @@ final class VerifyApiConnectivityCommand extends Command
     }
 
     /**
+     * Format an exception message with structured context for operator debugging.
+     */
+    private static function formatError(Throwable $e): string
+    {
+        $message = $e->getMessage();
+        if (\method_exists($e, 'context')) {
+            $ctx = $e->context();
+            if ($ctx !== []) {
+                $message .= ' — ' . \json_encode($ctx);
+            }
+        }
+
+        return $message;
+    }
+
+    /**
      * Verify Reviews.io API connectivity.
      */
     private function verifyReviewsIo(): bool
@@ -93,7 +109,7 @@ final class VerifyApiConnectivityCommand extends Command
 
             return true;
         } catch (Throwable $e) { // @ignoreException - connectivity test: report failure to user
-            $this->error('  Failed: ' . $e->getMessage());
+            $this->error('  Failed: ' . self::formatError($e));
             $this->line('  Check: REVIEWSIO_API_KEY and REVIEWSIO_STORE in .env');
 
             return false;
@@ -114,7 +130,7 @@ final class VerifyApiConnectivityCommand extends Command
 
             return true;
         } catch (Throwable $e) { // @ignoreException - connectivity test: report failure to user
-            $this->error('  Failed: ' . $e->getMessage());
+            $this->error('  Failed: ' . self::formatError($e));
             $this->line('  Check: MIXPANEL_* credentials in .env');
 
             return false;
@@ -134,13 +150,13 @@ final class VerifyApiConnectivityCommand extends Command
 
             return true;
         } catch (AuthenticationExpiredException $e) {
-            $this->error('  Authorization Failed: ' . $e->getMessage());
+            $this->error('  Authorization Failed: ' . self::formatError($e));
             $this->line('  Check: Developer token access level in Google Ads API Center');
             $this->line('  Hint: Apply for Basic or Standard access at ads.google.com/aw/apicenter');
 
             return false;
         } catch (Throwable $e) { // @ignoreException - connectivity test: report failure to user
-            $this->error('  Failed: ' . $e->getMessage());
+            $this->error('  Failed: ' . self::formatError($e));
             $this->line('  Check: Google Ads OAuth credentials and refresh token');
 
             return false;
@@ -160,12 +176,12 @@ final class VerifyApiConnectivityCommand extends Command
 
             return true;
         } catch (AuthenticationExpiredException $e) {
-            $this->error('  Authorization Failed: ' . $e->getMessage());
+            $this->error('  Authorization Failed: ' . self::formatError($e));
             $this->line('  Check: Azure AD app permissions and OAuth credentials');
 
             return false;
         } catch (Throwable $e) { // @ignoreException - connectivity test: report failure to user
-            $this->error('  Failed: ' . $e->getMessage());
+            $this->error('  Failed: ' . self::formatError($e));
             $this->line('  Check: BING_ADS_* credentials in .env');
 
             return false;
@@ -185,7 +201,7 @@ final class VerifyApiConnectivityCommand extends Command
 
             return true;
         } catch (Throwable $e) { // @ignoreException - connectivity test: report failure to user
-            $this->error('  Failed: ' . $e->getMessage());
+            $this->error('  Failed: ' . self::formatError($e));
             $this->line('  Check: SHOPWIRED_API_KEY and SHOPWIRED_API_SECRET in .env');
 
             return false;
@@ -205,7 +221,7 @@ final class VerifyApiConnectivityCommand extends Command
 
             return true;
         } catch (Throwable $e) { // @ignoreException - connectivity test: report failure to user
-            $this->error('  Failed: ' . $e->getMessage());
+            $this->error('  Failed: ' . self::formatError($e));
             $this->line('  Check: LINNWORKS_APPLICATION_ID, LINNWORKS_APPLICATION_SECRET, and LINNWORKS_INSTALLATION_TOKEN in .env');
 
             return false;
@@ -225,12 +241,12 @@ final class VerifyApiConnectivityCommand extends Command
 
             return true;
         } catch (AuthenticationExpiredException $e) {
-            $this->error('  Authorization Failed: ' . $e->getMessage());
+            $this->error('  Authorization Failed: ' . self::formatError($e));
             $this->line('  Check: HELPSCOUT_APP_ID and HELPSCOUT_APP_SECRET in .env');
 
             return false;
         } catch (Throwable $e) { // @ignoreException - connectivity test: report failure to user
-            $this->error('  Failed: ' . $e->getMessage());
+            $this->error('  Failed: ' . self::formatError($e));
             $this->line('  Check: HELPSCOUT_APP_ID and HELPSCOUT_APP_SECRET in .env');
 
             return false;

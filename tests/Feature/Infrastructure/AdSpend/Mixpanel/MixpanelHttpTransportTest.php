@@ -258,7 +258,7 @@ final class MixpanelHttpTransportTest extends TestCase
         Http::fake(['*' => Http::response(['message' => 'Invalid parameters'], 400)]);
 
         $this->expectException(InvalidApiRequestException::class);
-        $this->expectExceptionMessage('Invalid parameters');
+        $this->expectExceptionMessage('API request validation failed');
 
         $this->transport->request('POST', self::TEST_DATA_API_BASE_URL . '/import', '{}', 'application/json');
     }
@@ -269,7 +269,7 @@ final class MixpanelHttpTransportTest extends TestCase
         Http::fake(['*' => Http::response(['error' => 'unauthorized'], 401)]);
 
         $this->expectException(AuthenticationExpiredException::class);
-        $this->expectExceptionMessage('Invalid credentials');
+        $this->expectExceptionMessage('Authentication failed');
 
         $this->transport->request('GET', self::TEST_DATA_API_BASE_URL . '/api/app/me');
     }
@@ -280,7 +280,7 @@ final class MixpanelHttpTransportTest extends TestCase
         Http::fake(['*' => Http::response(['error' => 'forbidden'], 403)]);
 
         $this->expectException(AuthenticationExpiredException::class);
-        $this->expectExceptionMessage('Insufficient permissions');
+        $this->expectExceptionMessage('Authentication failed');
 
         $this->transport->request('GET', self::TEST_DATA_API_BASE_URL . '/api/app/me');
     }
@@ -297,7 +297,7 @@ final class MixpanelHttpTransportTest extends TestCase
             $this->fail('Expected InvalidApiRequestException');
         } catch (InvalidApiRequestException $e) {
             $this->assertSame('Mixpanel', $e->serviceName);
-            $this->assertStringContainsString($url, $e->getMessage());
+            $this->assertStringContainsString($url, $e->detail);
         }
     }
 

@@ -32,12 +32,15 @@ final class MissingRequiredDataException extends AbstractDataException
         public readonly ?string $resolution = null,
         ?Throwable $previous = null,
     ) {
-        $message = "Required {$dataType} data not available for {$operation}";
+        parent::__construct('Required data not available', previous: $previous);
+    }
 
-        if ($resolution !== null) {
-            $message .= ". {$resolution}";
-        }
-
-        parent::__construct($message, previous: $previous);
+    public function context(): array
+    {
+        return \array_filter([
+            'data_type' => $this->dataType,
+            'operation' => $this->operation,
+            'resolution' => $this->resolution,
+        ], static fn(?string $value): bool => $value !== null && $value !== '');
     }
 }

@@ -78,6 +78,7 @@ After all subagents complete, handle the **General** checklist yourself — thes
 - **Catch, log, translate** — All infrastructure exceptions from code we don't control (third-party SDKs, API calls) must be caught, logged with context, and translated to domain exceptions.
 - **Failure paths throw** — Failure conditions must throw domain exceptions, not return silently.
 - **Preserve context** — Pass all relevant information up the chain. For batch operations, consider returning a result object instead of throwing on first failure.
+- **Static messages + context** — Exception messages must be static strings (no interpolated IDs/names/dynamic data). Dynamic data belongs in readonly properties returned via `context()` for Sentry grouping.
 
 #### API Client Methods
 

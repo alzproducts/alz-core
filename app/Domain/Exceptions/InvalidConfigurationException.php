@@ -23,11 +23,24 @@ use LogicException;
  */
 final class InvalidConfigurationException extends LogicException
 {
+    public readonly string $detail;
+
     public function __construct(
         public readonly string $configKey,
         string $message = '',
     ) {
-        $defaultMessage = "Required configuration '{$configKey}' is missing or invalid";
-        parent::__construct(($message !== '') ? $message : $defaultMessage);
+        $this->detail = $message;
+        parent::__construct('Required configuration is missing or invalid');
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function context(): array
+    {
+        return \array_filter([
+            'config_key' => $this->configKey,
+            'detail' => $this->detail,
+        ], static fn(string $value): bool => $value !== '');
     }
 }

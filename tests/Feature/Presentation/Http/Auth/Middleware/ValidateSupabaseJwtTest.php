@@ -106,6 +106,7 @@ final class ValidateSupabaseJwtTest extends TestCase
         Log::shouldReceive('channel')
             ->with('security')
             ->andReturn($logger);
+        Log::shouldReceive('error')->byDefault();
 
         // Act
         $response = $this->getJson('/_test/protected-route');
@@ -136,6 +137,7 @@ final class ValidateSupabaseJwtTest extends TestCase
         Log::shouldReceive('channel')
             ->with('security')
             ->andReturn($logger);
+        Log::shouldReceive('error')->byDefault();
 
         $token = $this->generateToken([], 'this-is-the-wrong-secret-key-32bytes');
 
@@ -168,6 +170,7 @@ final class ValidateSupabaseJwtTest extends TestCase
         Log::shouldReceive('channel')
             ->with('security')
             ->andReturn($logger);
+        Log::shouldReceive('error')->byDefault();
 
         $payload = ['exp' => \time() - 3600]; // Expired 1 hour ago
         $token = $this->generateToken($payload);
@@ -191,7 +194,8 @@ final class ValidateSupabaseJwtTest extends TestCase
             ->once()
             ->with(
                 'Invalid JWT token',
-                Mockery::on(static fn(array $context): bool => $context['error'] === 'SUPABASE_JWT_SECRET not configured'
+                Mockery::on(static fn(array $context): bool => $context['error'] === 'Required configuration is missing or invalid'
+                    && $context['detail'] === 'SUPABASE_JWT_SECRET not configured'
                     && \array_key_exists('event', $context)
                     && \array_key_exists('ip', $context)
                     && \array_key_exists('path', $context)
@@ -201,6 +205,7 @@ final class ValidateSupabaseJwtTest extends TestCase
         Log::shouldReceive('channel')
             ->with('security')
             ->andReturn($logger);
+        Log::shouldReceive('error')->byDefault();
 
         \config(['services.supabase.jwt_secret' => null]);
         $token = $this->generateToken([]); // Token is valid, but server config is not
@@ -234,6 +239,7 @@ final class ValidateSupabaseJwtTest extends TestCase
         Log::shouldReceive('channel')
             ->with('security')
             ->andReturn($logger);
+        Log::shouldReceive('error')->byDefault();
 
         // Act
         $response = $this->withToken('this.is.not.a.jwt')->getJson('/_test/protected-route');
@@ -254,7 +260,8 @@ final class ValidateSupabaseJwtTest extends TestCase
             ->once()
             ->with(
                 'Invalid JWT token',
-                Mockery::on(static fn(array $context): bool => \str_contains($context['error'], "required claim 'sub' is missing")
+                Mockery::on(static fn(array $context): bool => $context['error'] === 'Invalid JWT claims'
+                    && \str_contains($context['reason'], "required claim 'sub' is missing")
                     && \array_key_exists('event', $context)
                     && \array_key_exists('ip', $context)
                     && \array_key_exists('path', $context)
@@ -264,6 +271,7 @@ final class ValidateSupabaseJwtTest extends TestCase
         Log::shouldReceive('channel')
             ->with('security')
             ->andReturn($logger);
+        Log::shouldReceive('error')->byDefault();
 
         $payload = ['sub' => null];
         $token = $this->generateToken($payload);
@@ -310,7 +318,8 @@ final class ValidateSupabaseJwtTest extends TestCase
             ->once()
             ->with(
                 'Invalid JWT token',
-                Mockery::on(static fn(array $context): bool => \str_contains($context['error'], "required claim 'email' is missing")
+                Mockery::on(static fn(array $context): bool => $context['error'] === 'Invalid JWT claims'
+                    && \str_contains($context['reason'], "required claim 'email' is missing")
                     && \array_key_exists('event', $context)
                     && \array_key_exists('ip', $context)
                     && \array_key_exists('path', $context)
@@ -320,6 +329,7 @@ final class ValidateSupabaseJwtTest extends TestCase
         Log::shouldReceive('channel')
             ->with('security')
             ->andReturn($logger);
+        Log::shouldReceive('error')->byDefault();
 
         $payload = ['email' => null];
         $token = $this->generateToken($payload);
@@ -352,6 +362,7 @@ final class ValidateSupabaseJwtTest extends TestCase
         Log::shouldReceive('channel')
             ->with('security')
             ->andReturn($logger);
+        Log::shouldReceive('error')->byDefault();
 
         // Act: Manually set Authorization header to empty bearer token
         $response = $this->withHeaders(['Authorization' => 'Bearer '])
@@ -373,7 +384,8 @@ final class ValidateSupabaseJwtTest extends TestCase
             ->once()
             ->with(
                 'Invalid JWT token',
-                Mockery::on(static fn(array $context): bool => \str_contains($context['error'], "claim 'sub' cannot be empty")
+                Mockery::on(static fn(array $context): bool => $context['error'] === 'Invalid JWT claims'
+                    && \str_contains($context['reason'], "claim 'sub' cannot be empty")
                     && \array_key_exists('event', $context)
                     && \array_key_exists('ip', $context)
                     && \array_key_exists('path', $context)
@@ -383,6 +395,7 @@ final class ValidateSupabaseJwtTest extends TestCase
         Log::shouldReceive('channel')
             ->with('security')
             ->andReturn($logger);
+        Log::shouldReceive('error')->byDefault();
 
         $payload = ['sub' => '']; // Empty string instead of null
         $token = $this->generateToken($payload);
@@ -420,6 +433,7 @@ final class ValidateSupabaseJwtTest extends TestCase
         Log::shouldReceive('channel')
             ->with('security')
             ->andReturn($logger);
+        Log::shouldReceive('error')->byDefault();
 
         // Token with AAL1 (password only, no MFA)
         $token = $this->generateToken(['aal' => 'aal1']);
@@ -549,8 +563,9 @@ final class ValidateSupabaseJwtTest extends TestCase
             ->once()
             ->with(
                 'Invalid JWT token',
-                Mockery::on(static fn(array $context): bool => \str_contains($context['error'], 'expected string or array of strings')
-                    && \str_contains($context['error'], 'app_metadata.departments_summary')
+                Mockery::on(static fn(array $context): bool => $context['error'] === 'Invalid JWT claims'
+                    && \str_contains($context['reason'], 'expected string or array of strings')
+                    && $context['claim'] === 'app_metadata.departments_summary'
                     && \array_key_exists('event', $context)
                     && \array_key_exists('ip', $context)
                     && \array_key_exists('path', $context)),
@@ -559,6 +574,7 @@ final class ValidateSupabaseJwtTest extends TestCase
         Log::shouldReceive('channel')
             ->with('security')
             ->andReturn($logger);
+        Log::shouldReceive('error')->byDefault();
 
         $payload = [
             'app_metadata' => (object) [
@@ -586,7 +602,8 @@ final class ValidateSupabaseJwtTest extends TestCase
             ->once()
             ->with(
                 'Invalid JWT token',
-                Mockery::on(static fn(array $context): bool => \str_contains($context['error'], 'array with non-string elements')
+                Mockery::on(static fn(array $context): bool => $context['error'] === 'Invalid JWT claims'
+                    && \str_contains($context['reason'], 'array with non-string elements')
                     && \array_key_exists('event', $context)
                     && \array_key_exists('ip', $context)
                     && \array_key_exists('path', $context)),
@@ -595,6 +612,7 @@ final class ValidateSupabaseJwtTest extends TestCase
         Log::shouldReceive('channel')
             ->with('security')
             ->andReturn($logger);
+        Log::shouldReceive('error')->byDefault();
 
         $payload = [
             'app_metadata' => (object) [

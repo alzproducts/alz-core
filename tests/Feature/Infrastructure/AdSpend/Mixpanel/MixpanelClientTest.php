@@ -241,7 +241,7 @@ final class MixpanelClientTest extends TestCase
         $event = $this->createEvent();
 
         $this->expectException(ExternalServiceUnavailableException::class);
-        $this->expectExceptionMessage("External service 'Mixpanel' is unavailable");
+        $this->expectExceptionMessage('External service unavailable');
 
         $this->client->importCampaigns([$event], AdSource::Google);
     }
@@ -375,7 +375,7 @@ final class MixpanelClientTest extends TestCase
         $event = $this->createEvent();
 
         $this->expectException(InvalidApiRequestException::class);
-        $this->expectExceptionMessage('Invalid payload');
+        $this->expectExceptionMessage('API request validation failed');
 
         $this->client->importCampaigns([$event], AdSource::Google);
     }
@@ -388,7 +388,7 @@ final class MixpanelClientTest extends TestCase
         $event = $this->createEvent();
 
         $this->expectException(AuthenticationExpiredException::class);
-        $this->expectExceptionMessage('Invalid credentials');
+        $this->expectExceptionMessage('Authentication failed');
 
         $this->client->importCampaigns([$event], AdSource::Google);
     }
@@ -594,7 +594,7 @@ final class MixpanelClientTest extends TestCase
         $rows = [['123', 'Test Campaign', 'ENABLED']];
 
         $this->expectException(ExternalServiceUnavailableException::class);
-        $this->expectExceptionMessage("External service 'Mixpanel' is unavailable");
+        $this->expectExceptionMessage('External service unavailable');
 
         $this->client->replaceLookupTable('utm_campaigns', $headers, $rows);
     }
@@ -608,7 +608,7 @@ final class MixpanelClientTest extends TestCase
         $rows = [['123', 'Test Campaign', 'ENABLED']];
 
         $this->expectException(InvalidApiRequestException::class);
-        $this->expectExceptionMessage('Invalid CSV');
+        $this->expectExceptionMessage('API request validation failed');
 
         $this->client->replaceLookupTable('utm_campaigns', $headers, $rows);
     }
@@ -712,7 +712,7 @@ final class MixpanelClientTest extends TestCase
         ]);
 
         $this->expectException(AuthenticationExpiredException::class);
-        $this->expectExceptionMessage('Invalid credentials');
+        $this->expectExceptionMessage('Authentication failed');
 
         $this->client->verifyConnectivity();
     }
@@ -725,7 +725,7 @@ final class MixpanelClientTest extends TestCase
         ]);
 
         $this->expectException(ExternalServiceUnavailableException::class);
-        $this->expectExceptionMessage("External service 'Mixpanel' is unavailable");
+        $this->expectExceptionMessage('External service unavailable');
 
         $this->client->verifyConnectivity();
     }
@@ -763,7 +763,7 @@ final class MixpanelClientTest extends TestCase
         $event = $this->createEvent(cost: \INF);
 
         $this->expectException(PayloadSerializationException::class);
-        $this->expectExceptionMessage('Mixpanel');
+        $this->expectExceptionMessage('Failed to serialize payload');
 
         $this->client->importCampaigns([$event], AdSource::Google);
     }

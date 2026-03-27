@@ -26,8 +26,17 @@ final class ResourceNotFoundException extends PermanentApiFailure
     ) {
         parent::__construct(
             $serviceName,
-            "{$resourceType} with ID '{$resourceId}' not found in {$serviceName}",
+            'Resource not found in external service',
             $previous,
         );
+    }
+
+    public function context(): array
+    {
+        return [
+            ...parent::context(),
+            'resource_type' => $this->resourceType,
+            'resource_id' => $this->resourceId,
+        ];
     }
 }

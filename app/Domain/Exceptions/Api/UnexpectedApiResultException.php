@@ -26,8 +26,13 @@ final class UnexpectedApiResultException extends PermanentApiFailure
     ) {
         parent::__construct(
             $serviceName,
-            "Unexpected result from {$serviceName}: {$reason}",
+            'Unexpected result from external service',
             $previous,
         );
+    }
+
+    public function context(): array
+    {
+        return [...parent::context(), 'reason' => $this->reason];
     }
 }

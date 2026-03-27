@@ -18,18 +18,33 @@ use App\Infrastructure\Exceptions\ApiException;
  */
 final class InvalidBingAdsResponseException extends ApiException
 {
+    public function __construct(
+        public readonly string $field,
+        public readonly string $detail,
+    ) {
+        parent::__construct('Invalid Bing Ads API response');
+    }
+
     public static function missingColumn(string $column): self
     {
-        return new self("Bing Ads CSV missing required column: {$column}");
+        return new self($column, 'missing required column');
     }
 
     public static function invalidValue(string $field, string $reason): self
     {
-        return new self("Bing Ads CSV has invalid value for {$field}: {$reason}");
+        return new self($field, $reason);
     }
 
     public static function malformedCsv(string $reason): self
     {
-        return new self("Bing Ads CSV is malformed: {$reason}");
+        return new self('', $reason);
+    }
+
+    public function context(): array
+    {
+        return \array_filter([
+            'field' => $this->field,
+            'detail' => $this->detail,
+        ], static fn(string $value): bool => $value !== '');
     }
 }

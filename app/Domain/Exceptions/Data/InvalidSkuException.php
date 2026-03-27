@@ -16,7 +16,12 @@ final class InvalidSkuException extends AbstractDataException
         public readonly string $value,
         public readonly string $reason,
     ) {
-        parent::__construct("Invalid SKU '{$value}': {$reason}");
+        parent::__construct('Invalid SKU');
+    }
+
+    public function context(): array
+    {
+        return ['value' => $this->value, 'reason' => $this->reason];
     }
 
     public static function empty(): self

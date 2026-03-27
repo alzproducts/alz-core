@@ -208,7 +208,7 @@ final class CreatePurchaseOrderUseCaseTest extends TestCase
             ->with('Deleted partially-created purchase order after failure', Mockery::type('array'));
 
         $this->expectException(InvalidApiRequestException::class);
-        $this->expectExceptionMessage('linnworks: Invalid item parameters');
+        $this->expectExceptionMessage('API request validation failed');
 
         $this->useCase->execute($command);
     }
@@ -246,12 +246,12 @@ final class CreatePurchaseOrderUseCaseTest extends TestCase
             ->once()
             ->with('Failed to clean up partially-created purchase order', Mockery::on(
                 static fn(array $context): bool => $context['purchaseId'] === 'b8c9d0e1-f2a3-4567-bcde-678901234567'
-                    && $context['originalError'] === 'linnworks: Item error'
+                    && $context['originalError'] === 'API request validation failed'
                     && $context['cleanupError'] === 'Delete also failed',
             ));
 
         $this->expectException(InvalidApiRequestException::class);
-        $this->expectExceptionMessage('linnworks: Item error');
+        $this->expectExceptionMessage('API request validation failed');
 
         $this->useCase->execute($command);
     }

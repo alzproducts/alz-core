@@ -31,9 +31,11 @@ final class MalformedStoredDataException extends AbstractDataException
         public readonly string $reason,
         ?Throwable $previous = null,
     ) {
-        parent::__construct(
-            "Stored data in '{$source}' is malformed: {$reason}",
-            previous: $previous,
-        );
+        parent::__construct('Malformed stored data', previous: $previous);
+    }
+
+    public function context(): array
+    {
+        return ['source' => $this->source, 'reason' => $this->reason];
     }
 }

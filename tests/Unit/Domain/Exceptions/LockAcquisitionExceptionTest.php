@@ -23,7 +23,8 @@ final class LockAcquisitionExceptionTest extends TestCase
 
         self::assertSame('sku-generation', $exception->lockName);
         self::assertSame(30, $exception->timeoutSeconds);
-        self::assertSame("Failed to acquire lock 'sku-generation' within 30 seconds", $exception->getMessage());
+        self::assertSame('Failed to acquire lock', $exception->getMessage());
+        self::assertSame(['lock_name' => 'sku-generation', 'timeout_seconds' => 30], $exception->context());
     }
 
     #[Test]
@@ -40,6 +41,7 @@ final class LockAcquisitionExceptionTest extends TestCase
     {
         $exception = new LockAcquisitionException('order-processing', 60);
 
-        self::assertSame("Failed to acquire lock 'order-processing' within 60 seconds", $exception->getMessage());
+        self::assertSame('Failed to acquire lock', $exception->getMessage());
+        self::assertSame(['lock_name' => 'order-processing', 'timeout_seconds' => 60], $exception->context());
     }
 }

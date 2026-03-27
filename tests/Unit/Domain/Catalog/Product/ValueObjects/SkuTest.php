@@ -40,7 +40,7 @@ final class SkuTest extends TestCase
     public function from_string_rejects_empty_string(): void
     {
         $this->expectException(InvalidSkuException::class);
-        $this->expectExceptionMessage('SKU cannot be empty');
+        $this->expectExceptionMessage('Invalid SKU');
 
         Sku::fromString('');
     }
@@ -49,7 +49,7 @@ final class SkuTest extends TestCase
     public function from_string_rejects_whitespace_only(): void
     {
         $this->expectException(InvalidSkuException::class);
-        $this->expectExceptionMessage('SKU cannot be empty');
+        $this->expectExceptionMessage('Invalid SKU');
 
         Sku::fromString('   ');
     }
@@ -60,7 +60,7 @@ final class SkuTest extends TestCase
         $longSku = \str_repeat('A', 65);
 
         $this->expectException(InvalidSkuException::class);
-        $this->expectExceptionMessage('exceeds maximum length of 64 characters');
+        $this->expectExceptionMessage('Invalid SKU');
 
         Sku::fromString($longSku);
     }
