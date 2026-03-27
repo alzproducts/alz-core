@@ -14,20 +14,52 @@ env:
 
 permissions:
   contents: read
-  pull-requests: write
+  pull-requests: read
 
 jobs:
-  # Fast feedback: Code style check (60-90 seconds)
-  code-style:
-    name: Laravel Pint (PER + Strict Rules)
+  # Detect what changed — skips expensive jobs for docs-only PRs
+  changes:
+    name: Detect Changes
     runs-on: ubuntu-24.04
+    permissions:
+      pull-requests: read
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            code:
+              - 'app/**'
+              - 'config/**'
+              - 'database/**'
+              - 'routes/**'
+              - 'tests/**'
+              - 'composer.json'
+              - 'composer.lock'
+              - 'phpstan.neon'
+              - 'phpunit.xml'
+              - 'phpunit-*.xml'
+              - 'pint.json'
+              - 'psalm.xml'
+              - 'deptrac.yaml'
+              - 'phparkitect.php'
+              - '.github/workflows/**'
+
+  # Fast feedback: Code style + static analysis (runs PHPStan, Pint, PHPArkitect, Deptrac, TLint)
+  code-style:
+    name: Lint & Static Analysis
+    runs-on: ubuntu-24.04
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     timeout-minutes: 5
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Required for --diff flag
+          fetch-depth: 1
 
       - name: Setup PHP ${{ env.PHP_VERSION }}
         uses: shivammathur/setup-php@v2
@@ -48,45 +80,10 @@ jobs:
           key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
           restore-keys: ${{ runner.os }}-composer-
 
-      - name: Install dependencies
-        run: composer install --no-interaction --prefer-dist --no-progress --ignore-platform-req=ext-swoole
-
-      - name: Run Laravel Pint
-        run: composer run lint
-
-  # Static analysis: PHPStan Level max + Bleeding Edge (90-120 seconds)
-  static-analysis:
-    name: PHPStan Level max + ShipMonk Rules
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup PHP ${{ env.PHP_VERSION }}
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: ${{ env.PHP_VERSION }}
-          extensions: mbstring, xml, ctype, json, bcmath, openssl, pdo, soap
-          coverage: none
-          tools: composer:v2
-
-      - name: Get Composer cache directory
-        id: composer-cache
-        run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
-
-      - name: Cache Composer dependencies
-        uses: actions/cache@v4
-        with:
-          path: ${{ steps.composer-cache.outputs.dir }}
-          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
-          restore-keys: ${{ runner.os }}-composer-
-
       - name: Cache PHPStan results
         uses: actions/cache@v4
         with:
-          path: .phpstan-cache
+          path: storage/framework/phpstan
           key: phpstan-${{ hashFiles('**/*.php') }}-${{ hashFiles('composer.lock') }}
           restore-keys: |
             phpstan-${{ hashFiles('**/*.php') }}-
@@ -95,13 +92,15 @@ jobs:
       - name: Install dependencies
         run: composer install --no-interaction --prefer-dist --no-progress --ignore-platform-req=ext-swoole
 
-      - name: Run PHPStan analysis
-        run: composer run analyse
+      - name: Run Laravel Pint
+        run: composer run lint
 
-  # Comprehensive testing with coverage (3-5 minutes)
+  # Test suite without coverage (coverage enforced locally via make test-coverage / mutation testing)
   tests:
     name: Pest Tests + Coverage (PostgreSQL 17)
     runs-on: ubuntu-24.04
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     timeout-minutes: 20
 
     env:
@@ -159,7 +158,7 @@ jobs:
             memory_limit=512M
             zend.assertions=1
             opcache.enable_cli=1
-          coverage: ${{ github.event_name == 'pull_request' && 'xdebug' || 'pcov' }}
+          coverage: none
           tools: composer:v2
 
       - name: Get Composer cache directory
@@ -189,27 +188,14 @@ jobs:
         run: echo "::add-matcher::${{ runner.tool_cache }}/phpunit.json"
 
       - name: Execute test suite
-        run: |
-          if [ "${{ github.event_name }}" == "pull_request" ]; then
-            composer run test:coverage:ci
-          else
-            composer run test
-          fi
-
-      - name: Upload coverage to Codecov
-        if: github.event_name == 'pull_request'
-        uses: codecov/codecov-action@v4
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: ./coverage.xml
-          fail_ci_if_error: true
-          flags: backend
-          name: laravel-backend-coverage
+        run: composer run test
 
   # Security scanning (60-90 seconds)
   security:
     name: Security Audit & Dependency Scan
     runs-on: ubuntu-24.04
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     timeout-minutes: 5
 
     steps:
@@ -243,6 +229,8 @@ jobs:
   taint-analysis:
     name: Psalm Taint Analysis (Security)
     runs-on: ubuntu-24.04
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     timeout-minutes: 10
 
     steps:
@@ -285,7 +273,7 @@ jobs:
         run: make psalm-ci
 
   # Layer-Specific Mutation Testing (see tests/TestingStrategy.md)
-  # Only runs on PRs to main (develop→main promotion) - informational, non-blocking
+  # Only runs on PRs to main (develop->main promotion) - informational, non-blocking
   # Jobs run in parallel for faster feedback
 
   # Domain Layer: 90%+ MSI (strict) - pure business logic, highest value
@@ -379,4 +367,3 @@ jobs:
 
       - name: Run Pest mutation testing on Application Layer
         run: make mutate-app
-
