@@ -21,9 +21,7 @@ final class ConfigurationNotFoundExceptionTest extends TestCase
     {
         $exception = new ConfigurationNotFoundException('dashboard_settings');
 
-        $this->assertSame(
-            "Required configuration 'dashboard_settings' not found or disabled",
-            $exception->getMessage(),
-        );
+        $this->assertSame('Required configuration not found', $exception->getMessage());
+        $this->assertSame(['config_name' => 'dashboard_settings'], $exception->context());
     }
 }

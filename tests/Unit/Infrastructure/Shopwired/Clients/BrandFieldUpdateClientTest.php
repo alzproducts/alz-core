@@ -4,28 +4,32 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Infrastructure\Shopwired\Clients;
 
+use App\Application\Contracts\Shopwired\BrandClientInterface;
 use App\Domain\Catalog\Brand\ValueObjects\BrandFieldUpdate;
-use App\Infrastructure\Shopwired\Clients\BrandFieldUpdateClient;
+use App\Infrastructure\Shopwired\Clients\BrandUpdateClient;
 use App\Infrastructure\Shopwired\Contracts\ShopwiredTransportInterface;
 use Mockery;
 use Mockery\MockInterface;
+use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
-#[CoversClass(BrandFieldUpdateClient::class)]
+#[CoversClass(BrandUpdateClient::class)]
 final class BrandFieldUpdateClientTest extends TestCase
 {
     private ShopwiredTransportInterface&MockInterface $transport;
 
-    private BrandFieldUpdateClient $client;
+    private BrandUpdateClient $client;
 
+    #[Override]
     protected function setUp(): void
     {
         parent::setUp();
 
         $this->transport = Mockery::mock(ShopwiredTransportInterface::class);
-        $this->client = new BrandFieldUpdateClient($this->transport);
+        $brandClient = Mockery::mock(BrandClientInterface::class);
+        $this->client = new BrandUpdateClient($this->transport, $brandClient);
     }
 
     #[Test]
@@ -36,6 +40,27 @@ final class BrandFieldUpdateClientTest extends TestCase
             ->with('brands/7', ['title' => 'Acme']);
 
         $this->client->update(7, BrandFieldUpdate::title('Acme'));
+    }
+
+    #[Test]
+    public function it_maps_all_fields_correctly(): void
+    {
+        $this->transport->shouldReceive('put')
+            ->once()
+            ->with('brands/7', [
+                'title' => 'Acme',
+                'description' => 'A great brand',
+                'metaTitle' => 'SEO Title',
+                'metaDescription' => 'SEO Description',
+            ]);
+
+        $this->client->update(
+            7,
+            BrandFieldUpdate::title('Acme'),
+            BrandFieldUpdate::description('A great brand'),
+            BrandFieldUpdate::metaTitle('SEO Title'),
+            BrandFieldUpdate::metaDescription('SEO Description'),
+        );
     }
 
     #[Test]

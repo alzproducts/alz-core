@@ -171,7 +171,7 @@ final class LinnworksStockItemCreatorServiceTest extends TestCase
         $this->inventoryUpdateClient->shouldNotReceive('addInventoryItem');
 
         $this->expectException(LockAcquisitionException::class);
-        $this->expectExceptionMessage("Failed to acquire lock 'sku-generation'");
+        $this->expectExceptionMessage('Failed to acquire lock');
 
         $this->service->create($params);
     }

@@ -17,18 +17,25 @@ final class InvalidGoogleAdsResponseException extends ApiException
      * - ExternalServiceUnavailableException: API error/unavailable (rate limit, network)
      * - InvalidGoogleAdsResponseException: API returned 200 but data invalid
      */
+    public function __construct(
+        public readonly string $field,
+        public readonly string $detail,
+    ) {
+        parent::__construct('Invalid Google Ads API response');
+    }
+
     public static function missingField(string $field, string $context = ''): self
     {
-        $message = "Google Ads response missing required field: {$field}";
-        if ($context !== '') {
-            $message .= " ({$context})";
-        }
-
-        return new self($message);
+        return new self($field, 'missing required field' . ($context !== '' ? " ({$context})" : ''));
     }
 
     public static function invalidValue(string $field, string $reason): self
     {
-        return new self("Google Ads response has invalid value for {$field}: {$reason}");
+        return new self($field, $reason);
+    }
+
+    public function context(): array
+    {
+        return ['field' => $this->field, 'detail' => $this->detail];
     }
 }

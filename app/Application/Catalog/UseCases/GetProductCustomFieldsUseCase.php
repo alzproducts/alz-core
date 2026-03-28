@@ -4,13 +4,12 @@ declare(strict_types=1);
 
 namespace App\Application\Catalog\UseCases;
 
+use App\Application\Catalog\CustomFieldMergerService;
 use App\Application\Contracts\Shopwired\CustomFieldRepositoryInterface;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldItemType;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\CustomFields\ValueObjects\AbstractCustomFieldValue;
-use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldDefinition;
-use App\Domain\Catalog\CustomFields\ValueObjects\NullCustomFieldValue;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
@@ -57,7 +56,7 @@ final readonly class GetProductCustomFieldsUseCase
         );
 
         $definitions = $this->customFieldRepository->findByItemType(CustomFieldItemType::Product);
-        $fields = self::mergeWithDefinitions($product->customFields, $definitions);
+        $fields = CustomFieldMergerService::mergeWithDefinitions($product->customFields, $definitions);
 
         // Apply field name filter after merge
         if ($fieldNames !== []) {
@@ -71,60 +70,6 @@ final readonly class GetProductCustomFieldsUseCase
             'product_id' => $productId,
             'field_count' => \count($fields),
         ]);
-
-        return $fields;
-    }
-
-    /**
-     * Merge populated custom fields with all definitions, filling gaps with NullCustomFieldValue.
-     *
-     * Ensures every defined field is represented in the result. Populated fields not in
-     * definitions are appended for forward compatibility. Result is sorted by sortOrder (null last).
-     *
-     * @param list<AbstractCustomFieldValue> $populatedFields Fields with values from the product
-     * @param list<CustomFieldDefinition> $definitions All product custom field definitions
-     *
-     * @return list<AbstractCustomFieldValue>
-     */
-    private static function mergeWithDefinitions(array $populatedFields, array $definitions): array
-    {
-        // Index populated fields by name for O(1) lookup
-        $populatedByName = [];
-        foreach ($populatedFields as $field) {
-            $populatedByName[$field->name()] = $field;
-        }
-
-        // Build merged list: use populated value or create NullCustomFieldValue
-        $fields = [];
-        foreach ($definitions as $definition) {
-            $fields[] = $populatedByName[$definition->name]
-                ?? new NullCustomFieldValue($definition);
-        }
-
-        // Append populated fields not in definitions (forward compatibility)
-        foreach ($populatedByName as $name => $field) {
-            if (\array_find($fields, static fn(AbstractCustomFieldValue $f): bool => $f->name() === $name) === null) {
-                $fields[] = $field;
-            }
-        }
-
-        // Sort by sortOrder (null last)
-        \usort($fields, static function (AbstractCustomFieldValue $a, AbstractCustomFieldValue $b): int {
-            $aSort = $a->definition->sortOrder;
-            $bSort = $b->definition->sortOrder;
-
-            if ($aSort === null && $bSort === null) {
-                return 0;
-            }
-            if ($aSort === null) {
-                return 1;
-            }
-            if ($bSort === null) {
-                return -1;
-            }
-
-            return $aSort <=> $bSort;
-        });
 
         return $fields;
     }

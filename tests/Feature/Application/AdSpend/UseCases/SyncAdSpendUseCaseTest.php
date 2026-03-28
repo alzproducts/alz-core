@@ -252,7 +252,7 @@ final class SyncAdSpendUseCaseTest extends TestCase
             ->shouldNotReceive('importBatch');
 
         $this->expectException(ExternalServiceUnavailableException::class);
-        $this->expectExceptionMessage("External service 'Google Ads' is unavailable");
+        $this->expectExceptionMessage('External service unavailable');
 
         $this->useCase->execute(DateRange::singleDay($date));
     }
@@ -327,7 +327,7 @@ final class SyncAdSpendUseCaseTest extends TestCase
             ->andThrow($exception);
 
         $this->expectException(ExternalServiceUnavailableException::class);
-        $this->expectExceptionMessage("External service 'Mixpanel' is unavailable");
+        $this->expectExceptionMessage('External service unavailable');
 
         $this->useCase->execute(DateRange::singleDay($date));
     }
@@ -351,7 +351,7 @@ final class SyncAdSpendUseCaseTest extends TestCase
             ->andThrow($exception);
 
         $this->expectException(ExternalServiceUnavailableException::class);
-        $this->expectExceptionMessage("External service 'Mixpanel' is unavailable");
+        $this->expectExceptionMessage('External service unavailable');
 
         $this->useCase->execute(DateRange::singleDay($date));
     }

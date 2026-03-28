@@ -22,9 +22,16 @@ final class SkuUpdateFailedException extends AbstractInfrastructureException
         public readonly string $reason,
         ?Throwable $previous = null,
     ) {
-        parent::__construct(
-            "SKU update failed in {$failedSystem}: {$reason}",
-            previous: $previous,
-        );
+        parent::__construct('SKU update failed', previous: $previous);
+    }
+
+    public function context(): array
+    {
+        return [
+            'old_sku' => $this->oldSku,
+            'new_sku' => $this->newSku,
+            'failed_system' => $this->failedSystem,
+            'reason' => $this->reason,
+        ];
     }
 }

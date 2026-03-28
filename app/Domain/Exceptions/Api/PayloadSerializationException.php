@@ -23,11 +23,19 @@ use Throwable;
  */
 final class PayloadSerializationException extends PermanentApiFailure
 {
+    public readonly string $detail;
+
     public function __construct(
         string $serviceName,
         string $message = 'Failed to serialize payload',
         ?Throwable $previous = null,
     ) {
-        parent::__construct($serviceName, "{$serviceName}: {$message}", $previous);
+        $this->detail = $message;
+        parent::__construct($serviceName, 'Failed to serialize payload', $previous);
+    }
+
+    public function context(): array
+    {
+        return [...parent::context(), 'detail' => $this->detail];
     }
 }

@@ -16,6 +16,11 @@ final class InvalidGtinException extends AbstractDataException
         public readonly string $value,
         public readonly string $reason,
     ) {
-        parent::__construct("Invalid GTIN '{$value}': {$reason}");
+        parent::__construct('Invalid GTIN');
+    }
+
+    public function context(): array
+    {
+        return ['value' => $this->value, 'reason' => $this->reason];
     }
 }

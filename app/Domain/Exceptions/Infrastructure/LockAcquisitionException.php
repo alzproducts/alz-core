@@ -19,9 +19,14 @@ final class LockAcquisitionException extends AbstractInfrastructureException
         public readonly int $timeoutSeconds,
         ?Throwable $previous = null,
     ) {
-        parent::__construct(
-            "Failed to acquire lock '{$lockName}' within {$timeoutSeconds} seconds",
-            previous: $previous,
-        );
+        parent::__construct('Failed to acquire lock', previous: $previous);
+    }
+
+    public function context(): array
+    {
+        return [
+            'lock_name' => $this->lockName,
+            'timeout_seconds' => $this->timeoutSeconds,
+        ];
     }
 }

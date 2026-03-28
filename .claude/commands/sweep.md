@@ -1,30 +1,46 @@
 ---
 description: Post-implementation quality sweep — review and fix common issues before human review
-allowed-tools: Bash(git *), Bash(make *), mcp__sequential-thinking__sequentialthinking, mcp__phpstorm__*, mcp__webstorm__*, mcp__intellij__*, Read, Grep, Glob, Edit, Write, AskUserQuestion, TaskCreate, TaskUpdate, TaskList, TaskGet
+allowed-tools: Bash(git *), Bash(make *), Agent, mcp__sequential-thinking__sequentialthinking, mcp__phpstorm__*, mcp__webstorm__*, mcp__intellij__*, Read, Grep, Glob, Edit, Write, AskUserQuestion, TaskCreate, TaskUpdate, TaskList, TaskGet
 ---
 
 # Post-Implementation Quality Sweep
 
-Use ultrathink and the mcp__sequential-thinking__sequentialthinking tool throughout this review.
+You are the **orchestrator**. Detect scope, dispatch parallel subagents per architectural layer, handle cross-cutting checks, then lint/test/summarize.
 
-Review and fix common issues that get missed during implementation. This is a tidy-up pass before human review — not a full audit.
+Use ultrathink throughout this review.
 
 ## Scope Discipline
 
-**Stay strictly within the review checklist below.** If you encounter bugs, inconsistencies, or improvements outside the scope of this checklist, **do not fix them**. Note them for the summary section and move on.
+**Stay strictly within the review checklist below.** Do not fix out-of-scope issues — note them for the summary. If any check is blocked, **skip it** with reasoning and continue.
 
-If any individual check is blocked by complications or ambiguity, **skip it** — log your reasoning and all relevant context in the summary, then continue with the next check. Never abandon the sweep because of a single issue.
-
-## Scope Detection
+## Step 1: Scope Detection
 
 1. Check for uncommitted changes (`git diff` and `git status`)
 2. If uncommitted changes exist → review those files
 3. If no uncommitted changes → identify the base branch and review all changes on the current feature branch (`git diff <base>...HEAD`)
+4. **Group changed files by architectural layer** (Presentation, Application, Infrastructure, Domain, Tests)
 
-## How to Apply Fixes
+## Step 2: Parallel Layer Reviews
 
-- **Reference existing code** in the codebase as the canonical example for how fixes should be applied. Do not invent patterns.
-- Use `TaskCreate` to build a checklist from the review items below, and `TaskUpdate` to track progress as you work through them.
+Spawn subagents **in parallel** using the Agent tool (multiple Agent blocks in a single response). Skip any group with no changed files.
+
+| Agent | Layers | Weight |
+|-------|--------|--------|
+| 1 | Presentation + Testing | Light |
+| 2 | Application | Heavy |
+| 3 | Infrastructure + Domain | Medium |
+
+Each subagent prompt must include:
+- The changed files in its assigned layers
+- The checklist items from the relevant sections below
+- **Boundary rule**: read files outside your layers for context, but only edit files within your assigned layers
+- **Reference existing code** as the canonical example for fixes — do not invent patterns
+- Skip complex refactors — report them instead
+- Report: issues found, fixes applied, items skipped with reasoning
+
+## Step 3: Cross-Cutting Review
+
+After all subagents complete, handle the **General** checklist yourself — these checks require cross-layer visibility.
 
 ---
 
@@ -62,6 +78,7 @@ If any individual check is blocked by complications or ambiguity, **skip it** �
 - **Catch, log, translate** — All infrastructure exceptions from code we don't control (third-party SDKs, API calls) must be caught, logged with context, and translated to domain exceptions.
 - **Failure paths throw** — Failure conditions must throw domain exceptions, not return silently.
 - **Preserve context** — Pass all relevant information up the chain. For batch operations, consider returning a result object instead of throwing on first failure.
+- **Static messages + context** — Exception messages must be static strings (no interpolated IDs/names/dynamic data). Dynamic data belongs in readonly properties returned via `context()` for Sentry grouping.
 
 #### API Client Methods
 
@@ -78,7 +95,7 @@ If any individual check is blocked by complications or ambiguity, **skip it** �
 - **Domain types** — Use project-specific types where appropriate: `SKU`, `IntId`, `Money`, etc.
 - **Native exception handling** — For PHP/native exceptions, search the domain layer for existing patterns showing how they are handled. Usually we catch and rethrow as domain exceptions, but there may be other established approaches (e.g., wrapping via Carbon for date handling). If no existing pattern is found, log it as something to discuss with the user.
 
-### General
+### General — Orchestrator Only
 
 - **Code placement** — Is code in the correct architectural layer? Are feature sub-namespaces used consistently with similar features nearby? Compare against the structure of similar features in each layer.
 - **Logging at the right layer** — Each layer should only log what it uniquely knows. Data should not be passed across layers just to be logged elsewhere. If a result is returned from a UseCase to a Job solely for logging, move the logging into the UseCase. Infrastructure logs SDK/technical details, Application logs business milestones/results, Presentation (jobs/controllers) logs only delivery-specific context (input parameters, queue metadata).
@@ -92,22 +109,17 @@ If any individual check is blocked by complications or ambiguity, **skip it** �
 
 ---
 
-## Process
+## Post-Review Process
 
-### Step 1: Review
-Perform all checks above against the detected scope. Fix issues as you find them.
-
-### Step 2: Lint
+### Step 4: Lint & Test
 Run `make fix` then `make lint`. Fix any failures.
-
-### Step 3: Test
 Run `make test`. Fix any failures.
 
-### Step 4: Second Pass
+### Step 5: Second Pass
 Did linting or test fixes surface new issues? For example, PHPStan catching missing checked exceptions may require job exception handling to be revisited. If so, repeat the relevant review items.
 
-### Step 5: Summary
-Present a summary to the user covering:
+### Step 6: Summary
+Consolidate all subagent reports and present a summary covering:
 
 1. **Issues found and fixed** — Brief description of each change made
 2. **Out-of-scope observations** — Errors, inconsistencies, or improvements noticed during review that fall outside this sweep's scope

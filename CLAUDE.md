@@ -244,6 +244,8 @@ See layer-specific guides for detailed patterns.
 
 **Always search for existing exceptions before creating new ones.** Search `app/Domain/Exceptions` for similar patterns. Prefer reusing/extending existing exceptions over proliferating new ones.
 
+- **Static messages**: Exception messages must be static (no interpolated dynamic data). Pass dynamic data as readonly constructor properties and return them from `context()` for Sentry grouping.
+
 ## Modern PHP Standards
 
 **Target**: PHP 8.4+ features and best practices

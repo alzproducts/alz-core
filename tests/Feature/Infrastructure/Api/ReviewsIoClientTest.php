@@ -237,7 +237,7 @@ final class ReviewsIoClientTest extends TestCase
     public function it_throws_invalid_argument_exception_for_empty_sku_array(): void
     {
         $this->expectException(InvalidApiRequestException::class);
-        $this->expectExceptionMessage('Invalid SKU(s) provided: skus');
+        $this->expectExceptionMessage('API request validation failed');
 
         $this->client->getProductRatingBatch([]);
     }
@@ -248,7 +248,7 @@ final class ReviewsIoClientTest extends TestCase
         $skus = \array_fill(0, 101, 'SKU');
 
         $this->expectException(InvalidApiRequestException::class);
-        $this->expectExceptionMessage('Invalid SKU(s) provided: skus');
+        $this->expectExceptionMessage('API request validation failed');
 
         $this->client->getProductRatingBatch($skus);
     }
@@ -258,7 +258,7 @@ final class ReviewsIoClientTest extends TestCase
     public function it_throws_invalid_argument_exception_for_invalid_sku(string $invalidSku): void
     {
         $this->expectException(InvalidApiRequestException::class);
-        $this->expectExceptionMessage('Invalid SKU(s) provided: skus.0');
+        $this->expectExceptionMessage('API request validation failed');
 
         $this->client->getProductRatingBatch([$invalidSku]);
     }
@@ -278,7 +278,7 @@ final class ReviewsIoClientTest extends TestCase
     public function it_throws_invalid_argument_exception_for_empty_string_sku(): void
     {
         $this->expectException(InvalidApiRequestException::class);
-        $this->expectExceptionMessage('Invalid SKU(s) provided: skus.0');
+        $this->expectExceptionMessage('API request validation failed');
 
         $this->client->getProductRatingBatch(['']);
     }
@@ -289,7 +289,7 @@ final class ReviewsIoClientTest extends TestCase
         $longSku = \str_repeat('A', 101);
 
         $this->expectException(InvalidApiRequestException::class);
-        $this->expectExceptionMessage('Invalid SKU(s) provided: skus.0');
+        $this->expectExceptionMessage('API request validation failed');
 
         $this->client->getProductRatingBatch([$longSku]);
     }
@@ -300,7 +300,7 @@ final class ReviewsIoClientTest extends TestCase
         $boundarySku = \str_repeat('X', 101);
 
         $this->expectException(InvalidApiRequestException::class);
-        $this->expectExceptionMessage('Invalid SKU(s) provided: skus.0');
+        $this->expectExceptionMessage('API request validation failed');
 
         $this->client->getProductRatingBatch([$boundarySku]);
     }
@@ -326,7 +326,7 @@ final class ReviewsIoClientTest extends TestCase
         // This tests the 'string' validation rule on 'skus.*'
         // Kills the RemoveArrayItem mutation that removes 'string' from validation
         $this->expectException(InvalidApiRequestException::class);
-        $this->expectExceptionMessage('Invalid SKU(s) provided: skus.0');
+        $this->expectExceptionMessage('API request validation failed');
 
         // @phpstan-ignore argument.type
         $this->client->getProductRatingBatch([123]); // Integer instead of string
@@ -338,7 +338,7 @@ final class ReviewsIoClientTest extends TestCase
         // This tests the 'required' validation rule on 'skus.*'
         // Kills the RemoveArrayItem mutation that removes 'required' from validation
         $this->expectException(InvalidApiRequestException::class);
-        $this->expectExceptionMessage('Invalid SKU(s) provided: skus.0');
+        $this->expectExceptionMessage('API request validation failed');
 
         // @phpstan-ignore argument.type
         $this->client->getProductRatingBatch([null]); // Null SKU in array
@@ -376,7 +376,7 @@ final class ReviewsIoClientTest extends TestCase
         Http::fake(['*' => Http::response(['message' => 'Invalid parameters'], 400)]);
 
         $this->expectException(InvalidApiRequestException::class);
-        $this->expectExceptionMessage('Invalid parameters');
+        $this->expectExceptionMessage('API request validation failed');
 
         $this->client->getProductRatingBatch(['SKU-400']);
     }
@@ -387,7 +387,7 @@ final class ReviewsIoClientTest extends TestCase
         Http::fake(['*' => Http::response(['error' => 'Unauthorized'], 401)]);
 
         $this->expectException(AuthenticationExpiredException::class);
-        $this->expectExceptionMessage('Invalid credentials');
+        $this->expectExceptionMessage('Authentication failed');
 
         $this->client->getProductRatingBatch(['SKU-401']);
     }
@@ -398,7 +398,7 @@ final class ReviewsIoClientTest extends TestCase
         Http::fake(['*' => Http::response(['error' => 'Forbidden'], 403)]);
 
         $this->expectException(AuthenticationExpiredException::class);
-        $this->expectExceptionMessage('Insufficient permissions');
+        $this->expectExceptionMessage('Authentication failed');
 
         $this->client->getProductRatingBatch(['SKU-403']);
     }
@@ -444,7 +444,7 @@ final class ReviewsIoClientTest extends TestCase
         ])]);
 
         $this->expectException(InvalidApiResponseException::class);
-        $this->expectExceptionMessage('invalid data structure');
+        $this->expectExceptionMessage('API response validation failed');
 
         $this->client->getProductRatingBatch('TEST-SKU');
     }

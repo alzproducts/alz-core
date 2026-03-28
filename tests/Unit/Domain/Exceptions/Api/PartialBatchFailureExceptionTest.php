@@ -25,9 +25,10 @@ final class PartialBatchFailureExceptionTest extends TestCase
             serviceName: 'Shopwired',
         );
 
-        self::assertSame('Shopwired: 2 batch chunk(s) failed', $exception->getMessage());
+        self::assertSame('Partial batch failure', $exception->getMessage());
         self::assertSame('Shopwired', $exception->serviceName);
         self::assertCount(2, $exception->failures);
+        self::assertSame(['service_name' => 'Shopwired', 'failure_count' => 2], $exception->context());
     }
 
     #[Test]
@@ -40,8 +41,9 @@ final class PartialBatchFailureExceptionTest extends TestCase
             serviceName: 'Shopwired',
         );
 
-        self::assertSame('Shopwired: 1 batch chunk(s) failed', $exception->getMessage());
+        self::assertSame('Partial batch failure', $exception->getMessage());
         self::assertSame($failure, $exception->failures[0]);
+        self::assertSame(1, $exception->context()['failure_count']);
     }
 
     #[Test]

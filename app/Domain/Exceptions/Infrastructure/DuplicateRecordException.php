@@ -19,6 +19,11 @@ final class DuplicateRecordException extends AbstractInfrastructureException
         public readonly string $constraint,
         ?Throwable $previous = null,
     ) {
-        parent::__construct("Duplicate record in '{$table}' (constraint: {$constraint})", 0, $previous);
+        parent::__construct('Duplicate record constraint violation', 0, $previous);
+    }
+
+    public function context(): array
+    {
+        return ['table' => $this->table, 'constraint' => $this->constraint];
     }
 }

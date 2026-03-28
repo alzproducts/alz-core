@@ -10,4 +10,7 @@ namespace App\Domain\Catalog\Category\Enums;
 enum CategoryUpdatableField
 {
     case Title;
+    case Description;
+    case MetaTitle;
+    case MetaDescription;
 }
