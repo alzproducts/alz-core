@@ -25,7 +25,14 @@ final class PartialBatchFailureException extends DomainException
         public readonly array $failures,
         public readonly string $serviceName,
     ) {
-        $count = \count($failures);
-        parent::__construct("{$serviceName}: {$count} batch chunk(s) failed");
+        parent::__construct('Partial batch failure');
+    }
+
+    public function context(): array
+    {
+        return [
+            'service_name' => $this->serviceName,
+            'failure_count' => \count($this->failures),
+        ];
     }
 }

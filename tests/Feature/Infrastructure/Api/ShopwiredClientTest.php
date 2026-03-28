@@ -164,7 +164,7 @@ final class ShopwiredClientTest extends TestCase
         Http::fake(['*' => Http::response(['message' => 'Invalid parameters'], 400)]);
 
         $this->expectException(InvalidApiRequestException::class);
-        $this->expectExceptionMessage('Invalid parameters');
+        $this->expectExceptionMessage('API request validation failed');
 
         $this->client->verifyConnectivity();
     }
@@ -175,7 +175,7 @@ final class ShopwiredClientTest extends TestCase
         Http::fake(['*' => Http::response(['error' => 'Unauthorized'], 401)]);
 
         $this->expectException(AuthenticationExpiredException::class);
-        $this->expectExceptionMessage('Invalid credentials');
+        $this->expectExceptionMessage('Authentication failed');
 
         $this->client->verifyConnectivity();
     }
@@ -186,7 +186,7 @@ final class ShopwiredClientTest extends TestCase
         Http::fake(['*' => Http::response(['error' => 'Forbidden'], 403)]);
 
         $this->expectException(AuthenticationExpiredException::class);
-        $this->expectExceptionMessage('Insufficient permissions');
+        $this->expectExceptionMessage('Authentication failed');
 
         $this->client->verifyConnectivity();
     }
@@ -456,7 +456,7 @@ final class ShopwiredClientTest extends TestCase
         Http::fake(['*' => Http::response(['message' => 'Unprocessable Entity'], 422)]);
 
         $this->expectException(InvalidApiRequestException::class);
-        $this->expectExceptionMessage('Unprocessable Entity');
+        $this->expectExceptionMessage('API request validation failed');
 
         $this->client->verifyConnectivity();
     }

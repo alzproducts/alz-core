@@ -21,6 +21,11 @@ final class ConfigurationNotFoundException extends AbstractInfrastructureExcepti
         public readonly string $configName,
         ?Throwable $previous = null,
     ) {
-        parent::__construct("Required configuration '{$configName}' not found or disabled", 0, $previous);
+        parent::__construct('Required configuration not found', 0, $previous);
+    }
+
+    public function context(): array
+    {
+        return ['config_name' => $this->configName];
     }
 }

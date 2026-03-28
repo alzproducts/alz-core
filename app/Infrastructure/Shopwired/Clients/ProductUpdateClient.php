@@ -11,6 +11,7 @@ use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Api\ResourceNotAvailableException;
+use App\Infrastructure\Shopwired\Clients\Traits\MergesCustomFieldsTrait;
 use App\Infrastructure\Shopwired\Contracts\ShopwiredTransportInterface;
 
 /**
@@ -21,6 +22,7 @@ use App\Infrastructure\Shopwired\Contracts\ShopwiredTransportInterface;
  */
 final readonly class ProductUpdateClient implements ProductUpdateClientInterface
 {
+    use MergesCustomFieldsTrait;
     private const string ENDPOINT_PRODUCTS = 'products';
 
     public function __construct(
@@ -40,7 +42,7 @@ final readonly class ProductUpdateClient implements ProductUpdateClientInterface
     public function updateCustomFields(int $productId, array $customFields): void
     {
         $product = $this->productClient->getProductById($productId);
-        $mergedFields = $this->mergeCustomFields($product->rawCustomFields, $customFields);
+        $mergedFields = self::mergeCustomFields($product->rawCustomFields, $customFields);
         $this->updateProductField($productId, 'customFields', $mergedFields);
     }
 
@@ -76,32 +78,6 @@ final readonly class ProductUpdateClient implements ProductUpdateClientInterface
             self::ENDPOINT_PRODUCTS . '/' . $productId,
             [$fieldName => $data],
         );
-    }
-
-    /**
-     * Merge new custom field values with existing.
-     *
-     * ShopWired requires the full merged set of custom fields on every PUT.
-     * To clear a field, send an empty string '' — ShopWired ignores missing fields.
-     *
-     * - Existing fields not in $newFields are preserved
-     * - Fields in $newFields overwrite existing
-     * - Null values in $newFields clear the field (sent as empty string '')
-     *
-     * @param array<string, mixed> $existing Current custom field values
-     * @param array<string, string|int|bool|list<string>|list<int>|null> $newFields Fields to update
-     *
-     * @return array<string, mixed> Merged custom fields
-     */
-    private function mergeCustomFields(array $existing, array $newFields): array
-    {
-        $merged = $existing;
-
-        foreach ($newFields as $name => $value) {
-            $merged[$name] = $value ?? '';
-        }
-
-        return $merged;
     }
 
     /**

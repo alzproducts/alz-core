@@ -206,7 +206,7 @@ final class SyncOrdersToMixpanelUseCaseTest extends TestCase
             ->andReturn([]); // Customer not found
 
         $this->expectException(MissingRequiredDataException::class);
-        $this->expectExceptionMessage('999');
+        $this->expectExceptionMessage('Required data not available');
 
         $this->useCase->execute($from, $to);
     }

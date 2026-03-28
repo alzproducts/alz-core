@@ -23,6 +23,8 @@ use Throwable;
  */
 final class InvalidCustomFieldValueException extends DomainException
 {
+    public readonly string $rawValueType;
+
     public function __construct(
         public readonly string $fieldName,
         public readonly CustomFieldType $expectedType,
@@ -30,9 +32,17 @@ final class InvalidCustomFieldValueException extends DomainException
         public readonly mixed $rawValue,
         ?Throwable $previous = null,
     ) {
-        parent::__construct(
-            "Custom field '{$fieldName}' expected type '{$expectedType->value}' but received '{$actualType}'",
-            previous: $previous,
-        );
+        $this->rawValueType = \get_debug_type($rawValue);
+        parent::__construct('Custom field value type mismatch', previous: $previous);
+    }
+
+    public function context(): array
+    {
+        return [
+            'field_name' => $this->fieldName,
+            'expected_type' => $this->expectedType->value,
+            'actual_type' => $this->actualType,
+            'raw_value_type' => $this->rawValueType,
+        ];
     }
 }

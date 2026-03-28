@@ -26,9 +26,14 @@ final class MissingVariationSkuException extends DomainException
         public readonly int $variationId,
         public readonly int $productExternalId,
     ) {
-        parent::__construct(
-            "Product variation {$variationId} (parent product {$productExternalId}) is missing required SKU. "
-            . 'Fix in ShopWired admin and re-run sync.',
-        );
+        parent::__construct('Product variation missing required SKU');
+    }
+
+    public function context(): array
+    {
+        return [
+            'variation_id' => $this->variationId,
+            'product_external_id' => $this->productExternalId,
+        ];
     }
 }

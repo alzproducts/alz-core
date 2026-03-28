@@ -1,0 +1,76 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Application\Catalog\UseCases;
+
+use App\Application\Catalog\CustomFieldMergerService;
+use App\Application\Contracts\Shopwired\CategoryRepositoryInterface;
+use App\Application\Contracts\Shopwired\CustomFieldRepositoryInterface;
+use App\Domain\Catalog\CustomFields\Enums\CustomFieldItemType;
+use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
+use App\Domain\Catalog\CustomFields\ValueObjects\AbstractCustomFieldValue;
+use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
+use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use App\Domain\ValueObjects\IntId;
+use Psr\Log\LoggerInterface;
+
+/**
+ * Get enriched custom fields for a single category.
+ *
+ * Returns ALL defined custom fields with definition metadata (label, allowed_values, sort_order),
+ * including fields with no value on the category (represented as NullCustomFieldValue).
+ * Optionally filters to a subset of field names.
+ */
+final readonly class GetCategoryCustomFieldsUseCase
+{
+    public function __construct(
+        private CategoryRepositoryInterface $categoryRepository,
+        private CustomFieldRepositoryInterface $customFieldRepository,
+        private LoggerInterface $logger,
+    ) {}
+
+    /**
+     * @param list<string> $fieldNames Optional filter — only return these field names
+     *
+     * @return list<AbstractCustomFieldValue>
+     *
+     * @throws ResourceNotFoundException When no category matches the ID
+     * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
+     * @throws DatabaseOperationFailedException On query failure
+     * @throws DuplicateRecordException On constraint violation
+     * @throws ExternalServiceUnavailableException When database temporarily unavailable
+     */
+    public function execute(int $categoryId, array $fieldNames = []): array
+    {
+        $this->logger->info('Getting category custom fields', [
+            'category_id' => $categoryId,
+            'field_filter' => $fieldNames,
+        ]);
+
+        $category = $this->categoryRepository->findCategoryForApi(
+            IntId::from($categoryId),
+            ['custom_fields'],
+        );
+
+        $definitions = $this->customFieldRepository->findByItemType(CustomFieldItemType::Category);
+        $fields = CustomFieldMergerService::mergeWithDefinitions($category->customFields ?? [], $definitions);
+
+        // Apply field name filter after merge
+        if ($fieldNames !== []) {
+            $fields = \array_values(\array_filter(
+                $fields,
+                static fn(AbstractCustomFieldValue $field): bool => \in_array($field->name(), $fieldNames, true),
+            ));
+        }
+
+        $this->logger->info('Got category custom fields', [
+            'category_id' => $categoryId,
+            'field_count' => \count($fields),
+        ]);
+
+        return $fields;
+    }
+}

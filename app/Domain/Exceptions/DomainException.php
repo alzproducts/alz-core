@@ -16,4 +16,18 @@ use RuntimeException;
  * Note: This is NOT PHP's built-in \DomainException (which extends LogicException
  * for mathematical domain errors). This is our application's domain layer base.
  */
-abstract class DomainException extends RuntimeException {}
+abstract class DomainException extends RuntimeException
+{
+    /**
+     * Structured context for logging and error tracking (e.g. Sentry).
+     *
+     * Override in concrete exceptions to return dynamic data (IDs, names, etc.)
+     * that should NOT be in the message string (to enable Sentry grouping).
+     *
+     * @return array<string, mixed>
+     */
+    public function context(): array
+    {
+        return [];
+    }
+}

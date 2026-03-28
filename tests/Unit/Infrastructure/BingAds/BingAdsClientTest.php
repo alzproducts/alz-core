@@ -85,7 +85,7 @@ final class BingAdsClientTest extends TestCase
             ->andThrow($exception);
 
         $this->expectException(AuthenticationExpiredException::class);
-        $this->expectExceptionMessage('Bing Ads: Authentication failed');
+        $this->expectExceptionMessage('Authentication failed');
 
         $this->client->verifyConnectivity();
     }
@@ -100,7 +100,7 @@ final class BingAdsClientTest extends TestCase
             ->andThrow($exception);
 
         $this->expectException(ExternalServiceUnavailableException::class);
-        $this->expectExceptionMessage("External service 'Bing Ads' is unavailable");
+        $this->expectExceptionMessage('External service unavailable');
 
         $this->client->verifyConnectivity();
     }

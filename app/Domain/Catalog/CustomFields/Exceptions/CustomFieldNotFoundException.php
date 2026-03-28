@@ -28,9 +28,14 @@ final class CustomFieldNotFoundException extends DomainException
         public readonly CustomFieldItemType $itemType,
         ?Throwable $previous = null,
     ) {
-        parent::__construct(
-            "Custom field '{$fieldName}' not found in registry for item type '{$itemType->value}'",
-            previous: $previous,
-        );
+        parent::__construct('Custom field not found in registry', previous: $previous);
+    }
+
+    public function context(): array
+    {
+        return [
+            'field_name' => $this->fieldName,
+            'item_type' => $this->itemType->value,
+        ];
     }
 }

@@ -303,7 +303,7 @@ CSV;
 CSV;
 
         $this->expectException(InvalidBingAdsResponseException::class);
-        $this->expectExceptionMessage('Bing Ads CSV is malformed: Could not find header row with expected columns');
+        $this->expectExceptionMessage('Invalid Bing Ads API response');
 
         BingAdsCsvTransformer::toCampaignMetrics($csv);
     }
@@ -317,7 +317,7 @@ CampaignId,CampaignName,TimePeriod,Spend,Clicks,Impressions
 CSV;
 
         $this->expectException(InvalidBingAdsResponseException::class);
-        $this->expectExceptionMessage('Bing Ads CSV missing required column: Conversions');
+        $this->expectExceptionMessage('Invalid Bing Ads API response');
 
         BingAdsCsvTransformer::toCampaignMetrics($csv);
     }
@@ -331,7 +331,7 @@ CampaignId,CampaignName,TimePeriod,Spend,Clicks,Impressions,Conversions
 CSV;
 
         $this->expectException(InvalidBingAdsResponseException::class);
-        $this->expectExceptionMessage("Bing Ads CSV has invalid value for TimePeriod: Expected YYYY-MM-DD format, got '05/10/2024'");
+        $this->expectExceptionMessage('Invalid Bing Ads API response');
 
         BingAdsCsvTransformer::toCampaignMetrics($csv);
     }
@@ -345,7 +345,7 @@ CampaignId,CampaignName,TimePeriod,Spend,Clicks,Impressions,Conversions
 CSV;
 
         $this->expectException(InvalidBingAdsResponseException::class);
-        $this->expectExceptionMessage("Expected YYYY-MM-DD format, got '2024/05/10'");
+        $this->expectExceptionMessage('Invalid Bing Ads API response');
 
         BingAdsCsvTransformer::toCampaignMetrics($csv);
     }
@@ -360,7 +360,7 @@ CampaignId,CampaignName,TimePeriod,Spend,Clicks,Impressions,Conversions
 CSV;
 
         $this->expectException(InvalidBingAdsResponseException::class);
-        $this->expectExceptionMessage('Missing value at line');
+        $this->expectExceptionMessage('Invalid Bing Ads API response');
 
         BingAdsCsvTransformer::toCampaignMetrics($csv);
     }
@@ -375,7 +375,7 @@ CampaignId,CampaignName,TimePeriod,Spend,Clicks,Impressions,Conversions
 CSV;
 
         $this->expectException(InvalidBingAdsResponseException::class);
-        $this->expectExceptionMessage('Missing value at line 2');
+        $this->expectExceptionMessage('Invalid Bing Ads API response');
 
         BingAdsCsvTransformer::toCampaignMetrics($csv);
     }

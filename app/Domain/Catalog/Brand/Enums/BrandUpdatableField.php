@@ -10,4 +10,7 @@ namespace App\Domain\Catalog\Brand\Enums;
 enum BrandUpdatableField
 {
     case Title;
+    case Description;
+    case MetaTitle;
+    case MetaDescription;
 }

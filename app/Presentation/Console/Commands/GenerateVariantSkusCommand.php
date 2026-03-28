@@ -187,6 +187,10 @@ final class GenerateVariantSkusCommand extends Command
         };
 
         $this->error($errorMsg);
+        $ctx = $e->context();
+        if ($ctx !== []) {
+            $this->line('  Context: ' . \json_encode($ctx));
+        }
         $this->warn("  {$hintMsg}");
 
         return self::FAILURE;
@@ -229,6 +233,10 @@ final class GenerateVariantSkusCommand extends Command
             return Sku::fromString($value);
         } catch (InvalidSkuException $e) {
             $this->error("Invalid template SKU: {$e->getMessage()}");
+            $ctx = $e->context();
+            if ($ctx !== []) {
+                $this->line('  Context: ' . \json_encode($ctx));
+            }
 
             return null;
         }

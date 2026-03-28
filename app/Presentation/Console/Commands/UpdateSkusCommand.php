@@ -189,7 +189,10 @@ final class UpdateSkusCommand extends Command
 
             return UpdateSkuCommand::provided($oldSku, $newSku, $reason);
         } catch (InvalidSkuException $e) {
-            return "'{$mapping}' - invalid new SKU: {$e->getMessage()}";
+            $ctx = $e->context();
+            $detail = $ctx !== [] ? ' — ' . \json_encode($ctx) : '';
+
+            return "'{$mapping}' - invalid new SKU: {$e->getMessage()}{$detail}";
         }
     }
 }

@@ -16,13 +16,21 @@ final class InvalidTemplateException extends DomainException
 {
     public function __construct(
         public readonly string $templateSku,
-        string $reason,
+        public readonly string $reason,
     ) {
-        parent::__construct("Template SKU '{$templateSku}' is invalid: {$reason}");
+        parent::__construct('Invalid template stock item');
     }
 
     public static function noDefaultSupplier(string $templateSku): self
     {
         return new self($templateSku, 'no default supplier configured');
+    }
+
+    public function context(): array
+    {
+        return [
+            'template_sku' => $this->templateSku,
+            'reason' => $this->reason,
+        ];
     }
 }

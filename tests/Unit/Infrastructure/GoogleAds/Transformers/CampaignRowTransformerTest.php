@@ -115,7 +115,7 @@ final class CampaignRowTransformerTest extends TestCase
         $row = new GoogleAdsRow();
 
         $this->expectException(InvalidGoogleAdsResponseException::class);
-        $this->expectExceptionMessage('campaign');
+        $this->expectExceptionMessage('Invalid Google Ads API response');
 
         CampaignRowTransformer::toCampaign($row);
     }
@@ -130,7 +130,7 @@ final class CampaignRowTransformerTest extends TestCase
         );
 
         $this->expectException(InvalidGoogleAdsResponseException::class);
-        $this->expectExceptionMessage('Unknown campaign status enum value: 99');
+        $this->expectExceptionMessage('Invalid Google Ads API response');
 
         CampaignRowTransformer::toCampaign($row);
     }
@@ -145,7 +145,7 @@ final class CampaignRowTransformerTest extends TestCase
         );
 
         $this->expectException(InvalidGoogleAdsResponseException::class);
-        $this->expectExceptionMessage('Unknown campaign status enum value: -1');
+        $this->expectExceptionMessage('Invalid Google Ads API response');
 
         CampaignRowTransformer::toCampaign($row);
     }

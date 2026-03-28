@@ -23,4 +23,19 @@ final readonly class BrandFieldUpdate
     {
         return new self(BrandUpdatableField::Title, $title);
     }
+
+    public static function description(string $description): self
+    {
+        return new self(BrandUpdatableField::Description, $description);
+    }
+
+    public static function metaTitle(string $metaTitle): self
+    {
+        return new self(BrandUpdatableField::MetaTitle, $metaTitle);
+    }
+
+    public static function metaDescription(string $metaDescription): self
+    {
+        return new self(BrandUpdatableField::MetaDescription, $metaDescription);
+    }
 }

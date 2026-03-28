@@ -25,9 +25,10 @@ final class MissingRequiredDataExceptionTest extends TestCase
             operation: 'Mixpanel order sync',
         );
 
+        $this->assertSame('Required data not available', $exception->getMessage());
         $this->assertSame(
-            'Required customer trade status data not available for Mixpanel order sync',
-            $exception->getMessage(),
+            ['data_type' => 'customer trade status', 'operation' => 'Mixpanel order sync'],
+            $exception->context(),
         );
     }
 
@@ -40,9 +41,14 @@ final class MissingRequiredDataExceptionTest extends TestCase
             resolution: 'Ensure customer sync job has run before order sync',
         );
 
+        $this->assertSame('Required data not available', $exception->getMessage());
         $this->assertSame(
-            'Required customer trade status data not available for Mixpanel order sync. Ensure customer sync job has run before order sync',
-            $exception->getMessage(),
+            [
+                'data_type' => 'customer trade status',
+                'operation' => 'Mixpanel order sync',
+                'resolution' => 'Ensure customer sync job has run before order sync',
+            ],
+            $exception->context(),
         );
     }
 

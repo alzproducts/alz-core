@@ -38,6 +38,7 @@ final class CustomFieldValueFactory implements CustomFieldValueFactoryInterface
 
     public function __construct(
         private readonly CustomFieldRepositoryInterface $customFieldRepository,
+        private readonly CustomFieldItemType $itemType,
     ) {}
 
     /**
@@ -61,7 +62,7 @@ final class CustomFieldValueFactory implements CustomFieldValueFactoryInterface
             if ($definition === null) {
                 throw new CustomFieldNotFoundException(
                     fieldName: $name,
-                    itemType: CustomFieldItemType::Product,
+                    itemType: $this->itemType,
                 );
             }
 
@@ -231,7 +232,7 @@ final class CustomFieldValueFactory implements CustomFieldValueFactoryInterface
     {
         if ($this->registry === null) {
             $definitions = $this->customFieldRepository->findAll();
-            $this->registry = CustomFieldDefinitionRegistry::forItemType($definitions, CustomFieldItemType::Product);
+            $this->registry = CustomFieldDefinitionRegistry::forItemType($definitions, $this->itemType);
         }
 
         return $this->registry;

@@ -23,4 +23,19 @@ final readonly class CategoryFieldUpdate
     {
         return new self(CategoryUpdatableField::Title, $title);
     }
+
+    public static function description(string $description): self
+    {
+        return new self(CategoryUpdatableField::Description, $description);
+    }
+
+    public static function metaTitle(string $metaTitle): self
+    {
+        return new self(CategoryUpdatableField::MetaTitle, $metaTitle);
+    }
+
+    public static function metaDescription(string $metaDescription): self
+    {
+        return new self(CategoryUpdatableField::MetaDescription, $metaDescription);
+    }
 }

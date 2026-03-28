@@ -4,15 +4,18 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Application\Catalog\UseCases\UpdateBrandCustomFieldsUseCase;
+use App\Application\Catalog\UseCases\UpdateCategoryCustomFieldsUseCase;
+use App\Application\Catalog\UseCases\UpdateProductCustomFieldsUseCase;
 use App\Application\Contracts\Shopwired\BasicProductUpdateClientInterface;
 use App\Application\Contracts\Shopwired\BrandClientInterface;
-use App\Application\Contracts\Shopwired\BrandFieldUpdateClientInterface;
 use App\Application\Contracts\Shopwired\BrandRepositoryInterface;
+use App\Application\Contracts\Shopwired\BrandUpdateClientInterface;
 use App\Application\Contracts\Shopwired\BrandWebhookEventResolverInterface;
 use App\Application\Contracts\Shopwired\BrandWebhookParserInterface;
 use App\Application\Contracts\Shopwired\CategoryClientInterface;
-use App\Application\Contracts\Shopwired\CategoryFieldUpdateClientInterface;
 use App\Application\Contracts\Shopwired\CategoryRepositoryInterface;
+use App\Application\Contracts\Shopwired\CategoryUpdateClientInterface;
 use App\Application\Contracts\Shopwired\CategoryWebhookEventResolverInterface;
 use App\Application\Contracts\Shopwired\CategoryWebhookParserInterface;
 use App\Application\Contracts\Shopwired\ConnectivityClientInterface;
@@ -61,8 +64,8 @@ use App\Infrastructure\Catalog\Product\Factories\ProductCostPriceFactory;
 use App\Infrastructure\Catalog\Product\Mappers\ProductModelMapper;
 use App\Infrastructure\Catalog\Product\Mappers\ProductVariationModelMapper;
 use App\Infrastructure\Shopwired\Clients\BasicProductUpdateClient;
-use App\Infrastructure\Shopwired\Clients\BrandFieldUpdateClient;
-use App\Infrastructure\Shopwired\Clients\CategoryFieldUpdateClient;
+use App\Infrastructure\Shopwired\Clients\BrandUpdateClient;
+use App\Infrastructure\Shopwired\Clients\CategoryUpdateClient;
 use App\Infrastructure\Shopwired\Clients\CustomerFieldUpdateClient;
 use App\Infrastructure\Shopwired\Clients\ProductClient;
 use App\Infrastructure\Shopwired\Clients\ProductFieldUpdateClient;
@@ -168,8 +171,23 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
         // FieldUpdate clients — simple PUT field updates per entity
         $this->app->singleton(ProductFieldUpdateClientInterface::class, static fn(): ProductFieldUpdateClientInterface => new ProductFieldUpdateClient(ShopwiredClientFactory::getTransport()));
         $this->app->singleton(CustomerFieldUpdateClientInterface::class, static fn(): CustomerFieldUpdateClientInterface => new CustomerFieldUpdateClient(ShopwiredClientFactory::getTransport()));
-        $this->app->singleton(CategoryFieldUpdateClientInterface::class, static fn(): CategoryFieldUpdateClientInterface => new CategoryFieldUpdateClient(ShopwiredClientFactory::getTransport()));
-        $this->app->singleton(BrandFieldUpdateClientInterface::class, static fn(): BrandFieldUpdateClientInterface => new BrandFieldUpdateClient(ShopwiredClientFactory::getTransport()));
+
+        // Update clients — scalar fields (simple PUT) + custom fields (fetch-merge-PUT)
+        $this->app->singleton(
+            CategoryUpdateClientInterface::class,
+            static fn(Application $app): CategoryUpdateClientInterface => new CategoryUpdateClient(
+                ShopwiredClientFactory::getTransport(),
+                $app->make(CategoryClientInterface::class),
+            ),
+        );
+
+        $this->app->singleton(
+            BrandUpdateClientInterface::class,
+            static fn(Application $app): BrandUpdateClientInterface => new BrandUpdateClient(
+                ShopwiredClientFactory::getTransport(),
+                $app->make(BrandClientInterface::class),
+            ),
+        );
     }
 
     private function registerRepositories(): void
@@ -192,7 +210,28 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
     {
         // All scoped to prevent stale state in Octane
         $this->app->scoped(ProductDomainFactory::class);
-        $this->app->scoped(CustomFieldValueFactoryInterface::class, CustomFieldValueFactory::class);
+        // CustomFieldValueFactory is parameterised by item type — use contextual binding
+        // so each consumer gets a factory filtered to its entity's custom fields.
+        $this->app->when(UpdateProductCustomFieldsUseCase::class)
+            ->needs(CustomFieldValueFactoryInterface::class)
+            ->give(static fn(Application $app): CustomFieldValueFactory => new CustomFieldValueFactory(
+                $app->make(CustomFieldRepositoryInterface::class),
+                CustomFieldItemType::Product,
+            ));
+
+        $this->app->when(UpdateCategoryCustomFieldsUseCase::class)
+            ->needs(CustomFieldValueFactoryInterface::class)
+            ->give(static fn(Application $app): CustomFieldValueFactory => new CustomFieldValueFactory(
+                $app->make(CustomFieldRepositoryInterface::class),
+                CustomFieldItemType::Category,
+            ));
+
+        $this->app->when(UpdateBrandCustomFieldsUseCase::class)
+            ->needs(CustomFieldValueFactoryInterface::class)
+            ->give(static fn(Application $app): CustomFieldValueFactory => new CustomFieldValueFactory(
+                $app->make(CustomFieldRepositoryInterface::class),
+                CustomFieldItemType::Brand,
+            ));
 
         // CustomFieldFactory is parameterised by item type — use contextual binding
         // so each consumer gets a factory filtered to its entity's custom fields.
@@ -305,13 +344,13 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
         return [
             BasicProductUpdateClientInterface::class,
             BrandClientInterface::class,
-            BrandFieldUpdateClientInterface::class,
             BrandRepositoryInterface::class,
+            BrandUpdateClientInterface::class,
             BrandWebhookEventResolverInterface::class,
             BrandWebhookParserInterface::class,
             CategoryClientInterface::class,
-            CategoryFieldUpdateClientInterface::class,
             CategoryRepositoryInterface::class,
+            CategoryUpdateClientInterface::class,
             CategoryWebhookEventResolverInterface::class,
             CategoryWebhookParserInterface::class,
             ConnectivityClientInterface::class,

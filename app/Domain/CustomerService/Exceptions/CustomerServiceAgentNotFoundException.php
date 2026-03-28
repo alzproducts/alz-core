@@ -24,6 +24,11 @@ final class CustomerServiceAgentNotFoundException extends DomainException
     public function __construct(
         public readonly string $email,
     ) {
-        parent::__construct("No customer service account found for email: {$email}");
+        parent::__construct('Customer service agent not found');
+    }
+
+    public function context(): array
+    {
+        return ['email' => $this->email];
     }
 }

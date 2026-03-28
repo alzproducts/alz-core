@@ -159,7 +159,7 @@ final class SyncLookupTableUseCaseTest extends TestCase
             ->once();
 
         $this->expectException(UnexpectedApiResultException::class);
-        $this->expectExceptionMessage('Unexpected result from Google Ads');
+        $this->expectExceptionMessage('Unexpected result from external service');
 
         $this->useCase->execute();
     }
@@ -261,7 +261,7 @@ final class SyncLookupTableUseCaseTest extends TestCase
             ->andThrow($exception);
 
         $this->expectException(ExternalServiceUnavailableException::class);
-        $this->expectExceptionMessage('Mixpanel');
+        $this->expectExceptionMessage('External service unavailable');
 
         $this->useCase->execute();
     }
