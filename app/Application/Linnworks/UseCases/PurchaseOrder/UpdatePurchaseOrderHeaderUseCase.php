@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Application\Linnworks\UseCases\PurchaseOrder;
 
 use App\Application\Contracts\Linnworks\PurchaseOrderClientInterface;
+use App\Application\Contracts\Linnworks\PurchaseOrderUpdateClientInterface;
 use App\Application\Linnworks\DTOs\PurchaseOrder\PurchaseOrderHeaderUpdateDTO;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
@@ -25,7 +26,8 @@ use Psr\Log\LoggerInterface;
 final readonly class UpdatePurchaseOrderHeaderUseCase
 {
     public function __construct(
-        private PurchaseOrderClientInterface $client,
+        private PurchaseOrderClientInterface $readClient,
+        private PurchaseOrderUpdateClientInterface $writeClient,
         private LoggerInterface $logger,
     ) {}
 
@@ -44,11 +46,11 @@ final readonly class UpdatePurchaseOrderHeaderUseCase
             'fields' => $command->changedFields(),
         ]);
 
-        $current = $this->client->getPurchaseOrder($command->purchaseId);
+        $current = $this->readClient->getPurchaseOrder($command->purchaseId);
 
         $updateParams = PurchaseOrderHeaderUpdateDTO::fromHeaderWithOverrides($current, $command);
 
-        $this->client->updatePurchaseOrderHeader($updateParams);
+        $this->writeClient->updatePurchaseOrderHeader($updateParams);
 
         $this->logger->info('Updated purchase order header', [
             'purchase_id' => $command->purchaseId->value,

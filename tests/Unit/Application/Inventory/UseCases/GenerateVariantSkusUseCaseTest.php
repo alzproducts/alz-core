@@ -7,6 +7,7 @@ namespace Tests\Unit\Application\Inventory\UseCases;
 use App\Application\Contracts\Linnworks\InventoryClientInterface;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Application\Inventory\Commands\GenerateVariantSkusCommand;
+use App\Application\Inventory\DTOs\VariationProcessingContextDTO;
 use App\Application\Inventory\Params\CreateStockItemParams;
 use App\Application\Inventory\Services\GenerateStockItemFromVariationService;
 use App\Application\Inventory\Services\StockItemParamsBuilderService;
@@ -386,7 +387,7 @@ final class GenerateVariantSkusUseCaseTest extends TestCase
         // Verify noSupplier command is passed to params builder (which nullifies supplierId)
         $this->paramsBuilder->shouldReceive('build')
             ->once()
-            ->withArgs(static fn($variation, $product, $template, $cmd): bool => $cmd->noSupplier === true)
+            ->withArgs(static fn($variation, VariationProcessingContextDTO $ctx): bool => $ctx->command->noSupplier === true)
             ->andReturn($this->createStubParams());
 
         $this->stockItemGenerator->shouldReceive('generate')

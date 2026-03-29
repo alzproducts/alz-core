@@ -14,6 +14,7 @@ use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Infrastructure\LockAcquisitionException;
+use App\Domain\Inventory\ValueObjects\SupplierLinkParams;
 use App\Domain\Shared\Money\ValueObjects\Money;
 use App\Domain\ValueObjects\Guid;
 use App\Domain\ValueObjects\TaxRate;
@@ -94,7 +95,7 @@ final class LinnworksStockItemCreatorServiceTest extends TestCase
         // Supplier linking - verify isDefault=true
         $this->inventoryUpdateClient->shouldReceive('createSupplierStat')
             ->once()
-            ->withArgs(static fn($id, $supplierId, $purchasePrice, $supplierCode, $isDefault) => $id->value === $stockItemId->value && $isDefault === true);
+            ->withArgs(static fn(Sku|Guid $id, SupplierLinkParams $params) => $id->value === $stockItemId->value && $params->isDefault === true);
 
         // Extended properties
         $this->inventoryUpdateClient->shouldReceive('addExtendedProperty')

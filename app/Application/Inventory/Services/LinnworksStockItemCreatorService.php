@@ -17,6 +17,7 @@ use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Infrastructure\LockAcquisitionException;
 use App\Domain\Inventory\Commands\AddInventoryItemCommand;
+use App\Domain\Inventory\ValueObjects\SupplierLinkParams;
 use App\Domain\ValueObjects\Guid;
 use Psr\Log\LoggerInterface;
 
@@ -140,10 +141,12 @@ final readonly class LinnworksStockItemCreatorService
         if ($params->supplierId !== null) {
             $this->inventoryUpdateClient->createSupplierStat(
                 identifier: $stockItemId,
-                supplierId: $params->supplierId,
-                purchasePrice: $params->purchasePrice,
-                supplierCode: $params->supplierCode,
-                isDefault: true,
+                params: new SupplierLinkParams(
+                    supplierId: $params->supplierId,
+                    purchasePrice: $params->purchasePrice,
+                    supplierCode: $params->supplierCode,
+                    isDefault: true,
+                ),
             );
         }
 

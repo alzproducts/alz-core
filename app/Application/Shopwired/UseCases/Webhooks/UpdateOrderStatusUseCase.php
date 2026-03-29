@@ -7,7 +7,7 @@ namespace App\Application\Shopwired\UseCases\Webhooks;
 use App\Application\Contracts\Shopwired\OrderRepositoryInterface;
 use App\Application\Contracts\Shopwired\ShopwiredSyncDispatcherInterface;
 use App\Application\Contracts\Shopwired\WebhookIdempotencyServiceInterface;
-use App\Application\Shopwired\Enums\WebhookTopic;
+use App\Application\Shopwired\DTOs\WebhookContextDTO;
 use App\Domain\Catalog\Order\ValueObjects\OrderStatus;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
@@ -39,30 +39,30 @@ final readonly class UpdateOrderStatusUseCase
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      */
-    public function execute(DateTimeImmutable $eventTime, int $webhookId, WebhookTopic $topic, IntId $orderId, OrderStatus $status): void
+    public function execute(WebhookContextDTO $context, IntId $orderId, OrderStatus $status): void
     {
-        $context = ['webhook_id' => $webhookId, 'subject_id' => $orderId->value];
-        $this->logger->info('Processing order status webhook', $context);
+        $logContext = ['webhook_id' => $context->webhookId, 'subject_id' => $orderId->value];
+        $this->logger->info('Processing order status webhook', $logContext);
 
         $cutoff = (new DateTimeImmutable())->setTimestamp(\time() - ($this->webhookStalenessHours * 3600));
 
-        if ($eventTime < $cutoff) {
-            $this->logger->info('Discarding stale order status webhook', $context);
+        if ($context->eventTime < $cutoff) {
+            $this->logger->info('Discarding stale order status webhook', $logContext);
 
             return;
         }
 
-        if ($this->idempotency->isSuperseded($orderId, $topic, $webhookId)) {
-            $this->logger->info('Discarding superseded order status webhook', $context);
+        if ($this->idempotency->isSuperseded($orderId, $context->topic, $context->webhookId)) {
+            $this->logger->info('Discarding superseded order status webhook', $logContext);
 
             return;
         }
 
         $this->orderRepository->updateStatus($orderId, $status);
-        $this->idempotency->record($orderId, $topic, $webhookId, $eventTime);
+        $this->idempotency->record($orderId, $context->topic, $context->webhookId, $context->eventTime);
 
         $this->dispatcher->dispatchOrderSync($orderId);
 
-        $this->logger->info('Order status webhook processed — sync queued', $context);
+        $this->logger->info('Order status webhook processed — sync queued', $logContext);
     }
 }

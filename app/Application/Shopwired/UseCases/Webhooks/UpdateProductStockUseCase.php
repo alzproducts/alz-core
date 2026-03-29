@@ -7,13 +7,12 @@ namespace App\Application\Shopwired\UseCases\Webhooks;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Application\Contracts\Shopwired\ShopwiredSyncDispatcherInterface;
 use App\Application\Contracts\Shopwired\WebhookIdempotencyServiceInterface;
-use App\Application\Shopwired\Enums\WebhookTopic;
-use App\Domain\Catalog\Product\ValueObjects\Sku;
+use App\Application\Shopwired\DTOs\StockChangeDataDTO;
+use App\Application\Shopwired\DTOs\WebhookContextDTO;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
-use App\Domain\ValueObjects\IntId;
 use DateTimeImmutable;
 use Psr\Log\LoggerInterface;
 
@@ -39,37 +38,30 @@ final readonly class UpdateProductStockUseCase
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      */
-    public function execute(
-        DateTimeImmutable $eventTime,
-        int $webhookId,
-        WebhookTopic $topic,
-        IntId $productId,
-        Sku $sku,
-        bool $isVariation,
-        int $newQuantity,
-    ): void {
-        $context = ['webhook_id' => $webhookId, 'subject_id' => $productId->value, 'sku' => $sku->value];
-        $this->logger->info('Processing product stock webhook', $context);
+    public function execute(WebhookContextDTO $context, StockChangeDataDTO $data): void
+    {
+        $logContext = ['webhook_id' => $context->webhookId, 'subject_id' => $data->productId->value, 'sku' => $data->sku->value];
+        $this->logger->info('Processing product stock webhook', $logContext);
 
         $cutoff = (new DateTimeImmutable())->setTimestamp(\time() - ($this->webhookStalenessHours * 3600));
 
-        if ($eventTime < $cutoff) {
-            $this->logger->info('Discarding stale product stock webhook', $context);
+        if ($context->eventTime < $cutoff) {
+            $this->logger->info('Discarding stale product stock webhook', $logContext);
 
             return;
         }
 
-        if ($this->idempotency->isSuperseded($productId, $topic, $webhookId)) {
-            $this->logger->info('Discarding superseded product stock webhook', $context);
+        if ($this->idempotency->isSuperseded($data->productId, $context->topic, $context->webhookId)) {
+            $this->logger->info('Discarding superseded product stock webhook', $logContext);
 
             return;
         }
 
-        $this->productRepository->updateStock($sku, $isVariation, $newQuantity);
-        $this->idempotency->record($productId, $topic, $webhookId, $eventTime);
+        $this->productRepository->updateStock($data->sku, $data->isVariation, $data->newQuantity);
+        $this->idempotency->record($data->productId, $context->topic, $context->webhookId, $context->eventTime);
 
-        $this->dispatcher->dispatchProductSync($productId);
+        $this->dispatcher->dispatchProductSync($data->productId);
 
-        $this->logger->info('Product stock webhook processed — sync queued', $context);
+        $this->logger->info('Product stock webhook processed — sync queued', $logContext);
     }
 }

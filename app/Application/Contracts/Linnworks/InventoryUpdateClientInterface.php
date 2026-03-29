@@ -12,7 +12,7 @@ use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Inventory\Commands\AddInventoryItemCommand;
 use App\Domain\Inventory\ValueObjects\ExtendedPropertyWrite;
-use App\Domain\Shared\Money\ValueObjects\Money;
+use App\Domain\Inventory\ValueObjects\SupplierLinkParams;
 use App\Domain\ValueObjects\Guid;
 
 /**
@@ -62,10 +62,6 @@ interface InventoryUpdateClientInterface
      * Link a supplier to a stock item.
      *
      * @param Sku|Guid $identifier SKU (resolved internally) or stockItemId (used directly)
-     * @param Guid $supplierId The supplier to link
-     * @param Money|null $purchasePrice Cost price from this supplier (null = unknown)
-     * @param string|null $supplierCode Supplier's code/SKU for this item
-     * @param bool $isDefault Whether this is the default supplier
      *
      * @throws ResourceNotFoundException When stock item or supplier not found
      * @throws InvalidApiRequestException When parameters invalid
@@ -73,13 +69,7 @@ interface InventoryUpdateClientInterface
      * @throws AuthenticationExpiredException When credentials invalid
      * @throws ExternalServiceUnavailableException When API unavailable
      */
-    public function createSupplierStat(
-        Sku|Guid $identifier,
-        Guid $supplierId,
-        ?Money $purchasePrice,
-        ?string $supplierCode = null,
-        bool $isDefault = false,
-    ): void;
+    public function createSupplierStat(Sku|Guid $identifier, SupplierLinkParams $params): void;
 
     /**
      * Add an extended property to a stock item.
