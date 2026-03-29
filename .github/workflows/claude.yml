@@ -37,12 +37,14 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           label_trigger: "claude"
           track_progress: true
+          base_branch: develop
           # This is an optional setting that allows Claude to read CI results on PRs
           additional_permissions: |
             actions: read
 
           claude_args: |
-            --max-turns 10
+            --max-turns 15
+            --dangerously-skip-permissions
             --system-prompt "You are working on alz-core, a Laravel 12 / PHP 8.4 API following Clean Architecture. Read CLAUDE.md first for project conventions.
 
             When implementing changes from issues:
