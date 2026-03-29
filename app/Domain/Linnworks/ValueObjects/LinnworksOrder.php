@@ -90,5 +90,13 @@ final readonly class LinnworksOrder
         public ?DateTimeImmutable $despatchByDate = null,
         public ?int $marker = null,
         public array $folderNames = [],
+
+        // ── Child Collections ──
+        /** @var list<LinnworksOrderItem> */
+        public array $items = [],
+        /** @var list<LinnworksOrderExtendedProperty> */
+        public array $extendedProperties = [],
+        /** @var list<LinnworksOrderNote> */
+        public array $notes = [],
     ) {}
 }
