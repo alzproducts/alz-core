@@ -237,7 +237,7 @@ trait LinnworksResponseParserTrait
     {
         Log::critical(self::SERVICE_NAME . ' API response validation failed', [
             'error' => $error,
-            'raw_response' => $data,
+            'response_type' => \get_debug_type($data),
         ]);
     }
 }

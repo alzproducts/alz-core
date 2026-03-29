@@ -7,6 +7,7 @@ namespace App\Infrastructure\Linnworks\Models;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * Eloquent model for linnworks.orders table.
@@ -15,7 +16,7 @@ use Illuminate\Database\Eloquent\Model;
  * The `linnworks_order_id` is Linnworks' GUID, while `id` is our internal UUID.
  *
  * @property string $id Internal UUID
- * @property string $linnworks_order_id Linnworks GUID
+ * @property string $linnworks_order_id External Linnworks GUID (upsert key)
  * @property int $num_order_id
  * @property bool $processed
  * @property CarbonImmutable $last_updated
@@ -26,6 +27,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property string $external_reference_num
  * @property string $secondary_reference
  * @property int $status
+ * @property bool $is_cancelled
  * @property bool $hold_or_cancel
  * @property int|null $marker
  * @property bool $is_parked
@@ -35,6 +37,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property string $fulfilment_location_id
  * @property string $location
  * @property array<int, string> $folder_names
+ * @property array<int, mixed>|null $notes
  * @property float $total_charge
  * @property float $subtotal
  * @property float $tax
@@ -88,11 +91,13 @@ final class LinnworksOrderModel extends Model
             'paid_on' => 'immutable_datetime',
             'received_date' => 'immutable_datetime',
             'status' => 'integer',
+            'is_cancelled' => 'boolean',
             'hold_or_cancel' => 'boolean',
             'marker' => 'integer',
             'is_parked' => 'boolean',
             'despatch_by_date' => 'immutable_datetime',
             'folder_names' => 'array',
+            'notes' => 'array',
             'total_charge' => 'float',
             'subtotal' => 'float',
             'tax' => 'float',
@@ -101,5 +106,29 @@ final class LinnworksOrderModel extends Model
             'created_at' => 'immutable_datetime',
             'updated_at' => 'immutable_datetime',
         ];
+    }
+
+    /**
+     * @return HasMany<LinnworksOrderItemModel, $this>
+     */
+    public function items(): HasMany
+    {
+        return $this->hasMany(
+            LinnworksOrderItemModel::class,
+            'linnworks_order_id',
+            'linnworks_order_id',
+        );
+    }
+
+    /**
+     * @return HasMany<LinnworksOrderExtendedPropertyModel, $this>
+     */
+    public function extendedProperties(): HasMany
+    {
+        return $this->hasMany(
+            LinnworksOrderExtendedPropertyModel::class,
+            'linnworks_order_id',
+            'linnworks_order_id',
+        );
     }
 }

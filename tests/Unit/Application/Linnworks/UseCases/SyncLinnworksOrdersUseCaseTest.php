@@ -116,7 +116,7 @@ final class SyncLinnworksOrdersUseCaseTest extends TestCase
             ->andReturn($this->singlePageGenerator($orders));
 
         $this->orderRepository
-            ->shouldReceive('saveOrdersBulk')
+            ->shouldReceive('saveMany')
             ->once()
             ->with($orders)
             ->andReturn(SaveManyResult::success(2));
@@ -164,7 +164,7 @@ final class SyncLinnworksOrdersUseCaseTest extends TestCase
 
         // Should flush once after 5 pages (10 orders)
         $this->orderRepository
-            ->shouldReceive('saveOrdersBulk')
+            ->shouldReceive('saveMany')
             ->once()
             ->with(Mockery::on(static fn(array $items) => \count($items) === 10))
             ->andReturn(SaveManyResult::success(10));
@@ -203,7 +203,7 @@ final class SyncLinnworksOrdersUseCaseTest extends TestCase
             ->andReturn($this->singlePageGenerator($orders));
 
         $this->orderRepository
-            ->shouldReceive('saveOrdersBulk')
+            ->shouldReceive('saveMany')
             ->once()
             ->andReturn(new SaveManyResult(succeeded: 1, failed: 2, failedReferences: $failedRefs));
 
@@ -255,14 +255,14 @@ final class SyncLinnworksOrdersUseCaseTest extends TestCase
 
         // First flush after 5 pages (5 orders)
         $this->orderRepository
-            ->shouldReceive('saveOrdersBulk')
+            ->shouldReceive('saveMany')
             ->once()
             ->with(Mockery::on(static fn(array $items) => \count($items) === 5))
             ->andReturn(SaveManyResult::success(5));
 
         // Final flush with remaining 2 orders
         $this->orderRepository
-            ->shouldReceive('saveOrdersBulk')
+            ->shouldReceive('saveMany')
             ->once()
             ->with(Mockery::on(static fn(array $items) => \count($items) === 2))
             ->andReturn(SaveManyResult::success(2));
@@ -305,7 +305,7 @@ final class SyncLinnworksOrdersUseCaseTest extends TestCase
             ->andReturn($this->multiPageGenerator([0 => $page1, 1 => $page2]));
 
         $this->orderRepository
-            ->shouldReceive('saveOrdersBulk')
+            ->shouldReceive('saveMany')
             ->once()
             ->andReturn(SaveManyResult::success(4));
 
@@ -363,7 +363,7 @@ final class SyncLinnworksOrdersUseCaseTest extends TestCase
 
         // 5 flushes (one per batch of 5 pages)
         $this->orderRepository
-            ->shouldReceive('saveOrdersBulk')
+            ->shouldReceive('saveMany')
             ->times(5)
             ->with(Mockery::on(static fn(array $items) => \count($items) === 5))
             ->andReturn(SaveManyResult::success(5));
