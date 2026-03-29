@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Presentation\Console\Commands;
 
+use App\Application\Contracts\Linnworks\LinnworksBackfillDispatcherInterface;
 use App\Application\Contracts\Linnworks\OrderDashboardsClientInterface;
 use App\Application\Linnworks\UseCases\BackfillLinnworksOrdersUseCase;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
@@ -30,7 +31,8 @@ final class BackfillAllLinnworksOrdersCommand extends Command
 {
     protected $signature = 'linnworks:backfill-all-orders
                             {--dry-run : Show total order count without syncing}
-                            {--force : Skip confirmation prompt (for scripts/automation)}';
+                            {--force : Skip confirmation prompt (for scripts/automation)}
+                            {--queue : Dispatch to queue instead of running inline}';
 
     protected $description = 'CAUTION: Backfill ALL historical Linnworks orders (~110,000+). Long-running operation.';
 
@@ -42,6 +44,25 @@ final class BackfillAllLinnworksOrdersCommand extends Command
      * @throws ExternalServiceUnavailableException
      */
     public function handle(
+        BackfillLinnworksOrdersUseCase $useCase,
+        OrderDashboardsClientInterface $dashboardsClient,
+        LinnworksBackfillDispatcherInterface $dispatcher,
+    ): int {
+        if ($this->option('queue')) {
+            return $this->dispatchToQueue($dispatcher);
+        }
+
+        return $this->executeInline($useCase, $dashboardsClient);
+    }
+
+    /**
+     * @throws InvalidApiResponseException
+     * @throws InvalidApiRequestException
+     * @throws AuthenticationExpiredException
+     * @throws ResourceNotFoundException
+     * @throws ExternalServiceUnavailableException
+     */
+    private function executeInline(
         BackfillLinnworksOrdersUseCase $useCase,
         OrderDashboardsClientInterface $dashboardsClient,
     ): int {
@@ -149,6 +170,19 @@ final class BackfillAllLinnworksOrdersCommand extends Command
 
             return self::FAILURE;
         }
+
+        return self::SUCCESS;
+    }
+
+    /**
+     * Dispatch the full backfill to the queue for background processing.
+     */
+    private function dispatchToQueue(LinnworksBackfillDispatcherInterface $dispatcher): int
+    {
+        $dispatcher->dispatchFullBackfill();
+
+        $this->info('Dispatched full historical backfill job to queue.');
+        $this->warn('Monitor progress in Horizon. Typical runtime: ~1.5 hours.');
 
         return self::SUCCESS;
     }

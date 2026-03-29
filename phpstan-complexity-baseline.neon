@@ -2725,7 +2725,7 @@ parameters:
 			path: app/Providers/InventoryServiceProvider.php
 
 		-
-			rawMessage: 'Method register() is 88 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			rawMessage: 'Method register() is 89 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Providers/LinnworksServiceProvider.php

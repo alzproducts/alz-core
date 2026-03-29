@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Presentation\Console\Commands;
 
+use App\Application\Contracts\Linnworks\LinnworksBackfillDispatcherInterface;
 use App\Application\Contracts\Linnworks\OrderDashboardsClientInterface;
 use App\Application\Linnworks\UseCases\BackfillLinnworksOrdersUseCase;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
@@ -32,7 +33,8 @@ final class BackfillLinnworksOrdersCommand extends Command
     protected $signature = 'linnworks:backfill-orders
                             {--from= : Start date (Y-m-d) — REQUIRED}
                             {--to= : End date (Y-m-d) — REQUIRED}
-                            {--dry-run : Show order count without syncing}';
+                            {--dry-run : Show order count without syncing}
+                            {--queue : Dispatch to queue instead of running inline}';
 
     protected $description = 'Backfill Linnworks orders for a specific date range via SQL API';
 
@@ -47,6 +49,7 @@ final class BackfillLinnworksOrdersCommand extends Command
     public function handle(
         BackfillLinnworksOrdersUseCase $useCase,
         OrderDashboardsClientInterface $dashboardsClient,
+        LinnworksBackfillDispatcherInterface $dispatcher,
     ): int {
         $dates = $this->parseDateRange();
 
@@ -55,6 +58,10 @@ final class BackfillLinnworksOrdersCommand extends Command
         }
 
         [$from, $to] = $dates;
+
+        if ($this->option('queue')) {
+            return $this->dispatchToQueue($dispatcher, $from, $to);
+        }
 
         return $this->executeWithDates($useCase, $dashboardsClient, $from, $to);
     }
@@ -217,6 +224,21 @@ final class BackfillLinnworksOrdersCommand extends Command
 
             return self::FAILURE;
         }
+
+        return self::SUCCESS;
+    }
+
+    /**
+     * Dispatch the backfill to the queue for background processing.
+     */
+    private function dispatchToQueue(
+        LinnworksBackfillDispatcherInterface $dispatcher,
+        DateTimeImmutable $from,
+        DateTimeImmutable $to,
+    ): int {
+        $dispatcher->dispatchDateRangeBackfill($from, $to);
+
+        $this->info("Dispatched backfill job to queue ({$from->format('Y-m-d')} to {$to->format('Y-m-d')}).");
 
         return self::SUCCESS;
     }
