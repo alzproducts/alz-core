@@ -32,7 +32,7 @@ final class LinnworksErrorHandler
         string $endpoint,
     ): InvalidApiRequestException|AuthenticationExpiredException|ResourceNotFoundException|ExternalServiceUnavailableException {
         return match ($e->response->status()) {
-            400, 422 => self::handleBadRequest($e),
+            400, 414, 422 => self::handleBadRequest($e),
             401, 403 => self::handleAuthenticationFailure($e),
             404 => self::handleNotFound($e, $endpoint),
             429 => self::handleRateLimit($e),

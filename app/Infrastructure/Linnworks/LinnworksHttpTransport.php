@@ -10,6 +10,7 @@ use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Infrastructure\Linnworks\Contracts\LinnworksTransportInterface;
+use App\Infrastructure\Support\ApiRetryStrategy;
 use Closure;
 use DateMalformedStringException;
 use Exception;
@@ -258,7 +259,8 @@ final readonly class LinnworksHttpTransport implements LinnworksTransportInterfa
     {
         return Http::baseUrl(self::resolveBaseUrl($session->serverUrl, $endpoint))
             ->withHeaders(['Authorization' => $session->token])
-            ->timeout($this->config->timeout);
+            ->timeout($this->config->timeout)
+            ->retry(3, 1000, ApiRetryStrategy::defaultRetry(), throw: false);
     }
 
     /**

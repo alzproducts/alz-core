@@ -18,6 +18,7 @@ use App\Infrastructure\Linnworks\Clients\DashboardsClient;
 use App\Infrastructure\Linnworks\Clients\InventoryClient;
 use App\Infrastructure\Linnworks\Clients\InventoryUpdateClient;
 use App\Infrastructure\Linnworks\Clients\OrderClient;
+use App\Infrastructure\Linnworks\Clients\OrderDashboardsClient;
 use App\Infrastructure\Linnworks\Clients\PurchaseOrderClient;
 use App\Infrastructure\Linnworks\Clients\PurchaseOrderUpdateClient;
 use App\Infrastructure\Linnworks\Clients\StockDashboardsClient;
@@ -89,6 +90,14 @@ final class LinnworksClientFactory
     public static function createOrderClient(): OrderClientInterface
     {
         return new OrderClient(self::getTransport());
+    }
+
+    /**
+     * Create the order dashboards client for order-related SQL queries.
+     */
+    public static function createOrderDashboardsClient(): OrderDashboardsClient
+    {
+        return new OrderDashboardsClient(self::createDashboardsClient());
     }
 
     /**
