@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Linnworks\Models;
 
+use App\Domain\Linnworks\ValueObjects\LinnworksOrderExtendedProperty;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
@@ -59,5 +60,30 @@ final class LinnworksOrderExtendedPropertyModel extends Model
             'linnworks_order_id',
             'linnworks_order_id',
         );
+    }
+
+    /**
+     * Convert domain LinnworksOrderExtendedProperty to model attributes for bulk upsert.
+     *
+     * Note: Does NOT include 'linnworks_order_id' — that's set by the repository.
+     * Includes timestamps because bulk upsert bypasses Eloquent's automatic handling.
+     *
+     * @return array<string, mixed>
+     */
+    public static function attributesFromDomain(LinnworksOrderExtendedProperty $ep): array
+    {
+        $now = CarbonImmutable::now();
+
+        return [
+            'row_id' => $ep->rowId->value,
+            'name' => $ep->name,
+            'value' => $ep->value,
+            'type' => $ep->type,
+            'create_date' => $ep->createDate,
+            'last_update' => $ep->lastUpdate,
+            'updated_by' => $ep->updatedBy,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ];
     }
 }

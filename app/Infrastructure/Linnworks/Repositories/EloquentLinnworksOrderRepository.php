@@ -106,14 +106,10 @@ final class EloquentLinnworksOrderRepository extends AbstractEloquentRepository 
             'folder_names' => $entity->folderNames,
 
             // Notes (JSONB)
-            'notes' => \array_map(static fn(LinnworksOrderNote $note): array => [
-                'order_note_id' => $note->orderNoteId->value,
-                'note_date' => $note->noteDate->format('c'),
-                'internal' => $note->internal,
-                'note' => $note->note,
-                'created_by' => $note->createdBy,
-                'note_type_id' => $note->noteTypeId,
-            ], $entity->notes),
+            'notes' => \array_map(
+                static fn(LinnworksOrderNote $note): array => $note->toArray(),
+                $entity->notes,
+            ),
 
             // TotalsInfo
             'total_charge' => $entity->totalCharge,
@@ -186,38 +182,7 @@ final class EloquentLinnworksOrderRepository extends AbstractEloquentRepository 
             $rowIds[] = $item->rowId->value;
             $rows[] = [
                 'linnworks_order_id' => $order->orderId->value,
-                'row_id' => $item->rowId->value,
-                'parent_item_id' => $item->parentItemId?->value,
-                'stock_item_id' => $item->stockItemId->value,
-                'stock_item_int_id' => $item->stockItemIntId?->value,
-                'item_number' => $item->itemNumber,
-                'sku' => $item->sku,
-                'item_source' => $item->itemSource,
-                'title' => $item->title,
-                'category_id' => $item->categoryId->value,
-                'category_name' => $item->categoryName,
-                'quantity' => $item->quantity,
-                'price_per_unit' => $item->pricePerUnit,
-                'unit_cost' => $item->unitCost,
-                'despatch_stock_unit_cost' => $item->despatchStockUnitCost,
-                'discount' => $item->discount,
-                'tax_rate' => $item->taxRate,
-                'cost' => $item->cost,
-                'cost_inc_tax' => $item->costIncTax,
-                'sales_tax' => $item->salesTax,
-                'tax_cost_inclusive' => $item->taxCostInclusive,
-                'discount_value' => $item->discountValue,
-                'weight' => $item->weight,
-                'barcode_number' => $item->barcodeNumber,
-                'channel_sku' => $item->channelSku,
-                'channel_title' => $item->channelTitle,
-                'batch_number_scan_required' => $item->batchNumberScanRequired,
-                'serial_number_scan_required' => $item->serialNumberScanRequired,
-                'is_service' => $item->isService,
-                'is_unlinked' => $item->isUnlinked,
-                'added_date' => $item->addedDate,
-                'additional_info' => $item->additionalInfo,
-                'bin_racks' => $item->binRacks,
+                ...LinnworksOrderItemModel::attributesFromDomain($item),
             ];
         }
 
@@ -262,13 +227,7 @@ final class EloquentLinnworksOrderRepository extends AbstractEloquentRepository 
             $rowIds[] = $ep->rowId->value;
             $rows[] = [
                 'linnworks_order_id' => $order->orderId->value,
-                'row_id' => $ep->rowId->value,
-                'name' => $ep->name,
-                'value' => $ep->value,
-                'type' => $ep->type,
-                'create_date' => $ep->createDate,
-                'last_update' => $ep->lastUpdate,
-                'updated_by' => $ep->updatedBy,
+                ...LinnworksOrderExtendedPropertyModel::attributesFromDomain($ep),
             ];
         }
 

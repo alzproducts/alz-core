@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Linnworks\Models;
 
+use App\Domain\Linnworks\ValueObjects\LinnworksOrderItem;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
@@ -102,5 +103,55 @@ final class LinnworksOrderItemModel extends Model
             'linnworks_order_id',
             'linnworks_order_id',
         );
+    }
+
+    /**
+     * Convert domain LinnworksOrderItem to model attributes for bulk upsert.
+     *
+     * Note: Does NOT include 'linnworks_order_id' — that's set by the repository.
+     * Includes timestamps because bulk upsert bypasses Eloquent's automatic handling.
+     *
+     * @return array<string, mixed>
+     */
+    public static function attributesFromDomain(LinnworksOrderItem $item): array
+    {
+        $now = CarbonImmutable::now();
+
+        return [
+            'row_id' => $item->rowId->value,
+            'parent_item_id' => $item->parentItemId?->value,
+            'stock_item_id' => $item->stockItemId->value,
+            'stock_item_int_id' => $item->stockItemIntId?->value,
+            'item_number' => $item->itemNumber,
+            'sku' => $item->sku,
+            'item_source' => $item->itemSource,
+            'title' => $item->title,
+            'category_id' => $item->categoryId->value,
+            'category_name' => $item->categoryName,
+            'quantity' => $item->quantity,
+            'price_per_unit' => $item->pricePerUnit,
+            'unit_cost' => $item->unitCost,
+            'despatch_stock_unit_cost' => $item->despatchStockUnitCost,
+            'discount' => $item->discount,
+            'tax_rate' => $item->taxRate,
+            'cost' => $item->cost,
+            'cost_inc_tax' => $item->costIncTax,
+            'sales_tax' => $item->salesTax,
+            'tax_cost_inclusive' => $item->taxCostInclusive,
+            'discount_value' => $item->discountValue,
+            'weight' => $item->weight,
+            'barcode_number' => $item->barcodeNumber,
+            'channel_sku' => $item->channelSku,
+            'channel_title' => $item->channelTitle,
+            'batch_number_scan_required' => $item->batchNumberScanRequired,
+            'serial_number_scan_required' => $item->serialNumberScanRequired,
+            'is_service' => $item->isService,
+            'is_unlinked' => $item->isUnlinked,
+            'added_date' => $item->addedDate,
+            'additional_info' => $item->additionalInfo,
+            'bin_racks' => $item->binRacks,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ];
     }
 }

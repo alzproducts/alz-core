@@ -16,7 +16,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * The `linnworks_order_id` is Linnworks' GUID, while `id` is our internal UUID.
  *
  * @property string $id Internal UUID
- * @property string $linnworks_order_id Linnworks GUID
+ * @property string $linnworks_order_id External Linnworks GUID (upsert key)
  * @property int $num_order_id
  * @property bool $processed
  * @property CarbonImmutable $last_updated
