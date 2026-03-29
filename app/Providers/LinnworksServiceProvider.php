@@ -11,6 +11,7 @@ use App\Application\Contracts\Linnworks\InventoryUpdateClientInterface;
 use App\Application\Contracts\Linnworks\LinnworksOrderRepositoryInterface;
 use App\Application\Contracts\Linnworks\LinnworksSyncDispatcherInterface;
 use App\Application\Contracts\Linnworks\OrderClientInterface;
+use App\Application\Contracts\Linnworks\OrderDashboardsClientInterface;
 use App\Application\Contracts\Linnworks\PurchaseOrderClientInterface;
 use App\Application\Contracts\Linnworks\PurchaseOrderUpdateClientInterface;
 use App\Application\Contracts\Linnworks\StockDashboardsClientInterface;
@@ -90,6 +91,12 @@ final class LinnworksServiceProvider extends ServiceProvider implements Deferrab
             static fn(): StockDashboardsClientInterface => LinnworksClientFactory::createStockDashboardsClient(),
         );
 
+        // Order dashboards client - for SQL queries bypassing v2 date limits
+        $this->app->singleton(
+            OrderDashboardsClientInterface::class,
+            static fn(): OrderDashboardsClientInterface => LinnworksClientFactory::createOrderDashboardsClient(),
+        );
+
         // Stock item repository - for persisting synced stock items
         $this->app->singleton(
             StockItemRepositoryInterface::class,
@@ -154,6 +161,7 @@ final class LinnworksServiceProvider extends ServiceProvider implements Deferrab
             LinnworksSyncDispatcherInterface::class,
             LinnworksSessionManager::class,
             OrderClientInterface::class,
+            OrderDashboardsClientInterface::class,
             PurchaseOrderClientInterface::class,
             PurchaseOrderUpdateClientInterface::class,
             StockDashboardsClientInterface::class,

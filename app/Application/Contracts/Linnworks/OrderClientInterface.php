@@ -39,6 +39,25 @@ interface OrderClientInterface
     public function iterateProcessedOrders(DateTimeImmutable $fromDate): Generator;
 
     /**
+     * Iterate processed orders by specific IDs in chunked batches.
+     *
+     * IDs are chunked internally. Yields batches of orders per chunk.
+     * Used for historical backfill where fromDate-based pagination
+     * cannot reach beyond the ~30-day API limit.
+     *
+     * @param list<Guid> $orderIds
+     *
+     * @return Generator<int, list<LinnworksOrder>, mixed, void>
+     *
+     * @throws AuthenticationExpiredException When credentials are invalid
+     * @throws ExternalServiceUnavailableException When API is unavailable
+     * @throws InvalidApiRequestException When request parameters are invalid
+     * @throws InvalidApiResponseException When API response structure is invalid
+     * @throws ResourceNotFoundException When resource not found (404)
+     */
+    public function iterateProcessedOrdersByIds(array $orderIds): Generator;
+
+    /**
      * Fetch a single order by Linnworks order ID.
      *
      * @throws AuthenticationExpiredException When credentials are invalid

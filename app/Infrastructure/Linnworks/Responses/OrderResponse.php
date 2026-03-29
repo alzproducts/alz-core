@@ -115,16 +115,16 @@ final class OrderResponse extends Data implements DomainConvertibleInterface
             shipPostcode: $shipping->postCode,
             shipCountry: $shipping->country,
 
-            // CustomerInfo — Billing
-            billEmail: $billing->emailAddress,
-            billFullName: $billing->fullName,
-            billCompany: $billing->company,
-            billAddress1: $billing->address1,
-            billAddress2: $billing->address2,
-            billAddress3: $billing->address3,
-            billTown: $billing->town,
-            billPostcode: $billing->postCode,
-            billCountry: $billing->country,
+            // CustomerInfo — Billing (nullable for redacted/historical orders)
+            billEmail: $billing !== null ? $billing->emailAddress : null,
+            billFullName: $billing !== null ? $billing->fullName : '',
+            billCompany: $billing !== null ? $billing->company : '',
+            billAddress1: $billing !== null ? $billing->address1 : '',
+            billAddress2: $billing !== null ? $billing->address2 : '',
+            billAddress3: $billing !== null ? $billing->address3 : '',
+            billTown: $billing !== null ? $billing->town : '',
+            billPostcode: $billing !== null ? $billing->postCode : '',
+            billCountry: $billing !== null ? $billing->country : '',
 
             // Nullable fields
             processedOn: LinnworksDateParser::parse($this->processedOn),

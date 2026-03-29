@@ -34,6 +34,8 @@ final readonly class OrderClient implements OrderClientInterface
 
     private const int ENTRIES_PER_PAGE = 200;
 
+    private const int IDS_PER_CHUNK = 80;
+
     public function __construct(
         private LinnworksTransportInterface $transport,
     ) {}
@@ -57,10 +59,7 @@ final readonly class OrderClient implements OrderClientInterface
         do {
             $apiResponse = $this->fetchPage($fromDate, $searchToken);
 
-            $orders = \array_map(
-                static fn(OrderResponse $dto): LinnworksOrder => $dto->toDomain(),
-                $apiResponse->processedOrders ?? [],
-            );
+            $orders = self::mapOrderResponses($apiResponse->processedOrders ?? []);
 
             if ($orders !== []) {
                 yield $page => $orders;
@@ -69,6 +68,36 @@ final readonly class OrderClient implements OrderClientInterface
             $searchToken = $apiResponse->nextSearchToken;
             $page++;
         } while ($searchToken !== null);
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @return Generator<int, list<LinnworksOrder>, mixed, void>
+     *
+     * @throws AuthenticationExpiredException When credentials are invalid
+     * @throws ExternalServiceUnavailableException When API is unavailable
+     * @throws InvalidApiRequestException When request parameters are invalid
+     * @throws InvalidApiResponseException When API response structure is invalid
+     * @throws ResourceNotFoundException When resource not found (404)
+     */
+    public function iterateProcessedOrdersByIds(array $orderIds): Generator
+    {
+        if ($orderIds === []) {
+            return;
+        }
+
+        $chunks = \array_chunk($orderIds, self::IDS_PER_CHUNK);
+
+        foreach ($chunks as $chunkIndex => $chunk) {
+            $apiResponse = $this->fetchPageWithIds($chunk);
+
+            $orders = self::mapOrderResponses($apiResponse->processedOrders ?? []);
+
+            if ($orders !== []) {
+                yield $chunkIndex => $orders;
+            }
+        }
     }
 
     /**
@@ -134,6 +163,47 @@ final readonly class OrderClient implements OrderClientInterface
     {
         $response = $this->transport->get('/v2/orders', [
             'id' => [$orderId->value],
+            'includeProcessed' => 'true',
+        ]);
+
+        return $this->parseGetOrdersResponse($response->json());
+    }
+
+    /**
+     * Map OrderResponse DTOs to domain objects.
+     *
+     * @param list<OrderResponse> $responses
+     *
+     * @return list<LinnworksOrder>
+     *
+     * @throws InvalidApiResponseException When date parsing fails in toDomain()
+     */
+    private static function mapOrderResponses(array $responses): array
+    {
+        return \array_map(
+            static fn(OrderResponse $dto): LinnworksOrder => $dto->toDomain(),
+            $responses,
+        );
+    }
+
+    /**
+     * Fetch multiple orders by IDs using the v2 GetOrders endpoint.
+     *
+     * The `id` parameter overrides all other filters in the v2 endpoint.
+     *
+     * @param list<Guid> $ids
+     *
+     * @throws AuthenticationExpiredException When credentials are invalid
+     * @throws ExternalServiceUnavailableException When API is unavailable
+     * @throws InvalidApiRequestException When request parameters are invalid
+     * @throws InvalidApiResponseException When API response structure is invalid
+     * @throws ResourceNotFoundException When resource not found (404)
+     */
+    private function fetchPageWithIds(array $ids): GetOrdersApiResponse
+    {
+        $response = $this->transport->get('/v2/orders', [
+            'id' => \array_map(static fn(Guid $g): string => $g->value, $ids),
+            'entriesPerPage' => self::IDS_PER_CHUNK,
             'includeProcessed' => 'true',
         ]);
 
