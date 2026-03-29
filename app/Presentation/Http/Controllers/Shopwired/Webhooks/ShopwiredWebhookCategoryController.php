@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Presentation\Http\Controllers\Shopwired\Webhooks;
 
+use App\Application\Shopwired\DTOs\RawWebhookPayloadDTO;
 use App\Application\Shopwired\Services\HandleCategoryWebhookService;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
@@ -35,13 +36,13 @@ final readonly class ShopwiredWebhookCategoryController
     public function __invoke(Request $request): JsonResponse
     {
         $envelope = WebhookEnvelopeDTO::from($request->all());
-        $this->service->execute(
+        $this->service->execute(new RawWebhookPayloadDTO(
             eventTime: $envelope->timestamp,
             webhookId: $envelope->event->id,
             topic: $envelope->event->topic,
             subjectId: $envelope->event->subjectId,
             data: $envelope->event->data,
-        );
+        ));
 
         return new JsonResponse(status: 200);
     }

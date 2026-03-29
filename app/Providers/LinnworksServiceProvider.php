@@ -8,14 +8,18 @@ use App\Application\Contracts\DatabaseGatewayInterface;
 use App\Application\Contracts\Linnworks\ConnectivityClientInterface;
 use App\Application\Contracts\Linnworks\InventoryClientInterface;
 use App\Application\Contracts\Linnworks\InventoryUpdateClientInterface;
+use App\Application\Contracts\Linnworks\LinnworksBackfillDispatcherInterface;
 use App\Application\Contracts\Linnworks\LinnworksOrderRepositoryInterface;
 use App\Application\Contracts\Linnworks\LinnworksSyncDispatcherInterface;
 use App\Application\Contracts\Linnworks\OrderClientInterface;
+use App\Application\Contracts\Linnworks\OrderDashboardsClientInterface;
 use App\Application\Contracts\Linnworks\PurchaseOrderClientInterface;
+use App\Application\Contracts\Linnworks\PurchaseOrderUpdateClientInterface;
 use App\Application\Contracts\Linnworks\StockDashboardsClientInterface;
 use App\Application\Contracts\Linnworks\StockItemRepositoryInterface;
 use App\Application\Contracts\Linnworks\SupplierRepositoryInterface;
 use App\Application\Contracts\LockableCacheInterface;
+use App\Infrastructure\Linnworks\Dispatchers\QueuedLinnworksBackfillDispatcher;
 use App\Infrastructure\Linnworks\Dispatchers\QueuedLinnworksSyncDispatcher;
 use App\Infrastructure\Linnworks\LinnworksClientFactory;
 use App\Infrastructure\Linnworks\LinnworksConfig;
@@ -89,6 +93,12 @@ final class LinnworksServiceProvider extends ServiceProvider implements Deferrab
             static fn(): StockDashboardsClientInterface => LinnworksClientFactory::createStockDashboardsClient(),
         );
 
+        // Order dashboards client - for SQL queries bypassing v2 date limits
+        $this->app->singleton(
+            OrderDashboardsClientInterface::class,
+            static fn(): OrderDashboardsClientInterface => LinnworksClientFactory::createOrderDashboardsClient(),
+        );
+
         // Stock item repository - for persisting synced stock items
         $this->app->singleton(
             StockItemRepositoryInterface::class,
@@ -113,14 +123,20 @@ final class LinnworksServiceProvider extends ServiceProvider implements Deferrab
             static fn(): OrderClientInterface => LinnworksClientFactory::createOrderClient(),
         );
 
-        // Purchase order client - for PO lifecycle management
+        // Purchase order clients - read/write split
         $this->app->singleton(
             PurchaseOrderClientInterface::class,
             static fn(): PurchaseOrderClientInterface => LinnworksClientFactory::createPurchaseOrderClient(),
         );
 
+        $this->app->singleton(
+            PurchaseOrderUpdateClientInterface::class,
+            static fn(): PurchaseOrderUpdateClientInterface => LinnworksClientFactory::createPurchaseOrderUpdateClient(),
+        );
+
         // Dispatchers
         $this->app->singleton(LinnworksSyncDispatcherInterface::class, QueuedLinnworksSyncDispatcher::class);
+        $this->app->singleton(LinnworksBackfillDispatcherInterface::class, QueuedLinnworksBackfillDispatcher::class);
 
         // Order repository - for persisting synced processed orders
         $this->app->singleton(
@@ -145,10 +161,13 @@ final class LinnworksServiceProvider extends ServiceProvider implements Deferrab
             InventoryClientInterface::class,
             InventoryUpdateClientInterface::class,
             LinnworksOrderRepositoryInterface::class,
+            LinnworksBackfillDispatcherInterface::class,
             LinnworksSyncDispatcherInterface::class,
             LinnworksSessionManager::class,
             OrderClientInterface::class,
+            OrderDashboardsClientInterface::class,
             PurchaseOrderClientInterface::class,
+            PurchaseOrderUpdateClientInterface::class,
             StockDashboardsClientInterface::class,
             StockItemRepositoryInterface::class,
             SupplierRepositoryInterface::class,

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Application\Linnworks\UseCases\PurchaseOrder;
 
-use App\Application\Contracts\Linnworks\PurchaseOrderClientInterface;
+use App\Application\Contracts\Linnworks\PurchaseOrderUpdateClientInterface;
 use App\Application\Linnworks\DTOs\PurchaseOrder\AdditionalCostUpdateDTO;
 use App\Application\Linnworks\DTOs\PurchaseOrder\NewAdditionalCostDTO;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
@@ -26,7 +26,7 @@ use Psr\Log\LoggerInterface;
 final readonly class ModifyPurchaseOrderAdditionalCostsUseCase
 {
     public function __construct(
-        private PurchaseOrderClientInterface $client,
+        private PurchaseOrderUpdateClientInterface $client,
         private LoggerInterface $logger,
     ) {}
 

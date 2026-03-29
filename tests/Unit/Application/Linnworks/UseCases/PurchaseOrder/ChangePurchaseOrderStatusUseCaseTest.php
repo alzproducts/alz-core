@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Application\Linnworks\UseCases\PurchaseOrder;
 
-use App\Application\Contracts\Linnworks\PurchaseOrderClientInterface;
+use App\Application\Contracts\Linnworks\PurchaseOrderUpdateClientInterface;
 use App\Application\Linnworks\UseCases\PurchaseOrder\ChangePurchaseOrderStatusUseCase;
 use App\Domain\Linnworks\Enums\PurchaseOrderStatus;
 use App\Domain\Linnworks\Exceptions\InvalidPurchaseOrderStatusTransitionException;
@@ -26,7 +26,7 @@ use Tests\TestCase;
 #[CoversClass(ChangePurchaseOrderStatusUseCase::class)]
 final class ChangePurchaseOrderStatusUseCaseTest extends TestCase
 {
-    private PurchaseOrderClientInterface&MockInterface $client;
+    private PurchaseOrderUpdateClientInterface&MockInterface $client;
 
     private LoggerInterface&MockInterface $logger;
 
@@ -38,7 +38,7 @@ final class ChangePurchaseOrderStatusUseCaseTest extends TestCase
     {
         parent::setUp();
 
-        $this->client = Mockery::mock(PurchaseOrderClientInterface::class);
+        $this->client = Mockery::mock(PurchaseOrderUpdateClientInterface::class);
         $this->logger = Mockery::mock(LoggerInterface::class);
         $this->logger->shouldReceive('info')->byDefault();
 

@@ -34,6 +34,9 @@
         <testsuite name="Providers">
             <directory>tests/Unit/Providers</directory>
         </testsuite>
+        <testsuite name="DevTools">
+            <directory>tests/Unit/DevTools</directory>
+        </testsuite>
     </testsuites>
     <coverage>
         <report>

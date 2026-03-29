@@ -85,6 +85,10 @@ After all subagents complete, handle the **General** checklist yourself — thes
 - **Typed parameters** — Client methods should accept domain objects, Commands, or DTOs — not raw primitives/arrays. Place the type in Domain if it fits; otherwise Infrastructure-level is fine. Exception: trivial single-scalar calls (e.g., delete by ID) are acceptable as-is.
 - **Domain types over primitives** — Use domain value objects (`Money`, `SKU`, `IntId`, `Guid`, etc.) instead of raw `string`/`int`/`float` where applicable.
 
+#### Domain-to-Model Mapping
+
+- **No inline mapping in repositories** — Array construction from domain objects should live on the model (`Model::attributesFromDomain($vo)`) or a dedicated mapper, not inline in the repository. Check for inline `[... => $entity->field]` arrays in repository methods. See `StockItemSupplierModel::attributesFromDomain()` for the canonical pattern.
+
 #### Other
 
 - **Logging** — Infrastructure should log SDK/technical details before translating exceptions. Not excessive, but enough to trace issues. Do not log data that higher layers will log (avoid duplication across layers).

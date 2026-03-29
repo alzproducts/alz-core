@@ -6,6 +6,8 @@ namespace App\Application\Shopwired\Services;
 
 use App\Application\Contracts\Shopwired\CategoryWebhookEventResolverInterface;
 use App\Application\Contracts\Shopwired\CategoryWebhookParserInterface;
+use App\Application\Shopwired\DTOs\RawWebhookPayloadDTO;
+use App\Application\Shopwired\DTOs\WebhookContextDTO;
 use App\Application\Shopwired\Enums\WebhookTopic;
 use App\Application\Shopwired\UseCases\Webhooks\DeleteCategoryUseCase;
 use App\Application\Shopwired\UseCases\Webhooks\SyncCategoryUseCase;
@@ -16,7 +18,6 @@ use App\Domain\Exceptions\Data\InvalidEnumValueException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\IntId;
-use DateTimeImmutable;
 
 /**
  * Routes category webhook events to the appropriate use case.
@@ -31,37 +32,29 @@ final readonly class HandleCategoryWebhookService
     ) {}
 
     /**
-     * @param array<string, mixed> $data
-     *
      * @throws InvalidApiResponseException
      * @throws InvalidEnumValueException
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      */
-    public function execute(
-        DateTimeImmutable $eventTime,
-        int $webhookId,
-        string $topic,
-        int $subjectId,
-        array $data,
-    ): void {
-        $intent = $this->resolver->resolve($topic);
-        $webhookTopic = WebhookTopic::tryFrom($topic)
-            ?? throw InvalidEnumValueException::invalidBackingValue(WebhookTopic::class, $topic);
-        $categoryId = IntId::from($subjectId);
+    public function execute(RawWebhookPayloadDTO $payload): void
+    {
+        $intent = $this->resolver->resolve($payload->topic);
+        $webhookTopic = WebhookTopic::tryFrom($payload->topic)
+            ?? throw InvalidEnumValueException::invalidBackingValue(WebhookTopic::class, $payload->topic);
+        $categoryId = IntId::from($payload->subjectId);
+        $context = new WebhookContextDTO($payload->eventTime, $payload->webhookId, $webhookTopic);
 
         match ($intent) {
             CategoryWebhookIntent::Deleted => $this->deleteCategoryUseCase->execute(
-                webhookId: $webhookId,
+                webhookId: $payload->webhookId,
                 categoryId: $categoryId,
             ),
 
             CategoryWebhookIntent::Sync => $this->handleSync(
-                eventTime: $eventTime,
-                webhookId: $webhookId,
-                topic: $webhookTopic,
-                data: $data,
+                context: $context,
+                data: $payload->data,
             ),
         };
     }
@@ -74,14 +67,12 @@ final readonly class HandleCategoryWebhookService
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      */
-    private function handleSync(DateTimeImmutable $eventTime, int $webhookId, WebhookTopic $topic, array $data): void
+    private function handleSync(WebhookContextDTO $context, array $data): void
     {
         $result = $this->categoryParser->parseCategory($data);
 
         $this->syncCategoryUseCase->execute(
-            eventTime: $eventTime,
-            webhookId: $webhookId,
-            topic: $topic,
+            context: $context,
             category: $result->category,
             presentEmbeds: $result->presentEmbeds,
         );
