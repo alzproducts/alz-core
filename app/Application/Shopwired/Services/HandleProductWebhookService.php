@@ -6,6 +6,9 @@ namespace App\Application\Shopwired\Services;
 
 use App\Application\Contracts\Shopwired\ProductWebhookEventResolverInterface;
 use App\Application\Contracts\Shopwired\ProductWebhookParserInterface;
+use App\Application\Shopwired\DTOs\RawWebhookPayloadDTO;
+use App\Application\Shopwired\DTOs\StockChangeDataDTO;
+use App\Application\Shopwired\DTOs\WebhookContextDTO;
 use App\Application\Shopwired\Enums\WebhookTopic;
 use App\Application\Shopwired\UseCases\Webhooks\DeleteProductUseCase;
 use App\Application\Shopwired\UseCases\Webhooks\SyncProductUseCase;
@@ -20,7 +23,6 @@ use App\Domain\Exceptions\Data\InvalidSkuException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\IntId;
-use DateTimeImmutable;
 
 /**
  * Routes product webhook events to the appropriate use case.
@@ -36,8 +38,6 @@ final readonly class HandleProductWebhookService
     ) {}
 
     /**
-     * @param array<string, mixed> $data
-     *
      * @throws InvalidApiResponseException
      * @throws InvalidEnumValueException
      * @throws InvalidSkuException
@@ -46,37 +46,29 @@ final readonly class HandleProductWebhookService
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      */
-    public function execute(
-        DateTimeImmutable $eventTime,
-        int $webhookId,
-        string $topic,
-        int $subjectId,
-        array $data,
-    ): void {
-        $intent = $this->resolver->resolve($topic);
-        $webhookTopic = WebhookTopic::tryFrom($topic)
-            ?? throw InvalidEnumValueException::invalidBackingValue(WebhookTopic::class, $topic);
-        $productId = IntId::from($subjectId);
+    public function execute(RawWebhookPayloadDTO $payload): void
+    {
+        $intent = $this->resolver->resolve($payload->topic);
+        $webhookTopic = WebhookTopic::tryFrom($payload->topic)
+            ?? throw InvalidEnumValueException::invalidBackingValue(WebhookTopic::class, $payload->topic);
+        $productId = IntId::from($payload->subjectId);
+        $context = new WebhookContextDTO($payload->eventTime, $payload->webhookId, $webhookTopic);
 
         match ($intent) {
             ProductWebhookIntent::Deleted => $this->deleteProductUseCase->execute(
-                webhookId: $webhookId,
+                webhookId: $payload->webhookId,
                 productId: $productId,
             ),
 
             ProductWebhookIntent::StockChanged => $this->executeStockChanged(
-                eventTime: $eventTime,
-                webhookId: $webhookId,
-                topic: $webhookTopic,
+                context: $context,
                 productId: $productId,
-                data: $data,
+                data: $payload->data,
             ),
 
             ProductWebhookIntent::Sync => $this->executeSyncProduct(
-                eventTime: $eventTime,
-                webhookId: $webhookId,
-                topic: $webhookTopic,
-                data: $data,
+                context: $context,
+                data: $payload->data,
             ),
         };
     }
@@ -89,18 +81,12 @@ final readonly class HandleProductWebhookService
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      */
-    private function executeSyncProduct(
-        DateTimeImmutable $eventTime,
-        int $webhookId,
-        WebhookTopic $topic,
-        array $data,
-    ): void {
+    private function executeSyncProduct(WebhookContextDTO $context, array $data): void
+    {
         $result = $this->productParser->parseProduct($data);
 
         $this->syncProductUseCase->execute(
-            eventTime: $eventTime,
-            webhookId: $webhookId,
-            topic: $topic,
+            context: $context,
             product: $result->product,
             presentEmbeds: $result->presentEmbeds,
         );
@@ -116,23 +102,18 @@ final readonly class HandleProductWebhookService
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      */
-    private function executeStockChanged(
-        DateTimeImmutable $eventTime,
-        int $webhookId,
-        WebhookTopic $topic,
-        IntId $productId,
-        array $data,
-    ): void {
+    private function executeStockChanged(WebhookContextDTO $context, IntId $productId, array $data): void
+    {
         $stockChange = $this->productParser->parseStockChange($data);
 
         $this->updateProductStockUseCase->execute(
-            eventTime: $eventTime,
-            webhookId: $webhookId,
-            topic: $topic,
-            productId: $productId,
-            sku: Sku::fromString($stockChange->sku),
-            isVariation: $stockChange->isVariation,
-            newQuantity: $stockChange->newQuantity,
+            context: $context,
+            data: new StockChangeDataDTO(
+                productId: $productId,
+                sku: Sku::fromString($stockChange->sku),
+                isVariation: $stockChange->isVariation,
+                newQuantity: $stockChange->newQuantity,
+            ),
         );
     }
 }

@@ -9,6 +9,7 @@ use App\Application\Operations\UseCases\RecordPricePeriodUseCase;
 use App\Domain\Catalog\Product\ValueObjects\ProductRetailPricing;
 use App\Domain\Catalog\Product\ValueObjects\Sku;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
+use App\Domain\Operations\ValueObjects\PriceSnapshot;
 use App\Domain\Shared\Money\ValueObjects\Money;
 use Mockery;
 use Mockery\MockInterface;
@@ -41,13 +42,11 @@ final class RecordPricePeriodUseCaseTest extends TestCase
 
         $this->repo->shouldReceive('recordPriceChange')
             ->once()
-            ->with(
-                'TEST-001',
-                29.99,
-                19.99,
-                19.99, // effective = sale when active
-                true,  // inclusive → hasTax = true
-            );
+            ->with(Mockery::on(static fn(PriceSnapshot $s): bool => $s->sku->value === 'TEST-001'
+                && $s->basePriceGross === 29.99
+                && $s->salePriceGross === 19.99
+                && $s->effectivePriceGross === 19.99
+                && $s->priceHasTax === true));
 
         $this->useCase->execute(Sku::fromTrusted('TEST-001'), $pricing);
     }
@@ -62,13 +61,11 @@ final class RecordPricePeriodUseCaseTest extends TestCase
 
         $this->repo->shouldReceive('recordPriceChange')
             ->once()
-            ->with(
-                'TEST-001',
-                29.99,
-                null,  // no sale
-                29.99, // effective = base when no sale
-                true,
-            );
+            ->with(Mockery::on(static fn(PriceSnapshot $s): bool => $s->sku->value === 'TEST-001'
+                && $s->basePriceGross === 29.99
+                && $s->salePriceGross === null
+                && $s->effectivePriceGross === 29.99
+                && $s->priceHasTax === true));
 
         $this->useCase->execute(Sku::fromTrusted('TEST-001'), $pricing);
     }
@@ -82,13 +79,11 @@ final class RecordPricePeriodUseCaseTest extends TestCase
 
         $this->repo->shouldReceive('recordPriceChange')
             ->once()
-            ->with(
-                'TEST-001',
-                20.0,
-                null,
-                20.0,
-                false, // zeroRated → hasTax = false
-            );
+            ->with(Mockery::on(static fn(PriceSnapshot $s): bool => $s->sku->value === 'TEST-001'
+                && $s->basePriceGross === 20.0
+                && $s->salePriceGross === null
+                && $s->effectivePriceGross === 20.0
+                && $s->priceHasTax === false));
 
         $this->useCase->execute(Sku::fromTrusted('TEST-001'), $pricing);
     }

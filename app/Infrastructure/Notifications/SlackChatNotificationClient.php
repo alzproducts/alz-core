@@ -5,9 +5,8 @@ declare(strict_types=1);
 namespace App\Infrastructure\Notifications;
 
 use App\Application\Contracts\ChatNotificationInterface;
-use App\Domain\Catalog\Product\ValueObjects\SaleSettings;
-use App\Domain\Catalog\Product\ValueObjects\SaleSubmissionContext;
-use App\Domain\Catalog\Product\ValueObjects\SkuPriceChange;
+use App\Application\Notifications\DTOs\PriceUpdateAlertDataDTO;
+use App\Application\Notifications\DTOs\VariantSkuNotificationDataDTO;
 use App\Domain\ContactSubmission\ValueObjects\ContactSubmission;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\InvalidConfigurationException;
@@ -78,27 +77,19 @@ final readonly class SlackChatNotificationClient implements ChatNotificationInte
     }
 
     /**
-     * @param list<SkuPriceChange> $priceChanges
-     *
      * @throws ExternalServiceUnavailableException On delivery failure
      */
-    public function sendPriceUpdateAlert(
-        IntId $productId,
-        array $priceChanges,
-        ?string $productTitle = null,
-        ?string $productUrl = null,
-        ?SaleSettings $saleSettings = null,
-        ?SaleSubmissionContext $saleSubmissionContext = null,
-    ): void {
+    public function sendPriceUpdateAlert(PriceUpdateAlertDataDTO $data): void
+    {
         $this->send(
             self::CHANNEL_VERBOSE,
             new ProductPricingUpdatedNotification(
-                productId: $productId->value,
-                priceChanges: $priceChanges,
-                productTitle: $productTitle,
-                productUrl: $productUrl,
-                saleSettings: $saleSettings,
-                saleSubmissionContext: $saleSubmissionContext,
+                productId: $data->productId->value,
+                priceChanges: $data->priceChanges,
+                productTitle: $data->productTitle,
+                productUrl: $data->productUrl,
+                saleSettings: $data->saleSettings,
+                saleSubmissionContext: $data->saleSubmissionContext,
             ),
         );
     }
@@ -144,27 +135,19 @@ final readonly class SlackChatNotificationClient implements ChatNotificationInte
     }
 
     /**
-     * @param list<string> $createdVariants
-     *
      * @throws ExternalServiceUnavailableException On delivery failure
      */
-    public function sendVariantSkusGenerated(
-        int $productId,
-        string $productTitle,
-        int $created,
-        int $skipped,
-        int $failed,
-        array $createdVariants,
-    ): void {
+    public function sendVariantSkusGenerated(VariantSkuNotificationDataDTO $data): void
+    {
         $this->send(
             self::CHANNEL_DEFAULT,
             new VariantSkusGeneratedNotification(
-                productId: $productId,
-                productTitle: $productTitle,
-                created: $created,
-                skipped: $skipped,
-                failed: $failed,
-                createdVariants: $createdVariants,
+                productId: $data->productId,
+                productTitle: $data->productTitle,
+                created: $data->created,
+                skipped: $data->skipped,
+                failed: $data->failed,
+                createdVariants: $data->createdVariants,
             ),
         );
     }

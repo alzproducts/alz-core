@@ -7,6 +7,7 @@ namespace Tests\Unit\Application\Shopwired\UseCases\Webhooks;
 use App\Application\Contracts\Shopwired\BrandRepositoryInterface;
 use App\Application\Contracts\Shopwired\ShopwiredSyncDispatcherInterface;
 use App\Application\Contracts\Shopwired\WebhookIdempotencyServiceInterface;
+use App\Application\Shopwired\DTOs\WebhookContextDTO;
 use App\Application\Shopwired\Enums\WebhookTopic;
 use App\Application\Shopwired\UseCases\Webhooks\AbstractSyncEntityWebhookUseCase;
 use App\Application\Shopwired\UseCases\Webhooks\SyncBrandUseCase;
@@ -91,9 +92,7 @@ final class SyncBrandUseCaseTest extends TestCase
             ->with('Brand webhook processed — sync queued', Mockery::type('array'));
 
         $this->useCase->execute(
-            eventTime: $eventTime,
-            webhookId: 1,
-            topic: WebhookTopic::BrandUpdated,
+            context: new WebhookContextDTO($eventTime, 1, WebhookTopic::BrandUpdated),
             brand: $brand,
             presentEmbeds: $presentEmbeds,
         );
@@ -128,9 +127,7 @@ final class SyncBrandUseCaseTest extends TestCase
             ->with('Brand webhook processed — sync queued', Mockery::type('array'));
 
         $this->useCase->execute(
-            eventTime: $eventTime,
-            webhookId: 1,
-            topic: WebhookTopic::BrandUpdated,
+            context: new WebhookContextDTO($eventTime, 1, WebhookTopic::BrandUpdated),
             brand: $brand,
         );
     }
@@ -159,9 +156,7 @@ final class SyncBrandUseCaseTest extends TestCase
             ->with('Discarding stale brand webhook', Mockery::type('array'));
 
         $this->useCase->execute(
-            eventTime: $staleTime,
-            webhookId: 1,
-            topic: WebhookTopic::BrandUpdated,
+            context: new WebhookContextDTO($staleTime, 1, WebhookTopic::BrandUpdated),
             brand: $brand,
         );
     }
@@ -193,9 +188,7 @@ final class SyncBrandUseCaseTest extends TestCase
             ->with('Discarding already-processed brand webhook', Mockery::type('array'));
 
         $this->useCase->execute(
-            eventTime: $eventTime,
-            webhookId: 1,
-            topic: WebhookTopic::BrandUpdated,
+            context: new WebhookContextDTO($eventTime, 1, WebhookTopic::BrandUpdated),
             brand: $brand,
         );
     }

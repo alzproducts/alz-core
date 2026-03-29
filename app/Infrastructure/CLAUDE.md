@@ -46,6 +46,14 @@ Use `RuntimeException` for missing/invalid config values — these are programmi
 
 Use for parsing external API responses. Supports `#[MapInputName(SnakeCaseMapper::class)]` for property mapping. ❌ **NOT allowed in Domain layer** — Domain must stay framework-independent.
 
+## Domain-to-Model Mapping
+
+Use `Model::attributesFromDomain($vo)` static methods for converting domain objects to database attributes. Don't inline field-by-field mapping in repositories. See `StockItemSupplierModel::attributesFromDomain()` for the canonical pattern.
+
+- The method does NOT include the parent FK (e.g., `linnworks_order_id`) — that's set by the repository
+- Include `created_at`/`updated_at` timestamps (bulk operations bypass Eloquent)
+- Repository merges FK + model attributes using spread: `['fk' => $id, ...Model::attributesFromDomain($vo)]`
+
 ## Bulk Inserts
 
 `insert()` bypasses Eloquent timestamps — manually add `created_at`/`updated_at` in mapper.

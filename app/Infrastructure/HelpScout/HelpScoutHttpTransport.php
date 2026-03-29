@@ -8,7 +8,6 @@ use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Infrastructure\Support\ApiRetryStrategy;
-use App\Infrastructure\Support\RetryAfterParser;
 use Exception;
 use GuzzleHttp\Promise\PromiseInterface;
 use HelpScout\Api\ApiClient;
@@ -60,11 +59,11 @@ final readonly class HelpScoutHttpTransport
                 ->send('GET', HelpScoutConfig::BASE_URL . $endpoint, ['query' => $queryParams])
                 ->throw();
         } catch (RequestException $e) {
-            throw $this->handleRequestException($e);
+            throw HelpScoutErrorHandler::handleRequestException($e);
         } catch (ConnectionException $e) {
-            throw $this->handleConnectionException($e);
+            throw HelpScoutErrorHandler::handleConnectionException($e);
         } catch (Exception $e) {
-            throw $this->handleUnexpectedException($e);
+            throw HelpScoutErrorHandler::handleUnexpectedException($e);
         }
     }
 
@@ -157,11 +156,11 @@ final readonly class HelpScoutHttpTransport
             ]);
 
             if ($result instanceof ConnectionException) {
-                throw $this->handleConnectionException($result);
+                throw HelpScoutErrorHandler::handleConnectionException($result);
             }
 
             if ($result instanceof RequestException) {
-                throw $this->handleRequestException($result);
+                throw HelpScoutErrorHandler::handleRequestException($result);
             }
 
             throw new ExternalServiceUnavailableException(self::SERVICE_NAME, previous: $result);
@@ -171,7 +170,7 @@ final readonly class HelpScoutHttpTransport
             try {
                 $result->throw();
             } catch (RequestException $e) {
-                throw $this->handleRequestException($e);
+                throw HelpScoutErrorHandler::handleRequestException($e);
             }
         }
 
@@ -199,113 +198,5 @@ final readonly class HelpScoutHttpTransport
                 when: ApiRetryStrategy::defaultRetry(),
             )
             ->timeout($this->config->timeoutSeconds);
-    }
-
-    /**
-     * Route HTTP failures to specific handlers by status code.
-     */
-    private function handleRequestException(
-        RequestException $e,
-    ): InvalidApiRequestException|AuthenticationExpiredException|ExternalServiceUnavailableException {
-        return match ($e->response->status()) {
-            400, 422 => $this->handleBadRequest($e),
-            401, 403 => $this->handleAuthenticationFailure($e),
-            429 => $this->handleRateLimit($e),
-            default => $this->handleServerError($e),
-        };
-    }
-
-    /**
-     * Handle 400/422 Bad Request (malformed request - programming error).
-     */
-    private function handleBadRequest(RequestException $e): InvalidApiRequestException
-    {
-        $body = $e->response->json();
-
-        Log::error(self::SERVICE_NAME . ' API invalid request', [
-            'status' => $e->response->status(),
-            'error' => $e->getMessage(),
-            'response' => $body,
-        ]);
-
-        $message = \is_array($body) ? ($body['message'] ?? null) : null;
-
-        return new InvalidApiRequestException(
-            self::SERVICE_NAME,
-            \is_string($message) ? $message : 'Invalid request parameters',
-            $e,
-        );
-    }
-
-    /**
-     * Handle 401/403 authentication/authorization failures.
-     */
-    private function handleAuthenticationFailure(RequestException $e): AuthenticationExpiredException
-    {
-        $status = $e->response->status();
-
-        Log::error(self::SERVICE_NAME . ' API authentication failed', [
-            'status' => $status,
-            'error' => $e->getMessage(),
-        ]);
-
-        return new AuthenticationExpiredException(
-            self::SERVICE_NAME,
-            ($status === 401) ? 'Invalid credentials' : 'Insufficient permissions',
-            $e,
-        );
-    }
-
-    /**
-     * Handle 429 Rate Limit (transient - respect Retry-After).
-     */
-    private function handleRateLimit(RequestException $e): ExternalServiceUnavailableException
-    {
-        $retryAfter = RetryAfterParser::parse($e->response->header('Retry-After'));
-
-        Log::warning(self::SERVICE_NAME . ' API rate limited', [
-            'retry_after' => $retryAfter,
-            'error' => $e->getMessage(),
-        ]);
-
-        return new ExternalServiceUnavailableException(self::SERVICE_NAME, $retryAfter, $e);
-    }
-
-    /**
-     * Handle 5xx and other server errors (transient).
-     */
-    private function handleServerError(RequestException $e): ExternalServiceUnavailableException
-    {
-        Log::error(self::SERVICE_NAME . ' API request failed', [
-            'status' => $e->response->status(),
-            'error' => $e->getMessage(),
-        ]);
-
-        return new ExternalServiceUnavailableException(self::SERVICE_NAME, previous: $e);
-    }
-
-    /**
-     * Handle connection failures (network errors, timeouts).
-     */
-    private function handleConnectionException(ConnectionException $e): ExternalServiceUnavailableException
-    {
-        Log::error(self::SERVICE_NAME . ' API connection failed', [
-            'error' => $e->getMessage(),
-        ]);
-
-        return new ExternalServiceUnavailableException(self::SERVICE_NAME, previous: $e);
-    }
-
-    /**
-     * Handle unexpected exceptions (Guzzle internals, retry edge cases).
-     */
-    private function handleUnexpectedException(Exception $e): ExternalServiceUnavailableException
-    {
-        Log::error(self::SERVICE_NAME . ' API unexpected error', [
-            'exception' => $e::class,
-            'error' => $e->getMessage(),
-        ]);
-
-        return new ExternalServiceUnavailableException(self::SERVICE_NAME, previous: $e);
     }
 }

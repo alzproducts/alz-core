@@ -6,12 +6,16 @@ namespace App\Infrastructure\Linnworks\Responses;
 
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Linnworks\ValueObjects\LinnworksOrder;
+use App\Domain\Linnworks\ValueObjects\LinnworksOrderExtendedProperty;
+use App\Domain\Linnworks\ValueObjects\LinnworksOrderItem;
+use App\Domain\Linnworks\ValueObjects\LinnworksOrderNote;
 use App\Domain\ValueObjects\Guid;
 use App\Domain\ValueObjects\IntId;
 use App\Infrastructure\Contracts\DomainConvertibleInterface;
 use App\Infrastructure\Linnworks\Support\LinnworksDateParser;
 use App\Infrastructure\Linnworks\Support\PascalCaseMapper;
 use Carbon\CarbonImmutable;
+use Spatie\LaravelData\Attributes\DataCollectionOf;
 use Spatie\LaravelData\Attributes\MapInputName;
 use Spatie\LaravelData\Data;
 
@@ -29,6 +33,9 @@ final class OrderResponse extends Data implements DomainConvertibleInterface
 {
     /**
      * @param list<string> $folderName
+     * @param list<OrderItemResponse>|null $items
+     * @param list<OrderExtendedPropertyResponse>|null $extendedProperties
+     * @param list<OrderNoteResponse>|null $notes
      */
     public function __construct(
         public readonly string $orderId,
@@ -43,6 +50,12 @@ final class OrderResponse extends Data implements DomainConvertibleInterface
         public readonly ?string $processedOn = null,
         public readonly ?string $paidOn = null,
         public readonly array $folderName = [],
+        #[DataCollectionOf(OrderItemResponse::class)]
+        public readonly ?array $items = null,
+        #[DataCollectionOf(OrderExtendedPropertyResponse::class)]
+        public readonly ?array $extendedProperties = null,
+        #[DataCollectionOf(OrderNoteResponse::class)]
+        public readonly ?array $notes = null,
     ) {}
 
     /**
@@ -102,16 +115,16 @@ final class OrderResponse extends Data implements DomainConvertibleInterface
             shipPostcode: $shipping->postCode,
             shipCountry: $shipping->country,
 
-            // CustomerInfo — Billing
-            billEmail: $billing->emailAddress,
-            billFullName: $billing->fullName,
-            billCompany: $billing->company,
-            billAddress1: $billing->address1,
-            billAddress2: $billing->address2,
-            billAddress3: $billing->address3,
-            billTown: $billing->town,
-            billPostcode: $billing->postCode,
-            billCountry: $billing->country,
+            // CustomerInfo — Billing (nullable for redacted/historical orders)
+            billEmail: $billing !== null ? $billing->emailAddress : null,
+            billFullName: $billing !== null ? $billing->fullName : '',
+            billCompany: $billing !== null ? $billing->company : '',
+            billAddress1: $billing !== null ? $billing->address1 : '',
+            billAddress2: $billing !== null ? $billing->address2 : '',
+            billAddress3: $billing !== null ? $billing->address3 : '',
+            billTown: $billing !== null ? $billing->town : '',
+            billPostcode: $billing !== null ? $billing->postCode : '',
+            billCountry: $billing !== null ? $billing->country : '',
 
             // Nullable fields
             processedOn: LinnworksDateParser::parse($this->processedOn),
@@ -120,7 +133,75 @@ final class OrderResponse extends Data implements DomainConvertibleInterface
             despatchByDate: LinnworksDateParser::parse($this->generalInfo->despatchByDate),
             marker: $this->generalInfo->marker,
             folderNames: $this->folderName,
+
+            // Child collections
+            items: $this->mapItems(),
+            extendedProperties: $this->mapExtendedProperties(),
+            notes: $this->mapNotes(),
         );
     }
 
+    /**
+     * Flatten and map order items, including composite sub-items.
+     *
+     * @return list<LinnworksOrderItem>
+     */
+    private function mapItems(): array
+    {
+        if ($this->items === null || $this->items === []) {
+            return [];
+        }
+
+        /** @var list<LinnworksOrderItem> $result */
+        $result = [];
+
+        foreach ($this->items as $itemResponse) {
+            /** @var OrderItemResponse $itemResponse */
+            \array_push($result, ...$itemResponse->toDomain());
+        }
+
+        return $result;
+    }
+
+    /**
+     * @return list<LinnworksOrderExtendedProperty>
+     *
+     * @throws InvalidApiResponseException
+     */
+    private function mapExtendedProperties(): array
+    {
+        if ($this->extendedProperties === null || $this->extendedProperties === []) {
+            return [];
+        }
+
+        /** @var list<LinnworksOrderExtendedProperty> $result */
+        $result = [];
+
+        foreach ($this->extendedProperties as $epResponse) {
+            /** @var OrderExtendedPropertyResponse $epResponse */
+            $result[] = $epResponse->toDomain();
+        }
+
+        return $result;
+    }
+
+    /**
+     * @return list<LinnworksOrderNote>
+     */
+    private function mapNotes(): array
+    {
+        if ($this->notes === null || $this->notes === []) {
+            return [];
+        }
+
+        /** @var list<LinnworksOrderNote> $result */
+        $result = [];
+
+        foreach ($this->notes as $noteResponse) {
+            /** @var OrderNoteResponse $noteResponse */
+            $result[] = $noteResponse->toDomain();
+        }
+
+        return $result;
+    }
 }

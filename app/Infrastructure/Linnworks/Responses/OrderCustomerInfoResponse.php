@@ -22,6 +22,6 @@ final class OrderCustomerInfoResponse extends Data
     public function __construct(
         public readonly string $channelBuyerName,
         public readonly OrderAddressResponse $address,
-        public readonly OrderAddressResponse $billingAddress,
+        public readonly ?OrderAddressResponse $billingAddress = null,
     ) {}
 }

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Application\Linnworks\UseCases\PurchaseOrder;
 
-use App\Application\Contracts\Linnworks\PurchaseOrderClientInterface;
+use App\Application\Contracts\Linnworks\PurchaseOrderUpdateClientInterface;
 use App\Application\Linnworks\DTOs\PurchaseOrder\DesiredExtendedPropertyDTO;
 use App\Application\Linnworks\DTOs\PurchaseOrder\PurchaseOrderLineItemDTO;
 use App\Application\Linnworks\UseCases\PurchaseOrder\CreatePurchaseOrderCommand;
@@ -31,7 +31,7 @@ use Tests\TestCase;
 #[CoversClass(CreatePurchaseOrderUseCase::class)]
 final class CreatePurchaseOrderUseCaseTest extends TestCase
 {
-    private PurchaseOrderClientInterface&MockInterface $client;
+    private PurchaseOrderUpdateClientInterface&MockInterface $client;
 
     private LoggerInterface&MockInterface $logger;
 
@@ -47,7 +47,7 @@ final class CreatePurchaseOrderUseCaseTest extends TestCase
     {
         parent::setUp();
 
-        $this->client = Mockery::mock(PurchaseOrderClientInterface::class);
+        $this->client = Mockery::mock(PurchaseOrderUpdateClientInterface::class);
         $this->logger = Mockery::mock(LoggerInterface::class);
         $this->logger->shouldReceive('info')->byDefault();
 
