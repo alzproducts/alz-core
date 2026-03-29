@@ -7,6 +7,7 @@ namespace Tests\Feature\Application\Shopwired\UseCases\Webhooks;
 use App\Application\Contracts\Shopwired\OrderRepositoryInterface;
 use App\Application\Contracts\Shopwired\ShopwiredSyncDispatcherInterface;
 use App\Application\Contracts\Shopwired\WebhookIdempotencyServiceInterface;
+use App\Application\Shopwired\DTOs\WebhookContextDTO;
 use App\Application\Shopwired\Enums\WebhookTopic;
 use App\Application\Shopwired\UseCases\Webhooks\AbstractSyncEntityWebhookUseCase;
 use App\Application\Shopwired\UseCases\Webhooks\SyncOrderUseCase;
@@ -94,9 +95,7 @@ final class SyncOrderUseCaseTest extends TestCase
         $this->dispatcher->shouldNotReceive('dispatchOrderSync');
 
         $this->useCase->execute(
-            eventTime: $staleEventTime,
-            webhookId: 99,
-            topic: WebhookTopic::OrderUpdated,
+            context: new WebhookContextDTO($staleEventTime, 99, WebhookTopic::OrderUpdated),
             order: $order,
         );
     }
@@ -130,9 +129,7 @@ final class SyncOrderUseCaseTest extends TestCase
         $this->dispatcher->shouldNotReceive('dispatchOrderSync');
 
         $this->useCase->execute(
-            eventTime: $eventTime,
-            webhookId: 99,
-            topic: WebhookTopic::OrderUpdated,
+            context: new WebhookContextDTO($eventTime, 99, WebhookTopic::OrderUpdated),
             order: $order,
         );
     }
@@ -173,9 +170,7 @@ final class SyncOrderUseCaseTest extends TestCase
             ->with('Order webhook processed — sync queued', Mockery::type('array'));
 
         $this->useCase->execute(
-            eventTime: $eventTime,
-            webhookId: 99,
-            topic: WebhookTopic::OrderUpdated,
+            context: new WebhookContextDTO($eventTime, 99, WebhookTopic::OrderUpdated),
             order: $order,
         );
     }
@@ -210,9 +205,7 @@ final class SyncOrderUseCaseTest extends TestCase
             ->with('Order webhook processed — sync queued', Mockery::type('array'));
 
         $this->useCase->execute(
-            eventTime: $eventTime,
-            webhookId: 99,
-            topic: WebhookTopic::OrderFinalized,
+            context: new WebhookContextDTO($eventTime, 99, WebhookTopic::OrderFinalized),
             order: $order,
         );
     }

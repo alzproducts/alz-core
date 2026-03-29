@@ -7,6 +7,7 @@ namespace App\Application\Inventory\UseCases;
 use App\Application\Contracts\Linnworks\InventoryClientInterface;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Application\Inventory\Commands\GenerateVariantSkusCommand;
+use App\Application\Inventory\DTOs\VariationProcessingContextDTO;
 use App\Application\Inventory\Results\GenerateVariantSkusResult;
 use App\Application\Inventory\Services\GenerateStockItemFromVariationService;
 use App\Application\Inventory\Services\StockItemParamsBuilderService;
@@ -122,8 +123,10 @@ final readonly class GenerateVariantSkusUseCase
         /** @var list<int> $failedVariationIds */
         $failedVariationIds = [];
 
+        $context = new VariationProcessingContextDTO($product, $template, $command, $standardSignVariations);
+
         foreach ($skuLessVariations as $variation) {
-            $result = $this->processVariation($variation, $product, $template, $command, $standardSignVariations);
+            $result = $this->processVariation($variation, $context);
 
             if ($result !== null) {
                 $created++;
@@ -232,19 +235,12 @@ final readonly class GenerateVariantSkusUseCase
     /**
      * Process a single variation: create in Linnworks, update ShopWired.
      *
-     * @param list<ProductVariation>|null $standardSignVariations Reference variations for price matching
-     *
      * @return Sku|null The created SKU, or null on failure
      *
      * @throws LockAcquisitionException When SKU generation lock unavailable
      */
-    private function processVariation(
-        ProductVariation $variation,
-        Product $product,
-        StockItemFull $template,
-        GenerateVariantSkusCommand $command,
-        ?array $standardSignVariations,
-    ): ?Sku {
+    private function processVariation(ProductVariation $variation, VariationProcessingContextDTO $context): ?Sku
+    {
         $this->logger->debug('Processing variation', [
             'variation_id' => $variation->id,
             'options' => $variation->optionValuesString(),
@@ -252,7 +248,7 @@ final readonly class GenerateVariantSkusUseCase
 
         try {
             // Build params from variation data
-            $params = $this->paramsBuilder->build($variation, $product, $template, $command, $standardSignVariations);
+            $params = $this->paramsBuilder->build($variation, $context);
 
             // Delegate to service (handles Linnworks creation, ShopWired update, rollback)
             $sku = $this->stockItemGenerator->generate($params, $variation->id);

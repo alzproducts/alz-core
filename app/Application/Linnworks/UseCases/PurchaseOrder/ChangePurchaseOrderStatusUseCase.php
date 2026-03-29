@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Application\Linnworks\UseCases\PurchaseOrder;
 
-use App\Application\Contracts\Linnworks\PurchaseOrderClientInterface;
+use App\Application\Contracts\Linnworks\PurchaseOrderUpdateClientInterface;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
@@ -27,7 +27,7 @@ use Psr\Log\LoggerInterface;
 final readonly class ChangePurchaseOrderStatusUseCase
 {
     public function __construct(
-        private PurchaseOrderClientInterface $client,
+        private PurchaseOrderUpdateClientInterface $client,
         private LoggerInterface $logger,
     ) {}
 

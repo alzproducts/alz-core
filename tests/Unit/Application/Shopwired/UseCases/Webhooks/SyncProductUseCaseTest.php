@@ -7,6 +7,7 @@ namespace Tests\Unit\Application\Shopwired\UseCases\Webhooks;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Application\Contracts\Shopwired\ShopwiredSyncDispatcherInterface;
 use App\Application\Contracts\Shopwired\WebhookIdempotencyServiceInterface;
+use App\Application\Shopwired\DTOs\WebhookContextDTO;
 use App\Application\Shopwired\Enums\WebhookTopic;
 use App\Application\Shopwired\UseCases\Webhooks\AbstractSyncEntityWebhookUseCase;
 use App\Application\Shopwired\UseCases\Webhooks\SyncProductUseCase;
@@ -96,9 +97,7 @@ final class SyncProductUseCaseTest extends TestCase
             ->with('Product webhook processed — sync queued', Mockery::type('array'));
 
         $this->useCase->execute(
-            eventTime: $eventTime,
-            webhookId: 1,
-            topic: WebhookTopic::ProductUpdated,
+            context: new WebhookContextDTO($eventTime, 1, WebhookTopic::ProductUpdated),
             product: $product,
             presentEmbeds: $presentEmbeds,
         );
@@ -133,9 +132,7 @@ final class SyncProductUseCaseTest extends TestCase
             ->with('Product webhook processed — sync queued', Mockery::type('array'));
 
         $this->useCase->execute(
-            eventTime: $eventTime,
-            webhookId: 1,
-            topic: WebhookTopic::ProductUpdated,
+            context: new WebhookContextDTO($eventTime, 1, WebhookTopic::ProductUpdated),
             product: $product,
         );
     }
@@ -164,9 +161,7 @@ final class SyncProductUseCaseTest extends TestCase
             ->with('Discarding stale product webhook', Mockery::type('array'));
 
         $this->useCase->execute(
-            eventTime: $staleTime,
-            webhookId: 1,
-            topic: WebhookTopic::ProductUpdated,
+            context: new WebhookContextDTO($staleTime, 1, WebhookTopic::ProductUpdated),
             product: $product,
             presentEmbeds: ['vat_relief'],
         );
@@ -199,9 +194,7 @@ final class SyncProductUseCaseTest extends TestCase
             ->with('Discarding already-processed product webhook', Mockery::type('array'));
 
         $this->useCase->execute(
-            eventTime: $eventTime,
-            webhookId: 1,
-            topic: WebhookTopic::ProductUpdated,
+            context: new WebhookContextDTO($eventTime, 1, WebhookTopic::ProductUpdated),
             product: $product,
         );
     }

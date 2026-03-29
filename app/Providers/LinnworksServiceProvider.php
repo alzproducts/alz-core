@@ -12,6 +12,7 @@ use App\Application\Contracts\Linnworks\LinnworksOrderRepositoryInterface;
 use App\Application\Contracts\Linnworks\LinnworksSyncDispatcherInterface;
 use App\Application\Contracts\Linnworks\OrderClientInterface;
 use App\Application\Contracts\Linnworks\PurchaseOrderClientInterface;
+use App\Application\Contracts\Linnworks\PurchaseOrderUpdateClientInterface;
 use App\Application\Contracts\Linnworks\StockDashboardsClientInterface;
 use App\Application\Contracts\Linnworks\StockItemRepositoryInterface;
 use App\Application\Contracts\Linnworks\SupplierRepositoryInterface;
@@ -113,10 +114,15 @@ final class LinnworksServiceProvider extends ServiceProvider implements Deferrab
             static fn(): OrderClientInterface => LinnworksClientFactory::createOrderClient(),
         );
 
-        // Purchase order client - for PO lifecycle management
+        // Purchase order clients - read/write split
         $this->app->singleton(
             PurchaseOrderClientInterface::class,
             static fn(): PurchaseOrderClientInterface => LinnworksClientFactory::createPurchaseOrderClient(),
+        );
+
+        $this->app->singleton(
+            PurchaseOrderUpdateClientInterface::class,
+            static fn(): PurchaseOrderUpdateClientInterface => LinnworksClientFactory::createPurchaseOrderUpdateClient(),
         );
 
         // Dispatchers
@@ -149,6 +155,7 @@ final class LinnworksServiceProvider extends ServiceProvider implements Deferrab
             LinnworksSessionManager::class,
             OrderClientInterface::class,
             PurchaseOrderClientInterface::class,
+            PurchaseOrderUpdateClientInterface::class,
             StockDashboardsClientInterface::class,
             StockItemRepositoryInterface::class,
             SupplierRepositoryInterface::class,

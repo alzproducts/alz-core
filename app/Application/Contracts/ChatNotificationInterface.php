@@ -4,9 +4,8 @@ declare(strict_types=1);
 
 namespace App\Application\Contracts;
 
-use App\Domain\Catalog\Product\ValueObjects\SaleSettings;
-use App\Domain\Catalog\Product\ValueObjects\SaleSubmissionContext;
-use App\Domain\Catalog\Product\ValueObjects\SkuPriceChange;
+use App\Application\Notifications\DTOs\PriceUpdateAlertDataDTO;
+use App\Application\Notifications\DTOs\VariantSkuNotificationDataDTO;
 use App\Domain\ContactSubmission\ValueObjects\ContactSubmission;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\InvalidConfigurationException;
@@ -49,19 +48,10 @@ interface ChatNotificationInterface
     ): void;
 
     /**
-     * @param list<SkuPriceChange> $priceChanges Confirmed price changes per SKU
-     *
      * @throws InvalidConfigurationException When target channel is not configured
      * @throws ExternalServiceUnavailableException On delivery failure
      */
-    public function sendPriceUpdateAlert(
-        IntId $productId,
-        array $priceChanges,
-        ?string $productTitle = null,
-        ?string $productUrl = null,
-        ?SaleSettings $saleSettings = null,
-        ?SaleSubmissionContext $saleSubmissionContext = null,
-    ): void;
+    public function sendPriceUpdateAlert(PriceUpdateAlertDataDTO $data): void;
 
     /**
      * @throws InvalidConfigurationException When target channel is not configured
@@ -85,17 +75,8 @@ interface ChatNotificationInterface
     ): void;
 
     /**
-     * @param list<string> $createdVariants Created variant labels
-     *
      * @throws InvalidConfigurationException When target channel is not configured
      * @throws ExternalServiceUnavailableException On delivery failure
      */
-    public function sendVariantSkusGenerated(
-        int $productId,
-        string $productTitle,
-        int $created,
-        int $skipped,
-        int $failed,
-        array $createdVariants,
-    ): void;
+    public function sendVariantSkusGenerated(VariantSkuNotificationDataDTO $data): void;
 }

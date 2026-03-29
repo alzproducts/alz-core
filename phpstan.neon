@@ -28,6 +28,8 @@ includes:
     # Note: Skip code-complexity-rules.neon (overlaps with tomasvotruba/cognitive-complexity)
     # Project-specific custom rules and disallowed calls
     - phpstan-custom-rules.neon
+    # Complexity baseline — pre-existing violations (issue #393)
+    - phpstan-complexity-baseline.neon
 
 parameters:
     level: max
@@ -133,6 +135,7 @@ parameters:
     cognitive_complexity:
         class: 50
         function: 10
+        dependency_tree: 10
 
     # Stage 3: Type declaration coverage enforcement
     # Ensures minimum type coverage across the codebase (set high, will reveal current stats if below)

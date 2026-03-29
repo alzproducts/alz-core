@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Infrastructure\Notifications\Listeners;
 
 use App\Application\Contracts\ChatNotificationInterface;
+use App\Application\Notifications\DTOs\VariantSkuNotificationDataDTO;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\InvalidConfigurationException;
 use App\Domain\Inventory\Events\VariantSkusGeneratedEvent;
@@ -31,14 +32,14 @@ final class VariantSkusGeneratedSlackListener implements ShouldQueue
      */
     public function handle(VariantSkusGeneratedEvent $event): void
     {
-        $this->chat->sendVariantSkusGenerated(
+        $this->chat->sendVariantSkusGenerated(new VariantSkuNotificationDataDTO(
             productId: $event->productId,
             productTitle: $event->productTitle,
             created: $event->created,
             skipped: $event->skipped,
             failed: $event->failed,
             createdVariants: $event->createdVariants,
-        );
+        ));
     }
 
     public function failed(VariantSkusGeneratedEvent $event, Throwable $e): void

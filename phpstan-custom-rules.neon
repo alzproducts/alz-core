@@ -59,3 +59,8 @@ rules:
     - App\DevTools\PHPStan\Rules\Validation\ValidatorMustHaveValidateMethodRule
     - App\DevTools\PHPStan\Rules\Validation\ValidationResultMustUseTraitRule
     - App\DevTools\PHPStan\Rules\Validation\ValidationResultMustNotOverrideOrFailRule
+    # Batch 7: Code complexity / size rules
+    - Symplify\PHPStanRules\Rules\Complexity\ForeachCeptionRule
+    - App\DevTools\PHPStan\Rules\Complexity\ExcessiveMethodLengthRule
+    - App\DevTools\PHPStan\Rules\Complexity\ExcessiveClassLengthRule
+    - App\DevTools\PHPStan\Rules\Complexity\ExcessiveParameterCountRule

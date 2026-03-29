@@ -10,7 +10,6 @@ use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Infrastructure\Linnworks\Contracts\LinnworksTransportInterface;
-use App\Infrastructure\Support\RetryAfterParser;
 use Closure;
 use DateMalformedStringException;
 use Exception;
@@ -165,7 +164,7 @@ final readonly class LinnworksHttpTransport implements LinnworksTransportInterfa
      */
     public function postFormParams(string $endpoint, array $params = []): Response
     {
-        $formParams = $this->convertToFormParams($params, $endpoint);
+        $formParams = LinnworksParamConverter::convertToFormParams($params, $endpoint);
 
         return $this->executeWithAuthRetry(
             // @phpstan-ignore missingType.checkedException, missingType.checkedException (closure exceptions caught in executeWithAuthRetry)
@@ -175,64 +174,6 @@ final readonly class LinnworksHttpTransport implements LinnworksTransportInterfa
                 ->throw(),
             $endpoint,
         );
-    }
-
-    /**
-     * Convert mixed params to form-compatible string values.
-     *
-     * Arrays are JSON-encoded, booleans become 'true'/'false' strings.
-     *
-     * @param array<string, scalar|array<mixed>|null> $params
-     *
-     * @return array<string, string|int|float>
-     *
-     * @throws InvalidApiRequestException When array serialization fails
-     */
-    private function convertToFormParams(array $params, string $endpoint): array
-    {
-        $formParams = [];
-
-        foreach ($params as $key => $value) {
-            if ($value === null) {
-                // Linnworks may not ignore null - monitor for issues
-                continue;
-            }
-
-            $formParams[$key] = match (true) {
-                \is_array($value) => $this->jsonEncodeParam($key, $value, $endpoint),
-                \is_bool($value) => $value ? 'true' : 'false',
-                \is_int($value), \is_float($value) => $value,
-                \is_string($value) => $value,
-            };
-        }
-
-        return $formParams;
-    }
-
-    /**
-     * JSON-encode an array parameter for form submission.
-     *
-     * @param array<mixed> $value
-     *
-     * @throws InvalidApiRequestException When serialization fails
-     */
-    private function jsonEncodeParam(string $key, array $value, string $endpoint): string
-    {
-        try {
-            return \json_encode($value, \JSON_THROW_ON_ERROR);
-        } catch (JsonException $e) {
-            Log::error(self::SERVICE_NAME . ' failed to serialize form parameter', [
-                'endpoint' => $endpoint,
-                'parameter' => $key,
-                'error' => $e->getMessage(),
-            ]);
-
-            throw new InvalidApiRequestException(
-                self::SERVICE_NAME,
-                "Parameter '{$key}' could not be serialized: " . $e->getMessage(),
-                $e,
-            );
-        }
     }
 
     /**
@@ -293,15 +234,15 @@ final readonly class LinnworksHttpTransport implements LinnworksTransportInterfa
                 try {
                     return $request($session);
                 } catch (RequestException $retryException) {
-                    throw $this->handleRequestException($retryException, $endpoint);
+                    throw LinnworksErrorHandler::handleRequestException($retryException, $endpoint);
                 }
             }
 
-            throw $this->handleRequestException($e, $endpoint);
+            throw LinnworksErrorHandler::handleRequestException($e, $endpoint);
         } catch (ConnectionException $e) {
-            throw $this->handleConnectionException($e);
+            throw LinnworksErrorHandler::handleConnectionException($e);
         } catch (Exception $e) {
-            throw $this->handleUnexpectedException($e);
+            throw LinnworksErrorHandler::handleUnexpectedException($e);
         }
     }
 
@@ -334,126 +275,5 @@ final readonly class LinnworksHttpTransport implements LinnworksTransportInterfa
         }
 
         return $serverUrl;
-    }
-
-    /**
-     * Route HTTP failures to specific handlers by status code.
-     */
-    private function handleRequestException(
-        RequestException $e,
-        string $endpoint,
-    ): InvalidApiRequestException|AuthenticationExpiredException|ResourceNotFoundException|ExternalServiceUnavailableException {
-        return match ($e->response->status()) {
-            400, 422 => $this->handleBadRequest($e),
-            401, 403 => $this->handleAuthenticationFailure($e),
-            404 => $this->handleNotFound($e, $endpoint),
-            429 => $this->handleRateLimit($e),
-            default => $this->handleServerError($e),
-        };
-    }
-
-    /**
-     * Handle 400/422 Bad Request (malformed request - programming error).
-     */
-    private function handleBadRequest(RequestException $e): InvalidApiRequestException
-    {
-        $message = $e->response->json('Message');
-
-        Log::error(self::SERVICE_NAME . ' API invalid request', [
-            'status' => $e->response->status(),
-            'error' => $e->getMessage(),
-            'response_message' => \is_string($message) ? $message : 'No message provided',
-        ]);
-
-        return new InvalidApiRequestException(
-            self::SERVICE_NAME,
-            \is_string($message) ? $message : 'Invalid request parameters',
-            $e,
-        );
-    }
-
-    /**
-     * Handle 401/403 authentication/authorization failures.
-     */
-    private function handleAuthenticationFailure(RequestException $e): AuthenticationExpiredException
-    {
-        $status = $e->response->status();
-
-        Log::error(self::SERVICE_NAME . ' API authentication failed', [
-            'status' => $status,
-            'error' => $e->getMessage(),
-        ]);
-
-        return new AuthenticationExpiredException(
-            self::SERVICE_NAME,
-            $status === 401 ? 'Invalid credentials' : 'Insufficient permissions',
-            $e,
-        );
-    }
-
-    /**
-     * Handle 404 Not Found (resource doesn't exist - permanent).
-     */
-    private function handleNotFound(RequestException $e, string $endpoint): ResourceNotFoundException
-    {
-        Log::warning(self::SERVICE_NAME . ' API resource not found', [
-            'endpoint' => $endpoint,
-            'error' => $e->getMessage(),
-        ]);
-
-        return new ResourceNotFoundException(self::SERVICE_NAME, $endpoint, 'unknown');
-    }
-
-    /**
-     * Handle 429 Rate Limit (transient - respect Retry-After).
-     */
-    private function handleRateLimit(RequestException $e): ExternalServiceUnavailableException
-    {
-        $retryAfter = RetryAfterParser::parse($e->response->header('Retry-After'));
-
-        Log::warning(self::SERVICE_NAME . ' API rate limited', [
-            'retry_after' => $retryAfter,
-            'error' => $e->getMessage(),
-        ]);
-
-        return new ExternalServiceUnavailableException(self::SERVICE_NAME, $retryAfter, $e);
-    }
-
-    /**
-     * Handle 5xx and other server errors (transient).
-     */
-    private function handleServerError(RequestException $e): ExternalServiceUnavailableException
-    {
-        Log::error(self::SERVICE_NAME . ' API request failed', [
-            'status' => $e->response->status(),
-            'error' => $e->getMessage(),
-        ]);
-
-        return new ExternalServiceUnavailableException(self::SERVICE_NAME, previous: $e);
-    }
-
-    /**
-     * Handle connection failures (network errors, timeouts).
-     */
-    private function handleConnectionException(ConnectionException $e): ExternalServiceUnavailableException
-    {
-        Log::error(self::SERVICE_NAME . ' API connection failed', [
-            'error' => $e->getMessage(),
-        ]);
-
-        return new ExternalServiceUnavailableException(self::SERVICE_NAME, previous: $e);
-    }
-
-    /**
-     * Handle unexpected exceptions from Guzzle/Laravel internals.
-     */
-    private function handleUnexpectedException(Exception $e): ExternalServiceUnavailableException
-    {
-        Log::error(self::SERVICE_NAME . ' API unexpected error', [
-            'exception' => $e::class,
-            'error' => $e->getMessage(),
-        ]);
-
-        return new ExternalServiceUnavailableException(self::SERVICE_NAME, previous: $e);
     }
 }

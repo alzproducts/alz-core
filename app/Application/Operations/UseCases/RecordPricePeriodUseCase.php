@@ -10,6 +10,7 @@ use App\Domain\Catalog\Product\ValueObjects\Sku;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use App\Domain\Operations\ValueObjects\PriceSnapshot;
 
 /**
  * Record a price period change in the SCD2 price history table.
@@ -30,12 +31,12 @@ final readonly class RecordPricePeriodUseCase
      */
     public function execute(Sku $sku, ProductRetailPricing $newPrices): void
     {
-        $this->repo->recordPriceChange(
-            sku: $sku->value,
+        $this->repo->recordPriceChange(new PriceSnapshot(
+            sku: $sku,
             basePriceGross: $newPrices->basePrice->toGross(),
             salePriceGross: $newPrices->salePrice?->toGross(),
             effectivePriceGross: $newPrices->effectivePrice()->toGross(),
             priceHasTax: $newPrices->taxType()->hasTax(),
-        );
+        ));
     }
 }

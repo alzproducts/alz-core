@@ -6,6 +6,8 @@ namespace App\Application\Shopwired\Services;
 
 use App\Application\Contracts\Shopwired\OrderWebhookEventResolverInterface;
 use App\Application\Contracts\Shopwired\OrderWebhookParserInterface;
+use App\Application\Shopwired\DTOs\RawWebhookPayloadDTO;
+use App\Application\Shopwired\DTOs\WebhookContextDTO;
 use App\Application\Shopwired\Enums\WebhookTopic;
 use App\Application\Shopwired\UseCases\Webhooks\CreateOrderRefundUseCase;
 use App\Application\Shopwired\UseCases\Webhooks\DeleteOrderRefundUseCase;
@@ -20,7 +22,6 @@ use App\Domain\Exceptions\Data\InvalidEnumValueException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\IntId;
-use DateTimeImmutable;
 
 /**
  * Routes order webhook events to the appropriate use case.
@@ -38,8 +39,6 @@ final readonly class HandleOrderWebhookService
     ) {}
 
     /**
-     * @param array<string, mixed> $data
-     *
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws InvalidApiResponseException
@@ -47,49 +46,40 @@ final readonly class HandleOrderWebhookService
      * @throws ExternalServiceUnavailableException
      * @throws ResourceNotFoundException
      */
-    public function execute(
-        DateTimeImmutable $eventTime,
-        int $webhookId,
-        string $topic,
-        int $subjectId,
-        array $data,
-    ): void {
-        $intent = $this->resolver->resolve($topic);
-        $webhookTopic = WebhookTopic::tryFrom($topic)
-            ?? throw InvalidEnumValueException::invalidBackingValue(WebhookTopic::class, $topic);
-        $orderId = IntId::from($subjectId);
+    public function execute(RawWebhookPayloadDTO $payload): void
+    {
+        $intent = $this->resolver->resolve($payload->topic);
+        $webhookTopic = WebhookTopic::tryFrom($payload->topic)
+            ?? throw InvalidEnumValueException::invalidBackingValue(WebhookTopic::class, $payload->topic);
+        $orderId = IntId::from($payload->subjectId);
+        $context = new WebhookContextDTO($payload->eventTime, $payload->webhookId, $webhookTopic);
 
         match ($intent) {
             OrderWebhookIntent::Deleted => $this->deleteOrderUseCase->execute(
-                webhookId: $webhookId,
+                webhookId: $payload->webhookId,
                 orderId: $orderId,
             ),
 
             OrderWebhookIntent::StatusChanged => $this->updateStatusUseCase->execute(
-                eventTime: $eventTime,
-                webhookId: $webhookId,
-                topic: $webhookTopic,
+                context: $context,
                 orderId: $orderId,
-                status: $this->orderParser->parseOrderStatus($data),
+                status: $this->orderParser->parseOrderStatus($payload->data),
             ),
 
             OrderWebhookIntent::RefundCreated => $this->handleRefundCreated(
-                eventTime: $eventTime,
-                webhookId: $webhookId,
-                data: $data,
+                context: $context,
+                data: $payload->data,
             ),
 
             OrderWebhookIntent::RefundDeleted => $this->deleteRefundUseCase->execute(
-                webhookId: $webhookId,
+                webhookId: $payload->webhookId,
                 orderId: $orderId,
-                refundExternalId: $this->orderParser->parseRefundExternalId($data),
+                refundExternalId: $this->orderParser->parseRefundExternalId($payload->data),
             ),
 
             OrderWebhookIntent::Sync => $this->syncOrderUseCase->execute(
-                eventTime: $eventTime,
-                webhookId: $webhookId,
-                topic: $webhookTopic,
-                order: $this->orderParser->parseOrder($data),
+                context: $context,
+                order: $this->orderParser->parseOrder($payload->data),
             ),
         };
     }
@@ -104,13 +94,13 @@ final readonly class HandleOrderWebhookService
      * @throws InvalidApiResponseException
      * @throws ResourceNotFoundException
      */
-    private function handleRefundCreated(DateTimeImmutable $eventTime, int $webhookId, array $data): void
+    private function handleRefundCreated(WebhookContextDTO $context, array $data): void
     {
         $result = $this->orderParser->parseOrderRefund($data);
 
         $this->createRefundUseCase->execute(
-            eventTime: $eventTime,
-            webhookId: $webhookId,
+            eventTime: $context->eventTime,
+            webhookId: $context->webhookId,
             orderId: $result->orderId,
             refund: $result->refund,
         );

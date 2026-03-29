@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Application\Linnworks\UseCases\PurchaseOrder;
 
 use App\Application\Contracts\Linnworks\PurchaseOrderClientInterface;
+use App\Application\Contracts\Linnworks\PurchaseOrderUpdateClientInterface;
 use App\Application\Linnworks\DTOs\PurchaseOrder\DesiredExtendedPropertyDTO;
 use App\Application\Linnworks\Services\ExtendedPropertyDiffService;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
@@ -26,7 +27,8 @@ use Psr\Log\LoggerInterface;
 final readonly class UpdatePurchaseOrderExtendedPropertiesUseCase
 {
     public function __construct(
-        private PurchaseOrderClientInterface $client,
+        private PurchaseOrderClientInterface $readClient,
+        private PurchaseOrderUpdateClientInterface $writeClient,
         private LoggerInterface $logger,
     ) {}
 
@@ -41,7 +43,7 @@ final readonly class UpdatePurchaseOrderExtendedPropertiesUseCase
      */
     public function execute(Guid $purchaseId, array $desired): void
     {
-        $current = $this->client->getPurchaseOrderExtendedProperties($purchaseId);
+        $current = $this->readClient->getPurchaseOrderExtendedProperties($purchaseId);
         $changeset = ExtendedPropertyDiffService::diff($current, $desired);
 
         if ($changeset->isEmpty()) {
@@ -60,15 +62,15 @@ final readonly class UpdatePurchaseOrderExtendedPropertiesUseCase
         ]);
 
         if ($changeset->toCreate !== []) {
-            $this->client->addPurchaseOrderExtendedProperties($purchaseId, $changeset->toCreate);
+            $this->writeClient->addPurchaseOrderExtendedProperties($purchaseId, $changeset->toCreate);
         }
 
         if ($changeset->toUpdate !== []) {
-            $this->client->updatePurchaseOrderExtendedProperties($purchaseId, $changeset->toUpdate);
+            $this->writeClient->updatePurchaseOrderExtendedProperties($purchaseId, $changeset->toUpdate);
         }
 
         if ($changeset->toDelete !== []) {
-            $this->client->deletePurchaseOrderExtendedProperties($purchaseId, $changeset->toDelete);
+            $this->writeClient->deletePurchaseOrderExtendedProperties($purchaseId, $changeset->toDelete);
         }
 
         $this->logger->info('Updated purchase order extended properties', [

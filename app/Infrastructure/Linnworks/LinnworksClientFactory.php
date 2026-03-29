@@ -9,6 +9,7 @@ use App\Application\Contracts\Linnworks\InventoryClientInterface;
 use App\Application\Contracts\Linnworks\InventoryUpdateClientInterface;
 use App\Application\Contracts\Linnworks\OrderClientInterface;
 use App\Application\Contracts\Linnworks\PurchaseOrderClientInterface;
+use App\Application\Contracts\Linnworks\PurchaseOrderUpdateClientInterface;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\InvalidConfigurationException;
@@ -18,6 +19,7 @@ use App\Infrastructure\Linnworks\Clients\InventoryClient;
 use App\Infrastructure\Linnworks\Clients\InventoryUpdateClient;
 use App\Infrastructure\Linnworks\Clients\OrderClient;
 use App\Infrastructure\Linnworks\Clients\PurchaseOrderClient;
+use App\Infrastructure\Linnworks\Clients\PurchaseOrderUpdateClient;
 use App\Infrastructure\Linnworks\Clients\StockDashboardsClient;
 use App\Infrastructure\Linnworks\Contracts\LinnworksTransportInterface;
 use App\Infrastructure\Linnworks\Enums\LinnworksLogLevel;
@@ -90,11 +92,19 @@ final class LinnworksClientFactory
     }
 
     /**
-     * Create the purchase order client for PO lifecycle operations.
+     * Create the purchase order read client.
      */
     public static function createPurchaseOrderClient(): PurchaseOrderClientInterface
     {
         return new PurchaseOrderClient(self::getTransport());
+    }
+
+    /**
+     * Create the purchase order write client.
+     */
+    public static function createPurchaseOrderUpdateClient(): PurchaseOrderUpdateClientInterface
+    {
+        return new PurchaseOrderUpdateClient(self::getTransport());
     }
 
     /**

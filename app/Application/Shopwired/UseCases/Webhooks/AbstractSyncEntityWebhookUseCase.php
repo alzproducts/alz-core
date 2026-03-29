@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Application\Shopwired\UseCases\Webhooks;
 
 use App\Application\Contracts\Shopwired\WebhookIdempotencyServiceInterface;
-use App\Application\Shopwired\Enums\WebhookTopic;
+use App\Application\Shopwired\DTOs\WebhookContextDTO;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
@@ -40,41 +40,39 @@ abstract readonly class AbstractSyncEntityWebhookUseCase
      * @throws ExternalServiceUnavailableException
      */
     protected function process(
-        DateTimeImmutable $eventTime,
-        int $webhookId,
-        WebhookTopic $topic,
+        WebhookContextDTO $context,
         int $entityExternalId,
         object $entity,
         array $presentEmbeds = [],
     ): void {
         $label = $this->entityLabel();
         $labelLower = \mb_strtolower($label);
-        $context = ['webhook_id' => $webhookId, 'subject_id' => $entityExternalId];
+        $logContext = ['webhook_id' => $context->webhookId, 'subject_id' => $entityExternalId];
 
-        $this->logger->info("Processing {$labelLower} webhook", $context);
+        $this->logger->info("Processing {$labelLower} webhook", $logContext);
 
         $cutoff = (new DateTimeImmutable())->setTimestamp(\time() - ($this->webhookStalenessHours * 3600));
 
-        if ($eventTime < $cutoff) {
-            $this->logger->info("Discarding stale {$labelLower} webhook", $context);
+        if ($context->eventTime < $cutoff) {
+            $this->logger->info("Discarding stale {$labelLower} webhook", $logContext);
 
             return;
         }
 
         $entityId = IntId::from($entityExternalId);
 
-        if ($this->idempotency->isSuperseded($entityId, $topic, $webhookId)) {
-            $this->logger->info("Discarding already-processed {$labelLower} webhook", $context);
+        if ($this->idempotency->isSuperseded($entityId, $context->topic, $context->webhookId)) {
+            $this->logger->info("Discarding already-processed {$labelLower} webhook", $logContext);
 
             return;
         }
 
         $this->saveEntity($entity, $presentEmbeds);
-        $this->idempotency->record($entityId, $topic, $webhookId, $eventTime);
+        $this->idempotency->record($entityId, $context->topic, $context->webhookId, $context->eventTime);
 
         $this->dispatchSyncJob($entityId);
 
-        $this->logger->info("{$label} webhook processed — sync queued", $context);
+        $this->logger->info("{$label} webhook processed — sync queued", $logContext);
     }
 
     /** @param list<string> $presentEmbeds */
