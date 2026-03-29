@@ -21,8 +21,8 @@ use Psr\Log\LoggerInterface;
  * Core order sync logic shared by all 5 tiers.
  *
  * Iterates batches from the OrderClient Generator, buffers pages,
- * and flushes via bulk upsert. Tracks the max LastUpdated across
- * all orders for cursor advancement.
+ * and flushes via per-order transactional save. Tracks the max
+ * LastUpdated across all orders for cursor advancement.
  *
  * Pattern: follows SyncAllStockItemsUseCase — iterate Generator,
  * buffer pages, flush batches, continue-on-failure.
@@ -143,7 +143,7 @@ final readonly class SyncLinnworksOrdersUseCase
     }
 
     /**
-     * Flush buffered orders to database via bulk upsert.
+     * Flush buffered orders to database via per-order transactional save.
      *
      * @param list<LinnworksOrder> $orders
      *
@@ -156,7 +156,7 @@ final readonly class SyncLinnworksOrdersUseCase
             'count' => \count($orders),
         ]);
 
-        $saveResult = $this->orderRepository->saveOrdersBulk($orders);
+        $saveResult = $this->orderRepository->saveMany($orders);
 
         if ($saveResult->hasFailures()) {
             $this->logger->error('Failed to save some orders to database', [

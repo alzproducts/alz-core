@@ -1,0 +1,63 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Infrastructure\Linnworks\Models;
+
+use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+/**
+ * Eloquent model for linnworks.order_extended_properties table.
+ *
+ * Stores extended property key-value pairs synced from the v2 GetOrders API.
+ * Sync strategy: upsert by row_id + delete orphans.
+ *
+ * @property string $id Internal UUID
+ * @property string $linnworks_order_id FK to orders.linnworks_order_id
+ * @property string $row_id Linnworks EP GUID (upsert key)
+ * @property string $name
+ * @property string $value
+ * @property string $type
+ * @property CarbonImmutable|null $create_date
+ * @property CarbonImmutable|null $last_update
+ * @property string|null $updated_by
+ * @property CarbonImmutable $created_at
+ * @property CarbonImmutable $updated_at
+ */
+final class LinnworksOrderExtendedPropertyModel extends Model
+{
+    use HasUuids;
+
+    protected $table = 'linnworks.order_extended_properties';
+
+    /** Disable mass assignment protection (internal sync model, no user input). */
+    protected $guarded = [];
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'create_date' => 'immutable_datetime',
+            'last_update' => 'immutable_datetime',
+            'created_at' => 'immutable_datetime',
+            'updated_at' => 'immutable_datetime',
+        ];
+    }
+
+    /**
+     * @return BelongsTo<LinnworksOrderModel, $this>
+     */
+    public function order(): BelongsTo
+    {
+        return $this->belongsTo(
+            LinnworksOrderModel::class,
+            'linnworks_order_id',
+            'linnworks_order_id',
+        );
+    }
+}
