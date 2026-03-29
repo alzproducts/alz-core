@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Presentation\Console\Commands\Dev;
 
 use App\Application\Contracts\ChatNotificationInterface;
+use App\Application\Notifications\DTOs\PriceUpdateAlertDataDTO;
+use App\Application\Notifications\DTOs\VariantSkuNotificationDataDTO;
 use App\Domain\Catalog\Product\ValueObjects\ProductRetailPricing;
 use App\Domain\Catalog\Product\ValueObjects\Sku;
 use App\Domain\Catalog\Product\ValueObjects\SkuPriceChange;
@@ -238,7 +240,7 @@ final class TestSlackNotificationCommand extends Command
         /** @var string $sku */
         $sku = \config('shopwired.test_product.sku');
 
-        $this->chat->sendPriceUpdateAlert(
+        $this->chat->sendPriceUpdateAlert(new PriceUpdateAlertDataDTO(
             productId: IntId::from($productId),
             priceChanges: [
                 new SkuPriceChange(
@@ -249,7 +251,7 @@ final class TestSlackNotificationCommand extends Command
             ],
             productTitle: 'Test Product',
             productUrl: 'https://www.alzproducts.co.uk/test-product',
-        );
+        ));
     }
 
     /**
@@ -262,7 +264,7 @@ final class TestSlackNotificationCommand extends Command
         /** @var string $sku */
         $sku = \config('shopwired.test_product.sku');
 
-        $this->chat->sendVariantSkusGenerated(
+        $this->chat->sendVariantSkusGenerated(new VariantSkuNotificationDataDTO(
             productId: $productId,
             productTitle: 'Test Product',
             created: 3,
@@ -273,7 +275,7 @@ final class TestSlackNotificationCommand extends Command
                 "{$sku}-002 - Variant B",
                 "{$sku}-003 - Variant C",
             ],
-        );
+        ));
     }
 
     private function buildBasicNotification(string $message, string $channel): Notification

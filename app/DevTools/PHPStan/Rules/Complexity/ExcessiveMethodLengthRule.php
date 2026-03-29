@@ -65,6 +65,7 @@ final class ExcessiveMethodLengthRule implements Rule
                 ),
             )
                 ->identifier('alz.excessiveMethodLength')
+                ->tip('Extract logical sections into well-named private methods, each with a single responsibility. Do not split arbitrarily at a line count — each extracted method should represent a coherent operation.')
                 ->build(),
         ];
     }

@@ -7,6 +7,7 @@ namespace App\Infrastructure\Notifications\Listeners;
 use App\Application\Contracts\ChatNotificationInterface;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Application\Contracts\Shopwired\SaleSettingsRepositoryInterface;
+use App\Application\Notifications\DTOs\PriceUpdateAlertDataDTO;
 use App\Domain\Catalog\Product\Events\ProductPricingUpdatedEvent;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
@@ -65,14 +66,14 @@ final class ProductPricingUpdatedSlackListener implements ShouldQueue
             ? $this->saleSettingsRepo->findByProduct($event->productId)
             : null;
 
-        $this->chat->sendPriceUpdateAlert(
+        $this->chat->sendPriceUpdateAlert(new PriceUpdateAlertDataDTO(
             productId: $event->productId,
             priceChanges: $event->priceChanges,
             productTitle: $productTitle,
             productUrl: $productUrl,
             saleSettings: $saleSettings,
             saleSubmissionContext: $event->saleSubmissionContext,
-        );
+        ));
     }
 
     public function failed(ProductPricingUpdatedEvent $event, Throwable $e): void

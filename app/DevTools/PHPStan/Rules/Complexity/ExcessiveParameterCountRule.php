@@ -60,6 +60,7 @@ final class ExcessiveParameterCountRule implements Rule
                 ),
             )
                 ->identifier('alz.excessiveParameterCount')
+                ->tip('Group related parameters into a value object or DTO. If this is a VO named constructor receiving its own fields, this is a valid suppression — add to the baseline with a reason.')
                 ->build(),
         ];
     }

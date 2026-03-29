@@ -34,6 +34,7 @@ final class ExcessiveMethodLengthRuleTest extends RuleTestCase
                 [
                     'Method tooLongMethod() is 23 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.',
                     9,
+                    'Extract logical sections into well-named private methods, each with a single responsibility. Do not split arbitrarily at a line count — each extracted method should represent a coherent operation.',
                 ],
             ],
         );

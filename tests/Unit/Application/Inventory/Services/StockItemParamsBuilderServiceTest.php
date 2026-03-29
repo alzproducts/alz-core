@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Application\Inventory\Services;
 
 use App\Application\Inventory\Commands\GenerateVariantSkusCommand;
+use App\Application\Inventory\DTOs\VariationProcessingContextDTO;
 use App\Application\Inventory\Services\StockItemParamsBuilderService;
 use App\Domain\Catalog\Product\Resolvers\VariationImageResolver;
 use App\Domain\Catalog\Product\Resolvers\VariationOptionMatcher;
@@ -62,10 +63,7 @@ final class StockItemParamsBuilderServiceTest extends TestCase
 
         $result = $this->service->build(
             $variation,
-            self::createProduct(),
-            self::createTemplate(),
-            self::createCommand(),
-            null,
+            self::createContext(),
         );
 
         self::assertSame('Test Product - Large Red', $result->title);
@@ -78,10 +76,7 @@ final class StockItemParamsBuilderServiceTest extends TestCase
 
         $result = $this->service->build(
             $variation,
-            self::createProduct(),
-            self::createTemplate(),
-            self::createCommand(),
-            null,
+            self::createContext(),
         );
 
         self::assertSame('Test Product', $result->title);
@@ -100,10 +95,7 @@ final class StockItemParamsBuilderServiceTest extends TestCase
 
         $result = $this->service->build(
             self::createVariation(),
-            $product,
-            self::createTemplate(),
-            self::createCommand(),
-            null,
+            self::createContext(product: $product),
         );
 
         self::assertSame(TaxType::Inclusive, $result->retailPrice->taxType);
@@ -117,10 +109,7 @@ final class StockItemParamsBuilderServiceTest extends TestCase
 
         $result = $this->service->build(
             self::createVariation(),
-            $product,
-            self::createTemplate(),
-            self::createCommand(),
-            null,
+            self::createContext(product: $product),
         );
 
         self::assertSame(TaxType::ZeroRated, $result->retailPrice->taxType);
@@ -134,10 +123,7 @@ final class StockItemParamsBuilderServiceTest extends TestCase
 
         $result = $this->service->build(
             self::createVariation(),
-            $product,
-            self::createTemplate(),
-            self::createCommand(),
-            null,
+            self::createContext(product: $product),
         );
 
         self::assertSame(0.0, $result->taxRate->percentage);
@@ -150,10 +136,7 @@ final class StockItemParamsBuilderServiceTest extends TestCase
 
         $result = $this->service->build(
             self::createVariation(),
-            $product,
-            self::createTemplate(),
-            self::createCommand(),
-            null,
+            self::createContext(product: $product),
         );
 
         self::assertSame(20.0, $result->taxRate->percentage);
@@ -172,10 +155,7 @@ final class StockItemParamsBuilderServiceTest extends TestCase
 
         $result = $this->service->build(
             $variation,
-            self::createProduct(),
-            self::createTemplate(),
-            self::createCommand(),
-            null,
+            self::createContext(),
         );
 
         self::assertNotNull($result->purchasePrice);
@@ -192,10 +172,7 @@ final class StockItemParamsBuilderServiceTest extends TestCase
 
         $result = $this->service->build(
             $variation,
-            $product,
-            self::createTemplate(),
-            self::createCommand(),
-            null,
+            self::createContext(product: $product),
         );
 
         self::assertNull($result->purchasePrice);
@@ -218,10 +195,10 @@ final class StockItemParamsBuilderServiceTest extends TestCase
 
         $result = $this->service->build(
             $variation,
-            self::createProduct(),
-            self::createTemplate(),
-            self::createCommand(isStandardSign: true),
-            [$referenceVariation],
+            self::createContext(
+                command: self::createCommand(isStandardSign: true),
+                standardSignVariations: [$referenceVariation],
+            ),
         );
 
         self::assertNotNull($result->purchasePrice);
@@ -245,10 +222,10 @@ final class StockItemParamsBuilderServiceTest extends TestCase
 
         $result = $this->service->build(
             $variation,
-            self::createProduct(),
-            self::createTemplate(),
-            self::createCommand(isStandardSign: true),
-            [$referenceVariation],
+            self::createContext(
+                command: self::createCommand(isStandardSign: true),
+                standardSignVariations: [$referenceVariation],
+            ),
         );
 
         self::assertNotNull($result->purchasePrice);
@@ -272,10 +249,10 @@ final class StockItemParamsBuilderServiceTest extends TestCase
 
         $result = $this->service->build(
             $variation,
-            self::createProduct(),
-            self::createTemplate(),
-            self::createCommand(isStandardSign: true),
-            [$referenceVariation],
+            self::createContext(
+                command: self::createCommand(isStandardSign: true),
+                standardSignVariations: [$referenceVariation],
+            ),
         );
 
         self::assertNotNull($result->purchasePrice);
@@ -295,10 +272,7 @@ final class StockItemParamsBuilderServiceTest extends TestCase
 
         $result = $this->service->build(
             $variation,
-            self::createProduct(),
-            self::createTemplate(),
-            self::createCommand(copyParentMpn: false),
-            null,
+            self::createContext(command: self::createCommand(copyParentMpn: false)),
         );
 
         self::assertSame('VAR-MPN-001', $result->mpn);
@@ -311,10 +285,7 @@ final class StockItemParamsBuilderServiceTest extends TestCase
 
         $result = $this->service->build(
             $variation,
-            self::createProduct(),
-            self::createTemplate(), // Template supplier code = 'SUP-CODE'
-            self::createCommand(copyParentMpn: true),
-            null,
+            self::createContext(command: self::createCommand(copyParentMpn: true)),
         );
 
         self::assertSame('SUP-CODE', $result->mpn);
@@ -327,10 +298,7 @@ final class StockItemParamsBuilderServiceTest extends TestCase
 
         $result = $this->service->build(
             $variation,
-            self::createProduct(),
-            self::createTemplate(),
-            self::createCommand(copyParentMpn: false),
-            null,
+            self::createContext(command: self::createCommand(copyParentMpn: false)),
         );
 
         self::assertNull($result->mpn);
@@ -347,10 +315,7 @@ final class StockItemParamsBuilderServiceTest extends TestCase
     {
         $result = $this->service->build(
             self::createVariation(costPrice: 15.00),
-            self::createProduct(),
-            self::createTemplate(),
-            self::createCommand(noSupplier: false),
-            null,
+            self::createContext(command: self::createCommand(noSupplier: false)),
         );
 
         self::assertNotNull($result->supplierId);
@@ -363,10 +328,7 @@ final class StockItemParamsBuilderServiceTest extends TestCase
     {
         $result = $this->service->build(
             self::createVariation(costPrice: 15.00),
-            self::createProduct(),
-            self::createTemplate(),
-            self::createCommand(noSupplier: true),
-            null,
+            self::createContext(command: self::createCommand(noSupplier: true)),
         );
 
         self::assertNull($result->supplierId);
@@ -387,10 +349,7 @@ final class StockItemParamsBuilderServiceTest extends TestCase
 
         $result = $this->service->build(
             $variation,
-            self::createProduct(),
-            self::createTemplate(),
-            self::createCommand(),
-            null,
+            self::createContext(),
         );
 
         self::assertSame(['ShopID' => '42'], $result->extendedProperties);
@@ -407,10 +366,7 @@ final class StockItemParamsBuilderServiceTest extends TestCase
     {
         $result = $this->service->build(
             self::createVariation(),
-            self::createProduct(),
-            self::createTemplate(),
-            self::createCommand(),
-            null,
+            self::createContext(),
         );
 
         self::assertSame('550e8400-e29b-41d4-a716-446655440001', $result->categoryId->value);
@@ -421,6 +377,23 @@ final class StockItemParamsBuilderServiceTest extends TestCase
     | Fixtures & Helpers
     |--------------------------------------------------------------------------
     */
+
+    /**
+     * @param list<ProductVariation>|null $standardSignVariations
+     */
+    private static function createContext(
+        ?Product $product = null,
+        ?StockItemFull $template = null,
+        ?GenerateVariantSkusCommand $command = null,
+        ?array $standardSignVariations = null,
+    ): VariationProcessingContextDTO {
+        return new VariationProcessingContextDTO(
+            product: $product ?? self::createProduct(),
+            template: $template ?? self::createTemplate(),
+            command: $command ?? self::createCommand(),
+            standardSignVariations: $standardSignVariations,
+        );
+    }
 
     /**
      * @param list<ProductVariationOption> $options

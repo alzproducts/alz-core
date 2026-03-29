@@ -15,7 +15,7 @@ use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Inventory\Commands\AddInventoryItemCommand;
 use App\Domain\Inventory\Enums\LinnworksInventoryField;
 use App\Domain\Inventory\ValueObjects\ExtendedPropertyWrite;
-use App\Domain\Shared\Money\ValueObjects\Money;
+use App\Domain\Inventory\ValueObjects\SupplierLinkParams;
 use App\Domain\ValueObjects\Guid;
 use App\Infrastructure\Linnworks\Contracts\LinnworksTransportInterface;
 use Illuminate\Support\Str;
@@ -103,21 +103,16 @@ final readonly class InventoryUpdateClient implements InventoryUpdateClientInter
      * @throws AuthenticationExpiredException When credentials invalid
      * @throws ExternalServiceUnavailableException When API unavailable
      */
-    public function createSupplierStat(
-        Sku|Guid $identifier,
-        Guid $supplierId,
-        ?Money $purchasePrice,
-        ?string $supplierCode = null,
-        bool $isDefault = false,
-    ): void {
+    public function createSupplierStat(Sku|Guid $identifier, SupplierLinkParams $params): void
+    {
         $stockItemId = $this->inventoryClient->resolveStockItemId($identifier);
 
         $supplierStat = [
             'StockItemId' => $stockItemId->value,
-            'SupplierID' => $supplierId->value,
-            'PurchasePrice' => $purchasePrice?->toNet() ?? 0.0,
-            'Code' => $supplierCode ?? '',
-            'IsDefault' => $isDefault,
+            'SupplierID' => $params->supplierId->value,
+            'PurchasePrice' => $params->purchasePrice?->toNet() ?? 0.0,
+            'Code' => $params->supplierCode ?? '',
+            'IsDefault' => $params->isDefault,
         ];
 
         $this->transport->postFormParams(

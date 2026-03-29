@@ -97,30 +97,6 @@ parameters:
 			path: app/Application/ContactSubmission/UseCases/ProcessContactSubmissionUseCase.php
 
 		-
-			rawMessage: 'Method sendPriceUpdateAlert() has 6 parameters — exceeds the 4-parameter limit. Consider a parameter object or splitting the method.'
-			identifier: alz.excessiveParameterCount
-			count: 1
-			path: app/Application/Contracts/ChatNotificationInterface.php
-
-		-
-			rawMessage: 'Method sendVariantSkusGenerated() has 6 parameters — exceeds the 4-parameter limit. Consider a parameter object or splitting the method.'
-			identifier: alz.excessiveParameterCount
-			count: 1
-			path: app/Application/Contracts/ChatNotificationInterface.php
-
-		-
-			rawMessage: 'Method createSupplierStat() has 5 parameters — exceeds the 4-parameter limit. Consider a parameter object or splitting the method.'
-			identifier: alz.excessiveParameterCount
-			count: 1
-			path: app/Application/Contracts/Linnworks/InventoryUpdateClientInterface.php
-
-		-
-			rawMessage: 'Method recordPriceChange() has 5 parameters — exceeds the 4-parameter limit. Consider a parameter object or splitting the method.'
-			identifier: alz.excessiveParameterCount
-			count: 1
-			path: app/Application/Contracts/Operations/PricePeriodRepositoryInterface.php
-
-		-
 			rawMessage: 'Method validateConfig() is 42 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
@@ -151,7 +127,7 @@ parameters:
 			path: app/Application/HelpScout/UseCases/GetEscalationsUseCase.php
 
 		-
-			rawMessage: 'Method completeItemSetup() is 26 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			rawMessage: 'Method completeItemSetup() is 28 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Application/Inventory/Services/LinnworksStockItemCreatorService.php
@@ -163,31 +139,19 @@ parameters:
 			path: app/Application/Inventory/Services/LinnworksStockItemCreatorService.php
 
 		-
-			rawMessage: 'Method build() has 5 parameters — exceeds the 4-parameter limit. Consider a parameter object or splitting the method.'
-			identifier: alz.excessiveParameterCount
-			count: 1
-			path: app/Application/Inventory/Services/StockItemParamsBuilderService.php
-
-		-
-			rawMessage: 'Method build() is 51 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			rawMessage: 'Method build() is 46 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Application/Inventory/Services/StockItemParamsBuilderService.php
 
 		-
-			rawMessage: 'Method execute() is 87 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			rawMessage: 'Method execute() is 89 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Application/Inventory/UseCases/GenerateVariantSkusUseCase.php
 
 		-
-			rawMessage: 'Method processVariation() has 5 parameters — exceeds the 4-parameter limit. Consider a parameter object or splitting the method.'
-			identifier: alz.excessiveParameterCount
-			count: 1
-			path: app/Application/Inventory/UseCases/GenerateVariantSkusUseCase.php
-
-		-
-			rawMessage: 'Method processVariation() is 35 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			rawMessage: 'Method processVariation() is 30 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Application/Inventory/UseCases/GenerateVariantSkusUseCase.php
@@ -415,68 +379,14 @@ parameters:
 			path: app/Application/Shopwired/SaleManagement/UseCases/ReconcileProductSaleStateUseCase.php
 
 		-
-			rawMessage: 'Method execute() has 5 parameters — exceeds the 4-parameter limit. Consider a parameter object or splitting the method.'
-			identifier: alz.excessiveParameterCount
-			count: 1
-			path: app/Application/Shopwired/Services/HandleBrandWebhookService.php
-
-		-
-			rawMessage: 'Method execute() is 25 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Application/Shopwired/Services/HandleBrandWebhookService.php
-
-		-
-			rawMessage: 'Method execute() has 5 parameters — exceeds the 4-parameter limit. Consider a parameter object or splitting the method.'
-			identifier: alz.excessiveParameterCount
-			count: 1
-			path: app/Application/Shopwired/Services/HandleCategoryWebhookService.php
-
-		-
-			rawMessage: 'Method execute() is 25 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Application/Shopwired/Services/HandleCategoryWebhookService.php
-
-		-
-			rawMessage: 'Method execute() has 5 parameters — exceeds the 4-parameter limit. Consider a parameter object or splitting the method.'
-			identifier: alz.excessiveParameterCount
-			count: 1
-			path: app/Application/Shopwired/Services/HandleCustomerWebhookService.php
-
-		-
-			rawMessage: 'Method execute() is 25 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Application/Shopwired/Services/HandleCustomerWebhookService.php
-
-		-
-			rawMessage: 'Method execute() has 5 parameters — exceeds the 4-parameter limit. Consider a parameter object or splitting the method.'
-			identifier: alz.excessiveParameterCount
-			count: 1
-			path: app/Application/Shopwired/Services/HandleOrderWebhookService.php
-
-		-
-			rawMessage: 'Method execute() is 45 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			rawMessage: 'Method execute() is 36 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Application/Shopwired/Services/HandleOrderWebhookService.php
 
 		-
-			rawMessage: 'Method execute() has 5 parameters — exceeds the 4-parameter limit. Consider a parameter object or splitting the method.'
-			identifier: alz.excessiveParameterCount
-			count: 1
-			path: app/Application/Shopwired/Services/HandleProductWebhookService.php
-
-		-
-			rawMessage: 'Method execute() is 33 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			rawMessage: 'Method execute() is 25 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Application/Shopwired/Services/HandleProductWebhookService.php
-
-		-
-			rawMessage: 'Method executeStockChanged() has 5 parameters — exceeds the 4-parameter limit. Consider a parameter object or splitting the method.'
-			identifier: alz.excessiveParameterCount
 			count: 1
 			path: app/Application/Shopwired/Services/HandleProductWebhookService.php
 
@@ -565,13 +475,7 @@ parameters:
 			path: app/Application/Shopwired/UseCases/SyncProductsUseCase.php
 
 		-
-			rawMessage: 'Method process() has 6 parameters — exceeds the 4-parameter limit. Consider a parameter object or splitting the method.'
-			identifier: alz.excessiveParameterCount
-			count: 1
-			path: app/Application/Shopwired/UseCases/Webhooks/AbstractSyncEntityWebhookUseCase.php
-
-		-
-			rawMessage: 'Method process() is 36 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			rawMessage: 'Method process() is 34 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Application/Shopwired/UseCases/Webhooks/AbstractSyncEntityWebhookUseCase.php
@@ -589,49 +493,13 @@ parameters:
 			path: app/Application/Shopwired/UseCases/Webhooks/DeleteOrderRefundUseCase.php
 
 		-
-			rawMessage: 'Method execute() has 5 parameters — exceeds the 4-parameter limit. Consider a parameter object or splitting the method.'
-			identifier: alz.excessiveParameterCount
-			count: 1
-			path: app/Application/Shopwired/UseCases/Webhooks/SyncBrandUseCase.php
-
-		-
-			rawMessage: 'Method execute() has 5 parameters — exceeds the 4-parameter limit. Consider a parameter object or splitting the method.'
-			identifier: alz.excessiveParameterCount
-			count: 1
-			path: app/Application/Shopwired/UseCases/Webhooks/SyncCategoryUseCase.php
-
-		-
-			rawMessage: 'Method execute() has 5 parameters — exceeds the 4-parameter limit. Consider a parameter object or splitting the method.'
-			identifier: alz.excessiveParameterCount
-			count: 1
-			path: app/Application/Shopwired/UseCases/Webhooks/SyncCustomerUseCase.php
-
-		-
-			rawMessage: 'Method execute() has 5 parameters — exceeds the 4-parameter limit. Consider a parameter object or splitting the method.'
-			identifier: alz.excessiveParameterCount
-			count: 1
-			path: app/Application/Shopwired/UseCases/Webhooks/SyncProductUseCase.php
-
-		-
-			rawMessage: 'Method execute() has 5 parameters — exceeds the 4-parameter limit. Consider a parameter object or splitting the method.'
-			identifier: alz.excessiveParameterCount
-			count: 1
-			path: app/Application/Shopwired/UseCases/Webhooks/UpdateOrderStatusUseCase.php
-
-		-
 			rawMessage: 'Method execute() is 25 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Application/Shopwired/UseCases/Webhooks/UpdateOrderStatusUseCase.php
 
 		-
-			rawMessage: 'Method execute() has 7 parameters — exceeds the 4-parameter limit. Consider a parameter object or splitting the method.'
-			identifier: alz.excessiveParameterCount
-			count: 1
-			path: app/Application/Shopwired/UseCases/Webhooks/UpdateProductStockUseCase.php
-
-		-
-			rawMessage: 'Method execute() is 32 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			rawMessage: 'Method execute() is 25 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Application/Shopwired/UseCases/Webhooks/UpdateProductStockUseCase.php
@@ -691,19 +559,19 @@ parameters:
 			path: app/DevTools/PHPStan/Rules/Architecture/SchemaQualifiedTableNameRule.php
 
 		-
-			rawMessage: 'Method processNode() is 39 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			rawMessage: 'Method processNode() is 40 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/DevTools/PHPStan/Rules/Complexity/ExcessiveClassLengthRule.php
 
 		-
-			rawMessage: 'Method processNode() is 35 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			rawMessage: 'Method processNode() is 36 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/DevTools/PHPStan/Rules/Complexity/ExcessiveMethodLengthRule.php
 
 		-
-			rawMessage: 'Method processNode() is 30 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			rawMessage: 'Method processNode() is 31 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/DevTools/PHPStan/Rules/Complexity/ExcessiveParameterCountRule.php
@@ -1291,25 +1159,13 @@ parameters:
 			path: app/Infrastructure/Linnworks/Clients/InventoryClient.php
 
 		-
-			rawMessage: 'Class InventoryUpdateClient is 278 lines long — exceeds the 250-line limit. Consider decomposing into smaller, focused classes.'
+			rawMessage: 'Class InventoryUpdateClient is 273 lines long — exceeds the 250-line limit. Consider decomposing into smaller, focused classes.'
 			identifier: alz.excessiveClassLength
 			count: 1
 			path: app/Infrastructure/Linnworks/Clients/InventoryUpdateClient.php
 
 		-
 			rawMessage: 'Method addInventoryItem() is 24 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Infrastructure/Linnworks/Clients/InventoryUpdateClient.php
-
-		-
-			rawMessage: 'Method createSupplierStat() has 5 parameters — exceeds the 4-parameter limit. Consider a parameter object or splitting the method.'
-			identifier: alz.excessiveParameterCount
-			count: 1
-			path: app/Infrastructure/Linnworks/Clients/InventoryUpdateClient.php
-
-		-
-			rawMessage: 'Method createSupplierStat() is 21 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Infrastructure/Linnworks/Clients/InventoryUpdateClient.php
@@ -1693,31 +1549,13 @@ parameters:
 			path: app/Infrastructure/Notifications/SlackChatNotificationClient.php
 
 		-
-			rawMessage: 'Method sendPriceUpdateAlert() has 6 parameters — exceeds the 4-parameter limit. Consider a parameter object or splitting the method.'
-			identifier: alz.excessiveParameterCount
-			count: 1
-			path: app/Infrastructure/Notifications/SlackChatNotificationClient.php
-
-		-
-			rawMessage: 'Method sendVariantSkusGenerated() has 6 parameters — exceeds the 4-parameter limit. Consider a parameter object or splitting the method.'
-			identifier: alz.excessiveParameterCount
-			count: 1
-			path: app/Infrastructure/Notifications/SlackChatNotificationClient.php
-
-		-
 			rawMessage: 'Method handle() is 34 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Infrastructure/Operations/Listeners/RecordPricePeriodListener.php
 
 		-
-			rawMessage: 'Method recordPriceChange() has 5 parameters — exceeds the 4-parameter limit. Consider a parameter object or splitting the method.'
-			identifier: alz.excessiveParameterCount
-			count: 1
-			path: app/Infrastructure/Operations/Repositories/EloquentPricePeriodRepository.php
-
-		-
-			rawMessage: 'Method recordPriceChange() is 28 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			rawMessage: 'Method recordPriceChange() is 23 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Infrastructure/Operations/Repositories/EloquentPricePeriodRepository.php

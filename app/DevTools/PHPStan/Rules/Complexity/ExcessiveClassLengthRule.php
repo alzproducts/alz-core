@@ -69,6 +69,7 @@ final class ExcessiveClassLengthRule implements Rule
                 ),
             )
                 ->identifier('alz.excessiveClassLength')
+                ->tip('Check whether this class has multiple responsibilities. Look for groups of methods that operate on distinct subsets of dependencies — these are natural split points.')
                 ->build(),
         ];
     }

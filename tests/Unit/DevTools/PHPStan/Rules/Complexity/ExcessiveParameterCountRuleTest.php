@@ -34,6 +34,7 @@ final class ExcessiveParameterCountRuleTest extends RuleTestCase
                 [
                     'Method tooManyParams() has 5 parameters — exceeds the 4-parameter limit. Consider a parameter object or splitting the method.',
                     9,
+                    'Group related parameters into a value object or DTO. If this is a VO named constructor receiving its own fields, this is a valid suppression — add to the baseline with a reason.',
                 ],
             ],
         );

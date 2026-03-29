@@ -34,6 +34,7 @@ final class ExcessiveClassLengthRuleTest extends RuleTestCase
                 [
                     'Class InvalidClass is 317 lines long — exceeds the 250-line limit. Consider decomposing into smaller, focused classes.',
                     7,
+                    'Check whether this class has multiple responsibilities. Look for groups of methods that operate on distinct subsets of dependencies — these are natural split points.',
                 ],
             ],
         );

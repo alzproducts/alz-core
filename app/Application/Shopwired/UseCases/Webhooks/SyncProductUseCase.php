@@ -7,13 +7,12 @@ namespace App\Application\Shopwired\UseCases\Webhooks;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Application\Contracts\Shopwired\ShopwiredSyncDispatcherInterface;
 use App\Application\Contracts\Shopwired\WebhookIdempotencyServiceInterface;
-use App\Application\Shopwired\Enums\WebhookTopic;
+use App\Application\Shopwired\DTOs\WebhookContextDTO;
 use App\Domain\Catalog\Product\ValueObjects\Product;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\IntId;
-use DateTimeImmutable;
 use Override;
 use Psr\Log\LoggerInterface;
 
@@ -42,9 +41,9 @@ final readonly class SyncProductUseCase extends AbstractSyncEntityWebhookUseCase
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      */
-    public function execute(DateTimeImmutable $eventTime, int $webhookId, WebhookTopic $topic, Product $product, array $presentEmbeds = []): void
+    public function execute(WebhookContextDTO $context, Product $product, array $presentEmbeds = []): void
     {
-        $this->process($eventTime, $webhookId, $topic, $product->id, $product, $presentEmbeds);
+        $this->process($context, $product->id, $product, $presentEmbeds);
     }
 
     /**

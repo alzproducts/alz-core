@@ -7,6 +7,7 @@ namespace Tests\Unit\Application\Shopwired\UseCases\Webhooks;
 use App\Application\Contracts\Shopwired\CategoryRepositoryInterface;
 use App\Application\Contracts\Shopwired\ShopwiredSyncDispatcherInterface;
 use App\Application\Contracts\Shopwired\WebhookIdempotencyServiceInterface;
+use App\Application\Shopwired\DTOs\WebhookContextDTO;
 use App\Application\Shopwired\Enums\WebhookTopic;
 use App\Application\Shopwired\UseCases\Webhooks\AbstractSyncEntityWebhookUseCase;
 use App\Application\Shopwired\UseCases\Webhooks\SyncCategoryUseCase;
@@ -91,9 +92,7 @@ final class SyncCategoryUseCaseTest extends TestCase
             ->with('Category webhook processed — sync queued', Mockery::type('array'));
 
         $this->useCase->execute(
-            eventTime: $eventTime,
-            webhookId: 1,
-            topic: WebhookTopic::CategoryUpdated,
+            context: new WebhookContextDTO($eventTime, 1, WebhookTopic::CategoryUpdated),
             category: $category,
             presentEmbeds: $presentEmbeds,
         );
@@ -128,9 +127,7 @@ final class SyncCategoryUseCaseTest extends TestCase
             ->with('Category webhook processed — sync queued', Mockery::type('array'));
 
         $this->useCase->execute(
-            eventTime: $eventTime,
-            webhookId: 1,
-            topic: WebhookTopic::CategoryUpdated,
+            context: new WebhookContextDTO($eventTime, 1, WebhookTopic::CategoryUpdated),
             category: $category,
         );
     }
@@ -159,9 +156,7 @@ final class SyncCategoryUseCaseTest extends TestCase
             ->with('Discarding stale category webhook', Mockery::type('array'));
 
         $this->useCase->execute(
-            eventTime: $staleTime,
-            webhookId: 1,
-            topic: WebhookTopic::CategoryUpdated,
+            context: new WebhookContextDTO($staleTime, 1, WebhookTopic::CategoryUpdated),
             category: $category,
         );
     }
@@ -193,9 +188,7 @@ final class SyncCategoryUseCaseTest extends TestCase
             ->with('Discarding already-processed category webhook', Mockery::type('array'));
 
         $this->useCase->execute(
-            eventTime: $eventTime,
-            webhookId: 1,
-            topic: WebhookTopic::CategoryUpdated,
+            context: new WebhookContextDTO($eventTime, 1, WebhookTopic::CategoryUpdated),
             category: $category,
         );
     }
