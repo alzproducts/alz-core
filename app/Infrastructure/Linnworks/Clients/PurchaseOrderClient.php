@@ -51,7 +51,7 @@ final readonly class PurchaseOrderClient implements PurchaseOrderClientInterface
      * @throws InvalidApiRequestException When request parameters are invalid
      * @throws InvalidApiResponseException When API response structure is invalid
      */
-    public function getPurchaseOrder(Guid $purchaseId): PurchaseOrderHeader
+    public function getPurchaseOrderHeader(Guid $purchaseId): PurchaseOrderHeader
     {
         $response = $this->transport->postFormParams(
             endpoint: '/api/PurchaseOrder/Get_PurchaseOrder',

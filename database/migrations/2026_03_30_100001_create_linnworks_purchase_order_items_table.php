@@ -46,7 +46,7 @@ return new class extends Migration {
             $table->integer('sort_order');
 
             // ── Warehouse ──
-            $table->string('bin_rack', 200);
+            $table->string('bin_rack', 200)->nullable();
             $table->integer('bound_to_open_orders_items');
             $table->integer('quantity_bound_to_open_orders_items');
 

@@ -29,7 +29,7 @@ use JsonException;
 interface PurchaseOrderClientInterface
 {
     /**
-     * Get a purchase order by ID (header only).
+     * Get a purchase order header by ID.
      *
      * @throws ResourceNotFoundException When PO doesn't exist
      * @throws AuthenticationExpiredException When credentials are invalid
@@ -37,7 +37,7 @@ interface PurchaseOrderClientInterface
      * @throws InvalidApiRequestException When request parameters are invalid
      * @throws InvalidApiResponseException When API response structure is invalid
      */
-    public function getPurchaseOrder(Guid $purchaseId): PurchaseOrderHeader;
+    public function getPurchaseOrderHeader(Guid $purchaseId): PurchaseOrderHeader;
 
     /**
      * Get a purchase order with all data from a single API call.

@@ -60,11 +60,11 @@ final readonly class PurchaseOrderItem
         public int $sortOrder,
 
         // ── Warehouse ──
-        public string $binRack,
         public int $boundToOpenOrdersItems,
         public int $quantityBoundToOpenOrdersItems,
 
         // ── Other ──
         public array $skuGroupIds = [],
+        public ?string $binRack = null,
     ) {}
 }

@@ -10,9 +10,10 @@ use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Domain\Linnworks\Enums\PurchaseOrderStatus;
+use App\Domain\Linnworks\Enums\WarehouseScope;
 use App\Domain\ValueObjects\Guid;
-use App\Infrastructure\Linnworks\Queries\OpenPendingPurchaseOrderIdsQuery;
-use App\Infrastructure\Linnworks\Queries\PurchaseOrderIdsByDateQuery;
+use App\Infrastructure\Linnworks\Queries\PurchaseOrderIdsByStatusQuery;
 use DateTimeImmutable;
 
 /**
@@ -32,6 +33,8 @@ final readonly class PurchaseDashboardsClient implements PurchaseDashboardsClien
     /**
      * {@inheritDoc}
      *
+     * @param list<PurchaseOrderStatus> $statuses
+     *
      * @return list<Guid>
      *
      * @throws InvalidApiResponseException When query fails
@@ -40,33 +43,15 @@ final readonly class PurchaseDashboardsClient implements PurchaseDashboardsClien
      * @throws ResourceNotFoundException When resource not found
      * @throws ExternalServiceUnavailableException When API unavailable
      */
-    public function getPurchaseOrderIdsByDate(
+    public function getPurchaseOrderIdsByStatus(
+        array $statuses,
+        WarehouseScope $warehouseScope = WarehouseScope::AnyWarehouse,
         ?DateTimeImmutable $from = null,
         ?DateTimeImmutable $to = null,
-        bool $defaultLocationOnly = false,
     ): array {
         /** @var list<Guid> */
         return $this->dashboardsClient->execute(
-            new PurchaseOrderIdsByDateQuery($from, $to, $defaultLocationOnly),
-        );
-    }
-
-    /**
-     * {@inheritDoc}
-     *
-     * @return list<Guid>
-     *
-     * @throws InvalidApiResponseException When query fails
-     * @throws InvalidApiRequestException When request parameters are invalid
-     * @throws AuthenticationExpiredException When credentials invalid
-     * @throws ResourceNotFoundException When resource not found
-     * @throws ExternalServiceUnavailableException When API unavailable
-     */
-    public function getOpenPendingPurchaseOrderIds(bool $defaultLocationOnly = false): array
-    {
-        /** @var list<Guid> */
-        return $this->dashboardsClient->execute(
-            new OpenPendingPurchaseOrderIdsQuery($defaultLocationOnly),
+            new PurchaseOrderIdsByStatusQuery($statuses, $warehouseScope, $from, $to),
         );
     }
 }

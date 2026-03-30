@@ -59,7 +59,7 @@ final class PurchaseOrderItemResponse extends Data implements DomainConvertibleI
         public readonly int $boundToOpenOrdersItems,
         public readonly int $quantityBoundToOpenOrdersItems,
         public readonly array $skuGroupIds = [],
-        public readonly string $binRack = '',
+        public readonly ?string $binRack = null,
     ) {}
 
     /**
@@ -91,10 +91,10 @@ final class PurchaseOrderItemResponse extends Data implements DomainConvertibleI
             isDeleted: $this->isDeleted,
             inventoryTrackingType: $this->inventoryTrackingType,
             sortOrder: $this->sortOrder,
-            binRack: $this->binRack,
             boundToOpenOrdersItems: $this->boundToOpenOrdersItems,
             quantityBoundToOpenOrdersItems: $this->quantityBoundToOpenOrdersItems,
             skuGroupIds: $this->skuGroupIds,
+            binRack: $this->binRack,
         );
     }
 }
