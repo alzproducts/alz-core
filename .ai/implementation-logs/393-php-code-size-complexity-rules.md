@@ -97,15 +97,15 @@ Added `->tip()` to all 3 rules with LLM-friendly guidance:
 - Extracted `validateVatRoundTrip()`, `validateCommands()`, `validateSingleCommand()` from `UpdateProductPricesUseCase` (370→236 lines)
 - Initially named `PriceCommandValidator` in `Validators/` — renamed to `PriceCommandPreFlightService` in `PricingUpdate/` to avoid `alz.validatorMustHaveValidateMethod` rule
 
-**Phase 4: ProductViewMapper Extraction (-1 entry)**
+**Phase 4: ProductViewAssembler Extraction (-1 entry)**
 - Extracted `toViewDomain()`, `resolveVariations()`, `getLinnworksCostPrice()`, `resolveCustomFields()`, `resolveFilters()`, `resolveSaleSettings()` from `ProductModelMapper` (352→188 lines)
 - `ProductModelMapper` constructor simplified from 5 deps → 2 deps
-- Updated `EloquentProductRepository` to inject `ProductViewMapper` alongside `ProductModelMapper`
+- Updated `EloquentProductRepository` to inject `ProductViewAssembler` alongside `ProductModelMapper`
 - Updated `ShopwiredServiceProvider` with contextual binding + scoped registration
 
 **Simplify fixes:**
 - Removed `readonly` from 5 all-static classes (no properties to protect)
-- Added `readonly` to `ProductViewMapper` (has readonly properties)
+- Added `readonly` to `ProductViewAssembler` (has readonly properties)
 - Made sub-handlers `private static` in 3 error handler classes (only entry points should be public)
 
 ## Decision Log
@@ -129,7 +129,7 @@ Added `->tip()` to all 3 rules with LLM-friendly guidance:
 - **Decision**: Rename `PriceCommandValidator` → `PriceCommandPreFlightService`
 - **Why**: `*Validator` in `Validators/` triggers `alz.validatorMustHaveValidateMethod` rule; this is a static utility, not a domain validator
 
-- **Decision**: Keep `buildImages()` duplicated in both ProductModelMapper and ProductViewMapper
+- **Decision**: Keep `buildImages()` duplicated in both ProductModelMapper and ProductViewAssembler
 - **Why**: 4-line trivial method; sharing would couple the two mappers unnecessarily
 
 ## Test Results

@@ -916,7 +916,7 @@ parameters:
 			rawMessage: 'Method toViewDomain() is 33 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
-			path: app/Infrastructure/Catalog/Product/Mappers/ProductViewMapper.php
+			path: app/Infrastructure/Catalog/Product/Mappers/ProductViewAssembler.php
 
 		-
 			rawMessage: 'Method casts() is 24 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'

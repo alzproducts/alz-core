@@ -19,7 +19,7 @@ use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\IntId;
 use App\Infrastructure\Catalog\Product\Mappers\ProductModelMapper;
 use App\Infrastructure\Catalog\Product\Mappers\ProductVariationModelMapper;
-use App\Infrastructure\Catalog\Product\Mappers\ProductViewMapper;
+use App\Infrastructure\Catalog\Product\Mappers\ProductViewAssembler;
 use App\Infrastructure\Catalog\Product\Models\ProductModel;
 use App\Infrastructure\Catalog\Product\Models\ProductVariationModel;
 use App\Infrastructure\Persistence\EloquentGateway;
@@ -54,7 +54,7 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
         DatabaseGatewayInterface $gateway,
         EloquentGateway $eloquentGateway,
         private readonly ProductModelMapper $mapper,
-        private readonly ProductViewMapper $viewMapper,
+        private readonly ProductViewAssembler $viewMapper,
     ) {
         parent::__construct($gateway, $eloquentGateway);
     }
