@@ -63,7 +63,7 @@ use App\Domain\Exceptions\InvalidConfigurationException;
 use App\Infrastructure\Catalog\Product\Factories\ProductCostPriceFactory;
 use App\Infrastructure\Catalog\Product\Mappers\ProductModelMapper;
 use App\Infrastructure\Catalog\Product\Mappers\ProductVariationModelMapper;
-use App\Infrastructure\Catalog\Product\Mappers\ProductViewMapper;
+use App\Infrastructure\Catalog\Product\Mappers\ProductViewAssembler;
 use App\Infrastructure\Shopwired\Clients\BasicProductUpdateClient;
 use App\Infrastructure\Shopwired\Clients\BrandUpdateClient;
 use App\Infrastructure\Shopwired\Clients\CategoryUpdateClient;
@@ -236,7 +236,7 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
 
         // CustomFieldFactory is parameterised by item type — use contextual binding
         // so each consumer gets a factory filtered to its entity's custom fields.
-        $this->app->when([ProductModelMapper::class, ProductViewMapper::class])
+        $this->app->when([ProductModelMapper::class, ProductViewAssembler::class])
             ->needs(CustomFieldFactory::class)
             ->give(static fn(Application $app): CustomFieldFactory => new CustomFieldFactory(
                 $app->make(CustomFieldRepositoryInterface::class),
@@ -260,7 +260,7 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
         $this->app->scoped(ProductCostPriceFactory::class);
         $this->app->scoped(ProductVariationModelMapper::class);
         $this->app->scoped(ProductModelMapper::class);
-        $this->app->scoped(ProductViewMapper::class);
+        $this->app->scoped(ProductViewAssembler::class);
     }
 
     private function registerWebhookServices(): void
@@ -381,7 +381,7 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
             ProductModelMapper::class,
             ProductRepositoryInterface::class,
             ProductVariationModelMapper::class,
-            ProductViewMapper::class,
+            ProductViewAssembler::class,
             ProductUpdateClientInterface::class,
             ProductWebhookEventResolverInterface::class,
             ProductWebhookParserInterface::class,
