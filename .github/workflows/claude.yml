@@ -74,9 +74,9 @@ jobs:
           additional_permissions: |
             actions: read
 
+          allowed_tools: "Bash,Edit,Write,Read"
           claude_args: |
-            --max-turns 20
-            --dangerously-skip-permissions
+            --max-turns 50
             --system-prompt "You are working on alz-core, a Laravel 12 / PHP 8.4 API following Clean Architecture. Read CLAUDE.md first for project conventions.
 
             When implementing changes from issues:
