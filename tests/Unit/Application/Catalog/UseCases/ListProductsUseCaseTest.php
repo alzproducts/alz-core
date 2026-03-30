@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Application\Catalog\UseCases;
 
+use App\Application\Catalog\Queries\ProductListQueryParams;
 use App\Application\Catalog\UseCases\ListProductsUseCase;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Application\DTOs\PaginatedListDTO;
+use App\Domain\Catalog\Product\Enums\ProductInclude;
 use Mockery;
 use Mockery\MockInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -40,17 +42,18 @@ final class ListProductsUseCaseTest extends TestCase
     public function execute_delegates_to_repository_and_returns_paginated_dto(): void
     {
         $expected = PaginatedListDTO::fromPage(items: [], total: 0, perPage: 10, currentPage: 1);
+        $query = new ProductListQueryParams(perPage: 10, page: 1);
 
         $this->productRepository
             ->shouldReceive('paginate')
             ->once()
-            ->with(10, 1, [])
+            ->with(Mockery::on(static fn(ProductListQueryParams $q): bool => $q->perPage === 10 && $q->page === 1 && $q->includes === []))
             ->andReturn($expected);
 
         $this->logger->shouldReceive('info')->once()->with('Listing products', ['page' => 1, 'per_page' => 10, 'includes' => []]);
         $this->logger->shouldReceive('info')->once()->with('Listed products', ['total' => 0, 'returned' => 0]);
 
-        $result = $this->useCase->execute(perPage: 10, page: 1);
+        $result = $this->useCase->execute($query);
 
         $this->assertSame($expected, $result);
     }
@@ -58,19 +61,20 @@ final class ListProductsUseCaseTest extends TestCase
     #[Test]
     public function execute_passes_includes_through_to_repository(): void
     {
-        $includes = ['variations'];
+        $includes = [ProductInclude::Variations];
         $expected = PaginatedListDTO::fromPage(items: [], total: 5, perPage: 20, currentPage: 2);
+        $query = new ProductListQueryParams(perPage: 20, page: 2, includes: $includes);
 
         $this->productRepository
             ->shouldReceive('paginate')
             ->once()
-            ->with(20, 2, $includes)
+            ->with(Mockery::on(static fn(ProductListQueryParams $q): bool => $q->perPage === 20 && $q->page === 2 && $q->includes === $includes))
             ->andReturn($expected);
 
         $this->logger->shouldReceive('info')->once()->with('Listing products', ['page' => 2, 'per_page' => 20, 'includes' => $includes]);
         $this->logger->shouldReceive('info')->once()->with('Listed products', ['total' => 5, 'returned' => 0]);
 
-        $result = $this->useCase->execute(perPage: 20, page: 2, includes: $includes);
+        $result = $this->useCase->execute($query);
 
         $this->assertSame($expected, $result);
     }
@@ -96,6 +100,6 @@ final class ListProductsUseCaseTest extends TestCase
             ->once()
             ->with('Listed products', ['total' => 100, 'returned' => 3]);
 
-        $this->useCase->execute(perPage: 10, page: 1);
+        $this->useCase->execute(new ProductListQueryParams(perPage: 10, page: 1));
     }
 }

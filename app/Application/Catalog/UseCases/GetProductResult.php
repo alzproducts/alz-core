@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Application\Catalog\UseCases;
 
+use App\Domain\Catalog\Product\Enums\ProductInclude;
 use App\Domain\Catalog\Product\ValueObjects\ProductView;
 
 /**
@@ -15,15 +16,15 @@ use App\Domain\Catalog\Product\ValueObjects\ProductView;
 final readonly class GetProductResult
 {
     /**
-     * @param list<string> $includes Requested embed names
+     * @param list<ProductInclude> $includes Requested embeds
      */
     public function __construct(
         public ProductView $product,
         public array $includes,
     ) {}
 
-    public function hasInclude(string $name): bool
+    public function hasInclude(ProductInclude $include): bool
     {
-        return \in_array($name, $this->includes, true);
+        return \in_array($include, $this->includes, true);
     }
 }

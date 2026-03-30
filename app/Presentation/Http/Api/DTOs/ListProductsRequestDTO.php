@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Presentation\Http\Api\DTOs;
 
-use App\Presentation\Http\Api\Enums\ProductIncludeEnum;
+use App\Domain\Catalog\Product\Enums\ProductInclude;
 use App\Presentation\Http\Api\Traits\ValidatesIncludesTrait;
 use Spatie\LaravelData\Attributes\Validation\IntegerType;
 use Spatie\LaravelData\Attributes\Validation\Max;
@@ -47,6 +47,6 @@ final class ListProductsRequestDTO extends Data
      */
     public static function allowedIncludes(): array
     {
-        return [ProductIncludeEnum::Variations->value];
+        return [ProductInclude::Variations->value];
     }
 }

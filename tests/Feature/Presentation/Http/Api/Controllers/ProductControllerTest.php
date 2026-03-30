@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Presentation\Http\Api\Controllers;
 
+use App\Application\Catalog\Queries\ProductListQueryParams;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Application\DTOs\PaginatedListDTO;
 use App\Domain\Access\ValueObjects\AuthenticatedUser;
+use App\Domain\Catalog\Product\Enums\ProductInclude;
 use App\Domain\Catalog\Product\ValueObjects\ProductView;
 use App\Domain\Shared\Money\ValueObjects\Money;
 use App\Domain\ValueObjects\IntId;
@@ -97,7 +99,7 @@ final class ProductControllerTest extends TestCase
         $this->productRepository
             ->shouldReceive('paginate')
             ->once()
-            ->with(500, 1, ['variations'])
+            ->with(Mockery::on(static fn(ProductListQueryParams $q): bool => $q->perPage === 500 && $q->page === 1 && $q->includes === [ProductInclude::Variations]))
             ->andReturn($dto);
 
         $response = $this->asApprovedUser()->getJson('/api/products?include=variations');
@@ -155,7 +157,7 @@ final class ProductControllerTest extends TestCase
         $this->productRepository
             ->shouldReceive('paginate')
             ->once()
-            ->with(500, 1, [])
+            ->with(Mockery::on(static fn(ProductListQueryParams $q): bool => $q->perPage === 500 && $q->page === 1 && $q->includes === []))
             ->andReturn($dto);
 
         $response = $this->asApprovedUser()->getJson('/api/products');

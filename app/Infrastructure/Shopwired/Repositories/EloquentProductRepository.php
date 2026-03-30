@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Shopwired\Repositories;
 
+use App\Application\Catalog\Queries\ProductDetailQueryParams;
+use App\Application\Catalog\Queries\ProductListQueryParams;
 use App\Application\Contracts\DatabaseGatewayInterface;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Application\DTOs\PaginatedListDTO;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
+use App\Domain\Catalog\Product\Enums\ProductInclude;
 use App\Domain\Catalog\Product\ValueObjects\Product;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariation;
 use App\Domain\Catalog\Product\ValueObjects\ProductView;
@@ -73,17 +76,17 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      */
-    public function paginate(int $perPage, int $page, array $includes = []): PaginatedListDTO
+    public function paginate(ProductListQueryParams $query): PaginatedListDTO
     {
         return $this->eloquentGateway->paginate(
             modelClass: self::MODEL_CLASS,
             scope: static function (Builder $q): void {
                 $q->where('is_active', true)->orderBy('title');
             },
-            relations: \in_array('variations', $includes, true) ? ['variations'] : [],
-            mapper: fn(ProductModel $model): ProductView => $this->viewMapper->toViewDomain($model, $includes),
-            perPage: $perPage,
-            page: $page,
+            relations: self::relationsForIncludes($query->includes),
+            mapper: fn(ProductModel $model): ProductView => $this->viewMapper->toViewDomain($model, $query->includes),
+            perPage: $query->perPage,
+            page: $query->page,
         );
     }
 
@@ -96,17 +99,15 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      */
-    public function findProductForApi(IntId $productId, array $includes = []): ProductView
+    public function findProductForApi(ProductDetailQueryParams $query): ProductView
     {
-        $relations = \in_array('variations', $includes, true) ? ['variations'] : [];
-
         return $this->eloquentGateway->findOrFail(
             modelClass: self::MODEL_CLASS,
             column: 'external_id',
-            value: $productId->value,
-            relations: $relations,
+            value: $query->productId->value,
+            relations: self::relationsForIncludes($query->includes),
             entityTypeName: 'Product',
-            mapper: fn(ProductModel $model): ProductView => $this->viewMapper->toViewDomain($model, $includes),
+            mapper: fn(ProductModel $model): ProductView => $this->viewMapper->toViewDomain($model, $query->includes),
         );
     }
 
@@ -401,6 +402,18 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
     private static function columnForIdentifier(Sku|IntId $identifier): string
     {
         return $identifier instanceof IntId ? 'external_id' : 'sku';
+    }
+
+    /**
+     * Resolve Eloquent relations to eager-load for a given includes list.
+     *
+     * @param list<ProductInclude> $includes
+     *
+     * @return list<string>
+     */
+    private static function relationsForIncludes(array $includes): array
+    {
+        return \in_array(ProductInclude::Variations, $includes, true) ? ['variations'] : [];
     }
 
     /**
