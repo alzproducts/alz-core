@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Application\Contracts\Shopwired;
 
+use App\Application\Catalog\Queries\ProductDetailQueryParams;
+use App\Application\Catalog\Queries\ProductListQueryParams;
 use App\Application\Contracts\RepositoryWriteInterface;
 use App\Application\DTOs\PaginatedListDTO;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
@@ -30,8 +32,6 @@ interface ProductRepositoryInterface extends RepositoryWriteInterface
     /**
      * Paginate active products with optional eager-loaded relations.
      *
-     * @param list<string> $includes Relation names to eager-load (e.g., 'variations')
-     *
      * @return PaginatedListDTO<ProductView>
      *
      * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
@@ -39,7 +39,7 @@ interface ProductRepositoryInterface extends RepositoryWriteInterface
      * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      */
-    public function paginate(int $perPage, int $page, array $includes = []): PaginatedListDTO;
+    public function paginate(ProductListQueryParams $query): PaginatedListDTO;
 
     /**
      * Find a product by external ID with conditional includes for the API.
@@ -47,15 +47,13 @@ interface ProductRepositoryInterface extends RepositoryWriteInterface
      * Follows the same pattern as paginate() — includes control what's loaded.
      * Unloaded relations/enrichments are null on the Product VO.
      *
-     * @param list<string> $includes Embed names to load (variations, cost_price, etc.)
-     *
      * @throws ResourceNotFoundException When no product matches the ID
      * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
      * @throws DatabaseOperationFailedException On query failure
      * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      */
-    public function findProductForApi(IntId $productId, array $includes = []): ProductView;
+    public function findProductForApi(ProductDetailQueryParams $query): ProductView;
 
     /**
      * Get all product external IDs stored locally.

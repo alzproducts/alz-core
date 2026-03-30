@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace App\Application\Catalog\UseCases;
 
 use App\Application\Catalog\CustomFieldMergerService;
+use App\Application\Catalog\Queries\ProductDetailQueryParams;
 use App\Application\Contracts\Shopwired\CustomFieldRepositoryInterface;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldItemType;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\CustomFields\ValueObjects\AbstractCustomFieldValue;
+use App\Domain\Catalog\Product\Enums\ProductInclude;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
@@ -51,8 +53,10 @@ final readonly class GetProductCustomFieldsUseCase
         ]);
 
         $product = $this->productRepository->findProductForApi(
-            IntId::from($productId),
-            ['custom_fields'],
+            new ProductDetailQueryParams(
+                productId: IntId::from($productId),
+                includes: [ProductInclude::CustomFields],
+            ),
         );
 
         $definitions = $this->customFieldRepository->findByItemType(CustomFieldItemType::Product);

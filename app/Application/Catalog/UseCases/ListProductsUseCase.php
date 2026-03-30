@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Application\Catalog\UseCases;
 
+use App\Application\Catalog\Queries\ProductListQueryParams;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Application\DTOs\PaginatedListDTO;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
@@ -26,8 +27,6 @@ final readonly class ListProductsUseCase
     ) {}
 
     /**
-     * @param list<string> $includes Relation names to eager-load (e.g., 'variations')
-     *
      * @return PaginatedListDTO<ProductView>
      *
      * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
@@ -35,15 +34,15 @@ final readonly class ListProductsUseCase
      * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      */
-    public function execute(int $perPage, int $page, array $includes = []): PaginatedListDTO
+    public function execute(ProductListQueryParams $query): PaginatedListDTO
     {
         $this->logger->info('Listing products', [
-            'page' => $page,
-            'per_page' => $perPage,
-            'includes' => $includes,
+            'page' => $query->page,
+            'per_page' => $query->perPage,
+            'includes' => $query->includes,
         ]);
 
-        $result = $this->productRepository->paginate($perPage, $page, $includes);
+        $result = $this->productRepository->paginate($query);
 
         $this->logger->info('Listed products', [
             'total' => $result->total,
