@@ -141,8 +141,8 @@ Types: `feat` | `fix` | `refactor` | `test` | `docs` | `chore` | `perf` | `ci`
 
 ### Quick Reference
 ```bash
-make supabase-reset               # Full Supabase reset with test users
-make supabase-seed-users          # Seed test users only
+make db-reset-full                # Full DB reset (Supabase + Laravel migrations) — see database/CLAUDE.md
+make supabase-seed-users          # Seed test users only (no DB reset)
 make redis                        # Start Redis (Docker)
 php artisan migrate               # Run migrations
 php artisan octane:start --watch  # Dev server with hot reload

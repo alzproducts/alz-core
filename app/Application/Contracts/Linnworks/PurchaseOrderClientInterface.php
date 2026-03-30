@@ -4,13 +4,16 @@ declare(strict_types=1);
 
 namespace App\Application\Contracts\Linnworks;
 
+use App\Application\DTOs\PaginatedListDTO;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Linnworks\ValueObjects\PurchaseOrderAdditionalCost;
+use App\Domain\Linnworks\ValueObjects\PurchaseOrderCore;
 use App\Domain\Linnworks\ValueObjects\PurchaseOrderExtendedProperty;
+use App\Domain\Linnworks\ValueObjects\PurchaseOrderFull;
 use App\Domain\Linnworks\ValueObjects\PurchaseOrderHeader;
 use App\Domain\Linnworks\ValueObjects\PurchaseOrderNote;
 use App\Domain\ValueObjects\Guid;
@@ -26,7 +29,7 @@ use JsonException;
 interface PurchaseOrderClientInterface
 {
     /**
-     * Get a purchase order by ID.
+     * Get a purchase order header by ID.
      *
      * @throws ResourceNotFoundException When PO doesn't exist
      * @throws AuthenticationExpiredException When credentials are invalid
@@ -34,14 +37,44 @@ interface PurchaseOrderClientInterface
      * @throws InvalidApiRequestException When request parameters are invalid
      * @throws InvalidApiResponseException When API response structure is invalid
      */
-    public function getPurchaseOrder(Guid $purchaseId): PurchaseOrderHeader;
+    public function getPurchaseOrderHeader(Guid $purchaseId): PurchaseOrderHeader;
+
+    /**
+     * Get a purchase order with all data from a single API call.
+     *
+     * Returns header, note count, items, additional costs, and delivered
+     * records in a single Get_PurchaseOrder request. Use for rapid polling
+     * of OPEN/PENDING purchase orders.
+     *
+     * @throws ResourceNotFoundException When PO doesn't exist
+     * @throws AuthenticationExpiredException When credentials are invalid
+     * @throws ExternalServiceUnavailableException When API is unavailable
+     * @throws InvalidApiRequestException When request parameters are invalid
+     * @throws InvalidApiResponseException When API response structure is invalid
+     */
+    public function getPurchaseOrderCore(Guid $purchaseId): PurchaseOrderCore;
+
+    /**
+     * Get a complete purchase order with all metadata (3 API calls).
+     *
+     * Calls Get_PurchaseOrder + Get_PurchaseOrderNote +
+     * Get_PurchaseOrderExtendedProperty. Use for historical backfill
+     * where complete data including notes and extended properties is required.
+     *
+     * @throws ResourceNotFoundException When PO doesn't exist
+     * @throws AuthenticationExpiredException When credentials are invalid
+     * @throws ExternalServiceUnavailableException When API is unavailable
+     * @throws InvalidApiRequestException When request parameters are invalid
+     * @throws InvalidApiResponseException When API response structure is invalid
+     */
+    public function getPurchaseOrderFull(Guid $purchaseId): PurchaseOrderFull;
 
     /**
      * Search purchase orders by criteria.
      *
      * @param array<string, mixed> $searchParams Search criteria (dates, status, supplier, location, reference)
      *
-     * @return array{results: list<array<string, mixed>>, totalRecords: int}
+     * @return PaginatedListDTO<PurchaseOrderHeader>
      *
      * @throws JsonException When JSON encoding fails
      * @throws AuthenticationExpiredException When credentials are invalid
@@ -50,7 +83,7 @@ interface PurchaseOrderClientInterface
      * @throws InvalidApiResponseException When API response structure is invalid
      * @throws ResourceNotFoundException When resource not found
      */
-    public function searchPurchaseOrders(array $searchParams): array;
+    public function searchPurchaseOrders(array $searchParams): PaginatedListDTO;
 
     /**
      * Get extended properties for a purchase order.
@@ -105,11 +138,11 @@ interface PurchaseOrderClientInterface
     public function getPurchaseOrderNotes(Guid $purchaseId): array;
 
     /**
-     * Find purchase orders containing specific stock items.
+     * Find purchase orders containing a specific stock item.
      *
-     * @param list<string> $locationIds Location GUIDs to search
+     * @param list<Guid> $locationIds Location GUIDs to search
      *
-     * @return list<string> Purchase order IDs
+     * @return list<Guid> Purchase order IDs
      *
      * @throws JsonException When JSON encoding fails
      * @throws AuthenticationExpiredException When credentials are invalid
@@ -118,5 +151,5 @@ interface PurchaseOrderClientInterface
      * @throws InvalidApiResponseException When API response structure is invalid
      * @throws ResourceNotFoundException When resource not found
      */
-    public function getPurchaseOrdersWithStockItems(string $stockItemId, array $locationIds): array;
+    public function getPurchaseOrdersWithStockItems(Guid $stockItemId, array $locationIds): array;
 }
