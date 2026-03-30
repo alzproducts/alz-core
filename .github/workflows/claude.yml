@@ -84,6 +84,7 @@ jobs:
             2. Implement the minimum change needed, following existing patterns
             3. Run quality checks: make fix && make lint && make test-quick
             4. Fix any failures before committing
-            5. Create a PR targeting develop with a clear description referencing the issue
+            5. Create a PR using: gh pr create --base develop --title 'type(scope): description' --body 'Summary of changes. Closes #{issue-number}'
+            Do NOT just provide a link to create a PR — actually run gh pr create.
 
             Keep changes small and focused. Do not refactor unrelated code."
