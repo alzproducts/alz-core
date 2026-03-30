@@ -273,8 +273,8 @@ return [
                 'minProcesses' => 2,
                 'maxProcesses' => 6,
                 'tries' => 3,
-                'timeout' => 9300, // Must exceed longest job timeout (9000s) per Laravel timeout chain rule
-                'maxTime' => 10800, // 3 hours - worker lifecycle buffer above job timeout
+                'timeout' => 29100, // Must exceed longest job timeout (28800s) per Laravel timeout chain rule
+                'maxTime' => 36000, // 10 hours - worker lifecycle buffer above job timeout
                 'nice' => 10, // Lower CPU priority for bulk work — gives high/default queues preference
             ],
             'supervisor-bulk' => [
