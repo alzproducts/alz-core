@@ -66,17 +66,24 @@ final readonly class PurchaseOrderIdsByStatusQuery extends AbstractLinnworksQuer
             WarehouseScope::AnyWarehouse => '',
         };
 
+        $sql .= $this->buildDateConditions();
+
+        return $sql . ' ORDER BY DateOfPurchase ASC';
+    }
+
+    private function buildDateConditions(): string
+    {
+        $conditions = '';
+
         if ($this->from !== null) {
-            $fromEscaped = SqlQueryBuilder::escapeString($this->from->format('Y-m-d H:i:s'));
-            $sql .= " AND DateOfPurchase >= {$fromEscaped}";
+            $conditions .= ' AND DateOfPurchase >= ' . SqlQueryBuilder::escapeString($this->from->format('Y-m-d H:i:s'));
         }
 
         if ($this->to !== null) {
-            $toEscaped = SqlQueryBuilder::escapeString($this->to->format('Y-m-d H:i:s'));
-            $sql .= " AND DateOfPurchase < {$toEscaped}";
+            $conditions .= ' AND DateOfPurchase < ' . SqlQueryBuilder::escapeString($this->to->format('Y-m-d H:i:s'));
         }
 
-        return $sql . ' ORDER BY DateOfPurchase ASC';
+        return $conditions;
     }
 
     /**
