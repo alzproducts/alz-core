@@ -46,7 +46,7 @@ final readonly class UpdatePurchaseOrderHeaderUseCase
             'fields' => $command->changedFields(),
         ]);
 
-        $current = $this->readClient->getPurchaseOrder($command->purchaseId);
+        $current = $this->readClient->getPurchaseOrderHeader($command->purchaseId);
 
         $updateParams = PurchaseOrderHeaderUpdateDTO::fromHeaderWithOverrides($current, $command);
 
