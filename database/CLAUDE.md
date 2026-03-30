@@ -16,13 +16,39 @@ Blocked via `.claude/settings.json`.
 
 ### Full Database Reset
 
-Use coordinated reset instead:
+**Always use `make db-reset-full`** — never run the two steps in the wrong order or separately without understanding what each does.
 
 ```bash
 make db-reset-full
 ```
 
-Steps: (1) Reset Supabase auth + seed test users, (2) Run Laravel migrations
+This runs two steps in sequence:
+
+**Step 1 — `make supabase-reset`** (runs `pnpm db:setup-local` in `alz-admin`):
+- Recreates the PostgreSQL database from scratch
+- Applies all Supabase schema migrations (`supabase/migrations/`)
+- Generates TypeScript types
+- Seeds test users
+
+**Step 2 — `make migrate`**:
+- Applies all Laravel migrations (business tables, indexes, schemas)
+
+> Both steps are required. `pnpm db:setup-local` only restores the base Supabase schema. Without `make migrate`, all business tables (linnworks, shopwired, etc.) will be missing.
+
+### What Gets Wiped
+
+`make db-reset-full` destroys **all locally synced data**: Linnworks stock items, orders, purchase orders, ShopWired products/orders, suppliers — everything. All data must be re-synced afterwards.
+
+**Do NOT use for incremental schema changes.** For a column change on a feature branch table, use a direct SQL statement or rollback just that migration:
+
+```bash
+# Add/drop a column directly (safe, fast, no data loss)
+php artisan db:execute "ALTER TABLE linnworks.purchase_order_items ALTER COLUMN bin_rack DROP NOT NULL"
+
+# Or rollback only the affected migration(s)
+php artisan migrate:rollback --step=1
+php artisan migrate
+```
 
 ## Octane Safety
 
