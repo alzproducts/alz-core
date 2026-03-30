@@ -28,7 +28,7 @@ use App\Infrastructure\Shopwired\Factories\CustomFieldFactory;
 use App\Infrastructure\Shopwired\Factories\ProductFilterFactory;
 
 /**
- * Maps ProductModel (Eloquent) to ProductView (Domain) for API responses.
+ * Assembles ProductModel (Eloquent) into ProductView (Domain) for API responses.
  *
  * Enriches with Linnworks cost prices, conditionally loads variations,
  * custom fields, filters, and sale settings based on requested includes.
@@ -36,7 +36,7 @@ use App\Infrastructure\Shopwired\Factories\ProductFilterFactory;
  * Extracted from ProductModelMapper to separate read-path view projection
  * from write-path model mapping.
  */
-final readonly class ProductViewMapper
+final readonly class ProductViewAssembler
 {
     public function __construct(
         private CustomFieldFactory $customFieldFactory,
