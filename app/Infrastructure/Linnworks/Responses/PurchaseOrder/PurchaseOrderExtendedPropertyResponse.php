@@ -27,6 +27,7 @@ final class PurchaseOrderExtendedPropertyResponse extends Data implements Domain
         #[MapInputName('PurchaseID')]
         public readonly ?string $purchaseId,
         public readonly ?string $addedDateTime,
+        #[MapInputName('UserName')]
         public readonly ?string $username,
         public readonly string $propertyName,
         public readonly string $propertyValue,

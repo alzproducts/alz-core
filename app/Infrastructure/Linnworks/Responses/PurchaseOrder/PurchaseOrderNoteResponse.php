@@ -18,18 +18,22 @@ use Spatie\LaravelData\Data;
  *
  * Maps the Get_PurchaseOrderNote response items.
  *
+ * Note: The API returns `NoteDateTime` (not `DateTime`) and `UserName`
+ * (not separate Forename/Surname). Field names verified against real API.
+ *
  * @template-pattern Infrastructure Response DTO
  */
 #[MapInputName(PascalCaseMapper::class)]
 final class PurchaseOrderNoteResponse extends Data implements DomainConvertibleInterface
 {
     public function __construct(
-        #[MapInputName('PurchaseOrderId')]
-        public readonly string $pkPurchaseId,
+        #[MapInputName('pkPurchaseOrderNoteId')]
+        public readonly string $pkPurchaseOrderNoteId,
         public readonly string $note,
-        public readonly ?string $dateTime,
-        public readonly ?string $forename,
-        public readonly ?string $surname,
+        #[MapInputName('NoteDateTime')]
+        public readonly ?string $noteDateTime,
+        #[MapInputName('UserName')]
+        public readonly ?string $userName,
     ) {}
 
     /**
@@ -38,11 +42,10 @@ final class PurchaseOrderNoteResponse extends Data implements DomainConvertibleI
     public function toDomain(): PurchaseOrderNote
     {
         return new PurchaseOrderNote(
-            pkPurchaseId: Guid::fromTrusted($this->pkPurchaseId),
+            pkPurchaseOrderNoteId: Guid::fromTrusted($this->pkPurchaseOrderNoteId),
             note: $this->note,
-            dateTime: LinnworksDateParser::parse($this->dateTime),
-            forename: $this->forename,
-            surname: $this->surname,
+            dateTime: LinnworksDateParser::parse($this->noteDateTime),
+            userName: $this->userName,
         );
     }
 }

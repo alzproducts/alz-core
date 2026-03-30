@@ -15,10 +15,9 @@ use DateTimeImmutable;
 final readonly class PurchaseOrderNote
 {
     public function __construct(
-        public Guid $pkPurchaseId,
+        public Guid $pkPurchaseOrderNoteId,
         public string $note,
         public ?DateTimeImmutable $dateTime,
-        public ?string $forename,
-        public ?string $surname,
+        public ?string $userName,
     ) {}
 }

@@ -22,7 +22,7 @@ use App\Infrastructure\Shopwired\Factories\ProductFilterFactory;
  *
  * Two mapping paths:
  * - `toDomain()`: Full conversion with custom fields/filters (internal use, returns Product)
- * - For API projection (ProductView), use ProductViewMapper instead
+ * - For API projection (ProductView), use ProductViewAssembler instead
  *
  * **Write path**: Use static `toModelAttributes()` for persistence.
  */
