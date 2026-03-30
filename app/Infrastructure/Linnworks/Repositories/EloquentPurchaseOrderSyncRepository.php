@@ -64,8 +64,8 @@ final class EloquentPurchaseOrderSyncRepository extends AbstractEloquentReposito
             );
 
             $this->syncItems($purchaseId, $entity->core->items);
-            $this->syncAdditionalCosts($purchaseId, $entity->core->additionalCosts);
-            $this->syncDeliveredRecords($purchaseId, $entity->core->deliveredRecords);
+            $this->syncAdditionalCosts($purchaseId, $entity->additionalCosts);
+            $this->syncDeliveredRecords($purchaseId, $entity->deliveredRecords);
             $this->syncNotes($purchaseId, $entity->notes);
             $this->syncExtendedProperties($purchaseId, $entity->extendedProperties);
         }, attempts: 3);
@@ -89,10 +89,9 @@ final class EloquentPurchaseOrderSyncRepository extends AbstractEloquentReposito
                 uniqueBy: $this->getUpsertKeys(),
             );
 
-            // Notes and EPs intentionally untouched — not fetched in single-call sync
             $this->syncItems($purchaseId, $purchaseOrder->items);
-            $this->syncAdditionalCosts($purchaseId, $purchaseOrder->additionalCosts);
-            $this->syncDeliveredRecords($purchaseId, $purchaseOrder->deliveredRecords);
+            // Additional costs, delivered records, notes, and EPs intentionally
+            // untouched — Core only contains SQL-fetchable data.
         }, attempts: 3);
     }
 
