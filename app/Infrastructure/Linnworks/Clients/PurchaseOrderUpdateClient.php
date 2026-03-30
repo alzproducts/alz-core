@@ -31,6 +31,10 @@ use JsonException;
  * Handles all write operations (create, update, delete) for purchase orders.
  * Read operations are handled by PurchaseOrderClient.
  *
+ * WARNING: All methods ported from legacy without API verification.
+ * Request formats, parameter names, and response handling may be incorrect.
+ * Each method must be smoke-tested against the real API before production use.
+ *
  * @template-pattern Infrastructure API Client
  */
 final readonly class PurchaseOrderUpdateClient implements PurchaseOrderUpdateClientInterface
@@ -43,6 +47,8 @@ final readonly class PurchaseOrderUpdateClient implements PurchaseOrderUpdateCli
 
     /**
      * {@inheritDoc}
+     *
+     * @unverified Ported from legacy — not yet tested against real API.
      *
      * @throws JsonException When JSON encoding fails
      * @throws AuthenticationExpiredException When credentials are invalid
@@ -86,6 +92,8 @@ final readonly class PurchaseOrderUpdateClient implements PurchaseOrderUpdateCli
     /**
      * {@inheritDoc}
      *
+     * @unverified Ported from legacy — not yet tested against real API.
+     *
      * @throws JsonException When JSON encoding fails
      * @throws AuthenticationExpiredException When credentials are invalid
      * @throws ExternalServiceUnavailableException When API is unavailable
@@ -103,6 +111,8 @@ final readonly class PurchaseOrderUpdateClient implements PurchaseOrderUpdateCli
 
     /**
      * {@inheritDoc}
+     *
+     * @unverified Ported from legacy — not yet tested against real API.
      *
      * @throws JsonException When JSON encoding fails
      * @throws AuthenticationExpiredException When credentials are invalid
@@ -125,6 +135,8 @@ final readonly class PurchaseOrderUpdateClient implements PurchaseOrderUpdateCli
     /**
      * {@inheritDoc}
      *
+     * @unverified Ported from legacy — not yet tested against real API.
+     *
      * @throws JsonException When JSON encoding fails
      * @throws AuthenticationExpiredException When credentials are invalid
      * @throws ExternalServiceUnavailableException When API is unavailable
@@ -142,6 +154,8 @@ final readonly class PurchaseOrderUpdateClient implements PurchaseOrderUpdateCli
 
     /**
      * {@inheritDoc}
+     *
+     * @unverified Ported from legacy — not yet tested against real API.
      *
      * @throws AuthenticationExpiredException When credentials are invalid
      * @throws ExternalServiceUnavailableException When API is unavailable
@@ -166,6 +180,8 @@ final readonly class PurchaseOrderUpdateClient implements PurchaseOrderUpdateCli
     /**
      * {@inheritDoc}
      *
+     * @unverified Ported from legacy — not yet tested against real API.
+     *
      * @throws AuthenticationExpiredException When credentials are invalid
      * @throws ExternalServiceUnavailableException When API is unavailable
      * @throws InvalidApiRequestException When request parameters are invalid
@@ -189,6 +205,8 @@ final readonly class PurchaseOrderUpdateClient implements PurchaseOrderUpdateCli
     /**
      * {@inheritDoc}
      *
+     * @unverified Ported from legacy — not yet tested against real API.
+     *
      * @throws AuthenticationExpiredException When credentials are invalid
      * @throws ExternalServiceUnavailableException When API is unavailable
      * @throws InvalidApiRequestException When request parameters are invalid
@@ -208,6 +226,8 @@ final readonly class PurchaseOrderUpdateClient implements PurchaseOrderUpdateCli
 
     /**
      * {@inheritDoc}
+     *
+     * @unverified Ported from legacy — not yet tested against real API.
      *
      * @throws AuthenticationExpiredException When credentials are invalid
      * @throws ExternalServiceUnavailableException When API is unavailable
@@ -244,6 +264,8 @@ final readonly class PurchaseOrderUpdateClient implements PurchaseOrderUpdateCli
     /**
      * {@inheritDoc}
      *
+     * @unverified Ported from legacy — not yet tested against real API.
+     *
      * @throws AuthenticationExpiredException When credentials are invalid
      * @throws ExternalServiceUnavailableException When API is unavailable
      * @throws InvalidApiRequestException When request parameters are invalid
@@ -263,6 +285,8 @@ final readonly class PurchaseOrderUpdateClient implements PurchaseOrderUpdateCli
 
     /**
      * {@inheritDoc}
+     *
+     * @unverified Ported from legacy — not yet tested against real API.
      *
      * @throws AuthenticationExpiredException When credentials are invalid
      * @throws ExternalServiceUnavailableException When API is unavailable

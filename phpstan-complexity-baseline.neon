@@ -793,6 +793,12 @@ parameters:
 			path: app/Domain/Linnworks/ValueObjects/PurchaseOrderHeader.php
 
 		-
+			rawMessage: 'Method __construct() is 41 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			identifier: alz.excessiveMethodLength
+			count: 1
+			path: app/Domain/Linnworks/ValueObjects/PurchaseOrderItem.php
+
+		-
 			rawMessage: 'Method validate() is 21 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
@@ -1183,6 +1189,12 @@ parameters:
 			path: app/Infrastructure/Linnworks/Clients/OrderClient.php
 
 		-
+			rawMessage: "Class PurchaseOrderUpdateClient is 264 lines long — exceeds the 250-line limit. Consider decomposing into smaller, focused classes."
+			identifier: alz.excessiveClassLength
+			count: 1
+			path: app/Infrastructure/Linnworks/Clients/PurchaseOrderUpdateClient.php
+
+		-
 			rawMessage: 'Method createPurchaseOrderInitial() is 30 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
@@ -1207,8 +1219,20 @@ parameters:
 			path: app/Infrastructure/Linnworks/Clients/PurchaseOrderClient.php
 
 		-
-			rawMessage: 'Method searchPurchaseOrders() is 21 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			rawMessage: 'Method searchPurchaseOrders() is 30 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
+			count: 1
+			path: app/Infrastructure/Linnworks/Clients/PurchaseOrderClient.php
+
+		-
+			rawMessage: 'Method getPurchaseOrdersWithStockItems() is 23 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			identifier: alz.excessiveMethodLength
+			count: 1
+			path: app/Infrastructure/Linnworks/Clients/PurchaseOrderClient.php
+
+		-
+			rawMessage: "Class PurchaseOrderClient is 270 lines long — exceeds the 250-line limit. Consider decomposing into smaller, focused classes."
+			identifier: alz.excessiveClassLength
 			count: 1
 			path: app/Infrastructure/Linnworks/Clients/PurchaseOrderClient.php
 
@@ -1309,6 +1333,30 @@ parameters:
 			path: app/Infrastructure/Linnworks/Models/LinnworksOrderModel.php
 
 		-
+			rawMessage: 'Method attributesFromDomain() is 24 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			identifier: alz.excessiveMethodLength
+			count: 1
+			path: app/Infrastructure/Linnworks/Models/PurchaseOrderAdditionalCostModel.php
+
+		-
+			rawMessage: 'Method casts() is 23 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			identifier: alz.excessiveMethodLength
+			count: 1
+			path: app/Infrastructure/Linnworks/Models/PurchaseOrderItemModel.php
+
+		-
+			rawMessage: 'Method attributesFromDomain() is 33 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			identifier: alz.excessiveMethodLength
+			count: 1
+			path: app/Infrastructure/Linnworks/Models/PurchaseOrderItemModel.php
+
+		-
+			rawMessage: 'Method casts() is 25 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			identifier: alz.excessiveMethodLength
+			count: 1
+			path: app/Infrastructure/Linnworks/Models/PurchaseOrderModel.php
+
+		-
 			rawMessage: 'Method entityToAttributes() is 71 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
@@ -1325,6 +1373,48 @@ parameters:
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Infrastructure/Linnworks/Repositories/EloquentLinnworksOrderRepository.php
+
+		-
+			rawMessage: 'Class EloquentPurchaseOrderSyncRepository is 372 lines long — exceeds the 250-line limit. Consider decomposing into smaller, focused classes.'
+			identifier: alz.excessiveClassLength
+			count: 1
+			path: app/Infrastructure/Linnworks/Repositories/EloquentPurchaseOrderSyncRepository.php
+
+		-
+			rawMessage: 'Method coreToAttributes() is 32 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			identifier: alz.excessiveMethodLength
+			count: 1
+			path: app/Infrastructure/Linnworks/Repositories/EloquentPurchaseOrderSyncRepository.php
+
+		-
+			rawMessage: 'Method syncAdditionalCosts() is 43 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			identifier: alz.excessiveMethodLength
+			count: 1
+			path: app/Infrastructure/Linnworks/Repositories/EloquentPurchaseOrderSyncRepository.php
+
+		-
+			rawMessage: 'Method syncDeliveredRecords() is 36 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			identifier: alz.excessiveMethodLength
+			count: 1
+			path: app/Infrastructure/Linnworks/Repositories/EloquentPurchaseOrderSyncRepository.php
+
+		-
+			rawMessage: 'Method syncExtendedProperties() is 42 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			identifier: alz.excessiveMethodLength
+			count: 1
+			path: app/Infrastructure/Linnworks/Repositories/EloquentPurchaseOrderSyncRepository.php
+
+		-
+			rawMessage: 'Method syncItems() is 36 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			identifier: alz.excessiveMethodLength
+			count: 1
+			path: app/Infrastructure/Linnworks/Repositories/EloquentPurchaseOrderSyncRepository.php
+
+		-
+			rawMessage: 'Method syncNotes() is 36 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			identifier: alz.excessiveMethodLength
+			count: 1
+			path: app/Infrastructure/Linnworks/Repositories/EloquentPurchaseOrderSyncRepository.php
 
 		-
 			rawMessage: 'Method getCostPricesBySku() is 25 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
@@ -1355,6 +1445,24 @@ parameters:
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Infrastructure/Linnworks/Responses/OrderResponse.php
+
+		-
+			rawMessage: 'Method buildQueryBody() is 24 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			identifier: alz.excessiveMethodLength
+			count: 1
+			path: app/Infrastructure/Linnworks/Queries/PurchaseOrderIdsByDateQuery.php
+
+		-
+			rawMessage: 'Method __construct() is 29 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			identifier: alz.excessiveMethodLength
+			count: 1
+			path: app/Infrastructure/Linnworks/Responses/PurchaseOrder/PurchaseOrderItemResponse.php
+
+		-
+			rawMessage: 'Method toDomain() is 31 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			identifier: alz.excessiveMethodLength
+			count: 1
+			path: app/Infrastructure/Linnworks/Responses/PurchaseOrder/PurchaseOrderItemResponse.php
 
 		-
 			rawMessage: 'Method __construct() is 28 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
@@ -2725,7 +2833,13 @@ parameters:
 			path: app/Providers/InventoryServiceProvider.php
 
 		-
-			rawMessage: 'Method register() is 89 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			rawMessage: 'Method register() is 104 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			identifier: alz.excessiveMethodLength
+			count: 1
+			path: app/Providers/LinnworksServiceProvider.php
+
+		-
+			rawMessage: 'Method provides() is 21 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Providers/LinnworksServiceProvider.php
