@@ -39,12 +39,14 @@ final class SyncHistoricalLinnworksOrdersJob implements ShouldBeUnique, ShouldQu
     public array $backoff = [120, 600];
 
     /**
-     * 2.5 hours — local run completed in ~1h24m, with buffer for
-     * production variability and retry overhead.
+     * 8 hours — production remote Supabase PostgreSQL adds ~29ms per query
+     * vs <1ms locally. Each of ~115k orders requires 4-5 queries in its own
+     * transaction (~175ms/order), giving ~5.6h DB time + ~1h API fetch = ~6.6h
+     * estimated. Local benchmark (1h24m) is not representative of prod latency.
      */
-    public int $timeout = 9000;
+    public int $timeout = 28800;
 
-    public int $uniqueFor = 10800;
+    public int $uniqueFor = 36000;
 
     public function __construct()
     {
