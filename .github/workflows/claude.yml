@@ -6,7 +6,7 @@ on:
   pull_request_review_comment:
     types: [created]
   issues:
-    types: [opened, assigned, labeled]
+    types: [opened, labeled]
   pull_request_review:
     types: [submitted]
 
@@ -16,7 +16,8 @@ jobs:
       (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
       (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
       (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
-      (github.event_name == 'issues' && github.event.action == 'labeled' && github.event.label.name == 'claude')
+      (github.event_name == 'issues' && github.event.action == 'labeled' && github.event.label.name == 'claude') ||
+      (github.event_name == 'issues' && github.event.action == 'opened' && contains(github.event.issue.labels.*.name, 'claude'))
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -29,6 +30,37 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Setup PHP 8.4
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, xml, ctype, json, bcmath, soap, dom, simplexml, tokenizer, pcntl
+          ini-values: |
+            memory_limit=512M
+            zend.assertions=1
+          coverage: none
+          tools: composer:v2
+
+      - name: Get Composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress --ignore-platform-req=ext-swoole
+
+      - name: Prepare Laravel application
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+          chmod -R 775 storage bootstrap/cache
 
       - name: Run Claude Code
         id: claude
@@ -43,16 +75,15 @@ jobs:
             actions: read
 
           claude_args: |
-            --max-turns 15
+            --max-turns 20
             --dangerously-skip-permissions
             --system-prompt "You are working on alz-core, a Laravel 12 / PHP 8.4 API following Clean Architecture. Read CLAUDE.md first for project conventions.
 
             When implementing changes from issues:
             1. Create a focused branch: feature/{issue-number}-{short-desc}
             2. Implement the minimum change needed, following existing patterns
-            3. Run quality checks: make fix && make lint && make test
+            3. Run quality checks: make fix && make lint && make test-quick
             4. Fix any failures before committing
             5. Create a PR targeting develop with a clear description referencing the issue
 
             Keep changes small and focused. Do not refactor unrelated code."
-
