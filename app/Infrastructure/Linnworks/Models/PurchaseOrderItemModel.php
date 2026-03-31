@@ -26,7 +26,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $pack_size
  * @property float $cost
  * @property float $tax
- * @property float $tax_rate
+ * @property float|null $tax_rate
  * @property int $sort_order
  * @property CarbonImmutable $created_at
  * @property CarbonImmutable $updated_at
@@ -92,7 +92,7 @@ final class PurchaseOrderItemModel extends Model
             'pack_size' => $item->packSize,
             'cost' => $item->cost,
             'tax' => $item->tax,
-            'tax_rate' => $item->taxRate->percentage,
+            'tax_rate' => $item->taxRate?->percentage,
             'sort_order' => $item->sortOrder,
             'created_at' => $now,
             'updated_at' => $now,
