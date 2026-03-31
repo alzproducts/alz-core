@@ -832,6 +832,63 @@ final readonly class EloquentGateway
     }
 
     /**
+     * Delete rows matching whereIn AND not matching notIn.
+     *
+     * Useful for bulk orphan-delete across multiple parents in a single query.
+     * Example: delete items for PO IDs [A, B, C] where item ID NOT IN [1, 2, 3]
+     *
+     * If $notInValues is empty, skips the whereNotIn clause — deletes all rows
+     * matching the whereIn (handles parents with zero children).
+     *
+     * @param class-string<Model> $modelClass
+     * @param list<int|string> $whereInValues Parent IDs to scope deletion
+     * @param list<int|string> $notInValues Child IDs to keep (exclude from deletion)
+     *
+     * @return int Number of rows deleted
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function deleteWhereInAndNotIn(
+        string $modelClass,
+        string $whereInColumn,
+        array $whereInValues,
+        string $notInColumn,
+        array $notInValues,
+    ): int {
+        if ($whereInValues === []) {
+            return 0;
+        }
+
+        $modelName = \class_basename($modelClass);
+
+        $deleted = $this->dbGateway->transact(
+            static function () use ($modelClass, $whereInColumn, $whereInValues, $notInColumn, $notInValues): int {
+                $query = $modelClass::query()->whereIn($whereInColumn, $whereInValues);
+
+                if ($notInValues !== []) {
+                    $query->whereNotIn($notInColumn, $notInValues);
+                }
+
+                /** @var int */
+                return $query->delete();
+            },
+        );
+
+        Log::debug('Bulk orphan delete completed', [
+            'model' => $modelName,
+            'where_in' => $whereInColumn,
+            'parent_count' => \count($whereInValues),
+            'not_in' => $notInColumn,
+            'excluded_count' => \count($notInValues),
+            'deleted' => $deleted,
+        ]);
+
+        return $deleted;
+    }
+
+    /**
      * Delete records whose column value is NOT in the provided list.
      *
      * Used for full-replace reconciliation: after upserting all records from
