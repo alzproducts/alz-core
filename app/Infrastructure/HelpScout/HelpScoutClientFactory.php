@@ -145,15 +145,29 @@ final class HelpScoutClientFactory
      */
     private static function createConfig(): HelpScoutConfig
     {
-        $mailboxes = \config('helpscout.mailboxes');
+        return new HelpScoutConfig(
+            mailboxes: self::validateMailboxes(),
+            timeoutSeconds: Config::integer('helpscout.timeout_seconds', 30),
+            retryAttempts: Config::integer('helpscout.retry_attempts', 3),
+        );
+    }
 
+    /**
+     * Validate and type-check mailbox config from Laravel config source.
+     *
+     * @return array<string, int>
+     *
+     * @throws InvalidConfigurationException When config is missing or invalid
+     */
+    private static function validateMailboxes(): array
+    {
+        $mailboxes = \config('helpscout.mailboxes');
         if (!\is_array($mailboxes) || ($mailboxes === [])) {
             throw new InvalidConfigurationException('helpscout.mailboxes');
         }
 
-        /** @var array<string, int> $validatedMailboxes */
-        $validatedMailboxes = [];
-
+        /** @var array<string, int> $validated */
+        $validated = [];
         foreach ($mailboxes as $name => $id) {
             if (!\is_string($name) || !\is_int($id)) {
                 throw new InvalidConfigurationException(
@@ -161,14 +175,10 @@ final class HelpScoutClientFactory
                     \sprintf('Invalid mailbox config: expected string => int, got %s => %s', \gettype($name), \gettype($id)),
                 );
             }
-            $validatedMailboxes[$name] = $id;
+            $validated[$name] = $id;
         }
 
-        return new HelpScoutConfig(
-            mailboxes: $validatedMailboxes,
-            timeoutSeconds: Config::integer('helpscout.timeout_seconds', 30),
-            retryAttempts: Config::integer('helpscout.retry_attempts', 3),
-        );
+        return $validated;
     }
 
     /**

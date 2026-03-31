@@ -46,21 +46,28 @@ final class AdminAlertNotification extends Notification
                 $block->text($this->message)->markdown();
             });
 
-        if ($this->context !== []) {
-            $contextText = \implode("\n", \array_map(
-                static fn(mixed $value): string => \sprintf('• %s', \print_r($value, true)),
-                $this->context,
-            ));
-
-            $slackMessage->sectionBlock(static function (SectionBlock $block) use ($contextText): void {
-                $block->text($contextText)->markdown();
-            });
-        }
+        $this->appendContextSection($slackMessage);
 
         $firedAt = $this->firedAt->format('Y-m-d H:i:s T');
 
         return $slackMessage->contextBlock(static function (ContextBlock $block) use ($firedAt): void {
             $block->text("Event fired at {$firedAt}");
+        });
+    }
+
+    private function appendContextSection(SlackMessage $message): void
+    {
+        if ($this->context === []) {
+            return;
+        }
+
+        $contextText = \implode("\n", \array_map(
+            static fn(mixed $value): string => \sprintf('• %s', \print_r($value, true)),
+            $this->context,
+        ));
+
+        $message->sectionBlock(static function (SectionBlock $block) use ($contextText): void {
+            $block->text($contextText)->markdown();
         });
     }
 }

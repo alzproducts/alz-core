@@ -43,55 +43,57 @@ final readonly class ContactSubmissionToConversationCommandTransformer
 
     private function buildBody(ContactSubmission $submission): string
     {
-        $parts = [];
-
-        // Customer's message first
-        $parts[] = $submission->form->message;
-
-        // Separator before metadata
-        $parts[] = "\n---";
-
-        // Product details if provided
-        if ($submission->product !== null) {
-            $parts[] = $this->formatProduct($submission->product);
-        }
-
-        // Customer metadata
-        $metadata = $this->buildMetadata($submission);
-        if ($metadata !== []) {
-            $parts[] = \implode("\n", $metadata);
-        }
+        $parts = [
+            $submission->form->message,
+            "\n---",
+            ...$this->buildProductAndMetadataSections($submission),
+        ];
 
         return \implode("\n\n", \array_filter($parts, static fn(string $part): bool => $part !== ''));
     }
 
+    /**
+     * @return list<string>
+     */
+    private function buildProductAndMetadataSections(ContactSubmission $submission): array
+    {
+        $sections = [];
+
+        if ($submission->product !== null) {
+            $sections[] = $this->formatProduct($submission->product);
+        }
+
+        $metadata = $this->buildMetadata($submission);
+        if ($metadata !== []) {
+            $sections[] = \implode("\n", $metadata);
+        }
+
+        return $sections;
+    }
+
     private function formatProduct(SelectedProduct $product): string
     {
-        $lines = [];
-
-        // Build product identifier line with productId and optionally SKU
-        $productLine = "Product ID: {$product->productId->value}";
-        if ($product->sku !== null) {
-            $productLine .= " (SKU: {$product->sku})";
-        }
-        if ($product->title !== null) {
-            $productLine .= " - {$product->title}";
-        }
-        $lines[] = $productLine;
-
-        if ($product->price !== null) {
-            $lines[] = "Price: {$product->price}";
-        }
-
-        if ($product->quantity !== null) {
-            $lines[] = "Quantity: {$product->quantity}";
-        }
-
-        if ($product->url !== null) {
-            $lines[] = "URL: {$product->url}";
-        }
+        $lines = \array_filter([
+            $this->formatProductIdentifier($product),
+            $product->price !== null ? "Price: {$product->price}" : null,
+            $product->quantity !== null ? "Quantity: {$product->quantity}" : null,
+            $product->url !== null ? "URL: {$product->url}" : null,
+        ], static fn(?string $line): bool => $line !== null);
 
         return \implode("\n", $lines);
+    }
+
+    private function formatProductIdentifier(SelectedProduct $product): string
+    {
+        $line = "Product ID: {$product->productId->value}";
+        if ($product->sku !== null) {
+            $line .= " (SKU: {$product->sku})";
+        }
+        if ($product->title !== null) {
+            $line .= " - {$product->title}";
+        }
+
+        return $line;
     }
 
     /**

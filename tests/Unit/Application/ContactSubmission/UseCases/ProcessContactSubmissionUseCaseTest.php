@@ -299,7 +299,7 @@ final class ProcessContactSubmissionUseCaseTest extends TestCase
 
         $this->logger->expects('info')
             ->with(
-                'Added email validation warning note to HelpScout conversation',
+                'Added note to HelpScout conversation',
                 Mockery::on(static fn(array $ctx): bool => $ctx['conversation_id'] === self::CONVERSATION_ID),
             );
 
@@ -359,7 +359,7 @@ final class ProcessContactSubmissionUseCaseTest extends TestCase
         // Error is logged but processing continues
         $this->logger->expects('error')
             ->with(
-                'Failed to add email validation note to HelpScout conversation',
+                'Failed to add note to HelpScout conversation',
                 Mockery::on(static fn(array $ctx): bool => $ctx['conversation_id'] === self::CONVERSATION_ID
                     && isset($ctx['error'])),
             );

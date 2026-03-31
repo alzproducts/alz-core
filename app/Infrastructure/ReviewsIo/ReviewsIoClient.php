@@ -188,25 +188,28 @@ final readonly class ReviewsIoClient implements ReviewsIoClientInterface
     private function parseArrayResponse(mixed $data, string $dtoClass): DataCollection
     {
         if (!\is_array($data)) {
-            self::logParsingFailure('Expected array response', $data);
-
-            throw new InvalidApiResponseException(
-                serviceName: self::SERVICE_NAME,
-                message: 'Expected array response',
-            );
+            self::logAndThrowInvalidResponse('Expected array response', $data);
         }
 
         try {
             return $dtoClass::collect($data, DataCollection::class);
         } /** @noinspection PhpRedundantCatchClauseInspection */ catch (CannotCreateData $e) {
-            self::logParsingFailure($e->getMessage(), $data);
-
-            throw new InvalidApiResponseException(
-                serviceName: self::SERVICE_NAME,
-                message: 'API returned invalid data structure',
-                previous: $e,
-            );
+            self::logAndThrowInvalidResponse('API returned invalid data structure', $data, $e);
         }
+    }
+
+    /**
+     * @throws InvalidApiResponseException
+     */
+    private static function logAndThrowInvalidResponse(string $message, mixed $data, ?CannotCreateData $previous = null): never
+    {
+        self::logParsingFailure($previous?->getMessage() ?? $message, $data);
+
+        throw new InvalidApiResponseException(
+            serviceName: self::SERVICE_NAME,
+            message: $message,
+            previous: $previous,
+        );
     }
 
     /**

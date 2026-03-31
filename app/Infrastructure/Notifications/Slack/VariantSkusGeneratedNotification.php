@@ -57,14 +57,21 @@ final class VariantSkusGeneratedNotification extends Notification
             })
             ->dividerBlock();
 
-        if ($this->createdVariants !== []) {
-            $message->sectionBlock(function (SectionBlock $block): void {
-                $block->text($this->buildVariantList())->markdown();
-            });
-        }
+        $this->appendVariantsList($message);
 
         return $message->contextBlock(static function (ContextBlock $block): void {
             $block->text('Generated at ' . \now()->format('Y-m-d H:i:s'));
+        });
+    }
+
+    private function appendVariantsList(SlackMessage $message): void
+    {
+        if ($this->createdVariants === []) {
+            return;
+        }
+
+        $message->sectionBlock(function (SectionBlock $block): void {
+            $block->text($this->buildVariantList())->markdown();
         });
     }
 

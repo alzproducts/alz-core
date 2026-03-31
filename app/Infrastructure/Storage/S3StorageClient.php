@@ -32,6 +32,9 @@ final readonly class S3StorageClient implements RemoteStorageInterface
         private LoggerInterface $logger,
     ) {}
 
+    /**
+     * @throws StorageOperationFailedException
+     */
     public function put(string $path, string $content): void
     {
         try {
@@ -42,25 +45,14 @@ final readonly class S3StorageClient implements RemoteStorageInterface
                 'path' => $path,
                 'size_bytes' => \mb_strlen($content),
             ]);
-        } catch (UnableToWriteFile $e) {
-            $this->logStorageError('upload', $path, $e);
-            throw new StorageOperationFailedException(
-                operation: 'upload',
-                path: $path,
-                reason: 'Failed to write file to storage',
-                previous: $e,
-            );
         } catch (Throwable $e) {
-            $this->logStorageError('upload', $path, $e);
-            throw new StorageOperationFailedException(
-                operation: 'upload',
-                path: $path,
-                reason: $e->getMessage(),
-                previous: $e,
-            );
+            throw $this->buildStorageException('upload', $path, $e);
         }
     }
 
+    /**
+     * @throws StorageOperationFailedException
+     */
     public function temporaryUrl(string $path, DateTimeImmutable $expiration): string
     {
         try {
@@ -74,42 +66,22 @@ final readonly class S3StorageClient implements RemoteStorageInterface
 
             return $url;
         } catch (Throwable $e) {
-            $this->logStorageError('temporaryUrl', $path, $e);
-            throw new StorageOperationFailedException(
-                operation: 'temporaryUrl',
-                path: $path,
-                reason: $e->getMessage(),
-                previous: $e,
-            );
-        }
-    }
-
-    public function exists(string $path): bool
-    {
-        try {
-            return $this->getFilesystem()->exists($path);
-        } catch (UnableToCheckExistence $e) {
-            $this->logStorageError('exists', $path, $e);
-            throw new StorageOperationFailedException(
-                operation: 'exists',
-                path: $path,
-                reason: 'Failed to check file existence',
-                previous: $e,
-            );
-        } catch (Throwable $e) {
-            $this->logStorageError('exists', $path, $e);
-            throw new StorageOperationFailedException(
-                operation: 'exists',
-                path: $path,
-                reason: $e->getMessage(),
-                previous: $e,
-            );
+            throw $this->buildStorageException('temporaryUrl', $path, $e);
         }
     }
 
     /**
-     * Get the filesystem adapter for the configured disk.
+     * @throws StorageOperationFailedException
      */
+    public function exists(string $path): bool
+    {
+        try {
+            return $this->getFilesystem()->exists($path);
+        } catch (Throwable $e) {
+            throw $this->buildStorageException('exists', $path, $e);
+        }
+    }
+
     private function getFilesystem(): FilesystemAdapter
     {
         $filesystem = $this->filesystemFactory->disk($this->disk);
@@ -119,9 +91,9 @@ final readonly class S3StorageClient implements RemoteStorageInterface
     }
 
     /**
-     * Log storage operation errors with consistent format.
+     * Log and build a storage exception for translation to domain layer.
      */
-    private function logStorageError(string $operation, string $path, Throwable $e): void
+    private function buildStorageException(string $operation, string $path, Throwable $e): StorageOperationFailedException
     {
         $this->logger->error('Storage operation failed', [
             'service' => self::SERVICE_NAME,
@@ -131,5 +103,18 @@ final readonly class S3StorageClient implements RemoteStorageInterface
             'error' => $e->getMessage(),
             'exception_class' => $e::class,
         ]);
+
+        $reason = match (true) {
+            $e instanceof UnableToWriteFile => 'Failed to write file to storage',
+            $e instanceof UnableToCheckExistence => 'Failed to check file existence',
+            default => $e->getMessage(),
+        };
+
+        return new StorageOperationFailedException(
+            operation: $operation,
+            path: $path,
+            reason: $reason,
+            previous: $e,
+        );
     }
 }

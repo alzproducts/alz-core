@@ -90,7 +90,6 @@ final readonly class DoofinderItemTransformer
      */
     private function resolveTitleElements(SimpleXMLElement $item): ?array
     {
-        // Check non-namespaced elements first (most common case)
         if (isset($item->title, $item->d_title)) {
             return [
                 'namespace' => 'none',
@@ -101,17 +100,23 @@ final readonly class DoofinderItemTransformer
             ];
         }
 
-        // Fall back to Google namespace (g:title, g:d_title)
-        $namespaces = $item->getNamespaces(true);
-        $gNamespace = $namespaces['g'] ?? null;
+        return self::resolveGoogleNamespacedTitleElements($item);
+    }
 
+    /**
+     * Check for title elements under the Google Ads namespace (g:title, g:d_title).
+     *
+     * @return array{namespace: string, title: string, dTitle: string, titleElement: SimpleXMLElement, dTitleElement: SimpleXMLElement}|null
+     */
+    private static function resolveGoogleNamespacedTitleElements(SimpleXMLElement $item): ?array
+    {
+        $gNamespace = ($item->getNamespaces(true))['g'] ?? null;
         if ($gNamespace === null) {
             return null;
         }
 
         $gChildren = $item->children($gNamespace);
-
-        if (($gChildren === null) || !isset($gChildren->title, $gChildren->d_title)) {
+        if (($gChildren === null) || ! isset($gChildren->title, $gChildren->d_title)) {
             return null;
         }
 
@@ -182,23 +187,12 @@ final readonly class DoofinderItemTransformer
         /** @noinspection PhpVariableNamingConventionInspection */
         $hasDTitle = isset($item->d_title);
 
-        if (!$hasTitle && !$hasDTitle) {
-            throw new MalformedFeedDataException(
-                feedName: self::SERVICE_NAME,
-                reason: 'First item missing both title and d_title elements',
-            );
-        }
+        $reason = match (true) {
+            ! $hasTitle && ! $hasDTitle => 'First item missing both title and d_title elements',
+            ! $hasTitle => 'First item missing required title element',
+            default => 'First item missing required d_title element - feed may not be configured for title substitution',
+        };
 
-        if (!$hasTitle) {
-            throw new MalformedFeedDataException(
-                feedName: self::SERVICE_NAME,
-                reason: 'First item missing required title element',
-            );
-        }
-
-        throw new MalformedFeedDataException(
-            feedName: self::SERVICE_NAME,
-            reason: 'First item missing required d_title element - feed may not be configured for title substitution',
-        );
+        throw new MalformedFeedDataException(feedName: self::SERVICE_NAME, reason: $reason);
     }
 }

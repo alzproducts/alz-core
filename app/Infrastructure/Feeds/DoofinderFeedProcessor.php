@@ -9,6 +9,7 @@ use App\Application\Contracts\RemoteStorageInterface;
 use App\Application\Feeds\ProductSearchFeedProcessingResult;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Data\MalformedFeedDataException;
+use App\Domain\Exceptions\Infrastructure\StorageOperationFailedException;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
@@ -51,43 +52,51 @@ final readonly class DoofinderFeedProcessor implements ProductSearchFeedProcesso
     public function process(string $sourceUrl, string $outputPath): ProductSearchFeedProcessingResult
     {
         $startTime = \microtime(true);
-
-        $this->logger->info('Starting feed processing', [
-            'service' => self::SERVICE_NAME,
-            'source_url' => $sourceUrl,
-        ]);
+        $this->logger->info('Starting feed processing', ['service' => self::SERVICE_NAME, 'source_url' => $sourceUrl]);
 
         $sourceXml = $this->fetchSourceFeed($sourceUrl);
         $tempFilePath = $this->transformFeedToTempFile($sourceXml);
-
-        // Release source XML memory before reading temp file
         unset($sourceXml);
 
-        try {
-            // Read transformed content and upload
-            $transformedXml = \file_get_contents($tempFilePath);
+        $stats = $this->uploadAndCleanup($tempFilePath, $outputPath);
 
+        return $this->buildResult($stats, $startTime);
+    }
+
+    /**
+     * Read transformed XML, extract stats, upload, and clean up temp files.
+     *
+     * @return array{itemsProcessed: int, titlesSubstituted: int}
+     *
+     * @throws MalformedFeedDataException When temp file cannot be read or stats are invalid
+     * @throws StorageOperationFailedException On upload failure
+     */
+    private function uploadAndCleanup(string $tempFilePath, string $outputPath): array
+    {
+        try {
+            $transformedXml = \file_get_contents($tempFilePath);
             if ($transformedXml === false) {
-                throw new MalformedFeedDataException(
-                    feedName: self::SERVICE_NAME,
-                    reason: "Failed to read transformed feed from temp file: {$tempFilePath}",
-                );
+                throw new MalformedFeedDataException(feedName: self::SERVICE_NAME, reason: 'Failed to read transformed feed from temp file');
             }
 
-            // Extract stats from temp file metadata (stored as JSON in first line comment)
             $stats = self::extractStatsFromTempFile($tempFilePath);
-
             $this->storage->put($outputPath, $transformedXml);
-
-            // Release memory (file cleanup happens in finally)
             unset($transformedXml);
+
+            return $stats;
         } finally {
-            // Always cleanup temp files, even on failure
-            // safeUnlink is idempotent (stats file may already be deleted by extractStatsFromTempFile)
             self::safeUnlink($tempFilePath);
             self::safeUnlink($tempFilePath . '.stats');
         }
+    }
 
+    /**
+     * Log completion and build the result DTO.
+     *
+     * @param array{itemsProcessed: int, titlesSubstituted: int} $stats
+     */
+    private function buildResult(array $stats, float $startTime): ProductSearchFeedProcessingResult
+    {
         $durationSeconds = \microtime(true) - $startTime;
 
         $this->logger->info('Feed processing completed', [
@@ -116,52 +125,10 @@ final readonly class DoofinderFeedProcessor implements ProductSearchFeedProcesso
      */
     private function fetchSourceFeed(string $sourceUrl, int $redirectDepth = 0): string
     {
-        if ($redirectDepth >= self::MAX_REDIRECT_DEPTH) {
-            $this->logger->error('Max redirect depth exceeded', [
-                'service' => self::SERVICE_NAME,
-                'url' => $sourceUrl,
-                'max_depth' => self::MAX_REDIRECT_DEPTH,
-            ]);
-
-            throw new ExternalServiceUnavailableException(
-                serviceName: self::SERVICE_NAME,
-                retryAfter: 300,
-            );
-        }
+        $this->validateRedirectDepth($sourceUrl, $redirectDepth);
 
         try {
-            $response = Http::timeout(self::HTTP_TIMEOUT_SECONDS)
-                ->get($sourceUrl);
-
-            if ($response->failed()) {
-                $this->logger->error('Feed fetch failed', [
-                    'service' => self::SERVICE_NAME,
-                    'url' => $sourceUrl,
-                    'status' => $response->status(),
-                ]);
-
-                throw new ExternalServiceUnavailableException(
-                    serviceName: self::SERVICE_NAME,
-                    retryAfter: 300,
-                );
-            }
-
-            $body = $response->body();
-
-            // Handle meta-refresh redirects (e.g., ShopWired serving via signed S3 URLs)
-            $redirectUrl = self::extractMetaRefreshUrl($body);
-
-            if ($redirectUrl !== null) {
-                $this->logger->debug('Following meta-refresh redirect', [
-                    'service' => self::SERVICE_NAME,
-                    'original_url' => $sourceUrl,
-                    'redirect_url' => $redirectUrl,
-                ]);
-
-                return $this->fetchSourceFeed($redirectUrl, $redirectDepth + 1);
-            }
-
-            return $body;
+            return $this->fetchAndFollowRedirects($sourceUrl, $redirectDepth);
         } catch (ConnectionException $e) {
             $this->logger->error('Feed connection failed', [
                 'service' => self::SERVICE_NAME,
@@ -175,6 +142,81 @@ final readonly class DoofinderFeedProcessor implements ProductSearchFeedProcesso
                 previous: $e,
             );
         }
+    }
+
+    /**
+     * @throws ExternalServiceUnavailableException When redirect limit exceeded
+     */
+    private function validateRedirectDepth(string $sourceUrl, int $redirectDepth): void
+    {
+        if ($redirectDepth < self::MAX_REDIRECT_DEPTH) {
+            return;
+        }
+
+        $this->logger->error('Max redirect depth exceeded', [
+            'service' => self::SERVICE_NAME,
+            'url' => $sourceUrl,
+            'max_depth' => self::MAX_REDIRECT_DEPTH,
+        ]);
+
+        throw new ExternalServiceUnavailableException(
+            serviceName: self::SERVICE_NAME,
+            retryAfter: 300,
+        );
+    }
+
+    /**
+     * Perform the HTTP GET and follow meta-refresh redirects if needed.
+     *
+     * @throws ExternalServiceUnavailableException When feed cannot be fetched
+     * @throws ConnectionException When connection fails (caught by caller)
+     * @throws RuntimeException When HTTP client encounters unexpected errors
+     */
+    private function fetchAndFollowRedirects(string $sourceUrl, int $redirectDepth): string
+    {
+        $response = Http::timeout(self::HTTP_TIMEOUT_SECONDS)->get($sourceUrl);
+
+        if ($response->failed()) {
+            $this->throwFeedUnavailable('Feed fetch failed', $sourceUrl, $response->status());
+        }
+
+        $body = $response->body();
+        $redirectUrl = self::extractMetaRefreshUrl($body);
+
+        if ($redirectUrl !== null) {
+            return $this->followRedirect($sourceUrl, $redirectUrl, $redirectDepth);
+        }
+
+        return $body;
+    }
+
+    /**
+     * @throws ExternalServiceUnavailableException
+     */
+    private function throwFeedUnavailable(string $reason, string $url, ?int $status = null): never
+    {
+        $this->logger->error($reason, \array_filter([
+            'service' => self::SERVICE_NAME,
+            'url' => $url,
+            'status' => $status,
+        ], static fn(mixed $v): bool => $v !== null));
+
+        throw new ExternalServiceUnavailableException(serviceName: self::SERVICE_NAME, retryAfter: 300);
+    }
+
+    /**
+     * @throws ExternalServiceUnavailableException When feed cannot be fetched
+     * @throws RuntimeException When HTTP client encounters unexpected errors
+     */
+    private function followRedirect(string $originalUrl, string $redirectUrl, int $redirectDepth): string
+    {
+        $this->logger->debug('Following meta-refresh redirect', [
+            'service' => self::SERVICE_NAME,
+            'original_url' => $originalUrl,
+            'redirect_url' => $redirectUrl,
+        ]);
+
+        return $this->fetchSourceFeed($redirectUrl, $redirectDepth + 1);
     }
 
     /**

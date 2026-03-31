@@ -12,6 +12,7 @@ use App\Application\Contracts\HelpScout\ConversationWriteClientInterface;
 use App\Application\HelpScout\Config\HelpScoutSystemUserId;
 use App\Domain\ContactSubmission\Enums\ActionStatus;
 use App\Domain\ContactSubmission\Events\ContactFormProcessedEvent;
+use App\Domain\ContactSubmission\ValueObjects\ContactSubmission;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
@@ -69,32 +70,47 @@ final readonly class ProcessContactSubmissionUseCase
      */
     public function execute(string $submissionId, string $actionId): ?int
     {
-        // Idempotency check - skip if already completed to prevent duplicate tickets
-        $status = $this->actionRepository->getStatus($actionId);
-        if ($status === ActionStatus::Completed) {
+        if ($this->isAlreadyCompleted($actionId)) {
             return null;
         }
 
-        // Track attempt count for monitoring and mark as processing
         $this->actionRepository->incrementAttempts($actionId);
         $this->actionRepository->markProcessing($actionId);
 
-        // Load submission from database
         $submission = $this->submissionRepository->findById($submissionId);
 
-        // Transform to HelpScout command
-        $command = $this->transformer->transform($submission);
+        return $this->createConversationAndNotify($submission, $submissionId, $actionId);
+    }
 
-        // Create HelpScout conversation
+    /**
+     * @throws ExternalServiceUnavailableException When DB unavailable
+     */
+    private function isAlreadyCompleted(string $actionId): bool
+    {
+        return $this->actionRepository->getStatus($actionId) === ActionStatus::Completed;
+    }
+
+    /**
+     * Create HelpScout conversation, validate email, mark complete, and fire event.
+     *
+     * @throws ExternalServiceUnavailableException When HelpScout/DB unavailable
+     * @throws AuthenticationExpiredException When HelpScout credentials invalid
+     * @throws InvalidApiRequestException When HelpScout rejects request
+     * @throws UnexpectedApiResultException When HelpScout returns unexpected response
+     * @throws DatabaseOperationFailedException When DB operation fails
+     * @throws InsufficientDataException When submission lacks required customer data
+     */
+    private function createConversationAndNotify(
+        ContactSubmission $submission,
+        string $submissionId,
+        string $actionId,
+    ): int {
+        $command = $this->transformer->transform($submission);
         $conversationId = $this->helpScoutClient->createConversationFromCustomer($command);
 
-        // Validate email and add warning note if invalid (non-blocking)
         $this->addEmailValidationNoteIfInvalid($submission->form->email, $conversationId);
-
-        // Mark completed with external ID for reference
         $this->actionRepository->markCompleted($actionId, (string) $conversationId);
 
-        // Fire success event for notifications (queued listener handles Slack)
         $this->eventDispatcher->dispatch(new ContactFormProcessedEvent(
             submissionId: $submissionId,
             conversationId: IntId::from($conversationId),
@@ -117,21 +133,29 @@ final readonly class ProcessContactSubmissionUseCase
             return;
         }
 
-        try {
-            $noteText = "⚠️ Email validation warning: The email address '{$email}' may be invalid "
-                . '(failed RFC/DNS check). Please verify before replying.';
+        $noteText = "⚠️ Email validation warning: The email address '{$email}' may be invalid "
+            . '(failed RFC/DNS check). Please verify before replying.';
 
+        $this->addNonBlockingNote($conversationId, $noteText);
+    }
+
+    /**
+     * Fire-and-forget note delivery — logs success/failure but never throws.
+     */
+    private function addNonBlockingNote(int $conversationId, string $noteText): void
+    {
+        try {
             $this->helpScoutClient->addNoteToConversation(
                 IntId::from($conversationId),
                 $noteText,
                 $this->helpScoutSystemUserId->value,
             );
 
-            $this->logger->info('Added email validation warning note to HelpScout conversation', [
+            $this->logger->info('Added note to HelpScout conversation', [
                 'conversation_id' => $conversationId,
             ]);
         } catch (Throwable $e) { // @ignoreException - Non-critical: note failure shouldn't fail submission
-            $this->logger->error('Failed to add email validation note to HelpScout conversation', [
+            $this->logger->error('Failed to add note to HelpScout conversation', [
                 'conversation_id' => $conversationId,
                 'error' => $e->getMessage(),
             ]);

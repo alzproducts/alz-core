@@ -10,8 +10,6 @@ use App\Application\Feeds\ProductSearchFeedProcessingResult;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Data\MalformedFeedDataException;
 use App\Domain\Exceptions\Infrastructure\StorageOperationFailedException;
-use App\Domain\Exceptions\InvalidConfigurationException;
-use Illuminate\Support\Facades\Config;
 use Mockery;
 use Mockery\MockInterface;
 use Override;
@@ -24,14 +22,19 @@ use Tests\TestCase;
  * ProcessProductSearchFeedUseCase Unit Tests.
  *
  * Tests the use case orchestration:
- * - Configuration validation
- * - Delegation to processor
+ * - Delegation to processor with injected config values
  * - Exception propagation (Application layer doesn't catch)
  * - Logging workflow events
+ *
+ * Note: Config validation is now handled by DoofinderConfig (Infrastructure).
+ * The use case receives pre-validated scalar values via constructor injection.
  */
 #[CoversClass(ProcessProductSearchFeedUseCase::class)]
 final class ProcessProductSearchFeedUseCaseTest extends TestCase
 {
+    private const string SOURCE_URL = 'https://example.com/feed';
+    private const string STORAGE_PATH = 'feeds/output.xml';
+
     private ProductSearchFeedProcessorInterface&MockInterface $mockProcessor;
     private LoggerInterface&MockInterface $mockLogger;
     private ProcessProductSearchFeedUseCase $useCase;
@@ -47,15 +50,10 @@ final class ProcessProductSearchFeedUseCaseTest extends TestCase
 
         $this->useCase = new ProcessProductSearchFeedUseCase(
             $this->mockProcessor,
+            self::SOURCE_URL,
+            self::STORAGE_PATH,
             $this->mockLogger,
         );
-
-        // Default valid config
-        Config::set('feeds.doofinder', [
-            'source_url' => 'https://example.com/feed',
-            'storage_path' => 'feeds/output.xml',
-            'storage_disk' => 's3',
-        ]);
     }
 
     /*
@@ -70,7 +68,7 @@ final class ProcessProductSearchFeedUseCaseTest extends TestCase
         $this->mockProcessor
             ->shouldReceive('process')
             ->once()
-            ->with('https://example.com/feed', 'feeds/output.xml')
+            ->with(self::SOURCE_URL, self::STORAGE_PATH)
             ->andReturn(new ProductSearchFeedProcessingResult(
                 itemsProcessed: 100,
                 titlesSubstituted: 95,
@@ -81,132 +79,25 @@ final class ProcessProductSearchFeedUseCaseTest extends TestCase
     }
 
     #[Test]
-    public function it_passes_source_url_from_config(): void
+    public function it_passes_source_url_to_processor(): void
     {
-        Config::set('feeds.doofinder.source_url', 'https://custom.example.com/products.xml');
-
         $this->mockProcessor
             ->shouldReceive('process')
             ->once()
-            ->withArgs(static fn(string $url): bool => $url === 'https://custom.example.com/products.xml')
+            ->withArgs(static fn(string $url): bool => $url === self::SOURCE_URL)
             ->andReturn($this->createSuccessResult());
 
         $this->useCase->execute();
     }
 
     #[Test]
-    public function it_passes_storage_path_from_config(): void
+    public function it_passes_storage_path_to_processor(): void
     {
-        Config::set('feeds.doofinder.storage_path', 'custom/path/feed.xml');
-
         $this->mockProcessor
             ->shouldReceive('process')
             ->once()
-            ->withArgs(static fn(string $url, string $path): bool => $path === 'custom/path/feed.xml')
+            ->withArgs(static fn(string $url, string $path): bool => $path === self::STORAGE_PATH)
             ->andReturn($this->createSuccessResult());
-
-        $this->useCase->execute();
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | Configuration Validation Tests
-    |--------------------------------------------------------------------------
-    */
-
-    #[Test]
-    public function it_throws_when_config_is_missing(): void
-    {
-        Config::set('feeds.doofinder', null);
-
-        $this->expectException(InvalidConfigurationException::class);
-        $this->expectExceptionMessage('Required configuration is missing or invalid');
-
-        $this->useCase->execute();
-    }
-
-    #[Test]
-    public function it_throws_when_config_is_not_array(): void
-    {
-        Config::set('feeds.doofinder', 'invalid');
-
-        $this->expectException(InvalidConfigurationException::class);
-        $this->expectExceptionMessage('Required configuration is missing or invalid');
-
-        $this->useCase->execute();
-    }
-
-    #[Test]
-    public function it_throws_when_source_url_is_missing(): void
-    {
-        Config::set('feeds.doofinder', [
-            'storage_path' => 'feeds/output.xml',
-            'storage_disk' => 's3',
-        ]);
-
-        $this->expectException(InvalidConfigurationException::class);
-        $this->expectExceptionMessage('Required configuration is missing or invalid');
-
-        $this->useCase->execute();
-    }
-
-    #[Test]
-    public function it_throws_when_storage_path_is_missing(): void
-    {
-        Config::set('feeds.doofinder', [
-            'source_url' => 'https://example.com/feed',
-            'storage_disk' => 's3',
-        ]);
-
-        $this->expectException(InvalidConfigurationException::class);
-        $this->expectExceptionMessage('Required configuration is missing or invalid');
-
-        $this->useCase->execute();
-    }
-
-    #[Test]
-    public function it_throws_when_storage_disk_is_missing(): void
-    {
-        Config::set('feeds.doofinder', [
-            'source_url' => 'https://example.com/feed',
-            'storage_path' => 'feeds/output.xml',
-        ]);
-
-        $this->expectException(InvalidConfigurationException::class);
-        $this->expectExceptionMessage('Required configuration is missing or invalid');
-
-        $this->useCase->execute();
-    }
-
-    #[Test]
-    public function it_throws_when_source_url_is_empty(): void
-    {
-        Config::set('feeds.doofinder.source_url', '');
-
-        $this->expectException(InvalidConfigurationException::class);
-        $this->expectExceptionMessage('Required configuration is missing or invalid');
-
-        $this->useCase->execute();
-    }
-
-    #[Test]
-    public function it_throws_when_storage_path_is_empty(): void
-    {
-        Config::set('feeds.doofinder.storage_path', '');
-
-        $this->expectException(InvalidConfigurationException::class);
-        $this->expectExceptionMessage('Required configuration is missing or invalid');
-
-        $this->useCase->execute();
-    }
-
-    #[Test]
-    public function it_throws_when_config_value_is_not_string(): void
-    {
-        Config::set('feeds.doofinder.source_url', 123);
-
-        $this->expectException(InvalidConfigurationException::class);
-        $this->expectExceptionMessage('Required configuration is missing or invalid');
 
         $this->useCase->execute();
     }
@@ -279,8 +170,8 @@ final class ProcessProductSearchFeedUseCaseTest extends TestCase
             ->shouldReceive('info')
             ->once()
             ->withArgs(static fn(string $message, array $context): bool => \str_contains($message, 'Starting product search feed processing')
-                    && $context['source_url'] === 'https://example.com/feed'
-                    && $context['output_path'] === 'feeds/output.xml');
+                    && $context['source_url'] === self::SOURCE_URL
+                    && $context['output_path'] === self::STORAGE_PATH);
 
         $this->useCase->execute();
     }

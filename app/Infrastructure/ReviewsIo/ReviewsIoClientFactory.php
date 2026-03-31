@@ -24,6 +24,26 @@ final class ReviewsIoClientFactory
      */
     public static function create(): ReviewsIoClientInterface
     {
+        [$apiKey, $storeId] = self::validateCredentials();
+
+        $config = new ReviewsIoConfig(
+            apiKey: $apiKey,
+            storeId: $storeId,
+            timeout: Config::integer('reviewsio.timeout', 30),
+            retryTimes: Config::integer('reviewsio.retry_times', 3),
+            retryDelay: Config::integer('reviewsio.retry_delay', 100),
+        );
+
+        return new ReviewsIoClient(new ReviewsIoHttpTransport($config));
+    }
+
+    /**
+     * @return array{string, string} [apiKey, storeId]
+     *
+     * @throws InvalidConfigurationException When credentials are missing
+     */
+    private static function validateCredentials(): array
+    {
         $apiKey = \config('reviewsio.api_key');
         $storeId = \config('reviewsio.store_id');
 
@@ -35,17 +55,7 @@ final class ReviewsIoClientFactory
             throw new InvalidConfigurationException('REVIEWSIO_STORE');
         }
 
-        $config = new ReviewsIoConfig(
-            apiKey: $apiKey,
-            storeId: $storeId,
-            timeout: Config::integer('reviewsio.timeout', 30),
-            retryTimes: Config::integer('reviewsio.retry_times', 3),
-            retryDelay: Config::integer('reviewsio.retry_delay', 100),
-        );
-
-        $transport = new ReviewsIoHttpTransport($config);
-
-        return new ReviewsIoClient($transport);
+        return [$apiKey, $storeId];
     }
 
 }
