@@ -64,17 +64,39 @@ final readonly class SyncProductRatingsUseCase
         $totalSkus = \count($allSkus);
         $this->logger->info('Starting Reviews.io ratings sync', ['total_skus' => $totalSkus]);
 
+        [$totalSaved, $totalFailed] = $this->processRatingBatches($allSkus);
+
+        $this->logger->info('Ratings sync completed', [
+            'skus_queried' => $totalSkus,
+            'ratings_saved' => $totalSaved,
+            'failed' => $totalFailed,
+        ]);
+
+        return new SyncResult(fetched: $totalSkus, saved: $totalSaved, failed: $totalFailed);
+    }
+
+    /**
+     * Fetch ratings in API-sized chunks, buffer, and flush to DB in larger batches.
+     *
+     * @param list<string> $allSkus
+     *
+     * @return array{int<0, max>, int<0, max>} [totalSaved, totalFailed]
+     *
+     * @throws AuthenticationExpiredException When Reviews.io credentials invalid
+     * @throws ExternalServiceUnavailableException When API or DB unavailable
+     * @throws InvalidApiResponseException When API response parsing fails
+     */
+    private function processRatingBatches(array $allSkus): array
+    {
         $totalSaved = 0;
         $totalFailed = 0;
         /** @var list<ProductRating> $buffer */
         $buffer = [];
 
         foreach (\array_chunk($allSkus, self::API_BATCH_SIZE) as $skuBatch) {
-            // Fetch ratings from Reviews.io (only SKUs with reviews are returned)
             $ratings = $this->reviewsIoClient->getProductRatingBatch($skuBatch);
             $buffer = [...$buffer, ...$ratings];
 
-            // Flush to database when buffer is full
             if (\count($buffer) >= self::DB_BATCH_SIZE) {
                 $result = $this->flushBuffer($buffer);
                 $totalSaved += $result->succeeded;
@@ -83,24 +105,13 @@ final readonly class SyncProductRatingsUseCase
             }
         }
 
-        // Flush remaining ratings
         if ($buffer !== []) {
             $result = $this->flushBuffer($buffer);
             $totalSaved += $result->succeeded;
             $totalFailed += $result->failed;
         }
 
-        $this->logger->info('Ratings sync completed', [
-            'skus_queried' => $totalSkus,
-            'ratings_saved' => $totalSaved,
-            'failed' => $totalFailed,
-        ]);
-
-        return new SyncResult(
-            fetched: $totalSkus,
-            saved: $totalSaved,
-            failed: $totalFailed,
-        );
+        return [$totalSaved, $totalFailed];
     }
 
     /**

@@ -140,10 +140,24 @@ final class HelpScoutResponseParser
      */
     private static function extractEmbedded(array $json, string $key): array
     {
-        /** @var array<string, mixed>|null $embeddedRoot */
-        $embeddedRoot = $json['_embedded'] ?? null;
+        $root = self::getEmbeddedRoot($json);
 
-        if ($embeddedRoot === null) {
+        return self::getEmbeddedResource($root, $key, $json);
+    }
+
+    /**
+     * @param array<mixed> $json
+     *
+     * @return array<string, mixed>
+     *
+     * @throws InvalidApiResponseException When _embedded key is missing
+     */
+    private static function getEmbeddedRoot(array $json): array
+    {
+        /** @var array<string, mixed>|null $root */
+        $root = $json['_embedded'] ?? null;
+
+        if ($root === null) {
             self::logParsingFailure('Missing _embedded in response', $json);
 
             throw new InvalidApiResponseException(
@@ -152,8 +166,21 @@ final class HelpScoutResponseParser
             );
         }
 
+        return $root;
+    }
+
+    /**
+     * @param array<string, mixed> $root
+     * @param array<mixed> $json Original response for error logging
+     *
+     * @return array<mixed>
+     *
+     * @throws InvalidApiResponseException When resource key is missing
+     */
+    private static function getEmbeddedResource(array $root, string $key, array $json): array
+    {
         /** @var array<mixed>|null $embedded */
-        $embedded = $embeddedRoot[$key] ?? null;
+        $embedded = $root[$key] ?? null;
 
         if ($embedded === null) {
             self::logParsingFailure("Missing _embedded.{$key} in response", $json);

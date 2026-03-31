@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Application\ReviewsIo\UseCases;
 
-use App\Application\Contracts\ReviewsIo\ProductRatingRepositoryInterface;
+use App\Application\Contracts\ReviewsIo\ChangedRatingQueryRepositoryInterface;
 use App\Application\Contracts\Shopwired\ProductUpdateClientInterface;
 use App\Application\ReviewsIo\DTOs\ProductRatingChangeDTO;
 use App\Application\ReviewsIo\UseCases\UpdateShopwiredRatingsUseCase;
@@ -28,7 +28,7 @@ use Tests\TestCase;
 #[CoversClass(UpdateShopwiredRatingsUseCase::class)]
 final class UpdateShopwiredRatingsUseCaseTest extends TestCase
 {
-    private ProductRatingRepositoryInterface&MockInterface $ratingRepository;
+    private ChangedRatingQueryRepositoryInterface&MockInterface $ratingRepository;
 
     private ProductUpdateClientInterface&MockInterface $updateClient;
 
@@ -40,7 +40,7 @@ final class UpdateShopwiredRatingsUseCaseTest extends TestCase
     {
         parent::setUp();
 
-        $this->ratingRepository = Mockery::mock(ProductRatingRepositoryInterface::class);
+        $this->ratingRepository = Mockery::mock(ChangedRatingQueryRepositoryInterface::class);
         $this->updateClient = Mockery::mock(ProductUpdateClientInterface::class);
         $this->logger = Mockery::mock(LoggerInterface::class);
 

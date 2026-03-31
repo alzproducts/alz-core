@@ -24,6 +24,19 @@ final class ExcessiveMethodLengthRule implements Rule
 {
     private const int THRESHOLD = 20;
 
+    /**
+     * Mapper methods are structural field-mapping whose length grows linearly
+     * with field count. They have no extractable logic and are exempt from the
+     * method-length rule.
+     */
+    private const array EXCLUDED_METHODS = [
+        'toDomain',
+        'fromModel',
+        'toModelAttributes',
+        'toSdk',
+        'fromDomain',
+    ];
+
     public function getNodeType(): string
     {
         return ClassMethod::class;
@@ -37,6 +50,10 @@ final class ExcessiveMethodLengthRule implements Rule
         $namespace = $scope->getNamespace();
 
         if ($namespace === null || ! \str_starts_with($namespace, 'App\\')) {
+            return [];
+        }
+
+        if (\in_array($node->name->name, self::EXCLUDED_METHODS, true)) {
             return [];
         }
 

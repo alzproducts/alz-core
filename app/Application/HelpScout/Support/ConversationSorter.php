@@ -42,22 +42,27 @@ final class ConversationSorter
             return [];
         }
 
-        \usort($conversations, static function (Conversation $a, Conversation $b): int {
-            $statusA = self::STATUS_PRIORITY[$a->status] ?? 2;
-            $statusB = self::STATUS_PRIORITY[$b->status] ?? 2;
-
-            if ($statusA !== $statusB) {
-                return $statusA <=> $statusB;
-            }
-
-            // Within same status, sort by update time (newest first)
-            $timeA = $a->userUpdatedAt ?? $a->updatedAt ?? $a->createdAt;
-            $timeB = $b->userUpdatedAt ?? $b->updatedAt ?? $b->createdAt;
-
-            return $timeB <=> $timeA;
-        });
+        \usort($conversations, self::compareByStatusAndDate(...));
 
         return $conversations;
+    }
+
+    /**
+     * Compare two conversations by status priority, then newest update time.
+     */
+    private static function compareByStatusAndDate(Conversation $a, Conversation $b): int
+    {
+        $statusA = self::STATUS_PRIORITY[$a->status] ?? 2;
+        $statusB = self::STATUS_PRIORITY[$b->status] ?? 2;
+
+        if ($statusA !== $statusB) {
+            return $statusA <=> $statusB;
+        }
+
+        $timeA = $a->userUpdatedAt ?? $a->updatedAt ?? $a->createdAt;
+        $timeB = $b->userUpdatedAt ?? $b->updatedAt ?? $b->createdAt;
+
+        return $timeB <=> $timeA;
     }
 
     /**

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Infrastructure\HelpScout\Services;
 
 use libphonenumber\NumberParseException;
+use libphonenumber\PhoneNumber;
 use libphonenumber\PhoneNumberFormat;
 use libphonenumber\PhoneNumberUtil;
 
@@ -49,24 +50,31 @@ final readonly class PhoneFormatterService
         try {
             $parsed = $this->phoneUtil->parse($trimmed, self::DEFAULT_REGION);
 
-            // If invalid, return original - don't lose customer data
-            if (!$this->phoneUtil->isValidNumber($parsed)) {
+            if (! $this->phoneUtil->isValidNumber($parsed)) {
                 return $trimmed;
             }
 
-            $regionCode = $this->phoneUtil->getRegionCodeForNumber($parsed);
-
-            // UK numbers: national format (07931 423 843)
-            // International: international format (+1 555 123 4567)
-            $format = $regionCode === self::DEFAULT_REGION
-                ? PhoneNumberFormat::NATIONAL
-                : PhoneNumberFormat::INTERNATIONAL;
-
-            return $this->phoneUtil->format($parsed, $format);
+            return $this->formatValidNumber($parsed);
         } catch (NumberParseException) {
-            // Can't parse at all - return original, don't lose data
             return $trimmed;
         }
+    }
+
+    /**
+     * Format a validated phone number based on its region.
+     *
+     * UK numbers: national format (07931 423 843)
+     * International: international format (+1 555 123 4567)
+     */
+    private function formatValidNumber(PhoneNumber $parsed): string
+    {
+        $regionCode = $this->phoneUtil->getRegionCodeForNumber($parsed);
+
+        $format = $regionCode === self::DEFAULT_REGION
+            ? PhoneNumberFormat::NATIONAL
+            : PhoneNumberFormat::INTERNATIONAL;
+
+        return $this->phoneUtil->format($parsed, $format);
     }
 
     /**

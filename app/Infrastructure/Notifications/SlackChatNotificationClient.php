@@ -163,13 +163,7 @@ final readonly class SlackChatNotificationClient implements ChatNotificationInte
      */
     private function send(string $configKey, Notification $notification): void
     {
-        $channel = \config(self::CONFIG_PREFIX . $configKey);
-        if (! \is_string($channel) || $channel === '') {
-            throw new InvalidConfigurationException(
-                self::CONFIG_PREFIX . $configKey,
-                "Slack channel '{$configKey}' is not configured. Set the corresponding env variable.",
-            );
-        }
+        $channel = $this->resolveChannel($configKey);
 
         try {
             $notifiable = (new AnonymousNotifiable())->route(self::SLACK_DRIVER, $channel);
@@ -183,5 +177,22 @@ final readonly class SlackChatNotificationClient implements ChatNotificationInte
 
             throw new ExternalServiceUnavailableException('Slack', previous: $e);
         }
+    }
+
+    /**
+     * @throws InvalidConfigurationException When channel config is missing or empty
+     */
+    private function resolveChannel(string $configKey): string
+    {
+        $channel = \config(self::CONFIG_PREFIX . $configKey);
+
+        if (! \is_string($channel) || $channel === '') {
+            throw new InvalidConfigurationException(
+                self::CONFIG_PREFIX . $configKey,
+                "Slack channel '{$configKey}' is not configured. Set the corresponding env variable.",
+            );
+        }
+
+        return $channel;
     }
 }

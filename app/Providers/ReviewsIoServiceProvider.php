@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Application\Contracts\ReviewsIo\ChangedRatingQueryRepositoryInterface;
 use App\Application\Contracts\ReviewsIo\ProductRatingRepositoryInterface;
 use App\Application\Contracts\ReviewsIoClientInterface;
+use App\Infrastructure\ReviewsIo\Repositories\ChangedRatingQueryRepository;
 use App\Infrastructure\ReviewsIo\Repositories\EloquentProductRatingRepository;
 use App\Infrastructure\ReviewsIo\ReviewsIoClientFactory;
 use Illuminate\Contracts\Support\DeferrableProvider;
@@ -41,6 +43,11 @@ final class ReviewsIoServiceProvider extends ServiceProvider implements Deferrab
             ProductRatingRepositoryInterface::class,
             EloquentProductRatingRepository::class,
         );
+
+        $this->app->scoped(
+            ChangedRatingQueryRepositoryInterface::class,
+            ChangedRatingQueryRepository::class,
+        );
     }
 
     /**
@@ -52,6 +59,7 @@ final class ReviewsIoServiceProvider extends ServiceProvider implements Deferrab
     public function provides(): array
     {
         return [
+            ChangedRatingQueryRepositoryInterface::class,
             ProductRatingRepositoryInterface::class,
             ReviewsIoClientInterface::class,
         ];

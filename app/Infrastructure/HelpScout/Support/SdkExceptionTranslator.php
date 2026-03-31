@@ -45,29 +45,65 @@ final class SdkExceptionTranslator
         try {
             return $operation();
         } catch (AuthenticationException $e) {
-            Log::error(self::SERVICE_NAME . " authentication failed during {$context}", [
-                ...$logContext,
-                'error' => $e->getMessage(),
-            ]);
-            throw new AuthenticationExpiredException(self::SERVICE_NAME, 'Authentication failed', $e);
+            throw self::handleAuthError($e, $context, $logContext);
         } catch (ValidationErrorException $e) {
-            $vndError = $e->getError();
-            Log::error(self::SERVICE_NAME . " validation error during {$context}", [
-                ...$logContext,
-                'error' => $e->getMessage(),
-                ...VndErrorFormatter::toLogContext($vndError),
-            ]);
-            throw new InvalidApiRequestException(
-                self::SERVICE_NAME,
-                VndErrorFormatter::toMessage($vndError),
-                $e,
-            );
+            throw self::handleValidationError($e, $context, $logContext);
         } catch (ConnectException $e) {
-            Log::error(self::SERVICE_NAME . " connection failed during {$context}", [
-                ...$logContext,
-                'error' => $e->getMessage(),
-            ]);
-            throw new ExternalServiceUnavailableException(self::SERVICE_NAME, previous: $e);
+            throw self::handleConnectionError($e, $context, $logContext);
         }
+    }
+
+    /**
+     * @param array<string, mixed> $logContext
+     */
+    private static function handleAuthError(
+        AuthenticationException $e,
+        string $context,
+        array $logContext,
+    ): AuthenticationExpiredException {
+        Log::error(self::SERVICE_NAME . " authentication failed during {$context}", [
+            ...$logContext,
+            'error' => $e->getMessage(),
+        ]);
+
+        return new AuthenticationExpiredException(self::SERVICE_NAME, 'Authentication failed', $e);
+    }
+
+    /**
+     * @param array<string, mixed> $logContext
+     */
+    private static function handleValidationError(
+        ValidationErrorException $e,
+        string $context,
+        array $logContext,
+    ): InvalidApiRequestException {
+        $vndError = $e->getError();
+        Log::error(self::SERVICE_NAME . " validation error during {$context}", [
+            ...$logContext,
+            'error' => $e->getMessage(),
+            ...VndErrorFormatter::toLogContext($vndError),
+        ]);
+
+        return new InvalidApiRequestException(
+            self::SERVICE_NAME,
+            VndErrorFormatter::toMessage($vndError),
+            $e,
+        );
+    }
+
+    /**
+     * @param array<string, mixed> $logContext
+     */
+    private static function handleConnectionError(
+        ConnectException $e,
+        string $context,
+        array $logContext,
+    ): ExternalServiceUnavailableException {
+        Log::error(self::SERVICE_NAME . " connection failed during {$context}", [
+            ...$logContext,
+            'error' => $e->getMessage(),
+        ]);
+
+        return new ExternalServiceUnavailableException(self::SERVICE_NAME, previous: $e);
     }
 }

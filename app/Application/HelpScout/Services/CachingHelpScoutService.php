@@ -126,7 +126,28 @@ final readonly class CachingHelpScoutService
             return [];
         }
 
-        // Check cache for each query
+        [$results, $uncachedQueries, $uncachedIndices] = $this->separateCachedAndUncached($queries);
+
+        if ($uncachedQueries !== []) {
+            $fetched = $this->conversationsClient->getConversationsBatch($uncachedQueries);
+            $results += $this->processFetchedBatch($fetched, $uncachedQueries, $uncachedIndices);
+        }
+
+        \ksort($results);
+
+        /** @var list<Conversation> */
+        return \array_merge(...\array_values($results));
+    }
+
+    /**
+     * Separate queries into cached results and uncached queries needing fetch.
+     *
+     * @param list<ConversationQueryParams> $queries
+     *
+     * @return array{array<int, list<Conversation>>, list<ConversationQueryParams>, list<int>}
+     */
+    private function separateCachedAndUncached(array $queries): array
+    {
         $results = [];
         $uncachedQueries = [];
         $uncachedIndices = [];
@@ -143,17 +164,7 @@ final readonly class CachingHelpScoutService
             }
         }
 
-        // Fetch uncached queries in parallel
-        if ($uncachedQueries !== []) {
-            $fetched = $this->conversationsClient->getConversationsBatch($uncachedQueries);
-            $results += $this->processFetchedBatch($fetched, $uncachedQueries, $uncachedIndices);
-        }
-
-        // Sort by original index and flatten
-        \ksort($results);
-
-        /** @var list<Conversation> */
-        return \array_merge(...\array_values($results));
+        return [$results, $uncachedQueries, $uncachedIndices];
     }
 
     /**
@@ -179,17 +190,29 @@ final readonly class CachingHelpScoutService
             if (!\array_key_exists($i, $uncachedIndices) || !\array_key_exists($i, $uncachedQueries)) {
                 throw new LogicException('Batch response indices must match request indices');
             }
-            $originalIndex = $uncachedIndices[$i];
-            $params = $uncachedQueries[$i];
 
-            // Enrich and cache
-            $enriched = $this->enricher->enrich($conversations);
-            $this->cache->put($params->getCacheKey(), $enriched, $params->ttlSeconds);
-
-            $results[$originalIndex] = $enriched;
+            $results[$uncachedIndices[$i]] = $this->enrichAndCache($conversations, $uncachedQueries[$i]);
         }
 
         return $results;
+    }
+
+    /**
+     * Enrich conversations with mailbox data and cache the result.
+     *
+     * @param list<Conversation> $conversations
+     *
+     * @return list<Conversation>
+     *
+     * @throws ExternalServiceUnavailableException When API unavailable during enrichment
+     * @throws InvalidApiResponseException When API response structure is invalid
+     */
+    private function enrichAndCache(array $conversations, ConversationQueryParams $params): array
+    {
+        $enriched = $this->enricher->enrich($conversations);
+        $this->cache->put($params->getCacheKey(), $enriched, $params->ttlSeconds);
+
+        return $enriched;
     }
 
     /**
