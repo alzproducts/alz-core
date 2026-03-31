@@ -37,9 +37,11 @@ final readonly class ListProductsUseCase
     public function execute(ProductListQueryParams $query): PaginatedListDTO
     {
         $this->logger->info('Listing products', [
-            'page' => $query->page,
-            'per_page' => $query->perPage,
+            'page' => $query->pagination->page,
+            'per_page' => $query->pagination->perPage,
             'includes' => $query->includes,
+            'sort' => $query->sortField?->value,
+            'direction' => $query->sortDirection->value,
         ]);
 
         $result = $this->productRepository->paginate($query);
