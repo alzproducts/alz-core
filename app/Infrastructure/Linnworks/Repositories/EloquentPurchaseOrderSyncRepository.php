@@ -207,7 +207,7 @@ final class EloquentPurchaseOrderSyncRepository extends AbstractEloquentReposito
             'postage_paid' => $header->postagePaid->toNet(),
             'total_cost' => $header->totalCost,
             'tax_paid' => $header->taxPaid,
-            'shipping_tax_rate' => $header->shippingTaxRate->percentage,
+            'shipping_tax_rate' => $header->shippingTaxRate?->percentage,
             'conversion_rate' => $header->conversionRate,
             'converted_shipping_cost' => $header->convertedShippingCost,
             'converted_shipping_tax' => $header->convertedShippingTax,

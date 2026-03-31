@@ -50,7 +50,7 @@ final class PurchaseOrderItemResponse extends Data implements DomainConvertibleI
             packSize: $this->packSize,
             cost: $this->cost,
             tax: $this->tax,
-            taxRate: TaxRate::fromPercentage($this->taxRate),
+            taxRate: $this->taxRate < 0 ? null : TaxRate::fromPercentage($this->taxRate), // -1 means "not set"
             sortOrder: $this->sortOrder,
         );
     }

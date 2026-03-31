@@ -93,7 +93,7 @@ final readonly class PurchaseOrderItemsBatchQuery extends AbstractLinnworksQuery
                 packSize: (int) $parsed->PackSize,
                 cost: (float) $parsed->Cost,
                 tax: (float) $parsed->Tax,
-                taxRate: TaxRate::fromPercentage((float) $parsed->TaxRate),
+                taxRate: (float) $parsed->TaxRate < 0 ? null : TaxRate::fromPercentage((float) $parsed->TaxRate), // -1 means "not set"
                 sortOrder: (int) $parsed->SortOrder,
             );
         }
