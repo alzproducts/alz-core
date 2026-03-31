@@ -48,6 +48,12 @@ final class ShopwiredModelMustImplementMappableRule implements Rule
             return [];
         }
 
+        // Skip read-only view models — they back PostgreSQL views and have no write path,
+        // so implementing fromDomainAttributes() would be semantically incorrect
+        if (\str_ends_with($className, 'ViewModel')) {
+            return [];
+        }
+
         // Skip interfaces and abstract classes
         if ($classReflection->isInterface() || $classReflection->isAbstract()) {
             return [];

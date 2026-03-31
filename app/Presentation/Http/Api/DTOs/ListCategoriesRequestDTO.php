@@ -20,7 +20,7 @@ use Spatie\LaravelData\Data;
 final class ListCategoriesRequestDTO extends Data
 {
     public function __construct(
-        #[IntegerType, Min(1), Max(500)]
+        #[IntegerType, Min(1), Max(1000)]
         public readonly int $per_page = 500,
         #[IntegerType, Min(1)]
         public readonly int $page = 1,
