@@ -12,6 +12,7 @@ use App\Domain\Catalog\Category\ValueObjects\CategoryView;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Domain\Exceptions\Data\MissingRequiredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\IntId;
@@ -143,6 +144,7 @@ final class EloquentCategoryRepository extends AbstractEloquentRepository implem
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      * @throws InvalidCustomFieldValueException
+     * @throws MissingRequiredDataException
      */
     public function paginate(int $perPage, int $page, array $includes = [], bool $includeInactive = false): PaginatedListDTO
     {
@@ -170,6 +172,7 @@ final class EloquentCategoryRepository extends AbstractEloquentRepository implem
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      * @throws InvalidCustomFieldValueException
+     * @throws MissingRequiredDataException
      */
     public function findCategoryForApi(IntId $categoryId, array $includes = []): CategoryView
     {
