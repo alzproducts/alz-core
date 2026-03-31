@@ -98,6 +98,7 @@ final readonly class SyncLinnworksOrdersUseCase
 
                 $buffer = [];
                 $pagesBuffered = 0;
+                \gc_collect_cycles();
                 $batchesFlushed++;
 
                 if ($batchesFlushed % self::PROGRESS_LOG_INTERVAL === 0) {
@@ -105,6 +106,7 @@ final readonly class SyncLinnworksOrdersUseCase
                         'fetched' => $totalFetched,
                         'saved' => $totalSaved,
                         'failed' => $totalFailed,
+                        'memory_peak_mb' => \round(\memory_get_peak_usage(true) / 1048576, 1),
                     ]);
                 }
             }
@@ -131,6 +133,7 @@ final readonly class SyncLinnworksOrdersUseCase
             'saved' => $totalSaved,
             'failed' => $totalFailed,
             'latest_last_updated' => $latestLastUpdated?->format('Y-m-d H:i:s'),
+            'memory_peak_mb' => \round(\memory_get_peak_usage(true) / 1048576, 1),
         ]);
 
         return new SyncResult(
