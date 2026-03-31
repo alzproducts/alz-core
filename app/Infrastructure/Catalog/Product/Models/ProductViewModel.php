@@ -49,6 +49,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property float $effective_price Selling price after sale logic (sale_price if active, else price)
  * @property float|null $cost_price Linnworks cost price (from default supplier, tax-exclusive)
  * @property float|null $profit_margin Gross profit margin % computed at DB level
+ * @property bool $has_free_delivery Whether product has a free delivery designation
  * @property-read Collection<int, ProductVariationViewModel> $variations
  */
 final class ProductViewModel extends Model
@@ -109,6 +110,7 @@ final class ProductViewModel extends Model
             'vat_exclusive' => 'boolean',
             'vat_relief' => 'boolean',
             'is_on_sale' => 'boolean',
+            'has_free_delivery' => 'boolean',
         ];
     }
 

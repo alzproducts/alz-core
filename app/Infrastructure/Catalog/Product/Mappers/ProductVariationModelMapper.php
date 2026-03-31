@@ -8,11 +8,6 @@ use App\Domain\Catalog\Product\ValueObjects\Gtin;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariation;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariationOption;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariationView;
-use App\Domain\Catalog\Product\ValueObjects\Sku;
-use App\Domain\Inventory\ValueObjects\Weight;
-use App\Domain\Shared\Money\ValueObjects\Money;
-use App\Domain\ValueObjects\IntId;
-use App\Domain\ValueObjects\TaxType;
 use App\Infrastructure\Catalog\Product\Models\ProductVariationModel;
 use App\Infrastructure\Catalog\Product\Models\ProductVariationViewModel;
 
@@ -52,8 +47,8 @@ final class ProductVariationModelMapper
     /**
      * API projection: returns a domain-typed ProductVariationView from a view model.
      *
+     * Passes primitives directly — the VO self-constructs domain types.
      * Prices are already resolved (parent inheritance applied in SQL via COALESCE).
-     * Cost price comes directly from the view's Linnworks join — no factory needed.
      *
      * @param bool $vatExclusive Whether prices exclude VAT (from parent product)
      */
@@ -61,19 +56,19 @@ final class ProductVariationModelMapper
         ProductVariationViewModel $model,
         bool $vatExclusive,
     ): ProductVariationView {
-        $taxType = $vatExclusive ? TaxType::ZeroRated : TaxType::Inclusive;
-
         return new ProductVariationView(
-            id: IntId::from($model->external_id),
-            sku: $model->sku !== null && \mb_trim($model->sku) !== '' ? Sku::fromTrusted(\mb_trim($model->sku)) : null,
-            gtin: $model->gtin !== null ? Gtin::fromTrusted($model->gtin) : null,
-            price: Money::fromTaxType($model->price, $taxType),
-            costPrice: Money::nonZeroOrNull($model->cost_price, TaxType::Exclusive),
-            salePrice: Money::nonZeroOrNull($model->sale_price, $taxType),
+            externalId: $model->external_id,
+            sku: $model->sku,
+            gtin: $model->gtin,
+            price: $model->price,
+            costPrice: $model->cost_price,
+            salePrice: $model->sale_price,
+            effectivePrice: $model->effective_price,
             isOnSale: $model->is_on_sale,
             profitMargin: $model->profit_margin,
             stock: $model->stock,
-            weight: $model->weight !== null ? Weight::kilogram($model->weight) : null,
+            weight: $model->weight,
+            vatExclusive: $vatExclusive,
             mpn: $model->mpn,
             imageIndex: $model->image_index,
             options: self::buildOptions($model->options),

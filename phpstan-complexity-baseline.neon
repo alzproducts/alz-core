@@ -739,7 +739,13 @@ parameters:
 			path: app/Domain/Catalog/Product/ValueObjects/ProductVariation.php
 
 		-
-			rawMessage: 'Method __construct() is 33 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			rawMessage: 'Method __construct() is 27 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			identifier: alz.excessiveMethodLength
+			count: 1
+			path: app/Domain/Catalog/Product/ValueObjects/ProductVariationView.php
+
+		-
+			rawMessage: 'Method __construct() is 47 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Domain/Catalog/Product/ValueObjects/ProductView.php
@@ -909,7 +915,7 @@ parameters:
 			path: app/Infrastructure/Catalog/Product/Mappers/ProductVariationModelMapper.php
 
 		-
-			rawMessage: 'Method toViewDomain() is 36 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			rawMessage: 'Method toViewDomain() is 37 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Infrastructure/Catalog/Product/Mappers/ProductViewAssembler.php
@@ -2255,7 +2261,7 @@ parameters:
 			path: app/Infrastructure/Shopwired/Repositories/EloquentOrderRepository.php
 
 		-
-			rawMessage: 'Class EloquentProductRepository is 828 lines long — exceeds the 250-line limit. Consider decomposing into smaller, focused classes.'
+			rawMessage: 'Class EloquentProductRepository is 829 lines long — exceeds the 250-line limit. Consider decomposing into smaller, focused classes.'
 			identifier: alz.excessiveClassLength
 			count: 1
 			path: app/Infrastructure/Shopwired/Repositories/EloquentProductRepository.php
@@ -2687,13 +2693,19 @@ parameters:
 			path: app/Presentation/Http/Api/Resources/ProductDetailResource.php
 
 		-
-			rawMessage: 'Method baseFields() is 32 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			rawMessage: 'Method buildFilters() is 21 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			identifier: alz.excessiveMethodLength
+			count: 1
+			path: app/Presentation/Http/Api/DTOs/ListProductsRequestDTO.php
+
+		-
+			rawMessage: 'Method baseFields() is 34 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Presentation/Http/Api/Resources/ProductResource.php
 
 		-
-			rawMessage: 'Method toArray() is 22 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			rawMessage: 'Method toArray() is 23 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Presentation/Http/Api/Resources/ProductVariationResource.php

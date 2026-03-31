@@ -108,6 +108,7 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
                     ProductFilterField::CategoryId => $q->whereJsonContains('category_ids', $value),
                     ProductFilterField::IsOnSale => $q->where('is_on_sale', $value),
                     ProductFilterField::Sku => $q->where('sku', $value),
+                    ProductFilterField::HasFreeDelivery => $q->where('has_free_delivery', $value),
                 };
             }
 

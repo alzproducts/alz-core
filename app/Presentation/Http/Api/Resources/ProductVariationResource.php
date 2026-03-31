@@ -31,6 +31,7 @@ final class ProductVariationResource extends JsonResource
             'price' => $variation->price->toGross(),
             'cost_price' => $variation->costPrice?->toNet(),
             'sale_price' => $variation->salePrice?->toGross(),
+            'effective_price' => $variation->effectivePrice->toGross(),
             'profit_margin' => $variation->profitMargin,
             'is_on_sale' => $variation->isOnSale,
             'stock' => $variation->stock,

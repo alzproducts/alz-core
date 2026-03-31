@@ -92,7 +92,12 @@ return new class extends Migration {
                     WHEN s.purchase_price IS NOT NULL AND pr.effective_price_net > 0
                         THEN ROUND((pr.effective_price_net - s.purchase_price) / pr.effective_price_net * 100, 2)
                     ELSE NULL
-                END AS profit_margin
+                END AS profit_margin,
+
+                -- Computed: has free delivery designation (non-empty, non-'none' free_delivery custom field)
+                (p.custom_fields->>'free_delivery' IS NOT NULL
+                 AND p.custom_fields->>'free_delivery' != ''
+                 AND p.custom_fields->>'free_delivery' != 'none') AS has_free_delivery
 
             FROM shopwired.products p
             INNER JOIN pricing pr ON pr.id = p.id

@@ -10,4 +10,5 @@ enum ProductFilterField: string
     case CategoryId = 'category_id';
     case IsOnSale = 'is_on_sale';
     case Sku = 'sku';
+    case HasFreeDelivery = 'has_free_delivery';
 }

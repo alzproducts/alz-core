@@ -8,10 +8,9 @@ use App\Application\Catalog\Queries\ProductListQueryParams;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Application\DTOs\PaginatedListDTO;
 use App\Domain\Access\ValueObjects\AuthenticatedUser;
+use App\Domain\Catalog\Product\Enums\ProductFilterField;
 use App\Domain\Catalog\Product\Enums\ProductInclude;
 use App\Domain\Catalog\Product\ValueObjects\ProductView;
-use App\Domain\Shared\Money\ValueObjects\Money;
-use App\Domain\ValueObjects\IntId;
 use App\Presentation\Http\Api\Controllers\ProductController;
 use App\Presentation\Http\Auth\Middleware\ValidateSupabaseJwtMiddleware;
 use App\Presentation\Http\Middleware\EnsureUserApprovedMiddleware;
@@ -109,6 +108,96 @@ final class ProductControllerTest extends TestCase
 
     /*
     |--------------------------------------------------------------------------
+    | Filter pass-through
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function category_id_filter_passes_through_to_query(): void
+    {
+        $dto = PaginatedListDTO::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
+
+        $this->productRepository
+            ->shouldReceive('paginate')
+            ->once()
+            ->with(Mockery::on(static fn(ProductListQueryParams $q): bool => ($q->filters[ProductFilterField::CategoryId->value] ?? null) === 42))
+            ->andReturn($dto);
+
+        $response = $this->asApprovedUser()->getJson('/api/products?category_id=42');
+
+        $response->assertStatus(200);
+    }
+
+    #[Test]
+    public function is_on_sale_filter_passes_through_to_query(): void
+    {
+        $dto = PaginatedListDTO::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
+
+        $this->productRepository
+            ->shouldReceive('paginate')
+            ->once()
+            ->with(Mockery::on(static fn(ProductListQueryParams $q): bool => ($q->filters[ProductFilterField::IsOnSale->value] ?? null) === true))
+            ->andReturn($dto);
+
+        $response = $this->asApprovedUser()->getJson('/api/products?is_on_sale=1');
+
+        $response->assertStatus(200);
+    }
+
+    #[Test]
+    public function sku_filter_passes_through_to_query(): void
+    {
+        $dto = PaginatedListDTO::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
+
+        $this->productRepository
+            ->shouldReceive('paginate')
+            ->once()
+            ->with(Mockery::on(static fn(ProductListQueryParams $q): bool => ($q->filters[ProductFilterField::Sku->value] ?? null) === 'ABC-123'))
+            ->andReturn($dto);
+
+        $response = $this->asApprovedUser()->getJson('/api/products?sku=ABC-123');
+
+        $response->assertStatus(200);
+    }
+
+    #[Test]
+    public function has_free_delivery_filter_passes_through_to_query(): void
+    {
+        $dto = PaginatedListDTO::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
+
+        $this->productRepository
+            ->shouldReceive('paginate')
+            ->once()
+            ->with(Mockery::on(static fn(ProductListQueryParams $q): bool => ($q->filters[ProductFilterField::HasFreeDelivery->value] ?? null) === true))
+            ->andReturn($dto);
+
+        $response = $this->asApprovedUser()->getJson('/api/products?has_free_delivery=1');
+
+        $response->assertStatus(200);
+    }
+
+    #[Test]
+    public function omitted_filters_are_not_included_in_query(): void
+    {
+        $dto = PaginatedListDTO::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
+
+        $this->productRepository
+            ->shouldReceive('paginate')
+            ->once()
+            ->with(Mockery::on(static function (ProductListQueryParams $q): bool {
+                // Only is_active should be present when no filters specified
+                return \count($q->filters) === 1
+                    && ($q->filters[ProductFilterField::IsActive->value] ?? null) === true;
+            }))
+            ->andReturn($dto);
+
+        $response = $this->asApprovedUser()->getJson('/api/products');
+
+        $response->assertStatus(200);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
     | Validation
     |--------------------------------------------------------------------------
     */
@@ -137,6 +226,28 @@ final class ProductControllerTest extends TestCase
     public function per_page_above_maximum_returns_422(): void
     {
         $response = $this->asApprovedUser()->getJson('/api/products?per_page=1001');
+
+        $response->assertStatus(422);
+        $body = $response->json();
+        $this->assertSame('validation_error', $body['error']['type']);
+    }
+
+    #[Test]
+    public function category_id_below_minimum_returns_422(): void
+    {
+        $response = $this->asApprovedUser()->getJson('/api/products?category_id=0');
+
+        $response->assertStatus(422);
+        $body = $response->json();
+        $this->assertSame('validation_error', $body['error']['type']);
+    }
+
+    #[Test]
+    public function sku_exceeding_max_length_returns_422(): void
+    {
+        $longSku = \str_repeat('A', 101);
+
+        $response = $this->asApprovedUser()->getJson('/api/products?sku=' . $longSku);
 
         $response->assertStatus(422);
         $body = $response->json();
@@ -234,17 +345,18 @@ final class ProductControllerTest extends TestCase
     private function createProduct(int $id, string $title): ProductView
     {
         return new ProductView(
-            id: IntId::from($id),
+            externalId: $id,
             sku: null,
             gtin: null,
             title: $title,
             description: null,
             slug: 'test-product-' . $id,
             url: 'https://example.com/test-product-' . $id,
-            price: Money::inclusive(9.99),
+            price: 9.99,
             costPrice: null,
             salePrice: null,
             comparePrice: null,
+            effectivePrice: 9.99,
             isOnSale: false,
             profitMargin: null,
             stock: 10,

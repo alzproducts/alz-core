@@ -5,9 +5,6 @@ declare(strict_types=1);
 namespace Tests\Unit\Domain\Catalog\Product\ValueObjects;
 
 use App\Domain\Catalog\Product\ValueObjects\ProductVariationView;
-use App\Domain\Inventory\ValueObjects\Weight;
-use App\Domain\Shared\Money\ValueObjects\Money;
-use App\Domain\ValueObjects\IntId;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -55,16 +52,64 @@ final class ProductVariationViewTest extends TestCase
 
     /*
     |--------------------------------------------------------------------------
-    | Domain Types
+    | Self-construction from primitives
     |--------------------------------------------------------------------------
     */
 
     #[Test]
+    public function self_constructs_id_from_int(): void
+    {
+        $view = $this->createView();
+
+        self::assertSame(1, $view->id->value);
+    }
+
+    #[Test]
+    public function self_constructs_price_as_money(): void
+    {
+        $view = $this->createView(price: 50.00);
+
+        self::assertSame(50.0, $view->price->toGross());
+    }
+
+    #[Test]
+    public function self_constructs_effective_price_as_money(): void
+    {
+        $view = $this->createView(effectivePrice: 39.99);
+
+        self::assertSame(39.99, $view->effectivePrice->toGross());
+    }
+
+    #[Test]
     public function weight_stored_as_weight_vo(): void
     {
-        $view = $this->createView(weight: Weight::kilogram(2.5));
+        $view = $this->createView(weight: 2.5);
 
         self::assertSame(2.5, $view->weight?->value);
+    }
+
+    #[Test]
+    public function weight_null_when_not_provided(): void
+    {
+        $view = $this->createView(weight: null);
+
+        self::assertNull($view->weight);
+    }
+
+    #[Test]
+    public function sku_constructed_from_string(): void
+    {
+        $view = $this->createView(sku: 'VAR-001');
+
+        self::assertSame('VAR-001', $view->sku?->value);
+    }
+
+    #[Test]
+    public function sku_null_for_empty_string(): void
+    {
+        $view = $this->createView(sku: '');
+
+        self::assertNull($view->sku);
     }
 
     /*
@@ -74,24 +119,28 @@ final class ProductVariationViewTest extends TestCase
     */
 
     private function createView(
-        ?Money $price = null,
-        ?Money $costPrice = null,
-        ?Money $salePrice = null,
+        float $price = 100.00,
+        ?float $costPrice = null,
+        ?float $salePrice = null,
+        float $effectivePrice = 100.00,
         bool $isOnSale = false,
         ?float $profitMargin = null,
-        ?Weight $weight = null,
+        ?float $weight = null,
+        ?string $sku = null,
     ): ProductVariationView {
         return new ProductVariationView(
-            id: IntId::from(1),
-            sku: null,
+            externalId: 1,
+            sku: $sku,
             gtin: null,
-            price: $price ?? Money::inclusive(100.00),
+            price: $price,
             costPrice: $costPrice,
             salePrice: $salePrice,
+            effectivePrice: $effectivePrice,
             isOnSale: $isOnSale,
             profitMargin: $profitMargin,
             stock: 10,
             weight: $weight,
+            vatExclusive: false,
             mpn: null,
             imageIndex: null,
             options: [],

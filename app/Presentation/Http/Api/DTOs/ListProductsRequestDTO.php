@@ -11,6 +11,7 @@ use App\Domain\Catalog\Product\Enums\ProductSortField;
 use App\Domain\Shared\Pagination\Enums\SortDirection;
 use App\Domain\Shared\Pagination\ValueObjects\PageRequest;
 use App\Presentation\Http\Api\Traits\ValidatesIncludesTrait;
+use Spatie\LaravelData\Attributes\Validation\BooleanType;
 use Spatie\LaravelData\Attributes\Validation\IntegerType;
 use Spatie\LaravelData\Attributes\Validation\Max;
 use Spatie\LaravelData\Attributes\Validation\Min;
@@ -22,7 +23,7 @@ use Spatie\LaravelData\Support\Validation\ValidationContext;
 /**
  * Request validation for GET /api/products.
  *
- * Validates pagination bounds, include parameter, and optional sort/filter fields.
+ * Validates pagination bounds, include parameter, optional sort/filter fields.
  */
 final class ListProductsRequestDTO extends Data
 {
@@ -39,6 +40,14 @@ final class ListProductsRequestDTO extends Data
         public readonly ?string $sort_by = null,
         #[Nullable, StringType]
         public readonly ?string $sort_direction = null,
+        #[Nullable, IntegerType]
+        public readonly ?int $category_id = null,
+        #[Nullable, BooleanType]
+        public readonly ?bool $is_on_sale = null,
+        #[Nullable, StringType]
+        public readonly ?string $sku = null,
+        #[Nullable, BooleanType]
+        public readonly ?bool $has_free_delivery = null,
     ) {}
 
     /**
@@ -50,6 +59,8 @@ final class ListProductsRequestDTO extends Data
             'include' => self::includeRules(),
             'sort_by' => ['nullable', 'string', 'in:' . \implode(',', \array_column(ProductSortField::cases(), 'value'))],
             'sort_direction' => ['nullable', 'string', 'in:' . \implode(',', \array_column(SortDirection::cases(), 'value'))],
+            'category_id' => ['nullable', 'integer', 'min:1'],
+            'sku' => ['nullable', 'string', 'max:100'],
         ];
     }
 
@@ -71,7 +82,35 @@ final class ListProductsRequestDTO extends Data
             includes: \array_map(ProductInclude::fromValue(...), $this->validatedIncludes()),
             sortField: $this->sort_by !== null ? ProductSortField::from($this->sort_by) : ProductSortField::Title,
             sortDirection: $this->sort_direction !== null ? SortDirection::from($this->sort_direction) : SortDirection::Asc,
-            filters: [ProductFilterField::IsActive->value => true],
+            filters: $this->buildFilters(),
         );
+    }
+
+    /**
+     * Build filter array from non-null request params.
+     *
+     * @return array<value-of<ProductFilterField>, mixed>
+     */
+    private function buildFilters(): array
+    {
+        $filters = [ProductFilterField::IsActive->value => true];
+
+        if ($this->category_id !== null) {
+            $filters[ProductFilterField::CategoryId->value] = $this->category_id;
+        }
+
+        if ($this->is_on_sale !== null) {
+            $filters[ProductFilterField::IsOnSale->value] = $this->is_on_sale;
+        }
+
+        if ($this->sku !== null) {
+            $filters[ProductFilterField::Sku->value] = $this->sku;
+        }
+
+        if ($this->has_free_delivery !== null) {
+            $filters[ProductFilterField::HasFreeDelivery->value] = $this->has_free_delivery;
+        }
+
+        return $filters;
     }
 }
