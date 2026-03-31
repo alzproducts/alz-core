@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Application\Contracts\Shopwired;
 
 use App\Application\Contracts\RepositoryWriteInterface;
-use App\Application\DTOs\PaginatedListDTO;
+use App\Domain\Shared\Pagination\ValueObjects\PagedList;
 use App\Domain\Catalog\Brand\ValueObjects\Brand;
 use App\Domain\Catalog\Brand\ValueObjects\BrandView;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
@@ -71,14 +71,14 @@ interface BrandRepositoryInterface extends RepositoryWriteInterface
      *
      * @param list<string> $includes Embed names to conditionally load
      *
-     * @return PaginatedListDTO<BrandView>
+     * @return PagedList<BrandView>
      *
      * @throws DatabaseOperationFailedException On query failure
      * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
      */
-    public function paginate(int $perPage, int $page, array $includes = [], bool $includeInactive = false): PaginatedListDTO;
+    public function paginate(int $perPage, int $page, array $includes = [], bool $includeInactive = false): PagedList;
 
     /**
      * Find a brand by external ID for the API.

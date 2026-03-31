@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Infrastructure\Linnworks\Clients;
 
 use App\Application\Contracts\Linnworks\PurchaseOrderClientInterface;
-use App\Application\DTOs\PaginatedListDTO;
+use App\Domain\Shared\Pagination\ValueObjects\PagedList;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
@@ -182,7 +182,7 @@ final readonly class PurchaseOrderClient implements PurchaseOrderClientInterface
     /**
      * {@inheritDoc}
      *
-     * @return PaginatedListDTO<PurchaseOrderHeader>
+     * @return PagedList<PurchaseOrderHeader>
      *
      * @throws JsonException When JSON encoding fails
      * @throws AuthenticationExpiredException When credentials are invalid
@@ -191,7 +191,7 @@ final readonly class PurchaseOrderClient implements PurchaseOrderClientInterface
      * @throws InvalidApiResponseException When API response structure is invalid
      * @throws ResourceNotFoundException When resource not found
      */
-    public function searchPurchaseOrders(array $searchParams): PaginatedListDTO
+    public function searchPurchaseOrders(array $searchParams): PagedList
     {
         $response = $this->transport->postFormParams(
             endpoint: '/api/PurchaseOrder/Search_PurchaseOrders',
@@ -215,7 +215,7 @@ final readonly class PurchaseOrderClient implements PurchaseOrderClientInterface
         /** @var list<PurchaseOrderHeader> $headers */
         $headers = self::parseDirectArrayToDomain($results, PurchaseOrderHeaderResponse::class);
 
-        return PaginatedListDTO::fromPage(
+        return PagedList::fromPage(
             items: $headers,
             total: $totalRecords,
             perPage: $perPage,

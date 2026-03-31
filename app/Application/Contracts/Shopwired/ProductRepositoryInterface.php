@@ -7,7 +7,7 @@ namespace App\Application\Contracts\Shopwired;
 use App\Application\Catalog\Queries\ProductDetailQueryParams;
 use App\Application\Catalog\Queries\ProductListQueryParams;
 use App\Application\Contracts\RepositoryWriteInterface;
-use App\Application\DTOs\PaginatedListDTO;
+use App\Domain\Shared\Pagination\ValueObjects\PagedList;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\Product\ValueObjects\Product;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariation;
@@ -32,14 +32,14 @@ interface ProductRepositoryInterface extends RepositoryWriteInterface
     /**
      * Paginate active products with optional eager-loaded relations.
      *
-     * @return PaginatedListDTO<ProductView>
+     * @return PagedList<ProductView>
      *
      * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
      * @throws DatabaseOperationFailedException On query failure
      * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      */
-    public function paginate(ProductListQueryParams $query): PaginatedListDTO;
+    public function paginate(ProductListQueryParams $query): PagedList;
 
     /**
      * Find a product by external ID with conditional includes for the API.

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Application\Contracts\Linnworks;
 
-use App\Application\DTOs\PaginatedListDTO;
+use App\Domain\Shared\Pagination\ValueObjects\PagedList;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
@@ -74,7 +74,7 @@ interface PurchaseOrderClientInterface
      *
      * @param array<string, mixed> $searchParams Search criteria (dates, status, supplier, location, reference)
      *
-     * @return PaginatedListDTO<PurchaseOrderHeader>
+     * @return PagedList<PurchaseOrderHeader>
      *
      * @throws JsonException When JSON encoding fails
      * @throws AuthenticationExpiredException When credentials are invalid
@@ -83,7 +83,7 @@ interface PurchaseOrderClientInterface
      * @throws InvalidApiResponseException When API response structure is invalid
      * @throws ResourceNotFoundException When resource not found
      */
-    public function searchPurchaseOrders(array $searchParams): PaginatedListDTO;
+    public function searchPurchaseOrders(array $searchParams): PagedList;
 
     /**
      * Get extended properties for a purchase order.

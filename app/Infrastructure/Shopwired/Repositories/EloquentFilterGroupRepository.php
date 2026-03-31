@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Infrastructure\Shopwired\Repositories;
 
 use App\Application\Contracts\Shopwired\FilterGroupRepositoryInterface;
-use App\Application\DTOs\PaginatedListDTO;
+use App\Domain\Shared\Pagination\ValueObjects\PagedList;
 use App\Domain\Catalog\Filters\ValueObjects\FilterGroupDefinition;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
@@ -75,13 +75,13 @@ final class EloquentFilterGroupRepository extends AbstractEloquentRepository imp
     /**
      * {@inheritDoc}
      *
-     * @return PaginatedListDTO<FilterGroupDefinition>
+     * @return PagedList<FilterGroupDefinition>
      *
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      */
-    public function paginate(int $perPage, int $page): PaginatedListDTO
+    public function paginate(int $perPage, int $page): PagedList
     {
         return $this->eloquentGateway->paginate(
             modelClass: self::MODEL_CLASS,

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Infrastructure\Persistence;
 
 use App\Application\Contracts\DatabaseGatewayInterface;
-use App\Application\DTOs\PaginatedListDTO;
+use App\Domain\Shared\Pagination\ValueObjects\PagedList;
 use App\Application\Results\SaveManyResult;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
@@ -253,7 +253,7 @@ final readonly class EloquentGateway
      * Paginate records with query constraints, eager loading, and domain mapping.
      *
      * Builds a paginated query, maps each model through the provided closure,
-     * and returns a framework-free PaginatedListDTO. Reusable across repositories.
+     * and returns a framework-free PagedList. Reusable across repositories.
      *
      * @template TModel of Model
      * @template TResult
@@ -264,7 +264,7 @@ final readonly class EloquentGateway
      * @param-immediately-invoked-callable $mapper
      * @param Closure(TModel): TResult $mapper Transform each model to a domain object
      *
-     * @return PaginatedListDTO<TResult>
+     * @return PagedList<TResult>
      *
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
@@ -277,9 +277,9 @@ final readonly class EloquentGateway
         Closure $mapper,
         int $perPage,
         int $page,
-    ): PaginatedListDTO {
-        /** @var PaginatedListDTO<TResult> */
-        return $this->dbGateway->query(static function () use ($modelClass, $scope, $relations, $mapper, $perPage, $page): PaginatedListDTO {
+    ): PagedList {
+        /** @var PagedList<TResult> */
+        return $this->dbGateway->query(static function () use ($modelClass, $scope, $relations, $mapper, $perPage, $page): PagedList {
             $query = $modelClass::query();
 
             $scope($query);
@@ -298,7 +298,7 @@ final readonly class EloquentGateway
                 })
                 ->all();
 
-            return PaginatedListDTO::fromPage(
+            return PagedList::fromPage(
                 items: $items,
                 total: $paginator->total(),
                 perPage: $paginator->perPage(),

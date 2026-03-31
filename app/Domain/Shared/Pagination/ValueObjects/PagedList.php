@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-namespace App\Application\DTOs;
+namespace App\Domain\Shared\Pagination\ValueObjects;
 
 /**
- * Framework-free paginated result.
+ * Immutable value object representing a page of results with pagination metadata.
  *
- * Decouples Application layer from Illuminate\Pagination (Deptrac boundary).
+ * Framework-free — decouples Domain and Application from Illuminate\Pagination.
  * Reconstructed as LengthAwarePaginator in Presentation for Resource compatibility.
  *
  * @template-covariant T
  */
-final readonly class PaginatedListDTO
+final readonly class PagedList
 {
     /**
      * @param list<T> $items

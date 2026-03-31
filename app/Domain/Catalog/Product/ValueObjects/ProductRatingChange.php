@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Application\ReviewsIo\DTOs;
+namespace App\Domain\Catalog\Product\ValueObjects;
 
 use App\Domain\ValueObjects\IntId;
 
@@ -12,7 +12,7 @@ use App\Domain\ValueObjects\IntId;
  * Returned by the change detection query that compares
  * reviews_io.product_ratings against shopwired.products.custom_fields.
  */
-final readonly class ProductRatingChangeDTO
+final readonly class ProductRatingChange
 {
     /**
      * @param IntId $productId ShopWired external product ID

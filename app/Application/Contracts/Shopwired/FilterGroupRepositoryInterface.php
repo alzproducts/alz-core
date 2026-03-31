@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Application\Contracts\Shopwired;
 
 use App\Application\Contracts\RepositoryWriteInterface;
-use App\Application\DTOs\PaginatedListDTO;
+use App\Domain\Shared\Pagination\ValueObjects\PagedList;
 use App\Domain\Catalog\Filters\ValueObjects\FilterGroupDefinition;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
@@ -45,11 +45,11 @@ interface FilterGroupRepositoryInterface extends RepositoryWriteInterface
     /**
      * Paginate filter groups ordered by sort_order.
      *
-     * @return PaginatedListDTO<FilterGroupDefinition>
+     * @return PagedList<FilterGroupDefinition>
      *
      * @throws DatabaseOperationFailedException On query failure
      * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      */
-    public function paginate(int $perPage, int $page): PaginatedListDTO;
+    public function paginate(int $perPage, int $page): PagedList;
 }

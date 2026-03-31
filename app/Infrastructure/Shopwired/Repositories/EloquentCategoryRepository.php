@@ -6,7 +6,7 @@ namespace App\Infrastructure\Shopwired\Repositories;
 
 use App\Application\Contracts\DatabaseGatewayInterface;
 use App\Application\Contracts\Shopwired\CategoryRepositoryInterface;
-use App\Application\DTOs\PaginatedListDTO;
+use App\Domain\Shared\Pagination\ValueObjects\PagedList;
 use App\Domain\Catalog\Category\ValueObjects\Category;
 use App\Domain\Catalog\Category\ValueObjects\CategoryView;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
@@ -138,7 +138,7 @@ final class EloquentCategoryRepository extends AbstractEloquentRepository implem
     /**
      * {@inheritDoc}
      *
-     * @return PaginatedListDTO<CategoryView>
+     * @return PagedList<CategoryView>
      *
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
@@ -146,7 +146,7 @@ final class EloquentCategoryRepository extends AbstractEloquentRepository implem
      * @throws InvalidCustomFieldValueException
      * @throws MissingRequiredDataException
      */
-    public function paginate(int $perPage, int $page, array $includes = [], bool $includeInactive = false): PaginatedListDTO
+    public function paginate(int $perPage, int $page, array $includes = [], bool $includeInactive = false): PagedList
     {
         return $this->eloquentGateway->paginate(
             modelClass: self::MODEL_CLASS,

@@ -7,7 +7,7 @@ namespace Tests\Unit\Application\Catalog\UseCases;
 use App\Application\Catalog\Queries\ProductListQueryParams;
 use App\Application\Catalog\UseCases\ListProductsUseCase;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
-use App\Application\DTOs\PaginatedListDTO;
+use App\Domain\Shared\Pagination\ValueObjects\PagedList;
 use App\Domain\Catalog\Product\Enums\ProductInclude;
 use App\Domain\Shared\Pagination\ValueObjects\PageRequest;
 use Mockery;
@@ -42,7 +42,7 @@ final class ListProductsUseCaseTest extends TestCase
     #[Test]
     public function execute_delegates_to_repository_and_returns_paginated_dto(): void
     {
-        $expected = PaginatedListDTO::fromPage(items: [], total: 0, perPage: 10, currentPage: 1);
+        $expected = PagedList::fromPage(items: [], total: 0, perPage: 10, currentPage: 1);
         $query = new ProductListQueryParams(pagination: PageRequest::from(1, 10));
 
         $this->productRepository
@@ -63,7 +63,7 @@ final class ListProductsUseCaseTest extends TestCase
     public function execute_passes_includes_through_to_repository(): void
     {
         $includes = [ProductInclude::Variations];
-        $expected = PaginatedListDTO::fromPage(items: [], total: 5, perPage: 20, currentPage: 2);
+        $expected = PagedList::fromPage(items: [], total: 5, perPage: 20, currentPage: 2);
         $query = new ProductListQueryParams(pagination: PageRequest::from(2, 20), includes: $includes);
 
         $this->productRepository
@@ -84,7 +84,7 @@ final class ListProductsUseCaseTest extends TestCase
     public function execute_logs_listing_and_listed_messages_with_correct_context(): void
     {
         $items = ['item1', 'item2', 'item3'];
-        $dto = PaginatedListDTO::fromPage(items: $items, total: 100, perPage: 10, currentPage: 1);
+        $dto = PagedList::fromPage(items: $items, total: 100, perPage: 10, currentPage: 1);
 
         $this->productRepository
             ->shouldReceive('paginate')

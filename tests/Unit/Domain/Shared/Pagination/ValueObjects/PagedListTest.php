@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace Tests\Unit\Application\DTOs;
+namespace Tests\Unit\Domain\Shared\Pagination\ValueObjects;
 
-use App\Application\DTOs\PaginatedListDTO;
+use App\Domain\Shared\Pagination\ValueObjects\PagedList;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
-#[CoversClass(PaginatedListDTO::class)]
-final class PaginatedListDTOTest extends TestCase
+#[CoversClass(PagedList::class)]
+final class PagedListTest extends TestCase
 {
     /*
     |--------------------------------------------------------------------------
@@ -21,7 +21,7 @@ final class PaginatedListDTOTest extends TestCase
     #[Test]
     public function from_page_computes_last_page_with_exact_division(): void
     {
-        $dto = PaginatedListDTO::fromPage(items: [], total: 100, perPage: 10, currentPage: 1);
+        $dto = PagedList::fromPage(items: [], total: 100, perPage: 10, currentPage: 1);
 
         $this->assertSame(10, $dto->lastPage);
     }
@@ -29,7 +29,7 @@ final class PaginatedListDTOTest extends TestCase
     #[Test]
     public function from_page_rounds_up_last_page_when_remainder_exists(): void
     {
-        $dto = PaginatedListDTO::fromPage(items: [], total: 101, perPage: 10, currentPage: 1);
+        $dto = PagedList::fromPage(items: [], total: 101, perPage: 10, currentPage: 1);
 
         $this->assertSame(11, $dto->lastPage);
     }
@@ -37,7 +37,7 @@ final class PaginatedListDTOTest extends TestCase
     #[Test]
     public function from_page_returns_zero_last_page_when_total_is_zero(): void
     {
-        $dto = PaginatedListDTO::fromPage(items: [], total: 0, perPage: 10, currentPage: 1);
+        $dto = PagedList::fromPage(items: [], total: 0, perPage: 10, currentPage: 1);
 
         $this->assertSame(0, $dto->lastPage);
     }
@@ -45,7 +45,7 @@ final class PaginatedListDTOTest extends TestCase
     #[Test]
     public function from_page_returns_one_last_page_for_single_item(): void
     {
-        $dto = PaginatedListDTO::fromPage(items: ['item'], total: 1, perPage: 10, currentPage: 1);
+        $dto = PagedList::fromPage(items: ['item'], total: 1, perPage: 10, currentPage: 1);
 
         $this->assertSame(1, $dto->lastPage);
     }
@@ -54,7 +54,7 @@ final class PaginatedListDTOTest extends TestCase
     public function from_page_uses_max_guard_to_prevent_division_by_zero_when_per_page_is_zero(): void
     {
         // max(1, 0) = 1, so lastPage = ceil(5 / 1) = 5
-        $dto = PaginatedListDTO::fromPage(items: [], total: 5, perPage: 0, currentPage: 1);
+        $dto = PagedList::fromPage(items: [], total: 5, perPage: 0, currentPage: 1);
 
         $this->assertSame(5, $dto->lastPage);
     }
@@ -70,7 +70,7 @@ final class PaginatedListDTOTest extends TestCase
     {
         $items = ['a', 'b', 'c'];
 
-        $dto = PaginatedListDTO::fromPage(items: $items, total: 30, perPage: 10, currentPage: 2);
+        $dto = PagedList::fromPage(items: $items, total: 30, perPage: 10, currentPage: 2);
 
         $this->assertSame($items, $dto->items);
         $this->assertSame(30, $dto->total);
@@ -90,7 +90,7 @@ final class PaginatedListDTOTest extends TestCase
     {
         $items = [1, 2];
 
-        $dto = new PaginatedListDTO(
+        $dto = new PagedList(
             items: $items,
             total: 20,
             perPage: 5,

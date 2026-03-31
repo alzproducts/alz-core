@@ -6,7 +6,7 @@ namespace App\Infrastructure\Shopwired\Repositories;
 
 use App\Application\Contracts\DatabaseGatewayInterface;
 use App\Application\Contracts\Shopwired\BrandRepositoryInterface;
-use App\Application\DTOs\PaginatedListDTO;
+use App\Domain\Shared\Pagination\ValueObjects\PagedList;
 use App\Domain\Catalog\Brand\ValueObjects\Brand;
 use App\Domain\Catalog\Brand\ValueObjects\BrandView;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
@@ -134,7 +134,7 @@ final class EloquentBrandRepository extends AbstractEloquentRepository implement
     /**
      * {@inheritDoc}
      *
-     * @return PaginatedListDTO<BrandView>
+     * @return PagedList<BrandView>
      *
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
@@ -142,7 +142,7 @@ final class EloquentBrandRepository extends AbstractEloquentRepository implement
      * @throws InvalidCustomFieldValueException
      * @throws MissingRequiredDataException
      */
-    public function paginate(int $perPage, int $page, array $includes = [], bool $includeInactive = false): PaginatedListDTO
+    public function paginate(int $perPage, int $page, array $includes = [], bool $includeInactive = false): PagedList
     {
         return $this->eloquentGateway->paginate(
             modelClass: self::MODEL_CLASS,

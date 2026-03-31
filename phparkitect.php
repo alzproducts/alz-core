@@ -6,6 +6,7 @@ use Arkitect\ClassSet;
 use Arkitect\CLI\Config;
 use Arkitect\Expression\ForClasses\HaveNameMatching;
 use Arkitect\Expression\ForClasses\MatchOneOfTheseNames;
+use Arkitect\Expression\ForClasses\NotDependsOnTheseNamespaces;
 use Arkitect\Expression\ForClasses\NotHaveDependencyOutsideNamespace;
 use Arkitect\Expression\ForClasses\NotHaveNameMatching;
 use Arkitect\Expression\ForClasses\NotResideInTheseNamespaces;
@@ -688,6 +689,37 @@ return static function (Config $config): void {
                        'App\Application\*\Validators',
                    ))
                    ->because('Validators must be co-located with their concept (Domain or Application Validators/ subdirectories), not in a top-level catch-all.');
+
+    // RULE: Repositories must not depend on Application DTOs
+    //
+    // WHY: Repositories are persistence abstractions that speak in Domain objects only.
+    // Application DTOs are presentation-facing transfer formats; coupling persistence
+    // to them creates dependency on framework concerns (Spatie LaravelData, validation,
+    // response shaping) from the persistence layer.
+    //
+    // VIOLATION EXAMPLE:
+    // ❌ namespace App\Infrastructure\Catalog\Repositories;
+    //    use App\Application\Catalog\DTOs\ProductResponseDTO;   // Wrong!
+    //    class EloquentProductRepository {
+    //        public function find(): ProductResponseDTO { }
+    //    }
+    //
+    // CORRECT:
+    // ✅ namespace App\Infrastructure\Catalog\Repositories;
+    //    use App\Domain\Catalog\Product\ValueObjects\Product;   // Domain object
+    //    class EloquentProductRepository {
+    //        public function find(): Product { }
+    //    }
+    //
+    $rules[] = Rule::allClasses()
+                   ->that(new ResideInOneOfTheseNamespaces('App\Infrastructure\*\Repositories'))
+                   ->should(
+                       new NotDependsOnTheseNamespaces([
+                           'App\Application\*\DTOs\*',
+                           'App\Application\DTOs\*',
+                       ]),
+                   )
+                   ->because('Repositories are Domain persistence abstractions and must not depend on Application DTOs.');
 
     $config->add($classSet, ...$rules);
     /*

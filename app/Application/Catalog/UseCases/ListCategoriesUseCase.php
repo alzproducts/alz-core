@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Application\Catalog\UseCases;
 
 use App\Application\Contracts\Shopwired\CategoryRepositoryInterface;
-use App\Application\DTOs\PaginatedListDTO;
+use App\Domain\Shared\Pagination\ValueObjects\PagedList;
 use App\Domain\Catalog\Category\ValueObjects\CategoryView;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
@@ -28,14 +28,14 @@ final readonly class ListCategoriesUseCase
     /**
      * @param list<string> $includes Embed names to load
      *
-     * @return PaginatedListDTO<CategoryView>
+     * @return PagedList<CategoryView>
      *
      * @throws DatabaseOperationFailedException On query failure
      * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
      */
-    public function execute(int $perPage, int $page, array $includes = [], bool $includeInactive = false): PaginatedListDTO
+    public function execute(int $perPage, int $page, array $includes = [], bool $includeInactive = false): PagedList
     {
         $this->logger->info('Listing categories', [
             'page' => $page,
