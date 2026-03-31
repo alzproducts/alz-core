@@ -39,14 +39,15 @@ final class SyncAllPurchaseOrdersJob implements ShouldBeUnique, ShouldQueue
     public array $backoff = [120, 600];
 
     /**
-     * 4 hours — every PO × 3 API calls; typical prod volume can be 10,000+ POs.
+     * 6 hours — every PO × 3 API calls; typical prod volume can be 10,000+ POs.
+     * Full sync takes ~2h locally; prod DB latency pushes this significantly higher.
      */
-    public int $timeout = 14400;
+    public int $timeout = 21600;
 
     /**
-     * 5 hours — prevents a second full-sync starting while first is still running.
+     * 8 hours — prevents a second full-sync starting while first is still running.
      */
-    public int $uniqueFor = 18000;
+    public int $uniqueFor = 28800;
 
     public function __construct()
     {
