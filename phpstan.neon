@@ -162,13 +162,19 @@ parameters:
             paths:
                 - app/Infrastructure/Jobs/*
                 - app/Infrastructure/*/Listeners/*
+        # Mixpanel, Ads, and Feed classes: too large to decompose safely (#398)
+        -
+            identifier: alz.excessiveClassLength
+            paths:
+                - app/Application/Mixpanel/UseCases/SyncOrdersToMixpanelUseCase.php
+                - app/Infrastructure/BingAds/BingAdsTransport.php
+                - app/Infrastructure/Feeds/DoofinderFeedProcessor.php
+                - app/Infrastructure/Mixpanel/MixpanelClient.php
         # Application classes using config() — flagged as tech debt (#211).
         # TODO: Refactor to constructor injection.
         -
             identifier: alz.noConfigHelper
-            paths:
-                - app/Application/Auth/TestUserPersonaResolver.php
-                - app/Application/Feeds/ProcessProductSearchFeedUseCase.php
+            path: app/Application/Auth/TestUserPersonaResolver.php
         # ClientFactory classes use static memoization — flagged as tech debt (#211).
         # TODO: Refactor to constructor injection via service provider singletons.
         -

@@ -6,6 +6,7 @@ namespace App\Application\ReviewsIo\UseCases;
 
 use App\Application\Contracts\ReviewsIo\ProductRatingRepositoryInterface;
 use App\Application\Contracts\Shopwired\ProductUpdateClientInterface;
+use App\Application\ReviewsIo\DTOs\ProductRatingChangeDTO;
 use App\Application\ReviewsIo\Results\RatingsUpdateResult;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
@@ -47,8 +48,6 @@ final readonly class UpdateShopwiredRatingsUseCase
     public function execute(): RatingsUpdateResult
     {
         $this->logger->info('Starting ShopWired ratings update');
-
-        // Single SQL query finds products with changed ratings
         $changedProducts = $this->ratingRepository->getProductsWithChangedRatings();
 
         if ($changedProducts === []) {
@@ -57,30 +56,24 @@ final readonly class UpdateShopwiredRatingsUseCase
             return new RatingsUpdateResult(0, 0, 0, 0);
         }
 
-        $this->logger->info('Found products with changed ratings', [
-            'count' => \count($changedProducts),
-        ]);
+        $this->logger->info('Found products with changed ratings', ['count' => \count($changedProducts)]);
 
-        $updated = 0;
-        $failed = 0;
-        /** @var list<int> $failedProductIds */
-        $failedProductIds = [];
+        return $this->updateProductsAndReport($changedProducts);
+    }
 
-        foreach ($changedProducts as $change) {
-            try {
-                $this->updateClient->updateCustomFields($change->productId->value, [
-                    self::FIELD_AVERAGE_RATING => $change->newAverageRating,
-                    self::FIELD_NUM_RATINGS => (string) $change->newNumRatings,
-                ]);
-                $updated++;
-            } catch (ResourceNotAvailableException) {
-                $this->logger->warning('Product not available in ShopWired', [
-                    'product_id' => $change->productId->value,
-                ]);
-                $failed++;
-                $failedProductIds[] = $change->productId->value;
-            }
-        }
+    /**
+     * Apply updates to each changed product and build the result.
+     *
+     * @param list<ProductRatingChangeDTO> $changedProducts
+     *
+     * @throws ExternalServiceUnavailableException When ShopWired API unavailable
+     * @throws AuthenticationExpiredException When credentials invalid
+     * @throws InvalidApiRequestException When request invalid
+     * @throws InvalidApiResponseException When response parsing fails
+     */
+    private function updateProductsAndReport(array $changedProducts): RatingsUpdateResult
+    {
+        [$updated, $failed, $failedProductIds] = $this->applyUpdates($changedProducts);
 
         $this->logger->info('ShopWired ratings update completed', [
             'processed' => \count($changedProducts),
@@ -96,5 +89,39 @@ final readonly class UpdateShopwiredRatingsUseCase
             failed: $failed,
             failedProductIds: $failedProductIds,
         );
+    }
+
+    /**
+     * @param list<ProductRatingChangeDTO> $changedProducts
+     *
+     * @return array{int<0, max>, int<0, max>, list<int>} [updated, failed, failedProductIds]
+     *
+     * @throws ExternalServiceUnavailableException When ShopWired API unavailable
+     * @throws AuthenticationExpiredException When credentials invalid
+     * @throws InvalidApiRequestException When request invalid
+     * @throws InvalidApiResponseException When response parsing fails
+     */
+    private function applyUpdates(array $changedProducts): array
+    {
+        $updated = 0;
+        $failed = 0;
+        /** @var list<int> $failedProductIds */
+        $failedProductIds = [];
+
+        foreach ($changedProducts as $change) {
+            try {
+                $this->updateClient->updateCustomFields($change->productId->value, [
+                    self::FIELD_AVERAGE_RATING => $change->newAverageRating,
+                    self::FIELD_NUM_RATINGS => (string) $change->newNumRatings,
+                ]);
+                $updated++;
+            } catch (ResourceNotAvailableException) {
+                $this->logger->warning('Product not available in ShopWired', ['product_id' => $change->productId->value]);
+                $failed++;
+                $failedProductIds[] = $change->productId->value;
+            }
+        }
+
+        return [$updated, $failed, $failedProductIds];
     }
 }

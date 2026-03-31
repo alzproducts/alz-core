@@ -207,6 +207,7 @@ return static function (Config $config): void {
                                'Closure',
                                'Generator',
                                'Google*',
+                               'GuzzleHttp*',
                                'Microsoft*',
                                'HelpScout*',
                                'TheIconic*',

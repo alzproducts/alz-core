@@ -70,37 +70,42 @@ final readonly class GetEscalationsUseCase
      */
     private function buildQueries(EscalationsConfig $config): array
     {
-        // Convert to lists for type safety (PHPStan requires list<string> not array<int, string>)
         $priorityTags = \array_values($config->priorityTags);
         $excludedTags = \array_values($config->excludedTags);
 
         return [
-            // Support mailbox queries
-            ConversationQueryParams::latePriority(
-                mailboxId: $this->supportMailboxId,
-                priorityTags: $priorityTags,
-                excludedTags: $excludedTags,
-                thresholdHours: $config->latePriorityThresholdHours,
-            ),
-            ConversationQueryParams::lateStandard(
-                mailboxId: $this->supportMailboxId,
-                excludedTags: $excludedTags,
-                thresholdHours: $config->lateThresholdHours,
-            ),
-            // Purchase Orders mailbox queries
-            ConversationQueryParams::latePriority(
-                mailboxId: $this->purchaseOrdersMailboxId,
-                priorityTags: $priorityTags,
-                excludedTags: $excludedTags,
-                thresholdHours: $config->latePriorityThresholdHours,
-            ),
-            ConversationQueryParams::lateStandard(
-                mailboxId: $this->purchaseOrdersMailboxId,
-                excludedTags: $excludedTags,
-                thresholdHours: $config->lateThresholdHours,
-            ),
-            // Manually assigned across all mailboxes
+            ...$this->buildMailboxQueries($this->supportMailboxId, $config, $priorityTags, $excludedTags),
+            ...$this->buildMailboxQueries($this->purchaseOrdersMailboxId, $config, $priorityTags, $excludedTags),
             ConversationQueryParams::manuallyAssigned($config->assignedTag),
+        ];
+    }
+
+    /**
+     * Build priority + standard queries for a single mailbox.
+     *
+     * @param list<string> $priorityTags
+     * @param list<string> $excludedTags
+     *
+     * @return list<ConversationQueryParams>
+     */
+    private function buildMailboxQueries(
+        int $mailboxId,
+        EscalationsConfig $config,
+        array $priorityTags,
+        array $excludedTags,
+    ): array {
+        return [
+            ConversationQueryParams::latePriority(
+                mailboxId: $mailboxId,
+                priorityTags: $priorityTags,
+                excludedTags: $excludedTags,
+                thresholdHours: $config->latePriorityThresholdHours,
+            ),
+            ConversationQueryParams::lateStandard(
+                mailboxId: $mailboxId,
+                excludedTags: $excludedTags,
+                thresholdHours: $config->lateThresholdHours,
+            ),
         ];
     }
 
