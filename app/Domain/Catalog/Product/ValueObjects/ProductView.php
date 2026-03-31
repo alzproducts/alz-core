@@ -8,6 +8,7 @@ use App\Domain\Catalog\CustomFields\ValueObjects\AbstractCustomFieldValue;
 use App\Domain\Catalog\Filters\ValueObjects\ProductFilter;
 use App\Domain\Catalog\Product\Enums\FreeDeliveryType;
 use App\Domain\Shared\Money\ValueObjects\Money;
+use App\Domain\Shared\ValueObjects\DateFormat;
 use App\Domain\ValueObjects\IntId;
 use App\Domain\ValueObjects\TaxType;
 use DateTimeImmutable;
@@ -48,6 +49,12 @@ final readonly class ProductView
 
     /** @var string|null Name of the default supplier (null = no suppliers loaded or no default) */
     public ?string $defaultSupplier;
+
+    /** @var string UK-formatted creation date (dd/mm/yyyy) */
+    public string $createdAtFormatted;
+
+    /** @var string UK-formatted last-update date (dd/mm/yyyy) */
+    public string $updatedAtFormatted;
 
     /**
      * @param int $externalId ShopWired product ID
@@ -129,6 +136,8 @@ final readonly class ProductView
         $this->hasFreeDelivery = $freeDelivery !== null && ! $freeDelivery->isNone();
         $this->hasAnySale = $this->isOnSale || self::anyVariationOnSale($this->variations);
         $this->defaultSupplier = self::findDefaultSupplierName($this->suppliers);
+        $this->createdAtFormatted = $createdAt->format(DateFormat::DEFAULT_DATE_FORMAT);
+        $this->updatedAtFormatted = $updatedAt->format(DateFormat::DEFAULT_DATE_FORMAT);
     }
 
     /**

@@ -7,6 +7,7 @@ namespace Tests\Unit\Domain\Catalog\Product\ValueObjects;
 use App\Domain\Catalog\Product\Enums\FreeDeliveryType;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariationView;
 use App\Domain\Catalog\Product\ValueObjects\ProductView;
+use App\Domain\Shared\ValueObjects\DateFormat;
 use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -130,6 +131,40 @@ final class ProductViewTest extends TestCase
 
     /*
     |--------------------------------------------------------------------------
+    | UK-formatted dates
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function created_at_formatted_uses_uk_date_format(): void
+    {
+        $createdAt = new DateTimeImmutable('2024-03-15');
+        $view = $this->createView(createdAt: $createdAt);
+
+        self::assertSame('15/03/2024', $view->createdAtFormatted);
+    }
+
+    #[Test]
+    public function updated_at_formatted_uses_uk_date_format(): void
+    {
+        $updatedAt = new DateTimeImmutable('2025-12-01');
+        $view = $this->createView(updatedAt: $updatedAt);
+
+        self::assertSame('01/12/2025', $view->updatedAtFormatted);
+    }
+
+    #[Test]
+    public function formatted_dates_use_default_date_format_constant(): void
+    {
+        $date = new DateTimeImmutable('2024-07-04');
+        $view = $this->createView(createdAt: $date, updatedAt: $date);
+
+        self::assertSame($date->format(DateFormat::DEFAULT_DATE_FORMAT), $view->createdAtFormatted);
+        self::assertSame($date->format(DateFormat::DEFAULT_DATE_FORMAT), $view->updatedAtFormatted);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
     | Self-construction from primitives
     |--------------------------------------------------------------------------
     */
@@ -205,6 +240,8 @@ final class ProductViewTest extends TestCase
         ?string $sku = null,
         array $categoryIds = [],
         ?FreeDeliveryType $freeDelivery = null,
+        ?DateTimeImmutable $createdAt = null,
+        ?DateTimeImmutable $updatedAt = null,
     ): ProductView {
         return new ProductView(
             externalId: 1,
@@ -231,8 +268,8 @@ final class ProductViewTest extends TestCase
             customFields: [],
             filters: [],
             sortOrder: null,
-            createdAt: new DateTimeImmutable('2024-01-01'),
-            updatedAt: new DateTimeImmutable('2024-01-01'),
+            createdAt: $createdAt ?? new DateTimeImmutable('2024-01-01'),
+            updatedAt: $updatedAt ?? new DateTimeImmutable('2024-01-01'),
             freeDelivery: $freeDelivery,
         );
     }
