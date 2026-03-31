@@ -16,7 +16,7 @@ return new class extends Migration {
     public function up(): void
     {
         DB::statement(<<<'SQL'
-            CREATE OR REPLACE VIEW reviews_io.products_with_changed_ratings AS
+            CREATE OR REPLACE VIEW catalog.products_with_changed_ratings AS
             SELECT
                 product_skus.product_id,
                 ROUND(SUM(r.average_rating * r.num_ratings) / NULLIF(SUM(r.num_ratings), 0), 4) as new_average,
@@ -42,6 +42,6 @@ return new class extends Migration {
 
     public function down(): void
     {
-        DB::statement('DROP VIEW IF EXISTS reviews_io.products_with_changed_ratings');
+        DB::statement('DROP VIEW IF EXISTS catalog.products_with_changed_ratings');
     }
 };

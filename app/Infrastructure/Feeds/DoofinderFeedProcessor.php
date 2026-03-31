@@ -76,7 +76,7 @@ final readonly class DoofinderFeedProcessor implements ProductSearchFeedProcesso
         try {
             $transformedXml = \file_get_contents($tempFilePath);
             if ($transformedXml === false) {
-                throw new MalformedFeedDataException(feedName: self::SERVICE_NAME, reason: "Failed to read temp file: {$tempFilePath}");
+                throw new MalformedFeedDataException(feedName: self::SERVICE_NAME, reason: 'Failed to read transformed feed from temp file');
             }
 
             $stats = self::extractStatsFromTempFile($tempFilePath);

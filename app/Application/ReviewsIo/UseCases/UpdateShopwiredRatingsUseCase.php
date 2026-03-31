@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Application\ReviewsIo\UseCases;
 
-use App\Application\Contracts\ReviewsIo\ProductRatingRepositoryInterface;
+use App\Application\Contracts\ReviewsIo\ChangedRatingQueryRepositoryInterface;
 use App\Application\Contracts\Shopwired\ProductUpdateClientInterface;
 use App\Application\ReviewsIo\DTOs\ProductRatingChangeDTO;
 use App\Application\ReviewsIo\Results\RatingsUpdateResult;
@@ -29,7 +29,7 @@ final readonly class UpdateShopwiredRatingsUseCase
     private const string FIELD_NUM_RATINGS = 'num_ratings';
 
     public function __construct(
-        private ProductRatingRepositoryInterface $ratingRepository,
+        private ChangedRatingQueryRepositoryInterface $ratingRepository,
         private ProductUpdateClientInterface $updateClient,
         private LoggerInterface $logger,
     ) {}

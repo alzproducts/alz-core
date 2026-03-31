@@ -5,12 +5,10 @@ declare(strict_types=1);
 namespace App\Infrastructure\ReviewsIo\Repositories;
 
 use App\Application\Contracts\ReviewsIo\ProductRatingRepositoryInterface;
-use App\Application\ReviewsIo\DTOs\ProductRatingChangeDTO;
 use App\Domain\Catalog\Product\ValueObjects\ProductRating;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
-use App\Domain\ValueObjects\IntId;
 use App\Infrastructure\Repositories\AbstractEloquentRepository;
 use App\Infrastructure\ReviewsIo\Models\ProductRatingModel;
 
@@ -57,34 +55,6 @@ final class EloquentProductRatingRepository extends AbstractEloquentRepository i
                 ))
                 ->all(),
         ));
-    }
-
-    /**
-     * {@inheritDoc}
-     *
-     * @return list<ProductRatingChangeDTO>
-     *
-     * @throws DatabaseOperationFailedException
-     * @throws DuplicateRecordException
-     * @throws ExternalServiceUnavailableException
-     */
-    public function getProductsWithChangedRatings(): array
-    {
-        return $this->eloquentGateway->query(static function (): array {
-            /** @var list<object{product_id: int, new_average: string|null, new_count: int}> $rows */
-            $rows = self::MODEL_CLASS::query()->getConnection()->select(
-                'SELECT product_id, new_average, new_count FROM reviews_io.products_with_changed_ratings',
-            );
-
-            return \array_map(
-                static fn(object $row): ProductRatingChangeDTO => new ProductRatingChangeDTO(
-                    productId: IntId::from($row->product_id),
-                    newAverageRating: $row->new_average,
-                    newNumRatings: $row->new_count,
-                ),
-                $rows,
-            );
-        });
     }
 
     // ─────────────────────────────────────────────────────────────────────────

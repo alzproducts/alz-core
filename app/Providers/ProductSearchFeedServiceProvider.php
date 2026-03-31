@@ -54,7 +54,7 @@ final class ProductSearchFeedServiceProvider extends ServiceProvider implements 
     #[Override]
     public function provides(): array
     {
-        return [DoofinderConfig::class, ProductSearchFeedProcessorInterface::class];
+        return [DoofinderConfig::class, ProductSearchFeedProcessorInterface::class, ProcessProductSearchFeedUseCase::class];
     }
 
     private static function createConfig(): DoofinderConfig
