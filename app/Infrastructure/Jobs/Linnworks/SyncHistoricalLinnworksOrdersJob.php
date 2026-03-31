@@ -29,9 +29,9 @@ final class SyncHistoricalLinnworksOrdersJob implements ShouldBeUnique, ShouldQu
     use InteractsWithQueue;
     use Queueable;
 
-    public int $tries = 3;
+    public int $tries = 1;
 
-    public int $maxExceptions = 2;
+    public int $maxExceptions = 1;
 
     public bool $failOnTimeout = true;
 
