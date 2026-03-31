@@ -326,6 +326,12 @@ parameters:
         -
             identifier: missingType.checkedException
             path: app/Infrastructure/HelpScout/Clients/ConversationWriteClient.php
+        # ListProductsRequestDTO::toQuery() calls enum::from() on values pre-validated by DTO rules
+        # (sort_by uses 'in:...' validation, sort_direction uses In['asc','desc']).
+        # PageRequest::from() uses Assert which throws InvalidArgumentException (unchecked).
+        -
+            identifier: missingType.checkedException
+            path: app/Presentation/Http/Api/DTOs/ListProductsRequestDTO.php
     paths:
         - app/
         - bootstrap/

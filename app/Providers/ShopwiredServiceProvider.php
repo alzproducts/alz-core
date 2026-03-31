@@ -60,7 +60,6 @@ use App\Application\Shopwired\UseCases\Webhooks\UpdateOrderStatusUseCase;
 use App\Application\Shopwired\UseCases\Webhooks\UpdateProductStockUseCase;
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldItemType;
 use App\Domain\Exceptions\InvalidConfigurationException;
-use App\Infrastructure\Catalog\Product\Factories\ProductCostPriceFactory;
 use App\Infrastructure\Catalog\Product\Mappers\ProductModelMapper;
 use App\Infrastructure\Catalog\Product\Mappers\ProductVariationModelMapper;
 use App\Infrastructure\Catalog\Product\Mappers\ProductViewAssembler;
@@ -257,7 +256,6 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
                 CustomFieldItemType::Brand,
             ));
         $this->app->scoped(ProductFilterFactory::class);
-        $this->app->scoped(ProductCostPriceFactory::class);
         $this->app->scoped(ProductVariationModelMapper::class);
         $this->app->scoped(ProductModelMapper::class);
         $this->app->scoped(ProductViewAssembler::class);
@@ -377,7 +375,6 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
             ProductFilterFactory::class,
             PriceUpdateClientInterface::class,
             ProductIdentifierResolverInterface::class,
-            ProductCostPriceFactory::class,
             ProductModelMapper::class,
             ProductRepositoryInterface::class,
             ProductVariationModelMapper::class,

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Presentation\Http\Api\Controllers;
 
 use App\Application\Catalog\Queries\ProductDetailQueryParams;
-use App\Application\Catalog\Queries\ProductListQueryParams;
 use App\Application\Catalog\UseCases\GetProductCustomFieldsUseCase;
 use App\Application\Catalog\UseCases\GetProductUseCase;
 use App\Application\Catalog\UseCases\ListProductsUseCase;
@@ -57,13 +56,7 @@ final readonly class ProductController
      */
     public function index(ListProductsRequestDTO $data): ResourceCollection
     {
-        $result = $this->listProductsUseCase->execute(
-            new ProductListQueryParams(
-                perPage: $data->per_page,
-                page: $data->page,
-                includes: \array_map(ProductInclude::fromValue(...), $data->validatedIncludes()),
-            ),
-        );
+        $result = $this->listProductsUseCase->execute($data->toQuery());
 
         return $this->paginatedResponse($result, ProductResource::class);
     }

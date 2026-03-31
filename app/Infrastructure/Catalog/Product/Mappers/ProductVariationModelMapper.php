@@ -4,37 +4,23 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Catalog\Product\Mappers;
 
-use App\Domain\Catalog\Product\Resolvers\VariationPriceResolver;
 use App\Domain\Catalog\Product\ValueObjects\Gtin;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariation;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariationOption;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariationView;
-use App\Domain\Catalog\Product\ValueObjects\Sku;
-use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
-use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
-use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
-use App\Domain\Inventory\ValueObjects\Weight;
-use App\Domain\Shared\Money\ValueObjects\Money;
-use App\Domain\ValueObjects\IntId;
-use App\Domain\ValueObjects\TaxType;
-use App\Infrastructure\Catalog\Product\Factories\ProductCostPriceFactory;
 use App\Infrastructure\Catalog\Product\Models\ProductVariationModel;
+use App\Infrastructure\Catalog\Product\Models\ProductVariationViewModel;
 
 /**
  * Single source of truth for ProductVariationModel ↔ Domain mapping.
  *
  * Three mapping paths (mirrors ProductModelMapper):
  * - `toDomain()`: Basic conversion (internal/write paths)
- * - `toViewDomain()`: API projection with domain types and Linnworks cost prices
+ * - `toViewDomain()`: API projection from view model with resolved prices and Linnworks cost
  * - `toModelAttributes()`: Domain → Eloquent attributes (persistence)
  */
 final class ProductVariationModelMapper
 {
-    public function __construct(
-        private readonly ProductCostPriceFactory $costPriceFactory,
-        private readonly VariationPriceResolver $priceResolver,
-    ) {}
-
     /**
      * Convert Eloquent model to Domain ProductVariation.
      *
@@ -59,47 +45,33 @@ final class ProductVariationModelMapper
     }
 
     /**
-     * API projection: returns a domain-typed ProductVariationView with resolved prices.
+     * API projection: returns a domain-typed ProductVariationView from a view model.
      *
-     * Resolves price/salePrice inheritance from parent, enriches cost price from Linnworks,
-     * and wraps all values in domain types (Money, IntId, Sku, Weight).
+     * Passes primitives directly — the VO self-constructs domain types.
+     * Prices are already resolved (parent inheritance applied in SQL via COALESCE).
      *
-     * @param float $parentPrice Parent product's selling price (required fallback)
-     * @param float|null $parentSalePrice Parent product's sale price
      * @param bool $vatExclusive Whether prices exclude VAT (from parent product)
-     *
-     * @throws DatabaseOperationFailedException On query failure
-     * @throws DuplicateRecordException On constraint violation
-     * @throws ExternalServiceUnavailableException When database temporarily unavailable
      */
     public function toViewDomain(
-        ProductVariationModel $model,
-        float $parentPrice,
-        ?float $parentSalePrice,
+        ProductVariationViewModel $model,
         bool $vatExclusive,
     ): ProductVariationView {
-        $variation = self::toDomain($model);
-        $resolved = $this->priceResolver->resolve(
-            $variation,
-            $parentPrice,
-            parentCostPrice: null,
-            parentSalePrice: $parentSalePrice,
-        );
-
-        $taxType = $vatExclusive ? TaxType::ZeroRated : TaxType::Inclusive;
-
         return new ProductVariationView(
-            id: IntId::from($model->external_id),
-            sku: $model->sku !== null && \mb_trim($model->sku) !== '' ? Sku::fromTrusted(\mb_trim($model->sku)) : null,
-            gtin: $model->gtin !== null ? Gtin::fromTrusted($model->gtin) : null,
-            price: Money::fromTaxType($resolved->price, $taxType),
-            costPrice: $model->sku !== null ? Money::nonZeroOrNull($this->costPriceFactory->getCostPrice($model->sku), TaxType::Exclusive) : null,
-            salePrice: Money::nonZeroOrNull($resolved->salePrice, $taxType),
+            externalId: $model->external_id,
+            sku: $model->sku,
+            gtin: $model->gtin,
+            price: $model->price,
+            costPrice: $model->cost_price,
+            salePrice: $model->sale_price,
+            effectivePrice: $model->effective_price,
+            isOnSale: $model->is_on_sale,
+            profitMargin: $model->profit_margin,
             stock: $model->stock,
-            weight: $model->weight !== null ? Weight::kilogram($model->weight) : null,
+            weight: $model->weight,
+            vatExclusive: $vatExclusive,
             mpn: $model->mpn,
             imageIndex: $model->image_index,
-            options: $variation->options,
+            options: self::buildOptions($model->options),
         );
     }
 

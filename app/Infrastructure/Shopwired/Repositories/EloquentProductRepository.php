@@ -10,6 +10,7 @@ use App\Application\Contracts\DatabaseGatewayInterface;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Application\DTOs\PaginatedListDTO;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
+use App\Domain\Catalog\Product\Enums\ProductFilterField;
 use App\Domain\Catalog\Product\Enums\ProductInclude;
 use App\Domain\Catalog\Product\ValueObjects\Product;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariation;
@@ -21,12 +22,15 @@ use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\IntId;
 use App\Infrastructure\Catalog\Product\Mappers\ProductModelMapper;
+use App\Infrastructure\Catalog\Product\Mappers\ProductSortFieldMapper;
 use App\Infrastructure\Catalog\Product\Mappers\ProductVariationModelMapper;
 use App\Infrastructure\Catalog\Product\Mappers\ProductViewAssembler;
 use App\Infrastructure\Catalog\Product\Models\ProductModel;
 use App\Infrastructure\Catalog\Product\Models\ProductVariationModel;
+use App\Infrastructure\Catalog\Product\Models\ProductViewModel;
 use App\Infrastructure\Persistence\EloquentGateway;
 use App\Infrastructure\Repositories\AbstractEloquentRepository;
+use Closure;
 use Generator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -49,6 +53,9 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
 {
     /** @var class-string<ProductModel> */
     private const string MODEL_CLASS = ProductModel::class;
+
+    /** @var class-string<ProductViewModel> */
+    private const string VIEW_MODEL_CLASS = ProductViewModel::class;
 
     /** @var list<string> */
     private const array EAGER_LOAD_RELATIONS = ['variations'];
@@ -79,15 +86,36 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
     public function paginate(ProductListQueryParams $query): PaginatedListDTO
     {
         return $this->eloquentGateway->paginate(
-            modelClass: self::MODEL_CLASS,
-            scope: static function (Builder $q): void {
-                $q->where('is_active', true)->orderBy('title');
-            },
+            modelClass: self::VIEW_MODEL_CLASS,
+            scope: self::buildScope($query),
             relations: self::relationsForIncludes($query->includes),
-            mapper: fn(ProductModel $model): ProductView => $this->viewMapper->toViewDomain($model, $query->includes),
-            perPage: $query->perPage,
-            page: $query->page,
+            mapper: fn(ProductViewModel $model): ProductView => $this->viewMapper->toViewDomain($model, $query->includes),
+            perPage: $query->pagination->perPage,
+            page: $query->pagination->page,
         );
+    }
+
+    /**
+     * Build a dynamic Eloquent scope from sort/filter query params.
+     */
+    private static function buildScope(ProductListQueryParams $query): Closure
+    {
+        return static function (Builder $q) use ($query): void {
+            foreach ($query->filters as $field => $value) {
+                // @phpstan-ignore-next-line shipmonk.checkedExceptionInCallable ($field is value-of<ProductFilterField> — from() cannot throw; scope closure is immediately invoked by EloquentGateway::paginate())
+                $_ = match (ProductFilterField::from($field)) {
+                    ProductFilterField::IsActive => $q->where('is_active', $value),
+                    ProductFilterField::CategoryId => $q->whereJsonContains('category_ids', $value),
+                    ProductFilterField::IsOnSale => $q->where('is_on_sale', $value),
+                    ProductFilterField::Sku => $q->where('sku', $value),
+                    ProductFilterField::HasFreeDelivery => $q->where('has_free_delivery', $value),
+                };
+            }
+
+            if ($query->sortField !== null) {
+                $q->orderBy(ProductSortFieldMapper::toColumn($query->sortField), $query->sortDirection->value);
+            }
+        };
     }
 
     /**
@@ -102,12 +130,12 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
     public function findProductForApi(ProductDetailQueryParams $query): ProductView
     {
         return $this->eloquentGateway->findOrFail(
-            modelClass: self::MODEL_CLASS,
+            modelClass: self::VIEW_MODEL_CLASS,
             column: 'external_id',
             value: $query->productId->value,
             relations: self::relationsForIncludes($query->includes),
             entityTypeName: 'Product',
-            mapper: fn(ProductModel $model): ProductView => $this->viewMapper->toViewDomain($model, $query->includes),
+            mapper: fn(ProductViewModel $model): ProductView => $this->viewMapper->toViewDomain($model, $query->includes),
         );
     }
 
