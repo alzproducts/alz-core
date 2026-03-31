@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Providers\Schedule;
 
 use App\Application\Linnworks\Enums\OrderSyncTier;
+use App\Infrastructure\Jobs\Linnworks\SyncAllPurchaseOrdersJob;
 use App\Infrastructure\Jobs\Linnworks\SyncFastPurchaseOrdersJob;
 use App\Infrastructure\Jobs\Linnworks\SyncLinnworksOrdersByCursorJob;
 use App\Infrastructure\Jobs\Linnworks\SyncLinnworksOrdersJob;
@@ -115,5 +116,10 @@ final class LinnworksScheduleServiceProvider extends ServiceProvider
                 \now()->toDateTimeImmutable(),
             );
         })->name('sync-purchase-orders-daily')->daily()->onOneServer()->withoutOverlapping(30);
+
+        // QUARTERLY: Full PO backfill — all POs, all statuses, safety net
+        Schedule::job(new SyncAllPurchaseOrdersJob())
+            ->name('sync-all-purchase-orders-quarterly')
+            ->quarterly()->onOneServer()->withoutOverlapping(300);
     }
 }
