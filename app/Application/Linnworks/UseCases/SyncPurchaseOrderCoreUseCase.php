@@ -24,7 +24,7 @@ use Psr\Log\LoggerInterface;
  * Sync purchase orders using batch SQL queries via the Dashboards API.
  *
  * Fetches all headers and items in 2 SQL queries (regardless of PO count),
- * assembles PurchaseOrderCore objects in PHP, and persists via saveCore().
+ * assembles PurchaseOrderCore objects in PHP, and persists via saveCoresBatch().
  *
  * Use for fast sync (OPEN/PENDING/PARTIAL polling) where notes, extended
  * properties, additional costs, and delivered records are not required.
@@ -43,10 +43,12 @@ final readonly class SyncPurchaseOrderCoreUseCase
      * @param list<Guid> $purchaseOrderIds Pre-fetched purchase order IDs to sync
      *
      * @throws AuthenticationExpiredException When Linnworks credentials invalid/expired
-     * @throws InvalidApiRequestException When request parameters are invalid
-     * @throws ResourceNotFoundException When a requested resource is not found
+     * @throws DatabaseOperationFailedException When database write fails
+     * @throws DuplicateRecordException When a duplicate record is encountered
      * @throws ExternalServiceUnavailableException When Linnworks API or database unavailable
+     * @throws InvalidApiRequestException When request parameters are invalid
      * @throws InvalidApiResponseException When API response parsing fails
+     * @throws ResourceNotFoundException When a requested resource is not found
      */
     public function execute(array $purchaseOrderIds): SyncResult
     {
@@ -69,6 +71,8 @@ final readonly class SyncPurchaseOrderCoreUseCase
      * @param list<Guid> $purchaseOrderIds
      *
      * @throws AuthenticationExpiredException
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      * @throws InvalidApiRequestException
      * @throws InvalidApiResponseException
@@ -88,29 +92,43 @@ final readonly class SyncPurchaseOrderCoreUseCase
     }
 
     /**
-     * Assemble Core VOs from batch data and persist each.
-     *
      * @param array<string, array{header: PurchaseOrderHeader, noteCount: int}> $headerData
      * @param array<string, list<PurchaseOrderItem>>                            $itemsByPo
      *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      */
     private function assembleAndSave(array $headerData, array $itemsByPo): PurchaseOrderSyncTotalsResult
     {
-        $totals = new PurchaseOrderSyncTotalsResult();
+        $cores = self::assembleCores($headerData, $itemsByPo);
+        $this->repository->saveCoresBatch($cores);
+        $count = \count($cores);
+
+        return PurchaseOrderSyncTotalsResult::fromBatch(fetched: $count, saved: $count);
+    }
+
+    /**
+     * Assemble PurchaseOrderCore VOs from batch SQL data.
+     *
+     * @param array<string, array{header: PurchaseOrderHeader, noteCount: int}> $headerData
+     * @param array<string, list<PurchaseOrderItem>>                            $itemsByPo
+     *
+     * @return list<PurchaseOrderCore>
+     */
+    private static function assembleCores(array $headerData, array $itemsByPo): array
+    {
+        $cores = [];
 
         foreach ($headerData as $purchaseId => $data) {
-            $core = new PurchaseOrderCore(
+            $cores[] = new PurchaseOrderCore(
                 header: $data['header'],
                 noteCount: $data['noteCount'],
                 items: $itemsByPo[$purchaseId] ?? [],
             );
-
-            $totals->addFetched();
-            $this->saveSingleCore($core, $totals);
         }
 
-        return $totals;
+        return $cores;
     }
 
     /**
@@ -139,25 +157,4 @@ final readonly class SyncPurchaseOrderCoreUseCase
         return [$headerData, $itemsByPo];
     }
 
-    /**
-     * Save a single Core PO, continuing on DB failures.
-     *
-     * @throws ExternalServiceUnavailableException When database temporarily unavailable
-     */
-    private function saveSingleCore(PurchaseOrderCore $core, PurchaseOrderSyncTotalsResult $totals): void
-    {
-        try {
-            $this->repository->saveCore($core);
-            $totals->addSaved();
-        } catch (ExternalServiceUnavailableException $e) {
-            throw $e;
-        } catch (DatabaseOperationFailedException|DuplicateRecordException $e) {
-            $ref = $core->header->pkPurchaseId->value;
-            $totals->addFailed($ref);
-            $this->logger->error('Failed to save purchase order core', [
-                'purchase_id' => $ref,
-                'error' => $e->getMessage(),
-            ]);
-        }
-    }
 }

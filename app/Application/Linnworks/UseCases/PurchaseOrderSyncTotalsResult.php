@@ -25,6 +25,23 @@ final class PurchaseOrderSyncTotalsResult
     /** @var list<string> */
     private array $failedReferences = [];
 
+    /**
+     * Create from a batch operation result (all-or-nothing).
+     *
+     * @param int<0, max> $fetched
+     * @param int<0, max> $saved
+     * @param list<string> $failedReferences
+     */
+    public static function fromBatch(int $fetched, int $saved, array $failedReferences = []): self
+    {
+        $result = new self();
+        $result->fetched = $fetched;
+        $result->saved = $saved;
+        $result->failedReferences = $failedReferences;
+
+        return $result;
+    }
+
     public function addFetched(): void
     {
         $this->fetched++;

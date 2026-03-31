@@ -6,8 +6,11 @@ namespace App\Infrastructure\Jobs\Linnworks;
 
 use App\Application\Contracts\Linnworks\PurchaseDashboardsClientInterface;
 use App\Application\Linnworks\UseCases\SyncPurchaseOrderCoreUseCase;
+use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
+use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Infrastructure\Jobs\Enums\QueueName;
 use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
+use App\Infrastructure\Jobs\Middleware\HandleDatabaseExceptions;
 use App\Infrastructure\Jobs\Middleware\ServiceCircuitBreaker;
 use DateTimeImmutable;
 use Illuminate\Bus\Queueable;
@@ -66,6 +69,7 @@ final class SyncFastPurchaseOrdersJob implements ShouldBeUnique, ShouldQueue
         return [
             ServiceCircuitBreaker::linnworks(),
             new HandleApiExceptions(),
+            new HandleDatabaseExceptions(),
         ];
     }
 
@@ -78,6 +82,9 @@ final class SyncFastPurchaseOrdersJob implements ShouldBeUnique, ShouldQueue
      * IMPORTANT: createdSince calculated here in handle(), not constructor (Octane safety).
      * Uses startOfMonth()->subMonths(6) rather than subMonths(6) directly to avoid
      * month-boundary gaps — e.g. on Jan 15 we want Jul 1, not Jul 15.
+     *
+     * @throws DatabaseOperationFailedException On DB query failure
+     * @throws DuplicateRecordException On duplicate record
      */
     public function handle(
         SyncPurchaseOrderCoreUseCase $useCase,

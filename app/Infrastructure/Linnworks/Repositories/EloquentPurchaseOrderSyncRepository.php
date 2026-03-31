@@ -95,6 +95,68 @@ final class EloquentPurchaseOrderSyncRepository extends AbstractEloquentReposito
         }, attempts: 3);
     }
 
+    /**
+     * Persist multiple Core purchase orders in bulk (3 DB calls total).
+     *
+     * No transaction wrapper — idempotent upserts self-correct on next sync.
+     *
+     * @param list<PurchaseOrderCore> $purchaseOrders
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function saveCoresBatch(array $purchaseOrders): void
+    {
+        if ($purchaseOrders === []) {
+            return;
+        }
+
+        $headerRows = [];
+        $itemRows = [];
+        $allPurchaseIds = [];
+        $allItemIds = [];
+
+        foreach ($purchaseOrders as $core) {
+            $purchaseId = $core->header->pkPurchaseId->value;
+            $allPurchaseIds[] = $purchaseId;
+            $headerRows[] = $this->coreToAttributes($core);
+
+            foreach ($core->items as $item) {
+                $allItemIds[] = $item->pkPurchaseItemId->value;
+                $itemRows[] = [
+                    'linnworks_purchase_id' => $purchaseId,
+                    ...PurchaseOrderItemModel::attributesFromDomain($item),
+                ];
+            }
+        }
+
+        // 1. Bulk upsert all headers
+        $this->eloquentGateway->upsertMany(
+            modelClass: PurchaseOrderModel::class,
+            rows: $headerRows,
+            uniqueBy: $this->getUpsertKeys(),
+        );
+
+        // 2. Bulk upsert all items across all POs
+        if ($itemRows !== []) {
+            $this->eloquentGateway->upsertMany(
+                modelClass: PurchaseOrderItemModel::class,
+                rows: $itemRows,
+                uniqueBy: ['linnworks_purchase_item_id'],
+            );
+        }
+
+        // 3. Bulk orphan-delete items for all POs in one query
+        $this->eloquentGateway->deleteWhereInAndNotIn(
+            modelClass: PurchaseOrderItemModel::class,
+            whereInColumn: 'linnworks_purchase_id',
+            whereInValues: $allPurchaseIds,
+            notInColumn: 'linnworks_purchase_item_id',
+            notInValues: $allItemIds,
+        );
+    }
+
     protected function getModelClass(): string
     {
         return PurchaseOrderModel::class;

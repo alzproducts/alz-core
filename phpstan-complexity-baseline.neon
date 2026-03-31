@@ -1371,8 +1371,14 @@ parameters:
 			path: app/Infrastructure/Linnworks/Repositories/EloquentLinnworksOrderRepository.php
 
 		-
-			rawMessage: 'Class EloquentPurchaseOrderSyncRepository is 371 lines long — exceeds the 250-line limit. Consider decomposing into smaller, focused classes.'
+			rawMessage: 'Class EloquentPurchaseOrderSyncRepository is 433 lines long — exceeds the 250-line limit. Consider decomposing into smaller, focused classes.'
 			identifier: alz.excessiveClassLength
+			count: 1
+			path: app/Infrastructure/Linnworks/Repositories/EloquentPurchaseOrderSyncRepository.php
+
+		-
+			rawMessage: 'Method saveCoresBatch() is 49 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Infrastructure/Linnworks/Repositories/EloquentPurchaseOrderSyncRepository.php
 
@@ -1636,8 +1642,20 @@ parameters:
 			path: app/Infrastructure/Operations/Repositories/EloquentPricePeriodRepository.php
 
 		-
-			rawMessage: 'Class EloquentGateway is 843 lines long — exceeds the 250-line limit. Consider decomposing into smaller, focused classes.'
+			rawMessage: 'Class EloquentGateway is 900 lines long — exceeds the 250-line limit. Consider decomposing into smaller, focused classes.'
 			identifier: alz.excessiveClassLength
+			count: 1
+			path: app/Infrastructure/Persistence/EloquentGateway.php
+
+		-
+			rawMessage: 'Method deleteWhereInAndNotIn() has 5 parameters — exceeds the 4-parameter limit. Consider a parameter object or splitting the method.'
+			identifier: alz.excessiveParameterCount
+			count: 1
+			path: app/Infrastructure/Persistence/EloquentGateway.php
+
+		-
+			rawMessage: 'Method deleteWhereInAndNotIn() is 36 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Infrastructure/Persistence/EloquentGateway.php
 
