@@ -14,6 +14,7 @@ use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Infrastructure\HelpScout\HelpScoutHttpTransport;
 use App\Infrastructure\HelpScout\HelpScoutResponseParser;
 use App\Infrastructure\HelpScout\Responses\ConversationResponse;
+use Illuminate\Http\Client\Response;
 use Override;
 
 /**
@@ -79,23 +80,45 @@ final readonly class ConversationsClient implements ConversationsClientInterface
             return [];
         }
 
-        // Single query doesn't need pool overhead
         if (\count($queries) === 1) {
             return [$this->getConversations($queries[0])];
         }
 
-        // Build keyed request params for pool execution
-        /** @var array<string, array<string, mixed>> $requests */
+        $responses = $this->transport->poolGet($this->buildKeyedRequestParams($queries));
+
+        return $this->parsePoolResponses($responses);
+    }
+
+    /**
+     * @param list<ConversationQueryParams> $queries
+     *
+     * @return array<string, array<string, mixed>>
+     */
+    private function buildKeyedRequestParams(array $queries): array
+    {
         $requests = [];
+
         foreach ($queries as $index => $query) {
             $requests[(string) $index] = $this->buildApiParams($query);
         }
 
-        /** @phpstan-ignore argument.type (PHP coerces numeric string keys to int) */
-        $responses = $this->transport->poolGet($requests);
+        /** @var array<string, array<string, mixed>> */
+        return $requests;
+    }
 
-        // Parse responses preserving original order
+    /**
+     * Parse keyed pool responses into ordered domain conversation lists.
+     *
+     * @param array<string, Response> $responses
+     *
+     * @return list<list<DomainConversation>>
+     *
+     * @throws InvalidApiResponseException When API response structure is invalid
+     */
+    private function parsePoolResponses(array $responses): array
+    {
         $results = [];
+
         foreach ($responses as $index => $response) {
             /** @var list<DomainConversation> $conversations */
             $conversations = HelpScoutResponseParser::parseEmbeddedCollectionToDomain(

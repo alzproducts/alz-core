@@ -72,6 +72,17 @@ final readonly class ReviewsIoConfig
         public int $retryTimes = 3,
         public int $retryDelay = 100,
     ) {
+        self::validateCredentials($apiKey, $storeId);
+        self::validateTimeout($timeout);
+        self::validateRetryTimes($retryTimes);
+        self::validateRetryDelay($retryDelay);
+    }
+
+    /**
+     * @throws InvalidConfigurationException When credentials are empty
+     */
+    private static function validateCredentials(string $apiKey, string $storeId): void
+    {
         if ($apiKey === '') {
             throw new InvalidConfigurationException('reviews_io.api_key', 'Reviews.io API key cannot be empty');
         }
@@ -79,19 +90,28 @@ final readonly class ReviewsIoConfig
         if ($storeId === '') {
             throw new InvalidConfigurationException('reviews_io.store_id', 'Reviews.io store ID cannot be empty');
         }
+    }
 
+    private static function validateTimeout(int $timeout): void
+    {
         if (($timeout < 1) || ($timeout > self::MAX_TIMEOUT_SECONDS)) {
             throw new InvalidArgumentException(
                 \sprintf('Timeout must be between 1-%d seconds, got %d', self::MAX_TIMEOUT_SECONDS, $timeout),
             );
         }
+    }
 
+    private static function validateRetryTimes(int $retryTimes): void
+    {
         if (($retryTimes < 0) || ($retryTimes > self::MAX_RETRY_ATTEMPTS)) {
             throw new InvalidArgumentException(
                 \sprintf('Retry times must be between 0-%d, got %d', self::MAX_RETRY_ATTEMPTS, $retryTimes),
             );
         }
+    }
 
+    private static function validateRetryDelay(int $retryDelay): void
+    {
         if (($retryDelay < 0) || ($retryDelay > self::MAX_RETRY_DELAY_MS)) {
             throw new InvalidArgumentException(
                 \sprintf('Retry delay must be between 0-%dms, got %d', self::MAX_RETRY_DELAY_MS, $retryDelay),

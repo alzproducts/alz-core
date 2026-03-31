@@ -68,6 +68,14 @@ final readonly class ConversationWriteClient implements ConversationWriteClientI
             'conversation creation',
         );
 
+        return self::ensureValidConversationId($conversationId);
+    }
+
+    /**
+     * @throws UnexpectedApiResultException When API returns null conversation ID
+     */
+    private static function ensureValidConversationId(?int $conversationId): int
+    {
         if ($conversationId === null) {
             Log::error(self::SERVICE_NAME . ' create returned null conversation ID');
             throw new UnexpectedApiResultException(self::SERVICE_NAME, 'Create returned null conversation ID');

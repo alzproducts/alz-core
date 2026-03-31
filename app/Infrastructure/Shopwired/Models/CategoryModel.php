@@ -9,6 +9,7 @@ use App\Domain\Catalog\Category\ValueObjects\CategoryImage;
 use App\Domain\Catalog\Category\ValueObjects\CategoryView;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Data\MissingRequiredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\IntId;
@@ -117,6 +118,7 @@ final class CategoryModel extends Model implements EloquentDomainMappableInterfa
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      * @throws DatabaseOperationFailedException When custom field registry fails to load
      * @throws DuplicateRecordException On constraint violation
+     * @throws MissingRequiredDataException When custom field definitions table is empty
      */
     public function toViewDomain(array $includes = [], ?CustomFieldFactory $customFieldFactory = null): CategoryView
     {

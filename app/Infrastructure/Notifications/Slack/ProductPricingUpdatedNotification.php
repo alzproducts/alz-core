@@ -51,11 +51,9 @@ final class ProductPricingUpdatedNotification extends Notification
 
     public function toSlack(object $notifiable): SlackMessage
     {
-        $count = \count($this->priceChanges);
         $displayName = $this->productTitle ?? "Product {$this->productId}";
-
         $message = (new SlackMessage())
-            ->text("{$displayName}: {$count} price(s) updated")
+            ->text("{$displayName}: " . \count($this->priceChanges) . ' price(s) updated')
             ->headerBlock('Product Prices Updated')
             ->sectionBlock(function (SectionBlock $block) use ($displayName): void {
                 $block->text("*{$displayName}* | *Updated:* " . \count($this->priceChanges) . ' SKU(s)')->markdown();
@@ -64,45 +62,43 @@ final class ProductPricingUpdatedNotification extends Notification
                 $block->text($this->buildPriceChangeList())->markdown();
             });
 
-        // Add sale context section when present
-        $saleContext = $this->buildSaleContext();
-        if ($saleContext !== null) {
-            $message->sectionBlock(static function (SectionBlock $block) use ($saleContext): void {
-                $block->text($saleContext)->markdown();
-            });
-        }
-
-        if ($this->productUrl !== null) {
-            $message->actionsBlock(function (ActionsBlock $block): void {
-                $block->button('View Product')
-                    ->url($this->productUrl)
-                    ->primary();
-            });
-        }
+        $this->appendSaleContextSection($message);
+        $this->appendProductButton($message);
 
         return $message->contextBlock(static function (ContextBlock $block): void {
             $block->text('Updated at ' . \now()->format('Y-m-d H:i:s'));
         });
     }
 
+    private function appendSaleContextSection(SlackMessage $message): void
+    {
+        $saleContext = $this->buildSaleContext();
+        if ($saleContext === null) {
+            return;
+        }
+
+        $message->sectionBlock(static function (SectionBlock $block) use ($saleContext): void {
+            $block->text($saleContext)->markdown();
+        });
+    }
+
+    private function appendProductButton(SlackMessage $message): void
+    {
+        if ($this->productUrl === null) {
+            return;
+        }
+
+        $message->actionsBlock(function (ActionsBlock $block): void {
+            $block->button('View Product')
+                ->url($this->productUrl)
+                ->primary();
+        });
+    }
+
     private function buildPriceChangeList(): string
     {
         $visible = \array_slice($this->priceChanges, 0, self::MAX_SKUS_SHOWN);
-        $lines = \array_map(static function (SkuPriceChange $change): string {
-            $previous = \number_format($change->previousPrices->effectivePrice()->toGross(), 2);
-            $new = \number_format($change->newPrices->effectivePrice()->toGross(), 2);
-
-            $label = match (true) {
-                $change->addedToSale() => ' [SALE]',
-                $change->removedFromSale() => ' [SALE ENDED]',
-                $change->saleChanged() => ' [SALE]',
-                default => '',
-            };
-
-            return "`{$change->sku->value}`: £{$previous} → £{$new}{$label}";
-        }, $visible);
-
-        $text = \implode("\n", $lines);
+        $text = \implode("\n", \array_map(static fn(SkuPriceChange $change): string => self::formatPriceChangeLine($change), $visible));
 
         $remaining = \count($this->priceChanges) - self::MAX_SKUS_SHOWN;
         if ($remaining > 0) {
@@ -110,6 +106,21 @@ final class ProductPricingUpdatedNotification extends Notification
         }
 
         return $text;
+    }
+
+    private static function formatPriceChangeLine(SkuPriceChange $change): string
+    {
+        $previous = \number_format($change->previousPrices->effectivePrice()->toGross(), 2);
+        $new = \number_format($change->newPrices->effectivePrice()->toGross(), 2);
+
+        $label = match (true) {
+            $change->addedToSale() => ' [SALE]',
+            $change->removedFromSale() => ' [SALE ENDED]',
+            $change->saleChanged() => ' [SALE]',
+            default => '',
+        };
+
+        return "`{$change->sku->value}`: £{$previous} → £{$new}{$label}";
     }
 
     private function buildSaleContext(): ?string
@@ -148,24 +159,14 @@ final class ProductPricingUpdatedNotification extends Notification
 
     private function buildAddToSaleContext(SaleSettings $settings): ?string
     {
-        $lines = [];
-
-        if ($settings->saleReason !== '') {
-            $lines[] = "*Sale reason:* {$settings->saleReason}";
-        }
-
         $discountPct = $this->calculateDiscountPercentage();
-        if ($discountPct !== null) {
-            $lines[] = "*Discount:* {$discountPct}%";
-        }
 
-        if ($settings->saleEndDate !== null) {
-            $lines[] = "*Sale ends:* {$settings->saleEndDate->format('Y-m-d')}";
-        }
-
-        if ($settings->saleEndsStock !== null) {
-            $lines[] = "*Stock threshold:* {$settings->saleEndsStock} units";
-        }
+        $lines = \array_filter([
+            $settings->saleReason !== '' ? "*Sale reason:* {$settings->saleReason}" : null,
+            $discountPct !== null ? "*Discount:* {$discountPct}%" : null,
+            $settings->saleEndDate !== null ? "*Sale ends:* {$settings->saleEndDate->format('Y-m-d')}" : null,
+            $settings->saleEndsStock !== null ? "*Stock threshold:* {$settings->saleEndsStock} units" : null,
+        ]);
 
         return $lines !== [] ? \implode("\n", $lines) : null;
     }

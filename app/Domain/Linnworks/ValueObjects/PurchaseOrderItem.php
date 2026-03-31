@@ -32,7 +32,7 @@ final readonly class PurchaseOrderItem
         // ── Financial ──
         public float $cost,
         public float $tax,
-        public TaxRate $taxRate,
+        public ?TaxRate $taxRate,
 
         // ── State ──
         public int $sortOrder,

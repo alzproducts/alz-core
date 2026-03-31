@@ -9,6 +9,7 @@ use App\Domain\Catalog\Brand\ValueObjects\BrandImage;
 use App\Domain\Catalog\Brand\ValueObjects\BrandView;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Data\MissingRequiredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\IntId;
@@ -106,6 +107,7 @@ final class BrandModel extends Model implements EloquentDomainMappableInterface
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      * @throws DatabaseOperationFailedException When custom field registry fails to load
      * @throws DuplicateRecordException On constraint violation
+     * @throws MissingRequiredDataException When custom field definitions table is empty
      */
     public function toViewDomain(array $includes = [], ?CustomFieldFactory $customFieldFactory = null): BrandView
     {

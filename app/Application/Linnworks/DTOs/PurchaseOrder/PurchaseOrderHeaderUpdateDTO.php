@@ -31,7 +31,7 @@ final readonly class PurchaseOrderHeaderUpdateDTO
         public string $supplierReferenceNumber,
         public int $unitAmountTaxIncludedType,
         public Money $postagePaid,
-        public TaxRate $shippingTaxRate,
+        public ?TaxRate $shippingTaxRate,
         public float $conversionRate,
         public ?DateTimeImmutable $quotedDeliveryDate = null,
     ) {}
@@ -51,7 +51,7 @@ final readonly class PurchaseOrderHeaderUpdateDTO
             'SupplierReferenceNumber' => $this->supplierReferenceNumber,
             'UnitAmountTaxIncludedType' => $this->unitAmountTaxIncludedType,
             'PostagePaid' => $this->postagePaid->toNet(),
-            'ShippingTaxRate' => $this->shippingTaxRate->percentage,
+            'ShippingTaxRate' => $this->shippingTaxRate !== null ? $this->shippingTaxRate->percentage : -1, // -1 is Linnworks sentinel for "not set"
             'ConversionRate' => $this->conversionRate,
             'QuotedDeliveryDate' => $this->quotedDeliveryDate?->format('Y-m-d\TH:i:s'),
         ];

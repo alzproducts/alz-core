@@ -52,24 +52,7 @@ final class ConversationResponse extends Data implements DomainConvertibleInterf
      */
     public function toDomain(): DomainConversation
     {
-        try {
-            $createdAt = new DateTimeImmutable($this->createdAt);
-            $updatedAt = ($this->updatedAt !== null)
-                ? new DateTimeImmutable($this->updatedAt)
-                : null;
-            $userUpdatedAt = ($this->userUpdatedAt !== null)
-                ? new DateTimeImmutable($this->userUpdatedAt)
-                : null;
-            $customerWaitingSince = ($this->customerWaitingSince !== null)
-                ? new DateTimeImmutable($this->customerWaitingSince->time)
-                : null;
-        } catch (DateMalformedStringException $e) {
-            throw new InvalidApiResponseException(
-                serviceName: 'HelpScout',
-                message: "Invalid date format in conversation {$this->id}",
-                previous: $e,
-            );
-        }
+        [$createdAt, $updatedAt, $userUpdatedAt, $customerWaitingSince] = $this->parseDates();
 
         return new DomainConversation(
             id: $this->id,
@@ -87,5 +70,30 @@ final class ConversationResponse extends Data implements DomainConvertibleInterf
             assignee: $this->assignee?->toDomain(),
             customerWaitingFriendly: $this->customerWaitingSince?->friendly,
         );
+    }
+
+    /**
+     * Parse all date strings into DateTimeImmutable objects.
+     *
+     * @return array{DateTimeImmutable, DateTimeImmutable|null, DateTimeImmutable|null, DateTimeImmutable|null}
+     *
+     * @throws InvalidApiResponseException When date format is invalid
+     */
+    private function parseDates(): array
+    {
+        try {
+            return [
+                new DateTimeImmutable($this->createdAt),
+                $this->updatedAt !== null ? new DateTimeImmutable($this->updatedAt) : null,
+                $this->userUpdatedAt !== null ? new DateTimeImmutable($this->userUpdatedAt) : null,
+                $this->customerWaitingSince !== null ? new DateTimeImmutable($this->customerWaitingSince->time) : null,
+            ];
+        } catch (DateMalformedStringException $e) {
+            throw new InvalidApiResponseException(
+                serviceName: 'HelpScout',
+                message: "Invalid date format in conversation {$this->id}",
+                previous: $e,
+            );
+        }
     }
 }

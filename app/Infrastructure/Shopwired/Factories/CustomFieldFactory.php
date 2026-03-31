@@ -9,6 +9,7 @@ use App\Domain\Catalog\CustomFields\Enums\CustomFieldItemType;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\CustomFields\ValueObjects\AbstractCustomFieldValue;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Data\MissingRequiredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Infrastructure\Shopwired\CustomFields\CustomFieldDefinitionRegistry;
@@ -54,6 +55,7 @@ final class CustomFieldFactory
      * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      * @throws InvalidCustomFieldValueException When value type mismatches definition
+     * @throws MissingRequiredDataException When custom field definitions table is empty
      */
     public function fromRawFields(array $rawFields): array
     {
@@ -90,11 +92,21 @@ final class CustomFieldFactory
      * @throws DatabaseOperationFailedException When query fails
      * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
+     * @throws MissingRequiredDataException When custom field definitions table is empty
      */
     private function registry(): CustomFieldDefinitionRegistry
     {
         if ($this->registry === null) {
             $definitions = $this->customFieldRepository->findAll();
+
+            if ($definitions === []) {
+                throw new MissingRequiredDataException(
+                    dataType: 'custom field definitions',
+                    operation: "CustomFieldFactory ({$this->itemType->value})",
+                    resolution: 'Run SyncCustomFieldsJob or php artisan app:sync-custom-fields',
+                );
+            }
+
             $this->registry = CustomFieldDefinitionRegistry::forItemType($definitions, $this->itemType);
         }
 

@@ -50,7 +50,7 @@ final class PurchaseOrderAdditionalCostResponse extends Data implements DomainCo
             additionalCostTypeId: $this->additionalCostTypeId,
             reference: $this->reference,
             subTotalLineCost: $this->subTotalLineCost,
-            taxRate: TaxRate::fromPercentage($this->taxRate),
+            taxRate: $this->taxRate < 0 ? null : TaxRate::fromPercentage($this->taxRate), // -1 means "not set"
             tax: $this->tax,
             currency: $this->currency,
             conversionRate: $this->conversionRate,

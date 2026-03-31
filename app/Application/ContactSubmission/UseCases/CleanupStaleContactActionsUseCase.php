@@ -35,7 +35,6 @@ final readonly class CleanupStaleContactActionsUseCase
     {
         $threshold = new DateTimeImmutable(\sprintf('-%d hours', self::STALE_THRESHOLD_HOURS));
         $staleActions = $this->repository->findStaleProcessing($threshold);
-
         if ($staleActions === []) {
             return;
         }
@@ -45,10 +44,30 @@ final readonly class CleanupStaleContactActionsUseCase
             'threshold_hours' => self::STALE_THRESHOLD_HOURS,
         ]);
 
+        [$resetCount, $failedCount] = $this->processBatch($staleActions);
+
+        $this->logger->info('Completed stale contact action cleanup', [
+            'reset_count' => $resetCount,
+            'failed_count' => $failedCount,
+            'total_found' => \count($staleActions),
+        ]);
+    }
+
+    /**
+     * Process each stale action, counting successes and failures.
+     *
+     * @param non-empty-array<int, array{action_id: string, parent_id: string}> $actions
+     *
+     * @return array{int, int} [resetCount, failedCount]
+     *
+     * @throws ExternalServiceUnavailableException On transient database failure
+     */
+    private function processBatch(array $actions): array
+    {
         $resetCount = 0;
         $failedCount = 0;
 
-        foreach ($staleActions as $action) {
+        foreach ($actions as $action) {
             try {
                 $this->resetAndRedispatch($action);
                 $resetCount++;
@@ -62,11 +81,7 @@ final readonly class CleanupStaleContactActionsUseCase
             }
         }
 
-        $this->logger->info('Completed stale contact action cleanup', [
-            'reset_count' => $resetCount,
-            'failed_count' => $failedCount,
-            'total_found' => \count($staleActions),
-        ]);
+        return [$resetCount, $failedCount];
     }
 
     /**

@@ -9,6 +9,7 @@ use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Application\Contracts\Shopwired\SaleSettingsRepositoryInterface;
 use App\Application\Notifications\DTOs\PriceUpdateAlertDataDTO;
 use App\Domain\Catalog\Product\Events\ProductPricingUpdatedEvent;
+use App\Domain\Catalog\Product\ValueObjects\SaleSettings;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
@@ -46,34 +47,52 @@ final class ProductPricingUpdatedSlackListener implements ShouldQueue
      */
     public function handle(ProductPricingUpdatedEvent $event): void
     {
-        $productTitle = null;
-        $productUrl = null;
-
-        try {
-            $product = $this->productRepository->getProduct($event->productId);
-            $productTitle = $product->title;
-            $productUrl = $product->url;
-        } catch (Exception $e) { // @ignoreException - enrichment is best-effort, notification still sends
-            Log::warning('Could not enrich pricing notification with product details', [
-                'product_id' => $event->productId->value,
-                'exception' => $e->getMessage(),
-            ]);
-        }
-
-        // For add-to-sale: read persisted settings from DB.
-        // For removals: SaleSubmissionContext snapshot is in the event (DB row already deleted).
-        $saleSettings = $event->saleSubmissionContext === null
-            ? $this->saleSettingsRepo->findByProduct($event->productId)
-            : null;
+        [$productTitle, $productUrl] = $this->enrichProductContext($event);
 
         $this->chat->sendPriceUpdateAlert(new PriceUpdateAlertDataDTO(
             productId: $event->productId,
             priceChanges: $event->priceChanges,
             productTitle: $productTitle,
             productUrl: $productUrl,
-            saleSettings: $saleSettings,
+            saleSettings: $this->resolveSaleSettings($event),
             saleSubmissionContext: $event->saleSubmissionContext,
         ));
+    }
+
+    /**
+     * Best-effort enrichment with product title and URL.
+     *
+     * @return array{string|null, string|null} [title, url]
+     */
+    private function enrichProductContext(ProductPricingUpdatedEvent $event): array
+    {
+        try {
+            $product = $this->productRepository->getProduct($event->productId);
+
+            return [$product->title, $product->url];
+        } catch (Exception $e) { // @ignoreException - enrichment is best-effort, notification still sends
+            Log::warning('Could not enrich pricing notification with product details', [
+                'product_id' => $event->productId->value,
+                'exception' => $e->getMessage(),
+            ]);
+
+            return [null, null];
+        }
+    }
+
+    /**
+     * For add-to-sale: read persisted settings from DB.
+     * For removals: SaleSubmissionContext snapshot is in the event (DB row already deleted).
+     *
+     * @throws DatabaseOperationFailedException On query failure
+     * @throws DuplicateRecordException On constraint violation
+     * @throws ExternalServiceUnavailableException When database unavailable
+     */
+    private function resolveSaleSettings(ProductPricingUpdatedEvent $event): ?SaleSettings
+    {
+        return $event->saleSubmissionContext === null
+            ? $this->saleSettingsRepo->findByProduct($event->productId)
+            : null;
     }
 
     public function failed(ProductPricingUpdatedEvent $event, Throwable $e): void

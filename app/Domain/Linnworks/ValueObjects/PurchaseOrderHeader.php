@@ -42,7 +42,7 @@ final readonly class PurchaseOrderHeader
         public Money $postagePaid,
         public float $totalCost,
         public float $taxPaid,
-        public TaxRate $shippingTaxRate,
+        public ?TaxRate $shippingTaxRate,
         public float $conversionRate,
         public float $convertedShippingCost,
         public float $convertedShippingTax,

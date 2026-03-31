@@ -47,28 +47,47 @@ final readonly class NameFormatterService
 
         $parsed = $this->parser->parse($trimmed);
 
-        $firstName = \mb_trim($parsed->getFirstname());
-        $middleName = \mb_trim($parsed->getMiddlename());
-        $lastName = \mb_trim($parsed->getLastname());
+        return self::buildResult(
+            $trimmed,
+            \mb_trim($parsed->getFirstname()),
+            \mb_trim($parsed->getMiddlename()),
+            \mb_trim($parsed->getLastname()),
+        );
+    }
 
-        // If parser couldn't identify a first name, use the full input
-        // This ensures we never lose customer data
+    /**
+     * Build result with fallback and middle name resolution.
+     *
+     * @return array{firstName: string, lastName: string|null}
+     */
+    private static function buildResult(string $fallback, string $firstName, string $middleName, string $lastName): array
+    {
         if ($firstName === '' && $lastName === '') {
-            return ['firstName' => $trimmed, 'lastName' => null];
-        }
-
-        // Include middle name with last name if present
-        // "John Michael Smith" → firstName: "John", lastName: "Michael Smith"
-        if ($middleName !== '' && $lastName !== '') {
-            $lastName = $middleName . ' ' . $lastName;
-        } elseif ($middleName !== '') {
-            $lastName = $middleName;
+            return ['firstName' => $fallback, 'lastName' => null];
         }
 
         return [
             'firstName' => $firstName,
-            'lastName' => $lastName !== '' ? $lastName : null,
+            'lastName' => self::resolveLastName($lastName, $middleName),
         ];
+    }
+
+    /**
+     * Merge middle name into last name.
+     *
+     * "John Michael Smith" → lastName: "Michael Smith"
+     */
+    private static function resolveLastName(string $lastName, string $middleName): ?string
+    {
+        if ($middleName !== '' && $lastName !== '') {
+            return $middleName . ' ' . $lastName;
+        }
+
+        if ($middleName !== '') {
+            return $middleName;
+        }
+
+        return $lastName !== '' ? $lastName : null;
     }
 
     /**

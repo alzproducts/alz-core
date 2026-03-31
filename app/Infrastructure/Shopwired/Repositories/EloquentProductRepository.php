@@ -18,6 +18,7 @@ use App\Domain\Catalog\Product\ValueObjects\ProductView;
 use App\Domain\Catalog\Product\ValueObjects\Sku;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Domain\Exceptions\Data\MissingRequiredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\IntId;
@@ -79,6 +80,7 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
      * @return PaginatedListDTO<ProductView>
      *
      * @throws InvalidCustomFieldValueException
+     * @throws MissingRequiredDataException
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
@@ -123,6 +125,7 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
      *
      * @throws ResourceNotFoundException
      * @throws InvalidCustomFieldValueException
+     * @throws MissingRequiredDataException
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
@@ -298,6 +301,7 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
+     * @throws MissingRequiredDataException When custom field definitions table is empty
      */
     public function getBasicProduct(Sku|IntId $identifier): Product|ProductVariation
     {
@@ -317,6 +321,7 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
+     * @throws MissingRequiredDataException When custom field definitions table is empty
      */
     private function getBasicProductById(IntId $id): Product|ProductVariation
     {
@@ -355,6 +360,7 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
+     * @throws MissingRequiredDataException When custom field definitions table is empty
      */
     private function getBasicProductBySku(Sku $sku): Product|ProductVariation
     {
@@ -391,6 +397,7 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
+     * @throws MissingRequiredDataException When custom field definitions table is empty
      */
     public function getProduct(Sku|IntId $identifier): Product
     {
@@ -455,6 +462,7 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
      * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException During iteration - DB unavailable
      * @throws InvalidCustomFieldValueException During iteration - value type mismatch
+     * @throws MissingRequiredDataException When custom field definitions table is empty
      */
     public function streamAll(): Generator
     {
@@ -585,6 +593,7 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
      * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
+     * @throws MissingRequiredDataException When custom field definitions table is empty
      */
     protected function mapModelToDomain(Model $model): Product
     {
@@ -629,6 +638,7 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      * @throws InvalidCustomFieldValueException
+     * @throws MissingRequiredDataException
      */
     public function getProductByAnySku(Sku $sku): Product
     {

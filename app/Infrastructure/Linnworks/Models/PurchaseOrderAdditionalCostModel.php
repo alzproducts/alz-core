@@ -19,7 +19,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int|null $additional_cost_type_id
  * @property string|null $reference
  * @property float $sub_total_line_cost
- * @property float $tax_rate
+ * @property float|null $tax_rate
  * @property float $tax
  * @property string|null $currency
  * @property float $conversion_rate
@@ -95,7 +95,7 @@ final class PurchaseOrderAdditionalCostModel extends Model
             'additional_cost_type_id' => $cost->additionalCostTypeId,
             'reference' => $cost->reference,
             'sub_total_line_cost' => $cost->subTotalLineCost,
-            'tax_rate' => $cost->taxRate->percentage,
+            'tax_rate' => $cost->taxRate?->percentage,
             'tax' => $cost->tax,
             'currency' => $cost->currency,
             'conversion_rate' => $cost->conversionRate,

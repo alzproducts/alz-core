@@ -88,30 +88,17 @@ final readonly class HelpScoutHttpTransport
             return [];
         }
 
-        // Get auth headers ONCE before pool to avoid per-request token refresh
         /** @var array<string, string> $authHeaders */
         $authHeaders = $this->sdkClient->getAuthenticator()->getAuthHeader();
 
         /**
-         * Pool executes requests concurrently after closure returns.
-         * Connection failures appear as Throwable in results array.
-         *
          * @var array<string, Response|Throwable> $poolResults
          *
          * @phpstan-ignore staticMethod.dynamicCall
          */
         $poolResults = $this->httpFactory->pool(fn(Pool $pool): array => $this->buildPoolGetRequests($pool, $requests, $authHeaders));
 
-        /** @var array<string, Response> $responses */
-        $responses = [];
-
-        foreach ($poolResults as $key => $result) {
-            /** @phpstan-ignore cast.useless (PHP coerces numeric string keys to int at runtime) */
-            $stringKey = (string) $key;
-            $responses[$stringKey] = $this->handlePoolGetResult($stringKey, $result);
-        }
-
-        return $responses;
+        return $this->processPoolResults($poolResults);
     }
 
     /**
@@ -140,6 +127,31 @@ final readonly class HelpScoutHttpTransport
     }
 
     /**
+     * Process all pool results, translating failures to exceptions.
+     *
+     * @param array<string, Response|Throwable> $poolResults
+     *
+     * @return array<string, Response>
+     *
+     * @throws InvalidApiRequestException When request parameters are invalid (400)
+     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
+     * @throws ExternalServiceUnavailableException When API unavailable or connection fails
+     */
+    private function processPoolResults(array $poolResults): array
+    {
+        /** @var array<string, Response> $responses */
+        $responses = [];
+
+        foreach ($poolResults as $key => $result) {
+            /** @phpstan-ignore cast.useless (PHP coerces numeric string keys to int at runtime) */
+            $stringKey = (string) $key;
+            $responses[$stringKey] = $this->handlePoolGetResult($stringKey, $result);
+        }
+
+        return $responses;
+    }
+
+    /**
      * Handle a single pool GET result, translating failures to exceptions.
      *
      * @throws InvalidApiRequestException When request parameters are invalid (400)
@@ -149,21 +161,7 @@ final readonly class HelpScoutHttpTransport
     private function handlePoolGetResult(string $key, Response|Throwable $result): Response
     {
         if ($result instanceof Throwable) {
-            Log::error(self::SERVICE_NAME . ' API pool request failed', [
-                'key' => $key,
-                'error' => $result->getMessage(),
-                'exception_class' => $result::class,
-            ]);
-
-            if ($result instanceof ConnectionException) {
-                throw HelpScoutErrorHandler::handleConnectionException($result);
-            }
-
-            if ($result instanceof RequestException) {
-                throw HelpScoutErrorHandler::handleRequestException($result);
-            }
-
-            throw new ExternalServiceUnavailableException(self::SERVICE_NAME, previous: $result);
+            $this->handleThrowableResult($key, $result);
         }
 
         if ($result->failed()) {
@@ -175,6 +173,30 @@ final readonly class HelpScoutHttpTransport
         }
 
         return $result;
+    }
+
+    /**
+     * @throws InvalidApiRequestException When request parameters are invalid (400)
+     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
+     * @throws ExternalServiceUnavailableException When API unavailable or connection fails
+     */
+    private function handleThrowableResult(string $key, Throwable $throwable): never
+    {
+        Log::error(self::SERVICE_NAME . ' API pool request failed', [
+            'key' => $key,
+            'error' => $throwable->getMessage(),
+            'exception_class' => $throwable::class,
+        ]);
+
+        if ($throwable instanceof ConnectionException) {
+            throw HelpScoutErrorHandler::handleConnectionException($throwable);
+        }
+
+        if ($throwable instanceof RequestException) {
+            throw HelpScoutErrorHandler::handleRequestException($throwable);
+        }
+
+        throw new ExternalServiceUnavailableException(self::SERVICE_NAME, previous: $throwable);
     }
 
     /**

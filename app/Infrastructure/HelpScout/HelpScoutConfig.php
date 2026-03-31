@@ -55,6 +55,19 @@ final readonly class HelpScoutConfig
         public int $timeoutSeconds = self::DEFAULT_TIMEOUT_SECONDS,
         public int $retryAttempts = self::DEFAULT_RETRY_ATTEMPTS,
     ) {
+        self::validateMailboxes($mailboxes);
+        self::validateTimeout($timeoutSeconds);
+        self::validateRetryAttempts($retryAttempts);
+    }
+
+    /**
+     * @param array<string, int> $mailboxes
+     *
+     * @throws InvalidConfigurationException When mailboxes are empty
+     * @throws InvalidArgumentException When individual entries are invalid
+     */
+    private static function validateMailboxes(array $mailboxes): void
+    {
         if ($mailboxes === []) {
             throw new InvalidConfigurationException('helpscout.mailboxes', 'At least one HelpScout mailbox must be configured');
         }
@@ -70,13 +83,19 @@ final readonly class HelpScoutConfig
                 );
             }
         }
+    }
 
+    private static function validateTimeout(int $timeoutSeconds): void
+    {
         if (($timeoutSeconds < 1) || ($timeoutSeconds > self::MAX_TIMEOUT_SECONDS)) {
             throw new InvalidArgumentException(
                 \sprintf('Timeout must be between 1-%d seconds, got %d', self::MAX_TIMEOUT_SECONDS, $timeoutSeconds),
             );
         }
+    }
 
+    private static function validateRetryAttempts(int $retryAttempts): void
+    {
         if (($retryAttempts < 1) || ($retryAttempts > self::MAX_RETRY_ATTEMPTS)) {
             throw new InvalidArgumentException(
                 \sprintf('Retry attempts must be between 1-%d, got %d', self::MAX_RETRY_ATTEMPTS, $retryAttempts),

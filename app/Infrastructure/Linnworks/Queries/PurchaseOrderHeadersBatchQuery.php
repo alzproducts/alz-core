@@ -156,7 +156,7 @@ final readonly class PurchaseOrderHeadersBatchQuery extends AbstractLinnworksQue
             postagePaid: Money::exclusive((float) $row->PostagePaid),
             totalCost: (float) $row->TotalCost,
             taxPaid: (float) $row->taxPaid,
-            shippingTaxRate: TaxRate::fromPercentage((float) $row->ShippingTaxRate),
+            shippingTaxRate: (float) $row->ShippingTaxRate < 0 ? null : TaxRate::fromPercentage((float) $row->ShippingTaxRate), // -1 means "not set"
             conversionRate: (float) $row->ConversionRate,
             convertedShippingCost: (float) $row->ConvertedShippingCost,
             convertedShippingTax: (float) $row->ConvertedShippingTax,

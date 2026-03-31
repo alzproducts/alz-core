@@ -10,6 +10,7 @@ use App\Domain\Catalog\Product\ValueObjects\Product;
 use App\Domain\Catalog\Product\ValueObjects\ProductImage;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariation;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Data\MissingRequiredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Infrastructure\Catalog\Product\Models\ProductModel;
@@ -45,6 +46,7 @@ final class ProductModelMapper
      * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
+     * @throws MissingRequiredDataException When custom field definitions table is empty
      */
     public function toDomain(ProductModel $model): Product
     {
