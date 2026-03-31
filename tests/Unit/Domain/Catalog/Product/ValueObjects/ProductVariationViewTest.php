@@ -17,116 +17,40 @@ final class ProductVariationViewTest extends TestCase
 {
     /*
     |--------------------------------------------------------------------------
-    | Profit Margin
+    | Constructor passthrough
     |--------------------------------------------------------------------------
     */
 
     #[Test]
-    public function profit_margin_calculated_from_price_and_cost_price(): void
+    public function is_on_sale_reflects_constructor_value(): void
     {
-        $view = $this->createView(
-            price: Money::inclusive(100.00),
-            costPrice: Money::inclusive(60.00),
-        );
-
-        // (100 - 60) / 100 × 100 = 40%
-        self::assertSame(40.0, $view->profitMargin);
-    }
-
-    #[Test]
-    public function profit_margin_null_when_cost_price_null(): void
-    {
-        $view = $this->createView(
-            price: Money::inclusive(100.00),
-            costPrice: null,
-        );
-
-        self::assertNull($view->profitMargin);
-    }
-
-    #[Test]
-    public function profit_margin_null_when_price_is_zero(): void
-    {
-        $view = $this->createView(
-            price: Money::inclusive(0.0),
-            costPrice: Money::inclusive(10.00),
-        );
-
-        self::assertNull($view->profitMargin);
-    }
-
-    #[Test]
-    public function profit_margin_negative_when_cost_exceeds_price(): void
-    {
-        $view = $this->createView(
-            price: Money::inclusive(50.00),
-            costPrice: Money::inclusive(75.00),
-        );
-
-        // (50 - 75) / 50 × 100 = -50%
-        self::assertSame(-50.0, $view->profitMargin);
-    }
-
-    #[Test]
-    public function profit_margin_rounds_to_two_decimals(): void
-    {
-        $view = $this->createView(
-            price: Money::inclusive(30.00),
-            costPrice: Money::inclusive(19.99),
-        );
-
-        // (30 - 19.99) / 30 × 100 = 33.366...%
-        self::assertSame(33.37, $view->profitMargin);
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | isOnSale
-    |--------------------------------------------------------------------------
-    */
-
-    #[Test]
-    public function is_on_sale_true_when_sale_price_less_than_price(): void
-    {
-        $view = $this->createView(
-            price: Money::inclusive(100.00),
-            salePrice: Money::inclusive(75.00),
-        );
+        $view = $this->createView(isOnSale: true);
 
         self::assertTrue($view->isOnSale);
     }
 
     #[Test]
-    public function is_on_sale_false_when_no_sale_price(): void
+    public function is_on_sale_false_by_default(): void
     {
-        $view = $this->createView(
-            price: Money::inclusive(100.00),
-            salePrice: null,
-        );
+        $view = $this->createView(isOnSale: false);
 
         self::assertFalse($view->isOnSale);
     }
 
     #[Test]
-    public function is_on_sale_false_when_sale_price_equals_price(): void
+    public function profit_margin_reflects_constructor_value(): void
     {
-        $view = $this->createView(
-            price: Money::inclusive(100.00),
-            salePrice: Money::inclusive(100.00),
-        );
+        $view = $this->createView(profitMargin: 42.5);
 
-        self::assertFalse($view->isOnSale);
+        self::assertSame(42.5, $view->profitMargin);
     }
 
     #[Test]
-    public function is_on_sale_false_when_sale_price_is_zero(): void
+    public function profit_margin_null_when_passed_null(): void
     {
-        $view = $this->createView(
-            price: Money::inclusive(100.00),
-            salePrice: Money::inclusive(0.0),
-        );
+        $view = $this->createView(profitMargin: null);
 
-        self::assertFalse($view->isOnSale);
+        self::assertNull($view->profitMargin);
     }
 
     /*
@@ -153,6 +77,8 @@ final class ProductVariationViewTest extends TestCase
         ?Money $price = null,
         ?Money $costPrice = null,
         ?Money $salePrice = null,
+        bool $isOnSale = false,
+        ?float $profitMargin = null,
         ?Weight $weight = null,
     ): ProductVariationView {
         return new ProductVariationView(
@@ -162,6 +88,8 @@ final class ProductVariationViewTest extends TestCase
             price: $price ?? Money::inclusive(100.00),
             costPrice: $costPrice,
             salePrice: $salePrice,
+            isOnSale: $isOnSale,
+            profitMargin: $profitMargin,
             stock: 10,
             weight: $weight,
             mpn: null,

@@ -65,6 +65,7 @@ final class ProductResource extends JsonResource
             'weight' => $product->weight?->value,
             'meta_title' => $product->metaTitle,
             'meta_description' => $product->metaDescription,
+            'free_delivery' => $product->freeDelivery?->value,
             'sort_order' => $product->sortOrder,
             'images' => \array_map(
                 static fn(ProductImage $img): array => $img->toArray(),

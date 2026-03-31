@@ -6,6 +6,7 @@ namespace App\Domain\Catalog\Product\ValueObjects;
 
 use App\Domain\Catalog\CustomFields\ValueObjects\AbstractCustomFieldValue;
 use App\Domain\Catalog\Filters\ValueObjects\ProductFilter;
+use App\Domain\Catalog\Product\Enums\FreeDeliveryType;
 use App\Domain\Inventory\ValueObjects\Weight;
 use App\Domain\Shared\Money\ValueObjects\Money;
 use App\Domain\ValueObjects\IntId;
@@ -23,12 +24,6 @@ use DateTimeImmutable;
  */
 final readonly class ProductView
 {
-    /** @var float|null Retail profit margin percentage, null when costPrice is null or price is zero */
-    public ?float $profitMargin;
-
-    /** @var bool Whether this product is currently on sale */
-    public bool $isOnSale;
-
     /** @var bool Whether this product or any of its variations is on sale */
     public bool $hasAnySale;
 
@@ -44,6 +39,8 @@ final readonly class ProductView
      * @param Money|null $costPrice Cost price from Linnworks (null = unknown)
      * @param Money|null $salePrice Discounted price (null = no sale)
      * @param Money|null $comparePrice RRP / "Was" price
+     * @param bool $isOnSale Whether this product is currently on sale (from view)
+     * @param float|null $profitMargin Retail profit margin % (from view, null when cost unknown)
      * @param int $stock Master stock quantity
      * @param bool $isActive Published/visible
      * @param bool $vatExclusive Price excludes VAT
@@ -57,6 +54,7 @@ final readonly class ProductView
      * @param list<AbstractCustomFieldValue> $customFields Typed custom field values
      * @param list<ProductFilter> $filters Typed filter values
      * @param SaleSettings|null $saleSettings Sale metadata (null = not loaded or no sale)
+     * @param FreeDeliveryType|null $freeDelivery Free delivery tier (null = no designation)
      * @param int|null $sortOrder ShopWired sort order
      * @param DateTimeImmutable $createdAt ShopWired creation timestamp
      * @param DateTimeImmutable $updatedAt ShopWired last update timestamp
@@ -73,6 +71,8 @@ final readonly class ProductView
         public ?Money $costPrice,
         public ?Money $salePrice,
         public ?Money $comparePrice,
+        public bool $isOnSale,
+        public ?float $profitMargin,
         public int $stock,
         public bool $isActive,
         public bool $vatExclusive,
@@ -89,10 +89,8 @@ final readonly class ProductView
         public DateTimeImmutable $createdAt,
         public DateTimeImmutable $updatedAt,
         public ?SaleSettings $saleSettings = null,
+        public ?FreeDeliveryType $freeDelivery = null,
     ) {
-        $this->isOnSale = self::isSaleActive($this->salePrice, $this->price);
-        $pricing = new ProductRetailPricing($this->price, $this->salePrice);
-        $this->profitMargin = self::retailMargin($pricing->effectivePrice(), $this->costPrice);
         $this->hasAnySale = $this->isOnSale || self::anyVariationOnSale($this->variations);
     }
 

@@ -18,97 +18,14 @@ final class ProductViewTest extends TestCase
 {
     /*
     |--------------------------------------------------------------------------
-    | Profit Margin
-    |--------------------------------------------------------------------------
-    */
-
-    #[Test]
-    public function profit_margin_calculated_from_price_and_cost_price(): void
-    {
-        $view = $this->createView(
-            price: Money::inclusive(100.00),
-            costPrice: Money::inclusive(40.00),
-        );
-
-        // (100 - 40) / 100 × 100 = 60%
-        self::assertSame(60.0, $view->profitMargin);
-    }
-
-    #[Test]
-    public function profit_margin_null_when_cost_price_null(): void
-    {
-        $view = $this->createView(
-            price: Money::inclusive(100.00),
-            costPrice: null,
-        );
-
-        self::assertNull($view->profitMargin);
-    }
-
-    #[Test]
-    public function profit_margin_null_when_price_is_zero(): void
-    {
-        $view = $this->createView(
-            price: Money::inclusive(0.0),
-            costPrice: Money::inclusive(10.00),
-        );
-
-        self::assertNull($view->profitMargin);
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | isOnSale
-    |--------------------------------------------------------------------------
-    */
-
-    #[Test]
-    public function is_on_sale_true_when_sale_price_less_than_price(): void
-    {
-        $view = $this->createView(
-            price: Money::inclusive(50.00),
-            salePrice: Money::inclusive(35.00),
-        );
-
-        self::assertTrue($view->isOnSale);
-    }
-
-    #[Test]
-    public function is_on_sale_false_when_no_sale_price(): void
-    {
-        $view = $this->createView(
-            price: Money::inclusive(50.00),
-            salePrice: null,
-        );
-
-        self::assertFalse($view->isOnSale);
-    }
-
-    #[Test]
-    public function is_on_sale_false_when_sale_price_is_zero(): void
-    {
-        $view = $this->createView(
-            price: Money::inclusive(50.00),
-            salePrice: Money::inclusive(0.0),
-        );
-
-        self::assertFalse($view->isOnSale);
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | hasAnySale
+    | hasAnySale (computed in constructor from isOnSale + variations)
     |--------------------------------------------------------------------------
     */
 
     #[Test]
     public function has_any_sale_true_when_product_is_on_sale(): void
     {
-        $view = $this->createView(
-            price: Money::inclusive(100.00),
-            salePrice: Money::inclusive(80.00),
-            variations: [],
-        );
+        $view = $this->createView(isOnSale: true, variations: []);
 
         self::assertTrue($view->hasAnySale);
     }
@@ -123,6 +40,8 @@ final class ProductViewTest extends TestCase
             price: Money::inclusive(50.00),
             costPrice: null,
             salePrice: Money::inclusive(30.00),
+            isOnSale: true,
+            profitMargin: null,
             stock: 5,
             weight: null,
             mpn: null,
@@ -130,11 +49,7 @@ final class ProductViewTest extends TestCase
             options: [],
         );
 
-        $view = $this->createView(
-            price: Money::inclusive(100.00),
-            salePrice: null,
-            variations: [$variation],
-        );
+        $view = $this->createView(isOnSale: false, variations: [$variation]);
 
         self::assertFalse($view->isOnSale);
         self::assertTrue($view->hasAnySale);
@@ -150,6 +65,8 @@ final class ProductViewTest extends TestCase
             price: Money::inclusive(50.00),
             costPrice: null,
             salePrice: null,
+            isOnSale: false,
+            profitMargin: null,
             stock: 5,
             weight: null,
             mpn: null,
@@ -157,11 +74,7 @@ final class ProductViewTest extends TestCase
             options: [],
         );
 
-        $view = $this->createView(
-            price: Money::inclusive(100.00),
-            salePrice: null,
-            variations: [$variation],
-        );
+        $view = $this->createView(isOnSale: false, variations: [$variation]);
 
         self::assertFalse($view->hasAnySale);
     }
@@ -169,18 +82,14 @@ final class ProductViewTest extends TestCase
     #[Test]
     public function has_any_sale_false_when_variations_null(): void
     {
-        $view = $this->createView(
-            price: Money::inclusive(100.00),
-            salePrice: null,
-            variations: null,
-        );
+        $view = $this->createView(isOnSale: false, variations: null);
 
         self::assertFalse($view->hasAnySale);
     }
 
     /*
     |--------------------------------------------------------------------------
-    | isSaleActive (static method)
+    | isSaleActive (static utility method)
     |--------------------------------------------------------------------------
     */
 
@@ -228,7 +137,7 @@ final class ProductViewTest extends TestCase
 
     /*
     |--------------------------------------------------------------------------
-    | retailMargin (static method)
+    | retailMargin (static utility method)
     |--------------------------------------------------------------------------
     */
 
@@ -312,36 +221,6 @@ final class ProductViewTest extends TestCase
         ));
     }
 
-    #[Test]
-    public function profit_margin_uses_effective_price_when_on_sale(): void
-    {
-        $view = $this->createView(
-            price: Money::inclusive(100.00),
-            costPrice: Money::inclusive(40.00),
-            salePrice: Money::inclusive(60.00),
-        );
-
-        // Effective price is sale price (£60), not regular (£100)
-        // (60 - 40) / 60 × 100 = 33.33%
-        self::assertTrue($view->isOnSale);
-        self::assertSame(33.33, $view->profitMargin);
-    }
-
-    #[Test]
-    public function profit_margin_uses_regular_price_when_not_on_sale(): void
-    {
-        $view = $this->createView(
-            price: Money::inclusive(100.00),
-            costPrice: Money::inclusive(40.00),
-            salePrice: null,
-        );
-
-        // No sale → uses regular price
-        // (100 - 40) / 100 × 100 = 60%
-        self::assertFalse($view->isOnSale);
-        self::assertSame(60.0, $view->profitMargin);
-    }
-
     /*
     |--------------------------------------------------------------------------
     | Helpers
@@ -356,6 +235,8 @@ final class ProductViewTest extends TestCase
         ?Money $costPrice = null,
         ?Money $salePrice = null,
         ?array $variations = null,
+        bool $isOnSale = false,
+        ?float $profitMargin = null,
     ): ProductView {
         return new ProductView(
             id: IntId::from(1),
@@ -369,6 +250,8 @@ final class ProductViewTest extends TestCase
             costPrice: $costPrice,
             salePrice: $salePrice,
             comparePrice: null,
+            isOnSale: $isOnSale,
+            profitMargin: $profitMargin,
             stock: 10,
             isActive: true,
             vatExclusive: false,

@@ -99,7 +99,7 @@ final class ProductControllerTest extends TestCase
         $this->productRepository
             ->shouldReceive('paginate')
             ->once()
-            ->with(Mockery::on(static fn(ProductListQueryParams $q): bool => $q->perPage === 500 && $q->page === 1 && $q->includes === [ProductInclude::Variations]))
+            ->with(Mockery::on(static fn(ProductListQueryParams $q): bool => $q->pagination->perPage === 500 && $q->pagination->page === 1 && $q->includes === [ProductInclude::Variations]))
             ->andReturn($dto);
 
         $response = $this->asApprovedUser()->getJson('/api/products?include=variations');
@@ -136,7 +136,7 @@ final class ProductControllerTest extends TestCase
     #[Test]
     public function per_page_above_maximum_returns_422(): void
     {
-        $response = $this->asApprovedUser()->getJson('/api/products?per_page=501');
+        $response = $this->asApprovedUser()->getJson('/api/products?per_page=1001');
 
         $response->assertStatus(422);
         $body = $response->json();
@@ -157,7 +157,7 @@ final class ProductControllerTest extends TestCase
         $this->productRepository
             ->shouldReceive('paginate')
             ->once()
-            ->with(Mockery::on(static fn(ProductListQueryParams $q): bool => $q->perPage === 500 && $q->page === 1 && $q->includes === []))
+            ->with(Mockery::on(static fn(ProductListQueryParams $q): bool => $q->pagination->perPage === 500 && $q->pagination->page === 1 && $q->includes === []))
             ->andReturn($dto);
 
         $response = $this->asApprovedUser()->getJson('/api/products');
@@ -245,6 +245,8 @@ final class ProductControllerTest extends TestCase
             costPrice: null,
             salePrice: null,
             comparePrice: null,
+            isOnSale: false,
+            profitMargin: null,
             stock: 10,
             isActive: true,
             vatExclusive: false,

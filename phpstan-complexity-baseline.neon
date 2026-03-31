@@ -607,7 +607,7 @@ parameters:
 			path: app/DevTools/PHPStan/Rules/Infrastructure/RowDtoMustBeInternalRule.php
 
 		-
-			rawMessage: 'Method processNode() is 43 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			rawMessage: 'Method processNode() is 49 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/DevTools/PHPStan/Rules/Infrastructure/ShopwiredModelMustImplementMappableRule.php
@@ -901,14 +901,15 @@ parameters:
 			count: 1
 			path: app/Infrastructure/Catalog/Product/Mappers/ProductModelMapper.php
 
+
 		-
-			rawMessage: 'Method toViewDomain() is 29 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			rawMessage: 'Method toViewDomain() is 21 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Infrastructure/Catalog/Product/Mappers/ProductVariationModelMapper.php
 
 		-
-			rawMessage: 'Method toViewDomain() is 33 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			rawMessage: 'Method toViewDomain() is 36 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Infrastructure/Catalog/Product/Mappers/ProductViewAssembler.php
@@ -2254,7 +2255,7 @@ parameters:
 			path: app/Infrastructure/Shopwired/Repositories/EloquentOrderRepository.php
 
 		-
-			rawMessage: 'Class EloquentProductRepository is 805 lines long — exceeds the 250-line limit. Consider decomposing into smaller, focused classes.'
+			rawMessage: 'Class EloquentProductRepository is 828 lines long — exceeds the 250-line limit. Consider decomposing into smaller, focused classes.'
 			identifier: alz.excessiveClassLength
 			count: 1
 			path: app/Infrastructure/Shopwired/Repositories/EloquentProductRepository.php
@@ -2686,7 +2687,7 @@ parameters:
 			path: app/Presentation/Http/Api/Resources/ProductDetailResource.php
 
 		-
-			rawMessage: 'Method baseFields() is 31 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			rawMessage: 'Method baseFields() is 32 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Presentation/Http/Api/Resources/ProductResource.php
@@ -2884,13 +2885,13 @@ parameters:
 			path: app/Providers/Schedule/MixpanelScheduleServiceProvider.php
 
 		-
-			rawMessage: 'Class ShopwiredServiceProvider is 286 lines long — exceeds the 250-line limit. Consider decomposing into smaller, focused classes.'
+			rawMessage: 'Class ShopwiredServiceProvider is 284 lines long — exceeds the 250-line limit. Consider decomposing into smaller, focused classes.'
 			identifier: alz.excessiveClassLength
 			count: 1
 			path: app/Providers/ShopwiredServiceProvider.php
 
 		-
-			rawMessage: 'Method provides() is 59 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			rawMessage: 'Method provides() is 58 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Providers/ShopwiredServiceProvider.php
@@ -2902,7 +2903,7 @@ parameters:
 			path: app/Providers/ShopwiredServiceProvider.php
 
 		-
-			rawMessage: 'Method registerFactories() is 54 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			rawMessage: 'Method registerFactories() is 53 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Providers/ShopwiredServiceProvider.php

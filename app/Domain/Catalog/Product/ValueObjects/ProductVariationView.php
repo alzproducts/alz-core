@@ -20,12 +20,6 @@ use App\Domain\ValueObjects\IntId;
  */
 final readonly class ProductVariationView
 {
-    /** @var float|null Retail profit margin percentage, null when costPrice is null or price is zero */
-    public ?float $profitMargin;
-
-    /** @var bool Whether this variation is currently on sale */
-    public bool $isOnSale;
-
     /**
      * @param IntId $id ShopWired variation ID
      * @param Sku|null $sku Variation SKU (nullable for legacy data)
@@ -33,6 +27,8 @@ final readonly class ProductVariationView
      * @param Money $price Selling price (always resolved — never null)
      * @param Money|null $costPrice Cost price from Linnworks (null = unknown)
      * @param Money|null $salePrice Discounted price (null = no sale)
+     * @param bool $isOnSale Whether this variation is currently on sale (from view)
+     * @param float|null $profitMargin Retail profit margin % (from view, null when cost unknown)
      * @param int $stock Stock quantity
      * @param Weight|null $weight Weight measurement
      * @param string|null $mpn Manufacturer Part Number
@@ -46,14 +42,12 @@ final readonly class ProductVariationView
         public Money $price,
         public ?Money $costPrice,
         public ?Money $salePrice,
+        public bool $isOnSale,
+        public ?float $profitMargin,
         public int $stock,
         public ?Weight $weight,
         public ?string $mpn,
         public ?int $imageIndex,
         public array $options,
-    ) {
-        $this->isOnSale = ProductView::isSaleActive($this->salePrice, $this->price);
-        $pricing = new ProductRetailPricing($this->price, $this->salePrice);
-        $this->profitMargin = ProductView::retailMargin($pricing->effectivePrice(), $this->costPrice);
-    }
+    ) {}
 }
