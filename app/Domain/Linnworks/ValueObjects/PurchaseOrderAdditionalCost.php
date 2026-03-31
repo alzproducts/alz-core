@@ -20,7 +20,7 @@ final readonly class PurchaseOrderAdditionalCost
         public ?int $additionalCostTypeId,
         public ?string $reference,
         public float $subTotalLineCost,
-        public TaxRate $taxRate,
+        public ?TaxRate $taxRate,
         public float $tax,
         public ?string $currency,
         public float $conversionRate,

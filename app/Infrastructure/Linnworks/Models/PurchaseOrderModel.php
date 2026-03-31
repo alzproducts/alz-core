@@ -30,7 +30,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property float $postage_paid
  * @property float $total_cost
  * @property float $tax_paid
- * @property float $shipping_tax_rate
+ * @property float|null $shipping_tax_rate
  * @property float $conversion_rate
  * @property float $converted_shipping_cost
  * @property float $converted_shipping_tax

@@ -92,7 +92,7 @@ final class PurchaseOrderHeaderResponse extends Data implements DomainConvertibl
             postagePaid: Money::exclusive($this->postagePaid),
             totalCost: $this->totalCost,
             taxPaid: $this->taxPaid,
-            shippingTaxRate: TaxRate::fromPercentage($this->shippingTaxRate),
+            shippingTaxRate: $this->shippingTaxRate < 0 ? null : TaxRate::fromPercentage($this->shippingTaxRate), // -1 means "not set"
             conversionRate: $this->conversionRate,
             convertedShippingCost: $this->convertedShippingCost,
             convertedShippingTax: $this->convertedShippingTax,

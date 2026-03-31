@@ -117,6 +117,7 @@ final readonly class SyncPurchaseOrderFullUseCase
      */
     private function fetchFull(Guid $id, int $bufferSize): PurchaseOrderFull
     {
+        $this->logger->debug('Fetching purchase order full', ['purchase_id' => $id->value]);
         $full = $this->purchaseOrderClient->getPurchaseOrderFull($id);
         $this->logger->debug('Fetched purchase order full', [
             'purchase_id' => $id->value,
