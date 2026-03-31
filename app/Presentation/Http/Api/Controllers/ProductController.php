@@ -4,15 +4,20 @@ declare(strict_types=1);
 
 namespace App\Presentation\Http\Api\Controllers;
 
+use App\Application\Catalog\Queries\ProductDetailQueryParams;
+use App\Application\Catalog\Queries\ProductListQueryParams;
 use App\Application\Catalog\UseCases\GetProductCustomFieldsUseCase;
 use App\Application\Catalog\UseCases\GetProductUseCase;
 use App\Application\Catalog\UseCases\ListProductsUseCase;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\CustomFields\ValueObjects\AbstractCustomFieldValue;
+use App\Domain\Catalog\Product\Enums\ProductInclude;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Domain\Exceptions\Data\InvalidEnumValueException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use App\Domain\ValueObjects\IntId;
 use App\Presentation\Http\Api\DTOs\GetProductCustomFieldsRequestDTO;
 use App\Presentation\Http\Api\DTOs\ListProductsRequestDTO;
 use App\Presentation\Http\Api\DTOs\ShowProductRequestDTO;
@@ -48,13 +53,16 @@ final readonly class ProductController
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
+     * @throws InvalidEnumValueException
      */
     public function index(ListProductsRequestDTO $data): ResourceCollection
     {
         $result = $this->listProductsUseCase->execute(
-            perPage: $data->per_page,
-            page: $data->page,
-            includes: $data->validatedIncludes(),
+            new ProductListQueryParams(
+                perPage: $data->per_page,
+                page: $data->page,
+                includes: \array_map(ProductInclude::fromValue(...), $data->validatedIncludes()),
+            ),
         );
 
         return $this->paginatedResponse($result, ProductResource::class);
@@ -68,12 +76,15 @@ final readonly class ProductController
      * @throws DatabaseOperationFailedException On query failure
      * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
+     * @throws InvalidEnumValueException
      */
     public function show(int $productId, ShowProductRequestDTO $data): ProductDetailResource
     {
         $result = $this->getProductUseCase->execute(
-            productId: $productId,
-            includes: $data->validatedIncludes(),
+            new ProductDetailQueryParams(
+                productId: IntId::from($productId),
+                includes: \array_map(ProductInclude::fromValue(...), $data->validatedIncludes()),
+            ),
         );
 
         return new ProductDetailResource($result);

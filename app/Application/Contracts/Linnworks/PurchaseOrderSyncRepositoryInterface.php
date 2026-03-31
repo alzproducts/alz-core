@@ -22,7 +22,8 @@ use App\Domain\Linnworks\ValueObjects\PurchaseOrderFull;
  *   extended properties (they weren't fetched, so their absence ≠ deletion).
  *   Use for rapid OPEN/PENDING polling.
  *
- * Each save is wrapped in a transaction for atomicity.
+ * save() and saveCore() are wrapped in a transaction for atomicity.
+ * saveCoresBatch() uses no transaction — idempotent bulk upserts self-correct.
  *
  * @extends RepositoryWriteInterface<PurchaseOrderFull>
  */
@@ -55,4 +56,18 @@ interface PurchaseOrderSyncRepositoryInterface extends RepositoryWriteInterface
      * @throws ExternalServiceUnavailableException
      */
     public function saveCore(PurchaseOrderCore $purchaseOrder): void;
+
+    /**
+     * Persist multiple Core purchase orders in bulk without transactions.
+     *
+     * Collapses N×3 DB operations into 3 bulk calls (upsert headers, upsert items,
+     * orphan-delete items). Idempotent — partial writes are self-correcting on next sync.
+     *
+     * @param list<PurchaseOrderCore> $purchaseOrders
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function saveCoresBatch(array $purchaseOrders): void;
 }

@@ -97,6 +97,7 @@ final readonly class BackfillLinnworksOrdersUseCase
             if ($chunksBuffered >= self::CHUNKS_PER_BATCH) {
                 $totals->accumulateFlush($this->flushBuffer($buffer, $batchesFlushed));
                 [$buffer, $chunksBuffered] = [[], 0];
+                \gc_collect_cycles();
                 $this->logProgressIfDue(++$batchesFlushed, $totals);
             }
         }
@@ -120,6 +121,7 @@ final readonly class BackfillLinnworksOrdersUseCase
         $this->logger->info('Linnworks order backfill completed', [
             'total_ids' => $totalIds,
             ...$totals->toLogContext(),
+            'memory_peak_mb' => \round(\memory_get_peak_usage(true) / 1048576, 1),
         ]);
 
         return $totals->toSyncResult();
@@ -143,7 +145,10 @@ final readonly class BackfillLinnworksOrdersUseCase
     private function logProgressIfDue(int $batchesFlushed, BackfillTotalsResult $totals): void
     {
         if ($batchesFlushed % self::PROGRESS_LOG_INTERVAL === 0) {
-            $this->logger->info('Linnworks order backfill progress', $totals->toLogContext());
+            $this->logger->info('Linnworks order backfill progress', [
+                ...$totals->toLogContext(),
+                'memory_peak_mb' => \round(\memory_get_peak_usage(true) / 1048576, 1),
+            ]);
         }
     }
 

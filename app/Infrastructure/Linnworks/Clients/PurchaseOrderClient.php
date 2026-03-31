@@ -13,6 +13,7 @@ use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Linnworks\ValueObjects\PurchaseOrderAdditionalCost;
 use App\Domain\Linnworks\ValueObjects\PurchaseOrderCore;
+use App\Domain\Linnworks\ValueObjects\PurchaseOrderDeliveredRecord;
 use App\Domain\Linnworks\ValueObjects\PurchaseOrderExtendedProperty;
 use App\Domain\Linnworks\ValueObjects\PurchaseOrderFull;
 use App\Domain\Linnworks\ValueObjects\PurchaseOrderHeader;
@@ -21,6 +22,7 @@ use App\Domain\ValueObjects\Guid;
 use App\Infrastructure\Linnworks\Contracts\LinnworksTransportInterface;
 use App\Infrastructure\Linnworks\Responses\PurchaseOrder\PurchaseOrderAdditionalCostResponse;
 use App\Infrastructure\Linnworks\Responses\PurchaseOrder\PurchaseOrderCoreResponse;
+use App\Infrastructure\Linnworks\Responses\PurchaseOrder\PurchaseOrderDeliveredRecordResponse;
 use App\Infrastructure\Linnworks\Responses\PurchaseOrder\PurchaseOrderExtendedPropertyResponse;
 use App\Infrastructure\Linnworks\Responses\PurchaseOrder\PurchaseOrderHeaderResponse;
 use App\Infrastructure\Linnworks\Responses\PurchaseOrder\PurchaseOrderNoteResponse;
@@ -83,19 +85,11 @@ final readonly class PurchaseOrderClient implements PurchaseOrderClientInterface
      */
     public function getPurchaseOrderCore(Guid $purchaseId): PurchaseOrderCore
     {
-        $response = $this->transport->postFormParams(
-            endpoint: '/api/PurchaseOrder/Get_PurchaseOrder',
-            params: ['pkPurchaseId' => $purchaseId->value],
-        );
-
-        $data = $response->json();
-
-        if ($data === null) {
-            throw new ResourceNotFoundException(self::SERVICE_NAME, 'PurchaseOrder', $purchaseId->value);
-        }
-
         /** @var PurchaseOrderCore */
-        return self::parseSingleToDomain($data, PurchaseOrderCoreResponse::class);
+        return self::parseSingleToDomain(
+            $this->fetchRawPurchaseOrder($purchaseId),
+            PurchaseOrderCoreResponse::class,
+        );
     }
 
     /**
@@ -109,19 +103,80 @@ final readonly class PurchaseOrderClient implements PurchaseOrderClientInterface
      */
     public function getPurchaseOrderFull(Guid $purchaseId): PurchaseOrderFull
     {
-        $core = $this->getPurchaseOrderCore($purchaseId);
+        $data = $this->fetchRawPurchaseOrder($purchaseId);
 
-        /** @var list<PurchaseOrderNote> $notes */
-        $notes = $this->getPurchaseOrderNotes($purchaseId);
-
-        /** @var list<PurchaseOrderExtendedProperty> $extendedProperties */
-        $extendedProperties = $this->getPurchaseOrderExtendedProperties($purchaseId);
+        /** @var PurchaseOrderCore */
+        $core = self::parseSingleToDomain($data, PurchaseOrderCoreResponse::class);
 
         return new PurchaseOrderFull(
             core: $core,
-            notes: $notes,
-            extendedProperties: $extendedProperties,
+            additionalCosts: $this->parseAdditionalCosts($data),
+            deliveredRecords: $this->parseDeliveredRecords($data),
+            notes: $this->getPurchaseOrderNotes($purchaseId),
+            extendedProperties: $this->getPurchaseOrderExtendedProperties($purchaseId),
         );
+    }
+
+    /**
+     * Fetch raw Get_PurchaseOrder response as an array.
+     *
+     * @return array<string, mixed>
+     *
+     * @throws ResourceNotFoundException When PO doesn't exist
+     * @throws AuthenticationExpiredException
+     * @throws ExternalServiceUnavailableException
+     * @throws InvalidApiRequestException
+     * @throws InvalidApiResponseException
+     */
+    private function fetchRawPurchaseOrder(Guid $purchaseId): array
+    {
+        $response = $this->transport->postFormParams(
+            endpoint: '/api/PurchaseOrder/Get_PurchaseOrder',
+            params: ['pkPurchaseId' => $purchaseId->value],
+        );
+
+        $data = $response->json();
+
+        if ($data === null || ! \is_array($data)) {
+            throw new ResourceNotFoundException(self::SERVICE_NAME, 'PurchaseOrder', $purchaseId->value);
+        }
+
+        /** @var array<string, mixed> $data */
+        return $data;
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     *
+     * @return list<PurchaseOrderAdditionalCost>
+     *
+     * @throws InvalidApiResponseException
+     */
+    private function parseAdditionalCosts(array $data): array
+    {
+        if (! isset($data['AdditionalCosts']) || ! \is_array($data['AdditionalCosts'])) {
+            return [];
+        }
+
+        /** @var list<PurchaseOrderAdditionalCost> */
+        return self::parseDirectArrayToDomain($data['AdditionalCosts'], PurchaseOrderAdditionalCostResponse::class);
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     *
+     * @return list<PurchaseOrderDeliveredRecord>
+     *
+     * @throws InvalidApiResponseException
+     */
+    private function parseDeliveredRecords(array $data): array
+    {
+        if (! isset($data['DeliveredRecords']) || ! \is_array($data['DeliveredRecords'])) {
+            return [];
+        }
+
+        /** @var list<PurchaseOrderDeliveredRecord> */
+        return self::parseDirectArrayToDomain($data['DeliveredRecords'], PurchaseOrderDeliveredRecordResponse::class);
     }
 
     /**

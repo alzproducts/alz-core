@@ -8,6 +8,7 @@ use App\Application\Contracts\Shopwired\SaleSettingsRepositoryInterface;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\CustomFields\ValueObjects\AbstractCustomFieldValue;
 use App\Domain\Catalog\Filters\ValueObjects\ProductFilter;
+use App\Domain\Catalog\Product\Enums\ProductInclude;
 use App\Domain\Catalog\Product\ValueObjects\Gtin;
 use App\Domain\Catalog\Product\ValueObjects\ProductImage;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariationView;
@@ -53,7 +54,7 @@ final readonly class ProductViewAssembler
      * Conditionally loads variations, custom fields, and filters based on includes.
      *
      * @param ProductModel $model The Eloquent model (variations optionally eager-loaded)
-     * @param list<string> $includes Requested embed names (controls variations, custom_fields, filters, description, category_ids)
+     * @param list<ProductInclude> $includes Requested embeds (controls variations, custom_fields, filters, description, category_ids)
      *
      * @throws DatabaseOperationFailedException On query failure
      * @throws DuplicateRecordException On constraint violation
@@ -98,7 +99,7 @@ final readonly class ProductViewAssembler
     /**
      * Resolve variations to ProductVariationView when loaded and included.
      *
-     * @param list<string> $includes
+     * @param list<ProductInclude> $includes
      *
      * @return list<ProductVariationView>|null
      *
@@ -108,7 +109,7 @@ final readonly class ProductViewAssembler
      */
     private function resolveVariations(ProductModel $model, array $includes): ?array
     {
-        if (! $model->relationLoaded('variations') || ! \in_array('variations', $includes, true)) {
+        if (! $model->relationLoaded('variations') || ! \in_array(ProductInclude::Variations, $includes, true)) {
             return null;
         }
 
@@ -144,7 +145,7 @@ final readonly class ProductViewAssembler
     /**
      * Conditionally type custom fields via factory.
      *
-     * @param list<string> $includes
+     * @param list<ProductInclude> $includes
      *
      * @return list<AbstractCustomFieldValue>
      *
@@ -155,7 +156,7 @@ final readonly class ProductViewAssembler
      */
     private function resolveCustomFields(ProductModel $model, array $includes): array
     {
-        if (! \in_array('custom_fields', $includes, true)) {
+        if (! \in_array(ProductInclude::CustomFields, $includes, true)) {
             return [];
         }
 
@@ -168,7 +169,7 @@ final readonly class ProductViewAssembler
     /**
      * Conditionally type filters via factory.
      *
-     * @param list<string> $includes
+     * @param list<ProductInclude> $includes
      *
      * @return list<ProductFilter>
      *
@@ -178,7 +179,7 @@ final readonly class ProductViewAssembler
      */
     private function resolveFilters(ProductModel $model, array $includes): array
     {
-        if (! \in_array('filters', $includes, true)) {
+        if (! \in_array(ProductInclude::Filters, $includes, true)) {
             return [];
         }
 
@@ -191,7 +192,7 @@ final readonly class ProductViewAssembler
     /**
      * Conditionally load sale settings from the repository.
      *
-     * @param list<string> $includes
+     * @param list<ProductInclude> $includes
      *
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
@@ -199,7 +200,7 @@ final readonly class ProductViewAssembler
      */
     private function resolveSaleSettings(ProductModel $model, array $includes): ?SaleSettings
     {
-        if (! \in_array('sale_settings', $includes, true)) {
+        if (! \in_array(ProductInclude::SaleSettings, $includes, true)) {
             return null;
         }
 

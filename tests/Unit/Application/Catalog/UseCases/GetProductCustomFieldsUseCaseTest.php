@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Application\Catalog\UseCases;
 
+use App\Application\Catalog\Queries\ProductDetailQueryParams;
 use App\Application\Catalog\UseCases\GetProductCustomFieldsUseCase;
 use App\Application\Contracts\Shopwired\CustomFieldRepositoryInterface;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
@@ -13,8 +14,8 @@ use App\Domain\Catalog\CustomFields\ValueObjects\AbstractCustomFieldValue;
 use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldDefinition;
 use App\Domain\Catalog\CustomFields\ValueObjects\NullCustomFieldValue;
 use App\Domain\Catalog\CustomFields\ValueObjects\StringCustomFieldValue;
+use App\Domain\Catalog\Product\Enums\ProductInclude;
 use App\Domain\Catalog\Product\ValueObjects\ProductView;
-use App\Domain\ValueObjects\IntId;
 use Mockery;
 use Mockery\MockInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -187,7 +188,7 @@ final class GetProductCustomFieldsUseCaseTest extends TestCase
         $this->productRepository
             ->shouldReceive('findProductForApi')
             ->once()
-            ->with(Mockery::on(static fn(IntId $id): bool => $id->value === 42), ['custom_fields'])
+            ->with(Mockery::on(static fn(ProductDetailQueryParams $q): bool => $q->productId->value === 42 && $q->includes === [ProductInclude::CustomFields]))
             ->andReturn($product);
     }
 

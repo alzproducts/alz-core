@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace App\Providers\Schedule;
 
 use App\Application\Linnworks\Enums\OrderSyncTier;
+use App\Infrastructure\Jobs\Linnworks\SyncAllPurchaseOrdersJob;
+use App\Infrastructure\Jobs\Linnworks\SyncFastPurchaseOrdersJob;
 use App\Infrastructure\Jobs\Linnworks\SyncLinnworksOrdersByCursorJob;
 use App\Infrastructure\Jobs\Linnworks\SyncLinnworksOrdersJob;
 use App\Infrastructure\Jobs\Linnworks\SyncLinnworksStockItemsJob;
 use App\Infrastructure\Jobs\Linnworks\SyncLinnworksSuppliersJob;
+use App\Infrastructure\Jobs\Linnworks\SyncPurchaseOrdersByDateRangeJob;
 use App\Infrastructure\Jobs\Linnworks\SyncStockItemsWithCursorJob;
 use Illuminate\Support\Facades\Schedule;
 use Illuminate\Support\ServiceProvider;
@@ -27,66 +30,96 @@ final class LinnworksScheduleServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        // DAILY: Full stock item sync at midnight UTC
-        // Safety net for cursor-based sync — ensures all items are eventually consistent
+        $this->registerStockSchedules();
+        $this->registerOrderSchedules();
+        $this->registerPurchaseOrderSchedules();
+    }
+
+    /**
+     * Register stock item and supplier sync schedules.
+     */
+    private function registerStockSchedules(): void
+    {
+        // DAILY: Full stock item sync at midnight UTC — safety net for cursor-based sync
         Schedule::job(new SyncLinnworksStockItemsJob())
             ->name('sync-linnworks-stock-items')
-            ->daily()
-            ->onOneServer()
-            ->withoutOverlapping(60); // 60 min lock - job runs 8-12 min in prod
+            ->daily()->onOneServer()->withoutOverlapping(60);
 
-        // HOURLY: Supplier directory sync
-        // Full-replace strategy — small dataset, fetches complete supplier list
+        // HOURLY: Supplier directory sync — full-replace, small dataset
         Schedule::job(new SyncLinnworksSuppliersJob())
             ->name('sync-linnworks-suppliers')
-            ->hourly()
-            ->onOneServer()
-            ->withoutOverlapping(10);
+            ->hourly()->onOneServer()->withoutOverlapping(10);
 
         // EVERY 5 MIN: Cursor-based incremental stock item sync
-        // Detects recently-modified items and dispatches per-item sync jobs
         Schedule::job(new SyncStockItemsWithCursorJob())
             ->name('sync-stock-items-with-cursor')
-            ->everyFiveMinutes()
-            ->onOneServer()
-            ->withoutOverlapping(5); // 5 min lock - job completes in seconds
+            ->everyFiveMinutes()->onOneServer()->withoutOverlapping(5);
+    }
 
-        // ── Linnworks Orders Sync (multi-tier redundancy) ──
+    /**
+     * Register Linnworks order sync schedules (multi-tier redundancy).
+     */
+    private function registerOrderSchedules(): void
+    {
+        $this->registerOrderCursorSchedule();
+        $this->registerOrderTierSchedules();
+    }
 
+    /**
+     * Register the minute-level cursor order sync.
+     */
+    private function registerOrderCursorSchedule(): void
+    {
         // EVERY MINUTE: Cursor-based incremental order sync
         Schedule::job(new SyncLinnworksOrdersByCursorJob())
             ->name('sync-linnworks-orders-cursor')
-            ->everyMinute()
-            ->onOneServer()
-            ->withoutOverlapping(2); // 2 min lock — job timeout is 90s, runs every minute
+            ->everyMinute()->onOneServer()->withoutOverlapping(2);
+    }
 
-        // HOURLY: Orders updated in last hour
+    /**
+     * Register hourly/daily/weekly/monthly order sync tiers.
+     */
+    private function registerOrderTierSchedules(): void
+    {
         Schedule::job(new SyncLinnworksOrdersJob(OrderSyncTier::Hourly))
             ->name('sync-linnworks-orders-hourly')
-            ->hourly()
-            ->onOneServer()
-            ->withoutOverlapping(15);
+            ->hourly()->onOneServer()->withoutOverlapping(15);
 
-        // DAILY: Orders updated in last 2 days
         Schedule::job(new SyncLinnworksOrdersJob(OrderSyncTier::Daily))
             ->name('sync-linnworks-orders-daily')
-            ->daily()
-            ->onOneServer()
-            ->withoutOverlapping(30);
+            ->daily()->onOneServer()->withoutOverlapping(30);
 
-        // WEEKLY: Orders updated in last 2 weeks
         Schedule::job(new SyncLinnworksOrdersJob(OrderSyncTier::Weekly))
             ->name('sync-linnworks-orders-weekly')
-            ->weekly()
-            ->onOneServer()
-            ->withoutOverlapping(60);
+            ->weekly()->onOneServer()->withoutOverlapping(60);
 
-        // WEEKLY (offset): Widest safety net — 28 day lookback (v2 API caps at ~30 days)
-        // Runs mid-week to stagger with Weekly tier
+        // WEEKLY (offset Wednesday): Widest safety net — 28 day lookback
         Schedule::job(new SyncLinnworksOrdersJob(OrderSyncTier::Monthly))
             ->name('sync-linnworks-orders-monthly')
-            ->weeklyOn(3) // Wednesday
-            ->onOneServer()
-            ->withoutOverlapping(60);
+            ->weeklyOn(3)->onOneServer()->withoutOverlapping(60);
+    }
+
+    /**
+     * Register purchase order sync schedules.
+     */
+    private function registerPurchaseOrderSchedules(): void
+    {
+        // EVERY 5 MIN: Fast PO sync — OPEN/PENDING/PARTIAL (6mo) + DELIVERED today
+        Schedule::job(new SyncFastPurchaseOrdersJob())
+            ->name('sync-fast-purchase-orders')
+            ->everyFiveMinutes()->onOneServer()->withoutOverlapping(5);
+
+        // DAILY: Normal PO sync — last 7 days, dates calculated at execution time
+        Schedule::call(static function (): void {
+            SyncPurchaseOrdersByDateRangeJob::dispatch(
+                \now()->subDays(7)->startOfDay()->toDateTimeImmutable(),
+                \now()->toDateTimeImmutable(),
+            );
+        })->name('sync-purchase-orders-daily')->daily()->onOneServer()->withoutOverlapping(30);
+
+        // QUARTERLY: Full PO backfill — all POs, all statuses, safety net
+        Schedule::job(new SyncAllPurchaseOrdersJob())
+            ->name('sync-all-purchase-orders-quarterly')
+            ->quarterly()->onOneServer()->withoutOverlapping(300);
     }
 }

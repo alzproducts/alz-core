@@ -14,6 +14,7 @@ use App\Application\Contracts\Linnworks\LinnworksSyncDispatcherInterface;
 use App\Application\Contracts\Linnworks\OrderClientInterface;
 use App\Application\Contracts\Linnworks\OrderDashboardsClientInterface;
 use App\Application\Contracts\Linnworks\PurchaseDashboardsClientInterface;
+use App\Application\Contracts\Linnworks\PurchaseOrderBackfillDispatcherInterface;
 use App\Application\Contracts\Linnworks\PurchaseOrderClientInterface;
 use App\Application\Contracts\Linnworks\PurchaseOrderSyncRepositoryInterface;
 use App\Application\Contracts\Linnworks\PurchaseOrderUpdateClientInterface;
@@ -23,6 +24,7 @@ use App\Application\Contracts\Linnworks\SupplierRepositoryInterface;
 use App\Application\Contracts\LockableCacheInterface;
 use App\Infrastructure\Linnworks\Dispatchers\QueuedLinnworksBackfillDispatcher;
 use App\Infrastructure\Linnworks\Dispatchers\QueuedLinnworksSyncDispatcher;
+use App\Infrastructure\Linnworks\Dispatchers\QueuedPurchaseOrderBackfillDispatcher;
 use App\Infrastructure\Linnworks\LinnworksClientFactory;
 use App\Infrastructure\Linnworks\LinnworksConfig;
 use App\Infrastructure\Linnworks\LinnworksSessionManager;
@@ -146,6 +148,7 @@ final class LinnworksServiceProvider extends ServiceProvider implements Deferrab
         // Dispatchers
         $this->app->singleton(LinnworksSyncDispatcherInterface::class, QueuedLinnworksSyncDispatcher::class);
         $this->app->singleton(LinnworksBackfillDispatcherInterface::class, QueuedLinnworksBackfillDispatcher::class);
+        $this->app->singleton(PurchaseOrderBackfillDispatcherInterface::class, QueuedPurchaseOrderBackfillDispatcher::class);
 
         // Order repository - for persisting synced processed orders
         $this->app->singleton(
@@ -184,6 +187,7 @@ final class LinnworksServiceProvider extends ServiceProvider implements Deferrab
             LinnworksSessionManager::class,
             OrderClientInterface::class,
             OrderDashboardsClientInterface::class,
+            PurchaseOrderBackfillDispatcherInterface::class,
             PurchaseDashboardsClientInterface::class,
             PurchaseOrderClientInterface::class,
             PurchaseOrderSyncRepositoryInterface::class,

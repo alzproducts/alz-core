@@ -5,25 +5,28 @@ declare(strict_types=1);
 namespace App\Domain\Linnworks\ValueObjects;
 
 /**
- * Linnworks purchase order complete composite value object — three API calls.
+ * Linnworks purchase order complete composite value object — REST API data.
  *
- * Extends PurchaseOrderCore with notes and extended properties, assembled
- * from three separate API calls: Get_PurchaseOrder + Get_PurchaseOrderNote
- * + Get_PurchaseOrderExtendedProperty.
+ * Extends PurchaseOrderCore with data only available via REST endpoints:
+ * additional costs, delivered records, notes, and extended properties.
  *
- * Use this for historical backfill / complete sync where full metadata
- * including notes and extended properties is required.
+ * Assembled from three separate API calls: Get_PurchaseOrder +
+ * Get_PurchaseOrderNote + Get_PurchaseOrderExtendedProperty.
  *
  * @template-pattern Domain Value Object
  */
 final readonly class PurchaseOrderFull
 {
     /**
-     * @param list<PurchaseOrderNote>             $notes
-     * @param list<PurchaseOrderExtendedProperty> $extendedProperties
+     * @param list<PurchaseOrderAdditionalCost>   $additionalCosts
+     * @param list<PurchaseOrderDeliveredRecord>   $deliveredRecords
+     * @param list<PurchaseOrderNote>              $notes
+     * @param list<PurchaseOrderExtendedProperty>  $extendedProperties
      */
     public function __construct(
         public PurchaseOrderCore $core,
+        public array $additionalCosts,
+        public array $deliveredRecords,
         public array $notes,
         public array $extendedProperties,
     ) {}

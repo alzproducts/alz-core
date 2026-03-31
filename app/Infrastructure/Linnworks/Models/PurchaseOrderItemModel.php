@@ -13,13 +13,13 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * Eloquent model for linnworks.purchase_order_items table.
  *
- * Stores purchase order line items from the Get_PurchaseOrder API response.
+ * Stores purchase order line items — PO-native data only.
+ * Product enrichment (SKU, title, dimensions) available via stock_items join.
  *
  * @property string $id Internal UUID
  * @property string $linnworks_purchase_id FK to purchase_orders.linnworks_purchase_id
  * @property string $linnworks_purchase_item_id Linnworks item GUID (upsert key)
  * @property string $fk_stock_item_id
- * @property int|null $stock_item_int_id
  * @property int $quantity
  * @property int $delivered
  * @property int $pack_quantity
@@ -27,21 +27,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property float $cost
  * @property float $tax
  * @property float $tax_rate
- * @property string $sku
- * @property string $item_title
- * @property string $barcode_number
- * @property string $supplier_code
- * @property string $supplier_barcode
- * @property float $dim_height
- * @property float $dim_width
- * @property float $dim_depth
- * @property bool $is_deleted
- * @property int $inventory_tracking_type
  * @property int $sort_order
- * @property string $bin_rack
- * @property int $bound_to_open_orders_items
- * @property int $quantity_bound_to_open_orders_items
- * @property array<int, mixed>|null $sku_group_ids
  * @property CarbonImmutable $created_at
  * @property CarbonImmutable $updated_at
  */
@@ -60,7 +46,6 @@ final class PurchaseOrderItemModel extends Model
     protected function casts(): array
     {
         return [
-            'stock_item_int_id' => 'integer',
             'quantity' => 'integer',
             'delivered' => 'integer',
             'pack_quantity' => 'integer',
@@ -68,15 +53,7 @@ final class PurchaseOrderItemModel extends Model
             'cost' => 'float',
             'tax' => 'float',
             'tax_rate' => 'float',
-            'dim_height' => 'float',
-            'dim_width' => 'float',
-            'dim_depth' => 'float',
-            'is_deleted' => 'boolean',
-            'inventory_tracking_type' => 'integer',
             'sort_order' => 'integer',
-            'bound_to_open_orders_items' => 'integer',
-            'quantity_bound_to_open_orders_items' => 'integer',
-            'sku_group_ids' => 'array',
             'created_at' => 'immutable_datetime',
             'updated_at' => 'immutable_datetime',
         ];
@@ -109,7 +86,6 @@ final class PurchaseOrderItemModel extends Model
         return [
             'linnworks_purchase_item_id' => $item->pkPurchaseItemId->value,
             'fk_stock_item_id' => $item->fkStockItemId->value,
-            'stock_item_int_id' => $item->stockItemIntId?->value,
             'quantity' => $item->quantity,
             'delivered' => $item->delivered,
             'pack_quantity' => $item->packQuantity,
@@ -117,21 +93,7 @@ final class PurchaseOrderItemModel extends Model
             'cost' => $item->cost,
             'tax' => $item->tax,
             'tax_rate' => $item->taxRate->percentage,
-            'sku' => $item->sku->value,
-            'item_title' => $item->itemTitle,
-            'barcode_number' => $item->barcodeNumber,
-            'supplier_code' => $item->supplierCode,
-            'supplier_barcode' => $item->supplierBarcode,
-            'dim_height' => $item->dimHeight,
-            'dim_width' => $item->dimWidth,
-            'dim_depth' => $item->dimDepth,
-            'is_deleted' => $item->isDeleted,
-            'inventory_tracking_type' => $item->inventoryTrackingType,
             'sort_order' => $item->sortOrder,
-            'bin_rack' => $item->binRack,
-            'bound_to_open_orders_items' => $item->boundToOpenOrdersItems,
-            'quantity_bound_to_open_orders_items' => $item->quantityBoundToOpenOrdersItems,
-            'sku_group_ids' => $item->skuGroupIds !== [] ? $item->skuGroupIds : null,
             'created_at' => $now,
             'updated_at' => $now,
         ];

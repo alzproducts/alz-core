@@ -119,7 +119,7 @@ final readonly class ConversationsClient implements ConversationsClientInterface
     private function buildApiParams(ConversationQueryParams $params): array
     {
         return \array_filter([
-            'assigned' => $params->agentId,
+            'assigned_to' => $params->agentId,
             'status' => $params->status,
             'tag' => $params->tag,
             'mailbox' => $params->mailboxId,
