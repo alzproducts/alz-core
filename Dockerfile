@@ -93,8 +93,8 @@ COPY --from=builder /usr/local/lib/php/extensions/ /usr/local/lib/php/extensions
 COPY --from=builder /usr/local/etc/php/conf.d/ /usr/local/etc/php/conf.d/
 
 # Configure PHP for production
-RUN echo "memory_limit = 512M" > /usr/local/etc/php/conf.d/memory.ini && \
-    echo "post_max_size = 100M" > /usr/local/etc/php/conf.d/uploads.ini && \
+# Note: memory_limit is set via PHP_MEMORY_LIMIT env var (serversideup base image)
+RUN echo "post_max_size = 100M" > /usr/local/etc/php/conf.d/uploads.ini && \
     echo "upload_max_filesize = 100M" >> /usr/local/etc/php/conf.d/uploads.ini && \
     echo "variables_order = EGPCS" > /usr/local/etc/php/conf.d/variables.ini
 
