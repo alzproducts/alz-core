@@ -107,6 +107,35 @@ final readonly class InventoryClient implements InventoryClientInterface
     /**
      * {@inheritDoc}
      *
+     * @return array<string, Guid>
+     *
+     * @throws AuthenticationExpiredException When credentials are invalid
+     * @throws ExternalServiceUnavailableException When API is unavailable
+     * @throws InvalidApiRequestException When request parameters are invalid
+     * @throws InvalidApiResponseException When API response structure is invalid
+     * @throws ResourceNotFoundException When resource not found (404)
+     */
+    public function resolveStockItemIds(array $skus): array
+    {
+        $skuStrings = \array_map(
+            static fn(Sku $sku): string => $sku->value,
+            $skus,
+        );
+
+        $mappings = $this->getStockItemIdsBySkus($skuStrings);
+
+        $result = [];
+
+        foreach ($mappings as $mapping) {
+            $result[$mapping->sku] = new Guid($mapping->stockItemId);
+        }
+
+        return $result;
+    }
+
+    /**
+     * {@inheritDoc}
+     *
      * @throws ResourceNotFoundException When SKU doesn't exist in Linnworks
      * @throws AuthenticationExpiredException When credentials are invalid
      * @throws ExternalServiceUnavailableException When API is unavailable

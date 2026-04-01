@@ -7,6 +7,7 @@ namespace App\Providers;
 use App\Application\Catalog\UseCases\UpdateBrandCustomFieldsUseCase;
 use App\Application\Catalog\UseCases\UpdateCategoryCustomFieldsUseCase;
 use App\Application\Catalog\UseCases\UpdateProductCustomFieldsUseCase;
+use App\Application\Contracts\Catalog\ProductSupplierLookupInterface;
 use App\Application\Contracts\Shopwired\BasicProductUpdateClientInterface;
 use App\Application\Contracts\Shopwired\BrandClientInterface;
 use App\Application\Contracts\Shopwired\BrandRepositoryInterface;
@@ -224,6 +225,7 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
         $this->registerCustomFieldFactories();
         $this->app->scoped(ProductFilterFactory::class);
         $this->app->scoped(ProductSupplierFactory::class);
+        $this->app->bind(ProductSupplierLookupInterface::class, ProductSupplierFactory::class);
         $this->app->scoped(ProductVariationModelMapper::class);
         $this->app->scoped(ProductModelMapper::class);
         $this->app->scoped(ProductViewAssembler::class);
@@ -382,6 +384,7 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
             ProductModelMapper::class,
             ProductRepositoryInterface::class,
             ProductSupplierFactory::class,
+            ProductSupplierLookupInterface::class,
             ProductVariationModelMapper::class,
             ProductViewAssembler::class,
             ProductUpdateClientInterface::class,

@@ -11,15 +11,15 @@ use App\Domain\Shared\Money\ValueObjects\Money;
 use Spatie\LaravelData\Data;
 
 /**
- * Request validation for PUT /api/products/{sku}/cost-price.
+ * Per-item DTO for bulk cost price update.
  *
- * Accepts a camelCase JSON body: { "costPrice": 5.99, "supplierName": "Acme Corp" }
+ * Accepts: { "sku": "ABC-123", "costPrice": 5.99 }
  */
-final class UpdateCostPriceRequestDTO extends Data
+final class CostPriceItemDTO extends Data
 {
     public function __construct(
+        public readonly string $sku,
         public readonly float $costPrice,
-        public readonly string $supplierName,
     ) {}
 
     /**
@@ -28,20 +28,19 @@ final class UpdateCostPriceRequestDTO extends Data
     public static function rules(): array
     {
         return [
+            'sku' => ['required', 'string', 'min:1'],
             'costPrice' => ['required', 'numeric', 'min:0'],
-            'supplierName' => ['required', 'string', 'min:1'],
         ];
     }
 
     /**
      * @throws InvalidSkuException When the SKU format is invalid
      */
-    public function toCommand(string $sku): UpdateCostPriceCommand
+    public function toCommand(): UpdateCostPriceCommand
     {
         return new UpdateCostPriceCommand(
-            sku: Sku::fromString($sku),
+            sku: Sku::fromString($this->sku),
             costPrice: Money::exclusive($this->costPrice),
-            supplierName: $this->supplierName,
         );
     }
 }
