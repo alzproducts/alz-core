@@ -20,6 +20,7 @@ enum ProductInclude: string
     case CustomFields = 'custom_fields';
     case Filters = 'filters';
     case SaleSettings = 'sale_settings';
+    case Suppliers = 'suppliers';
 
     /**
      * @return list<string>

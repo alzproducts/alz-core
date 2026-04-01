@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Application\Contracts\Linnworks;
 
 use App\Application\Contracts\RepositoryWriteInterface;
+use App\Domain\Catalog\Product\ValueObjects\Sku;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
@@ -34,4 +35,16 @@ interface StockItemRepositoryInterface extends RepositoryWriteInterface
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      */
     public function getCostPricesBySku(): array;
+
+    /**
+     * Update the purchase price for a specific supplier on a stock item.
+     *
+     * Matches by SKU and supplier name. If no row is found (local DB out of sync),
+     * the update silently no-ops — callers should handle this case if needed.
+     *
+     * @throws DatabaseOperationFailedException On query failure
+     * @throws DuplicateRecordException On constraint violation
+     * @throws ExternalServiceUnavailableException When database temporarily unavailable
+     */
+    public function updateSupplierPurchasePrice(Sku $sku, string $supplierName, float $purchasePrice): void;
 }

@@ -7,6 +7,7 @@ namespace Tests\Unit\Presentation\Http\Api;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\PermanentApiFailure;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Domain\Exceptions\Data\InvalidSkuException;
 use App\Domain\Exceptions\DomainException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\Exceptions\Infrastructure\LockAcquisitionException;
@@ -88,6 +89,21 @@ final class InternalApiExceptionMapperTest extends TestCase
         $this->assertNotNull($response);
         $body = $response->getData(assoc: true);
         $this->assertSame($context, $body['error']['errors']);
+    }
+
+    #[Test]
+    public function render_maps_invalid_sku_exception_to_422(): void
+    {
+        $exception = InvalidSkuException::empty();
+        $request = $this->jsonRequest();
+
+        $response = InternalApiExceptionMapper::render($exception, $request);
+
+        $this->assertNotNull($response);
+        $this->assertSame(422, $response->getStatusCode());
+        $body = $response->getData(assoc: true);
+        $this->assertSame('validation_error', $body['error']['type']);
+        $this->assertSame('Invalid SKU', $body['error']['message']);
     }
 
     #[Test]
