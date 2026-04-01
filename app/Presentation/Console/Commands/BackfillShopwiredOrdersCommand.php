@@ -34,45 +34,44 @@ final class BackfillShopwiredOrdersCommand extends Command
     {
         $months = (int) $this->option('months');
         $offset = (int) $this->option('offset');
-        $dryRun = $this->option('dry-run');
 
-        if ($months < 1) {
-            $this->error('--months must be at least 1');
-
+        $validationError = $this->validateOptions($months, $offset);
+        if ($validationError !== null) {
+            $this->error($validationError);
             return self::FAILURE;
         }
 
-        if ($offset < 0) {
-            $this->error('--offset cannot be negative');
-
-            return self::FAILURE;
-        }
-
-        // Use startOfMonth() to ensure gap-free calendar month windows.
-        // Direct month arithmetic (e.g., "Mar 31 - 1 month = Feb 28") creates gaps
-        // because it doesn't maintain end-of-month semantics.
         $now = CarbonImmutable::now();
-
+        $dryRun = $this->option('dry-run');
         $this->info($dryRun ? 'DRY RUN - Would dispatch:' : "Dispatching {$months} monthly sync jobs...");
         $this->newLine();
+        $this->table(['#', 'From', 'To', 'Period'], $this->buildJobTable($now, $months, $offset));
 
-        $this->table(
-            ['#', 'From', 'To', 'Period'],
-            $this->buildJobTable($now, $months, $offset),
-        );
+        return $dryRun ? $this->displayDryRunNotice() : $this->dispatchJobs($dispatchUseCase, $now, $months, $offset);
+    }
 
-        if ($dryRun) {
-            $this->newLine();
-            $this->warn('No jobs dispatched (dry run). Remove --dry-run to execute.');
-
-            return self::SUCCESS;
+    private function validateOptions(int $months, int $offset): ?string
+    {
+        if ($months < 1) {
+            return '--months must be at least 1';
         }
 
-        $this->newLine();
+        return $offset < 0 ? '--offset cannot be negative' : null;
+    }
 
+    private function displayDryRunNotice(): int
+    {
+        $this->newLine();
+        $this->warn('No jobs dispatched (dry run). Remove --dry-run to execute.');
+
+        return self::SUCCESS;
+    }
+
+    private function dispatchJobs(BackfillShopwiredOrdersUseCase $dispatchUseCase, CarbonImmutable $now, int $months, int $offset): int
+    {
+        $this->newLine();
         $ranges = $this->buildRanges($now, $months, $offset);
         $dispatched = $dispatchUseCase->execute($ranges);
-
         $this->info("✓ {$dispatched} jobs dispatched to queue.");
         $this->line('  Monitor progress: php artisan horizon');
 
@@ -80,8 +79,6 @@ final class BackfillShopwiredOrdersCommand extends Command
     }
 
     /**
-     * Build date ranges for dispatch.
-     *
      * @return list<array{from: DateTimeImmutable, to: DateTimeImmutable}>
      */
     private function buildRanges(CarbonImmutable $now, int $months, int $offset): array
@@ -89,27 +86,24 @@ final class BackfillShopwiredOrdersCommand extends Command
         $ranges = [];
 
         for ($i = 0; $i < $months; $i++) {
-            $monthsAgo = $offset + $i;
-            $from = $now->startOfMonth()->subMonths($monthsAgo);
-
-            // First job with offset=0: sync up to NOW (partial current month)
-            // All other jobs: sync complete calendar months
-            $to = ($i === 0 && $offset === 0)
-                ? $now
-                : $now->startOfMonth()->subMonths($monthsAgo - 1);
-
-            $ranges[] = [
-                'from' => $from->toDateTimeImmutable(),
-                'to' => $to->toDateTimeImmutable(),
-            ];
+            $ranges[] = $this->buildSingleRange($now, $offset + $i, $i === 0 && $offset === 0);
         }
 
         return $ranges;
     }
 
     /**
-     * Build table data showing what will be dispatched.
-     *
+     * @return array{from: DateTimeImmutable, to: DateTimeImmutable}
+     */
+    private function buildSingleRange(CarbonImmutable $now, int $monthsAgo, bool $isPartialMonth): array
+    {
+        $from = $now->startOfMonth()->subMonths($monthsAgo);
+        $to = $isPartialMonth ? $now : $now->startOfMonth()->subMonths($monthsAgo - 1);
+
+        return ['from' => $from->toDateTimeImmutable(), 'to' => $to->toDateTimeImmutable()];
+    }
+
+    /**
      * @return list<array{int, string, string, string}>
      */
     private function buildJobTable(CarbonImmutable $now, int $months, int $offset): array
@@ -117,21 +111,25 @@ final class BackfillShopwiredOrdersCommand extends Command
         $rows = [];
 
         foreach ($this->buildRanges($now, $months, $offset) as $i => $range) {
-            $from = CarbonImmutable::instance($range['from']);
-            $to = CarbonImmutable::instance($range['to']);
-
-            $period = ($i === 0 && (int) $this->option('offset') === 0)
-                ? $from->format('M Y') . ' (partial)'
-                : $from->format('M Y');
-
-            $rows[] = [
-                $i + 1,
-                $from->format('Y-m-d H:i'),
-                $to->format('Y-m-d H:i'),
-                $period,
-            ];
+            $rows[] = $this->buildTableRow($range, $i);
         }
 
         return $rows;
+    }
+
+    /**
+     * @param array{from: DateTimeImmutable, to: DateTimeImmutable} $range
+     * @return array{int, string, string, string}
+     */
+    private function buildTableRow(array $range, int $index): array
+    {
+        $from = CarbonImmutable::instance($range['from']);
+        $to = CarbonImmutable::instance($range['to']);
+
+        $period = ($index === 0 && (int) $this->option('offset') === 0)
+            ? $from->format('M Y') . ' (partial)'
+            : $from->format('M Y');
+
+        return [$index + 1, $from->format('Y-m-d H:i'), $to->format('Y-m-d H:i'), $period];
     }
 }

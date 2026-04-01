@@ -42,49 +42,50 @@ final class JobMustCallOnQueueRule implements Rule
     {
         $classReflection = $node->getClassReflection();
 
-        if (! $this->isJobClass($classReflection->getName())) {
+        if (! self::isConcreteJobClass($classReflection)) {
             return [];
         }
 
-        if ($classReflection->isAbstract() || $classReflection->isEnum()) {
-            return [];
-        }
-
-        $constructor = $this->findConstructor($node);
+        $constructor = self::findConstructor($node);
 
         if ($constructor === null) {
-            if ($this->parentProvidesOnQueue($classReflection)) {
-                return [];
-            }
-
-            return [
-                RuleErrorBuilder::message(
-                    'Job must have a constructor that calls $this->onQueue() to explicitly assign a queue tier.',
-                )
-                    ->identifier('alz.jobMustCallOnQueue')
-                    ->build(),
-            ];
+            return self::validateMissingConstructor($classReflection);
         }
 
-        if ($this->constructorCallsOnQueue($constructor)) {
+        if (self::constructorCallsOnQueue($constructor)) {
             return [];
         }
 
-        return [
-            RuleErrorBuilder::message(
-                'Job must call $this->onQueue() in the constructor to explicitly assign a queue tier.',
-            )
-                ->identifier('alz.jobMustCallOnQueue')
-                ->build(),
-        ];
+        return [self::buildOnQueueError('Job must call $this->onQueue() in the constructor to explicitly assign a queue tier.')];
     }
 
-    private function isJobClass(string $className): bool
+    /**
+     * @return list<IdentifierRuleError>
+     */
+    private static function validateMissingConstructor(ClassReflection $classReflection): array
     {
-        return \str_contains($className, 'App\\Infrastructure\\Jobs\\');
+        if (self::parentProvidesOnQueue($classReflection)) {
+            return [];
+        }
+
+        return [self::buildOnQueueError('Job must have a constructor that calls $this->onQueue() to explicitly assign a queue tier.')];
     }
 
-    private function findConstructor(InClassNode $node): ?ClassMethod
+    private static function buildOnQueueError(string $message): IdentifierRuleError
+    {
+        return RuleErrorBuilder::message($message)
+            ->identifier('alz.jobMustCallOnQueue')
+            ->build();
+    }
+
+    private static function isConcreteJobClass(ClassReflection $classReflection): bool
+    {
+        return \str_contains($classReflection->getName(), 'App\\Infrastructure\\Jobs\\')
+            && ! $classReflection->isAbstract()
+            && ! $classReflection->isEnum();
+    }
+
+    private static function findConstructor(InClassNode $node): ?ClassMethod
     {
         foreach ($node->getOriginalNode()->stmts as $stmt) {
             if ($stmt instanceof ClassMethod && $stmt->name->toString() === '__construct') {
@@ -95,10 +96,10 @@ final class JobMustCallOnQueueRule implements Rule
         return null;
     }
 
-    private function constructorCallsOnQueue(ClassMethod $constructor): bool
+    private static function constructorCallsOnQueue(ClassMethod $constructor): bool
     {
         foreach ($constructor->stmts ?? [] as $stmt) {
-            if ($this->containsOnQueueCall($stmt)) {
+            if (self::containsOnQueueCall($stmt)) {
                 return true;
             }
         }
@@ -106,7 +107,7 @@ final class JobMustCallOnQueueRule implements Rule
         return false;
     }
 
-    private function parentProvidesOnQueue(ClassReflection $classReflection): bool
+    private static function parentProvidesOnQueue(ClassReflection $classReflection): bool
     {
         $parentClass = $classReflection->getParentClass();
 
@@ -115,7 +116,7 @@ final class JobMustCallOnQueueRule implements Rule
             && \str_contains($parentClass->getName(), 'App\\Infrastructure\\Jobs\\');
     }
 
-    private function containsOnQueueCall(Node $stmt): bool
+    private static function containsOnQueueCall(Node $stmt): bool
     {
         $expr = $stmt instanceof Expression ? $stmt->expr : $stmt;
 

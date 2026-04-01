@@ -53,8 +53,14 @@ final class AdsScheduleServiceProvider extends ServiceProvider
      */
     private function registerGoogleAdsSchedules(): void
     {
-        // DAILY: Yesterday only (operational visibility)
-        // Runs at 08:00 UK time so dashboards have fresh data when team starts work
+        $this->scheduleGoogleAdsDailySync();
+        $this->scheduleGoogleAdsWeeklySync();
+        $this->scheduleGoogleAdsMonthlySync();
+    }
+
+    /** @throws RuntimeException */
+    private function scheduleGoogleAdsDailySync(): void
+    {
         Schedule::call(static function (): void {
             $yesterday = new DateTimeImmutable('yesterday');
             SyncGoogleAdsToMixpanelJob::dispatch($yesterday, $yesterday);
@@ -64,22 +70,26 @@ final class AdsScheduleServiceProvider extends ServiceProvider
             ->timezone('Europe/London')
             ->onOneServer()
             ->withoutOverlapping(10);
+    }
 
-        // WEEKLY: Last 14 days (catch-up with 1 failure tolerance)
-        // 2-week window means 1 weekly failure can be tolerated before data gaps
+    /** @throws RuntimeException */
+    private function scheduleGoogleAdsWeeklySync(): void
+    {
         Schedule::call(static function (): void {
             $to = new DateTimeImmutable('yesterday');
-            $from = new DateTimeImmutable('-15 days'); // 14 days back from yesterday
+            $from = new DateTimeImmutable('-15 days');
             SyncGoogleAdsToMixpanelJob::dispatch($from, $to);
         })
             ->name('sync-google-ads-weekly')
-            ->weeklyOn(0, '06:00') // 0 = Sunday
+            ->weeklyOn(0, '06:00')
             ->timezone('UTC')
             ->onOneServer()
             ->withoutOverlapping(60);
+    }
 
-        // MONTHLY: Previous 2 calendar months (ultimate safety net)
-        // Covers 2 full months for resilience if weekly jobs fail
+    /** @throws RuntimeException */
+    private function scheduleGoogleAdsMonthlySync(): void
+    {
         Schedule::call(static function (): void {
             $from = new DateTimeImmutable('first day of -2 months');
             $to = new DateTimeImmutable('last day of previous month');
@@ -93,14 +103,18 @@ final class AdsScheduleServiceProvider extends ServiceProvider
     }
 
     /**
-     * Bing Ads: 3-tier resilience strategy (same pattern as Google Ads).
-     * Staggered 5-30 min after Google to spread API load.
-     *
      * @throws RuntimeException
      */
     private function registerBingAdsSchedules(): void
     {
-        // DAILY: Yesterday only (operational visibility)
+        $this->scheduleBingAdsDailySync();
+        $this->scheduleBingAdsWeeklySync();
+        $this->scheduleBingAdsMonthlySync();
+    }
+
+    /** @throws RuntimeException */
+    private function scheduleBingAdsDailySync(): void
+    {
         Schedule::call(static function (): void {
             $yesterday = new DateTimeImmutable('yesterday');
             SyncBingAdsToMixpanelJob::dispatch($yesterday, $yesterday);
@@ -109,9 +123,12 @@ final class AdsScheduleServiceProvider extends ServiceProvider
             ->dailyAt('08:05')
             ->timezone('Europe/London')
             ->onOneServer()
-            ->withoutOverlapping(15); // Extended for Bing async reporting
+            ->withoutOverlapping(15);
+    }
 
-        // WEEKLY: Last 14 days (catch-up with 1 failure tolerance)
+    /** @throws RuntimeException */
+    private function scheduleBingAdsWeeklySync(): void
+    {
         Schedule::call(static function (): void {
             $to = new DateTimeImmutable('yesterday');
             $from = new DateTimeImmutable('-15 days');
@@ -121,9 +138,12 @@ final class AdsScheduleServiceProvider extends ServiceProvider
             ->weeklyOn(0, '06:30')
             ->timezone('UTC')
             ->onOneServer()
-            ->withoutOverlapping(90); // Extended for Bing async reporting
+            ->withoutOverlapping(90);
+    }
 
-        // MONTHLY: Previous 2 calendar months (ultimate safety net)
+    /** @throws RuntimeException */
+    private function scheduleBingAdsMonthlySync(): void
+    {
         Schedule::call(static function (): void {
             $from = new DateTimeImmutable('first day of -2 months');
             $to = new DateTimeImmutable('last day of previous month');
@@ -133,6 +153,6 @@ final class AdsScheduleServiceProvider extends ServiceProvider
             ->lastDayOfMonth('04:30')
             ->timezone('UTC')
             ->onOneServer()
-            ->withoutOverlapping(180); // Extended for Bing async reporting (2 months of data)
+            ->withoutOverlapping(180);
     }
 }

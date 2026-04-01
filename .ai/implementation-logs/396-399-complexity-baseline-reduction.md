@@ -154,7 +154,49 @@ _(Not yet started)_
 ## Issue #399 — Cross-cutting, Presentation & DevTools (127 errors)
 
 ### Decisions
-_(Not yet started)_
+
+#### 2026-04-01 — Implementation start
+- Starting baseline: 2524 lines in `phpstan-complexity-baseline.neon`
+- Working autonomously through all 7 sections per plan
+
+#### Section 0: Rule-level changes
+- Added `provides` to `EXCLUDED_METHODS` in ExcessiveMethodLengthRule — removed 2 baseline entries
+- **Justification**: provides() is structural array-listing whose length grows linearly with binding count. Same rationale as mapper methods.
+
+#### Section 1: DevTools/PHPStan Rules + GitHooks (complete)
+- Refactored 27 PHPStan rule methods + 2 GitHooks handle() methods
+- Pattern: Extract guard logic into `isApplicable*()`, `isConcreteJobClass()`, `findViolations()`, etc.
+- Added ClassReflection imports to 4 Job rule files (needed for typed extracted methods)
+- Added null guard in JobHandleMustCatchThrowableRule::hasParentOrMiddlewareHandling (PHPStan can't track isInClass() narrowing across method boundaries)
+- 29 baseline entries removed, 0 new entries
+- Checkpoint: lint ✓, 1386 tests ✓
+
+#### Section 2: Providers (complete)
+- Refactored 19 provider files: split register()/boot() into sub-methods grouped by concern
+- LinnworksServiceProvider (105→7 lines register): split into 7 sub-methods (session, stock clients, order clients, PO clients, stock repos, order repos, dispatchers)
+- ShopwiredServiceProvider: split registerClients (61→6), registerFactories (53→10), registerWebhookBindings (24→16). Extracted shared `resolveNumericConfig()` for config validation. Class-level exclusion updated to regex pattern (class got shorter, from 284→~280).
+- Pint expanded compressed arrow-function bindings, requiring further splits (e.g. registerOrderClients → registerOrderClients + registerPurchaseOrderClients)
+- 22 baseline entries removed (kept 1 ShopwiredServiceProvider class-level)
+- Checkpoint: lint ✓, 1386 tests ✓
+
+#### Section 3: Console Commands (partial)
+- Refactored 7 command files: BackfillShopwiredOrdersCommand, TestPriceUpdateCommand, GenerateVariantSkusCommand, SetProductFreeDeliveryCommand, TestShopwiredCostPriceCommand, UpdateSkusCommand, VerifyApiConnectivityCommand
+- Pattern: Split handle() into parse/validate/display/execute sub-methods
+- VerifyApiConnectivityCommand: Extracted `displayAuthFailure`/`displayConnectivityFailure` for common verify pattern
+- GenerateVariantSkusCommand::resolveErrorMessages: Added to baseline (33-line match expression, genuinely cohesive)
+- Avoided NoCatchReturnEmpty violations by keeping `return self::FAILURE` (int) in catch blocks rather than extracting to methods that `return null`
+- 14 entries removed, 1 new baseline entry (resolveErrorMessages)
+- Audit commands: ShopwiredAuditOrderSyncCommand and ShopwiredAuditProductSyncCommand both refactored. AuditOrderSync grew to 251 lines → added class-level baseline entry.
+- 18 entries removed, 2 new baseline entries (resolveErrorMessages + AuditOrderSync class-level)
+- Remaining from Section 3: TestSlackNotificationCommand (5 entries) — deferred (dev tool, low priority)
+- Checkpoint: lint ✓, 1386 tests ✓
+
+#### Current State
+- Baseline: 2524 → 2116 lines (~408 lines removed, ~68 violations resolved)
+- Sections 0-3 complete (excluding TestSlackNotificationCommand)
+- Sections 4-7 remaining (~50+ entries across Presentation/Http, EloquentGateway, Infrastructure misc, Application misc)
+- All 1386 tests passing, all linters green
+- 3 new baseline entries added: resolveErrorMessages (match expression), ShopwiredAuditOrderSync (class grew past 250), ShopwiredServiceProvider class-level (updated to regex)
 
 ---
 

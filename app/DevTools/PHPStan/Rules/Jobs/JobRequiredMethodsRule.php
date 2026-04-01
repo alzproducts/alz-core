@@ -7,6 +7,7 @@ namespace App\DevTools\PHPStan\Rules\Jobs;
 use PhpParser\Node;
 use PHPStan\Analyser\Scope;
 use PHPStan\Node\InClassNode;
+use PHPStan\Reflection\ClassReflection;
 use PHPStan\Rules\IdentifierRuleError;
 use PHPStan\Rules\Rule;
 use PHPStan\Rules\RuleErrorBuilder;
@@ -36,48 +37,53 @@ final class JobRequiredMethodsRule implements Rule
     {
         $classReflection = $node->getClassReflection();
 
-        if (! $this->isJobClass($classReflection->getName())) {
+        if (! self::isConcreteJobClass($classReflection)) {
             return [];
         }
 
-        if ($classReflection->isAbstract() || $classReflection->isEnum()) {
-            return [];
-        }
+        return self::findMissingMethodErrors($classReflection);
+    }
 
+    private static function isConcreteJobClass(ClassReflection $classReflection): bool
+    {
+        return \str_contains($classReflection->getName(), 'App\\Infrastructure\\Jobs\\')
+            && ! $classReflection->isAbstract()
+            && ! $classReflection->isEnum();
+    }
+
+    /**
+     * @return list<IdentifierRuleError>
+     */
+    private static function findMissingMethodErrors(ClassReflection $classReflection): array
+    {
         $errors = [];
 
-        // backoff can be a property (array) or method (returns array)
         if (! $classReflection->hasNativeProperty('backoff') && ! $classReflection->hasNativeMethod('backoff')) {
-            $errors[] = RuleErrorBuilder::message(
-                'Job must define a $backoff property or backoff() method for retry delay strategy.',
-            )
-                ->identifier('alz.jobRequiredMethod')
-                ->build();
+            $errors[] = self::buildMethodError('Job must define a $backoff property or backoff() method for retry delay strategy.');
         }
 
-        // failed() is not required when the job (or parent) has middleware() —
-        // HandleApiExceptions centralises failure handling, and Queue::failing
-        // provides logging + Sentry capture for all permanent failures.
-        $hasMiddleware = $classReflection->hasNativeMethod('middleware');
-        $parentClass = $classReflection->getParentClass();
-
-        if (! $hasMiddleware && $parentClass !== null) {
-            $hasMiddleware = $parentClass->hasNativeMethod('middleware');
-        }
-
-        if (! $hasMiddleware && ! $classReflection->hasNativeMethod('failed')) {
-            $errors[] = RuleErrorBuilder::message(
-                'Job must define a failed() method for cleanup after retries are exhausted.',
-            )
-                ->identifier('alz.jobRequiredMethod')
-                ->build();
+        if (! self::hasMiddleware($classReflection) && ! $classReflection->hasNativeMethod('failed')) {
+            $errors[] = self::buildMethodError('Job must define a failed() method for cleanup after retries are exhausted.');
         }
 
         return $errors;
     }
 
-    private function isJobClass(string $className): bool
+    private static function hasMiddleware(ClassReflection $classReflection): bool
     {
-        return \str_contains($className, 'App\\Infrastructure\\Jobs\\');
+        if ($classReflection->hasNativeMethod('middleware')) {
+            return true;
+        }
+
+        $parentClass = $classReflection->getParentClass();
+
+        return $parentClass !== null && $parentClass->hasNativeMethod('middleware');
+    }
+
+    private static function buildMethodError(string $message): IdentifierRuleError
+    {
+        return RuleErrorBuilder::message($message)
+            ->identifier('alz.jobRequiredMethod')
+            ->build();
     }
 }

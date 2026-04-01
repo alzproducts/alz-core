@@ -37,31 +37,35 @@ final class ValidationResultMustNotOverrideOrFailRule implements Rule
      */
     public function processNode(Node $node, Scope $scope): array
     {
+        if (! self::isConcreteValidationResult($node)) {
+            return [];
+        }
+
+        return self::findOrFailOverride($node);
+    }
+
+    private static function isConcreteValidationResult(InClassNode $node): bool
+    {
         $classReflection = $node->getClassReflection();
         $className = $classReflection->getName();
 
-        // Fast path: only check Domain and Application layers
         if (! \str_starts_with($className, 'App\\Domain\\') && ! \str_starts_with($className, 'App\\Application\\')) {
-            return [];
+            return false;
         }
 
-        // Skip abstract classes, interfaces, traits, and enums
-        if ($classReflection->isAbstract() || $classReflection->isInterface() || $classReflection->isEnum()) {
-            return [];
+        if ($classReflection->isAbstract() || $classReflection->isInterface() || $classReflection->isEnum() || $classReflection->isTrait()) {
+            return false;
         }
 
-        if ($classReflection->isTrait()) {
-            return [];
-        }
+        return $classReflection->getNativeReflection()
+            ->implementsInterface(DescribableValidationResultInterface::class);
+    }
 
-        // Only check classes implementing the validation result interface
-        $nativeReflection = $classReflection->getNativeReflection();
-
-        if (! $nativeReflection->implementsInterface(DescribableValidationResultInterface::class)) {
-            return [];
-        }
-
-        // Check AST for locally declared orFail() method
+    /**
+     * @return list<IdentifierRuleError>
+     */
+    private static function findOrFailOverride(InClassNode $node): array
+    {
         foreach ($node->getOriginalNode()->stmts as $stmt) {
             if ($stmt instanceof ClassMethod && $stmt->name->toString() === 'orFail') {
                 return [

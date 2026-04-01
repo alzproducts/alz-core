@@ -27,30 +27,29 @@ final class AuthServiceProvider extends ServiceProvider implements DeferrablePro
     #[Override]
     public function register(): void
     {
-        // Bind AuthenticatedUser to resolve from current request's attributes
-        // NOT a singleton - must resolve fresh for each request (Octane-safe)
         $this->app->bind(
             AuthenticatedUser::class,
-            static function (Application $app): AuthenticatedUser {
-                $request = $app->make(Request::class);
-                $user = $request->attributes->get('authenticated_user');
-
-                if (! $user instanceof AuthenticatedUser) {
-                    Log::warning('AuthenticatedUser not found in request attributes', [
-                        'path' => $request->path(),
-                        'hint' => 'Route may be missing auth.supabase middleware',
-                    ]);
-
-                    // LogicException: programming error (route missing middleware)
-                    // In PHPStan's unchecked list, avoids checkedExceptionInCallable
-                    throw new LogicException(
-                        'AuthenticatedUser not available. Ensure route has auth.supabase middleware.',
-                    );
-                }
-
-                return $user;
-            },
+            static fn(Application $app): AuthenticatedUser => self::resolveFromRequest($app),
         );
+    }
+
+    private static function resolveFromRequest(Application $app): AuthenticatedUser
+    {
+        $request = $app->make(Request::class);
+        $user = $request->attributes->get('authenticated_user');
+
+        if (! $user instanceof AuthenticatedUser) {
+            Log::warning('AuthenticatedUser not found in request attributes', [
+                'path' => $request->path(),
+                'hint' => 'Route may be missing auth.supabase middleware',
+            ]);
+
+            throw new LogicException(
+                'AuthenticatedUser not available. Ensure route has auth.supabase middleware.',
+            );
+        }
+
+        return $user;
     }
 
     /**

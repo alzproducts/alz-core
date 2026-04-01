@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
-use App\Application\ContactSubmission\UseCases\ProcessContactSubmissionUseCase;
 use App\Application\Contracts\ContactSubmission\ContactFormDispatcherInterface;
 use App\Application\Contracts\ContactSubmission\ContactSubmissionActionRepositoryInterface;
 use App\Application\Contracts\ContactSubmission\ContactSubmissionRepositoryInterface;
@@ -24,20 +23,24 @@ use Override;
  *
  * Deferred provider for contact form submission handling.
  * Binds repositories and the HelpScout conversation write client.
- *
- * Note: ProcessContactSubmissionUseCase is auto-resolved by Laravel's container
- * since all its dependencies are type-hinted (HelpScoutSystemUserId is bound
- * in HelpScoutServiceProvider with fail-fast validation).
  */
 final class ContactSubmissionServiceProvider extends ServiceProvider implements DeferrableProvider
 {
     #[Override]
     public function register(): void
     {
-        // Dispatcher binding
-        $this->app->singleton(ContactFormDispatcherInterface::class, QueuedContactFormDispatcher::class);
+        $this->registerDispatchers();
+        $this->registerRepositories();
+        $this->registerServices();
+    }
 
-        // Repository bindings
+    private function registerDispatchers(): void
+    {
+        $this->app->singleton(ContactFormDispatcherInterface::class, QueuedContactFormDispatcher::class);
+    }
+
+    private function registerRepositories(): void
+    {
         $this->app->singleton(
             ContactSubmissionRepositoryInterface::class,
             EloquentContactSubmissionRepository::class,
@@ -47,14 +50,15 @@ final class ContactSubmissionServiceProvider extends ServiceProvider implements 
             ContactSubmissionActionRepositoryInterface::class,
             EloquentContactSubmissionActionRepository::class,
         );
+    }
 
-        // HelpScout write client for conversation creation
+    private function registerServices(): void
+    {
         $this->app->singleton(
             ConversationWriteClientInterface::class,
             static fn(): ConversationWriteClientInterface => HelpScoutClientFactory::createConversationWriteClient(),
         );
 
-        // Email validation service
         $this->app->singleton(
             EmailValidationServiceInterface::class,
             EmailValidationService::class,
@@ -73,7 +77,6 @@ final class ContactSubmissionServiceProvider extends ServiceProvider implements 
             ContactSubmissionActionRepositoryInterface::class,
             ConversationWriteClientInterface::class,
             EmailValidationServiceInterface::class,
-            ProcessContactSubmissionUseCase::class,
         ];
     }
 }

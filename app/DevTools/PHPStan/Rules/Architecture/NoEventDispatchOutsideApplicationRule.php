@@ -58,53 +58,65 @@ final class NoEventDispatchOutsideApplicationRule implements Rule
             return [];
         }
 
-        $namespace = $scope->getNamespace();
+        $bannedLayer = self::findBannedLayer($scope->getNamespace());
 
-        if ($namespace === null) {
+        if ($bannedLayer === null) {
             return [];
         }
 
-        foreach (self::BANNED_NAMESPACES as $banned => $_) {
-            if (\str_starts_with($namespace, $banned)) {
-                // Dispatcher classes are explicit bridges for Job::dispatch()
-                if (self::isExemptNamespace($namespace)) {
-                    return [];
-                }
+        return [self::buildError($bannedLayer)];
+    }
 
-                return [
-                    RuleErrorBuilder::message(
-                        'Dispatch events from the Application layer, not '
-                        . self::layerName($banned)
-                        . ' — events should fire regardless of entry point.',
-                    )
-                        ->identifier('alz.noEventDispatchOutsideApplication')
-                        ->build(),
-                ];
+    private static function buildError(string $bannedLayer): IdentifierRuleError
+    {
+        return RuleErrorBuilder::message(
+            'Dispatch events from the Application layer, not '
+            . self::layerName($bannedLayer)
+            . ' — events should fire regardless of entry point.',
+        )
+            ->identifier('alz.noEventDispatchOutsideApplication')
+            ->build();
+    }
+
+    private static function findBannedLayer(?string $namespace): ?string
+    {
+        if ($namespace === null) {
+            return null;
+        }
+
+        foreach (self::BANNED_NAMESPACES as $banned => $_) {
+            if (\str_starts_with($namespace, $banned) && ! self::isExemptNamespace($namespace)) {
+                return $banned;
             }
         }
 
-        return [];
+        return null;
     }
 
     private static function isEventDispatch(Node $node): bool
     {
-        // event() helper
-        if ($node instanceof FuncCall
-            && $node->name instanceof Name
-            && $node->name->toString() === 'event'
-        ) {
-            return true;
-        }
+        return self::isEventHelperCall($node)
+            || self::isStaticDispatchCall($node)
+            || self::isInstanceDispatchCall($node);
+    }
 
-        // SomeEvent::dispatch() or Event::dispatch()
-        if ($node instanceof StaticCall
+    private static function isEventHelperCall(Node $node): bool
+    {
+        return $node instanceof FuncCall
+            && $node->name instanceof Name
+            && $node->name->toString() === 'event';
+    }
+
+    private static function isStaticDispatchCall(Node $node): bool
+    {
+        return $node instanceof StaticCall
             && $node->name instanceof Identifier
             && $node->name->toString() === 'dispatch'
-        ) {
-            return ! self::isSelfDispatch($node);
-        }
+            && ! self::isSelfDispatch($node);
+    }
 
-        // $event->dispatch()
+    private static function isInstanceDispatchCall(Node $node): bool
+    {
         return $node instanceof MethodCall
             && $node->name instanceof Identifier
             && $node->name->toString() === 'dispatch';

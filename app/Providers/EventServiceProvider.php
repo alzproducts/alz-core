@@ -35,25 +35,24 @@ final class EventServiceProvider extends ServiceProvider
 {
     public function boot(): void
     {
-        // Pricing — SCD2 price period recording + Slack notification
+        $this->registerDomainEventListeners();
+        $this->registerAlertListeners();
+    }
+
+    private function registerDomainEventListeners(): void
+    {
         Event::listen(SkuRetailPricingUpdatedEvent::class, RecordPricePeriodListener::class);
         Event::listen(SkuRetailPricingUpdatedEvent::class, UpdateLinnworksSellingPriceEpsListener::class);
         Event::listen(ProductPricingUpdatedEvent::class, ProductPricingUpdatedSlackListener::class);
-
-        // Inventory — Slack notification for variant SKU generation
         Event::listen(VariantSkusGeneratedEvent::class, VariantSkusGeneratedSlackListener::class);
-
-        // Contact submissions — Slack notifications for success/failure
         Event::listen(ContactFormProcessedEvent::class, ContactFormProcessedSlackListener::class);
         Event::listen(ContactFormProcessingFailedEvent::class, ContactFormFailedSlackListener::class);
+    }
 
-        // Admin alerts — infrastructure/system-level (queue issues, deployment)
+    private function registerAlertListeners(): void
+    {
         Event::listen(AdminAlertEvent::class, AdminAlertSlackListener::class);
-
-        // Manager alerts — business-notable events (order deletions, webhook health)
         Event::listen(ManagerAlertEvent::class, ManagerAlertSlackListener::class);
-
-        // Horizon — route long wait alerts to Slack (not queued — queue may be backed up)
         Event::listen(LongWaitDetected::class, HorizonLongWaitSlackListener::class);
     }
 }

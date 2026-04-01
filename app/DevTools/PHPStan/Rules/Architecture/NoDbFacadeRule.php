@@ -43,29 +43,12 @@ final class NoDbFacadeRule implements Rule
      */
     public function processNode(Node $node, Scope $scope): array
     {
-        if (! $node->class instanceof Name) {
+        if (! self::isDbFacadeCall($node, $scope->getFile())) {
             return [];
         }
 
-        // Fast path: skip if the class short name isn't 'DB'
-        if ($node->class->getLast() !== 'DB') {
+        if (self::isInAllowedNamespace($scope->getNamespace())) {
             return [];
-        }
-
-        // Verify it's the actual facade (not some other class named DB)
-        if (! self::isDbFacade($node->class, $scope->getFile())) {
-            return [];
-        }
-
-        // Check if current namespace is in the allow list
-        $namespace = $scope->getNamespace();
-
-        if ($namespace !== null) {
-            foreach (self::ALLOWED_NAMESPACES as $allowed => $_) {
-                if (\str_starts_with($namespace, $allowed)) {
-                    return [];
-                }
-            }
         }
 
         return [
@@ -76,6 +59,34 @@ final class NoDbFacadeRule implements Rule
                 ->identifier('alz.noDbFacade')
                 ->build(),
         ];
+    }
+
+    private static function isDbFacadeCall(StaticCall $node, string $filePath): bool
+    {
+        if (! $node->class instanceof Name) {
+            return false;
+        }
+
+        if ($node->class->getLast() !== 'DB') {
+            return false;
+        }
+
+        return self::isDbFacade($node->class, $filePath);
+    }
+
+    private static function isInAllowedNamespace(?string $namespace): bool
+    {
+        if ($namespace === null) {
+            return false;
+        }
+
+        foreach (self::ALLOWED_NAMESPACES as $allowed => $_) {
+            if (\str_starts_with($namespace, $allowed)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static function isDbFacade(Name $name, string $filePath): bool

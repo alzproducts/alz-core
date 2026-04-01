@@ -72,8 +72,13 @@ final class MixpanelScheduleServiceProvider extends ServiceProvider
      */
     private function registerOrderSyncSchedules(): void
     {
-        // NIGHTLY: 28-hour lookback (24h + 4h buffer for Mixpanel ingestion delay)
-        // Runs at 2:00 AM UK time — the extra 4 hours ensures no gaps between runs
+        $this->scheduleNightlyOrderSync();
+        $this->scheduleWeeklyOrderSync();
+    }
+
+    /** @throws RuntimeException */
+    private function scheduleNightlyOrderSync(): void
+    {
         Schedule::call(static function (): void {
             SyncOrdersToMixpanelJob::dispatch(
                 from: new DateTimeImmutable('-28 hours'),
@@ -85,9 +90,11 @@ final class MixpanelScheduleServiceProvider extends ServiceProvider
             ->timezone('Europe/London')
             ->onOneServer()
             ->withoutOverlapping(30);
+    }
 
-        // WEEKLY: Last 14 days (safety net with 1 failure tolerance)
-        // Deduplication via order_id_hashed + $insert_id prevents duplicates
+    /** @throws RuntimeException */
+    private function scheduleWeeklyOrderSync(): void
+    {
         Schedule::call(static function (): void {
             SyncOrdersToMixpanelJob::dispatch(
                 from: new DateTimeImmutable('-14 days'),
@@ -95,7 +102,7 @@ final class MixpanelScheduleServiceProvider extends ServiceProvider
             );
         })
             ->name('sync-orders-to-mixpanel-weekly')
-            ->weeklyOn(0, '03:00') // Sunday 3:00 AM
+            ->weeklyOn(0, '03:00')
             ->timezone('Europe/London')
             ->onOneServer()
             ->withoutOverlapping(60);

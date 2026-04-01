@@ -69,48 +69,78 @@ final class NoSdkExceptionsInThrowsRule implements Rule
      */
     public function processNode(Node $node, Scope $scope): array
     {
+        if (! self::isApplicableMethod($node, $scope)) {
+            return [];
+        }
+
+        $throwsClasses = self::extractThrowsAnnotations($node);
+
+        if ($throwsClasses === []) {
+            return [];
+        }
+
+        return self::findViolations($throwsClasses, $scope);
+    }
+
+    private static function isApplicableMethod(ClassMethod $node, Scope $scope): bool
+    {
         $namespace = $scope->getNamespace();
 
         if ($namespace === null || ! \str_starts_with($namespace, 'App\\Infrastructure')) {
-            return [];
+            return false;
         }
 
-        // Skip private methods — their @throws are internal documentation
-        // for the checked exception system, not the public API contract.
-        if ($node->isPrivate()) {
-            return [];
-        }
+        return ! $node->isPrivate();
+    }
 
+    /**
+     * @return list<string>
+     */
+    private static function extractThrowsAnnotations(ClassMethod $node): array
+    {
         $docComment = $node->getDocComment();
+
         if ($docComment === null) {
             return [];
         }
 
         \preg_match_all('/@throws\s+([\w\\\\]+)/', $docComment->getText(), $matches);
-        if (\count($matches[1]) === 0) {
-            return [];
-        }
 
+        return $matches[1];
+    }
+
+    /**
+     * @param list<string> $throwsClasses
+     * @return list<IdentifierRuleError>
+     */
+    private static function findViolations(array $throwsClasses, Scope $scope): array
+    {
         $useMap = self::buildUseMap($scope->getFile());
+        $namespace = $scope->getNamespace() ?? '';
         $errors = [];
 
-        foreach ($matches[1] as $throwsClass) {
+        foreach ($throwsClasses as $throwsClass) {
             $fqcn = self::resolveClassName($throwsClass, $namespace, $useMap);
 
             if (! self::isAllowedExceptionClass($fqcn)) {
-                $errors[] = RuleErrorBuilder::message(
-                    \sprintf(
-                        '@throws %s references a vendor/SDK exception. '
-                        . 'Infrastructure must translate SDK exceptions to Domain exceptions.',
-                        $throwsClass,
-                    ),
-                )
-                    ->identifier('alz.noSdkExceptionsInThrows')
-                    ->build();
+                $errors[] = self::buildViolationError($throwsClass);
             }
         }
 
         return $errors;
+    }
+
+    private static function buildViolationError(string $throwsClass): IdentifierRuleError
+    {
+        return RuleErrorBuilder::message(
+            \sprintf(
+                '@throws %s references a vendor/SDK exception. '
+                . 'Infrastructure must translate SDK exceptions to Domain exceptions.',
+                $throwsClass,
+            ),
+        )
+            ->identifier('alz.noSdkExceptionsInThrows')
+            ->build();
     }
 
     private static function isAllowedExceptionClass(string $fqcn): bool
@@ -141,21 +171,27 @@ final class NoSdkExceptionsInThrowsRule implements Rule
         }
 
         $content = \file_get_contents($filePath);
-        if ($content === false) {
-            return [];
-        }
+        $map = $content !== false ? self::parseUseStatements($content) : [];
+        self::$useMapCache[$filePath] = $map;
 
+        return $map;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private static function parseUseStatements(string $content): array
+    {
         \preg_match_all('/^use\s+([\w\\\\]+?)(?:\s+as\s+(\w+))?\s*;/m', $content, $matches, PREG_SET_ORDER);
 
         $map = [];
+
         foreach ($matches as $match) {
             $fqcn = $match[1];
             $parts = \explode('\\', $fqcn);
             $alias = $match[2] ?? $parts[\array_key_last($parts)];
             $map[$alias] = $fqcn;
         }
-
-        self::$useMapCache[$filePath] = $map;
 
         return $map;
     }
@@ -167,27 +203,33 @@ final class NoSdkExceptionsInThrowsRule implements Rule
      */
     private static function resolveClassName(string $name, string $namespace, array $useMap): string
     {
-        // Already FQCN (starts with backslash)
         $trimmed = \mb_ltrim($name, '\\');
+
         if ($name !== $trimmed) {
             return $trimmed;
         }
 
-        // Check use map for the first segment
+        return self::resolveFromUseMap($name, $useMap) ?? $namespace . '\\' . $name;
+    }
+
+    /**
+     * @param array<string, string> $useMap
+     */
+    private static function resolveFromUseMap(string $name, array $useMap): ?string
+    {
         $parts = \explode('\\', $name);
         $firstPart = $parts[0];
 
-        if (isset($useMap[$firstPart])) {
-            if (\count($parts) === 1) {
-                return $useMap[$firstPart];
-            }
-
-            \array_shift($parts);
-
-            return $useMap[$firstPart] . '\\' . \implode('\\', $parts);
+        if (! isset($useMap[$firstPart])) {
+            return null;
         }
 
-        // Unresolved — relative to current namespace
-        return $namespace . '\\' . $name;
+        if (\count($parts) === 1) {
+            return $useMap[$firstPart];
+        }
+
+        \array_shift($parts);
+
+        return $useMap[$firstPart] . '\\' . \implode('\\', $parts);
     }
 }

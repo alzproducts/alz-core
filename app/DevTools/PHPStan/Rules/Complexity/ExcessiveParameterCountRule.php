@@ -34,13 +34,7 @@ final class ExcessiveParameterCountRule implements Rule
      */
     public function processNode(Node $node, Scope $scope): array
     {
-        $namespace = $scope->getNamespace();
-
-        if ($namespace === null || ! \str_starts_with($namespace, 'App\\')) {
-            return [];
-        }
-
-        if ($node->name->name === '__construct') {
+        if (! self::isInAppNamespace($scope) || $node->name->name === '__construct') {
             return [];
         }
 
@@ -50,18 +44,28 @@ final class ExcessiveParameterCountRule implements Rule
             return [];
         }
 
-        return [
-            RuleErrorBuilder::message(
-                \sprintf(
-                    'Method %s() has %d parameters — exceeds the %d-parameter limit. Consider a parameter object or splitting the method.',
-                    $node->name->name,
-                    $paramCount,
-                    self::THRESHOLD,
-                ),
-            )
-                ->identifier('alz.excessiveParameterCount')
-                ->tip('Group related parameters into a value object or DTO. If this is a VO named constructor receiving its own fields, this is a valid suppression — add to the baseline with a reason.')
-                ->build(),
-        ];
+        return [self::buildError($node->name->name, $paramCount)];
+    }
+
+    private static function isInAppNamespace(Scope $scope): bool
+    {
+        $namespace = $scope->getNamespace();
+
+        return $namespace !== null && \str_starts_with($namespace, 'App\\');
+    }
+
+    private static function buildError(string $methodName, int $paramCount): IdentifierRuleError
+    {
+        return RuleErrorBuilder::message(
+            \sprintf(
+                'Method %s() has %d parameters — exceeds the %d-parameter limit. Consider a parameter object or splitting the method.',
+                $methodName,
+                $paramCount,
+                self::THRESHOLD,
+            ),
+        )
+            ->identifier('alz.excessiveParameterCount')
+            ->tip('Group related parameters into a value object or DTO. If this is a VO named constructor receiving its own fields, this is a valid suppression — add to the baseline with a reason.')
+            ->build();
     }
 }

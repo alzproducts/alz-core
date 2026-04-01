@@ -37,33 +37,11 @@ final class DomainExceptionMustExtendBaseRule implements Rule
      */
     public function processNode(Node $node, Scope $scope): array
     {
-        $classReflection = $node->getClassReflection();
-        $className = $classReflection->getName();
-
-        if (! \str_starts_with($className, 'App\\Domain\\Exceptions\\')) {
+        if (! self::isDomainExceptionRequiringCheck($node)) {
             return [];
         }
 
-        // Skip if it IS the base class itself
-        if ($className === 'App\\Domain\\Exceptions\\DomainException') {
-            return [];
-        }
-
-        // Skip interfaces (shouldn't exist here, but defensive)
-        if ($classReflection->isInterface()) {
-            return [];
-        }
-
-        // Use native reflection to check inheritance chain (accepts string class names)
-        $nativeReflection = $classReflection->getNativeReflection();
-
-        // Check: extends DomainException (directly or indirectly)
-        if ($nativeReflection->isSubclassOf('App\\Domain\\Exceptions\\DomainException')) {
-            return [];
-        }
-
-        // Check: extends LogicException (for programming/deployment errors)
-        if ($nativeReflection->isSubclassOf('LogicException')) {
+        if (self::extendsAllowedBase($node)) {
             return [];
         }
 
@@ -75,5 +53,29 @@ final class DomainExceptionMustExtendBaseRule implements Rule
                 ->identifier('alz.domainExceptionMustExtendBase')
                 ->build(),
         ];
+    }
+
+    private static function isDomainExceptionRequiringCheck(InClassNode $node): bool
+    {
+        $classReflection = $node->getClassReflection();
+        $className = $classReflection->getName();
+
+        if (! \str_starts_with($className, 'App\\Domain\\Exceptions\\')) {
+            return false;
+        }
+
+        if ($className === 'App\\Domain\\Exceptions\\DomainException') {
+            return false;
+        }
+
+        return ! $classReflection->isInterface();
+    }
+
+    private static function extendsAllowedBase(InClassNode $node): bool
+    {
+        $nativeReflection = $node->getClassReflection()->getNativeReflection();
+
+        return $nativeReflection->isSubclassOf('App\\Domain\\Exceptions\\DomainException')
+            || $nativeReflection->isSubclassOf('LogicException');
     }
 }

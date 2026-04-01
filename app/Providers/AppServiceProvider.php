@@ -66,24 +66,30 @@ final class AppServiceProvider extends ServiceProvider
      *
      * Prevents catastrophic deployment failures due to missing secrets.
      */
+    /** @var array<string, string> Config keys → human-readable descriptions */
+    private const array REQUIRED_PRODUCTION_CONFIGS = [
+        'app.key' => 'Application encryption key (APP_KEY)',
+        'database.connections.pgsql.host' => 'Database host (DB_HOST)',
+        'database.connections.pgsql.password' => 'Database password (DB_PASSWORD)',
+        'database.redis.default.host' => 'Redis host (REDIS_HOST)',
+        'database.redis.default.password' => 'Redis password (REDIS_PASSWORD)',
+        'horizon.auth.username' => 'Horizon dashboard username (HORIZON_USER)',
+        'horizon.auth.password' => 'Horizon dashboard password (HORIZON_PASSWORD)',
+        'services.supabase.jwt_secret' => 'Supabase JWT secret (SUPABASE_JWT_SECRET)',
+        'sentry.dsn' => 'Sentry DSN (SENTRY_LARAVEL_DSN)',
+    ];
+
     private static function validateProductionEnvironment(): void
     {
-        // Map of config keys to human-readable descriptions
-        $required = [
-            'app.key' => 'Application encryption key (APP_KEY)',
-            'database.connections.pgsql.host' => 'Database host (DB_HOST)',
-            'database.connections.pgsql.password' => 'Database password (DB_PASSWORD)',
-            'database.redis.default.host' => 'Redis host (REDIS_HOST)',
-            'database.redis.default.password' => 'Redis password (REDIS_PASSWORD)',
-            'horizon.auth.username' => 'Horizon dashboard username (HORIZON_USER)',
-            'horizon.auth.password' => 'Horizon dashboard password (HORIZON_PASSWORD)',
-            'services.supabase.jwt_secret' => 'Supabase JWT secret (SUPABASE_JWT_SECRET)',
-            'sentry.dsn' => 'Sentry DSN (SENTRY_LARAVEL_DSN)',
-        ];
+        self::ensureRequiredConfigsPresent();
+        self::validateAppKeyFormat();
+    }
 
+    private static function ensureRequiredConfigsPresent(): void
+    {
         $missing = [];
 
-        foreach ($required as $configKey => $description) {
+        foreach (self::REQUIRED_PRODUCTION_CONFIGS as $configKey => $description) {
             $value = \config($configKey);
 
             if (($value === null) || ($value === '') || ($value === false)) {
@@ -99,9 +105,12 @@ final class AppServiceProvider extends ServiceProvider
                 "SECURITY: Production deployment blocked. The following required configuration values are not set:\n\n  - {$list}\n\nApplication cannot start safely. Please configure these variables in your deployment environment.",
             );
         }
+    }
 
-        // Additional validation: APP_KEY must be properly formatted (base64 encoded)
+    private static function validateAppKeyFormat(): void
+    {
         $appKey = \config('app.key');
+
         if (! \is_string($appKey) || (\mb_strlen($appKey) < 32)) {
             throw new InvalidConfigurationException(
                 'app.key',

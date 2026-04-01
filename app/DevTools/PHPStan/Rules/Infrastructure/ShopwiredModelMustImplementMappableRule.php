@@ -32,42 +32,11 @@ final class ShopwiredModelMustImplementMappableRule implements Rule
      */
     public function processNode(Node $node, Scope $scope): array
     {
-        $classReflection = $node->getClassReflection();
-        $className = $classReflection->getName();
-
-        // Only check Eloquent models in infrastructure model namespaces
-        if (
-            ! \str_starts_with($className, 'App\\Infrastructure\\Shopwired\\Models\\')
-            && ! \str_contains($className, '\\Infrastructure\\Catalog\\')
-        ) {
+        if (! self::isApplicableModel($node)) {
             return [];
         }
 
-        // Models outside a Models namespace are not subject to this rule
-        if (! \str_contains($className, '\\Models\\')) {
-            return [];
-        }
-
-        // Skip read-only view models — they back PostgreSQL views and have no write path,
-        // so implementing fromDomainAttributes() would be semantically incorrect
-        if (\str_ends_with($className, 'ViewModel')) {
-            return [];
-        }
-
-        // Skip interfaces and abstract classes
-        if ($classReflection->isInterface() || $classReflection->isAbstract()) {
-            return [];
-        }
-
-        // Must be an Eloquent Model
-        $nativeReflection = $classReflection->getNativeReflection();
-
-        if (! $nativeReflection->isSubclassOf('Illuminate\\Database\\Eloquent\\Model')) {
-            return [];
-        }
-
-        // Must implement EloquentDomainMappableInterface
-        if ($nativeReflection->implementsInterface('App\\Infrastructure\\Contracts\\EloquentDomainMappableInterface')) {
+        if (self::implementsMappableInterface($node)) {
             return [];
         }
 
@@ -79,5 +48,43 @@ final class ShopwiredModelMustImplementMappableRule implements Rule
                 ->identifier('alz.shopwiredModelMustImplementMappable')
                 ->build(),
         ];
+    }
+
+    private static function isApplicableModel(InClassNode $node): bool
+    {
+        $classReflection = $node->getClassReflection();
+        $className = $classReflection->getName();
+
+        if (! self::isInShopwiredOrCatalogModels($className)) {
+            return false;
+        }
+
+        if (\str_ends_with($className, 'ViewModel')) {
+            return false;
+        }
+
+        if ($classReflection->isInterface() || $classReflection->isAbstract()) {
+            return false;
+        }
+
+        return $classReflection->getNativeReflection()
+            ->isSubclassOf('Illuminate\\Database\\Eloquent\\Model');
+    }
+
+    private static function isInShopwiredOrCatalogModels(string $className): bool
+    {
+        if (! \str_contains($className, '\\Models\\')) {
+            return false;
+        }
+
+        return \str_starts_with($className, 'App\\Infrastructure\\Shopwired\\Models\\')
+            || \str_contains($className, '\\Infrastructure\\Catalog\\');
+    }
+
+    private static function implementsMappableInterface(InClassNode $node): bool
+    {
+        return $node->getClassReflection()
+            ->getNativeReflection()
+            ->implementsInterface('App\\Infrastructure\\Contracts\\EloquentDomainMappableInterface');
     }
 }
