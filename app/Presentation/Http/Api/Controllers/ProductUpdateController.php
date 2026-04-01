@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace App\Presentation\Http\Api\Controllers;
 
-use App\Application\Catalog\UseCases\UpdateCostPriceUseCase;
+use App\Application\Catalog\Results\FailedCostPriceUpdateResult;
 use App\Application\Catalog\UseCases\UpdateProductCustomFieldsUseCase;
 use App\Application\Catalog\UseCases\UpdateProductFieldsUseCase;
+use App\Application\Linnworks\UpdateCostPrice\UpdateCostPriceUseCase;
 use App\Application\Shopwired\PricingUpdate\Results\FailedPriceUpdateResult;
 use App\Application\Shopwired\PricingUpdate\Results\PriceUpdateResult;
 use App\Application\Shopwired\PricingUpdate\Results\SkippedPriceUpdateResult;
@@ -14,6 +15,7 @@ use App\Application\Shopwired\PricingUpdate\UseCases\UpdateProductPricesUseCase;
 use App\Application\Shopwired\UseCases\DispatchProductFreeDeliveryJobsUseCase;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\Product\Commands\SetFreeDeliveryCommand;
+use App\Domain\Catalog\Product\Commands\UpdateCostPriceCommand;
 use App\Domain\Catalog\Product\Commands\UpdatePriceCommand;
 use App\Domain\Catalog\Product\Enums\FreeDeliveryType;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
@@ -27,9 +29,11 @@ use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\Exceptions\ValidationFailedException;
 use App\Domain\ValueObjects\IntId;
-use App\Presentation\Http\Api\DTOs\UpdateCostPriceRequestDTO;
+use App\Presentation\Http\Api\DTOs\CostPriceItemDTO;
+use App\Presentation\Http\Api\DTOs\UpdateCostPricesRequestDTO;
 use App\Presentation\Http\Api\DTOs\UpdateCustomFieldsRequestDTO;
 use App\Presentation\Http\Api\DTOs\UpdateProductFieldsRequestDTO;
+use App\Presentation\Http\Api\Responses\BulkUpdateResponseDTO;
 use App\Presentation\Http\Requests\SetFreeDeliveryRequest;
 use App\Presentation\Http\Shopwired\DTOs\SkuPriceUpdateDTO;
 use App\Presentation\Http\Shopwired\DTOs\UpdateProductPricesDTO;
@@ -181,13 +185,11 @@ final readonly class ProductUpdateController
     }
 
     /**
-     * Update cost price for a product's supplier in Linnworks.
+     * Bulk update cost prices for multiple SKUs with a shared supplier.
      *
-     * Updates both the Linnworks supplier purchase price via API and the
-     * local database immediately. Invalid supplier name returns 404.
-     *
-     * @throws InvalidSkuException When the SKU format is invalid
-     * @throws ResourceNotFoundException When stock item or supplier not found (404)
+     * @throws InvalidSkuException When any SKU format is invalid
+     * @throws ValidationFailedException When any SKU lacks the specified supplier (422)
+     * @throws ResourceNotFoundException When supplier not found in Linnworks (404)
      * @throws InvalidApiRequestException When parameters invalid (400)
      * @throws InvalidApiResponseException When API response malformed
      * @throws AuthenticationExpiredException When credentials invalid
@@ -195,10 +197,36 @@ final readonly class ProductUpdateController
      * @throws DatabaseOperationFailedException On local DB query failure
      * @throws DuplicateRecordException On local DB constraint violation
      */
-    public function updateCostPrice(string $sku, UpdateCostPriceRequestDTO $data): JsonResponse
+    public function updateCostPrices(UpdateCostPricesRequestDTO $data): BulkUpdateResponseDTO
     {
-        $this->costPriceUseCase->execute($data->toCommand($sku));
+        /** @var list<UpdateCostPriceCommand> $commands */
+        $commands = \array_map(
+            static fn(CostPriceItemDTO $item): UpdateCostPriceCommand => $item->toCommand($data->supplierName),
+            \iterator_to_array($data->items, preserve_keys: false),
+        );
 
-        return new JsonResponse(null, Response::HTTP_NO_CONTENT);
+        $result = $this->costPriceUseCase->execute($commands);
+
+        return new BulkUpdateResponseDTO(
+            total: $result->total,
+            succeeded: $result->succeeded,
+            failures: self::formatFailures($result->failures),
+        );
+    }
+
+    /**
+     * @param list<FailedCostPriceUpdateResult> $failures
+     *
+     * @return list<array{sku: string, error: string}>
+     */
+    private static function formatFailures(array $failures): array
+    {
+        return \array_map(
+            static fn(FailedCostPriceUpdateResult $f): array => [
+                'sku' => $f->sku->value,
+                'error' => $f->error,
+            ],
+            $failures,
+        );
     }
 }
