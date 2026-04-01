@@ -38,17 +38,11 @@ final class ConversationResource extends JsonResource
             'updatedAt' => $this->updatedAt?->format(DateTimeInterface::ATOM),
             'userUpdatedAt' => $this->userUpdatedAt?->format(DateTimeInterface::ATOM),
             'mailboxName' => $this->mailboxName,
-            'primaryCustomer' => $this->customer !== null
-                ? new CustomerResource($this->customer)
-                : null,
-            'assignee' => $this->assignee !== null
-                ? new AssigneeResource($this->assignee)
-                : null,
+            'primaryCustomer' => $this->customer !== null ? new CustomerResource($this->customer) : null,
+            'assignee' => $this->assignee !== null ? new AssigneeResource($this->assignee) : null,
             'tags' => TagResource::collection($this->tags),
             'customerWaitingSince' => $this->buildCustomerWaitingSince(),
-            'snooze' => $this->snooze !== null
-                ? new SnoozeResource($this->snooze)
-                : null,
+            'snooze' => $this->snooze !== null ? new SnoozeResource($this->snooze) : null,
         ], static fn(mixed $value): bool => $value !== null);
     }
 

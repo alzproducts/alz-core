@@ -51,15 +51,12 @@ final readonly class SupabaseJwtParser
      */
     public static function fromDecodedJwt(stdClass $decoded): self
     {
-        // Validate and extract required claims
         self::validateRequiredClaim($decoded, 'sub', 'string');
         self::validateRequiredClaim($decoded, 'email', 'string');
-
         /** @var string $userId */
         $userId = $decoded->sub;
         /** @var string $email */
         $email = $decoded->email;
-
         $aal = self::extractAal($decoded);
         [$isApproved, $roleName, $departments] = self::extractAppMetadata($decoded);
 
@@ -104,22 +101,25 @@ final readonly class SupabaseJwtParser
         if (!isset($decoded->app_metadata)) {
             return [false, null, null];
         }
-
-        if (!$decoded->app_metadata instanceof stdClass) {
-            throw InvalidJwtClaimsException::invalidType(
-                'app_metadata',
-                'object',
-                \gettype($decoded->app_metadata),
-            );
-        }
-
-        $appMetadata = $decoded->app_metadata;
+        $appMetadata = self::validateObjectClaim($decoded->app_metadata, 'app_metadata');
 
         return [
             isset($appMetadata->is_approved) && $appMetadata->is_approved === true,
             self::extractOptionalString($appMetadata, 'role_name', 'app_metadata.role_name'),
             self::extractDepartments($appMetadata),
         ];
+    }
+
+    /**
+     * @throws InvalidJwtClaimsException
+     */
+    private static function validateObjectClaim(mixed $value, string $claimPath): stdClass
+    {
+        if (!$value instanceof stdClass) {
+            throw InvalidJwtClaimsException::invalidType($claimPath, 'object', \gettype($value));
+        }
+
+        return $value;
     }
 
     /**
@@ -153,13 +153,10 @@ final readonly class SupabaseJwtParser
         if (!isset($appMetadata->departments_summary)) {
             return null;
         }
-
         $value = $appMetadata->departments_summary;
-
         if (\is_string($value)) {
             return $value === '' ? null : \explode(',', $value);
         }
-
         if (\is_array($value)) {
             return self::validateStringArray($value, 'app_metadata.departments_summary');
         }

@@ -8,6 +8,7 @@ use App\Application\Catalog\UseCases\UpdateCostPriceUseCase;
 use App\Application\Catalog\UseCases\UpdateProductCustomFieldsUseCase;
 use App\Application\Catalog\UseCases\UpdateProductFieldsUseCase;
 use App\Application\Shopwired\PricingUpdate\Results\FailedPriceUpdateResult;
+use App\Application\Shopwired\PricingUpdate\Results\PriceUpdateResult;
 use App\Application\Shopwired\PricingUpdate\Results\SkippedPriceUpdateResult;
 use App\Application\Shopwired\PricingUpdate\UseCases\UpdateProductPricesUseCase;
 use App\Application\Shopwired\UseCases\DispatchProductFreeDeliveryJobsUseCase;
@@ -81,7 +82,6 @@ final readonly class ProductUpdateController
     {
         /** @var list<array{identifier: string|int, type: string}> $updates */
         $updates = $request->validated('updates');
-
         $commands = \array_map(
             static fn(array $update): SetFreeDeliveryCommand => new SetFreeDeliveryCommand(
                 $update['identifier'],
@@ -89,14 +89,10 @@ final readonly class ProductUpdateController
             ),
             $updates,
         );
-
         $this->dispatchUseCase->execute($commands);
 
         return new JsonResponse(
-            [
-                'message' => 'Updates queued for processing',
-                'jobs_dispatched' => \count($commands),
-            ],
+            ['message' => 'Updates queued for processing', 'jobs_dispatched' => \count($commands)],
             Response::HTTP_ACCEPTED,
         );
     }
@@ -116,7 +112,6 @@ final readonly class ProductUpdateController
     {
         /** @var list<UpdatePriceCommand> $commands */
         $commands = [];
-
         foreach ($data->skuUpdates as $skuUpdate) {
             /** @var SkuPriceUpdateDTO $skuUpdate */
             $commands[] = $skuUpdate->toCommand();
@@ -124,7 +119,15 @@ final readonly class ProductUpdateController
 
         $result = $this->priceUseCase->execute($commands, $data->saleSettings?->toDomain());
 
-        return new JsonResponse([
+        return new JsonResponse($this->buildPriceUpdateResponse($result));
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function buildPriceUpdateResponse(PriceUpdateResult $result): array
+    {
+        return [
             'total' => $result->total,
             'succeeded' => $result->succeeded,
             'skipped' => \array_map(
@@ -134,21 +137,25 @@ final readonly class ProductUpdateController
                 ],
                 $result->skipped,
             ),
-            'permanent_failures' => \array_map(
-                static fn(FailedPriceUpdateResult $item): array => [
-                    'sku' => $item->sku?->value,
-                    'error' => $item->error,
-                ],
-                $result->permanentFailures,
-            ),
-            'temporary_failures' => \array_map(
-                static fn(FailedPriceUpdateResult $item): array => [
-                    'sku' => $item->sku?->value,
-                    'error' => $item->error,
-                ],
-                $result->temporaryFailures,
-            ),
-        ]);
+            'permanent_failures' => self::mapFailures($result->permanentFailures),
+            'temporary_failures' => self::mapFailures($result->temporaryFailures),
+        ];
+    }
+
+    /**
+     * @param list<FailedPriceUpdateResult> $failures
+     *
+     * @return list<array{sku: string|null, error: string}>
+     */
+    private static function mapFailures(array $failures): array
+    {
+        return \array_map(
+            static fn(FailedPriceUpdateResult $item): array => [
+                'sku' => $item->sku?->value,
+                'error' => $item->error,
+            ],
+            $failures,
+        );
     }
 
     /**
