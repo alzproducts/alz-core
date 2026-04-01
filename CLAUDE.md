@@ -327,6 +327,10 @@ If a linter reports an issue, fix the code—don't suppress it. Only bypass when
 2. Known false positive in framework/package (document why)
 3. Temporary external dependency issue (add TODO)
 
+### Complexity Baseline (`phpstan-complexity-baseline.neon`)
+
+**Only update existing entries** when line counts shift (e.g., adding an import changes surrounding classes). **NEVER add new baseline entries for new code** — instead, decompose the code to fit within limits (see `app/Application/CLAUDE.md` → Use Case Decomposition).
+
 ### 📖 Stubborn Linting Issues
 
 **When encountering persistent linting errors**, consult [`.ai/docs/guides/common-linting-errors.md`](.ai/docs/guides/common-linting-errors.md) for ranked solutions. This guide covers:

@@ -4,10 +4,9 @@ declare(strict_types=1);
 
 namespace App\Presentation\Http\Api\Controllers;
 
-use App\Application\Catalog\Results\FailedCostPriceUpdateResult;
 use App\Application\Catalog\UseCases\UpdateProductCustomFieldsUseCase;
 use App\Application\Catalog\UseCases\UpdateProductFieldsUseCase;
-use App\Application\Linnworks\UpdateCostPrice\UpdateCostPriceUseCase;
+use App\Application\Linnworks\UpdateCostPriceBySupplier\UpdateCostPriceBySupplierUseCase;
 use App\Application\Shopwired\PricingUpdate\Results\FailedPriceUpdateResult;
 use App\Application\Shopwired\PricingUpdate\Results\PriceUpdateResult;
 use App\Application\Shopwired\PricingUpdate\Results\SkippedPriceUpdateResult;
@@ -53,7 +52,7 @@ final readonly class ProductUpdateController
         private UpdateProductPricesUseCase $priceUseCase,
         private UpdateProductCustomFieldsUseCase $customFieldsUseCase,
         private UpdateProductFieldsUseCase $fieldsUseCase,
-        private UpdateCostPriceUseCase $costPriceUseCase,
+        private UpdateCostPriceBySupplierUseCase $costPriceUseCase,
     ) {}
 
     /**
@@ -201,32 +200,12 @@ final readonly class ProductUpdateController
     {
         /** @var list<UpdateCostPriceCommand> $commands */
         $commands = \array_map(
-            static fn(CostPriceItemDTO $item): UpdateCostPriceCommand => $item->toCommand($data->supplierName),
+            static fn(CostPriceItemDTO $item): UpdateCostPriceCommand => $item->toCommand(),
             \iterator_to_array($data->items, preserve_keys: false),
         );
 
-        $result = $this->costPriceUseCase->execute($commands);
+        $result = $this->costPriceUseCase->execute($data->supplierName, $commands);
 
-        return new BulkUpdateResponseDTO(
-            total: $result->total,
-            succeeded: $result->succeeded,
-            failures: self::formatFailures($result->failures),
-        );
-    }
-
-    /**
-     * @param list<FailedCostPriceUpdateResult> $failures
-     *
-     * @return list<array{sku: string, error: string}>
-     */
-    private static function formatFailures(array $failures): array
-    {
-        return \array_map(
-            static fn(FailedCostPriceUpdateResult $f): array => [
-                'sku' => $f->sku->value,
-                'error' => $f->error,
-            ],
-            $failures,
-        );
+        return BulkUpdateResponseDTO::fromCostPriceResult($result);
     }
 }

@@ -18,16 +18,18 @@ final readonly class SkuSupplierLinkValidator implements ValidatorInterface
 {
     /**
      * @param non-empty-list<UpdateCostPriceCommand> $commands
+     * @param string $supplierName Batch-level supplier name to validate against
      * @param array<string, list<ProductSupplier>> $suppliersBySku
      */
     public function __construct(
         private array $commands,
+        private string $supplierName,
         private array $suppliersBySku,
     ) {}
 
     public function validate(): SkuSupplierLinkResult
     {
-        $supplierName = $this->commands[0]->supplierName;
+        $supplierName = $this->supplierName;
 
         $unlinkedSkus = \array_values(
             \array_filter(

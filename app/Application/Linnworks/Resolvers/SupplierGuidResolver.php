@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Application\Linnworks\UpdateCostPrice;
+namespace App\Application\Linnworks\Resolvers;
 
 use App\Application\Contracts\Linnworks\InventoryClientInterface;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;

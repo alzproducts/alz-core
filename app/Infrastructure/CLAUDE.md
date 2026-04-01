@@ -58,4 +58,59 @@ Use `Model::attributesFromDomain($vo)` static methods for converting domain obje
 
 `insert()` bypasses Eloquent timestamps — manually add `created_at`/`updated_at` in mapper.
 
+## Client Contracts: Structural Mapping Only
+
+Application-layer interfaces accept **pre-resolved** commands containing opaque external IDs and domain values — the UseCase orchestrates all resolution (SKU→ID, supplier→ID) via separate resolver interfaces.
+
+The Infrastructure client performs **only structural mapping** (key renaming, scalar conversion, null handling) via a plain `readonly` Request class with a static factory:
+
+```
+InfraRequest::fromResolved($resolvedId, $domainValue, ...)→toArray()
+```
+
+**Resolution is orchestration; orchestration belongs in the UseCase.**
+
+### Request Class Pattern
+
+```php
+// Infrastructure/{Integration}/Requests/
+final readonly class SomeApiRequest
+{
+    private function __construct(private string $id, private float $price) {}
+
+    public static function fromResolved(string $id, Guid $guid, Money $price): self
+    {
+        return new self($id, $price->toNet());
+    }
+
+    public function toArray(): array { /* API key names */ }
+
+    // Bulk: accepts the same params as the interface method
+    public static function buildBulkPayload(Guid $guid, array $itemPrices): array
+    {
+        // foreach → fromResolved()→toArray()
+    }
+}
+```
+
+The client method becomes a one-liner — all conversion lives in the Request:
+
+```php
+public function updateBulk(Guid $guid, array $prices): void
+{
+    $this->transport->postFormParams(
+        endpoint: '/api/SomeEndpoint',
+        params: ['items' => SomeApiRequest::buildBulkPayload($guid, $prices)],
+    );
+}
+```
+
+### Rules
+
+- ✅ `fromResolved()` accepts domain types (Guid, Money) — extracts scalars
+- ✅ `toArray()` returns API-specific key names (`StockItemId`, `SupplierID`, etc.)
+- ✅ Constructor is `private` — factory is the only entry point
+- ❌ No resolution logic (no `resolveStockItemId()`, no `getSupplierByName()`)
+- ❌ No business decisions — just shape transformation
+
 **Golden Rule**: Nothing leaves Infrastructure without a Domain exception passport.

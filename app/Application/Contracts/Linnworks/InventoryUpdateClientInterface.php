@@ -152,5 +152,5 @@ interface InventoryUpdateClientInterface
      * @throws AuthenticationExpiredException When credentials invalid
      * @throws ExternalServiceUnavailableException When API unavailable
      */
-    public function updateBulkSupplierStats(Guid $supplierGuid, array $stockItemPrices): void;
+    public function updateBulkSupplierPurchasePrice(Guid $supplierGuid, array $stockItemPrices): void;
 }

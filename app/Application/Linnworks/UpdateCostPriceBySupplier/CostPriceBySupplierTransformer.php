@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Application\Linnworks\UpdateCostPrice;
+namespace App\Application\Linnworks\UpdateCostPriceBySupplier;
 
 use App\Application\Catalog\Results\CostPriceUpdateResult;
 use App\Application\Catalog\Results\FailedCostPriceUpdateResult;
@@ -17,7 +17,7 @@ use Webmozart\Assert\Assert;
  *
  * Stateless helper — all methods are static with no side effects.
  */
-final readonly class CostPriceUpdateTransformer
+final readonly class CostPriceBySupplierTransformer
 {
     /**
      * Extract unique SKUs from a list of commands.
@@ -101,5 +101,26 @@ final readonly class CostPriceUpdateTransformer
         }
 
         return $failedSkus;
+    }
+
+    /**
+     * Build SKU → net purchase price map for succeeded items only.
+     *
+     * @param list<UpdateCostPriceCommand> $commands
+     *
+     * @return array<string, float>
+     */
+    public static function buildSucceededPriceMap(array $commands, CostPriceUpdateResult $result): array
+    {
+        $failedSkus = self::buildFailedSkuLookup($result);
+        $pricesBySku = [];
+
+        foreach ($commands as $command) {
+            if (! isset($failedSkus[$command->sku->value])) {
+                $pricesBySku[$command->sku->value] = $command->costPrice->toNet();
+            }
+        }
+
+        return $pricesBySku;
     }
 }

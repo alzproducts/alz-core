@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Infrastructure\Linnworks\Repositories;
 
 use App\Application\Contracts\Linnworks\StockItemRepositoryInterface;
-use App\Domain\Catalog\Product\ValueObjects\Sku;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
@@ -149,24 +148,45 @@ final class EloquentStockItemRepository extends AbstractEloquentRepository imple
      * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      */
-    public function updateSupplierPurchasePrice(Sku $sku, string $supplierName, float $purchasePrice): void
+    public function bulkUpdateSupplierPurchasePrices(string $supplierName, array $purchasePricesBySku): void
     {
-        $this->eloquentGateway->query(static function () use ($sku, $supplierName, $purchasePrice): void {
-            $sql = <<<'SQL'
+        if ($purchasePricesBySku === []) {
+            return;
+        }
+
+        $this->eloquentGateway->query(static function () use ($supplierName, $purchasePricesBySku): void {
+            [$values, $bindings] = self::buildBulkPriceBindings($purchasePricesBySku);
+            $bindings[] = $supplierName;
+            $sql = <<<SQL
                 UPDATE linnworks.stock_item_suppliers s
-                SET purchase_price = ?, updated_at = NOW()
-                FROM linnworks.stock_items si
+                SET purchase_price = v.price, updated_at = NOW()
+                FROM (VALUES {$values}) AS v(item_number, price)
+                JOIN linnworks.stock_items si ON si.item_number = v.item_number
                 WHERE s.stock_item_id = si.stock_item_id
-                    AND si.item_number = ?
                     AND s.supplier_name = ?
                 SQL;
 
-            StockItemModel::query()->getConnection()->statement($sql, [
-                $purchasePrice,
-                $sku->value,
-                $supplierName,
-            ]);
+            StockItemModel::query()->getConnection()->statement($sql, $bindings);
         });
+    }
+
+    /**
+     * @param array<string, float> $purchasePricesBySku
+     *
+     * @return array{string, list<string|float>}
+     */
+    private static function buildBulkPriceBindings(array $purchasePricesBySku): array
+    {
+        $placeholders = [];
+        $bindings = [];
+
+        foreach ($purchasePricesBySku as $skuValue => $price) {
+            $placeholders[] = '(?, ?)';
+            $bindings[] = $skuValue;
+            $bindings[] = $price;
+        }
+
+        return [\implode(', ', $placeholders), $bindings];
     }
 
     protected function getModelClass(): string

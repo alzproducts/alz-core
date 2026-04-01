@@ -18,6 +18,7 @@ use App\Domain\Inventory\ValueObjects\ExtendedPropertyWrite;
 use App\Domain\Inventory\ValueObjects\SupplierLinkParams;
 use App\Domain\ValueObjects\Guid;
 use App\Infrastructure\Linnworks\Contracts\LinnworksTransportInterface;
+use App\Infrastructure\Linnworks\Requests\UpdateStockSupplierStatRequest;
 use Illuminate\Support\Str;
 
 /**
@@ -244,21 +245,12 @@ final readonly class InventoryUpdateClient implements InventoryUpdateClientInter
      * @throws AuthenticationExpiredException When credentials invalid
      * @throws ExternalServiceUnavailableException When API unavailable
      */
-    public function updateBulkSupplierStats(Guid $supplierGuid, array $stockItemPrices): void
+    public function updateBulkSupplierPurchasePrice(Guid $supplierGuid, array $stockItemPrices): void
     {
-        $itemSuppliers = [];
-
-        foreach ($stockItemPrices as $stockItemId => $purchasePrice) {
-            $itemSuppliers[] = [
-                'StockItemId' => $stockItemId,
-                'SupplierID' => $supplierGuid->value,
-                'PurchasePrice' => $purchasePrice->toNet(),
-            ];
-        }
-
+        $payload = UpdateStockSupplierStatRequest::buildBulkPayload($supplierGuid, $stockItemPrices);
         $this->transport->postFormParams(
             endpoint: '/api/Inventory/UpdateStockSupplierStat',
-            params: ['itemSuppliers' => $itemSuppliers],
+            params: ['itemSuppliers' => $payload],
         );
     }
 

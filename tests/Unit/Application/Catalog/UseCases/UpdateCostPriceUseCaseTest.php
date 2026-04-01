@@ -9,8 +9,8 @@ use App\Application\Contracts\Catalog\ProductSupplierLookupInterface;
 use App\Application\Contracts\Linnworks\InventoryClientInterface;
 use App\Application\Contracts\Linnworks\InventoryUpdateClientInterface;
 use App\Application\Contracts\Linnworks\StockItemRepositoryInterface;
-use App\Application\Linnworks\UpdateCostPrice\SupplierGuidResolver;
-use App\Application\Linnworks\UpdateCostPrice\UpdateCostPriceUseCase;
+use App\Application\Linnworks\Resolvers\SupplierGuidResolver;
+use App\Application\Linnworks\UpdateCostPriceBySupplier\UpdateCostPriceBySupplierUseCase;
 use App\Domain\Catalog\Product\Commands\UpdateCostPriceCommand;
 use App\Domain\Catalog\Product\ValueObjects\ProductSupplier;
 use App\Domain\Catalog\Product\ValueObjects\Sku;
@@ -26,7 +26,7 @@ use PHPUnit\Framework\Attributes\Test;
 use Psr\Log\LoggerInterface;
 use Tests\TestCase;
 
-#[CoversClass(UpdateCostPriceUseCase::class)]
+#[CoversClass(UpdateCostPriceBySupplierUseCase::class)]
 final class UpdateCostPriceUseCaseTest extends TestCase
 {
     private InventoryClientInterface&MockInterface $inventoryClient;
@@ -41,7 +41,7 @@ final class UpdateCostPriceUseCaseTest extends TestCase
 
     private LoggerInterface&MockInterface $logger;
 
-    private UpdateCostPriceUseCase $useCase;
+    private UpdateCostPriceBySupplierUseCase $useCase;
 
     #[Override]
     protected function setUp(): void
@@ -56,7 +56,7 @@ final class UpdateCostPriceUseCaseTest extends TestCase
         $this->logger = Mockery::mock(LoggerInterface::class);
         $this->logger->shouldReceive('info')->byDefault();
 
-        $this->useCase = new UpdateCostPriceUseCase(
+        $this->useCase = new UpdateCostPriceBySupplierUseCase(
             $this->inventoryClient,
             $this->inventoryUpdateClient,
             $this->stockItemRepository,
@@ -75,8 +75,8 @@ final class UpdateCostPriceUseCaseTest extends TestCase
         $supplierGuid = new Guid('00000000-0000-0000-0000-000000000001');
 
         $commands = [
-            new UpdateCostPriceCommand(sku: $sku1, costPrice: Money::exclusive(10.50), supplierName: 'AcmeCo'),
-            new UpdateCostPriceCommand(sku: $sku2, costPrice: Money::exclusive(20.00), supplierName: 'AcmeCo'),
+            new UpdateCostPriceCommand(sku: $sku1, costPrice: Money::exclusive(10.50)),
+            new UpdateCostPriceCommand(sku: $sku2, costPrice: Money::exclusive(20.00)),
         ];
 
         $this->supplierLookup
@@ -106,15 +106,16 @@ final class UpdateCostPriceUseCaseTest extends TestCase
             ->andReturn($supplierGuid);
 
         $this->inventoryUpdateClient
-            ->shouldReceive('updateBulkSupplierStats')
+            ->shouldReceive('updateBulkSupplierPurchasePrice')
             ->with($supplierGuid, Mockery::type('array'))
             ->once();
 
         $this->stockItemRepository
-            ->shouldReceive('updateSupplierPurchasePrice')
-            ->twice();
+            ->shouldReceive('bulkUpdateSupplierPurchasePrices')
+            ->with('AcmeCo', Mockery::type('array'))
+            ->once();
 
-        $result = $this->useCase->execute($commands);
+        $result = $this->useCase->execute('AcmeCo', $commands);
 
         self::assertSame(2, $result->total);
         self::assertSame(2, $result->succeeded);
@@ -126,7 +127,7 @@ final class UpdateCostPriceUseCaseTest extends TestCase
     {
         $sku = Sku::fromTrusted('SKU-001');
         $commands = [
-            new UpdateCostPriceCommand(sku: $sku, costPrice: Money::exclusive(10.50), supplierName: 'AcmeCo'),
+            new UpdateCostPriceCommand(sku: $sku, costPrice: Money::exclusive(10.50)),
         ];
 
         $this->supplierLookup
@@ -136,11 +137,11 @@ final class UpdateCostPriceUseCaseTest extends TestCase
             ->andReturn([]);
 
         $this->inventoryClient->shouldNotReceive('resolveStockItemIds');
-        $this->inventoryUpdateClient->shouldNotReceive('updateBulkSupplierStats');
+        $this->inventoryUpdateClient->shouldNotReceive('updateBulkSupplierPurchasePrice');
 
         $this->expectException(ValidationFailedException::class);
 
-        $this->useCase->execute($commands);
+        $this->useCase->execute('AcmeCo', $commands);
     }
 
     #[Test]
@@ -152,8 +153,8 @@ final class UpdateCostPriceUseCaseTest extends TestCase
         $supplierGuid = new Guid('00000000-0000-0000-0000-000000000001');
 
         $commands = [
-            new UpdateCostPriceCommand(sku: $sku1, costPrice: Money::exclusive(10.50), supplierName: 'AcmeCo'),
-            new UpdateCostPriceCommand(sku: $sku2, costPrice: Money::exclusive(20.00), supplierName: 'AcmeCo'),
+            new UpdateCostPriceCommand(sku: $sku1, costPrice: Money::exclusive(10.50)),
+            new UpdateCostPriceCommand(sku: $sku2, costPrice: Money::exclusive(20.00)),
         ];
 
         $this->supplierLookup
@@ -173,20 +174,16 @@ final class UpdateCostPriceUseCaseTest extends TestCase
             ->andReturn($supplierGuid);
 
         $this->inventoryUpdateClient
-            ->shouldReceive('updateBulkSupplierStats')
+            ->shouldReceive('updateBulkSupplierPurchasePrice')
             ->once();
 
-        // Only SKU-001 should be updated locally; SKU-002 is in failures
+        // Bulk update should only include SKU-001's price
         $this->stockItemRepository
-            ->shouldReceive('updateSupplierPurchasePrice')
-            ->with($sku1, 'AcmeCo', Mockery::any())
+            ->shouldReceive('bulkUpdateSupplierPurchasePrices')
+            ->with('AcmeCo', Mockery::on(static fn(array $prices): bool => \count($prices) === 1 && isset($prices['SKU-001'])))
             ->once();
 
-        $this->stockItemRepository
-            ->shouldNotReceive('updateSupplierPurchasePrice')
-            ->with($sku2, Mockery::any(), Mockery::any());
-
-        $result = $this->useCase->execute($commands);
+        $result = $this->useCase->execute('AcmeCo', $commands);
 
         self::assertSame(2, $result->total);
         self::assertSame(1, $result->succeeded);
@@ -202,7 +199,7 @@ final class UpdateCostPriceUseCaseTest extends TestCase
         $supplierGuid = new Guid('00000000-0000-0000-0000-000000000001');
 
         $commands = [
-            new UpdateCostPriceCommand(sku: $sku, costPrice: Money::exclusive(10.50), supplierName: 'AcmeCo'),
+            new UpdateCostPriceCommand(sku: $sku, costPrice: Money::exclusive(10.50)),
         ];
 
         $this->supplierLookup
@@ -221,24 +218,24 @@ final class UpdateCostPriceUseCaseTest extends TestCase
             ->andReturn($supplierGuid);
 
         $this->inventoryUpdateClient
-            ->shouldReceive('updateBulkSupplierStats')
+            ->shouldReceive('updateBulkSupplierPurchasePrice')
             ->once();
 
         $this->stockItemRepository
-            ->shouldReceive('updateSupplierPurchasePrice')
+            ->shouldReceive('bulkUpdateSupplierPurchasePrices')
             ->once()
             ->andThrow(new DatabaseOperationFailedException(
-                operation: 'updateSupplierPurchasePrice',
+                operation: 'bulkUpdateSupplierPurchasePrices',
                 reason: 'Connection failed',
             ));
 
         $this->logger
             ->shouldReceive('warning')
             ->once()
-            ->withArgs(static fn(string $message, array $context): bool => \array_key_exists('sku', $context));
+            ->withArgs(static fn(string $message, array $context): bool => \array_key_exists('count', $context));
 
         // No exception should propagate
-        $result = $this->useCase->execute($commands);
+        $result = $this->useCase->execute('AcmeCo', $commands);
 
         self::assertInstanceOf(CostPriceUpdateResult::class, $result);
     }
@@ -252,8 +249,8 @@ final class UpdateCostPriceUseCaseTest extends TestCase
 
         // Two commands with the same SKU
         $commands = [
-            new UpdateCostPriceCommand(sku: $sku, costPrice: Money::exclusive(10.50), supplierName: 'AcmeCo'),
-            new UpdateCostPriceCommand(sku: $sku, costPrice: Money::exclusive(15.00), supplierName: 'AcmeCo'),
+            new UpdateCostPriceCommand(sku: $sku, costPrice: Money::exclusive(10.50)),
+            new UpdateCostPriceCommand(sku: $sku, costPrice: Money::exclusive(15.00)),
         ];
 
         // Must only be called once despite two commands with the same SKU
@@ -274,13 +271,13 @@ final class UpdateCostPriceUseCaseTest extends TestCase
             ->andReturn($supplierGuid);
 
         $this->inventoryUpdateClient
-            ->shouldReceive('updateBulkSupplierStats')
+            ->shouldReceive('updateBulkSupplierPurchasePrice')
             ->once();
 
         $this->stockItemRepository
-            ->shouldReceive('updateSupplierPurchasePrice')
-            ->twice();
+            ->shouldReceive('bulkUpdateSupplierPurchasePrices')
+            ->once();
 
-        $this->useCase->execute($commands);
+        $this->useCase->execute('AcmeCo', $commands);
     }
 }

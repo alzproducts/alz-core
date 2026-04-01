@@ -30,8 +30,8 @@ final class SkuSupplierLinkValidatorTest extends TestCase
         $sku2 = Sku::fromTrusted('SKU-002');
 
         $commands = [
-            self::makeCommand($sku1, 'AcmeCo'),
-            self::makeCommand($sku2, 'AcmeCo'),
+            self::makeCommand($sku1),
+            self::makeCommand($sku2),
         ];
 
         $suppliersBySku = [
@@ -39,7 +39,7 @@ final class SkuSupplierLinkValidatorTest extends TestCase
             'SKU-002' => [new ProductSupplier(supplierName: 'AcmeCo', purchasePrice: 20.0, isDefault: true)],
         ];
 
-        $result = (new SkuSupplierLinkValidator($commands, $suppliersBySku))->validate();
+        $result = (new SkuSupplierLinkValidator($commands, 'AcmeCo', $suppliersBySku))->validate();
 
         self::assertTrue($result->passed());
         self::assertFalse($result->failed());
@@ -53,8 +53,8 @@ final class SkuSupplierLinkValidatorTest extends TestCase
         $sku2 = Sku::fromTrusted('SKU-002');
 
         $commands = [
-            self::makeCommand($sku1, 'AcmeCo'),
-            self::makeCommand($sku2, 'AcmeCo'),
+            self::makeCommand($sku1),
+            self::makeCommand($sku2),
         ];
 
         $suppliersBySku = [
@@ -62,7 +62,7 @@ final class SkuSupplierLinkValidatorTest extends TestCase
             'SKU-002' => [],
         ];
 
-        $result = (new SkuSupplierLinkValidator($commands, $suppliersBySku))->validate();
+        $result = (new SkuSupplierLinkValidator($commands, 'AcmeCo', $suppliersBySku))->validate();
 
         self::assertTrue($result->failed());
 
@@ -78,9 +78,9 @@ final class SkuSupplierLinkValidatorTest extends TestCase
         $sku3 = Sku::fromTrusted('SKU-003');
 
         $commands = [
-            self::makeCommand($sku1, 'AcmeCo'),
-            self::makeCommand($sku2, 'AcmeCo'),
-            self::makeCommand($sku3, 'AcmeCo'),
+            self::makeCommand($sku1),
+            self::makeCommand($sku2),
+            self::makeCommand($sku3),
         ];
 
         $suppliersBySku = [
@@ -89,7 +89,7 @@ final class SkuSupplierLinkValidatorTest extends TestCase
             'SKU-003' => [],
         ];
 
-        $result = (new SkuSupplierLinkValidator($commands, $suppliersBySku))->validate();
+        $result = (new SkuSupplierLinkValidator($commands, 'AcmeCo', $suppliersBySku))->validate();
 
         self::assertTrue($result->failed());
 
@@ -102,13 +102,13 @@ final class SkuSupplierLinkValidatorTest extends TestCase
     {
         $sku = Sku::fromTrusted('SKU-001');
 
-        $commands = [self::makeCommand($sku, 'AcmeCo')];
+        $commands = [self::makeCommand($sku)];
 
         $suppliersBySku = [
             'SKU-001' => [new ProductSupplier(supplierName: 'OtherSupplier', purchasePrice: 10.0, isDefault: true)],
         ];
 
-        $result = (new SkuSupplierLinkValidator($commands, $suppliersBySku))->validate();
+        $result = (new SkuSupplierLinkValidator($commands, 'AcmeCo', $suppliersBySku))->validate();
 
         self::assertTrue($result->failed());
 
@@ -121,7 +121,7 @@ final class SkuSupplierLinkValidatorTest extends TestCase
     {
         $sku = Sku::fromTrusted('SKU-001');
 
-        $commands = [self::makeCommand($sku, 'AcmeCo')];
+        $commands = [self::makeCommand($sku)];
 
         $suppliersBySku = [
             'SKU-001' => [
@@ -130,7 +130,7 @@ final class SkuSupplierLinkValidatorTest extends TestCase
             ],
         ];
 
-        $result = (new SkuSupplierLinkValidator($commands, $suppliersBySku))->validate();
+        $result = (new SkuSupplierLinkValidator($commands, 'AcmeCo', $suppliersBySku))->validate();
 
         self::assertTrue($result->passed());
     }
@@ -143,9 +143,9 @@ final class SkuSupplierLinkValidatorTest extends TestCase
         $sku3 = Sku::fromTrusted('SKU-C');
 
         $commands = [
-            self::makeCommand($sku1, 'AcmeCo'),
-            self::makeCommand($sku2, 'AcmeCo'),
-            self::makeCommand($sku3, 'AcmeCo'),
+            self::makeCommand($sku1),
+            self::makeCommand($sku2),
+            self::makeCommand($sku3),
         ];
 
         $suppliersBySku = [
@@ -154,7 +154,7 @@ final class SkuSupplierLinkValidatorTest extends TestCase
             'SKU-C' => [],
         ];
 
-        $result = (new SkuSupplierLinkValidator($commands, $suppliersBySku))->validate();
+        $result = (new SkuSupplierLinkValidator($commands, 'AcmeCo', $suppliersBySku))->validate();
 
         $unlinkedValues = \array_map(static fn(Sku $s): string => $s->value, $result->unlinkedSkus());
         self::assertSame(['SKU-A', 'SKU-C'], $unlinkedValues);
@@ -270,12 +270,11 @@ final class SkuSupplierLinkValidatorTest extends TestCase
     // Factory helpers
     // ========================================================================
 
-    private static function makeCommand(Sku $sku, string $supplierName): UpdateCostPriceCommand
+    private static function makeCommand(Sku $sku): UpdateCostPriceCommand
     {
         return new UpdateCostPriceCommand(
             sku: $sku,
             costPrice: Money::exclusive(10.50),
-            supplierName: $supplierName,
         );
     }
 }

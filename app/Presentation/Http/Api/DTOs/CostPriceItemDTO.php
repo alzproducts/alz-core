@@ -36,12 +36,11 @@ final class CostPriceItemDTO extends Data
     /**
      * @throws InvalidSkuException When the SKU format is invalid
      */
-    public function toCommand(string $supplierName): UpdateCostPriceCommand
+    public function toCommand(): UpdateCostPriceCommand
     {
         return new UpdateCostPriceCommand(
             sku: Sku::fromString($this->sku),
             costPrice: Money::exclusive($this->costPrice),
-            supplierName: $supplierName,
         );
     }
 }

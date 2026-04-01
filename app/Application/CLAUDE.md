@@ -43,6 +43,20 @@ Application dispatches async work via **dispatcher interfaces** (e.g., `Shopwire
 
 **Why:** Dependency Inversion Principle — higher layers define contracts, lower layers fulfill them.
 
+### Client Interface Design: Pre-Resolved Parameters
+
+Application-layer client interfaces accept **pre-resolved** identifiers and domain values. The UseCase orchestrates all resolution (SKU→stockItemId, supplierName→GUID) via dedicated Resolver classes before calling the client.
+
+**Why:** Resolution is orchestration — it involves business decisions (batch vs single, caching, error handling). Infrastructure clients are structural mappers, not orchestrators.
+
+```
+UseCase: resolve IDs → pass pre-resolved values to interface
+Client:  receive pre-resolved values → structural mapping → transport
+```
+
+- ✅ Interface params: `Guid $supplierGuid`, `array<string, Money> $prices`
+- ❌ Interface params: `string $supplierName` (requires resolution inside client)
+
 ### Interface @throws Declarations
 
 **Interfaces must declare all `@throws` from their implementations.** PHPStan cannot verify this — it has no body to analyse on interface methods, so under-declared `@throws` silently propagates incomplete exception information up the call chain.
@@ -115,7 +129,7 @@ When a UseCase approaches the 250-line class limit, promote it to a **feature su
 
 **Trigger**: When private method count + `@throws` docblocks push the file past ~250 lines despite each method being under 20 lines.
 
-**Reference**: `Linnworks/UpdateCostPrice/` — bulk update with Transformer (partition/map/dedupe) + Resolver (supplier name→GUID).
+**Reference**: `Linnworks/UpdateCostPriceBySupplier/` — bulk update with Transformer (partition/map/dedupe) + Resolver (in shared `Linnworks/Resolvers/`).
 
 ## Complex Use Case Reference
 

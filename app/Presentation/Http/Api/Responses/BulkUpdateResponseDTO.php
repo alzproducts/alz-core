@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Presentation\Http\Api\Responses;
 
+use App\Application\Catalog\Results\CostPriceUpdateResult;
+use App\Application\Catalog\Results\FailedCostPriceUpdateResult;
 use Illuminate\Contracts\Support\Responsable;
 use Illuminate\Http\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
@@ -16,6 +18,7 @@ use Symfony\Component\HttpFoundation\Response;
  *     {"total": 5, "succeeded": 3, "failures": [{"sku": "...", "error": "..."}]}
  *
  * Implements Responsable so controllers can return this directly.
+ * Per-result-type factories handle the domain-to-response mapping.
  */
 final readonly class BulkUpdateResponseDTO implements Responsable
 {
@@ -29,6 +32,21 @@ final readonly class BulkUpdateResponseDTO implements Responsable
         private int $succeeded,
         private array $failures,
     ) {}
+
+    public static function fromCostPriceResult(CostPriceUpdateResult $result): self
+    {
+        return new self(
+            total: $result->total,
+            succeeded: $result->succeeded,
+            failures: \array_map(
+                static fn(FailedCostPriceUpdateResult $f): array => [
+                    'sku' => $f->sku->value,
+                    'error' => $f->error,
+                ],
+                $result->failures,
+            ),
+        );
+    }
 
     public function toResponse(mixed $request): JsonResponse
     {

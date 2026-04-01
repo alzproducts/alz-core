@@ -2,13 +2,14 @@
 
 declare(strict_types=1);
 
-namespace App\Application\Linnworks\UpdateCostPrice;
+namespace App\Application\Linnworks\UpdateCostPriceBySupplier;
 
 use App\Application\Catalog\Results\CostPriceUpdateResult;
 use App\Application\Contracts\Catalog\ProductSupplierLookupInterface;
 use App\Application\Contracts\Linnworks\InventoryClientInterface;
 use App\Application\Contracts\Linnworks\InventoryUpdateClientInterface;
 use App\Application\Contracts\Linnworks\StockItemRepositoryInterface;
+use App\Application\Linnworks\Resolvers\SupplierGuidResolver;
 use App\Domain\Catalog\Product\Commands\UpdateCostPriceCommand;
 use App\Domain\Catalog\Product\Validators\SkuSupplierLinkValidator;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
@@ -33,7 +34,7 @@ use Webmozart\Assert\Assert;
  * 5. Bulk update supplier purchase prices (1 API call)
  * 6. Best-effort local DB updates for succeeded items
  */
-final readonly class UpdateCostPriceUseCase
+final readonly class UpdateCostPriceBySupplierUseCase
 {
     public function __construct(
         private InventoryClientInterface $inventoryClient,
@@ -56,14 +57,14 @@ final readonly class UpdateCostPriceUseCase
      * @throws DatabaseOperationFailedException On local DB query failure
      * @throws DuplicateRecordException On local DB constraint violation
      */
-    public function execute(array $commands): CostPriceUpdateResult
+    public function execute(string $supplierName, array $commands): CostPriceUpdateResult
     {
         Assert::notEmpty($commands, 'At least one cost price command is required');
 
-        $this->logStart($commands);
-        $this->runPreFlightValidation($commands);
-        $result = $this->performBulkUpdate($commands);
-        $this->updateLocalDatabase($commands, $result);
+        $this->logStart($supplierName, $commands);
+        $this->runPreFlightValidation($supplierName, $commands);
+        $result = $this->performBulkUpdate($supplierName, $commands);
+        $this->updateLocalDatabase($supplierName, $commands, $result);
         $this->logResult($result);
 
         return $result;
@@ -80,17 +81,17 @@ final readonly class UpdateCostPriceUseCase
      * @throws AuthenticationExpiredException When credentials invalid
      * @throws ExternalServiceUnavailableException When API unavailable
      */
-    private function performBulkUpdate(array $commands): CostPriceUpdateResult
+    private function performBulkUpdate(string $supplierName, array $commands): CostPriceUpdateResult
     {
-        $skuToGuid = $this->inventoryClient->resolveStockItemIds(CostPriceUpdateTransformer::extractUniqueSkus($commands));
-        [$resolved, $failures] = CostPriceUpdateTransformer::partitionByResolution($commands, $skuToGuid);
+        $skuToGuid = $this->inventoryClient->resolveStockItemIds(CostPriceBySupplierTransformer::extractUniqueSkus($commands));
+        [$resolved, $failures] = CostPriceBySupplierTransformer::partitionByResolution($commands, $skuToGuid);
 
         if ($resolved === []) {
             return new CostPriceUpdateResult(\count($commands), 0, $failures);
         }
 
-        $supplierGuid = $this->supplierGuidResolver->resolve($resolved[0]->supplierName);
-        $this->inventoryUpdateClient->updateBulkSupplierStats($supplierGuid, CostPriceUpdateTransformer::buildPriceMap($resolved, $skuToGuid));
+        $supplierGuid = $this->supplierGuidResolver->resolve($supplierName);
+        $this->inventoryUpdateClient->updateBulkSupplierPurchasePrice($supplierGuid, CostPriceBySupplierTransformer::buildPriceMap($resolved, $skuToGuid));
 
         return new CostPriceUpdateResult(\count($commands), \count($resolved), $failures);
     }
@@ -105,7 +106,7 @@ final readonly class UpdateCostPriceUseCase
      * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      */
-    private function runPreFlightValidation(array $commands): void
+    private function runPreFlightValidation(string $supplierName, array $commands): void
     {
         $suppliersBySku = [];
 
@@ -116,7 +117,7 @@ final readonly class UpdateCostPriceUseCase
             }
         }
 
-        (new SkuSupplierLinkValidator($commands, $suppliersBySku))->validate()->orFail();
+        (new SkuSupplierLinkValidator($commands, $supplierName, $suppliersBySku))->validate()->orFail();
     }
 
     /**
@@ -124,30 +125,19 @@ final readonly class UpdateCostPriceUseCase
      *
      * @param list<UpdateCostPriceCommand> $commands
      */
-    private function updateLocalDatabase(array $commands, CostPriceUpdateResult $result): void
+    private function updateLocalDatabase(string $supplierName, array $commands, CostPriceUpdateResult $result): void
     {
-        $failedSkus = CostPriceUpdateTransformer::buildFailedSkuLookup($result);
+        $purchasePricesBySku = CostPriceBySupplierTransformer::buildSucceededPriceMap($commands, $result);
 
-        foreach ($commands as $command) {
-            if (isset($failedSkus[$command->sku->value])) {
-                continue;
-            }
-
-            $this->updateSingleLocalRecord($command);
+        if ($purchasePricesBySku === []) {
+            return;
         }
-    }
 
-    private function updateSingleLocalRecord(UpdateCostPriceCommand $command): void
-    {
         try {
-            $this->stockItemRepository->updateSupplierPurchasePrice(
-                $command->sku,
-                $command->supplierName,
-                $command->costPrice->toNet(),
-            );
+            $this->stockItemRepository->bulkUpdateSupplierPurchasePrices($supplierName, $purchasePricesBySku);
         } catch (DatabaseOperationFailedException|DuplicateRecordException|ExternalServiceUnavailableException $e) {
-            $this->logger->warning('Failed to update local DB for cost price', [
-                'sku' => $command->sku->value,
+            $this->logger->warning('Failed to bulk update local DB for cost prices', [
+                'count' => \count($purchasePricesBySku),
                 'error' => $e->getMessage(),
             ]);
         }
@@ -156,11 +146,11 @@ final readonly class UpdateCostPriceUseCase
     /**
      * @param non-empty-list<UpdateCostPriceCommand> $commands
      */
-    private function logStart(array $commands): void
+    private function logStart(string $supplierName, array $commands): void
     {
         $this->logger->info('Bulk updating cost prices', [
             'count' => \count($commands),
-            'supplier_name' => $commands[0]->supplierName,
+            'supplier_name' => $supplierName,
         ]);
     }
 
