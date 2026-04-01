@@ -7,6 +7,7 @@ namespace App\Infrastructure\Mixpanel\DTOs;
 use App\Domain\Catalog\Order\ValueObjects\Order;
 use App\Domain\Catalog\Order\ValueObjects\OrderAnalyticsHash;
 use App\Domain\Catalog\Order\ValueObjects\OrderProduct;
+use App\Infrastructure\Mixpanel\Normalizers\PaymentMethodNormaliser;
 use Webmozart\Assert\Assert;
 
 /**
@@ -90,7 +91,7 @@ final readonly class MixpanelProductPurchasedDTO
             price: $product->price,
             quantity: $product->quantity,
             total: $product->total,
-            paymentMethod: $order->paymentMethod->value,
+            paymentMethod: PaymentMethodNormaliser::normalise($order->paymentMethod->value),
             shippingCountry: $order->shippingAddress->country,
             isBusinessUser: $isBusinessUser,
         );
