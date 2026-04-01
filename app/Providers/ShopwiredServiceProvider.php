@@ -130,6 +130,14 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
 
     private function registerClients(): void
     {
+        $this->registerSingletonClients();
+        $this->registerScopedReadClient();
+        $this->registerScopedWriteClients();
+        $this->registerUpdateClients();
+    }
+
+    private function registerSingletonClients(): void
+    {
         $this->app->singleton(ConnectivityClientInterface::class, static fn(): ConnectivityClientInterface => ShopwiredClientFactory::createConnectivityClient());
         $this->app->singleton(BrandClientInterface::class, static fn(): BrandClientInterface => ShopwiredClientFactory::createBrandClient());
         $this->app->singleton(CategoryClientInterface::class, static fn(): CategoryClientInterface => ShopwiredClientFactory::createCategoryClient());
@@ -139,8 +147,11 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
         $this->app->singleton(OrderClientInterface::class, static fn(): OrderClientInterface => ShopwiredClientFactory::createOrderClient());
         $this->app->singleton(StockClientInterface::class, static fn(): StockClientInterface => ShopwiredClientFactory::createStockClient());
         $this->app->singleton(PriceUpdateClientInterface::class, static fn(): PriceUpdateClientInterface => ShopwiredClientFactory::createPriceUpdateClient());
+        $this->app->singleton(WebhookClientInterface::class, static fn(): WebhookClientInterface => ShopwiredClientFactory::createWebhookClient());
+    }
 
-        // Scoped: depends on scoped ProductDomainFactory (Octane isolation)
+    private function registerScopedReadClient(): void
+    {
         $this->app->scoped(
             ProductClientInterface::class,
             static fn(Application $app): ProductClientInterface => new ProductClient(
@@ -148,8 +159,10 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
                 $app->make(ProductDomainFactory::class),
             ),
         );
+    }
 
-        // Scoped: depends on scoped ProductClientInterface
+    private function registerScopedWriteClients(): void
+    {
         $this->app->scoped(
             ProductUpdateClientInterface::class,
             static fn(Application $app): ProductUpdateClientInterface => new ProductUpdateClient(
@@ -157,8 +170,6 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
                 $app->make(ProductClientInterface::class),
             ),
         );
-
-        // Scoped: depends on scoped ProductRepositoryInterface
         $this->app->scoped(
             BasicProductUpdateClientInterface::class,
             static fn(Application $app): BasicProductUpdateClientInterface => new BasicProductUpdateClient(
@@ -166,14 +177,13 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
                 $app->make(ProductRepositoryInterface::class),
             ),
         );
+    }
 
-        $this->app->singleton(WebhookClientInterface::class, static fn(): WebhookClientInterface => ShopwiredClientFactory::createWebhookClient());
-
-        // FieldUpdate clients — simple PUT field updates per entity
+    private function registerUpdateClients(): void
+    {
         $this->app->singleton(ProductFieldUpdateClientInterface::class, static fn(): ProductFieldUpdateClientInterface => new ProductFieldUpdateClient(ShopwiredClientFactory::getTransport()));
         $this->app->singleton(CustomerFieldUpdateClientInterface::class, static fn(): CustomerFieldUpdateClientInterface => new CustomerFieldUpdateClient(ShopwiredClientFactory::getTransport()));
 
-        // Update clients — scalar fields (simple PUT) + custom fields (fetch-merge-PUT)
         $this->app->singleton(
             CategoryUpdateClientInterface::class,
             static fn(Application $app): CategoryUpdateClientInterface => new CategoryUpdateClient(
@@ -209,58 +219,58 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
 
     private function registerFactories(): void
     {
-        // All scoped to prevent stale state in Octane
         $this->app->scoped(ProductDomainFactory::class);
-        // CustomFieldValueFactory is parameterised by item type — use contextual binding
-        // so each consumer gets a factory filtered to its entity's custom fields.
+        $this->registerCustomFieldValueFactories();
+        $this->registerCustomFieldFactories();
+        $this->app->scoped(ProductFilterFactory::class);
+        $this->app->scoped(ProductSupplierFactory::class);
+        $this->app->scoped(ProductVariationModelMapper::class);
+        $this->app->scoped(ProductModelMapper::class);
+        $this->app->scoped(ProductViewAssembler::class);
+    }
+
+    private function registerCustomFieldValueFactories(): void
+    {
         $this->app->when(UpdateProductCustomFieldsUseCase::class)
             ->needs(CustomFieldValueFactoryInterface::class)
             ->give(static fn(Application $app): CustomFieldValueFactory => new CustomFieldValueFactory(
                 $app->make(CustomFieldRepositoryInterface::class),
                 CustomFieldItemType::Product,
             ));
-
         $this->app->when(UpdateCategoryCustomFieldsUseCase::class)
             ->needs(CustomFieldValueFactoryInterface::class)
             ->give(static fn(Application $app): CustomFieldValueFactory => new CustomFieldValueFactory(
                 $app->make(CustomFieldRepositoryInterface::class),
                 CustomFieldItemType::Category,
             ));
-
         $this->app->when(UpdateBrandCustomFieldsUseCase::class)
             ->needs(CustomFieldValueFactoryInterface::class)
             ->give(static fn(Application $app): CustomFieldValueFactory => new CustomFieldValueFactory(
                 $app->make(CustomFieldRepositoryInterface::class),
                 CustomFieldItemType::Brand,
             ));
+    }
 
-        // CustomFieldFactory is parameterised by item type — use contextual binding
-        // so each consumer gets a factory filtered to its entity's custom fields.
+    private function registerCustomFieldFactories(): void
+    {
         $this->app->when([ProductModelMapper::class, ProductViewAssembler::class])
             ->needs(CustomFieldFactory::class)
             ->give(static fn(Application $app): CustomFieldFactory => new CustomFieldFactory(
                 $app->make(CustomFieldRepositoryInterface::class),
                 CustomFieldItemType::Product,
             ));
-
         $this->app->when(EloquentCategoryRepository::class)
             ->needs(CustomFieldFactory::class)
             ->give(static fn(Application $app): CustomFieldFactory => new CustomFieldFactory(
                 $app->make(CustomFieldRepositoryInterface::class),
                 CustomFieldItemType::Category,
             ));
-
         $this->app->when(EloquentBrandRepository::class)
             ->needs(CustomFieldFactory::class)
             ->give(static fn(Application $app): CustomFieldFactory => new CustomFieldFactory(
                 $app->make(CustomFieldRepositoryInterface::class),
                 CustomFieldItemType::Brand,
             ));
-        $this->app->scoped(ProductFilterFactory::class);
-        $this->app->scoped(ProductSupplierFactory::class);
-        $this->app->scoped(ProductVariationModelMapper::class);
-        $this->app->scoped(ProductModelMapper::class);
-        $this->app->scoped(ProductViewAssembler::class);
     }
 
     private function registerWebhookServices(): void
@@ -295,18 +305,9 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
             ReconcileBulkSaleStateUseCase::class,
             ProductSaleStateResolver::class,
         ])->needs('$saleCategoryId')
-            ->give(static function (): int {
-                $value = \config('shopwired.sale_category_id');
-
-                if (! \is_numeric($value)) {
-                    throw new InvalidConfigurationException(
-                        'shopwired.sale_category_id',
-                        'shopwired.sale_category_id must be a numeric value',
-                    );
-                }
-
-                return (int) $value;
-            });
+            ->give(static fn(): int => self::resolveNumericConfig(
+                'shopwired.sale_category_id',
+            ));
     }
 
     private function registerWebhookBindings(): void
@@ -321,18 +322,20 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
             UpdateOrderStatusUseCase::class,
             CreateOrderRefundUseCase::class,
         ])->needs('$webhookStalenessHours')
-            ->give(static function (): int {
-                $value = \config('shopwired.webhook_staleness_hours');
+            ->give(static fn(): int => self::resolveNumericConfig(
+                'shopwired.webhook_staleness_hours',
+            ));
+    }
 
-                if (! \is_numeric($value)) {
-                    throw new InvalidConfigurationException(
-                        'shopwired.webhook_staleness_hours',
-                        'shopwired.webhook_staleness_hours must be a numeric value',
-                    );
-                }
+    private static function resolveNumericConfig(string $key): int
+    {
+        $value = \config($key);
 
-                return (int) $value;
-            });
+        if (! \is_numeric($value)) {
+            throw new InvalidConfigurationException($key, "{$key} must be a numeric value");
+        }
+
+        return (int) $value;
     }
 
     /**
@@ -356,7 +359,6 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
             CategoryWebhookEventResolverInterface::class,
             CategoryWebhookParserInterface::class,
             ConnectivityClientInterface::class,
-            CreateOrderRefundUseCase::class,
             CustomFieldClientInterface::class,
             CustomFieldRepositoryInterface::class,
             CustomerClientInterface::class,
@@ -389,13 +391,6 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
             SaleSettingsRepositoryInterface::class,
             ShopwiredSyncDispatcherInterface::class,
             StockClientInterface::class,
-            SyncBrandUseCase::class,
-            SyncCategoryUseCase::class,
-            SyncCustomerUseCase::class,
-            SyncOrderUseCase::class,
-            SyncProductUseCase::class,
-            UpdateOrderStatusUseCase::class,
-            UpdateProductStockUseCase::class,
             WebhookClientInterface::class,
             WebhookIdempotencyServiceInterface::class,
         ];

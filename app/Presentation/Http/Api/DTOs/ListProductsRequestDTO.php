@@ -94,23 +94,18 @@ final class ListProductsRequestDTO extends Data
     private function buildFilters(): array
     {
         $filters = [ProductFilterField::IsActive->value => true];
-
         if ($this->category_id !== null) {
             $filters[ProductFilterField::CategoryId->value] = $this->category_id;
         }
-
         if ($this->is_on_sale !== null) {
             $filters[ProductFilterField::IsOnSale->value] = $this->is_on_sale;
         }
-
         if ($this->sku !== null) {
             $filters[ProductFilterField::Sku->value] = $this->sku;
         }
-
         if ($this->has_free_delivery !== null) {
             $filters[ProductFilterField::HasFreeDelivery->value] = $this->has_free_delivery;
         }
-
         return $filters;
     }
 }

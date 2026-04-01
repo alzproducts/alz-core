@@ -30,6 +30,11 @@ final class InventoryServiceProvider extends ServiceProvider implements Deferrab
         $this->app->bind(ProductStockRepositoryInterface::class, EloquentProductStockRepository::class);
         $this->app->singleton(InventoryDispatcherInterface::class, QueuedInventoryDispatcher::class);
 
+        $this->registerStandardSignProductId();
+    }
+
+    private function registerStandardSignProductId(): void
+    {
         $this->app->when(GenerateVariantSkusUseCase::class)
             ->needs('$standardSignProductId')
             ->give(static function (): int {
@@ -56,7 +61,6 @@ final class InventoryServiceProvider extends ServiceProvider implements Deferrab
             InventoryDispatcherInterface::class,
             SyncCursorRepositoryInterface::class,
             ProductStockRepositoryInterface::class,
-            GenerateVariantSkusUseCase::class,
         ];
     }
 }

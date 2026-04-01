@@ -65,7 +65,17 @@ final class LinnworksServiceProvider extends ServiceProvider implements Deferrab
     #[Override]
     public function register(): void
     {
-        // LinnworksSessionManager with contextual LockableCacheInterface
+        $this->registerSessionManager();
+        $this->registerStockClients();
+        $this->registerOrderClients();
+        $this->registerPurchaseOrderClients();
+        $this->registerStockRepositories();
+        $this->registerOrderRepositories();
+        $this->registerDispatchers();
+    }
+
+    private function registerSessionManager(): void
+    {
         $this->app->singleton(
             LinnworksSessionManager::class,
             static fn(Container $app): LinnworksSessionManager => new LinnworksSessionManager(
@@ -73,38 +83,58 @@ final class LinnworksServiceProvider extends ServiceProvider implements Deferrab
                 $app->make(LockableCacheInterface::class),
             ),
         );
+    }
 
-        // Connectivity client - for health checks
+    private function registerStockClients(): void
+    {
         $this->app->singleton(
             ConnectivityClientInterface::class,
             static fn(): ConnectivityClientInterface => LinnworksClientFactory::createConnectivityClient(),
         );
-
-        // Inventory client - for stock item operations
         $this->app->singleton(
             InventoryClientInterface::class,
             static fn(): InventoryClientInterface => LinnworksClientFactory::createInventoryClient(),
         );
-
-        // Inventory update client - for modifying stock items (SKU updates, etc.)
         $this->app->singleton(
             InventoryUpdateClientInterface::class,
             static fn(): InventoryUpdateClientInterface => LinnworksClientFactory::createInventoryUpdateClient(),
         );
-
-        // Stock dashboards client - for SQL queries including soft-deleted items
         $this->app->singleton(
             StockDashboardsClientInterface::class,
             static fn(): StockDashboardsClientInterface => LinnworksClientFactory::createStockDashboardsClient(),
         );
+    }
 
-        // Order dashboards client - for SQL queries bypassing v2 date limits
+    private function registerOrderClients(): void
+    {
         $this->app->singleton(
             OrderDashboardsClientInterface::class,
             static fn(): OrderDashboardsClientInterface => LinnworksClientFactory::createOrderDashboardsClient(),
         );
+        $this->app->singleton(
+            OrderClientInterface::class,
+            static fn(): OrderClientInterface => LinnworksClientFactory::createOrderClient(),
+        );
+    }
 
-        // Stock item repository - for persisting synced stock items
+    private function registerPurchaseOrderClients(): void
+    {
+        $this->app->singleton(
+            PurchaseOrderClientInterface::class,
+            static fn(): PurchaseOrderClientInterface => LinnworksClientFactory::createPurchaseOrderClient(),
+        );
+        $this->app->singleton(
+            PurchaseOrderUpdateClientInterface::class,
+            static fn(): PurchaseOrderUpdateClientInterface => LinnworksClientFactory::createPurchaseOrderUpdateClient(),
+        );
+        $this->app->singleton(
+            PurchaseDashboardsClientInterface::class,
+            static fn(): PurchaseDashboardsClientInterface => LinnworksClientFactory::createPurchaseDashboardsClient(),
+        );
+    }
+
+    private function registerStockRepositories(): void
+    {
         $this->app->singleton(
             StockItemRepositoryInterface::class,
             static fn(Container $app): StockItemRepositoryInterface => new EloquentStockItemRepository(
@@ -113,7 +143,6 @@ final class LinnworksServiceProvider extends ServiceProvider implements Deferrab
             ),
         );
 
-        // Supplier repository - for persisting synced supplier directory
         $this->app->singleton(
             SupplierRepositoryInterface::class,
             static fn(Container $app): SupplierRepositoryInterface => new EloquentSupplierRepository(
@@ -121,36 +150,10 @@ final class LinnworksServiceProvider extends ServiceProvider implements Deferrab
                 $app->make(EloquentGateway::class),
             ),
         );
+    }
 
-        // Order client - for fetching processed orders from v2 GetOrders API
-        $this->app->singleton(
-            OrderClientInterface::class,
-            static fn(): OrderClientInterface => LinnworksClientFactory::createOrderClient(),
-        );
-
-        // Purchase order clients - read/write split
-        $this->app->singleton(
-            PurchaseOrderClientInterface::class,
-            static fn(): PurchaseOrderClientInterface => LinnworksClientFactory::createPurchaseOrderClient(),
-        );
-
-        $this->app->singleton(
-            PurchaseOrderUpdateClientInterface::class,
-            static fn(): PurchaseOrderUpdateClientInterface => LinnworksClientFactory::createPurchaseOrderUpdateClient(),
-        );
-
-        // Purchase dashboards client - for SQL queries on purchase orders
-        $this->app->singleton(
-            PurchaseDashboardsClientInterface::class,
-            static fn(): PurchaseDashboardsClientInterface => LinnworksClientFactory::createPurchaseDashboardsClient(),
-        );
-
-        // Dispatchers
-        $this->app->singleton(LinnworksSyncDispatcherInterface::class, QueuedLinnworksSyncDispatcher::class);
-        $this->app->singleton(LinnworksBackfillDispatcherInterface::class, QueuedLinnworksBackfillDispatcher::class);
-        $this->app->singleton(PurchaseOrderBackfillDispatcherInterface::class, QueuedPurchaseOrderBackfillDispatcher::class);
-
-        // Order repository - for persisting synced processed orders
+    private function registerOrderRepositories(): void
+    {
         $this->app->singleton(
             LinnworksOrderRepositoryInterface::class,
             static fn(Container $app): LinnworksOrderRepositoryInterface => new EloquentLinnworksOrderRepository(
@@ -159,7 +162,6 @@ final class LinnworksServiceProvider extends ServiceProvider implements Deferrab
             ),
         );
 
-        // Purchase order sync repository - for persisting synced purchase orders
         $this->app->singleton(
             PurchaseOrderSyncRepositoryInterface::class,
             static fn(Container $app): PurchaseOrderSyncRepositoryInterface => new EloquentPurchaseOrderSyncRepository(
@@ -167,6 +169,13 @@ final class LinnworksServiceProvider extends ServiceProvider implements Deferrab
                 $app->make(EloquentGateway::class),
             ),
         );
+    }
+
+    private function registerDispatchers(): void
+    {
+        $this->app->singleton(LinnworksSyncDispatcherInterface::class, QueuedLinnworksSyncDispatcher::class);
+        $this->app->singleton(LinnworksBackfillDispatcherInterface::class, QueuedLinnworksBackfillDispatcher::class);
+        $this->app->singleton(PurchaseOrderBackfillDispatcherInterface::class, QueuedPurchaseOrderBackfillDispatcher::class);
     }
 
     /**

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Presentation\Console\Commands\Dev;
 
+use App\Application\Shopwired\PricingUpdate\Results\PriceUpdateResult;
 use App\Application\Shopwired\PricingUpdate\UseCases\UpdateProductPricesUseCase;
 use App\Domain\Catalog\Product\Commands\UpdatePriceCommand;
 use App\Domain\Catalog\Product\ValueObjects\SaleSettings;
@@ -35,71 +36,71 @@ final class TestPriceUpdateCommand extends Command
      */
     public function handle(UpdateProductPricesUseCase $useCase): int
     {
-        /** @var string $sku */
-        $sku = \config('shopwired.test_product.sku');
-        /** @var string $salePriceArg */
-        $salePriceArg = $this->argument('sale-price');
-        $salePrice = (float) $salePriceArg;
-
+        $salePrice = (float) $this->argument('sale-price');
         if ($salePrice <= 0) {
             $this->error('Sale price must be greater than 0.');
-
             return self::FAILURE;
         }
 
+        try {
+            $saleSettings = $this->buildSaleSettings();
+        } catch (DateMalformedStringException) {
+            $this->error('Invalid date format: ' . ($this->option('end-date') ?? '(null)') . ' (expected Y-m-d)');
+            return self::FAILURE;
+        }
+
+        /** @var string $sku */
+        $sku = \config('shopwired.test_product.sku');
+        $this->info("Updating SKU {$sku} → sale price £{$salePrice}");
+
+        return $this->executePriceUpdate($useCase, Sku::fromTrusted($sku), $salePrice, $saleSettings);
+    }
+
+    /**
+     * @throws DateMalformedStringException
+     */
+    private function buildSaleSettings(): SaleSettings
+    {
         /** @var string $reason */
         $reason = $this->option('reason');
         /** @var string|null $endDateStr */
         $endDateStr = $this->option('end-date');
 
-        try {
-            $endDate = $endDateStr !== null ? new DateTimeImmutable($endDateStr) : null;
-        } catch (DateMalformedStringException) {
-            $this->error("Invalid date format: {$endDateStr} (expected Y-m-d)");
-
-            return self::FAILURE;
-        }
-
-        $saleSettings = new SaleSettings(
+        return new SaleSettings(
             saleReason: $reason,
             saleStartDate: new DateTimeImmutable(),
-            saleEndDate: $endDate,
+            saleEndDate: $endDateStr !== null ? new DateTimeImmutable($endDateStr) : null,
         );
+    }
 
-        $this->info("Updating SKU {$sku} → sale price £{$salePriceArg}");
-
+    private function executePriceUpdate(UpdateProductPricesUseCase $useCase, Sku $sku, float $salePrice, SaleSettings $saleSettings): int
+    {
         try {
             $result = $useCase->execute(
-                skuUpdates: [
-                    new UpdatePriceCommand(
-                        sku: Sku::fromTrusted($sku),
-                        salePrice: Money::inclusive($salePrice),
-                    ),
-                ],
+                skuUpdates: [new UpdatePriceCommand(sku: $sku, salePrice: Money::inclusive($salePrice))],
                 saleSettings: $saleSettings,
             );
 
-            $this->info("Done — {$result->succeeded} succeeded, " . \count($result->skipped) . ' skipped');
-
-            if ($result->skipped !== []) {
-                foreach ($result->skipped as $skip) {
-                    $this->warn("  Skipped {$skip->sku->value}: {$skip->reason}");
-                }
-            }
-
-            if ($result->permanentFailures !== []) {
-                foreach ($result->permanentFailures as $failure) {
-                    $this->error("  Failed: {$failure->error}");
-                }
-
-                return self::FAILURE;
-            }
-
-            return self::SUCCESS;
+            return $this->displayPriceUpdateResult($result);
         } catch (Throwable $e) { // @ignoreException — dev tool: report failure to user
             $this->error("Failed: {$e->getMessage()}");
 
             return self::FAILURE;
         }
+    }
+
+    private function displayPriceUpdateResult(PriceUpdateResult $result): int
+    {
+        $this->info("Done — {$result->succeeded} succeeded, " . \count($result->skipped) . ' skipped');
+
+        foreach ($result->skipped as $skip) {
+            $this->warn("  Skipped {$skip->sku->value}: {$skip->reason}");
+        }
+
+        foreach ($result->permanentFailures as $failure) {
+            $this->error("  Failed: {$failure->error}");
+        }
+
+        return $result->permanentFailures !== [] ? self::FAILURE : self::SUCCESS;
     }
 }

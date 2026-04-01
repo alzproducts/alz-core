@@ -34,40 +34,49 @@ final class RowClassNotImportedOutsideQueriesRule implements Rule
     {
         $namespace = $scope->getNamespace();
 
-        // Only check files OUTSIDE Queries namespaces
         if ($namespace === null || \str_contains($namespace, '\\Queries')) {
             return [];
         }
 
+        return self::findRowImportViolations($node);
+    }
+
+    /**
+     * @return list<IdentifierRuleError>
+     */
+    private static function findRowImportViolations(Use_ $node): array
+    {
         $errors = [];
 
         foreach ($node->uses as $use) {
             $name = $use->name->toString();
 
-            if (! \str_starts_with($name, 'App\\Infrastructure\\')
-                || ! \str_contains($name, '\\Queries\\')
-            ) {
-                continue;
+            if (self::isQueriesRowClass($name)) {
+                $parts = \explode('\\', $name);
+                $errors[] = self::buildRowImportError($parts[\array_key_last($parts)]);
             }
-
-            $parts = \explode('\\', $name);
-            $className = $parts[\array_key_last($parts)];
-
-            if (! \str_ends_with($className, 'Row')) {
-                continue;
-            }
-
-            $errors[] = RuleErrorBuilder::message(
-                \sprintf(
-                    'Row class %s must not be imported outside its Queries namespace. '
-                    . 'Row DTOs are internal implementation details — use the Query\'s public API instead.',
-                    $className,
-                ),
-            )
-                ->identifier('alz.rowClassNotImportedOutsideQueries')
-                ->build();
         }
 
         return $errors;
+    }
+
+    private static function isQueriesRowClass(string $name): bool
+    {
+        return \str_starts_with($name, 'App\\Infrastructure\\')
+            && \str_contains($name, '\\Queries\\')
+            && \str_ends_with($name, 'Row');
+    }
+
+    private static function buildRowImportError(string $className): IdentifierRuleError
+    {
+        return RuleErrorBuilder::message(
+            \sprintf(
+                'Row class %s must not be imported outside its Queries namespace. '
+                . 'Row DTOs are internal implementation details — use the Query\'s public API instead.',
+                $className,
+            ),
+        )
+            ->identifier('alz.rowClassNotImportedOutsideQueries')
+            ->build();
     }
 }

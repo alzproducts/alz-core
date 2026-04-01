@@ -26,6 +26,12 @@ final class QueueObservabilityServiceProvider extends ServiceProvider
 {
     public function boot(): void
     {
+        $this->registerJobLogging();
+        $this->registerFailureCapture();
+    }
+
+    private function registerJobLogging(): void
+    {
         Queue::before(static function (JobProcessing $event): void {
             Log::info('Job starting', [
                 'job' => $event->job->resolveName(),
@@ -42,7 +48,10 @@ final class QueueObservabilityServiceProvider extends ServiceProvider
                 'connection' => $event->connectionName,
             ]);
         });
+    }
 
+    private function registerFailureCapture(): void
+    {
         Queue::failing(static function (JobFailed $event): void {
             Log::critical('Job failed permanently', [
                 'job' => $event->job->resolveName(),

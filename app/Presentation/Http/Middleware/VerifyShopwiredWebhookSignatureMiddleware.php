@@ -27,37 +27,57 @@ final class VerifyShopwiredWebhookSignatureMiddleware
      */
     public function handle(Request $request, Closure $next): Response
     {
-        $secret = \config('shopwired.webhook_secret');
-
-        if (! \is_string($secret) || $secret === '') {
-            Log::critical('ShopWired webhook secret not configured');
-
+        $secret = $this->resolveWebhookSecret();
+        if ($secret === null) {
             return new JsonResponse(['error' => 'Webhook secret not configured'], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
 
-        $body = $request->getContent();
-        $signature = $request->header('X-ShopWired-Signature');
+        $signatureError = $this->validateSignature($request, $secret);
+        if ($signatureError !== null) {
+            return $signatureError;
+        }
 
+        return $this->handleVerificationOrContinue($request, $next, $secret);
+    }
+
+    private function resolveWebhookSecret(): ?string
+    {
+        $secret = \config('shopwired.webhook_secret');
+        if (! \is_string($secret) || $secret === '') {
+            Log::critical('ShopWired webhook secret not configured');
+
+            return null;
+        }
+
+        return $secret;
+    }
+
+    private function validateSignature(Request $request, string $secret): ?JsonResponse
+    {
+        $signature = $request->header('X-ShopWired-Signature');
         if (! \is_string($signature) || $signature === '') {
-            Log::warning('ShopWired webhook missing signature header', [
-                'ip' => $request->ip(),
-            ]);
+            Log::warning('ShopWired webhook missing signature header', ['ip' => $request->ip()]);
 
             return new JsonResponse(['error' => 'Missing signature'], Response::HTTP_FORBIDDEN);
         }
 
-        $expectedSignature = \hash_hmac('sha256', $body, $secret);
-
+        $expectedSignature = \hash_hmac('sha256', $request->getContent(), $secret);
         if (! \hash_equals($expectedSignature, $signature)) {
-            Log::warning('ShopWired webhook signature mismatch', [
-                'ip' => $request->ip(),
-            ]);
+            Log::warning('ShopWired webhook signature mismatch', ['ip' => $request->ip()]);
 
             return new JsonResponse(['error' => 'Invalid signature'], Response::HTTP_FORBIDDEN);
         }
 
-        // Verification token handshake: ShopWired sends this when registering
-        // a new webhook to confirm the endpoint is valid.
+        return null;
+    }
+
+    /**
+     * Handle verification token handshake or pass to next middleware.
+     *
+     * @param Closure(Request): Response $next
+     */
+    private function handleVerificationOrContinue(Request $request, Closure $next, string $secret): Response
+    {
         /** @var mixed $verificationToken */
         $verificationToken = $request->input('verificationToken');
 
