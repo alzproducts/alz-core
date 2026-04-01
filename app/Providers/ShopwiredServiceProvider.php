@@ -223,6 +223,7 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
         $this->registerCustomFieldValueFactories();
         $this->registerCustomFieldFactories();
         $this->app->scoped(ProductFilterFactory::class);
+        $this->app->scoped(ProductSupplierFactory::class);
         $this->app->scoped(ProductVariationModelMapper::class);
         $this->app->scoped(ProductModelMapper::class);
         $this->app->scoped(ProductViewAssembler::class);
@@ -270,11 +271,6 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
                 $app->make(CustomFieldRepositoryInterface::class),
                 CustomFieldItemType::Brand,
             ));
-        $this->app->scoped(ProductFilterFactory::class);
-        $this->app->scoped(ProductSupplierFactory::class);
-        $this->app->scoped(ProductVariationModelMapper::class);
-        $this->app->scoped(ProductModelMapper::class);
-        $this->app->scoped(ProductViewAssembler::class);
     }
 
     private function registerWebhookServices(): void
