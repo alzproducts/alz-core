@@ -80,6 +80,7 @@ final readonly class ProductView
      * @param list<ProductFilter> $filters Typed filter values
      * @param SaleSettings|null $saleSettings Sale metadata (null = not loaded or no sale)
      * @param FreeDeliveryType|null $freeDelivery Free delivery tier (null = no designation)
+     * @param list<ProductSupplier>|null $suppliers Suppliers (null = not loaded)
      * @param int|null $sortOrder ShopWired sort order
      * @param DateTimeImmutable $createdAt ShopWired creation timestamp
      * @param DateTimeImmutable $updatedAt ShopWired last update timestamp
@@ -116,6 +117,8 @@ final readonly class ProductView
         public DateTimeImmutable $updatedAt,
         public ?SaleSettings $saleSettings = null,
         public ?FreeDeliveryType $freeDelivery = null,
+        /** @var list<ProductSupplier>|null */
+        public ?array $suppliers = null,
     ) {
         $taxType = $vatExclusive ? TaxType::ZeroRated : TaxType::Inclusive;
 

@@ -13,6 +13,7 @@ use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Inventory\Commands\AddInventoryItemCommand;
 use App\Domain\Inventory\ValueObjects\ExtendedPropertyWrite;
 use App\Domain\Inventory\ValueObjects\SupplierLinkParams;
+use App\Domain\Shared\Money\ValueObjects\Money;
 use App\Domain\ValueObjects\Guid;
 
 /**
@@ -135,4 +136,21 @@ interface InventoryUpdateClientInterface
      * @throws ExternalServiceUnavailableException When API unavailable
      */
     public function deleteInventoryItem(Sku|Guid $identifier): void;
+
+    /**
+     * Update purchase price for an existing supplier link on a stock item.
+     *
+     * Resolves supplier name → GUID internally via GetSuppliers API.
+     *
+     * @param Sku|Guid $identifier SKU (resolved internally) or stockItemId (used directly)
+     * @param string $supplierName Human-readable supplier name (resolved to GUID internally)
+     * @param Money $purchasePrice New purchase price (ex-VAT)
+     *
+     * @throws ResourceNotFoundException When stock item or supplier not found
+     * @throws InvalidApiRequestException When parameters invalid
+     * @throws InvalidApiResponseException When API response malformed
+     * @throws AuthenticationExpiredException When credentials invalid
+     * @throws ExternalServiceUnavailableException When API unavailable
+     */
+    public function updateSupplierPurchasePrice(Sku|Guid $identifier, string $supplierName, Money $purchasePrice): void;
 }

@@ -15,7 +15,9 @@ use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Inventory\Commands\AddInventoryItemCommand;
 use App\Domain\Inventory\Enums\LinnworksInventoryField;
 use App\Domain\Inventory\ValueObjects\ExtendedPropertyWrite;
+use App\Domain\Inventory\ValueObjects\Supplier;
 use App\Domain\Inventory\ValueObjects\SupplierLinkParams;
+use App\Domain\Shared\Money\ValueObjects\Money;
 use App\Domain\ValueObjects\Guid;
 use App\Infrastructure\Linnworks\Contracts\LinnworksTransportInterface;
 use Illuminate\Support\Str;
@@ -233,6 +235,59 @@ final readonly class InventoryUpdateClient implements InventoryUpdateClientInter
                 params: ['inventoryItemExtendedProperties' => $creates],
             );
         }
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @throws ResourceNotFoundException When stock item or supplier not found
+     * @throws InvalidApiRequestException When parameters invalid
+     * @throws InvalidApiResponseException When API response malformed
+     * @throws AuthenticationExpiredException When credentials invalid
+     * @throws ExternalServiceUnavailableException When API unavailable
+     */
+    public function updateSupplierPurchasePrice(Sku|Guid $identifier, string $supplierName, Money $purchasePrice): void
+    {
+        $stockItemId = $this->inventoryClient->resolveStockItemId($identifier);
+
+        $suppliers = $this->inventoryClient->getSuppliers();
+        $supplierGuid = $this->findSupplierGuidByName($suppliers, $supplierName);
+
+        $supplierStat = [
+            'StockItemId' => $stockItemId->value,
+            'SupplierID' => $supplierGuid->value,
+            'PurchasePrice' => $purchasePrice->toNet(),
+        ];
+
+        $this->transport->postFormParams(
+            endpoint: '/api/Inventory/UpdateStockSupplierStat',
+            params: ['itemSuppliers' => [$supplierStat]],
+        );
+    }
+
+    /**
+     * Find a supplier GUID by name from the master supplier list.
+     *
+     * @param list<Supplier> $suppliers
+     *
+     * @throws ResourceNotFoundException When supplier not found by name
+     */
+    private function findSupplierGuidByName(array $suppliers, string $supplierName): Guid
+    {
+        $supplier = \array_find(
+            $suppliers,
+            static fn(Supplier $s): bool => $s->supplierName === $supplierName,
+        );
+
+        if ($supplier === null) {
+            throw new ResourceNotFoundException(
+                serviceName: 'Linnworks',
+                resourceType: 'supplier',
+                resourceId: $supplierName,
+            );
+        }
+
+        return new Guid($supplier->pkSupplierId);
     }
 
     /**

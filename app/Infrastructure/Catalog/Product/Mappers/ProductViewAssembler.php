@@ -11,6 +11,7 @@ use App\Domain\Catalog\Filters\ValueObjects\ProductFilter;
 use App\Domain\Catalog\Product\Enums\FreeDeliveryType;
 use App\Domain\Catalog\Product\Enums\ProductInclude;
 use App\Domain\Catalog\Product\ValueObjects\ProductImage;
+use App\Domain\Catalog\Product\ValueObjects\ProductSupplier;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariationView;
 use App\Domain\Catalog\Product\ValueObjects\ProductView;
 use App\Domain\Catalog\Product\ValueObjects\SaleSettings;
@@ -19,6 +20,7 @@ use App\Domain\Exceptions\Data\MissingRequiredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\IntId;
+use App\Infrastructure\Catalog\Product\Factories\ProductSupplierFactory;
 use App\Infrastructure\Catalog\Product\Models\ProductVariationViewModel;
 use App\Infrastructure\Catalog\Product\Models\ProductViewModel;
 use App\Infrastructure\Shopwired\Factories\CustomFieldFactory;
@@ -38,6 +40,7 @@ final readonly class ProductViewAssembler
         private ProductFilterFactory $filterFactory,
         private ProductVariationModelMapper $variationMapper,
         private SaleSettingsRepositoryInterface $saleSettingsRepo,
+        private ProductSupplierFactory $supplierFactory,
     ) {}
 
     /**
@@ -91,6 +94,7 @@ final readonly class ProductViewAssembler
             updatedAt: $model->shopwired_updated_at->toDateTimeImmutable(),
             saleSettings: $this->resolveSaleSettings($model, $includes),
             freeDelivery: self::resolveFreeDelivery($typedCustomFields),
+            suppliers: $this->resolveSuppliers($model, $includes),
         );
     }
 
@@ -190,6 +194,30 @@ final readonly class ProductViewAssembler
     private static function findCustomFieldByName(array $customFields, string $name): ?AbstractCustomFieldValue
     {
         return \array_find($customFields, static fn(AbstractCustomFieldValue $cf): bool => $cf->name() === $name);
+    }
+
+    /**
+     * Conditionally load supplier data via the lazy-loaded factory.
+     *
+     * @param list<ProductInclude> $includes
+     *
+     * @return list<ProductSupplier>|null
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    private function resolveSuppliers(ProductViewModel $model, array $includes): ?array
+    {
+        if (! \in_array(ProductInclude::Suppliers, $includes, true)) {
+            return null;
+        }
+
+        if ($model->sku === null || $model->sku === '') {
+            return [];
+        }
+
+        return $this->supplierFactory->getByProductSku($model->sku);
     }
 
     /**
