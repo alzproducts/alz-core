@@ -14,6 +14,7 @@ use App\Application\Linnworks\UpdateCostPriceBySupplier\UpdateCostPriceBySupplie
 use App\Domain\Catalog\Product\Commands\UpdateCostPriceCommand;
 use App\Domain\Catalog\Product\ValueObjects\ProductSupplier;
 use App\Domain\Catalog\Product\ValueObjects\Sku;
+use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\ValidationFailedException;
 use App\Domain\Shared\Money\ValueObjects\Money;
@@ -238,6 +239,57 @@ final class UpdateCostPriceUseCaseTest extends TestCase
         $result = $this->useCase->execute('AcmeCo', $commands);
 
         self::assertInstanceOf(CostPriceUpdateResult::class, $result);
+    }
+
+    #[Test]
+    public function it_marks_all_resolved_as_failed_when_bulk_api_call_fails(): void
+    {
+        $sku1 = Sku::fromTrusted('SKU-001');
+        $sku2 = Sku::fromTrusted('SKU-002');
+        $supplier = new ProductSupplier(supplierName: 'AcmeCo', purchasePrice: 10.0, isDefault: true);
+        $supplierGuid = new Guid('00000000-0000-0000-0000-000000000001');
+
+        $commands = [
+            new UpdateCostPriceCommand(sku: $sku1, costPrice: Money::exclusive(10.50)),
+            new UpdateCostPriceCommand(sku: $sku2, costPrice: Money::exclusive(20.00)),
+        ];
+
+        $this->supplierLookup
+            ->shouldReceive('getByProductSku')
+            ->andReturn([$supplier]);
+
+        $this->inventoryClient
+            ->shouldReceive('resolveStockItemIds')
+            ->once()
+            ->andReturn([
+                'SKU-001' => new Guid('10000000-0000-0000-0000-000000000001'),
+                'SKU-002' => new Guid('10000000-0000-0000-0000-000000000002'),
+            ]);
+
+        $this->supplierGuidResolver
+            ->shouldReceive('resolve')
+            ->once()
+            ->andReturn($supplierGuid);
+
+        $this->inventoryUpdateClient
+            ->shouldReceive('updateBulkSupplierPurchasePrice')
+            ->once()
+            ->andThrow(new ExternalServiceUnavailableException('Linnworks'));
+
+        $this->logger
+            ->shouldReceive('warning')
+            ->once()
+            ->withArgs(static fn(string $msg): bool => \str_contains($msg, 'Bulk supplier price update API call failed'));
+
+        // Local DB should NOT be called — all items failed
+        $this->stockItemRepository->shouldNotReceive('bulkUpdateSupplierPurchasePrices');
+
+        $result = $this->useCase->execute('AcmeCo', $commands);
+
+        self::assertSame(2, $result->total);
+        self::assertSame(0, $result->succeeded);
+        self::assertCount(2, $result->failures);
+        self::assertStringContainsString('Linnworks API error:', $result->failures[0]->error);
     }
 
     #[Test]

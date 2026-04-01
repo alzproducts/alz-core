@@ -88,6 +88,21 @@ final readonly class CostPriceBySupplierTransformer
     }
 
     /**
+     * Convert resolved commands to failure results when the bulk API call fails.
+     *
+     * @param list<UpdateCostPriceCommand> $resolved Commands that were resolved but failed at API level
+     *
+     * @return list<FailedCostPriceUpdateResult>
+     */
+    public static function buildApiFailures(array $resolved, string $error): array
+    {
+        return \array_map(
+            static fn(UpdateCostPriceCommand $cmd): FailedCostPriceUpdateResult => new FailedCostPriceUpdateResult($cmd->sku, $error),
+            $resolved,
+        );
+    }
+
+    /**
      * Build a lookup set of failed SKU values for O(1) membership checks.
      *
      * @return array<string, true>

@@ -12,6 +12,7 @@ use App\Application\Contracts\Linnworks\StockItemRepositoryInterface;
 use App\Application\Linnworks\Resolvers\SupplierGuidResolver;
 use App\Domain\Catalog\Product\Commands\UpdateCostPriceCommand;
 use App\Domain\Catalog\Product\Validators\SkuSupplierLinkValidator;
+use App\Domain\Exceptions\Api\AbstractApiException;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
@@ -91,9 +92,25 @@ final readonly class UpdateCostPriceBySupplierUseCase
         }
 
         $supplierGuid = $this->supplierGuidResolver->resolve($supplierName);
-        $this->inventoryUpdateClient->updateBulkSupplierPurchasePrice($supplierGuid, CostPriceBySupplierTransformer::buildPriceMap($resolved, $skuToGuid));
+
+        try {
+            $this->inventoryUpdateClient->updateBulkSupplierPurchasePrice($supplierGuid, CostPriceBySupplierTransformer::buildPriceMap($resolved, $skuToGuid));
+        } catch (AbstractApiException $e) {
+            $this->logBulkApiFailure($supplierName, \count($resolved), $e);
+
+            return new CostPriceUpdateResult(\count($commands), 0, [...$failures, ...CostPriceBySupplierTransformer::buildApiFailures($resolved, 'Linnworks API error: ' . $e->getMessage())]);
+        }
 
         return new CostPriceUpdateResult(\count($commands), \count($resolved), $failures);
+    }
+
+    private function logBulkApiFailure(string $supplierName, int $resolvedCount, AbstractApiException $e): void
+    {
+        $this->logger->warning('Bulk supplier price update API call failed', [
+            'supplier' => $supplierName,
+            'resolved_count' => $resolvedCount,
+            'error' => $e->getMessage(),
+        ]);
     }
 
     /**
