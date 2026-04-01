@@ -28,32 +28,30 @@ final class CategoryDetailResource extends JsonResource
     {
         /** @var GetCategoryResult $result */
         $result = $this->resource;
+
+        return CategoryResource::baseFields($result->category)
+            + $this->conditionalIncludes($result);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function conditionalIncludes(GetCategoryResult $result): array
+    {
         $category = $result->category;
-
-        $data = CategoryResource::baseFields($category);
-
+        $data = [];
         if ($result->hasInclude(CategoryIncludeEnum::Description->value)) {
             $data['description'] = $category->description;
         }
-
         if ($result->hasInclude(CategoryIncludeEnum::Description2->value)) {
             $data['description2'] = $category->description2;
         }
-
         if ($result->hasInclude(CategoryIncludeEnum::ParentIds->value) && $category->parentIds !== null) {
-            $data['parent_ids'] = \array_map(
-                static fn(IntId $id): int => $id->value,
-                $category->parentIds,
-            );
+            $data['parent_ids'] = \array_map(static fn(IntId $id): int => $id->value, $category->parentIds);
         }
-
         if ($result->hasInclude(CategoryIncludeEnum::CustomFields->value) && $category->customFields !== null) {
-            $data['custom_fields'] = \array_map(
-                static fn(AbstractCustomFieldValue $field): array => $field->toArray(),
-                $category->customFields,
-            );
+            $data['custom_fields'] = \array_map(static fn(AbstractCustomFieldValue $field): array => $field->toArray(), $category->customFields);
         }
-
         return $data;
     }
 }

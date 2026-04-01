@@ -52,34 +52,66 @@ final class ShopwiredAuditOrderSyncCommand extends Command
         OrderClientInterface $orderClient,
         OrderRepositoryInterface $orderRepository,
     ): int {
-        $from = $this->parseDate($this->option('from'), (new DateTimeImmutable())->modify('-30 days'));
-        // Default to 6 hours ago to allow for sync lag (orders need time to propagate through the system)
-        $to = $this->parseDate($this->option('to'), (new DateTimeImmutable())->modify('-6 hours'));
-
+        [$from, $to] = $this->parseDateRange();
         $this->info("Auditing orders from {$from->format('Y-m-d')} to {$to->format('Y-m-d')}...");
 
-        $this->info('Fetching orders from ShopWired API...');
-        $apiOrders = $orderClient->listOrdersInRangeWithDetails($from, $to);
+        [$apiOrders, $apiOrderIds, $apiLineCount] = $this->fetchAndCountApi($orderClient, $from, $to);
+        [$dbOrderIds, $dbLineCount] = $this->fetchAndCountDb($orderRepository, $from, $to);
 
-        [$apiOrderIds, $apiOrderLineCount] = $this->extractApiCounts($apiOrders);
-
-        $this->info('Fetching orders from database...');
-        // Use unfiltered method for accurate raw comparison with API
-        $dbOrders = $orderRepository->getAllOrdersInDateRange($from, $to);
-
-        [$dbOrderIds, $dbOrderLineCount] = $this->extractDbCounts($dbOrders);
-
-        $this->displayComparisonTable($apiOrderIds, $apiOrderLineCount, $dbOrderIds, $dbOrderLineCount);
+        $this->displayComparisonTable($apiOrderIds, $apiLineCount, $dbOrderIds, $dbLineCount);
 
         $missingOrderIds = \array_diff($apiOrderIds, $dbOrderIds);
-
-        $this->displayMissingSummary($missingOrderIds, $apiOrderLineCount - $dbOrderLineCount);
+        $this->displayMissingSummary($missingOrderIds, $apiLineCount - $dbLineCount);
         $this->displayExtraSummary($dbOrderIds, $apiOrderIds);
         $this->displayMissingDetails($apiOrders, $missingOrderIds);
 
-        $hasDiscrepancy = $missingOrderIds !== [] || $apiOrderLineCount !== $dbOrderLineCount;
+        return ($missingOrderIds !== [] || $apiLineCount !== $dbLineCount) ? self::FAILURE : self::SUCCESS;
+    }
 
-        return $hasDiscrepancy ? self::FAILURE : self::SUCCESS;
+    /**
+     * @return array{DateTimeImmutable, DateTimeImmutable}
+     *
+     * @throws ValueError
+     */
+    private function parseDateRange(): array
+    {
+        $from = $this->parseDate($this->option('from'), (new DateTimeImmutable())->modify('-30 days'));
+        $to = $this->parseDate($this->option('to'), (new DateTimeImmutable())->modify('-6 hours'));
+
+        return [$from, $to];
+    }
+
+    /**
+     * @return array{list<Order>, list<int>, int}
+     *
+     * @throws AuthenticationExpiredException
+     * @throws ExternalServiceUnavailableException
+     * @throws InvalidApiRequestException
+     * @throws InvalidApiResponseException
+     * @throws ResourceNotAvailableException
+     * @throws ResourceNotFoundException
+     */
+    private function fetchAndCountApi(OrderClientInterface $client, DateTimeImmutable $from, DateTimeImmutable $to): array
+    {
+        $this->info('Fetching orders from ShopWired API...');
+        $orders = $client->listOrdersInRangeWithDetails($from, $to);
+        [$ids, $lineCount] = $this->extractApiCounts($orders);
+
+        return [$orders, $ids, $lineCount];
+    }
+
+    /**
+     * @return array{list<int>, int}
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws ExternalServiceUnavailableException
+     */
+    private function fetchAndCountDb(OrderRepositoryInterface $repository, DateTimeImmutable $from, DateTimeImmutable $to): array
+    {
+        $this->info('Fetching orders from database...');
+        $orders = $repository->getAllOrdersInDateRange($from, $to);
+
+        return $this->extractDbCounts($orders);
     }
 
     /**
@@ -225,25 +257,28 @@ final class ShopwiredAuditOrderSyncCommand extends Command
      */
     private function displayMissingDetails(array $apiOrders, array $missingOrderIds): void
     {
-        if (!$this->option('show-missing')) {
-            return;
-        }
-
-        if ($missingOrderIds === []) {
+        if (! $this->option('show-missing') || $missingOrderIds === []) {
             return;
         }
 
         $limit = (int) $this->option('limit');
-
         $this->newLine();
         $this->info('Missing Order IDs (first ' . $limit . '):');
+        $this->displayOrderLines($apiOrders, \array_slice($missingOrderIds, 0, $limit));
+    }
 
+    /**
+     * @param list<Order> $apiOrders
+     * @param array<int> $ids
+     */
+    private function displayOrderLines(array $apiOrders, array $ids): void
+    {
         $orderMap = [];
         foreach ($apiOrders as $order) {
             $orderMap[$order->id] = $order;
         }
 
-        foreach (\array_slice($missingOrderIds, 0, $limit) as $id) {
+        foreach ($ids as $id) {
             $order = $orderMap[$id] ?? null;
             if ($order !== null) {
                 $date = $order->orderPlacedAt->format('Y-m-d');

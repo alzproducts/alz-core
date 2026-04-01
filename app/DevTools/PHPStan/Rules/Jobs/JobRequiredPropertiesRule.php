@@ -7,6 +7,7 @@ namespace App\DevTools\PHPStan\Rules\Jobs;
 use PhpParser\Node;
 use PHPStan\Analyser\Scope;
 use PHPStan\Node\InClassNode;
+use PHPStan\Reflection\ClassReflection;
 use PHPStan\Rules\IdentifierRuleError;
 use PHPStan\Rules\Rule;
 use PHPStan\Rules\RuleErrorBuilder;
@@ -36,14 +37,25 @@ final class JobRequiredPropertiesRule implements Rule
     {
         $classReflection = $node->getClassReflection();
 
-        if (! $this->isJobClass($classReflection->getName())) {
+        if (! self::isConcreteJobClass($classReflection)) {
             return [];
         }
 
-        if ($classReflection->isAbstract() || $classReflection->isEnum()) {
-            return [];
-        }
+        return self::findMissingPropertyErrors($classReflection);
+    }
 
+    private static function isConcreteJobClass(ClassReflection $classReflection): bool
+    {
+        return \str_contains($classReflection->getName(), 'App\\Infrastructure\\Jobs\\')
+            && ! $classReflection->isAbstract()
+            && ! $classReflection->isEnum();
+    }
+
+    /**
+     * @return list<IdentifierRuleError>
+     */
+    private static function findMissingPropertyErrors(ClassReflection $classReflection): array
+    {
         $errors = [];
 
         foreach (self::REQUIRED_PROPERTIES as $property) {
@@ -57,10 +69,5 @@ final class JobRequiredPropertiesRule implements Rule
         }
 
         return $errors;
-    }
-
-    private function isJobClass(string $className): bool
-    {
-        return \str_contains($className, 'App\\Infrastructure\\Jobs\\');
     }
 }

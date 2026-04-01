@@ -32,18 +32,11 @@ final class RowDtoMustBeInternalRule implements Rule
      */
     public function processNode(Node $node, Scope $scope): array
     {
-        $classReflection = $node->getClassReflection();
-        $className = $classReflection->getName();
-
-        // Only check classes ending in 'Row' within Queries namespaces
-        if (\preg_match('/^App\\\\Infrastructure\\\\[^\\\\]+\\\\Queries\\\\.*Row$/', $className) !== 1) {
+        if (! self::isQueriesRowDto($node)) {
             return [];
         }
 
-        // Check the class docblock for @internal
-        $docComment = $node->getOriginalNode()->getDocComment();
-
-        if ($docComment !== null && \str_contains($docComment->getText(), '@internal')) {
+        if (self::hasInternalAnnotation($node)) {
             return [];
         }
 
@@ -54,5 +47,19 @@ final class RowDtoMustBeInternalRule implements Rule
                 ->identifier('alz.rowDtoMustBeInternal')
                 ->build(),
         ];
+    }
+
+    private static function isQueriesRowDto(InClassNode $node): bool
+    {
+        $className = $node->getClassReflection()->getName();
+
+        return \preg_match('/^App\\\\Infrastructure\\\\[^\\\\]+\\\\Queries\\\\.*Row$/', $className) === 1;
+    }
+
+    private static function hasInternalAnnotation(InClassNode $node): bool
+    {
+        $docComment = $node->getOriginalNode()->getDocComment();
+
+        return $docComment !== null && \str_contains($docComment->getText(), '@internal');
     }
 }

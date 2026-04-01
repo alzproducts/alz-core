@@ -36,39 +36,11 @@ final class ValidationResultMustUseTraitRule implements Rule
      */
     public function processNode(Node $node, Scope $scope): array
     {
-        $classReflection = $node->getClassReflection();
-        $className = $classReflection->getName();
-
-        // Fast path: only check Domain and Application layers
-        if (! \str_starts_with($className, 'App\\Domain\\') && ! \str_starts_with($className, 'App\\Application\\')) {
+        if (! self::isConcreteValidationResult($node)) {
             return [];
         }
 
-        // Skip abstract classes, interfaces, traits, and enums
-        if ($classReflection->isAbstract() || $classReflection->isInterface() || $classReflection->isEnum()) {
-            return [];
-        }
-
-        if ($classReflection->isTrait()) {
-            return [];
-        }
-
-        // Only check classes implementing the validation result interface
-        $nativeReflection = $classReflection->getNativeReflection();
-
-        if (! $nativeReflection->implementsInterface(DescribableValidationResultInterface::class)) {
-            return [];
-        }
-
-        $traitNames = $nativeReflection->getTraitNames();
-
-        // AggregatesChildResultsTrait includes ThrowsOnValidationFailureTrait,
-        // so either trait satisfies the requirement
-        if (\in_array(AggregatesChildResultsTrait::class, $traitNames, true)) {
-            return [];
-        }
-
-        if (\in_array(ThrowsOnValidationFailureTrait::class, $traitNames, true)) {
+        if (self::usesRequiredTrait($node)) {
             return [];
         }
 
@@ -80,5 +52,30 @@ final class ValidationResultMustUseTraitRule implements Rule
                 ->identifier('alz.validationResultMustUseTrait')
                 ->build(),
         ];
+    }
+
+    private static function isConcreteValidationResult(InClassNode $node): bool
+    {
+        $classReflection = $node->getClassReflection();
+        $className = $classReflection->getName();
+
+        if (! \str_starts_with($className, 'App\\Domain\\') && ! \str_starts_with($className, 'App\\Application\\')) {
+            return false;
+        }
+
+        if ($classReflection->isAbstract() || $classReflection->isInterface() || $classReflection->isEnum() || $classReflection->isTrait()) {
+            return false;
+        }
+
+        return $classReflection->getNativeReflection()
+            ->implementsInterface(DescribableValidationResultInterface::class);
+    }
+
+    private static function usesRequiredTrait(InClassNode $node): bool
+    {
+        $traitNames = $node->getClassReflection()->getNativeReflection()->getTraitNames();
+
+        return \in_array(AggregatesChildResultsTrait::class, $traitNames, true)
+            || \in_array(ThrowsOnValidationFailureTrait::class, $traitNames, true);
     }
 }

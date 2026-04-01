@@ -34,43 +34,50 @@ final class ExcessiveClassLengthRule implements Rule
      */
     public function processNode(Node $node, Scope $scope): array
     {
+        if (! self::isInAppNamespace($scope) || $node->name === null) {
+            return [];
+        }
+
+        $length = self::measureLength($node);
+
+        if ($length === null || $length <= self::THRESHOLD) {
+            return [];
+        }
+
+        return [self::buildError($node->name->name, $length)];
+    }
+
+    private static function isInAppNamespace(Scope $scope): bool
+    {
         $namespace = $scope->getNamespace();
 
-        if ($namespace === null || ! \str_starts_with($namespace, 'App\\')) {
-            return [];
-        }
+        return $namespace !== null && \str_starts_with($namespace, 'App\\');
+    }
 
-        if ($node->name === null) {
-            return [];
-        }
-
+    private static function measureLength(Class_ $node): ?int
+    {
         $startLine = $node->getStartLine();
         $endLine = $node->getEndLine();
 
         if ($startLine === -1 || $endLine === -1) {
-            return [];
+            return null;
         }
 
-        $length = $endLine - $startLine;
+        return $endLine - $startLine;
+    }
 
-        if ($length <= self::THRESHOLD) {
-            return [];
-        }
-
-        $className = $node->name->name;
-
-        return [
-            RuleErrorBuilder::message(
-                \sprintf(
-                    'Class %s is %d lines long — exceeds the %d-line limit. Consider decomposing into smaller, focused classes.',
-                    $className,
-                    $length,
-                    self::THRESHOLD,
-                ),
-            )
-                ->identifier('alz.excessiveClassLength')
-                ->tip('Check whether this class has multiple responsibilities. Look for groups of methods that operate on distinct subsets of dependencies — these are natural split points.')
-                ->build(),
-        ];
+    private static function buildError(string $className, int $length): IdentifierRuleError
+    {
+        return RuleErrorBuilder::message(
+            \sprintf(
+                'Class %s is %d lines long — exceeds the %d-line limit. Consider decomposing into smaller, focused classes.',
+                $className,
+                $length,
+                self::THRESHOLD,
+            ),
+        )
+            ->identifier('alz.excessiveClassLength')
+            ->tip('Check whether this class has multiple responsibilities. Look for groups of methods that operate on distinct subsets of dependencies — these are natural split points.')
+            ->build();
     }
 }

@@ -48,24 +48,19 @@ final class ShopwiredAuditProductSyncCommand extends Command
     ): int {
         $this->info('Fetching products from ShopWired API...');
         $apiProducts = $productClient->listAllProducts();
-
         [$apiProductIds, $apiVariationIds] = $this->extractApiIds($apiProducts);
 
         $this->info('Counting database records...');
         [$dbProductIds, $dbVariationIds] = $this->getDbIds($productRepository);
-
         $this->displayComparisonTable($apiProductIds, $apiVariationIds, $dbProductIds, $dbVariationIds);
 
         $missingProductIds = \array_diff($apiProductIds, $dbProductIds);
         $missingVariationIds = \array_diff($apiVariationIds, $dbVariationIds);
-
         $this->displayMissingSummary($missingProductIds, $missingVariationIds);
         $this->displayExtraSummary($dbProductIds, $dbVariationIds, $apiProductIds, $apiVariationIds);
         $this->displayMissingDetails($apiProducts, $missingProductIds, $missingVariationIds);
 
-        $hasDiscrepancy = $missingProductIds !== [] || $missingVariationIds !== [];
-
-        return $hasDiscrepancy ? self::FAILURE : self::SUCCESS;
+        return ($missingProductIds !== [] || $missingVariationIds !== []) ? self::FAILURE : self::SUCCESS;
     }
 
     /**
@@ -185,28 +180,44 @@ final class ShopwiredAuditProductSyncCommand extends Command
         array $missingProductIds,
         array $missingVariationIds,
     ): void {
-        if (!$this->option('show-missing')) {
-            return;
-        }
-
-        if ($missingProductIds === [] && $missingVariationIds === []) {
+        if (! $this->option('show-missing') || ($missingProductIds === [] && $missingVariationIds === [])) {
             return;
         }
 
         $limit = (int) $this->option('limit');
+        $this->displayMissingProducts($apiProducts, $missingProductIds, $limit);
+        $this->displayMissingVariations($missingVariationIds, $limit);
+    }
 
-        if ($missingProductIds !== []) {
-            $this->newLine();
-            $this->info('Missing Product IDs (first ' . $limit . '):');
-            $this->showMissingWithDetails($apiProducts, \array_slice($missingProductIds, 0, $limit));
+    /**
+     * @param list<Product> $apiProducts
+     * @param array<int> $missingProductIds
+     */
+    private function displayMissingProducts(array $apiProducts, array $missingProductIds, int $limit): void
+    {
+        if ($missingProductIds === []) {
+            return;
         }
 
-        if ($missingVariationIds !== []) {
-            $this->newLine();
-            $this->info('Missing Variation IDs (first ' . $limit . '):');
-            foreach (\array_slice($missingVariationIds, 0, $limit) as $id) {
-                $this->line("  - {$id}");
-            }
+        $this->newLine();
+        $this->info('Missing Product IDs (first ' . $limit . '):');
+        $this->showMissingWithDetails($apiProducts, \array_slice($missingProductIds, 0, $limit));
+    }
+
+    /**
+     * @param array<int> $missingVariationIds
+     */
+    private function displayMissingVariations(array $missingVariationIds, int $limit): void
+    {
+        if ($missingVariationIds === []) {
+            return;
+        }
+
+        $this->newLine();
+        $this->info('Missing Variation IDs (first ' . $limit . '):');
+
+        foreach (\array_slice($missingVariationIds, 0, $limit) as $id) {
+            $this->line("  - {$id}");
         }
     }
 

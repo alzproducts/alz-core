@@ -43,6 +43,14 @@ final class NoCatchReturnEmptyRule implements Rule
             return [];
         }
 
+        return self::findEmptyReturnErrors($node);
+    }
+
+    /**
+     * @return list<IdentifierRuleError>
+     */
+    private static function findEmptyReturnErrors(TryCatch $node): array
+    {
         $errors = [];
 
         foreach ($node->catches as $catch) {

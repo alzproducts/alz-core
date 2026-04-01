@@ -33,8 +33,12 @@ final class RlsDatabaseServiceProvider extends ServiceProvider
 {
     public function boot(): void
     {
-        // Guard: pgsql_rls ALWAYS requires user context - secure by default
-        // No console bypass: queue workers must explicitly set context or use different connection
+        $this->registerRlsGuard();
+        $this->registerAdminSafetyReset();
+    }
+
+    private function registerRlsGuard(): void
+    {
         DB::connection('pgsql_rls')->beforeExecuting(static function (
             string $query,
             array $bindings,
@@ -51,17 +55,15 @@ final class RlsDatabaseServiceProvider extends ServiceProvider
                 );
             }
         });
+    }
 
-        // Safety: pgsql_admin clears any stale RLS claims from previous Octane requests
-        // Uses raw PDO to avoid triggering beforeExecuting recursion
-        // IMPORTANT: No static caching - must run every query to handle Octane request boundaries
+    private function registerAdminSafetyReset(): void
+    {
         DB::connection('pgsql_admin')->beforeExecuting(static function (
             string $query,
             array $bindings,
             Connection $connection,
         ): void {
-            // Use raw PDO to avoid recursion (statement() would trigger beforeExecuting again)
-            // set_config is very fast - no need to optimize with request-scoped caching
             $connection->getPdo()->exec("SELECT set_config('request.jwt.claims', '{}', false)");
         });
     }

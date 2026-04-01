@@ -62,7 +62,6 @@ final class InternalApiExceptionMapper
     private static function statusCode(Throwable $e): int
     {
         return match (true) {
-            // Domain exceptions (specific before catchall — order matters for inheritance)
             $e instanceof ValidationFailedException => Response::HTTP_UNPROCESSABLE_ENTITY,
             $e instanceof InvalidSkuException => Response::HTTP_UNPROCESSABLE_ENTITY,
             $e instanceof ResourceNotFoundException => Response::HTTP_NOT_FOUND,
@@ -71,15 +70,11 @@ final class InternalApiExceptionMapper
             $e instanceof LockAcquisitionException => Response::HTTP_SERVICE_UNAVAILABLE,
             $e instanceof PermanentApiFailure => Response::HTTP_BAD_GATEWAY,
             $e instanceof DomainException => Response::HTTP_INTERNAL_SERVER_ERROR,
-
-            // Laravel / Spatie / Symfony exceptions
             $e instanceof CannotCreateData => Response::HTTP_UNPROCESSABLE_ENTITY,
             $e instanceof ValidationException => Response::HTTP_UNPROCESSABLE_ENTITY,
             $e instanceof NotFoundHttpException => Response::HTTP_NOT_FOUND,
             $e instanceof MethodNotAllowedHttpException => Response::HTTP_METHOD_NOT_ALLOWED,
             $e instanceof HttpException => $e->getStatusCode(),
-
-            // Catchall
             default => Response::HTTP_INTERNAL_SERVER_ERROR,
         };
     }
@@ -114,34 +109,33 @@ final class InternalApiExceptionMapper
      */
     private static function message(Throwable $e, int $status): string
     {
-        // Fixed safe messages for infrastructure/upstream failures
-        if ($e instanceof TransientApiFailure || $e instanceof LockAcquisitionException) {
-            return 'The service is temporarily unavailable. Please try again shortly.';
+        $fixedMessage = self::fixedSafeMessage($e);
+        if ($fixedMessage !== null) {
+            return $fixedMessage;
         }
 
-        if ($e instanceof PermanentApiFailure && ! $e instanceof ResourceNotFoundException) {
-            return 'An upstream service encountered an error.';
-        }
-
-        if ($e instanceof DuplicateRecordException) {
-            return 'A conflicting record already exists.';
-        }
-
-        if ($e instanceof CannotCreateData) {
-            return 'The request data could not be processed.';
-        }
-
-        // Domain and HTTP exceptions expose their message directly
         if ($e instanceof DomainException || $e instanceof HttpException || $e instanceof ValidationException) {
             return $e->getMessage();
         }
 
-        // Generic fallback for unrecognised exceptions — never leak internals
-        if ($status >= Response::HTTP_INTERNAL_SERVER_ERROR) {
-            return 'An unexpected error occurred.';
-        }
+        return $status >= Response::HTTP_INTERNAL_SERVER_ERROR
+            ? 'An unexpected error occurred.'
+            : $e->getMessage();
+    }
 
-        return $e->getMessage();
+    /**
+     * Fixed safe messages for infrastructure failures — never leaks internals.
+     */
+    private static function fixedSafeMessage(Throwable $e): ?string
+    {
+        return match (true) {
+            $e instanceof TransientApiFailure,
+            $e instanceof LockAcquisitionException => 'The service is temporarily unavailable. Please try again shortly.',
+            $e instanceof PermanentApiFailure && ! $e instanceof ResourceNotFoundException => 'An upstream service encountered an error.',
+            $e instanceof DuplicateRecordException => 'A conflicting record already exists.',
+            $e instanceof CannotCreateData => 'The request data could not be processed.',
+            default => null,
+        };
     }
 
     /**

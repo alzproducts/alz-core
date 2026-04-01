@@ -43,43 +43,56 @@ final class UpdateSkusCommand extends Command
      */
     public function handle(ProcessSkuUpdatesUseCase $dispatchUseCase): int
     {
-        /** @var list<string> $mappings */
-        $mappings = $this->argument('mappings');
-        $reasonString = (string) $this->option('reason');
+        $commands = $this->validateAndParseMappings();
+        if ($commands === null) {
+            return self::FAILURE;
+        }
+
         $dryRun = $this->option('dry-run');
-
-        if ($mappings === []) {
-            $this->error('At least one SKU mapping is required');
-            $this->line('Format: old_sku:new_sku or old_sku:generate');
-
-            return self::FAILURE;
-        }
-
-        $reason = $this->parseReason($reasonString);
-
-        if ($reason === null) {
-            return self::FAILURE;
-        }
-
-        [$commands, $errors] = $this->parseMappings($mappings, $reason);
-
-        if ($errors !== []) {
-            $this->displayErrors($errors);
-
-            return self::FAILURE;
-        }
-
         $this->displaySummary($commands, $dryRun);
 
-        if ($dryRun) {
-            $this->newLine();
-            $this->warn('No jobs dispatched (dry run). Remove --dry-run to execute.');
+        return $dryRun ? $this->displayDryRunNotice() : $this->dispatchSkuJobs($dispatchUseCase, $commands);
+    }
 
-            return self::SUCCESS;
+    /**
+     * @return list<UpdateSkuCommand>|null Null on validation failure
+     *
+     * @throws TypeError
+     */
+    private function validateAndParseMappings(): ?array
+    {
+        /** @var list<string> $mappings */
+        $mappings = $this->argument('mappings');
+        if ($mappings === []) {
+            $this->error('At least one SKU mapping is required. Format: old_sku:new_sku or old_sku:generate');
+            return null;
         }
+        $reason = $this->parseReason((string) $this->option('reason'));
+        if ($reason === null) {
+            return null;
+        }
+        [$commands, $errors] = $this->parseMappings($mappings, $reason);
+        if ($errors !== []) {
+            $this->displayErrors($errors);
+            return null;
+        }
+        return $commands;
+    }
 
+    private function displayDryRunNotice(): int
+    {
+        $this->newLine();
+        $this->warn('No jobs dispatched (dry run). Remove --dry-run to execute.');
+
+        return self::SUCCESS;
+    }
+
+    /**
+     * @param list<UpdateSkuCommand> $commands
+     */
+    private function dispatchSkuJobs(ProcessSkuUpdatesUseCase $dispatchUseCase, array $commands): int
+    {
         $dispatched = $dispatchUseCase->execute($commands);
-
         $this->newLine();
         $this->info('✓ ' . $dispatched . ' job(s) dispatched.');
         $this->line('  Jobs are serialized - they will execute one at a time.');
@@ -178,16 +191,17 @@ final class UpdateSkusCommand extends Command
             return "'{$mapping}' - old SKU cannot be empty";
         }
 
-        // Handle auto-generate
         if (\mb_strtolower($newSkuOrGenerate) === 'generate') {
             return UpdateSkuCommand::generated($oldSku, $reason);
         }
 
-        // Handle provided SKU
-        try {
-            $newSku = Sku::fromString($newSkuOrGenerate);
+        return self::parseProvidedSku($mapping, $oldSku, $newSkuOrGenerate, $reason);
+    }
 
-            return UpdateSkuCommand::provided($oldSku, $newSku, $reason);
+    private static function parseProvidedSku(string $mapping, string $oldSku, string $newSkuString, SkuUpdateReason $reason): UpdateSkuCommand|string
+    {
+        try {
+            return UpdateSkuCommand::provided($oldSku, Sku::fromString($newSkuString), $reason);
         } catch (InvalidSkuException $e) {
             $ctx = $e->context();
             $detail = $ctx !== [] ? ' — ' . \json_encode($ctx) : '';

@@ -41,13 +41,21 @@ final class GoogleAdsServiceProvider extends ServiceProvider implements Deferrab
     #[Override]
     public function register(): void
     {
-        // Singleton binding for GoogleAdsClientInterface (used by VerifyApiConnectivityCommand)
+        $this->registerClient();
+        $this->registerAdSpendBinding();
+        $this->registerLookupTableBinding();
+    }
+
+    private function registerClient(): void
+    {
         $this->app->singleton(
             GoogleAdsClientInterface::class,
             static fn(): GoogleAdsClientInterface => GoogleAdsClientFactory::create(),
         );
+    }
 
-        // Contextual binding: SyncGoogleAdsToMixpanelJob gets SyncAdSpendUseCase with Google client
+    private function registerAdSpendBinding(): void
+    {
         $this->app->when(SyncGoogleAdsToMixpanelJob::class)
             ->needs(SyncAdSpendUseCase::class)
             ->give(
@@ -60,8 +68,10 @@ final class GoogleAdsServiceProvider extends ServiceProvider implements Deferrab
                     $app->make(LoggerInterface::class),
                 ),
             );
+    }
 
-        // Contextual binding: SyncCampaignLookupTableJob gets SyncLookupTableUseCase with CampaignLookupTableProvider
+    private function registerLookupTableBinding(): void
+    {
         $this->app->when(SyncCampaignLookupTableJob::class)
             ->needs(SyncLookupTableUseCase::class)
             ->give(

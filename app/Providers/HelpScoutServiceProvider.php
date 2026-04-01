@@ -46,27 +46,33 @@ final class HelpScoutServiceProvider extends ServiceProvider implements Deferrab
     #[Override]
     public function register(): void
     {
+        $this->registerClients();
+        $this->registerSystemUserId();
+        $this->registerUseCases();
+    }
+
+    private function registerClients(): void
+    {
         $this->app->singleton(
             ConversationsClientInterface::class,
             static fn(): ConversationsClientInterface => HelpScoutClientFactory::createConversationsClient(),
         );
-
         $this->app->singleton(
             MailboxesClientInterface::class,
             static fn(): MailboxesClientInterface => HelpScoutClientFactory::createMailboxesClient(),
         );
-
         $this->app->singleton(
             AgentsClientInterface::class,
             static fn(): AgentsClientInterface => HelpScoutClientFactory::createUsersClient(),
         );
-
         $this->app->singleton(
             ConnectivityClientInterface::class,
             static fn(): ConnectivityClientInterface => HelpScoutClientFactory::createConnectivityClient(),
         );
+    }
 
-        // System user ID for automated HelpScout actions (notes, etc.)
+    private function registerSystemUserId(): void
+    {
         $this->app->singleton(
             HelpScoutSystemUserId::class,
             static function (): HelpScoutSystemUserId {
@@ -82,7 +88,10 @@ final class HelpScoutServiceProvider extends ServiceProvider implements Deferrab
                 return new HelpScoutSystemUserId(IntId::from($userId));
             },
         );
+    }
 
+    private function registerUseCases(): void
+    {
         $this->app->bind(
             GetEscalationsUseCase::class,
             static fn(Application $app): GetEscalationsUseCase => new GetEscalationsUseCase(
@@ -92,7 +101,6 @@ final class HelpScoutServiceProvider extends ServiceProvider implements Deferrab
             ),
         );
 
-        // Contextual binding: CachingHelpScoutService gets HelpScout-specific email aliases
         $this->app->when(CachingHelpScoutService::class)
             ->needs(EmailAliasResolver::class)
             ->give(static function (): EmailAliasResolver {

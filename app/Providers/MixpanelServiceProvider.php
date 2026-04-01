@@ -45,21 +45,23 @@ final class MixpanelServiceProvider extends ServiceProvider implements Deferrabl
     #[Override]
     public function register(): void
     {
+        $this->registerCoreServices();
+        $this->registerOrderSync();
+        $this->registerOrderLookupTableBinding();
+        $this->registerProductLookupTableBinding();
+    }
+
+    private function registerCoreServices(): void
+    {
         $this->app->singleton(MixpanelSyncDispatcherInterface::class, QueuedMixpanelSyncDispatcher::class);
-
         $this->app->singleton(MixpanelConfig::class, static fn(): MixpanelConfig => MixpanelClientFactory::createConfig());
-
         $this->app->singleton(MixpanelClientInterface::class, static fn(): MixpanelClientInterface => MixpanelClientFactory::create());
+    }
 
+    private function registerOrderSync(): void
+    {
         $this->app->singleton(SyncOrdersToMixpanelUseCase::class, function (): SyncOrdersToMixpanelUseCase {
-            $analyticsSalt = \config('mixpanel.analytics_salt');
-
-            if (!\is_string($analyticsSalt) || $analyticsSalt === '') {
-                throw new RuntimeException(
-                    'ANALYTICS_SALT environment variable is required for Mixpanel order sync. '
-                    . 'This salt must match the frontend for order_id_hashed deduplication.',
-                );
-            }
+            $analyticsSalt = self::resolveAnalyticsSalt();
 
             return new SyncOrdersToMixpanelUseCase(
                 orderRepository: $this->app->make(OrderRepositoryInterface::class),
@@ -70,8 +72,24 @@ final class MixpanelServiceProvider extends ServiceProvider implements Deferrabl
                 logger: $this->app->make(LoggerInterface::class),
             );
         });
+    }
 
-        // Contextual binding: SyncOrderLookupTableJob gets SyncLookupTableUseCase with OrderLookupTableProvider
+    private static function resolveAnalyticsSalt(): string
+    {
+        $analyticsSalt = \config('mixpanel.analytics_salt');
+
+        if (! \is_string($analyticsSalt) || $analyticsSalt === '') {
+            throw new RuntimeException(
+                'ANALYTICS_SALT environment variable is required for Mixpanel order sync. '
+                . 'This salt must match the frontend for order_id_hashed deduplication.',
+            );
+        }
+
+        return $analyticsSalt;
+    }
+
+    private function registerOrderLookupTableBinding(): void
+    {
         $this->app->when(SyncOrderLookupTableJob::class)
             ->needs(SyncLookupTableUseCase::class)
             ->give(
@@ -87,8 +105,10 @@ final class MixpanelServiceProvider extends ServiceProvider implements Deferrabl
                     $app->make(LoggerInterface::class),
                 ),
             );
+    }
 
-        // Contextual binding: SyncProductLookupTableJob gets SyncLookupTableUseCase with ProductLookupTableProvider
+    private function registerProductLookupTableBinding(): void
+    {
         $this->app->when(SyncProductLookupTableJob::class)
             ->needs(SyncLookupTableUseCase::class)
             ->give(

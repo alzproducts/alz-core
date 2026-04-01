@@ -34,7 +34,13 @@ final class CacheServiceProvider extends ServiceProvider implements DeferrablePr
     #[Override]
     public function register(): void
     {
-        // Default binding (generic serviceName)
+        $this->registerDefaultCache();
+        $this->registerContextualCaches();
+        $this->registerLockManager();
+    }
+
+    private function registerDefaultCache(): void
+    {
         $this->app->singleton(
             LockableCacheInterface::class,
             static fn(Application $app): LockableCacheInterface => new LockableCache(
@@ -42,8 +48,10 @@ final class CacheServiceProvider extends ServiceProvider implements DeferrablePr
                 logger: $app->make(LoggerInterface::class),
             ),
         );
+    }
 
-        // Contextual: BingAds gets "bingads" serviceName for logging
+    private function registerContextualCaches(): void
+    {
         $this->app->when(BingAdsSessionManager::class)
             ->needs(LockableCacheInterface::class)
             ->give(static fn(Application $app): LockableCacheInterface => new LockableCache(
@@ -52,7 +60,6 @@ final class CacheServiceProvider extends ServiceProvider implements DeferrablePr
                 serviceName: 'bingads',
             ));
 
-        // Contextual: Linnworks gets "linnworks" serviceName for logging
         $this->app->when(LinnworksSessionManager::class)
             ->needs(LockableCacheInterface::class)
             ->give(static fn(Application $app): LockableCacheInterface => new LockableCache(
@@ -60,8 +67,10 @@ final class CacheServiceProvider extends ServiceProvider implements DeferrablePr
                 logger: $app->make(LoggerInterface::class),
                 serviceName: 'linnworks',
             ));
+    }
 
-        // LockManagerInterface: strict locking for critical operations (no graceful degradation)
+    private function registerLockManager(): void
+    {
         $this->app->singleton(
             LockManagerInterface::class,
             static fn(Application $app): LockManagerInterface => new CacheLockManager(

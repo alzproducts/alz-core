@@ -33,28 +33,9 @@ final class VerifyApiConnectivityCommand extends Command
 
     public function handle(): int
     {
-        /** @var string $client Required argument, guaranteed by Laravel */
+        /** @var string $client */
         $client = $this->argument('client');
-
-        $results = match ($client) {
-            'reviewsio' => ['reviewsio' => $this->verifyReviewsIo()],
-            'mixpanel' => ['mixpanel' => $this->verifyMixpanel()],
-            'googleads' => ['googleads' => $this->verifyGoogleAds()],
-            'bingads' => ['bingads' => $this->verifyBingAds()],
-            'shopwired' => ['shopwired' => $this->verifyShopwired()],
-            'linnworks' => ['linnworks' => $this->verifyLinnworks()],
-            'helpscout' => ['helpscout' => $this->verifyHelpScout()],
-            'all' => [
-                'reviewsio' => $this->verifyReviewsIo(),
-                'mixpanel' => $this->verifyMixpanel(),
-                'googleads' => $this->verifyGoogleAds(),
-                'bingads' => $this->verifyBingAds(),
-                'shopwired' => $this->verifyShopwired(),
-                'linnworks' => $this->verifyLinnworks(),
-                'helpscout' => $this->verifyHelpScout(),
-            ],
-            default => null,
-        };
+        $results = $this->resolveVerifications($client);
 
         if ($results === null) {
             $this->error("Unknown client: {$client}");
@@ -63,6 +44,48 @@ final class VerifyApiConnectivityCommand extends Command
             return self::FAILURE;
         }
 
+        return $this->displayResults($results);
+    }
+
+    /**
+     * @return array<string, bool>|null
+     */
+    private function resolveVerifications(string $client): ?array
+    {
+        return match ($client) {
+            'reviewsio' => ['reviewsio' => $this->verifyReviewsIo()],
+            'mixpanel' => ['mixpanel' => $this->verifyMixpanel()],
+            'googleads' => ['googleads' => $this->verifyGoogleAds()],
+            'bingads' => ['bingads' => $this->verifyBingAds()],
+            'shopwired' => ['shopwired' => $this->verifyShopwired()],
+            'linnworks' => ['linnworks' => $this->verifyLinnworks()],
+            'helpscout' => ['helpscout' => $this->verifyHelpScout()],
+            'all' => $this->verifyAll(),
+            default => null,
+        };
+    }
+
+    /**
+     * @return array<string, bool>
+     */
+    private function verifyAll(): array
+    {
+        return [
+            'reviewsio' => $this->verifyReviewsIo(),
+            'mixpanel' => $this->verifyMixpanel(),
+            'googleads' => $this->verifyGoogleAds(),
+            'bingads' => $this->verifyBingAds(),
+            'shopwired' => $this->verifyShopwired(),
+            'linnworks' => $this->verifyLinnworks(),
+            'helpscout' => $this->verifyHelpScout(),
+        ];
+    }
+
+    /**
+     * @param array<string, bool> $results
+     */
+    private function displayResults(array $results): int
+    {
         $this->newLine();
         $failed = \array_filter($results, static fn(bool $success): bool => ! $success);
 
@@ -142,24 +165,15 @@ final class VerifyApiConnectivityCommand extends Command
         $this->info('Verifying Google Ads...');
 
         try {
-            $client = \app(GoogleAdsClientInterface::class);
-            $client->verifyConnectivity();
-
+            \app(GoogleAdsClientInterface::class)->verifyConnectivity();
             $this->line('  Authentication: OK');
             $this->line('  API Response: Valid');
 
             return true;
         } catch (AuthenticationExpiredException $e) {
-            $this->error('  Authorization Failed: ' . self::formatError($e));
-            $this->line('  Check: Developer token access level in Google Ads API Center');
-            $this->line('  Hint: Apply for Basic or Standard access at ads.google.com/aw/apicenter');
-
-            return false;
+            return $this->displayAuthFailure($e, 'Developer token access level in Google Ads API Center');
         } catch (Throwable $e) { // @ignoreException - connectivity test: report failure to user
-            $this->error('  Failed: ' . self::formatError($e));
-            $this->line('  Check: Google Ads OAuth credentials and refresh token');
-
-            return false;
+            return $this->displayConnectivityFailure($e, 'Google Ads OAuth credentials and refresh token');
         }
     }
 
@@ -168,23 +182,15 @@ final class VerifyApiConnectivityCommand extends Command
         $this->info('Verifying Bing Ads...');
 
         try {
-            $client = \app(BingAdsClientInterface::class);
-            $client->verifyConnectivity();
-
+            \app(BingAdsClientInterface::class)->verifyConnectivity();
             $this->line('  Authentication: OK');
             $this->line('  Currency: GBP ✓');
 
             return true;
         } catch (AuthenticationExpiredException $e) {
-            $this->error('  Authorization Failed: ' . self::formatError($e));
-            $this->line('  Check: Azure AD app permissions and OAuth credentials');
-
-            return false;
+            return $this->displayAuthFailure($e, 'Azure AD app permissions and OAuth credentials');
         } catch (Throwable $e) { // @ignoreException - connectivity test: report failure to user
-            $this->error('  Failed: ' . self::formatError($e));
-            $this->line('  Check: BING_ADS_* credentials in .env');
-
-            return false;
+            return $this->displayConnectivityFailure($e, 'BING_ADS_* credentials in .env');
         }
     }
 
@@ -233,23 +239,31 @@ final class VerifyApiConnectivityCommand extends Command
         $this->info('Verifying HelpScout...');
 
         try {
-            $client = \app(HelpScoutConnectivityClient::class);
-            $client->verifyConnectivity();
-
+            \app(HelpScoutConnectivityClient::class)->verifyConnectivity();
             $this->line('  Authentication: OK');
             $this->line('  API Response: Valid');
 
             return true;
         } catch (AuthenticationExpiredException $e) {
-            $this->error('  Authorization Failed: ' . self::formatError($e));
-            $this->line('  Check: HELPSCOUT_APP_ID and HELPSCOUT_APP_SECRET in .env');
-
-            return false;
+            return $this->displayAuthFailure($e, 'HELPSCOUT_APP_ID and HELPSCOUT_APP_SECRET in .env');
         } catch (Throwable $e) { // @ignoreException - connectivity test: report failure to user
-            $this->error('  Failed: ' . self::formatError($e));
-            $this->line('  Check: HELPSCOUT_APP_ID and HELPSCOUT_APP_SECRET in .env');
-
-            return false;
+            return $this->displayConnectivityFailure($e, 'HELPSCOUT_APP_ID and HELPSCOUT_APP_SECRET in .env');
         }
+    }
+
+    private function displayAuthFailure(AuthenticationExpiredException $e, string $hint): false
+    {
+        $this->error('  Authorization Failed: ' . self::formatError($e));
+        $this->line("  Check: {$hint}");
+
+        return false;
+    }
+
+    private function displayConnectivityFailure(Throwable $e, string $hint): false
+    {
+        $this->error('  Failed: ' . self::formatError($e));
+        $this->line("  Check: {$hint}");
+
+        return false;
     }
 }

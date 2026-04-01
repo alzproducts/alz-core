@@ -55,17 +55,52 @@ final class TestShopwiredCostPriceCommand extends Command
         /** @var string $sku */
         $sku = $this->argument('sku');
         $productId = (int) $this->option('product-id');
-        $value = (float) $this->option('value');
 
+        $variation = $this->findVariation($syncService, $productId, $sku);
+
+        if ($variation === null) {
+            return self::FAILURE;
+        }
+
+        $this->sendCostPriceUpdate($updateClient, $variation, (float) $this->option('value'));
+
+        return self::SUCCESS;
+    }
+
+    /**
+     * @throws AuthenticationExpiredException
+     * @throws ExternalServiceUnavailableException
+     * @throws InvalidApiRequestException
+     * @throws InvalidApiResponseException
+     * @throws ResourceNotAvailableException
+     * @throws ResourceNotFoundException
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     */
+    private function findVariation(ProductSyncService $syncService, int $productId, string $sku): ?ProductVariation
+    {
         $product = $syncService->refreshById($productId);
         $variation = \array_find($product->variations ?? [], static fn(ProductVariation $v) => $v->sku === $sku);
 
         if ($variation === null) {
             $this->error("Variation with SKU '{$sku}' not found on product {$productId}");
-
-            return self::FAILURE;
         }
 
+        return $variation;
+    }
+
+    /**
+     * @throws AuthenticationExpiredException
+     * @throws ExternalServiceUnavailableException
+     * @throws InvalidApiRequestException
+     * @throws InvalidApiResponseException
+     * @throws ResourceNotAvailableException
+     * @throws ResourceNotFoundException
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     */
+    private function sendCostPriceUpdate(BasicProductUpdateClientInterface $updateClient, ProductVariation $variation, float $value): void
+    {
         $money = Money::exclusive($value);
         $this->warn("Sending: costPrice = {$value} (Money::exclusive) → gross: {$money->toGross()} (variation ID: {$variation->id})");
 
@@ -76,7 +111,5 @@ final class TestShopwiredCostPriceCommand extends Command
         ));
 
         $this->info('Update sent — check ShopWired UI and pail logs.');
-
-        return self::SUCCESS;
     }
 }
