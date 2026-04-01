@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Infrastructure\Linnworks\Repositories;
 
 use App\Application\Contracts\Linnworks\StockItemRepositoryInterface;
+use App\Domain\Catalog\Product\ValueObjects\Sku;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
@@ -138,6 +139,33 @@ final class EloquentStockItemRepository extends AbstractEloquentRepository imple
             }
 
             return $result;
+        });
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @throws DatabaseOperationFailedException On query failure
+     * @throws DuplicateRecordException On constraint violation
+     * @throws ExternalServiceUnavailableException When database temporarily unavailable
+     */
+    public function updateSupplierPurchasePrice(Sku $sku, string $supplierName, float $purchasePrice): void
+    {
+        $this->eloquentGateway->query(static function () use ($sku, $supplierName, $purchasePrice): void {
+            $sql = <<<'SQL'
+                UPDATE linnworks.stock_item_suppliers s
+                SET purchase_price = ?, updated_at = NOW()
+                FROM linnworks.stock_items si
+                WHERE s.stock_item_id = si.stock_item_id
+                    AND si.item_number = ?
+                    AND s.supplier_name = ?
+                SQL;
+
+            StockItemModel::query()->getConnection()->statement($sql, [
+                $purchasePrice,
+                $sku->value,
+                $supplierName,
+            ]);
         });
     }
 

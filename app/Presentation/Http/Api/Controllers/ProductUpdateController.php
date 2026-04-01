@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Presentation\Http\Api\Controllers;
 
+use App\Application\Catalog\UseCases\UpdateCostPriceUseCase;
 use App\Application\Catalog\UseCases\UpdateProductCustomFieldsUseCase;
 use App\Application\Catalog\UseCases\UpdateProductFieldsUseCase;
 use App\Application\Shopwired\PricingUpdate\Results\FailedPriceUpdateResult;
@@ -20,10 +21,12 @@ use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Api\ResourceNotAvailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Domain\Exceptions\Data\InvalidSkuException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\Exceptions\ValidationFailedException;
 use App\Domain\ValueObjects\IntId;
+use App\Presentation\Http\Api\DTOs\UpdateCostPriceRequestDTO;
 use App\Presentation\Http\Api\DTOs\UpdateCustomFieldsRequestDTO;
 use App\Presentation\Http\Api\DTOs\UpdateProductFieldsRequestDTO;
 use App\Presentation\Http\Requests\SetFreeDeliveryRequest;
@@ -45,6 +48,7 @@ final readonly class ProductUpdateController
         private UpdateProductPricesUseCase $priceUseCase,
         private UpdateProductCustomFieldsUseCase $customFieldsUseCase,
         private UpdateProductFieldsUseCase $fieldsUseCase,
+        private UpdateCostPriceUseCase $costPriceUseCase,
     ) {}
 
     /**
@@ -165,6 +169,28 @@ final readonly class ProductUpdateController
             productId: IntId::from($productId),
             rawFields: $data->custom_fields,
         );
+
+        return new JsonResponse(null, Response::HTTP_NO_CONTENT);
+    }
+
+    /**
+     * Update cost price for a product's supplier in Linnworks.
+     *
+     * Updates both the Linnworks supplier purchase price via API and the
+     * local database immediately. Invalid supplier name returns 404.
+     *
+     * @throws InvalidSkuException When the SKU format is invalid
+     * @throws ResourceNotFoundException When stock item or supplier not found (404)
+     * @throws InvalidApiRequestException When parameters invalid (400)
+     * @throws InvalidApiResponseException When API response malformed
+     * @throws AuthenticationExpiredException When credentials invalid
+     * @throws ExternalServiceUnavailableException When API unavailable
+     * @throws DatabaseOperationFailedException On local DB query failure
+     * @throws DuplicateRecordException On local DB constraint violation
+     */
+    public function updateCostPrice(string $sku, UpdateCostPriceRequestDTO $data): JsonResponse
+    {
+        $this->costPriceUseCase->execute($data->toCommand($sku));
 
         return new JsonResponse(null, Response::HTTP_NO_CONTENT);
     }

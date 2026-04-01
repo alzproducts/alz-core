@@ -8,6 +8,7 @@ use App\Application\Catalog\UseCases\GetProductResult;
 use App\Domain\Catalog\CustomFields\ValueObjects\AbstractCustomFieldValue;
 use App\Domain\Catalog\Filters\ValueObjects\ProductFilter;
 use App\Domain\Catalog\Product\Enums\ProductInclude;
+use App\Domain\Catalog\Product\ValueObjects\ProductSupplier;
 use App\Domain\ValueObjects\IntId;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -64,6 +65,13 @@ final class ProductDetailResource extends JsonResource
 
         if ($result->hasInclude(ProductInclude::SaleSettings) && $product->saleSettings !== null) {
             $data['sale_settings'] = $product->saleSettings->toArray();
+        }
+
+        if ($result->hasInclude(ProductInclude::Suppliers) && $product->suppliers !== null) {
+            $data['suppliers'] = \array_map(
+                static fn(ProductSupplier $s): array => $s->toArray(),
+                $product->suppliers,
+            );
         }
 
         return $data;
