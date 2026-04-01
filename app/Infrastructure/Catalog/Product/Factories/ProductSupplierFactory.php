@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Catalog\Product\Factories;
 
+use App\Application\Contracts\Catalog\ProductSupplierLookupInterface;
 use App\Application\Contracts\DatabaseGatewayInterface;
 use App\Domain\Catalog\Product\ValueObjects\ProductSupplier;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
@@ -19,7 +20,7 @@ use App\Infrastructure\Linnworks\Models\StockItemModel;
  *
  * **Lifecycle**: Register with `scoped()` — fresh instance per request/job (Octane isolation).
  */
-final class ProductSupplierFactory
+final class ProductSupplierFactory implements ProductSupplierLookupInterface
 {
     /** @var array<string, list<ProductSupplier>>|null SKU → suppliers map, null = not loaded */
     private ?array $suppliersBySku = null;

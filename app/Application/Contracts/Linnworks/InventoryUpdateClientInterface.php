@@ -138,19 +138,19 @@ interface InventoryUpdateClientInterface
     public function deleteInventoryItem(Sku|Guid $identifier): void;
 
     /**
-     * Update purchase price for an existing supplier link on a stock item.
+     * Bulk update supplier purchase prices for pre-resolved stock items.
      *
-     * Resolves supplier name → GUID internally via GetSuppliers API.
+     * Thin wrapper over the UpdateStockSupplierStat Linnworks API endpoint.
+     * All identifiers must be pre-resolved (no SKU→GUID or name→GUID lookups).
      *
-     * @param Sku|Guid $identifier SKU (resolved internally) or stockItemId (used directly)
-     * @param string $supplierName Human-readable supplier name (resolved to GUID internally)
-     * @param Money $purchasePrice New purchase price (ex-VAT)
+     * @param Guid $supplierGuid Pre-resolved supplier GUID
+     * @param array<string, Money> $stockItemPrices Map of stockItemId GUID string → purchase price (ex-VAT)
      *
-     * @throws ResourceNotFoundException When stock item or supplier not found
+     * @throws ResourceNotFoundException When resource not found
      * @throws InvalidApiRequestException When parameters invalid
      * @throws InvalidApiResponseException When API response malformed
      * @throws AuthenticationExpiredException When credentials invalid
      * @throws ExternalServiceUnavailableException When API unavailable
      */
-    public function updateSupplierPurchasePrice(Sku|Guid $identifier, string $supplierName, Money $purchasePrice): void;
+    public function updateBulkSupplierPurchasePrice(Guid $supplierGuid, array $stockItemPrices): void;
 }

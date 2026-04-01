@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Application\Contracts\Linnworks;
 
 use App\Application\Contracts\RepositoryWriteInterface;
-use App\Domain\Catalog\Product\ValueObjects\Sku;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
@@ -37,14 +36,16 @@ interface StockItemRepositoryInterface extends RepositoryWriteInterface
     public function getCostPricesBySku(): array;
 
     /**
-     * Update the purchase price for a specific supplier on a stock item.
+     * Bulk update supplier purchase prices for multiple SKUs.
      *
-     * Matches by SKU and supplier name. If no row is found (local DB out of sync),
-     * the update silently no-ops — callers should handle this case if needed.
+     * Matches by SKU and supplier name via a single SQL statement.
+     * SKUs not found locally are silently skipped (local DB may be out of sync).
+     *
+     * @param array<string, float> $purchasePricesBySku SKU → net purchase price
      *
      * @throws DatabaseOperationFailedException On query failure
      * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      */
-    public function updateSupplierPurchasePrice(Sku $sku, string $supplierName, float $purchasePrice): void;
+    public function bulkUpdateSupplierPurchasePrices(string $supplierName, array $purchasePricesBySku): void;
 }
