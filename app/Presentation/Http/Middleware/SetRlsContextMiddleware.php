@@ -46,26 +46,31 @@ final class SetRlsContextMiddleware
     public function handle(Request $request, Closure $next): Response
     {
         $authenticatedUser = $request->attributes->get('authenticated_user');
+        $claims = $this->buildRlsClaims($authenticatedUser);
 
-        if ($authenticatedUser instanceof AuthenticatedUser) {
-            // Set Laravel Context for guard verification
-            Context::add('rls_user_id', $authenticatedUser->id);
-
-            // Set PostgreSQL session variable for RLS policies
-            // The 'sub' claim matches what Supabase RLS policies expect
-            $claims = \json_encode(['sub' => $authenticatedUser->id], JSON_THROW_ON_ERROR);
-        } else {
-            // Clear stale claims from previous Octane request (defense in depth)
-            // This prevents unauthenticated requests from seeing previous user's data
-            $claims = '{}';
-        }
-
-        // Always set claims to ensure clean state for this request
         DB::connection('pgsql_rls')->statement(
             "SELECT set_config('request.jwt.claims', ?, false)",
             [$claims],
         );
 
         return $next($request);
+    }
+
+    /**
+     * Build JSON claims for RLS. Sets user ID for authenticated requests,
+     * empty claims for unauthenticated (clears stale Octane state).
+     *
+     * @throws JsonException If JWT claims cannot be encoded
+     * @throws RuntimeException If Context facade fails
+     */
+    private function buildRlsClaims(mixed $authenticatedUser): string
+    {
+        if ($authenticatedUser instanceof AuthenticatedUser) {
+            Context::add('rls_user_id', $authenticatedUser->id);
+
+            return \json_encode(['sub' => $authenticatedUser->id], JSON_THROW_ON_ERROR);
+        }
+
+        return '{}';
     }
 }

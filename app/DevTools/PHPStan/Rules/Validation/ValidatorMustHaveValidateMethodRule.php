@@ -32,25 +32,11 @@ final class ValidatorMustHaveValidateMethodRule implements Rule
      */
     public function processNode(Node $node, Scope $scope): array
     {
-        $classReflection = $node->getClassReflection();
-        $className = $classReflection->getName();
-
-        // Fast path: only check classes in Validators/ namespaces
-        if (! \str_contains($className, '\\Validators\\')) {
+        if (! self::isConcreteValidator($node)) {
             return [];
         }
 
-        // Only check classes ending with Validator
-        if (! \str_ends_with($className, 'Validator')) {
-            return [];
-        }
-
-        // Skip abstract classes, enums, and interfaces
-        if ($classReflection->isAbstract() || $classReflection->isEnum() || $classReflection->isInterface()) {
-            return [];
-        }
-
-        if ($classReflection->hasNativeMethod('validate')) {
+        if ($node->getClassReflection()->hasNativeMethod('validate')) {
             return [];
         }
 
@@ -61,5 +47,17 @@ final class ValidatorMustHaveValidateMethodRule implements Rule
                 ->identifier('alz.validatorMustHaveValidateMethod')
                 ->build(),
         ];
+    }
+
+    private static function isConcreteValidator(InClassNode $node): bool
+    {
+        $classReflection = $node->getClassReflection();
+        $className = $classReflection->getName();
+
+        if (! \str_contains($className, '\\Validators\\') || ! \str_ends_with($className, 'Validator')) {
+            return false;
+        }
+
+        return ! $classReflection->isAbstract() && ! $classReflection->isEnum() && ! $classReflection->isInterface();
     }
 }

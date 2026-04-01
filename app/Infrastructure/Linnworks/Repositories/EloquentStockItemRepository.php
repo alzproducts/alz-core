@@ -141,6 +141,54 @@ final class EloquentStockItemRepository extends AbstractEloquentRepository imple
         });
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * @throws DatabaseOperationFailedException On query failure
+     * @throws DuplicateRecordException On constraint violation
+     * @throws ExternalServiceUnavailableException When database temporarily unavailable
+     */
+    public function bulkUpdateSupplierPurchasePrices(string $supplierName, array $purchasePricesBySku): void
+    {
+        if ($purchasePricesBySku === []) {
+            return;
+        }
+
+        $this->eloquentGateway->query(static function () use ($supplierName, $purchasePricesBySku): void {
+            [$values, $bindings] = self::buildBulkPriceBindings($purchasePricesBySku);
+            $bindings[] = $supplierName;
+            $sql = <<<SQL
+                UPDATE linnworks.stock_item_suppliers s
+                SET purchase_price = v.price, updated_at = NOW()
+                FROM (VALUES {$values}) AS v(item_number, price)
+                JOIN linnworks.stock_items si ON si.item_number = v.item_number
+                WHERE s.stock_item_id = si.stock_item_id
+                    AND s.supplier_name = ?
+                SQL;
+
+            StockItemModel::query()->getConnection()->statement($sql, $bindings);
+        });
+    }
+
+    /**
+     * @param array<string, float> $purchasePricesBySku
+     *
+     * @return array{string, list<string|float>}
+     */
+    private static function buildBulkPriceBindings(array $purchasePricesBySku): array
+    {
+        $placeholders = [];
+        $bindings = [];
+
+        foreach ($purchasePricesBySku as $skuValue => $price) {
+            $placeholders[] = '(?, ?)';
+            $bindings[] = $skuValue;
+            $bindings[] = $price;
+        }
+
+        return [\implode(', ', $placeholders), $bindings];
+    }
+
     protected function getModelClass(): string
     {
         return StockItemModel::class;

@@ -43,21 +43,30 @@ abstract class AbstractProcessHook implements PrePushHook
         $process->setTimeout($this->getTimeout());
         $process->run();
 
-        if (! $process->isSuccessful()) {
-            $this->command->error($this->getFailureMessage());
-            $this->command->line($process->getOutput());
-
-            $errorOutput = $process->getErrorOutput();
-            if ($errorOutput !== '') {
-                $this->command->line($errorOutput);
-            }
-
-            throw new HookFailException($hookName . ' failed.');
-        }
-
+        $this->ensureProcessSucceeded($process, $hookName);
         $this->command->info('✓ ' . $this->getSuccessMessage());
 
         return $next($log);
+    }
+
+    /**
+     * @throws HookFailException When the hook command fails
+     */
+    private function ensureProcessSucceeded(Process $process, string $hookName): void
+    {
+        if ($process->isSuccessful()) {
+            return;
+        }
+
+        $this->command->error($this->getFailureMessage());
+        $this->command->line($process->getOutput());
+
+        $errorOutput = $process->getErrorOutput();
+        if ($errorOutput !== '') {
+            $this->command->line($errorOutput);
+        }
+
+        throw new HookFailException($hookName . ' failed.');
     }
 
     /**

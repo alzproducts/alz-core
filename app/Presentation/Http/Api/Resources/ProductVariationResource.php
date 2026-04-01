@@ -23,7 +23,6 @@ final class ProductVariationResource extends JsonResource
     {
         /** @var ProductVariationView $variation */
         $variation = $this->resource;
-
         return [
             'id' => $variation->id->value,
             'sku' => $variation->sku?->value,
@@ -37,10 +36,7 @@ final class ProductVariationResource extends JsonResource
             'stock' => $variation->stock,
             'weight' => $variation->weight?->value,
             'image_index' => $variation->imageIndex,
-            'options' => \array_map(
-                static fn(ProductVariationOption $opt): array => $opt->toArray(),
-                $variation->options,
-            ),
+            'options' => \array_map(static fn(ProductVariationOption $opt): array => $opt->toArray(), $variation->options),
         ];
     }
 }

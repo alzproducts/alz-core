@@ -36,33 +36,11 @@ final class NoEventListenOutsideEventServiceProviderRule implements Rule
      */
     public function processNode(Node $node, Scope $scope): array
     {
-        if (! $node->class instanceof Name) {
+        if (! self::isEventListenCall($node, $scope->getFile())) {
             return [];
         }
 
-        if ($node->class->getLast() !== 'Event') {
-            return [];
-        }
-
-        if (! $node->name instanceof Node\Identifier || $node->name->toString() !== 'listen') {
-            return [];
-        }
-
-        if (! self::isEventFacade($node->class, $scope->getFile())) {
-            return [];
-        }
-
-        $namespace = $scope->getNamespace();
-        if ($namespace === null || ! \str_starts_with($namespace, 'App\\Providers')) {
-            return [];
-        }
-
-        if (! $scope->isInClass()) {
-            return [];
-        }
-
-        $className = $scope->getClassReflection()->getName();
-        if ($className === 'App\\Providers\\EventServiceProvider') {
+        if (! self::isNonEventServiceProvider($scope)) {
             return [];
         }
 
@@ -74,6 +52,34 @@ final class NoEventListenOutsideEventServiceProviderRule implements Rule
                 ->identifier('alz.noEventListenOutsideEventServiceProvider')
                 ->build(),
         ];
+    }
+
+    private static function isEventListenCall(StaticCall $node, string $filePath): bool
+    {
+        if (! $node->class instanceof Name || $node->class->getLast() !== 'Event') {
+            return false;
+        }
+
+        if (! $node->name instanceof Node\Identifier || $node->name->toString() !== 'listen') {
+            return false;
+        }
+
+        return self::isEventFacade($node->class, $filePath);
+    }
+
+    private static function isNonEventServiceProvider(Scope $scope): bool
+    {
+        $namespace = $scope->getNamespace();
+
+        if ($namespace === null || ! \str_starts_with($namespace, 'App\\Providers')) {
+            return false;
+        }
+
+        if (! $scope->isInClass()) {
+            return false;
+        }
+
+        return $scope->getClassReflection()->getName() !== 'App\\Providers\\EventServiceProvider';
     }
 
     private static function isEventFacade(Name $name, string $filePath): bool

@@ -146,6 +146,7 @@ Route::middleware([ValidateSupabaseJwtMiddleware::class, EnsureUserApprovedMiddl
         Route::put('products/{productId}/prices', [ProductUpdateController::class, 'updatePrices'])
             ->whereNumber('productId');
         Route::post('products/free-delivery', [ProductUpdateController::class, 'updateFreeDelivery']);
+        Route::put('products/cost-prices', [ProductUpdateController::class, 'updateCostPrices']);
 
         // Category endpoints
         Route::get('categories', [CategoryController::class, 'index']);

@@ -27,23 +27,26 @@ final class StorageServiceProvider extends ServiceProvider implements Deferrable
     {
         $this->app->singleton(
             RemoteStorageInterface::class,
-            static function (Application $app): RemoteStorageInterface {
-                /** @var mixed $disk */
-                $disk = \config('filesystems.remote');
+            static fn(Application $app): RemoteStorageInterface => self::createStorageClient($app),
+        );
+    }
 
-                if (!\is_string($disk) || ($disk === '')) {
-                    throw new InvalidConfigurationException(
-                        'filesystems.remote',
-                        'Remote storage disk not configured',
-                    );
-                }
+    private static function createStorageClient(Application $app): RemoteStorageInterface
+    {
+        /** @var mixed $disk */
+        $disk = \config('filesystems.remote');
 
-                return new S3StorageClient(
-                    disk: $disk,
-                    filesystemFactory: $app->make(FilesystemFactory::class),
-                    logger: $app->make(LoggerInterface::class),
-                );
-            },
+        if (! \is_string($disk) || ($disk === '')) {
+            throw new InvalidConfigurationException(
+                'filesystems.remote',
+                'Remote storage disk not configured',
+            );
+        }
+
+        return new S3StorageClient(
+            disk: $disk,
+            filesystemFactory: $app->make(FilesystemFactory::class),
+            logger: $app->make(LoggerInterface::class),
         );
     }
 

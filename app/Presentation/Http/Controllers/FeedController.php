@@ -34,34 +34,33 @@ final readonly class FeedController
      */
     public function show(string $prefix, string $guid): RedirectResponse
     {
-        // Find feed config matching both prefix and GUID
         $feedConfig = self::findFeedConfig($prefix, $guid);
-
         if ($feedConfig === null) {
             throw new NotFoundHttpException('Feed not found');
         }
 
-        /** @var string $storageDisk */
-        $storageDisk = $feedConfig['storage_disk'];
+        return $this->redirectToSignedUrl($feedConfig);
+    }
 
-        /** @var string $storagePath */
-        $storagePath = $feedConfig['storage_path'];
+    /**
+     * @param array{storage_disk: string, storage_path: string, signed_url_expiry_minutes?: int} $feedConfig
+     *
+     * @throws NotFoundHttpException When feed file doesn't exist on disk
+     * @throws RuntimeException When storage driver doesn't support temporary URLs
+     */
+    private function redirectToSignedUrl(array $feedConfig): RedirectResponse
+    {
+        $disk = $this->filesystemManager->disk($feedConfig['storage_disk']);
 
-        $disk = $this->filesystemManager->disk($storageDisk);
-
-        if (!$disk->exists($storagePath)) {
+        if (!$disk->exists($feedConfig['storage_path'])) {
             throw new NotFoundHttpException('Feed not yet generated');
         }
 
-        // Generate temporary signed URL (24 hours default)
         /** @var int $expiryMinutes */
         $expiryMinutes = $feedConfig['signed_url_expiry_minutes'] ?? 1440;
 
         // @phpstan-ignore staticMethod.dynamicCall (FilesystemAdapter has temporaryUrl but contract doesn't declare it)
-        $signedUrl = $disk->temporaryUrl(
-            $storagePath,
-            \now()->addMinutes($expiryMinutes),
-        );
+        $signedUrl = $disk->temporaryUrl($feedConfig['storage_path'], \now()->addMinutes($expiryMinutes));
 
         return new RedirectResponse($signedUrl);
     }
@@ -80,25 +79,34 @@ final readonly class FeedController
             if (!\is_array($feed)) {
                 continue;
             }
-
-            $configPrefix = $feed['public_prefix'] ?? null;
-            $configGuid = $feed['public_guid'] ?? null;
-
-            if (($configPrefix === $prefix) && ($configGuid === $guid)) {
-                // Validate required keys exist
-                if (!isset($feed['storage_disk'], $feed['storage_path'])) {
-                    continue;
-                }
-
-                /** @var array{storage_disk: string, storage_path: string, signed_url_expiry_minutes?: int} */
-                return [
-                    'storage_disk' => $feed['storage_disk'],
-                    'storage_path' => $feed['storage_path'],
-                    'signed_url_expiry_minutes' => $feed['signed_url_expiry_minutes'] ?? null,
-                ];
+            $matched = self::matchFeedConfig($feed, $prefix, $guid);
+            if ($matched !== null) {
+                return $matched;
             }
         }
 
         return null;
+    }
+
+    /**
+     * @param array<mixed, mixed> $feed
+     *
+     * @return array{storage_disk: string, storage_path: string, signed_url_expiry_minutes?: int}|null
+     */
+    private static function matchFeedConfig(array $feed, string $prefix, string $guid): ?array
+    {
+        if (($feed['public_prefix'] ?? null) !== $prefix || ($feed['public_guid'] ?? null) !== $guid) {
+            return null;
+        }
+        if (!isset($feed['storage_disk'], $feed['storage_path'])) {
+            return null;
+        }
+
+        /** @var array{storage_disk: string, storage_path: string, signed_url_expiry_minutes?: int} */
+        return [
+            'storage_disk' => $feed['storage_disk'],
+            'storage_path' => $feed['storage_path'],
+            'signed_url_expiry_minutes' => $feed['signed_url_expiry_minutes'] ?? null,
+        ];
     }
 }

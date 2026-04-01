@@ -35,36 +35,49 @@ final class SetProductFreeDeliveryCommand extends Command
     {
         /** @var list<string> $identifiers */
         $identifiers = $this->argument('identifiers');
-        $typeString = (string) $this->option('type');
-        $dryRun = $this->option('dry-run');
-
         if ($identifiers === []) {
             $this->error('At least one identifier is required');
-
             return self::FAILURE;
         }
 
         try {
-            $type = FreeDeliveryType::fromString($typeString);
+            $type = FreeDeliveryType::fromString((string) $this->option('type'));
         } catch (ValueError) {
-            $this->error("Invalid type: {$typeString}");
-            $this->line('Valid types: ' . \implode(', ', \array_column(FreeDeliveryType::cases(), 'value')));
-
+            $this->displayInvalidTypeError();
             return self::FAILURE;
         }
 
+        return $this->buildAndExecute($dispatchUseCase, $identifiers, $type);
+    }
+
+    private function displayInvalidTypeError(): void
+    {
+        $this->error('Invalid type: ' . (string) $this->option('type'));
+        $this->line('Valid types: ' . \implode(', ', \array_column(FreeDeliveryType::cases(), 'value')));
+    }
+
+    /**
+     * @param list<string> $identifiers
+     */
+    private function buildAndExecute(DispatchProductFreeDeliveryJobsUseCase $dispatchUseCase, array $identifiers, FreeDeliveryType $type): int
+    {
         $commands = \array_map(
             static fn(string $id): SetFreeDeliveryCommand => self::parseIdentifier($id, $type),
             $identifiers,
         );
 
+        return $this->executeOrDryRun($dispatchUseCase, $commands, $type);
+    }
+
+    /**
+     * @param list<SetFreeDeliveryCommand> $commands
+     */
+    private function executeOrDryRun(DispatchProductFreeDeliveryJobsUseCase $dispatchUseCase, array $commands, FreeDeliveryType $type): int
+    {
+        $dryRun = $this->option('dry-run');
         $this->info($dryRun ? 'DRY RUN - Would dispatch:' : 'Dispatching jobs...');
         $this->newLine();
-
-        $this->table(
-            ['Items', 'Type'],
-            [[\count($commands), $type->value]],
-        );
+        $this->table(['Items', 'Type'], [[\count($commands), $type->value]]);
 
         if ($dryRun) {
             $this->newLine();
@@ -74,7 +87,6 @@ final class SetProductFreeDeliveryCommand extends Command
         }
 
         $dispatchUseCase->execute($commands);
-
         $this->newLine();
         $this->info('✓ ' . \count($commands) . ' job(s) dispatched.');
         $this->line('  Monitor progress: php artisan horizon');

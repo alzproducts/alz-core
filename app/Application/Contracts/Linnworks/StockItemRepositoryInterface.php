@@ -34,4 +34,18 @@ interface StockItemRepositoryInterface extends RepositoryWriteInterface
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      */
     public function getCostPricesBySku(): array;
+
+    /**
+     * Bulk update supplier purchase prices for multiple SKUs.
+     *
+     * Matches by SKU and supplier name via a single SQL statement.
+     * SKUs not found locally are silently skipped (local DB may be out of sync).
+     *
+     * @param array<string, float> $purchasePricesBySku SKU → net purchase price
+     *
+     * @throws DatabaseOperationFailedException On query failure
+     * @throws DuplicateRecordException On constraint violation
+     * @throws ExternalServiceUnavailableException When database temporarily unavailable
+     */
+    public function bulkUpdateSupplierPurchasePrices(string $supplierName, array $purchasePricesBySku): void;
 }

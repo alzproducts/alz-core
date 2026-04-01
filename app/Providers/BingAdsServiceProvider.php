@@ -46,7 +46,13 @@ final class BingAdsServiceProvider extends ServiceProvider implements Deferrable
     #[Override]
     public function register(): void
     {
-        // BingAdsSessionManager with contextual LockableCacheInterface
+        $this->registerSessionManager();
+        $this->registerClient();
+        $this->registerContextualBindings();
+    }
+
+    private function registerSessionManager(): void
+    {
         $this->app->singleton(
             BingAdsSessionManager::class,
             static fn(Container $app): BingAdsSessionManager => new BingAdsSessionManager(
@@ -54,16 +60,20 @@ final class BingAdsServiceProvider extends ServiceProvider implements Deferrable
                 $app->make(LockableCacheInterface::class),
             ),
         );
+    }
 
-        // Singleton binding for BingAdsClientInterface (used by VerifyApiConnectivityCommand)
+    private function registerClient(): void
+    {
         $this->app->singleton(
             BingAdsClientInterface::class,
             static fn(Container $app): BingAdsClientInterface => BingAdsClientFactory::create(
                 $app->make(BingAdsSessionManager::class),
             ),
         );
+    }
 
-        // Contextual binding: SyncBingAdsToMixpanelJob gets SyncAdSpendUseCase with Bing client
+    private function registerContextualBindings(): void
+    {
         $this->app->when(SyncBingAdsToMixpanelJob::class)
             ->needs(SyncAdSpendUseCase::class)
             ->give(

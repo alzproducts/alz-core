@@ -7,6 +7,7 @@ namespace App\DevTools\PHPStan\Rules\Jobs;
 use PhpParser\Node;
 use PHPStan\Analyser\Scope;
 use PHPStan\Node\InClassNode;
+use PHPStan\Reflection\ClassReflection;
 use PHPStan\Rules\IdentifierRuleError;
 use PHPStan\Rules\Rule;
 use PHPStan\Rules\RuleErrorBuilder;
@@ -33,11 +34,7 @@ final class JobMustImplementShouldQueueRule implements Rule
     {
         $classReflection = $node->getClassReflection();
 
-        if (! $this->isJobClass($classReflection->getName())) {
-            return [];
-        }
-
-        if ($classReflection->isAbstract() || $classReflection->isEnum()) {
+        if (! self::isConcreteJobClass($classReflection)) {
             return [];
         }
 
@@ -54,8 +51,10 @@ final class JobMustImplementShouldQueueRule implements Rule
         ];
     }
 
-    private function isJobClass(string $className): bool
+    private static function isConcreteJobClass(ClassReflection $classReflection): bool
     {
-        return \str_contains($className, 'App\\Infrastructure\\Jobs\\');
+        return \str_contains($classReflection->getName(), 'App\\Infrastructure\\Jobs\\')
+            && ! $classReflection->isAbstract()
+            && ! $classReflection->isEnum();
     }
 }

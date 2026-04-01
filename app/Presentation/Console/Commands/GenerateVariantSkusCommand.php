@@ -56,49 +56,52 @@ final class GenerateVariantSkusCommand extends Command
     public function handle(GenerateVariantSkusUseCase $useCase): int
     {
         $productId = $this->parseProductId($this->argument('productId'));
-        if ($productId === null) {
+        $templateSku = $productId !== null ? $this->parseTemplateSku($this->argument('templateSku')) : null;
+
+        if ($productId === null || $templateSku === null) {
             return self::FAILURE;
         }
 
-        $templateSku = $this->parseTemplateSku($this->argument('templateSku'));
-        if ($templateSku === null) {
-            return self::FAILURE;
-        }
-
-        $copyMpn = $this->option('copy-mpn');
-        $noSupplier = $this->option('no-supplier');
-        $isStandardSign = $this->option('is-standard-sign');
-
-        $this->info("Generating variant SKUs for product {$productId->value}");
-        $this->line("  Template: {$templateSku->value}");
-
-        if ($copyMpn) {
-            $this->line('  MPN Source: template supplier code (--copy-mpn)');
-        }
-
-        if ($noSupplier) {
-            $this->line('  Supplier: skipped (--no-supplier)');
-        }
-
-        if ($isStandardSign) {
-            $this->line('  Pricing: standard sign matching (--is-standard-sign)');
-        }
-
-        $this->newLine();
+        $this->displayExecutionPlan($productId, $templateSku);
 
         try {
-            $result = $useCase->execute(new UseCaseCommand(
-                $productId,
-                $templateSku,
-                copyParentMpn: $copyMpn,
-                noSupplier: $noSupplier,
-                isStandardSign: $isStandardSign,
-            ));
+            $result = $useCase->execute($this->buildCommand($productId, $templateSku));
 
             return $this->displaySuccessResult($result);
         } catch (ResourceNotFoundException|InvalidTemplateException|LockAcquisitionException|AuthenticationExpiredException|ExternalServiceUnavailableException|InvalidApiRequestException|InvalidApiResponseException|DatabaseOperationFailedException|DuplicateRecordException $e) {
             return $this->handleExecutionError($e);
         }
+    }
+
+    private function displayExecutionPlan(IntId $productId, Sku $templateSku): void
+    {
+        $this->info("Generating variant SKUs for product {$productId->value}");
+        $this->line("  Template: {$templateSku->value}");
+
+        if ($this->option('copy-mpn')) {
+            $this->line('  MPN Source: template supplier code (--copy-mpn)');
+        }
+
+        if ($this->option('no-supplier')) {
+            $this->line('  Supplier: skipped (--no-supplier)');
+        }
+
+        if ($this->option('is-standard-sign')) {
+            $this->line('  Pricing: standard sign matching (--is-standard-sign)');
+        }
+
+        $this->newLine();
+    }
+
+    private function buildCommand(IntId $productId, Sku $templateSku): UseCaseCommand
+    {
+        return new UseCaseCommand(
+            $productId,
+            $templateSku,
+            copyParentMpn: $this->option('copy-mpn'),
+            noSupplier: $this->option('no-supplier'),
+            isStandardSign: $this->option('is-standard-sign'),
+        );
     }
 
     /**
@@ -155,7 +158,25 @@ final class GenerateVariantSkusCommand extends Command
     private function handleExecutionError(
         ResourceNotFoundException|InvalidTemplateException|LockAcquisitionException|AuthenticationExpiredException|ExternalServiceUnavailableException|InvalidApiRequestException|InvalidApiResponseException|DatabaseOperationFailedException|DuplicateRecordException $e,
     ): int {
-        [$errorMsg, $hintMsg] = match (true) {
+        [$errorMsg, $hintMsg] = self::resolveErrorMessages($e);
+
+        $this->error($errorMsg);
+        $ctx = $e->context();
+        if ($ctx !== []) {
+            $this->line('  Context: ' . \json_encode($ctx));
+        }
+        $this->warn("  {$hintMsg}");
+
+        return self::FAILURE;
+    }
+
+    /**
+     * @return array{string, string}
+     */
+    private static function resolveErrorMessages(
+        ResourceNotFoundException|InvalidTemplateException|LockAcquisitionException|AuthenticationExpiredException|ExternalServiceUnavailableException|InvalidApiRequestException|InvalidApiResponseException|DatabaseOperationFailedException|DuplicateRecordException $e,
+    ): array {
+        return match (true) {
             $e instanceof ResourceNotFoundException => [
                 "Resource not found: {$e->getMessage()}",
                 'Check that the product ID and template SKU exist',
@@ -185,15 +206,6 @@ final class GenerateVariantSkusCommand extends Command
                 'SKUs may have been created - check Linnworks',
             ],
         };
-
-        $this->error($errorMsg);
-        $ctx = $e->context();
-        if ($ctx !== []) {
-            $this->line('  Context: ' . \json_encode($ctx));
-        }
-        $this->warn("  {$hintMsg}");
-
-        return self::FAILURE;
     }
 
     /**

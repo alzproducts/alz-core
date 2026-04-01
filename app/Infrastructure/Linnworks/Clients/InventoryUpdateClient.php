@@ -18,6 +18,7 @@ use App\Domain\Inventory\ValueObjects\ExtendedPropertyWrite;
 use App\Domain\Inventory\ValueObjects\SupplierLinkParams;
 use App\Domain\ValueObjects\Guid;
 use App\Infrastructure\Linnworks\Contracts\LinnworksTransportInterface;
+use App\Infrastructure\Linnworks\Requests\UpdateStockSupplierStatRequest;
 use Illuminate\Support\Str;
 
 /**
@@ -233,6 +234,24 @@ final readonly class InventoryUpdateClient implements InventoryUpdateClientInter
                 params: ['inventoryItemExtendedProperties' => $creates],
             );
         }
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @throws ResourceNotFoundException When resource not found
+     * @throws InvalidApiRequestException When parameters invalid
+     * @throws InvalidApiResponseException When API response malformed
+     * @throws AuthenticationExpiredException When credentials invalid
+     * @throws ExternalServiceUnavailableException When API unavailable
+     */
+    public function updateBulkSupplierPurchasePrice(Guid $supplierGuid, array $stockItemPrices): void
+    {
+        $payload = UpdateStockSupplierStatRequest::buildBulkPayload($supplierGuid, $stockItemPrices);
+        $this->transport->postFormParams(
+            endpoint: '/api/Inventory/UpdateStockSupplierStat',
+            params: ['itemSuppliers' => $payload],
+        );
     }
 
     /**

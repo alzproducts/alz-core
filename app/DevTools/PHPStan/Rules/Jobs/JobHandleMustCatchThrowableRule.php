@@ -38,45 +38,11 @@ final class JobHandleMustCatchThrowableRule implements Rule
      */
     public function processNode(Node $node, Scope $scope): array
     {
-        if ($node->name->toString() !== 'handle') {
+        if (! self::isJobHandleMethod($node, $scope)) {
             return [];
         }
 
-        if (! $scope->isInClass()) {
-            return [];
-        }
-
-        $className = $scope->getClassReflection()->getName();
-
-        if (! \str_contains($className, 'App\\Infrastructure\\Jobs\\')
-            || \str_contains($className, 'App\\Infrastructure\\Jobs\\Middleware\\')
-        ) {
-            return [];
-        }
-
-        $catchesThrowable = \array_any(
-            $node->stmts ?? [],
-            static fn(Node\Stmt $stmt): bool => $stmt instanceof TryCatch && self::tryCatchHasThrowable($stmt),
-        );
-
-        if ($catchesThrowable) {
-            return [];
-        }
-
-        $classReflection = $scope->getClassReflection();
-
-        // Abstract parent in the same namespace may provide the catch(Throwable) via a shared method
-        $parentClass = $classReflection->getParentClass();
-
-        if ($parentClass !== null
-            && $parentClass->isAbstract()
-            && \str_contains($parentClass->getName(), 'App\\Infrastructure\\Jobs\\')
-        ) {
-            return [];
-        }
-
-        // Jobs with a middleware() method delegate error handling to HandleApiExceptions middleware
-        if ($classReflection->hasMethod('middleware') || ($parentClass !== null && $parentClass->hasMethod('middleware'))) {
+        if (self::hasErrorHandling($node, $scope)) {
             return [];
         }
 
@@ -88,6 +54,53 @@ final class JobHandleMustCatchThrowableRule implements Rule
                 ->identifier('alz.jobHandleMustCatchThrowable')
                 ->build(),
         ];
+    }
+
+    private static function isJobHandleMethod(ClassMethod $node, Scope $scope): bool
+    {
+        if ($node->name->toString() !== 'handle' || ! $scope->isInClass()) {
+            return false;
+        }
+
+        $className = $scope->getClassReflection()->getName();
+
+        return \str_contains($className, 'App\\Infrastructure\\Jobs\\')
+            && ! \str_contains($className, 'App\\Infrastructure\\Jobs\\Middleware\\');
+    }
+
+    private static function hasErrorHandling(ClassMethod $node, Scope $scope): bool
+    {
+        $catchesThrowable = \array_any(
+            $node->stmts ?? [],
+            static fn(Node\Stmt $stmt): bool => $stmt instanceof TryCatch && self::tryCatchHasThrowable($stmt),
+        );
+
+        if ($catchesThrowable) {
+            return true;
+        }
+
+        return self::hasParentOrMiddlewareHandling($scope);
+    }
+
+    private static function hasParentOrMiddlewareHandling(Scope $scope): bool
+    {
+        $classReflection = $scope->getClassReflection();
+
+        if ($classReflection === null) {
+            return false;
+        }
+
+        $parentClass = $classReflection->getParentClass();
+
+        if ($parentClass !== null
+            && $parentClass->isAbstract()
+            && \str_contains($parentClass->getName(), 'App\\Infrastructure\\Jobs\\')
+        ) {
+            return true;
+        }
+
+        return $classReflection->hasMethod('middleware')
+            || ($parentClass !== null && $parentClass->hasMethod('middleware'));
     }
 
     private static function tryCatchHasThrowable(TryCatch $tryCatch): bool

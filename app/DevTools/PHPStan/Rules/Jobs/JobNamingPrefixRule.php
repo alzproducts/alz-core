@@ -7,6 +7,7 @@ namespace App\DevTools\PHPStan\Rules\Jobs;
 use PhpParser\Node;
 use PHPStan\Analyser\Scope;
 use PHPStan\Node\InClassNode;
+use PHPStan\Reflection\ClassReflection;
 use PHPStan\Rules\IdentifierRuleError;
 use PHPStan\Rules\Rule;
 use PHPStan\Rules\RuleErrorBuilder;
@@ -46,34 +47,41 @@ final class JobNamingPrefixRule implements Rule
     public function processNode(Node $node, Scope $scope): array
     {
         $classReflection = $node->getClassReflection();
-        $fullName = $classReflection->getName();
 
-        if (! \str_contains($fullName, 'App\\Infrastructure\\Jobs\\')) {
-            return [];
-        }
-
-        if ($classReflection->isAbstract() || $classReflection->isEnum()) {
+        if (! self::isConcreteJobClass($classReflection)) {
             return [];
         }
 
         $shortName = $classReflection->getNativeReflection()->getShortName();
 
-        foreach (self::ALLOWED_PREFIXES as $prefix) {
-            if (\str_starts_with($shortName, $prefix)) {
-                return [];
-            }
-        }
+        return self::hasValidPrefix($shortName) ? [] : [self::buildError($shortName)];
+    }
 
-        return [
-            RuleErrorBuilder::message(
-                \sprintf(
-                    'Job class name "%s" must start with one of: %s.',
-                    $shortName,
-                    \implode(', ', self::ALLOWED_PREFIXES),
-                ),
-            )
-                ->identifier('alz.jobNamingPrefix')
-                ->build(),
-        ];
+    private static function isConcreteJobClass(ClassReflection $classReflection): bool
+    {
+        return \str_contains($classReflection->getName(), 'App\\Infrastructure\\Jobs\\')
+            && ! $classReflection->isAbstract()
+            && ! $classReflection->isEnum();
+    }
+
+    private static function hasValidPrefix(string $shortName): bool
+    {
+        return \array_any(
+            self::ALLOWED_PREFIXES,
+            static fn(string $prefix): bool => \str_starts_with($shortName, $prefix),
+        );
+    }
+
+    private static function buildError(string $shortName): IdentifierRuleError
+    {
+        return RuleErrorBuilder::message(
+            \sprintf(
+                'Job class name "%s" must start with one of: %s.',
+                $shortName,
+                \implode(', ', self::ALLOWED_PREFIXES),
+            ),
+        )
+            ->identifier('alz.jobNamingPrefix')
+            ->build();
     }
 }

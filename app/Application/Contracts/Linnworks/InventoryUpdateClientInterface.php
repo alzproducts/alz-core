@@ -13,6 +13,7 @@ use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Inventory\Commands\AddInventoryItemCommand;
 use App\Domain\Inventory\ValueObjects\ExtendedPropertyWrite;
 use App\Domain\Inventory\ValueObjects\SupplierLinkParams;
+use App\Domain\Shared\Money\ValueObjects\Money;
 use App\Domain\ValueObjects\Guid;
 
 /**
@@ -135,4 +136,21 @@ interface InventoryUpdateClientInterface
      * @throws ExternalServiceUnavailableException When API unavailable
      */
     public function deleteInventoryItem(Sku|Guid $identifier): void;
+
+    /**
+     * Bulk update supplier purchase prices for pre-resolved stock items.
+     *
+     * Thin wrapper over the UpdateStockSupplierStat Linnworks API endpoint.
+     * All identifiers must be pre-resolved (no SKU→GUID or name→GUID lookups).
+     *
+     * @param Guid $supplierGuid Pre-resolved supplier GUID
+     * @param array<string, Money> $stockItemPrices Map of stockItemId GUID string → purchase price (ex-VAT)
+     *
+     * @throws ResourceNotFoundException When resource not found
+     * @throws InvalidApiRequestException When parameters invalid
+     * @throws InvalidApiResponseException When API response malformed
+     * @throws AuthenticationExpiredException When credentials invalid
+     * @throws ExternalServiceUnavailableException When API unavailable
+     */
+    public function updateBulkSupplierPurchasePrice(Guid $supplierGuid, array $stockItemPrices): void;
 }

@@ -30,6 +30,12 @@ final class DatabaseServiceProvider extends ServiceProvider implements Deferrabl
     #[Override]
     public function register(): void
     {
+        $this->registerGateway();
+        $this->registerRepositories();
+    }
+
+    private function registerGateway(): void
+    {
         $this->app->singleton(
             DatabaseGatewayInterface::class,
             static fn(Application $app): DatabaseGatewayInterface => new DatabaseGateway(
@@ -38,26 +44,17 @@ final class DatabaseServiceProvider extends ServiceProvider implements Deferrabl
             ),
         );
 
-        // Also bind concrete class for repositories that need connection() access
         $this->app->singleton(
             DatabaseGateway::class,
             static fn(Application $app): DatabaseGateway => $app->make(DatabaseGatewayInterface::class),
         );
+    }
 
-        $this->app->bind(
-            EscalationsConfigRepositoryInterface::class,
-            EscalationsConfigRepository::class,
-        );
-
-        $this->app->bind(
-            PricePeriodRepositoryInterface::class,
-            EloquentPricePeriodRepository::class,
-        );
-
-        $this->app->bind(
-            SkuChangeRepositoryInterface::class,
-            EloquentSkuChangeRepository::class,
-        );
+    private function registerRepositories(): void
+    {
+        $this->app->bind(EscalationsConfigRepositoryInterface::class, EscalationsConfigRepository::class);
+        $this->app->bind(PricePeriodRepositoryInterface::class, EloquentPricePeriodRepository::class);
+        $this->app->bind(SkuChangeRepositoryInterface::class, EloquentSkuChangeRepository::class);
     }
 
     /**

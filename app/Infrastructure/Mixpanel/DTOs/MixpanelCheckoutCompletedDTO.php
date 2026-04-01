@@ -8,6 +8,7 @@ use App\Domain\Catalog\Order\Enums\PreOrderStatus;
 use App\Domain\Catalog\Order\ValueObjects\Order;
 use App\Domain\Catalog\Order\ValueObjects\OrderAnalyticsHash;
 use App\Domain\Catalog\Order\ValueObjects\OrderProduct;
+use App\Infrastructure\Mixpanel\Normalizers\PaymentMethodNormaliser;
 use Webmozart\Assert\Assert;
 
 /**
@@ -112,7 +113,7 @@ final readonly class MixpanelCheckoutCompletedDTO
             vat: $order->taxValue,
             shippingTotal: $order->shippingTotalNet,
             totalExclVat: $order->total - ($order->taxValue ?? 0.0),
-            paymentMethod: $order->paymentMethod->value,
+            paymentMethod: PaymentMethodNormaliser::normalise($order->paymentMethod->value),
             isPreOrder: $order->preOrderStatus !== PreOrderStatus::None,
             isBusinessUser: $isBusinessUser,
             shippingCountry: $order->shippingAddress->country,

@@ -48,34 +48,12 @@ final class NoArtisanCallRule implements Rule
      */
     public function processNode(Node $node, Scope $scope): array
     {
-        if (! $node->class instanceof Name) {
+        if (! self::isBannedArtisanCall($node, $scope->getFile())) {
             return [];
         }
 
-        // Fast path: skip if the class short name isn't 'Artisan'
-        if ($node->class->getLast() !== 'Artisan') {
+        if (self::isInAllowedNamespace($scope->getNamespace())) {
             return [];
-        }
-
-        // Check the method name is call() or queue()
-        if (! $node->name instanceof Identifier || ! isset(self::BANNED_METHODS[$node->name->toString()])) {
-            return [];
-        }
-
-        // Verify it's the actual facade
-        if (! self::isArtisanFacade($node->class, $scope->getFile())) {
-            return [];
-        }
-
-        // Check if current namespace is in the allow list
-        $namespace = $scope->getNamespace();
-
-        if ($namespace !== null) {
-            foreach (self::ALLOWED_NAMESPACES as $allowed => $_) {
-                if (\str_starts_with($namespace, $allowed)) {
-                    return [];
-                }
-            }
         }
 
         return [
@@ -86,6 +64,38 @@ final class NoArtisanCallRule implements Rule
                 ->identifier('alz.noArtisanCall')
                 ->build(),
         ];
+    }
+
+    private static function isBannedArtisanCall(StaticCall $node, string $filePath): bool
+    {
+        if (! $node->class instanceof Name) {
+            return false;
+        }
+
+        if ($node->class->getLast() !== 'Artisan') {
+            return false;
+        }
+
+        if (! $node->name instanceof Identifier || ! isset(self::BANNED_METHODS[$node->name->toString()])) {
+            return false;
+        }
+
+        return self::isArtisanFacade($node->class, $filePath);
+    }
+
+    private static function isInAllowedNamespace(?string $namespace): bool
+    {
+        if ($namespace === null) {
+            return false;
+        }
+
+        foreach (self::ALLOWED_NAMESPACES as $allowed => $_) {
+            if (\str_starts_with($namespace, $allowed)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static function isArtisanFacade(Name $name, string $filePath): bool

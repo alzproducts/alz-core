@@ -37,37 +37,46 @@ final class EnsureUserApprovedMiddleware
         /** @var AuthenticatedUser|null $authenticatedUser */
         $authenticatedUser = $request->attributes->get('authenticated_user');
 
-        // This should never happen if middleware ordering is correct
         if ($authenticatedUser === null) {
-            Log::channel('security')->error('EnsureUserApprovedMiddleware called without authenticated_user', [
-                'event' => 'api.auth.middleware_order_error',
-                'path' => $request->path(),
-                'ip' => $request->ip(),
-            ]);
-
-            return (new ApiErrorResponseDTO(
-                type: ApiErrorTypeEnum::Unauthorized,
-                message: 'Unauthorized.',
-                status: Response::HTTP_UNAUTHORIZED,
-            ))->toJsonResponse();
+            return $this->rejectUnauthenticated($request);
         }
 
         if (!$authenticatedUser->hasBasicAuthorization()) {
-            Log::channel('security')->warning('Unapproved user attempted access', [
-                'event' => 'api.auth.unapproved_user',
-                'user_id' => $authenticatedUser->id,
-                'email' => $authenticatedUser->email,
-                'path' => $request->path(),
-                'ip' => $request->ip(),
-            ]);
-
-            return (new ApiErrorResponseDTO(
-                type: ApiErrorTypeEnum::Forbidden,
-                message: 'Account pending approval.',
-                status: Response::HTTP_FORBIDDEN,
-            ))->toJsonResponse();
+            return $this->rejectUnapproved($request, $authenticatedUser);
         }
 
         return $next($request);
+    }
+
+    private function rejectUnauthenticated(Request $request): Response
+    {
+        Log::channel('security')->error('EnsureUserApprovedMiddleware called without authenticated_user', [
+            'event' => 'api.auth.middleware_order_error',
+            'path' => $request->path(),
+            'ip' => $request->ip(),
+        ]);
+
+        return (new ApiErrorResponseDTO(
+            type: ApiErrorTypeEnum::Unauthorized,
+            message: 'Unauthorized.',
+            status: Response::HTTP_UNAUTHORIZED,
+        ))->toJsonResponse();
+    }
+
+    private function rejectUnapproved(Request $request, AuthenticatedUser $user): Response
+    {
+        Log::channel('security')->warning('Unapproved user attempted access', [
+            'event' => 'api.auth.unapproved_user',
+            'user_id' => $user->id,
+            'email' => $user->email,
+            'path' => $request->path(),
+            'ip' => $request->ip(),
+        ]);
+
+        return (new ApiErrorResponseDTO(
+            type: ApiErrorTypeEnum::Forbidden,
+            message: 'Account pending approval.',
+            status: Response::HTTP_FORBIDDEN,
+        ))->toJsonResponse();
     }
 }
