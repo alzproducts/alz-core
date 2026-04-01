@@ -7,15 +7,15 @@ namespace App\Domain\Catalog\Product\ValueObjects;
 use App\Domain\ValueObjects\IntId;
 
 /**
- * Represents a product whose ratings need to be updated in ShopWired.
+ * Represents a product whose ratings need to be updated.
  *
  * Returned by the change detection query that compares
- * reviews_io.product_ratings against shopwired.products.custom_fields.
+ * current product ratings against stored custom fields.
  */
 final readonly class ProductRatingChange
 {
     /**
-     * @param IntId $productId ShopWired external product ID
+     * @param IntId $productId Product identifier
      * @param string|null $newAverageRating New weighted average (null = no reviews)
      * @param int $newNumRatings New total review count (0 = no reviews)
      */
