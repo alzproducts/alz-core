@@ -76,7 +76,7 @@ final readonly class SyncLinnworksOrdersUseCase
         $batchesFlushed = 0;
 
         /** @var list<LinnworksOrder> $orders */
-        foreach ($this->orderClient->iterateProcessedOrders($fromDate) as $pageNumber => $orders) {
+        foreach ($this->orderClient->iterateOrders($fromDate) as $pageNumber => $orders) {
             $totalFetched += \count($orders);
             \array_push($buffer, ...$orders);
             $pagesBuffered++;

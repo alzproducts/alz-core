@@ -17,13 +17,13 @@ use Generator;
 /**
  * Contract for Linnworks orders API client.
  *
- * Provides access to the v2 GetOrders endpoint for processed orders.
+ * Provides access to the v2 GetOrders endpoint for both open and processed orders.
  * Token pagination handled internally — yields batches via Generator.
  */
 interface OrderClientInterface
 {
     /**
-     * Iterate processed orders updated since fromDate in batches.
+     * Iterate both open and processed orders updated since fromDate in batches.
      *
      * Token pagination handled internally. Yields batches of ~200 orders.
      * Same pattern as InventoryClientInterface::iterateStockItemBatches().
@@ -36,14 +36,15 @@ interface OrderClientInterface
      * @throws InvalidApiResponseException When API response structure is invalid
      * @throws ResourceNotFoundException When resource not found (404)
      */
-    public function iterateProcessedOrders(DateTimeImmutable $fromDate): Generator;
+    public function iterateOrders(DateTimeImmutable $fromDate): Generator;
 
     /**
-     * Iterate processed orders by specific IDs in chunked batches.
+     * Iterate orders by specific IDs in chunked batches.
      *
      * IDs are chunked internally. Yields batches of orders per chunk.
      * Used for historical backfill where fromDate-based pagination
-     * cannot reach beyond the ~30-day API limit.
+     * cannot reach beyond the ~30-day API limit. Fetches both open
+     * and processed orders.
      *
      * @param list<Guid> $orderIds
      *
@@ -55,7 +56,7 @@ interface OrderClientInterface
      * @throws InvalidApiResponseException When API response structure is invalid
      * @throws ResourceNotFoundException When resource not found (404)
      */
-    public function iterateProcessedOrdersByIds(array $orderIds): Generator;
+    public function iterateOrdersByIds(array $orderIds): Generator;
 
     /**
      * Fetch a single order by Linnworks order ID.

@@ -74,7 +74,7 @@ final class SyncLinnworksOrdersUseCaseTest extends TestCase
     public function execute_returns_empty_result_when_no_orders_found(): void
     {
         $this->orderClient
-            ->shouldReceive('iterateProcessedOrders')
+            ->shouldReceive('iterateOrders')
             ->once()
             ->with($this->fromDate)
             ->andReturn($this->emptyGenerator());
@@ -110,7 +110,7 @@ final class SyncLinnworksOrdersUseCaseTest extends TestCase
         ];
 
         $this->orderClient
-            ->shouldReceive('iterateProcessedOrders')
+            ->shouldReceive('iterateOrders')
             ->once()
             ->with($this->fromDate)
             ->andReturn($this->singlePageGenerator($orders));
@@ -158,7 +158,7 @@ final class SyncLinnworksOrdersUseCaseTest extends TestCase
         }
 
         $this->orderClient
-            ->shouldReceive('iterateProcessedOrders')
+            ->shouldReceive('iterateOrders')
             ->once()
             ->andReturn($this->multiPageGenerator($itemsPerPage));
 
@@ -198,7 +198,7 @@ final class SyncLinnworksOrdersUseCaseTest extends TestCase
         $failedRefs = ['00000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000003'];
 
         $this->orderClient
-            ->shouldReceive('iterateProcessedOrders')
+            ->shouldReceive('iterateOrders')
             ->once()
             ->andReturn($this->singlePageGenerator($orders));
 
@@ -249,7 +249,7 @@ final class SyncLinnworksOrdersUseCaseTest extends TestCase
         }
 
         $this->orderClient
-            ->shouldReceive('iterateProcessedOrders')
+            ->shouldReceive('iterateOrders')
             ->once()
             ->andReturn($this->multiPageGenerator($itemsPerPage));
 
@@ -300,7 +300,7 @@ final class SyncLinnworksOrdersUseCaseTest extends TestCase
         ];
 
         $this->orderClient
-            ->shouldReceive('iterateProcessedOrders')
+            ->shouldReceive('iterateOrders')
             ->once()
             ->andReturn($this->multiPageGenerator([0 => $page1, 1 => $page2]));
 
@@ -324,7 +324,7 @@ final class SyncLinnworksOrdersUseCaseTest extends TestCase
     public function execute_returns_null_latest_last_updated_when_no_orders(): void
     {
         $this->orderClient
-            ->shouldReceive('iterateProcessedOrders')
+            ->shouldReceive('iterateOrders')
             ->once()
             ->andReturn($this->emptyGenerator());
 
@@ -357,7 +357,7 @@ final class SyncLinnworksOrdersUseCaseTest extends TestCase
         }
 
         $this->orderClient
-            ->shouldReceive('iterateProcessedOrders')
+            ->shouldReceive('iterateOrders')
             ->once()
             ->andReturn($this->multiPageGenerator($itemsPerPage));
 
