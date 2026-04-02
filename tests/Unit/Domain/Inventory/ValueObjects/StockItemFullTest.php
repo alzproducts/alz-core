@@ -47,6 +47,7 @@ final class StockItemFullTest extends TestCase
             'inOrder' => 5,
             'due' => 50,
             'minimumLevel' => 10,
+            'jit' => false,
             'purchasePrice' => 25.50,
             'retailPrice' => 49.99,
             'taxRate' => 20.0,
