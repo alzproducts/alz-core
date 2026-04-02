@@ -18,6 +18,8 @@ use App\Domain\Inventory\ValueObjects\Dimensions;
 use App\Domain\Inventory\ValueObjects\StockItemFull;
 use App\Domain\Inventory\ValueObjects\StockItemSupplier;
 use App\Domain\Inventory\ValueObjects\Weight;
+use App\Domain\Shared\Money\ValueObjects\Money;
+use App\Domain\ValueObjects\Guid;
 use App\Domain\ValueObjects\IntId;
 use App\Domain\ValueObjects\TaxType;
 use DateTimeImmutable;
@@ -480,11 +482,11 @@ final class StockItemParamsBuilderServiceTest extends TestCase
             createdAt: null,
             extendedProperties: [],
             suppliers: [new StockItemSupplier(
-                supplierId: '550e8400-e29b-41d4-a716-446655440002',
+                supplierId: new Guid('550e8400-e29b-41d4-a716-446655440002'),
                 supplierName: 'Default Supplier',
                 code: 'SUP-CODE',
                 supplierBarcode: null,
-                purchasePrice: 15.00,
+                purchasePrice: Money::exclusive(15.00),
                 isDefault: true,
                 leadTime: null,
                 supplierCurrency: 'GBP',

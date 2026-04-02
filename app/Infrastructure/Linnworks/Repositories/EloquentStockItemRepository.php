@@ -5,9 +5,6 @@ declare(strict_types=1);
 namespace App\Infrastructure\Linnworks\Repositories;
 
 use App\Application\Contracts\Linnworks\StockItemRepositoryInterface;
-use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
-use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
-use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\Inventory\ValueObjects\StockItemExtendedProperty;
 use App\Domain\Inventory\ValueObjects\StockItemFull;
 use App\Domain\Inventory\ValueObjects\StockItemSupplier;
@@ -103,90 +100,6 @@ final class EloquentStockItemRepository extends AbstractEloquentRepository imple
                 );
             }
         }, attempts: 3);
-    }
-
-    /**
-     * {@inheritDoc}
-     *
-     * @return array<string, float>
-     *
-     * @throws DatabaseOperationFailedException
-     * @throws DuplicateRecordException
-     * @throws ExternalServiceUnavailableException
-     */
-    public function getCostPricesBySku(): array
-    {
-        return $this->eloquentGateway->query(static function (): array {
-            $sql = <<<'SQL'
-                SELECT si.item_number AS sku, s.purchase_price
-                FROM linnworks.stock_items si
-                JOIN linnworks.stock_item_suppliers s
-                    ON s.stock_item_id = si.stock_item_id AND s.is_default = true
-                WHERE si.item_number IS NOT NULL
-                    AND si.item_number != ''
-                    AND s.purchase_price IS NOT NULL
-                SQL;
-
-            /** @var list<object{sku: string, purchase_price: string|float}> $rows */
-            $rows = StockItemModel::query()->getConnection()->select($sql);
-
-            /** @var array<string, float> $result */
-            $result = [];
-
-            foreach ($rows as $row) {
-                $result[$row->sku] = (float) $row->purchase_price;
-            }
-
-            return $result;
-        });
-    }
-
-    /**
-     * {@inheritDoc}
-     *
-     * @throws DatabaseOperationFailedException On query failure
-     * @throws DuplicateRecordException On constraint violation
-     * @throws ExternalServiceUnavailableException When database temporarily unavailable
-     */
-    public function bulkUpdateSupplierPurchasePrices(string $supplierName, array $purchasePricesBySku): void
-    {
-        if ($purchasePricesBySku === []) {
-            return;
-        }
-
-        $this->eloquentGateway->query(static function () use ($supplierName, $purchasePricesBySku): void {
-            [$values, $bindings] = self::buildBulkPriceBindings($purchasePricesBySku);
-            $bindings[] = $supplierName;
-            $sql = <<<SQL
-                UPDATE linnworks.stock_item_suppliers s
-                SET purchase_price = v.price, updated_at = NOW()
-                FROM (VALUES {$values}) AS v(item_number, price)
-                JOIN linnworks.stock_items si ON si.item_number = v.item_number
-                WHERE s.stock_item_id = si.stock_item_id
-                    AND s.supplier_name = ?
-                SQL;
-
-            StockItemModel::query()->getConnection()->statement($sql, $bindings);
-        });
-    }
-
-    /**
-     * @param array<string, float> $purchasePricesBySku
-     *
-     * @return array{string, list<string|float>}
-     */
-    private static function buildBulkPriceBindings(array $purchasePricesBySku): array
-    {
-        $placeholders = [];
-        $bindings = [];
-
-        foreach ($purchasePricesBySku as $skuValue => $price) {
-            $placeholders[] = '(?, ?)';
-            $bindings[] = $skuValue;
-            $bindings[] = $price;
-        }
-
-        return [\implode(', ', $placeholders), $bindings];
     }
 
     protected function getModelClass(): string

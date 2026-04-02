@@ -8,7 +8,7 @@ use App\Application\Catalog\Results\CostPriceUpdateResult;
 use App\Application\Catalog\Results\FailedCostPriceUpdateResult;
 use App\Domain\Catalog\Product\Commands\UpdateCostPriceCommand;
 use App\Domain\Catalog\Product\ValueObjects\Sku;
-use App\Domain\Shared\Money\ValueObjects\Money;
+use App\Domain\Inventory\ValueObjects\StockItemSupplierStat;
 use App\Domain\ValueObjects\Guid;
 use Webmozart\Assert\Assert;
 
@@ -59,7 +59,7 @@ final readonly class CostPriceBySupplierTransformer
             if (isset($skuToGuid[$command->sku->value])) {
                 $resolved[] = $command;
             } else {
-                $failures[] = new FailedCostPriceUpdateResult($command->sku, 'SKU not found in Linnworks');
+                $failures[] = new FailedCostPriceUpdateResult($command->sku, 'SKU not found in Linnworks', stockItemId: null);
             }
         }
 
@@ -67,37 +67,96 @@ final readonly class CostPriceBySupplierTransformer
     }
 
     /**
-     * Build stockItemId → purchase price map for the bulk API call.
+     * Extract stock item GUIDs for the resolved commands.
      *
-     * @param list<UpdateCostPriceCommand> $commands Already-resolved commands
+     * @param list<UpdateCostPriceCommand> $resolved Already-resolved commands
      * @param array<string, Guid> $skuToGuid SKU → stockItemId mapping
      *
-     * @return array<string, Money> stockItemId GUID string → purchase price
+     * @return list<Guid>
      */
-    public static function buildPriceMap(array $commands, array $skuToGuid): array
+    public static function extractStockItemGuids(array $resolved, array $skuToGuid): array
     {
-        $map = [];
+        $seen = [];
+        $guids = [];
 
-        foreach ($commands as $cmd) {
-            $stockItemId = $skuToGuid[$cmd->sku->value] ?? null;
-            Assert::notNull($stockItemId, "SKU {$cmd->sku->value} should be resolved at this point");
-            $map[$stockItemId->value] = $cmd->costPrice;
+        foreach ($resolved as $cmd) {
+            $guid = $skuToGuid[$cmd->sku->value] ?? null;
+            Assert::notNull($guid, "SKU {$cmd->sku->value} should be resolved at this point");
+
+            if (! isset($seen[$guid->value])) {
+                $seen[$guid->value] = true;
+                $guids[] = $guid;
+            }
         }
 
-        return $map;
+        return $guids;
+    }
+
+    /**
+     * Merge new purchase prices into fetched supplier stats.
+     *
+     * For each resolved command, finds the matching supplier stat by SupplierID
+     * and returns a new VO with the updated purchase price.
+     * Commands where the supplier stat is not found are added to failures.
+     *
+     * @param list<UpdateCostPriceCommand> $resolved Commands that had their SKU resolved
+     * @param array<string, Guid> $skuToGuid SKU → stockItemId mapping
+     * @param Guid $supplierGuid Pre-resolved supplier GUID
+     * @param array<string, list<StockItemSupplierStat>> $statsByStockItem stockItemId → supplier stats
+     *
+     * @return array{list<StockItemSupplierStat>, list<FailedCostPriceUpdateResult>}
+     */
+    public static function mergeSupplierPrices(
+        array $resolved,
+        array $skuToGuid,
+        Guid $supplierGuid,
+        array $statsByStockItem,
+    ): array {
+        $merged = [];
+        $failures = [];
+        foreach ($resolved as $cmd) {
+            $stockItemGuid = $skuToGuid[$cmd->sku->value] ?? null;
+            Assert::notNull($stockItemGuid, "SKU {$cmd->sku->value} should be resolved at this point");
+            $matchingStat = self::findMatchingStat($statsByStockItem, $stockItemGuid, $supplierGuid);
+            if ($matchingStat === null) {
+                $failures[] = new FailedCostPriceUpdateResult($cmd->sku, 'Supplier stat not found in Linnworks', $stockItemGuid);
+            } else {
+                $merged[] = $matchingStat->withPurchasePrice($cmd->costPrice);
+            }
+        }
+
+        return [$merged, $failures];
+    }
+
+    /**
+     * @param array<string, list<StockItemSupplierStat>> $statsByStockItem
+     */
+    private static function findMatchingStat(
+        array $statsByStockItem,
+        Guid $stockItemGuid,
+        Guid $supplierGuid,
+    ): ?StockItemSupplierStat {
+        $stats = $statsByStockItem[\mb_strtolower($stockItemGuid->value)] ?? [];
+
+        return \array_find($stats, static fn(StockItemSupplierStat $s): bool => $s->supplierId->equals($supplierGuid));
     }
 
     /**
      * Convert resolved commands to failure results when the bulk API call fails.
      *
      * @param list<UpdateCostPriceCommand> $resolved Commands that were resolved but failed at API level
+     * @param array<string, Guid> $skuToGuid SKU → stockItemId mapping (empty for DB-level failures)
      *
      * @return list<FailedCostPriceUpdateResult>
      */
-    public static function buildApiFailures(array $resolved, string $error): array
+    public static function buildApiFailures(array $resolved, string $error, array $skuToGuid = []): array
     {
         return \array_map(
-            static fn(UpdateCostPriceCommand $cmd): FailedCostPriceUpdateResult => new FailedCostPriceUpdateResult($cmd->sku, $error),
+            static fn(UpdateCostPriceCommand $cmd): FailedCostPriceUpdateResult => new FailedCostPriceUpdateResult(
+                $cmd->sku,
+                $error,
+                $skuToGuid[$cmd->sku->value] ?? null,
+            ),
             $resolved,
         );
     }
@@ -107,7 +166,7 @@ final readonly class CostPriceBySupplierTransformer
      *
      * @return array<string, true>
      */
-    public static function buildFailedSkuLookup(CostPriceUpdateResult $result): array
+    private static function buildFailedSkuLookup(CostPriceUpdateResult $result): array
     {
         $failedSkus = [];
 
