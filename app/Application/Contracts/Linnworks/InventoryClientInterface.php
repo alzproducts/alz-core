@@ -12,6 +12,7 @@ use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Inventory\ValueObjects\StockItem;
 use App\Domain\Inventory\ValueObjects\StockItemFull;
+use App\Domain\Inventory\ValueObjects\StockItemSupplier;
 use App\Domain\Inventory\ValueObjects\Supplier;
 use App\Domain\ValueObjects\Guid;
 use Generator;
@@ -138,4 +139,22 @@ interface InventoryClientInterface
      * @throws ResourceNotFoundException When resource not found (404)
      */
     public function getSuppliers(): array;
+
+    /**
+     * Fetch full supplier stats for multiple stock items in a single API call.
+     *
+     * Returns a map of stockItemId GUID string (lowercase) → list of supplier stats.
+     * Stock items with no supplier stats are omitted from the result.
+     *
+     * @param list<Guid> $stockItemIds
+     *
+     * @return array<string, list<StockItemSupplier>> stockItemId GUID string → supplier stats
+     *
+     * @throws AuthenticationExpiredException When credentials are invalid
+     * @throws ExternalServiceUnavailableException When API is unavailable
+     * @throws InvalidApiRequestException When request parameters are invalid
+     * @throws InvalidApiResponseException When API response structure is invalid
+     * @throws ResourceNotFoundException When resource not found (404)
+     */
+    public function getStockSupplierStatsBulk(array $stockItemIds): array;
 }

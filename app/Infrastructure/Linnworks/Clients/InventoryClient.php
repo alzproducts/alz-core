@@ -14,12 +14,14 @@ use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Data\InvalidSkuException;
 use App\Domain\Inventory\ValueObjects\StockItem;
 use App\Domain\Inventory\ValueObjects\StockItemFull;
+use App\Domain\Inventory\ValueObjects\StockItemSupplier;
 use App\Domain\Inventory\ValueObjects\Supplier;
 use App\Domain\ValueObjects\Guid;
 use App\Infrastructure\Linnworks\Contracts\LinnworksTransportInterface;
 use App\Infrastructure\Linnworks\Responses\SkuStockIdMappingResponse;
 use App\Infrastructure\Linnworks\Responses\StockItemFullResponse;
 use App\Infrastructure\Linnworks\Responses\StockItemResponse;
+use App\Infrastructure\Linnworks\Responses\StockSupplierStatResponse;
 use App\Infrastructure\Linnworks\Responses\SupplierResponse;
 use App\Infrastructure\Linnworks\Support\LinnworksResponseParserTrait;
 use Generator;
@@ -363,6 +365,41 @@ final readonly class InventoryClient implements InventoryClientInterface
 
         /** @var list<Supplier> */
         return self::parseDirectArrayToDomain($response->json(), SupplierResponse::class);
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @param list<Guid> $stockItemIds
+     *
+     * @return array<string, list<StockItemSupplier>>
+     *
+     * @throws AuthenticationExpiredException When credentials are invalid
+     * @throws ExternalServiceUnavailableException When API is unavailable
+     * @throws InvalidApiRequestException When request parameters are invalid
+     * @throws InvalidApiResponseException When API response structure is invalid
+     * @throws ResourceNotFoundException When resource not found (404)
+     */
+    public function getStockSupplierStatsBulk(array $stockItemIds): array
+    {
+        if ($stockItemIds === []) {
+            return [];
+        }
+
+        $guidStrings = \array_map(
+            static fn(Guid $id): string => $id->value,
+            $stockItemIds,
+        );
+
+        $response = $this->transport->get(
+            endpoint: '/api/Inventory/GetStockSupplierStatsBulk',
+            query: ['inventoryItemIds' => $guidStrings],
+        );
+
+        /** @var list<StockItemSupplier> */
+        $stats = self::parseDirectArrayToDomain($response->json(), StockSupplierStatResponse::class);
+
+        return self::groupByGuid($stats, static fn(StockItemSupplier $s): ?string => $s->stockItemId?->value);
     }
 
     /**

@@ -15,6 +15,7 @@ use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Inventory\Commands\AddInventoryItemCommand;
 use App\Domain\Inventory\Enums\LinnworksInventoryField;
 use App\Domain\Inventory\ValueObjects\ExtendedPropertyWrite;
+use App\Domain\Inventory\ValueObjects\StockItemSupplier;
 use App\Domain\Inventory\ValueObjects\SupplierLinkParams;
 use App\Domain\ValueObjects\Guid;
 use App\Infrastructure\Linnworks\Contracts\LinnworksTransportInterface;
@@ -239,15 +240,17 @@ final readonly class InventoryUpdateClient implements InventoryUpdateClientInter
     /**
      * {@inheritDoc}
      *
+     * @param list<StockItemSupplier> $supplierStats
+     *
      * @throws ResourceNotFoundException When resource not found
      * @throws InvalidApiRequestException When parameters invalid
      * @throws InvalidApiResponseException When API response malformed
      * @throws AuthenticationExpiredException When credentials invalid
      * @throws ExternalServiceUnavailableException When API unavailable
      */
-    public function updateBulkSupplierPurchasePrice(Guid $supplierGuid, array $stockItemPrices): void
+    public function updateStockSupplierStats(array $supplierStats): void
     {
-        $payload = UpdateStockSupplierStatRequest::buildBulkPayload($supplierGuid, $stockItemPrices);
+        $payload = UpdateStockSupplierStatRequest::buildBulkPayload($supplierStats);
         $this->transport->postFormParams(
             endpoint: '/api/Inventory/UpdateStockSupplierStat',
             params: ['itemSuppliers' => $payload],

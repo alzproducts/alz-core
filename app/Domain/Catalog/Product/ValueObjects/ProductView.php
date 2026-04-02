@@ -51,6 +51,9 @@ final readonly class ProductView
     /** @var bool Whether this product or any of its variations is on sale */
     public bool $hasAnySale;
 
+    /** @var string|null Name of the default supplier (null = no suppliers loaded or no default) */
+    public ?string $defaultSupplier;
+
     /**
      * @param int $externalId ShopWired product ID
      * @param string|null $sku Master SKU
@@ -134,6 +137,19 @@ final readonly class ProductView
         $this->categoryIds = \array_map(static fn(int $id): IntId => IntId::from($id), $categoryIds);
         $this->hasFreeDelivery = $freeDelivery !== null && ! $freeDelivery->isNone();
         $this->hasAnySale = $this->isOnSale || self::anyVariationOnSale($this->variations);
+        $this->defaultSupplier = self::findDefaultSupplierName($this->suppliers);
+    }
+
+    /**
+     * @param list<ProductSupplier>|null $suppliers
+     */
+    private static function findDefaultSupplierName(?array $suppliers): ?string
+    {
+        if ($suppliers === null || $suppliers === []) {
+            return null;
+        }
+
+        return \array_find($suppliers, static fn(ProductSupplier $s): bool => $s->isDefault)?->supplierName;
     }
 
     /**

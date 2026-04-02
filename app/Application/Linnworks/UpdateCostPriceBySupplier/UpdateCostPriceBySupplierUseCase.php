@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Application\Linnworks\UpdateCostPriceBySupplier;
 
 use App\Application\Catalog\Results\CostPriceUpdateResult;
+use App\Application\Catalog\Results\FailedCostPriceUpdateResult;
 use App\Application\Contracts\Catalog\ProductSupplierLookupInterface;
 use App\Application\Contracts\Linnworks\InventoryClientInterface;
 use App\Application\Contracts\Linnworks\InventoryUpdateClientInterface;
@@ -21,6 +22,7 @@ use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\Exceptions\ValidationFailedException;
+use App\Domain\Inventory\ValueObjects\StockItemSupplier;
 use Psr\Log\LoggerInterface;
 use Webmozart\Assert\Assert;
 
@@ -32,8 +34,10 @@ use Webmozart\Assert\Assert;
  * 2. Resolve SKUs → stockItemIds (1 API call)
  * 3. Partition resolved vs unresolved SKUs
  * 4. Resolve supplier name → GUID (1 API call)
- * 5. Bulk update supplier purchase prices (1 API call)
- * 6. Best-effort local DB updates for succeeded items
+ * 5. Fetch existing supplier stats for resolved items (1 API call, read-modify-write)
+ * 6. Merge new purchase prices into fetched stats
+ * 7. Send complete 15-field supplier stat objects (1 API call)
+ * 8. Best-effort local DB updates for succeeded items
  */
 final readonly class UpdateCostPriceBySupplierUseCase
 {
@@ -72,7 +76,7 @@ final readonly class UpdateCostPriceBySupplierUseCase
     }
 
     /**
-     * Resolve identifiers, partition, and send bulk API update.
+     * Resolve identifiers, fetch existing stats, merge prices, and send complete objects.
      *
      * @param non-empty-list<UpdateCostPriceCommand> $commands
      *
@@ -84,24 +88,68 @@ final readonly class UpdateCostPriceBySupplierUseCase
      */
     private function performBulkUpdate(string $supplierName, array $commands): CostPriceUpdateResult
     {
+        [$resolved, $mergedStats, $allFailures] = $this->resolveAndMerge($supplierName, $commands);
+
+        if ($resolved === [] || $mergedStats === []) {
+            return new CostPriceUpdateResult(\count($commands), 0, $allFailures);
+        }
+
+        $apiError = $this->tryUpdateStats($mergedStats);
+
+        if ($apiError !== null) {
+            $this->logBulkApiFailure($supplierName, \count($mergedStats), $apiError);
+
+            return new CostPriceUpdateResult(\count($commands), 0, [...$allFailures, ...CostPriceBySupplierTransformer::buildApiFailures($resolved, 'Linnworks API error: ' . $apiError->getMessage())]);
+        }
+
+        return new CostPriceUpdateResult(\count($commands), \count($mergedStats), $allFailures);
+    }
+
+    /**
+     * Resolve SKUs, fetch supplier stats, and merge new prices.
+     *
+     * @param non-empty-list<UpdateCostPriceCommand> $commands
+     *
+     * @return array{list<UpdateCostPriceCommand>, list<StockItemSupplier>, list<FailedCostPriceUpdateResult>}
+     *
+     * @throws InvalidApiRequestException
+     * @throws InvalidApiResponseException
+     * @throws AuthenticationExpiredException
+     * @throws ExternalServiceUnavailableException
+     * @throws ResourceNotFoundException
+     */
+    private function resolveAndMerge(string $supplierName, array $commands): array
+    {
         $skuToGuid = $this->inventoryClient->resolveStockItemIds(CostPriceBySupplierTransformer::extractUniqueSkus($commands));
         [$resolved, $failures] = CostPriceBySupplierTransformer::partitionByResolution($commands, $skuToGuid);
 
         if ($resolved === []) {
-            return new CostPriceUpdateResult(\count($commands), 0, $failures);
+            return [$resolved, [], $failures];
         }
 
         $supplierGuid = $this->supplierGuidResolver->resolve($supplierName);
+        $stockItemGuids = CostPriceBySupplierTransformer::extractStockItemGuids($resolved, $skuToGuid);
+        $statsByStockItem = $this->inventoryClient->getStockSupplierStatsBulk($stockItemGuids);
 
+        [$mergedStats, $mergeFailures] = CostPriceBySupplierTransformer::mergeSupplierPrices($resolved, $skuToGuid, $supplierGuid, $statsByStockItem);
+
+        return [$resolved, $mergedStats, [...$failures, ...$mergeFailures]];
+    }
+
+    /**
+     * Attempt the bulk supplier stats update, returning any API exception or null on success.
+     *
+     * @param list<StockItemSupplier> $mergedStats
+     */
+    private function tryUpdateStats(array $mergedStats): ?AbstractApiException
+    {
         try {
-            $this->inventoryUpdateClient->updateBulkSupplierPurchasePrice($supplierGuid, CostPriceBySupplierTransformer::buildPriceMap($resolved, $skuToGuid));
+            $this->inventoryUpdateClient->updateStockSupplierStats($mergedStats);
+
+            return null;
         } catch (AbstractApiException $e) {
-            $this->logBulkApiFailure($supplierName, \count($resolved), $e);
-
-            return new CostPriceUpdateResult(\count($commands), 0, [...$failures, ...CostPriceBySupplierTransformer::buildApiFailures($resolved, 'Linnworks API error: ' . $e->getMessage())]);
+            return $e;
         }
-
-        return new CostPriceUpdateResult(\count($commands), \count($resolved), $failures);
     }
 
     private function logBulkApiFailure(string $supplierName, int $resolvedCount, AbstractApiException $e): void

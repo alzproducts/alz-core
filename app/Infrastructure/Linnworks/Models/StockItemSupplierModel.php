@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Infrastructure\Linnworks\Models;
 
 use App\Domain\Inventory\ValueObjects\StockItemSupplier;
+use App\Domain\Shared\Money\ValueObjects\Money;
+use App\Domain\ValueObjects\Guid;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
@@ -76,17 +78,17 @@ final class StockItemSupplierModel extends Model
     public function toDomain(): StockItemSupplier
     {
         return new StockItemSupplier(
-            supplierId: $this->supplier_id,
+            supplierId: new Guid($this->supplier_id),
             supplierName: $this->supplier_name,
             code: $this->code,
             supplierBarcode: $this->supplier_barcode,
-            purchasePrice: $this->purchase_price,
+            purchasePrice: $this->purchase_price !== null ? Money::exclusive($this->purchase_price) : null,
             isDefault: $this->is_default,
             leadTime: $this->lead_time,
             supplierCurrency: $this->supplier_currency,
-            minPrice: $this->min_price,
-            maxPrice: $this->max_price,
-            averagePrice: $this->average_price,
+            minPrice: $this->min_price !== null ? Money::exclusive($this->min_price) : null,
+            maxPrice: $this->max_price !== null ? Money::exclusive($this->max_price) : null,
+            averagePrice: $this->average_price !== null ? Money::exclusive($this->average_price) : null,
         );
     }
 
@@ -103,17 +105,17 @@ final class StockItemSupplierModel extends Model
         $now = CarbonImmutable::now();
 
         return [
-            'supplier_id' => $supplier->supplierId,
+            'supplier_id' => $supplier->supplierId->value,
             'supplier_name' => $supplier->supplierName,
             'code' => $supplier->code,
             'supplier_barcode' => $supplier->supplierBarcode,
-            'purchase_price' => $supplier->purchasePrice,
+            'purchase_price' => $supplier->purchasePrice?->toNet(),
             'is_default' => $supplier->isDefault,
             'lead_time' => $supplier->leadTime,
             'supplier_currency' => $supplier->supplierCurrency,
-            'min_price' => $supplier->minPrice,
-            'max_price' => $supplier->maxPrice,
-            'average_price' => $supplier->averagePrice,
+            'min_price' => $supplier->minPrice?->toNet(),
+            'max_price' => $supplier->maxPrice?->toNet(),
+            'average_price' => $supplier->averagePrice?->toNet(),
             'created_at' => $now,
             'updated_at' => $now,
         ];
