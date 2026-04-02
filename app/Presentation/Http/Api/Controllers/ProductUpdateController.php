@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Presentation\Http\Api\Controllers;
 
+use App\Application\Catalog\UseCases\RefreshProductViewUseCase;
 use App\Application\Catalog\UseCases\UpdateProductCustomFieldsUseCase;
 use App\Application\Catalog\UseCases\UpdateProductFieldsUseCase;
 use App\Application\Linnworks\UpdateCostPriceBySupplier\UpdateCostPriceBySupplierUseCase;
@@ -24,8 +25,10 @@ use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Api\ResourceNotAvailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Data\InvalidSkuException;
+use App\Domain\Exceptions\Data\MissingRequiredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use App\Domain\Exceptions\Infrastructure\PartialPersistenceFailureException;
 use App\Domain\Exceptions\ValidationFailedException;
 use App\Domain\ValueObjects\IntId;
 use App\Presentation\Http\Api\DTOs\CostPriceItemDTO;
@@ -53,6 +56,7 @@ final readonly class ProductUpdateController
         private UpdateProductCustomFieldsUseCase $customFieldsUseCase,
         private UpdateProductFieldsUseCase $fieldsUseCase,
         private UpdateCostPriceBySupplierUseCase $costPriceUseCase,
+        private RefreshProductViewUseCase $refreshUseCase,
     ) {}
 
     /**
@@ -69,6 +73,27 @@ final readonly class ProductUpdateController
             productId: IntId::from($productId),
             fields: $data->fields,
         );
+
+        return new JsonResponse(null, Response::HTTP_NO_CONTENT);
+    }
+
+    /**
+     * Force-refresh a product's data from ShopWired and Linnworks synchronously.
+     *
+     * @throws ResourceNotAvailableException When product not found in ShopWired (404)
+     * @throws ResourceNotFoundException When Linnworks resource not found
+     * @throws AuthenticationExpiredException When credentials invalid (401/403)
+     * @throws InvalidApiRequestException When request parameters invalid (400)
+     * @throws InvalidApiResponseException When API response parsing fails
+     * @throws ExternalServiceUnavailableException When API unavailable
+     * @throws DatabaseOperationFailedException When database save fails
+     * @throws DuplicateRecordException When unique constraint violated
+     * @throws MissingRequiredDataException When product has no SKUs or no matching stock items
+     * @throws PartialPersistenceFailureException When some stock items fail to persist
+     */
+    public function refresh(int $productId): JsonResponse
+    {
+        $this->refreshUseCase->execute(IntId::from($productId));
 
         return new JsonResponse(null, Response::HTTP_NO_CONTENT);
     }
