@@ -12,8 +12,8 @@ use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Inventory\Commands\AddInventoryItemCommand;
 use App\Domain\Inventory\ValueObjects\ExtendedPropertyWrite;
+use App\Domain\Inventory\ValueObjects\StockItemSupplierStat;
 use App\Domain\Inventory\ValueObjects\SupplierLinkParams;
-use App\Domain\Shared\Money\ValueObjects\Money;
 use App\Domain\ValueObjects\Guid;
 
 /**
@@ -138,13 +138,13 @@ interface InventoryUpdateClientInterface
     public function deleteInventoryItem(Sku|Guid $identifier): void;
 
     /**
-     * Bulk update supplier purchase prices for pre-resolved stock items.
+     * Bulk update complete supplier stats for pre-resolved stock items.
      *
-     * Thin wrapper over the UpdateStockSupplierStat Linnworks API endpoint.
-     * All identifiers must be pre-resolved (no SKU→GUID or name→GUID lookups).
+     * Sends full 15-field objects to the UpdateStockSupplierStat endpoint.
+     * Callers must fetch existing stats first and merge new prices before calling this
+     * to avoid silently clearing fields (PUT semantics — missing keys are cleared).
      *
-     * @param Guid $supplierGuid Pre-resolved supplier GUID
-     * @param array<string, Money> $stockItemPrices Map of stockItemId GUID string → purchase price (ex-VAT)
+     * @param list<StockItemSupplierStat> $supplierStats Complete supplier stat VOs (fetched + price-merged)
      *
      * @throws ResourceNotFoundException When resource not found
      * @throws InvalidApiRequestException When parameters invalid
@@ -152,5 +152,5 @@ interface InventoryUpdateClientInterface
      * @throws AuthenticationExpiredException When credentials invalid
      * @throws ExternalServiceUnavailableException When API unavailable
      */
-    public function updateBulkSupplierPurchasePrice(Guid $supplierGuid, array $stockItemPrices): void;
+    public function updateStockSupplierStats(array $supplierStats): void;
 }
