@@ -391,9 +391,9 @@ final readonly class InventoryClient implements InventoryClientInterface
             $stockItemIds,
         );
 
-        $response = $this->transport->get(
+        $response = $this->transport->postJson(
             endpoint: '/api/Inventory/GetStockSupplierStatsBulk',
-            query: ['inventoryItemIds' => $guidStrings],
+            data: ['inventoryItemIds' => $guidStrings],
         );
 
         /** @var list<StockItemSupplierStat> */

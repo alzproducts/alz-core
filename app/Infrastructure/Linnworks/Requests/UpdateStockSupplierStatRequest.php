@@ -73,7 +73,20 @@ final readonly class UpdateStockSupplierStatRequest
     /**
      * @return array<string, mixed>
      */
+    /**
+     * Linnworks rejects null values in the payload — omit them entirely.
+     *
+     * @return array<string, scalar>
+     */
     public function toArray(): array
+    {
+        return \array_filter($this->allFields(), static fn(mixed $v): bool => $v !== null);
+    }
+
+    /**
+     * @return array<string, scalar|null>
+     */
+    private function allFields(): array
     {
         return [
             'StockItemId' => $this->stockItemId,
