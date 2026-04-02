@@ -9,7 +9,6 @@ use App\Application\Linnworks\UseCases\BackfillLinnworksOrdersUseCase;
 use App\Infrastructure\Jobs\Enums\QueueName;
 use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
 use App\Infrastructure\Jobs\Middleware\ServiceCircuitBreaker;
-use DateTimeImmutable;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -35,22 +34,23 @@ final class SyncHistoricalLinnworksOrdersJob implements ShouldBeUnique, ShouldQu
 
     public bool $failOnTimeout = true;
 
-    /** @var array<int> */
+    /** @var array<int> Required by JobRequiredMethodsRule; unused with $tries=1 */
     public array $backoff = [120, 600];
 
     /**
-     * 8 hours — production remote Supabase PostgreSQL adds ~29ms per query
+     * 12 hours — production remote Supabase PostgreSQL adds ~29ms per query
      * vs <1ms locally. Each of ~115k orders requires 4-5 queries in its own
      * transaction (~175ms/order), giving ~5.6h DB time + ~1h API fetch = ~6.6h
      * estimated. Local benchmark (1h24m) is not representative of prod latency.
+     * Extended from 8h to 12h to fit within the background queue's retry_after (43800s).
      */
-    public int $timeout = 28800;
+    public int $timeout = 43200;
 
-    public int $uniqueFor = 36000;
+    public int $uniqueFor = 50400;
 
     public function __construct()
     {
-        $this->onQueue(QueueName::Low->value);
+        $this->onQueue(QueueName::Background->value);
     }
 
     public function uniqueId(): string
@@ -67,11 +67,6 @@ final class SyncHistoricalLinnworksOrdersJob implements ShouldBeUnique, ShouldQu
             ServiceCircuitBreaker::linnworks(),
             new HandleApiExceptions(),
         ];
-    }
-
-    public function retryUntil(): DateTimeImmutable
-    {
-        return \now()->addHours(24)->toDateTimeImmutable();
     }
 
     public function handle(
