@@ -13,7 +13,7 @@ use Spatie\LaravelData\Data;
  * Top-level response DTO for the v2 GetOrders endpoint.
  *
  * Pagination wrapper — not DomainConvertible.
- * Contains the processed orders array and pagination token.
+ * Contains both open and processed order arrays and pagination token.
  *
  * @template-pattern Infrastructure Response DTO
  */
@@ -21,11 +21,14 @@ use Spatie\LaravelData\Data;
 final class GetOrdersApiResponse extends Data
 {
     /**
+     * @param list<OrderResponse>|null $openOrders
      * @param list<OrderResponse>|null $processedOrders
      */
     public function __construct(
         public readonly int $totalOrders,
         public readonly ?string $nextSearchToken,
+        #[DataCollectionOf(OrderResponse::class)]
+        public readonly ?array $openOrders,
         #[DataCollectionOf(OrderResponse::class)]
         public readonly ?array $processedOrders,
     ) {}
