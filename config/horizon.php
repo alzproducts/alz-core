@@ -107,6 +107,7 @@ return [
         'redis:default' => 60,
         'redis-long:low' => 120,
         'redis:bulk' => 120,
+        'redis-xl:background' => 300,
     ],
 
     /*
@@ -210,9 +211,10 @@ return [
     | Queue Priority Tiers
     |--------------------------------------------------------------------------
     |
-    | high    - Time-sensitive, user-facing (webhooks, notifications)
-    | default - Normal priority (order sync, daily jobs)
-    | low     - Bulk/background work (full customer sync, data migrations)
+    | high       - Time-sensitive, user-facing (webhooks, notifications)
+    | default    - Normal priority (order sync, daily jobs)
+    | low        - Bulk/background work (full customer sync, data migrations)
+    | background - Ultra-long-running jobs (historical backfills, full PO syncs)
     |
     */
 
@@ -256,6 +258,19 @@ return [
             'timeout' => 60,
             'nice' => 0,
         ],
+        'supervisor-background' => [
+            'connection' => 'redis-xl',
+            'queue' => ['background'],
+            'balance' => 'auto',
+            'autoScalingStrategy' => 'time',
+            'maxProcesses' => 1,
+            'maxTime' => 50400,   // 14h — worker lifecycle buffer above 12h job timeout
+            'maxJobs' => 50,
+            'memory' => 512,
+            'tries' => 1,         // Safety fallback — background jobs run once; each is expensive
+            'timeout' => 43500,   // Must exceed longest job timeout (43200s)
+            'nice' => 0,
+        ],
     ],
 
     'environments' => [
@@ -273,9 +288,16 @@ return [
                 'minProcesses' => 2,
                 'maxProcesses' => 6,
                 'tries' => 3,
-                'timeout' => 29100, // Must exceed longest job timeout (28800s) per Laravel timeout chain rule
-                'maxTime' => 36000, // 10 hours - worker lifecycle buffer above job timeout
+                'timeout' => 9300,  // Must exceed longest low-queue job timeout (9000s)
+                'maxTime' => 10800, // 3h — worker lifecycle buffer
                 'nice' => 10, // Lower CPU priority for bulk work — gives high/default queues preference
+            ],
+            'supervisor-background' => [
+                'minProcesses' => 1,
+                'maxProcesses' => 2,
+                'timeout' => 43500,
+                'maxTime' => 50400,
+                'nice' => 10,
             ],
             'supervisor-bulk' => [
                 'minProcesses' => 1,
@@ -294,6 +316,9 @@ return [
                 'maxProcesses' => 1,
             ],
             'supervisor-bulk' => [
+                'maxProcesses' => 1,
+            ],
+            'supervisor-background' => [
                 'maxProcesses' => 1,
             ],
         ],
