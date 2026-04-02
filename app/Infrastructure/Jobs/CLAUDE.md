@@ -10,6 +10,7 @@ Jobs are **queue delivery mechanisms** — they receive a queued message and inv
 | `default` | 90s | Normal priority (order sync, daily jobs) |
 | `low` | 3600s | Bulk/background work (full customer sync, data migrations) |
 | `bulk` | 60s | High-volume single-item jobs (free delivery updates) |
+| `background` | 43200s | Ultra-long-running jobs (historical backfills, full PO syncs) |
 
 Route jobs via constructor: `$this->onQueue('low')`. Config: `config/horizon.php`.
 
