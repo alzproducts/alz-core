@@ -51,7 +51,7 @@ final readonly class OrderClient implements OrderClientInterface
      * @throws InvalidApiResponseException When API response structure is invalid
      * @throws ResourceNotFoundException When resource not found (404)
      */
-    public function iterateProcessedOrders(DateTimeImmutable $fromDate): Generator
+    public function iterateOrders(DateTimeImmutable $fromDate): Generator
     {
         $searchToken = null;
         $page = 0;
@@ -59,7 +59,7 @@ final readonly class OrderClient implements OrderClientInterface
         do {
             $apiResponse = $this->fetchPage($fromDate, $searchToken);
 
-            $orders = self::mapOrderResponses($apiResponse->processedOrders ?? []);
+            $orders = self::mapOrderResponses(self::allOrderResponses($apiResponse));
 
             if ($orders !== []) {
                 yield $page => $orders;
@@ -81,7 +81,7 @@ final readonly class OrderClient implements OrderClientInterface
      * @throws InvalidApiResponseException When API response structure is invalid
      * @throws ResourceNotFoundException When resource not found (404)
      */
-    public function iterateProcessedOrdersByIds(array $orderIds): Generator
+    public function iterateOrdersByIds(array $orderIds): Generator
     {
         if ($orderIds === []) {
             return;
@@ -92,7 +92,7 @@ final readonly class OrderClient implements OrderClientInterface
         foreach ($chunks as $chunkIndex => $chunk) {
             $apiResponse = $this->fetchPageWithIds($chunk);
 
-            $orders = self::mapOrderResponses($apiResponse->processedOrders ?? []);
+            $orders = self::mapOrderResponses(self::allOrderResponses($apiResponse));
 
             if ($orders !== []) {
                 yield $chunkIndex => $orders;
@@ -113,13 +113,13 @@ final readonly class OrderClient implements OrderClientInterface
     {
         $apiResponse = $this->fetchPageWithId($orderId);
 
-        $processedOrders = $apiResponse->processedOrders ?? [];
+        $allOrders = self::allOrderResponses($apiResponse);
 
-        if ($processedOrders === []) {
+        if ($allOrders === []) {
             throw new ResourceNotFoundException(self::SERVICE_NAME, 'Order', $orderId->value);
         }
 
-        return $processedOrders[0]->toDomain();
+        return $allOrders[0]->toDomain();
     }
 
     /**
@@ -167,6 +167,16 @@ final readonly class OrderClient implements OrderClientInterface
         ]);
 
         return $this->parseGetOrdersResponse($response->json());
+    }
+
+    /**
+     * Merge open and processed order arrays from a GetOrders response.
+     *
+     * @return list<OrderResponse>
+     */
+    private static function allOrderResponses(GetOrdersApiResponse $response): array
+    {
+        return [...($response->openOrders ?? []), ...($response->processedOrders ?? [])];
     }
 
     /**

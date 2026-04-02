@@ -78,7 +78,7 @@ final class OrderResponse extends Data implements DomainConvertibleInterface
             externalReferenceNum: $this->generalInfo->externalReferenceNum,
             secondaryReference: $this->generalInfo->secondaryReference,
             status: $this->generalInfo->status,
-            isCancelled: $this->generalInfo->isCancelled,
+            isCancelled: $this->generalInfo->isCancelled ?? false,
             holdOrCancel: $this->generalInfo->holdOrCancel,
             isParked: $this->generalInfo->isParked,
             source: $this->generalInfo->source,

@@ -34,7 +34,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Railway CLI
 
-**Remote commands**: `railway ssh -s alz-core-worker <command>` (default for jobs/artisan)
+**⚠️ Production only — never use unless the user explicitly requests a production operation.**
+
+`railway ssh -s alz-core-worker <command>` runs commands on the **production** worker. Only use when the user specifically asks to run something in prod.
 
 Note: `railway run` is local-only with env vars, not remote execution.
 
@@ -170,6 +172,14 @@ Consumer API endpoints use an `X-Local-Bypass` header instead of a JWT (local on
 ### Queue Processing
 
 **Queue listener runs automatically** via the `Queue` run configuration (see `.run/Queue.run.xml`). Do NOT manually run queue workers.
+
+### Smoke Testing Jobs Locally
+
+Dispatch jobs locally via tinker — they run on the local queue worker:
+```bash
+php artisan tinker --execute="SomeJob::dispatch();"
+```
+Check `storage/logs/laravel.log` for job output. Never dispatch to production for smoke tests.
 
 ---
 
