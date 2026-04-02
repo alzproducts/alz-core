@@ -15,7 +15,7 @@ use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Inventory\Commands\AddInventoryItemCommand;
 use App\Domain\Inventory\Enums\LinnworksInventoryField;
 use App\Domain\Inventory\ValueObjects\ExtendedPropertyWrite;
-use App\Domain\Inventory\ValueObjects\StockItemSupplier;
+use App\Domain\Inventory\ValueObjects\StockItemSupplierStat;
 use App\Domain\Inventory\ValueObjects\SupplierLinkParams;
 use App\Domain\ValueObjects\Guid;
 use App\Infrastructure\Linnworks\Contracts\LinnworksTransportInterface;
@@ -240,7 +240,7 @@ final readonly class InventoryUpdateClient implements InventoryUpdateClientInter
     /**
      * {@inheritDoc}
      *
-     * @param list<StockItemSupplier> $supplierStats
+     * @param list<StockItemSupplierStat> $supplierStats
      *
      * @throws ResourceNotFoundException When resource not found
      * @throws InvalidApiRequestException When parameters invalid

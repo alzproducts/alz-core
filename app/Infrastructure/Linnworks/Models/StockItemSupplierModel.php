@@ -31,6 +31,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property float|null $min_price
  * @property float|null $max_price
  * @property float|null $average_price
+ * @property float|null $average_lead_time
+ * @property int|null $supplier_min_order_qty
+ * @property int|null $supplier_pack_size
  * @property CarbonImmutable $created_at
  * @property CarbonImmutable $updated_at
  */
@@ -55,6 +58,9 @@ final class StockItemSupplierModel extends Model
             'min_price' => 'float',
             'max_price' => 'float',
             'average_price' => 'float',
+            'average_lead_time' => 'float',
+            'supplier_min_order_qty' => 'integer',
+            'supplier_pack_size' => 'integer',
             'created_at' => 'immutable_datetime',
             'updated_at' => 'immutable_datetime',
         ];
@@ -89,6 +95,9 @@ final class StockItemSupplierModel extends Model
             minPrice: $this->min_price !== null ? Money::exclusive($this->min_price) : null,
             maxPrice: $this->max_price !== null ? Money::exclusive($this->max_price) : null,
             averagePrice: $this->average_price !== null ? Money::exclusive($this->average_price) : null,
+            averageLeadTime: $this->average_lead_time,
+            supplierMinOrderQty: $this->supplier_min_order_qty,
+            supplierPackSize: $this->supplier_pack_size,
         );
     }
 
@@ -102,8 +111,6 @@ final class StockItemSupplierModel extends Model
      */
     public static function attributesFromDomain(StockItemSupplier $supplier): array
     {
-        $now = CarbonImmutable::now();
-
         return [
             'supplier_id' => $supplier->supplierId->value,
             'supplier_name' => $supplier->supplierName,
@@ -116,8 +123,20 @@ final class StockItemSupplierModel extends Model
             'min_price' => $supplier->minPrice?->toNet(),
             'max_price' => $supplier->maxPrice?->toNet(),
             'average_price' => $supplier->averagePrice?->toNet(),
-            'created_at' => $now,
-            'updated_at' => $now,
+            'average_lead_time' => $supplier->averageLeadTime,
+            'supplier_min_order_qty' => $supplier->supplierMinOrderQty,
+            'supplier_pack_size' => $supplier->supplierPackSize,
+            ...self::timestamps(),
         ];
+    }
+
+    /**
+     * @return array{created_at: CarbonImmutable, updated_at: CarbonImmutable}
+     */
+    private static function timestamps(): array
+    {
+        $now = CarbonImmutable::now();
+
+        return ['created_at' => $now, 'updated_at' => $now];
     }
 }

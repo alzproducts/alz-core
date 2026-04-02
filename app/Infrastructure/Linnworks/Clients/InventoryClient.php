@@ -14,7 +14,7 @@ use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Data\InvalidSkuException;
 use App\Domain\Inventory\ValueObjects\StockItem;
 use App\Domain\Inventory\ValueObjects\StockItemFull;
-use App\Domain\Inventory\ValueObjects\StockItemSupplier;
+use App\Domain\Inventory\ValueObjects\StockItemSupplierStat;
 use App\Domain\Inventory\ValueObjects\Supplier;
 use App\Domain\ValueObjects\Guid;
 use App\Infrastructure\Linnworks\Contracts\LinnworksTransportInterface;
@@ -372,7 +372,7 @@ final readonly class InventoryClient implements InventoryClientInterface
      *
      * @param list<Guid> $stockItemIds
      *
-     * @return array<string, list<StockItemSupplier>>
+     * @return array<string, list<StockItemSupplierStat>>
      *
      * @throws AuthenticationExpiredException When credentials are invalid
      * @throws ExternalServiceUnavailableException When API is unavailable
@@ -396,10 +396,10 @@ final readonly class InventoryClient implements InventoryClientInterface
             query: ['inventoryItemIds' => $guidStrings],
         );
 
-        /** @var list<StockItemSupplier> */
+        /** @var list<StockItemSupplierStat> */
         $stats = self::parseDirectArrayToDomain($response->json(), StockSupplierStatResponse::class);
 
-        return self::groupByGuid($stats, static fn(StockItemSupplier $s): ?string => $s->stockItemId?->value);
+        return self::groupByGuid($stats, static fn(StockItemSupplierStat $s): string => $s->stockItemId->value);
     }
 
     /**

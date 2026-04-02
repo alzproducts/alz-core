@@ -22,7 +22,7 @@ use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\Exceptions\ValidationFailedException;
-use App\Domain\Inventory\ValueObjects\StockItemSupplier;
+use App\Domain\Inventory\ValueObjects\StockItemSupplierStat;
 use Psr\Log\LoggerInterface;
 use Webmozart\Assert\Assert;
 
@@ -110,7 +110,7 @@ final readonly class UpdateCostPriceBySupplierUseCase
      *
      * @param non-empty-list<UpdateCostPriceCommand> $commands
      *
-     * @return array{list<UpdateCostPriceCommand>, list<StockItemSupplier>, list<FailedCostPriceUpdateResult>}
+     * @return array{list<UpdateCostPriceCommand>, list<StockItemSupplierStat>, list<FailedCostPriceUpdateResult>}
      *
      * @throws InvalidApiRequestException
      * @throws InvalidApiResponseException
@@ -139,7 +139,7 @@ final readonly class UpdateCostPriceBySupplierUseCase
     /**
      * Attempt the bulk supplier stats update, returning any API exception or null on success.
      *
-     * @param list<StockItemSupplier> $mergedStats
+     * @param list<StockItemSupplierStat> $mergedStats
      */
     private function tryUpdateStats(array $mergedStats): ?AbstractApiException
     {

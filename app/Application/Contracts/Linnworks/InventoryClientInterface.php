@@ -12,7 +12,7 @@ use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Inventory\ValueObjects\StockItem;
 use App\Domain\Inventory\ValueObjects\StockItemFull;
-use App\Domain\Inventory\ValueObjects\StockItemSupplier;
+use App\Domain\Inventory\ValueObjects\StockItemSupplierStat;
 use App\Domain\Inventory\ValueObjects\Supplier;
 use App\Domain\ValueObjects\Guid;
 use Generator;
@@ -148,7 +148,7 @@ interface InventoryClientInterface
      *
      * @param list<Guid> $stockItemIds
      *
-     * @return array<string, list<StockItemSupplier>> stockItemId GUID string → supplier stats
+     * @return array<string, list<StockItemSupplierStat>> stockItemId GUID string → supplier stats
      *
      * @throws AuthenticationExpiredException When credentials are invalid
      * @throws ExternalServiceUnavailableException When API is unavailable

@@ -39,6 +39,9 @@ final class StockItemSupplierResponse extends Data implements DomainConvertibleI
         public readonly ?float $minPrice,
         public readonly ?float $maxPrice,
         public readonly ?float $averagePrice,
+        public readonly float $averageLeadTime,
+        public readonly int $supplierMinOrderQty,
+        public readonly int $supplierPackSize,
     ) {}
 
     public function toDomain(): StockItemSupplier
@@ -55,6 +58,9 @@ final class StockItemSupplierResponse extends Data implements DomainConvertibleI
             minPrice: $this->minPrice !== null ? Money::exclusive($this->minPrice) : null,
             maxPrice: $this->maxPrice !== null ? Money::exclusive($this->maxPrice) : null,
             averagePrice: $this->averagePrice !== null ? Money::exclusive($this->averagePrice) : null,
+            averageLeadTime: $this->averageLeadTime,
+            supplierMinOrderQty: $this->supplierMinOrderQty,
+            supplierPackSize: $this->supplierPackSize,
         );
     }
 }

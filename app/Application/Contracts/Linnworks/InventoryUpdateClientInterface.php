@@ -12,7 +12,7 @@ use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Inventory\Commands\AddInventoryItemCommand;
 use App\Domain\Inventory\ValueObjects\ExtendedPropertyWrite;
-use App\Domain\Inventory\ValueObjects\StockItemSupplier;
+use App\Domain\Inventory\ValueObjects\StockItemSupplierStat;
 use App\Domain\Inventory\ValueObjects\SupplierLinkParams;
 use App\Domain\ValueObjects\Guid;
 
@@ -144,7 +144,7 @@ interface InventoryUpdateClientInterface
      * Callers must fetch existing stats first and merge new prices before calling this
      * to avoid silently clearing fields (PUT semantics — missing keys are cleared).
      *
-     * @param list<StockItemSupplier> $supplierStats Complete supplier stat VOs (fetched + price-merged)
+     * @param list<StockItemSupplierStat> $supplierStats Complete supplier stat VOs (fetched + price-merged)
      *
      * @throws ResourceNotFoundException When resource not found
      * @throws InvalidApiRequestException When parameters invalid

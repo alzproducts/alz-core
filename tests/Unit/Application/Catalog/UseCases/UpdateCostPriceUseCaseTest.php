@@ -17,7 +17,7 @@ use App\Domain\Catalog\Product\ValueObjects\Sku;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\ValidationFailedException;
-use App\Domain\Inventory\ValueObjects\StockItemSupplier;
+use App\Domain\Inventory\ValueObjects\StockItemSupplierStat;
 use App\Domain\Shared\Money\ValueObjects\Money;
 use App\Domain\ValueObjects\Guid;
 use Mockery;
@@ -69,11 +69,13 @@ final class UpdateCostPriceUseCaseTest extends TestCase
     }
 
     /**
-     * Create a minimal StockItemSupplier stat for a given stockItemId and supplierGuid.
+     * Create a minimal StockItemSupplierStat for a given stockItemId and supplierGuid.
      */
-    private function makeSupplierStat(string $stockItemId, Guid $supplierGuid): StockItemSupplier
+    private function makeSupplierStat(string $stockItemId, Guid $supplierGuid): StockItemSupplierStat
     {
-        return new StockItemSupplier(
+        return new StockItemSupplierStat(
+            stockItemId: new Guid($stockItemId),
+            stockItemIntId: null,
             supplierId: $supplierGuid,
             supplierName: 'AcmeCo',
             code: null,
@@ -85,7 +87,9 @@ final class UpdateCostPriceUseCaseTest extends TestCase
             minPrice: null,
             maxPrice: null,
             averagePrice: null,
-            stockItemId: new Guid($stockItemId),
+            averageLeadTime: null,
+            supplierMinOrderQty: null,
+            supplierPackSize: null,
         );
     }
 

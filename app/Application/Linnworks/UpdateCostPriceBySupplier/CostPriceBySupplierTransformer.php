@@ -8,7 +8,7 @@ use App\Application\Catalog\Results\CostPriceUpdateResult;
 use App\Application\Catalog\Results\FailedCostPriceUpdateResult;
 use App\Domain\Catalog\Product\Commands\UpdateCostPriceCommand;
 use App\Domain\Catalog\Product\ValueObjects\Sku;
-use App\Domain\Inventory\ValueObjects\StockItemSupplier;
+use App\Domain\Inventory\ValueObjects\StockItemSupplierStat;
 use App\Domain\ValueObjects\Guid;
 use Webmozart\Assert\Assert;
 
@@ -102,9 +102,9 @@ final readonly class CostPriceBySupplierTransformer
      * @param list<UpdateCostPriceCommand> $resolved Commands that had their SKU resolved
      * @param array<string, Guid> $skuToGuid SKU → stockItemId mapping
      * @param Guid $supplierGuid Pre-resolved supplier GUID
-     * @param array<string, list<StockItemSupplier>> $statsByStockItem stockItemId → supplier stats
+     * @param array<string, list<StockItemSupplierStat>> $statsByStockItem stockItemId → supplier stats
      *
-     * @return array{list<StockItemSupplier>, list<FailedCostPriceUpdateResult>}
+     * @return array{list<StockItemSupplierStat>, list<FailedCostPriceUpdateResult>}
      */
     public static function mergeSupplierPrices(
         array $resolved,
@@ -129,16 +129,16 @@ final readonly class CostPriceBySupplierTransformer
     }
 
     /**
-     * @param array<string, list<StockItemSupplier>> $statsByStockItem
+     * @param array<string, list<StockItemSupplierStat>> $statsByStockItem
      */
     private static function findMatchingStat(
         array $statsByStockItem,
         Guid $stockItemGuid,
         Guid $supplierGuid,
-    ): ?StockItemSupplier {
+    ): ?StockItemSupplierStat {
         $stats = $statsByStockItem[\mb_strtolower($stockItemGuid->value)] ?? [];
 
-        return \array_find($stats, static fn(StockItemSupplier $s): bool => $s->supplierId->equals($supplierGuid));
+        return \array_find($stats, static fn(StockItemSupplierStat $s): bool => $s->supplierId->equals($supplierGuid));
     }
 
     /**

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Linnworks\Responses;
 
-use App\Domain\Inventory\ValueObjects\StockItemSupplier;
+use App\Domain\Inventory\ValueObjects\StockItemSupplierStat;
 use App\Domain\Shared\Money\ValueObjects\Money;
 use App\Domain\ValueObjects\Guid;
 use App\Domain\ValueObjects\IntId;
@@ -42,14 +42,18 @@ final class StockSupplierStatResponse extends Data implements DomainConvertibleI
         public readonly ?float $minPrice,
         public readonly ?float $maxPrice,
         public readonly ?float $averagePrice,
-        public readonly ?int $averageLeadTime,
+        public readonly ?float $averageLeadTime,
         public readonly ?int $supplierMinOrderQty,
         public readonly ?int $supplierPackSize,
     ) {}
 
-    public function toDomain(): StockItemSupplier
+    public function toDomain(): StockItemSupplierStat
     {
-        return new StockItemSupplier(
+        return new StockItemSupplierStat(
+            stockItemId: new Guid($this->stockItemId),
+            stockItemIntId: $this->stockItemIntId !== null && $this->stockItemIntId > 0
+                ? IntId::from($this->stockItemIntId)
+                : null,
             supplierId: new Guid($this->supplierId),
             supplierName: $this->supplier,
             code: $this->code,
@@ -61,10 +65,6 @@ final class StockSupplierStatResponse extends Data implements DomainConvertibleI
             minPrice: $this->minPrice !== null ? Money::exclusive($this->minPrice) : null,
             maxPrice: $this->maxPrice !== null ? Money::exclusive($this->maxPrice) : null,
             averagePrice: $this->averagePrice !== null ? Money::exclusive($this->averagePrice) : null,
-            stockItemId: new Guid($this->stockItemId),
-            stockItemIntId: $this->stockItemIntId !== null && $this->stockItemIntId > 0
-                ? IntId::from($this->stockItemIntId)
-                : null,
             averageLeadTime: $this->averageLeadTime,
             supplierMinOrderQty: $this->supplierMinOrderQty,
             supplierPackSize: $this->supplierPackSize,

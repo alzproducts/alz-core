@@ -4,8 +4,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Linnworks\Requests;
 
-use App\Domain\Inventory\ValueObjects\StockItemSupplier;
-use Webmozart\Assert\Assert;
+use App\Domain\Inventory\ValueObjects\StockItemSupplierStat;
 
 /**
  * Structural mapping for the Linnworks UpdateStockSupplierStat API endpoint.
@@ -29,16 +28,13 @@ final readonly class UpdateStockSupplierStatRequest
         private ?float $minPrice,
         private ?float $maxPrice,
         private ?float $averagePrice,
-        private ?int $averageLeadTime,
+        private ?float $averageLeadTime,
         private ?int $supplierMinOrderQty,
         private ?int $supplierPackSize,
     ) {}
 
-    public static function fromDomain(StockItemSupplier $supplier): self
+    public static function fromDomain(StockItemSupplierStat $supplier): self
     {
-        Assert::notNull($supplier->stockItemId, 'StockItemSupplier must have stockItemId to update Linnworks');
-        Assert::notNull($supplier->purchasePrice, 'StockItemSupplier must have purchasePrice to update Linnworks');
-
         return new self(
             stockItemId: $supplier->stockItemId->value,
             stockItemIntId: $supplier->stockItemIntId?->value,
@@ -62,14 +58,14 @@ final readonly class UpdateStockSupplierStatRequest
     /**
      * Build the full itemSuppliers payload for a bulk update.
      *
-     * @param list<StockItemSupplier> $supplierStats
+     * @param list<StockItemSupplierStat> $supplierStats
      *
      * @return list<array<string, mixed>>
      */
     public static function buildBulkPayload(array $supplierStats): array
     {
         return \array_map(
-            static fn(StockItemSupplier $stat): array => self::fromDomain($stat)->toArray(),
+            static fn(StockItemSupplierStat $stat): array => self::fromDomain($stat)->toArray(),
             $supplierStats,
         );
     }
