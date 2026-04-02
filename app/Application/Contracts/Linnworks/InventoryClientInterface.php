@@ -110,6 +110,21 @@ interface InventoryClientInterface
     public function resolveStockItemIds(array $skus): array;
 
     /**
+     * Fetch multiple full stock items by their Linnworks GUIDs in a single API call.
+     *
+     * @param list<Guid> $stockItemIds
+     *
+     * @return list<StockItemFull>
+     *
+     * @throws ResourceNotFoundException When resource not found
+     * @throws AuthenticationExpiredException When credentials are invalid
+     * @throws ExternalServiceUnavailableException When API is unavailable
+     * @throws InvalidApiRequestException When request parameters are invalid
+     * @throws InvalidApiResponseException When API response structure is invalid
+     */
+    public function getStockItemsFullByIds(array $stockItemIds): array;
+
+    /**
      * Fetch all suppliers from the Linnworks master supplier directory.
      *
      * Returns the complete list of suppliers (small dataset, no pagination).
