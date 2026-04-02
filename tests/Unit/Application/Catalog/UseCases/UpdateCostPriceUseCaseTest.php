@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Application\Catalog\UseCases;
 
-use App\Application\Catalog\Results\CostPriceUpdateResult;
 use App\Application\Contracts\Catalog\ProductSupplierLookupInterface;
 use App\Application\Contracts\Linnworks\InventoryClientInterface;
 use App\Application\Contracts\Linnworks\InventoryUpdateClientInterface;
-use App\Application\Contracts\Linnworks\StockItemRepositoryInterface;
+use App\Application\Contracts\Linnworks\LinnworksSyncDispatcherInterface;
+use App\Application\Contracts\Linnworks\StockItemSupplierRepositoryInterface;
 use App\Application\Linnworks\Resolvers\SupplierGuidResolver;
 use App\Application\Linnworks\UpdateCostPriceBySupplier\UpdateCostPriceBySupplierUseCase;
 use App\Domain\Catalog\Product\Commands\UpdateCostPriceCommand;
@@ -35,11 +35,13 @@ final class UpdateCostPriceUseCaseTest extends TestCase
 
     private InventoryUpdateClientInterface&MockInterface $inventoryUpdateClient;
 
-    private StockItemRepositoryInterface&MockInterface $stockItemRepository;
+    private StockItemSupplierRepositoryInterface&MockInterface $supplierRepository;
 
     private ProductSupplierLookupInterface&MockInterface $supplierLookup;
 
     private SupplierGuidResolver&MockInterface $supplierGuidResolver;
+
+    private LinnworksSyncDispatcherInterface&MockInterface $syncDispatcher;
 
     private LoggerInterface&MockInterface $logger;
 
@@ -52,18 +54,21 @@ final class UpdateCostPriceUseCaseTest extends TestCase
 
         $this->inventoryClient = Mockery::mock(InventoryClientInterface::class);
         $this->inventoryUpdateClient = Mockery::mock(InventoryUpdateClientInterface::class);
-        $this->stockItemRepository = Mockery::mock(StockItemRepositoryInterface::class);
+        $this->supplierRepository = Mockery::mock(StockItemSupplierRepositoryInterface::class);
         $this->supplierLookup = Mockery::mock(ProductSupplierLookupInterface::class);
         $this->supplierGuidResolver = Mockery::mock(SupplierGuidResolver::class);
+        $this->syncDispatcher = Mockery::mock(LinnworksSyncDispatcherInterface::class);
+        $this->syncDispatcher->shouldReceive('dispatchStockItemSync')->byDefault();
         $this->logger = Mockery::mock(LoggerInterface::class);
         $this->logger->shouldReceive('info')->byDefault();
 
         $this->useCase = new UpdateCostPriceBySupplierUseCase(
             $this->inventoryClient,
             $this->inventoryUpdateClient,
-            $this->stockItemRepository,
+            $this->supplierRepository,
             $this->supplierLookup,
             $this->supplierGuidResolver,
+            $this->syncDispatcher,
             $this->logger,
         );
     }
@@ -147,8 +152,8 @@ final class UpdateCostPriceUseCaseTest extends TestCase
             ->with(Mockery::type('array'))
             ->once();
 
-        $this->stockItemRepository
-            ->shouldReceive('bulkUpdateSupplierPurchasePrices')
+        $this->supplierRepository
+            ->shouldReceive('bulkUpdatePurchasePrices')
             ->with('AcmeCo', Mockery::type('array'))
             ->once();
 
@@ -223,8 +228,8 @@ final class UpdateCostPriceUseCaseTest extends TestCase
             ->once();
 
         // Bulk update should only include SKU-001's price
-        $this->stockItemRepository
-            ->shouldReceive('bulkUpdateSupplierPurchasePrices')
+        $this->supplierRepository
+            ->shouldReceive('bulkUpdatePurchasePrices')
             ->with('AcmeCo', Mockery::on(static fn(array $prices): bool => \count($prices) === 1 && isset($prices['SKU-001'])))
             ->once();
 
@@ -237,7 +242,7 @@ final class UpdateCostPriceUseCaseTest extends TestCase
     }
 
     #[Test]
-    public function it_swallows_local_db_exceptions_and_logs_warning(): void
+    public function it_marks_all_as_failed_when_local_db_write_fails(): void
     {
         $sku = Sku::fromTrusted('SKU-001');
         $supplier = new ProductSupplier(supplierName: 'AcmeCo', purchasePrice: 10.0, isDefault: true);
@@ -274,23 +279,32 @@ final class UpdateCostPriceUseCaseTest extends TestCase
             ->shouldReceive('updateStockSupplierStats')
             ->once();
 
-        $this->stockItemRepository
-            ->shouldReceive('bulkUpdateSupplierPurchasePrices')
+        $this->supplierRepository
+            ->shouldReceive('bulkUpdatePurchasePrices')
             ->once()
             ->andThrow(new DatabaseOperationFailedException(
-                operation: 'bulkUpdateSupplierPurchasePrices',
+                operation: 'bulkUpdatePurchasePrices',
                 reason: 'Connection failed',
             ));
 
         $this->logger
-            ->shouldReceive('warning')
+            ->shouldReceive('error')
             ->once()
-            ->withArgs(static fn(string $message, array $context): bool => \array_key_exists('count', $context));
+            ->withArgs(static fn(string $message): bool => \str_contains($message, 'stale data'));
 
-        // No exception should propagate
+        $this->syncDispatcher
+            ->shouldReceive('dispatchStockItemSync')
+            ->with(Mockery::on(static fn(Guid $id): bool => $id->value === $stockId1))
+            ->once();
+
         $result = $this->useCase->execute('AcmeCo', $commands);
 
-        self::assertInstanceOf(CostPriceUpdateResult::class, $result);
+        self::assertSame(1, $result->total);
+        self::assertSame(0, $result->succeeded);
+        self::assertCount(1, $result->failures);
+        self::assertSame('SKU-001', $result->failures[0]->sku->value);
+        self::assertStringContainsString('Local DB update failed', $result->failures[0]->error);
+        self::assertNotNull($result->failures[0]->stockItemId);
     }
 
     #[Test]
@@ -344,7 +358,7 @@ final class UpdateCostPriceUseCaseTest extends TestCase
             ->withArgs(static fn(string $msg): bool => \str_contains($msg, 'Bulk supplier price update API call failed'));
 
         // Local DB should NOT be called — all items failed
-        $this->stockItemRepository->shouldNotReceive('bulkUpdateSupplierPurchasePrices');
+        $this->supplierRepository->shouldNotReceive('bulkUpdatePurchasePrices');
 
         $result = $this->useCase->execute('AcmeCo', $commands);
 
@@ -399,8 +413,8 @@ final class UpdateCostPriceUseCaseTest extends TestCase
             ->shouldReceive('updateStockSupplierStats')
             ->once();
 
-        $this->stockItemRepository
-            ->shouldReceive('bulkUpdateSupplierPurchasePrices')
+        $this->supplierRepository
+            ->shouldReceive('bulkUpdatePurchasePrices')
             ->with('AcmeCo', Mockery::on(static fn(array $prices): bool => \count($prices) === 1 && isset($prices['SKU-001'])))
             ->once();
 
@@ -455,8 +469,8 @@ final class UpdateCostPriceUseCaseTest extends TestCase
             ->shouldReceive('updateStockSupplierStats')
             ->once();
 
-        $this->stockItemRepository
-            ->shouldReceive('bulkUpdateSupplierPurchasePrices')
+        $this->supplierRepository
+            ->shouldReceive('bulkUpdatePurchasePrices')
             ->once();
 
         $this->useCase->execute('AcmeCo', $commands);

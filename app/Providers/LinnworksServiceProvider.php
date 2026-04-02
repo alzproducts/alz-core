@@ -20,6 +20,7 @@ use App\Application\Contracts\Linnworks\PurchaseOrderSyncRepositoryInterface;
 use App\Application\Contracts\Linnworks\PurchaseOrderUpdateClientInterface;
 use App\Application\Contracts\Linnworks\StockDashboardsClientInterface;
 use App\Application\Contracts\Linnworks\StockItemRepositoryInterface;
+use App\Application\Contracts\Linnworks\StockItemSupplierRepositoryInterface;
 use App\Application\Contracts\Linnworks\SupplierRepositoryInterface;
 use App\Application\Contracts\LockableCacheInterface;
 use App\Infrastructure\Linnworks\Dispatchers\QueuedLinnworksBackfillDispatcher;
@@ -31,6 +32,7 @@ use App\Infrastructure\Linnworks\LinnworksSessionManager;
 use App\Infrastructure\Linnworks\Repositories\EloquentLinnworksOrderRepository;
 use App\Infrastructure\Linnworks\Repositories\EloquentPurchaseOrderSyncRepository;
 use App\Infrastructure\Linnworks\Repositories\EloquentStockItemRepository;
+use App\Infrastructure\Linnworks\Repositories\EloquentStockItemSupplierRepository;
 use App\Infrastructure\Linnworks\Repositories\EloquentSupplierRepository;
 use App\Infrastructure\Persistence\EloquentGateway;
 use Illuminate\Contracts\Container\Container;
@@ -70,6 +72,7 @@ final class LinnworksServiceProvider extends ServiceProvider implements Deferrab
         $this->registerOrderClients();
         $this->registerPurchaseOrderClients();
         $this->registerStockRepositories();
+        $this->registerSupplierRepository();
         $this->registerOrderRepositories();
         $this->registerDispatchers();
     }
@@ -144,6 +147,16 @@ final class LinnworksServiceProvider extends ServiceProvider implements Deferrab
         );
 
         $this->app->singleton(
+            StockItemSupplierRepositoryInterface::class,
+            static fn(Container $app): StockItemSupplierRepositoryInterface => new EloquentStockItemSupplierRepository(
+                $app->make(EloquentGateway::class),
+            ),
+        );
+    }
+
+    private function registerSupplierRepository(): void
+    {
+        $this->app->singleton(
             SupplierRepositoryInterface::class,
             static fn(Container $app): SupplierRepositoryInterface => new EloquentSupplierRepository(
                 $app->make(DatabaseGatewayInterface::class),
@@ -203,6 +216,7 @@ final class LinnworksServiceProvider extends ServiceProvider implements Deferrab
             PurchaseOrderUpdateClientInterface::class,
             StockDashboardsClientInterface::class,
             StockItemRepositoryInterface::class,
+            StockItemSupplierRepositoryInterface::class,
             SupplierRepositoryInterface::class,
         ];
     }

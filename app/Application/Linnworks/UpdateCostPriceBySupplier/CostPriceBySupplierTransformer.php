@@ -59,7 +59,7 @@ final readonly class CostPriceBySupplierTransformer
             if (isset($skuToGuid[$command->sku->value])) {
                 $resolved[] = $command;
             } else {
-                $failures[] = new FailedCostPriceUpdateResult($command->sku, 'SKU not found in Linnworks');
+                $failures[] = new FailedCostPriceUpdateResult($command->sku, 'SKU not found in Linnworks', stockItemId: null);
             }
         }
 
@@ -119,7 +119,7 @@ final readonly class CostPriceBySupplierTransformer
             Assert::notNull($stockItemGuid, "SKU {$cmd->sku->value} should be resolved at this point");
             $matchingStat = self::findMatchingStat($statsByStockItem, $stockItemGuid, $supplierGuid);
             if ($matchingStat === null) {
-                $failures[] = new FailedCostPriceUpdateResult($cmd->sku, 'Supplier stat not found in Linnworks');
+                $failures[] = new FailedCostPriceUpdateResult($cmd->sku, 'Supplier stat not found in Linnworks', $stockItemGuid);
             } else {
                 $merged[] = $matchingStat->withPurchasePrice($cmd->costPrice);
             }
@@ -145,13 +145,18 @@ final readonly class CostPriceBySupplierTransformer
      * Convert resolved commands to failure results when the bulk API call fails.
      *
      * @param list<UpdateCostPriceCommand> $resolved Commands that were resolved but failed at API level
+     * @param array<string, Guid> $skuToGuid SKU → stockItemId mapping (empty for DB-level failures)
      *
      * @return list<FailedCostPriceUpdateResult>
      */
-    public static function buildApiFailures(array $resolved, string $error): array
+    public static function buildApiFailures(array $resolved, string $error, array $skuToGuid = []): array
     {
         return \array_map(
-            static fn(UpdateCostPriceCommand $cmd): FailedCostPriceUpdateResult => new FailedCostPriceUpdateResult($cmd->sku, $error),
+            static fn(UpdateCostPriceCommand $cmd): FailedCostPriceUpdateResult => new FailedCostPriceUpdateResult(
+                $cmd->sku,
+                $error,
+                $skuToGuid[$cmd->sku->value] ?? null,
+            ),
             $resolved,
         );
     }
@@ -161,7 +166,7 @@ final readonly class CostPriceBySupplierTransformer
      *
      * @return array<string, true>
      */
-    public static function buildFailedSkuLookup(CostPriceUpdateResult $result): array
+    private static function buildFailedSkuLookup(CostPriceUpdateResult $result): array
     {
         $failedSkus = [];
 
