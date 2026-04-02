@@ -10,6 +10,8 @@ use App\Domain\Inventory\ValueObjects\StockItemExtendedProperty;
 use App\Domain\Inventory\ValueObjects\StockItemFull;
 use App\Domain\Inventory\ValueObjects\StockItemSupplier;
 use App\Domain\Inventory\ValueObjects\Weight;
+use App\Domain\Shared\Money\ValueObjects\Money;
+use App\Domain\ValueObjects\Guid;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -47,6 +49,7 @@ final class StockItemFullTest extends TestCase
             'inOrder' => 5,
             'due' => 50,
             'minimumLevel' => 10,
+            'jit' => false,
             'purchasePrice' => 25.50,
             'retailPrice' => 49.99,
             'taxRate' => 20.0,
@@ -71,11 +74,11 @@ final class StockItemFullTest extends TestCase
     private function createSupplier(bool $isDefault = false, string $name = 'Test Supplier'): StockItemSupplier
     {
         return new StockItemSupplier(
-            supplierId: 'supplier-' . \uniqid(),
+            supplierId: new Guid('550e8400-e29b-41d4-a716-000000000001'),
             supplierName: $name,
             code: null,
             supplierBarcode: null,
-            purchasePrice: 10.00,
+            purchasePrice: Money::exclusive(10.00),
             isDefault: $isDefault,
             leadTime: null,
             supplierCurrency: null,

@@ -11,6 +11,7 @@ use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\ValueObjects\Guid;
+use App\Infrastructure\Linnworks\Queries\OpenOrderIdsQuery;
 use App\Infrastructure\Linnworks\Queries\ProcessedOrderIdsQuery;
 use DateTimeImmutable;
 
@@ -45,5 +46,22 @@ final readonly class OrderDashboardsClient implements OrderDashboardsClientInter
     ): array {
         /** @var list<Guid> */
         return $this->dashboardsClient->execute(new ProcessedOrderIdsQuery($from, $to));
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @return list<Guid>
+     *
+     * @throws InvalidApiResponseException When query fails
+     * @throws InvalidApiRequestException When request parameters are invalid
+     * @throws AuthenticationExpiredException When credentials invalid
+     * @throws ResourceNotFoundException When resource not found
+     * @throws ExternalServiceUnavailableException When API unavailable
+     */
+    public function getOpenOrderIds(): array
+    {
+        /** @var list<Guid> */
+        return $this->dashboardsClient->execute(new OpenOrderIdsQuery());
     }
 }

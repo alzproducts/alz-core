@@ -8,6 +8,7 @@ use App\Domain\Exceptions\Api\PermanentApiFailure;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Api\TransientApiFailure;
 use App\Domain\Exceptions\Data\InvalidSkuException;
+use App\Domain\Exceptions\Data\MissingRequiredDataException;
 use App\Domain\Exceptions\DomainException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\Exceptions\Infrastructure\LockAcquisitionException;
@@ -64,6 +65,7 @@ final class InternalApiExceptionMapper
         return match (true) {
             $e instanceof ValidationFailedException => Response::HTTP_UNPROCESSABLE_ENTITY,
             $e instanceof InvalidSkuException => Response::HTTP_UNPROCESSABLE_ENTITY,
+            $e instanceof MissingRequiredDataException => Response::HTTP_UNPROCESSABLE_ENTITY,
             $e instanceof ResourceNotFoundException => Response::HTTP_NOT_FOUND,
             $e instanceof DuplicateRecordException => Response::HTTP_CONFLICT,
             $e instanceof TransientApiFailure => Response::HTTP_SERVICE_UNAVAILABLE,
@@ -84,6 +86,7 @@ final class InternalApiExceptionMapper
         return match (true) {
             $e instanceof ValidationFailedException,
             $e instanceof InvalidSkuException,
+            $e instanceof MissingRequiredDataException,
             $e instanceof ValidationException,
             $e instanceof CannotCreateData => ApiErrorTypeEnum::ValidationError,
             $e instanceof ResourceNotFoundException,

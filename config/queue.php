@@ -65,6 +65,17 @@ return [
             'after_commit' => true,
         ],
 
+        // Ultra-long-running queue connection for background jobs (12h+)
+        // retry_after must exceed supervisor-background timeout (43500s)
+        'redis-xl' => [
+            'driver' => 'redis',
+            'connection' => env('REDIS_QUEUE_CONNECTION', 'queue'),
+            'queue' => env('REDIS_QUEUE', 'default'),
+            'retry_after' => 43800, // ~12.2h — exceeds supervisor timeout (43500s)
+            'block_for' => 5,
+            'after_commit' => true,
+        ],
+
     ],
 
     /*

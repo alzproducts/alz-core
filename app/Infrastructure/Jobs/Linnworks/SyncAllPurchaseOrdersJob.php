@@ -51,7 +51,7 @@ final class SyncAllPurchaseOrdersJob implements ShouldBeUnique, ShouldQueue
 
     public function __construct()
     {
-        $this->onQueue(QueueName::Low->value);
+        $this->onQueue(QueueName::Background->value);
     }
 
     public function uniqueId(): string

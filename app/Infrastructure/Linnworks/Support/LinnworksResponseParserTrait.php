@@ -9,6 +9,7 @@ namespace App\Infrastructure\Linnworks\Support;
 
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Infrastructure\Contracts\DomainConvertibleInterface;
+use Closure;
 use Illuminate\Support\Facades\Log;
 use Spatie\LaravelData\Data;
 use Spatie\LaravelData\Exceptions\CannotCreateData;
@@ -228,6 +229,34 @@ trait LinnworksResponseParserTrait
         }
 
         return $data;
+    }
+
+    /**
+     * Group domain objects by a GUID key extracted via callback.
+     *
+     * Keys are lowercased for case-insensitive matching (Linnworks GUID casing is inconsistent).
+     * Items where the callback returns null are silently skipped.
+     *
+     * @template T
+     *
+     * @param list<T> $items
+     * @param Closure(T): ?string $keyExtractor Returns the GUID string to group by, or null to skip
+     *
+     * @return array<string, list<T>>
+     */
+    private static function groupByGuid(array $items, Closure $keyExtractor): array
+    {
+        $grouped = [];
+
+        foreach ($items as $item) {
+            $key = $keyExtractor($item);
+
+            if ($key !== null) {
+                $grouped[\mb_strtolower($key)][] = $item;
+            }
+        }
+
+        return $grouped;
     }
 
     /**

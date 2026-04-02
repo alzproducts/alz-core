@@ -41,4 +41,20 @@ interface OrderDashboardsClientInterface
         ?DateTimeImmutable $from = null,
         ?DateTimeImmutable $to = null,
     ): array;
+
+    /**
+     * Retrieve all currently open (pending/unpaid) order IDs.
+     *
+     * Queries the Open_Order view directly — no date filter needed as the
+     * open order set is small and fully replaced on each sync.
+     *
+     * @return list<Guid>
+     *
+     * @throws InvalidApiResponseException When query fails or response malformed
+     * @throws InvalidApiRequestException When request parameters are invalid
+     * @throws AuthenticationExpiredException When credentials invalid
+     * @throws ResourceNotFoundException When resource not found
+     * @throws ExternalServiceUnavailableException When API unavailable
+     */
+    public function getOpenOrderIds(): array;
 }

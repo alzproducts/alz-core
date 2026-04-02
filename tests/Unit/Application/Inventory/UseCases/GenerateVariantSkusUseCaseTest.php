@@ -550,11 +550,11 @@ final class GenerateVariantSkusUseCaseTest extends TestCase
     {
         $suppliers = $hasSupplier
             ? [new StockItemSupplier(
-                supplierId: '550e8400-e29b-41d4-a716-446655440002',
+                supplierId: new Guid('550e8400-e29b-41d4-a716-446655440002'),
                 supplierName: 'Default Supplier',
                 code: 'SUP-CODE',
                 supplierBarcode: null,
-                purchasePrice: 15.00,
+                purchasePrice: Money::exclusive(15.00),
                 isDefault: true,
                 leadTime: null,
                 supplierCurrency: 'GBP',
@@ -574,6 +574,7 @@ final class GenerateVariantSkusUseCaseTest extends TestCase
             inOrder: 0,
             due: 0,
             minimumLevel: 5,
+            jit: false,
             purchasePrice: 15.00,
             retailPrice: 29.99,
             taxRate: 20.0,

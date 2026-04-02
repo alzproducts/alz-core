@@ -28,6 +28,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int|null $in_order
  * @property int|null $due
  * @property int|null $minimum_level
+ * @property bool $jit
  * @property float|null $purchase_price
  * @property float|null $retail_price
  * @property float|null $tax_rate
@@ -72,7 +73,18 @@ final class StockItemModel extends Model implements EloquentDomainMappableInterf
             'height' => 'float',
             'width' => 'float',
             'depth' => 'float',
+            'jit' => 'boolean',
             'is_composite' => 'boolean',
+            ...$this->timestampCasts(),
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function timestampCasts(): array
+    {
+        return [
             'linnworks_created_at' => 'immutable_datetime',
             'created_at' => 'immutable_datetime',
             'updated_at' => 'immutable_datetime',

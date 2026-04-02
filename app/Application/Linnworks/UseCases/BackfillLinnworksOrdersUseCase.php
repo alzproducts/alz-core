@@ -89,7 +89,7 @@ final readonly class BackfillLinnworksOrdersUseCase
         /** @var list<LinnworksOrder> $buffer */
         [$buffer, $chunksBuffered, $batchesFlushed] = [[], 0, 0];
         /** @var list<LinnworksOrder> $orders */
-        foreach ($this->orderClient->iterateProcessedOrdersByIds($orderIds) as $chunkIndex => $orders) {
+        foreach ($this->orderClient->iterateOrdersByIds($orderIds) as $chunkIndex => $orders) {
             $totals->addFetched(\count($orders));
             \array_push($buffer, ...$orders);
             $chunksBuffered++;

@@ -34,6 +34,7 @@ final readonly class StockItemFull
         public int $inOrder,
         public int $due,
         public int $minimumLevel,
+        public bool $jit,
         public float $purchasePrice,
         public float $retailPrice,
         public ?float $taxRate,

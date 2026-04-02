@@ -44,8 +44,11 @@ Linnworks uses inconsistent formats across endpoints:
 |--------|------------------|---------|
 | JSON wrapper | `post()` | `request={JSON}` |
 | Raw form params | `postFormParams()` | `key=val&arr=["json"]` |
+| JSON body (GET-like reads) | `postJson()` | `Content-Type: application/json` |
 
 **When 400 Bad Request**: Check legacy project for correct format.
+
+**Null values**: Linnworks write endpoints (Update/Create) reject `null` in payloads — filter them out with `array_filter`. See `UpdateStockSupplierStatRequest::toArray()` and legacy `AbstractStockItemSupplierStat::extract()`.
 
 ## Known Quirks
 

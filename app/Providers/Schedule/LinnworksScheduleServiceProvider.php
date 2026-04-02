@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Providers\Schedule;
 
 use App\Application\Linnworks\Enums\OrderSyncTier;
+use App\Infrastructure\Jobs\Linnworks\SyncAllOpenLinnworksOrdersJob;
 use App\Infrastructure\Jobs\Linnworks\SyncAllPurchaseOrdersJob;
 use App\Infrastructure\Jobs\Linnworks\SyncFastPurchaseOrdersJob;
 use App\Infrastructure\Jobs\Linnworks\SyncLinnworksOrdersByCursorJob;
@@ -63,6 +64,7 @@ final class LinnworksScheduleServiceProvider extends ServiceProvider
     {
         $this->registerOrderCursorSchedule();
         $this->registerOrderTierSchedules();
+        $this->registerOpenOrdersSchedule();
     }
 
     /**
@@ -97,6 +99,17 @@ final class LinnworksScheduleServiceProvider extends ServiceProvider
         Schedule::job(new SyncLinnworksOrdersJob(OrderSyncTier::Monthly))
             ->name('sync-linnworks-orders-monthly')
             ->weeklyOn(3)->onOneServer()->withoutOverlapping(60);
+    }
+
+    /**
+     * Register hourly open orders backup sync.
+     */
+    private function registerOpenOrdersSchedule(): void
+    {
+        // HOURLY: Backup sync for all open orders via SQL API + v2 REST fetch
+        Schedule::job(new SyncAllOpenLinnworksOrdersJob())
+            ->name('sync-all-open-linnworks-orders')
+            ->hourly()->onOneServer()->withoutOverlapping(5);
     }
 
     /**

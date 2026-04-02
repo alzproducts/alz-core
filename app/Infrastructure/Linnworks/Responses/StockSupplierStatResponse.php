@@ -4,28 +4,31 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Linnworks\Responses;
 
-use App\Domain\Inventory\ValueObjects\StockItemSupplier;
+use App\Domain\Inventory\ValueObjects\StockItemSupplierStat;
 use App\Domain\Shared\Money\ValueObjects\Money;
 use App\Domain\ValueObjects\Guid;
+use App\Domain\ValueObjects\IntId;
 use App\Infrastructure\Contracts\DomainConvertibleInterface;
 use App\Infrastructure\Linnworks\Support\PascalCaseMapper;
 use Spatie\LaravelData\Attributes\MapInputName;
 use Spatie\LaravelData\Data;
 
 /**
- * Linnworks stock-item-supplier junction response DTO.
+ * Linnworks bulk supplier-stat response DTO.
  *
- * Maps fields from GetStockItemsFull endpoint's Suppliers array (supplier-to-stock-item relationships).
- * The API field "Supplier" is the supplier name (not ID).
+ * Maps fields from GetStockSupplierStatsBulk endpoint (full 15-field supplier-stat objects).
+ * Used for the read step of the read-modify-write pattern in UpdateStockSupplierStat.
  *
  * @see https://apps.linnworks.net/Api/Class/linnworks-spa-commondata-Inventory-ClassBase-StockItemSupplierStat
  *
  * @template-pattern Infrastructure Response DTO
  */
 #[MapInputName(PascalCaseMapper::class)]
-final class StockItemSupplierResponse extends Data implements DomainConvertibleInterface
+final class StockSupplierStatResponse extends Data implements DomainConvertibleInterface
 {
     public function __construct(
+        public readonly string $stockItemId,
+        public readonly ?int $stockItemIntId,
         #[MapInputName('SupplierID')]
         public readonly string $supplierId,
         /** @note Linnworks uses "Supplier" for the name, not "SupplierName" */
@@ -39,14 +42,18 @@ final class StockItemSupplierResponse extends Data implements DomainConvertibleI
         public readonly ?float $minPrice,
         public readonly ?float $maxPrice,
         public readonly ?float $averagePrice,
-        public readonly float $averageLeadTime,
-        public readonly int $supplierMinOrderQty,
-        public readonly int $supplierPackSize,
+        public readonly ?float $averageLeadTime,
+        public readonly ?int $supplierMinOrderQty,
+        public readonly ?int $supplierPackSize,
     ) {}
 
-    public function toDomain(): StockItemSupplier
+    public function toDomain(): StockItemSupplierStat
     {
-        return new StockItemSupplier(
+        return new StockItemSupplierStat(
+            stockItemId: new Guid($this->stockItemId),
+            stockItemIntId: $this->stockItemIntId !== null && $this->stockItemIntId > 0
+                ? IntId::from($this->stockItemIntId)
+                : null,
             supplierId: new Guid($this->supplierId),
             supplierName: $this->supplier,
             code: $this->code,

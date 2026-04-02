@@ -15,4 +15,5 @@ enum QueueName: string
     case Default = 'default';
     case Low = 'low';
     case Bulk = 'bulk';
+    case Background = 'background';
 }

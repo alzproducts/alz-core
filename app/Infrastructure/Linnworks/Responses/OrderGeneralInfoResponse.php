@@ -20,7 +20,7 @@ final class OrderGeneralInfoResponse extends Data
         public readonly string $referenceNum,
         public readonly string $externalReferenceNum,
         public readonly int $status,
-        public readonly bool $isCancelled,
+        public readonly ?bool $isCancelled,
         public readonly string $source,
         public readonly string $subSource,
         public readonly ?string $secondaryReference = null,
