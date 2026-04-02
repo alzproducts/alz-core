@@ -322,6 +322,30 @@ final readonly class InventoryClient implements InventoryClientInterface
     /**
      * {@inheritDoc}
      *
+     * @param list<Guid> $stockItemIds
+     *
+     * @return list<StockItemFull>
+     *
+     * @throws ResourceNotFoundException When resource not found
+     * @throws AuthenticationExpiredException When credentials are invalid
+     * @throws ExternalServiceUnavailableException When API is unavailable
+     * @throws InvalidApiRequestException When request parameters are invalid
+     * @throws InvalidApiResponseException When API response structure is invalid
+     */
+    public function getStockItemsFullByIds(array $stockItemIds): array
+    {
+        if ($stockItemIds === []) {
+            return [];
+        }
+
+        return $this->fetchStockItemsFullByIds(
+            \array_map(static fn(Guid $id): string => $id->value, $stockItemIds),
+        );
+    }
+
+    /**
+     * {@inheritDoc}
+     *
      * @return list<Supplier>
      *
      * @throws AuthenticationExpiredException When credentials are invalid
