@@ -25,6 +25,8 @@ final class StockLevelResponse extends Data
         public readonly int $due,
         public readonly int $available,
         public readonly float $unitCost,
+        #[MapInputName('JIT')]
+        public readonly bool $jit,
     ) {}
 
     public function isDefaultLocation(): bool

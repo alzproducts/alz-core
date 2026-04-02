@@ -468,6 +468,7 @@ final class StockItemParamsBuilderServiceTest extends TestCase
             inOrder: 0,
             due: 0,
             minimumLevel: 5,
+            jit: false,
             purchasePrice: 15.00,
             retailPrice: 29.99,
             taxRate: 20.0,

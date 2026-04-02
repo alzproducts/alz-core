@@ -78,6 +78,7 @@ final class StockItemFullResponse extends Data implements DomainConvertibleInter
             inOrder: $defaultStock !== null ? $defaultStock->inOrders : 0,
             due: $defaultStock !== null ? $defaultStock->due : 0,
             minimumLevel: $defaultStock !== null ? $defaultStock->minimumLevel : 0,
+            jit: $defaultStock !== null ? $defaultStock->jit : false,
             purchasePrice: $this->purchasePrice,
             retailPrice: $this->retailPrice,
             taxRate: $this->taxRate < 0 ? null : $this->taxRate, // -1 means "use default"
