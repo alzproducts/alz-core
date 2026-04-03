@@ -59,7 +59,7 @@ final class EscalationsConfigRepositoryTest extends TestCase
 
         $this->mockGateway->expects('query')
             ->with(Mockery::type(Closure::class))
-            ->andReturnUsing(static fn(Closure $operation): object => (object) ['settings' => \json_encode($settings)]);
+            ->andReturnUsing(static fn(Closure $operation): string => \json_encode($settings));
 
         $result = $this->repository->get();
 
@@ -84,7 +84,7 @@ final class EscalationsConfigRepositoryTest extends TestCase
 
         $this->mockGateway->expects('query')
             ->with(Mockery::type(Closure::class))
-            ->andReturnUsing(static fn(Closure $operation): object => (object) ['settings' => \json_encode($settings)]);
+            ->andReturnUsing(static fn(Closure $operation): string => \json_encode($settings));
 
         $result = $this->repository->get();
 
@@ -112,9 +112,10 @@ final class EscalationsConfigRepositoryTest extends TestCase
             ->with('enabled', true)
             ->once()
             ->andReturnSelf();
-        $mockBuilder->expects('first')
+        $mockBuilder->expects('value')
+            ->with('settings')
             ->once()
-            ->andReturn((object) ['settings' => \json_encode($settings)]);
+            ->andReturn(\json_encode($settings));
 
         $this->mockConnection->expects('table')
             ->with('config.dashboard')
@@ -124,7 +125,7 @@ final class EscalationsConfigRepositoryTest extends TestCase
         // Execute the actual closure passed to gateway->query()
         $this->mockGateway->expects('query')
             ->with(Mockery::type(Closure::class))
-            ->andReturnUsing(static fn(Closure $operation): ?object => $operation());
+            ->andReturnUsing(static fn(Closure $operation): mixed => $operation());
 
         $result = $this->repository->get();
 
@@ -174,7 +175,7 @@ final class EscalationsConfigRepositoryTest extends TestCase
     public function get_throws_json_exception_for_invalid_json(): void
     {
         $this->mockGateway->expects('query')
-            ->andReturnUsing(static fn(Closure $operation): object => (object) ['settings' => 'invalid json']);
+            ->andReturnUsing(static fn(Closure $operation): string => 'invalid json');
 
         $this->expectException(JsonException::class);
 
@@ -193,7 +194,7 @@ final class EscalationsConfigRepositoryTest extends TestCase
         ];
 
         $this->mockGateway->expects('query')
-            ->andReturnUsing(static fn(Closure $operation): object => (object) ['settings' => \json_encode($settings)]);
+            ->andReturnUsing(static fn(Closure $operation): string => \json_encode($settings));
 
         $result = $this->repository->get();
 

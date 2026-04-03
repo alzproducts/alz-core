@@ -15,14 +15,14 @@ interface SaleReconciliationDispatcherInterface
     /**
      * Dispatch add-to-sale corrections for a product.
      *
-     * SaleSettings are read from DB by the job at execution time.
+     * SaleSettings are read from DB by the UseCase at execution time.
      */
-    public function dispatchAddToSale(IntId $productId, int $saleCategoryId): void;
+    public function dispatchAddToSale(IntId $productId): void;
 
     /**
      * Dispatch remove-from-sale corrections for a product.
      */
-    public function dispatchRemoveFromSale(IntId $productId, int $saleCategoryId): void;
+    public function dispatchRemoveFromSale(IntId $productId): void;
 
     /**
      * Dispatch a Linnworks is_in_sale EP update for a SKU.

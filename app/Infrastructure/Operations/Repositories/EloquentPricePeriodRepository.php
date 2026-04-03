@@ -45,15 +45,7 @@ final readonly class EloquentPricePeriodRepository implements PricePeriodReposit
                     ->whereNull('effective_to')
                     ->update(['effective_to' => $now]);
 
-                // Insert new period
-                $model = new PricePeriodModel();
-                $model->sku = $snapshot->sku->value;
-                $model->base_price_gross = $snapshot->basePriceGross;
-                $model->sale_price_gross = $snapshot->salePriceGross;
-                $model->effective_price_gross = $snapshot->effectivePriceGross;
-                $model->price_has_tax = $snapshot->priceHasTax;
-                $model->effective_from = $now;
-                $model->save();
+                PricePeriodModel::fromSnapshot($snapshot, $now)->save();
             },
         );
     }

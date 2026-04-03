@@ -134,10 +134,7 @@ final class ReconcileProductSaleStateUseCaseTest extends TestCase
 
         $this->dispatcher->shouldReceive('dispatchAddToSale')
             ->once()
-            ->with(
-                Mockery::on(static fn(IntId $id): bool => $id->value === 10),
-                self::SALE_CATEGORY_ID,
-            );
+            ->with(Mockery::on(static fn(IntId $id): bool => $id->value === 10));
 
         $this->dispatcher->shouldNotReceive('dispatchRemoveFromSale');
 
@@ -196,10 +193,7 @@ final class ReconcileProductSaleStateUseCaseTest extends TestCase
 
         $this->dispatcher->shouldReceive('dispatchRemoveFromSale')
             ->once()
-            ->with(
-                Mockery::on(static fn(IntId $id): bool => $id->value === 20),
-                self::SALE_CATEGORY_ID,
-            );
+            ->with(Mockery::on(static fn(IntId $id): bool => $id->value === 20));
 
         $this->dispatcher->shouldReceive('dispatchUpdateSaleState')
             ->once()
@@ -295,10 +289,7 @@ final class ReconcileProductSaleStateUseCaseTest extends TestCase
 
         $this->dispatcher->shouldReceive('dispatchAddToSale')
             ->once()
-            ->with(
-                Mockery::on(static fn(IntId $id): bool => $id->value === 40),
-                self::SALE_CATEGORY_ID,
-            );
+            ->with(Mockery::on(static fn(IntId $id): bool => $id->value === 40));
 
         $this->dispatcher->shouldReceive('dispatchUpdateSaleState')->once();
 
@@ -347,10 +338,7 @@ final class ReconcileProductSaleStateUseCaseTest extends TestCase
 
         $this->dispatcher->shouldReceive('dispatchAddToSale')
             ->once()
-            ->with(
-                Mockery::on(static fn(IntId $id): bool => $id->value === 50),
-                self::SALE_CATEGORY_ID,
-            );
+            ->with(Mockery::on(static fn(IntId $id): bool => $id->value === 50));
 
         $this->dispatcher->shouldReceive('dispatchUpdateSaleState')->once();
 
