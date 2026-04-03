@@ -34,6 +34,14 @@ final class ProductResource extends JsonResource
             $data['variations'] = ProductVariationResource::collection($product->variations);
         }
 
+        if ($product->inventory !== null) {
+            $data['inventory'] = $product->inventory->toArray();
+        }
+
+        if ($product->stock !== null) {
+            $data['stock'] = $product->stock->toArray();
+        }
+
         return $data;
     }
 
@@ -47,7 +55,6 @@ final class ProductResource extends JsonResource
         return [
             'id' => $product->id->value,
             'sku' => $product->sku?->value,
-            'gtin' => $product->gtin?->value,
             'title' => $product->title,
             'slug' => $product->slug,
             'url' => $product->url,
@@ -57,14 +64,12 @@ final class ProductResource extends JsonResource
             'compare_price' => $product->comparePrice?->toGross(),
             'effective_price' => $product->effectivePrice->toGross(),
             'profit_margin' => $product->profitMargin,
-            'stock' => $product->stock,
             'is_active' => $product->isActive,
             'is_on_sale' => $product->isOnSale,
             'has_any_sale' => $product->hasAnySale,
             'has_free_delivery' => $product->hasFreeDelivery,
             'vat_exclusive' => $product->vatExclusive,
             'vat_relief' => $product->vatRelief,
-            'weight' => $product->weight?->value,
             'meta_title' => $product->metaTitle,
             'meta_description' => $product->metaDescription,
             'free_delivery' => $product->freeDelivery?->value,

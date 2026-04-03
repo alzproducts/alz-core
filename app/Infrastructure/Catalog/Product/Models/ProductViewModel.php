@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Catalog\Product\Models;
 
+use App\Infrastructure\Linnworks\Models\StockItemModel;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
  * Read-only Eloquent model for catalog.products_view.
@@ -51,6 +53,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property float|null $profit_margin Gross profit margin % computed at DB level
  * @property bool $has_free_delivery Whether product has a free delivery designation
  * @property-read Collection<int, ProductVariationViewModel> $variations
+ * @property-read StockItemModel|null $stockItem
  */
 final class ProductViewModel extends Model
 {
@@ -137,5 +140,17 @@ final class ProductViewModel extends Model
     public function variations(): HasMany
     {
         return $this->hasMany(ProductVariationViewModel::class, 'product_id', 'id');
+    }
+
+    /**
+     * Get the Linnworks stock item matched by SKU.
+     *
+     * Cross-schema relation: catalog.products_view.sku → linnworks.stock_items.item_number.
+     *
+     * @return HasOne<StockItemModel, $this>
+     */
+    public function stockItem(): HasOne
+    {
+        return $this->hasOne(StockItemModel::class, 'item_number', 'sku');
     }
 }

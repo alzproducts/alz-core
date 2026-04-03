@@ -57,9 +57,9 @@ final class ListProductsRequestDTOTest extends TestCase
     */
 
     #[Test]
-    public function allowed_includes_returns_variations(): void
+    public function allowed_includes_returns_variations_inventory_and_stock(): void
     {
-        $this->assertSame(['variations'], ListProductsRequestDTO::allowedIncludes());
+        $this->assertSame(['variations', 'inventory', 'stock'], ListProductsRequestDTO::allowedIncludes());
     }
 
     /*
