@@ -7,6 +7,7 @@ namespace App\Providers\Schedule;
 use App\Application\Linnworks\Enums\OrderSyncTier;
 use App\Infrastructure\Jobs\Linnworks\SyncAllOpenLinnworksOrdersJob;
 use App\Infrastructure\Jobs\Linnworks\SyncAllPurchaseOrdersJob;
+use App\Infrastructure\Jobs\Linnworks\SyncArchivedStockItemFlagsJob;
 use App\Infrastructure\Jobs\Linnworks\SyncFastPurchaseOrdersJob;
 use App\Infrastructure\Jobs\Linnworks\SyncLinnworksOrdersByCursorJob;
 use App\Infrastructure\Jobs\Linnworks\SyncLinnworksOrdersJob;
@@ -51,10 +52,23 @@ final class LinnworksScheduleServiceProvider extends ServiceProvider
             ->name('sync-linnworks-suppliers')
             ->hourly()->onOneServer()->withoutOverlapping(10);
 
+        $this->registerArchivedFlagsSchedule();
+
         // EVERY 5 MIN: Cursor-based incremental stock item sync
         Schedule::job(new SyncStockItemsWithCursorJob())
             ->name('sync-stock-items-with-cursor')
             ->everyFiveMinutes()->onOneServer()->withoutOverlapping(5);
+    }
+
+    /**
+     * Register hourly archived/logically-deleted flag sync.
+     */
+    private function registerArchivedFlagsSchedule(): void
+    {
+        // HOURLY: Archived/logically-deleted flag sync — targeted bulk update
+        Schedule::job(new SyncArchivedStockItemFlagsJob())
+            ->name('sync-archived-stock-item-flags')
+            ->hourly()->onOneServer()->withoutOverlapping(10);
     }
 
     /**

@@ -31,6 +31,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int|null $due
  * @property int|null $minimum_level
  * @property bool $jit
+ * @property bool $is_archived
+ * @property bool $is_logically_deleted
  * @property float|null $purchase_price
  * @property float|null $retail_price
  * @property float|null $tax_rate
@@ -75,9 +77,21 @@ final class StockItemModel extends Model implements EloquentDomainMappableInterf
             'height' => 'float',
             'width' => 'float',
             'depth' => 'float',
+            ...$this->booleanCasts(),
+            ...$this->timestampCasts(),
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function booleanCasts(): array
+    {
+        return [
             'jit' => 'boolean',
             'is_composite' => 'boolean',
-            ...$this->timestampCasts(),
+            'is_archived' => 'boolean',
+            'is_logically_deleted' => 'boolean',
         ];
     }
 
