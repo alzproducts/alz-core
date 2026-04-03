@@ -21,6 +21,8 @@ use App\Domain\Linnworks\Enums\PurchaseOrderStatus;
 use App\Domain\Linnworks\ValueObjects\PurchaseOrderReference;
 use App\Domain\ValueObjects\Guid;
 use App\Infrastructure\Linnworks\Contracts\LinnworksTransportInterface;
+use App\Infrastructure\Linnworks\Requests\ChangePurchaseOrderStatusRequest;
+use App\Infrastructure\Linnworks\Requests\CreatePurchaseOrderInitialRequest;
 use App\Infrastructure\Linnworks\Support\LinnworksResponseParserTrait;
 use DateTimeImmutable;
 use JsonException;
@@ -59,21 +61,12 @@ final readonly class PurchaseOrderUpdateClient implements PurchaseOrderUpdateCli
      */
     public function createPurchaseOrderInitial(CreatePurchaseOrderCommand $command, PurchaseOrderReference $reference): Guid
     {
+        $dateOfPurchase = $command->dateOfPurchase ?? new DateTimeImmutable();
+        $request = CreatePurchaseOrderInitialRequest::fromCommand($command, $reference, $dateOfPurchase);
+
         $response = $this->transport->postFormParams(
             endpoint: '/api/PurchaseOrder/Create_PurchaseOrder_Initial',
-            params: ['createParameters' => \json_encode([
-                'fkSupplierId' => $command->fkSupplierId->value,
-                'fkLocationId' => $command->fkLocationId->value,
-                'ExternalInvoiceNumber' => $reference->value,
-                'Currency' => $command->currency,
-                'SupplierReferenceNumber' => $command->supplierReferenceNumber,
-                'UnitAmountTaxIncludedType' => $command->unitAmountTaxIncludedType,
-                'DateOfPurchase' => ($command->dateOfPurchase ?? new DateTimeImmutable())->format('Y-m-d\TH:i:s'),
-                'QuotedDeliveryDate' => $command->quotedDeliveryDate?->format('Y-m-d\TH:i:s'),
-                'PostagePaid' => $command->postagePaid->toNet(),
-                'ShippingTaxRate' => $command->shippingTaxRate->percentage,
-                'ConversionRate' => $command->conversionRate,
-            ], JSON_THROW_ON_ERROR)],
+            params: ['createParameters' => \json_encode($request->toArray(), JSON_THROW_ON_ERROR)],
         );
 
         $purchaseId = $response->json();
@@ -123,12 +116,11 @@ final readonly class PurchaseOrderUpdateClient implements PurchaseOrderUpdateCli
      */
     public function changePurchaseOrderStatus(Guid $purchaseId, PurchaseOrderStatus $status): void
     {
+        $request = ChangePurchaseOrderStatusRequest::fromResolved($purchaseId, $status);
+
         $this->transport->postFormParams(
             endpoint: '/api/PurchaseOrder/Change_PurchaseOrderStatus',
-            params: ['changeStatusParameter' => \json_encode([
-                'pkPurchaseId' => $purchaseId->value,
-                'status' => $status->value,
-            ], JSON_THROW_ON_ERROR)],
+            params: ['changeStatusParameter' => \json_encode($request->toArray(), JSON_THROW_ON_ERROR)],
         );
     }
 

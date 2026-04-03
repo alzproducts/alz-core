@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Linnworks\Models;
 
+use App\Domain\Catalog\Product\ValueObjects\ProductInventory;
+use App\Domain\Catalog\Product\ValueObjects\ProductStock;
 use App\Domain\Inventory\ValueObjects\StockItemFull;
 use App\Infrastructure\Contracts\EloquentDomainMappableInterface;
 use App\Infrastructure\Linnworks\Mappers\StockItemModelMapper;
@@ -29,6 +31,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int|null $due
  * @property int|null $minimum_level
  * @property bool $jit
+ * @property bool $is_archived
+ * @property bool $is_logically_deleted
  * @property float|null $purchase_price
  * @property float|null $retail_price
  * @property float|null $tax_rate
@@ -73,9 +77,21 @@ final class StockItemModel extends Model implements EloquentDomainMappableInterf
             'height' => 'float',
             'width' => 'float',
             'depth' => 'float',
+            ...$this->booleanCasts(),
+            ...$this->timestampCasts(),
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function booleanCasts(): array
+    {
+        return [
             'jit' => 'boolean',
             'is_composite' => 'boolean',
-            ...$this->timestampCasts(),
+            'is_archived' => 'boolean',
+            'is_logically_deleted' => 'boolean',
         ];
     }
 
@@ -128,6 +144,34 @@ final class StockItemModel extends Model implements EloquentDomainMappableInterf
 
         return $this->suppliers->first(
             static fn(StockItemSupplierModel $s): bool => $s->is_default,
+        );
+    }
+
+    /** Project this stock item as a catalog inventory enrichment VO. */
+    public function toProductInventory(): ProductInventory
+    {
+        return new ProductInventory(
+            barcode: $this->barcode,
+            minimumLevel: $this->minimum_level,
+            weight: $this->weight,
+            weightUnit: $this->weight_unit,
+            height: $this->height,
+            width: $this->width,
+            depth: $this->depth,
+            isComposite: $this->is_composite,
+            categoryName: $this->category_name,
+        );
+    }
+
+    /** Project this stock item as a catalog stock-level VO. */
+    public function toProductStock(): ProductStock
+    {
+        return new ProductStock(
+            quantity: $this->quantity,
+            available: $this->available,
+            inOrder: $this->in_order,
+            due: $this->due,
+            jit: $this->jit,
         );
     }
 

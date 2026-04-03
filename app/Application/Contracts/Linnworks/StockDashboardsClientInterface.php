@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Application\Contracts\Linnworks;
 
 use App\Application\Inventory\DTOs\StockLevelDeltaDTO;
+use App\Application\Linnworks\DTOs\ArchivedStockItemFlagsDTO;
 use App\Application\Linnworks\DTOs\ModifiedStockItemDTO;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
@@ -88,4 +89,19 @@ interface StockDashboardsClientInterface
      * @throws InvalidApiResponseException
      */
     public function getModifiedStockItemIdsSince(DateTimeImmutable $since): array;
+
+    /**
+     * Fetch all archived and logically-deleted stock item IDs.
+     *
+     * Uses ExecuteCustomScriptQuery because these flags are not exposed
+     * by the GetStockItemsFull REST API. Returns only flagged items for
+     * targeted bulk updates — avoids fetching the full catalogue.
+     *
+     * @throws InvalidApiResponseException
+     * @throws InvalidApiRequestException
+     * @throws AuthenticationExpiredException
+     * @throws ResourceNotFoundException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function getArchivedStockItemIds(): ArchivedStockItemFlagsDTO;
 }

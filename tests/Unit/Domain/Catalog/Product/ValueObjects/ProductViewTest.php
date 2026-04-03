@@ -7,6 +7,7 @@ namespace Tests\Unit\Domain\Catalog\Product\ValueObjects;
 use App\Domain\Catalog\Product\Enums\FreeDeliveryType;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariationView;
 use App\Domain\Catalog\Product\ValueObjects\ProductView;
+use App\Domain\Shared\ValueObjects\DateFormat;
 use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -130,6 +131,40 @@ final class ProductViewTest extends TestCase
 
     /*
     |--------------------------------------------------------------------------
+    | UK-formatted dates
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function created_at_formatted_uses_uk_date_format(): void
+    {
+        $createdAt = new DateTimeImmutable('2024-03-15');
+        $view = $this->createView(createdAt: $createdAt);
+
+        self::assertSame('15/03/2024', $view->createdAtFormatted);
+    }
+
+    #[Test]
+    public function updated_at_formatted_uses_uk_date_format(): void
+    {
+        $updatedAt = new DateTimeImmutable('2025-12-01');
+        $view = $this->createView(updatedAt: $updatedAt);
+
+        self::assertSame('01/12/2025', $view->updatedAtFormatted);
+    }
+
+    #[Test]
+    public function formatted_dates_use_default_date_format_constant(): void
+    {
+        $date = new DateTimeImmutable('2024-07-04');
+        $view = $this->createView(createdAt: $date, updatedAt: $date);
+
+        self::assertSame($date->format(DateFormat::DEFAULT_DATE_FORMAT), $view->createdAtFormatted);
+        self::assertSame($date->format(DateFormat::DEFAULT_DATE_FORMAT), $view->updatedAtFormatted);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
     | Self-construction from primitives
     |--------------------------------------------------------------------------
     */
@@ -175,22 +210,6 @@ final class ProductViewTest extends TestCase
     }
 
     #[Test]
-    public function self_constructs_weight_from_float(): void
-    {
-        $view = $this->createView(weight: 2.5);
-
-        self::assertSame(2.5, $view->weight?->value);
-    }
-
-    #[Test]
-    public function weight_null_when_not_provided(): void
-    {
-        $view = $this->createView(weight: null);
-
-        self::assertNull($view->weight);
-    }
-
-    #[Test]
     public function self_constructs_category_ids_from_ints(): void
     {
         $view = $this->createView(categoryIds: [10, 20, 30]);
@@ -219,14 +238,14 @@ final class ProductViewTest extends TestCase
         bool $isOnSale = false,
         ?float $profitMargin = null,
         ?string $sku = null,
-        ?float $weight = null,
         array $categoryIds = [],
         ?FreeDeliveryType $freeDelivery = null,
+        ?DateTimeImmutable $createdAt = null,
+        ?DateTimeImmutable $updatedAt = null,
     ): ProductView {
         return new ProductView(
             externalId: 1,
             sku: $sku,
-            gtin: null,
             title: 'Test Product',
             description: null,
             slug: 'test-product',
@@ -238,11 +257,9 @@ final class ProductViewTest extends TestCase
             effectivePrice: $effectivePrice,
             isOnSale: $isOnSale,
             profitMargin: $profitMargin,
-            stock: 10,
             isActive: true,
             vatExclusive: false,
             vatRelief: false,
-            weight: $weight,
             metaTitle: null,
             metaDescription: null,
             categoryIds: $categoryIds,
@@ -251,8 +268,8 @@ final class ProductViewTest extends TestCase
             customFields: [],
             filters: [],
             sortOrder: null,
-            createdAt: new DateTimeImmutable('2024-01-01'),
-            updatedAt: new DateTimeImmutable('2024-01-01'),
+            createdAt: $createdAt ?? new DateTimeImmutable('2024-01-01'),
+            updatedAt: $updatedAt ?? new DateTimeImmutable('2024-01-01'),
             freeDelivery: $freeDelivery,
         );
     }

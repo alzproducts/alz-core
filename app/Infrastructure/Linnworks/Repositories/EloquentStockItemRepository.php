@@ -5,9 +5,13 @@ declare(strict_types=1);
 namespace App\Infrastructure\Linnworks\Repositories;
 
 use App\Application\Contracts\Linnworks\StockItemRepositoryInterface;
+use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
+use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\Inventory\ValueObjects\StockItemExtendedProperty;
 use App\Domain\Inventory\ValueObjects\StockItemFull;
 use App\Domain\Inventory\ValueObjects\StockItemSupplier;
+use App\Domain\ValueObjects\Guid;
 use App\Infrastructure\Linnworks\Mappers\StockItemExtendedPropertyMapper;
 use App\Infrastructure\Linnworks\Mappers\StockItemModelMapper;
 use App\Infrastructure\Linnworks\Models\StockItemExtendedPropertyModel;
@@ -100,6 +104,49 @@ final class EloquentStockItemRepository extends AbstractEloquentRepository imple
                 );
             }
         }, attempts: 3);
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * Bulk-updates is_archived and is_logically_deleted in a single transaction.
+     * Two-pass per flag: set true for flagged IDs, set false for any rows previously
+     * set but no longer flagged (avoids blanket reset, only touches changed rows).
+     *
+     * @param list<Guid> $archivedIds
+     * @param list<Guid> $deletedIds
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function syncArchivedFlags(array $archivedIds, array $deletedIds): void
+    {
+        $this->eloquentGateway->transact(static function () use ($archivedIds, $deletedIds): void {
+            self::applyFlagSync('is_archived', $archivedIds);
+            self::applyFlagSync('is_logically_deleted', $deletedIds);
+        });
+    }
+
+    /**
+     * Two-pass bulk update for a single boolean flag column.
+     *
+     * Sets the flag to true for flagged IDs, then resets it to false for any
+     * rows that previously had the flag but are no longer in the flagged set.
+     *
+     * @param list<Guid> $flaggedIds
+     */
+    private static function applyFlagSync(string $column, array $flaggedIds): void
+    {
+        $values = \array_map(static fn(Guid $g): string => $g->value, $flaggedIds);
+
+        if ($values !== []) {
+            StockItemModel::query()->whereIn('stock_item_id', $values)->update([$column => true]);
+        }
+        StockItemModel::query()
+            ->whereNotIn('stock_item_id', $values)
+            ->where($column, true)
+            ->update([$column => false]);
     }
 
     protected function getModelClass(): string

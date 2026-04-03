@@ -29,21 +29,31 @@ final class HandleApiExceptions
         try {
             $next($job);
         } catch (TransientApiFailure $e) {
-            Log::warning('Job transient failure, releasing for retry', [
-                'job' => $job::class,
-                'service' => $e->serviceName,
-                'retry_after' => $e->retryAfter,
-            ]);
-
-            if ($e->retryAfter !== null) {
-                $job->release($e->retryAfter);
-
-                return;
-            }
-
-            throw $e;
+            self::releaseOrRethrow($job, $e);
         } catch (PermanentApiFailure $e) {
             $job->fail($e);
         }
+    }
+
+    /**
+     * Release with API-provided delay, or rethrow for standard backoff.
+     *
+     * @throws TransientApiFailure When no retryAfter provided (uses Laravel's default backoff)
+     */
+    private static function releaseOrRethrow(object $job, TransientApiFailure $e): void
+    {
+        Log::warning('Job transient failure, releasing for retry', [
+            'job' => $job::class,
+            'service' => $e->serviceName,
+            'retry_after' => $e->retryAfter,
+        ]);
+
+        if ($e->retryAfter !== null) {
+            $job->release($e->retryAfter);
+
+            return;
+        }
+
+        throw $e;
     }
 }

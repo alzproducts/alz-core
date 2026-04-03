@@ -35,40 +35,28 @@ final class RetryAfterParser
             return null;
         }
 
-        // Normalize to string for uniform handling
         $stringValue = (string) $headerValue;
-
-        // Try numeric format first (most common for APIs)
         if (\is_numeric($stringValue)) {
-            $seconds = (int) $stringValue;
-
-            if ($seconds <= 0) {
-                return null;
-            }
-
-            // Cap to maximum if specified
-            if (($maxSeconds !== null) && ($seconds > $maxSeconds)) {
-                return $maxSeconds;
-            }
-
-            return $seconds;
+            return self::capSeconds((int) $stringValue, $maxSeconds);
         }
 
-        // Try HTTP-date format (RFC 7231)
+        // HTTP-date format (RFC 7231)
         $timestamp = \strtotime($stringValue);
 
-        if ($timestamp === false) {
-            return null;
-        }
+        return $timestamp !== false ? self::capSeconds($timestamp - \time(), $maxSeconds) : null;
+    }
 
-        $seconds = $timestamp - \time();
-
-        // Date in the past or invalid
+    /**
+     * Validate and cap seconds to the maximum allowed value.
+     *
+     * @return int|null Capped seconds, or null if non-positive
+     */
+    private static function capSeconds(int $seconds, ?int $maxSeconds): ?int
+    {
         if ($seconds <= 0) {
             return null;
         }
 
-        // Cap to maximum if specified
         if (($maxSeconds !== null) && ($seconds > $maxSeconds)) {
             return $maxSeconds;
         }

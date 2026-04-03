@@ -13,7 +13,7 @@ use PHPStan\Rules\Rule;
 use PHPStan\Rules\RuleErrorBuilder;
 
 /**
- * Job class names must start with Sync, Process, Reconcile, Set, Update, or Cleanup.
+ * Job class names must start with Sync, Process, Reconcile, Set, Update, Cleanup, or Record.
  *
  * Consistent naming makes it immediately clear what a job does:
  * - Sync*: Data synchronization (e.g., SyncShopwiredProductsJob)
@@ -22,6 +22,7 @@ use PHPStan\Rules\RuleErrorBuilder;
  * - Set*: Apply a specific state change (e.g., SetProductFreeDeliveryJob)
  * - Update*: Modify existing records (e.g., UpdateSkuJob)
  * - Cleanup*: Remove stale/expired data (e.g., CleanupStaleContactActionsJob)
+ * - Record*: Persist historical/audit records (e.g., RecordPricePeriodJob)
  *
  * @implements Rule<InClassNode>
  */
@@ -34,6 +35,7 @@ final class JobNamingPrefixRule implements Rule
         'Set',
         'Update',
         'Cleanup',
+        'Record',
     ];
 
     public function getNodeType(): string

@@ -40,7 +40,9 @@ final class ProductDetailResource extends JsonResource
      */
     private function conditionalIncludes(GetProductResult $result): array
     {
-        return $this->scalarIncludes($result) + $this->collectionIncludes($result);
+        return $this->scalarIncludes($result)
+            + $this->linnworksIncludes($result)
+            + $this->collectionIncludes($result);
     }
 
     /**
@@ -64,6 +66,24 @@ final class ProductDetailResource extends JsonResource
                 static fn(ProductSupplier $s): array => $s->toArray(),
                 $product->suppliers,
             );
+        }
+        return $data;
+    }
+
+    /**
+     * Linnworks-sourced includes: inventory enrichment and stock levels.
+     *
+     * @return array<string, mixed>
+     */
+    private function linnworksIncludes(GetProductResult $result): array
+    {
+        $product = $result->product;
+        $data = [];
+        if ($result->hasInclude(ProductInclude::Inventory) && $product->inventory !== null) {
+            $data['inventory'] = $product->inventory->toArray();
+        }
+        if ($result->hasInclude(ProductInclude::Stock) && $product->stock !== null) {
+            $data['stock'] = $product->stock->toArray();
         }
         return $data;
     }

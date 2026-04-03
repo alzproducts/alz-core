@@ -20,6 +20,7 @@ use App\Domain\Linnworks\ValueObjects\PurchaseOrderHeader;
 use App\Domain\Linnworks\ValueObjects\PurchaseOrderNote;
 use App\Domain\ValueObjects\Guid;
 use App\Infrastructure\Linnworks\Contracts\LinnworksTransportInterface;
+use App\Infrastructure\Linnworks\Requests\GetPurchaseOrdersWithStockItemsRequest;
 use App\Infrastructure\Linnworks\Responses\PurchaseOrder\PurchaseOrderAdditionalCostResponse;
 use App\Infrastructure\Linnworks\Responses\PurchaseOrder\PurchaseOrderCoreResponse;
 use App\Infrastructure\Linnworks\Responses\PurchaseOrder\PurchaseOrderDeliveredRecordResponse;
@@ -337,15 +338,11 @@ final readonly class PurchaseOrderClient implements PurchaseOrderClientInterface
      */
     public function getPurchaseOrdersWithStockItems(Guid $stockItemId, array $locationIds): array
     {
+        $request = GetPurchaseOrdersWithStockItemsRequest::fromResolved($stockItemId, $locationIds);
+
         $response = $this->transport->postFormParams(
             endpoint: '/api/PurchaseOrder/GetPurchaseOrdersWithStockItems',
-            params: ['purchaseOrder' => \json_encode([
-                'StockItemId' => $stockItemId->value,
-                'LocationIds' => \array_map(
-                    static fn(Guid $id): string => $id->value,
-                    $locationIds,
-                ),
-            ], JSON_THROW_ON_ERROR)],
+            params: ['purchaseOrder' => \json_encode($request->toArray(), JSON_THROW_ON_ERROR)],
         );
 
         /** @var list<string> $rawIds */

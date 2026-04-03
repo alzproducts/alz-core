@@ -7,8 +7,8 @@ namespace App\Domain\Catalog\Product\ValueObjects;
 use App\Domain\Catalog\CustomFields\ValueObjects\AbstractCustomFieldValue;
 use App\Domain\Catalog\Filters\ValueObjects\ProductFilter;
 use App\Domain\Catalog\Product\Enums\FreeDeliveryType;
-use App\Domain\Inventory\ValueObjects\Weight;
 use App\Domain\Shared\Money\ValueObjects\Money;
+use App\Domain\Shared\ValueObjects\DateFormat;
 use App\Domain\ValueObjects\IntId;
 use App\Domain\ValueObjects\TaxType;
 use DateTimeImmutable;
@@ -28,8 +28,6 @@ final readonly class ProductView
 
     public ?Sku $sku;
 
-    public ?Gtin $gtin;
-
     public Money $price;
 
     public ?Money $costPrice;
@@ -39,8 +37,6 @@ final readonly class ProductView
     public ?Money $comparePrice;
 
     public Money $effectivePrice;
-
-    public ?Weight $weight;
 
     /** @var list<IntId> */
     public array $categoryIds;
@@ -54,10 +50,15 @@ final readonly class ProductView
     /** @var string|null Name of the default supplier (null = no suppliers loaded or no default) */
     public ?string $defaultSupplier;
 
+    /** @var string UK-formatted creation date (dd/mm/yyyy) */
+    public string $createdAtFormatted;
+
+    /** @var string UK-formatted last-update date (dd/mm/yyyy) */
+    public string $updatedAtFormatted;
+
     /**
      * @param int $externalId ShopWired product ID
      * @param string|null $sku Master SKU
-     * @param string|null $gtin Global Trade Item Number
      * @param string $title Product title
      * @param string|null $description HTML description
      * @param string $slug URL slug
@@ -69,11 +70,9 @@ final readonly class ProductView
      * @param float $effectivePrice Selling price after sale logic
      * @param bool $isOnSale Whether this product is currently on sale (from view)
      * @param float|null $profitMargin Retail profit margin % (from view, null when cost unknown)
-     * @param int $stock Master stock quantity
      * @param bool $isActive Published/visible
      * @param bool $vatExclusive Price excludes VAT
      * @param bool $vatRelief VAT relief eligible
-     * @param float|null $weight Weight in kg
      * @param string|null $metaTitle SEO title
      * @param string|null $metaDescription SEO description
      * @param list<int> $categoryIds ShopWired category IDs
@@ -87,11 +86,12 @@ final readonly class ProductView
      * @param int|null $sortOrder ShopWired sort order
      * @param DateTimeImmutable $createdAt ShopWired creation timestamp
      * @param DateTimeImmutable $updatedAt ShopWired last update timestamp
+     * @param ProductInventory|null $inventory Linnworks inventory data (null = not loaded)
+     * @param ProductStock|null $stock Linnworks stock levels (null = not loaded)
      */
     public function __construct(
         int $externalId,
         ?string $sku,
-        ?string $gtin,
         public string $title,
         public ?string $description,
         public string $slug,
@@ -103,11 +103,9 @@ final readonly class ProductView
         float $effectivePrice,
         public bool $isOnSale,
         public ?float $profitMargin,
-        public int $stock,
         public bool $isActive,
         public bool $vatExclusive,
         public bool $vatRelief,
-        ?float $weight,
         public ?string $metaTitle,
         public ?string $metaDescription,
         array $categoryIds,
@@ -122,22 +120,24 @@ final readonly class ProductView
         public ?FreeDeliveryType $freeDelivery = null,
         /** @var list<ProductSupplier>|null */
         public ?array $suppliers = null,
+        public ?ProductInventory $inventory = null,
+        public ?ProductStock $stock = null,
     ) {
         $taxType = $vatExclusive ? TaxType::ZeroRated : TaxType::Inclusive;
 
         $this->id = IntId::from($externalId);
         $this->sku = $sku !== null && \mb_trim($sku) !== '' ? Sku::fromTrusted(\mb_trim($sku)) : null;
-        $this->gtin = $gtin !== null ? Gtin::fromTrusted($gtin) : null;
         $this->price = Money::fromTaxType($price, $taxType);
         $this->costPrice = Money::nonZeroOrNull($costPrice, TaxType::Exclusive);
         $this->salePrice = Money::nonZeroOrNull($salePrice, $taxType);
         $this->comparePrice = Money::nonZeroOrNull($comparePrice, $taxType);
         $this->effectivePrice = Money::fromTaxType($effectivePrice, $taxType);
-        $this->weight = $weight !== null ? Weight::kilogram($weight) : null;
         $this->categoryIds = \array_map(static fn(int $id): IntId => IntId::from($id), $categoryIds);
         $this->hasFreeDelivery = $freeDelivery !== null && ! $freeDelivery->isNone();
         $this->hasAnySale = $this->isOnSale || self::anyVariationOnSale($this->variations);
         $this->defaultSupplier = self::findDefaultSupplierName($this->suppliers);
+        $this->createdAtFormatted = $createdAt->format(DateFormat::DEFAULT_DATE_FORMAT);
+        $this->updatedAtFormatted = $updatedAt->format(DateFormat::DEFAULT_DATE_FORMAT);
     }
 
     /**

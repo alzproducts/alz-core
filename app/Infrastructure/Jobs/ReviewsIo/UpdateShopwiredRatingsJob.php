@@ -10,6 +10,7 @@ use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Infrastructure\Jobs\Enums\QueueName;
 use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
 use App\Infrastructure\Jobs\Middleware\ServiceCircuitBreaker;
+use App\Infrastructure\Jobs\Middleware\ServiceRateLimiter;
 use DateTimeImmutable;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
@@ -52,7 +53,8 @@ final class UpdateShopwiredRatingsJob implements ShouldBeUnique, ShouldQueue
     public function middleware(): array
     {
         return [
-            ServiceCircuitBreaker::reviewsio(),
+            ServiceRateLimiter::shopwiredApi(),
+            ServiceCircuitBreaker::shopwired(),
             new HandleApiExceptions(),
         ];
     }
