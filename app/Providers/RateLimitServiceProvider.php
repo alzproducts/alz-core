@@ -56,6 +56,6 @@ final class RateLimitServiceProvider extends ServiceProvider
     private function registerQueueLimiters(): void
     {
         RateLimiter::for('shopwired-api', static fn(): Limit => Limit::perMinute(55));
-        RateLimiter::for('shopwired-api-bulk', static fn(): Limit => Limit::perMinute(30));
+        RateLimiter::for('shopwired-api-bulk', static fn(): Limit => Limit::perMinute(20));
     }
 }
