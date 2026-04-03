@@ -8,6 +8,7 @@ use App\Application\Contracts\LockableCacheInterface;
 use Closure;
 use Exception;
 use Illuminate\Cache\CacheManager;
+use Illuminate\Contracts\Cache\Lock;
 use Psr\Log\LoggerInterface;
 use Throwable;
 
@@ -58,17 +59,7 @@ final readonly class LockableCache implements LockableCacheInterface
             return $cached;
         }
 
-        // Try with lock protection (returns null on infrastructure failure)
-        $result = $this->tryRefreshWithLock($key, $factory, $ttl, $validator);
-        if ($result !== null) {
-            return $result;
-        }
-
-        // Fallback: no lock, factory exceptions propagate naturally
-        $fresh = $factory();
-        $this->tryPut($key, $fresh, $ttl);
-
-        return $fresh;
+        return $this->refreshValue($key, $factory, $ttl, $validator);
     }
 
     /**
@@ -81,36 +72,22 @@ final readonly class LockableCache implements LockableCacheInterface
      * @noinspection PhpDocSignatureInspection*/
     public function rememberOrStale(string $key, Closure $factory, int $ttl, ?Closure $validator = null): mixed
     {
-        // Try cache (infrastructure failures → null)
         $cached = $this->tryGet($key);
         if (self::isValid($cached, $validator)) {
             return $cached;
         }
 
-        // Try with lock protection
         try {
-            $result = $this->tryRefreshWithLock($key, $factory, $ttl, $validator);
-            if ($result !== null) {
-                return $result;
-            }
-
-            // Lock failed, try factory directly
-            $fresh = $factory();
-            $this->tryPut($key, $fresh, $ttl);
-
-            return $fresh;
+            return $this->refreshValue($key, $factory, $ttl, $validator);
         } catch (Exception $e) {
-            // Factory failed - fall back to stale value if available
             if ($cached !== null) {
                 $this->logger->warning("{$this->serviceName} factory failed, returning stale value", [
                     'key' => $key,
                     'exception' => $e::class,
                     'message' => $e->getMessage(),
                 ]);
-
                 return $cached;
             }
-
             throw $e;
         }
     }
@@ -150,20 +127,62 @@ final readonly class LockableCache implements LockableCacheInterface
     }
 
     /**
-     * Attempt to refresh with lock protection.
+     * Refresh the cached value, trying lock-protected path first, then direct factory.
      *
-     * Infrastructure failures (lock timeout, cache read/write) return null to signal
-     * "proceed without lock". Only factory callback exceptions propagate.
+     * Factory exceptions always propagate to the caller.
      */
-    private function tryRefreshWithLock(
+    private function refreshValue(
         string $key,
         Closure $factory,
         int $ttl,
         ?Closure $validator,
     ): mixed {
-        // Acquire lock (infrastructure - graceful on failure)
+        $result = $this->tryRefreshWithLock($key, $factory, $ttl, $validator);
+        if ($result !== null) {
+            return $result;
+        }
+
+        // Fallback: no lock, factory exceptions propagate naturally
+        $fresh = $factory();
+        $this->tryPut($key, $fresh, $ttl);
+
+        return $fresh;
+    }
+
+    /**
+     * Attempt to refresh with lock protection.
+     *
+     * Infrastructure failures (lock timeout, cache read/write) return null to signal
+     * "proceed without lock". Only factory callback exceptions propagate.
+     */
+    private function tryRefreshWithLock(string $key, Closure $factory, int $ttl, ?Closure $validator): mixed
+    {
+        $lock = $this->acquireLock($key);
+        if ($lock === null) {
+            return null;
+        }
+        try {
+            // Double-check after lock acquisition
+            $cached = $this->tryGet($key);
+            if (self::isValid($cached, $validator)) {
+                return $cached;
+            }
+            $fresh = $factory();
+            $this->tryPut($key, $fresh, $ttl);
+            return $fresh;
+        } finally {
+            $lock->release();
+        }
+    }
+
+    /**
+     * Attempt to acquire a cache lock, returning null on infrastructure failure.
+     */
+    private function acquireLock(string $key): ?Lock
+    {
         try {
             $lock = $this->cache->lock($key . ':lock', self::LOCK_TIMEOUT_SECONDS);
+
             if ($lock->block(self::LOCK_WAIT_SECONDS) !== true) {
                 $this->logger->warning("{$this->serviceName} lock timeout", [
                     'key' => $key,
@@ -172,28 +191,12 @@ final readonly class LockableCache implements LockableCacheInterface
 
                 return null;
             }
+
+            return $lock;
         } catch (Throwable $e) { // @ignoreException - graceful degradation: proceed without lock protection
             $this->logInfrastructureFailure('lock', $key, $e);
 
             return null;
-        }
-
-        try {
-            // Double-check (infrastructure - graceful on failure)
-            $cached = $this->tryGet($key);
-            if (self::isValid($cached, $validator)) {
-                return $cached;
-            }
-
-            // Factory execution - exceptions propagate to caller
-            $fresh = $factory();
-
-            // Cache write (infrastructure - graceful on failure)
-            $this->tryPut($key, $fresh, $ttl);
-
-            return $fresh;
-        } finally {
-            $lock->release();
         }
     }
 

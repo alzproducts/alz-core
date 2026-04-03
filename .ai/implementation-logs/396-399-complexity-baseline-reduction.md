@@ -223,19 +223,35 @@ _(Not yet started)_
 - Fixed by manually re-removing the 20 Section 4 method entries, keeping only `ProductResource::baseFields`
 - Confirmed: baseline back to 1996 lines, all linters green
 
-#### Sections 6-7: Not yet started
-- Remaining: ~12 entries across Infrastructure misc (jobs, listener, repo, caches, parser) + Application misc (resolver, cache)
-- AbstractEloquentRepository + DatabaseGateway deferred per new rule (ask before major infra refactors)
-- Non-core files can proceed: UpdateShopwiredAddToSaleJob, UpdateShopwiredRemoveFromSaleJob, RecordPricePeriodListener, EloquentPricePeriodRepository, LockableCache, RetryAfterParser, TestUserPersonaResolver, GracefulCache
+#### 2026-04-03 — Sections 6-7: Infrastructure misc + Application misc (complete)
+- Refactored 11 method-length violations across 10 files, removed 11 baseline entries
+- **RetryAfterParser**: extracted `capSeconds()` — shared numeric/HTTP-date validation
+- **GracefulCache**: extracted `tryGet()`/`tryPut()` infrastructure boundary methods — DRY with public `get()`/`put()`
+- **LockableCache**: extracted `acquireLock()`, `refreshValue()` — DRY between `remember()` and `rememberOrStale()`
+- **HandleApiExceptions**: extracted `releaseOrRethrow()` — transient failure handling
+- **RecordPricePeriodListener**: extracted `handleTransientFailure()`, `failWithLog()` — shared error handling
+- **EloquentPricePeriodRepository**: use `PricePeriodModel::fromSnapshot()` factory (user feedback: model self-creation pattern)
+- **EscalationsConfigRepository**: replaced typed array with `EscalationsSettingsResponse` plain readonly DTO + `fromJson()`/`toDomain()` (user feedback: no untyped arrays). Removed `fetchConfigRow()`, use `->value('settings')` instead of `->first()` to avoid untyped `?object` return.
+- **Sale jobs**: extracted `buildFieldUpdates()`/`buildRemovalFieldUpdates()`/`emptySaleCustomFields()`
+- **TestUserPersonaResolver**: extracted `findPersonaOrFail()`/`validatePersonaEmail()`
+- Updated 2 test files: RecordPricePeriodListenerTest (`Log::error` → `Log::log`), EscalationsConfigRepositoryTest (mock returns string not object, `->value()` not `->first()`)
+
+**User feedback incorporated:**
+1. PricePeriodModel::fromSnapshot() — model self-creation pattern preferred over repository helper
+2. EscalationsSettingsResponse — plain readonly DTO, NOT Spatie Data (Spatie reserved for external API responses only)
+3. fetchConfigRow() eliminated — `->value('settings')` returns typed string, no untyped `?object`
+
+**Decisions pending (user wants joint review):**
+- UpdateShopwiredAddToSaleJob, UpdateShopwiredRemoveFromSaleJob, RecordPricePeriodListener — review together for shared patterns
+- Section 5 (EloquentGateway, AbstractEloquentRepository) — full user approval required
 
 #### Current State
-- Baseline: 2524 → 1996 lines
-- Sections 0-4 complete (excluding TestSlackNotificationCommand + ProductResource::baseFields)
-- Section 5 fully deferred (EloquentGateway + EscalationsConfigRepository)
-- Sections 6-7 not started
-- All 2808 tests passing, all linters green
-- 3 new baseline entries added (Sections 0-3): resolveErrorMessages (match expression), ShopwiredAuditOrderSync (class grew past 250), ShopwiredServiceProvider class-level (updated to regex)
-- 1 kept entry (Section 4): ProductResource::baseFields (pure field-mapping, genuinely cohesive)
+- Baseline: 1996 → ~1930 lines (11 entries removed)
+- Sections 0-4 complete (PR #455, merged)
+- Sections 6-7 complete (this branch)
+- Section 5 not started (user-approved Persistence layer)
+- 1435 tests passing, all linters green
+- Pending commit + review of 3 files together (sale jobs + listener)
 
 ---
 

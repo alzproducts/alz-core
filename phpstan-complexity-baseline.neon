@@ -44,12 +44,6 @@ parameters:
 			path: app/Application/AdSpend/UseCases/SyncAdSpendUseCase.php
 
 		-
-			rawMessage: 'Method resolve() is 30 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Application/Auth/TestUserPersonaResolver.php
-
-		-
 			rawMessage: 'Method mergeWithDefinitions() is 43 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
@@ -452,12 +446,6 @@ parameters:
 			path: app/Application/Shopwired/UseCases/Webhooks/UpdateProductStockUseCase.php
 
 		-
-			rawMessage: 'Method remember() is 28 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Application/Support/GracefulCache.php
-
-		-
 			rawMessage: 'Method __construct() is 21 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
@@ -739,24 +727,6 @@ parameters:
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Infrastructure/GoogleAds/Transformers/CampaignRowTransformer.php
-
-		-
-			rawMessage: 'Method handle() is 21 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Infrastructure/Jobs/Middleware/HandleApiExceptions.php
-
-		-
-			rawMessage: 'Method handle() is 34 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Infrastructure/Jobs/Shopwired/UpdateShopwiredAddToSaleJob.php
-
-		-
-			rawMessage: 'Method handle() is 43 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Infrastructure/Jobs/Shopwired/UpdateShopwiredRemoveFromSaleJob.php
 
 		-
 			rawMessage: 'Method execute() is 33 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
@@ -1186,18 +1156,6 @@ parameters:
 			path: app/Infrastructure/Mixpanel/MixpanelHttpTransport.php
 
 		-
-			rawMessage: 'Method handle() is 34 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Infrastructure/Operations/Listeners/RecordPricePeriodListener.php
-
-		-
-			rawMessage: 'Method recordPriceChange() is 23 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Infrastructure/Operations/Repositories/EloquentPricePeriodRepository.php
-
-		-
 			rawMessage: 'Class EloquentGateway is 900 lines long — exceeds the 250-line limit. Consider decomposing into smaller, focused classes.'
 			identifier: alz.excessiveClassLength
 			count: 1
@@ -1304,12 +1262,6 @@ parameters:
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Infrastructure/Persistence/EloquentGateway.php
-
-		-
-			rawMessage: 'Method get() is 24 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Infrastructure/Persistence/Repositories/EscalationsConfigRepository.php
 
 		-
 			rawMessage: 'Class AbstractEloquentRepository is 258 lines long — exceeds the 250-line limit. Consider decomposing into smaller, focused classes.'
@@ -1916,24 +1868,6 @@ parameters:
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Infrastructure/Shopwired/ShopwiredPaginator.php
-
-		-
-			rawMessage: 'Method rememberOrStale() is 34 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Infrastructure/Support/LockableCache.php
-
-		-
-			rawMessage: 'Method tryRefreshWithLock() is 40 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Infrastructure/Support/LockableCache.php
-
-		-
-			rawMessage: 'Method parse() is 45 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Infrastructure/Support/RetryAfterParser.php
 
 		-
 			message: '#Method resolveErrorMessages\(\) is \d+ lines long#'

@@ -10,6 +10,7 @@ use App\Application\Contracts\Shopwired\ProductUpdateClientInterface;
 use App\Application\Contracts\Shopwired\SaleSettingsRepositoryInterface;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\Product\Enums\SaleCustomField;
+use App\Domain\Catalog\Product\ValueObjects\Product;
 use App\Domain\Catalog\Product\ValueObjects\ProductFieldUpdate;
 use App\Domain\Catalog\Product\ValueObjects\SaleSettings;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
@@ -100,32 +101,31 @@ final class UpdateShopwiredAddToSaleJob implements ShouldQueue
     ): void {
         $productId = $this->productId->value;
         $product = $productRepo->getProduct($this->productId);
-
-        // Attempt to read persisted settings — do not fail yet if missing.
-        // We apply what we can and throw a permanent error at the very end.
         $saleSettings = $saleSettingsRepo->findByProduct($this->productId);
 
-        // 1. Update category + sort order in a single PUT
-        $fieldUpdates = [ProductFieldUpdate::sortOrder(self::SALE_SORT_ORDER)];
-
-        if (! $product->isInCategory($this->saleCategoryId)) {
-            $fieldUpdates[] = ProductFieldUpdate::categories([...$product->categoryIds, $this->saleCategoryId]);
-        }
-
-        $fieldUpdateClient->update($productId, ...$fieldUpdates);
-
-        // 2. Write sale metadata custom fields (best-effort if settings missing)
+        $fieldUpdateClient->update($productId, ...self::buildFieldUpdates($product, $this->saleCategoryId));
         $productUpdateClient->updateCustomFields($productId, self::buildCustomFieldsArray($saleSettings, $product->sortOrder));
 
-        // 3. If settings were missing, fail permanently now — category + sort order were applied
-        //    but custom fields contain empty/default values only.
+        // Fail permanently if settings missing — category + sort order applied but custom fields are empty/default
         if ($saleSettings === null) {
-            throw new ResourceNotFoundException(
-                serviceName: 'shopwired',
-                resourceType: 'ProductSaleSettings',
-                resourceId: $productId,
-            );
+            throw new ResourceNotFoundException('shopwired', 'ProductSaleSettings', $productId);
         }
+    }
+
+    /**
+     * Build field updates: always set sort order, conditionally add sale category.
+     *
+     * @return list<ProductFieldUpdate>
+     */
+    private static function buildFieldUpdates(Product $product, int $saleCategoryId): array
+    {
+        $fieldUpdates = [ProductFieldUpdate::sortOrder(self::SALE_SORT_ORDER)];
+
+        if (! $product->isInCategory($saleCategoryId)) {
+            $fieldUpdates[] = ProductFieldUpdate::categories([...$product->categoryIds, $saleCategoryId]);
+        }
+
+        return $fieldUpdates;
     }
 
     /**

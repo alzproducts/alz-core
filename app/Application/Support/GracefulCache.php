@@ -43,30 +43,15 @@ final readonly class GracefulCache
      * @noinspection PhpDocSignatureInspection*/
     public function remember(string $key, int $ttl, Closure $callback): mixed
     {
-        try {
-            $cached = $this->cache->get($key);
+        $cached = $this->tryGet($key);
 
-            if ($cached !== null) {
-                /** @var T $cached */
-                return $cached;
-            }
-        } catch (CacheException|Exception $e) { // @ignoreException - graceful degradation: treat as cache miss
-            $this->logger->warning("{$this->serviceName} cache read failed", [
-                'key' => $key,
-                'exception' => $e->getMessage(),
-            ]);
+        if ($cached !== null) {
+            /** @var T $cached */
+            return $cached;
         }
 
         $value = $callback();
-
-        try {
-            $this->cache->set($key, $value, $ttl);
-        } catch (CacheException|Exception $e) { // @ignoreException - graceful degradation: return fresh data anyway
-            $this->logger->warning("{$this->serviceName} cache write failed", [
-                'key' => $key,
-                'exception' => $e->getMessage(),
-            ]);
-        }
+        $this->tryPut($key, $value, $ttl);
 
         return $value;
     }
@@ -96,16 +81,7 @@ final readonly class GracefulCache
      */
     public function get(string $key): mixed
     {
-        try {
-            return $this->cache->get($key);
-        } catch (CacheException|Exception $e) { // @ignoreException - graceful degradation: treat as cache miss
-            $this->logger->warning("{$this->serviceName} cache read failed", [
-                'key' => $key,
-                'exception' => $e->getMessage(),
-            ]);
-
-            return null;
-        }
+        return $this->tryGet($key);
     }
 
     /**
@@ -115,14 +91,7 @@ final readonly class GracefulCache
      */
     public function put(string $key, mixed $value, int $ttl): void
     {
-        try {
-            $this->cache->set($key, $value, $ttl);
-        } catch (CacheException|Exception $e) { // @ignoreException - graceful degradation: silent failure is acceptable
-            $this->logger->warning("{$this->serviceName} cache write failed", [
-                'key' => $key,
-                'exception' => $e->getMessage(),
-            ]);
-        }
+        $this->tryPut($key, $value, $ttl);
     }
 
     /**
@@ -137,6 +106,42 @@ final readonly class GracefulCache
             $this->cache->delete($key);
         } catch (CacheException|Exception $e) { // @ignoreException - graceful degradation: cache expires naturally
             $this->logger->warning("{$this->serviceName} cache invalidation failed", [
+                'key' => $key,
+                'exception' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Infrastructure Boundary Methods
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Attempt to read from cache, returning null on any infrastructure failure.
+     */
+    private function tryGet(string $key): mixed
+    {
+        try {
+            return $this->cache->get($key);
+        } catch (CacheException|Exception $e) { // @ignoreException - graceful degradation: treat as cache miss
+            $this->logger->warning("{$this->serviceName} cache read failed", [
+                'key' => $key,
+                'exception' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
+
+    /**
+     * Attempt to write to cache, silently failing on infrastructure issues.
+     */
+    private function tryPut(string $key, mixed $value, int $ttl): void
+    {
+        try {
+            $this->cache->set($key, $value, $ttl);
+        } catch (CacheException|Exception $e) { // @ignoreException - graceful degradation: return fresh data anyway
+            $this->logger->warning("{$this->serviceName} cache write failed", [
                 'key' => $key,
                 'exception' => $e->getMessage(),
             ]);

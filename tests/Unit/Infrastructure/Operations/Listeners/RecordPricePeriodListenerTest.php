@@ -115,9 +115,10 @@ final class RecordPricePeriodListenerTest extends TestCase
 
         $listener->shouldReceive('fail')->once()->with($exception);
 
-        Log::shouldReceive('error')
+        Log::shouldReceive('log')
             ->once()
             ->with(
+                'error',
                 'Price period recording: permanent database failure',
                 Mockery::on(static fn(array $ctx): bool => $ctx['sku'] === 'TEST-001'
                     && $ctx['exception'] === DatabaseOperationFailedException::class),
@@ -144,7 +145,7 @@ final class RecordPricePeriodListenerTest extends TestCase
 
         $listener->shouldReceive('fail')->once()->with($exception);
 
-        Log::shouldReceive('error')->once();
+        Log::shouldReceive('log')->once();
 
         $this->expectException(DuplicateRecordException::class);
 

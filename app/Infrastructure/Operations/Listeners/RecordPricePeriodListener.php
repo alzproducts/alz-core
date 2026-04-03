@@ -48,26 +48,9 @@ final class RecordPricePeriodListener implements ShouldQueue
         try {
             $this->useCase->execute($event->sku, $event->newPrices);
         } catch (ExternalServiceUnavailableException $e) {
-            Log::warning('Price period recording: transient database failure, will retry', [
-                'sku' => $event->sku->value,
-                'service' => $e->serviceName,
-                'retry_after' => $e->retryAfter,
-                'attempts' => $this->attempts(),
-            ]);
-
-            if ($e->retryAfter !== null) {
-                $this->release($e->retryAfter);
-            } else {
-                throw $e;
-            }
+            $this->handleTransientFailure($e, $event);
         } catch (DatabaseOperationFailedException|DuplicateRecordException $e) {
-            Log::error('Price period recording: permanent database failure', [
-                'sku' => $event->sku->value,
-                'exception' => $e::class,
-                'message' => $e->getMessage(),
-            ]);
-            $this->fail($e);
-            throw $e;
+            $this->failWithLog('Price period recording: permanent database failure', 'error', $e, $event);
         } catch (Throwable $e) {
             Log::critical('Price period recording: unexpected error', [
                 'sku' => $event->sku->value,
@@ -75,8 +58,53 @@ final class RecordPricePeriodListener implements ShouldQueue
                 'message' => $e->getMessage(),
             ]);
             $this->fail($e);
+
             throw $e;
         }
+    }
+
+    /**
+     * Release with API-provided delay, or rethrow for standard backoff.
+     *
+     * @throws ExternalServiceUnavailableException When no retryAfter provided
+     */
+    private function handleTransientFailure(
+        ExternalServiceUnavailableException $e,
+        SkuRetailPricingUpdatedEvent $event,
+    ): void {
+        Log::warning('Price period recording: transient database failure, will retry', [
+            'sku' => $event->sku->value,
+            'service' => $e->serviceName,
+            'retry_after' => $e->retryAfter,
+            'attempts' => $this->attempts(),
+        ]);
+
+        if ($e->retryAfter !== null) {
+            $this->release($e->retryAfter);
+        } else {
+            throw $e;
+        }
+    }
+
+    /**
+     * Log, mark as failed, and rethrow.
+     *
+     * @throws Throwable Always rethrown
+     */
+    private function failWithLog(
+        string $message,
+        string $level,
+        Throwable $e,
+        SkuRetailPricingUpdatedEvent $event,
+    ): never {
+        Log::log($level, $message, [
+            'sku' => $event->sku->value,
+            'exception' => $e::class,
+            'message' => $e->getMessage(),
+        ]);
+        $this->fail($e);
+
+        throw $e;
     }
 
     /**

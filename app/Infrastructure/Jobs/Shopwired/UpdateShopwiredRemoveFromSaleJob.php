@@ -10,6 +10,7 @@ use App\Application\Contracts\Shopwired\ProductUpdateClientInterface;
 use App\Application\Contracts\Shopwired\SaleSettingsRepositoryInterface;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\Product\Enums\SaleCustomField;
+use App\Domain\Catalog\Product\ValueObjects\Product;
 use App\Domain\Catalog\Product\ValueObjects\ProductFieldUpdate;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
@@ -96,11 +97,29 @@ final class UpdateShopwiredRemoveFromSaleJob implements ShouldQueue
     ): void {
         $productId = $this->productId->value;
         $product = $productRepo->getProduct($this->productId);
+        $fieldUpdates = self::buildRemovalFieldUpdates($product, $this->saleCategoryId);
 
-        // 1. Remove category + restore sort order in a single PUT (where applicable)
+        if ($fieldUpdates !== []) {
+            $fieldUpdateClient->update($productId, ...$fieldUpdates);
+        }
+
+        $productUpdateClient->updateCustomFields($productId, self::emptySaleCustomFields());
+
+        // Safety-net: ensure sale settings row is cleared (handles retries/edge cases)
+        $saleSettingsRepo->delete($this->productId);
+    }
+
+    /**
+     * Build field updates for removing a product from sale.
+     *
+     * Removes the sale category and restores the original sort order.
+     *
+     * @return list<ProductFieldUpdate>
+     */
+    private static function buildRemovalFieldUpdates(Product $product, int $saleCategoryId): array
+    {
         $fieldUpdates = [];
 
-        $saleCategoryId = $this->saleCategoryId;
         if ($product->isInCategory($saleCategoryId)) {
             $filteredCategories = \array_values(\array_filter(
                 $product->categoryIds,
@@ -114,22 +133,21 @@ final class UpdateShopwiredRemoveFromSaleJob implements ShouldQueue
             $fieldUpdates[] = ProductFieldUpdate::sortOrder((int) $defaultSortOrder);
         }
 
-        if ($fieldUpdates !== []) {
-            $fieldUpdateClient->update($productId, ...$fieldUpdates);
-        }
+        return $fieldUpdates;
+    }
 
-        // 2. Clear all sale custom fields
-        $productUpdateClient->updateCustomFields($productId, [
+    /**
+     * @return array<string, string>
+     */
+    private static function emptySaleCustomFields(): array
+    {
+        return [
             SaleCustomField::DateStart->value => '',
             SaleCustomField::DateEnd->value => '',
             SaleCustomField::Reason->value => '',
             SaleCustomField::Comments->value => '',
             SaleCustomField::EndsStock->value => '',
             SaleCustomField::DefaultSortOrder->value => '',
-        ]);
-
-        // 3. Safety-net: ensure sale settings row is cleared
-        //    (normally deleted by UseCase before dispatch, but handles retries/edge cases)
-        $saleSettingsRepo->delete($this->productId);
+        ];
     }
 }
