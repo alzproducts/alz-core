@@ -69,7 +69,11 @@ final class ListProductsRequestDTO extends Data
      */
     public static function allowedIncludes(): array
     {
-        return [ProductInclude::Variations->value];
+        return [
+            ProductInclude::Variations->value,
+            ProductInclude::Inventory->value,
+            ProductInclude::Stock->value,
+        ];
     }
 
     /**

@@ -11,6 +11,8 @@ use App\Domain\Catalog\Filters\ValueObjects\ProductFilter;
 use App\Domain\Catalog\Product\Enums\FreeDeliveryType;
 use App\Domain\Catalog\Product\Enums\ProductInclude;
 use App\Domain\Catalog\Product\ValueObjects\ProductImage;
+use App\Domain\Catalog\Product\ValueObjects\ProductInventory;
+use App\Domain\Catalog\Product\ValueObjects\ProductStock;
 use App\Domain\Catalog\Product\ValueObjects\ProductSupplier;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariationView;
 use App\Domain\Catalog\Product\ValueObjects\ProductView;
@@ -65,7 +67,6 @@ final readonly class ProductViewAssembler
         return new ProductView(
             externalId: $model->external_id,
             sku: $model->sku,
-            gtin: $model->gtin,
             title: $model->title,
             description: $model->description,
             slug: $model->slug,
@@ -77,11 +78,9 @@ final readonly class ProductViewAssembler
             effectivePrice: $model->effective_price,
             isOnSale: $model->is_on_sale,
             profitMargin: $model->profit_margin,
-            stock: $model->stock ?? 0,
             isActive: $model->is_active,
             vatExclusive: $model->vat_exclusive,
             vatRelief: $model->vat_relief ?? false,
-            weight: $model->weight,
             metaTitle: $model->meta_title,
             metaDescription: $model->meta_description,
             categoryIds: $model->category_ids,
@@ -95,6 +94,8 @@ final readonly class ProductViewAssembler
             saleSettings: $this->resolveSaleSettings($model, $includes),
             freeDelivery: self::resolveFreeDelivery($typedCustomFields),
             suppliers: $this->resolveSuppliers($model, $includes),
+            inventory: self::resolveInventory($model, $includes),
+            stock: self::resolveStock($model, $includes),
         );
     }
 
@@ -162,6 +163,34 @@ final readonly class ProductViewAssembler
         }
 
         return $this->saleSettingsRepo->findByProduct(IntId::from($model->external_id));
+    }
+
+    /**
+     * @param list<ProductInclude> $includes
+     */
+    private static function resolveInventory(ProductViewModel $model, array $includes): ?ProductInventory
+    {
+        if (! \in_array(ProductInclude::Inventory, $includes, true)
+            || ! $model->relationLoaded('stockItem')
+            || $model->stockItem === null) {
+            return null;
+        }
+
+        return $model->stockItem->toProductInventory();
+    }
+
+    /**
+     * @param list<ProductInclude> $includes
+     */
+    private static function resolveStock(ProductViewModel $model, array $includes): ?ProductStock
+    {
+        if (! \in_array(ProductInclude::Stock, $includes, true)
+            || ! $model->relationLoaded('stockItem')
+            || $model->stockItem === null) {
+            return null;
+        }
+
+        return $model->stockItem->toProductStock();
     }
 
     /**

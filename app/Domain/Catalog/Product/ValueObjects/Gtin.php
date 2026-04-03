@@ -66,6 +66,37 @@ final readonly class Gtin
     }
 
     /**
+     * Parse a GTIN from a string, returning null on invalid or empty input.
+     *
+     * Use when validity is uncertain and null is an acceptable result
+     * (e.g., optional Linnworks barcode field). Does not throw.
+     */
+    public static function tryFromString(?string $value): ?self
+    {
+        if ($value === null || \mb_trim($value) === '') {
+            return null;
+        }
+
+        $normalized = self::normalizeAndValidate($value);
+
+        return $normalized !== null ? new self($normalized) : null;
+    }
+
+    private static function normalizeAndValidate(string $value): ?string
+    {
+        $normalized = \preg_replace('/[\s\-]/', '', $value);
+
+        if (! \is_string($normalized)
+            || \preg_match('/^\d+$/', $normalized) !== 1
+            || ! \in_array(\mb_strlen($normalized), self::VALID_LENGTHS, true)
+            || ! self::isValidCheckDigit($normalized)) {
+            return null;
+        }
+
+        return $normalized;
+    }
+
+    /**
      * Create a GTIN without validation.
      *
      * Use when data comes from a trusted source (e.g., database hydration).
