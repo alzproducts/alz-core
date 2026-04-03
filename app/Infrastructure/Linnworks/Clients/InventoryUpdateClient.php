@@ -19,6 +19,9 @@ use App\Domain\Inventory\ValueObjects\StockItemSupplierStat;
 use App\Domain\Inventory\ValueObjects\SupplierLinkParams;
 use App\Domain\ValueObjects\Guid;
 use App\Infrastructure\Linnworks\Contracts\LinnworksTransportInterface;
+use App\Infrastructure\Linnworks\Requests\AddInventoryItemRequest;
+use App\Infrastructure\Linnworks\Requests\CreateStockSupplierStatRequest;
+use App\Infrastructure\Linnworks\Requests\ExtendedPropertyRequest;
 use App\Infrastructure\Linnworks\Requests\UpdateStockSupplierStatRequest;
 use Illuminate\Support\Str;
 
@@ -74,23 +77,11 @@ final readonly class InventoryUpdateClient implements InventoryUpdateClientInter
     {
         $stockItemId = new Guid(Str::uuid()->toString());
 
-        // Linnworks uses -1.0 to indicate "use default tax rate" (must be double, not int)
-        $taxRate = $command->taxRate->isStandard() ? -1.0 : $command->taxRate->percentage;
-
-        $inventoryItem = [
-            'StockItemId' => $stockItemId->value,
-            'ItemNumber' => $command->sku->value,
-            'ItemTitle' => $command->title,
-            'CategoryId' => $categoryId->value,
-            'RetailPrice' => $command->retailPrice->toGross(),
-            'PurchasePrice' => $command->purchasePrice?->toNet() ?? 0.0,
-            'TaxRate' => $taxRate,
-            'BarcodeNumber' => $command->barcode !== null ? $command->barcode->value : '',
-        ];
+        $request = AddInventoryItemRequest::fromCommand($stockItemId, $categoryId, $command);
 
         $this->transport->postFormParams(
             endpoint: '/api/Inventory/AddInventoryItem',
-            params: ['inventoryItem' => $inventoryItem],
+            params: ['inventoryItem' => $request->toArray()],
         );
 
         return $stockItemId;
@@ -109,17 +100,11 @@ final readonly class InventoryUpdateClient implements InventoryUpdateClientInter
     {
         $stockItemId = $this->inventoryClient->resolveStockItemId($identifier);
 
-        $supplierStat = [
-            'StockItemId' => $stockItemId->value,
-            'SupplierID' => $params->supplierId->value,
-            'PurchasePrice' => $params->purchasePrice?->toNet() ?? 0.0,
-            'Code' => $params->supplierCode ?? '',
-            'IsDefault' => $params->isDefault,
-        ];
+        $request = CreateStockSupplierStatRequest::fromResolved($stockItemId, $params);
 
         $this->transport->postFormParams(
             endpoint: '/api/Inventory/CreateStockSupplierStat',
-            params: ['itemSuppliers' => [$supplierStat]],
+            params: ['itemSuppliers' => [$request->toArray()]],
         );
     }
 
@@ -216,9 +201,9 @@ final readonly class InventoryUpdateClient implements InventoryUpdateClientInter
             }
 
             if ($existing !== null) {
-                $updates[] = self::buildExtendedPropertyPayload($property, $stockItemId, $existing->rowId);
+                $updates[] = ExtendedPropertyRequest::fromWrite($property, $stockItemId, $existing->rowId)->toArray();
             } else {
-                $creates[] = self::buildExtendedPropertyPayload($property, $stockItemId);
+                $creates[] = ExtendedPropertyRequest::fromWrite($property, $stockItemId)->toArray();
             }
         }
 
@@ -268,37 +253,10 @@ final readonly class InventoryUpdateClient implements InventoryUpdateClientInter
      */
     private function createExtendedProperty(ExtendedPropertyWrite $property, Guid $stockItemId): void
     {
-        $payload = self::buildExtendedPropertyPayload($property, $stockItemId);
-
         $this->transport->postFormParams(
             endpoint: '/api/Inventory/CreateInventoryItemExtendedProperties',
-            params: ['inventoryItemExtendedProperties' => [$payload]],
+            params: ['inventoryItemExtendedProperties' => [ExtendedPropertyRequest::fromWrite($property, $stockItemId)->toArray()]],
         );
-    }
-
-    /**
-     * Build an extended property payload array for the Linnworks API.
-     *
-     * @return array<string, string>
-     */
-    private static function buildExtendedPropertyPayload(
-        ExtendedPropertyWrite $property,
-        Guid $stockItemId,
-        ?string $rowId = null,
-    ): array {
-        // Note: Linnworks API uses "ProperyName" (typo is intentional — API expects this)
-        $payload = [
-            'fkStockItemId' => $stockItemId->value,
-            'ProperyName' => $property->name->value,
-            'PropertyValue' => $property->value,
-            'PropertyType' => 'Attribute',
-        ];
-
-        if ($rowId !== null) {
-            $payload['pkRowId'] = $rowId;
-        }
-
-        return $payload;
     }
 
     /**
