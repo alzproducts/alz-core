@@ -49,8 +49,10 @@ use App\Application\Contracts\Shopwired\StockClientInterface;
 use App\Application\Contracts\Shopwired\WebhookClientInterface;
 use App\Application\Contracts\Shopwired\WebhookIdempotencyServiceInterface;
 use App\Application\Shopwired\SaleManagement\Resolvers\ProductSaleStateResolver;
+use App\Application\Shopwired\SaleManagement\UseCases\AddProductToSaleUseCase;
 use App\Application\Shopwired\SaleManagement\UseCases\ReconcileBulkSaleStateUseCase;
 use App\Application\Shopwired\SaleManagement\UseCases\ReconcileProductSaleStateUseCase;
+use App\Application\Shopwired\SaleManagement\UseCases\RemoveProductFromSaleUseCase;
 use App\Application\Shopwired\UseCases\Webhooks\CreateOrderRefundUseCase;
 use App\Application\Shopwired\UseCases\Webhooks\SyncBrandUseCase;
 use App\Application\Shopwired\UseCases\Webhooks\SyncCategoryUseCase;
@@ -306,6 +308,8 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
             ReconcileProductSaleStateUseCase::class,
             ReconcileBulkSaleStateUseCase::class,
             ProductSaleStateResolver::class,
+            AddProductToSaleUseCase::class,
+            RemoveProductFromSaleUseCase::class,
         ])->needs('$saleCategoryId')
             ->give(static fn(): int => self::resolveNumericConfig(
                 'shopwired.sale_category_id',

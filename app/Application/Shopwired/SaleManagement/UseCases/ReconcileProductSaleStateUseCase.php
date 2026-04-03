@@ -79,11 +79,11 @@ final readonly class ReconcileProductSaleStateUseCase
                 $this->saleSettingsRepo->save($productId, $dbSettings);
             }
 
-            $this->dispatcher->dispatchAddToSale($productId, $this->saleCategoryId);
+            $this->dispatcher->dispatchAddToSale($productId);
         }
 
         if ($result->needsRemoveFromSale) {
-            $this->dispatcher->dispatchRemoveFromSale($productId, $this->saleCategoryId);
+            $this->dispatcher->dispatchRemoveFromSale($productId);
         }
 
         foreach ($result->skuSaleStates as $skuState) {

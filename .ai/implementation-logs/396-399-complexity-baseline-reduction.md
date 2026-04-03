@@ -241,17 +241,46 @@ _(Not yet started)_
 2. EscalationsSettingsResponse — plain readonly DTO, NOT Spatie Data (Spatie reserved for external API responses only)
 3. fetchConfigRow() eliminated — `->value('settings')` returns typed string, no untyped `?object`
 
-**Decisions pending (user wants joint review):**
-- UpdateShopwiredAddToSaleJob, UpdateShopwiredRemoveFromSaleJob, RecordPricePeriodListener — review together for shared patterns
+#### 2026-04-03 — Clean Architecture extraction (sale jobs + listener)
+Joint review with user identified these as requiring deeper refactoring beyond line-count reduction:
+
+**Shopwired sale jobs → thin jobs + UseCases:**
+- **AddProductToSaleUseCase** (new): all business logic extracted from `UpdateShopwiredAddToSaleJob::handle()` — product fetch, field updates, custom fields, settings check
+- **RemoveProductFromSaleUseCase** (new): all business logic extracted from `UpdateShopwiredRemoveFromSaleJob::handle()` — product fetch, removal field updates, clear custom fields, delete settings
+- Both jobs now thin delegators: constructor takes only `IntId $productId`, handle() is one-liner
+- `$saleCategoryId` removed from dispatcher interface + jobs — injected via DI into UseCases (added to `ShopwiredServiceProvider::registerSaleManagementBindings()`)
+- `SaleReconciliationDispatcherInterface::dispatchAddToSale/dispatchRemoveFromSale` simplified (no `$saleCategoryId` param)
+- `ReconcileProductSaleStateUseCase` dispatch calls updated
+
+**Domain: custom field mapping extracted:**
+- `SaleCustomField::emptyValues()` — all enum cases → empty strings (replaces inline method in RemoveFromSale job)
+- `SaleSettings::toCustomFieldsArray(?self, ?int)` — builds custom fields from nullable settings (replaces `buildCustomFieldsArray()` in AddToSale job)
+- PHPStan caught unnecessary `?->` on non-nullable `saleReason` property — used explicit ternary instead
+
+**RecordPricePeriodListener → sync dispatcher + new job:**
+- **RecordPricePeriodJob** (new): DB-only job with `HandleDatabaseExceptions` middleware, standard backoff, thin handle() delegating to `RecordPricePeriodUseCase`
+- Listener simplified from 122 lines → 22 lines: sync, non-queued, just dispatches the job
+- All exception handling removed from listener (middleware handles it)
+- Added `Record` prefix to `JobNamingPrefixRule::ALLOWED_PREFIXES`
+
+**Test changes:**
+- `RecordPricePeriodListenerTest` rewritten: 210→43 lines, now just verifies job dispatch with correct arguments
+- `ReconcileProductSaleStateUseCaseTest` updated: removed `$saleCategoryId` from dispatch mock expectations (4 occurrences)
+
+**User decisions:**
+1. Job naming: add `Record` to allowed prefixes (over `Process` prefix)
+2. Custom field method: `SaleSettings::toCustomFieldsArray()` (over SaleCustomField enum)
+3. Scope: continue under #399 (not separate issue)
+
+**Pending:**
 - Section 5 (EloquentGateway, AbstractEloquentRepository) — full user approval required
 
 #### Current State
-- Baseline: 1996 → ~1930 lines (11 entries removed)
 - Sections 0-4 complete (PR #455, merged)
-- Sections 6-7 complete (this branch)
+- Sections 6-7 complete
+- Sale jobs + listener extraction complete
 - Section 5 not started (user-approved Persistence layer)
-- 1435 tests passing, all linters green
-- Pending commit + review of 3 files together (sale jobs + listener)
+- 2872 tests passing, all linters green
 
 ---
 

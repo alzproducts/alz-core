@@ -4,20 +4,9 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Jobs\Shopwired;
 
-use App\Application\Contracts\Shopwired\ProductFieldUpdateClientInterface;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
-use App\Application\Contracts\Shopwired\ProductUpdateClientInterface;
-use App\Application\Contracts\Shopwired\SaleSettingsRepositoryInterface;
+use App\Application\Shopwired\SaleManagement\UseCases\RemoveProductFromSaleUseCase;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
-use App\Domain\Catalog\Product\Enums\SaleCustomField;
-use App\Domain\Catalog\Product\ValueObjects\Product;
-use App\Domain\Catalog\Product\ValueObjects\ProductFieldUpdate;
-use App\Domain\Exceptions\Api\AuthenticationExpiredException;
-use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
-use App\Domain\Exceptions\Api\InvalidApiRequestException;
-use App\Domain\Exceptions\Api\InvalidApiResponseException;
-use App\Domain\Exceptions\Api\ResourceNotAvailableException;
-use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\IntId;
@@ -37,6 +26,7 @@ use Illuminate\Queue\Middleware\Skip;
  * Removes a product from sale on ShopWired: sale category, sort order restore, and custom field cleanup.
  *
  * Idempotent: skipped via Skip::when if the product is back on sale by execution time.
+ * Delegates all business logic to RemoveProductFromSaleUseCase.
  */
 final class UpdateShopwiredRemoveFromSaleJob implements ShouldQueue
 {
@@ -55,7 +45,6 @@ final class UpdateShopwiredRemoveFromSaleJob implements ShouldQueue
 
     public function __construct(
         public readonly IntId $productId,
-        public readonly int $saleCategoryId,
     ) {
         $this->onQueue(QueueName::Bulk->value);
     }
@@ -79,75 +68,12 @@ final class UpdateShopwiredRemoveFromSaleJob implements ShouldQueue
     }
 
     /**
-     * @throws ResourceNotFoundException When product not found in DB
-     * @throws DuplicateRecordException On sale settings DB constraint violation
      * @throws InvalidCustomFieldValueException When custom field mapping fails
      * @throws DatabaseOperationFailedException On DB query failure
-     * @throws ResourceNotAvailableException When product not found on API
-     * @throws InvalidApiRequestException When request parameters invalid
-     * @throws AuthenticationExpiredException When credentials invalid
-     * @throws ExternalServiceUnavailableException When API or DB unavailable
-     * @throws InvalidApiResponseException When response parsing fails
+     * @throws DuplicateRecordException On constraint violation
      */
-    public function handle(
-        ProductRepositoryInterface $productRepo,
-        ProductFieldUpdateClientInterface $fieldUpdateClient,
-        ProductUpdateClientInterface $productUpdateClient,
-        SaleSettingsRepositoryInterface $saleSettingsRepo,
-    ): void {
-        $productId = $this->productId->value;
-        $product = $productRepo->getProduct($this->productId);
-        $fieldUpdates = self::buildRemovalFieldUpdates($product, $this->saleCategoryId);
-
-        if ($fieldUpdates !== []) {
-            $fieldUpdateClient->update($productId, ...$fieldUpdates);
-        }
-
-        $productUpdateClient->updateCustomFields($productId, self::emptySaleCustomFields());
-
-        // Safety-net: ensure sale settings row is cleared (handles retries/edge cases)
-        $saleSettingsRepo->delete($this->productId);
-    }
-
-    /**
-     * Build field updates for removing a product from sale.
-     *
-     * Removes the sale category and restores the original sort order.
-     *
-     * @return list<ProductFieldUpdate>
-     */
-    private static function buildRemovalFieldUpdates(Product $product, int $saleCategoryId): array
+    public function handle(RemoveProductFromSaleUseCase $useCase): void
     {
-        $fieldUpdates = [];
-
-        if ($product->isInCategory($saleCategoryId)) {
-            $filteredCategories = \array_values(\array_filter(
-                $product->categoryIds,
-                static fn(int $id): bool => $id !== $saleCategoryId,
-            ));
-            $fieldUpdates[] = ProductFieldUpdate::categories($filteredCategories);
-        }
-
-        $defaultSortOrder = $product->rawCustomFields[SaleCustomField::DefaultSortOrder->value] ?? null;
-        if (\is_string($defaultSortOrder) && $defaultSortOrder !== '' && \is_numeric($defaultSortOrder)) {
-            $fieldUpdates[] = ProductFieldUpdate::sortOrder((int) $defaultSortOrder);
-        }
-
-        return $fieldUpdates;
-    }
-
-    /**
-     * @return array<string, string>
-     */
-    private static function emptySaleCustomFields(): array
-    {
-        return [
-            SaleCustomField::DateStart->value => '',
-            SaleCustomField::DateEnd->value => '',
-            SaleCustomField::Reason->value => '',
-            SaleCustomField::Comments->value => '',
-            SaleCustomField::EndsStock->value => '',
-            SaleCustomField::DefaultSortOrder->value => '',
-        ];
+        $useCase->execute($this->productId);
     }
 }
