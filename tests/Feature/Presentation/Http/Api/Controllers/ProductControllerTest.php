@@ -743,11 +743,11 @@ final class ProductControllerTest extends TestCase
         $productData = $body['data'][0];
 
         $expectedKeys = [
-            'id', 'sku', 'gtin', 'title', 'slug', 'url',
+            'id', 'sku', 'title', 'slug', 'url',
             'price', 'cost_price', 'sale_price', 'compare_price',
-            'effective_price', 'profit_margin', 'stock',
+            'effective_price', 'profit_margin',
             'is_active', 'is_on_sale', 'has_any_sale', 'has_free_delivery',
-            'vat_exclusive', 'vat_relief', 'weight',
+            'vat_exclusive', 'vat_relief',
             'meta_title', 'meta_description', 'free_delivery',
             'sort_order', 'images', 'created_at', 'updated_at',
         ];
@@ -760,7 +760,6 @@ final class ProductControllerTest extends TestCase
         $this->assertSame(42, $productData['id']);
         $this->assertSame('Full Field Product', $productData['title']);
         $this->assertSame(9.99, $productData['price']);
-        $this->assertSame(10, $productData['stock']);
         $this->assertTrue($productData['is_active']);
         $this->assertFalse($productData['is_on_sale']);
         $this->assertMatchesRegularExpression(
@@ -893,7 +892,6 @@ final class ProductControllerTest extends TestCase
         return new ProductView(
             externalId: 42,
             sku: null,
-            gtin: null,
             title: 'Product With Variations',
             description: null,
             slug: 'product-with-variations',
@@ -905,11 +903,9 @@ final class ProductControllerTest extends TestCase
             effectivePrice: 9.99,
             isOnSale: false,
             profitMargin: null,
-            stock: 10,
             isActive: true,
             vatExclusive: false,
             vatRelief: false,
-            weight: null,
             metaTitle: null,
             metaDescription: null,
             categoryIds: [],
@@ -928,7 +924,6 @@ final class ProductControllerTest extends TestCase
         return new ProductView(
             externalId: $id,
             sku: null,
-            gtin: null,
             title: $title,
             description: null,
             slug: 'test-product-' . $id,
@@ -940,11 +935,9 @@ final class ProductControllerTest extends TestCase
             effectivePrice: 9.99,
             isOnSale: false,
             profitMargin: null,
-            stock: 10,
             isActive: true,
             vatExclusive: false,
             vatRelief: false,
-            weight: null,
             metaTitle: null,
             metaDescription: null,
             categoryIds: [],

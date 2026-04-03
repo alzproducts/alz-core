@@ -448,7 +448,18 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
      */
     private static function relationsForIncludes(array $includes): array
     {
-        return \in_array(ProductInclude::Variations, $includes, true) ? ['variations'] : [];
+        $relations = [];
+
+        if (\in_array(ProductInclude::Variations, $includes, true)) {
+            $relations[] = 'variations';
+        }
+
+        if (\in_array(ProductInclude::Inventory, $includes, true)
+            || \in_array(ProductInclude::Stock, $includes, true)) {
+            $relations[] = 'stockItem';
+        }
+
+        return $relations;
     }
 
     /**

@@ -21,6 +21,8 @@ enum ProductInclude: string
     case Filters = 'filters';
     case SaleSettings = 'sale_settings';
     case Suppliers = 'suppliers';
+    case Inventory = 'inventory';
+    case Stock = 'stock';
 
     /**
      * @return list<string>

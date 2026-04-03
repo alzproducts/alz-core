@@ -175,22 +175,6 @@ final class ProductViewTest extends TestCase
     }
 
     #[Test]
-    public function self_constructs_weight_from_float(): void
-    {
-        $view = $this->createView(weight: 2.5);
-
-        self::assertSame(2.5, $view->weight?->value);
-    }
-
-    #[Test]
-    public function weight_null_when_not_provided(): void
-    {
-        $view = $this->createView(weight: null);
-
-        self::assertNull($view->weight);
-    }
-
-    #[Test]
     public function self_constructs_category_ids_from_ints(): void
     {
         $view = $this->createView(categoryIds: [10, 20, 30]);
@@ -219,14 +203,12 @@ final class ProductViewTest extends TestCase
         bool $isOnSale = false,
         ?float $profitMargin = null,
         ?string $sku = null,
-        ?float $weight = null,
         array $categoryIds = [],
         ?FreeDeliveryType $freeDelivery = null,
     ): ProductView {
         return new ProductView(
             externalId: 1,
             sku: $sku,
-            gtin: null,
             title: 'Test Product',
             description: null,
             slug: 'test-product',
@@ -238,11 +220,9 @@ final class ProductViewTest extends TestCase
             effectivePrice: $effectivePrice,
             isOnSale: $isOnSale,
             profitMargin: $profitMargin,
-            stock: 10,
             isActive: true,
             vatExclusive: false,
             vatRelief: false,
-            weight: $weight,
             metaTitle: null,
             metaDescription: null,
             categoryIds: $categoryIds,
