@@ -11,6 +11,7 @@ use App\Domain\Exceptions\Infrastructure\ConfigurationNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Infrastructure\Database\DatabaseGateway;
+use App\Infrastructure\Persistence\Responses\EscalationsSettingsResponse;
 use JsonException;
 
 /**
@@ -45,27 +46,17 @@ final readonly class EscalationsConfigRepository implements EscalationsConfigRep
      */
     public function get(): EscalationsConfig
     {
-        /** @var object{settings: string}|null $row @phpstan-ignore varTag.type (stdClass with known shape) */
-        $row = $this->gateway->query(
-            fn(): ?object => $this->gateway->connection()->table(self::TABLE)
+        $settingsJson = $this->gateway->query(
+            fn(): mixed => $this->gateway->connection()->table(self::TABLE)
                 ->where('table_name', self::CONFIG_NAME)
                 ->where('enabled', true)
-                ->first(),
+                ->value('settings'),
         );
 
-        if ($row === null) {
+        if (!\is_string($settingsJson)) {
             throw new ConfigurationNotFoundException(self::CONFIG_NAME);
         }
 
-        /** @var array{lateThresholdHours: int, latePriorityThresholdHours: int, priorityTags: list<string>, excludedTags: list<string>, assignedTag: string} $settings */
-        $settings = \json_decode($row->settings, true, 512, JSON_THROW_ON_ERROR);
-
-        return new EscalationsConfig(
-            lateThresholdHours: $settings['lateThresholdHours'],
-            latePriorityThresholdHours: $settings['latePriorityThresholdHours'],
-            priorityTags: $settings['priorityTags'],
-            excludedTags: $settings['excludedTags'],
-            assignedTag: $settings['assignedTag'],
-        );
+        return EscalationsSettingsResponse::fromJson($settingsJson)->toDomain();
     }
 }

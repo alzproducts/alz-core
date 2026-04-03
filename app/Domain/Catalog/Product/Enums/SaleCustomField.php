@@ -18,4 +18,17 @@ enum SaleCustomField: string
     case Comments = 'sale_comments';
     case EndsStock = 'sale_ends_stock';
     case DefaultSortOrder = 'default_sort_order';
+
+    /**
+     * All sale custom fields set to empty strings (for clearing on removal).
+     *
+     * @return array<string, string>
+     */
+    public static function emptyValues(): array
+    {
+        return \array_combine(
+            \array_column(self::cases(), 'value'),
+            \array_fill(0, \count(self::cases()), ''),
+        );
+    }
 }

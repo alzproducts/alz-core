@@ -232,39 +232,41 @@ abstract class AbstractEloquentRepository implements RepositoryWriteInterface
                 $this->save($entity);
                 $succeeded++;
             } catch (ExternalServiceUnavailableException $e) {
-                // Transient failure (DB unavailable) - bubble up for job retry
                 throw $e;
-            } catch (DuplicateRecordException $e) {
-                // Unique constraint violation on non-upsert column (e.g., SKU, GTIN)
-                // This indicates a real data conflict that needs attention
+            } catch (DatabaseOperationFailedException|DuplicateRecordException $e) {
                 $failed++;
-                $identifier = $this->getEntityIdentifier($entity);
-                $failedReferences[] = $identifier;
-
-                Log::error("{$this->getEntityTypeName()} has duplicate unique value - fix in source system", [
-                    'identifier' => $identifier,
-                    'constraint' => $e->constraint,
-                    'table' => $e->table,
-                ]);
-            } catch (DatabaseOperationFailedException $e) {
-                // Permanent failure - log and continue batch
-                $failed++;
-                $identifier = $this->getEntityIdentifier($entity);
-                $failedReferences[] = $identifier;
-
-                Log::error($this->getLogMessageForFailedSave(), [
-                    'identifier' => $identifier,
-                    'entity_type' => $this->getEntityTypeName(),
-                    'error' => $e->getMessage(),
-                ]);
+                $failedReferences[] = $this->logAndTrackSaveFailure($entity, $e);
             }
         }
 
-        return new SaveManyResult(
-            succeeded: $succeeded,
-            failed: $failed,
-            failedReferences: $failedReferences,
-        );
+        return new SaveManyResult(succeeded: $succeeded, failed: $failed, failedReferences: $failedReferences);
+    }
+
+    /**
+     * Log a save failure and return the entity identifier for tracking.
+     *
+     * @param T $entity
+     */
+    private function logAndTrackSaveFailure(
+        object $entity,
+        DatabaseOperationFailedException|DuplicateRecordException $e,
+    ): int|string {
+        $identifier = $this->getEntityIdentifier($entity);
+
+        if ($e instanceof DuplicateRecordException) {
+            Log::error("{$this->getEntityTypeName()} has duplicate unique value - fix in source system", [
+                'identifier' => $identifier,
+                'constraint' => $e->constraint,
+                'table' => $e->table,
+            ]);
+        } else {
+            Log::error($this->getLogMessageForFailedSave(), [
+                'identifier' => $identifier,
+                'entity_type' => $this->getEntityTypeName(),
+                'error' => $e->getMessage(),
+            ]);
+        }
+        return $identifier;
     }
 
     // ─────────────────────────────────────────────────────────────────────────

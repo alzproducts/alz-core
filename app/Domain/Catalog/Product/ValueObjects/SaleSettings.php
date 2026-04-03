@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\Catalog\Product\ValueObjects;
 
+use App\Domain\Catalog\Product\Enums\SaleCustomField;
 use App\Domain\Catalog\Product\Enums\SaleRemovalReason;
 use DateTimeImmutable;
 use DateTimeInterface;
@@ -34,6 +35,29 @@ final readonly class SaleSettings
             saleReason: $reason->label(),
             removalReason: $reason,
         );
+    }
+
+    /**
+     * Build the ShopWired custom fields payload from nullable settings.
+     *
+     * When $settings is null (settings row missing), writes empty/default values
+     * so the custom fields block still exists on the product.
+     *
+     * @return array<string, string>
+     */
+    public static function toCustomFieldsArray(?self $settings, ?int $defaultSortOrder): array
+    {
+        return [
+            SaleCustomField::DateStart->value => $settings?->saleStartDate?->format('Y-m-d')
+                ?? (new DateTimeImmutable())->format('Y-m-d'),
+            SaleCustomField::DefaultSortOrder->value => (string) ($defaultSortOrder ?? ''),
+            SaleCustomField::Reason->value => $settings !== null ? $settings->saleReason : '',
+            SaleCustomField::Comments->value => $settings !== null ? ($settings->saleComments ?? '') : '',
+            SaleCustomField::DateEnd->value => $settings?->saleEndDate?->format('Y-m-d') ?? '',
+            SaleCustomField::EndsStock->value => $settings?->saleEndsStock !== null
+                ? (string) $settings->saleEndsStock
+                : '',
+        ];
     }
 
     /**

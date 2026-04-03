@@ -23,15 +23,15 @@ final readonly class QueuedSaleReconciliationDispatcher implements SaleReconcili
     private const int RECONCILIATION_DELAY_SECONDS = 300;
 
     #[Override]
-    public function dispatchAddToSale(IntId $productId, int $saleCategoryId): void
+    public function dispatchAddToSale(IntId $productId): void
     {
-        UpdateShopwiredAddToSaleJob::dispatch($productId, $saleCategoryId);
+        UpdateShopwiredAddToSaleJob::dispatch($productId);
     }
 
     #[Override]
-    public function dispatchRemoveFromSale(IntId $productId, int $saleCategoryId): void
+    public function dispatchRemoveFromSale(IntId $productId): void
     {
-        UpdateShopwiredRemoveFromSaleJob::dispatch($productId, $saleCategoryId);
+        UpdateShopwiredRemoveFromSaleJob::dispatch($productId);
     }
 
     #[Override]

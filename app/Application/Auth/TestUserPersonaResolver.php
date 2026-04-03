@@ -61,25 +61,8 @@ final readonly class TestUserPersonaResolver
      */
     public function resolve(string $testEmail): AuthenticatedUser
     {
-        $normalizedEmail = \mb_strtolower($testEmail);
-
-        if (!isset($this->personas[$normalizedEmail])) {
-            throw new RuntimeException(
-                "Test email '{$testEmail}' is not in the allow-list. "
-                . 'Add it to config/local-development.php to use persona resolution.',
-            );
-        }
-
-        $persona = $this->personas[$normalizedEmail];
-
-        // Validate email is configured (env var set)
-        $resolvedEmail = $persona['email'];
-        if ($resolvedEmail === null || $resolvedEmail === '') {
-            throw new RuntimeException(
-                "Persona email not configured for test user '{$testEmail}'. "
-                . 'Check the env var in config/local-development.php is set.',
-            );
-        }
+        $persona = $this->findPersonaOrFail($testEmail);
+        $resolvedEmail = self::validatePersonaEmail($persona['email'], $testEmail);
 
         // AuthenticatedUser validates email format on construction
         return new AuthenticatedUser(
@@ -89,5 +72,39 @@ final readonly class TestUserPersonaResolver
             roleName: $persona['role_name'],
             departments: $persona['departments'],
         );
+    }
+
+    /**
+     * @return array{email: string|null, user_id: string, is_approved: bool, role_name: string|null, departments: list<string>|null}
+     *
+     * @throws RuntimeException If test email is not in allow-list
+     */
+    private function findPersonaOrFail(string $testEmail): array
+    {
+        $normalizedEmail = \mb_strtolower($testEmail);
+
+        if (!isset($this->personas[$normalizedEmail])) {
+            throw new RuntimeException(
+                "Test email '{$testEmail}' is not in the allow-list. "
+                . 'Add it to config/local-development.php to use persona resolution.',
+            );
+        }
+
+        return $this->personas[$normalizedEmail];
+    }
+
+    /**
+     * @throws RuntimeException If resolved email is empty (env var not configured)
+     */
+    private static function validatePersonaEmail(?string $email, string $testEmail): string
+    {
+        if ($email === null || $email === '') {
+            throw new RuntimeException(
+                "Persona email not configured for test user '{$testEmail}'. "
+                . 'Check the env var in config/local-development.php is set.',
+            );
+        }
+
+        return $email;
     }
 }

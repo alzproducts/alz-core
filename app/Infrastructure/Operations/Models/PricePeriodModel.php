@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Operations\Models;
 
+use App\Domain\Operations\ValueObjects\PriceSnapshot;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
@@ -49,6 +50,22 @@ final class PricePeriodModel extends Model
         'effective_from',
         'effective_to',
     ];
+
+    /**
+     * Create a new model from a domain snapshot.
+     */
+    public static function fromSnapshot(PriceSnapshot $snapshot, CarbonImmutable $effectiveFrom): self
+    {
+        $model = new self();
+        $model->sku = $snapshot->sku->value;
+        $model->base_price_gross = $snapshot->basePriceGross;
+        $model->sale_price_gross = $snapshot->salePriceGross;
+        $model->effective_price_gross = $snapshot->effectivePriceGross;
+        $model->price_has_tax = $snapshot->priceHasTax;
+        $model->effective_from = $effectiveFrom;
+
+        return $model;
+    }
 
     /**
      * @return array<string, string>

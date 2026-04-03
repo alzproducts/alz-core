@@ -223,19 +223,78 @@ _(Not yet started)_
 - Fixed by manually re-removing the 20 Section 4 method entries, keeping only `ProductResource::baseFields`
 - Confirmed: baseline back to 1996 lines, all linters green
 
-#### Sections 6-7: Not yet started
-- Remaining: ~12 entries across Infrastructure misc (jobs, listener, repo, caches, parser) + Application misc (resolver, cache)
-- AbstractEloquentRepository + DatabaseGateway deferred per new rule (ask before major infra refactors)
-- Non-core files can proceed: UpdateShopwiredAddToSaleJob, UpdateShopwiredRemoveFromSaleJob, RecordPricePeriodListener, EloquentPricePeriodRepository, LockableCache, RetryAfterParser, TestUserPersonaResolver, GracefulCache
+#### 2026-04-03 — Sections 6-7: Infrastructure misc + Application misc (complete)
+- Refactored 11 method-length violations across 10 files, removed 11 baseline entries
+- **RetryAfterParser**: extracted `capSeconds()` — shared numeric/HTTP-date validation
+- **GracefulCache**: extracted `tryGet()`/`tryPut()` infrastructure boundary methods — DRY with public `get()`/`put()`
+- **LockableCache**: extracted `acquireLock()`, `refreshValue()` — DRY between `remember()` and `rememberOrStale()`
+- **HandleApiExceptions**: extracted `releaseOrRethrow()` — transient failure handling
+- **RecordPricePeriodListener**: extracted `handleTransientFailure()`, `failWithLog()` — shared error handling
+- **EloquentPricePeriodRepository**: use `PricePeriodModel::fromSnapshot()` factory (user feedback: model self-creation pattern)
+- **EscalationsConfigRepository**: replaced typed array with `EscalationsSettingsResponse` plain readonly DTO + `fromJson()`/`toDomain()` (user feedback: no untyped arrays). Removed `fetchConfigRow()`, use `->value('settings')` instead of `->first()` to avoid untyped `?object` return.
+- **Sale jobs**: extracted `buildFieldUpdates()`/`buildRemovalFieldUpdates()`/`emptySaleCustomFields()`
+- **TestUserPersonaResolver**: extracted `findPersonaOrFail()`/`validatePersonaEmail()`
+- Updated 2 test files: RecordPricePeriodListenerTest (`Log::error` → `Log::log`), EscalationsConfigRepositoryTest (mock returns string not object, `->value()` not `->first()`)
+
+**User feedback incorporated:**
+1. PricePeriodModel::fromSnapshot() — model self-creation pattern preferred over repository helper
+2. EscalationsSettingsResponse — plain readonly DTO, NOT Spatie Data (Spatie reserved for external API responses only)
+3. fetchConfigRow() eliminated — `->value('settings')` returns typed string, no untyped `?object`
+
+#### 2026-04-03 — Clean Architecture extraction (sale jobs + listener)
+Joint review with user identified these as requiring deeper refactoring beyond line-count reduction:
+
+**Shopwired sale jobs → thin jobs + UseCases:**
+- **AddProductToSaleUseCase** (new): all business logic extracted from `UpdateShopwiredAddToSaleJob::handle()` — product fetch, field updates, custom fields, settings check
+- **RemoveProductFromSaleUseCase** (new): all business logic extracted from `UpdateShopwiredRemoveFromSaleJob::handle()` — product fetch, removal field updates, clear custom fields, delete settings
+- Both jobs now thin delegators: constructor takes only `IntId $productId`, handle() is one-liner
+- `$saleCategoryId` removed from dispatcher interface + jobs — injected via DI into UseCases (added to `ShopwiredServiceProvider::registerSaleManagementBindings()`)
+- `SaleReconciliationDispatcherInterface::dispatchAddToSale/dispatchRemoveFromSale` simplified (no `$saleCategoryId` param)
+- `ReconcileProductSaleStateUseCase` dispatch calls updated
+
+**Domain: custom field mapping extracted:**
+- `SaleCustomField::emptyValues()` — all enum cases → empty strings (replaces inline method in RemoveFromSale job)
+- `SaleSettings::toCustomFieldsArray(?self, ?int)` — builds custom fields from nullable settings (replaces `buildCustomFieldsArray()` in AddToSale job)
+- PHPStan caught unnecessary `?->` on non-nullable `saleReason` property — used explicit ternary instead
+
+**RecordPricePeriodListener → sync dispatcher + new job:**
+- **RecordPricePeriodJob** (new): DB-only job with `HandleDatabaseExceptions` middleware, standard backoff, thin handle() delegating to `RecordPricePeriodUseCase`
+- Listener simplified from 122 lines → 22 lines: sync, non-queued, just dispatches the job
+- All exception handling removed from listener (middleware handles it)
+- Added `Record` prefix to `JobNamingPrefixRule::ALLOWED_PREFIXES`
+
+**Test changes:**
+- `RecordPricePeriodListenerTest` rewritten: 210→43 lines, now just verifies job dispatch with correct arguments
+- `ReconcileProductSaleStateUseCaseTest` updated: removed `$saleCategoryId` from dispatch mock expectations (4 occurrences)
+
+**User decisions:**
+1. Job naming: add `Record` to allowed prefixes (over `Process` prefix)
+2. Custom field method: `SaleSettings::toCustomFieldsArray()` (over SaleCustomField enum)
+3. Scope: continue under #399 (not separate issue)
+
+#### 2026-04-04 — Section 5: Persistence layer (complete)
+
+**EloquentGateway — permanent exclusion for all 3 complexity rules:**
+- Added to `phpstan.neon` ignoreErrors: `alz.excessiveClassLength`, `alz.excessiveMethodLength`, `alz.excessiveParameterCount`
+- Removed all 18 baseline entries (1 class + 6 param-count + 11 method-length)
+- **Justification**: 900-line genuinely cohesive DB gateway. All 11 method-length violations are self-contained database operations whose length comes from error handling + structured logging. 9 of 11 follow identical pattern (empty guard → transact → log → return) with no reusable extraction targets. The 2 larger methods (batchUpsertMany 71, upsertOneByOne 65) have more structure but extracted helpers would each be called from exactly one place. Extraction would scatter readable top-to-bottom flows into fragments across a 900-line class.
+- Param-count (6 entries): permanently excluded rather than left in baseline — "nothing stays in baseline"
+
+**AbstractEloquentRepository — class exclusion + saveMany refactored:**
+- Class-level permanent exclusion added to `phpstan.neon` (258 lines, just over 250 threshold)
+- `saveMany()` refactored: 44 → 19 lines by extracting `logAndTrackSaveFailure()`
+- Combined `DuplicateRecordException|DatabaseOperationFailedException` into union catch (siblings extending `AbstractInfrastructureException`, no hierarchy ordering concern)
+- Extracted method uses `instanceof` to differentiate log messages — exact same messages + context arrays preserved
+- Baseline entry for `saveMany()` removed (now under threshold)
+
+**User decisions:**
+1. EloquentGateway method-length entries: permanent exclusion, not refactoring (extraction would hurt readability)
+2. Param-count entries: permanent exclusion in phpstan.neon, not left in baseline
+3. AbstractEloquentRepository saveMany: refactor ✓
 
 #### Current State
-- Baseline: 2524 → 1996 lines
-- Sections 0-4 complete (excluding TestSlackNotificationCommand + ProductResource::baseFields)
-- Section 5 fully deferred (EloquentGateway + EscalationsConfigRepository)
-- Sections 6-7 not started
-- All 2808 tests passing, all linters green
-- 3 new baseline entries added (Sections 0-3): resolveErrorMessages (match expression), ShopwiredAuditOrderSync (class grew past 250), ShopwiredServiceProvider class-level (updated to regex)
-- 1 kept entry (Section 4): ProductResource::baseFields (pure field-mapping, genuinely cohesive)
+- All sections complete (0-7 + sale jobs/listener extraction + persistence layer)
+- 2872 tests passing, all linters green
 
 ---
 
