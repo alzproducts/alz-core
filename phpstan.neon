@@ -170,6 +170,23 @@ parameters:
                 - app/Infrastructure/BingAds/BingAdsTransport.php
                 - app/Infrastructure/Feeds/DoofinderFeedProcessor.php
                 - app/Infrastructure/Mixpanel/MixpanelClient.php
+        # EloquentGateway: genuinely cohesive DB gateway (900 lines). All methods are
+        # self-contained database operations whose length comes from error handling +
+        # structured logging, not mixed concerns. Extraction would scatter readable
+        # top-to-bottom flows into fragments across the class (#399).
+        # AbstractEloquentRepository: base class for all Eloquent repos (258 lines,
+        # just over threshold). Splitting would lose cohesion of shared repo operations.
+        -
+            identifier: alz.excessiveClassLength
+            paths:
+                - app/Infrastructure/Persistence/EloquentGateway.php
+                - app/Infrastructure/Repositories/AbstractEloquentRepository.php
+        -
+            identifier: alz.excessiveMethodLength
+            path: app/Infrastructure/Persistence/EloquentGateway.php
+        -
+            identifier: alz.excessiveParameterCount
+            path: app/Infrastructure/Persistence/EloquentGateway.php
         # Application classes using config() — flagged as tech debt (#211).
         # TODO: Refactor to constructor injection.
         -

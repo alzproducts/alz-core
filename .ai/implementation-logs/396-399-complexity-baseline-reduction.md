@@ -272,14 +272,28 @@ Joint review with user identified these as requiring deeper refactoring beyond l
 2. Custom field method: `SaleSettings::toCustomFieldsArray()` (over SaleCustomField enum)
 3. Scope: continue under #399 (not separate issue)
 
-**Pending:**
-- Section 5 (EloquentGateway, AbstractEloquentRepository) — full user approval required
+#### 2026-04-04 — Section 5: Persistence layer (complete)
+
+**EloquentGateway — permanent exclusion for all 3 complexity rules:**
+- Added to `phpstan.neon` ignoreErrors: `alz.excessiveClassLength`, `alz.excessiveMethodLength`, `alz.excessiveParameterCount`
+- Removed all 18 baseline entries (1 class + 6 param-count + 11 method-length)
+- **Justification**: 900-line genuinely cohesive DB gateway. All 11 method-length violations are self-contained database operations whose length comes from error handling + structured logging. 9 of 11 follow identical pattern (empty guard → transact → log → return) with no reusable extraction targets. The 2 larger methods (batchUpsertMany 71, upsertOneByOne 65) have more structure but extracted helpers would each be called from exactly one place. Extraction would scatter readable top-to-bottom flows into fragments across a 900-line class.
+- Param-count (6 entries): permanently excluded rather than left in baseline — "nothing stays in baseline"
+
+**AbstractEloquentRepository — class exclusion + saveMany refactored:**
+- Class-level permanent exclusion added to `phpstan.neon` (258 lines, just over 250 threshold)
+- `saveMany()` refactored: 44 → 19 lines by extracting `logAndTrackSaveFailure()`
+- Combined `DuplicateRecordException|DatabaseOperationFailedException` into union catch (siblings extending `AbstractInfrastructureException`, no hierarchy ordering concern)
+- Extracted method uses `instanceof` to differentiate log messages — exact same messages + context arrays preserved
+- Baseline entry for `saveMany()` removed (now under threshold)
+
+**User decisions:**
+1. EloquentGateway method-length entries: permanent exclusion, not refactoring (extraction would hurt readability)
+2. Param-count entries: permanent exclusion in phpstan.neon, not left in baseline
+3. AbstractEloquentRepository saveMany: refactor ✓
 
 #### Current State
-- Sections 0-4 complete (PR #455, merged)
-- Sections 6-7 complete
-- Sale jobs + listener extraction complete
-- Section 5 not started (user-approved Persistence layer)
+- All sections complete (0-7 + sale jobs/listener extraction + persistence layer)
 - 2872 tests passing, all linters green
 
 ---
