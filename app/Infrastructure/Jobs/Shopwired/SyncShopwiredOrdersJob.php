@@ -53,7 +53,7 @@ final class SyncShopwiredOrdersJob implements ShouldBeUnique, ShouldQueue
      * Set to max expected runtime + buffer. If job completes sooner,
      * lock releases immediately. If job times out, lock auto-releases.
      */
-    public int $uniqueFor = 10000;
+    public int $uniqueFor = 18000;
 
     /**
      * Get the unique ID for this job.
@@ -75,7 +75,7 @@ final class SyncShopwiredOrdersJob implements ShouldBeUnique, ShouldQueue
     public function __construct(
         private readonly ?int $maxPages = null,
     ) {
-        $this->onQueue(QueueName::Low->value);
+        $this->onQueue(QueueName::Background->value);
     }
 
     /** @return list<object> */
@@ -106,9 +106,11 @@ final class SyncShopwiredOrdersJob implements ShouldBeUnique, ShouldQueue
     /**
      * Job timeout in seconds.
      *
-     * Set to 2.5 hours to accommodate full sync of all orders with buffer.
+     * Set to 4 hours to accommodate full sync of all orders with buffer.
+     * Per-order saves with remote Supabase PostgreSQL latency (~50ms/query)
+     * require generous headroom as order volume grows.
      */
-    public int $timeout = 9000;
+    public int $timeout = 14400;
 
     public function handle(SyncOrdersUseCase $useCase): void
     {
