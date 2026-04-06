@@ -97,7 +97,7 @@ final readonly class BackfillLinnworksOrdersUseCase
             if ($chunksBuffered >= self::CHUNKS_PER_BATCH) {
                 $totals->accumulateFlush($this->flushBuffer($buffer, $batchesFlushed));
                 [$buffer, $chunksBuffered] = [[], 0];
-                \gc_collect_cycles();
+                self::releaseMemory();
                 $this->logProgressIfDue(++$batchesFlushed, $totals);
             }
         }
@@ -121,6 +121,7 @@ final readonly class BackfillLinnworksOrdersUseCase
         $this->logger->info('Linnworks order backfill completed', [
             'total_ids' => $totalIds,
             ...$totals->toLogContext(),
+            'memory_current_mb' => \round(\memory_get_usage(false) / 1048576, 1),
             'memory_peak_mb' => \round(\memory_get_peak_usage(true) / 1048576, 1),
         ]);
 
@@ -140,6 +141,15 @@ final readonly class BackfillLinnworksOrdersUseCase
     }
 
     /**
+     * Reclaim memory between batches: collect cyclic refs, then return freed slab pages to OS.
+     */
+    private static function releaseMemory(): void
+    {
+        \gc_collect_cycles();
+        \gc_mem_caches();
+    }
+
+    /**
      * Log progress at info level every N batches.
      */
     private function logProgressIfDue(int $batchesFlushed, BackfillTotalsResult $totals): void
@@ -147,6 +157,7 @@ final readonly class BackfillLinnworksOrdersUseCase
         if ($batchesFlushed % self::PROGRESS_LOG_INTERVAL === 0) {
             $this->logger->info('Linnworks order backfill progress', [
                 ...$totals->toLogContext(),
+                'memory_current_mb' => \round(\memory_get_usage(false) / 1048576, 1),
                 'memory_peak_mb' => \round(\memory_get_peak_usage(true) / 1048576, 1),
             ]);
         }

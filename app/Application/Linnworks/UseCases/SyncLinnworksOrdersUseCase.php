@@ -98,7 +98,7 @@ final readonly class SyncLinnworksOrdersUseCase
 
                 $buffer = [];
                 $pagesBuffered = 0;
-                \gc_collect_cycles();
+                self::releaseMemory();
                 $batchesFlushed++;
 
                 if ($batchesFlushed % self::PROGRESS_LOG_INTERVAL === 0) {
@@ -106,6 +106,7 @@ final readonly class SyncLinnworksOrdersUseCase
                         'fetched' => $totalFetched,
                         'saved' => $totalSaved,
                         'failed' => $totalFailed,
+                        'memory_current_mb' => \round(\memory_get_usage(false) / 1048576, 1),
                         'memory_peak_mb' => \round(\memory_get_peak_usage(true) / 1048576, 1),
                     ]);
                 }
@@ -133,6 +134,7 @@ final readonly class SyncLinnworksOrdersUseCase
             'saved' => $totalSaved,
             'failed' => $totalFailed,
             'latest_last_updated' => $latestLastUpdated?->format('Y-m-d H:i:s'),
+            'memory_current_mb' => \round(\memory_get_usage(false) / 1048576, 1),
             'memory_peak_mb' => \round(\memory_get_peak_usage(true) / 1048576, 1),
         ]);
 
@@ -143,6 +145,15 @@ final readonly class SyncLinnworksOrdersUseCase
             latestLastUpdated: $latestLastUpdated,
             failedReferences: $allFailedReferences,
         );
+    }
+
+    /**
+     * Reclaim memory between batches: collect cyclic refs, then return freed slab pages to OS.
+     */
+    private static function releaseMemory(): void
+    {
+        \gc_collect_cycles();
+        \gc_mem_caches();
     }
 
     /**
