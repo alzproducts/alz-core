@@ -29,7 +29,7 @@ use RuntimeException;
  * Webhooks handle real-time create/update/delete events. Polling serves as a safety net
  * to catch anything webhooks might miss (downtime, network issues, edge cases).
  *
- * Monthly full syncs run first Sunday at 01:00-07:30 UK time. Quick syncs are
+ * Monthly full syncs run first Sunday at 01:00-08:00 UK time. Quick syncs are
  * skipped during this window to avoid rate limit contention.
  */
 final class ShopwiredScheduleServiceProvider extends ServiceProvider
@@ -61,7 +61,7 @@ final class ShopwiredScheduleServiceProvider extends ServiceProvider
         return static function (): bool {
             $ukTime = Carbon::now('Europe/London');
 
-            // Monthly full syncs run first Sunday at 01:00-07:30 UK time
+            // Monthly full syncs run first Sunday at 01:00-08:00 UK time
             // Skip quick syncs during this window to give full syncs exclusive API access
             return $ukTime->isSunday()
                 && $ukTime->day <= 7
@@ -86,7 +86,7 @@ final class ShopwiredScheduleServiceProvider extends ServiceProvider
             ->timezone('Europe/London')
             ->when(static fn(): bool => Carbon::now('Europe/London')->day <= 7)
             ->onOneServer()
-            ->withoutOverlapping(160); // ~2.7hrs lock (matches 2.5hr timeout + buffer)
+            ->withoutOverlapping(260); // ~4.3hrs lock (matches 4hr timeout + buffer)
 
         // EVERY 6 HOURS: Quick sync (5 pages, ~500 orders)
         // Safety net — webhooks handle real-time, this catches anything missed
@@ -197,11 +197,11 @@ final class ShopwiredScheduleServiceProvider extends ServiceProvider
      */
     private function registerCustomerSchedules(Closure $skipDuringMonthlySync): void
     {
-        // MONTHLY: Full customer sync on first Sunday at 04:00 UK time (3hrs after orders)
+        // MONTHLY: Full customer sync on first Sunday at 06:00 UK time (5hrs after orders)
         // At 60 req/min rate limit, ~68k customers takes ~45-60 minutes
         Schedule::job(new SyncShopwiredCustomersJob())
             ->name('sync-shopwired-customers-full')
-            ->cron('0 4 * * 0')
+            ->cron('0 6 * * 0')
             ->timezone('Europe/London')
             ->when(static fn(): bool => Carbon::now('Europe/London')->day <= 7)
             ->onOneServer()
