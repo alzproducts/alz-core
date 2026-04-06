@@ -106,6 +106,7 @@ final readonly class SyncOrdersUseCase
 
                 $buffer = [];
                 $pagesBuffered = 0;
+                self::releaseMemory();
                 $batchesFlushed++;
 
                 // Log progress at info level periodically for operator visibility
@@ -114,6 +115,8 @@ final readonly class SyncOrdersUseCase
                         'fetched' => $totalFetched,
                         'saved' => $totalSaved,
                         'failed' => $totalFailed,
+                        'memory_current_mb' => \round(\memory_get_usage(false) / 1048576, 1),
+                        'memory_peak_mb' => \round(\memory_get_peak_usage(true) / 1048576, 1),
                     ]);
                 }
             }
@@ -137,6 +140,8 @@ final readonly class SyncOrdersUseCase
             'fetched' => $totalFetched,
             'saved' => $totalSaved,
             'failed' => $totalFailed,
+            'memory_current_mb' => \round(\memory_get_usage(false) / 1048576, 1),
+            'memory_peak_mb' => \round(\memory_get_peak_usage(true) / 1048576, 1),
         ]);
 
         return new SyncResult(
@@ -145,6 +150,15 @@ final readonly class SyncOrdersUseCase
             failed: $totalFailed,
             failedReferences: $allFailedReferences,
         );
+    }
+
+    /**
+     * Reclaim memory between batches: collect cyclic refs, then return freed slab pages to OS.
+     */
+    private static function releaseMemory(): void
+    {
+        \gc_collect_cycles();
+        \gc_mem_caches();
     }
 
     /**

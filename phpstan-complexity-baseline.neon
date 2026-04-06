@@ -206,7 +206,7 @@ parameters:
 			path: app/Application/Linnworks/UseCases/SyncLinnworksCursorUseCase.php
 
 		-
-			rawMessage: 'Method execute() is 86 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			rawMessage: 'Method execute() is 88 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Application/Linnworks/UseCases/SyncLinnworksOrdersUseCase.php
@@ -392,7 +392,7 @@ parameters:
 			path: app/Application/Shopwired/UseCases/SyncOrdersRangeUseCase.php
 
 		-
-			rawMessage: 'Method execute() is 75 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			rawMessage: 'Method execute() is 80 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Application/Shopwired/UseCases/SyncOrdersUseCase.php
