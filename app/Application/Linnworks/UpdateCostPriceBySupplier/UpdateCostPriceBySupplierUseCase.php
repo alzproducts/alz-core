@@ -6,7 +6,6 @@ namespace App\Application\Linnworks\UpdateCostPriceBySupplier;
 
 use App\Application\Catalog\Results\CostPriceUpdateResult;
 use App\Application\Catalog\Results\FailedCostPriceUpdateResult;
-use App\Application\Contracts\Catalog\ProductSupplierLookupInterface;
 use App\Application\Contracts\Linnworks\InventoryClientInterface;
 use App\Application\Contracts\Linnworks\InventoryUpdateClientInterface;
 use App\Application\Contracts\Linnworks\LinnworksSyncDispatcherInterface;
@@ -47,7 +46,6 @@ final readonly class UpdateCostPriceBySupplierUseCase
         private InventoryClientInterface $inventoryClient,
         private InventoryUpdateClientInterface $inventoryUpdateClient,
         private StockItemSupplierRepositoryInterface $supplierRepository,
-        private ProductSupplierLookupInterface $supplierLookup,
         private SupplierGuidResolver $supplierGuidResolver,
         private LinnworksSyncDispatcherInterface $syncDispatcher,
         private LoggerInterface $logger,
@@ -180,14 +178,12 @@ final readonly class UpdateCostPriceBySupplierUseCase
      */
     private function runPreFlightValidation(string $supplierName, array $commands): void
     {
-        $suppliersBySku = [];
+        $uniqueSkus = \array_values(\array_unique(\array_map(
+            static fn(UpdateCostPriceCommand $c): string => $c->sku->value,
+            $commands,
+        )));
 
-        foreach ($commands as $command) {
-            $sku = $command->sku->value;
-            if (! isset($suppliersBySku[$sku])) {
-                $suppliersBySku[$sku] = $this->supplierLookup->getByProductSku($sku);
-            }
-        }
+        $suppliersBySku = $this->supplierRepository->getSuppliersBySkus($uniqueSkus);
 
         (new SkuSupplierLinkValidator($commands, $supplierName, $suppliersBySku))->validate()->orFail();
     }

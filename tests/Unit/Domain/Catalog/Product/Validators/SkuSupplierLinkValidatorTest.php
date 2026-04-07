@@ -35,8 +35,8 @@ final class SkuSupplierLinkValidatorTest extends TestCase
         ];
 
         $suppliersBySku = [
-            'SKU-001' => [new ProductSupplier(supplierName: 'AcmeCo', purchasePrice: 10.0, isDefault: true)],
-            'SKU-002' => [new ProductSupplier(supplierName: 'AcmeCo', purchasePrice: 20.0, isDefault: true)],
+            'SKU-001' => [new ProductSupplier(supplierName: 'AcmeCo', purchasePrice: Money::exclusive(10.0), isDefault: true)],
+            'SKU-002' => [new ProductSupplier(supplierName: 'AcmeCo', purchasePrice: Money::exclusive(20.0), isDefault: true)],
         ];
 
         $result = (new SkuSupplierLinkValidator($commands, 'AcmeCo', $suppliersBySku))->validate();
@@ -58,7 +58,7 @@ final class SkuSupplierLinkValidatorTest extends TestCase
         ];
 
         $suppliersBySku = [
-            'SKU-001' => [new ProductSupplier(supplierName: 'AcmeCo', purchasePrice: 10.0, isDefault: true)],
+            'SKU-001' => [new ProductSupplier(supplierName: 'AcmeCo', purchasePrice: Money::exclusive(10.0), isDefault: true)],
             'SKU-002' => [],
         ];
 
@@ -84,7 +84,7 @@ final class SkuSupplierLinkValidatorTest extends TestCase
         ];
 
         $suppliersBySku = [
-            'SKU-001' => [new ProductSupplier(supplierName: 'AcmeCo', purchasePrice: 10.0, isDefault: true)],
+            'SKU-001' => [new ProductSupplier(supplierName: 'AcmeCo', purchasePrice: Money::exclusive(10.0), isDefault: true)],
             'SKU-002' => [],
             'SKU-003' => [],
         ];
@@ -105,7 +105,7 @@ final class SkuSupplierLinkValidatorTest extends TestCase
         $commands = [self::makeCommand($sku)];
 
         $suppliersBySku = [
-            'SKU-001' => [new ProductSupplier(supplierName: 'OtherSupplier', purchasePrice: 10.0, isDefault: true)],
+            'SKU-001' => [new ProductSupplier(supplierName: 'OtherSupplier', purchasePrice: Money::exclusive(10.0), isDefault: true)],
         ];
 
         $result = (new SkuSupplierLinkValidator($commands, 'AcmeCo', $suppliersBySku))->validate();
@@ -125,8 +125,8 @@ final class SkuSupplierLinkValidatorTest extends TestCase
 
         $suppliersBySku = [
             'SKU-001' => [
-                new ProductSupplier(supplierName: 'OtherSupplier', purchasePrice: 5.0, isDefault: false),
-                new ProductSupplier(supplierName: 'AcmeCo', purchasePrice: 10.0, isDefault: true),
+                new ProductSupplier(supplierName: 'OtherSupplier', purchasePrice: Money::exclusive(5.0), isDefault: false),
+                new ProductSupplier(supplierName: 'AcmeCo', purchasePrice: Money::exclusive(10.0), isDefault: true),
             ],
         ];
 
@@ -150,7 +150,7 @@ final class SkuSupplierLinkValidatorTest extends TestCase
 
         $suppliersBySku = [
             'SKU-A' => [],
-            'SKU-B' => [new ProductSupplier(supplierName: 'AcmeCo', purchasePrice: 10.0, isDefault: true)],
+            'SKU-B' => [new ProductSupplier(supplierName: 'AcmeCo', purchasePrice: Money::exclusive(10.0), isDefault: true)],
             'SKU-C' => [],
         ];
 
