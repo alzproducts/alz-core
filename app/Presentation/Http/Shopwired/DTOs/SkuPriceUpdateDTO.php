@@ -24,6 +24,8 @@ final class SkuPriceUpdateDTO extends Data
         public readonly ?float $price,
         #[Min(0)]
         public readonly ?float $salePrice,
+        #[Min(0)]
+        public readonly ?float $rrp = null,
     ) {}
 
     public function toCommand(): UpdatePriceCommand
@@ -32,6 +34,7 @@ final class SkuPriceUpdateDTO extends Data
             sku: Sku::fromTrusted($this->sku),
             price: $this->price !== null ? Money::inclusive($this->price) : null,
             salePrice: $this->salePrice !== null ? Money::inclusive($this->salePrice) : null,
+            rrp: $this->rrp !== null ? Money::inclusive($this->rrp) : null,
         );
     }
 }

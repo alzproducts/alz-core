@@ -36,10 +36,18 @@ final class ShowProductRequestDTO extends Data
     }
 
     /**
+     * Variations are always included on the detail endpoint and no longer an opt-in include.
+     *
      * @return list<string>
      */
     public static function allowedIncludes(): array
     {
-        return ProductInclude::values();
+        return \array_values(\array_map(
+            static fn(ProductInclude $case): string => $case->value,
+            \array_filter(
+                ProductInclude::cases(),
+                static fn(ProductInclude $case): bool => $case !== ProductInclude::Variations,
+            ),
+        ));
     }
 }

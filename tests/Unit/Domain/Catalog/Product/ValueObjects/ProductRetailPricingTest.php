@@ -108,7 +108,6 @@ final class ProductRetailPricingTest extends TestCase
         $pricing = ProductRetailPricing::forMainProduct(29.99, 19.99);
 
         self::assertSame(29.99, $pricing->basePrice->toGross());
-        self::assertNotNull($pricing->salePrice);
         self::assertSame(19.99, $pricing->salePrice->toGross());
         self::assertTrue($pricing->saleActive());
         self::assertSame(19.99, $pricing->effectivePrice()->toGross());
@@ -152,7 +151,6 @@ final class ProductRetailPricingTest extends TestCase
         );
 
         self::assertSame(25.0, $pricing->basePrice->toGross());
-        self::assertNotNull($pricing->salePrice);
         self::assertSame(18.0, $pricing->salePrice->toGross());
         self::assertTrue($pricing->saleActive());
     }
@@ -180,5 +178,58 @@ final class ProductRetailPricingTest extends TestCase
 
         self::assertSame(TaxType::ZeroRated, $pricing->taxType());
         self::assertFalse($pricing->taxType()->hasTax());
+    }
+
+    // ========================================================================
+    // rrp
+    // ========================================================================
+
+    #[Test]
+    public function rrp_defaults_to_null(): void
+    {
+        $pricing = new ProductRetailPricing(
+            basePrice: Money::inclusive(20.00),
+        );
+
+        self::assertNull($pricing->rrp);
+    }
+
+    #[Test]
+    public function rrp_set_via_constructor(): void
+    {
+        $pricing = new ProductRetailPricing(
+            basePrice: Money::inclusive(20.00),
+            rrp: Money::inclusive(29.99),
+        );
+
+        self::assertSame(29.99, $pricing->rrp->toGross());
+    }
+
+    #[Test]
+    public function for_main_product_with_rrp(): void
+    {
+        $pricing = ProductRetailPricing::forMainProduct(20.00, null, 29.99);
+
+        self::assertSame(29.99, $pricing->rrp->toGross());
+    }
+
+    #[Test]
+    public function for_main_product_without_rrp_defaults_null(): void
+    {
+        $pricing = ProductRetailPricing::forMainProduct(20.00, null);
+
+        self::assertNull($pricing->rrp);
+    }
+
+    #[Test]
+    public function for_variation_rrp_is_always_null(): void
+    {
+        $pricing = ProductRetailPricing::forVariation(
+            variationPrice: 25.00,
+            salePrice: null,
+            parentPrice: 20.00,
+        );
+
+        self::assertNull($pricing->rrp);
     }
 }

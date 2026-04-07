@@ -30,7 +30,6 @@ final class ResolvedPriceUpdateTest extends TestCase
         $resolved = ResolvedPriceUpdate::fromCommand($command, $current);
 
         self::assertSame(20.0, $resolved->effectivePricing->basePrice->toGross());
-        self::assertNotNull($resolved->effectivePricing->salePrice);
         self::assertSame(15.0, $resolved->effectivePricing->salePrice->toGross());
     }
 
@@ -49,7 +48,6 @@ final class ResolvedPriceUpdateTest extends TestCase
         $resolved = ResolvedPriceUpdate::fromCommand($command, $current);
 
         self::assertSame(25.0, $resolved->effectivePricing->basePrice->toGross());
-        self::assertNotNull($resolved->effectivePricing->salePrice);
         self::assertSame(15.0, $resolved->effectivePricing->salePrice->toGross());
     }
 
@@ -88,7 +86,6 @@ final class ResolvedPriceUpdateTest extends TestCase
         $resolved = ResolvedPriceUpdate::fromCommand($command, $current);
 
         self::assertSame(30.0, $resolved->effectivePricing->basePrice->toGross());
-        self::assertNotNull($resolved->effectivePricing->salePrice);
         self::assertSame(22.0, $resolved->effectivePricing->salePrice->toGross());
     }
 
@@ -126,5 +123,76 @@ final class ResolvedPriceUpdateTest extends TestCase
         self::assertSame($command, $resolved->command);
         self::assertSame($current, $resolved->currentPricing);
         self::assertSame('TEST-001', $resolved->sku->value);
+    }
+
+    // ========================================================================
+    // rrp carry-forward
+    // ========================================================================
+
+    #[Test]
+    public function rrp_null_carries_forward_from_current(): void
+    {
+        $current = new ProductRetailPricing(
+            basePrice: Money::inclusive(20.00),
+            rrp: Money::inclusive(29.99),
+        );
+        $command = new UpdatePriceCommand(
+            sku: Sku::fromTrusted('TEST-001'),
+            price: Money::inclusive(25.00),
+        );
+
+        $resolved = ResolvedPriceUpdate::fromCommand($command, $current);
+
+        self::assertSame(29.99, $resolved->effectivePricing->rrp->toGross());
+    }
+
+    #[Test]
+    public function rrp_override_replaces_current(): void
+    {
+        $current = new ProductRetailPricing(
+            basePrice: Money::inclusive(20.00),
+            rrp: Money::inclusive(29.99),
+        );
+        $command = new UpdatePriceCommand(
+            sku: Sku::fromTrusted('TEST-001'),
+            rrp: Money::inclusive(35.00),
+        );
+
+        $resolved = ResolvedPriceUpdate::fromCommand($command, $current);
+
+        self::assertSame(35.0, $resolved->effectivePricing->rrp->toGross());
+    }
+
+    #[Test]
+    public function rrp_zero_clears_current_rrp(): void
+    {
+        $current = new ProductRetailPricing(
+            basePrice: Money::inclusive(20.00),
+            rrp: Money::inclusive(29.99),
+        );
+        $command = new UpdatePriceCommand(
+            sku: Sku::fromTrusted('TEST-001'),
+            rrp: Money::inclusive(0.00),
+        );
+
+        $resolved = ResolvedPriceUpdate::fromCommand($command, $current);
+
+        self::assertNull($resolved->effectivePricing->rrp);
+    }
+
+    #[Test]
+    public function rrp_null_in_both_current_and_command_stays_null(): void
+    {
+        $current = new ProductRetailPricing(
+            basePrice: Money::inclusive(20.00),
+        );
+        $command = new UpdatePriceCommand(
+            sku: Sku::fromTrusted('TEST-001'),
+            price: Money::inclusive(25.00),
+        );
+
+        $resolved = ResolvedPriceUpdate::fromCommand($command, $current);
+
+        self::assertNull($resolved->effectivePricing->rrp);
     }
 }

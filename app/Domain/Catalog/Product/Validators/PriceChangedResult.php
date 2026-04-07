@@ -18,6 +18,7 @@ final readonly class PriceChangedResult implements DescribableValidationResultIn
         private bool $changed,
         private float $currentBaseGross,
         private float $currentSaleGross,
+        private float $currentRrpGross,
     ) {}
 
     public function passed(): bool
@@ -37,9 +38,10 @@ final readonly class PriceChangedResult implements DescribableValidationResultIn
         }
 
         return \sprintf(
-            'Prices unchanged: base £%s, sale £%s',
+            'Prices unchanged: base £%s, sale £%s, rrp £%s',
             \number_format($this->currentBaseGross, 2),
             \number_format($this->currentSaleGross, 2),
+            \number_format($this->currentRrpGross, 2),
         );
     }
 
@@ -53,6 +55,7 @@ final readonly class PriceChangedResult implements DescribableValidationResultIn
         return [
             'base_gross' => $this->currentBaseGross,
             'sale_gross' => $this->currentSaleGross,
+            'rrp_gross' => $this->currentRrpGross,
         ];
     }
 }

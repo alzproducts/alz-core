@@ -744,7 +744,7 @@ final class ProductControllerTest extends TestCase
 
         $expectedKeys = [
             'id', 'sku', 'title', 'slug', 'url',
-            'price', 'cost_price', 'sale_price', 'compare_price',
+            'price', 'cost_price', 'sale_price', 'rrp',
             'effective_price', 'profit_margin',
             'is_active', 'is_on_sale', 'has_any_sale', 'has_free_delivery',
             'vat_exclusive', 'vat_relief',

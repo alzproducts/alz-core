@@ -21,6 +21,16 @@ final readonly class PriceChangedValidator implements ValidatorInterface
 
     public function validate(): PriceChangedResult
     {
+        return new PriceChangedResult(
+            changed: $this->detectChange(),
+            currentBaseGross: $this->current->basePrice->toGross(),
+            currentSaleGross: $this->current->salePrice?->toGross() ?? 0.0,
+            currentRrpGross: $this->current->rrp?->toGross() ?? 0.0,
+        );
+    }
+
+    private function detectChange(): bool
+    {
         $basePriceEqual = (new MoneyEqualsValidator(
             proposed: $this->proposed->basePrice,
             current: $this->current->basePrice,
@@ -31,12 +41,11 @@ final readonly class PriceChangedValidator implements ValidatorInterface
             current: $this->current->salePrice,
         ))->validate()->passed();
 
-        $changed = ! $basePriceEqual || ! $salePriceEqual;
+        $rrpEqual = (new NullableMoneyEqualsValidator(
+            proposed: $this->proposed->rrp,
+            current: $this->current->rrp,
+        ))->validate()->passed();
 
-        return new PriceChangedResult(
-            changed: $changed,
-            currentBaseGross: $this->current->basePrice->toGross(),
-            currentSaleGross: $this->current->salePrice?->toGross() ?? 0.0,
-        );
+        return ! $basePriceEqual || ! $salePriceEqual || ! $rrpEqual;
     }
 }
