@@ -10,6 +10,8 @@ use App\Domain\Catalog\Product\ValueObjects\ProductSupplier;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use App\Domain\Shared\Money\ValueObjects\Money;
+use App\Domain\ValueObjects\TaxType;
 use App\Infrastructure\Linnworks\Models\StockItemModel;
 
 /**
@@ -110,7 +112,10 @@ final class ProductSupplierFactory implements ProductSupplierLookupInterface
         foreach ($rows as $row) {
             $result[$row->sku][] = new ProductSupplier(
                 supplierName: $row->supplier_name,
-                purchasePrice: $row->purchase_price !== null ? (float) $row->purchase_price : null,
+                purchasePrice: Money::nonZeroOrNull(
+                    $row->purchase_price !== null ? (float) $row->purchase_price : null,
+                    TaxType::Exclusive,
+                ),
                 isDefault: $row->is_default,
             );
         }

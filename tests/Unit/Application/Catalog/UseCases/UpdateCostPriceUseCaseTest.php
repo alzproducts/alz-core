@@ -103,7 +103,7 @@ final class UpdateCostPriceUseCaseTest extends TestCase
     {
         $sku1 = Sku::fromTrusted('SKU-001');
         $sku2 = Sku::fromTrusted('SKU-002');
-        $supplier = new ProductSupplier(supplierName: 'AcmeCo', purchasePrice: 10.0, isDefault: true);
+        $supplier = new ProductSupplier(supplierName: 'AcmeCo', purchasePrice: Money::exclusive(10.0), isDefault: true);
         $supplierGuid = new Guid('00000000-0000-0000-0000-000000000001');
         $stockId1 = '10000000-0000-0000-0000-000000000001';
         $stockId2 = '10000000-0000-0000-0000-000000000002';
@@ -191,7 +191,7 @@ final class UpdateCostPriceUseCaseTest extends TestCase
     {
         $sku1 = Sku::fromTrusted('SKU-001');
         $sku2 = Sku::fromTrusted('SKU-002');
-        $supplier = new ProductSupplier(supplierName: 'AcmeCo', purchasePrice: 10.0, isDefault: true);
+        $supplier = new ProductSupplier(supplierName: 'AcmeCo', purchasePrice: Money::exclusive(10.0), isDefault: true);
         $supplierGuid = new Guid('00000000-0000-0000-0000-000000000001');
         $stockId1 = '10000000-0000-0000-0000-000000000001';
 
@@ -245,7 +245,7 @@ final class UpdateCostPriceUseCaseTest extends TestCase
     public function it_marks_all_as_failed_when_local_db_write_fails(): void
     {
         $sku = Sku::fromTrusted('SKU-001');
-        $supplier = new ProductSupplier(supplierName: 'AcmeCo', purchasePrice: 10.0, isDefault: true);
+        $supplier = new ProductSupplier(supplierName: 'AcmeCo', purchasePrice: Money::exclusive(10.0), isDefault: true);
         $supplierGuid = new Guid('00000000-0000-0000-0000-000000000001');
         $stockId1 = '10000000-0000-0000-0000-000000000001';
 
@@ -312,7 +312,7 @@ final class UpdateCostPriceUseCaseTest extends TestCase
     {
         $sku1 = Sku::fromTrusted('SKU-001');
         $sku2 = Sku::fromTrusted('SKU-002');
-        $supplier = new ProductSupplier(supplierName: 'AcmeCo', purchasePrice: 10.0, isDefault: true);
+        $supplier = new ProductSupplier(supplierName: 'AcmeCo', purchasePrice: Money::exclusive(10.0), isDefault: true);
         $supplierGuid = new Guid('00000000-0000-0000-0000-000000000001');
         $stockId1 = '10000000-0000-0000-0000-000000000001';
         $stockId2 = '10000000-0000-0000-0000-000000000002';
@@ -373,7 +373,7 @@ final class UpdateCostPriceUseCaseTest extends TestCase
     {
         $sku1 = Sku::fromTrusted('SKU-001');
         $sku2 = Sku::fromTrusted('SKU-002');
-        $supplier = new ProductSupplier(supplierName: 'AcmeCo', purchasePrice: 10.0, isDefault: true);
+        $supplier = new ProductSupplier(supplierName: 'AcmeCo', purchasePrice: Money::exclusive(10.0), isDefault: true);
         $supplierGuid = new Guid('00000000-0000-0000-0000-000000000001');
         $stockId1 = '10000000-0000-0000-0000-000000000001';
         $stockId2 = '10000000-0000-0000-0000-000000000002';
@@ -431,7 +431,7 @@ final class UpdateCostPriceUseCaseTest extends TestCase
     public function it_deduplicates_supplier_lookup_per_unique_sku(): void
     {
         $sku = Sku::fromTrusted('SKU-001');
-        $supplier = new ProductSupplier(supplierName: 'AcmeCo', purchasePrice: 10.0, isDefault: true);
+        $supplier = new ProductSupplier(supplierName: 'AcmeCo', purchasePrice: Money::exclusive(10.0), isDefault: true);
         $supplierGuid = new Guid('00000000-0000-0000-0000-000000000001');
         $stockId1 = '10000000-0000-0000-0000-000000000001';
 

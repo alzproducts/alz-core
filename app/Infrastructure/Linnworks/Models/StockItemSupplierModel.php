@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Linnworks\Models;
 
+use App\Domain\Catalog\Product\ValueObjects\ProductSupplier;
 use App\Domain\Inventory\ValueObjects\StockItemSupplier;
 use App\Domain\Shared\Money\ValueObjects\Money;
 use App\Domain\ValueObjects\Guid;
+use App\Domain\ValueObjects\TaxType;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
@@ -75,6 +77,29 @@ final class StockItemSupplierModel extends Model
             StockItemModel::class,
             'stock_item_id',
             'stock_item_id',
+        );
+    }
+
+    /**
+     * Convert to catalog-domain ProductSupplier projection.
+     *
+     * Excludes internal IDs (stockItemId, supplierId) — this is a
+     * product-centric view for API responses.
+     */
+    public function toProductSupplier(): ProductSupplier
+    {
+        return new ProductSupplier(
+            supplierName: $this->supplier_name,
+            purchasePrice: Money::nonZeroOrNull($this->purchase_price, TaxType::Exclusive),
+            isDefault: $this->is_default,
+            code: $this->code,
+            leadTime: $this->lead_time,
+            supplierMinOrderQty: $this->supplier_min_order_qty,
+            supplierPackSize: $this->supplier_pack_size,
+            minPrice: Money::nonZeroOrNull($this->min_price, TaxType::Exclusive),
+            maxPrice: Money::nonZeroOrNull($this->max_price, TaxType::Exclusive),
+            averagePrice: Money::nonZeroOrNull($this->average_price, TaxType::Exclusive),
+            averageLeadTime: $this->average_lead_time,
         );
     }
 
