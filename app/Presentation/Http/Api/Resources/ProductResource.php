@@ -55,6 +55,7 @@ final class ProductResource extends JsonResource
         return [
             'id' => $product->id->value,
             'sku' => $product->sku?->value,
+            'gtin' => $product->gtin?->value,
             'title' => $product->title,
             'slug' => $product->slug,
             'url' => $product->url,
@@ -72,6 +73,7 @@ final class ProductResource extends JsonResource
             'vat_relief' => $product->vatRelief,
             'meta_title' => $product->metaTitle,
             'meta_description' => $product->metaDescription,
+            'default_supplier' => $product->defaultSupplier?->toArray(),
             'free_delivery' => $product->freeDelivery?->value,
             'sort_order' => $product->sortOrder,
             'images' => \array_map(

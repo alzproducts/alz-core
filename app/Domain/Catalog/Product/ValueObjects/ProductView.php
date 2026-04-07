@@ -28,6 +28,8 @@ final readonly class ProductView
 
     public ?Sku $sku;
 
+    public ?Gtin $gtin;
+
     public Money $price;
 
     public ?Money $costPrice;
@@ -49,8 +51,7 @@ final readonly class ProductView
     /** @var bool Whether this product or any of its variations is on sale */
     public bool $hasAnySale;
 
-    /** @var string|null Name of the default supplier (null = no suppliers loaded or no default) */
-    public ?string $defaultSupplier;
+    public ?ProductSupplier $defaultSupplier;
 
     /** @var string UK-formatted creation date (dd/mm/yyyy) */
     public string $createdAtFormatted;
@@ -61,6 +62,7 @@ final readonly class ProductView
     /**
      * @param int $externalId ShopWired product ID
      * @param string|null $sku Master SKU
+     * @param string|null $gtin Product barcode (GTIN/EAN/UPC)
      * @param string $title Product title
      * @param string|null $description HTML description
      * @param string $slug URL slug
@@ -94,6 +96,7 @@ final readonly class ProductView
     public function __construct(
         int $externalId,
         ?string $sku,
+        ?string $gtin,
         public string $title,
         public ?string $description,
         public string $slug,
@@ -124,11 +127,13 @@ final readonly class ProductView
         public ?array $suppliers = null,
         public ?ProductInventory $inventory = null,
         public ?ProductStock $stock = null,
+        ?ProductSupplier $defaultSupplier = null,
     ) {
         $taxType = $vatExclusive ? TaxType::ZeroRated : TaxType::Inclusive;
 
         $this->id = IntId::from($externalId);
         $this->sku = $sku !== null && \mb_trim($sku) !== '' ? Sku::fromTrusted(\mb_trim($sku)) : null;
+        $this->gtin = $gtin !== null && \mb_trim($gtin) !== '' ? Gtin::fromTrusted(\mb_trim($gtin)) : null;
         $this->price = Money::fromTaxType($price, $taxType);
         $this->costPrice = Money::nonZeroOrNull($costPrice, TaxType::Exclusive);
         $this->salePrice = Money::nonZeroOrNull($salePrice, $taxType);
@@ -138,21 +143,9 @@ final readonly class ProductView
         $this->categoryIds = \array_map(static fn(int $id): IntId => IntId::from($id), $categoryIds);
         $this->hasFreeDelivery = $freeDelivery !== null && ! $freeDelivery->isNone();
         $this->hasAnySale = $this->isOnSale || self::anyVariationOnSale($this->variations);
-        $this->defaultSupplier = self::findDefaultSupplierName($this->suppliers);
+        $this->defaultSupplier = $defaultSupplier;
         $this->createdAtFormatted = $createdAt->format(DateFormat::DEFAULT_DATE_FORMAT);
         $this->updatedAtFormatted = $updatedAt->format(DateFormat::DEFAULT_DATE_FORMAT);
-    }
-
-    /**
-     * @param list<ProductSupplier>|null $suppliers
-     */
-    private static function findDefaultSupplierName(?array $suppliers): ?string
-    {
-        if ($suppliers === null || $suppliers === []) {
-            return null;
-        }
-
-        return \array_find($suppliers, static fn(ProductSupplier $s): bool => $s->isDefault)?->supplierName;
     }
 
     /**

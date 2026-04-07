@@ -892,6 +892,7 @@ final class ProductControllerTest extends TestCase
         return new ProductView(
             externalId: 42,
             sku: null,
+            gtin: null,
             title: 'Product With Variations',
             description: null,
             slug: 'product-with-variations',
@@ -924,6 +925,7 @@ final class ProductControllerTest extends TestCase
         return new ProductView(
             externalId: $id,
             sku: null,
+            gtin: null,
             title: $title,
             description: null,
             slug: 'test-product-' . $id,

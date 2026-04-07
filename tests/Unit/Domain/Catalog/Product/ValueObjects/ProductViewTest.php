@@ -246,6 +246,7 @@ final class ProductViewTest extends TestCase
         return new ProductView(
             externalId: 1,
             sku: $sku,
+            gtin: null,
             title: 'Test Product',
             description: null,
             slug: 'test-product',
