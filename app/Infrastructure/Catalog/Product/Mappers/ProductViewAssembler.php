@@ -73,7 +73,7 @@ final readonly class ProductViewAssembler
             price: $model->price,
             costPrice: $model->cost_price,
             salePrice: $model->sale_price,
-            comparePrice: $model->compare_price,
+            rrp: $model->compare_price,
             effectivePrice: $model->effective_price,
             isOnSale: $model->is_on_sale,
             profitMargin: $model->profit_margin,

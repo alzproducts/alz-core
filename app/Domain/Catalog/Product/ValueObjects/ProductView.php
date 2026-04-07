@@ -68,7 +68,7 @@ final readonly class ProductView
      * @param float $price Selling price
      * @param float|null $costPrice Cost price from Linnworks (null = unknown)
      * @param float|null $salePrice Discounted price (null = no sale)
-     * @param float|null $comparePrice RRP / "Was" price (constructor param name matches SQL view column; property is `$rrp`)
+     * @param float|null $rrp RRP / "Was" price (mapped from SQL view column `compare_price`)
      * @param float $effectivePrice Selling price after sale logic
      * @param bool $isOnSale Whether this product is currently on sale (from view)
      * @param float|null $profitMargin Retail profit margin % (from view, null when cost unknown)
@@ -101,7 +101,7 @@ final readonly class ProductView
         float $price,
         ?float $costPrice,
         ?float $salePrice,
-        ?float $comparePrice,
+        ?float $rrp,
         float $effectivePrice,
         public bool $isOnSale,
         public ?float $profitMargin,
@@ -132,7 +132,7 @@ final readonly class ProductView
         $this->price = Money::fromTaxType($price, $taxType);
         $this->costPrice = Money::nonZeroOrNull($costPrice, TaxType::Exclusive);
         $this->salePrice = Money::nonZeroOrNull($salePrice, $taxType);
-        $this->rrp = Money::nonZeroOrNull($comparePrice, $taxType);
+        $this->rrp = Money::nonZeroOrNull($rrp, $taxType);
         $this->meta = new ProductViewMeta($variations);
         $this->effectivePrice = Money::fromTaxType($effectivePrice, $taxType);
         $this->categoryIds = \array_map(static fn(int $id): IntId => IntId::from($id), $categoryIds);

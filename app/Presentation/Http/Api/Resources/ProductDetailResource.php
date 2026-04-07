@@ -33,7 +33,7 @@ final class ProductDetailResource extends JsonResource
 
         return ProductResource::baseFields($result->product)
             + $this->conditionalIncludes($result)
-            + ['meta' => ['can_edit_rrp' => $result->product->meta->canEditRrp]];
+            + ['meta' => $result->product->meta->toArray()];
     }
 
     /**

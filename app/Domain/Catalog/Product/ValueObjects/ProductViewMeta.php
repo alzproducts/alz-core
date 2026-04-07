@@ -23,6 +23,16 @@ final readonly class ProductViewMeta
     }
 
     /**
+     * @return array{can_edit_rrp: bool}
+     */
+    public function toArray(): array
+    {
+        return [
+            'can_edit_rrp' => $this->canEditRrp,
+        ];
+    }
+
+    /**
      * RRP can be edited when variations are absent or all share the same base price.
      *
      * Uses base price (not effectivePrice) — RRP is permanent, not tied to active sales.
