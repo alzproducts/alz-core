@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Application\Catalog\UseCases;
 
-use App\Application\Contracts\Catalog\ProductSupplierLookupInterface;
 use App\Application\Contracts\Linnworks\InventoryClientInterface;
 use App\Application\Contracts\Linnworks\InventoryUpdateClientInterface;
 use App\Application\Contracts\Linnworks\LinnworksSyncDispatcherInterface;
@@ -37,8 +36,6 @@ final class UpdateCostPriceUseCaseTest extends TestCase
 
     private StockItemSupplierRepositoryInterface&MockInterface $supplierRepository;
 
-    private ProductSupplierLookupInterface&MockInterface $supplierLookup;
-
     private SupplierGuidResolver&MockInterface $supplierGuidResolver;
 
     private LinnworksSyncDispatcherInterface&MockInterface $syncDispatcher;
@@ -55,7 +52,6 @@ final class UpdateCostPriceUseCaseTest extends TestCase
         $this->inventoryClient = Mockery::mock(InventoryClientInterface::class);
         $this->inventoryUpdateClient = Mockery::mock(InventoryUpdateClientInterface::class);
         $this->supplierRepository = Mockery::mock(StockItemSupplierRepositoryInterface::class);
-        $this->supplierLookup = Mockery::mock(ProductSupplierLookupInterface::class);
         $this->supplierGuidResolver = Mockery::mock(SupplierGuidResolver::class);
         $this->syncDispatcher = Mockery::mock(LinnworksSyncDispatcherInterface::class);
         $this->syncDispatcher->shouldReceive('dispatchStockItemSync')->byDefault();
@@ -66,7 +62,6 @@ final class UpdateCostPriceUseCaseTest extends TestCase
             $this->inventoryClient,
             $this->inventoryUpdateClient,
             $this->supplierRepository,
-            $this->supplierLookup,
             $this->supplierGuidResolver,
             $this->syncDispatcher,
             $this->logger,
@@ -103,7 +98,7 @@ final class UpdateCostPriceUseCaseTest extends TestCase
     {
         $sku1 = Sku::fromTrusted('SKU-001');
         $sku2 = Sku::fromTrusted('SKU-002');
-        $supplier = new ProductSupplier(supplierName: 'AcmeCo', purchasePrice: 10.0, isDefault: true);
+        $supplier = new ProductSupplier(supplierName: 'AcmeCo', purchasePrice: Money::exclusive(10.0), isDefault: true);
         $supplierGuid = new Guid('00000000-0000-0000-0000-000000000001');
         $stockId1 = '10000000-0000-0000-0000-000000000001';
         $stockId2 = '10000000-0000-0000-0000-000000000002';
@@ -113,17 +108,10 @@ final class UpdateCostPriceUseCaseTest extends TestCase
             new UpdateCostPriceCommand(sku: $sku2, costPrice: Money::exclusive(20.00)),
         ];
 
-        $this->supplierLookup
-            ->shouldReceive('getByProductSku')
-            ->with('SKU-001')
+        $this->supplierRepository
+            ->shouldReceive('getSuppliersBySkus')
             ->once()
-            ->andReturn([$supplier]);
-
-        $this->supplierLookup
-            ->shouldReceive('getByProductSku')
-            ->with('SKU-002')
-            ->once()
-            ->andReturn([$supplier]);
+            ->andReturn(['SKU-001' => [$supplier], 'SKU-002' => [$supplier]]);
 
         $this->inventoryClient
             ->shouldReceive('resolveStockItemIds')
@@ -172,11 +160,10 @@ final class UpdateCostPriceUseCaseTest extends TestCase
             new UpdateCostPriceCommand(sku: $sku, costPrice: Money::exclusive(10.50)),
         ];
 
-        $this->supplierLookup
-            ->shouldReceive('getByProductSku')
-            ->with('SKU-001')
+        $this->supplierRepository
+            ->shouldReceive('getSuppliersBySkus')
             ->once()
-            ->andReturn([]);
+            ->andReturn(['SKU-001' => []]);
 
         $this->inventoryClient->shouldNotReceive('resolveStockItemIds');
         $this->inventoryUpdateClient->shouldNotReceive('updateStockSupplierStats');
@@ -191,7 +178,7 @@ final class UpdateCostPriceUseCaseTest extends TestCase
     {
         $sku1 = Sku::fromTrusted('SKU-001');
         $sku2 = Sku::fromTrusted('SKU-002');
-        $supplier = new ProductSupplier(supplierName: 'AcmeCo', purchasePrice: 10.0, isDefault: true);
+        $supplier = new ProductSupplier(supplierName: 'AcmeCo', purchasePrice: Money::exclusive(10.0), isDefault: true);
         $supplierGuid = new Guid('00000000-0000-0000-0000-000000000001');
         $stockId1 = '10000000-0000-0000-0000-000000000001';
 
@@ -200,9 +187,10 @@ final class UpdateCostPriceUseCaseTest extends TestCase
             new UpdateCostPriceCommand(sku: $sku2, costPrice: Money::exclusive(20.00)),
         ];
 
-        $this->supplierLookup
-            ->shouldReceive('getByProductSku')
-            ->andReturn([$supplier]);
+        $this->supplierRepository
+            ->shouldReceive('getSuppliersBySkus')
+            ->once()
+            ->andReturn(['SKU-001' => [$supplier], 'SKU-002' => [$supplier]]);
 
         // Only SKU-001 resolves; SKU-002 is missing
         $this->inventoryClient
@@ -245,7 +233,7 @@ final class UpdateCostPriceUseCaseTest extends TestCase
     public function it_marks_all_as_failed_when_local_db_write_fails(): void
     {
         $sku = Sku::fromTrusted('SKU-001');
-        $supplier = new ProductSupplier(supplierName: 'AcmeCo', purchasePrice: 10.0, isDefault: true);
+        $supplier = new ProductSupplier(supplierName: 'AcmeCo', purchasePrice: Money::exclusive(10.0), isDefault: true);
         $supplierGuid = new Guid('00000000-0000-0000-0000-000000000001');
         $stockId1 = '10000000-0000-0000-0000-000000000001';
 
@@ -253,10 +241,10 @@ final class UpdateCostPriceUseCaseTest extends TestCase
             new UpdateCostPriceCommand(sku: $sku, costPrice: Money::exclusive(10.50)),
         ];
 
-        $this->supplierLookup
-            ->shouldReceive('getByProductSku')
+        $this->supplierRepository
+            ->shouldReceive('getSuppliersBySkus')
             ->once()
-            ->andReturn([$supplier]);
+            ->andReturn(['SKU-001' => [$supplier]]);
 
         $this->inventoryClient
             ->shouldReceive('resolveStockItemIds')
@@ -312,7 +300,7 @@ final class UpdateCostPriceUseCaseTest extends TestCase
     {
         $sku1 = Sku::fromTrusted('SKU-001');
         $sku2 = Sku::fromTrusted('SKU-002');
-        $supplier = new ProductSupplier(supplierName: 'AcmeCo', purchasePrice: 10.0, isDefault: true);
+        $supplier = new ProductSupplier(supplierName: 'AcmeCo', purchasePrice: Money::exclusive(10.0), isDefault: true);
         $supplierGuid = new Guid('00000000-0000-0000-0000-000000000001');
         $stockId1 = '10000000-0000-0000-0000-000000000001';
         $stockId2 = '10000000-0000-0000-0000-000000000002';
@@ -322,9 +310,10 @@ final class UpdateCostPriceUseCaseTest extends TestCase
             new UpdateCostPriceCommand(sku: $sku2, costPrice: Money::exclusive(20.00)),
         ];
 
-        $this->supplierLookup
-            ->shouldReceive('getByProductSku')
-            ->andReturn([$supplier]);
+        $this->supplierRepository
+            ->shouldReceive('getSuppliersBySkus')
+            ->once()
+            ->andReturn(['SKU-001' => [$supplier], 'SKU-002' => [$supplier]]);
 
         $this->inventoryClient
             ->shouldReceive('resolveStockItemIds')
@@ -373,7 +362,7 @@ final class UpdateCostPriceUseCaseTest extends TestCase
     {
         $sku1 = Sku::fromTrusted('SKU-001');
         $sku2 = Sku::fromTrusted('SKU-002');
-        $supplier = new ProductSupplier(supplierName: 'AcmeCo', purchasePrice: 10.0, isDefault: true);
+        $supplier = new ProductSupplier(supplierName: 'AcmeCo', purchasePrice: Money::exclusive(10.0), isDefault: true);
         $supplierGuid = new Guid('00000000-0000-0000-0000-000000000001');
         $stockId1 = '10000000-0000-0000-0000-000000000001';
         $stockId2 = '10000000-0000-0000-0000-000000000002';
@@ -383,9 +372,10 @@ final class UpdateCostPriceUseCaseTest extends TestCase
             new UpdateCostPriceCommand(sku: $sku2, costPrice: Money::exclusive(20.00)),
         ];
 
-        $this->supplierLookup
-            ->shouldReceive('getByProductSku')
-            ->andReturn([$supplier]);
+        $this->supplierRepository
+            ->shouldReceive('getSuppliersBySkus')
+            ->once()
+            ->andReturn(['SKU-001' => [$supplier], 'SKU-002' => [$supplier]]);
 
         $this->inventoryClient
             ->shouldReceive('resolveStockItemIds')
@@ -431,7 +421,7 @@ final class UpdateCostPriceUseCaseTest extends TestCase
     public function it_deduplicates_supplier_lookup_per_unique_sku(): void
     {
         $sku = Sku::fromTrusted('SKU-001');
-        $supplier = new ProductSupplier(supplierName: 'AcmeCo', purchasePrice: 10.0, isDefault: true);
+        $supplier = new ProductSupplier(supplierName: 'AcmeCo', purchasePrice: Money::exclusive(10.0), isDefault: true);
         $supplierGuid = new Guid('00000000-0000-0000-0000-000000000001');
         $stockId1 = '10000000-0000-0000-0000-000000000001';
 
@@ -441,12 +431,10 @@ final class UpdateCostPriceUseCaseTest extends TestCase
             new UpdateCostPriceCommand(sku: $sku, costPrice: Money::exclusive(15.00)),
         ];
 
-        // Must only be called once despite two commands with the same SKU
-        $this->supplierLookup
-            ->shouldReceive('getByProductSku')
-            ->with('SKU-001')
+        $this->supplierRepository
+            ->shouldReceive('getSuppliersBySkus')
             ->once()
-            ->andReturn([$supplier]);
+            ->andReturn(['SKU-001' => [$supplier]]);
 
         $this->inventoryClient
             ->shouldReceive('resolveStockItemIds')

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Application\Contracts\Linnworks;
 
+use App\Domain\Catalog\Product\ValueObjects\ProductSupplier;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
@@ -29,4 +30,17 @@ interface StockItemSupplierRepositoryInterface
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      */
     public function bulkUpdatePurchasePrices(string $supplierName, array $purchasePricesBySku): void;
+
+    /**
+     * Get all suppliers for the given SKUs, grouped by SKU.
+     *
+     * @param list<string> $skus
+     *
+     * @return array<string, list<ProductSupplier>> SKU → suppliers
+     *
+     * @throws DatabaseOperationFailedException On query failure
+     * @throws DuplicateRecordException On constraint violation
+     * @throws ExternalServiceUnavailableException When database temporarily unavailable
+     */
+    public function getSuppliersBySkus(array $skus): array;
 }

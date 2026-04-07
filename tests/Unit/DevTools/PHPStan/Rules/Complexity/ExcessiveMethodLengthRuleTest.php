@@ -39,4 +39,26 @@ final class ExcessiveMethodLengthRuleTest extends RuleTestCase
             ],
         );
     }
+
+    public function testNoErrorOnRepositoryMethodUnderThirtyLines(): void
+    {
+        $this->analyse(
+            [__DIR__ . '/Fixtures/ExcessiveMethodLengthRule/ValidRepository.php'],
+            [],
+        );
+    }
+
+    public function testErrorOnRepositoryMethodExceedingThirtyLines(): void
+    {
+        $this->analyse(
+            [__DIR__ . '/Fixtures/ExcessiveMethodLengthRule/InvalidRepository.php'],
+            [
+                [
+                    'Method tooLongRepositoryMethod() is 33 lines long — exceeds the 30-line limit. Break it into smaller, focused methods.',
+                    9,
+                    'Extract logical sections into well-named private methods, each with a single responsibility. Do not split arbitrarily at a line count — each extracted method should represent a coherent operation.',
+                ],
+            ],
+        );
+    }
 }

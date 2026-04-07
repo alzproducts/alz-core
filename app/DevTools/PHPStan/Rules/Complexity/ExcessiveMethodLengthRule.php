@@ -12,17 +12,22 @@ use PHPStan\Rules\Rule;
 use PHPStan\Rules\RuleErrorBuilder;
 
 /**
- * Methods must not exceed 20 lines.
+ * Methods must not exceed a layer-specific line limit.
  *
  * Counts all lines between opening and closing braces (including blanks and
  * comments), matching PHPMD and ESLint conventions. Long methods are a signal
  * that a method is doing too much and should be broken into smaller, focused units.
  *
+ * Infrastructure repositories get a higher threshold (30 lines) because their
+ * methods are inherently denser — gateway wrapping, query building, and result
+ * mapping are a single coherent operation that doesn't compress well.
+ *
  * @implements Rule<ClassMethod>
  */
 final class ExcessiveMethodLengthRule implements Rule
 {
-    private const int THRESHOLD = 20;
+    private const int DEFAULT_THRESHOLD = 20;
+    private const int REPOSITORY_THRESHOLD = 30;
 
     /**
      * Methods that are structural listings (field mappings, service arrays)
@@ -52,13 +57,28 @@ final class ExcessiveMethodLengthRule implements Rule
             return [];
         }
 
+        $threshold = self::resolveThreshold($scope);
         $length = self::measureLength($node);
 
-        if ($length === null || $length <= self::THRESHOLD) {
+        if ($length === null || $length <= $threshold) {
             return [];
         }
 
-        return [self::buildError($node->name->name, $length)];
+        return [self::buildError($node->name->name, $length, $threshold)];
+    }
+
+    private static function resolveThreshold(Scope $scope): int
+    {
+        return self::isRepository($scope) ? self::REPOSITORY_THRESHOLD : self::DEFAULT_THRESHOLD;
+    }
+
+    private static function isRepository(Scope $scope): bool
+    {
+        $namespace = $scope->getNamespace();
+
+        return $namespace !== null
+            && \str_starts_with($namespace, 'App\\Infrastructure\\')
+            && \str_contains($namespace, '\\Repositories');
     }
 
     private static function isInAppNamespace(Scope $scope): bool
@@ -85,14 +105,14 @@ final class ExcessiveMethodLengthRule implements Rule
         return $endLine - $startLine;
     }
 
-    private static function buildError(string $methodName, int $length): IdentifierRuleError
+    private static function buildError(string $methodName, int $length, int $threshold): IdentifierRuleError
     {
         return RuleErrorBuilder::message(
             \sprintf(
                 'Method %s() is %d lines long — exceeds the %d-line limit. Break it into smaller, focused methods.',
                 $methodName,
                 $length,
-                self::THRESHOLD,
+                $threshold,
             ),
         )
             ->identifier('alz.excessiveMethodLength')
