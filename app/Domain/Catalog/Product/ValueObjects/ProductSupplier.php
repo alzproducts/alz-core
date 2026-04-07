@@ -20,6 +20,7 @@ final readonly class ProductSupplier
         public ?Money $purchasePrice,
         public bool $isDefault,
         public ?string $code = null,
+        public ?Gtin $supplierBarcode = null,
         public ?int $leadTime = null,
         public ?int $supplierMinOrderQty = null,
         public ?int $supplierPackSize = null,
@@ -32,7 +33,7 @@ final readonly class ProductSupplier
     /**
      * Serialize to API-friendly array.
      *
-     * @return array{supplier_name: string, purchase_price: float|null, is_default: bool, code: string|null, lead_time: int|null, supplier_min_order_qty: int|null, supplier_pack_size: int|null, min_price: float|null, max_price: float|null, average_price: float|null, average_lead_time: float|null}
+     * @return array{supplier_name: string, purchase_price: float|null, is_default: bool, code: string|null, supplier_barcode: string|null, lead_time: int|null, supplier_min_order_qty: int|null, supplier_pack_size: int|null, min_price: float|null, max_price: float|null, average_price: float|null, average_lead_time: float|null}
      */
     public function toArray(): array
     {
@@ -41,6 +42,7 @@ final readonly class ProductSupplier
             'purchase_price' => $this->purchasePrice?->toNet(),
             'is_default' => $this->isDefault,
             'code' => $this->code,
+            'supplier_barcode' => $this->supplierBarcode?->value,
             'lead_time' => $this->leadTime,
             'supplier_min_order_qty' => $this->supplierMinOrderQty,
             'supplier_pack_size' => $this->supplierPackSize,

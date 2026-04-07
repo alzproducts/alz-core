@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Linnworks\Models;
 
+use App\Domain\Catalog\Product\ValueObjects\Gtin;
 use App\Domain\Catalog\Product\ValueObjects\ProductSupplier;
 use App\Domain\Inventory\ValueObjects\StockItemSupplier;
 use App\Domain\Shared\Money\ValueObjects\Money;
@@ -93,6 +94,7 @@ final class StockItemSupplierModel extends Model
             purchasePrice: Money::nonZeroOrNull($this->purchase_price, TaxType::Exclusive),
             isDefault: $this->is_default,
             code: $this->code,
+            supplierBarcode: Gtin::tryFromString($this->supplier_barcode),
             leadTime: $this->lead_time,
             supplierMinOrderQty: $this->supplier_min_order_qty,
             supplierPackSize: $this->supplier_pack_size,
