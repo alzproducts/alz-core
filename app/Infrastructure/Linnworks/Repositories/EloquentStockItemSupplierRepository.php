@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Infrastructure\Linnworks\Repositories;
 
 use App\Application\Contracts\Linnworks\StockItemSupplierRepositoryInterface;
-use App\Domain\Catalog\Product\ValueObjects\ProductSupplier;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
@@ -40,10 +39,22 @@ final readonly class EloquentStockItemSupplierRepository implements StockItemSup
         }
 
         $stockItemIdsBySku = $this->resolveStockItemIds(\array_keys($purchasePricesBySku));
+        $pricesByStockItemId = [];
 
-        $this->eloquentGateway->query(
-            static fn(): int => self::applyPriceUpdates($supplierName, $purchasePricesBySku, $stockItemIdsBySku),
-        );
+        foreach ($purchasePricesBySku as $sku => $price) {
+            if (isset($stockItemIdsBySku[$sku])) {
+                $pricesByStockItemId[$stockItemIdsBySku[$sku]] = $price;
+            }
+        }
+
+        foreach ($pricesByStockItemId as $stockItemId => $price) {
+            $this->eloquentGateway->query(
+                static fn(): int => StockItemSupplierModel::query()
+                    ->where('stock_item_id', $stockItemId)
+                    ->where('supplier_name', $supplierName)
+                    ->update(['purchase_price' => $price]),
+            );
+        }
     }
 
     /**
@@ -65,9 +76,19 @@ final readonly class EloquentStockItemSupplierRepository implements StockItemSup
             return [];
         }
 
+        $skuByStockItemId = \array_flip($stockItemIds);
         $suppliers = $this->fetchSuppliersForStockItems(\array_values($stockItemIds));
+        $result = [];
 
-        return self::groupSuppliersBySku(\array_flip($stockItemIds), $suppliers);
+        foreach ($suppliers as $model) {
+            $sku = $skuByStockItemId[$model->stock_item_id] ?? null;
+
+            if ($sku !== null) {
+                $result[$sku][] = $model->toProductSupplier();
+            }
+        }
+
+        return $result;
     }
 
     /**
@@ -110,55 +131,5 @@ final readonly class EloquentStockItemSupplierRepository implements StockItemSup
                 ->orderByDesc('is_default')
                 ->get(),
         );
-    }
-
-    /**
-     * Update supplier rows by resolved stock item ID.
-     *
-     * Called from within a gateway-wrapped closure — DB exceptions
-     * are translated by the enclosing gateway call.
-     *
-     * @param array<string, float> $purchasePricesBySku
-     * @param array<string, string> $stockItemIdsBySku
-     */
-    private static function applyPriceUpdates(string $supplierName, array $purchasePricesBySku, array $stockItemIdsBySku): int
-    {
-        $updated = 0;
-
-        foreach ($purchasePricesBySku as $sku => $price) {
-            $stockItemId = $stockItemIdsBySku[$sku] ?? null;
-
-            if ($stockItemId === null) {
-                continue;
-            }
-
-            $updated += StockItemSupplierModel::query()
-                ->where('stock_item_id', $stockItemId)
-                ->where('supplier_name', $supplierName)
-                ->update(['purchase_price' => $price]);
-        }
-
-        return $updated;
-    }
-
-    /**
-     * @param array<string, string> $skuByStockItemId
-     * @param Collection<int, StockItemSupplierModel> $suppliers
-     *
-     * @return array<string, list<ProductSupplier>>
-     */
-    private static function groupSuppliersBySku(array $skuByStockItemId, Collection $suppliers): array
-    {
-        $result = [];
-
-        foreach ($suppliers as $model) {
-            $sku = $skuByStockItemId[$model->stock_item_id] ?? null;
-
-            if ($sku !== null) {
-                $result[$sku][] = $model->toProductSupplier();
-            }
-        }
-
-        return $result;
     }
 }

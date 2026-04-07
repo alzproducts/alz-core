@@ -927,7 +927,7 @@ parameters:
 			path: app/Infrastructure/Linnworks/Models/PurchaseOrderModel.php
 
 		-
-			rawMessage: 'Method entityToAttributes() is 71 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			rawMessage: 'Method entityToAttributes() is 71 lines long — exceeds the 30-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Infrastructure/Linnworks/Repositories/EloquentLinnworksOrderRepository.php
@@ -945,13 +945,13 @@ parameters:
 			path: app/Infrastructure/Linnworks/Queries/PurchaseOrderItemsBatchQuery.php
 
 		-
-			rawMessage: 'Method syncExtendedProperties() is 36 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			rawMessage: 'Method syncExtendedProperties() is 36 lines long — exceeds the 30-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Infrastructure/Linnworks/Repositories/EloquentLinnworksOrderRepository.php
 
 		-
-			rawMessage: 'Method syncItems() is 36 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			rawMessage: 'Method syncItems() is 36 lines long — exceeds the 30-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Infrastructure/Linnworks/Repositories/EloquentLinnworksOrderRepository.php
@@ -963,50 +963,50 @@ parameters:
 			path: app/Infrastructure/Linnworks/Repositories/EloquentPurchaseOrderSyncRepository.php
 
 		-
-			rawMessage: 'Method saveCoresBatch() is 49 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			rawMessage: 'Method saveCoresBatch() is 49 lines long — exceeds the 30-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Infrastructure/Linnworks/Repositories/EloquentPurchaseOrderSyncRepository.php
 
 		-
-			rawMessage: 'Method coreToAttributes() is 32 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			rawMessage: 'Method coreToAttributes() is 32 lines long — exceeds the 30-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Infrastructure/Linnworks/Repositories/EloquentPurchaseOrderSyncRepository.php
 
 		-
-			rawMessage: 'Method syncAdditionalCosts() is 43 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			rawMessage: 'Method syncAdditionalCosts() is 43 lines long — exceeds the 30-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Infrastructure/Linnworks/Repositories/EloquentPurchaseOrderSyncRepository.php
 
 		-
-			rawMessage: 'Method syncDeliveredRecords() is 36 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			rawMessage: 'Method syncDeliveredRecords() is 36 lines long — exceeds the 30-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Infrastructure/Linnworks/Repositories/EloquentPurchaseOrderSyncRepository.php
 
 		-
-			rawMessage: 'Method syncExtendedProperties() is 42 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			rawMessage: 'Method syncExtendedProperties() is 42 lines long — exceeds the 30-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Infrastructure/Linnworks/Repositories/EloquentPurchaseOrderSyncRepository.php
 
 		-
-			rawMessage: 'Method syncItems() is 36 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			rawMessage: 'Method syncItems() is 36 lines long — exceeds the 30-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Infrastructure/Linnworks/Repositories/EloquentPurchaseOrderSyncRepository.php
 
 		-
-			rawMessage: 'Method syncNotes() is 36 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			rawMessage: 'Method syncNotes() is 36 lines long — exceeds the 30-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Infrastructure/Linnworks/Repositories/EloquentPurchaseOrderSyncRepository.php
 
 
 		-
-			rawMessage: 'Method save() is 59 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			rawMessage: 'Method save() is 59 lines long — exceeds the 30-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Infrastructure/Linnworks/Repositories/EloquentStockItemRepository.php
@@ -1511,55 +1511,13 @@ parameters:
 			path: app/Infrastructure/Shopwired/OrderQueryParams.php
 
 		-
-			rawMessage: 'Method saveFromWebhook() is 21 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Infrastructure/Shopwired/Repositories/EloquentCategoryRepository.php
-
-		-
 			rawMessage: 'Class EloquentOrderRepository is 526 lines long — exceeds the 250-line limit. Consider decomposing into smaller, focused classes.'
 			identifier: alz.excessiveClassLength
 			count: 1
 			path: app/Infrastructure/Shopwired/Repositories/EloquentOrderRepository.php
 
 		-
-			rawMessage: 'Method addRefund() is 22 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Infrastructure/Shopwired/Repositories/EloquentOrderRepository.php
-
-		-
-			rawMessage: 'Method getOrdersInDateRange() is 22 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Infrastructure/Shopwired/Repositories/EloquentOrderRepository.php
-
-		-
-			rawMessage: 'Method performSave() is 35 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Infrastructure/Shopwired/Repositories/EloquentOrderRepository.php
-
-		-
-			rawMessage: 'Method syncAdminComments() is 26 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Infrastructure/Shopwired/Repositories/EloquentOrderRepository.php
-
-		-
-			rawMessage: 'Method syncDiscounts() is 26 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Infrastructure/Shopwired/Repositories/EloquentOrderRepository.php
-
-		-
-			rawMessage: 'Method syncProducts() is 27 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Infrastructure/Shopwired/Repositories/EloquentOrderRepository.php
-
-		-
-			rawMessage: 'Method syncRefunds() is 26 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			rawMessage: 'Method performSave() is 35 lines long — exceeds the 30-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Infrastructure/Shopwired/Repositories/EloquentOrderRepository.php
@@ -1571,55 +1529,31 @@ parameters:
 			path: app/Infrastructure/Shopwired/Repositories/EloquentProductRepository.php
 
 		-
-			rawMessage: 'Method buildSaleStateDriftQuery() is 35 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			rawMessage: 'Method buildSaleStateDriftQuery() is 35 lines long — exceeds the 30-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Infrastructure/Shopwired/Repositories/EloquentProductRepository.php
 
 		-
-			rawMessage: 'Method getBasicProductById() is 25 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			rawMessage: 'Method getSkusGroupedByProductId() is 31 lines long — exceeds the 30-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Infrastructure/Shopwired/Repositories/EloquentProductRepository.php
 
 		-
-			rawMessage: 'Method getBasicProductBySku() is 25 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			rawMessage: 'Method syncVariations() is 31 lines long — exceeds the 30-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Infrastructure/Shopwired/Repositories/EloquentProductRepository.php
 
 		-
-			rawMessage: 'Method getProductByAnySku() is 26 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Infrastructure/Shopwired/Repositories/EloquentProductRepository.php
-
-		-
-			rawMessage: 'Method getSkusGroupedByProductId() is 31 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Infrastructure/Shopwired/Repositories/EloquentProductRepository.php
-
-		-
-			rawMessage: 'Method syncVariations() is 31 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Infrastructure/Shopwired/Repositories/EloquentProductRepository.php
-
-		-
-			rawMessage: 'Method buildTypeMap() is 32 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			rawMessage: 'Method buildTypeMap() is 32 lines long — exceeds the 30-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Infrastructure/Shopwired/Repositories/EloquentProductStockRepository.php
 
 		-
-			rawMessage: 'Method getStockLevelsBySkus() is 28 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Infrastructure/Shopwired/Repositories/EloquentProductStockRepository.php
-
-		-
-			rawMessage: 'Method updateStockLevels() is 32 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			rawMessage: 'Method updateStockLevels() is 32 lines long — exceeds the 30-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Infrastructure/Shopwired/Repositories/EloquentProductStockRepository.php
