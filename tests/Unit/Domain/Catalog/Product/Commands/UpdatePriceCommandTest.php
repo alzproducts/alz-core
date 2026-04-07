@@ -24,6 +24,7 @@ final class UpdatePriceCommandTest extends TestCase
 
         self::assertNull($command->price);
         self::assertNull($command->salePrice);
+        self::assertNull($command->rrp);
     }
 
     #[Test]
@@ -34,7 +35,7 @@ final class UpdatePriceCommandTest extends TestCase
             price: Money::inclusive(20.00),
         );
 
-        self::assertNotNull($command->price);
+        self::assertSame(20.0, $command->price->toGross());
         self::assertNull($command->salePrice);
     }
 
@@ -47,7 +48,7 @@ final class UpdatePriceCommandTest extends TestCase
         );
 
         self::assertNull($command->price);
-        self::assertNotNull($command->salePrice);
+        self::assertSame(15.0, $command->salePrice->toGross());
     }
 
     #[Test]
@@ -133,6 +134,49 @@ final class UpdatePriceCommandTest extends TestCase
         $command = new UpdatePriceCommand(
             sku: Sku::fromTrusted('TEST-001'),
             salePrice: Money::inclusive(15.00),
+        );
+
+        self::assertTrue($command->hasAnyUpdate());
+    }
+
+    // ========================================================================
+    // rrp field
+    // ========================================================================
+
+    #[Test]
+    public function it_accepts_only_rrp_set(): void
+    {
+        $command = new UpdatePriceCommand(
+            sku: Sku::fromTrusted('TEST-001'),
+            rrp: Money::inclusive(25.00),
+        );
+
+        self::assertNull($command->price);
+        self::assertNull($command->salePrice);
+        self::assertSame(25.0, $command->rrp->toGross());
+    }
+
+    #[Test]
+    public function it_accepts_all_three_fields_set(): void
+    {
+        $command = new UpdatePriceCommand(
+            sku: Sku::fromTrusted('TEST-001'),
+            price: Money::inclusive(20.00),
+            salePrice: Money::inclusive(15.00),
+            rrp: Money::inclusive(30.00),
+        );
+
+        self::assertSame(20.0, $command->price->toGross());
+        self::assertSame(15.0, $command->salePrice->toGross());
+        self::assertSame(30.0, $command->rrp->toGross());
+    }
+
+    #[Test]
+    public function has_any_update_returns_true_when_only_rrp_set(): void
+    {
+        $command = new UpdatePriceCommand(
+            sku: Sku::fromTrusted('TEST-001'),
+            rrp: Money::inclusive(25.00),
         );
 
         self::assertTrue($command->hasAnyUpdate());

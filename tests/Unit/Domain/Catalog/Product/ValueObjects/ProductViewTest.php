@@ -253,7 +253,7 @@ final class ProductViewTest extends TestCase
             price: $price,
             costPrice: $costPrice,
             salePrice: $salePrice,
-            comparePrice: null,
+            rrp: null,
             effectivePrice: $effectivePrice,
             isOnSale: $isOnSale,
             profitMargin: $profitMargin,

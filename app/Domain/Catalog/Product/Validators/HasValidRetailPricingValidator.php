@@ -22,13 +22,13 @@ final readonly class HasValidRetailPricingValidator implements ValidatorInterfac
         $saleGross = $this->pricing->salePrice?->toGross() ?? 0.0;
 
         return new HasValidRetailPricingResult(
-            valid: $this->isValid($baseGross, $saleGross),
+            valid: HasValidRetailPricingValidator::isValid($baseGross, $saleGross),
             baseGross: $baseGross,
             saleGross: $saleGross,
         );
     }
 
-    private function isValid(float $baseGross, float $saleGross): bool
+    private static function isValid(float $baseGross, float $saleGross): bool
     {
         if ($baseGross <= 0.0) {
             return false;
