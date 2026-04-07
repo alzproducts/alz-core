@@ -459,9 +459,8 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
             $relations[] = 'stockItem';
         }
 
-        if ($has(ProductInclude::Suppliers)) {
-            $relations[] = 'stockItem.suppliers';
-        }
+        // Always load for default supplier derivation (also satisfies Suppliers include)
+        $relations[] = 'stockItem.suppliers';
 
         return $relations;
     }
