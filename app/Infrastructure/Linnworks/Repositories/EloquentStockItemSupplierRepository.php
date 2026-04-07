@@ -16,7 +16,7 @@ use Illuminate\Support\Collection;
 /**
  * Eloquent implementation for targeted stock item supplier updates.
  *
- * Uses Eloquent queries instead of raw SQL for maintainability.
+ * Uses Eloquent for reads and raw SQL for bulk updates (PostgreSQL VALUES-join).
  * For full sync (delete/re-insert), see EloquentStockItemRepository::save().
  */
 final readonly class EloquentStockItemSupplierRepository implements StockItemSupplierRepositoryInterface
@@ -39,22 +39,48 @@ final readonly class EloquentStockItemSupplierRepository implements StockItemSup
         }
 
         $stockItemIdsBySku = $this->resolveStockItemIds(\array_keys($purchasePricesBySku));
-        $pricesByStockItemId = [];
+        [$valuesPairs, $bindings] = self::buildBulkUpdateBindings($stockItemIdsBySku, $purchasePricesBySku, $supplierName);
+
+        if ($valuesPairs === '') {
+            return;
+        }
+
+        $this->eloquentGateway->query(
+            static fn(): int => StockItemSupplierModel::query()->getConnection()->update(
+                "UPDATE linnworks.stock_item_suppliers AS t SET purchase_price = c.price FROM (VALUES {$valuesPairs}) AS c(stock_item_id, price) WHERE t.stock_item_id = c.stock_item_id AND t.supplier_name = ?",
+                $bindings,
+            ),
+        );
+    }
+
+    /**
+     * Build VALUES pairs and parameter bindings for the bulk price update.
+     *
+     * @param array<string, string>     $stockItemIdsBySku  SKU → stock_item_id
+     * @param array<string, float> $purchasePricesBySku SKU → price
+     *
+     * @return array{string, list<string|float>} [valuesPairs, bindings]
+     */
+    private static function buildBulkUpdateBindings(array $stockItemIdsBySku, array $purchasePricesBySku, string $supplierName): array
+    {
+        $bindings = [];
 
         foreach ($purchasePricesBySku as $sku => $price) {
             if (isset($stockItemIdsBySku[$sku])) {
-                $pricesByStockItemId[$stockItemIdsBySku[$sku]] = $price;
+                $bindings[] = $stockItemIdsBySku[$sku];
+                $bindings[] = $price;
             }
         }
 
-        foreach ($pricesByStockItemId as $stockItemId => $price) {
-            $this->eloquentGateway->query(
-                static fn(): int => StockItemSupplierModel::query()
-                    ->where('stock_item_id', $stockItemId)
-                    ->where('supplier_name', $supplierName)
-                    ->update(['purchase_price' => $price]),
-            );
+        if ($bindings === []) {
+            return ['', []];
         }
+
+        $rowCount = \count($bindings) / 2;
+        $valuesPairs = \implode(', ', \array_fill(0, (int) $rowCount, '(?::uuid, ?::numeric)'));
+        $bindings[] = $supplierName;
+
+        return [$valuesPairs, $bindings];
     }
 
     /**
