@@ -488,12 +488,6 @@ parameters:
 			path: app/Domain/Catalog/Product/Resolvers/VariationPriceResolver.php
 
 		-
-			rawMessage: 'Method fromProduct() is 21 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Domain/Catalog/Product/Transformers/ProductRetailPricingTransformer.php
-
-		-
 			rawMessage: 'Method validate() is 28 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
@@ -524,7 +518,7 @@ parameters:
 			path: app/Domain/Catalog/Product/ValueObjects/ProductVariationView.php
 
 		-
-			rawMessage: 'Method __construct() is 49 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			rawMessage: 'Method __construct() is 50 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Domain/Catalog/Product/ValueObjects/ProductView.php
@@ -1296,12 +1290,6 @@ parameters:
 
 		-
 			rawMessage: 'Method parseWrappedArrayToDomain() is 23 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Infrastructure/Shopwired/Clients/PriceUpdateClient.php
-
-		-
-			rawMessage: 'Method updatePrices() is 34 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Infrastructure/Shopwired/Clients/PriceUpdateClient.php

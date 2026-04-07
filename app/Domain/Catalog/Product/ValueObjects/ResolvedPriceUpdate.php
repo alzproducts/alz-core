@@ -61,21 +61,28 @@ final readonly class ResolvedPriceUpdate
     ): ProductRetailPricing {
         $effectiveBase = $command->price ?? $current->basePrice;
 
-        $effectiveSale = self::resolveSalePrice($command->salePrice, $current->salePrice);
+        $effectiveSale = self::resolveNullablePrice($command->salePrice, $current->salePrice);
+
+        $effectiveRrp = self::resolveNullablePrice($command->rrp, $current->rrp);
 
         return new ProductRetailPricing(
             basePrice: $effectiveBase,
             salePrice: $effectiveSale,
+            rrp: $effectiveRrp,
         );
     }
 
     /**
-     * Resolve sale price with zero-means-clear semantics.
+     * Resolve a nullable price field with zero-means-clear semantics.
      *
-     * @param Money|null $commanded Sale price from command (null = no change)
-     * @param Money|null $current Current sale price (null = no active sale)
+     * - null commanded → carry forward current value (no change requested)
+     * - zero commanded → clear the field (returns null)
+     * - non-zero commanded → use the commanded value
+     *
+     * @param Money|null $commanded Value from command (null = no change)
+     * @param Money|null $current Current value (null = not set)
      */
-    private static function resolveSalePrice(?Money $commanded, ?Money $current): ?Money
+    private static function resolveNullablePrice(?Money $commanded, ?Money $current): ?Money
     {
         if ($commanded === null) {
             return $current;

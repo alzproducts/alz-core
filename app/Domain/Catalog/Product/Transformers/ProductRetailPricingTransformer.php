@@ -25,8 +25,20 @@ final readonly class ProductRetailPricingTransformer
         $map = [];
 
         if ($product->sku !== null && $product->sku !== '') {
-            $map[$product->sku] = ProductRetailPricing::forMainProduct($product->price, $product->salePrice);
+            $map[$product->sku] = ProductRetailPricing::forMainProduct($product->price, $product->salePrice, $product->comparePrice);
         }
+
+        return $map + self::variationPricingMap($product);
+    }
+
+    /**
+     * Build pricing entries for all variations, skipping SKU-less ones.
+     *
+     * @return array<string, ProductRetailPricing>
+     */
+    private static function variationPricingMap(Product $product): array
+    {
+        $map = [];
 
         foreach ($product->variations ?? [] as $variation) {
             if ($variation->sku === null || $variation->sku === '') {

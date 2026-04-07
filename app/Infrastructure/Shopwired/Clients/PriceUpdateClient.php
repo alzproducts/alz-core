@@ -11,6 +11,7 @@ use App\Domain\Catalog\Product\ValueObjects\PriceUpdateItemResult;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Infrastructure\Shopwired\Contracts\ShopwiredTransportInterface;
+use App\Infrastructure\Shopwired\PoolPostResult;
 use App\Infrastructure\Shopwired\Responses\PriceUpdateItemResponse;
 use App\Infrastructure\Shopwired\ShopwiredRequestBuilderTrait;
 use App\Infrastructure\Shopwired\ShopwiredResponseParserTrait;
@@ -60,29 +61,62 @@ final readonly class PriceUpdateClient implements PriceUpdateClientInterface
         $requests = self::buildPoolRequests($batches, self::ENDPOINT_PRICES, self::formatBatchData(...));
         $poolResult = $this->transport->poolPost($requests);
 
+        return new PriceUpdateClientResult(
+            results: self::collectBatchResults($batches, $poolResult),
+            transportFailures: $poolResult->transportFailures,
+        );
+    }
+
+    /**
+     * Collect parsed per-item results from all successful batch responses.
+     *
+     * Batches missing from $poolResult->responses failed at transport level
+     * and are already captured in $poolResult->transportFailures — skip them.
+     *
+     * @param list<list<UpdatePriceCommand>> $batches
+     *
+     * @return list<PriceUpdateItemResult>
+     *
+     * @throws InvalidApiResponseException When response parsing fails
+     */
+    private static function collectBatchResults(array $batches, PoolPostResult $poolResult): array
+    {
         /** @var list<PriceUpdateItemResult> $results */
         $results = [];
 
-        foreach ($batches as $index => $batch) {
-            $key = "batch_{$index}";
+        foreach (\array_keys($batches) as $index) {
+            $batchResults = self::parseBatchResponse($index, $poolResult);
 
-            if (!\array_key_exists($key, $poolResult->responses)) {
-                continue; // This batch failed at transport level — captured in $poolResult->transportFailures
+            if ($batchResults !== null) {
+                \array_push($results, ...$batchResults);
             }
-
-            /** @var list<PriceUpdateItemResult> $batchResults */
-            $batchResults = self::parseArrayToDomain(
-                $poolResult->responses[$key]->json(),
-                PriceUpdateItemResponse::class,
-            );
-
-            \array_push($results, ...$batchResults);
         }
 
-        return new PriceUpdateClientResult(
-            results: $results,
-            transportFailures: $poolResult->transportFailures,
+        return $results;
+    }
+
+    /**
+     * Parse a single batch response. Returns null if the batch failed at transport level.
+     *
+     * @return list<PriceUpdateItemResult>|null
+     *
+     * @throws InvalidApiResponseException When response parsing fails
+     */
+    private static function parseBatchResponse(int $index, PoolPostResult $poolResult): ?array
+    {
+        $key = "batch_{$index}";
+
+        if (! \array_key_exists($key, $poolResult->responses)) {
+            return null;
+        }
+
+        /** @var list<PriceUpdateItemResult> $results */
+        $results = self::parseArrayToDomain(
+            $poolResult->responses[$key]->json(),
+            PriceUpdateItemResponse::class,
         );
+
+        return $results;
     }
 
     /**
@@ -118,6 +152,10 @@ final readonly class PriceUpdateClient implements PriceUpdateClientInterface
 
         if ($command->salePrice !== null) {
             $item['salePrice'] = $command->salePrice->toGross();
+        }
+
+        if ($command->rrp !== null) {
+            $item['comparePrice'] = $command->rrp->toGross();
         }
 
         return $item;
