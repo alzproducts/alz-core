@@ -136,7 +136,7 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
             modelClass: self::VIEW_MODEL_CLASS,
             column: 'external_id',
             value: $query->productId->value,
-            relations: self::relationsForIncludes($query->includes),
+            relations: \array_values(\array_unique(['variations', ...self::relationsForIncludes($query->includes)])),
             entityTypeName: 'Product',
             mapper: fn(ProductViewModel $model): ProductView => $this->viewMapper->toViewDomain($model, $query->includes),
         );
@@ -449,14 +449,18 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
     private static function relationsForIncludes(array $includes): array
     {
         $relations = [];
+        $has = static fn(ProductInclude $i): bool => \in_array($i, $includes, true);
 
-        if (\in_array(ProductInclude::Variations, $includes, true)) {
+        if ($has(ProductInclude::Variations)) {
             $relations[] = 'variations';
         }
 
-        if (\in_array(ProductInclude::Inventory, $includes, true)
-            || \in_array(ProductInclude::Stock, $includes, true)) {
+        if ($has(ProductInclude::Inventory) || $has(ProductInclude::Stock)) {
             $relations[] = 'stockItem';
+        }
+
+        if ($has(ProductInclude::Suppliers)) {
+            $relations[] = 'stockItem.suppliers';
         }
 
         return $relations;

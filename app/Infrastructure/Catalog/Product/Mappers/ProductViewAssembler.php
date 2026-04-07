@@ -22,9 +22,9 @@ use App\Domain\Exceptions\Data\MissingRequiredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\IntId;
-use App\Infrastructure\Catalog\Product\Factories\ProductSupplierFactory;
 use App\Infrastructure\Catalog\Product\Models\ProductVariationViewModel;
 use App\Infrastructure\Catalog\Product\Models\ProductViewModel;
+use App\Infrastructure\Linnworks\Models\StockItemSupplierModel;
 use App\Infrastructure\Shopwired\Factories\CustomFieldFactory;
 use App\Infrastructure\Shopwired\Factories\ProductFilterFactory;
 
@@ -42,7 +42,6 @@ final readonly class ProductViewAssembler
         private ProductFilterFactory $filterFactory,
         private ProductVariationModelMapper $variationMapper,
         private SaleSettingsRepositoryInterface $saleSettingsRepo,
-        private ProductSupplierFactory $supplierFactory,
     ) {}
 
     /**
@@ -74,7 +73,7 @@ final readonly class ProductViewAssembler
             price: $model->price,
             costPrice: $model->cost_price,
             salePrice: $model->sale_price,
-            comparePrice: $model->compare_price,
+            rrp: $model->compare_price,
             effectivePrice: $model->effective_price,
             isOnSale: $model->is_on_sale,
             profitMargin: $model->profit_margin,
@@ -93,7 +92,7 @@ final readonly class ProductViewAssembler
             updatedAt: $model->shopwired_updated_at->toDateTimeImmutable(),
             saleSettings: $this->resolveSaleSettings($model, $includes),
             freeDelivery: self::resolveFreeDelivery($typedCustomFields),
-            suppliers: $this->resolveSuppliers($model, $includes),
+            suppliers: self::resolveSuppliers($model, $includes),
             inventory: self::resolveInventory($model, $includes),
             stock: self::resolveStock($model, $includes),
         );
@@ -226,27 +225,24 @@ final readonly class ProductViewAssembler
     }
 
     /**
-     * Conditionally load supplier data via the lazy-loaded factory.
+     * Resolve supplier data from eager-loaded stockItem.suppliers relation.
      *
      * @param list<ProductInclude> $includes
      *
      * @return list<ProductSupplier>|null
-     *
-     * @throws DatabaseOperationFailedException
-     * @throws DuplicateRecordException
-     * @throws ExternalServiceUnavailableException
      */
-    private function resolveSuppliers(ProductViewModel $model, array $includes): ?array
+    private static function resolveSuppliers(ProductViewModel $model, array $includes): ?array
     {
-        if (! \in_array(ProductInclude::Suppliers, $includes, true)) {
+        if (! \in_array(ProductInclude::Suppliers, $includes, true)
+            || ! $model->relationLoaded('stockItem')
+            || $model->stockItem === null) {
             return null;
         }
 
-        if ($model->sku === null || $model->sku === '') {
-            return [];
-        }
-
-        return $this->supplierFactory->getByProductSku($model->sku);
+        return \array_values($model->stockItem->suppliers
+            ->sortByDesc('is_default')
+            ->map(static fn(StockItemSupplierModel $s): ProductSupplier => $s->toProductSupplier())
+            ->all());
     }
 
     /**

@@ -32,7 +32,8 @@ final class ProductDetailResource extends JsonResource
         $result = $this->resource;
 
         return ProductResource::baseFields($result->product)
-            + $this->conditionalIncludes($result);
+            + $this->conditionalIncludes($result)
+            + ['meta' => $result->product->meta->toArray()];
     }
 
     /**
@@ -52,9 +53,7 @@ final class ProductDetailResource extends JsonResource
     {
         $product = $result->product;
         $data = [];
-        if ($result->hasInclude(ProductInclude::Variations) && $product->variations !== null) {
-            $data['variations'] = ProductVariationResource::collection($product->variations);
-        }
+        $data['variations'] = ProductVariationResource::collection($product->variations ?? []);
         if ($result->hasInclude(ProductInclude::Description)) {
             $data['description'] = $product->description;
         }

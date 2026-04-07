@@ -36,7 +36,6 @@ final class ProductRetailPricingTransformerTest extends TestCase
         $map = ProductRetailPricingTransformer::fromProduct($product);
 
         self::assertSame(29.99, $map['MASTER-001']->basePrice->toGross());
-        self::assertNotNull($map['MASTER-001']->salePrice);
         self::assertSame(19.99, $map['MASTER-001']->salePrice->toGross());
     }
 
@@ -61,7 +60,6 @@ final class ProductRetailPricingTransformerTest extends TestCase
 
         // VAR-002: inherits parent price (null variation price), has sale
         self::assertSame(20.0, $map['VAR-002']->basePrice->toGross());
-        self::assertNotNull($map['VAR-002']->salePrice);
         self::assertSame(15.0, $map['VAR-002']->salePrice->toGross());
     }
 
@@ -94,6 +92,32 @@ final class ProductRetailPricingTransformerTest extends TestCase
     }
 
     // ========================================================================
+    // RRP mapping
+    // ========================================================================
+
+    #[Test]
+    public function master_product_compare_price_mapped_to_rrp(): void
+    {
+        $product = self::createProduct('MASTER-001', 29.99, null, comparePrice: 39.99);
+
+        $map = ProductRetailPricingTransformer::fromProduct($product);
+
+        self::assertSame(39.99, $map['MASTER-001']->rrp->toGross());
+    }
+
+    #[Test]
+    public function variation_rrp_is_always_null_regardless_of_master(): void
+    {
+        $product = self::createProduct('MASTER-001', 29.99, null, comparePrice: 39.99, variations: [
+            self::createVariation(1, 'VAR-001', 25.00, null),
+        ]);
+
+        $map = ProductRetailPricingTransformer::fromProduct($product);
+
+        self::assertNull($map['VAR-001']->rrp);
+    }
+
+    // ========================================================================
     // Factory Helpers
     // ========================================================================
 
@@ -105,6 +129,7 @@ final class ProductRetailPricingTransformerTest extends TestCase
         float $price,
         ?float $salePrice,
         array $variations = [],
+        ?float $comparePrice = null,
     ): Product {
         return new Product(
             id: 1,
@@ -117,7 +142,7 @@ final class ProductRetailPricingTransformerTest extends TestCase
             price: $price,
             costPrice: null,
             salePrice: $salePrice,
-            comparePrice: null,
+            comparePrice: $comparePrice,
             stock: 100,
             isActive: true,
             vatExclusive: false,

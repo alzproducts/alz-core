@@ -7,7 +7,6 @@ namespace App\Providers;
 use App\Application\Catalog\UseCases\UpdateBrandCustomFieldsUseCase;
 use App\Application\Catalog\UseCases\UpdateCategoryCustomFieldsUseCase;
 use App\Application\Catalog\UseCases\UpdateProductCustomFieldsUseCase;
-use App\Application\Contracts\Catalog\ProductSupplierLookupInterface;
 use App\Application\Contracts\Shopwired\BasicProductUpdateClientInterface;
 use App\Application\Contracts\Shopwired\BrandClientInterface;
 use App\Application\Contracts\Shopwired\BrandRepositoryInterface;
@@ -63,7 +62,6 @@ use App\Application\Shopwired\UseCases\Webhooks\UpdateOrderStatusUseCase;
 use App\Application\Shopwired\UseCases\Webhooks\UpdateProductStockUseCase;
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldItemType;
 use App\Domain\Exceptions\InvalidConfigurationException;
-use App\Infrastructure\Catalog\Product\Factories\ProductSupplierFactory;
 use App\Infrastructure\Catalog\Product\Mappers\ProductModelMapper;
 use App\Infrastructure\Catalog\Product\Mappers\ProductVariationModelMapper;
 use App\Infrastructure\Catalog\Product\Mappers\ProductViewAssembler;
@@ -226,8 +224,6 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
         $this->registerCustomFieldValueFactories();
         $this->registerCustomFieldFactories();
         $this->app->scoped(ProductFilterFactory::class);
-        $this->app->scoped(ProductSupplierFactory::class);
-        $this->app->bind(ProductSupplierLookupInterface::class, ProductSupplierFactory::class);
         $this->app->scoped(ProductVariationModelMapper::class);
         $this->app->scoped(ProductModelMapper::class);
         $this->app->scoped(ProductViewAssembler::class);
@@ -387,8 +383,6 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
             ProductIdentifierResolverInterface::class,
             ProductModelMapper::class,
             ProductRepositoryInterface::class,
-            ProductSupplierFactory::class,
-            ProductSupplierLookupInterface::class,
             ProductVariationModelMapper::class,
             ProductViewAssembler::class,
             ProductUpdateClientInterface::class,

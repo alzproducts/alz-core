@@ -101,6 +101,7 @@ final class PriceChangedValidatorTest extends TestCase
         self::assertStringContainsString('Prices unchanged', $result->reason());
         self::assertSame(20.0, $result->context()['base_gross']);
         self::assertSame(15.0, $result->context()['sale_gross']);
+        self::assertSame(0.0, $result->context()['rrp_gross']);
     }
 
     #[Test]
@@ -147,5 +148,43 @@ final class PriceChangedValidatorTest extends TestCase
 
         self::assertSame('', $result->reason());
         self::assertSame([], $result->context());
+    }
+
+    #[Test]
+    public function it_passes_when_only_rrp_differs(): void
+    {
+        $result = (new PriceChangedValidator(
+            proposed: new ProductRetailPricing(
+                basePrice: Money::inclusive(20.00),
+                rrp: Money::inclusive(30.00),
+            ),
+            current: new ProductRetailPricing(
+                basePrice: Money::inclusive(20.00),
+                rrp: null,
+            ),
+        ))->validate();
+
+        self::assertTrue($result->passed());
+    }
+
+    #[Test]
+    public function it_fails_when_all_three_fields_are_identical(): void
+    {
+        $result = (new PriceChangedValidator(
+            proposed: new ProductRetailPricing(
+                basePrice: Money::inclusive(20.00),
+                salePrice: Money::inclusive(15.00),
+                rrp: Money::inclusive(25.00),
+            ),
+            current: new ProductRetailPricing(
+                basePrice: Money::inclusive(20.00),
+                salePrice: Money::inclusive(15.00),
+                rrp: Money::inclusive(25.00),
+            ),
+        ))->validate();
+
+        self::assertTrue($result->failed());
+        self::assertStringContainsString('rrp £25.00', $result->reason());
+        self::assertSame(25.0, $result->context()['rrp_gross']);
     }
 }

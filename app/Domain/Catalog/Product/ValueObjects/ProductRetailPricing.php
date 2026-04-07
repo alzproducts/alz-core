@@ -24,10 +24,12 @@ final readonly class ProductRetailPricing
     /**
      * @param Money $basePrice Selling price (gross, tax-inclusive)
      * @param Money|null $salePrice Sale price (null = no sale active)
+     * @param Money|null $rrp Recommended Retail Price / "Was" price (null = not set)
      */
     public function __construct(
         public Money $basePrice,
         public ?Money $salePrice = null,
+        public ?Money $rrp = null,
     ) {}
 
     /**
@@ -35,12 +37,14 @@ final readonly class ProductRetailPricing
      *
      * @param float $price Base selling price (always set for master products)
      * @param float|null $salePrice Sale price (null = no sale)
+     * @param float|null $rrp Recommended Retail Price (null = not set)
      */
-    public static function forMainProduct(float $price, ?float $salePrice): self
+    public static function forMainProduct(float $price, ?float $salePrice, ?float $rrp = null): self
     {
         return new self(
             basePrice: Money::inclusive($price),
             salePrice: $salePrice !== null ? Money::inclusive($salePrice) : null,
+            rrp: $rrp !== null ? Money::inclusive($rrp) : null,
         );
     }
 
