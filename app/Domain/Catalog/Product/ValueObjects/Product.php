@@ -9,6 +9,7 @@ use App\Domain\Catalog\Filters\ValueObjects\ProductFilter;
 use App\Domain\Catalog\Product\Concerns\BasicProductTrait;
 use App\Domain\Catalog\Product\Contracts\BasicProductInterface;
 use App\Domain\Catalog\Product\Enums\SaleCustomField;
+use App\Domain\Catalog\Product\Exceptions\RequiredRelationNotLoadedException;
 use App\Infrastructure\Shopwired\Factories\ProductDomainFactory;
 use DateTimeImmutable;
 use Webmozart\Assert\Assert;
@@ -66,6 +67,7 @@ final readonly class Product implements BasicProductInterface
      * @param int|null $sortOrder ShopWired sort order (null = unknown/not fetched)
      * @param DateTimeImmutable $createdAt ShopWired creation timestamp
      * @param DateTimeImmutable $updatedAt ShopWired last update timestamp
+     * @param array<string, float|null>|null $skuRetailPrices Map of SKU → RRP (null = not loaded)
      */
     public function __construct(
         public int $id,
@@ -96,6 +98,7 @@ final readonly class Product implements BasicProductInterface
         public ?int $sortOrder,
         public DateTimeImmutable $createdAt,
         public DateTimeImmutable $updatedAt,
+        public ?array $skuRetailPrices = null,
     ) {
         Assert::greaterThan($id, 0, 'Product ID must be positive');
         Assert::notEmpty($title, 'Product title cannot be empty');
@@ -104,9 +107,6 @@ final readonly class Product implements BasicProductInterface
         // Note: Stock can be negative in ShopWired (e.g., backorders)
     }
 
-    /**
-     * Check if this product has variations.
-     */
     public function hasVariations(): bool
     {
         return $this->variations !== null && $this->variations !== [];
@@ -164,11 +164,7 @@ final readonly class Product implements BasicProductInterface
         return $this->totalStock();
     }
 
-    /**
-     * Get all SKUs owned by this product (master + variations).
-     *
-     * @return list<Sku>
-     */
+    /** @return list<Sku> */
     public function allSkus(): array
     {
         $skus = [];
@@ -186,25 +182,16 @@ final readonly class Product implements BasicProductInterface
         return $skus;
     }
 
-    /**
-     * Get the primary (first) image, if any.
-     */
     public function primaryImage(): ?ProductImage
     {
         return $this->images[0] ?? null;
     }
 
-    /**
-     * Check if product belongs to a specific category.
-     */
     public function isInCategory(int $categoryId): bool
     {
         return \in_array($categoryId, $this->categoryIds, true);
     }
 
-    /**
-     * Get a custom field value by name.
-     */
     public function getCustomField(string $name): ?AbstractCustomFieldValue
     {
         return \array_find(
@@ -213,9 +200,6 @@ final readonly class Product implements BasicProductInterface
         );
     }
 
-    /**
-     * Check if this product has a specific custom field.
-     */
     public function hasCustomField(string $name): bool
     {
         return $this->getCustomField($name) !== null;
@@ -256,9 +240,38 @@ final readonly class Product implements BasicProductInterface
         return $salePrice !== null && $salePrice > 0 && $salePrice < $price;
     }
 
-    /**
-     * Get a filter by its group title (e.g., "Size", "Colour").
-     */
+    /** @throws RequiredRelationNotLoadedException If variations not loaded */
+    public function hasSingleSellingPrice(): bool
+    {
+        if ($this->variations === null) {
+            throw new RequiredRelationNotLoadedException('variations', self::class);
+        }
+
+        if ($this->variations === []) {
+            return true;
+        }
+
+        return \array_all(
+            $this->variations,
+            fn(ProductVariation $v): bool => $v->price === null || $v->price === $this->price,
+        );
+    }
+
+    /** @throws RequiredRelationNotLoadedException If skuRetailPrices not loaded */
+    public function resolveHighestRrp(): ?float
+    {
+        if ($this->skuRetailPrices === null) {
+            throw new RequiredRelationNotLoadedException('skuRetailPrices', self::class);
+        }
+
+        $rrps = \array_filter(
+            $this->skuRetailPrices,
+            static fn(?float $rrp): bool => $rrp !== null,
+        );
+
+        return $rrps !== [] ? \max($rrps) : null;
+    }
+
     public function getFilter(string $title): ?ProductFilter
     {
         return \array_find(

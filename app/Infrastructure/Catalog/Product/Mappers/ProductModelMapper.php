@@ -13,6 +13,7 @@ use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Data\MissingRequiredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use App\Infrastructure\Catalog\Product\Models\ProductExtraDataModel;
 use App\Infrastructure\Catalog\Product\Models\ProductModel;
 use App\Infrastructure\Catalog\Product\Models\ProductVariationModel;
 use App\Infrastructure\Shopwired\Factories\CustomFieldFactory;
@@ -90,6 +91,7 @@ final class ProductModelMapper
             sortOrder: $model->sort_order,
             createdAt: $model->shopwired_created_at->toDateTimeImmutable(),
             updatedAt: $model->shopwired_updated_at->toDateTimeImmutable(),
+            skuRetailPrices: self::buildSkuRetailPrices($model),
         );
     }
 
@@ -201,6 +203,44 @@ final class ProductModelMapper
             'custom_fields' => $product->rawCustomFields,
             'filters' => $product->rawFilters,
         ];
+    }
+
+    /**
+     * Build SKU → RRP map from eager-loaded extraData relations.
+     *
+     * Returns null when extraData relations are not loaded (preserves
+     * the "not loaded" sentinel for RequiredRelationNotLoadedException).
+     *
+     * @return array<string, float|null>|null
+     */
+    private static function buildSkuRetailPrices(ProductModel $model): ?array
+    {
+        if (! $model->relationLoaded('extraData')) {
+            return null;
+        }
+
+        /** @var array<string, float|null> $map */
+        $map = [];
+
+        if ($model->sku !== null) {
+            $map[$model->sku] = self::extractRrp($model->extraData);
+        }
+
+        foreach ($model->variations as $variation) {
+            if ($variation->sku !== null && $variation->relationLoaded('extraData')) {
+                $map[$variation->sku] = self::extractRrp($variation->extraData);
+            }
+        }
+
+        return $map;
+    }
+
+    /**
+     * Extract nullable RRP float from an extraData model.
+     */
+    private static function extractRrp(?ProductExtraDataModel $extraData): ?float
+    {
+        return $extraData?->rrp;
     }
 
     /**

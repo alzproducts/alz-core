@@ -59,7 +59,7 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
     private const string VIEW_MODEL_CLASS = ProductViewModel::class;
 
     /** @var list<string> */
-    private const array EAGER_LOAD_RELATIONS = ['variations'];
+    private const array EAGER_LOAD_RELATIONS = ['variations', 'extraData', 'variations.extraData'];
 
     public function __construct(
         DatabaseGatewayInterface $gateway,
@@ -461,6 +461,10 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
 
         // Always load for default supplier derivation (also satisfies Suppliers include)
         $relations[] = 'stockItem.suppliers';
+
+        // Always load per-SKU extra data (RRP) for product and variations
+        $relations[] = 'extraData';
+        $relations[] = 'variations.extraData';
 
         return $relations;
     }

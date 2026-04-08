@@ -8,6 +8,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
  * Eloquent model for shopwired.products table.
@@ -101,5 +102,15 @@ final class ProductModel extends Model
     public function variations(): HasMany
     {
         return $this->hasMany(ProductVariationModel::class, 'product_id', 'id');
+    }
+
+    /**
+     * Get the product's extra data (RRP, etc.) matched by SKU.
+     *
+     * @return HasOne<ProductExtraDataModel, $this>
+     */
+    public function extraData(): HasOne
+    {
+        return $this->hasOne(ProductExtraDataModel::class, 'sku', 'sku');
     }
 }

@@ -70,7 +70,7 @@ final readonly class ProductView
      * @param float $price Selling price
      * @param float|null $costPrice Cost price from Linnworks (null = unknown)
      * @param float|null $salePrice Discounted price (null = no sale)
-     * @param float|null $rrp RRP / "Was" price (mapped from SQL view column `compare_price`)
+     * @param float|null $rrp RRP / "Was" price from per-SKU extra data
      * @param float $effectivePrice Selling price after sale logic
      * @param bool $isOnSale Whether this product is currently on sale (from view)
      * @param float|null $profitMargin Retail profit margin % (from view, null when cost unknown)

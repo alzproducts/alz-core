@@ -10,7 +10,7 @@ use DateTimeImmutable;
 /**
  * Transient snapshot of sale context captured at removal time.
  *
- * Created in UpdateProductPricesUseCase before the DB row is deleted,
+ * Created in UpdateProductSellingPricesUseCase before the DB row is deleted,
  * threaded through ProductPricingUpdatedEvent to the Slack listener.
  * Not persisted — carries just enough context for the removal notification.
  */

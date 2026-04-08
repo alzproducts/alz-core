@@ -70,4 +70,26 @@ final readonly class Sku
     {
         return $this->value === $other->value;
     }
+
+    /**
+     * Deduplicate a list of SKUs by value, preserving first occurrence order.
+     *
+     * @param list<self> $skus
+     *
+     * @return list<self>
+     */
+    public static function deduplicate(array $skus): array
+    {
+        $seen = [];
+        $result = [];
+
+        foreach ($skus as $sku) {
+            if (! isset($seen[$sku->value])) {
+                $seen[$sku->value] = true;
+                $result[] = $sku;
+            }
+        }
+
+        return $result;
+    }
 }

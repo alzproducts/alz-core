@@ -154,10 +154,6 @@ final readonly class PriceUpdateClient implements PriceUpdateClientInterface
             $item['salePrice'] = $command->salePrice->toGross();
         }
 
-        if ($command->rrp !== null) {
-            $item['comparePrice'] = $command->rrp->toGross();
-        }
-
         return $item;
     }
 }

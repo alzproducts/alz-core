@@ -74,4 +74,27 @@ final readonly class PriceUpdateResult
     {
         return $this->succeeded > 0 && $this->hasFailures();
     }
+
+    /**
+     * Merge results from selling and retail price paths.
+     *
+     * Either or both may be null (path was skipped).
+     */
+    public static function merge(?self $a, ?self $b): self
+    {
+        if ($a === null) {
+            return $b ?? new self(total: 0, succeeded: 0);
+        }
+        if ($b === null) {
+            return $a;
+        }
+
+        return new self(
+            total: $a->total + $b->total,
+            succeeded: $a->succeeded + $b->succeeded,
+            skipped: [...$a->skipped, ...$b->skipped],
+            permanentFailures: [...$a->permanentFailures, ...$b->permanentFailures],
+            temporaryFailures: [...$a->temporaryFailures, ...$b->temporaryFailures],
+        );
+    }
 }
