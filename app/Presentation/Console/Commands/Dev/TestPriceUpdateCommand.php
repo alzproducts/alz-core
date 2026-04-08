@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Presentation\Console\Commands\Dev;
 
 use App\Application\Shopwired\PricingUpdate\Results\PriceUpdateResult;
-use App\Application\Shopwired\PricingUpdate\UseCases\UpdateProductPricesUseCase;
+use App\Application\Shopwired\PricingUpdate\UseCases\UpdateProductSellingPricesUseCase;
 use App\Domain\Catalog\Product\Commands\UpdatePriceCommand;
 use App\Domain\Catalog\Product\ValueObjects\SaleSettings;
 use App\Domain\Catalog\Product\ValueObjects\Sku;
@@ -18,7 +18,7 @@ use Throwable;
 /**
  * Test price update flow against the configured test product.
  *
- * Calls UpdateProductPricesUseCase directly, triggering all downstream
+ * Calls UpdateProductSellingPricesUseCase directly, triggering all downstream
  * listeners (sale detection, Linnworks EPs, Slack notifications).
  */
 final class TestPriceUpdateCommand extends Command
@@ -34,7 +34,7 @@ final class TestPriceUpdateCommand extends Command
      * Dependencies resolved in handle() to avoid eager resolution during
      * artisan command discovery (which would require API keys in CI).
      */
-    public function handle(UpdateProductPricesUseCase $useCase): int
+    public function handle(UpdateProductSellingPricesUseCase $useCase): int
     {
         $salePrice = (float) $this->argument('sale-price');
         if ($salePrice <= 0) {
@@ -73,7 +73,7 @@ final class TestPriceUpdateCommand extends Command
         );
     }
 
-    private function executePriceUpdate(UpdateProductPricesUseCase $useCase, Sku $sku, float $salePrice, SaleSettings $saleSettings): int
+    private function executePriceUpdate(UpdateProductSellingPricesUseCase $useCase, Sku $sku, float $salePrice, SaleSettings $saleSettings): int
     {
         try {
             $result = $useCase->execute(

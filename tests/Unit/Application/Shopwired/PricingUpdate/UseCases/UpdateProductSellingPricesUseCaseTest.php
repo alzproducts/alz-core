@@ -9,7 +9,7 @@ use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Application\Contracts\Shopwired\SaleReconciliationDispatcherInterface;
 use App\Application\Contracts\Shopwired\SaleSettingsRepositoryInterface;
 use App\Application\Shopwired\PricingUpdate\Results\PriceUpdateClientResult;
-use App\Application\Shopwired\PricingUpdate\UseCases\UpdateProductPricesUseCase;
+use App\Application\Shopwired\PricingUpdate\UseCases\UpdateProductSellingPricesUseCase;
 use App\Application\Shopwired\Services\ProductSyncService;
 use App\Domain\Catalog\Product\Commands\UpdatePriceCommand;
 use App\Domain\Catalog\Product\Events\ProductPricingUpdatedEvent;
@@ -32,13 +32,13 @@ use Psr\Log\LoggerInterface;
 use Tests\TestCase;
 
 /**
- * Tests for UpdateProductPricesUseCase orchestration logic.
+ * Tests for UpdateProductSellingPricesUseCase orchestration logic.
  *
  * Per TestingStrategy.md: Test workflow branches (pre-flight filtering,
  * API classification, event dispatch conditions), not internal data transformation.
  */
-#[CoversClass(UpdateProductPricesUseCase::class)]
-final class UpdateProductPricesUseCaseTest extends TestCase
+#[CoversClass(UpdateProductSellingPricesUseCase::class)]
+final class UpdateProductSellingPricesUseCaseTest extends TestCase
 {
     private PriceUpdateClientInterface&MockInterface $priceClient;
 
@@ -52,7 +52,7 @@ final class UpdateProductPricesUseCaseTest extends TestCase
 
     private SaleSettingsRepositoryInterface&MockInterface $saleSettingsRepo;
 
-    private UpdateProductPricesUseCase $useCase;
+    private UpdateProductSellingPricesUseCase $useCase;
 
     #[Override]
     protected function setUp(): void
@@ -71,7 +71,7 @@ final class UpdateProductPricesUseCaseTest extends TestCase
         $this->saleSettingsRepo = Mockery::mock(SaleSettingsRepositoryInterface::class)->shouldIgnoreMissing();
         $this->logger = Mockery::mock(LoggerInterface::class)->shouldIgnoreMissing();
 
-        $this->useCase = new UpdateProductPricesUseCase(
+        $this->useCase = new UpdateProductSellingPricesUseCase(
             priceClient: $this->priceClient,
             productRepo: $this->productRepo,
             productSyncService: $this->productSyncService,

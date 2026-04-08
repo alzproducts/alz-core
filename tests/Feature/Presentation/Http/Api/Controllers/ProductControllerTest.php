@@ -878,6 +878,7 @@ final class ProductControllerTest extends TestCase
             price: 5.99,
             costPrice: 2.50,
             salePrice: null,
+            rrp: null,
             effectivePrice: 5.99,
             isOnSale: false,
             profitMargin: 58.26,

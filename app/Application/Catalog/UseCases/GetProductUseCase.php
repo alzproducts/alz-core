@@ -16,7 +16,7 @@ use Psr\Log\LoggerInterface;
 /**
  * Get a single product by external ID with conditional includes.
  *
- * @see ProductRepositoryInterface::findProductForApi()
+ * @see ProductRepositoryInterface::findProductView()
  */
 final readonly class GetProductUseCase
 {
@@ -39,7 +39,7 @@ final readonly class GetProductUseCase
             'includes' => $query->includes,
         ]);
 
-        $product = $this->productRepository->findProductForApi($query);
+        $product = $this->productRepository->findProductView($query);
 
         $this->logger->info('Got product', [
             'product_id' => $query->productId->value,

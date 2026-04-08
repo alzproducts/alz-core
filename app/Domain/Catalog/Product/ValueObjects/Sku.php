@@ -70,4 +70,5 @@ final readonly class Sku
     {
         return $this->value === $other->value;
     }
+
 }

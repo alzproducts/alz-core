@@ -135,6 +135,7 @@ final class ProductVariationViewTest extends TestCase
             price: $price,
             costPrice: $costPrice,
             salePrice: $salePrice,
+            rrp: null,
             effectivePrice: $effectivePrice,
             isOnSale: $isOnSale,
             profitMargin: $profitMargin,

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Application\Shopwired\SaleManagement\UseCases;
 
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
-use App\Application\Shopwired\PricingUpdate\UseCases\UpdateProductPricesUseCase;
+use App\Application\Shopwired\PricingUpdate\UseCases\UpdateProductSellingPricesUseCase;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\CustomFields\ValueObjects\StringCustomFieldValue;
 use App\Domain\Catalog\Product\Commands\UpdatePriceCommand;
@@ -35,7 +35,7 @@ use Psr\Log\LoggerInterface;
  * 3. Out of stock + discontinued
  * 4. Sale units sold (stock <= threshold)
  *
- * For each match, calls UpdateProductPricesUseCase with salePrice=0 and
+ * For each match, calls UpdateProductSellingPricesUseCase with salePrice=0 and
  * the appropriate SaleRemovalReason. The standard event chain handles
  * all downstream side-effects (ShopWired, Linnworks, Slack).
  */
@@ -43,7 +43,7 @@ final readonly class CheckExpiredSalesUseCase
 {
     public function __construct(
         private ProductRepositoryInterface $productRepository,
-        private UpdateProductPricesUseCase $updatePricesUseCase,
+        private UpdateProductSellingPricesUseCase $updatePricesUseCase,
         private LoggerInterface $logger,
     ) {}
 

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Application\Shopwired\SaleManagement\UseCases;
 
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
-use App\Application\Shopwired\PricingUpdate\UseCases\UpdateProductPricesUseCase;
+use App\Application\Shopwired\PricingUpdate\UseCases\UpdateProductSellingPricesUseCase;
 use App\Application\Shopwired\SaleManagement\UseCases\CheckExpiredSalesUseCase;
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldItemType;
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldType;
@@ -30,7 +30,7 @@ final class CheckExpiredSalesUseCaseTest extends TestCase
 {
     private ProductRepositoryInterface&MockInterface $productRepo;
 
-    private UpdateProductPricesUseCase&MockInterface $updatePricesUseCase;
+    private UpdateProductSellingPricesUseCase&MockInterface $updatePricesUseCase;
 
     private LoggerInterface&MockInterface $logger;
 
@@ -42,7 +42,7 @@ final class CheckExpiredSalesUseCaseTest extends TestCase
         parent::setUp();
 
         $this->productRepo = Mockery::mock(ProductRepositoryInterface::class);
-        $this->updatePricesUseCase = Mockery::mock(UpdateProductPricesUseCase::class);
+        $this->updatePricesUseCase = Mockery::mock(UpdateProductSellingPricesUseCase::class);
         $this->logger = Mockery::mock(LoggerInterface::class)->shouldIgnoreMissing();
 
         $this->useCase = new CheckExpiredSalesUseCase(

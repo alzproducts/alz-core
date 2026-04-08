@@ -103,6 +103,7 @@ final class ProductViewMetaTest extends TestCase
             price: $price,
             costPrice: null,
             salePrice: $salePrice,
+            rrp: null,
             effectivePrice: $salePrice !== null && $salePrice > 0 ? $salePrice : $price,
             isOnSale: $salePrice !== null && $salePrice > 0,
             profitMargin: null,
