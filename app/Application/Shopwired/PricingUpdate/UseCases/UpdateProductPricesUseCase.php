@@ -61,7 +61,7 @@ final readonly class UpdateProductPricesUseCase
         $result = PriceUpdateResult::merge(
             $sellingCommands !== [] ? $this->sellingPricesUseCase->execute($sellingCommands, $saleSettings) : null,
             $rrpCommands !== [] ? $this->executeRetailPrices($productId, $rrpCommands) : null,
-        );
+        )->withTotal(\count($skuUpdates));
 
         $this->logger->info('Price update orchestration completed', [
             'product_id' => $productId->value, 'selling_commands' => \count($sellingCommands),

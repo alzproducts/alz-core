@@ -79,6 +79,14 @@ final readonly class PriceUpdateResult
     }
 
     /**
+     * Return a copy with the total overridden (e.g. to reflect unique SKU count).
+     */
+    public function withTotal(int $total): self
+    {
+        return new self($total, $this->succeeded, $this->skipped, $this->permanentFailures, $this->temporaryFailures);
+    }
+
+    /**
      * Merge results from selling and retail price paths.
      *
      * Either or both may be null (path was skipped).
