@@ -500,7 +500,7 @@ parameters:
 			path: app/Domain/Catalog/Product/ValueObjects/Gtin.php
 
 		-
-			rawMessage: 'Method __construct() is 36 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			rawMessage: 'Method __construct() is 35 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Domain/Catalog/Product/ValueObjects/Product.php
@@ -1511,7 +1511,7 @@ parameters:
 			path: app/Infrastructure/Shopwired/Repositories/EloquentOrderRepository.php
 
 		-
-			rawMessage: 'Class EloquentProductRepository is 856 lines long — exceeds the 250-line limit. Consider decomposing into smaller, focused classes.'
+			rawMessage: 'Class EloquentProductRepository is 860 lines long — exceeds the 250-line limit. Consider decomposing into smaller, focused classes.'
 			identifier: alz.excessiveClassLength
 			count: 1
 			path: app/Infrastructure/Shopwired/Repositories/EloquentProductRepository.php

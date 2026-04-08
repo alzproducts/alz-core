@@ -186,7 +186,7 @@ final class GetProductCustomFieldsUseCaseTest extends TestCase
         $product->customFields = $customFields;
 
         $this->productRepository
-            ->shouldReceive('findProductForApi')
+            ->shouldReceive('findProductView')
             ->once()
             ->with(Mockery::on(static fn(ProductDetailQueryParams $q): bool => $q->productId->value === 42 && $q->includes === [ProductInclude::CustomFields]))
             ->andReturn($product);

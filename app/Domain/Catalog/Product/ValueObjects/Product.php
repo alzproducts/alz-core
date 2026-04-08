@@ -9,7 +9,6 @@ use App\Domain\Catalog\Filters\ValueObjects\ProductFilter;
 use App\Domain\Catalog\Product\Concerns\BasicProductTrait;
 use App\Domain\Catalog\Product\Contracts\BasicProductInterface;
 use App\Domain\Catalog\Product\Enums\SaleCustomField;
-use App\Domain\Catalog\Product\Exceptions\RequiredRelationNotLoadedException;
 use App\Infrastructure\Shopwired\Factories\ProductDomainFactory;
 use DateTimeImmutable;
 use Webmozart\Assert\Assert;
@@ -67,7 +66,6 @@ final readonly class Product implements BasicProductInterface
      * @param int|null $sortOrder ShopWired sort order (null = unknown/not fetched)
      * @param DateTimeImmutable $createdAt ShopWired creation timestamp
      * @param DateTimeImmutable $updatedAt ShopWired last update timestamp
-     * @param array<string, float|null>|null $skuRetailPrices Map of SKU → RRP (null = not loaded)
      */
     public function __construct(
         public int $id,
@@ -98,7 +96,6 @@ final readonly class Product implements BasicProductInterface
         public ?int $sortOrder,
         public DateTimeImmutable $createdAt,
         public DateTimeImmutable $updatedAt,
-        public ?array $skuRetailPrices = null,
     ) {
         Assert::greaterThan($id, 0, 'Product ID must be positive');
         Assert::notEmpty($title, 'Product title cannot be empty');
@@ -238,38 +235,6 @@ final readonly class Product implements BasicProductInterface
     public static function isSaleActive(?float $salePrice, float $price): bool
     {
         return $salePrice !== null && $salePrice > 0 && $salePrice < $price;
-    }
-
-    /** @throws RequiredRelationNotLoadedException If variations not loaded */
-    public function hasSingleSellingPrice(): bool
-    {
-        if ($this->variations === null) {
-            throw new RequiredRelationNotLoadedException('variations', self::class);
-        }
-
-        if ($this->variations === []) {
-            return true;
-        }
-
-        return \array_all(
-            $this->variations,
-            fn(ProductVariation $v): bool => $v->price === null || $v->price === $this->price,
-        );
-    }
-
-    /** @throws RequiredRelationNotLoadedException If skuRetailPrices not loaded */
-    public function resolveHighestRrp(): ?float
-    {
-        if ($this->skuRetailPrices === null) {
-            throw new RequiredRelationNotLoadedException('skuRetailPrices', self::class);
-        }
-
-        $rrps = \array_filter(
-            $this->skuRetailPrices,
-            static fn(?float $rrp): bool => $rrp !== null,
-        );
-
-        return $rrps !== [] ? \max($rrps) : null;
     }
 
     public function getFilter(string $title): ?ProductFilter

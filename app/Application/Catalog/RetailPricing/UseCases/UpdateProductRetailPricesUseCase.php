@@ -5,38 +5,36 @@ declare(strict_types=1);
 namespace App\Application\Catalog\RetailPricing\UseCases;
 
 use App\Application\Contracts\Catalog\ProductExtraDataRepositoryInterface;
-use App\Application\Shopwired\PricingUpdate\Results\FailedPriceUpdateResult;
+use App\Application\Contracts\Shopwired\ShopwiredSyncDispatcherInterface;
 use App\Application\Shopwired\PricingUpdate\Results\PriceUpdateResult;
-use App\Application\Shopwired\PricingUpdate\UseCases\ReconcileShopwiredComparePriceUseCase;
 use App\Domain\Catalog\Product\Commands\UpdateRetailPriceCommand;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
-use App\Domain\Shared\Money\ValueObjects\Money;
 use App\Domain\ValueObjects\IntId;
 use Psr\Log\LoggerInterface;
-use Throwable;
 
 /**
- * Write per-SKU RRP to the database and trigger ShopWired reconciliation.
+ * Write per-SKU RRP to the database and dispatch ShopWired reconciliation.
  *
- * For each command:
- * - Money::inclusive(0) = clear RRP (set to null in DB)
- * - Any other value = set RRP
- *
- * After all DB writes, reconciliation is called best-effort (failures are logged, not thrown).
+ * Uses a single bulk upsert — if it fails, all SKUs in the batch fail together.
+ * After a successful write, reconciliation is dispatched as a job for proper retry semantics.
  */
 final readonly class UpdateProductRetailPricesUseCase
 {
     public function __construct(
         private ProductExtraDataRepositoryInterface $extraDataRepo,
-        private ReconcileShopwiredComparePriceUseCase $reconcileUseCase,
+        private ShopwiredSyncDispatcherInterface $syncDispatcher,
         private LoggerInterface $logger,
     ) {}
 
     /**
      * @param IntId $productId The product these SKUs belong to
      * @param list<UpdateRetailPriceCommand> $commands Per-SKU RRP updates
+     *
+     * @throws DatabaseOperationFailedException When bulk upsert fails
+     * @throws DuplicateRecordException On constraint violation
+     * @throws ExternalServiceUnavailableException When database unavailable
      */
     public function execute(IntId $productId, array $commands): PriceUpdateResult
     {
@@ -44,67 +42,18 @@ final readonly class UpdateProductRetailPricesUseCase
             return new PriceUpdateResult(total: 0, succeeded: 0);
         }
 
-        [$succeeded, $failures] = $this->writeRrpPerSku($commands);
-
-        if ($succeeded > 0) {
-            $this->reconcileBestEffort($productId);
-        }
-
-        return $this->buildResult($productId, \count($commands), $succeeded, $failures);
-    }
-
-    /**
-     * @param list<FailedPriceUpdateResult> $failures
-     */
-    private function buildResult(IntId $productId, int $total, int $succeeded, array $failures): PriceUpdateResult
-    {
-        $this->logger->info('Retail price update completed', [
-            'product_id' => $productId->value,
-            'total' => $total,
-            'succeeded' => $succeeded,
-            'failures' => \count($failures),
+        $count = \count($commands);
+        $this->logger->info('Starting retail price update', [
+            'product_id' => $productId->value, 'command_count' => $count,
         ]);
 
-        return new PriceUpdateResult(
-            total: $total,
-            succeeded: $succeeded,
-            permanentFailures: $failures,
-        );
-    }
+        $this->extraDataRepo->upsertRrpBulk($commands);
+        $this->syncDispatcher->dispatchReconcileComparePrice($productId);
 
-    /**
-     * @param list<UpdateRetailPriceCommand> $commands
-     *
-     * @return array{int, list<FailedPriceUpdateResult>}
-     */
-    private function writeRrpPerSku(array $commands): array
-    {
-        $succeeded = 0;
-        /** @var list<FailedPriceUpdateResult> $failures */
-        $failures = [];
+        $this->logger->info('Retail price update completed', [
+            'product_id' => $productId->value, 'succeeded' => $count,
+        ]);
 
-        foreach ($commands as $command) {
-            $resolvedRrp = $command->rrp->isZero() ? null : $command->rrp;
-            try {
-                $this->extraDataRepo->upsertRrp($command->sku, $resolvedRrp);
-                $succeeded++;
-            } catch (DatabaseOperationFailedException|DuplicateRecordException|ExternalServiceUnavailableException $e) {
-                $failures[] = new FailedPriceUpdateResult(sku: $command->sku, error: $e->getMessage());
-            }
-        }
-
-        return [$succeeded, $failures];
-    }
-
-    private function reconcileBestEffort(IntId $productId): void
-    {
-        try {
-            $this->reconcileUseCase->execute($productId);
-        } catch (Throwable $e) { // @ignoreException — reconciliation is best-effort
-            $this->logger->warning('ShopWired comparePrice reconciliation failed (non-blocking)', [
-                'product_id' => $productId->value,
-                'exception' => $e->getMessage(),
-            ]);
-        }
+        return new PriceUpdateResult(total: $count, succeeded: $count);
     }
 }

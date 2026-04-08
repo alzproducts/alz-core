@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 namespace App\Application\Shopwired\PricingUpdate\UseCases;
 
+use App\Application\Catalog\Queries\ProductDetailQueryParams;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Application\Contracts\Shopwired\ProductUpdateClientInterface;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
-use App\Domain\Catalog\Product\Exceptions\RequiredRelationNotLoadedException;
+use App\Domain\Catalog\Product\Enums\ProductInclude;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
@@ -27,7 +28,8 @@ use Psr\Log\LoggerInterface;
  * - Non-uniform prices → clear comparePrice (null/0)
  * - No RRP data → clear comparePrice
  *
- * Only updates ShopWired when the target differs from the current value.
+ * Always sends the computed value to ShopWired — the local compare_price column
+ * is stale (updated by product sync, not by our PUT), so no-op detection is unreliable.
  */
 final readonly class ReconcileShopwiredComparePriceUseCase
 {
@@ -47,40 +49,24 @@ final readonly class ReconcileShopwiredComparePriceUseCase
      * @throws DuplicateRecordException On constraint violation
      * @throws InvalidCustomFieldValueException When custom field mapping fails
      * @throws MissingRequiredDataException When custom field definitions empty
-     * @throws RequiredRelationNotLoadedException When required relations not loaded (programming error)
      */
     public function execute(IntId $productId): void
     {
-        $product = $this->productRepo->getProduct($productId);
+        $this->logger->info('Starting ShopWired comparePrice reconciliation', [
+            'product_id' => $productId->value,
+        ]);
 
-        $targetComparePrice = $product->hasSingleSellingPrice()
-            ? $product->resolveHighestRrp()
+        $productView = $this->productRepo->findProductView(
+            new ProductDetailQueryParams($productId, [ProductInclude::Variations]),
+        );
+
+        $target = $productView->hasSingleSellingPrice()
+            ? $productView->resolveHighestRrp()?->toGross()
             : null;
 
-        if (self::comparePricesEqual($targetComparePrice, $product->comparePrice)) {
-            return;
-        }
-
-        $this->productUpdateClient->updateComparePrice($product->id, $targetComparePrice);
-
+        $this->productUpdateClient->updateComparePrice($productView->id->value, $target);
         $this->logger->info('Reconciled ShopWired comparePrice', [
-            'product_id' => $product->id,
-            'previous' => $product->comparePrice,
-            'new' => $targetComparePrice,
+            'product_id' => $productView->id->value, 'new' => $target,
         ]);
-    }
-
-    /** Floating-point-safe comparison — both null means equal, otherwise within 0.001. */
-    private static function comparePricesEqual(?float $a, ?float $b): bool
-    {
-        if ($a === null && $b === null) {
-            return true;
-        }
-
-        if ($a === null || $b === null) {
-            return false;
-        }
-
-        return \abs($a - $b) < 0.001;
     }
 }

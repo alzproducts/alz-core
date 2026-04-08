@@ -7,6 +7,7 @@ namespace App\Infrastructure\Shopwired\Dispatchers;
 use App\Application\Contracts\Shopwired\ShopwiredSyncDispatcherInterface;
 use App\Domain\Catalog\Product\Commands\SetFreeDeliveryCommand;
 use App\Domain\ValueObjects\IntId;
+use App\Infrastructure\Jobs\Shopwired\ReconcileShopwiredComparePriceJob;
 use App\Infrastructure\Jobs\Shopwired\SetProductFreeDeliveryJob;
 use App\Infrastructure\Jobs\Shopwired\SyncShopwiredBrandJob;
 use App\Infrastructure\Jobs\Shopwired\SyncShopwiredCategoryJob;
@@ -64,5 +65,11 @@ final readonly class QueuedShopwiredSyncDispatcher implements ShopwiredSyncDispa
     public function dispatchFreeDeliveryUpdate(SetFreeDeliveryCommand $command): void
     {
         SetProductFreeDeliveryJob::dispatch($command);
+    }
+
+    #[Override]
+    public function dispatchReconcileComparePrice(IntId $productId): void
+    {
+        ReconcileShopwiredComparePriceJob::dispatch($productId);
     }
 }

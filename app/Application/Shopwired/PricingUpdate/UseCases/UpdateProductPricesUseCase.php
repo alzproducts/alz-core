@@ -52,20 +52,20 @@ final readonly class UpdateProductPricesUseCase
         array $skuUpdates,
         ?SaleSettings $saleSettings = null,
     ): PriceUpdateResult {
-        [$sellingCommands, $rrpCommands] = self::partitionCommands($skuUpdates);
+        $this->logger->info('Starting price update orchestration', [
+            'product_id' => $productId->value, 'command_count' => \count($skuUpdates),
+        ]);
 
+        [$sellingCommands, $rrpCommands] = self::partitionCommands($skuUpdates);
         $result = PriceUpdateResult::merge(
             $sellingCommands !== [] ? $this->sellingPricesUseCase->execute($sellingCommands, $saleSettings) : null,
             $rrpCommands !== [] ? $this->retailPricesUseCase->execute($productId, $rrpCommands) : null,
         );
 
         $this->logger->info('Price update orchestration completed', [
-            'product_id' => $productId->value,
-            'selling_commands' => \count($sellingCommands),
-            'rrp_commands' => \count($rrpCommands),
-            'succeeded' => $result->succeeded,
+            'product_id' => $productId->value, 'selling_commands' => \count($sellingCommands),
+            'rrp_commands' => \count($rrpCommands), 'succeeded' => $result->succeeded,
         ]);
-
         return $result;
     }
 

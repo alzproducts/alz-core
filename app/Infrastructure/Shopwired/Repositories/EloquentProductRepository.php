@@ -59,7 +59,7 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
     private const string VIEW_MODEL_CLASS = ProductViewModel::class;
 
     /** @var list<string> */
-    private const array EAGER_LOAD_RELATIONS = ['variations', 'extraData', 'variations.extraData'];
+    private const array EAGER_LOAD_RELATIONS = ['variations'];
 
     public function __construct(
         DatabaseGatewayInterface $gateway,
@@ -130,7 +130,7 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      */
-    public function findProductForApi(ProductDetailQueryParams $query): ProductView
+    public function findProductView(ProductDetailQueryParams $query): ProductView
     {
         return $this->eloquentGateway->findOrFail(
             modelClass: self::VIEW_MODEL_CLASS,
@@ -462,9 +462,13 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
         // Always load for default supplier derivation (also satisfies Suppliers include)
         $relations[] = 'stockItem.suppliers';
 
-        // Always load per-SKU extra data (RRP) for product and variations
+        // Always load product-level extra data (RRP for API response)
         $relations[] = 'extraData';
-        $relations[] = 'variations.extraData';
+
+        // Load variation extra data only when variations are included
+        if ($has(ProductInclude::Variations)) {
+            $relations[] = 'variations.extraData';
+        }
 
         return $relations;
     }

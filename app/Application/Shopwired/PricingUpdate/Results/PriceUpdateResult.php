@@ -24,8 +24,11 @@ final readonly class PriceUpdateResult
     public function __construct(
         public int $total,
         public int $succeeded,
+        /** @var list<SkippedPriceUpdateResult> */
         public array $skipped = [],
+        /** @var list<FailedPriceUpdateResult> */
         public array $permanentFailures = [],
+        /** @var list<FailedPriceUpdateResult> */
         public array $temporaryFailures = [],
     ) {}
 

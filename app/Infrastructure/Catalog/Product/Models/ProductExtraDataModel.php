@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Catalog\Product\Models;
 
+use App\Domain\Catalog\Product\Commands\UpdateRetailPriceCommand;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
@@ -30,6 +31,19 @@ final class ProductExtraDataModel extends Model
     public $incrementing = false;
 
     protected $keyType = 'string';
+
+    /**
+     * Convert a domain command to model attributes for bulk upsert.
+     *
+     * @return array{sku: string, rrp: float|null}
+     */
+    public static function attributesFromDomain(UpdateRetailPriceCommand $command): array
+    {
+        return [
+            'sku' => $command->sku->value,
+            'rrp' => $command->rrp->isZero() ? null : $command->rrp->toGross(),
+        ];
+    }
 
     /**
      * @return array<string, string>
