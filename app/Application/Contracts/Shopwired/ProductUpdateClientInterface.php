@@ -38,6 +38,22 @@ interface ProductUpdateClientInterface
     public function updateCustomFields(int $productId, array $customFields): void;
 
     /**
+     * Update or clear the comparePrice (RRP) on a ShopWired product.
+     *
+     * Uses PUT products/{id} — the only endpoint that supports comparePrice.
+     * Sends 0 to clear (null is not supported by ShopWired PUT).
+     *
+     * @param int $productId ShopWired product external ID
+     * @param float|null $comparePrice New comparePrice (null = clear)
+     *
+     * @throws ResourceNotAvailableException When product not found (404)
+     * @throws InvalidApiRequestException When request parameters are invalid (400)
+     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
+     * @throws ExternalServiceUnavailableException When API unavailable or connection fails
+     */
+    public function updateComparePrice(int $productId, ?float $comparePrice): void;
+
+    /**
      * Update filters on a product.
      *
      * Fetches current product, merges new filter values with existing filters,

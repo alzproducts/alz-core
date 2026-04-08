@@ -42,10 +42,10 @@ interface ProductRepositoryInterface extends RepositoryWriteInterface
     public function paginate(ProductListQueryParams $query): PaginatedListDTO;
 
     /**
-     * Find a product by external ID with conditional includes for the API.
+     * Find a product view by external ID with conditional includes.
      *
-     * Follows the same pattern as paginate() — includes control what's loaded.
-     * Unloaded relations/enrichments are null on the Product VO.
+     * Returns the read-only API projection with requested embeds loaded.
+     * Unloaded relations/enrichments are null on the ProductView VO.
      *
      * @throws ResourceNotFoundException When no product matches the ID
      * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
@@ -53,7 +53,7 @@ interface ProductRepositoryInterface extends RepositoryWriteInterface
      * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      */
-    public function findProductForApi(ProductDetailQueryParams $query): ProductView;
+    public function findProductView(ProductDetailQueryParams $query): ProductView;
 
     /**
      * Get all product external IDs stored locally.

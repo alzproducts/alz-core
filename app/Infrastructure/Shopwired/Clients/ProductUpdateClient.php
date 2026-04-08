@@ -63,16 +63,29 @@ final readonly class ProductUpdateClient implements ProductUpdateClientInterface
     }
 
     /**
-     * PUT a single field update to a product.
-     *
-     * @param array<string|int, mixed> $data Merged field data to send
+     * {@inheritDoc}
      *
      * @throws ResourceNotAvailableException When product not found (404)
      * @throws InvalidApiRequestException When request parameters are invalid (400)
      * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
      * @throws ExternalServiceUnavailableException When API unavailable or connection fails
      */
-    private function updateProductField(int $productId, string $fieldName, array $data): void
+    public function updateComparePrice(int $productId, ?float $comparePrice): void
+    {
+        $this->updateProductField($productId, 'comparePrice', $comparePrice ?? 0);
+    }
+
+    /**
+     * PUT a single field update to a product.
+     *
+     * @param array<string|int, mixed>|float|int|null $data Field data to send
+     *
+     * @throws ResourceNotAvailableException When product not found (404)
+     * @throws InvalidApiRequestException When request parameters are invalid (400)
+     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
+     * @throws ExternalServiceUnavailableException When API unavailable or connection fails
+     */
+    private function updateProductField(int $productId, string $fieldName, array|float|int|null $data): void
     {
         $this->transport->put(
             self::ENDPOINT_PRODUCTS . '/' . $productId,

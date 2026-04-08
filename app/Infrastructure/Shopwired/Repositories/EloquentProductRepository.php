@@ -130,7 +130,7 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      */
-    public function findProductForApi(ProductDetailQueryParams $query): ProductView
+    public function findProductView(ProductDetailQueryParams $query): ProductView
     {
         return $this->eloquentGateway->findOrFail(
             modelClass: self::VIEW_MODEL_CLASS,
@@ -461,6 +461,14 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
 
         // Always load for default supplier derivation (also satisfies Suppliers include)
         $relations[] = 'stockItem.suppliers';
+
+        // Always load product-level extra data (RRP for API response)
+        $relations[] = 'extraData';
+
+        // Load variation extra data only when variations are included
+        if ($has(ProductInclude::Variations)) {
+            $relations[] = 'variations.extraData';
+        }
 
         return $relations;
     }

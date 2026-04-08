@@ -145,7 +145,11 @@ final readonly class ProductUpdateController
             $commands[] = $skuUpdate->toCommand();
         }
 
-        $result = $this->priceUseCase->execute($commands, $data->saleSettings?->toDomain());
+        $result = $this->priceUseCase->execute(
+            IntId::from((int) $productId),
+            $commands,
+            $data->saleSettings?->toDomain(),
+        );
 
         return new JsonResponse($this->buildPriceUpdateResponse($result));
     }

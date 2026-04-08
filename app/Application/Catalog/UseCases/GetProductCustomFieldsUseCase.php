@@ -52,7 +52,7 @@ final readonly class GetProductCustomFieldsUseCase
             'field_filter' => $fieldNames,
         ]);
 
-        $product = $this->productRepository->findProductForApi(
+        $product = $this->productRepository->findProductView(
             new ProductDetailQueryParams(
                 productId: IntId::from($productId),
                 includes: [ProductInclude::CustomFields],

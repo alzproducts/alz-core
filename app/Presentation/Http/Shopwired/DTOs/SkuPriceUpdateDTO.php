@@ -9,22 +9,25 @@ use App\Domain\Catalog\Product\ValueObjects\Sku;
 use App\Domain\Shared\Money\ValueObjects\Money;
 use Spatie\LaravelData\Attributes\MapInputName;
 use Spatie\LaravelData\Attributes\Validation\Min;
+use Spatie\LaravelData\Attributes\Validation\RequiredWithoutAll;
 use Spatie\LaravelData\Data;
 use Spatie\LaravelData\Mappers\SnakeCaseMapper;
 
 /**
  * Per-SKU price update from the HTTP request body.
+ *
+ * At least one price field (price, sale_price, rrp) must be provided.
  */
 #[MapInputName(SnakeCaseMapper::class)]
 final class SkuPriceUpdateDTO extends Data
 {
     public function __construct(
         public readonly string $sku,
-        #[Min(0)]
-        public readonly ?float $price,
-        #[Min(0)]
-        public readonly ?float $salePrice,
-        #[Min(0)]
+        #[Min(0), RequiredWithoutAll('sale_price', 'rrp')]
+        public readonly ?float $price = null,
+        #[Min(0), RequiredWithoutAll('price', 'rrp')]
+        public readonly ?float $salePrice = null,
+        #[Min(0), RequiredWithoutAll('price', 'sale_price')]
         public readonly ?float $rrp = null,
     ) {}
 

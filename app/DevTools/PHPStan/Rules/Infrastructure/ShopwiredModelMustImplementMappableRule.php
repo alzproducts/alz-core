@@ -59,7 +59,7 @@ final class ShopwiredModelMustImplementMappableRule implements Rule
             return false;
         }
 
-        if (\str_ends_with($className, 'ViewModel')) {
+        if (\str_ends_with($className, 'ViewModel') || \str_ends_with($className, 'ExtraDataModel')) {
             return false;
         }
 

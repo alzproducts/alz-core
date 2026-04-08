@@ -32,6 +32,8 @@ final readonly class ProductVariationView
 
     public ?Money $salePrice;
 
+    public ?Money $rrp;
+
     public Money $effectivePrice;
 
     public ?Weight $weight;
@@ -43,6 +45,7 @@ final readonly class ProductVariationView
      * @param float $price Selling price (always resolved — never null)
      * @param float|null $costPrice Cost price from Linnworks (null = unknown)
      * @param float|null $salePrice Discounted price (null = no sale)
+     * @param float|null $rrp RRP / "Was" price from per-SKU extra data
      * @param float $effectivePrice Selling price after sale logic
      * @param bool $isOnSale Whether this variation is currently on sale (from view)
      * @param float|null $profitMargin Retail profit margin % (from view, null when cost unknown)
@@ -60,6 +63,7 @@ final readonly class ProductVariationView
         float $price,
         ?float $costPrice,
         ?float $salePrice,
+        ?float $rrp,
         float $effectivePrice,
         public bool $isOnSale,
         public ?float $profitMargin,
@@ -78,6 +82,7 @@ final readonly class ProductVariationView
         $this->price = Money::fromTaxType($price, $taxType);
         $this->costPrice = Money::nonZeroOrNull($costPrice, TaxType::Exclusive);
         $this->salePrice = Money::nonZeroOrNull($salePrice, $taxType);
+        $this->rrp = Money::nonZeroOrNull($rrp, $taxType);
         $this->effectivePrice = Money::fromTaxType($effectivePrice, $taxType);
         $this->weight = $weight !== null ? Weight::kilogram($weight) : null;
     }

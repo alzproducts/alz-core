@@ -6,6 +6,7 @@ namespace App\Infrastructure\Catalog\Product\Models;
 
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
  * Read-only Eloquent model for catalog.product_variations_view.
@@ -69,5 +70,19 @@ final class ProductVariationViewModel extends Model
             'created_at' => 'immutable_datetime',
             'updated_at' => 'immutable_datetime',
         ];
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Relationships
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Get the variation's extra data (RRP, etc.) matched by SKU.
+     *
+     * @return HasOne<ProductExtraDataModel, $this>
+     */
+    public function extraData(): HasOne
+    {
+        return $this->hasOne(ProductExtraDataModel::class, 'sku', 'sku');
     }
 }
