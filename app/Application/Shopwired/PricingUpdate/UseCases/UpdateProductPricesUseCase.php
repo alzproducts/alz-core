@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Application\Shopwired\PricingUpdate\UseCases;
 
 use App\Application\Catalog\RetailPricing\UseCases\UpdateProductRetailPricesUseCase;
+use App\Application\Shopwired\PricingUpdate\Results\FailedPriceUpdateResult;
 use App\Application\Shopwired\PricingUpdate\Results\PriceUpdateResult;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\Product\Commands\UpdatePriceCommand;
@@ -59,7 +60,7 @@ final readonly class UpdateProductPricesUseCase
         [$sellingCommands, $rrpCommands] = self::partitionCommands($skuUpdates);
         $result = PriceUpdateResult::merge(
             $sellingCommands !== [] ? $this->sellingPricesUseCase->execute($sellingCommands, $saleSettings) : null,
-            $rrpCommands !== [] ? $this->retailPricesUseCase->execute($productId, $rrpCommands) : null,
+            $rrpCommands !== [] ? $this->executeRetailPrices($productId, $rrpCommands) : null,
         );
 
         $this->logger->info('Price update orchestration completed', [
@@ -67,6 +68,33 @@ final readonly class UpdateProductPricesUseCase
             'rrp_commands' => \count($rrpCommands), 'succeeded' => $result->succeeded,
         ]);
         return $result;
+    }
+
+    /**
+     * Execute retail price update, translating DB failures into a failed result.
+     *
+     * @param list<UpdateRetailPriceCommand> $commands
+     */
+    private function executeRetailPrices(IntId $productId, array $commands): PriceUpdateResult
+    {
+        try {
+            return $this->retailPricesUseCase->execute($productId, $commands);
+        } catch (DatabaseOperationFailedException|DuplicateRecordException|ExternalServiceUnavailableException $e) {
+            $this->logger->error('Retail price bulk upsert failed', [
+                'product_id' => $productId->value, 'rrp_commands' => \count($commands), 'exception' => $e->getMessage(),
+            ]);
+            return new PriceUpdateResult(
+                total: \count($commands),
+                succeeded: 0,
+                permanentFailures: \array_map(
+                    static fn(UpdateRetailPriceCommand $cmd): FailedPriceUpdateResult => new FailedPriceUpdateResult(
+                        sku: $cmd->sku,
+                        error: $e->getMessage(),
+                    ),
+                    $commands,
+                ),
+            );
+        }
     }
 
     /**
