@@ -23,7 +23,7 @@ return new class extends Migration {
             INSERT INTO catalog.product_extra_data (sku, rrp, created_at, updated_at)
             SELECT sku, compare_price, NOW(), NOW()
             FROM shopwired.products
-            WHERE sku IS NOT NULL AND compare_price IS NOT NULL
+            WHERE sku IS NOT NULL AND compare_price IS NOT NULL AND compare_price > 0
         SQL);
     }
 

@@ -37,10 +37,6 @@ final readonly class UpdateProductRetailPricesUseCase
     /**
      * @param IntId $productId The product these SKUs belong to
      * @param list<UpdateRetailPriceCommand> $commands Per-SKU RRP updates
-     *
-     * @throws DatabaseOperationFailedException When all writes fail (rethrown if zero succeeded)
-     * @throws DuplicateRecordException On constraint violation
-     * @throws ExternalServiceUnavailableException When database unavailable
      */
     public function execute(IntId $productId, array $commands): PriceUpdateResult
     {
