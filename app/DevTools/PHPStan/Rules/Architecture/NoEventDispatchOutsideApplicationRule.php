@@ -40,6 +40,7 @@ final class NoEventDispatchOutsideApplicationRule implements Rule
      * @var array<string, true>
      */
     private const array EXEMPT_NAMESPACE_SEGMENTS = [
+        'Dev' => true,
         'Dispatchers' => true,
         'Listeners' => true,
     ];
