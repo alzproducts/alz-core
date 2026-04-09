@@ -9,35 +9,48 @@ use App\Domain\Catalog\Product\ValueObjects\Sku;
 use App\Domain\Shared\Money\ValueObjects\Money;
 use Spatie\LaravelData\Attributes\MapInputName;
 use Spatie\LaravelData\Attributes\Validation\Min;
-use Spatie\LaravelData\Attributes\Validation\RequiredWithoutAll;
 use Spatie\LaravelData\Data;
 use Spatie\LaravelData\Mappers\SnakeCaseMapper;
+use Spatie\LaravelData\Optional;
 
 /**
  * Per-SKU price update from the HTTP request body.
  *
- * At least one price field (price, sale_price, rrp) must be provided.
+ * Uses Spatie Optional to distinguish "not sent" from "sent as null":
+ * - Optional (key absent)  → no change
+ * - null (key sent as null) → clear the field (salePrice/rrp only)
+ * - float (key sent as value) → set the field
+ *
+ * price cannot be null — if present, must be a valid float ≥ 0.
  */
 #[MapInputName(SnakeCaseMapper::class)]
 final class SkuPriceUpdateDTO extends Data
 {
     public function __construct(
         public readonly string $sku,
-        #[Min(0), RequiredWithoutAll('sale_price', 'rrp')]
-        public readonly ?float $price = null,
-        #[Min(0), RequiredWithoutAll('price', 'rrp')]
-        public readonly ?float $salePrice = null,
-        #[Min(0), RequiredWithoutAll('price', 'sale_price')]
-        public readonly ?float $rrp = null,
+        #[Min(0)]
+        public readonly Optional|float $price = new Optional(),
+        #[Min(0)]
+        public readonly Optional|float|null $salePrice = new Optional(),
+        #[Min(0)]
+        public readonly Optional|float|null $rrp = new Optional(),
     ) {}
 
     public function toCommand(): UpdatePriceCommand
     {
         return new UpdatePriceCommand(
             sku: Sku::fromTrusted($this->sku),
-            price: $this->price !== null ? Money::inclusive($this->price) : null,
-            salePrice: $this->salePrice !== null ? Money::inclusive($this->salePrice) : null,
-            rrp: $this->rrp !== null ? Money::inclusive($this->rrp) : null,
+            price: $this->price instanceof Optional ? null : Money::inclusive($this->price),
+            salePrice: match (true) {
+                $this->salePrice instanceof Optional => null,
+                $this->salePrice === null => Money::inclusive(0),
+                default => Money::inclusive($this->salePrice),
+            },
+            rrp: match (true) {
+                $this->rrp instanceof Optional => null,
+                $this->rrp === null => Money::inclusive(0),
+                default => Money::inclusive($this->rrp),
+            },
         );
     }
 }
