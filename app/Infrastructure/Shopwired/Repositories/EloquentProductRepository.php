@@ -136,7 +136,7 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
             modelClass: self::VIEW_MODEL_CLASS,
             column: 'external_id',
             value: $query->productId->value,
-            relations: \array_values(\array_unique(['variations', ...self::relationsForIncludes($query->includes)])),
+            relations: \array_values(\array_unique(['variations', 'variations.extraData', ...self::relationsForIncludes($query->includes)])),
             entityTypeName: 'Product',
             mapper: fn(ProductViewModel $model): ProductView => $this->viewMapper->toViewDomain($model, $query->includes),
         );
