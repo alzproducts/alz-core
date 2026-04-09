@@ -24,6 +24,7 @@ final class FilterGroupDefinitionResponse extends Data implements DomainConverti
     public function __construct(
         public readonly int $id,
         public readonly string $title,
+        #[MapInputName('option')]
         public readonly int $optionNo,
         public readonly int $sortOrder,
     ) {}

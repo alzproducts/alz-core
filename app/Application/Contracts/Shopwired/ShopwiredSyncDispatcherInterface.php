@@ -29,4 +29,6 @@ interface ShopwiredSyncDispatcherInterface
     public function dispatchOrdersRangeSync(DateTimeImmutable $from, DateTimeImmutable $to): void;
 
     public function dispatchFreeDeliveryUpdate(SetFreeDeliveryCommand $command): void;
+
+    public function dispatchReconcileComparePrice(IntId $productId): void;
 }

@@ -143,6 +143,18 @@ final class ProductViewModel extends Model
     }
 
     /**
+     * Get the product's extra data (RRP, etc.) matched by SKU.
+     *
+     * Cross-schema relation: catalog.products_view.sku → catalog.product_extra_data.sku.
+     *
+     * @return HasOne<ProductExtraDataModel, $this>
+     */
+    public function extraData(): HasOne
+    {
+        return $this->hasOne(ProductExtraDataModel::class, 'sku', 'sku');
+    }
+
+    /**
      * Get the Linnworks stock item matched by SKU.
      *
      * Cross-schema relation: catalog.products_view.sku → linnworks.stock_items.item_number.

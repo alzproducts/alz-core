@@ -104,9 +104,6 @@ final readonly class Product implements BasicProductInterface
         // Note: Stock can be negative in ShopWired (e.g., backorders)
     }
 
-    /**
-     * Check if this product has variations.
-     */
     public function hasVariations(): bool
     {
         return $this->variations !== null && $this->variations !== [];
@@ -164,11 +161,7 @@ final readonly class Product implements BasicProductInterface
         return $this->totalStock();
     }
 
-    /**
-     * Get all SKUs owned by this product (master + variations).
-     *
-     * @return list<Sku>
-     */
+    /** @return list<Sku> */
     public function allSkus(): array
     {
         $skus = [];
@@ -186,25 +179,16 @@ final readonly class Product implements BasicProductInterface
         return $skus;
     }
 
-    /**
-     * Get the primary (first) image, if any.
-     */
     public function primaryImage(): ?ProductImage
     {
         return $this->images[0] ?? null;
     }
 
-    /**
-     * Check if product belongs to a specific category.
-     */
     public function isInCategory(int $categoryId): bool
     {
         return \in_array($categoryId, $this->categoryIds, true);
     }
 
-    /**
-     * Get a custom field value by name.
-     */
     public function getCustomField(string $name): ?AbstractCustomFieldValue
     {
         return \array_find(
@@ -213,9 +197,6 @@ final readonly class Product implements BasicProductInterface
         );
     }
 
-    /**
-     * Check if this product has a specific custom field.
-     */
     public function hasCustomField(string $name): bool
     {
         return $this->getCustomField($name) !== null;
@@ -256,9 +237,6 @@ final readonly class Product implements BasicProductInterface
         return $salePrice !== null && $salePrice > 0 && $salePrice < $price;
     }
 
-    /**
-     * Get a filter by its group title (e.g., "Size", "Colour").
-     */
     public function getFilter(string $title): ?ProductFilter
     {
         return \array_find(

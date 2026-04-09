@@ -66,6 +66,7 @@ final readonly class ProductViewAssembler
         return new ProductView(
             externalId: $model->external_id,
             sku: $model->sku,
+            gtin: $model->gtin,
             title: $model->title,
             description: $model->description,
             slug: $model->slug,
@@ -73,7 +74,7 @@ final readonly class ProductViewAssembler
             price: $model->price,
             costPrice: $model->cost_price,
             salePrice: $model->sale_price,
-            rrp: $model->compare_price,
+            rrp: $model->extraData?->rrp,
             effectivePrice: $model->effective_price,
             isOnSale: $model->is_on_sale,
             profitMargin: $model->profit_margin,
@@ -95,6 +96,7 @@ final readonly class ProductViewAssembler
             suppliers: self::resolveSuppliers($model, $includes),
             inventory: self::resolveInventory($model, $includes),
             stock: self::resolveStock($model, $includes),
+            defaultSupplier: self::resolveDefaultSupplier($model),
         );
     }
 
@@ -190,6 +192,18 @@ final readonly class ProductViewAssembler
         }
 
         return $model->stockItem->toProductStock();
+    }
+
+    /**
+     * Derive the default supplier from the always-loaded stockItem.suppliers relation.
+     */
+    private static function resolveDefaultSupplier(ProductViewModel $model): ?ProductSupplier
+    {
+        if (! $model->relationLoaded('stockItem') || $model->stockItem === null) {
+            return null;
+        }
+
+        return $model->stockItem->defaultSupplier()?->toProductSupplier();
     }
 
     /**

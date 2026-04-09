@@ -12,6 +12,7 @@ use App\Domain\Shared\ValueObjects\DateFormat;
 use App\Domain\ValueObjects\IntId;
 use App\Domain\ValueObjects\TaxType;
 use DateTimeImmutable;
+use Webmozart\Assert\Assert;
 
 /**
  * Read-only API projection of a product.
@@ -27,6 +28,8 @@ final readonly class ProductView
     public IntId $id;
 
     public ?Sku $sku;
+
+    public ?Gtin $gtin;
 
     public Money $price;
 
@@ -49,8 +52,7 @@ final readonly class ProductView
     /** @var bool Whether this product or any of its variations is on sale */
     public bool $hasAnySale;
 
-    /** @var string|null Name of the default supplier (null = no suppliers loaded or no default) */
-    public ?string $defaultSupplier;
+    public ?ProductSupplier $defaultSupplier;
 
     /** @var string UK-formatted creation date (dd/mm/yyyy) */
     public string $createdAtFormatted;
@@ -61,6 +63,7 @@ final readonly class ProductView
     /**
      * @param int $externalId ShopWired product ID
      * @param string|null $sku Master SKU
+     * @param string|null $gtin Product barcode (GTIN/EAN/UPC)
      * @param string $title Product title
      * @param string|null $description HTML description
      * @param string $slug URL slug
@@ -68,7 +71,7 @@ final readonly class ProductView
      * @param float $price Selling price
      * @param float|null $costPrice Cost price from Linnworks (null = unknown)
      * @param float|null $salePrice Discounted price (null = no sale)
-     * @param float|null $rrp RRP / "Was" price (mapped from SQL view column `compare_price`)
+     * @param float|null $rrp RRP / "Was" price from per-SKU extra data
      * @param float $effectivePrice Selling price after sale logic
      * @param bool $isOnSale Whether this product is currently on sale (from view)
      * @param float|null $profitMargin Retail profit margin % (from view, null when cost unknown)
@@ -94,6 +97,7 @@ final readonly class ProductView
     public function __construct(
         int $externalId,
         ?string $sku,
+        ?string $gtin,
         public string $title,
         public ?string $description,
         public string $slug,
@@ -124,11 +128,13 @@ final readonly class ProductView
         public ?array $suppliers = null,
         public ?ProductInventory $inventory = null,
         public ?ProductStock $stock = null,
+        ?ProductSupplier $defaultSupplier = null,
     ) {
         $taxType = $vatExclusive ? TaxType::ZeroRated : TaxType::Inclusive;
 
         $this->id = IntId::from($externalId);
         $this->sku = $sku !== null && \mb_trim($sku) !== '' ? Sku::fromTrusted(\mb_trim($sku)) : null;
+        $this->gtin = $gtin !== null && \mb_trim($gtin) !== '' ? Gtin::fromTrusted(\mb_trim($gtin)) : null;
         $this->price = Money::fromTaxType($price, $taxType);
         $this->costPrice = Money::nonZeroOrNull($costPrice, TaxType::Exclusive);
         $this->salePrice = Money::nonZeroOrNull($salePrice, $taxType);
@@ -138,21 +144,53 @@ final readonly class ProductView
         $this->categoryIds = \array_map(static fn(int $id): IntId => IntId::from($id), $categoryIds);
         $this->hasFreeDelivery = $freeDelivery !== null && ! $freeDelivery->isNone();
         $this->hasAnySale = $this->isOnSale || self::anyVariationOnSale($this->variations);
-        $this->defaultSupplier = self::findDefaultSupplierName($this->suppliers);
+        $this->defaultSupplier = $defaultSupplier;
         $this->createdAtFormatted = $createdAt->format(DateFormat::DEFAULT_DATE_FORMAT);
         $this->updatedAtFormatted = $updatedAt->format(DateFormat::DEFAULT_DATE_FORMAT);
     }
 
     /**
-     * @param list<ProductSupplier>|null $suppliers
+     * Whether all variations share the same selling price as the master product.
+     *
+     * Requires variations to be loaded (asserts non-null). Products with no
+     * variations trivially have a single selling price.
      */
-    private static function findDefaultSupplierName(?array $suppliers): ?string
+    public function hasSingleSellingPrice(): bool
     {
-        if ($suppliers === null || $suppliers === []) {
-            return null;
+        Assert::notNull($this->variations, 'variations must be loaded');
+
+        if ($this->variations === []) {
+            return true;
         }
 
-        return \array_find($suppliers, static fn(ProductSupplier $s): bool => $s->isDefault)?->supplierName;
+        return \array_all(
+            $this->variations,
+            fn(ProductVariationView $v): bool => $v->price->amountEquals($this->price),
+        );
+    }
+
+    /**
+     * Resolve the highest RRP across the master product and all variations.
+     *
+     * Requires variations to be loaded. Returns null when no SKU has an RRP set.
+     */
+    public function resolveHighestRrp(): ?Money
+    {
+        Assert::notNull($this->variations, 'variations must be loaded');
+
+        $allRrps = [$this->rrp, ...\array_map(
+            static fn(ProductVariationView $v): ?Money => $v->rrp,
+            $this->variations,
+        )];
+
+        /** @var list<Money> $rrps */
+        $rrps = \array_values(\array_filter($allRrps, static fn(?Money $rrp): bool => $rrp !== null));
+
+        return $rrps === [] ? null : \array_reduce(
+            $rrps,
+            static fn(Money $max, Money $rrp): Money => $rrp->toGross() > $max->toGross() ? $rrp : $max,
+            $rrps[0],
+        );
     }
 
     /**

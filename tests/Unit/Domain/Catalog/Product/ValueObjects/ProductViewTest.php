@@ -40,6 +40,7 @@ final class ProductViewTest extends TestCase
             price: 50.00,
             costPrice: null,
             salePrice: 30.00,
+            rrp: null,
             effectivePrice: 30.00,
             isOnSale: true,
             profitMargin: null,
@@ -67,6 +68,7 @@ final class ProductViewTest extends TestCase
             price: 50.00,
             costPrice: null,
             salePrice: null,
+            rrp: null,
             effectivePrice: 50.00,
             isOnSale: false,
             profitMargin: null,
@@ -246,6 +248,7 @@ final class ProductViewTest extends TestCase
         return new ProductView(
             externalId: 1,
             sku: $sku,
+            gtin: null,
             title: 'Test Product',
             description: null,
             slug: 'test-product',

@@ -24,8 +24,11 @@ final readonly class PriceUpdateResult
     public function __construct(
         public int $total,
         public int $succeeded,
+        /** @var list<SkippedPriceUpdateResult> */
         public array $skipped = [],
+        /** @var list<FailedPriceUpdateResult> */
         public array $permanentFailures = [],
+        /** @var list<FailedPriceUpdateResult> */
         public array $temporaryFailures = [],
     ) {}
 
@@ -73,5 +76,36 @@ final readonly class PriceUpdateResult
     public function isPartialSuccess(): bool
     {
         return $this->succeeded > 0 && $this->hasFailures();
+    }
+
+    /**
+     * Return a copy with the total overridden (e.g. to reflect unique SKU count).
+     */
+    public function withTotal(int $total): self
+    {
+        return new self($total, $this->succeeded, $this->skipped, $this->permanentFailures, $this->temporaryFailures);
+    }
+
+    /**
+     * Merge results from selling and retail price paths.
+     *
+     * Either or both may be null (path was skipped).
+     */
+    public static function merge(?self $a, ?self $b): self
+    {
+        if ($a === null) {
+            return $b ?? new self(total: 0, succeeded: 0);
+        }
+        if ($b === null) {
+            return $a;
+        }
+
+        return new self(
+            total: $a->total + $b->total,
+            succeeded: $a->succeeded + $b->succeeded,
+            skipped: [...$a->skipped, ...$b->skipped],
+            permanentFailures: [...$a->permanentFailures, ...$b->permanentFailures],
+            temporaryFailures: [...$a->temporaryFailures, ...$b->temporaryFailures],
+        );
     }
 }
