@@ -77,7 +77,7 @@ final readonly class EloquentStockItemSupplierRepository implements StockItemSup
         }
 
         $rowCount = \count($bindings) / 2;
-        $valuesPairs = \implode(', ', \array_fill(0, (int) $rowCount, '(?::uuid, ?::numeric)'));
+        $valuesPairs = \implode(', ', \array_fill(0, (int) $rowCount, '(?::text, ?::numeric)'));
         $bindings[] = $supplierName;
 
         return [$valuesPairs, $bindings];
