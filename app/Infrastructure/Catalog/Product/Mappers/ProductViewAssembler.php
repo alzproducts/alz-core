@@ -113,7 +113,7 @@ final readonly class ProductViewAssembler
      */
     private function resolveVariations(ProductViewModel $model, array $includes): ?array
     {
-        if (! $model->relationLoaded('variations') || ! \in_array(ProductInclude::Variations, $includes, true)) {
+        if (! $model->relationLoaded('variations')) {
             return null;
         }
 
