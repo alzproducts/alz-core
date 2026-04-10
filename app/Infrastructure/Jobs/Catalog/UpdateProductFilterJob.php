@@ -22,12 +22,14 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 
 /**
- * Update rating filter values on a single ShopWired product.
+ * Update one filter group's values on a single ShopWired product.
  *
- * Processes one product at a time on the bulk queue with rate limiting
- * to avoid exceeding ShopWired API limits.
+ * Filter-agnostic: the caller supplies `$optionNo` and the string values. Used
+ * by both the rating-filter sync and the VAT-relief sync — and any future
+ * filter sync that wants per-product writes on the bulk queue with rate
+ * limiting to avoid exceeding ShopWired API limits.
  */
-final class UpdateProductRatingFilterJob implements ShouldQueue
+final class UpdateProductFilterJob implements ShouldQueue
 {
     use Dispatchable;
     use InteractsWithQueue;

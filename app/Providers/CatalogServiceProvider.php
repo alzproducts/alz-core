@@ -7,9 +7,11 @@ namespace App\Providers;
 use App\Application\Contracts\Catalog\CatalogSyncDispatcherInterface;
 use App\Application\Contracts\Catalog\ProductExtraDataRepositoryInterface;
 use App\Application\Contracts\Catalog\RatingFilterQueryRepositoryInterface;
+use App\Application\Contracts\Catalog\VatReliefFilterQueryRepositoryInterface;
 use App\Infrastructure\Catalog\Dispatchers\QueuedCatalogSyncDispatcher;
 use App\Infrastructure\Catalog\Product\Repositories\EloquentProductExtraDataRepository;
 use App\Infrastructure\Catalog\Repositories\RatingFilterQueryRepository;
+use App\Infrastructure\Catalog\Repositories\VatReliefFilterQueryRepository;
 use Illuminate\Contracts\Support\DeferrableProvider;
 use Illuminate\Support\ServiceProvider;
 
@@ -17,19 +19,11 @@ final class CatalogServiceProvider extends ServiceProvider implements Deferrable
 {
     public function register(): void
     {
-        $this->app->scoped(
-            RatingFilterQueryRepositoryInterface::class,
-            RatingFilterQueryRepository::class,
-        );
+        $this->registerRepositories();
 
         $this->app->scoped(
             CatalogSyncDispatcherInterface::class,
             QueuedCatalogSyncDispatcher::class,
-        );
-
-        $this->app->scoped(
-            ProductExtraDataRepositoryInterface::class,
-            EloquentProductExtraDataRepository::class,
         );
     }
 
@@ -38,8 +32,27 @@ final class CatalogServiceProvider extends ServiceProvider implements Deferrable
     {
         return [
             RatingFilterQueryRepositoryInterface::class,
+            VatReliefFilterQueryRepositoryInterface::class,
             CatalogSyncDispatcherInterface::class,
             ProductExtraDataRepositoryInterface::class,
         ];
+    }
+
+    private function registerRepositories(): void
+    {
+        $this->app->scoped(
+            RatingFilterQueryRepositoryInterface::class,
+            RatingFilterQueryRepository::class,
+        );
+
+        $this->app->scoped(
+            VatReliefFilterQueryRepositoryInterface::class,
+            VatReliefFilterQueryRepository::class,
+        );
+
+        $this->app->scoped(
+            ProductExtraDataRepositoryInterface::class,
+            EloquentProductExtraDataRepository::class,
+        );
     }
 }

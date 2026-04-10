@@ -5,20 +5,22 @@ declare(strict_types=1);
 namespace App\Infrastructure\Catalog\Dispatchers;
 
 use App\Application\Contracts\Catalog\CatalogSyncDispatcherInterface;
-use App\Domain\Catalog\Product\Enums\RatingFilterValue;
 use App\Domain\ValueObjects\IntId;
-use App\Infrastructure\Jobs\Catalog\UpdateProductRatingFilterJob;
+use App\Infrastructure\Jobs\Catalog\UpdateProductFilterJob;
+use BackedEnum;
 use Override;
 
 final readonly class QueuedCatalogSyncDispatcher implements CatalogSyncDispatcherInterface
 {
     #[Override]
-    public function dispatchRatingFilterUpdate(IntId $productId, int $optionNo, ?array $values): void
+    public function dispatchFilterUpdate(IntId $productId, int $optionNo, ?array $values): void
     {
-        UpdateProductRatingFilterJob::dispatch(
+        UpdateProductFilterJob::dispatch(
             $productId,
             $optionNo,
-            $values !== null ? RatingFilterValue::toStringArray($values) : null,
+            $values !== null
+                ? \array_map(static fn(BackedEnum $v): string => (string) $v->value, $values)
+                : null,
         );
     }
 }

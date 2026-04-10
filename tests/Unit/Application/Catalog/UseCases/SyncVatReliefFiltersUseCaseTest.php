@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Tests\Unit\Application\Catalog\UseCases;
 
 use App\Application\Catalog\DTOs\ProductFilterChangeDTO;
-use App\Application\Catalog\UseCases\SyncRatingFiltersUseCase;
+use App\Application\Catalog\UseCases\SyncVatReliefFiltersUseCase;
 use App\Application\Contracts\Catalog\CatalogSyncDispatcherInterface;
-use App\Application\Contracts\Catalog\RatingFilterQueryRepositoryInterface;
-use App\Domain\Catalog\Product\Enums\RatingFilterValue;
+use App\Application\Contracts\Catalog\VatReliefFilterQueryRepositoryInterface;
+use App\Domain\Catalog\Product\Enums\VatReliefFilterValue;
 use App\Domain\ValueObjects\IntId;
 use Mockery;
 use Mockery\MockInterface;
@@ -17,27 +17,27 @@ use PHPUnit\Framework\Attributes\Test;
 use Psr\Log\LoggerInterface;
 use Tests\TestCase;
 
-#[CoversClass(SyncRatingFiltersUseCase::class)]
-final class SyncRatingFiltersUseCaseTest extends TestCase
+#[CoversClass(SyncVatReliefFiltersUseCase::class)]
+final class SyncVatReliefFiltersUseCaseTest extends TestCase
 {
-    private RatingFilterQueryRepositoryInterface&MockInterface $ratingFilterRepo;
+    private VatReliefFilterQueryRepositoryInterface&MockInterface $vatReliefFilterRepo;
 
     private CatalogSyncDispatcherInterface&MockInterface $dispatcher;
 
     private LoggerInterface&MockInterface $logger;
 
-    private SyncRatingFiltersUseCase $useCase;
+    private SyncVatReliefFiltersUseCase $useCase;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        $this->ratingFilterRepo = Mockery::mock(RatingFilterQueryRepositoryInterface::class);
+        $this->vatReliefFilterRepo = Mockery::mock(VatReliefFilterQueryRepositoryInterface::class);
         $this->dispatcher = Mockery::mock(CatalogSyncDispatcherInterface::class);
         $this->logger = Mockery::mock(LoggerInterface::class);
 
-        $this->useCase = new SyncRatingFiltersUseCase(
-            $this->ratingFilterRepo,
+        $this->useCase = new SyncVatReliefFiltersUseCase(
+            $this->vatReliefFilterRepo,
             $this->dispatcher,
             $this->logger,
         );
@@ -52,18 +52,18 @@ final class SyncRatingFiltersUseCaseTest extends TestCase
     #[Test]
     public function execute_logs_starting_and_no_changes_when_no_products_with_changed_filters(): void
     {
-        $this->ratingFilterRepo
-            ->shouldReceive('getProductsWithChangedRatingFilters')
+        $this->vatReliefFilterRepo
+            ->shouldReceive('getProductsWithChangedVatReliefFilters')
             ->once()
             ->andReturn([]);
 
         $this->logger->shouldReceive('info')
             ->once()
-            ->with('SyncRatingFilters: starting');
+            ->with('SyncVatReliefFilters: starting');
 
         $this->logger->shouldReceive('info')
             ->once()
-            ->with('SyncRatingFilters: no products with changed rating filters');
+            ->with('SyncVatReliefFilters: no products with changed VAT-relief filters');
 
         $this->dispatcher->shouldNotReceive('dispatchFilterUpdate');
 
@@ -80,26 +80,26 @@ final class SyncRatingFiltersUseCaseTest extends TestCase
     public function execute_dispatches_filter_updates_for_changed_products(): void
     {
         $changes = [
-            new ProductFilterChangeDTO(IntId::from(1001), 15, [RatingFilterValue::FourStars, RatingFilterValue::FourAndHalfStars]),
-            new ProductFilterChangeDTO(IntId::from(1002), 15, [RatingFilterValue::FourStars]),
+            new ProductFilterChangeDTO(IntId::from(1001), 2, [VatReliefFilterValue::Yes]),
+            new ProductFilterChangeDTO(IntId::from(1002), 2, [VatReliefFilterValue::Yes]),
         ];
 
-        $this->ratingFilterRepo
-            ->shouldReceive('getProductsWithChangedRatingFilters')
+        $this->vatReliefFilterRepo
+            ->shouldReceive('getProductsWithChangedVatReliefFilters')
             ->once()
             ->andReturn($changes);
 
         $this->logger->shouldReceive('info')
             ->once()
-            ->with('SyncRatingFilters: starting');
+            ->with('SyncVatReliefFilters: starting');
 
         $this->dispatcher
             ->shouldReceive('dispatchFilterUpdate')
             ->once()
             ->with(
                 Mockery::on(static fn(IntId $id): bool => $id->value === 1001),
-                15,
-                [RatingFilterValue::FourStars, RatingFilterValue::FourAndHalfStars],
+                2,
+                [VatReliefFilterValue::Yes],
             );
 
         $this->dispatcher
@@ -107,13 +107,13 @@ final class SyncRatingFiltersUseCaseTest extends TestCase
             ->once()
             ->with(
                 Mockery::on(static fn(IntId $id): bool => $id->value === 1002),
-                15,
-                [RatingFilterValue::FourStars],
+                2,
+                [VatReliefFilterValue::Yes],
             );
 
         $this->logger->shouldReceive('info')
             ->once()
-            ->with('SyncRatingFilters: dispatched rating filter updates', ['count' => 2]);
+            ->with('SyncVatReliefFilters: dispatched VAT-relief filter updates', ['count' => 2]);
 
         $this->useCase->execute();
     }
@@ -128,30 +128,30 @@ final class SyncRatingFiltersUseCaseTest extends TestCase
     public function execute_dispatches_null_for_products_with_empty_filter_values(): void
     {
         $changes = [
-            new ProductFilterChangeDTO(IntId::from(1001), 15, []),
+            new ProductFilterChangeDTO(IntId::from(1001), 2, []),
         ];
 
-        $this->ratingFilterRepo
-            ->shouldReceive('getProductsWithChangedRatingFilters')
+        $this->vatReliefFilterRepo
+            ->shouldReceive('getProductsWithChangedVatReliefFilters')
             ->once()
             ->andReturn($changes);
 
         $this->logger->shouldReceive('info')
             ->once()
-            ->with('SyncRatingFilters: starting');
+            ->with('SyncVatReliefFilters: starting');
 
         $this->dispatcher
             ->shouldReceive('dispatchFilterUpdate')
             ->once()
             ->with(
                 Mockery::on(static fn(IntId $id): bool => $id->value === 1001),
-                15,
+                2,
                 null,
             );
 
         $this->logger->shouldReceive('info')
             ->once()
-            ->with('SyncRatingFilters: dispatched rating filter updates', ['count' => 1]);
+            ->with('SyncVatReliefFilters: dispatched VAT-relief filter updates', ['count' => 1]);
 
         $this->useCase->execute();
     }
@@ -166,27 +166,27 @@ final class SyncRatingFiltersUseCaseTest extends TestCase
     public function execute_handles_mix_of_add_and_remove_filter_values(): void
     {
         $changes = [
-            new ProductFilterChangeDTO(IntId::from(1001), 15, [RatingFilterValue::FourStars, RatingFilterValue::FourAndHalfStars]),
-            new ProductFilterChangeDTO(IntId::from(1002), 15, []),
-            new ProductFilterChangeDTO(IntId::from(1003), 15, [RatingFilterValue::FourStars]),
+            new ProductFilterChangeDTO(IntId::from(1001), 2, [VatReliefFilterValue::Yes]),
+            new ProductFilterChangeDTO(IntId::from(1002), 2, []),
+            new ProductFilterChangeDTO(IntId::from(1003), 2, [VatReliefFilterValue::Yes]),
         ];
 
-        $this->ratingFilterRepo
-            ->shouldReceive('getProductsWithChangedRatingFilters')
+        $this->vatReliefFilterRepo
+            ->shouldReceive('getProductsWithChangedVatReliefFilters')
             ->once()
             ->andReturn($changes);
 
         $this->logger->shouldReceive('info')
             ->once()
-            ->with('SyncRatingFilters: starting');
+            ->with('SyncVatReliefFilters: starting');
 
         $this->dispatcher
             ->shouldReceive('dispatchFilterUpdate')
             ->once()
             ->with(
                 Mockery::on(static fn(IntId $id): bool => $id->value === 1001),
-                15,
-                [RatingFilterValue::FourStars, RatingFilterValue::FourAndHalfStars],
+                2,
+                [VatReliefFilterValue::Yes],
             );
 
         $this->dispatcher
@@ -194,7 +194,7 @@ final class SyncRatingFiltersUseCaseTest extends TestCase
             ->once()
             ->with(
                 Mockery::on(static fn(IntId $id): bool => $id->value === 1002),
-                15,
+                2,
                 null,
             );
 
@@ -203,13 +203,13 @@ final class SyncRatingFiltersUseCaseTest extends TestCase
             ->once()
             ->with(
                 Mockery::on(static fn(IntId $id): bool => $id->value === 1003),
-                15,
-                [RatingFilterValue::FourStars],
+                2,
+                [VatReliefFilterValue::Yes],
             );
 
         $this->logger->shouldReceive('info')
             ->once()
-            ->with('SyncRatingFilters: dispatched rating filter updates', ['count' => 3]);
+            ->with('SyncVatReliefFilters: dispatched VAT-relief filter updates', ['count' => 3]);
 
         $this->useCase->execute();
     }
