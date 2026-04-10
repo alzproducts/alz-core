@@ -8,15 +8,15 @@ use App\Domain\Catalog\Product\Contracts\ShopwiredFilterValueInterface;
 use App\Domain\Exceptions\Data\InvalidEnumValueException;
 
 /**
- * Rating filter threshold values for ShopWired product filters.
+ * VAT-relief filter values for ShopWired product filters.
  *
- * Products with weighted average rating >= 4.0 qualify for FourStars;
- * products >= 4.5 qualify for both FourStars and FourAndHalfStars.
+ * Products with `shopwired.products.vat_relief = true` qualify for `Yes`.
+ * Products with `false` have no value (filter absent). `null` rows are never
+ * synced — see the `products_with_changed_vat_relief_filters` view.
  */
-enum RatingFilterValue: string implements ShopwiredFilterValueInterface
+enum VatReliefFilterValue: string implements ShopwiredFilterValueInterface
 {
-    case FourStars = '4';
-    case FourAndHalfStars = '4.5';
+    case Yes = 'Yes';
 
     /**
      * Create from backing value with domain exception.
@@ -30,10 +30,7 @@ enum RatingFilterValue: string implements ShopwiredFilterValueInterface
     }
 
     /**
-     * Parse a PostgreSQL text array literal (e.g. '{4,4.5}') into enum cases.
-     *
-     * Assumes simple unquoted values (no spaces or special chars). Safe for the
-     * current rating filter values ('4', '4.5') produced by the SQL view's CASE.
+     * Parse a PostgreSQL text array literal (e.g. '{Yes}') into enum cases.
      *
      * @return list<self>
      *

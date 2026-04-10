@@ -6,7 +6,7 @@ namespace App\Application\Catalog\UseCases;
 
 use App\Application\Catalog\DTOs\ProductFilterChangeDTO;
 use App\Application\Contracts\Catalog\CatalogSyncDispatcherInterface;
-use App\Application\Contracts\Catalog\RatingFilterQueryRepositoryInterface;
+use App\Application\Contracts\Catalog\VatReliefFilterQueryRepositoryInterface;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Data\InvalidEnumValueException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
@@ -14,15 +14,15 @@ use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use Psr\Log\LoggerInterface;
 
 /**
- * Orchestrate hourly sync of product rating filters to ShopWired.
+ * Orchestrate hourly sync of VAT-relief product filters to ShopWired.
  *
- * Queries the SQL view for products whose rating filter values have changed,
+ * Queries the SQL view for products whose VAT-relief filter value has changed,
  * then dispatches one per-entity job per product to apply the update.
  */
-final readonly class SyncRatingFiltersUseCase
+final readonly class SyncVatReliefFiltersUseCase
 {
     public function __construct(
-        private RatingFilterQueryRepositoryInterface $ratingFilterRepo,
+        private VatReliefFilterQueryRepositoryInterface $vatReliefFilterRepo,
         private CatalogSyncDispatcherInterface $dispatcher,
         private LoggerInterface $logger,
     ) {}
@@ -35,19 +35,19 @@ final readonly class SyncRatingFiltersUseCase
      */
     public function execute(): void
     {
-        $this->logger->info('SyncRatingFilters: starting');
+        $this->logger->info('SyncVatReliefFilters: starting');
 
-        $changes = $this->ratingFilterRepo->getProductsWithChangedRatingFilters();
+        $changes = $this->vatReliefFilterRepo->getProductsWithChangedVatReliefFilters();
 
         if ($changes === []) {
-            $this->logger->info('SyncRatingFilters: no products with changed rating filters');
+            $this->logger->info('SyncVatReliefFilters: no products with changed VAT-relief filters');
 
             return;
         }
 
         $this->dispatchAll($changes);
 
-        $this->logger->info('SyncRatingFilters: dispatched rating filter updates', [
+        $this->logger->info('SyncVatReliefFilters: dispatched VAT-relief filter updates', [
             'count' => \count($changes),
         ]);
     }
