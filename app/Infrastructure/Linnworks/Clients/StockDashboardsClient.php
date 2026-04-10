@@ -14,7 +14,9 @@ use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Inventory\ValueObjects\ItemStockLevel;
+use App\Domain\Inventory\ValueObjects\StockItemFull;
 use App\Domain\ValueObjects\Guid;
+use App\Infrastructure\Linnworks\Queries\ArchivedStockItemsFullQuery;
 use App\Infrastructure\Linnworks\Queries\ArchivedStockItemsQuery;
 use App\Infrastructure\Linnworks\Queries\DeltaStockLevelQuery;
 use App\Infrastructure\Linnworks\Queries\FullStockLevelQuery;
@@ -119,5 +121,22 @@ final readonly class StockDashboardsClient implements StockDashboardsClientInter
     {
         /** @var ArchivedStockItemFlagsDTO */
         return $this->dashboardsClient->execute(new ArchivedStockItemsQuery());
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @return list<StockItemFull>
+     *
+     * @throws InvalidApiResponseException
+     * @throws InvalidApiRequestException
+     * @throws AuthenticationExpiredException
+     * @throws ResourceNotFoundException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function getArchivedStockItemsFull(): array
+    {
+        /** @var list<StockItemFull> */
+        return $this->dashboardsClient->execute(new ArchivedStockItemsFullQuery());
     }
 }
