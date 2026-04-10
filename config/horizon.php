@@ -293,14 +293,14 @@ return [
                 'nice' => 10, // Lower CPU priority for bulk work — gives high/default queues preference
             ],
             'supervisor-background' => [
-                'minProcesses' => 0,
+                'minProcesses' => 1,
                 'maxProcesses' => 2,
                 'timeout' => 43500,
                 'maxTime' => 50400,
                 'nice' => 10,
             ],
             'supervisor-bulk' => [
-                'minProcesses' => 0,
+                'minProcesses' => 1,
                 'maxProcesses' => 3,
                 'tries' => 3,
                 'timeout' => 90,
