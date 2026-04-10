@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Providers\Schedule;
 
 use App\Infrastructure\Jobs\Catalog\SyncRatingFiltersJob;
+use App\Infrastructure\Jobs\Catalog\SyncVatReliefFiltersJob;
 use Illuminate\Support\Facades\Schedule;
 use Illuminate\Support\ServiceProvider;
 use RuntimeException;
@@ -12,7 +13,9 @@ use RuntimeException;
 /**
  * Catalog Schedule Definitions
  *
- * Hourly sync mapping product review ratings to ShopWired product filters.
+ * Hourly syncs mapping product-level state to ShopWired product filters:
+ *   - Customer rating filter (from reviews_io.product_ratings)
+ *   - VAT relief filter (from shopwired.products.vat_relief)
  */
 final class CatalogScheduleServiceProvider extends ServiceProvider
 {
@@ -22,6 +25,7 @@ final class CatalogScheduleServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->registerRatingFilterSchedule();
+        $this->registerVatReliefFilterSchedule();
     }
 
     /**
@@ -36,6 +40,24 @@ final class CatalogScheduleServiceProvider extends ServiceProvider
     {
         Schedule::job(new SyncRatingFiltersJob())
             ->name('sync-rating-filters')
+            ->hourly()
+            ->timezone('Europe/London')
+            ->onOneServer()
+            ->withoutOverlapping(30);
+    }
+
+    /**
+     * Hourly sync: maps `shopwired.products.vat_relief` to the ShopWired
+     * "Eligible for VAT Relief?" product filter (optionNo 2).
+     *
+     * Rows with `vat_relief IS NULL` are skipped — the view excludes them.
+     *
+     * @throws RuntimeException
+     */
+    private function registerVatReliefFilterSchedule(): void
+    {
+        Schedule::job(new SyncVatReliefFiltersJob())
+            ->name('sync-vat-relief-filters')
             ->hourly()
             ->timezone('Europe/London')
             ->onOneServer()

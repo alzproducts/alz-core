@@ -7,10 +7,12 @@ namespace App\Infrastructure\Shopwired\Enums;
 /**
  * Maps known ShopWired filter groups to their optionNo values.
  *
- * These values are hardcoded in the ShopWired system and protected
- * by integration guard tests (CustomerRatingFilterGroupGuardTest).
+ * These values are hardcoded in the ShopWired system and protected by
+ * integration guard tests (CustomerRatingFilterGroupGuardTest,
+ * VatReliefFilterGroupGuardTest).
  */
 enum FilterGroupOptionNo: int
 {
     case CustomerRating = 15;
+    case VatRelief = 2;
 }
