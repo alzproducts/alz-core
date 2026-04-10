@@ -285,7 +285,7 @@ return [
                 'maxJobs' => 100,
             ],
             'supervisor-low' => [
-                'minProcesses' => 2,
+                'minProcesses' => 1,
                 'maxProcesses' => 6,
                 'tries' => 3,
                 'timeout' => 9300,  // Must exceed longest low-queue job timeout (9000s)
@@ -293,14 +293,14 @@ return [
                 'nice' => 10, // Lower CPU priority for bulk work — gives high/default queues preference
             ],
             'supervisor-background' => [
-                'minProcesses' => 1,
+                'minProcesses' => 0,
                 'maxProcesses' => 2,
                 'timeout' => 43500,
                 'maxTime' => 50400,
                 'nice' => 10,
             ],
             'supervisor-bulk' => [
-                'minProcesses' => 1,
+                'minProcesses' => 0,
                 'maxProcesses' => 3,
                 'tries' => 3,
                 'timeout' => 90,
