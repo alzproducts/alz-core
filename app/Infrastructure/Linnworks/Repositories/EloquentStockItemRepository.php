@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Infrastructure\Linnworks\Repositories;
 
 use App\Application\Contracts\Linnworks\StockItemRepositoryInterface;
+use App\Application\Results\SaveManyResult;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
@@ -17,6 +18,7 @@ use App\Infrastructure\Linnworks\Mappers\StockItemModelMapper;
 use App\Infrastructure\Linnworks\Models\StockItemExtendedPropertyModel;
 use App\Infrastructure\Linnworks\Models\StockItemModel;
 use App\Infrastructure\Linnworks\Models\StockItemSupplierModel;
+use App\Infrastructure\Persistence\EloquentGateway;
 use App\Infrastructure\Repositories\AbstractEloquentRepository;
 
 /**
@@ -147,6 +149,48 @@ final class EloquentStockItemRepository extends AbstractEloquentRepository imple
             ->whereNotIn('stock_item_id', $values)
             ->where($column, true)
             ->update([$column => false]);
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * Bypasses the {@see save()} override entirely — does NOT delete or
+     * re-insert extended-property or supplier child rows. This preserves
+     * historical child data for items transitioning from active to
+     * archived state, which the regular save path would destroy.
+     *
+     * Every row is marked `is_archived = true` and `is_logically_deleted = true`.
+     * Linnworks always co-sets both flags on archived items (verified against
+     * the `StockItem` table three-bucket breakdown), so hardcoding here keeps
+     * the two columns in sync without a per-row flag in the input.
+     *
+     * Uses {@see EloquentGateway::batchUpsertMany()}
+     * at the default batch size of 500 — ~8 batches for a typical ~3.6k
+     * archived catalogue.
+     *
+     * @param list<StockItemFull> $items
+     */
+    public function upsertArchivedStockItems(array $items): SaveManyResult
+    {
+        if ($items === []) {
+            return new SaveManyResult(succeeded: 0, failed: 0, failedReferences: []);
+        }
+
+        $rows = \array_map(
+            static fn(StockItemFull $item): array => [
+                ...StockItemModelMapper::toModelAttributes($item),
+                'is_archived' => true,
+                'is_logically_deleted' => true,
+            ],
+            $items,
+        );
+
+        return $this->eloquentGateway->batchUpsertMany(
+            modelClass: StockItemModel::class,
+            rows: $rows,
+            uniqueBy: ['stock_item_id'],
+            identifierColumn: 'stock_item_id',
+        );
     }
 
     protected function getModelClass(): string

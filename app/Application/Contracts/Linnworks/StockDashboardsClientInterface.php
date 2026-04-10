@@ -13,6 +13,7 @@ use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Inventory\ValueObjects\ItemStockLevel;
+use App\Domain\Inventory\ValueObjects\StockItemFull;
 use App\Domain\ValueObjects\Guid;
 use DateTimeImmutable;
 
@@ -104,4 +105,28 @@ interface StockDashboardsClientInterface
      * @throws ExternalServiceUnavailableException
      */
     public function getArchivedStockItemIds(): ArchivedStockItemFlagsDTO;
+
+    /**
+     * Fetch full field data for every archived stock item.
+     *
+     * Uses ExecuteCustomScriptQuery because all three Inventory REST endpoints
+     * (`GetStockItemsFull`, `GetInventoryItemById`, `GetStockItemsFullByIds`)
+     * silently filter archived items out of their responses. Rows with an
+     * empty `ItemNumber` (SKU), and rows whose `ItemNumber` collides with
+     * any other row in `StockItem`, are excluded at the SQL layer.
+     *
+     * Stock levels on the returned items are zero-filled (archived items
+     * have no live stock). Extended properties and supplier rows are NOT
+     * populated — the repository preserves any existing child records on
+     * items transitioning to archived.
+     *
+     * @return list<StockItemFull>
+     *
+     * @throws InvalidApiResponseException
+     * @throws InvalidApiRequestException
+     * @throws AuthenticationExpiredException
+     * @throws ResourceNotFoundException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function getArchivedStockItemsFull(): array;
 }
