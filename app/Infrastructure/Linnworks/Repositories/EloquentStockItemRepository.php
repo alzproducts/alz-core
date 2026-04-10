@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Infrastructure\Linnworks\Repositories;
 
 use App\Application\Contracts\Linnworks\StockItemRepositoryInterface;
+use App\Application\Linnworks\DTOs\ArchivedStockItemDTO;
+use App\Application\Results\SaveManyResult;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
@@ -17,6 +19,7 @@ use App\Infrastructure\Linnworks\Mappers\StockItemModelMapper;
 use App\Infrastructure\Linnworks\Models\StockItemExtendedPropertyModel;
 use App\Infrastructure\Linnworks\Models\StockItemModel;
 use App\Infrastructure\Linnworks\Models\StockItemSupplierModel;
+use App\Infrastructure\Persistence\EloquentGateway;
 use App\Infrastructure\Repositories\AbstractEloquentRepository;
 
 /**
@@ -147,6 +150,43 @@ final class EloquentStockItemRepository extends AbstractEloquentRepository imple
             ->whereNotIn('stock_item_id', $values)
             ->where($column, true)
             ->update([$column => false]);
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * Bypasses the {@see save()} override entirely — does NOT delete or
+     * re-insert extended-property or supplier child rows. This preserves
+     * historical child data for items transitioning from active to
+     * archived state, which the regular save path would destroy.
+     *
+     * Uses {@see EloquentGateway::batchUpsertMany()}
+     * at the default batch size of 500 — ~8 batches for a typical ~3.6k
+     * archived catalogue.
+     *
+     * @param list<ArchivedStockItemDTO> $records
+     */
+    public function upsertArchivedStockItems(array $records): SaveManyResult
+    {
+        if ($records === []) {
+            return new SaveManyResult(succeeded: 0, failed: 0, failedReferences: []);
+        }
+
+        $rows = \array_map(
+            static fn(ArchivedStockItemDTO $record): array => [
+                ...StockItemModelMapper::toModelAttributes($record->item),
+                'is_archived' => $record->isArchived,
+                'is_logically_deleted' => $record->isLogicallyDeleted,
+            ],
+            $records,
+        );
+
+        return $this->eloquentGateway->batchUpsertMany(
+            modelClass: StockItemModel::class,
+            rows: $rows,
+            uniqueBy: ['stock_item_id'],
+            identifierColumn: 'stock_item_id',
+        );
     }
 
     protected function getModelClass(): string

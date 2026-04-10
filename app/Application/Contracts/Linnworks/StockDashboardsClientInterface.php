@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Application\Contracts\Linnworks;
 
 use App\Application\Inventory\DTOs\StockLevelDeltaDTO;
+use App\Application\Linnworks\DTOs\ArchivedStockItemDTO;
 use App\Application\Linnworks\DTOs\ArchivedStockItemFlagsDTO;
 use App\Application\Linnworks\DTOs\ModifiedStockItemDTO;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
@@ -104,4 +105,28 @@ interface StockDashboardsClientInterface
      * @throws ExternalServiceUnavailableException
      */
     public function getArchivedStockItemIds(): ArchivedStockItemFlagsDTO;
+
+    /**
+     * Fetch full field data for every archived or logically-deleted stock item.
+     *
+     * Uses ExecuteCustomScriptQuery because all three Inventory REST endpoints
+     * (`GetStockItemsFull`, `GetInventoryItemById`, `GetStockItemsFullByIds`)
+     * silently filter archived items out of their responses. Rows with an
+     * empty `ItemNumber` (SKU) are excluded at the SQL layer — they're
+     * unusable downstream.
+     *
+     * Stock levels on the returned items are zero-filled (archived items
+     * have no live stock). Extended properties and supplier rows are NOT
+     * populated — the repository preserves any existing child records on
+     * items transitioning to archived.
+     *
+     * @return list<ArchivedStockItemDTO>
+     *
+     * @throws InvalidApiResponseException
+     * @throws InvalidApiRequestException
+     * @throws AuthenticationExpiredException
+     * @throws ResourceNotFoundException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function getArchivedStockItemsFull(): array;
 }

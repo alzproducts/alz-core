@@ -8,6 +8,7 @@ use App\Application\Linnworks\Enums\OrderSyncTier;
 use App\Infrastructure\Jobs\Linnworks\SyncAllOpenLinnworksOrdersJob;
 use App\Infrastructure\Jobs\Linnworks\SyncAllPurchaseOrdersJob;
 use App\Infrastructure\Jobs\Linnworks\SyncArchivedStockItemFlagsJob;
+use App\Infrastructure\Jobs\Linnworks\SyncArchivedStockItemsJob;
 use App\Infrastructure\Jobs\Linnworks\SyncFastPurchaseOrdersJob;
 use App\Infrastructure\Jobs\Linnworks\SyncLinnworksOrdersByCursorJob;
 use App\Infrastructure\Jobs\Linnworks\SyncLinnworksOrdersJob;
@@ -53,6 +54,7 @@ final class LinnworksScheduleServiceProvider extends ServiceProvider
             ->hourly()->onOneServer()->withoutOverlapping(10);
 
         $this->registerArchivedFlagsSchedule();
+        $this->registerArchivedItemsSchedule();
 
         // EVERY 5 MIN: Cursor-based incremental stock item sync
         Schedule::job(new SyncStockItemsWithCursorJob())
@@ -69,6 +71,23 @@ final class LinnworksScheduleServiceProvider extends ServiceProvider
         Schedule::job(new SyncArchivedStockItemFlagsJob())
             ->name('sync-archived-stock-item-flags')
             ->hourly()->onOneServer()->withoutOverlapping(10);
+    }
+
+    /**
+     * Register weekly full sync of archived/logically-deleted stock items.
+     *
+     * Offset to Sunday 02:00 UTC — the default weekly() slot (Sunday 00:00)
+     * collides with the daily() active sync, and midnight is the peak hour
+     * for Linnworks background jobs. Two hours later still falls in the
+     * lowest-traffic window while decoupling from the active sync window.
+     */
+    private function registerArchivedItemsSchedule(): void
+    {
+        // WEEKLY (Sunday 02:00 UTC): Full sync of archived/deleted stock items
+        // via SQL Dashboards — these are filtered out of the Inventory REST API.
+        Schedule::job(new SyncArchivedStockItemsJob())
+            ->name('sync-archived-stock-items')
+            ->weeklyOn(0, '02:00')->onOneServer()->withoutOverlapping(120);
     }
 
     /**
