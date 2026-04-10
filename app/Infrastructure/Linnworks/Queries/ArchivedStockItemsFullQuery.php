@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Linnworks\Queries;
 
-use App\Application\Linnworks\DTOs\ArchivedStockItemDTO;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Inventory\Enums\WeightUnit;
 use App\Domain\Inventory\ValueObjects\Dimensions;
@@ -44,8 +43,6 @@ final class ArchivedStockItemFullRow extends Data
         public readonly string $CategoryId,
         public readonly ?string $CategoryName,
         public readonly ?string $CreationDate,
-        public readonly string $IsArchived,
-        public readonly string $bLogicalDelete,
     ) {}
 }
 
@@ -71,11 +68,11 @@ final class ArchivedStockItemFullRow extends Data
  * want duplicate `item_number`s in `linnworks.stock_items` tripping up
  * downstream SKU→ID resolution.
  *
- * Returns rows wrapped in {@see ArchivedStockItemDTO} so the archive flags
- * can flow to the repository without mutating the shared {@see StockItemFull}
- * domain VO.
+ * Returns plain {@see StockItemFull} domain VOs — the `IsArchived = 1`
+ * filter means every returned row is archived by construction, so the
+ * archived-flag state is a caller contract rather than per-row data.
  *
- * @extends AbstractLinnworksQuery<list<ArchivedStockItemDTO>>
+ * @extends AbstractLinnworksQuery<list<StockItemFull>>
  *
  * @template-pattern Query Object
  */
@@ -84,10 +81,14 @@ final readonly class ArchivedStockItemsFullQuery extends AbstractLinnworksQuery
     protected function buildQueryBody(): string
     {
         return <<<'SQL'
+            -- WARNING: EloquentStockItemRepository::upsertArchivedStockItems() hardcodes
+            -- is_archived=true AND is_logically_deleted=true on every returned row. That
+            -- is safe only while this WHERE guarantees every row is archived and Linnworks
+            -- co-sets bLogicalDelete. Broaden the filter => revisit that method.
             SELECT
                 s.pkStockItemID, s.ItemNumber, s.ItemTitle, s.BarcodeNumber, s.PurchasePrice, s.RetailPrice, s.TaxRate,
                 s.Weight, s.DimHeight, s.DimWidth, s.DimDepth, s.bContainsComposites, s.CategoryId, c.CategoryName,
-                s.CreationDate, s.IsArchived, s.bLogicalDelete
+                s.CreationDate
             FROM [StockItem] s
             LEFT JOIN [ProductCategories] c ON c.CategoryId = s.CategoryId
             WHERE s.IsArchived = 1 AND s.ItemNumber IS NOT NULL AND s.ItemNumber <> ''
@@ -100,20 +101,20 @@ final readonly class ArchivedStockItemsFullQuery extends AbstractLinnworksQuery
     }
 
     /**
-     * @return list<ArchivedStockItemDTO>
+     * @return list<StockItemFull>
      *
      * @throws InvalidApiResponseException When a row's CreationDate is malformed
      */
     public function mapResponse(SqlQueryResponse $response): array
     {
         return \array_map(
-            fn(array $row): ArchivedStockItemDTO => $this->toDomain(ArchivedStockItemFullRow::from($row)),
+            fn(array $row): StockItemFull => $this->toDomain(ArchivedStockItemFullRow::from($row)),
             $response->results,
         );
     }
 
     /**
-     * Convert a raw row into an application DTO carrying a domain VO.
+     * Convert a raw row into a {@see StockItemFull} domain VO.
      *
      * Zero-fills all stock-level fields — archived items have no live stock
      * by definition (that's a semantic truth, not a placeholder). Negative
@@ -122,11 +123,11 @@ final readonly class ArchivedStockItemsFullQuery extends AbstractLinnworksQuery
      *
      * @throws InvalidApiResponseException When CreationDate is malformed
      */
-    private function toDomain(ArchivedStockItemFullRow $row): ArchivedStockItemDTO
+    private function toDomain(ArchivedStockItemFullRow $row): StockItemFull
     {
         $taxRate = (float) $row->TaxRate;
 
-        $item = new StockItemFull(
+        return new StockItemFull(
             stockItemId: Guid::fromTrusted($row->pkStockItemID)->value,
             sku: $row->ItemNumber,
             title: $row->ItemTitle,
@@ -150,12 +151,6 @@ final readonly class ArchivedStockItemsFullQuery extends AbstractLinnworksQuery
             categoryId: $row->CategoryId,
             categoryName: $row->CategoryName ?? 'Default',
             createdAt: LinnworksDateParser::parse($row->CreationDate),
-        );
-
-        return new ArchivedStockItemDTO(
-            item: $item,
-            isArchived: $row->IsArchived === 'True',
-            isLogicallyDeleted: $row->bLogicalDelete === 'True',
         );
     }
 }

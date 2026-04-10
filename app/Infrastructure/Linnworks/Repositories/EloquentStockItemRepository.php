@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Infrastructure\Linnworks\Repositories;
 
 use App\Application\Contracts\Linnworks\StockItemRepositoryInterface;
-use App\Application\Linnworks\DTOs\ArchivedStockItemDTO;
 use App\Application\Results\SaveManyResult;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
@@ -160,25 +159,30 @@ final class EloquentStockItemRepository extends AbstractEloquentRepository imple
      * historical child data for items transitioning from active to
      * archived state, which the regular save path would destroy.
      *
+     * Every row is marked `is_archived = true` and `is_logically_deleted = true`.
+     * Linnworks always co-sets both flags on archived items (verified against
+     * the `StockItem` table three-bucket breakdown), so hardcoding here keeps
+     * the two columns in sync without a per-row flag in the input.
+     *
      * Uses {@see EloquentGateway::batchUpsertMany()}
      * at the default batch size of 500 — ~8 batches for a typical ~3.6k
      * archived catalogue.
      *
-     * @param list<ArchivedStockItemDTO> $records
+     * @param list<StockItemFull> $items
      */
-    public function upsertArchivedStockItems(array $records): SaveManyResult
+    public function upsertArchivedStockItems(array $items): SaveManyResult
     {
-        if ($records === []) {
+        if ($items === []) {
             return new SaveManyResult(succeeded: 0, failed: 0, failedReferences: []);
         }
 
         $rows = \array_map(
-            static fn(ArchivedStockItemDTO $record): array => [
-                ...StockItemModelMapper::toModelAttributes($record->item),
-                'is_archived' => $record->isArchived,
-                'is_logically_deleted' => $record->isLogicallyDeleted,
+            static fn(StockItemFull $item): array => [
+                ...StockItemModelMapper::toModelAttributes($item),
+                'is_archived' => true,
+                'is_logically_deleted' => true,
             ],
-            $records,
+            $items,
         );
 
         return $this->eloquentGateway->batchUpsertMany(

@@ -18,13 +18,13 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 
 /**
- * Asynchronously sync full archived/logically-deleted stock items from Linnworks.
+ * Asynchronously sync full archived stock items from Linnworks.
  *
- * Pulls archived and logically-deleted rows via the SQL Dashboards endpoint
- * (the Inventory REST API silently filters them out) and upserts them into
- * `linnworks.stock_items`. Designed for weekly execution — a complementary
- * path to the hourly {@see SyncArchivedStockItemFlagsJob} which only flips
- * flags on rows already present locally.
+ * Pulls archived rows via the SQL Dashboards endpoint (the Inventory REST
+ * API silently filters them out) and upserts them into `linnworks.stock_items`.
+ * Designed for weekly execution — a complementary path to the hourly
+ * {@see SyncArchivedStockItemFlagsJob} which only flips flags on rows
+ * already present locally.
  */
 final class SyncArchivedStockItemsJob implements ShouldBeUnique, ShouldQueue
 {
@@ -59,11 +59,14 @@ final class SyncArchivedStockItemsJob implements ShouldBeUnique, ShouldQueue
     public int $timeout = 900;
 
     /**
-     * Seconds this job should remain unique (24 hours).
+     * Fallback ceiling for the unique lock if the job is orphaned.
      *
-     * Guards against overlapping runs while the weekly schedule ticks.
+     * Laravel releases the lock automatically when `handle()` returns or
+     * all retries are exhausted; this value only matters if the worker is
+     * SIGKILLed mid-run. Aligned with {@see retryUntil()} (6 hours) — the
+     * longest window in which a retry could still be in flight.
      */
-    public int $uniqueFor = 86400;
+    public int $uniqueFor = 21600;
 
     public function uniqueId(): string
     {

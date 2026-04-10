@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Infrastructure\Linnworks\Queries;
 
-use App\Application\Linnworks\DTOs\ArchivedStockItemDTO;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Inventory\Enums\WeightUnit;
+use App\Domain\Inventory\ValueObjects\StockItemFull;
 use App\Infrastructure\Linnworks\Queries\ArchivedStockItemFullRow;
 use App\Infrastructure\Linnworks\Queries\ArchivedStockItemsFullQuery;
 use App\Infrastructure\Linnworks\Responses\SqlQueryResponse;
@@ -33,15 +33,11 @@ final class ArchivedStockItemFullRowTest extends TestCase
     */
 
     #[Test]
-    public function it_casts_a_fully_populated_archived_row_into_a_domain_dto(): void
+    public function it_casts_a_fully_populated_archived_row_into_a_domain_vo(): void
     {
-        $dto = $this->mapRow($this->validRow());
+        $item = $this->mapRow($this->validRow());
 
-        $this->assertInstanceOf(ArchivedStockItemDTO::class, $dto);
-        $this->assertTrue($dto->isArchived);
-        $this->assertFalse($dto->isLogicallyDeleted);
-
-        $item = $dto->item;
+        $this->assertInstanceOf(StockItemFull::class, $item);
         $this->assertSame('550e8400-e29b-41d4-a716-446655440000', $item->stockItemId);
         $this->assertSame('100376', $item->sku);
         $this->assertSame('Vintage sign — archived', $item->title);
@@ -64,7 +60,7 @@ final class ArchivedStockItemFullRowTest extends TestCase
     #[Test]
     public function it_zero_fills_every_stock_level_for_archived_items(): void
     {
-        $item = $this->mapRow($this->validRow())->item;
+        $item = $this->mapRow($this->validRow());
 
         // Archived items have no live stock — zero is the semantic truth
         $this->assertSame(0, $item->quantity);
@@ -86,54 +82,54 @@ final class ArchivedStockItemFullRowTest extends TestCase
     #[Test]
     public function it_collapses_negative_tax_rate_to_null_matching_linnworks_sentinel(): void
     {
-        $dto = $this->mapRow([...$this->validRow(), 'TaxRate' => '-1']);
+        $item = $this->mapRow([...$this->validRow(), 'TaxRate' => '-1']);
 
-        $this->assertNull($dto->item->taxRate);
+        $this->assertNull($item->taxRate);
     }
 
     #[Test]
     public function it_keeps_zero_tax_rate_as_zero_not_null(): void
     {
-        $dto = $this->mapRow([...$this->validRow(), 'TaxRate' => '0']);
+        $item = $this->mapRow([...$this->validRow(), 'TaxRate' => '0']);
 
         // Zero is a real tax rate (zero-rated goods), distinct from "-1" sentinel
-        $this->assertSame(0.0, $dto->item->taxRate);
+        $this->assertSame(0.0, $item->taxRate);
     }
 
     #[Test]
     public function it_flips_composite_flag_when_contains_composites_is_true(): void
     {
-        $dto = $this->mapRow([...$this->validRow(), 'bContainsComposites' => 'True']);
+        $item = $this->mapRow([...$this->validRow(), 'bContainsComposites' => 'True']);
 
-        $this->assertTrue($dto->item->isComposite);
+        $this->assertTrue($item->isComposite);
     }
 
     #[Test]
     public function it_falls_back_to_default_category_name_when_left_join_returned_null(): void
     {
-        $dto = $this->mapRow([...$this->validRow(), 'CategoryName' => null]);
+        $item = $this->mapRow([...$this->validRow(), 'CategoryName' => null]);
 
         // Matches the `category_name` column default set in the migration.
-        $this->assertSame('Default', $dto->item->categoryName);
+        $this->assertSame('Default', $item->categoryName);
     }
 
     #[Test]
     public function it_treats_missing_barcode_as_empty_string(): void
     {
-        $dto = $this->mapRow([...$this->validRow(), 'BarcodeNumber' => null]);
+        $item = $this->mapRow([...$this->validRow(), 'BarcodeNumber' => null]);
 
-        $this->assertSame('', $dto->item->barcode);
+        $this->assertSame('', $item->barcode);
     }
 
     #[Test]
     public function it_returns_null_created_at_for_linnworks_sentinel_date(): void
     {
-        $dto = $this->mapRow([
+        $item = $this->mapRow([
             ...$this->validRow(),
             'CreationDate' => '0001-01-01T00:00:00',
         ]);
 
-        $this->assertNull($dto->item->createdAt);
+        $this->assertNull($item->createdAt);
     }
 
     #[Test]
@@ -145,7 +141,7 @@ final class ArchivedStockItemFullRowTest extends TestCase
             'DimHeight' => '-1',
             'DimWidth' => '-0.5',
             'DimDepth' => '-10',
-        ])->item;
+        ]);
 
         $this->assertSame(0.0, $item->weight->value);
         $this->assertSame(0.0, $item->dimensions->height);
@@ -196,7 +192,7 @@ final class ArchivedStockItemFullRowTest extends TestCase
     }
 
     #[Test]
-    public function map_response_returns_one_dto_per_row(): void
+    public function map_response_returns_one_stock_item_per_row(): void
     {
         $query = new ArchivedStockItemsFullQuery();
 
@@ -214,13 +210,13 @@ final class ArchivedStockItemFullRowTest extends TestCase
             ],
         );
 
-        $dtos = $query->mapResponse($response);
+        $items = $query->mapResponse($response);
 
-        $this->assertCount(2, $dtos);
-        $this->assertTrue($dtos[0]->isArchived);
-        $this->assertTrue($dtos[1]->isArchived);
-        $this->assertSame('100376', $dtos[0]->item->sku);
-        $this->assertSame('100377', $dtos[1]->item->sku);
+        $this->assertCount(2, $items);
+        $this->assertInstanceOf(StockItemFull::class, $items[0]);
+        $this->assertInstanceOf(StockItemFull::class, $items[1]);
+        $this->assertSame('100376', $items[0]->sku);
+        $this->assertSame('100377', $items[1]->sku);
     }
 
     #[Test]
@@ -240,24 +236,24 @@ final class ArchivedStockItemFullRowTest extends TestCase
 
     /**
      * Drive a single row through the real production code path and return the
-     * mapped DTO. Using the query's own `mapResponse` means the co-located row
-     * class gets autoloaded via the query file, sidestepping PSR-4's
-     * one-class-per-file assumption.
+     * mapped domain VO. Using the query's own `mapResponse` means the
+     * co-located row class gets autoloaded via the query file, sidestepping
+     * PSR-4's one-class-per-file assumption.
      *
      * @param  array<string, mixed>  $row
      *
      * @throws InvalidApiResponseException When the row's CreationDate is malformed
      */
-    private function mapRow(array $row): ArchivedStockItemDTO
+    private function mapRow(array $row): StockItemFull
     {
-        $dtos = (new ArchivedStockItemsFullQuery())->mapResponse(new SqlQueryResponse(
+        $items = (new ArchivedStockItemsFullQuery())->mapResponse(new SqlQueryResponse(
             isError: false,
             totalResults: 1,
             columns: [],
             results: [$row],
         ));
 
-        return $dtos[0];
+        return $items[0];
     }
 
     /**
@@ -281,8 +277,6 @@ final class ArchivedStockItemFullRowTest extends TestCase
             'CategoryId' => '11111111-2222-3333-4444-555555555555',
             'CategoryName' => 'Signs',
             'CreationDate' => '2024-01-15T09:30:00',
-            'IsArchived' => 'True',
-            'bLogicalDelete' => 'False',
         ];
     }
 }

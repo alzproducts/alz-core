@@ -6,7 +6,6 @@ namespace App\Infrastructure\Linnworks\Clients;
 
 use App\Application\Contracts\Linnworks\StockDashboardsClientInterface;
 use App\Application\Inventory\DTOs\StockLevelDeltaDTO;
-use App\Application\Linnworks\DTOs\ArchivedStockItemDTO;
 use App\Application\Linnworks\DTOs\ArchivedStockItemFlagsDTO;
 use App\Application\Linnworks\DTOs\ModifiedStockItemDTO;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
@@ -15,6 +14,7 @@ use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Inventory\ValueObjects\ItemStockLevel;
+use App\Domain\Inventory\ValueObjects\StockItemFull;
 use App\Domain\ValueObjects\Guid;
 use App\Infrastructure\Linnworks\Queries\ArchivedStockItemsFullQuery;
 use App\Infrastructure\Linnworks\Queries\ArchivedStockItemsQuery;
@@ -126,7 +126,7 @@ final readonly class StockDashboardsClient implements StockDashboardsClientInter
     /**
      * {@inheritDoc}
      *
-     * @return list<ArchivedStockItemDTO>
+     * @return list<StockItemFull>
      *
      * @throws InvalidApiResponseException
      * @throws InvalidApiRequestException
@@ -136,7 +136,7 @@ final readonly class StockDashboardsClient implements StockDashboardsClientInter
      */
     public function getArchivedStockItemsFull(): array
     {
-        /** @var list<ArchivedStockItemDTO> */
+        /** @var list<StockItemFull> */
         return $this->dashboardsClient->execute(new ArchivedStockItemsFullQuery());
     }
 }

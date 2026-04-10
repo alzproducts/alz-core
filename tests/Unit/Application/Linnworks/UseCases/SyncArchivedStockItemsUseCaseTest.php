@@ -6,7 +6,6 @@ namespace Tests\Unit\Application\Linnworks\UseCases;
 
 use App\Application\Contracts\Linnworks\StockDashboardsClientInterface;
 use App\Application\Contracts\Linnworks\StockItemRepositoryInterface;
-use App\Application\Linnworks\DTOs\ArchivedStockItemDTO;
 use App\Application\Linnworks\UseCases\SyncArchivedStockItemsUseCase;
 use App\Application\Results\SaveManyResult;
 use App\Domain\Inventory\ValueObjects\Dimensions;
@@ -81,23 +80,23 @@ final class SyncArchivedStockItemsUseCaseTest extends TestCase
     }
 
     #[Test]
-    public function execute_passes_fetched_records_straight_through_to_the_repository(): void
+    public function execute_passes_fetched_items_straight_through_to_the_repository(): void
     {
-        $records = [
-            $this->createArchivedDto('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'SKU-A', isArchived: true),
-            $this->createArchivedDto('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'SKU-B', isLogicallyDeleted: true),
-            $this->createArchivedDto('cccccccc-cccc-cccc-cccc-cccccccccccc', 'SKU-C', isArchived: true, isLogicallyDeleted: true),
+        $items = [
+            $this->createStockItem('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'SKU-A'),
+            $this->createStockItem('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'SKU-B'),
+            $this->createStockItem('cccccccc-cccc-cccc-cccc-cccccccccccc', 'SKU-C'),
         ];
 
         $this->stockDashboardsClient
             ->shouldReceive('getArchivedStockItemsFull')
             ->once()
-            ->andReturn($records);
+            ->andReturn($items);
 
         $this->stockItemRepository
             ->shouldReceive('upsertArchivedStockItems')
             ->once()
-            ->with($records)
+            ->with($items)
             ->andReturn(new SaveManyResult(succeeded: 3, failed: 0));
 
         $this->logger->shouldReceive('info')->with('Starting archived stock items sync');
@@ -119,15 +118,15 @@ final class SyncArchivedStockItemsUseCaseTest extends TestCase
     #[Test]
     public function execute_logs_partial_failure_counts_from_repository_result(): void
     {
-        $records = [
-            $this->createArchivedDto('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'SKU-A', isArchived: true),
-            $this->createArchivedDto('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'SKU-B', isArchived: true),
+        $items = [
+            $this->createStockItem('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'SKU-A'),
+            $this->createStockItem('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'SKU-B'),
         ];
 
         $this->stockDashboardsClient
             ->shouldReceive('getArchivedStockItemsFull')
             ->once()
-            ->andReturn($records);
+            ->andReturn($items);
 
         $this->stockItemRepository
             ->shouldReceive('upsertArchivedStockItems')
@@ -154,13 +153,9 @@ final class SyncArchivedStockItemsUseCaseTest extends TestCase
         $this->useCase->execute();
     }
 
-    private function createArchivedDto(
-        string $stockItemId,
-        string $sku,
-        bool $isArchived = false,
-        bool $isLogicallyDeleted = false,
-    ): ArchivedStockItemDTO {
-        $item = new StockItemFull(
+    private function createStockItem(string $stockItemId, string $sku): StockItemFull
+    {
+        return new StockItemFull(
             stockItemId: $stockItemId,
             sku: $sku,
             title: "Item {$sku}",
@@ -179,12 +174,6 @@ final class SyncArchivedStockItemsUseCaseTest extends TestCase
             isComposite: false,
             categoryId: '00000000-0000-0000-0000-000000000000',
             categoryName: 'Default',
-        );
-
-        return new ArchivedStockItemDTO(
-            item: $item,
-            isArchived: $isArchived,
-            isLogicallyDeleted: $isLogicallyDeleted,
         );
     }
 }
