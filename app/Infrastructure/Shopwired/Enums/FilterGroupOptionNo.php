@@ -9,11 +9,14 @@ namespace App\Infrastructure\Shopwired\Enums;
  *
  * These values are hardcoded in the ShopWired system and protected by
  * integration guard tests (CustomerRatingFilterGroupGuardTest,
- * VatReliefFilterGroupGuardTest, OffersFilterGroupGuardTest).
+ * VatReliefFilterGroupGuardTest, OffersFilterGroupGuardTest,
+ * ShippingOffersFilterGroupGuardTest, ShippingOptionsFilterGroupGuardTest).
  */
 enum FilterGroupOptionNo: int
 {
     case VatRelief = 2;
     case Offers = 14;
     case CustomerRating = 15;
+    case ShippingOffers = 20;
+    case ShippingOptions = 25;
 }
