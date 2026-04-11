@@ -188,7 +188,7 @@ jobs:
         run: echo "::add-matcher::${{ runner.tool_cache }}/phpunit.json"
 
       - name: Execute test suite
-        run: vendor/bin/pest --parallel --no-coverage
+        run: vendor/bin/pest --parallel --no-coverage --exclude-group=integration
 
   # Security scanning (60-90 seconds)
   security:

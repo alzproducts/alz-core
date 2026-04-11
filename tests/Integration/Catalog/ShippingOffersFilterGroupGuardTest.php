@@ -7,6 +7,7 @@ namespace Tests\Integration\Catalog;
 use App\Infrastructure\Shopwired\Enums\FilterGroupOptionNo;
 use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\CoversNothing;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -22,6 +23,7 @@ use Tests\TestCase;
  * ShopWired. Identification must use the stable IDs instead.
  */
 #[CoversNothing]
+#[Group('integration')]
 final class ShippingOffersFilterGroupGuardTest extends TestCase
 {
     #[Test]

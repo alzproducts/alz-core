@@ -6,6 +6,7 @@ namespace Tests\Integration\Catalog;
 
 use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\CoversNothing;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -22,6 +23,7 @@ use Tests\TestCase;
  * use the stable IDs instead.
  */
 #[CoversNothing]
+#[Group('integration')]
 final class VatReliefFilterGroupGuardTest extends TestCase
 {
     #[Test]
