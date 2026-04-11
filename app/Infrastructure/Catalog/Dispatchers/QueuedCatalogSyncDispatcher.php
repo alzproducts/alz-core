@@ -7,6 +7,7 @@ namespace App\Infrastructure\Catalog\Dispatchers;
 use App\Application\Contracts\Catalog\CatalogSyncDispatcherInterface;
 use App\Domain\ValueObjects\IntId;
 use App\Infrastructure\Jobs\Catalog\UpdateProductFilterJob;
+use App\Infrastructure\Jobs\Catalog\UpdateProductSortOrderJob;
 use BackedEnum;
 use Override;
 
@@ -22,5 +23,11 @@ final readonly class QueuedCatalogSyncDispatcher implements CatalogSyncDispatche
                 ? \array_map(static fn(BackedEnum $v): string => (string) $v->value, $values)
                 : null,
         );
+    }
+
+    #[Override]
+    public function dispatchSortOrderUpdate(IntId $productId, int $sortOrder): void
+    {
+        UpdateProductSortOrderJob::dispatch($productId, $sortOrder);
     }
 }
