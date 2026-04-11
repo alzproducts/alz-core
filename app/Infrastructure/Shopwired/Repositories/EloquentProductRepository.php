@@ -717,6 +717,26 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
     /**
      * {@inheritDoc}
      *
+     * @return list<int>
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function findExternalIdsInCategory(int $categoryId): array
+    {
+        return $this->eloquentGateway->query(static function () use ($categoryId): array {
+            /** @var list<int> */
+            return self::MODEL_CLASS::query()
+                ->whereJsonContains('category_ids', $categoryId)
+                ->pluck('external_id')
+                ->all();
+        });
+    }
+
+    /**
+     * {@inheritDoc}
+     *
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException

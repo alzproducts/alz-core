@@ -31,4 +31,18 @@ interface ShopwiredSyncDispatcherInterface
     public function dispatchFreeDeliveryUpdate(SetFreeDeliveryCommand $command): void;
 
     public function dispatchReconcileComparePrice(IntId $productId): void;
+
+    /**
+     * Dispatch a job to add and/or remove a product from one or more ShopWired
+     * categories in a single PUT. Empty arrays are valid — the receiving use
+     * case performs its own idempotency check against live product state.
+     *
+     * @param list<int> $addCategoryIds    Categories to add
+     * @param list<int> $removeCategoryIds Categories to remove
+     */
+    public function dispatchCategoryMembershipUpdate(
+        IntId $productId,
+        array $addCategoryIds,
+        array $removeCategoryIds,
+    ): void;
 }
