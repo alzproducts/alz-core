@@ -8,6 +8,7 @@ use App\Application\Contracts\Catalog\CatalogSyncDispatcherInterface;
 use App\Application\Contracts\Catalog\OffersFilterQueryRepositoryInterface;
 use App\Application\Contracts\Catalog\ProductExtraDataRepositoryInterface;
 use App\Application\Contracts\Catalog\ProductPopularityRankingSnapshotRepositoryInterface;
+use App\Application\Contracts\Catalog\ProductSortOrderQueryRepositoryInterface;
 use App\Application\Contracts\Catalog\RatingFilterQueryRepositoryInterface;
 use App\Application\Contracts\Catalog\ShippingOffersFilterQueryRepositoryInterface;
 use App\Application\Contracts\Catalog\ShippingOptionsFilterQueryRepositoryInterface;
@@ -16,6 +17,7 @@ use App\Infrastructure\Catalog\Dispatchers\QueuedCatalogSyncDispatcher;
 use App\Infrastructure\Catalog\Product\Repositories\EloquentProductExtraDataRepository;
 use App\Infrastructure\Catalog\Repositories\OffersFilterQueryRepository;
 use App\Infrastructure\Catalog\Repositories\ProductPopularityRankingSnapshotRepository;
+use App\Infrastructure\Catalog\Repositories\ProductSortOrderQueryRepository;
 use App\Infrastructure\Catalog\Repositories\RatingFilterQueryRepository;
 use App\Infrastructure\Catalog\Repositories\ShippingOffersFilterQueryRepository;
 use App\Infrastructure\Catalog\Repositories\ShippingOptionsFilterQueryRepository;
@@ -47,6 +49,7 @@ final class CatalogServiceProvider extends ServiceProvider implements Deferrable
             CatalogSyncDispatcherInterface::class,
             ProductExtraDataRepositoryInterface::class,
             ProductPopularityRankingSnapshotRepositoryInterface::class,
+            ProductSortOrderQueryRepositoryInterface::class,
         ];
     }
 
@@ -54,6 +57,7 @@ final class CatalogServiceProvider extends ServiceProvider implements Deferrable
     {
         $this->registerProductAttributeFilterRepositories();
         $this->registerShippingFilterRepositories();
+        $this->registerSortOrderRepositories();
 
         $this->app->scoped(
             ProductExtraDataRepositoryInterface::class,
@@ -63,6 +67,14 @@ final class CatalogServiceProvider extends ServiceProvider implements Deferrable
         $this->app->scoped(
             ProductPopularityRankingSnapshotRepositoryInterface::class,
             ProductPopularityRankingSnapshotRepository::class,
+        );
+    }
+
+    private function registerSortOrderRepositories(): void
+    {
+        $this->app->scoped(
+            ProductSortOrderQueryRepositoryInterface::class,
+            ProductSortOrderQueryRepository::class,
         );
     }
 
