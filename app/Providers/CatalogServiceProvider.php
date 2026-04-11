@@ -7,6 +7,7 @@ namespace App\Providers;
 use App\Application\Contracts\Catalog\CatalogSyncDispatcherInterface;
 use App\Application\Contracts\Catalog\OffersFilterQueryRepositoryInterface;
 use App\Application\Contracts\Catalog\ProductExtraDataRepositoryInterface;
+use App\Application\Contracts\Catalog\ProductPopularityRankingSnapshotRepositoryInterface;
 use App\Application\Contracts\Catalog\RatingFilterQueryRepositoryInterface;
 use App\Application\Contracts\Catalog\ShippingOffersFilterQueryRepositoryInterface;
 use App\Application\Contracts\Catalog\ShippingOptionsFilterQueryRepositoryInterface;
@@ -14,6 +15,7 @@ use App\Application\Contracts\Catalog\VatReliefFilterQueryRepositoryInterface;
 use App\Infrastructure\Catalog\Dispatchers\QueuedCatalogSyncDispatcher;
 use App\Infrastructure\Catalog\Product\Repositories\EloquentProductExtraDataRepository;
 use App\Infrastructure\Catalog\Repositories\OffersFilterQueryRepository;
+use App\Infrastructure\Catalog\Repositories\ProductPopularityRankingSnapshotRepository;
 use App\Infrastructure\Catalog\Repositories\RatingFilterQueryRepository;
 use App\Infrastructure\Catalog\Repositories\ShippingOffersFilterQueryRepository;
 use App\Infrastructure\Catalog\Repositories\ShippingOptionsFilterQueryRepository;
@@ -44,6 +46,7 @@ final class CatalogServiceProvider extends ServiceProvider implements Deferrable
             ShippingOptionsFilterQueryRepositoryInterface::class,
             CatalogSyncDispatcherInterface::class,
             ProductExtraDataRepositoryInterface::class,
+            ProductPopularityRankingSnapshotRepositoryInterface::class,
         ];
     }
 
@@ -55,6 +58,11 @@ final class CatalogServiceProvider extends ServiceProvider implements Deferrable
         $this->app->scoped(
             ProductExtraDataRepositoryInterface::class,
             EloquentProductExtraDataRepository::class,
+        );
+
+        $this->app->scoped(
+            ProductPopularityRankingSnapshotRepositoryInterface::class,
+            ProductPopularityRankingSnapshotRepository::class,
         );
     }
 
