@@ -107,6 +107,33 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Best Sellers Category Limit
+    |--------------------------------------------------------------------------
+    |
+    | How many products (ordered by final_score DESC from the popularity ranking
+    | snapshot) qualify for the Best Sellers category (ID 64943).
+    | Products outside the top N are removed from the category on the next daily
+    | sync at 04:00 Europe/London.
+    |
+    */
+
+    'best_sellers_limit' => (int) env('SHOPWIRED_BEST_SELLERS_LIMIT', 48),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Best Sellers Category ID
+    |--------------------------------------------------------------------------
+    |
+    | ShopWired category ID used by the daily best-sellers sync. Kept in sync
+    | with the literal baked into the catalog.products_best_sellers_ranking_state
+    | database view — if this value changes, the view migration must be replaced.
+    |
+    */
+
+    'best_sellers_category_id' => (int) env('SHOPWIRED_BEST_SELLERS_CATEGORY_ID', 64943),
+
+    /*
+    |--------------------------------------------------------------------------
     | Webhook Staleness Window
     |--------------------------------------------------------------------------
     |
