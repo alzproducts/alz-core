@@ -6,6 +6,7 @@ namespace App\Providers\Schedule;
 
 use App\Infrastructure\Jobs\Catalog\SyncOffersFiltersJob;
 use App\Infrastructure\Jobs\Catalog\SyncRatingFiltersJob;
+use App\Infrastructure\Jobs\Catalog\SyncShippingOffersFiltersJob;
 use App\Infrastructure\Jobs\Catalog\SyncVatReliefFiltersJob;
 use Illuminate\Support\Facades\Schedule;
 use Illuminate\Support\ServiceProvider;
@@ -18,6 +19,7 @@ use RuntimeException;
  *   - Customer rating filter (from reviews_io.product_ratings)
  *   - VAT relief filter (from shopwired.products.vat_relief)
  *   - Offers → On Sale filter (derived from pricing state + variant inheritance)
+ *   - Shipping Offers filter (from shopwired.products.custom_fields->>'free_delivery')
  */
 final class CatalogScheduleServiceProvider extends ServiceProvider
 {
@@ -29,6 +31,7 @@ final class CatalogScheduleServiceProvider extends ServiceProvider
         $this->registerRatingFilterSchedule();
         $this->registerVatReliefFilterSchedule();
         $this->registerOffersFilterSchedule();
+        $this->registerShippingOffersFilterSchedule();
     }
 
     /**
@@ -82,6 +85,22 @@ final class CatalogScheduleServiceProvider extends ServiceProvider
     {
         Schedule::job(new SyncOffersFiltersJob())
             ->name('sync-offers-filters')
+            ->hourly()
+            ->timezone('Europe/London')
+            ->onOneServer()
+            ->withoutOverlapping(30);
+    }
+
+    /**
+     * Hourly sync: maps `shopwired.products.custom_fields->>'free_delivery'` to the
+     * ShopWired "Shipping Offers" product filter (optionNo 20).
+     *
+     * @throws RuntimeException
+     */
+    private function registerShippingOffersFilterSchedule(): void
+    {
+        Schedule::job(new SyncShippingOffersFiltersJob())
+            ->name('sync-shipping-offers-filters')
             ->hourly()
             ->timezone('Europe/London')
             ->onOneServer()
