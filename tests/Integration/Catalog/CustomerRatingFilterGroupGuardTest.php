@@ -6,6 +6,7 @@ namespace Tests\Integration\Catalog;
 
 use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\CoversNothing;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -17,6 +18,7 @@ use Tests\TestCase;
  * this test fails on pre-push — preventing broken code from reaching the remote.
  */
 #[CoversNothing]
+#[Group('integration')]
 final class CustomerRatingFilterGroupGuardTest extends TestCase
 {
     #[Test]
