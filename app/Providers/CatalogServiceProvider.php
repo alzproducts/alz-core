@@ -9,12 +9,14 @@ use App\Application\Contracts\Catalog\OffersFilterQueryRepositoryInterface;
 use App\Application\Contracts\Catalog\ProductExtraDataRepositoryInterface;
 use App\Application\Contracts\Catalog\RatingFilterQueryRepositoryInterface;
 use App\Application\Contracts\Catalog\ShippingOffersFilterQueryRepositoryInterface;
+use App\Application\Contracts\Catalog\ShippingOptionsFilterQueryRepositoryInterface;
 use App\Application\Contracts\Catalog\VatReliefFilterQueryRepositoryInterface;
 use App\Infrastructure\Catalog\Dispatchers\QueuedCatalogSyncDispatcher;
 use App\Infrastructure\Catalog\Product\Repositories\EloquentProductExtraDataRepository;
 use App\Infrastructure\Catalog\Repositories\OffersFilterQueryRepository;
 use App\Infrastructure\Catalog\Repositories\RatingFilterQueryRepository;
 use App\Infrastructure\Catalog\Repositories\ShippingOffersFilterQueryRepository;
+use App\Infrastructure\Catalog\Repositories\ShippingOptionsFilterQueryRepository;
 use App\Infrastructure\Catalog\Repositories\VatReliefFilterQueryRepository;
 use Illuminate\Contracts\Support\DeferrableProvider;
 use Illuminate\Support\ServiceProvider;
@@ -39,6 +41,7 @@ final class CatalogServiceProvider extends ServiceProvider implements Deferrable
             VatReliefFilterQueryRepositoryInterface::class,
             OffersFilterQueryRepositoryInterface::class,
             ShippingOffersFilterQueryRepositoryInterface::class,
+            ShippingOptionsFilterQueryRepositoryInterface::class,
             CatalogSyncDispatcherInterface::class,
             ProductExtraDataRepositoryInterface::class,
         ];
@@ -46,7 +49,8 @@ final class CatalogServiceProvider extends ServiceProvider implements Deferrable
 
     private function registerRepositories(): void
     {
-        $this->registerFilterQueryRepositories();
+        $this->registerProductAttributeFilterRepositories();
+        $this->registerShippingFilterRepositories();
 
         $this->app->scoped(
             ProductExtraDataRepositoryInterface::class,
@@ -54,7 +58,7 @@ final class CatalogServiceProvider extends ServiceProvider implements Deferrable
         );
     }
 
-    private function registerFilterQueryRepositories(): void
+    private function registerProductAttributeFilterRepositories(): void
     {
         $this->app->scoped(
             RatingFilterQueryRepositoryInterface::class,
@@ -68,9 +72,17 @@ final class CatalogServiceProvider extends ServiceProvider implements Deferrable
             OffersFilterQueryRepositoryInterface::class,
             OffersFilterQueryRepository::class,
         );
+    }
+
+    private function registerShippingFilterRepositories(): void
+    {
         $this->app->scoped(
             ShippingOffersFilterQueryRepositoryInterface::class,
             ShippingOffersFilterQueryRepository::class,
+        );
+        $this->app->scoped(
+            ShippingOptionsFilterQueryRepositoryInterface::class,
+            ShippingOptionsFilterQueryRepository::class,
         );
     }
 }
