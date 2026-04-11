@@ -6,6 +6,7 @@ namespace App\Providers\Schedule;
 
 use App\Infrastructure\Jobs\Catalog\SyncOffersFiltersJob;
 use App\Infrastructure\Jobs\Catalog\SyncProductPopularityRankingSnapshotJob;
+use App\Infrastructure\Jobs\Catalog\SyncProductSortOrdersJob;
 use App\Infrastructure\Jobs\Catalog\SyncRatingFiltersJob;
 use App\Infrastructure\Jobs\Catalog\SyncShippingOffersFiltersJob;
 use App\Infrastructure\Jobs\Catalog\SyncShippingOptionsFiltersJob;
@@ -24,6 +25,9 @@ use RuntimeException;
  *   - Offers → On Sale filter (derived from pricing state + variant inheritance)
  *   - Shipping Offers filter (from shopwired.products.custom_fields->>'free_delivery')
  *   - Shipping Options filter (from shopwired product + variation stock; 10-min cadence, offset +5 min from the upstream stock sync)
+ *
+ * Popularity-driven sort order sync (daily):
+ *   - Product sort orders (from catalog.product_popularity_ranking_latest; runs 04:00, one hour after the weekly snapshot at 03:00)
  */
 final class CatalogScheduleServiceProvider extends ServiceProvider
 {
@@ -38,6 +42,7 @@ final class CatalogScheduleServiceProvider extends ServiceProvider
         $this->registerShippingOffersFilterSchedule();
         $this->registerShippingOptionsFilterSchedule();
         $this->registerProductPopularityRankingSnapshotSchedule();
+        $this->registerProductSortOrderSyncSchedule();
     }
 
     /**
@@ -155,5 +160,24 @@ final class CatalogScheduleServiceProvider extends ServiceProvider
             ->timezone('Europe/London')
             ->onOneServer()
             ->withoutOverlapping(60);
+    }
+
+    /**
+     * Daily product sort order sync from popularity snapshot.
+     *
+     * Runs at 04:00 Europe/London — one hour after the weekly popularity snapshot
+     * (Sunday 03:00), so every daily run (including Sunday) consumes the freshest
+     * snapshot rather than racing ahead of it.
+     *
+     * @throws RuntimeException
+     */
+    private function registerProductSortOrderSyncSchedule(): void
+    {
+        Schedule::job(new SyncProductSortOrdersJob())
+            ->name('sync-product-sort-orders')
+            ->dailyAt('04:00')
+            ->timezone('Europe/London')
+            ->onOneServer()
+            ->withoutOverlapping(30);
     }
 }

@@ -16,4 +16,9 @@ interface CatalogSyncDispatcherInterface
      * @param list<ShopwiredFilterValueInterface&BackedEnum>|null $values Filter values to set, or null to remove
      */
     public function dispatchFilterUpdate(IntId $productId, int $optionNo, ?array $values): void;
+
+    /**
+     * Dispatch a job to update the sort_order field on a single ShopWired product.
+     */
+    public function dispatchSortOrderUpdate(IntId $productId, int $sortOrder): void;
 }
