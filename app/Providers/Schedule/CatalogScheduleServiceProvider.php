@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Providers\Schedule;
 
+use App\Infrastructure\Jobs\Catalog\SyncBestSellersCategoryJob;
 use App\Infrastructure\Jobs\Catalog\SyncOffersFiltersJob;
 use App\Infrastructure\Jobs\Catalog\SyncProductPopularityRankingSnapshotJob;
 use App\Infrastructure\Jobs\Catalog\SyncProductSortOrdersJob;
@@ -43,6 +44,7 @@ final class CatalogScheduleServiceProvider extends ServiceProvider
         $this->registerShippingOptionsFilterSchedule();
         $this->registerProductPopularityRankingSnapshotSchedule();
         $this->registerProductSortOrderSyncSchedule();
+        $this->registerBestSellersCategorySchedule();
     }
 
     /**
@@ -175,6 +177,26 @@ final class CatalogScheduleServiceProvider extends ServiceProvider
     {
         Schedule::job(new SyncProductSortOrdersJob())
             ->name('sync-product-sort-orders')
+            ->dailyAt('04:00')
+            ->timezone('Europe/London')
+            ->onOneServer()
+            ->withoutOverlapping(30);
+    }
+
+    /**
+     * Daily Best Sellers category sync from popularity ranking.
+     *
+     * Runs at 04:00 Europe/London — same window as the sort order sync, one hour
+     * after the weekly snapshot (Sunday 03:00). On the six non-snapshot days the
+     * diff query returns zero rows and the orchestrator exits cleanly, providing
+     * drift protection against manual ShopWired admin edits mid-week.
+     *
+     * @throws RuntimeException
+     */
+    private function registerBestSellersCategorySchedule(): void
+    {
+        Schedule::job(new SyncBestSellersCategoryJob())
+            ->name('sync-best-sellers-category')
             ->dailyAt('04:00')
             ->timezone('Europe/London')
             ->onOneServer()

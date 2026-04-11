@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Application\Catalog\UseCases\SyncBestSellersCategoryUseCase;
+use App\Application\Contracts\Catalog\BestSellersRankingStateQueryRepositoryInterface;
 use App\Application\Contracts\Catalog\CatalogSyncDispatcherInterface;
 use App\Application\Contracts\Catalog\OffersFilterQueryRepositoryInterface;
 use App\Application\Contracts\Catalog\ProductExtraDataRepositoryInterface;
@@ -13,8 +15,10 @@ use App\Application\Contracts\Catalog\RatingFilterQueryRepositoryInterface;
 use App\Application\Contracts\Catalog\ShippingOffersFilterQueryRepositoryInterface;
 use App\Application\Contracts\Catalog\ShippingOptionsFilterQueryRepositoryInterface;
 use App\Application\Contracts\Catalog\VatReliefFilterQueryRepositoryInterface;
+use App\Domain\Exceptions\InvalidConfigurationException;
 use App\Infrastructure\Catalog\Dispatchers\QueuedCatalogSyncDispatcher;
 use App\Infrastructure\Catalog\Product\Repositories\EloquentProductExtraDataRepository;
+use App\Infrastructure\Catalog\Repositories\BestSellersRankingStateQueryRepository;
 use App\Infrastructure\Catalog\Repositories\OffersFilterQueryRepository;
 use App\Infrastructure\Catalog\Repositories\ProductPopularityRankingSnapshotRepository;
 use App\Infrastructure\Catalog\Repositories\ProductSortOrderQueryRepository;
@@ -30,6 +34,7 @@ final class CatalogServiceProvider extends ServiceProvider implements Deferrable
     public function register(): void
     {
         $this->registerRepositories();
+        $this->registerBestSellersBindings();
 
         $this->app->scoped(
             CatalogSyncDispatcherInterface::class,
@@ -41,6 +46,7 @@ final class CatalogServiceProvider extends ServiceProvider implements Deferrable
     public function provides(): array
     {
         return [
+            BestSellersRankingStateQueryRepositoryInterface::class,
             RatingFilterQueryRepositoryInterface::class,
             VatReliefFilterQueryRepositoryInterface::class,
             OffersFilterQueryRepositoryInterface::class,
@@ -58,6 +64,7 @@ final class CatalogServiceProvider extends ServiceProvider implements Deferrable
         $this->registerProductAttributeFilterRepositories();
         $this->registerShippingFilterRepositories();
         $this->registerSortOrderRepositories();
+        $this->registerBestSellersRepositories();
 
         $this->app->scoped(
             ProductExtraDataRepositoryInterface::class,
@@ -68,6 +75,25 @@ final class CatalogServiceProvider extends ServiceProvider implements Deferrable
             ProductPopularityRankingSnapshotRepositoryInterface::class,
             ProductPopularityRankingSnapshotRepository::class,
         );
+    }
+
+    private function registerBestSellersRepositories(): void
+    {
+        $this->app->scoped(
+            BestSellersRankingStateQueryRepositoryInterface::class,
+            BestSellersRankingStateQueryRepository::class,
+        );
+    }
+
+    private function registerBestSellersBindings(): void
+    {
+        $this->app->when(SyncBestSellersCategoryUseCase::class)
+            ->needs('$bestSellersLimit')
+            ->give(static fn(): int => self::resolveNumericConfig('shopwired.best_sellers_limit'));
+
+        $this->app->when(SyncBestSellersCategoryUseCase::class)
+            ->needs('$bestSellersCategoryId')
+            ->give(static fn(): int => self::resolveNumericConfig('shopwired.best_sellers_category_id'));
     }
 
     private function registerSortOrderRepositories(): void
@@ -104,5 +130,16 @@ final class CatalogServiceProvider extends ServiceProvider implements Deferrable
             ShippingOptionsFilterQueryRepositoryInterface::class,
             ShippingOptionsFilterQueryRepository::class,
         );
+    }
+
+    private static function resolveNumericConfig(string $key): int
+    {
+        $value = \config($key);
+
+        if (! \is_numeric($value)) {
+            throw new InvalidConfigurationException($key, "{$key} must be a numeric value");
+        }
+
+        return (int) $value;
     }
 }

@@ -15,6 +15,7 @@ use App\Infrastructure\Jobs\Shopwired\SyncShopwiredCustomerJob;
 use App\Infrastructure\Jobs\Shopwired\SyncShopwiredOrderJob;
 use App\Infrastructure\Jobs\Shopwired\SyncShopwiredOrdersRangeJob;
 use App\Infrastructure\Jobs\Shopwired\SyncShopwiredProductJob;
+use App\Infrastructure\Jobs\Shopwired\UpdateProductCategoryMembershipJob;
 use DateTimeImmutable;
 use Override;
 
@@ -71,5 +72,14 @@ final readonly class QueuedShopwiredSyncDispatcher implements ShopwiredSyncDispa
     public function dispatchReconcileComparePrice(IntId $productId): void
     {
         ReconcileShopwiredComparePriceJob::dispatch($productId);
+    }
+
+    #[Override]
+    public function dispatchCategoryMembershipUpdate(
+        IntId $productId,
+        array $addCategoryIds,
+        array $removeCategoryIds,
+    ): void {
+        UpdateProductCategoryMembershipJob::dispatch($productId, $addCategoryIds, $removeCategoryIds);
     }
 }

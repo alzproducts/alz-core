@@ -263,6 +263,20 @@ interface ProductRepositoryInterface extends RepositoryWriteInterface
     public function getProductsOnSale(): array;
 
     /**
+     * Get the external IDs of all products currently tagged with a given category.
+     *
+     * Uses the GIN-indexed jsonb containment predicate on
+     * `shopwired.products.category_ids`.
+     *
+     * @return list<int> ShopWired product external IDs
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function findExternalIdsInCategory(int $categoryId): array;
+
+    /**
      * Check whether a single product has sale state drift.
      *
      * Detects two types of drift:
