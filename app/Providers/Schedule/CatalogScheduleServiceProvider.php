@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace App\Providers\Schedule;
 
 use App\Infrastructure\Jobs\Catalog\SyncOffersFiltersJob;
+use App\Infrastructure\Jobs\Catalog\SyncProductPopularityRankingSnapshotJob;
 use App\Infrastructure\Jobs\Catalog\SyncRatingFiltersJob;
 use App\Infrastructure\Jobs\Catalog\SyncShippingOffersFiltersJob;
 use App\Infrastructure\Jobs\Catalog\SyncShippingOptionsFiltersJob;
 use App\Infrastructure\Jobs\Catalog\SyncVatReliefFiltersJob;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Schedule;
 use Illuminate\Support\ServiceProvider;
 use RuntimeException;
@@ -35,6 +37,7 @@ final class CatalogScheduleServiceProvider extends ServiceProvider
         $this->registerOffersFilterSchedule();
         $this->registerShippingOffersFilterSchedule();
         $this->registerShippingOptionsFilterSchedule();
+        $this->registerProductPopularityRankingSnapshotSchedule();
     }
 
     /**
@@ -132,5 +135,25 @@ final class CatalogScheduleServiceProvider extends ServiceProvider
             ->timezone('Europe/London')
             ->onOneServer()
             ->withoutOverlapping(10);
+    }
+
+    /**
+     * Weekly product popularity ranking snapshot.
+     *
+     * Runs Sunday 03:00 Europe/London — during the quietest traffic period,
+     * capturing a snapshot of the `catalog.product_popularity_ranking` view.
+     * Each run inserts ~2,500 rows (one per catalog product) tagged with
+     * `algorithm_version` from the active config row.
+     *
+     * @throws RuntimeException
+     */
+    private function registerProductPopularityRankingSnapshotSchedule(): void
+    {
+        Schedule::job(new SyncProductPopularityRankingSnapshotJob())
+            ->name('sync-product-popularity-ranking-snapshot')
+            ->weeklyOn(Carbon::SUNDAY, '03:00')
+            ->timezone('Europe/London')
+            ->onOneServer()
+            ->withoutOverlapping(60);
     }
 }
