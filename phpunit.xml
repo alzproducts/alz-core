@@ -25,6 +25,10 @@
             <directory>tests/Feature/Presentation</directory>
             <directory>tests/Unit/Presentation</directory>
         </testsuite>
+        <!-- Integration tests — require live DB (Supabase); fail = sync local + prod -->
+        <testsuite name="Integration">
+            <directory>tests/Integration/Catalog</directory>
+        </testsuite>
         <!-- Supporting test suites -->
         <!-- Temporarily disabled: Google Ads SDK PHP 8.4 deprecation - see todo.php
         <testsuite name="Architecture">
