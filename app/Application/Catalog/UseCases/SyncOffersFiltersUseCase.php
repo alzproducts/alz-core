@@ -6,7 +6,7 @@ namespace App\Application\Catalog\UseCases;
 
 use App\Application\Catalog\DTOs\ProductFilterChangeDTO;
 use App\Application\Contracts\Catalog\CatalogSyncDispatcherInterface;
-use App\Application\Contracts\Catalog\RatingFilterQueryRepositoryInterface;
+use App\Application\Contracts\Catalog\OffersFilterQueryRepositoryInterface;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Data\InvalidEnumValueException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
@@ -14,15 +14,16 @@ use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use Psr\Log\LoggerInterface;
 
 /**
- * Orchestrate hourly sync of product rating filters to ShopWired.
+ * Orchestrate hourly sync of ShopWired "Offers → On Sale" product filters.
  *
- * Queries the SQL view for products whose rating filter values have changed,
- * then dispatches one per-entity job per product to apply the update.
+ * Queries the merge-preserving SQL view for products whose Offers filter slot
+ * has drifted from the canonical sale-active rule, then dispatches one
+ * per-entity job per product to apply the update.
  */
-final readonly class SyncRatingFiltersUseCase
+final readonly class SyncOffersFiltersUseCase
 {
     public function __construct(
-        private RatingFilterQueryRepositoryInterface $ratingFilterRepo,
+        private OffersFilterQueryRepositoryInterface $offersFilterRepo,
         private CatalogSyncDispatcherInterface $dispatcher,
         private LoggerInterface $logger,
     ) {}
@@ -35,19 +36,19 @@ final readonly class SyncRatingFiltersUseCase
      */
     public function execute(): void
     {
-        $this->logger->info('SyncRatingFilters: starting');
+        $this->logger->info('SyncOffersFilters: starting');
 
-        $changes = $this->ratingFilterRepo->getProductsWithChangedRatingFilters();
+        $changes = $this->offersFilterRepo->getProductsWithChangedOffersFilters();
 
         if ($changes === []) {
-            $this->logger->info('SyncRatingFilters: no products with changed rating filters');
+            $this->logger->info('SyncOffersFilters: no products with changed Offers filters');
 
             return;
         }
 
         $this->dispatchAll($changes);
 
-        $this->logger->info('SyncRatingFilters: dispatched rating filter updates', [
+        $this->logger->info('SyncOffersFilters: dispatched Offers filter updates', [
             'count' => \count($changes),
         ]);
     }

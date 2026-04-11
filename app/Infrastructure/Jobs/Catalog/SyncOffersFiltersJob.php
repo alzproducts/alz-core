@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Jobs\Catalog;
 
-use App\Application\Catalog\UseCases\SyncRatingFiltersUseCase;
+use App\Application\Catalog\UseCases\SyncOffersFiltersUseCase;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Data\InvalidEnumValueException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
@@ -19,12 +19,12 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 
 /**
- * Hourly orchestrator: query products with changed rating filters and dispatch per-entity updates.
+ * Hourly orchestrator: query products with changed Offers filters and dispatch per-entity updates.
  *
  * Does NOT call the ShopWired API directly — only queries the database view
  * and dispatches UpdateProductFilterJob per product.
  */
-final class SyncRatingFiltersJob implements ShouldBeUnique, ShouldQueue
+final class SyncOffersFiltersJob implements ShouldBeUnique, ShouldQueue
 {
     use Dispatchable;
     use InteractsWithQueue;
@@ -45,7 +45,7 @@ final class SyncRatingFiltersJob implements ShouldBeUnique, ShouldQueue
 
     public function uniqueId(): string
     {
-        return 'sync-rating-filters';
+        return 'sync-offers-filters';
     }
 
     public function __construct()
@@ -72,7 +72,7 @@ final class SyncRatingFiltersJob implements ShouldBeUnique, ShouldQueue
      * @throws ExternalServiceUnavailableException
      * @throws InvalidEnumValueException
      */
-    public function handle(SyncRatingFiltersUseCase $useCase): void
+    public function handle(SyncOffersFiltersUseCase $useCase): void
     {
         $useCase->execute();
     }

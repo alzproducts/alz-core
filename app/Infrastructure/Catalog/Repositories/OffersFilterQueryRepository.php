@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Infrastructure\Catalog\Repositories;
 
 use App\Application\Catalog\DTOs\ProductFilterChangeDTO;
-use App\Application\Contracts\Catalog\RatingFilterQueryRepositoryInterface;
-use App\Domain\Catalog\Product\Enums\RatingFilterValue;
+use App\Application\Contracts\Catalog\OffersFilterQueryRepositoryInterface;
+use App\Domain\Catalog\Product\Enums\OffersFilterValue;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Data\InvalidEnumValueException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
@@ -18,12 +18,14 @@ use App\Infrastructure\Shopwired\Enums\FilterGroupOptionNo;
 use Override;
 
 /**
- * Queries the catalog.products_with_changed_rating_filters Postgres view.
+ * Queries the catalog.products_with_changed_offers_filters Postgres view.
  *
- * All filtering and diff logic lives in the SQL view — this repository
- * is a trivial SELECT that maps rows to DTOs.
+ * All filtering and merge logic lives in the SQL view — this repository
+ * is a trivial SELECT that maps rows to DTOs. The `desired_filter_values`
+ * column is jsonb (not text[]) because Offers filter values contain
+ * whitespace and we want an unambiguous round-trip into PHP.
  */
-final class RatingFilterQueryRepository implements RatingFilterQueryRepositoryInterface
+final class OffersFilterQueryRepository implements OffersFilterQueryRepositoryInterface
 {
     /** @var class-string<ProductModel> */
     private const string MODEL_CLASS = ProductModel::class;
@@ -43,14 +45,14 @@ final class RatingFilterQueryRepository implements RatingFilterQueryRepositoryIn
      * @throws InvalidEnumValueException
      */
     #[Override]
-    public function getProductsWithChangedRatingFilters(): array
+    public function getProductsWithChangedOffersFilters(): array
     {
         /** @var list<object{product_id: int, desired_filter_values: string}> $rows */
         $rows = $this->eloquentGateway->query(static fn(): array => self::MODEL_CLASS::query()
             ->getConnection()
-            ->select('SELECT product_id, desired_filter_values FROM catalog.products_with_changed_rating_filters'));
+            ->select('SELECT product_id, desired_filter_values FROM catalog.products_with_changed_offers_filters'));
 
-        return self::mapRowsToDtos($rows, FilterGroupOptionNo::CustomerRating->value);
+        return self::mapRowsToDtos($rows, FilterGroupOptionNo::Offers->value);
     }
 
     /**
@@ -65,7 +67,7 @@ final class RatingFilterQueryRepository implements RatingFilterQueryRepositoryIn
             static fn(object $row): ProductFilterChangeDTO => new ProductFilterChangeDTO(
                 productId: IntId::from($row->product_id),
                 optionNo: $optionNo,
-                desiredFilterValues: RatingFilterValue::fromPostgresArray($row->desired_filter_values),
+                desiredFilterValues: OffersFilterValue::fromJsonArray($row->desired_filter_values),
             ),
             $rows,
         );
