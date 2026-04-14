@@ -150,10 +150,13 @@ final readonly class ProductView
     }
 
     /**
-     * Whether all variations share the same selling price as the master product.
+     * Whether all sellable SKUs share the same selling price.
      *
      * Requires variations to be loaded (asserts non-null). Products with no
      * variations trivially have a single selling price.
+     *
+     * When the master product price is zero (variant-only pricing model),
+     * variations are compared against each other instead of the master.
      */
     public function hasSingleSellingPrice(): bool
     {
@@ -163,9 +166,13 @@ final readonly class ProductView
             return true;
         }
 
+        $reference = $this->price->isZero()
+            ? $this->variations[0]->price
+            : $this->price;
+
         return \array_all(
             $this->variations,
-            fn(ProductVariationView $v): bool => $v->price->amountEquals($this->price),
+            static fn(ProductVariationView $v): bool => $v->price->amountEquals($reference),
         );
     }
 
