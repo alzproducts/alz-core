@@ -9,11 +9,9 @@ use App\Application\Contracts\Shopwired\SaleReconciliationDispatcherInterface;
 use App\Application\Contracts\Shopwired\SaleSettingsRepositoryInterface;
 use App\Application\Shopwired\SaleManagement\Resolvers\ProductSaleStateResolver;
 use App\Application\Shopwired\SaleManagement\Results\ProductSaleStateResult;
-use App\Application\Shopwired\SaleManagement\Results\SkuSaleStateResult;
 use App\Application\Shopwired\SaleManagement\UseCases\ReconcileProductSaleStateUseCase;
 use App\Domain\Catalog\Product\ValueObjects\Product;
 use App\Domain\Catalog\Product\ValueObjects\SaleSettings;
-use App\Domain\Catalog\Product\ValueObjects\Sku;
 use App\Domain\ValueObjects\IntId;
 use DateTimeImmutable;
 use Mockery;
@@ -83,7 +81,6 @@ final class ReconcileProductSaleStateUseCaseTest extends TestCase
         $this->productRepo->shouldNotReceive('getProduct');
         $this->dispatcher->shouldNotReceive('dispatchAddToSale');
         $this->dispatcher->shouldNotReceive('dispatchRemoveFromSale');
-        $this->dispatcher->shouldNotReceive('dispatchUpdateSaleState');
         $this->saleSettingsRepo->shouldNotReceive('findByProduct');
 
         $this->useCase->execute($productId);
@@ -100,18 +97,11 @@ final class ReconcileProductSaleStateUseCaseTest extends TestCase
         $product = self::createProduct(id: 10, sku: 'SKU-010');
         $dbSettings = new SaleSettings(saleReason: 'Flash Sale');
 
-        $sku1 = Sku::fromTrusted('SKU-010');
-        $sku2 = Sku::fromTrusted('SKU-010-VAR');
-
         $result = new ProductSaleStateResult(
             productId: $productId,
             shouldBeOnSale: true,
             needsAddToSale: true,
             needsRemoveFromSale: false,
-            skuSaleStates: [
-                new SkuSaleStateResult(sku: $sku1, shouldBeInSale: true),
-                new SkuSaleStateResult(sku: $sku2, shouldBeInSale: true),
-            ],
         );
 
         $this->productRepo->shouldReceive('hasSaleStateDrift')->once()->andReturnTrue();
@@ -138,20 +128,6 @@ final class ReconcileProductSaleStateUseCaseTest extends TestCase
 
         $this->dispatcher->shouldNotReceive('dispatchRemoveFromSale');
 
-        $this->dispatcher->shouldReceive('dispatchUpdateSaleState')
-            ->once()
-            ->with(
-                Mockery::on(static fn(IntId $id): bool => $id->value === 10),
-                Mockery::on(static fn(Sku $s): bool => $s->value === 'SKU-010'),
-            );
-
-        $this->dispatcher->shouldReceive('dispatchUpdateSaleState')
-            ->once()
-            ->with(
-                Mockery::on(static fn(IntId $id): bool => $id->value === 10),
-                Mockery::on(static fn(Sku $s): bool => $s->value === 'SKU-010-VAR'),
-            );
-
         $this->useCase->execute($productId);
     }
 
@@ -165,16 +141,11 @@ final class ReconcileProductSaleStateUseCaseTest extends TestCase
         $productId = IntId::from(20);
         $product = self::createProduct(id: 20, sku: 'SKU-020');
 
-        $sku = Sku::fromTrusted('SKU-020');
-
         $result = new ProductSaleStateResult(
             productId: $productId,
             shouldBeOnSale: false,
             needsAddToSale: false,
             needsRemoveFromSale: true,
-            skuSaleStates: [
-                new SkuSaleStateResult(sku: $sku, shouldBeInSale: false),
-            ],
         );
 
         $this->productRepo->shouldReceive('hasSaleStateDrift')->once()->andReturnTrue();
@@ -195,13 +166,6 @@ final class ReconcileProductSaleStateUseCaseTest extends TestCase
             ->once()
             ->with(Mockery::on(static fn(IntId $id): bool => $id->value === 20));
 
-        $this->dispatcher->shouldReceive('dispatchUpdateSaleState')
-            ->once()
-            ->with(
-                Mockery::on(static fn(IntId $id): bool => $id->value === 20),
-                Mockery::on(static fn(Sku $s): bool => $s->value === 'SKU-020'),
-            );
-
         $this->useCase->execute($productId);
     }
 
@@ -215,16 +179,11 @@ final class ReconcileProductSaleStateUseCaseTest extends TestCase
         $productId = IntId::from(30);
         $product = self::createProduct(id: 30, sku: 'SKU-030');
 
-        // skuSaleStates is always populated by the resolver, but should NOT
-        // trigger dispatches when no product-level correction is needed
         $result = new ProductSaleStateResult(
             productId: $productId,
             shouldBeOnSale: true,
             needsAddToSale: false,
             needsRemoveFromSale: false,
-            skuSaleStates: [
-                new SkuSaleStateResult(sku: Sku::fromTrusted('SKU-030'), shouldBeInSale: true),
-            ],
         );
 
         $this->productRepo->shouldReceive('hasSaleStateDrift')->once()->andReturnTrue();
@@ -233,7 +192,6 @@ final class ReconcileProductSaleStateUseCaseTest extends TestCase
 
         $this->dispatcher->shouldNotReceive('dispatchAddToSale');
         $this->dispatcher->shouldNotReceive('dispatchRemoveFromSale');
-        $this->dispatcher->shouldNotReceive('dispatchUpdateSaleState');
         $this->saleSettingsRepo->shouldNotReceive('findByProduct');
 
         $this->useCase->execute($productId);
@@ -254,16 +212,11 @@ final class ReconcileProductSaleStateUseCaseTest extends TestCase
             'sale_ends_stock' => '10',
         ]);
 
-        $sku = Sku::fromTrusted('SKU-040');
-
         $result = new ProductSaleStateResult(
             productId: $productId,
             shouldBeOnSale: true,
             needsAddToSale: true,
             needsRemoveFromSale: false,
-            skuSaleStates: [
-                new SkuSaleStateResult(sku: $sku, shouldBeInSale: true),
-            ],
         );
 
         $this->productRepo->shouldReceive('hasSaleStateDrift')->once()->andReturnTrue();
@@ -291,8 +244,6 @@ final class ReconcileProductSaleStateUseCaseTest extends TestCase
             ->once()
             ->with(Mockery::on(static fn(IntId $id): bool => $id->value === 40));
 
-        $this->dispatcher->shouldReceive('dispatchUpdateSaleState')->once();
-
         $this->useCase->execute($productId);
     }
 
@@ -306,16 +257,11 @@ final class ReconcileProductSaleStateUseCaseTest extends TestCase
         $productId = IntId::from(50);
         $product = self::createProduct(id: 50, sku: 'SKU-050', rawCustomFields: []);
 
-        $sku = Sku::fromTrusted('SKU-050');
-
         $result = new ProductSaleStateResult(
             productId: $productId,
             shouldBeOnSale: true,
             needsAddToSale: true,
             needsRemoveFromSale: false,
-            skuSaleStates: [
-                new SkuSaleStateResult(sku: $sku, shouldBeInSale: true),
-            ],
         );
 
         $this->productRepo->shouldReceive('hasSaleStateDrift')->once()->andReturnTrue();
@@ -339,8 +285,6 @@ final class ReconcileProductSaleStateUseCaseTest extends TestCase
         $this->dispatcher->shouldReceive('dispatchAddToSale')
             ->once()
             ->with(Mockery::on(static fn(IntId $id): bool => $id->value === 50));
-
-        $this->dispatcher->shouldReceive('dispatchUpdateSaleState')->once();
 
         $this->useCase->execute($productId);
     }

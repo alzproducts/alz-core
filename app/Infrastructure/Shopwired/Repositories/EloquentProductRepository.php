@@ -704,12 +704,11 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
     public function getProductsOnSale(): array
     {
         return $this->eloquentGateway->query(function (): array {
+            $query = self::MODEL_CLASS::query()->with(self::EAGER_LOAD_RELATIONS);
+            self::whereAnySaleActive($query);
+
             /** @var list<Product> */
-            return self::MODEL_CLASS::query()
-                ->with(self::EAGER_LOAD_RELATIONS)
-                ->whereNotNull('sale_price')
-                ->where('sale_price', '>', 0)
-                ->get()
+            return $query->get()
                 ->map(fn(ProductModel $model): Product => $this->mapModelToDomain($model))
                 ->all();
         });
@@ -767,7 +766,10 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
     }
 
     /**
-     * Build the shared query for detecting sale state drift.
+     * Build the shared query for detecting sale state drift (price ↔ category only).
+     *
+     * Custom field checks deliberately excluded — they caused an infinite
+     * reconciliation loop (local JSONB lags behind ShopWired API writes).
      *
      * @return Builder<ProductModel>
      */
@@ -778,34 +780,48 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
         return self::MODEL_CLASS::query()
             ->select('external_id')
             ->where(static function (Builder $q) use ($saleCategoryJson): void {
-                // Case 1: On sale but NOT in sale category or missing sale custom fields
+                // Case 1: On sale (master or variant) but NOT in sale category
                 $q->where(static function (Builder $onSale) use ($saleCategoryJson): void {
-                    $onSale->whereNotNull('sale_price')
-                        ->where('sale_price', '>', 0)
-                        ->whereRaw('sale_price < price')
-                        ->where(static function (Builder $missing) use ($saleCategoryJson): void {
-                            $missing->whereRaw('NOT (category_ids @> ?::jsonb)', [$saleCategoryJson])
-                                ->orWhereRaw("custom_fields->>'sale_reason' IS NULL")
-                                ->orWhereRaw("custom_fields->>'sale_reason' = ''");
-                        });
+                    self::whereAnySaleActive($onSale);
+                    $onSale->whereRaw('NOT (category_ids @> ?::jsonb)', [$saleCategoryJson]);
                 })
-                // Case 2: NOT on sale but still in sale category or has orphaned sale custom fields
+                // Case 2: NOT on sale but still in sale category
                 ->orWhere(static function (Builder $notOnSale) use ($saleCategoryJson): void {
-                    $notOnSale->where(static function (Builder $notSale): void {
-                        $notSale->whereNull('sale_price')
-                            ->orWhere('sale_price', '<=', 0)
-                            ->orWhereRaw('sale_price >= price');
-                    })
-                    ->where(static function (Builder $hasArtifacts) use ($saleCategoryJson): void {
-                        $hasArtifacts->whereRaw('category_ids @> ?::jsonb', [$saleCategoryJson])
-                            ->orWhereRaw("(custom_fields->>'sale_reason') IS NOT NULL AND (custom_fields->>'sale_reason') != ''")
-                            ->orWhereRaw("(custom_fields->>'sale_date_start') IS NOT NULL AND (custom_fields->>'sale_date_start') != ''")
-                            ->orWhereRaw("(custom_fields->>'sale_date_end') IS NOT NULL AND (custom_fields->>'sale_date_end') != ''")
-                            ->orWhereRaw("(custom_fields->>'sale_comments') IS NOT NULL AND (custom_fields->>'sale_comments') != ''")
-                            ->orWhereRaw("(custom_fields->>'sale_ends_stock') IS NOT NULL AND (custom_fields->>'sale_ends_stock') != ''");
-                    });
+                    self::whereNoSaleActive($notOnSale);
+                    $notOnSale->whereRaw('category_ids @> ?::jsonb', [$saleCategoryJson]);
                 });
             });
+    }
+
+    /** @param Builder<ProductModel> $query */
+    private static function whereAnySaleActive(Builder $query): void
+    {
+        $query->where(static function (Builder $q): void {
+            $q->where(static function (Builder $m): void {
+                $m->whereNotNull('sale_price')->where('sale_price', '>', 0)->whereRaw('sale_price < price');
+            })->orWhereExists(self::variationSaleExistsSubquery());
+        });
+    }
+
+    /** @param Builder<ProductModel> $query */
+    private static function whereNoSaleActive(Builder $query): void
+    {
+        $query->where(static function (Builder $q): void {
+            $q->whereNull('sale_price')->orWhere('sale_price', '<=', 0)->orWhereRaw('sale_price >= price');
+        })->whereNotExists(self::variationSaleExistsSubquery());
+    }
+
+    /** @return Closure(\Illuminate\Database\Query\Builder): void */
+    private static function variationSaleExistsSubquery(): Closure
+    {
+        return static function (\Illuminate\Database\Query\Builder $sub): void {
+            $sub->selectRaw('1')
+                ->from('shopwired.product_variations')
+                ->whereColumn('product_external_id', 'shopwired.products.external_id')
+                ->whereNotNull('sale_price')
+                ->where('sale_price', '>', 0)
+                ->whereRaw('sale_price < COALESCE(shopwired.product_variations.price, shopwired.products.price)');
+        };
     }
 
     /**

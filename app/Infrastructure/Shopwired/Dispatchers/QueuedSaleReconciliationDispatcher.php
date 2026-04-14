@@ -5,9 +5,7 @@ declare(strict_types=1);
 namespace App\Infrastructure\Shopwired\Dispatchers;
 
 use App\Application\Contracts\Shopwired\SaleReconciliationDispatcherInterface;
-use App\Domain\Catalog\Product\ValueObjects\Sku;
 use App\Domain\ValueObjects\IntId;
-use App\Infrastructure\Jobs\Linnworks\UpdateLinnworksSaleStateJob;
 use App\Infrastructure\Jobs\Shopwired\ReconcileProductSaleStateJob;
 use App\Infrastructure\Jobs\Shopwired\UpdateShopwiredAddToSaleJob;
 use App\Infrastructure\Jobs\Shopwired\UpdateShopwiredRemoveFromSaleJob;
@@ -32,12 +30,6 @@ final readonly class QueuedSaleReconciliationDispatcher implements SaleReconcili
     public function dispatchRemoveFromSale(IntId $productId): void
     {
         UpdateShopwiredRemoveFromSaleJob::dispatch($productId);
-    }
-
-    #[Override]
-    public function dispatchUpdateSaleState(IntId $productId, Sku $sku): void
-    {
-        UpdateLinnworksSaleStateJob::dispatch($productId, $sku);
     }
 
     #[Override]
