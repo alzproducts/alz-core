@@ -7,6 +7,7 @@ namespace Tests\Unit\Application\Catalog\UseCases;
 use App\Application\Catalog\UseCases\GetBrandResult;
 use App\Application\Catalog\UseCases\GetBrandUseCase;
 use App\Application\Contracts\Shopwired\BrandRepositoryInterface;
+use App\Domain\Catalog\Brand\ValueObjects\BrandLinks;
 use App\Domain\Catalog\Brand\ValueObjects\BrandView;
 use App\Domain\ValueObjects\IntId;
 use DateTimeImmutable;
@@ -109,7 +110,10 @@ final class GetBrandUseCaseTest extends TestCase
             id: IntId::from(42),
             title: 'Test Brand',
             slug: 'test-brand',
-            url: '/brands/test-brand',
+            links: new BrandLinks(
+                publicUrl: '/brands/test-brand',
+                editWebsiteUrl: 'https://admin.myshopwired.uk/business/manage-ecommerce-add-brand/42',
+            ),
             active: true,
             featured: false,
             sortOrder: 1,

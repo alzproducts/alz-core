@@ -6,6 +6,7 @@ namespace App\Infrastructure\Shopwired\Models;
 
 use App\Domain\Catalog\Category\ValueObjects\Category;
 use App\Domain\Catalog\Category\ValueObjects\CategoryImage;
+use App\Domain\Catalog\Category\ValueObjects\CategoryLinks;
 use App\Domain\Catalog\Category\ValueObjects\CategoryView;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
@@ -15,6 +16,7 @@ use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\IntId;
 use App\Infrastructure\Contracts\EloquentDomainMappableInterface;
 use App\Infrastructure\Shopwired\Factories\CustomFieldFactory;
+use App\Infrastructure\Shopwired\ShopwiredAdminUrlResolver;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
@@ -133,7 +135,10 @@ final class CategoryModel extends Model implements EloquentDomainMappableInterfa
             id: IntId::fromTrusted($this->external_id),
             title: $this->title,
             slug: $this->slug,
-            url: $this->url,
+            links: new CategoryLinks(
+                publicUrl: $this->url,
+                editWebsiteUrl: ShopwiredAdminUrlResolver::categoryEditUrl($this->external_id),
+            ),
             active: $this->active,
             featured: $this->featured,
             sortOrder: $this->sort_order,

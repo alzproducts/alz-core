@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Domain\Catalog\Product\ValueObjects;
 
 use App\Domain\Catalog\Product\Enums\FreeDeliveryType;
+use App\Domain\Catalog\Product\ValueObjects\ProductLinks;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariationView;
 use App\Domain\Catalog\Product\ValueObjects\ProductView;
 use App\Domain\Shared\ValueObjects\DateFormat;
@@ -324,7 +325,10 @@ final class ProductViewTest extends TestCase
             title: 'Test Product',
             description: null,
             slug: 'test-product',
-            url: 'https://example.com/test-product',
+            links: new ProductLinks(
+                publicUrl: 'https://example.com/test-product',
+                editWebsiteUrl: 'https://admin.myshopwired.uk/business/manage-ecommerce-add-product/1',
+            ),
             price: $price,
             costPrice: $costPrice,
             salePrice: $salePrice,
