@@ -8,6 +8,7 @@ use App\Application\Shopwired\SaleManagement\Resolvers\ProductSaleStateResolver;
 use App\Domain\Catalog\Product\ValueObjects\Product;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariation;
 use DateTimeImmutable;
+use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -19,6 +20,7 @@ final class ProductSaleStateResolverTest extends TestCase
 
     private ProductSaleStateResolver $specification;
 
+    #[Override]
     protected function setUp(): void
     {
         parent::setUp();
@@ -69,11 +71,11 @@ final class ProductSaleStateResolverTest extends TestCase
     }
 
     // ========================================================================
-    // On sale, in category, but missing custom fields — needs add
+    // On sale, in category, missing custom fields — no correction (custom fields not checked)
     // ========================================================================
 
     #[Test]
-    public function product_on_sale_in_category_without_custom_fields_needs_add(): void
+    public function product_on_sale_in_category_without_custom_fields_needs_no_correction(): void
     {
         $product = self::createProduct(
             salePrice: 15.00,
@@ -84,7 +86,7 @@ final class ProductSaleStateResolverTest extends TestCase
         $result = $this->specification->evaluate($product);
 
         self::assertTrue($result->shouldBeOnSale);
-        self::assertTrue($result->needsAddToSale);
+        self::assertFalse($result->needsAddToSale);
         self::assertFalse($result->needsRemoveFromSale);
     }
 
@@ -109,11 +111,12 @@ final class ProductSaleStateResolverTest extends TestCase
     }
 
     // ========================================================================
-    // Not on sale (salePrice=0), has sale custom fields — needs remove
+    // Not on sale (salePrice=0), has sale custom fields but NOT in category — no correction
+    // (custom fields are no longer checked — only price ↔ category alignment matters)
     // ========================================================================
 
     #[Test]
-    public function product_not_on_sale_zero_price_with_custom_fields_needs_remove(): void
+    public function product_not_on_sale_zero_price_with_custom_fields_not_in_category_no_correction(): void
     {
         $product = self::createProduct(
             salePrice: 0.00,
@@ -125,7 +128,7 @@ final class ProductSaleStateResolverTest extends TestCase
 
         self::assertFalse($result->shouldBeOnSale);
         self::assertFalse($result->needsAddToSale);
-        self::assertTrue($result->needsRemoveFromSale);
+        self::assertFalse($result->needsRemoveFromSale);
     }
 
     // ========================================================================
@@ -185,47 +188,11 @@ final class ProductSaleStateResolverTest extends TestCase
     }
 
     // ========================================================================
-    // SKU sale states match shouldBeOnSale
+    // Variant-only sale — product should be on sale
     // ========================================================================
 
     #[Test]
-    public function sku_sale_states_reflect_should_be_on_sale_for_master_sku(): void
-    {
-        $product = self::createProduct(
-            salePrice: 15.00,
-            categoryIds: [self::SALE_CATEGORY_ID],
-            rawCustomFields: ['sale_reason' => 'Test'],
-        );
-
-        $result = $this->specification->evaluate($product);
-
-        self::assertCount(1, $result->skuSaleStates);
-        self::assertSame('MASTER-001', $result->skuSaleStates[0]->sku->value);
-        self::assertTrue($result->skuSaleStates[0]->shouldBeInSale);
-    }
-
-    #[Test]
-    public function sku_sale_states_reflect_not_on_sale_for_master_sku(): void
-    {
-        $product = self::createProduct(
-            salePrice: null,
-            categoryIds: [],
-            rawCustomFields: [],
-        );
-
-        $result = $this->specification->evaluate($product);
-
-        self::assertCount(1, $result->skuSaleStates);
-        self::assertSame('MASTER-001', $result->skuSaleStates[0]->sku->value);
-        self::assertFalse($result->skuSaleStates[0]->shouldBeInSale);
-    }
-
-    // ========================================================================
-    // Product with variations — skuSaleStates has entries for all SKUs
-    // ========================================================================
-
-    #[Test]
-    public function sku_sale_states_include_master_and_variation_skus(): void
+    public function product_with_only_variant_on_sale_is_on_sale(): void
     {
         $variations = [
             new ProductVariation(
@@ -241,75 +208,19 @@ final class ProductSaleStateResolverTest extends TestCase
                 mpn: null,
                 imageIndex: null,
             ),
-            new ProductVariation(
-                id: 2,
-                productExternalId: 1,
-                sku: 'VAR-002',
-                price: 30.00,
-                costPrice: null,
-                salePrice: 25.00,
-                stock: 30,
-                weight: null,
-                gtin: null,
-                mpn: null,
-                imageIndex: null,
-            ),
         ];
 
         $product = self::createProduct(
-            salePrice: 15.00,
-            categoryIds: [self::SALE_CATEGORY_ID],
-            rawCustomFields: ['sale_reason' => 'Test'],
+            salePrice: null,
+            categoryIds: [],
+            rawCustomFields: [],
             variations: $variations,
         );
 
         $result = $this->specification->evaluate($product);
 
-        self::assertCount(3, $result->skuSaleStates);
-
-        $skuValues = \array_map(
-            static fn($state): string => $state->sku->value,
-            $result->skuSaleStates,
-        );
-
-        self::assertSame(['MASTER-001', 'VAR-001', 'VAR-002'], $skuValues);
-        self::assertTrue($result->skuSaleStates[0]->shouldBeInSale);
-        self::assertTrue($result->skuSaleStates[1]->shouldBeInSale);
-        self::assertTrue($result->skuSaleStates[2]->shouldBeInSale);
-    }
-
-    // ========================================================================
-    // hasSaleCustomFields excludes DefaultSortOrder
-    // ========================================================================
-
-    #[Test]
-    public function default_sort_order_alone_does_not_count_as_sale_custom_field(): void
-    {
-        $product = self::createProduct(
-            salePrice: null,
-            categoryIds: [],
-            rawCustomFields: ['default_sort_order' => '5'],
-        );
-
-        $result = $this->specification->evaluate($product);
-
-        self::assertFalse($result->shouldBeOnSale);
-        self::assertFalse($result->needsRemoveFromSale);
-    }
-
-    #[Test]
-    public function empty_sale_custom_field_values_do_not_count(): void
-    {
-        $product = self::createProduct(
-            salePrice: null,
-            categoryIds: [],
-            rawCustomFields: ['sale_reason' => '', 'sale_comments' => ''],
-        );
-
-        $result = $this->specification->evaluate($product);
-
-        self::assertFalse($result->shouldBeOnSale);
-        self::assertFalse($result->needsRemoveFromSale);
+        self::assertTrue($result->shouldBeOnSale);
+        self::assertTrue($result->needsAddToSale);
     }
 
     // ========================================================================
@@ -319,14 +230,14 @@ final class ProductSaleStateResolverTest extends TestCase
     /**
      * @param list<int>           $categoryIds
      * @param array<string, mixed> $rawCustomFields
-     * @param list<ProductVariation>|null $variations
+     * @param list<ProductVariation> $variations
      */
     private static function createProduct(
         ?float $salePrice,
         array $categoryIds,
         array $rawCustomFields,
         float $price = 20.00,
-        ?array $variations = null,
+        array $variations = [],
     ): Product {
         return new Product(
             id: 1,
