@@ -11,7 +11,10 @@ use App\Application\Contracts\Catalog\OffersFilterQueryRepositoryInterface;
 use App\Application\Contracts\Catalog\ProductExtraDataRepositoryInterface;
 use App\Application\Contracts\Catalog\ProductPopularityRankingSnapshotRepositoryInterface;
 use App\Application\Contracts\Catalog\ProductSortOrderQueryRepositoryInterface;
+use App\Application\Contracts\Catalog\ProductViewQueryRepositoryInterface;
 use App\Application\Contracts\Catalog\RatingFilterQueryRepositoryInterface;
+use App\Application\Contracts\Catalog\RelatedProductsAlgorithmParamsRepositoryInterface;
+use App\Application\Contracts\Catalog\RelatedProductsQueryRepositoryInterface;
 use App\Application\Contracts\Catalog\ShippingOffersFilterQueryRepositoryInterface;
 use App\Application\Contracts\Catalog\ShippingOptionsFilterQueryRepositoryInterface;
 use App\Application\Contracts\Catalog\VatReliefFilterQueryRepositoryInterface;
@@ -22,7 +25,10 @@ use App\Infrastructure\Catalog\Repositories\BestSellersRankingStateQueryReposito
 use App\Infrastructure\Catalog\Repositories\OffersFilterQueryRepository;
 use App\Infrastructure\Catalog\Repositories\ProductPopularityRankingSnapshotRepository;
 use App\Infrastructure\Catalog\Repositories\ProductSortOrderQueryRepository;
+use App\Infrastructure\Catalog\Repositories\ProductViewQueryRepository;
 use App\Infrastructure\Catalog\Repositories\RatingFilterQueryRepository;
+use App\Infrastructure\Catalog\Repositories\RelatedProductsAlgorithmParamsRepository;
+use App\Infrastructure\Catalog\Repositories\RelatedProductsQueryRepository;
 use App\Infrastructure\Catalog\Repositories\ShippingOffersFilterQueryRepository;
 use App\Infrastructure\Catalog\Repositories\ShippingOptionsFilterQueryRepository;
 use App\Infrastructure\Catalog\Repositories\VatReliefFilterQueryRepository;
@@ -35,6 +41,7 @@ final class CatalogServiceProvider extends ServiceProvider implements Deferrable
     {
         $this->registerRepositories();
         $this->registerBestSellersBindings();
+        $this->registerRelatedProductsRepositories();
 
         $this->app->scoped(
             CatalogSyncDispatcherInterface::class,
@@ -56,6 +63,9 @@ final class CatalogServiceProvider extends ServiceProvider implements Deferrable
             ProductExtraDataRepositoryInterface::class,
             ProductPopularityRankingSnapshotRepositoryInterface::class,
             ProductSortOrderQueryRepositoryInterface::class,
+            RelatedProductsAlgorithmParamsRepositoryInterface::class,
+            RelatedProductsQueryRepositoryInterface::class,
+            ProductViewQueryRepositoryInterface::class,
         ];
     }
 
@@ -129,6 +139,24 @@ final class CatalogServiceProvider extends ServiceProvider implements Deferrable
         $this->app->scoped(
             ShippingOptionsFilterQueryRepositoryInterface::class,
             ShippingOptionsFilterQueryRepository::class,
+        );
+    }
+
+    private function registerRelatedProductsRepositories(): void
+    {
+        $this->app->scoped(
+            RelatedProductsAlgorithmParamsRepositoryInterface::class,
+            RelatedProductsAlgorithmParamsRepository::class,
+        );
+
+        $this->app->scoped(
+            RelatedProductsQueryRepositoryInterface::class,
+            RelatedProductsQueryRepository::class,
+        );
+
+        $this->app->scoped(
+            ProductViewQueryRepositoryInterface::class,
+            ProductViewQueryRepository::class,
         );
     }
 

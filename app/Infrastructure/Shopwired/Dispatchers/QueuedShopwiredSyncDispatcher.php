@@ -16,6 +16,7 @@ use App\Infrastructure\Jobs\Shopwired\SyncShopwiredOrderJob;
 use App\Infrastructure\Jobs\Shopwired\SyncShopwiredOrdersRangeJob;
 use App\Infrastructure\Jobs\Shopwired\SyncShopwiredProductJob;
 use App\Infrastructure\Jobs\Shopwired\UpdateProductCategoryMembershipJob;
+use App\Infrastructure\Jobs\Shopwired\UpdateProductCustomFieldsJob;
 use DateTimeImmutable;
 use Override;
 
@@ -81,5 +82,16 @@ final readonly class QueuedShopwiredSyncDispatcher implements ShopwiredSyncDispa
         array $removeCategoryIds,
     ): void {
         UpdateProductCategoryMembershipJob::dispatch($productId, $addCategoryIds, $removeCategoryIds);
+    }
+
+    #[Override]
+    public function dispatchRelatedProductsUpdate(
+        IntId $productId,
+        array $relatedProductIds,
+    ): void {
+        UpdateProductCustomFieldsJob::dispatch(
+            $productId,
+            ['related_products' => \array_map(static fn(IntId $id): int => $id->value, $relatedProductIds)],
+        );
     }
 }
