@@ -675,7 +675,7 @@ parameters:
 			path: app/Infrastructure/Catalog/Product/Mappers/ProductVariationModelMapper.php
 
 		-
-			rawMessage: 'Method toViewDomain() is 40 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			rawMessage: 'Method toViewDomain() is 43 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Infrastructure/Catalog/Product/Mappers/ProductViewAssembler.php
@@ -1457,7 +1457,7 @@ parameters:
 			path: app/Infrastructure/Shopwired/Mappers/StatusTypeToLifecycleMapper.php
 
 		-
-			rawMessage: 'Method toViewDomain() is 24 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			rawMessage: 'Method toViewDomain() is 27 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Infrastructure/Shopwired/Models/BrandModel.php
@@ -1469,7 +1469,7 @@ parameters:
 			path: app/Infrastructure/Shopwired/Models/CategoryModel.php
 
 		-
-			rawMessage: 'Method toViewDomain() is 28 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			rawMessage: 'Method toViewDomain() is 31 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Infrastructure/Shopwired/Models/CategoryModel.php
@@ -1703,7 +1703,7 @@ parameters:
 			path: app/Presentation/Http/Api/Resources/ProductVariationResource.php
 
 		-
-			rawMessage: 'Method baseFields() is 33 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			rawMessage: 'Method baseFields() is 36 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Presentation/Http/Api/Resources/ProductResource.php

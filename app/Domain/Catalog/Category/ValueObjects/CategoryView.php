@@ -23,7 +23,7 @@ final readonly class CategoryView
      * @param IntId $id ShopWired category ID (external identifier)
      * @param string $title Category title
      * @param string $slug URL slug
-     * @param string $url Full category URL
+     * @param CategoryLinks $links Public and admin edit URLs
      * @param bool $active Whether category is active
      * @param bool $featured Whether category is featured
      * @param int $sortOrder Display ordering
@@ -40,7 +40,7 @@ final readonly class CategoryView
         public IntId $id,
         public string $title,
         public string $slug,
-        public string $url,
+        public CategoryLinks $links,
         public bool $active,
         public bool $featured,
         public int $sortOrder,

@@ -12,6 +12,7 @@ use App\Domain\Catalog\Product\Enums\FreeDeliveryType;
 use App\Domain\Catalog\Product\Enums\ProductInclude;
 use App\Domain\Catalog\Product\ValueObjects\ProductImage;
 use App\Domain\Catalog\Product\ValueObjects\ProductInventory;
+use App\Domain\Catalog\Product\ValueObjects\ProductLinks;
 use App\Domain\Catalog\Product\ValueObjects\ProductStock;
 use App\Domain\Catalog\Product\ValueObjects\ProductSupplier;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariationView;
@@ -27,6 +28,7 @@ use App\Infrastructure\Catalog\Product\Models\ProductViewModel;
 use App\Infrastructure\Linnworks\Models\StockItemSupplierModel;
 use App\Infrastructure\Shopwired\Factories\CustomFieldFactory;
 use App\Infrastructure\Shopwired\Factories\ProductFilterFactory;
+use App\Infrastructure\Shopwired\ShopwiredAdminUrlResolver;
 
 /**
  * Assembles ProductViewModel (Eloquent) into ProductView (Domain) for API responses.
@@ -71,7 +73,10 @@ final readonly class ProductViewAssembler
             title: $model->title,
             description: $model->description,
             slug: $model->slug,
-            url: $model->url,
+            links: new ProductLinks(
+                publicUrl: $model->url,
+                editWebsiteUrl: ShopwiredAdminUrlResolver::productEditUrl($model->external_id),
+            ),
             price: $model->price,
             costPrice: $model->cost_price,
             salePrice: $model->sale_price,

@@ -58,7 +58,10 @@ final class ProductResource extends JsonResource
             'gtin' => $product->gtin?->value,
             'title' => $product->title,
             'slug' => $product->slug,
-            'url' => $product->url,
+            'links' => [
+                'public_url' => $product->links->publicUrl,
+                'edit_website_url' => $product->links->editWebsiteUrl,
+            ],
             'price' => $product->price->toGross(),
             'cost_price' => $product->costPrice?->toNet(),
             'sale_price' => $product->salePrice?->toGross(),

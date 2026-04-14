@@ -40,7 +40,10 @@ final class BrandResource extends JsonResource
             'id' => $brand->id->value,
             'title' => $brand->title,
             'slug' => $brand->slug,
-            'url' => $brand->url,
+            'links' => [
+                'public_url' => $brand->links->publicUrl,
+                'edit_website_url' => $brand->links->editWebsiteUrl,
+            ],
             'active' => $brand->active,
             'featured' => $brand->featured,
             'sort_order' => $brand->sortOrder,
