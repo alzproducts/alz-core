@@ -11,6 +11,7 @@ use App\Domain\Access\ValueObjects\AuthenticatedUser;
 use App\Domain\Catalog\Product\Enums\ProductFilterField;
 use App\Domain\Catalog\Product\Enums\ProductInclude;
 use App\Domain\Catalog\Product\Enums\ProductSortField;
+use App\Domain\Catalog\Product\ValueObjects\ProductLinks;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariationOption;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariationView;
 use App\Domain\Catalog\Product\ValueObjects\ProductView;
@@ -743,7 +744,7 @@ final class ProductControllerTest extends TestCase
         $productData = $body['data'][0];
 
         $expectedKeys = [
-            'id', 'sku', 'title', 'slug', 'url',
+            'id', 'sku', 'title', 'slug', 'links',
             'price', 'cost_price', 'sale_price', 'rrp',
             'effective_price', 'profit_margin',
             'is_active', 'is_on_sale', 'has_any_sale', 'has_free_delivery',
@@ -898,7 +899,10 @@ final class ProductControllerTest extends TestCase
             title: 'Product With Variations',
             description: null,
             slug: 'product-with-variations',
-            url: 'https://example.com/product-with-variations',
+            links: new ProductLinks(
+                publicUrl: 'https://example.com/product-with-variations',
+                editWebsiteUrl: 'https://admin.myshopwired.uk/business/manage-ecommerce-add-product/42',
+            ),
             price: 9.99,
             costPrice: null,
             salePrice: null,
@@ -931,7 +935,10 @@ final class ProductControllerTest extends TestCase
             title: $title,
             description: null,
             slug: 'test-product-' . $id,
-            url: 'https://example.com/test-product-' . $id,
+            links: new ProductLinks(
+                publicUrl: 'https://example.com/test-product-' . $id,
+                editWebsiteUrl: 'https://admin.myshopwired.uk/business/manage-ecommerce-add-product/' . $id,
+            ),
             price: 9.99,
             costPrice: null,
             salePrice: null,

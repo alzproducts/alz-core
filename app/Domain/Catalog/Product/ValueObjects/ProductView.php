@@ -67,7 +67,7 @@ final readonly class ProductView
      * @param string $title Product title
      * @param string|null $description HTML description
      * @param string $slug URL slug
-     * @param string $url Full product URL
+     * @param ProductLinks $links Public and admin edit URLs
      * @param float $price Selling price
      * @param float|null $costPrice Cost price from Linnworks (null = unknown)
      * @param float|null $salePrice Discounted price (null = no sale)
@@ -101,7 +101,7 @@ final readonly class ProductView
         public string $title,
         public ?string $description,
         public string $slug,
-        public string $url,
+        public ProductLinks $links,
         float $price,
         ?float $costPrice,
         ?float $salePrice,
