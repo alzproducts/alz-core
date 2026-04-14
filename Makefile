@@ -1,4 +1,4 @@
-.PHONY: help install up down shell migrate db-reset-full pint pint-test test test-quick test-coverage coverage-html pest-mutate test-ai test-mutate lint lint-sequential lint-full fix analyse phparkitect deptrac tlint tlint-full psalm psalm-ci psalm-baseline stan rector rector-dry-run refactor check ide-helper test-domain test-domain-coverage test-app test-app-coverage mutate-domain mutate-app supabase-start supabase-functions supabase-stop supabase-status supabase-reset supabase-seed-users redis pail
+.PHONY: help install up down shell migrate db-reset-full pint pint-test test test-quick test-coverage coverage-html pest-mutate test-ai test-mutate lint lint-sequential lint-full fix analyse phparkitect deptrac tlint tlint-full psalm psalm-ci psalm-baseline stan rector rector-dry-run refactor check ide-helper test-domain test-domain-coverage test-app test-app-coverage mutate-domain mutate-app supabase-start supabase-functions supabase-stop supabase-status supabase-reset supabase-seed-users redis serve pail
 
 # Enable strict shell mode for robust error handling
 SHELL := bash
@@ -388,6 +388,9 @@ redis: ## Start Redis only (not PostgreSQL from compose.yaml)
 	docker compose up -d redis
 
 # Development Tools
+serve: ## Start full dev environment (Docker + Octane + Queue)
+	bin/serve
+
 pail: ## Tail logs (respects LOG_LEVEL from .env, defaults to info)
 	@LOG_LEVEL=$$(grep -E '^LOG_LEVEL=' .env 2>/dev/null | cut -d'=' -f2 | tr -d '"'"'" || echo "info"); \
 	php artisan pail --timeout=0 --level=$${LOG_LEVEL:-info}
