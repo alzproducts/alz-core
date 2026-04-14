@@ -90,4 +90,31 @@ final readonly class ProductVariationView
         $this->effectivePrice = Money::fromTaxType($effectivePrice, $taxType);
         $this->weight = $weight !== null ? Weight::kilogram($weight) : null;
     }
+
+    /**
+     * Return the common default supplier if all variations share the same one.
+     *
+     * Returns null when any variation lacks a default supplier or when suppliers differ.
+     *
+     * @param list<self> $variations Non-empty list
+     */
+    public static function commonDefaultSupplier(array $variations): ?ProductSupplier
+    {
+        if ($variations === []) {
+            return null;
+        }
+
+        $first = $variations[0]->defaultSupplier;
+
+        if ($first === null) {
+            return null;
+        }
+
+        $allMatch = \array_all(
+            $variations,
+            static fn(self $v): bool => $v->defaultSupplier?->supplierName === $first->supplierName,
+        );
+
+        return $allMatch ? $first : null;
+    }
 }

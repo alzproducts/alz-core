@@ -62,6 +62,7 @@ final readonly class ProductViewAssembler
     public function toViewDomain(ProductViewModel $model, array $includes = []): ProductView
     {
         $typedCustomFields = $this->customFieldFactory->fromRawFields($model->custom_fields);
+        $variations = $this->resolveVariations($model, $includes);
 
         return new ProductView(
             externalId: $model->external_id,
@@ -84,7 +85,7 @@ final readonly class ProductViewAssembler
             metaTitle: $model->meta_title,
             metaDescription: $model->meta_description,
             categoryIds: $model->category_ids,
-            variations: $this->resolveVariations($model, $includes),
+            variations: $variations,
             images: self::buildImages($model->images),
             customFields: \in_array(ProductInclude::CustomFields, $includes, true) ? $typedCustomFields : [],
             filters: $this->resolveFilters($model, $includes),
@@ -96,7 +97,7 @@ final readonly class ProductViewAssembler
             suppliers: self::resolveSuppliers($model, $includes),
             inventory: self::resolveInventory($model, $includes),
             stock: self::resolveStock($model, $includes),
-            defaultSupplier: self::resolveDefaultSupplier($model),
+            defaultSupplier: self::resolveDefaultSupplier($model, $variations),
         );
     }
 
@@ -214,13 +215,14 @@ final readonly class ProductViewAssembler
         return $model->stockItem->toProductStock();
     }
 
-    private static function resolveDefaultSupplier(ProductViewModel $model): ?ProductSupplier
+    /** @param list<ProductVariationView>|null $variations */
+    private static function resolveDefaultSupplier(ProductViewModel $model, ?array $variations): ?ProductSupplier
     {
-        if (! $model->relationLoaded('stockItem') || $model->stockItem === null) {
-            return null;
+        if ($model->relationLoaded('stockItem') && $model->stockItem !== null) {
+            return $model->stockItem->defaultSupplier()?->toProductSupplier();
         }
 
-        return $model->stockItem->defaultSupplier()?->toProductSupplier();
+        return $variations !== null ? ProductVariationView::commonDefaultSupplier($variations) : null;
     }
 
     /** @param list<AbstractCustomFieldValue> $typedCustomFields */

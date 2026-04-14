@@ -65,7 +65,7 @@ final readonly class ProductViewMeta
             return $defaultSupplier !== null;
         }
 
-        return self::variationsHaveSameDefaultSupplier($variations);
+        return ProductVariationView::commonDefaultSupplier($variations) !== null;
     }
 
     /**
@@ -81,20 +81,4 @@ final readonly class ProductViewMeta
         return \count($uniquePrices) === 1;
     }
 
-    /**
-     * @param list<ProductVariationView> $variations Non-empty list
-     */
-    private static function variationsHaveSameDefaultSupplier(array $variations): bool
-    {
-        $names = \array_map(
-            static fn(ProductVariationView $v): ?string => $v->defaultSupplier?->supplierName,
-            $variations,
-        );
-
-        if (\array_any($names, static fn(?string $n): bool => $n === null)) {
-            return false;
-        }
-
-        return \count(\array_unique($names)) === 1;
-    }
 }
