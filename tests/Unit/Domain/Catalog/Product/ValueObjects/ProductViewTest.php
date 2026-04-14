@@ -95,6 +95,78 @@ final class ProductViewTest extends TestCase
 
     /*
     |--------------------------------------------------------------------------
+    | hasSingleSellingPrice
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function has_single_selling_price_true_when_no_variations(): void
+    {
+        $view = $this->createView(variations: []);
+
+        self::assertTrue($view->hasSingleSellingPrice());
+    }
+
+    #[Test]
+    public function has_single_selling_price_true_when_all_variations_match_master(): void
+    {
+        $view = $this->createView(
+            price: 29.99,
+            variations: [
+                $this->createVariation(price: 29.99),
+                $this->createVariation(price: 29.99),
+            ],
+        );
+
+        self::assertTrue($view->hasSingleSellingPrice());
+    }
+
+    #[Test]
+    public function has_single_selling_price_false_when_variations_differ_from_master(): void
+    {
+        $view = $this->createView(
+            price: 29.99,
+            variations: [
+                $this->createVariation(price: 29.99),
+                $this->createVariation(price: 39.99),
+            ],
+        );
+
+        self::assertFalse($view->hasSingleSellingPrice());
+    }
+
+    #[Test]
+    public function has_single_selling_price_true_when_master_zero_and_all_variations_equal(): void
+    {
+        $view = $this->createView(
+            price: 0.00,
+            effectivePrice: 0.00,
+            variations: [
+                $this->createVariation(price: 29.99),
+                $this->createVariation(price: 29.99),
+            ],
+        );
+
+        self::assertTrue($view->hasSingleSellingPrice());
+    }
+
+    #[Test]
+    public function has_single_selling_price_false_when_master_zero_and_variations_differ(): void
+    {
+        $view = $this->createView(
+            price: 0.00,
+            effectivePrice: 0.00,
+            variations: [
+                $this->createVariation(price: 29.99),
+                $this->createVariation(price: 39.99),
+            ],
+        );
+
+        self::assertFalse($view->hasSingleSellingPrice());
+    }
+
+    /*
+    |--------------------------------------------------------------------------
     | hasFreeDelivery (computed from FreeDeliveryType)
     |--------------------------------------------------------------------------
     */
@@ -274,6 +346,32 @@ final class ProductViewTest extends TestCase
             createdAt: $createdAt ?? new DateTimeImmutable('2024-01-01'),
             updatedAt: $updatedAt ?? new DateTimeImmutable('2024-01-01'),
             freeDelivery: $freeDelivery,
+        );
+    }
+
+    private function createVariation(
+        float $price = 50.00,
+        ?float $rrp = null,
+    ): ProductVariationView {
+        static $id = 100;
+
+        return new ProductVariationView(
+            externalId: $id++,
+            sku: null,
+            gtin: null,
+            price: $price,
+            costPrice: null,
+            salePrice: null,
+            rrp: $rrp,
+            effectivePrice: $price,
+            isOnSale: false,
+            profitMargin: null,
+            stock: 5,
+            weight: null,
+            vatExclusive: false,
+            mpn: null,
+            imageIndex: null,
+            options: [],
         );
     }
 }
