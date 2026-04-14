@@ -69,8 +69,9 @@ final readonly class CheckExpiredSalesUseCase
                 continue;
             }
 
-            if ($product->sku === null || $product->sku === '') {
-                $this->logger->warning('Cannot auto-remove sale: product has no SKU', [
+            $onSaleSkus = $product->allOnSaleSkus();
+            if ($onSaleSkus === []) {
+                $this->logger->warning('Cannot auto-remove sale: product has no on-sale SKUs', [
                     'product_id' => $product->id,
                     'reason' => $reason->value,
                 ]);
@@ -80,12 +81,12 @@ final readonly class CheckExpiredSalesUseCase
             }
 
             try {
-                $this->removeSale($product->sku, $reason);
+                $this->removeSale($onSaleSkus, $reason);
                 $removed++;
 
                 $this->logger->info('Auto-removed product from sale', [
                     'product_id' => $product->id,
-                    'sku' => $product->sku,
+                    'skus' => \array_map(static fn(Sku $s): string => $s->value, $onSaleSkus),
                     'reason' => $reason->value,
                 ]);
             } catch (Exception $e) { // @ignoreException — batch processing: continue on individual failures
@@ -93,7 +94,7 @@ final readonly class CheckExpiredSalesUseCase
 
                 $this->logger->error('Failed to auto-remove product from sale', [
                     'product_id' => $product->id,
-                    'sku' => $product->sku,
+                    'skus' => \array_map(static fn(Sku $s): string => $s->value, $onSaleSkus),
                     'reason' => $reason->value,
                     'exception' => $e->getMessage(),
                 ]);
@@ -159,6 +160,10 @@ final readonly class CheckExpiredSalesUseCase
     }
 
     /**
+     * Clear sale prices for all on-sale SKUs in a single batch API call.
+     *
+     * @param list<Sku> $skus All SKUs with active sale prices
+     *
      * @throws ResourceNotFoundException When product not found for price update
      * @throws InvalidApiResponseException When API response parsing fails
      * @throws ExternalServiceUnavailableException When API unavailable
@@ -167,15 +172,18 @@ final readonly class CheckExpiredSalesUseCase
      * @throws InvalidCustomFieldValueException When custom field mapping fails
      * @throws ValidationFailedException When price fails VAT round-trip check
      */
-    private function removeSale(string $sku, SaleRemovalReason $reason): void
+    private function removeSale(array $skus, SaleRemovalReason $reason): void
     {
-        $command = new UpdatePriceCommand(
-            sku: Sku::fromTrusted($sku),
-            salePrice: Money::inclusive(0),
+        $commands = \array_map(
+            static fn(Sku $sku): UpdatePriceCommand => new UpdatePriceCommand(
+                sku: $sku,
+                salePrice: Money::inclusive(0),
+            ),
+            $skus,
         );
 
         $this->updatePricesUseCase->execute(
-            skuUpdates: [$command],
+            skuUpdates: $commands,
             saleSettings: SaleSettings::forRemoval($reason),
         );
     }
