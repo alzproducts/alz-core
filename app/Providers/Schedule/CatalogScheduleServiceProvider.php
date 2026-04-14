@@ -9,6 +9,7 @@ use App\Infrastructure\Jobs\Catalog\SyncOffersFiltersJob;
 use App\Infrastructure\Jobs\Catalog\SyncProductPopularityRankingSnapshotJob;
 use App\Infrastructure\Jobs\Catalog\SyncProductSortOrdersJob;
 use App\Infrastructure\Jobs\Catalog\SyncRatingFiltersJob;
+use App\Infrastructure\Jobs\Catalog\SyncRelatedProductsJob;
 use App\Infrastructure\Jobs\Catalog\SyncShippingOffersFiltersJob;
 use App\Infrastructure\Jobs\Catalog\SyncShippingOptionsFiltersJob;
 use App\Infrastructure\Jobs\Catalog\SyncVatReliefFiltersJob;
@@ -27,8 +28,11 @@ use RuntimeException;
  *   - Shipping Offers filter (from shopwired.products.custom_fields->>'free_delivery')
  *   - Shipping Options filter (from shopwired product + variation stock; 10-min cadence, offset +5 min from the upstream stock sync)
  *
- * Popularity-driven sort order sync (daily):
- *   - Product sort orders (from catalog.product_popularity_ranking_latest; runs 04:00, one hour after the weekly snapshot at 03:00)
+ * Popularity-driven syncs (daily, 03:00–04:30 window):
+ *   - Weekly popularity ranking snapshot (Sunday 03:00)
+ *   - Product sort orders (04:00, consumes latest snapshot)
+ *   - Best Sellers category membership (04:00, top-N from snapshot)
+ *   - Related products custom field (04:30, algorithm SQL + order-sensitive diff)
  */
 final class CatalogScheduleServiceProvider extends ServiceProvider
 {
@@ -45,6 +49,7 @@ final class CatalogScheduleServiceProvider extends ServiceProvider
         $this->registerProductPopularityRankingSnapshotSchedule();
         $this->registerProductSortOrderSyncSchedule();
         $this->registerBestSellersCategorySchedule();
+        $this->registerRelatedProductsSyncSchedule();
     }
 
     /**
@@ -201,5 +206,24 @@ final class CatalogScheduleServiceProvider extends ServiceProvider
             ->timezone('Europe/London')
             ->onOneServer()
             ->withoutOverlapping(30);
+    }
+
+    /**
+     * Daily related products custom field sync.
+     *
+     * Runs at 04:30 Europe/London — 30 minutes after the Best Sellers sync (04:00),
+     * allowing the heavier algorithm SQL (up to 300s timeout) a clean window.
+     * Only products whose related list has changed are dispatched.
+     *
+     * @throws RuntimeException
+     */
+    private function registerRelatedProductsSyncSchedule(): void
+    {
+        Schedule::job(new SyncRelatedProductsJob())
+            ->name('sync-related-products')
+            ->dailyAt('04:30')
+            ->timezone('Europe/London')
+            ->onOneServer()
+            ->withoutOverlapping(60);
     }
 }
