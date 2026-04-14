@@ -55,6 +55,8 @@ final readonly class ProductVariationView
      * @param string|null $mpn Manufacturer Part Number
      * @param int|null $imageIndex Index into parent product's images array
      * @param list<ProductVariationOption> $options Option attributes (e.g., Size, Color)
+     * @param ProductSupplier|null $defaultSupplier Default supplier (null when no Linnworks stock item)
+     * @param list<ProductSupplier>|null $suppliers All suppliers (null when not requested via include)
      */
     public function __construct(
         int $externalId,
@@ -73,6 +75,8 @@ final readonly class ProductVariationView
         public ?string $mpn,
         public ?int $imageIndex,
         public array $options,
+        public ?ProductSupplier $defaultSupplier = null,
+        public ?array $suppliers = null,
     ) {
         $taxType = $vatExclusive ? TaxType::ZeroRated : TaxType::Inclusive;
 
@@ -85,5 +89,32 @@ final readonly class ProductVariationView
         $this->rrp = Money::nonZeroOrNull($rrp, $taxType);
         $this->effectivePrice = Money::fromTaxType($effectivePrice, $taxType);
         $this->weight = $weight !== null ? Weight::kilogram($weight) : null;
+    }
+
+    /**
+     * Return the common default supplier if all variations share the same one.
+     *
+     * Returns null when any variation lacks a default supplier or when suppliers differ.
+     *
+     * @param list<self> $variations Non-empty list
+     */
+    public static function commonDefaultSupplier(array $variations): ?ProductSupplier
+    {
+        if ($variations === []) {
+            return null;
+        }
+
+        $first = $variations[0]->defaultSupplier;
+
+        if ($first === null) {
+            return null;
+        }
+
+        $allMatch = \array_all(
+            $variations,
+            static fn(self $v): bool => $v->defaultSupplier?->supplierName === $first->supplierName,
+        );
+
+        return $allMatch ? $first : null;
     }
 }

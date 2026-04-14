@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Infrastructure\Catalog\Product\Mappers;
 
 use App\Domain\Catalog\Product\ValueObjects\Gtin;
+use App\Domain\Catalog\Product\ValueObjects\ProductSupplier;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariation;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariationOption;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariationView;
@@ -49,12 +50,17 @@ final class ProductVariationModelMapper
      *
      * Passes primitives directly — the VO self-constructs domain types.
      * Prices are already resolved (parent inheritance applied in SQL via COALESCE).
+     * Supplier data is pre-resolved by the assembler and passed through.
      *
      * @param bool $vatExclusive Whether prices exclude VAT (from parent product)
+     * @param ProductSupplier|null $defaultSupplier Pre-resolved default supplier
+     * @param list<ProductSupplier>|null $suppliers Pre-resolved suppliers (null = not requested)
      */
     public function toViewDomain(
         ProductVariationViewModel $model,
         bool $vatExclusive,
+        ?ProductSupplier $defaultSupplier = null,
+        ?array $suppliers = null,
     ): ProductVariationView {
         return new ProductVariationView(
             externalId: $model->external_id,
@@ -73,6 +79,8 @@ final class ProductVariationModelMapper
             mpn: $model->mpn,
             imageIndex: $model->image_index,
             options: self::buildOptions($model->options),
+            defaultSupplier: $defaultSupplier,
+            suppliers: $suppliers,
         );
     }
 
