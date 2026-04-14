@@ -139,7 +139,7 @@ final readonly class ProductView
         $this->costPrice = Money::nonZeroOrNull($costPrice, TaxType::Exclusive);
         $this->salePrice = Money::nonZeroOrNull($salePrice, $taxType);
         $this->rrp = Money::nonZeroOrNull($rrp, $taxType);
-        $this->meta = new ProductViewMeta($variations);
+        $this->meta = new ProductViewMeta($variations, $defaultSupplier);
         $this->effectivePrice = Money::fromTaxType($effectivePrice, $taxType);
         $this->categoryIds = \array_map(static fn(int $id): IntId => IntId::from($id), $categoryIds);
         $this->hasFreeDelivery = $freeDelivery !== null && ! $freeDelivery->isNone();

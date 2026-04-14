@@ -14,21 +14,26 @@ final readonly class ProductViewMeta
 {
     public bool $canEditRrp;
 
+    public bool $canEditCostPrice;
+
     /**
      * @param list<ProductVariationView>|null $variations Variations (null = not loaded)
+     * @param ProductSupplier|null $defaultSupplier Product-level default supplier
      */
-    public function __construct(?array $variations)
+    public function __construct(?array $variations, ?ProductSupplier $defaultSupplier)
     {
         $this->canEditRrp = self::resolveCanEditRrp($variations);
+        $this->canEditCostPrice = self::resolveCanEditCostPrice($variations, $defaultSupplier);
     }
 
     /**
-     * @return array{can_edit_rrp: bool}
+     * @return array{can_edit_rrp: bool, can_edit_cost_price: bool}
      */
     public function toArray(): array
     {
         return [
             'can_edit_rrp' => $this->canEditRrp,
+            'can_edit_cost_price' => $this->canEditCostPrice,
         ];
     }
 
@@ -47,6 +52,23 @@ final readonly class ProductViewMeta
     }
 
     /**
+     * Cost price can be edited when a single consistent supplier exists.
+     *
+     * Without variations: requires the product-level default supplier.
+     * With variations: requires every variation to have a default supplier with the same name.
+     *
+     * @param list<ProductVariationView>|null $variations
+     */
+    private static function resolveCanEditCostPrice(?array $variations, ?ProductSupplier $defaultSupplier): bool
+    {
+        if ($variations === null || $variations === []) {
+            return $defaultSupplier !== null;
+        }
+
+        return ProductVariationView::commonDefaultSupplier($variations) !== null;
+    }
+
+    /**
      * @param list<ProductVariationView> $variations Non-empty list
      */
     private static function variationsHaveSameSellingPrice(array $variations): bool
@@ -58,4 +80,5 @@ final readonly class ProductViewMeta
 
         return \count($uniquePrices) === 1;
     }
+
 }
