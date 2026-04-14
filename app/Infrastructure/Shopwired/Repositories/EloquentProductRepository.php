@@ -136,7 +136,7 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
             modelClass: self::VIEW_MODEL_CLASS,
             column: 'external_id',
             value: $query->productId->value,
-            relations: \array_values(\array_unique(['variations', 'variations.extraData', ...self::relationsForIncludes($query->includes)])),
+            relations: \array_values(\array_unique(['variations', 'variations.extraData', 'variations.stockItem.suppliers', ...self::relationsForIncludes($query->includes)])),
             entityTypeName: 'Product',
             mapper: fn(ProductViewModel $model): ProductView => $this->viewMapper->toViewDomain($model, $query->includes),
         );
@@ -465,9 +465,10 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
         // Always load product-level extra data (RRP for API response)
         $relations[] = 'extraData';
 
-        // Load variation extra data only when variations are included
+        // Load variation extra data and supplier data only when variations are included
         if ($has(ProductInclude::Variations)) {
             $relations[] = 'variations.extraData';
+            $relations[] = 'variations.stockItem.suppliers';
         }
 
         return $relations;
