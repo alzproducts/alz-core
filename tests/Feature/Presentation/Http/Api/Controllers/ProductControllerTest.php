@@ -786,7 +786,7 @@ final class ProductControllerTest extends TestCase
         $variation = $body['data'][0]['variations'][0];
 
         $expectedKeys = [
-            'id', 'sku', 'gtin', 'price', 'cost_price', 'sale_price',
+            'id', 'sku', 'gtin', 'price', 'cost_price', 'sale_price', 'rrp',
             'effective_price', 'profit_margin', 'is_on_sale',
             'stock', 'weight', 'image_index', 'options',
         ];
@@ -800,6 +800,7 @@ final class ProductControllerTest extends TestCase
         $this->assertSame('VAR-1', $variation['sku']);
         $this->assertSame(5.99, $variation['price']);
         $this->assertSame(2.5, $variation['cost_price']);
+        $this->assertNull($variation['rrp']);
         $this->assertSame(5, $variation['stock']);
         $this->assertFalse($variation['is_on_sale']);
         $this->assertSame(58.26, $variation['profit_margin']);
