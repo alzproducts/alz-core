@@ -6,6 +6,7 @@ namespace App\Infrastructure\Linnworks;
 
 use App\Application\Contracts\Linnworks\ConnectivityClientInterface;
 use App\Application\Contracts\Linnworks\InventoryClientInterface;
+use App\Application\Contracts\Linnworks\InventoryFieldUpdateClientInterface;
 use App\Application\Contracts\Linnworks\InventoryUpdateClientInterface;
 use App\Application\Contracts\Linnworks\OrderClientInterface;
 use App\Application\Contracts\Linnworks\PurchaseOrderClientInterface;
@@ -16,6 +17,7 @@ use App\Domain\Exceptions\InvalidConfigurationException;
 use App\Infrastructure\Linnworks\Clients\ConnectivityClient;
 use App\Infrastructure\Linnworks\Clients\DashboardsClient;
 use App\Infrastructure\Linnworks\Clients\InventoryClient;
+use App\Infrastructure\Linnworks\Clients\InventoryFieldUpdateClient;
 use App\Infrastructure\Linnworks\Clients\InventoryUpdateClient;
 use App\Infrastructure\Linnworks\Clients\OrderClient;
 use App\Infrastructure\Linnworks\Clients\OrderDashboardsClient;
@@ -70,6 +72,17 @@ final class LinnworksClientFactory
     public static function createInventoryUpdateClient(): InventoryUpdateClientInterface
     {
         return new InventoryUpdateClient(
+            self::getTransport(),
+            self::createInventoryClient(),
+        );
+    }
+
+    /**
+     * Create the inventory field update client for type-safe field updates.
+     */
+    public static function createInventoryFieldUpdateClient(): InventoryFieldUpdateClientInterface
+    {
+        return new InventoryFieldUpdateClient(
             self::getTransport(),
             self::createInventoryClient(),
         );
