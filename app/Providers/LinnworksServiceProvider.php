@@ -7,6 +7,7 @@ namespace App\Providers;
 use App\Application\Contracts\DatabaseGatewayInterface;
 use App\Application\Contracts\Linnworks\ConnectivityClientInterface;
 use App\Application\Contracts\Linnworks\InventoryClientInterface;
+use App\Application\Contracts\Linnworks\InventoryFieldUpdateClientInterface;
 use App\Application\Contracts\Linnworks\InventoryUpdateClientInterface;
 use App\Application\Contracts\Linnworks\LinnworksBackfillDispatcherInterface;
 use App\Application\Contracts\Linnworks\LinnworksOrderRepositoryInterface;
@@ -69,6 +70,7 @@ final class LinnworksServiceProvider extends ServiceProvider implements Deferrab
     {
         $this->registerSessionManager();
         $this->registerStockClients();
+        $this->registerInventoryClients();
         $this->registerOrderClients();
         $this->registerPurchaseOrderClients();
         $this->registerStockRepositories();
@@ -95,6 +97,14 @@ final class LinnworksServiceProvider extends ServiceProvider implements Deferrab
             static fn(): ConnectivityClientInterface => LinnworksClientFactory::createConnectivityClient(),
         );
         $this->app->singleton(
+            StockDashboardsClientInterface::class,
+            static fn(): StockDashboardsClientInterface => LinnworksClientFactory::createStockDashboardsClient(),
+        );
+    }
+
+    private function registerInventoryClients(): void
+    {
+        $this->app->singleton(
             InventoryClientInterface::class,
             static fn(): InventoryClientInterface => LinnworksClientFactory::createInventoryClient(),
         );
@@ -103,8 +113,8 @@ final class LinnworksServiceProvider extends ServiceProvider implements Deferrab
             static fn(): InventoryUpdateClientInterface => LinnworksClientFactory::createInventoryUpdateClient(),
         );
         $this->app->singleton(
-            StockDashboardsClientInterface::class,
-            static fn(): StockDashboardsClientInterface => LinnworksClientFactory::createStockDashboardsClient(),
+            InventoryFieldUpdateClientInterface::class,
+            static fn(): InventoryFieldUpdateClientInterface => LinnworksClientFactory::createInventoryFieldUpdateClient(),
         );
     }
 
@@ -202,6 +212,7 @@ final class LinnworksServiceProvider extends ServiceProvider implements Deferrab
         return [
             ConnectivityClientInterface::class,
             InventoryClientInterface::class,
+            InventoryFieldUpdateClientInterface::class,
             InventoryUpdateClientInterface::class,
             LinnworksOrderRepositoryInterface::class,
             LinnworksBackfillDispatcherInterface::class,
