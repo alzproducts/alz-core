@@ -7,6 +7,7 @@ namespace Tests\Unit\Application\Catalog\UseCases;
 use App\Application\Catalog\UseCases\GetCategoryResult;
 use App\Application\Catalog\UseCases\GetCategoryUseCase;
 use App\Application\Contracts\Shopwired\CategoryRepositoryInterface;
+use App\Domain\Catalog\Category\ValueObjects\CategoryLinks;
 use App\Domain\Catalog\Category\ValueObjects\CategoryView;
 use App\Domain\ValueObjects\IntId;
 use DateTimeImmutable;
@@ -109,7 +110,10 @@ final class GetCategoryUseCaseTest extends TestCase
             id: IntId::from(99),
             title: 'Test Category',
             slug: 'test-category',
-            url: '/categories/test-category',
+            links: new CategoryLinks(
+                publicUrl: '/categories/test-category',
+                editWebsiteUrl: 'https://admin.myshopwired.uk/business/manage-ecommerce-add-category/99',
+            ),
             active: true,
             featured: false,
             sortOrder: 1,

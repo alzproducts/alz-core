@@ -6,6 +6,7 @@ namespace App\Infrastructure\Shopwired\Models;
 
 use App\Domain\Catalog\Brand\ValueObjects\Brand;
 use App\Domain\Catalog\Brand\ValueObjects\BrandImage;
+use App\Domain\Catalog\Brand\ValueObjects\BrandLinks;
 use App\Domain\Catalog\Brand\ValueObjects\BrandView;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
@@ -15,6 +16,7 @@ use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\IntId;
 use App\Infrastructure\Contracts\EloquentDomainMappableInterface;
 use App\Infrastructure\Shopwired\Factories\CustomFieldFactory;
+use App\Infrastructure\Shopwired\ShopwiredAdminUrlResolver;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
@@ -122,7 +124,10 @@ final class BrandModel extends Model implements EloquentDomainMappableInterface
             id: IntId::fromTrusted($this->external_id),
             title: $this->title,
             slug: $this->slug,
-            url: $this->url,
+            links: new BrandLinks(
+                publicUrl: $this->url,
+                editWebsiteUrl: ShopwiredAdminUrlResolver::brandEditUrl($this->external_id),
+            ),
             active: $this->active,
             featured: $this->featured,
             sortOrder: $this->sort_order,

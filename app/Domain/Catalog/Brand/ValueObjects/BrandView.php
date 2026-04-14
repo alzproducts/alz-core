@@ -23,7 +23,7 @@ final readonly class BrandView
      * @param IntId $id ShopWired brand ID (external identifier)
      * @param string $title Brand title
      * @param string $slug URL slug
-     * @param string $url Full brand URL
+     * @param BrandLinks $links Public and admin edit URLs
      * @param bool $active Whether brand is active
      * @param bool $featured Whether brand is featured
      * @param int $sortOrder Display ordering
@@ -38,7 +38,7 @@ final readonly class BrandView
         public IntId $id,
         public string $title,
         public string $slug,
-        public string $url,
+        public BrandLinks $links,
         public bool $active,
         public bool $featured,
         public int $sortOrder,

@@ -40,7 +40,10 @@ final class CategoryResource extends JsonResource
             'id' => $category->id->value,
             'title' => $category->title,
             'slug' => $category->slug,
-            'url' => $category->url,
+            'links' => [
+                'public_url' => $category->links->publicUrl,
+                'edit_website_url' => $category->links->editWebsiteUrl,
+            ],
             'active' => $category->active,
             'featured' => $category->featured,
             'sort_order' => $category->sortOrder,
