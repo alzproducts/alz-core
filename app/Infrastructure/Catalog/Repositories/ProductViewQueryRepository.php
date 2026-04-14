@@ -39,9 +39,7 @@ final class ProductViewQueryRepository implements ProductViewQueryRepositoryInte
         $products = $this->eloquentGateway->query(
             static fn(): array => self::MODEL_CLASS::query()
                 ->where('is_active', true)
-                ->whereRaw("custom_fields ? 'related_products'")
-                ->whereRaw("jsonb_typeof(custom_fields->'related_products') = 'array'")
-                ->whereRaw("jsonb_array_length(custom_fields->'related_products') > 0")
+                ->whereJsonbIsArray('custom_fields', 'related_products')
                 ->get(['external_id', 'custom_fields'])
                 ->all(),
         );
@@ -60,12 +58,8 @@ final class ProductViewQueryRepository implements ProductViewQueryRepositoryInte
         foreach ($products as $product) {
             /** @var array<string, mixed> $customFields */
             $customFields = $product->custom_fields;
-            /** @var list<int>|null $ids */
-            $ids = $customFields['related_products'] ?? null;
-
-            if (! \is_array($ids) || $ids === []) {
-                continue;
-            }
+            /** @var list<int> $ids */
+            $ids = $customFields['related_products'] ?? [];
 
             $result[$product->external_id] = \array_map(
                 static fn(int $id): IntId => IntId::fromTrusted($id),
