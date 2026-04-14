@@ -72,7 +72,7 @@ final readonly class QueuedShopwiredSyncDispatcher implements ShopwiredSyncDispa
     #[Override]
     public function dispatchReconcileComparePrice(IntId $productId): void
     {
-        ReconcileShopwiredComparePriceJob::dispatch($productId);
+        ReconcileShopwiredComparePriceJob::dispatch($productId)->delay(\now()->addMinutes(2));
     }
 
     #[Override]

@@ -1697,7 +1697,7 @@ parameters:
 			path: app/Presentation/Console/Commands/Dev/TestSlackNotificationCommand.php
 
 		-
-			rawMessage: 'Method buildData() is 25 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			rawMessage: 'Method buildData() is 26 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Presentation/Http/Api/Resources/ProductVariationResource.php
