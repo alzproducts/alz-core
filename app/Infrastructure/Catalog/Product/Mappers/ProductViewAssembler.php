@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Catalog\Product\Mappers;
 
-use App\Application\Contracts\Shopwired\SaleSettingsRepositoryInterface;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\CustomFields\ValueObjects\AbstractCustomFieldValue;
 use App\Domain\Catalog\Filters\ValueObjects\ProductFilter;
@@ -22,7 +21,6 @@ use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Data\MissingRequiredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
-use App\Domain\ValueObjects\IntId;
 use App\Infrastructure\Catalog\Product\Models\ProductVariationViewModel;
 use App\Infrastructure\Catalog\Product\Models\ProductViewModel;
 use App\Infrastructure\Linnworks\Models\StockItemSupplierModel;
@@ -43,7 +41,6 @@ final readonly class ProductViewAssembler
         private CustomFieldFactory $customFieldFactory,
         private ProductFilterFactory $filterFactory,
         private ProductVariationModelMapper $variationMapper,
-        private SaleSettingsRepositoryInterface $saleSettingsRepo,
     ) {}
 
     /**
@@ -55,11 +52,11 @@ final readonly class ProductViewAssembler
      * @param ProductViewModel $model The Eloquent view model (variations optionally eager-loaded)
      * @param list<ProductInclude> $includes Requested embeds
      *
-     * @throws DatabaseOperationFailedException On query failure
-     * @throws DuplicateRecordException On constraint violation
-     * @throws ExternalServiceUnavailableException When database temporarily unavailable
      * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
      * @throws MissingRequiredDataException When custom field definitions table is empty
+     * @throws ExternalServiceUnavailableException When database temporarily unavailable
+     * @throws DatabaseOperationFailedException When query fails
+     * @throws DuplicateRecordException On constraint violation
      */
     public function toViewDomain(ProductViewModel $model, array $includes = []): ProductView
     {
@@ -97,7 +94,7 @@ final readonly class ProductViewAssembler
             sortOrder: $model->sort_order,
             createdAt: $model->shopwired_created_at->toDateTimeImmutable(),
             updatedAt: $model->shopwired_updated_at->toDateTimeImmutable(),
-            saleSettings: $this->resolveSaleSettings($model, $includes),
+            saleSettings: self::resolveSaleSettings($model, $includes),
             freeDelivery: self::resolveFreeDelivery($typedCustomFields),
             suppliers: self::resolveSuppliers($model, $includes),
             inventory: self::resolveInventory($model, $includes),
@@ -177,19 +174,17 @@ final readonly class ProductViewAssembler
     }
 
     /**
-     * @param list<ProductInclude> $includes
+     * Resolve SaleSettings from ShopWired custom fields (source of truth).
      *
-     * @throws DatabaseOperationFailedException
-     * @throws DuplicateRecordException
-     * @throws ExternalServiceUnavailableException
+     * @param list<ProductInclude> $includes
      */
-    private function resolveSaleSettings(ProductViewModel $model, array $includes): ?SaleSettings
+    private static function resolveSaleSettings(ProductViewModel $model, array $includes): ?SaleSettings
     {
         if (! \in_array(ProductInclude::SaleSettings, $includes, true)) {
             return null;
         }
 
-        return $this->saleSettingsRepo->findByProduct(IntId::from($model->external_id));
+        return SaleSettings::fromRawCustomFields($model->custom_fields);
     }
 
     /**

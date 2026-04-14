@@ -9,7 +9,6 @@ use App\Application\Contracts\Shopwired\SaleReconciliationDispatcherInterface;
 use App\Application\Contracts\Shopwired\SaleSettingsRepositoryInterface;
 use App\Application\Shopwired\SaleManagement\Resolvers\ProductSaleStateResolver;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
-use App\Domain\Catalog\Product\Enums\SaleCustomField;
 use App\Domain\Catalog\Product\ValueObjects\Product;
 use App\Domain\Catalog\Product\ValueObjects\SaleSettings;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
@@ -17,7 +16,6 @@ use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\IntId;
-use DateTimeImmutable;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -59,6 +57,10 @@ final readonly class ReconcileProductSaleStateUseCase
         $result = $this->specification->evaluate($product);
 
         if (! $result->needsCorrection()) {
+            $this->logger->debug('Drift resolved before correction — no action needed', [
+                'product_id' => $productId->value,
+            ]);
+
             return;
         }
 
@@ -66,7 +68,6 @@ final readonly class ReconcileProductSaleStateUseCase
             'product_id' => $productId->value,
             'needs_add' => $result->needsAddToSale,
             'needs_remove' => $result->needsRemoveFromSale,
-            'sku_count' => \count($result->skuSaleStates),
         ]);
 
         if ($result->needsAddToSale) {
@@ -85,58 +86,17 @@ final readonly class ReconcileProductSaleStateUseCase
         if ($result->needsRemoveFromSale) {
             $this->dispatcher->dispatchRemoveFromSale($productId);
         }
-
-        foreach ($result->skuSaleStates as $skuState) {
-            $this->dispatcher->dispatchUpdateSaleState($productId, $skuState->sku);
-        }
     }
 
     /**
      * Reconstruct SaleSettings from a product's existing custom fields.
      *
-     * Used in bulk reconciliation when no SaleSettings were provided (the original
-     * add-to-sale job has already written custom fields). Falls back to a minimal
-     * SaleSettings if custom fields are empty.
+     * Falls back to a minimal SaleSettings with 'Reconciliation' reason
+     * when custom fields have no sale_reason.
      */
     private static function buildSaleSettingsFromProduct(Product $product): SaleSettings
     {
-        /** @var array<string, mixed> $raw */
-        $raw = $product->rawCustomFields;
-
-        $reason = $raw[SaleCustomField::Reason->value] ?? null;
-        if (! \is_string($reason) || $reason === '') {
-            return new SaleSettings(saleReason: 'Reconciliation');
-        }
-
-        $comments = $raw[SaleCustomField::Comments->value] ?? null;
-        $dateStart = $raw[SaleCustomField::DateStart->value] ?? null;
-        $dateEnd = $raw[SaleCustomField::DateEnd->value] ?? null;
-        $endsStock = $raw[SaleCustomField::EndsStock->value] ?? null;
-
-        return new SaleSettings(
-            saleReason: $reason,
-            saleComments: \is_string($comments) && $comments !== '' ? $comments : null,
-            saleStartDate: self::parseDate($dateStart),
-            saleEndDate: self::parseDate($dateEnd),
-            saleEndsStock: \is_string($endsStock) && $endsStock !== '' && \is_numeric($endsStock)
-                ? (int) $endsStock
-                : null,
-        );
-    }
-
-    /**
-     * Parse a string custom field value into a DateTimeImmutable.
-     *
-     * Returns null for empty/non-string values or unparseable dates.
-     */
-    private static function parseDate(mixed $value): ?DateTimeImmutable
-    {
-        if (! \is_string($value) || $value === '') {
-            return null;
-        }
-
-        $parsed = \date_create_immutable($value);
-
-        return $parsed !== false ? $parsed : null;
+        return SaleSettings::fromRawCustomFields($product->rawCustomFields)
+            ?? new SaleSettings(saleReason: 'Reconciliation');
     }
 }
