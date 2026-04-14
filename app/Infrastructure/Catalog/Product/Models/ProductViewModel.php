@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Catalog\Product\Models;
 
+use App\Infrastructure\Concerns\QueriesJsonbColumnsTrait;
 use App\Infrastructure\Linnworks\Models\StockItemModel;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Collection;
@@ -57,6 +58,8 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  */
 final class ProductViewModel extends Model
 {
+    use QueriesJsonbColumnsTrait;
+
     protected $table = 'catalog.products_view';
 
     public $timestamps = false;

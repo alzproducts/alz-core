@@ -45,4 +45,14 @@ interface ShopwiredSyncDispatcherInterface
         array $addCategoryIds,
         array $removeCategoryIds,
     ): void;
+
+    /**
+     * Dispatch a job to update the related_products custom field for a product.
+     *
+     * @param list<IntId> $relatedProductIds Ordered list of related product external IDs
+     */
+    public function dispatchRelatedProductsUpdate(
+        IntId $productId,
+        array $relatedProductIds,
+    ): void;
 }
