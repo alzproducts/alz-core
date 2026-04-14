@@ -98,6 +98,41 @@ final readonly class ProductVariation
         return $this->weight;
     }
 
+    /** Whether this variation has an active sale price (inherits parent price when variation price is null). */
+    public function isSaleActive(float $parentPrice): bool
+    {
+        return Product::isSaleActive($this->salePrice, $this->price ?? $parentPrice);
+    }
+
+    /**
+     * Check if any variation in the list has an active sale price.
+     *
+     * @param list<self> $variations
+     */
+    public static function anyOnSale(array $variations, float $parentPrice): bool
+    {
+        return \array_any($variations, static fn(self $v): bool => $v->isSaleActive($parentPrice));
+    }
+
+    /**
+     * Collect SKUs from all variations with an active sale price.
+     *
+     * @param list<self> $variations
+     * @return list<Sku>
+     */
+    public static function onSaleSkus(array $variations, float $parentPrice): array
+    {
+        $skus = [];
+
+        foreach ($variations as $variation) {
+            if ($variation->sku !== null && $variation->sku !== '' && $variation->isSaleActive($parentPrice)) {
+                $skus[] = Sku::fromTrusted($variation->sku);
+            }
+        }
+
+        return $skus;
+    }
+
     public function isInStock(): bool
     {
         return $this->stock > 0;

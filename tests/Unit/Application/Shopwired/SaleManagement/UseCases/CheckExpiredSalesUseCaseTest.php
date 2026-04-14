@@ -299,7 +299,7 @@ final class CheckExpiredSalesUseCaseTest extends TestCase
 
         $this->logger->shouldReceive('warning')
             ->once()
-            ->with('Cannot auto-remove sale: product has no SKU', Mockery::on(
+            ->with('Cannot auto-remove sale: product has no on-sale SKUs', Mockery::on(
                 static fn(array $ctx): bool => $ctx['product_id'] === 14 && $ctx['reason'] === 'product_inactive',
             ));
 
@@ -348,7 +348,7 @@ final class CheckExpiredSalesUseCaseTest extends TestCase
         $this->logger->shouldReceive('error')
             ->once()
             ->with('Failed to auto-remove product from sale', Mockery::on(
-                static fn(array $ctx): bool => $ctx['product_id'] === 16 && $ctx['sku'] === 'FAIL-001',
+                static fn(array $ctx): bool => $ctx['product_id'] === 16 && $ctx['skus'] === ['FAIL-001'],
             ));
 
         $result = $this->useCase->execute();
