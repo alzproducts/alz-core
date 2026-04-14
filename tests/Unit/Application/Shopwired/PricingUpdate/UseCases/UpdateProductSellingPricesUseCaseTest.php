@@ -9,6 +9,7 @@ use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Application\Contracts\Shopwired\SaleReconciliationDispatcherInterface;
 use App\Application\Contracts\Shopwired\SaleSettingsRepositoryInterface;
 use App\Application\Shopwired\PricingUpdate\Results\PriceUpdateClientResult;
+use App\Application\Shopwired\PricingUpdate\SaleStatePersistenceService;
 use App\Application\Shopwired\PricingUpdate\UseCases\UpdateProductSellingPricesUseCase;
 use App\Application\Shopwired\Services\ProductSyncService;
 use App\Domain\Catalog\Product\Commands\UpdatePriceCommand;
@@ -50,8 +51,6 @@ final class UpdateProductSellingPricesUseCaseTest extends TestCase
 
     private SaleReconciliationDispatcherInterface&MockInterface $saleReconciliationDispatcher;
 
-    private SaleSettingsRepositoryInterface&MockInterface $saleSettingsRepo;
-
     private UpdateProductSellingPricesUseCase $useCase;
 
     #[Override]
@@ -68,15 +67,16 @@ final class UpdateProductSellingPricesUseCaseTest extends TestCase
         $this->productRepo = Mockery::mock(ProductRepositoryInterface::class);
         $this->productSyncService = Mockery::mock(ProductSyncService::class)->shouldIgnoreMissing();
         $this->saleReconciliationDispatcher = Mockery::mock(SaleReconciliationDispatcherInterface::class)->shouldIgnoreMissing();
-        $this->saleSettingsRepo = Mockery::mock(SaleSettingsRepositoryInterface::class)->shouldIgnoreMissing();
         $this->logger = Mockery::mock(LoggerInterface::class)->shouldIgnoreMissing();
+
+        $saleSettingsRepo = Mockery::mock(SaleSettingsRepositoryInterface::class)->shouldIgnoreMissing();
 
         $this->useCase = new UpdateProductSellingPricesUseCase(
             priceClient: $this->priceClient,
             productRepo: $this->productRepo,
             productSyncService: $this->productSyncService,
             saleReconciliationDispatcher: $this->saleReconciliationDispatcher,
-            saleSettingsRepo: $this->saleSettingsRepo,
+            saleStatePersistence: new SaleStatePersistenceService($saleSettingsRepo, $this->logger),
             events: Event::getFacadeRoot(),
             logger: $this->logger,
         );
