@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$PROJECT_DIR"
+
+echo "Starting alz-core dev environment..."
+
+# Start Redis only (PostgreSQL is handled by Supabase)
+# No --wait: if Redis is already running, -d is a no-op
+docker compose up -d redis
+
+# Clean shutdown on Ctrl+C
+cleanup() {
+    echo ""
+    echo "Shutting down..."
+    kill "$OCTANE_PID" "$QUEUE_PID" 2>/dev/null || true
+    wait "$OCTANE_PID" "$QUEUE_PID" 2>/dev/null || true
+    echo "Stopped."
+}
+trap cleanup INT TERM EXIT
+
+# Start Octane (process substitution so $! captures PHP, not tee)
+php artisan octane:start --watch > >(tee -a storage/logs/octane.log) 2>&1 &
+OCTANE_PID=$!
+
+# Start Queue worker
+php artisan queue:listen -v --timeout=9000 --queue=high,default,low,bulk,background &
+QUEUE_PID=$!
+
+echo "Octane PID: $OCTANE_PID | Queue PID: $QUEUE_PID"
+echo "Press Ctrl+C to stop."
+
+# Block until processes exit or user interrupts
+wait

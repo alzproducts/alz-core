@@ -33,7 +33,22 @@ final class RateLimitServiceProvider extends ServiceProvider
 
     private function registerHttpLimiters(): void
     {
-        RateLimiter::for('api', static function (Request $request): Limit {
+        $isLocal = \app()->environment('local');
+
+        $this->registerApiLimiter($isLocal);
+
+        RateLimiter::for('webhooks', static fn(Request $request): Limit => $isLocal ? Limit::none() : Limit::perMinute(300)->by($request->ip()));
+        RateLimiter::for('global', static fn(Request $request): Limit => $isLocal ? Limit::none() : Limit::perMinute(120)->by($request->ip()));
+        RateLimiter::for('contact-form', static fn(Request $request): Limit => $isLocal ? Limit::none() : Limit::perMinute(5)->by($request->ip()));
+    }
+
+    private function registerApiLimiter(bool $isLocal): void
+    {
+        RateLimiter::for('api', static function (Request $request) use ($isLocal): Limit {
+            if ($isLocal) {
+                return Limit::none();
+            }
+
             $user = $request->user();
 
             if ($user !== null) {
@@ -47,10 +62,6 @@ final class RateLimitServiceProvider extends ServiceProvider
 
             return Limit::perMinute(60)->by($rateLimitKey);
         });
-
-        RateLimiter::for('webhooks', static fn(Request $request): Limit => Limit::perMinute(300)->by($request->ip()));
-        RateLimiter::for('global', static fn(Request $request): Limit => Limit::perMinute(120)->by($request->ip()));
-        RateLimiter::for('contact-form', static fn(Request $request): Limit => Limit::perMinute(5)->by($request->ip()));
     }
 
     private function registerQueueLimiters(): void
