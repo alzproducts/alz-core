@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Presentation\Http\Api\Resources;
 
+use App\Domain\Catalog\Product\ValueObjects\ProductSupplier;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariationOption;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariationView;
 use Illuminate\Http\Request;
@@ -23,7 +24,16 @@ final class ProductVariationResource extends JsonResource
     {
         /** @var ProductVariationView $variation */
         $variation = $this->resource;
-        return [
+
+        return self::buildData($variation);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private static function buildData(ProductVariationView $variation): array
+    {
+        $data = [
             'id' => $variation->id->value,
             'sku' => $variation->sku?->value,
             'gtin' => $variation->gtin?->value,
@@ -38,6 +48,13 @@ final class ProductVariationResource extends JsonResource
             'weight' => $variation->weight?->value,
             'image_index' => $variation->imageIndex,
             'options' => \array_map(static fn(ProductVariationOption $opt): array => $opt->toArray(), $variation->options),
+            'default_supplier' => $variation->defaultSupplier?->toArray(),
         ];
+
+        if ($variation->suppliers !== null) {
+            $data['suppliers'] = \array_map(static fn(ProductSupplier $s): array => $s->toArray(), $variation->suppliers);
+        }
+
+        return $data;
     }
 }

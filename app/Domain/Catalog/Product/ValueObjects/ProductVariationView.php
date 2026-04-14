@@ -55,6 +55,8 @@ final readonly class ProductVariationView
      * @param string|null $mpn Manufacturer Part Number
      * @param int|null $imageIndex Index into parent product's images array
      * @param list<ProductVariationOption> $options Option attributes (e.g., Size, Color)
+     * @param ProductSupplier|null $defaultSupplier Default supplier (null when no Linnworks stock item)
+     * @param list<ProductSupplier>|null $suppliers All suppliers (null when not requested via include)
      */
     public function __construct(
         int $externalId,
@@ -73,6 +75,8 @@ final readonly class ProductVariationView
         public ?string $mpn,
         public ?int $imageIndex,
         public array $options,
+        public ?ProductSupplier $defaultSupplier = null,
+        public ?array $suppliers = null,
     ) {
         $taxType = $vatExclusive ? TaxType::ZeroRated : TaxType::Inclusive;
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Catalog\Product\Models;
 
+use App\Infrastructure\Linnworks\Models\StockItemModel;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasOne;
@@ -84,5 +85,17 @@ final class ProductVariationViewModel extends Model
     public function extraData(): HasOne
     {
         return $this->hasOne(ProductExtraDataModel::class, 'sku', 'sku');
+    }
+
+    /**
+     * Get the Linnworks stock item for this variation's SKU.
+     *
+     * Cross-schema relation: catalog.product_variations_view.sku → linnworks.stock_items.item_number.
+     *
+     * @return HasOne<StockItemModel, $this>
+     */
+    public function stockItem(): HasOne
+    {
+        return $this->hasOne(StockItemModel::class, 'item_number', 'sku');
     }
 }

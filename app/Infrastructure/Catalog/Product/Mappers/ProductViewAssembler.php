@@ -101,8 +101,6 @@ final readonly class ProductViewAssembler
     }
 
     /**
-     * Resolve variations to ProductVariationView when loaded and included.
-     *
      * @param list<ProductInclude> $includes
      *
      * @return list<ProductVariationView>|null
@@ -117,17 +115,41 @@ final readonly class ProductViewAssembler
             return null;
         }
 
+        $includeSuppliers = \in_array(ProductInclude::Suppliers, $includes, true);
+
         return \array_values($model->variations->map(
             fn(ProductVariationViewModel $m): ProductVariationView => $this->variationMapper->toViewDomain(
                 model: $m,
                 vatExclusive: $model->vat_exclusive,
+                defaultSupplier: self::resolveVariationDefaultSupplier($m),
+                suppliers: $includeSuppliers ? self::resolveVariationSuppliers($m) : null,
             ),
         )->all());
     }
 
+    private static function resolveVariationDefaultSupplier(ProductVariationViewModel $model): ?ProductSupplier
+    {
+        if (! $model->relationLoaded('stockItem') || $model->stockItem === null) {
+            return null;
+        }
+
+        return $model->stockItem->defaultSupplier()?->toProductSupplier();
+    }
+
+    /** @return list<ProductSupplier> */
+    private static function resolveVariationSuppliers(ProductVariationViewModel $model): array
+    {
+        if (! $model->relationLoaded('stockItem') || $model->stockItem === null) {
+            return [];
+        }
+
+        return \array_values($model->stockItem->suppliers
+            ->sortByDesc('is_default')
+            ->map(static fn(StockItemSupplierModel $s): ProductSupplier => $s->toProductSupplier())
+            ->all());
+    }
+
     /**
-     * Conditionally type filters via factory.
-     *
      * @param list<ProductInclude> $includes
      *
      * @return list<ProductFilter>
@@ -149,8 +171,6 @@ final readonly class ProductViewAssembler
     }
 
     /**
-     * Conditionally load sale settings from the repository.
-     *
      * @param list<ProductInclude> $includes
      *
      * @throws DatabaseOperationFailedException
@@ -194,9 +214,6 @@ final readonly class ProductViewAssembler
         return $model->stockItem->toProductStock();
     }
 
-    /**
-     * Derive the default supplier from the always-loaded stockItem.suppliers relation.
-     */
     private static function resolveDefaultSupplier(ProductViewModel $model): ?ProductSupplier
     {
         if (! $model->relationLoaded('stockItem') || $model->stockItem === null) {
@@ -206,11 +223,7 @@ final readonly class ProductViewAssembler
         return $model->stockItem->defaultSupplier()?->toProductSupplier();
     }
 
-    /**
-     * Find free delivery designation from typed custom fields.
-     *
-     * @param list<AbstractCustomFieldValue> $typedCustomFields
-     */
+    /** @param list<AbstractCustomFieldValue> $typedCustomFields */
     private static function resolveFreeDelivery(array $typedCustomFields): ?FreeDeliveryType
     {
         $field = self::findCustomFieldByName($typedCustomFields, 'free_delivery');
@@ -228,19 +241,13 @@ final readonly class ProductViewAssembler
         return FreeDeliveryType::tryFrom($value);
     }
 
-    /**
-     * Find a typed custom field by name.
-     *
-     * @param list<AbstractCustomFieldValue> $customFields
-     */
+    /** @param list<AbstractCustomFieldValue> $customFields */
     private static function findCustomFieldByName(array $customFields, string $name): ?AbstractCustomFieldValue
     {
         return \array_find($customFields, static fn(AbstractCustomFieldValue $cf): bool => $cf->name() === $name);
     }
 
     /**
-     * Resolve supplier data from eager-loaded stockItem.suppliers relation.
-     *
      * @param list<ProductInclude> $includes
      *
      * @return list<ProductSupplier>|null
@@ -260,8 +267,6 @@ final readonly class ProductViewAssembler
     }
 
     /**
-     * Convert JSONB images array to ProductImage objects.
-     *
      * @param list<array{id: int, url: string, description: string|null, sort_order: int}> $images
      *
      * @return list<ProductImage>
