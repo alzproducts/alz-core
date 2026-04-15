@@ -15,6 +15,7 @@ use App\Domain\Catalog\Product\ValueObjects\ProductLinks;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariationOption;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariationView;
 use App\Domain\Catalog\Product\ValueObjects\ProductView;
+use App\Domain\Catalog\Product\ValueObjects\ProductViewMeta;
 use App\Domain\Shared\Pagination\Enums\SortDirection;
 use App\Presentation\Http\Api\Controllers\ProductController;
 use App\Presentation\Http\Auth\Middleware\ValidateSupabaseJwtMiddleware;
@@ -923,6 +924,8 @@ final class ProductControllerTest extends TestCase
             sortOrder: null,
             createdAt: new DateTimeImmutable('2024-01-01'),
             updatedAt: new DateTimeImmutable('2024-01-01'),
+            meta: new ProductViewMeta([$variation], null, null),
+            hasAnyVariationOnSale: ProductVariationView::anyOnSale([$variation]),
         );
     }
 
@@ -959,6 +962,8 @@ final class ProductControllerTest extends TestCase
             sortOrder: null,
             createdAt: new DateTimeImmutable('2024-01-01'),
             updatedAt: new DateTimeImmutable('2024-01-01'),
+            meta: new ProductViewMeta([], null, null),
+            hasAnyVariationOnSale: ProductVariationView::anyOnSale([]),
         );
     }
 }

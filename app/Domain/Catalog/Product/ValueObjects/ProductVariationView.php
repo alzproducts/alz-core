@@ -127,4 +127,21 @@ final readonly class ProductVariationView
             static fn(self $v): bool => $v->defaultSupplier?->supplierName === $first->supplierName,
         ) ? $first : null;
     }
+
+    /**
+     * Check if any variation in the list is on sale.
+     *
+     * @param list<self>|null $variations
+     */
+    public static function anyOnSale(?array $variations): bool
+    {
+        if ($variations === null || $variations === []) {
+            return false;
+        }
+
+        return \array_any(
+            $variations,
+            static fn(self $v): bool => $v->isOnSale,
+        );
+    }
 }
