@@ -16,6 +16,7 @@ use App\Domain\Catalog\Product\ValueObjects\ProductStock;
 use App\Domain\Catalog\Product\ValueObjects\ProductSupplier;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariationView;
 use App\Domain\Catalog\Product\ValueObjects\ProductView;
+use App\Domain\Catalog\Product\ValueObjects\ProductViewMeta;
 use App\Domain\Catalog\Product\ValueObjects\SaleSettings;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Data\MissingRequiredDataException;
@@ -61,8 +62,9 @@ final readonly class ProductViewAssembler
     public function toViewDomain(ProductViewModel $model, array $includes = []): ProductView
     {
         $typedCustomFields = $this->customFieldFactory->fromRawFields($model->custom_fields);
-        $variations = $this->resolveVariations($model, $includes);
+        $allVariations = $this->resolveVariations($model, $includes);
         $stockItem = $model->relationLoaded('stockItem') ? $model->stockItem : null;
+        $defaultSupplier = self::resolveDefaultSupplier($model, $allVariations);
 
         return new ProductView(
             externalId: $model->external_id,
@@ -88,19 +90,21 @@ final readonly class ProductViewAssembler
             metaTitle: $model->meta_title,
             metaDescription: $model->meta_description,
             categoryIds: $model->category_ids,
-            variations: $variations,
+            variations: \in_array(ProductInclude::Variations, $includes, true) ? $allVariations : null,
             images: self::buildImages($model->images),
             customFields: \in_array(ProductInclude::CustomFields, $includes, true) ? $typedCustomFields : [],
             filters: $this->resolveFilters($model, $includes),
             sortOrder: $model->sort_order,
             createdAt: $model->shopwired_created_at->toDateTimeImmutable(),
             updatedAt: $model->shopwired_updated_at->toDateTimeImmutable(),
+            meta: new ProductViewMeta($allVariations, $defaultSupplier, $stockItem?->is_composite),
+            hasAnyVariationOnSale: ProductVariationView::anyOnSale($allVariations),
             saleSettings: self::resolveSaleSettings($model, $includes),
             freeDelivery: self::resolveFreeDelivery($typedCustomFields),
             suppliers: self::resolveSuppliers($model, $includes),
             inventory: self::resolveInventory($model, $includes),
             stock: self::resolveStock($model, $includes),
-            defaultSupplier: self::resolveDefaultSupplier($model, $variations),
+            defaultSupplier: $defaultSupplier,
             isComposite: $stockItem?->is_composite,
         );
     }

@@ -8,6 +8,7 @@ use App\Domain\Catalog\Product\Enums\FreeDeliveryType;
 use App\Domain\Catalog\Product\ValueObjects\ProductLinks;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariationView;
 use App\Domain\Catalog\Product\ValueObjects\ProductView;
+use App\Domain\Catalog\Product\ValueObjects\ProductViewMeta;
 use App\Domain\Shared\ValueObjects\DateFormat;
 use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -19,7 +20,7 @@ final class ProductViewTest extends TestCase
 {
     /*
     |--------------------------------------------------------------------------
-    | hasAnySale (computed in constructor from isOnSale + variations)
+    | hasAnySale (derived from isOnSale + pre-computed hasAnyVariationOnSale)
     |--------------------------------------------------------------------------
     */
 
@@ -349,6 +350,8 @@ final class ProductViewTest extends TestCase
             sortOrder: null,
             createdAt: $createdAt ?? new DateTimeImmutable('2024-01-01'),
             updatedAt: $updatedAt ?? new DateTimeImmutable('2024-01-01'),
+            meta: new ProductViewMeta($variations, null, null),
+            hasAnyVariationOnSale: ProductVariationView::anyOnSale($variations),
             freeDelivery: $freeDelivery,
         );
     }
