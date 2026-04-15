@@ -193,6 +193,22 @@ final class EloquentStockItemRepository extends AbstractEloquentRepository imple
         );
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * @param list<Guid> $compositeIds
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function syncCompositeFlags(array $compositeIds): void
+    {
+        $this->eloquentGateway->transact(static function () use ($compositeIds): void {
+            self::applyFlagSync('is_composite', $compositeIds);
+        });
+    }
+
     protected function getModelClass(): string
     {
         return StockItemModel::class;

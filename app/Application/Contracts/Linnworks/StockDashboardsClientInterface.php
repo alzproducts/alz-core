@@ -129,4 +129,21 @@ interface StockDashboardsClientInterface
      * @throws ExternalServiceUnavailableException
      */
     public function getArchivedStockItemsFull(): array;
+
+    /**
+     * Fetch stock item IDs that are composite parents.
+     *
+     * Uses ExecuteCustomScriptQuery because `GetStockItemsFull` (bulk sync)
+     * does not return the `IsCompositeParent` field. Returns only active
+     * (non-archived) items where `bContainsComposites` is true.
+     *
+     * @return list<Guid>
+     *
+     * @throws InvalidApiResponseException
+     * @throws InvalidApiRequestException
+     * @throws AuthenticationExpiredException
+     * @throws ResourceNotFoundException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function getCompositeStockItemIds(): array;
 }

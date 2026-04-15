@@ -500,13 +500,13 @@ parameters:
 			path: app/Domain/Catalog/Product/ValueObjects/ProductVariation.php
 
 		-
-			rawMessage: 'Method __construct() is 31 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			rawMessage: 'Method __construct() is 34 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Domain/Catalog/Product/ValueObjects/ProductVariationView.php
 
 		-
-			rawMessage: 'Method __construct() is 53 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			rawMessage: 'Method __construct() is 54 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Domain/Catalog/Product/ValueObjects/ProductView.php
@@ -657,13 +657,13 @@ parameters:
 
 
 		-
-			rawMessage: 'Method toViewDomain() is 26 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			rawMessage: 'Method toViewDomain() is 30 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Infrastructure/Catalog/Product/Mappers/ProductVariationModelMapper.php
 
 		-
-			rawMessage: 'Method toViewDomain() is 43 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			rawMessage: 'Method toViewDomain() is 45 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Infrastructure/Catalog/Product/Mappers/ProductViewAssembler.php
@@ -1006,7 +1006,7 @@ parameters:
 			path: app/Infrastructure/Linnworks/Responses/PurchaseOrder/PurchaseOrderHeaderResponse.php
 
 		-
-			rawMessage: 'Method __construct() is 25 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			rawMessage: 'Method __construct() is 26 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Infrastructure/Linnworks/Responses/StockItemFullResponse.php
@@ -1679,13 +1679,13 @@ parameters:
 			path: app/Presentation/Console/Commands/Dev/TestSlackNotificationCommand.php
 
 		-
-			rawMessage: 'Method buildData() is 26 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			rawMessage: 'Method buildData() is 34 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Presentation/Http/Api/Resources/ProductVariationResource.php
 
 		-
-			rawMessage: 'Method baseFields() is 36 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			rawMessage: 'Method baseFields() is 37 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Presentation/Http/Api/Resources/ProductResource.php

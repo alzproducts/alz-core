@@ -76,6 +76,7 @@ final class ProductResource extends JsonResource
             'vat_relief' => $product->vatRelief,
             'meta_title' => $product->metaTitle,
             'meta_description' => $product->metaDescription,
+            'is_composite' => $product->isComposite ?? false,
             'default_supplier' => $product->defaultSupplier?->toArray(),
             'free_delivery' => $product->freeDelivery?->value,
             'sort_order' => $product->sortOrder,

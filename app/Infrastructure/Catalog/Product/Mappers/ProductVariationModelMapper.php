@@ -62,6 +62,8 @@ final class ProductVariationModelMapper
         ?ProductSupplier $defaultSupplier = null,
         ?array $suppliers = null,
     ): ProductVariationView {
+        $stockItem = $model->relationLoaded('stockItem') ? $model->stockItem : null;
+
         return new ProductVariationView(
             externalId: $model->external_id,
             sku: $model->sku,
@@ -81,6 +83,8 @@ final class ProductVariationModelMapper
             options: self::buildOptions($model->options),
             defaultSupplier: $defaultSupplier,
             suppliers: $suppliers,
+            isComposite: $stockItem !== null && $stockItem->is_composite,
+            inventory: $stockItem?->toProductInventory(),
         );
     }
 

@@ -129,6 +129,7 @@ final readonly class ProductView
         public ?ProductInventory $inventory = null,
         public ?ProductStock $stock = null,
         ?ProductSupplier $defaultSupplier = null,
+        public ?bool $isComposite = null,
     ) {
         $taxType = $vatExclusive ? TaxType::ZeroRated : TaxType::Inclusive;
 
@@ -139,7 +140,7 @@ final readonly class ProductView
         $this->costPrice = Money::nonZeroOrNull($costPrice, TaxType::Exclusive);
         $this->salePrice = Money::nonZeroOrNull($salePrice, $taxType);
         $this->rrp = Money::nonZeroOrNull($rrp, $taxType);
-        $this->meta = new ProductViewMeta($variations, $defaultSupplier);
+        $this->meta = new ProductViewMeta($variations, $defaultSupplier, $isComposite);
         $this->effectivePrice = Money::fromTaxType($effectivePrice, $taxType);
         $this->categoryIds = \array_map(static fn(int $id): IntId => IntId::from($id), $categoryIds);
         $this->hasFreeDelivery = $freeDelivery !== null && ! $freeDelivery->isNone();

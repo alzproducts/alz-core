@@ -62,6 +62,7 @@ final readonly class ProductViewAssembler
     {
         $typedCustomFields = $this->customFieldFactory->fromRawFields($model->custom_fields);
         $variations = $this->resolveVariations($model, $includes);
+        $stockItem = $model->relationLoaded('stockItem') ? $model->stockItem : null;
 
         return new ProductView(
             externalId: $model->external_id,
@@ -100,6 +101,7 @@ final readonly class ProductViewAssembler
             inventory: self::resolveInventory($model, $includes),
             stock: self::resolveStock($model, $includes),
             defaultSupplier: self::resolveDefaultSupplier($model, $variations),
+            isComposite: $stockItem?->is_composite,
         );
     }
 

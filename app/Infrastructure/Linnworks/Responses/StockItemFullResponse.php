@@ -62,6 +62,7 @@ final class StockItemFullResponse extends Data implements DomainConvertibleInter
         public readonly array $itemExtendedProperties = [],
         #[DataCollectionOf(StockItemSupplierResponse::class)]
         public readonly array $suppliers = [],
+        public readonly ?bool $isCompositeParent = null,
     ) {}
 
     public function toDomain(): StockItemFull
@@ -84,7 +85,7 @@ final class StockItemFullResponse extends Data implements DomainConvertibleInter
             taxRate: $this->taxRate < 0 ? null : $this->taxRate, // -1 means "use default"
             weight: new Weight($this->weight, WeightUnit::Kilogram),
             dimensions: new Dimensions($this->height, $this->width, $this->depth),
-            isComposite: false, // GetStockItemsFull doesn't return IsCompositeParent
+            isComposite: $this->isCompositeParent, // null when GetStockItemsFull (field absent), bool when GetStockItemsFullByIds
             categoryId: $this->categoryId,
             categoryName: $this->categoryName,
             createdAt: $this->creationDate !== null

@@ -9,6 +9,7 @@ use App\Infrastructure\Jobs\Linnworks\SyncAllOpenLinnworksOrdersJob;
 use App\Infrastructure\Jobs\Linnworks\SyncAllPurchaseOrdersJob;
 use App\Infrastructure\Jobs\Linnworks\SyncArchivedStockItemFlagsJob;
 use App\Infrastructure\Jobs\Linnworks\SyncArchivedStockItemsJob;
+use App\Infrastructure\Jobs\Linnworks\SyncCompositeStockItemFlagsJob;
 use App\Infrastructure\Jobs\Linnworks\SyncFastPurchaseOrdersJob;
 use App\Infrastructure\Jobs\Linnworks\SyncLinnworksOrdersByCursorJob;
 use App\Infrastructure\Jobs\Linnworks\SyncLinnworksOrdersJob;
@@ -54,6 +55,7 @@ final class LinnworksScheduleServiceProvider extends ServiceProvider
             ->hourly()->onOneServer()->withoutOverlapping(10);
 
         $this->registerArchivedFlagsSchedule();
+        $this->registerCompositeFlagsSchedule();
         $this->registerArchivedItemsSchedule();
 
         // EVERY 5 MIN: Cursor-based incremental stock item sync
@@ -70,6 +72,17 @@ final class LinnworksScheduleServiceProvider extends ServiceProvider
         // HOURLY: Archived/logically-deleted flag sync — targeted bulk update
         Schedule::job(new SyncArchivedStockItemFlagsJob())
             ->name('sync-archived-stock-item-flags')
+            ->hourly()->onOneServer()->withoutOverlapping(10);
+    }
+
+    /**
+     * Register hourly composite stock item flag sync.
+     */
+    private function registerCompositeFlagsSchedule(): void
+    {
+        // HOURLY: Composite parent flag sync — targeted bulk update via SQL Dashboards
+        Schedule::job(new SyncCompositeStockItemFlagsJob())
+            ->name('sync-composite-stock-item-flags')
             ->hourly()->onOneServer()->withoutOverlapping(10);
     }
 
