@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Presentation\Http\Api\Controllers;
 
+use App\Application\Catalog\Queries\ProductDetailQueryParams;
 use App\Application\Catalog\Queries\ProductListQueryParams;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Application\DTOs\PaginatedListDTO;
@@ -826,6 +827,53 @@ final class ProductControllerTest extends TestCase
         $this->assertSame(0, $body['meta']['total']);
         $this->assertSame(500, $body['meta']['per_page']);
         $this->assertSame(1, $body['meta']['current_page']);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Show endpoint (GET /api/products/{id})
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function show_returns_variations_without_explicit_include(): void
+    {
+        $product = $this->createProductWithVariations();
+
+        $this->productRepository
+            ->shouldReceive('findProductView')
+            ->once()
+            ->with(Mockery::on(static fn(ProductDetailQueryParams $q): bool => $q->productId->value === 42 && $q->includes === []))
+            ->andReturn($product);
+
+        $response = $this->asApprovedUser()->getJson('/api/products/42');
+
+        $response->assertStatus(200);
+        $body = $response->json();
+        $this->assertArrayHasKey('variations', $body['data']);
+        $this->assertNotEmpty($body['data']['variations']);
+        $this->assertSame(101, $body['data']['variations'][0]['id']);
+    }
+
+    #[Test]
+    public function show_returns_variations_alongside_other_includes(): void
+    {
+        $product = $this->createProductWithVariations();
+
+        $this->productRepository
+            ->shouldReceive('findProductView')
+            ->once()
+            ->with(Mockery::on(static fn(ProductDetailQueryParams $q): bool => $q->productId->value === 42
+                && \in_array(ProductInclude::Description, $q->includes, true)
+                && ! \in_array(ProductInclude::Variations, $q->includes, true)))
+            ->andReturn($product);
+
+        $response = $this->asApprovedUser()->getJson('/api/products/42?include=description');
+
+        $response->assertStatus(200);
+        $body = $response->json();
+        $this->assertArrayHasKey('variations', $body['data']);
+        $this->assertNotEmpty($body['data']['variations']);
     }
 
     /*
