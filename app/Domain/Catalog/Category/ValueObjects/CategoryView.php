@@ -31,6 +31,7 @@ final readonly class CategoryView
      * @param ?string $metaDescription SEO description
      * @param ?CategoryImage $image Category image
      * @param DateTimeImmutable $createdAt ShopWired creation timestamp
+     * @param bool $isMainCategory Whether this category is a main category
      * @param ?string $description Primary description (null = not loaded)
      * @param ?string $description2 Secondary description (null = not loaded)
      * @param ?list<IntId> $parentIds Parent category IDs (null = not loaded)
@@ -48,6 +49,7 @@ final readonly class CategoryView
         public ?string $metaDescription,
         public ?CategoryImage $image,
         public DateTimeImmutable $createdAt,
+        public bool $isMainCategory = false,
         public ?string $description = null,
         public ?string $description2 = null,
         public ?array $parentIds = null,

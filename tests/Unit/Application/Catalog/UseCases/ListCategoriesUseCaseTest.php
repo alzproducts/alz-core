@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Application\Catalog\UseCases;
 
+use App\Application\Catalog\Queries\CategoryListQueryParams;
 use App\Application\Catalog\UseCases\ListCategoriesUseCase;
 use App\Application\Contracts\Shopwired\CategoryRepositoryInterface;
 use App\Application\DTOs\PaginatedListDTO;
@@ -41,16 +42,18 @@ final class ListCategoriesUseCaseTest extends TestCase
     {
         $expected = PaginatedListDTO::fromPage(items: [], total: 0, perPage: 10, currentPage: 1);
 
+        $params = new CategoryListQueryParams();
+
         $this->categoryRepository
             ->shouldReceive('paginate')
             ->once()
-            ->with(10, 1, [], false)
+            ->with(10, 1, $params)
             ->andReturn($expected);
 
-        $this->logger->shouldReceive('info')->once()->with('Listing categories', ['page' => 1, 'per_page' => 10, 'includes' => [], 'include_inactive' => false]);
+        $this->logger->shouldReceive('info')->once()->with('Listing categories', ['page' => 1, 'per_page' => 10, 'includes' => [], 'include_inactive' => false, 'is_main_category' => null]);
         $this->logger->shouldReceive('info')->once()->with('Listed categories', ['total' => 0, 'returned' => 0]);
 
-        $result = $this->useCase->execute(perPage: 10, page: 1);
+        $result = $this->useCase->execute(perPage: 10, page: 1, params: $params);
 
         $this->assertSame($expected, $result);
     }
@@ -60,17 +63,18 @@ final class ListCategoriesUseCaseTest extends TestCase
     {
         $includes = ['custom_fields'];
         $expected = PaginatedListDTO::fromPage(items: [], total: 5, perPage: 20, currentPage: 2);
+        $params = new CategoryListQueryParams(includes: $includes, includeInactive: true);
 
         $this->categoryRepository
             ->shouldReceive('paginate')
             ->once()
-            ->with(20, 2, $includes, true)
+            ->with(20, 2, $params)
             ->andReturn($expected);
 
-        $this->logger->shouldReceive('info')->once()->with('Listing categories', ['page' => 2, 'per_page' => 20, 'includes' => $includes, 'include_inactive' => true]);
+        $this->logger->shouldReceive('info')->once()->with('Listing categories', ['page' => 2, 'per_page' => 20, 'includes' => $includes, 'include_inactive' => true, 'is_main_category' => null]);
         $this->logger->shouldReceive('info')->once()->with('Listed categories', ['total' => 5, 'returned' => 0]);
 
-        $result = $this->useCase->execute(perPage: 20, page: 2, includes: $includes, includeInactive: true);
+        $result = $this->useCase->execute(perPage: 20, page: 2, params: $params);
 
         $this->assertSame($expected, $result);
     }
@@ -89,7 +93,7 @@ final class ListCategoriesUseCaseTest extends TestCase
         $this->logger
             ->shouldReceive('info')
             ->once()
-            ->with('Listing categories', ['page' => 1, 'per_page' => 10, 'includes' => [], 'include_inactive' => false]);
+            ->with('Listing categories', ['page' => 1, 'per_page' => 10, 'includes' => [], 'include_inactive' => false, 'is_main_category' => null]);
 
         $this->logger
             ->shouldReceive('info')

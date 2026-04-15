@@ -53,6 +53,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property float|null $cost_price Linnworks cost price (from default supplier, tax-exclusive)
  * @property float|null $profit_margin Gross profit margin % computed at DB level
  * @property bool $has_free_delivery Whether product has a free delivery designation
+ * @property list<int> $main_category_ids Main category IDs this product belongs to (directly or via ancestor chain)
  * @property-read Collection<int, ProductVariationViewModel> $variations
  * @property-read StockItemModel|null $stockItem
  */
@@ -105,6 +106,7 @@ final class ProductViewModel extends Model
             'images' => 'array',
             'custom_fields' => 'array',
             'filters' => 'array',
+            'main_category_ids' => 'array',
         ];
     }
 

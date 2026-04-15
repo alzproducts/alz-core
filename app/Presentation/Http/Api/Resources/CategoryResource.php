@@ -46,6 +46,7 @@ final class CategoryResource extends JsonResource
             ],
             'active' => $category->active,
             'featured' => $category->featured,
+            'is_main_category' => $category->isMainCategory,
             'sort_order' => $category->sortOrder,
             'meta_title' => $category->metaTitle,
             'meta_description' => $category->metaDescription,
