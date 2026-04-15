@@ -136,7 +136,7 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
             modelClass: self::VIEW_MODEL_CLASS,
             column: 'external_id',
             value: $query->productId->value,
-            relations: \array_values(\array_unique(['variations', 'variations.extraData', 'variations.stockItem.suppliers', ...self::relationsForIncludes($query->includes)])),
+            relations: self::relationsForIncludes($query->includes),
             entityTypeName: 'Product',
             mapper: fn(ProductViewModel $model): ProductView => $this->viewMapper->toViewDomain($model, $query->includes),
         );
@@ -451,10 +451,6 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
         $relations = [];
         $has = static fn(ProductInclude $i): bool => \in_array($i, $includes, true);
 
-        if ($has(ProductInclude::Variations)) {
-            $relations[] = 'variations';
-        }
-
         if ($has(ProductInclude::Inventory) || $has(ProductInclude::Stock)) {
             $relations[] = 'stockItem';
         }
@@ -465,11 +461,11 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
         // Always load product-level extra data (RRP for API response)
         $relations[] = 'extraData';
 
-        // Load variation extra data and supplier data only when variations are included
-        if ($has(ProductInclude::Variations)) {
-            $relations[] = 'variations.extraData';
-            $relations[] = 'variations.stockItem.suppliers';
-        }
+        // Always load variation relations for parent-level derivation (defaultSupplier, hasAnySale, ProductViewMeta)
+        // API exposure is gated separately in the assembler via the includes check
+        $relations[] = 'variations';
+        $relations[] = 'variations.extraData';
+        $relations[] = 'variations.stockItem.suppliers';
 
         return $relations;
     }

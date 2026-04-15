@@ -81,16 +81,18 @@ final readonly class ProductView
      * @param string|null $metaTitle SEO title
      * @param string|null $metaDescription SEO description
      * @param list<int> $categoryIds ShopWired category IDs
-     * @param list<ProductVariationView>|null $variations Variations (null = not loaded)
+     * @param list<ProductVariationView>|null $variations Variations exposed in API response (null = not requested)
      * @param list<ProductImage> $images Product images
      * @param list<AbstractCustomFieldValue> $customFields Typed custom field values
      * @param list<ProductFilter> $filters Typed filter values
-     * @param SaleSettings|null $saleSettings Sale metadata (null = not loaded or no sale)
-     * @param FreeDeliveryType|null $freeDelivery Free delivery tier (null = no designation)
-     * @param list<ProductSupplier>|null $suppliers Suppliers (null = not loaded)
      * @param int|null $sortOrder ShopWired sort order
      * @param DateTimeImmutable $createdAt ShopWired creation timestamp
      * @param DateTimeImmutable $updatedAt ShopWired last update timestamp
+     * @param ProductViewMeta $meta Pre-computed meta flags (always computed from full variation list)
+     * @param bool $hasAnyVariationOnSale Pre-computed from full variation list (independent of API exposure)
+     * @param SaleSettings|null $saleSettings Sale metadata (null = not loaded or no sale)
+     * @param FreeDeliveryType|null $freeDelivery Free delivery tier (null = no designation)
+     * @param list<ProductSupplier>|null $suppliers Suppliers (null = not loaded)
      * @param ProductInventory|null $inventory Linnworks inventory data (null = not loaded)
      * @param ProductStock|null $stock Linnworks stock levels (null = not loaded)
      */
@@ -122,6 +124,8 @@ final readonly class ProductView
         public ?int $sortOrder,
         public DateTimeImmutable $createdAt,
         public DateTimeImmutable $updatedAt,
+        ProductViewMeta $meta,
+        bool $hasAnyVariationOnSale,
         public ?SaleSettings $saleSettings = null,
         public ?FreeDeliveryType $freeDelivery = null,
         /** @var list<ProductSupplier>|null */
@@ -140,11 +144,11 @@ final readonly class ProductView
         $this->costPrice = Money::nonZeroOrNull($costPrice, TaxType::Exclusive);
         $this->salePrice = Money::nonZeroOrNull($salePrice, $taxType);
         $this->rrp = Money::nonZeroOrNull($rrp, $taxType);
-        $this->meta = new ProductViewMeta($variations, $defaultSupplier, $isComposite);
+        $this->meta = $meta;
         $this->effectivePrice = Money::fromTaxType($effectivePrice, $taxType);
         $this->categoryIds = \array_map(static fn(int $id): IntId => IntId::from($id), $categoryIds);
         $this->hasFreeDelivery = $freeDelivery !== null && ! $freeDelivery->isNone();
-        $this->hasAnySale = $this->isOnSale || self::anyVariationOnSale($this->variations);
+        $this->hasAnySale = $this->isOnSale || $hasAnyVariationOnSale;
         $this->defaultSupplier = $defaultSupplier;
         $this->createdAtFormatted = $createdAt->format(DateFormat::DEFAULT_DATE_FORMAT);
         $this->updatedAtFormatted = $updatedAt->format(DateFormat::DEFAULT_DATE_FORMAT);
@@ -198,23 +202,6 @@ final readonly class ProductView
             $rrps,
             static fn(Money $max, Money $rrp): Money => $rrp->toGross() > $max->toGross() ? $rrp : $max,
             $rrps[0],
-        );
-    }
-
-    /**
-     * Check if any variation in the list is on sale.
-     *
-     * @param list<ProductVariationView>|null $variations
-     */
-    private static function anyVariationOnSale(?array $variations): bool
-    {
-        if ($variations === null || $variations === []) {
-            return false;
-        }
-
-        return \array_any(
-            $variations,
-            static fn(ProductVariationView $v): bool => $v->isOnSale,
         );
     }
 }
