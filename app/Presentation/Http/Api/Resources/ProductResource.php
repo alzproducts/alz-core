@@ -6,6 +6,7 @@ namespace App\Presentation\Http\Api\Resources;
 
 use App\Domain\Catalog\Product\ValueObjects\ProductImage;
 use App\Domain\Catalog\Product\ValueObjects\ProductView;
+use App\Domain\ValueObjects\IntId;
 use DateTimeInterface;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -14,7 +15,8 @@ use Illuminate\Http\Resources\Json\JsonResource;
  * API resource for ProductView domain value object.
  *
  * Omits description (large HTML, not needed for list view),
- * custom fields, filters, and category IDs (internal use only).
+ * custom fields, filters, and raw category_ids (internal use only).
+ * Exposes main_category_ids as a public-facing field.
  *
  * @mixin ProductView
  */
@@ -77,6 +79,7 @@ final class ProductResource extends JsonResource
             'meta_title' => $product->metaTitle,
             'meta_description' => $product->metaDescription,
             'is_composite' => $product->isComposite ?? false,
+            'main_category_ids' => \array_map(static fn(IntId $id): int => $id->value, $product->mainCategoryIds),
             'default_supplier' => $product->defaultSupplier?->toArray(),
             'free_delivery' => $product->freeDelivery?->value,
             'sort_order' => $product->sortOrder,
