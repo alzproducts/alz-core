@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Domain\Catalog\Product\ValueObjects;
 
+use App\Domain\Catalog\Product\ValueObjects\ProductSupplier;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariationView;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -114,6 +115,113 @@ final class ProductVariationViewTest extends TestCase
 
     /*
     |--------------------------------------------------------------------------
+    | canEditCostPrice
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function can_edit_cost_price_false_when_composite_even_with_supplier(): void
+    {
+        $view = $this->createView(
+            isComposite: true,
+            supplierName: 'Acme',
+        );
+
+        self::assertFalse($view->canEditCostPrice);
+    }
+
+    #[Test]
+    public function can_edit_cost_price_true_when_non_composite_with_supplier(): void
+    {
+        $view = $this->createView(
+            isComposite: false,
+            supplierName: 'Acme',
+        );
+
+        self::assertTrue($view->canEditCostPrice);
+    }
+
+    #[Test]
+    public function can_edit_cost_price_false_when_non_composite_without_supplier(): void
+    {
+        $view = $this->createView(isComposite: false);
+
+        self::assertFalse($view->canEditCostPrice);
+    }
+
+    #[Test]
+    public function can_edit_cost_price_false_when_no_composite_flag_and_no_supplier(): void
+    {
+        $view = $this->createView();
+
+        self::assertFalse($view->canEditCostPrice);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | commonDefaultSupplier — composite filtering
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function common_default_supplier_skips_composites_and_returns_shared_supplier(): void
+    {
+        $variations = [
+            $this->createView(supplierName: 'Acme', isComposite: false),
+            $this->createView(supplierName: 'Acme', isComposite: true),
+        ];
+
+        $supplier = ProductVariationView::commonDefaultSupplier($variations);
+
+        self::assertNotNull($supplier);
+        self::assertSame('Acme', $supplier->supplierName);
+    }
+
+    #[Test]
+    public function common_default_supplier_null_when_all_variations_are_composite(): void
+    {
+        $variations = [
+            $this->createView(supplierName: 'Acme', isComposite: true),
+            $this->createView(supplierName: 'Acme', isComposite: true),
+        ];
+
+        self::assertNull(ProductVariationView::commonDefaultSupplier($variations));
+    }
+
+    #[Test]
+    public function common_default_supplier_works_normally_when_no_composites(): void
+    {
+        $variations = [
+            $this->createView(supplierName: 'Acme'),
+            $this->createView(supplierName: 'Acme'),
+        ];
+
+        $supplier = ProductVariationView::commonDefaultSupplier($variations);
+
+        self::assertNotNull($supplier);
+        self::assertSame('Acme', $supplier->supplierName);
+    }
+
+    #[Test]
+    public function common_default_supplier_null_when_non_composite_suppliers_differ(): void
+    {
+        $variations = [
+            $this->createView(supplierName: 'Acme', isComposite: false),
+            $this->createView(supplierName: 'Globex', isComposite: false),
+            $this->createView(supplierName: 'Acme', isComposite: true),
+        ];
+
+        self::assertNull(ProductVariationView::commonDefaultSupplier($variations));
+    }
+
+    #[Test]
+    public function common_default_supplier_null_when_empty(): void
+    {
+        self::assertNull(ProductVariationView::commonDefaultSupplier([]));
+    }
+
+    /*
+    |--------------------------------------------------------------------------
     | Helpers
     |--------------------------------------------------------------------------
     */
@@ -127,6 +235,8 @@ final class ProductVariationViewTest extends TestCase
         ?float $profitMargin = null,
         ?float $weight = null,
         ?string $sku = null,
+        bool $isComposite = false,
+        ?string $supplierName = null,
     ): ProductVariationView {
         return new ProductVariationView(
             externalId: 1,
@@ -145,6 +255,17 @@ final class ProductVariationViewTest extends TestCase
             mpn: null,
             imageIndex: null,
             options: [],
+            defaultSupplier: $supplierName !== null ? self::createSupplier($supplierName) : null,
+            isComposite: $isComposite,
+        );
+    }
+
+    private static function createSupplier(string $name): ProductSupplier
+    {
+        return new ProductSupplier(
+            supplierName: $name,
+            purchasePrice: null,
+            isDefault: true,
         );
     }
 }

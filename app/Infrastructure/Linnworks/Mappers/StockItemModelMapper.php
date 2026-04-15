@@ -90,7 +90,7 @@ final class StockItemModelMapper
             'height' => $stockItem->dimensions->height,
             'width' => $stockItem->dimensions->width,
             'depth' => $stockItem->dimensions->depth,
-            'is_composite' => $stockItem->isComposite,
+            ...($stockItem->isComposite !== null ? ['is_composite' => $stockItem->isComposite] : []),
             'category_id' => $stockItem->categoryId,
             'category_name' => $stockItem->categoryName,
             'linnworks_created_at' => $stockItem->createdAt,
