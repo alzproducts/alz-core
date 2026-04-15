@@ -90,6 +90,7 @@ final readonly class ProductViewAssembler
             metaTitle: $model->meta_title,
             metaDescription: $model->meta_description,
             categoryIds: $model->category_ids,
+            mainCategoryIds: $model->main_category_ids,
             variations: \in_array(ProductInclude::Variations, $includes, true) ? $allVariations : null,
             images: self::buildImages($model->images),
             customFields: \in_array(ProductInclude::CustomFields, $includes, true) ? $typedCustomFields : [],
@@ -234,7 +235,7 @@ final readonly class ProductViewAssembler
     /** @param list<AbstractCustomFieldValue> $typedCustomFields */
     private static function resolveFreeDelivery(array $typedCustomFields): ?FreeDeliveryType
     {
-        $field = self::findCustomFieldByName($typedCustomFields, 'free_delivery');
+        $field = \array_find($typedCustomFields, static fn(AbstractCustomFieldValue $cf): bool => $cf->name() === 'free_delivery');
 
         if ($field === null) {
             return null;
@@ -247,12 +248,6 @@ final readonly class ProductViewAssembler
         }
 
         return FreeDeliveryType::tryFrom($value);
-    }
-
-    /** @param list<AbstractCustomFieldValue> $customFields */
-    private static function findCustomFieldByName(array $customFields, string $name): ?AbstractCustomFieldValue
-    {
-        return \array_find($customFields, static fn(AbstractCustomFieldValue $cf): bool => $cf->name() === $name);
     }
 
     /**

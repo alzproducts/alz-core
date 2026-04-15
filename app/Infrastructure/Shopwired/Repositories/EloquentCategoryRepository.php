@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Shopwired\Repositories;
 
+use App\Application\Catalog\Queries\CategoryListQueryParams;
 use App\Application\Contracts\DatabaseGatewayInterface;
 use App\Application\Contracts\Shopwired\CategoryRepositoryInterface;
 use App\Application\DTOs\PaginatedListDTO;
@@ -146,19 +147,30 @@ final class EloquentCategoryRepository extends AbstractEloquentRepository implem
      * @throws InvalidCustomFieldValueException
      * @throws MissingRequiredDataException
      */
-    public function paginate(int $perPage, int $page, array $includes = [], bool $includeInactive = false): PaginatedListDTO
+    public function paginate(int $perPage, int $page, CategoryListQueryParams $params = new CategoryListQueryParams()): PaginatedListDTO
     {
         return $this->eloquentGateway->paginate(
             modelClass: self::MODEL_CLASS,
-            scope: static function (Builder $q) use ($includeInactive): void {
-                if (! $includeInactive) {
+            scope: static function (Builder $q) use ($params): void {
+                if (! $params->includeInactive) {
                     $q->where('active', true);
+                }
+
+                if ($params->isMainCategory !== null) {
+                    if ($params->isMainCategory) {
+                        $q->whereRaw('custom_fields @> ?::jsonb', ['{"is_main_category": true}']);
+                    } else {
+                        $q->where(static function (Builder $q): void {
+                            $q->whereRaw('NOT (custom_fields @> ?::jsonb)', ['{"is_main_category": true}'])
+                                ->orWhereNull('custom_fields');
+                        });
+                    }
                 }
 
                 $q->orderBy('sort_order')->orderBy('title');
             },
             relations: [],
-            mapper: fn(CategoryModel $model): CategoryView => $model->toViewDomain($includes, $this->customFieldFactory),
+            mapper: fn(CategoryModel $model): CategoryView => $model->toViewDomain($params->includes, $this->customFieldFactory),
             perPage: $perPage,
             page: $page,
         );

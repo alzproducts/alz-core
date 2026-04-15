@@ -26,5 +26,7 @@ final class ListCategoriesRequestDTO extends Data
         public readonly int $page = 1,
         #[Nullable, BooleanType]
         public readonly bool $include_inactive = false,
+        #[Nullable, BooleanType]
+        public readonly ?bool $is_main_category = null,
     ) {}
 }
