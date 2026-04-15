@@ -132,13 +132,18 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
      */
     public function findProductView(ProductDetailQueryParams $query): ProductView
     {
+        // Detail endpoint always exposes variations — ensure the assembler gate sees the include
+        $includes = \in_array(ProductInclude::Variations, $query->includes, true)
+            ? $query->includes
+            : [...$query->includes, ProductInclude::Variations];
+
         return $this->eloquentGateway->findOrFail(
             modelClass: self::VIEW_MODEL_CLASS,
             column: 'external_id',
             value: $query->productId->value,
-            relations: self::relationsForIncludes($query->includes),
+            relations: self::relationsForIncludes($includes),
             entityTypeName: 'Product',
-            mapper: fn(ProductViewModel $model): ProductView => $this->viewMapper->toViewDomain($model, $query->includes),
+            mapper: fn(ProductViewModel $model): ProductView => $this->viewMapper->toViewDomain($model, $includes),
         );
     }
 
