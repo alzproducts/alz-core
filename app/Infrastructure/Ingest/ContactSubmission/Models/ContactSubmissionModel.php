@@ -34,6 +34,11 @@ use Illuminate\Database\Eloquent\Model;
  * @property bool $consent_preferences
  * @property bool $consent_has_responded
  * @property string|null $gclid
+ * @property string|null $gclsrc
+ * @property string|null $wbraid
+ * @property string|null $gbraid
+ * @property string|null $msclkid
+ * @property string|null $fbclid
  * @property string|null $utm_source
  * @property string|null $utm_medium
  * @property string|null $utm_campaign

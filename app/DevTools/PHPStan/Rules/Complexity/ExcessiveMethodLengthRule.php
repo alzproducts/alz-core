@@ -53,7 +53,7 @@ final class ExcessiveMethodLengthRule implements Rule
      */
     public function processNode(Node $node, Scope $scope): array
     {
-        if (! self::isInAppNamespace($scope) || self::isExcludedMethod($node)) {
+        if (! self::isInAppNamespace($scope) || self::isExcludedMethod($node) || self::isDtoConstructor($node, $scope)) {
             return [];
         }
 
@@ -91,6 +91,22 @@ final class ExcessiveMethodLengthRule implements Rule
     private static function isExcludedMethod(ClassMethod $node): bool
     {
         return \in_array($node->name->name, self::EXCLUDED_METHODS, true);
+    }
+
+    /**
+     * DTO constructors are structural field listings (validation attributes +
+     * promoted properties) whose length grows linearly with field count.
+     * They have no extractable logic — same rationale as EXCLUDED_METHODS.
+     */
+    private static function isDtoConstructor(ClassMethod $node, Scope $scope): bool
+    {
+        if ($node->name->name !== '__construct') {
+            return false;
+        }
+
+        $namespace = $scope->getNamespace();
+
+        return $namespace !== null && \str_contains($namespace, '\\DTOs');
     }
 
     private static function measureLength(ClassMethod $node): ?int

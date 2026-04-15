@@ -24,6 +24,16 @@ final class AttributionSectionRequestDTO extends Data
         #[Nullable, StringType, Max(255)]
         public readonly ?string $gclid = null,
         #[Nullable, StringType, Max(255)]
+        public readonly ?string $gclsrc = null,
+        #[Nullable, StringType, Max(255)]
+        public readonly ?string $wbraid = null,
+        #[Nullable, StringType, Max(255)]
+        public readonly ?string $gbraid = null,
+        #[Nullable, StringType, Max(255)]
+        public readonly ?string $msclkid = null,
+        #[Nullable, StringType, Max(255)]
+        public readonly ?string $fbclid = null,
+        #[Nullable, StringType, Max(255)]
         public readonly ?string $utmSource = null,
         #[Nullable, StringType, Max(255)]
         public readonly ?string $utmMedium = null,
