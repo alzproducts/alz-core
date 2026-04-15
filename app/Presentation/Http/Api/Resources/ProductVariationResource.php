@@ -50,8 +50,10 @@ final class ProductVariationResource extends JsonResource
             'image_index' => $variation->imageIndex,
             'options' => \array_map(static fn(ProductVariationOption $opt): array => $opt->toArray(), $variation->options),
             'is_composite' => $variation->isComposite,
-            'can_edit_cost_price' => $variation->canEditCostPrice,
             'default_supplier' => $variation->defaultSupplier?->toArray(),
+            'meta' => [
+                'can_edit_cost_price' => $variation->canEditCostPrice,
+            ],
         ];
 
         if ($variation->suppliers !== null) {
