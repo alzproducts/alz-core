@@ -49,11 +49,17 @@ final class ProductVariationResource extends JsonResource
             'weight' => $variation->weight?->value,
             'image_index' => $variation->imageIndex,
             'options' => \array_map(static fn(ProductVariationOption $opt): array => $opt->toArray(), $variation->options),
+            'is_composite' => $variation->isComposite,
+            'can_edit_cost_price' => $variation->canEditCostPrice,
             'default_supplier' => $variation->defaultSupplier?->toArray(),
         ];
 
         if ($variation->suppliers !== null) {
             $data['suppliers'] = \array_map(static fn(ProductSupplier $s): array => $s->toArray(), $variation->suppliers);
+        }
+
+        if ($variation->inventory !== null) {
+            $data['inventory'] = $variation->inventory->toArray();
         }
 
         return $data;

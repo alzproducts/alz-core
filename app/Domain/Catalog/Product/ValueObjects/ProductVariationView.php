@@ -38,6 +38,8 @@ final readonly class ProductVariationView
 
     public ?Weight $weight;
 
+    public bool $canEditCostPrice;
+
     /**
      * @param int $externalId ShopWired variation ID
      * @param string|null $sku Variation SKU (nullable for legacy data)
@@ -57,6 +59,8 @@ final readonly class ProductVariationView
      * @param list<ProductVariationOption> $options Option attributes (e.g., Size, Color)
      * @param ProductSupplier|null $defaultSupplier Default supplier (null when no Linnworks stock item)
      * @param list<ProductSupplier>|null $suppliers All suppliers (null when not requested via include)
+     * @param bool $isComposite Whether this variation's stock item is a composite parent
+     * @param ProductInventory|null $inventory Linnworks inventory data (null when not requested via include)
      */
     public function __construct(
         int $externalId,
@@ -77,6 +81,8 @@ final readonly class ProductVariationView
         public array $options,
         public ?ProductSupplier $defaultSupplier = null,
         public ?array $suppliers = null,
+        public bool $isComposite = false,
+        public ?ProductInventory $inventory = null,
     ) {
         $taxType = $vatExclusive ? TaxType::ZeroRated : TaxType::Inclusive;
 
@@ -89,32 +95,36 @@ final readonly class ProductVariationView
         $this->rrp = Money::nonZeroOrNull($rrp, $taxType);
         $this->effectivePrice = Money::fromTaxType($effectivePrice, $taxType);
         $this->weight = $weight !== null ? Weight::kilogram($weight) : null;
+        $this->canEditCostPrice = ! $isComposite && $defaultSupplier !== null;
     }
 
     /**
-     * Return the common default supplier if all variations share the same one.
+     * Return the common default supplier if all non-composite variations share the same one.
      *
-     * Returns null when any variation lacks a default supplier or when suppliers differ.
+     * Composite variations are excluded — they don't carry their own cost prices,
+     * so including them would poison the supplier consistency check.
+     *
+     * Returns null when any non-composite variation lacks a default supplier,
+     * when suppliers differ, or when all variations are composite.
      *
      * @param list<self> $variations Non-empty list
      */
     public static function commonDefaultSupplier(array $variations): ?ProductSupplier
     {
-        if ($variations === []) {
-            return null;
-        }
-
-        $first = $variations[0]->defaultSupplier;
-
-        if ($first === null) {
-            return null;
-        }
-
-        $allMatch = \array_all(
+        $nonComposite = \array_values(\array_filter(
             $variations,
-            static fn(self $v): bool => $v->defaultSupplier?->supplierName === $first->supplierName,
-        );
+            static fn(self $v): bool => ! $v->isComposite,
+        ));
 
-        return $allMatch ? $first : null;
+        if ($nonComposite === [] || $nonComposite[0]->defaultSupplier === null) {
+            return null;
+        }
+
+        $first = $nonComposite[0]->defaultSupplier;
+
+        return \array_all(
+            $nonComposite,
+            static fn(self $v): bool => $v->defaultSupplier?->supplierName === $first->supplierName,
+        ) ? $first : null;
     }
 }

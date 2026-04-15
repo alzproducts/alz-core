@@ -60,4 +60,18 @@ interface StockItemRepositoryInterface extends RepositoryWriteInterface
      * @throws ExternalServiceUnavailableException
      */
     public function upsertArchivedStockItems(array $items): SaveManyResult;
+
+    /**
+     * Bulk-update is_composite flag via two-pass sync.
+     *
+     * 1. SET is_composite = true WHERE stock_item_id IN (:composite_ids)
+     * 2. SET is_composite = false WHERE stock_item_id NOT IN (:composite_ids) AND is_composite = true
+     *
+     * @param list<Guid> $compositeIds Linnworks GUIDs of composite parent items
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function syncCompositeFlags(array $compositeIds): void;
 }
