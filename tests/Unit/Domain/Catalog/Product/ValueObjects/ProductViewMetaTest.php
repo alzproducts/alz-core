@@ -192,6 +192,51 @@ final class ProductViewMetaTest extends TestCase
     }
 
     // ========================================================================
+    // canEditCostPrice — composite awareness
+    // ========================================================================
+
+    #[Test]
+    public function can_edit_cost_price_false_when_product_itself_is_composite(): void
+    {
+        $meta = new ProductViewMeta(null, self::createSupplier('Acme'), isComposite: true);
+
+        self::assertFalse($meta->canEditCostPrice);
+    }
+
+    #[Test]
+    public function can_edit_cost_price_true_when_composite_variations_excluded_and_remaining_share_supplier(): void
+    {
+        $meta = new ProductViewMeta([
+            self::createVariation(price: 20.00, supplierName: 'Acme'),
+            self::createVariation(price: 25.00, supplierName: 'Acme', isComposite: true),
+        ], null);
+
+        self::assertTrue($meta->canEditCostPrice);
+    }
+
+    #[Test]
+    public function can_edit_cost_price_false_when_all_variations_are_composite(): void
+    {
+        $meta = new ProductViewMeta([
+            self::createVariation(price: 20.00, supplierName: 'Acme', isComposite: true),
+            self::createVariation(price: 25.00, supplierName: 'Acme', isComposite: true),
+        ], null);
+
+        self::assertFalse($meta->canEditCostPrice);
+    }
+
+    #[Test]
+    public function can_edit_cost_price_composite_with_different_supplier_is_ignored(): void
+    {
+        $meta = new ProductViewMeta([
+            self::createVariation(price: 20.00, supplierName: 'Acme'),
+            self::createVariation(price: 25.00, supplierName: 'Globex', isComposite: true),
+        ], null);
+
+        self::assertTrue($meta->canEditCostPrice);
+    }
+
+    // ========================================================================
     // Helpers
     // ========================================================================
 
@@ -199,6 +244,7 @@ final class ProductViewMetaTest extends TestCase
         float $price,
         ?float $salePrice = null,
         ?string $supplierName = null,
+        bool $isComposite = false,
     ): ProductVariationView {
         return new ProductVariationView(
             externalId: 1,
@@ -218,6 +264,7 @@ final class ProductViewMetaTest extends TestCase
             imageIndex: null,
             options: [],
             defaultSupplier: $supplierName !== null ? self::createSupplier($supplierName) : null,
+            isComposite: $isComposite,
         );
     }
 

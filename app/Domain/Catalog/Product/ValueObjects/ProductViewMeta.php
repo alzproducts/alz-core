@@ -19,11 +19,12 @@ final readonly class ProductViewMeta
     /**
      * @param list<ProductVariationView>|null $variations Variations (null = not loaded)
      * @param ProductSupplier|null $defaultSupplier Product-level default supplier
+     * @param bool|null $isComposite Whether the parent product is a composite item
      */
-    public function __construct(?array $variations, ?ProductSupplier $defaultSupplier)
+    public function __construct(?array $variations, ?ProductSupplier $defaultSupplier, ?bool $isComposite = null)
     {
         $this->canEditRrp = self::resolveCanEditRrp($variations);
-        $this->canEditCostPrice = self::resolveCanEditCostPrice($variations, $defaultSupplier);
+        $this->canEditCostPrice = self::resolveCanEditCostPrice($variations, $defaultSupplier, $isComposite);
     }
 
     /**
@@ -52,15 +53,25 @@ final readonly class ProductViewMeta
     }
 
     /**
-     * Cost price can be edited when a single consistent supplier exists.
+     * Cost price can be edited when a single consistent supplier exists and the product is not composite.
+     *
+     * Composite products cannot have their cost price edited — their cost is derived
+     * from constituent items. This early-return takes precedence over supplier checks.
      *
      * Without variations: requires the product-level default supplier.
-     * With variations: requires every variation to have a default supplier with the same name.
+     * With variations: requires every non-composite variation to have a default supplier with the same name.
      *
      * @param list<ProductVariationView>|null $variations
      */
-    private static function resolveCanEditCostPrice(?array $variations, ?ProductSupplier $defaultSupplier): bool
-    {
+    private static function resolveCanEditCostPrice(
+        ?array $variations,
+        ?ProductSupplier $defaultSupplier,
+        ?bool $isComposite,
+    ): bool {
+        if ($isComposite === true) {
+            return false;
+        }
+
         if ($variations === null || $variations === []) {
             return $defaultSupplier !== null;
         }

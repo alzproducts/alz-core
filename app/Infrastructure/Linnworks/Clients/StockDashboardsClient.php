@@ -18,6 +18,7 @@ use App\Domain\Inventory\ValueObjects\StockItemFull;
 use App\Domain\ValueObjects\Guid;
 use App\Infrastructure\Linnworks\Queries\ArchivedStockItemsFullQuery;
 use App\Infrastructure\Linnworks\Queries\ArchivedStockItemsQuery;
+use App\Infrastructure\Linnworks\Queries\CompositeStockItemFlagsQuery;
 use App\Infrastructure\Linnworks\Queries\DeltaStockLevelQuery;
 use App\Infrastructure\Linnworks\Queries\FullStockLevelQuery;
 use App\Infrastructure\Linnworks\Queries\ModifiedStockItemQuery;
@@ -138,5 +139,22 @@ final readonly class StockDashboardsClient implements StockDashboardsClientInter
     {
         /** @var list<StockItemFull> */
         return $this->dashboardsClient->execute(new ArchivedStockItemsFullQuery());
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @return list<Guid>
+     *
+     * @throws InvalidApiResponseException
+     * @throws InvalidApiRequestException
+     * @throws AuthenticationExpiredException
+     * @throws ResourceNotFoundException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function getCompositeStockItemIds(): array
+    {
+        /** @var list<Guid> */
+        return $this->dashboardsClient->execute(new CompositeStockItemFlagsQuery());
     }
 }

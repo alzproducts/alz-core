@@ -40,7 +40,7 @@ final readonly class StockItemFull
         public ?float $taxRate,
         public Weight $weight,
         public Dimensions $dimensions,
-        public bool $isComposite,
+        public ?bool $isComposite,
         public string $categoryId,
         public string $categoryName,
         public ?DateTimeImmutable $createdAt = null,

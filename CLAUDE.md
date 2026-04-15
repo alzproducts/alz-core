@@ -158,7 +158,7 @@ make lint                         # Run linters
 Consumer API endpoints use an `X-Local-Bypass` header instead of a JWT (local only, from `127.0.0.1`):
 - Set `SUPABASE_LOCAL_BYPASS_SECRET` + `SUPABASE_LOCAL_TEST_EMAIL` in `.env`
 - Send `X-Local-Bypass: <secret>` header — see `ValidateSupabaseJwtMiddleware`
-- The bypass secret is available as `$API_BYPASS_SECRET` env var (set in `.claude/settings.local.json`)
+- `$API_BYPASS_SECRET` is a Claude Code session env var (defined in `.claude/settings.local.json` → `env`). Use it directly in Bash tool calls: `curl -H "X-Local-Bypass: $API_BYPASS_SECRET"`
 
 ### Debugging & Logs
 
