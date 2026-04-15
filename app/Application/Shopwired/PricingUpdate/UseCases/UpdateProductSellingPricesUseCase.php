@@ -7,11 +7,11 @@ namespace App\Application\Shopwired\PricingUpdate\UseCases;
 use App\Application\Contracts\Shopwired\PriceUpdateClientInterface;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Application\Contracts\Shopwired\SaleReconciliationDispatcherInterface;
-use App\Application\Contracts\Shopwired\SaleSettingsRepositoryInterface;
 use App\Application\Shopwired\PricingUpdate\PriceCommandPreFlightService;
 use App\Application\Shopwired\PricingUpdate\Results\BatchApiResult;
 use App\Application\Shopwired\PricingUpdate\Results\FailedPriceUpdateResult;
 use App\Application\Shopwired\PricingUpdate\Results\PriceUpdateResult;
+use App\Application\Shopwired\PricingUpdate\SaleStatePersistenceService;
 use App\Application\Shopwired\Services\ProductSyncService;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\Product\Commands\UpdatePriceCommand;
@@ -60,7 +60,7 @@ final readonly class UpdateProductSellingPricesUseCase
         private ProductRepositoryInterface $productRepo,
         private ProductSyncService $productSyncService,
         private SaleReconciliationDispatcherInterface $saleReconciliationDispatcher,
-        private SaleSettingsRepositoryInterface $saleSettingsRepo,
+        private SaleStatePersistenceService $saleStatePersistence,
         private Dispatcher $events,
         private LoggerInterface $logger,
     ) {}
@@ -99,7 +99,12 @@ final readonly class UpdateProductSellingPricesUseCase
         }
 
         // 2b. Persist or clear sale settings before API call so jobs always read fresh state.
-        $saleSubmissionContext = $this->persistSaleState($productId, $saleSettings);
+        $saleSubmissionContext = $this->saleStatePersistence->persistSaleState(
+            $productId,
+            $saleSettings,
+            $product,
+            $skuUpdates,
+        );
 
         // 3. Send to API
         $commands = \array_map(
@@ -140,50 +145,11 @@ final readonly class UpdateProductSellingPricesUseCase
     }
 
     // -----------------------------------------------------------------------
-    // Sale State Persistence
-    // -----------------------------------------------------------------------
-
-    /**
-     * Persist or clear sale settings before the API call.
-     *
-     * For removals: snapshots the existing DB row for Slack context, then deletes it.
-     * For additions: upserts the new settings so AddToSaleJob reads fresh data on execution.
-     *
-     * @throws DatabaseOperationFailedException
-     * @throws DuplicateRecordException
-     * @throws ExternalServiceUnavailableException
-     */
-    private function persistSaleState(IntId $productId, ?SaleSettings $saleSettings): ?SaleSubmissionContext
-    {
-        if ($saleSettings !== null && $saleSettings->removalReason !== null) {
-            $existingSettings = $this->saleSettingsRepo->findByProduct($productId);
-            $saleSubmissionContext = $existingSettings !== null
-                ? SaleSubmissionContext::fromSaleSettings($existingSettings, $saleSettings->removalReason)
-                : new SaleSubmissionContext(removalReason: $saleSettings->removalReason);
-            $this->saleSettingsRepo->delete($productId);
-
-            return $saleSubmissionContext;
-        }
-
-        if ($saleSettings !== null) {
-            $this->saleSettingsRepo->save($productId, $saleSettings);
-        }
-
-        return null;
-    }
-
-    // -----------------------------------------------------------------------
     // API Communication
     // -----------------------------------------------------------------------
 
     /**
      * Send validated commands to the API and classify results.
-     *
-     * Uses the StockClient pattern: the client returns all valid information
-     * (successful batch results + transport failures), and we classify here.
-     *
-     * All transport failures are classified as permanent or temporary and
-     * returned in the BatchApiResult. The calling Job decides retry strategy.
      *
      * @param list<UpdatePriceCommand> $commands
      *
@@ -194,12 +160,10 @@ final readonly class UpdateProductSellingPricesUseCase
     {
         $clientResult = $this->priceClient->updatePrices($commands);
 
-        // Classify transport failures as permanent/temporary
         [$permanentFailures, $temporaryFailures] = self::classifyTransportFailures(
             $clientResult->transportFailures,
         );
 
-        // Classify per-item results from successful batches
         /** @var list<Sku> $updatedSkus */
         $updatedSkus = [];
 
@@ -224,8 +188,6 @@ final readonly class UpdateProductSellingPricesUseCase
     }
 
     /**
-     * Classify transport failures as permanent or temporary.
-     *
      * @param list<AbstractApiException> $failures
      *
      * @return array{list<FailedPriceUpdateResult>, list<FailedPriceUpdateResult>} [permanent, temporary]

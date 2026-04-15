@@ -272,13 +272,13 @@ parameters:
 			path: app/Application/Shopwired/PricingUpdate/UseCases/UpdateProductSellingPricesUseCase.php
 
 		-
-			rawMessage: 'Method execute() is 60 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			rawMessage: 'Method execute() is 65 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Application/Shopwired/PricingUpdate/UseCases/UpdateProductSellingPricesUseCase.php
 
 		-
-			rawMessage: 'Method sendToApi() is 31 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			rawMessage: 'Method sendToApi() is 29 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Application/Shopwired/PricingUpdate/UseCases/UpdateProductSellingPricesUseCase.php
@@ -296,25 +296,13 @@ parameters:
 			path: app/Application/Shopwired/PricingUpdate/PriceCommandPreFlightService.php
 
 		-
-			rawMessage: 'Method evaluate() is 24 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Application/Shopwired/SaleManagement/Resolvers/ProductSaleStateResolver.php
-
-		-
-			rawMessage: 'Method execute() is 56 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			rawMessage: 'Method execute() is 57 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Application/Shopwired/SaleManagement/UseCases/CheckExpiredSalesUseCase.php
 
 		-
-			rawMessage: 'Method buildSaleSettingsFromProduct() is 24 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Application/Shopwired/SaleManagement/UseCases/ReconcileProductSaleStateUseCase.php
-
-		-
-			rawMessage: 'Method execute() is 45 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			rawMessage: 'Method execute() is 44 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Application/Shopwired/SaleManagement/UseCases/ReconcileProductSaleStateUseCase.php
@@ -1511,14 +1499,8 @@ parameters:
 			path: app/Infrastructure/Shopwired/Repositories/EloquentOrderRepository.php
 
 		-
-			rawMessage: 'Class EloquentProductRepository is 881 lines long — exceeds the 250-line limit. Consider decomposing into smaller, focused classes.'
+			rawMessage: 'Class EloquentProductRepository is 897 lines long — exceeds the 250-line limit. Consider decomposing into smaller, focused classes.'
 			identifier: alz.excessiveClassLength
-			count: 1
-			path: app/Infrastructure/Shopwired/Repositories/EloquentProductRepository.php
-
-		-
-			rawMessage: 'Method buildSaleStateDriftQuery() is 35 lines long — exceeds the 30-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Infrastructure/Shopwired/Repositories/EloquentProductRepository.php
 

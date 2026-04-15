@@ -38,6 +38,47 @@ final readonly class SaleSettings
     }
 
     /**
+     * Reconstruct SaleSettings from raw custom field data.
+     *
+     * // REVIEW: Returns null when no sale_reason is present, discarding any other
+     * // fields (dates, comments, endsStock). Callers that need partial data must
+     * // fall back to a default SaleSettings. Consider extracting all fields regardless.
+     *
+     * @param array<string, mixed> $rawCustomFields Raw name => value pairs
+     */
+    public static function fromRawCustomFields(array $rawCustomFields): ?self
+    {
+        $reason = $rawCustomFields[SaleCustomField::Reason->value] ?? null;
+        if (! \is_string($reason) || $reason === '') {
+            return null;
+        }
+
+        $comments = $rawCustomFields[SaleCustomField::Comments->value] ?? null;
+        $endsStock = $rawCustomFields[SaleCustomField::EndsStock->value] ?? null;
+
+        return new self(
+            saleReason: $reason,
+            saleComments: \is_string($comments) && $comments !== '' ? $comments : null,
+            saleStartDate: self::parseDateField($rawCustomFields[SaleCustomField::DateStart->value] ?? null),
+            saleEndDate: self::parseDateField($rawCustomFields[SaleCustomField::DateEnd->value] ?? null),
+            saleEndsStock: \is_string($endsStock) && $endsStock !== '' && \is_numeric($endsStock)
+                ? (int) $endsStock
+                : null,
+        );
+    }
+
+    private static function parseDateField(mixed $value): ?DateTimeImmutable
+    {
+        if (! \is_string($value) || $value === '') {
+            return null;
+        }
+
+        $parsed = \date_create_immutable($value);
+
+        return $parsed !== false ? $parsed : null;
+    }
+
+    /**
      * Build the ShopWired custom fields payload from nullable settings.
      *
      * When $settings is null (settings row missing), writes empty/default values

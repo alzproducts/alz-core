@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Application\Contracts\Shopwired;
 
-use App\Domain\Catalog\Product\ValueObjects\Sku;
 use App\Domain\ValueObjects\IntId;
 
 /**
@@ -23,13 +22,6 @@ interface SaleReconciliationDispatcherInterface
      * Dispatch remove-from-sale corrections for a product.
      */
     public function dispatchRemoveFromSale(IntId $productId): void;
-
-    /**
-     * Dispatch a Linnworks is_in_sale EP update for a SKU.
-     *
-     * The job reads current sale state from the local DB to ensure idempotency.
-     */
-    public function dispatchUpdateSaleState(IntId $productId, Sku $sku): void;
 
     /**
      * Dispatch a delayed reconciliation check for a product.

@@ -226,15 +226,33 @@ final readonly class Product implements BasicProductInterface
         return false;
     }
 
-    /**
-     * Single source of truth for whether a sale is active at given prices.
-     *
-     * A sale is active when salePrice is set, greater than zero (0 = "no sale" in ShopWired),
-     * and less than the regular price.
-     */
+    /** A sale is active when salePrice is set, > 0, and < regular price. */
     public static function isSaleActive(?float $salePrice, float $price): bool
     {
         return $salePrice !== null && $salePrice > 0 && $salePrice < $price;
+    }
+
+    /** Check if any SKU (master or variation) has an active sale price. */
+    public function hasAnySaleActive(): bool
+    {
+        return self::isSaleActive($this->salePrice, $this->price)
+            || ProductVariation::anyOnSale($this->variations ?? [], $this->price);
+    }
+
+    /**
+     * Get all SKUs with an active sale price (master + variations).
+     *
+     * @return list<Sku>
+     */
+    public function allOnSaleSkus(): array
+    {
+        $skus = [];
+
+        if ($this->sku !== null && $this->sku !== '' && self::isSaleActive($this->salePrice, $this->price)) {
+            $skus[] = Sku::fromTrusted($this->sku);
+        }
+
+        return [...$skus, ...ProductVariation::onSaleSkus($this->variations ?? [], $this->price)];
     }
 
     public function getFilter(string $title): ?ProductFilter
