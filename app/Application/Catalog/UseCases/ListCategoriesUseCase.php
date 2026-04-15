@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Application\Catalog\UseCases;
 
+use App\Application\Catalog\Queries\CategoryListQueryParams;
 use App\Application\Contracts\Shopwired\CategoryRepositoryInterface;
 use App\Application\DTOs\PaginatedListDTO;
 use App\Domain\Catalog\Category\ValueObjects\CategoryView;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Data\MissingRequiredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use Psr\Log\LoggerInterface;
@@ -26,25 +28,25 @@ final readonly class ListCategoriesUseCase
     ) {}
 
     /**
-     * @param list<string> $includes Embed names to load
-     *
      * @return PaginatedListDTO<CategoryView>
      *
      * @throws DatabaseOperationFailedException On query failure
      * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
+     * @throws MissingRequiredDataException When category model data is incomplete
      */
-    public function execute(int $perPage, int $page, array $includes = [], bool $includeInactive = false): PaginatedListDTO
+    public function execute(int $perPage, int $page, CategoryListQueryParams $params = new CategoryListQueryParams()): PaginatedListDTO
     {
         $this->logger->info('Listing categories', [
             'page' => $page,
             'per_page' => $perPage,
-            'includes' => $includes,
-            'include_inactive' => $includeInactive,
+            'includes' => $params->includes,
+            'include_inactive' => $params->includeInactive,
+            'is_main_category' => $params->isMainCategory,
         ]);
 
-        $result = $this->categoryRepository->paginate($perPage, $page, $includes, $includeInactive);
+        $result = $this->categoryRepository->paginate($perPage, $page, $params);
 
         $this->logger->info('Listed categories', [
             'total' => $result->total,

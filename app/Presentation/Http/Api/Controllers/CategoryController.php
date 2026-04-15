@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Presentation\Http\Api\Controllers;
 
+use App\Application\Catalog\Queries\CategoryListQueryParams;
 use App\Application\Catalog\UseCases\GetCategoryCustomFieldsUseCase;
 use App\Application\Catalog\UseCases\GetCategoryUseCase;
 use App\Application\Catalog\UseCases\ListCategoriesUseCase;
@@ -11,6 +12,7 @@ use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\CustomFields\ValueObjects\AbstractCustomFieldValue;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Domain\Exceptions\Data\MissingRequiredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Presentation\Http\Api\DTOs\GetCategoryCustomFieldsRequestDTO;
@@ -29,6 +31,7 @@ use Illuminate\Http\Resources\Json\ResourceCollection;
  * @throws DuplicateRecordException
  * @throws ExternalServiceUnavailableException
  * @throws InvalidCustomFieldValueException
+ * @throws MissingRequiredDataException
  * @throws ResourceNotFoundException
  */
 final readonly class CategoryController
@@ -48,13 +51,17 @@ final readonly class CategoryController
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      * @throws InvalidCustomFieldValueException
+     * @throws MissingRequiredDataException
      */
     public function index(ListCategoriesRequestDTO $data): ResourceCollection
     {
         $result = $this->listCategoriesUseCase->execute(
             perPage: $data->per_page,
             page: $data->page,
-            includeInactive: $data->include_inactive,
+            params: new CategoryListQueryParams(
+                includeInactive: $data->include_inactive,
+                isMainCategory: $data->is_main_category,
+            ),
         );
 
         return $this->paginatedResponse($result, CategoryResource::class);

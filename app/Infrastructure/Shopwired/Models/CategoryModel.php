@@ -146,6 +146,7 @@ final class CategoryModel extends Model implements EloquentDomainMappableInterfa
             metaDescription: $this->meta_description,
             image: $this->image_url !== null ? new CategoryImage($this->image_url) : null,
             createdAt: $this->shopwired_created_at->toDateTimeImmutable(),
+            isMainCategory: ($this->custom_fields['is_main_category'] ?? false) === true,
             description: \in_array('description', $includes, true) ? $this->description : null,
             description2: \in_array('description2', $includes, true) ? $this->description2 : null,
             parentIds: \in_array('parent_ids', $includes, true)

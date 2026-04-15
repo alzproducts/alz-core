@@ -46,6 +46,9 @@ final readonly class ProductView
     /** @var list<IntId> */
     public array $categoryIds;
 
+    /** @var list<IntId> */
+    public array $mainCategoryIds;
+
     /** @var bool Whether this product has a free delivery designation */
     public bool $hasFreeDelivery;
 
@@ -81,6 +84,7 @@ final readonly class ProductView
      * @param string|null $metaTitle SEO title
      * @param string|null $metaDescription SEO description
      * @param list<int> $categoryIds ShopWired category IDs
+     * @param list<int> $mainCategoryIds Main category IDs this product belongs to (directly or via ancestor chain)
      * @param list<ProductVariationView>|null $variations Variations exposed in API response (null = not requested)
      * @param list<ProductImage> $images Product images
      * @param list<AbstractCustomFieldValue> $customFields Typed custom field values
@@ -134,6 +138,8 @@ final readonly class ProductView
         public ?ProductStock $stock = null,
         ?ProductSupplier $defaultSupplier = null,
         public ?bool $isComposite = null,
+        /** @var list<int> */
+        array $mainCategoryIds = [],
     ) {
         $taxType = $vatExclusive ? TaxType::ZeroRated : TaxType::Inclusive;
 
@@ -147,6 +153,7 @@ final readonly class ProductView
         $this->meta = $meta;
         $this->effectivePrice = Money::fromTaxType($effectivePrice, $taxType);
         $this->categoryIds = \array_map(static fn(int $id): IntId => IntId::from($id), $categoryIds);
+        $this->mainCategoryIds = \array_map(static fn(int $id): IntId => IntId::from($id), $mainCategoryIds);
         $this->hasFreeDelivery = $freeDelivery !== null && ! $freeDelivery->isNone();
         $this->hasAnySale = $this->isOnSale || $hasAnyVariationOnSale;
         $this->defaultSupplier = $defaultSupplier;
