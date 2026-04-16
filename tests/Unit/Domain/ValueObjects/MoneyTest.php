@@ -31,6 +31,49 @@ final class MoneyTest extends TestCase
     }
 
     #[Test]
+    public function inclusive_from_string_preserves_high_precision_decimal(): void
+    {
+        $money = Money::inclusiveFromString('12.345678');
+
+        self::assertSame(TaxType::Inclusive, $money->taxType);
+        self::assertSame('GBP', $money->currency);
+        // Precision preserved — not rounded to 2 decimal places by the factory
+        self::assertSame(12.345678, $money->toGross(precision: null));
+    }
+
+    #[Test]
+    public function inclusive_from_string_accepts_integer_string(): void
+    {
+        $money = Money::inclusiveFromString('100');
+
+        self::assertSame(100.0, $money->toGross(precision: null));
+    }
+
+    #[Test]
+    public function inclusive_from_string_accepts_custom_currency(): void
+    {
+        $money = Money::inclusiveFromString('9.99', 'USD');
+
+        self::assertSame('USD', $money->currency);
+    }
+
+    #[Test]
+    public function inclusive_from_string_rejects_non_numeric_input(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        Money::inclusiveFromString('not-a-number');
+    }
+
+    #[Test]
+    public function inclusive_from_string_rejects_negative_amount(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        Money::inclusiveFromString('-1.00');
+    }
+
+    #[Test]
     public function exclusive_creates_tax_exclusive_money(): void
     {
         $money = Money::exclusive(20.00);

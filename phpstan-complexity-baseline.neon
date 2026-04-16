@@ -1403,19 +1403,13 @@ parameters:
 			path: app/Infrastructure/Shopwired/Mappers/CustomerModelMapper.php
 
 		-
-			rawMessage: 'Class OrderModelMapper is 259 lines long — exceeds the 250-line limit. Consider decomposing into smaller, focused classes.'
+			rawMessage: 'Class OrderModelMapper is 256 lines long — exceeds the 250-line limit. Consider decomposing into smaller, focused classes.'
 			identifier: alz.excessiveClassLength
 			count: 1
 			path: app/Infrastructure/Shopwired/Mappers/OrderModelMapper.php
 
 		-
 			rawMessage: 'Method toDomain() has 5 parameters — exceeds the 4-parameter limit. Consider a parameter object or splitting the method.'
-			identifier: alz.excessiveParameterCount
-			count: 1
-			path: app/Infrastructure/Shopwired/Mappers/OrderModelMapper.php
-
-		-
-			rawMessage: 'Method buildEnum() has 5 parameters — exceeds the 4-parameter limit. Consider a parameter object or splitting the method.'
 			identifier: alz.excessiveParameterCount
 			count: 1
 			path: app/Infrastructure/Shopwired/Mappers/OrderModelMapper.php
@@ -1433,19 +1427,7 @@ parameters:
 			path: app/Infrastructure/Shopwired/Mappers/StatusTypeToLifecycleMapper.php
 
 		-
-			rawMessage: 'Method toViewDomain() is 27 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Infrastructure/Shopwired/Models/BrandModel.php
-
-		-
 			rawMessage: 'Method fromDomainAttributes() is 22 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Infrastructure/Shopwired/Models/CategoryModel.php
-
-		-
-			rawMessage: 'Method toViewDomain() is 32 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Infrastructure/Shopwired/Models/CategoryModel.php

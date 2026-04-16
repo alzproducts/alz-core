@@ -26,8 +26,7 @@ trait MapperHelperTrait
      * @param class-string<T> $enumClass  The enum class to instantiate
      * @param string|int      $value      The raw value from database
      * @param T               $fallback   Default value when parsing fails
-     * @param int             $externalId Entity's external ID for logging context
-     * @param string          $fieldName  Field name for logging context
+     * @param EnumLogContext  $logContext Entity + column identity for structured logging
      *
      * @return T The parsed enum or fallback
      */
@@ -35,16 +34,15 @@ trait MapperHelperTrait
         string $enumClass,
         string|int $value,
         BackedEnum $fallback,
-        int $externalId,
-        string $fieldName,
+        EnumLogContext $logContext,
     ): BackedEnum {
         /** @var T|null $result */
         $result = $enumClass::tryFrom($value);
 
         if ($result === null) {
             Log::error("Unknown {$enumClass} in database - possible API change", [
-                'external_id' => $externalId,
-                $fieldName => $value,
+                'external_id' => $logContext->externalId,
+                $logContext->fieldName => $value,
             ]);
 
             return $fallback;

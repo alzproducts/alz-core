@@ -7,6 +7,7 @@ namespace Tests\Unit\Application\Catalog\UseCases;
 use App\Application\Catalog\UseCases\ListBrandsUseCase;
 use App\Application\Contracts\Shopwired\BrandRepositoryInterface;
 use App\Application\DTOs\PaginatedListDTO;
+use App\Domain\Catalog\Brand\Enums\BrandInclude;
 use Mockery;
 use Mockery\MockInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -58,7 +59,7 @@ final class ListBrandsUseCaseTest extends TestCase
     #[Test]
     public function execute_passes_includes_and_include_inactive_through_to_repository(): void
     {
-        $includes = ['custom_fields'];
+        $includes = [BrandInclude::CustomFields];
         $expected = PaginatedListDTO::fromPage(items: [], total: 5, perPage: 20, currentPage: 2);
 
         $this->brandRepository
@@ -67,7 +68,7 @@ final class ListBrandsUseCaseTest extends TestCase
             ->with(20, 2, $includes, true)
             ->andReturn($expected);
 
-        $this->logger->shouldReceive('info')->once()->with('Listing brands', ['page' => 2, 'per_page' => 20, 'includes' => $includes, 'include_inactive' => true]);
+        $this->logger->shouldReceive('info')->once()->with('Listing brands', ['page' => 2, 'per_page' => 20, 'includes' => ['custom_fields'], 'include_inactive' => true]);
         $this->logger->shouldReceive('info')->once()->with('Listed brands', ['total' => 5, 'returned' => 0]);
 
         $result = $this->useCase->execute(perPage: 20, page: 2, includes: $includes, includeInactive: true);

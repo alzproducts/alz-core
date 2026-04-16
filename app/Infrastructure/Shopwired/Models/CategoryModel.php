@@ -6,21 +6,10 @@ namespace App\Infrastructure\Shopwired\Models;
 
 use App\Domain\Catalog\Category\ValueObjects\Category;
 use App\Domain\Catalog\Category\ValueObjects\CategoryImage;
-use App\Domain\Catalog\Category\ValueObjects\CategoryLinks;
-use App\Domain\Catalog\Category\ValueObjects\CategoryView;
-use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
-use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
-use App\Domain\Exceptions\Data\MissingRequiredDataException;
-use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
-use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
-use App\Domain\ValueObjects\IntId;
 use App\Infrastructure\Contracts\EloquentDomainMappableInterface;
-use App\Infrastructure\Shopwired\Factories\CustomFieldFactory;
-use App\Infrastructure\Shopwired\ShopwiredAdminUrlResolver;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
-use Webmozart\Assert\Assert;
 
 /**
  * Eloquent model for shopwired.categories table.
@@ -105,54 +94,6 @@ final class CategoryModel extends Model implements EloquentDomainMappableInterfa
             image: $this->image_url !== null ? new CategoryImage($this->image_url) : null,
             parentIds: $this->parent_ids,
             customFields: $this->custom_fields,
-        );
-    }
-
-    /**
-     * Convert this Eloquent model to the API view projection.
-     *
-     * Conditionally loads description, description2, parentIds, customFields
-     * based on the includes list. Unloaded fields are null.
-     *
-     * @param list<string> $includes Embed names to load
-     *
-     * @throws InvalidCustomFieldValueException When value type mismatches definition
-     * @throws ExternalServiceUnavailableException When database temporarily unavailable
-     * @throws DatabaseOperationFailedException When custom field registry fails to load
-     * @throws DuplicateRecordException On constraint violation
-     * @throws MissingRequiredDataException When custom field definitions table is empty
-     */
-    public function toViewDomain(array $includes = [], ?CustomFieldFactory $customFieldFactory = null): CategoryView
-    {
-        $customFields = null;
-
-        if (\in_array('custom_fields', $includes, true)) {
-            Assert::notNull($customFieldFactory, 'CustomFieldFactory required when custom_fields included');
-            $customFields = $customFieldFactory->fromRawFields($this->custom_fields);
-        }
-
-        return new CategoryView(
-            id: IntId::fromTrusted($this->external_id),
-            title: $this->title,
-            slug: $this->slug,
-            links: new CategoryLinks(
-                publicUrl: $this->url,
-                editWebsiteUrl: ShopwiredAdminUrlResolver::categoryEditUrl($this->external_id),
-            ),
-            active: $this->active,
-            featured: $this->featured,
-            sortOrder: $this->sort_order,
-            metaTitle: $this->meta_title,
-            metaDescription: $this->meta_description,
-            image: $this->image_url !== null ? new CategoryImage($this->image_url) : null,
-            createdAt: $this->shopwired_created_at->toDateTimeImmutable(),
-            isMainCategory: ($this->custom_fields['is_main_category'] ?? false) === true,
-            description: \in_array('description', $includes, true) ? $this->description : null,
-            description2: \in_array('description2', $includes, true) ? $this->description2 : null,
-            parentIds: \in_array('parent_ids', $includes, true)
-                ? \array_map(static fn(int $id): IntId => IntId::fromTrusted($id), $this->parent_ids)
-                : null,
-            customFields: $customFields,
         );
     }
 

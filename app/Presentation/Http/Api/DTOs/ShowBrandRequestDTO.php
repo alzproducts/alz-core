@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Presentation\Http\Api\DTOs;
 
-use App\Presentation\Http\Api\Enums\BrandIncludeEnum;
+use App\Domain\Catalog\Brand\Enums\BrandInclude;
 use App\Presentation\Http\Api\Traits\ValidatesIncludesTrait;
 use Spatie\LaravelData\Attributes\Validation\Nullable;
 use Spatie\LaravelData\Attributes\Validation\StringType;
@@ -40,6 +40,6 @@ final class ShowBrandRequestDTO extends Data
      */
     public static function allowedIncludes(): array
     {
-        return BrandIncludeEnum::values();
+        return BrandInclude::values();
     }
 }

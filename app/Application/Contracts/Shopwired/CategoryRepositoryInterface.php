@@ -7,6 +7,7 @@ namespace App\Application\Contracts\Shopwired;
 use App\Application\Catalog\Queries\CategoryListQueryParams;
 use App\Application\Contracts\RepositoryWriteInterface;
 use App\Application\DTOs\PaginatedListDTO;
+use App\Domain\Catalog\Category\Enums\CategoryInclude;
 use App\Domain\Catalog\Category\ValueObjects\Category;
 use App\Domain\Catalog\Category\ValueObjects\CategoryView;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
@@ -86,13 +87,14 @@ interface CategoryRepositoryInterface extends RepositoryWriteInterface
      *
      * Returns any category regardless of active status (404 only if ID doesn't exist).
      *
-     * @param list<string> $includes Embed names to load
+     * @param list<CategoryInclude> $includes Requested embeds
      *
      * @throws ResourceNotFoundException When no category matches the ID
      * @throws DatabaseOperationFailedException On query failure
      * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
+     * @throws MissingRequiredDataException When custom field definitions table is empty
      */
     public function findCategoryForApi(IntId $categoryId, array $includes = []): CategoryView;
 }

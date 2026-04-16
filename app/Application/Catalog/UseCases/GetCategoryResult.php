@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Application\Catalog\UseCases;
 
+use App\Domain\Catalog\Category\Enums\CategoryInclude;
 use App\Domain\Catalog\Category\ValueObjects\CategoryView;
 
 /**
@@ -15,15 +16,15 @@ use App\Domain\Catalog\Category\ValueObjects\CategoryView;
 final readonly class GetCategoryResult
 {
     /**
-     * @param list<string> $includes Requested embed names
+     * @param list<CategoryInclude> $includes Requested embeds
      */
     public function __construct(
         public CategoryView $category,
         public array $includes,
     ) {}
 
-    public function hasInclude(string $name): bool
+    public function hasInclude(CategoryInclude $include): bool
     {
-        return \in_array($name, $this->includes, true);
+        return \in_array($include, $this->includes, true);
     }
 }
