@@ -21,7 +21,7 @@ use App\Domain\CustomerService\ValueObjects\Tag;
  * Included in body (support-relevant):
  * - Name, Email, Reason, Phone (contact header)
  * - Customer message
- * - Product details (ID, SKU, title, price, quantity, URL)
+ * - Product details (title as hyperlink, SKU, price, quantity)
  * - Customer Type, Order Number, Delivery Postcode (metadata)
  *
  * Excluded from body (tracking / PII):
@@ -107,7 +107,6 @@ final readonly class ContactSubmissionToConversationCommandTransformer
             $this->formatProductIdentifier($product),
             $product->price !== null ? '<strong>Price:</strong> ' . self::e($product->price) : null,
             $product->quantity !== null ? "<strong>Quantity:</strong> {$product->quantity}" : null,
-            $product->url !== null ? '<strong>URL:</strong> ' . self::e($product->url) : null,
         ], static fn(?string $line): bool => $line !== null);
 
         return \implode("<br>\n", $lines);
@@ -115,15 +114,33 @@ final readonly class ContactSubmissionToConversationCommandTransformer
 
     private function formatProductIdentifier(SelectedProduct $product): string
     {
-        $line = "<strong>Product ID:</strong> {$product->productId->value}";
-        if ($product->sku !== null) {
-            $line .= ' (SKU: ' . self::e($product->sku) . ')';
+        $productName = self::buildProductName($product);
+
+        if ($productName === null) {
+            return $product->sku !== null
+                ? '<strong>Product:</strong> ' . self::e($product->sku)
+                : '<strong>Product:</strong> #' . $product->productId->value;
         }
-        if ($product->title !== null) {
-            $line .= ' - ' . self::e($product->title);
+
+        $line = '<strong>Product:</strong> ' . $productName;
+        if ($product->sku !== null) {
+            $line .= ' - ' . self::e($product->sku);
         }
 
         return $line;
+    }
+
+    private static function buildProductName(SelectedProduct $product): ?string
+    {
+        if ($product->title === null) {
+            return null;
+        }
+
+        $escapedTitle = self::e($product->title);
+
+        return $product->url !== null
+            ? '<a href="' . self::e($product->url) . '">' . $escapedTitle . '</a>'
+            : $escapedTitle;
     }
 
     /**

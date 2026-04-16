@@ -162,7 +162,7 @@ final class ContactFormEndToEndTest extends TestCase
 
         // Assert product details in body
         self::assertNotNull($capturedCommand);
-        self::assertStringContainsString("<strong>Product ID:</strong> {$payload['product']['product_id']} (SKU: {$payload['product']['sku']})", $capturedCommand->body);
+        self::assertStringContainsString("<strong>Product:</strong> <a href=\"{$payload['product']['url']}\">{$payload['product']['title']}</a> - {$payload['product']['sku']}", $capturedCommand->body);
         self::assertStringContainsString("<strong>Price:</strong> {$payload['product']['price']}", $capturedCommand->body);
     }
 
