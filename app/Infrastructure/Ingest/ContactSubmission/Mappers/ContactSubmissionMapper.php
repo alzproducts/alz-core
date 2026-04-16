@@ -59,6 +59,11 @@ final class ContactSubmissionMapper
 
             // Attribution (flattened)
             'gclid' => $submission->attribution->gclid,
+            'gclsrc' => $submission->attribution->gclsrc,
+            'wbraid' => $submission->attribution->wbraid,
+            'gbraid' => $submission->attribution->gbraid,
+            'msclkid' => $submission->attribution->msclkid,
+            'fbclid' => $submission->attribution->fbclid,
             'utm_source' => $submission->attribution->utmSource,
             'utm_medium' => $submission->attribution->utmMedium,
             'utm_campaign' => $submission->attribution->utmCampaign,
@@ -100,6 +105,11 @@ final class ContactSubmissionMapper
             ),
             attribution: new MarketingAttribution(
                 gclid: $model->gclid,
+                gclsrc: $model->gclsrc,
+                wbraid: $model->wbraid,
+                gbraid: $model->gbraid,
+                msclkid: $model->msclkid,
+                fbclid: $model->fbclid,
                 utmSource: $model->utm_source,
                 utmMedium: $model->utm_medium,
                 utmCampaign: $model->utm_campaign,
@@ -187,7 +197,7 @@ final class ContactSubmissionMapper
         if ($source === null) {
             throw new MalformedStoredDataException(
                 'contact_submissions.product',
-                "invalid source value: {$data['source']}",
+                'invalid source value',
             );
         }
 
