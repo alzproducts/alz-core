@@ -11503,16 +11503,16 @@
         },
         {
             "name": "laravel/telescope",
-            "version": "v5.18.0",
+            "version": "v5.20.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/laravel/telescope.git",
-                "reference": "6e2aead19de0efb767f703559cc6539036b7fc59"
+                "reference": "38ec6e6006a67e05e0c476c5f8ef3550b72e43d8"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/laravel/telescope/zipball/6e2aead19de0efb767f703559cc6539036b7fc59",
-                "reference": "6e2aead19de0efb767f703559cc6539036b7fc59",
+                "url": "https://api.github.com/repos/laravel/telescope/zipball/38ec6e6006a67e05e0c476c5f8ef3550b72e43d8",
+                "reference": "38ec6e6006a67e05e0c476c5f8ef3550b72e43d8",
                 "shasum": ""
             },
             "require": {
@@ -11520,8 +11520,8 @@
                 "laravel/framework": "^8.37|^9.0|^10.0|^11.0|^12.0|^13.0",
                 "laravel/sentinel": "^1.0",
                 "php": "^8.0",
-                "symfony/console": "^5.3|^6.0|^7.0",
-                "symfony/var-dumper": "^5.0|^6.0|^7.0"
+                "symfony/console": "^5.3|^6.0|^7.0|^8.0",
+                "symfony/var-dumper": "^5.0|^6.0|^7.0|^8.0"
             },
             "require-dev": {
                 "ext-gd": "*",
@@ -11566,9 +11566,9 @@
             ],
             "support": {
                 "issues": "https://github.com/laravel/telescope/issues",
-                "source": "https://github.com/laravel/telescope/tree/v5.18.0"
+                "source": "https://github.com/laravel/telescope/tree/v5.20.0"
             },
-            "time": "2026-03-05T15:53:11+00:00"
+            "time": "2026-04-06T12:52:26+00:00"
         },
         {
             "name": "mockery/mockery",
