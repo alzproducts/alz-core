@@ -127,73 +127,161 @@ final class ContactSubmissionToConversationCommandTransformerTest extends TestCa
 
     /*
     |--------------------------------------------------------------------------
+    | buildContactHeader() Tests
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function body_starts_with_contact_header(): void
+    {
+        $submission = $this->createSubmission(name: 'Jane Doe');
+
+        $command = $this->transformer->transform($submission);
+
+        self::assertStringStartsWith('<strong>Name:</strong> Jane Doe', $command->body);
+    }
+
+    #[Test]
+    public function body_includes_name_in_header(): void
+    {
+        $submission = $this->createSubmission(name: 'John Smith');
+
+        $command = $this->transformer->transform($submission);
+
+        self::assertStringContainsString('<strong>Name:</strong> John Smith', $command->body);
+    }
+
+    #[Test]
+    public function body_includes_email_in_header(): void
+    {
+        $submission = $this->createSubmission(email: 'customer@example.com');
+
+        $command = $this->transformer->transform($submission);
+
+        self::assertStringContainsString('<strong>Email:</strong> customer@example.com', $command->body);
+    }
+
+    #[Test]
+    public function body_includes_reason_in_header(): void
+    {
+        $submission = $this->createSubmission(reason: ContactReason::ProductInformation);
+
+        $command = $this->transformer->transform($submission);
+
+        self::assertStringContainsString('<strong>Reason:</strong> Product Information', $command->body);
+    }
+
+    #[Test]
+    public function body_includes_phone_in_header_when_present(): void
+    {
+        $submission = $this->createSubmission(phone: '+44 7911 123456');
+
+        $command = $this->transformer->transform($submission);
+
+        self::assertStringContainsString('<strong>Phone:</strong> +44 7911 123456', $command->body);
+    }
+
+    #[Test]
+    public function body_excludes_phone_from_header_when_absent(): void
+    {
+        $submission = $this->createSubmission(phone: null);
+
+        $command = $this->transformer->transform($submission);
+
+        self::assertStringNotContainsString('<strong>Phone:</strong>', $command->body);
+    }
+
+    #[Test]
+    public function body_includes_hr_separator_after_header(): void
+    {
+        $submission = $this->createSubmission();
+
+        $command = $this->transformer->transform($submission);
+
+        self::assertStringContainsString('<hr>', $command->body);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
     | buildBody() - Message Formatting Tests
     |--------------------------------------------------------------------------
     */
 
     #[Test]
-    public function body_starts_with_customer_message(): void
+    public function body_includes_customer_message(): void
     {
         $submission = $this->createSubmission(message: 'I need help with my order.');
 
         $command = $this->transformer->transform($submission);
 
-        self::assertStringStartsWith('I need help with my order.', $command->body);
+        self::assertStringContainsString('I need help with my order.', $command->body);
     }
 
     #[Test]
-    public function body_includes_separator_after_message(): void
+    public function body_escapes_html_in_message(): void
     {
-        $submission = $this->createSubmission(message: 'Test message');
+        $submission = $this->createSubmission(message: '<script>alert("xss")</script>');
 
         $command = $this->transformer->transform($submission);
 
-        self::assertStringContainsString("\n---", $command->body);
+        self::assertStringContainsString('&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;', $command->body);
+        self::assertStringNotContainsString('<script>', $command->body);
     }
 
     #[Test]
-    public function body_includes_product_id_when_product_present(): void
+    public function body_shows_product_id_fallback_when_no_title_or_sku(): void
     {
         $product = new SelectedProduct(productId: IntId::from(12345));
         $submission = $this->createSubmission(product: $product);
 
         $command = $this->transformer->transform($submission);
 
-        self::assertStringContainsString('Product ID: 12345', $command->body);
+        self::assertStringContainsString('<strong>Product:</strong> #12345', $command->body);
     }
 
     #[Test]
-    public function body_includes_product_sku_when_present(): void
+    public function body_shows_sku_fallback_when_no_title(): void
     {
         $product = new SelectedProduct(productId: IntId::from(12345), sku: 'ABC-123');
         $submission = $this->createSubmission(product: $product);
 
         $command = $this->transformer->transform($submission);
 
-        self::assertStringContainsString('Product ID: 12345 (SKU: ABC-123)', $command->body);
+        self::assertStringContainsString('<strong>Product:</strong> ABC-123', $command->body);
     }
 
     #[Test]
-    public function body_includes_product_title_when_present(): void
+    public function body_shows_linked_title_with_sku_when_url_present(): void
+    {
+        $product = new SelectedProduct(productId: IntId::from(12345), sku: 'ABC-123', title: 'Premium Walker', url: 'https://example.com/product');
+        $submission = $this->createSubmission(product: $product);
+
+        $command = $this->transformer->transform($submission);
+
+        self::assertStringContainsString('<strong>Product:</strong> <a href="https://example.com/product">Premium Walker</a> - ABC-123', $command->body);
+    }
+
+    #[Test]
+    public function body_shows_plain_title_with_sku_when_no_url(): void
     {
         $product = new SelectedProduct(productId: IntId::from(12345), sku: 'ABC-123', title: 'Premium Walker');
         $submission = $this->createSubmission(product: $product);
 
         $command = $this->transformer->transform($submission);
 
-        self::assertStringContainsString('Product ID: 12345 (SKU: ABC-123) - Premium Walker', $command->body);
+        self::assertStringContainsString('<strong>Product:</strong> Premium Walker - ABC-123', $command->body);
     }
 
     #[Test]
-    public function body_includes_product_title_without_sku(): void
+    public function body_shows_linked_title_without_sku(): void
     {
-        $product = new SelectedProduct(productId: IntId::from(12345), title: 'Premium Walker');
+        $product = new SelectedProduct(productId: IntId::from(12345), title: 'Premium Walker', url: 'https://example.com/product');
         $submission = $this->createSubmission(product: $product);
 
         $command = $this->transformer->transform($submission);
 
-        self::assertStringContainsString('Product ID: 12345 - Premium Walker', $command->body);
-        self::assertStringNotContainsString('SKU:', $command->body);
+        self::assertStringContainsString('<strong>Product:</strong> <a href="https://example.com/product">Premium Walker</a>', $command->body);
+        self::assertStringNotContainsString('ABC-123', $command->body);
     }
 
     #[Test]
@@ -204,7 +292,7 @@ final class ContactSubmissionToConversationCommandTransformerTest extends TestCa
 
         $command = $this->transformer->transform($submission);
 
-        self::assertStringContainsString('Price: £149.99', $command->body);
+        self::assertStringContainsString('<strong>Price:</strong> £149.99', $command->body);
     }
 
     #[Test]
@@ -215,18 +303,7 @@ final class ContactSubmissionToConversationCommandTransformerTest extends TestCa
 
         $command = $this->transformer->transform($submission);
 
-        self::assertStringContainsString('Quantity: 5', $command->body);
-    }
-
-    #[Test]
-    public function body_includes_product_url_when_present(): void
-    {
-        $product = new SelectedProduct(productId: IntId::from(12345), url: 'https://example.com/product');
-        $submission = $this->createSubmission(product: $product);
-
-        $command = $this->transformer->transform($submission);
-
-        self::assertStringContainsString('URL: https://example.com/product', $command->body);
+        self::assertStringContainsString('<strong>Quantity:</strong> 5', $command->body);
     }
 
     #[Test]
@@ -236,7 +313,7 @@ final class ContactSubmissionToConversationCommandTransformerTest extends TestCa
 
         $command = $this->transformer->transform($submission);
 
-        self::assertStringNotContainsString('Product ID:', $command->body);
+        self::assertStringNotContainsString('Product:', $command->body);
     }
 
     #[Test]
@@ -246,7 +323,7 @@ final class ContactSubmissionToConversationCommandTransformerTest extends TestCa
 
         $command = $this->transformer->transform($submission);
 
-        self::assertStringContainsString('Customer Type: NHS', $command->body);
+        self::assertStringContainsString('<strong>Customer Type:</strong> NHS', $command->body);
     }
 
     #[Test]
@@ -256,7 +333,7 @@ final class ContactSubmissionToConversationCommandTransformerTest extends TestCa
 
         $command = $this->transformer->transform($submission);
 
-        self::assertStringContainsString('Order Number: ORD-12345', $command->body);
+        self::assertStringContainsString('<strong>Order Number:</strong> ORD-12345', $command->body);
     }
 
     #[Test]
@@ -266,7 +343,7 @@ final class ContactSubmissionToConversationCommandTransformerTest extends TestCa
 
         $command = $this->transformer->transform($submission);
 
-        self::assertStringContainsString('Delivery Postcode: SW1A 1AA', $command->body);
+        self::assertStringContainsString('<strong>Delivery Postcode:</strong> SW1A 1AA', $command->body);
     }
 
     /*
@@ -296,6 +373,28 @@ final class ContactSubmissionToConversationCommandTransformerTest extends TestCa
 
         self::assertStringNotContainsString('CjwKCAjw', $command->body);
         self::assertStringNotContainsString('gclid', $command->body);
+    }
+
+    #[Test]
+    public function body_excludes_msclkid(): void
+    {
+        $submission = $this->createSubmissionWithAttribution(msclkid: 'MSCLKID123456');
+
+        $command = $this->transformer->transform($submission);
+
+        self::assertStringNotContainsString('MSCLKID123456', $command->body);
+        self::assertStringNotContainsString('msclkid', $command->body);
+    }
+
+    #[Test]
+    public function body_excludes_fbclid(): void
+    {
+        $submission = $this->createSubmissionWithAttribution(fbclid: 'FBCLID123456');
+
+        $command = $this->transformer->transform($submission);
+
+        self::assertStringNotContainsString('FBCLID123456', $command->body);
+        self::assertStringNotContainsString('fbclid', $command->body);
     }
 
     #[Test]
@@ -424,15 +523,19 @@ final class ContactSubmissionToConversationCommandTransformerTest extends TestCa
         self::assertSame('[My Order - Delivery] Contact Us Form', $command->subject);
         self::assertSame('+44 123 456 7890', $command->phone);
 
+        // Contact header
+        self::assertStringContainsString('<strong>Name:</strong> Test Customer', $command->body);
+        self::assertStringContainsString('<strong>Email:</strong> test@example.com', $command->body);
+        self::assertStringContainsString('<strong>Phone:</strong> +44 123 456 7890', $command->body);
+
         // Body contains all expected sections
         self::assertStringContainsString('Where is my delivery?', $command->body);
-        self::assertStringContainsString('Product ID: 98765 (SKU: FULL-TEST) - Complete Test Product', $command->body);
-        self::assertStringContainsString('Price: £99.99', $command->body);
-        self::assertStringContainsString('Quantity: 3', $command->body);
-        self::assertStringContainsString('URL: https://example.com/product/full-test', $command->body);
-        self::assertStringContainsString('Customer Type: Care Home', $command->body);
-        self::assertStringContainsString('Order Number: ORD-999', $command->body);
-        self::assertStringContainsString('Delivery Postcode: AB1 2CD', $command->body);
+        self::assertStringContainsString('<strong>Product:</strong> <a href="https://example.com/product/full-test">Complete Test Product</a> - FULL-TEST', $command->body);
+        self::assertStringContainsString('<strong>Price:</strong> £99.99', $command->body);
+        self::assertStringContainsString('<strong>Quantity:</strong> 3', $command->body);
+        self::assertStringContainsString('<strong>Customer Type:</strong> Care Home', $command->body);
+        self::assertStringContainsString('<strong>Order Number:</strong> ORD-999', $command->body);
+        self::assertStringContainsString('<strong>Delivery Postcode:</strong> AB1 2CD', $command->body);
 
         // Tags
         $tagNames = \array_map(static fn($tag) => $tag->name, $command->tags);
@@ -490,6 +593,11 @@ final class ContactSubmissionToConversationCommandTransformerTest extends TestCa
 
     private function createSubmissionWithAttribution(
         ?string $gclid = null,
+        ?string $gclsrc = null,
+        ?string $wbraid = null,
+        ?string $gbraid = null,
+        ?string $msclkid = null,
+        ?string $fbclid = null,
         ?string $utmSource = null,
         ?string $utmMedium = null,
         ?string $utmCampaign = null,
@@ -505,6 +613,11 @@ final class ContactSubmissionToConversationCommandTransformerTest extends TestCa
 
         $attribution = new MarketingAttribution(
             gclid: $gclid,
+            gclsrc: $gclsrc,
+            wbraid: $wbraid,
+            gbraid: $gbraid,
+            msclkid: $msclkid,
+            fbclid: $fbclid,
             utmSource: $utmSource,
             utmMedium: $utmMedium,
             utmCampaign: $utmCampaign,

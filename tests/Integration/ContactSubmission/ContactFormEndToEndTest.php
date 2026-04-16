@@ -145,6 +145,7 @@ final class ContactFormEndToEndTest extends TestCase
 
         // Submit and process
         $response = $this->postJson('/api/contact', $payload);
+        $response->assertOk();
         $submissionId = $response->json('id');
         $this->createdSubmissionIds[] = $submissionId;
 
@@ -161,8 +162,8 @@ final class ContactFormEndToEndTest extends TestCase
 
         // Assert product details in body
         self::assertNotNull($capturedCommand);
-        self::assertStringContainsString("Product ID: {$payload['product']['product_id']} (SKU: {$payload['product']['sku']})", $capturedCommand->body);
-        self::assertStringContainsString("Price: {$payload['product']['price']}", $capturedCommand->body);
+        self::assertStringContainsString("<strong>Product:</strong> <a href=\"{$payload['product']['url']}\">{$payload['product']['title']}</a> - {$payload['product']['sku']}", $capturedCommand->body);
+        self::assertStringContainsString("<strong>Price:</strong> {$payload['product']['price']}", $capturedCommand->body);
     }
 
     #[Test]
@@ -181,6 +182,7 @@ final class ContactFormEndToEndTest extends TestCase
         $payload['form']['delivery_postcode'] = $this->faker->postcode();
 
         $response = $this->postJson('/api/contact', $payload);
+        $response->assertOk();
         $submissionId = $response->json('id');
         $this->createdSubmissionIds[] = $submissionId;
 
@@ -197,9 +199,9 @@ final class ContactFormEndToEndTest extends TestCase
 
         // Assert customer metadata in body
         self::assertNotNull($capturedCommand);
-        self::assertStringContainsString('Customer Type: ' . CustomerType::Nhs->label(), $capturedCommand->body);
-        self::assertStringContainsString("Order Number: {$payload['form']['order_number']}", $capturedCommand->body);
-        self::assertStringContainsString("Delivery Postcode: {$payload['form']['delivery_postcode']}", $capturedCommand->body);
+        self::assertStringContainsString('<strong>Customer Type:</strong> ' . CustomerType::Nhs->label(), $capturedCommand->body);
+        self::assertStringContainsString("<strong>Order Number:</strong> {$payload['form']['order_number']}", $capturedCommand->body);
+        self::assertStringContainsString("<strong>Delivery Postcode:</strong> {$payload['form']['delivery_postcode']}", $capturedCommand->body);
     }
 
     #[Test]
@@ -212,6 +214,7 @@ final class ContactFormEndToEndTest extends TestCase
         $payload = $this->buildFakePayload();
 
         $response = $this->postJson('/api/contact', $payload);
+        $response->assertOk();
         $this->createdSubmissionIds[] = $response->json('id');
 
         Queue::assertPushed(ProcessContactSubmissionJob::class, static fn(ProcessContactSubmissionJob $job): bool => $job->submissionId !== '' && $job->actionId !== '');
@@ -230,6 +233,7 @@ final class ContactFormEndToEndTest extends TestCase
         $payload = $this->buildFakePayloadWithAllFields();
 
         $response = $this->postJson('/api/contact', $payload);
+        $response->assertOk();
         $submissionId = $response->json('id');
         $this->createdSubmissionIds[] = $submissionId;
 
@@ -247,6 +251,8 @@ final class ContactFormEndToEndTest extends TestCase
         // Assert PII is NOT in the body
         self::assertNotNull($capturedCommand);
         self::assertStringNotContainsString($payload['attribution']['gclid'], $capturedCommand->body);
+        self::assertStringNotContainsString($payload['attribution']['msclkid'], $capturedCommand->body);
+        self::assertStringNotContainsString($payload['attribution']['fbclid'], $capturedCommand->body);
         self::assertStringNotContainsString($payload['attribution']['utm_source'], $capturedCommand->body);
         self::assertStringNotContainsString($payload['context']['user_agent'], $capturedCommand->body);
         self::assertStringNotContainsString($payload['context']['page_url'], $capturedCommand->body);
@@ -331,13 +337,15 @@ final class ContactFormEndToEndTest extends TestCase
 
         $payload['attribution'] = [
             'gclid' => $this->faker->regexify('[a-zA-Z0-9]{20,40}'),
+            'msclkid' => $this->faker->regexify('[a-zA-Z0-9]{20,40}'),
+            'fbclid' => $this->faker->regexify('[a-zA-Z0-9]{20,40}'),
             'utm_source' => $this->faker->randomElement(['google', 'facebook', 'email']),
             'utm_medium' => $this->faker->randomElement(['cpc', 'organic', 'social']),
             'utm_campaign' => $this->faker->slug(3),
         ];
 
         $payload['context']['page_url'] = $this->faker->url();
-        $payload['context']['referrer'] = $this->faker->url();
+        $payload['context']['referrer_url'] = $this->faker->url();
         $payload['context']['user_agent'] = $this->faker->userAgent();
 
         $payload['user'] = [

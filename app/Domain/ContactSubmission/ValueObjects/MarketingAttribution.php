@@ -7,13 +7,21 @@ namespace App\Domain\ContactSubmission\ValueObjects;
 /**
  * Marketing attribution parameters from the form submission.
  *
- * GCLID and UTM params are flattened columns in the database for
+ * Click IDs and UTM params are flattened columns in the database for
  * efficient querying when correlating with order conversions.
+ *
+ * Indexed click IDs (primary conversion tracking): gclid, msclkid, fbclid
+ * Unindexed: gclsrc (flag value), wbraid/gbraid (Google privacy alternatives, rarely populated)
  */
 final readonly class MarketingAttribution
 {
     public function __construct(
         public ?string $gclid = null,
+        public ?string $gclsrc = null,
+        public ?string $wbraid = null,
+        public ?string $gbraid = null,
+        public ?string $msclkid = null,
+        public ?string $fbclid = null,
         public ?string $utmSource = null,
         public ?string $utmMedium = null,
         public ?string $utmCampaign = null,
@@ -26,12 +34,12 @@ final readonly class MarketingAttribution
      */
     public function hasAnyAttribution(): bool
     {
-        return $this->gclid !== null
-            || $this->utmSource !== null
-            || $this->utmMedium !== null
-            || $this->utmCampaign !== null
-            || $this->utmContent !== null
-            || $this->utmTerm !== null;
+        return \array_any(
+            [$this->gclid, $this->gclsrc, $this->wbraid, $this->gbraid,
+                $this->msclkid, $this->fbclid, $this->utmSource, $this->utmMedium,
+                $this->utmCampaign, $this->utmContent, $this->utmTerm],
+            static fn(?string $value): bool => $value !== null,
+        );
     }
 
     /**

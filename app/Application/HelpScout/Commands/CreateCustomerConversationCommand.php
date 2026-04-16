@@ -32,7 +32,7 @@ final readonly class CreateCustomerConversationCommand
      * @param string $email Customer email address
      * @param string $name Customer full name
      * @param string $subject Conversation subject line
-     * @param string $body Message body (plain text, will be HTML-escaped by SDK)
+     * @param string $body Message body (HTML — caller must escape user content)
      * @param Mailbox $mailbox Target mailbox
      * @param ConversationType $type Conversation type (email, phone, chat)
      * @param ConversationStatus $status Initial conversation status

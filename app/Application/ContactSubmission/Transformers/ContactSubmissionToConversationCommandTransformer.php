@@ -15,12 +15,22 @@ use App\Domain\CustomerService\ValueObjects\Tag;
 /**
  * Transforms a ContactSubmission into a HelpScout conversation command.
  *
- * Handles:
- * - Body formatting with product/customer details
- * - Tag determination based on contact reason
- * - Fixed conversation settings (mailbox, type, status)
+ * Body format: HTML with a structured contact-details header above the customer message.
+ * HelpScout auto-detects HTML in the `text` field — no SDK configuration needed.
  *
- * Excludes from body: IP address, GCLID, UTM params, user agent, page URL, referrer
+ * Included in body (support-relevant):
+ * - Name, Email, Reason, Phone (contact header)
+ * - Customer message
+ * - Product details (title as hyperlink, SKU, price, quantity)
+ * - Customer Type, Order Number, Delivery Postcode (metadata)
+ *
+ * Excluded from body (tracking / PII):
+ * - IP address, User Agent, Page URL, Referrer URL
+ * - Click IDs (gclid, gclsrc, wbraid, gbraid, msclkid, fbclid)
+ * - UTM parameters (source, medium, campaign, content, term)
+ *
+ * Security: all user-provided values are htmlspecialchars()-escaped to prevent
+ * XSS in the HelpScout agent UI.
  */
 final readonly class ContactSubmissionToConversationCommandTransformer
 {
@@ -44,12 +54,28 @@ final readonly class ContactSubmissionToConversationCommandTransformer
     private function buildBody(ContactSubmission $submission): string
     {
         $parts = [
-            $submission->form->message,
-            "\n---",
+            $this->buildContactHeader($submission),
+            '<hr>',
+            self::e($submission->form->message),
             ...$this->buildProductAndMetadataSections($submission),
         ];
 
-        return \implode("\n\n", \array_filter($parts, static fn(string $part): bool => $part !== ''));
+        return \implode("\n\n", $parts);
+    }
+
+    private function buildContactHeader(ContactSubmission $submission): string
+    {
+        $lines = [
+            '<strong>Name:</strong> ' . self::e($submission->form->name),
+            '<strong>Email:</strong> ' . self::e($submission->form->email),
+            '<strong>Reason:</strong> ' . self::e($submission->form->reason->label()),
+        ];
+
+        if ($submission->form->phone !== null) {
+            $lines[] = '<strong>Phone:</strong> ' . self::e($submission->form->phone);
+        }
+
+        return \implode("<br>\n", $lines);
     }
 
     /**
@@ -65,35 +91,56 @@ final readonly class ContactSubmissionToConversationCommandTransformer
 
         $metadata = $this->buildMetadata($submission);
         if ($metadata !== []) {
-            $sections[] = \implode("\n", $metadata);
+            $sections[] = \implode("<br>\n", $metadata);
         }
 
-        return $sections;
+        if ($sections === []) {
+            return [];
+        }
+
+        return ['<hr>', ...$sections];
     }
 
     private function formatProduct(SelectedProduct $product): string
     {
         $lines = \array_filter([
             $this->formatProductIdentifier($product),
-            $product->price !== null ? "Price: {$product->price}" : null,
-            $product->quantity !== null ? "Quantity: {$product->quantity}" : null,
-            $product->url !== null ? "URL: {$product->url}" : null,
+            $product->price !== null ? '<strong>Price:</strong> ' . self::e($product->price) : null,
+            $product->quantity !== null ? "<strong>Quantity:</strong> {$product->quantity}" : null,
         ], static fn(?string $line): bool => $line !== null);
 
-        return \implode("\n", $lines);
+        return \implode("<br>\n", $lines);
     }
 
     private function formatProductIdentifier(SelectedProduct $product): string
     {
-        $line = "Product ID: {$product->productId->value}";
-        if ($product->sku !== null) {
-            $line .= " (SKU: {$product->sku})";
+        $productName = self::buildProductName($product);
+
+        if ($productName === null) {
+            return $product->sku !== null
+                ? '<strong>Product:</strong> ' . self::e($product->sku)
+                : '<strong>Product:</strong> #' . $product->productId->value;
         }
-        if ($product->title !== null) {
-            $line .= " - {$product->title}";
+
+        $line = '<strong>Product:</strong> ' . $productName;
+        if ($product->sku !== null) {
+            $line .= ' - ' . self::e($product->sku);
         }
 
         return $line;
+    }
+
+    private static function buildProductName(SelectedProduct $product): ?string
+    {
+        if ($product->title === null) {
+            return null;
+        }
+
+        $escapedTitle = self::e($product->title);
+
+        return $product->url !== null
+            ? '<a href="' . self::e($product->url) . '">' . $escapedTitle . '</a>'
+            : $escapedTitle;
     }
 
     /**
@@ -104,15 +151,15 @@ final readonly class ContactSubmissionToConversationCommandTransformer
         $metadata = [];
 
         if ($submission->form->customerType !== null) {
-            $metadata[] = "Customer Type: {$submission->form->customerType->label()}";
+            $metadata[] = '<strong>Customer Type:</strong> ' . self::e($submission->form->customerType->label());
         }
 
         if ($submission->form->orderNumber !== null) {
-            $metadata[] = "Order Number: {$submission->form->orderNumber}";
+            $metadata[] = '<strong>Order Number:</strong> ' . self::e($submission->form->orderNumber);
         }
 
         if ($submission->form->deliveryPostcode !== null) {
-            $metadata[] = "Delivery Postcode: {$submission->form->deliveryPostcode}";
+            $metadata[] = '<strong>Delivery Postcode:</strong> ' . self::e($submission->form->deliveryPostcode);
         }
 
         return $metadata;
@@ -127,5 +174,10 @@ final readonly class ContactSubmissionToConversationCommandTransformer
             Tag::fromName(self::TAG_WEB_FORM),
             $submission->form->reason->toTag(),
         ];
+    }
+
+    private static function e(string $value): string
+    {
+        return \htmlspecialchars($value, \ENT_QUOTES | \ENT_HTML5, 'UTF-8');
     }
 }
