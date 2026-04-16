@@ -7,6 +7,7 @@ namespace App\Application\Catalog\UseCases;
 use App\Application\Catalog\Queries\CategoryListQueryParams;
 use App\Application\Contracts\Shopwired\CategoryRepositoryInterface;
 use App\Application\DTOs\PaginatedListDTO;
+use App\Domain\Catalog\Category\Enums\CategoryInclude;
 use App\Domain\Catalog\Category\ValueObjects\CategoryView;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
@@ -41,7 +42,7 @@ final readonly class ListCategoriesUseCase
         $this->logger->info('Listing categories', [
             'page' => $page,
             'per_page' => $perPage,
-            'includes' => $params->includes,
+            'includes' => \array_map(static fn(CategoryInclude $i): string => $i->value, $params->includes),
             'include_inactive' => $params->includeInactive,
             'is_main_category' => $params->isMainCategory,
         ]);

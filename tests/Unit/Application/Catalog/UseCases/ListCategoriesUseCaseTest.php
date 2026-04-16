@@ -8,6 +8,7 @@ use App\Application\Catalog\Queries\CategoryListQueryParams;
 use App\Application\Catalog\UseCases\ListCategoriesUseCase;
 use App\Application\Contracts\Shopwired\CategoryRepositoryInterface;
 use App\Application\DTOs\PaginatedListDTO;
+use App\Domain\Catalog\Category\Enums\CategoryInclude;
 use Mockery;
 use Mockery\MockInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -61,7 +62,7 @@ final class ListCategoriesUseCaseTest extends TestCase
     #[Test]
     public function execute_passes_includes_and_include_inactive_through_to_repository(): void
     {
-        $includes = ['custom_fields'];
+        $includes = [CategoryInclude::CustomFields];
         $expected = PaginatedListDTO::fromPage(items: [], total: 5, perPage: 20, currentPage: 2);
         $params = new CategoryListQueryParams(includes: $includes, includeInactive: true);
 
@@ -71,7 +72,7 @@ final class ListCategoriesUseCaseTest extends TestCase
             ->with(20, 2, $params)
             ->andReturn($expected);
 
-        $this->logger->shouldReceive('info')->once()->with('Listing categories', ['page' => 2, 'per_page' => 20, 'includes' => $includes, 'include_inactive' => true, 'is_main_category' => null]);
+        $this->logger->shouldReceive('info')->once()->with('Listing categories', ['page' => 2, 'per_page' => 20, 'includes' => ['custom_fields'], 'include_inactive' => true, 'is_main_category' => null]);
         $this->logger->shouldReceive('info')->once()->with('Listed categories', ['total' => 5, 'returned' => 0]);
 
         $result = $this->useCase->execute(perPage: 20, page: 2, params: $params);

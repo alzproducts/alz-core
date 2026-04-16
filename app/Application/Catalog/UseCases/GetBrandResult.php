@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Application\Catalog\UseCases;
 
+use App\Domain\Catalog\Brand\Enums\BrandInclude;
 use App\Domain\Catalog\Brand\ValueObjects\BrandView;
 
 /**
@@ -15,15 +16,15 @@ use App\Domain\Catalog\Brand\ValueObjects\BrandView;
 final readonly class GetBrandResult
 {
     /**
-     * @param list<string> $includes Requested embed names
+     * @param list<BrandInclude> $includes Requested embeds
      */
     public function __construct(
         public BrandView $brand,
         public array $includes,
     ) {}
 
-    public function hasInclude(string $name): bool
+    public function hasInclude(BrandInclude $include): bool
     {
-        return \in_array($name, $this->includes, true);
+        return \in_array($include, $this->includes, true);
     }
 }

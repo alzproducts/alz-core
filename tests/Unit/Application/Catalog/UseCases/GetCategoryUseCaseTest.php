@@ -7,6 +7,7 @@ namespace Tests\Unit\Application\Catalog\UseCases;
 use App\Application\Catalog\UseCases\GetCategoryResult;
 use App\Application\Catalog\UseCases\GetCategoryUseCase;
 use App\Application\Contracts\Shopwired\CategoryRepositoryInterface;
+use App\Domain\Catalog\Category\Enums\CategoryInclude;
 use App\Domain\Catalog\Category\ValueObjects\CategoryLinks;
 use App\Domain\Catalog\Category\ValueObjects\CategoryView;
 use App\Domain\ValueObjects\IntId;
@@ -65,7 +66,7 @@ final class GetCategoryUseCaseTest extends TestCase
     public function execute_passes_includes_through_to_repository(): void
     {
         $category = self::buildCategoryView();
-        $includes = ['custom_fields', 'description'];
+        $includes = [CategoryInclude::CustomFields, CategoryInclude::Description];
 
         $this->categoryRepository
             ->shouldReceive('findCategoryForApi')
@@ -73,7 +74,7 @@ final class GetCategoryUseCaseTest extends TestCase
             ->with(Mockery::on(static fn(IntId $id): bool => $id->value === 99), $includes)
             ->andReturn($category);
 
-        $this->logger->shouldReceive('info')->once()->with('Getting category', ['category_id' => 99, 'includes' => $includes]);
+        $this->logger->shouldReceive('info')->once()->with('Getting category', ['category_id' => 99, 'includes' => ['custom_fields', 'description']]);
         $this->logger->shouldReceive('info')->once()->with('Got category', ['category_id' => 99, 'title' => 'Test Category']);
 
         $result = $this->useCase->execute(categoryId: 99, includes: $includes);

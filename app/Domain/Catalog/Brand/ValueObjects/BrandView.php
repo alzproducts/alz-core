@@ -15,7 +15,7 @@ use DateTimeImmutable;
  * - Domain-typed IntId instead of primitive int
  * - Conditional includes (null = not loaded)
  *
- * Constructed by BrandModel::toViewDomain().
+ * Constructed by BrandViewAssembler.
  */
 final readonly class BrandView
 {

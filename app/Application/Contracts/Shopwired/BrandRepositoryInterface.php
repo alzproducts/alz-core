@@ -6,11 +6,13 @@ namespace App\Application\Contracts\Shopwired;
 
 use App\Application\Contracts\RepositoryWriteInterface;
 use App\Application\DTOs\PaginatedListDTO;
+use App\Domain\Catalog\Brand\Enums\BrandInclude;
 use App\Domain\Catalog\Brand\ValueObjects\Brand;
 use App\Domain\Catalog\Brand\ValueObjects\BrandView;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Domain\Exceptions\Data\MissingRequiredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\IntId;
@@ -69,7 +71,7 @@ interface BrandRepositoryInterface extends RepositoryWriteInterface
     /**
      * Paginate brands with optional includes and active filtering.
      *
-     * @param list<string> $includes Embed names to conditionally load
+     * @param list<BrandInclude> $includes Requested embeds
      *
      * @return PaginatedListDTO<BrandView>
      *
@@ -77,6 +79,7 @@ interface BrandRepositoryInterface extends RepositoryWriteInterface
      * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
+     * @throws MissingRequiredDataException When custom field definitions table is empty
      */
     public function paginate(int $perPage, int $page, array $includes = [], bool $includeInactive = false): PaginatedListDTO;
 
@@ -85,13 +88,14 @@ interface BrandRepositoryInterface extends RepositoryWriteInterface
      *
      * Returns any brand regardless of active status (404 only if ID doesn't exist).
      *
-     * @param list<string> $includes Embed names to load
+     * @param list<BrandInclude> $includes Requested embeds
      *
      * @throws ResourceNotFoundException When no brand matches the ID
      * @throws DatabaseOperationFailedException On query failure
      * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
+     * @throws MissingRequiredDataException When custom field definitions table is empty
      */
     public function findBrandForApi(IntId $brandId, array $includes = []): BrandView;
 }
