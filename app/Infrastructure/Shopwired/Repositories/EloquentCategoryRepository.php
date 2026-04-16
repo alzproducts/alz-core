@@ -17,9 +17,9 @@ use App\Domain\Exceptions\Data\MissingRequiredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\IntId;
+use App\Infrastructure\Catalog\Category\Mappers\CategoryViewAssembler;
 use App\Infrastructure\Persistence\EloquentGateway;
 use App\Infrastructure\Repositories\AbstractEloquentRepository;
-use App\Infrastructure\Shopwired\Factories\CustomFieldFactory;
 use App\Infrastructure\Shopwired\Models\CategoryModel;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -39,7 +39,7 @@ final class EloquentCategoryRepository extends AbstractEloquentRepository implem
     public function __construct(
         DatabaseGatewayInterface $gateway,
         EloquentGateway $eloquentGateway,
-        private readonly CustomFieldFactory $customFieldFactory,
+        private readonly CategoryViewAssembler $viewAssembler,
     ) {
         parent::__construct($gateway, $eloquentGateway);
     }
@@ -170,7 +170,7 @@ final class EloquentCategoryRepository extends AbstractEloquentRepository implem
                 $q->orderBy('sort_order')->orderBy('title');
             },
             relations: [],
-            mapper: fn(CategoryModel $model): CategoryView => $model->toViewDomain($params->includes, $this->customFieldFactory),
+            mapper: fn(CategoryModel $model): CategoryView => $this->viewAssembler->toViewDomain($model, $params->includes),
             perPage: $perPage,
             page: $page,
         );
@@ -193,7 +193,7 @@ final class EloquentCategoryRepository extends AbstractEloquentRepository implem
             column: 'external_id',
             value: $categoryId->value,
             entityTypeName: 'Category',
-            mapper: fn(CategoryModel $model): CategoryView => $model->toViewDomain($includes, $this->customFieldFactory),
+            mapper: fn(CategoryModel $model): CategoryView => $this->viewAssembler->toViewDomain($model, $includes),
         );
     }
 

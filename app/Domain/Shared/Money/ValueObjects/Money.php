@@ -53,6 +53,23 @@ final readonly class Money
     }
 
     /**
+     * Create a tax-inclusive (gross) price from a decimal string.
+     *
+     * Preserves the precision of `decimal(p,s)` columns (e.g. ShopWired stores
+     * order totals as `decimal(14,6)`) by passing the caller's string through
+     * without the rounding that `inclusive()` applies at 2 decimal places.
+     *
+     * @param string $amount Numeric decimal string (e.g. "12.345678")
+     * @param string $currency Currency code (default: GBP)
+     */
+    public static function inclusiveFromString(string $amount, string $currency = 'GBP'): self
+    {
+        Assert::numeric($amount, 'Money amount string must be numeric');
+
+        return new self((float) $amount, TaxType::Inclusive, $currency);
+    }
+
+    /**
      * Create a tax-exclusive (net) price.
      *
      * @param float $amount The net amount excluding tax

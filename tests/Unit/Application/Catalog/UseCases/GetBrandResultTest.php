@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Application\Catalog\UseCases;
 
 use App\Application\Catalog\UseCases\GetBrandResult;
+use App\Domain\Catalog\Brand\Enums\BrandInclude;
 use App\Domain\Catalog\Brand\ValueObjects\BrandLinks;
 use App\Domain\Catalog\Brand\ValueObjects\BrandView;
 use App\Domain\ValueObjects\IntId;
@@ -21,7 +22,7 @@ final class GetBrandResultTest extends TestCase
     {
         // Arrange
         $brand = self::buildBrandView();
-        $includes = ['custom_fields', 'description'];
+        $includes = [BrandInclude::CustomFields, BrandInclude::Description];
 
         // Act
         $result = new GetBrandResult(brand: $brand, includes: $includes);
@@ -37,12 +38,12 @@ final class GetBrandResultTest extends TestCase
         // Arrange
         $result = new GetBrandResult(
             brand: self::buildBrandView(),
-            includes: ['custom_fields', 'description'],
+            includes: [BrandInclude::CustomFields, BrandInclude::Description],
         );
 
         // Act & Assert
-        self::assertTrue($result->hasInclude('custom_fields'));
-        self::assertTrue($result->hasInclude('description'));
+        self::assertTrue($result->hasInclude(BrandInclude::CustomFields));
+        self::assertTrue($result->hasInclude(BrandInclude::Description));
     }
 
     #[Test]
@@ -51,11 +52,11 @@ final class GetBrandResultTest extends TestCase
         // Arrange
         $result = new GetBrandResult(
             brand: self::buildBrandView(),
-            includes: ['custom_fields'],
+            includes: [BrandInclude::CustomFields],
         );
 
         // Act & Assert
-        self::assertFalse($result->hasInclude('description'));
+        self::assertFalse($result->hasInclude(BrandInclude::Description));
     }
 
     #[Test]
@@ -68,7 +69,7 @@ final class GetBrandResultTest extends TestCase
         );
 
         // Act & Assert
-        self::assertFalse($result->hasInclude('custom_fields'));
+        self::assertFalse($result->hasInclude(BrandInclude::CustomFields));
     }
 
     private static function buildBrandView(): BrandView

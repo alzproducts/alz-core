@@ -15,7 +15,7 @@ use DateTimeImmutable;
  * - Domain-typed IntId instead of primitive int
  * - Conditional includes (null = not loaded)
  *
- * Constructed by CategoryModel::toViewDomain().
+ * Constructed by CategoryViewAssembler.
  */
 final readonly class CategoryView
 {

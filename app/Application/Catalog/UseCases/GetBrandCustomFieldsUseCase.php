@@ -7,11 +7,13 @@ namespace App\Application\Catalog\UseCases;
 use App\Application\Catalog\CustomFieldMergerService;
 use App\Application\Contracts\Shopwired\BrandRepositoryInterface;
 use App\Application\Contracts\Shopwired\CustomFieldRepositoryInterface;
+use App\Domain\Catalog\Brand\Enums\BrandInclude;
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldItemType;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\CustomFields\ValueObjects\AbstractCustomFieldValue;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Domain\Exceptions\Data\MissingRequiredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\IntId;
@@ -42,6 +44,7 @@ final readonly class GetBrandCustomFieldsUseCase
      * @throws DatabaseOperationFailedException On query failure
      * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
+     * @throws MissingRequiredDataException When custom field definitions table is empty
      */
     public function execute(int $brandId, array $fieldNames = []): array
     {
@@ -52,7 +55,7 @@ final readonly class GetBrandCustomFieldsUseCase
 
         $brand = $this->brandRepository->findBrandForApi(
             IntId::from($brandId),
-            ['custom_fields'],
+            [BrandInclude::CustomFields],
         );
 
         $definitions = $this->customFieldRepository->findByItemType(CustomFieldItemType::Brand);

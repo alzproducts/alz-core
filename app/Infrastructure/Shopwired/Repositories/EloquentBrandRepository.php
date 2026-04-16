@@ -16,9 +16,9 @@ use App\Domain\Exceptions\Data\MissingRequiredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\IntId;
+use App\Infrastructure\Catalog\Brand\Mappers\BrandViewAssembler;
 use App\Infrastructure\Persistence\EloquentGateway;
 use App\Infrastructure\Repositories\AbstractEloquentRepository;
-use App\Infrastructure\Shopwired\Factories\CustomFieldFactory;
 use App\Infrastructure\Shopwired\Models\BrandModel;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -38,7 +38,7 @@ final class EloquentBrandRepository extends AbstractEloquentRepository implement
     public function __construct(
         DatabaseGatewayInterface $gateway,
         EloquentGateway $eloquentGateway,
-        private readonly CustomFieldFactory $customFieldFactory,
+        private readonly BrandViewAssembler $viewAssembler,
     ) {
         parent::__construct($gateway, $eloquentGateway);
     }
@@ -154,7 +154,7 @@ final class EloquentBrandRepository extends AbstractEloquentRepository implement
                 $q->orderBy('sort_order')->orderBy('title');
             },
             relations: [],
-            mapper: fn(BrandModel $model): BrandView => $model->toViewDomain($includes, $this->customFieldFactory),
+            mapper: fn(BrandModel $model): BrandView => $this->viewAssembler->toViewDomain($model, $includes),
             perPage: $perPage,
             page: $page,
         );
@@ -177,7 +177,7 @@ final class EloquentBrandRepository extends AbstractEloquentRepository implement
             column: 'external_id',
             value: $brandId->value,
             entityTypeName: 'Brand',
-            mapper: fn(BrandModel $model): BrandView => $model->toViewDomain($includes, $this->customFieldFactory),
+            mapper: fn(BrandModel $model): BrandView => $this->viewAssembler->toViewDomain($model, $includes),
         );
     }
 

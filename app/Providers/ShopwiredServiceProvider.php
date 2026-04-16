@@ -62,9 +62,13 @@ use App\Application\Shopwired\UseCases\Webhooks\UpdateOrderStatusUseCase;
 use App\Application\Shopwired\UseCases\Webhooks\UpdateProductStockUseCase;
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldItemType;
 use App\Domain\Exceptions\InvalidConfigurationException;
+use App\Infrastructure\Catalog\Brand\Mappers\BrandViewAssembler;
+use App\Infrastructure\Catalog\Category\Mappers\CategoryViewAssembler;
+use App\Infrastructure\Catalog\Order\Mappers\OrderViewAssembler;
 use App\Infrastructure\Catalog\Product\Mappers\ProductModelMapper;
 use App\Infrastructure\Catalog\Product\Mappers\ProductVariationModelMapper;
 use App\Infrastructure\Catalog\Product\Mappers\ProductViewAssembler;
+use App\Infrastructure\Customer\Mappers\CustomerViewAssembler;
 use App\Infrastructure\Shopwired\Clients\BasicProductUpdateClient;
 use App\Infrastructure\Shopwired\Clients\BrandUpdateClient;
 use App\Infrastructure\Shopwired\Clients\CategoryUpdateClient;
@@ -227,6 +231,10 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
         $this->app->scoped(ProductVariationModelMapper::class);
         $this->app->scoped(ProductModelMapper::class);
         $this->app->scoped(ProductViewAssembler::class);
+        $this->app->scoped(CategoryViewAssembler::class);
+        $this->app->scoped(BrandViewAssembler::class);
+        $this->app->scoped(OrderViewAssembler::class);
+        $this->app->scoped(CustomerViewAssembler::class);
     }
 
     private function registerCustomFieldValueFactories(): void
@@ -259,13 +267,13 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
                 $app->make(CustomFieldRepositoryInterface::class),
                 CustomFieldItemType::Product,
             ));
-        $this->app->when(EloquentCategoryRepository::class)
+        $this->app->when(CategoryViewAssembler::class)
             ->needs(CustomFieldFactory::class)
             ->give(static fn(Application $app): CustomFieldFactory => new CustomFieldFactory(
                 $app->make(CustomFieldRepositoryInterface::class),
                 CustomFieldItemType::Category,
             ));
-        $this->app->when(EloquentBrandRepository::class)
+        $this->app->when(BrandViewAssembler::class)
             ->needs(CustomFieldFactory::class)
             ->give(static fn(Application $app): CustomFieldFactory => new CustomFieldFactory(
                 $app->make(CustomFieldRepositoryInterface::class),
@@ -353,11 +361,13 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
             BrandClientInterface::class,
             BrandRepositoryInterface::class,
             BrandUpdateClientInterface::class,
+            BrandViewAssembler::class,
             BrandWebhookEventResolverInterface::class,
             BrandWebhookParserInterface::class,
             CategoryClientInterface::class,
             CategoryRepositoryInterface::class,
             CategoryUpdateClientInterface::class,
+            CategoryViewAssembler::class,
             CategoryWebhookEventResolverInterface::class,
             CategoryWebhookParserInterface::class,
             ConnectivityClientInterface::class,
@@ -366,12 +376,14 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
             CustomerClientInterface::class,
             CustomerFieldUpdateClientInterface::class,
             CustomerRepositoryInterface::class,
+            CustomerViewAssembler::class,
             CustomerWebhookEventResolverInterface::class,
             CustomerWebhookParserInterface::class,
             FilterGroupClientInterface::class,
             FilterGroupRepositoryInterface::class,
             OrderClientInterface::class,
             OrderRepositoryInterface::class,
+            OrderViewAssembler::class,
             OrderWebhookEventResolverInterface::class,
             OrderWebhookParserInterface::class,
             ProductClientInterface::class,

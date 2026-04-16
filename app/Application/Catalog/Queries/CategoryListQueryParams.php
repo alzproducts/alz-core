@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Application\Catalog\Queries;
 
+use App\Domain\Catalog\Category\Enums\CategoryInclude;
+
 /**
  * Query parameters for paginated category list.
  *
@@ -12,7 +14,7 @@ namespace App\Application\Catalog\Queries;
 final readonly class CategoryListQueryParams
 {
     /**
-     * @param list<string> $includes Embed names to conditionally load
+     * @param list<CategoryInclude> $includes Requested embeds
      * @param bool $includeInactive When true, includes inactive categories
      * @param bool|null $isMainCategory When true returns only main categories; false returns only non-main; null returns all
      */
