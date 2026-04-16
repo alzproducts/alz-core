@@ -1024,12 +1024,6 @@ parameters:
 			path: app/Infrastructure/Mixpanel/Contracts/MixpanelTransportInterface.php
 
 		-
-			rawMessage: 'Method __construct() is 26 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Infrastructure/Mixpanel/DTOs/MixpanelCheckoutCompletedDTO.php
-
-		-
 			rawMessage: 'Method fromOrder() is 27 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
@@ -1040,12 +1034,6 @@ parameters:
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Infrastructure/Mixpanel/DTOs/MixpanelCheckoutCompletedDTO.php
-
-		-
-			rawMessage: 'Method __construct() is 21 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Infrastructure/Mixpanel/DTOs/MixpanelProductPurchasedDTO.php
 
 		-
 			rawMessage: 'Method fromOrderProduct() is 24 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'

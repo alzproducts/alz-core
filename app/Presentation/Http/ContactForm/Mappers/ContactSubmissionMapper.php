@@ -85,6 +85,11 @@ final readonly class ContactSubmissionMapper
 
         return new MarketingAttribution(
             gclid: $data->attribution->gclid,
+            gclsrc: $data->attribution->gclsrc,
+            wbraid: $data->attribution->wbraid,
+            gbraid: $data->attribution->gbraid,
+            msclkid: $data->attribution->msclkid,
+            fbclid: $data->attribution->fbclid,
             utmSource: $data->attribution->utmSource,
             utmMedium: $data->attribution->utmMedium,
             utmCampaign: $data->attribution->utmCampaign,
