@@ -26,17 +26,17 @@
         "laravel/octane": "^2.13",
         "laravel/sanctum": "^4.2",
         "laravel/slack-notification-channel": "^3.7",
-        "laravel/tinker": "^2.10.1",
+        "laravel/tinker": "^3.0",
         "league/flysystem-aws-s3-v3": "^3.0",
         "microsoft/bingads": "^13.0",
         "predis/predis": "^3.2",
         "sentry/sentry-laravel": "^4.0",
         "spatie/laravel-data": "^4.18",
         "theiconic/name-parser": "^1.2",
-        "webmozart/assert": "^1.11 || ^2.0"
+        "webmozart/assert": "^1.11"
     },
     "require-dev": {
-        "barryvdh/laravel-ide-helper": "~3.5.4",
+        "barryvdh/laravel-ide-helper": "^3.5",
         "deptrac/deptrac": "^4.2",
         "dg/bypass-finals": "^1.9",
         "driftingly/rector-laravel": "^2.1",
