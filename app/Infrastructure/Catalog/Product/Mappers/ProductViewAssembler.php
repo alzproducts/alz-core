@@ -107,6 +107,7 @@ final readonly class ProductViewAssembler
             stock: self::resolveStock($model, $includes),
             defaultSupplier: $defaultSupplier,
             isComposite: $stockItem?->is_composite,
+            masterStock: $model->stock,
         );
     }
 

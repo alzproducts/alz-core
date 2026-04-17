@@ -718,6 +718,38 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
     /**
      * {@inheritDoc}
      *
+     * @return list<ProductView>
+     *
+     * @throws InvalidCustomFieldValueException
+     * @throws MissingRequiredDataException
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function findProductViewsOnSale(): array
+    {
+        $includes = [ProductInclude::Variations, ProductInclude::CustomFields];
+
+        return $this->eloquentGateway->query(function () use ($includes): array {
+            $query = self::VIEW_MODEL_CLASS::query()
+                ->with(self::relationsForIncludes($includes))
+                ->where(static function (Builder $q): void {
+                    $q->where('is_on_sale', true)
+                        ->orWhereHas('variations', static function (Builder $sub): void {
+                            $sub->where('is_on_sale', true);
+                        });
+                });
+
+            /** @var list<ProductView> */
+            return $query->get()
+                ->map(fn(ProductViewModel $model): ProductView => $this->viewMapper->toViewDomain($model, $includes))
+                ->all();
+        });
+    }
+
+    /**
+     * {@inheritDoc}
+     *
      * @return list<int>
      *
      * @throws DatabaseOperationFailedException

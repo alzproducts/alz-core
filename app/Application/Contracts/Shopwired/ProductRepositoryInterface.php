@@ -263,6 +263,22 @@ interface ProductRepositoryInterface extends RepositoryWriteInterface
     public function getProductsOnSale(): array;
 
     /**
+     * Get all on-sale products as read-side ProductView projections.
+     *
+     * Eager-loads variations and typed custom fields so the View-based
+     * automatic sale removal flow can evaluate expiration without touching
+     * the write-side Product VO.
+     *
+     * @return list<ProductView>
+     *
+     * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
+     * @throws DatabaseOperationFailedException On query failure
+     * @throws DuplicateRecordException On constraint violation
+     * @throws ExternalServiceUnavailableException When database temporarily unavailable
+     */
+    public function findProductViewsOnSale(): array;
+
+    /**
      * Get the external IDs of all products currently tagged with a given category.
      *
      * Uses the GIN-indexed jsonb containment predicate on
