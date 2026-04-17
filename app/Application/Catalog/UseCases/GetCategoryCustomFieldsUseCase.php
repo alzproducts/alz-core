@@ -7,11 +7,13 @@ namespace App\Application\Catalog\UseCases;
 use App\Application\Catalog\CustomFieldMergerService;
 use App\Application\Contracts\Shopwired\CategoryRepositoryInterface;
 use App\Application\Contracts\Shopwired\CustomFieldRepositoryInterface;
+use App\Domain\Catalog\Category\Enums\CategoryInclude;
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldItemType;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\CustomFields\ValueObjects\AbstractCustomFieldValue;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Domain\Exceptions\Data\MissingRequiredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\IntId;
@@ -42,6 +44,7 @@ final readonly class GetCategoryCustomFieldsUseCase
      * @throws DatabaseOperationFailedException On query failure
      * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
+     * @throws MissingRequiredDataException When custom field definitions table is empty
      */
     public function execute(int $categoryId, array $fieldNames = []): array
     {
@@ -52,7 +55,7 @@ final readonly class GetCategoryCustomFieldsUseCase
 
         $category = $this->categoryRepository->findCategoryForApi(
             IntId::from($categoryId),
-            ['custom_fields'],
+            [CategoryInclude::CustomFields],
         );
 
         $definitions = $this->customFieldRepository->findByItemType(CustomFieldItemType::Category);

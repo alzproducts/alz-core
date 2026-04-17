@@ -8,10 +8,12 @@ use App\Application\Catalog\Queries\CategoryListQueryParams;
 use App\Application\Catalog\UseCases\GetCategoryCustomFieldsUseCase;
 use App\Application\Catalog\UseCases\GetCategoryUseCase;
 use App\Application\Catalog\UseCases\ListCategoriesUseCase;
+use App\Domain\Catalog\Category\Enums\CategoryInclude;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\CustomFields\ValueObjects\AbstractCustomFieldValue;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Domain\Exceptions\Data\InvalidEnumValueException;
 use App\Domain\Exceptions\Data\MissingRequiredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
@@ -75,12 +77,14 @@ final readonly class CategoryController
      * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
+     * @throws InvalidEnumValueException
+     * @throws MissingRequiredDataException
      */
     public function show(int $categoryId, ShowCategoryRequestDTO $data): CategoryDetailResource
     {
         $result = $this->getCategoryUseCase->execute(
             categoryId: $categoryId,
-            includes: $data->validatedIncludes(),
+            includes: \array_map(CategoryInclude::fromValue(...), $data->validatedIncludes()),
         );
 
         return new CategoryDetailResource($result);
@@ -94,6 +98,7 @@ final readonly class CategoryController
      * @throws DatabaseOperationFailedException On query failure
      * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
+     * @throws MissingRequiredDataException When custom field definitions table is empty
      */
     public function customFields(int $categoryId, GetCategoryCustomFieldsRequestDTO $data): JsonResponse
     {

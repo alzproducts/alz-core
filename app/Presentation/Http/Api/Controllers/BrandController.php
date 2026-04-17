@@ -7,10 +7,13 @@ namespace App\Presentation\Http\Api\Controllers;
 use App\Application\Catalog\UseCases\GetBrandCustomFieldsUseCase;
 use App\Application\Catalog\UseCases\GetBrandUseCase;
 use App\Application\Catalog\UseCases\ListBrandsUseCase;
+use App\Domain\Catalog\Brand\Enums\BrandInclude;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\CustomFields\ValueObjects\AbstractCustomFieldValue;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Domain\Exceptions\Data\InvalidEnumValueException;
+use App\Domain\Exceptions\Data\MissingRequiredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Presentation\Http\Api\DTOs\GetBrandCustomFieldsRequestDTO;
@@ -29,6 +32,8 @@ use Illuminate\Http\Resources\Json\ResourceCollection;
  * @throws DuplicateRecordException
  * @throws ExternalServiceUnavailableException
  * @throws InvalidCustomFieldValueException
+ * @throws InvalidEnumValueException
+ * @throws MissingRequiredDataException
  * @throws ResourceNotFoundException
  */
 final readonly class BrandController
@@ -48,6 +53,7 @@ final readonly class BrandController
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      * @throws InvalidCustomFieldValueException
+     * @throws MissingRequiredDataException
      */
     public function index(ListBrandsRequestDTO $data): ResourceCollection
     {
@@ -68,12 +74,14 @@ final readonly class BrandController
      * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
+     * @throws InvalidEnumValueException
+     * @throws MissingRequiredDataException
      */
     public function show(int $brandId, ShowBrandRequestDTO $data): BrandDetailResource
     {
         $result = $this->getBrandUseCase->execute(
             brandId: $brandId,
-            includes: $data->validatedIncludes(),
+            includes: \array_map(BrandInclude::fromValue(...), $data->validatedIncludes()),
         );
 
         return new BrandDetailResource($result);
@@ -87,6 +95,7 @@ final readonly class BrandController
      * @throws DatabaseOperationFailedException On query failure
      * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
+     * @throws MissingRequiredDataException When custom field definitions table is empty
      */
     public function customFields(int $brandId, GetBrandCustomFieldsRequestDTO $data): JsonResponse
     {

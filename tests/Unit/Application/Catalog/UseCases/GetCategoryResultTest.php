@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Application\Catalog\UseCases;
 
 use App\Application\Catalog\UseCases\GetCategoryResult;
+use App\Domain\Catalog\Category\Enums\CategoryInclude;
 use App\Domain\Catalog\Category\ValueObjects\CategoryLinks;
 use App\Domain\Catalog\Category\ValueObjects\CategoryView;
 use App\Domain\ValueObjects\IntId;
@@ -21,7 +22,7 @@ final class GetCategoryResultTest extends TestCase
     {
         // Arrange
         $category = self::buildCategoryView();
-        $includes = ['custom_fields', 'description'];
+        $includes = [CategoryInclude::CustomFields, CategoryInclude::Description];
 
         // Act
         $result = new GetCategoryResult(category: $category, includes: $includes);
@@ -37,12 +38,12 @@ final class GetCategoryResultTest extends TestCase
         // Arrange
         $result = new GetCategoryResult(
             category: self::buildCategoryView(),
-            includes: ['custom_fields', 'description'],
+            includes: [CategoryInclude::CustomFields, CategoryInclude::Description],
         );
 
         // Act & Assert
-        self::assertTrue($result->hasInclude('custom_fields'));
-        self::assertTrue($result->hasInclude('description'));
+        self::assertTrue($result->hasInclude(CategoryInclude::CustomFields));
+        self::assertTrue($result->hasInclude(CategoryInclude::Description));
     }
 
     #[Test]
@@ -51,11 +52,11 @@ final class GetCategoryResultTest extends TestCase
         // Arrange
         $result = new GetCategoryResult(
             category: self::buildCategoryView(),
-            includes: ['custom_fields'],
+            includes: [CategoryInclude::CustomFields],
         );
 
         // Act & Assert
-        self::assertFalse($result->hasInclude('description'));
+        self::assertFalse($result->hasInclude(CategoryInclude::Description));
     }
 
     #[Test]
@@ -68,7 +69,7 @@ final class GetCategoryResultTest extends TestCase
         );
 
         // Act & Assert
-        self::assertFalse($result->hasInclude('custom_fields'));
+        self::assertFalse($result->hasInclude(CategoryInclude::CustomFields));
     }
 
     private static function buildCategoryView(): CategoryView

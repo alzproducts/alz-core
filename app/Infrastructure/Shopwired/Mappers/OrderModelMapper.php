@@ -16,6 +16,7 @@ use App\Domain\Catalog\Order\ValueObjects\OrderShipping;
 use App\Domain\Catalog\Order\ValueObjects\OrderStatus;
 use App\Domain\Catalog\Order\ValueObjects\OrderStatusType;
 use App\Domain\Catalog\Order\ValueObjects\PaymentMethod;
+use App\Infrastructure\Concerns\EnumLogContext;
 use App\Infrastructure\Concerns\MapperHelperTrait;
 use App\Infrastructure\Shopwired\Models\OrderAdminCommentModel;
 use App\Infrastructure\Shopwired\Models\OrderDiscountModel;
@@ -99,8 +100,7 @@ final class OrderModelMapper
                 PaymentMethod::class,
                 $model->payment_method,
                 PaymentMethod::Unknown,
-                $model->external_id,
-                'payment_method',
+                new EnumLogContext($model->external_id, 'payment_method'),
             ),
             comments: $model->comments ?? '',
             marketing: $model->marketing,
@@ -117,8 +117,7 @@ final class OrderModelMapper
                 PreOrderStatus::class,
                 $model->pre_order_status,
                 PreOrderStatus::None,
-                $model->external_id,
-                'pre_order_status',
+                new EnumLogContext($model->external_id, 'pre_order_status'),
             ),
             taxValue: $model->tax_value,
             trackingUrl: $model->tracking_url,
@@ -219,8 +218,7 @@ final class OrderModelMapper
             OrderStatusType::class,
             $model->status_name,
             OrderStatusType::Processing,
-            $model->external_id,
-            'status_name',
+            new EnumLogContext($model->external_id, 'status_name'),
         );
 
         return new OrderStatus(

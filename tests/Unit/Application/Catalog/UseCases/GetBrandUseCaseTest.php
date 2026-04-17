@@ -7,6 +7,7 @@ namespace Tests\Unit\Application\Catalog\UseCases;
 use App\Application\Catalog\UseCases\GetBrandResult;
 use App\Application\Catalog\UseCases\GetBrandUseCase;
 use App\Application\Contracts\Shopwired\BrandRepositoryInterface;
+use App\Domain\Catalog\Brand\Enums\BrandInclude;
 use App\Domain\Catalog\Brand\ValueObjects\BrandLinks;
 use App\Domain\Catalog\Brand\ValueObjects\BrandView;
 use App\Domain\ValueObjects\IntId;
@@ -65,7 +66,7 @@ final class GetBrandUseCaseTest extends TestCase
     public function execute_passes_includes_through_to_repository(): void
     {
         $brand = self::buildBrandView();
-        $includes = ['custom_fields', 'description'];
+        $includes = [BrandInclude::CustomFields, BrandInclude::Description];
 
         $this->brandRepository
             ->shouldReceive('findBrandForApi')
@@ -73,7 +74,7 @@ final class GetBrandUseCaseTest extends TestCase
             ->with(Mockery::on(static fn(IntId $id): bool => $id->value === 42), $includes)
             ->andReturn($brand);
 
-        $this->logger->shouldReceive('info')->once()->with('Getting brand', ['brand_id' => 42, 'includes' => $includes]);
+        $this->logger->shouldReceive('info')->once()->with('Getting brand', ['brand_id' => 42, 'includes' => ['custom_fields', 'description']]);
         $this->logger->shouldReceive('info')->once()->with('Got brand', ['brand_id' => 42, 'title' => 'Test Brand']);
 
         $result = $this->useCase->execute(brandId: 42, includes: $includes);
