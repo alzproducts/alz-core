@@ -32,7 +32,9 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property float $price Selling price
  * @property float|null $sale_price Discounted price
  * @property float|null $compare_price RRP / "Was" price
- * @property int|null $stock Master stock quantity
+ * @property int|null $stock Master stock quantity (legacy — prefer available_stock/physical_stock)
+ * @property int $available_stock Sellable stock (Linnworks `available` column, COALESCEd to `stock`)
+ * @property int $physical_stock On-hand stock (Linnworks `quantity` column, COALESCEd to `stock`)
  * @property bool $is_active Published/visible
  * @property bool $vat_exclusive Price excludes VAT
  * @property bool|null $vat_relief VAT relief eligible
@@ -95,6 +97,8 @@ final class ProductViewModel extends Model
             'effective_price' => 'float',
             'cost_price' => 'float',
             'profit_margin' => 'float',
+            'available_stock' => 'integer',
+            'physical_stock' => 'integer',
         ];
     }
 

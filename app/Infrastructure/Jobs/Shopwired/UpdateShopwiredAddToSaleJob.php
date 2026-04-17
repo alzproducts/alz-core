@@ -54,7 +54,7 @@ final class UpdateShopwiredAddToSaleJob implements ShouldQueue
     {
         return [
             // @phpstan-ignore-next-line shipmonk.checkedExceptionInCallable (Skip invokes immediately; DB exceptions bubble to queue retry)
-            Skip::when(fn(): bool => !\app(ProductRepositoryInterface::class)->getProduct($this->productId)->hasAnySaleActive()),
+            Skip::when(fn(): bool => !\app(ProductRepositoryInterface::class)->findDetailedProductView($this->productId)->hasAnySale),
             new HandleDatabaseExceptions(),
             ServiceRateLimiter::shopwiredApi(),
             ServiceCircuitBreaker::shopwired(),

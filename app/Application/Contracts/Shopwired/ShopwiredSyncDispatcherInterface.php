@@ -37,8 +37,8 @@ interface ShopwiredSyncDispatcherInterface
      * categories in a single PUT. Empty arrays are valid — the receiving use
      * case performs its own idempotency check against live product state.
      *
-     * @param list<int> $addCategoryIds    Categories to add
-     * @param list<int> $removeCategoryIds Categories to remove
+     * @param list<IntId> $addCategoryIds    Categories to add
+     * @param list<IntId> $removeCategoryIds Categories to remove
      */
     public function dispatchCategoryMembershipUpdate(
         IntId $productId,

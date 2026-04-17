@@ -75,6 +75,10 @@ final readonly class QueuedShopwiredSyncDispatcher implements ShopwiredSyncDispa
         ReconcileShopwiredComparePriceJob::dispatch($productId)->delay(\now()->addMinutes(2));
     }
 
+    /**
+     * @param  list<IntId>  $addCategoryIds
+     * @param  list<IntId>  $removeCategoryIds
+     */
     #[Override]
     public function dispatchCategoryMembershipUpdate(
         IntId $productId,

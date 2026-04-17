@@ -35,14 +35,6 @@ interface BrandRepositoryInterface extends RepositoryWriteInterface
     public function findAll(): array;
 
     /**
-     * Find a brand by its ShopWired external ID.
-     *
-     * @throws DatabaseOperationFailedException On query failure
-     * @throws ExternalServiceUnavailableException When database temporarily unavailable
-     */
-    public function findByExternalId(int $externalId): ?Brand;
-
-    /**
      * Upsert a brand from webhook data.
      *
      * When $presentEmbeds is non-empty, only persists embed columns that were

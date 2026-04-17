@@ -4,11 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Domain\Catalog\Product\ValueObjects;
 
-use App\Domain\Catalog\CustomFields\Enums\CustomFieldItemType;
-use App\Domain\Catalog\CustomFields\Enums\CustomFieldType;
 use App\Domain\Catalog\CustomFields\ValueObjects\AbstractCustomFieldValue;
-use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldDefinition;
-use App\Domain\Catalog\CustomFields\ValueObjects\StringCustomFieldValue;
 use App\Domain\Catalog\Product\ValueObjects\Product;
 use App\Domain\Catalog\Product\ValueObjects\ProductImage;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariation;
@@ -428,100 +424,6 @@ final class ProductTest extends TestCase
         self::assertNotNull($primary);
         self::assertSame(1, $primary->id);
         self::assertSame('https://example.com/img1.jpg', $primary->url);
-    }
-
-    // ========================================================================
-    // Category Methods
-    // ========================================================================
-
-    #[Test]
-    public function is_in_category_returns_true_for_matching_category(): void
-    {
-        $product = self::createProduct(['categoryIds' => [10, 20, 30]]);
-
-        self::assertTrue($product->isInCategory(20));
-    }
-
-    #[Test]
-    public function is_in_category_returns_false_for_non_matching_category(): void
-    {
-        $product = self::createProduct(['categoryIds' => [10, 20, 30]]);
-
-        self::assertFalse($product->isInCategory(99));
-    }
-
-    #[Test]
-    public function is_in_category_handles_empty_categories(): void
-    {
-        $product = self::createProduct(['categoryIds' => []]);
-
-        self::assertFalse($product->isInCategory(1));
-    }
-
-    // ========================================================================
-    // Custom Field Methods
-    // ========================================================================
-
-    #[Test]
-    public function get_custom_field_returns_matching_field(): void
-    {
-        // Arrange
-        $brandDefinition = new CustomFieldDefinition(
-            id: 1,
-            name: 'brand',
-            type: CustomFieldType::Text,
-            label: 'Brand',
-            itemType: CustomFieldItemType::Product,
-            sortOrder: 1,
-            allowedValues: null,
-        );
-        $customFields = [
-            new StringCustomFieldValue($brandDefinition, 'Acme Corp'),
-        ];
-        $product = self::createProduct(customFields: $customFields);
-
-        // Act
-        $field = $product->getCustomField('brand');
-
-        // Assert
-        self::assertNotNull($field);
-        self::assertSame('Acme Corp', $field->rawValue());
-    }
-
-    #[Test]
-    public function get_custom_field_returns_null_for_missing_field(): void
-    {
-        $product = self::createProduct();
-
-        self::assertNull($product->getCustomField('nonexistent'));
-    }
-
-    #[Test]
-    public function has_custom_field_returns_true_when_exists(): void
-    {
-        $brandDefinition = new CustomFieldDefinition(
-            id: 1,
-            name: 'brand',
-            type: CustomFieldType::Text,
-            label: 'Brand',
-            itemType: CustomFieldItemType::Product,
-            sortOrder: 1,
-            allowedValues: null,
-        );
-        $customFields = [
-            new StringCustomFieldValue($brandDefinition, 'Acme Corp'),
-        ];
-        $product = self::createProduct(customFields: $customFields);
-
-        self::assertTrue($product->hasCustomField('brand'));
-    }
-
-    #[Test]
-    public function has_custom_field_returns_false_when_missing(): void
-    {
-        $product = self::createProduct();
-
-        self::assertFalse($product->hasCustomField('brand'));
     }
 
     // ========================================================================
