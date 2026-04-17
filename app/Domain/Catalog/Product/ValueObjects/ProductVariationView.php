@@ -40,6 +40,8 @@ final readonly class ProductVariationView
 
     public bool $canEditCostPrice;
 
+    public Stock $stockLevel;
+
     /**
      * @param int $externalId ShopWired variation ID
      * @param string|null $sku Variation SKU (nullable for legacy data)
@@ -51,7 +53,8 @@ final readonly class ProductVariationView
      * @param float $effectivePrice Selling price after sale logic
      * @param bool $isOnSale Whether this variation is currently on sale (from view)
      * @param float|null $profitMargin Retail profit margin % (from view, null when cost unknown)
-     * @param int $stock Stock quantity
+     * @param int $availableStock Sellable stock (post order-book allocation)
+     * @param int $physicalStock On-hand stock (pre order-book allocation)
      * @param float|null $weight Weight in kg
      * @param bool $vatExclusive Whether prices exclude VAT (from parent product, not stored)
      * @param string|null $mpn Manufacturer Part Number
@@ -73,7 +76,8 @@ final readonly class ProductVariationView
         float $effectivePrice,
         public bool $isOnSale,
         public ?float $profitMargin,
-        public int $stock,
+        int $availableStock,
+        int $physicalStock,
         ?float $weight,
         bool $vatExclusive,
         public ?string $mpn,
@@ -96,6 +100,7 @@ final readonly class ProductVariationView
         $this->effectivePrice = Money::fromTaxType($effectivePrice, $taxType);
         $this->weight = $weight !== null ? Weight::kilogram($weight) : null;
         $this->canEditCostPrice = ! $isComposite && $defaultSupplier !== null;
+        $this->stockLevel = new Stock($availableStock, $physicalStock);
     }
 
     /**

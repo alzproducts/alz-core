@@ -45,7 +45,7 @@ final class ProductVariationResource extends JsonResource
             'effective_price' => $variation->effectivePrice->toGross(),
             'profit_margin' => $variation->profitMargin,
             'is_on_sale' => $variation->isOnSale,
-            'stock' => $variation->stock,
+            'stock' => $variation->stockLevel->availableStock,
             'weight' => $variation->weight?->value,
             'image_index' => $variation->imageIndex,
             'options' => \array_map(static fn(ProductVariationOption $opt): array => $opt->toArray(), $variation->options),

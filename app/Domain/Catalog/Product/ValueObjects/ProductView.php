@@ -60,6 +60,12 @@ final readonly class ProductView
     public string $updatedAtFormatted;
 
     /**
+     * Aggregate stock level — sums across variations when present, otherwise
+     * uses the parent's own values. See Stock::fromParentAndVariants().
+     */
+    public Stock $stockLevel;
+
+    /**
      * @param list<int> $categoryIds
      * @param list<int> $mainCategoryIds
      * @param list<ProductVariationView>|null $variations
@@ -97,6 +103,8 @@ final readonly class ProductView
         public DateTimeImmutable $updatedAt,
         ProductViewMeta $meta,
         bool $hasAnyVariationOnSale,
+        int $parentAvailableStock,
+        int $parentPhysicalStock,
         public ?SaleSettings $saleSettings = null,
         public ?FreeDeliveryType $freeDelivery = null,
         /** @var list<ProductSupplier>|null */
@@ -107,7 +115,6 @@ final readonly class ProductView
         public ?bool $isComposite = null,
         /** @var list<int> */
         array $mainCategoryIds = [],
-        public ?int $masterStock = null,
     ) {
         $taxType = $vatExclusive ? TaxType::ZeroRated : TaxType::Inclusive;
 
@@ -127,6 +134,11 @@ final readonly class ProductView
         $this->defaultSupplier = $defaultSupplier;
         $this->createdAtFormatted = $createdAt->format(DateFormat::DEFAULT_DATE_FORMAT);
         $this->updatedAtFormatted = $updatedAt->format(DateFormat::DEFAULT_DATE_FORMAT);
+        $this->stockLevel = Stock::fromParentAndVariants(
+            $parentAvailableStock,
+            $parentPhysicalStock,
+            $variations,
+        );
     }
 
     /**
@@ -199,20 +211,6 @@ final readonly class ProductView
     public function hasCustomField(string $name): bool
     {
         return $this->getCustomField($name) !== null;
-    }
-
-    public function totalStock(): int
-    {
-        Assert::notNull($this->variations, 'variations must be loaded');
-
-        if ($this->variations === []) {
-            return $this->masterStock ?? 0;
-        }
-
-        return \array_sum(\array_map(
-            static fn(ProductVariationView $v): int => $v->stock,
-            $this->variations,
-        ));
     }
 
     /** @return list<Sku> */

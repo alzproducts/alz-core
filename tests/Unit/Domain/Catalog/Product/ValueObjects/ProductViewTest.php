@@ -52,7 +52,8 @@ final class ProductViewTest extends TestCase
             effectivePrice: 30.00,
             isOnSale: true,
             profitMargin: null,
-            stock: 5,
+            availableStock: 5,
+            physicalStock: 5,
             weight: null,
             vatExclusive: false,
             mpn: null,
@@ -80,7 +81,8 @@ final class ProductViewTest extends TestCase
             effectivePrice: 50.00,
             isOnSale: false,
             profitMargin: null,
-            stock: 5,
+            availableStock: 5,
+            physicalStock: 5,
             weight: null,
             vatExclusive: false,
             mpn: null,
@@ -376,36 +378,39 @@ final class ProductViewTest extends TestCase
 
     /*
     |--------------------------------------------------------------------------
-    | totalStock
+    | stockLevel
     |--------------------------------------------------------------------------
     */
 
     #[Test]
-    public function total_stock_sums_variations_when_present(): void
+    public function stock_level_sums_variations_when_present(): void
     {
         $view = $this->createView(variations: [
-            $this->createVariation(stock: 3),
-            $this->createVariation(stock: 7),
-            $this->createVariation(stock: 0),
+            $this->createVariation(availableStock: 3, physicalStock: 4),
+            $this->createVariation(availableStock: 7, physicalStock: 9),
+            $this->createVariation(availableStock: 0, physicalStock: 1),
         ]);
 
-        self::assertSame(10, $view->totalStock());
+        self::assertSame(10, $view->stockLevel->availableStock);
+        self::assertSame(14, $view->stockLevel->physicalStock);
     }
 
     #[Test]
-    public function total_stock_falls_back_to_master_stock_when_no_variations(): void
+    public function stock_level_uses_parent_values_when_no_variations(): void
     {
-        $view = $this->createView(variations: [], masterStock: 42);
+        $view = $this->createView(variations: [], parentAvailableStock: 42, parentPhysicalStock: 50);
 
-        self::assertSame(42, $view->totalStock());
+        self::assertSame(42, $view->stockLevel->availableStock);
+        self::assertSame(50, $view->stockLevel->physicalStock);
     }
 
     #[Test]
-    public function total_stock_zero_when_no_variations_and_master_stock_null(): void
+    public function stock_level_zero_when_no_variations_and_parent_stock_zero(): void
     {
-        $view = $this->createView(variations: [], masterStock: null);
+        $view = $this->createView(variations: [], parentAvailableStock: 0, parentPhysicalStock: 0);
 
-        self::assertSame(0, $view->totalStock());
+        self::assertSame(0, $view->stockLevel->availableStock);
+        self::assertSame(0, $view->stockLevel->physicalStock);
     }
 
     /*
@@ -455,7 +460,8 @@ final class ProductViewTest extends TestCase
             effectivePrice: 30.00,
             isOnSale: true,
             profitMargin: null,
-            stock: 5,
+            availableStock: 5,
+            physicalStock: 5,
             weight: null,
             vatExclusive: false,
             mpn: null,
@@ -489,7 +495,8 @@ final class ProductViewTest extends TestCase
             effectivePrice: 30.00,
             isOnSale: true,
             profitMargin: null,
-            stock: 5,
+            availableStock: 5,
+            physicalStock: 5,
             weight: null,
             vatExclusive: false,
             mpn: null,
@@ -507,7 +514,8 @@ final class ProductViewTest extends TestCase
             effectivePrice: 50.00,
             isOnSale: false,
             profitMargin: null,
-            stock: 5,
+            availableStock: 5,
+            physicalStock: 5,
             weight: null,
             vatExclusive: false,
             mpn: null,
@@ -565,7 +573,8 @@ final class ProductViewTest extends TestCase
         ?DateTimeImmutable $createdAt = null,
         ?DateTimeImmutable $updatedAt = null,
         array $customFields = [],
-        ?int $masterStock = null,
+        int $parentAvailableStock = 0,
+        int $parentPhysicalStock = 0,
     ): ProductView {
         return new ProductView(
             externalId: 1,
@@ -600,8 +609,9 @@ final class ProductViewTest extends TestCase
             updatedAt: $updatedAt ?? new DateTimeImmutable('2024-01-01'),
             meta: new ProductViewMeta($variations, null, null),
             hasAnyVariationOnSale: ProductVariationView::anyOnSale($variations),
+            parentAvailableStock: $parentAvailableStock,
+            parentPhysicalStock: $parentPhysicalStock,
             freeDelivery: $freeDelivery,
-            masterStock: $masterStock,
         );
     }
 
@@ -624,7 +634,8 @@ final class ProductViewTest extends TestCase
     private function createVariation(
         float $price = 50.00,
         ?float $rrp = null,
-        int $stock = 5,
+        int $availableStock = 5,
+        int $physicalStock = 5,
     ): ProductVariationView {
         static $id = 100;
 
@@ -639,7 +650,8 @@ final class ProductViewTest extends TestCase
             effectivePrice: $price,
             isOnSale: false,
             profitMargin: null,
-            stock: $stock,
+            availableStock: $availableStock,
+            physicalStock: $physicalStock,
             weight: null,
             vatExclusive: false,
             mpn: null,
