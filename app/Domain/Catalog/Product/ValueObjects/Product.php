@@ -208,15 +208,10 @@ final readonly class Product implements BasicProductInterface
      * Uses rawCustomFields directly because the typed customFields depend on
      * the Infrastructure-layer CustomFieldDefinitionRegistry being populated,
      * which isn't guaranteed in all contexts (stale sync, new fields).
-     * DefaultSortOrder is excluded — it's metadata, not a sale indicator.
      */
     public function hasAnySaleCustomField(): bool
     {
         foreach (SaleCustomField::cases() as $field) {
-            if ($field === SaleCustomField::DefaultSortOrder) {
-                continue;
-            }
-
             $value = $this->rawCustomFields[$field->value] ?? null;
             if (\is_string($value) && $value !== '') {
                 return true;

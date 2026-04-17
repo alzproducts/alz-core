@@ -165,12 +165,11 @@ final readonly class SaleSettings
      *
      * @return array<string, string>
      */
-    public static function toCustomFieldsArray(?self $settings, ?int $defaultSortOrder): array
+    public static function toCustomFieldsArray(?self $settings): array
     {
         return [
             SaleCustomField::DateStart->value => $settings?->saleStartDate?->format('Y-m-d')
                 ?? (new DateTimeImmutable())->format('Y-m-d'),
-            SaleCustomField::DefaultSortOrder->value => (string) ($defaultSortOrder ?? ''),
             SaleCustomField::Reason->value => $settings !== null ? $settings->saleReason : '',
             SaleCustomField::Comments->value => $settings !== null ? ($settings->saleComments ?? '') : '',
             SaleCustomField::DateEnd->value => $settings?->saleEndDate?->format('Y-m-d') ?? '',

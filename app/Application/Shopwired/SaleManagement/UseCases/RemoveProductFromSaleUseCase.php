@@ -24,7 +24,7 @@ use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\IntId;
 
 /**
- * Removes a product from sale on ShopWired: sale category, sort order restore, and custom field cleanup.
+ * Removes a product from sale on ShopWired: sale category removal and sale custom field cleanup.
  */
 final readonly class RemoveProductFromSaleUseCase
 {
@@ -63,30 +63,22 @@ final readonly class RemoveProductFromSaleUseCase
     }
 
     /**
-     * Build field updates for removing a product from sale.
-     *
-     * Removes the sale category and restores the original sort order.
+     * Build field updates for removing a product from sale: drop the sale category.
      *
      * @return list<ProductFieldUpdate>
      */
     private static function buildRemovalFieldUpdates(ProductView $view, int $saleCategoryId): array
     {
-        $fieldUpdates = [];
-
         $saleCategory = IntId::from($saleCategoryId);
-        if ($view->isInCategory($saleCategory)) {
-            $filteredCategories = \array_values(\array_filter(
-                \array_map(static fn(IntId $id): int => $id->value, $view->categoryIds),
-                static fn(int $id): bool => $id !== $saleCategoryId,
-            ));
-            $fieldUpdates[] = ProductFieldUpdate::categories($filteredCategories);
+        if (! $view->isInCategory($saleCategory)) {
+            return [];
         }
 
-        $defaultSortOrder = $view->getCustomField(SaleCustomField::DefaultSortOrder->value)?->rawValue();
-        if (\is_string($defaultSortOrder) && $defaultSortOrder !== '' && \is_numeric($defaultSortOrder)) {
-            $fieldUpdates[] = ProductFieldUpdate::sortOrder((int) $defaultSortOrder);
-        }
+        $filteredCategories = \array_values(\array_filter(
+            \array_map(static fn(IntId $id): int => $id->value, $view->categoryIds),
+            static fn(int $id): bool => $id !== $saleCategoryId,
+        ));
 
-        return $fieldUpdates;
+        return [ProductFieldUpdate::categories($filteredCategories)];
     }
 }
