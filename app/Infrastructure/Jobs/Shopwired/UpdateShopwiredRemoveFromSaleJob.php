@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Jobs\Shopwired;
 
-use App\Application\Catalog\Queries\ProductDetailQueryParams;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Application\Shopwired\SaleManagement\UseCases\RemoveProductFromSaleUseCase;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
@@ -55,7 +54,7 @@ final class UpdateShopwiredRemoveFromSaleJob implements ShouldQueue
     {
         return [
             // @phpstan-ignore-next-line shipmonk.checkedExceptionInCallable (Skip invokes immediately; DB exceptions bubble to queue retry)
-            Skip::when(fn(): bool => \app(ProductRepositoryInterface::class)->findProductView(new ProductDetailQueryParams($this->productId))->hasAnySale),
+            Skip::when(fn(): bool => \app(ProductRepositoryInterface::class)->findDetailedProductView($this->productId)->hasAnySale),
             new HandleDatabaseExceptions(),
             ServiceRateLimiter::shopwiredApi(),
             ServiceCircuitBreaker::shopwired(),

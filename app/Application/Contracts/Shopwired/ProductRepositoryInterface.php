@@ -9,6 +9,7 @@ use App\Application\Catalog\Queries\ProductListQueryParams;
 use App\Application\Contracts\RepositoryWriteInterface;
 use App\Application\DTOs\PaginatedListDTO;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
+use App\Domain\Catalog\Product\Enums\ProductInclude;
 use App\Domain\Catalog\Product\ValueObjects\Product;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariation;
 use App\Domain\Catalog\Product\ValueObjects\ProductView;
@@ -54,6 +55,20 @@ interface ProductRepositoryInterface extends RepositoryWriteInterface
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      */
     public function findProductView(ProductDetailQueryParams $query): ProductView;
+
+    /**
+     * Convenience wrapper over {@see self::findProductView()} for call sites that
+     * already hold a typed product ID and only need to choose embeds.
+     *
+     * @param list<ProductInclude> $includes Embeds to load (empty = defaults)
+     *
+     * @throws ResourceNotFoundException When no product matches the ID
+     * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
+     * @throws DatabaseOperationFailedException On query failure
+     * @throws DuplicateRecordException On constraint violation
+     * @throws ExternalServiceUnavailableException When database temporarily unavailable
+     */
+    public function findDetailedProductView(IntId $productId, array $includes = []): ProductView;
 
     /**
      * Get all product external IDs stored locally.

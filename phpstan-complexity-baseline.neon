@@ -74,7 +74,7 @@ parameters:
 			path: app/Application/Catalog/UseCases/GetCategoryUseCase.php
 
 		-
-			rawMessage: 'Method execute() is 31 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			rawMessage: 'Method execute() is 29 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Application/Catalog/UseCases/GetProductCustomFieldsUseCase.php
@@ -1469,7 +1469,7 @@ parameters:
 			path: app/Infrastructure/Shopwired/Repositories/EloquentOrderRepository.php
 
 		-
-			rawMessage: 'Class EloquentProductRepository is 930 lines long — exceeds the 250-line limit. Consider decomposing into smaller, focused classes.'
+			rawMessage: 'Class EloquentProductRepository is 945 lines long — exceeds the 250-line limit. Consider decomposing into smaller, focused classes.'
 			identifier: alz.excessiveClassLength
 			count: 1
 			path: app/Infrastructure/Shopwired/Repositories/EloquentProductRepository.php

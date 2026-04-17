@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Application\Shopwired\CategoryMembership\UseCases;
 
-use App\Application\Catalog\Queries\ProductDetailQueryParams;
 use App\Application\Contracts\Shopwired\ProductFieldUpdateClientInterface;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
@@ -49,7 +48,7 @@ final readonly class UpdateProductCategoryMembershipUseCase
      */
     public function execute(IntId $productId, array $addCategoryIds, array $removeCategoryIds): void
     {
-        $view = $this->productRepo->findProductView(new ProductDetailQueryParams($productId));
+        $view = $this->productRepo->findDetailedProductView($productId);
         $currentInts = \array_map(static fn(IntId $id): int => $id->value, $view->categoryIds);
         $addInts = \array_map(static fn(IntId $id): int => $id->value, $addCategoryIds);
         $removeInts = \array_map(static fn(IntId $id): int => $id->value, $removeCategoryIds);

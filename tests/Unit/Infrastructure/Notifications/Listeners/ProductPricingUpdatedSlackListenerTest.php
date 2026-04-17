@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Infrastructure\Notifications\Listeners;
 
-use App\Application\Catalog\Queries\ProductDetailQueryParams;
 use App\Application\Contracts\ChatNotificationInterface;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Application\Contracts\Shopwired\SaleSettingsRepositoryInterface;
@@ -62,9 +61,9 @@ final class ProductPricingUpdatedSlackListenerTest extends TestCase
         $event = self::createEvent();
         $view = self::createProductView();
 
-        $this->productRepo->shouldReceive('findProductView')
+        $this->productRepo->shouldReceive('findDetailedProductView')
             ->once()
-            ->with(Mockery::on(static fn(ProductDetailQueryParams $q): bool => $q->productId->value === 42))
+            ->with(Mockery::on(static fn(IntId $id): bool => $id->value === 42))
             ->andReturn($view);
 
         $this->chat->shouldReceive('sendPriceUpdateAlert')
@@ -83,7 +82,7 @@ final class ProductPricingUpdatedSlackListenerTest extends TestCase
     {
         $event = self::createEvent();
 
-        $this->productRepo->shouldReceive('findProductView')
+        $this->productRepo->shouldReceive('findDetailedProductView')
             ->once()
             ->andThrow(new ResourceNotFoundException('Shopwired', 'product', '42'));
 
