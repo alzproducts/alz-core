@@ -9,7 +9,8 @@ use App\Application\Contracts\Shopwired\SaleReconciliationDispatcherInterface;
 use App\Application\Contracts\Shopwired\SaleSettingsRepositoryInterface;
 use App\Application\Shopwired\SaleManagement\Resolvers\ProductSaleStateResolver;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
-use App\Domain\Catalog\Product\ValueObjects\Product;
+use App\Domain\Catalog\Product\Enums\ProductInclude;
+use App\Domain\Catalog\Product\ValueObjects\ProductView;
 use App\Domain\Catalog\Product\ValueObjects\SaleSettings;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
@@ -53,8 +54,8 @@ final readonly class ReconcileProductSaleStateUseCase
             return;
         }
 
-        $product = $this->productRepo->getProduct($productId);
-        $result = $this->specification->evaluate($product);
+        $view = $this->productRepo->findDetailedProductView($productId, [ProductInclude::CustomFields]);
+        $result = $this->specification->evaluate($view);
 
         if (! $result->needsCorrection()) {
             $this->logger->debug('Drift resolved before correction — no action needed', [
@@ -76,7 +77,7 @@ final readonly class ReconcileProductSaleStateUseCase
             $dbSettings = $this->saleSettingsRepo->findByProduct($productId);
 
             if ($dbSettings === null) {
-                $dbSettings = self::buildSaleSettingsFromProduct($product);
+                $dbSettings = self::buildSaleSettingsFromView($view);
                 $this->saleSettingsRepo->save($productId, $dbSettings);
             }
 
@@ -89,14 +90,14 @@ final readonly class ReconcileProductSaleStateUseCase
     }
 
     /**
-     * Reconstruct SaleSettings from a product's existing custom fields.
+     * Reconstruct SaleSettings from a ProductView's typed custom fields.
      *
      * Falls back to a minimal SaleSettings with 'Reconciliation' reason
      * when custom fields have no sale_reason.
      */
-    private static function buildSaleSettingsFromProduct(Product $product): SaleSettings
+    private static function buildSaleSettingsFromView(ProductView $view): SaleSettings
     {
-        return SaleSettings::fromRawCustomFields($product->rawCustomFields)
+        return SaleSettings::fromTypedCustomFields($view->customFields)
             ?? new SaleSettings(saleReason: 'Reconciliation');
     }
 }
