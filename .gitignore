@@ -36,3 +36,4 @@ _ide_helper_models.php
 /examples
 /.ai/handoffs
 /tmp
+/.claude/scheduled_tasks.lock
