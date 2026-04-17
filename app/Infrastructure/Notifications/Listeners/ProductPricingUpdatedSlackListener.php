@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Notifications\Listeners;
 
+use App\Application\Catalog\Queries\ProductDetailQueryParams;
 use App\Application\Contracts\ChatNotificationInterface;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Application\Contracts\Shopwired\SaleSettingsRepositoryInterface;
@@ -67,9 +68,9 @@ final class ProductPricingUpdatedSlackListener implements ShouldQueue
     private function enrichProductContext(ProductPricingUpdatedEvent $event): array
     {
         try {
-            $product = $this->productRepository->getProduct($event->productId);
+            $view = $this->productRepository->findProductView(new ProductDetailQueryParams($event->productId));
 
-            return [$product->title, $product->url];
+            return [$view->title, $view->links->publicUrl];
         } catch (Exception $e) { // @ignoreException - enrichment is best-effort, notification still sends
             Log::warning('Could not enrich pricing notification with product details', [
                 'product_id' => $event->productId->value,

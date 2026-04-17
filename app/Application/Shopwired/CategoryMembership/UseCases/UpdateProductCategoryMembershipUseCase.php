@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Application\Shopwired\CategoryMembership\UseCases;
 
+use App\Application\Catalog\Queries\ProductDetailQueryParams;
 use App\Application\Contracts\Shopwired\ProductFieldUpdateClientInterface;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
@@ -14,6 +15,7 @@ use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\ResourceNotAvailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
+use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\IntId;
 use Psr\Log\LoggerInterface;
 
@@ -33,8 +35,8 @@ final readonly class UpdateProductCategoryMembershipUseCase
     ) {}
 
     /**
-     * @param  list<int>  $addCategoryIds     Categories to add (ignored if product is already a member)
-     * @param  list<int>  $removeCategoryIds  Categories to remove (ignored if product is not a member)
+     * @param  list<IntId>  $addCategoryIds     Categories to add (ignored if product is already a member)
+     * @param  list<IntId>  $removeCategoryIds  Categories to remove (ignored if product is not a member)
      *
      * @throws ResourceNotFoundException When product not found in DB
      * @throws InvalidCustomFieldValueException When custom field mapping fails
@@ -43,25 +45,38 @@ final readonly class UpdateProductCategoryMembershipUseCase
      * @throws AuthenticationExpiredException When credentials invalid
      * @throws ExternalServiceUnavailableException When API or DB unavailable
      * @throws DatabaseOperationFailedException On DB query failure
+     * @throws DuplicateRecordException On DB constraint violation
      */
     public function execute(IntId $productId, array $addCategoryIds, array $removeCategoryIds): void
     {
-        $product = $this->productRepo->getProduct($productId);
+        $view = $this->productRepo->findProductView(new ProductDetailQueryParams($productId));
+        $currentInts = \array_map(static fn(IntId $id): int => $id->value, $view->categoryIds);
+        $addInts = \array_map(static fn(IntId $id): int => $id->value, $addCategoryIds);
+        $removeInts = \array_map(static fn(IntId $id): int => $id->value, $removeCategoryIds);
 
-        $effectiveAdds = \array_values(\array_diff($addCategoryIds, $product->categoryIds));
-        $effectiveRemoves = \array_values(\array_intersect($removeCategoryIds, $product->categoryIds));
+        $effectiveAdds = \array_values(\array_diff($addInts, $currentInts));
+        $effectiveRemoves = \array_values(\array_intersect($removeInts, $currentInts));
 
         if ($effectiveAdds === [] && $effectiveRemoves === []) {
-            $this->logger->info('UpdateProductCategoryMembership: no-op — live state already matches', [
-                'product_id' => $productId->value,
-                'requested_adds' => $addCategoryIds,
-                'requested_removes' => $removeCategoryIds,
-            ]);
+            $this->logNoOp($productId, $addInts, $removeInts);
 
             return;
         }
 
-        $this->applyUpdate($productId, $product->categoryIds, $effectiveAdds, $effectiveRemoves);
+        $this->applyUpdate($productId, $currentInts, $effectiveAdds, $effectiveRemoves);
+    }
+
+    /**
+     * @param  list<int>  $requestedAdds
+     * @param  list<int>  $requestedRemoves
+     */
+    private function logNoOp(IntId $productId, array $requestedAdds, array $requestedRemoves): void
+    {
+        $this->logger->info('UpdateProductCategoryMembership: no-op — live state already matches', [
+            'product_id' => $productId->value,
+            'requested_adds' => $requestedAdds,
+            'requested_removes' => $requestedRemoves,
+        ]);
     }
 
     /**

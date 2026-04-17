@@ -4,13 +4,17 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Infrastructure\Notifications\Listeners;
 
+use App\Application\Catalog\Queries\ProductDetailQueryParams;
 use App\Application\Contracts\ChatNotificationInterface;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Application\Contracts\Shopwired\SaleSettingsRepositoryInterface;
 use App\Application\Notifications\DTOs\PriceUpdateAlertDataDTO;
 use App\Domain\Catalog\Product\Events\ProductPricingUpdatedEvent;
-use App\Domain\Catalog\Product\ValueObjects\Product;
+use App\Domain\Catalog\Product\ValueObjects\ProductLinks;
 use App\Domain\Catalog\Product\ValueObjects\ProductRetailPricing;
+use App\Domain\Catalog\Product\ValueObjects\ProductVariationView;
+use App\Domain\Catalog\Product\ValueObjects\ProductView;
+use App\Domain\Catalog\Product\ValueObjects\ProductViewMeta;
 use App\Domain\Catalog\Product\ValueObjects\Sku;
 use App\Domain\Catalog\Product\ValueObjects\SkuPriceChange;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
@@ -56,12 +60,12 @@ final class ProductPricingUpdatedSlackListenerTest extends TestCase
     public function happy_path_enriches_and_sends_notification(): void
     {
         $event = self::createEvent();
-        $product = self::createProduct();
+        $view = self::createProductView();
 
-        $this->productRepo->shouldReceive('getProduct')
+        $this->productRepo->shouldReceive('findProductView')
             ->once()
-            ->with(Mockery::on(static fn(IntId $id): bool => $id->value === 42))
-            ->andReturn($product);
+            ->with(Mockery::on(static fn(ProductDetailQueryParams $q): bool => $q->productId->value === 42))
+            ->andReturn($view);
 
         $this->chat->shouldReceive('sendPriceUpdateAlert')
             ->once()
@@ -79,7 +83,7 @@ final class ProductPricingUpdatedSlackListenerTest extends TestCase
     {
         $event = self::createEvent();
 
-        $this->productRepo->shouldReceive('getProduct')
+        $this->productRepo->shouldReceive('findProductView')
             ->once()
             ->andThrow(new ResourceNotFoundException('Shopwired', 'product', '42'));
 
@@ -142,37 +146,43 @@ final class ProductPricingUpdatedSlackListenerTest extends TestCase
         );
     }
 
-    private static function createProduct(): Product
+    private static function createProductView(): ProductView
     {
-        return new Product(
-            id: 42,
+        return new ProductView(
+            externalId: 42,
             sku: 'TEST-001',
             gtin: null,
             title: 'Test Product',
             description: null,
             slug: 'test-product',
-            url: 'https://example.com/test',
+            links: new ProductLinks(
+                publicUrl: 'https://example.com/test',
+                editWebsiteUrl: 'https://admin.myshopwired.uk/business/manage-ecommerce-add-product/42',
+            ),
             price: 25.00,
             costPrice: null,
             salePrice: null,
-            comparePrice: null,
-            stock: 100,
+            rrp: null,
+            effectivePrice: 25.00,
+            isOnSale: false,
+            profitMargin: null,
             isActive: true,
             vatExclusive: false,
             vatRelief: false,
-            weight: null,
             metaTitle: null,
             metaDescription: null,
             categoryIds: [],
             variations: [],
             images: [],
-            rawCustomFields: [],
             customFields: [],
-            rawFilters: [],
             filters: [],
             sortOrder: null,
             createdAt: new DateTimeImmutable('2024-01-01'),
             updatedAt: new DateTimeImmutable('2024-01-01'),
+            meta: new ProductViewMeta([], null, null),
+            hasAnyVariationOnSale: ProductVariationView::anyOnSale([]),
+            parentAvailableStock: 100,
+            parentPhysicalStock: 100,
         );
     }
 }

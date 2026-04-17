@@ -4,13 +4,14 @@ declare(strict_types=1);
 
 namespace App\Application\Shopwired\SaleManagement\UseCases;
 
+use App\Application\Catalog\Queries\ProductDetailQueryParams;
 use App\Application\Contracts\Shopwired\ProductFieldUpdateClientInterface;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Application\Contracts\Shopwired\ProductUpdateClientInterface;
 use App\Application\Contracts\Shopwired\SaleSettingsRepositoryInterface;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
-use App\Domain\Catalog\Product\ValueObjects\Product;
 use App\Domain\Catalog\Product\ValueObjects\ProductFieldUpdate;
+use App\Domain\Catalog\Product\ValueObjects\ProductView;
 use App\Domain\Catalog\Product\ValueObjects\SaleSettings;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
@@ -54,11 +55,11 @@ final readonly class AddProductToSaleUseCase
      */
     public function execute(IntId $productId): void
     {
-        $product = $this->productRepo->getProduct($productId);
+        $view = $this->productRepo->findProductView(new ProductDetailQueryParams($productId));
         $saleSettings = $this->saleSettingsRepo->findByProduct($productId);
 
-        $this->fieldUpdateClient->update($productId->value, ...self::buildFieldUpdates($product, $this->saleCategoryId));
-        $this->productUpdateClient->updateCustomFields($productId->value, SaleSettings::toCustomFieldsArray($saleSettings, $product->sortOrder));
+        $this->fieldUpdateClient->update($productId->value, ...self::buildFieldUpdates($view, $this->saleCategoryId));
+        $this->productUpdateClient->updateCustomFields($productId->value, SaleSettings::toCustomFieldsArray($saleSettings, $view->sortOrder));
 
         // Fail permanently if settings missing — category + sort order applied but custom fields are empty/default
         if ($saleSettings === null) {
@@ -71,12 +72,14 @@ final readonly class AddProductToSaleUseCase
      *
      * @return list<ProductFieldUpdate>
      */
-    private static function buildFieldUpdates(Product $product, int $saleCategoryId): array
+    private static function buildFieldUpdates(ProductView $view, int $saleCategoryId): array
     {
         $fieldUpdates = [ProductFieldUpdate::sortOrder(self::SALE_SORT_ORDER)];
 
-        if (! $product->isInCategory($saleCategoryId)) {
-            $fieldUpdates[] = ProductFieldUpdate::categories([...$product->categoryIds, $saleCategoryId]);
+        $saleCategory = IntId::from($saleCategoryId);
+        if (! $view->isInCategory($saleCategory)) {
+            $currentCategoryIds = \array_map(static fn(IntId $id): int => $id->value, $view->categoryIds);
+            $fieldUpdates[] = ProductFieldUpdate::categories([...$currentCategoryIds, $saleCategoryId]);
         }
 
         return $fieldUpdates;

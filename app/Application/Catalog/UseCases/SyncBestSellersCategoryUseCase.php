@@ -8,8 +8,10 @@ use App\Application\Contracts\Catalog\BestSellersRankingStateQueryRepositoryInte
 use App\Application\Contracts\Shopwired\CategoryRepositoryInterface;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Application\Contracts\Shopwired\ShopwiredSyncDispatcherInterface;
+use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Domain\Exceptions\Data\MissingRequiredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\IntId;
@@ -32,6 +34,8 @@ final readonly class SyncBestSellersCategoryUseCase
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
+     * @throws InvalidCustomFieldValueException
+     * @throws MissingRequiredDataException
      */
     public function execute(): void
     {
@@ -57,13 +61,16 @@ final readonly class SyncBestSellersCategoryUseCase
     /**
      * @throws ResourceNotFoundException
      * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
+     * @throws InvalidCustomFieldValueException
+     * @throws MissingRequiredDataException
      */
     private function guardBestSellersCategory(): void
     {
-        $category = $this->categoryRepo->findByExternalId($this->bestSellersCategoryId);
+        $category = $this->categoryRepo->findCategoryForApi(IntId::from($this->bestSellersCategoryId));
 
-        if ($category === null || ! $category->active) {
+        if (! $category->active) {
             throw new ResourceNotFoundException('shopwired', 'Category', $this->bestSellersCategoryId);
         }
     }
@@ -91,10 +98,12 @@ final readonly class SyncBestSellersCategoryUseCase
      */
     private function dispatchAdds(array $productIds): void
     {
+        $bestSellersCategory = IntId::from($this->bestSellersCategoryId);
+
         foreach ($productIds as $productId) {
             $this->dispatcher->dispatchCategoryMembershipUpdate(
                 IntId::from($productId),
-                [$this->bestSellersCategoryId],
+                [$bestSellersCategory],
                 [],
             );
         }
@@ -105,11 +114,13 @@ final readonly class SyncBestSellersCategoryUseCase
      */
     private function dispatchRemoves(array $productIds): void
     {
+        $bestSellersCategory = IntId::from($this->bestSellersCategoryId);
+
         foreach ($productIds as $productId) {
             $this->dispatcher->dispatchCategoryMembershipUpdate(
                 IntId::from($productId),
                 [],
-                [$this->bestSellersCategoryId],
+                [$bestSellersCategory],
             );
         }
     }

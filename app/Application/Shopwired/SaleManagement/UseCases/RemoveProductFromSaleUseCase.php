@@ -4,14 +4,15 @@ declare(strict_types=1);
 
 namespace App\Application\Shopwired\SaleManagement\UseCases;
 
+use App\Application\Catalog\Queries\ProductDetailQueryParams;
 use App\Application\Contracts\Shopwired\ProductFieldUpdateClientInterface;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Application\Contracts\Shopwired\ProductUpdateClientInterface;
 use App\Application\Contracts\Shopwired\SaleSettingsRepositoryInterface;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\Product\Enums\SaleCustomField;
-use App\Domain\Catalog\Product\ValueObjects\Product;
 use App\Domain\Catalog\Product\ValueObjects\ProductFieldUpdate;
+use App\Domain\Catalog\Product\ValueObjects\ProductView;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
@@ -48,8 +49,8 @@ final readonly class RemoveProductFromSaleUseCase
      */
     public function execute(IntId $productId): void
     {
-        $product = $this->productRepo->getProduct($productId);
-        $fieldUpdates = self::buildRemovalFieldUpdates($product, $this->saleCategoryId);
+        $view = $this->productRepo->findProductView(new ProductDetailQueryParams($productId));
+        $fieldUpdates = self::buildRemovalFieldUpdates($view, $this->saleCategoryId);
 
         if ($fieldUpdates !== []) {
             $this->fieldUpdateClient->update($productId->value, ...$fieldUpdates);
@@ -68,19 +69,20 @@ final readonly class RemoveProductFromSaleUseCase
      *
      * @return list<ProductFieldUpdate>
      */
-    private static function buildRemovalFieldUpdates(Product $product, int $saleCategoryId): array
+    private static function buildRemovalFieldUpdates(ProductView $view, int $saleCategoryId): array
     {
         $fieldUpdates = [];
 
-        if ($product->isInCategory($saleCategoryId)) {
+        $saleCategory = IntId::from($saleCategoryId);
+        if ($view->isInCategory($saleCategory)) {
             $filteredCategories = \array_values(\array_filter(
-                $product->categoryIds,
+                \array_map(static fn(IntId $id): int => $id->value, $view->categoryIds),
                 static fn(int $id): bool => $id !== $saleCategoryId,
             ));
             $fieldUpdates[] = ProductFieldUpdate::categories($filteredCategories);
         }
 
-        $defaultSortOrder = $product->rawCustomFields[SaleCustomField::DefaultSortOrder->value] ?? null;
+        $defaultSortOrder = $view->getCustomField(SaleCustomField::DefaultSortOrder->value)?->rawValue();
         if (\is_string($defaultSortOrder) && $defaultSortOrder !== '' && \is_numeric($defaultSortOrder)) {
             $fieldUpdates[] = ProductFieldUpdate::sortOrder((int) $defaultSortOrder);
         }
