@@ -8,7 +8,6 @@ use App\Domain\Catalog\CustomFields\ValueObjects\AbstractCustomFieldValue;
 use App\Domain\Catalog\Filters\ValueObjects\ProductFilter;
 use App\Domain\Catalog\Product\Concerns\BasicProductTrait;
 use App\Domain\Catalog\Product\Contracts\BasicProductInterface;
-use App\Domain\Catalog\Product\Enums\SaleCustomField;
 use App\Infrastructure\Shopwired\Factories\ProductDomainFactory;
 use DateTimeImmutable;
 use Webmozart\Assert\Assert;
@@ -20,8 +19,7 @@ use Webmozart\Assert\Assert;
  * Excludes unused ShopWired fields (freeDelivery, deliveryPrice, isNew, isBundle, isPreOrder, outOfStockStatus).
  *
  * **Custom Fields**: Products have two custom field representations:
- * - `rawCustomFields`: Raw name → value map for storage/persistence only. Do NOT read from this directly —
- *    use {@see getCustomField()} or {@see hasCustomField()} instead for typed access.
+ * - `rawCustomFields`: Raw name → value map for storage/persistence only.
  * - `customFields`: Typed values from CustomFieldDefinitionRegistry (populated on DB read)
  *
  * **Filters**: Products have two filter representations (same pattern):
@@ -184,59 +182,10 @@ final readonly class Product implements BasicProductInterface
         return $this->images[0] ?? null;
     }
 
-    public function isInCategory(int $categoryId): bool
-    {
-        return \in_array($categoryId, $this->categoryIds, true);
-    }
-
-    public function getCustomField(string $name): ?AbstractCustomFieldValue
-    {
-        return \array_find(
-            $this->customFields,
-            static fn(AbstractCustomFieldValue $field): bool => $field->name() === $name,
-        );
-    }
-
-    public function hasCustomField(string $name): bool
-    {
-        return $this->getCustomField($name) !== null;
-    }
-
-    /**
-     * Check if any sale-indicator custom fields are populated (non-empty).
-     *
-     * Uses rawCustomFields directly because the typed customFields depend on
-     * the Infrastructure-layer CustomFieldDefinitionRegistry being populated,
-     * which isn't guaranteed in all contexts (stale sync, new fields).
-     * DefaultSortOrder is excluded — it's metadata, not a sale indicator.
-     */
-    public function hasAnySaleCustomField(): bool
-    {
-        foreach (SaleCustomField::cases() as $field) {
-            if ($field === SaleCustomField::DefaultSortOrder) {
-                continue;
-            }
-
-            $value = $this->rawCustomFields[$field->value] ?? null;
-            if (\is_string($value) && $value !== '') {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     /** A sale is active when salePrice is set, > 0, and < regular price. */
     public static function isSaleActive(?float $salePrice, float $price): bool
     {
         return $salePrice !== null && $salePrice > 0 && $salePrice < $price;
-    }
-
-    /** Check if any SKU (master or variation) has an active sale price. */
-    public function hasAnySaleActive(): bool
-    {
-        return self::isSaleActive($this->salePrice, $this->price)
-            || ProductVariation::anyOnSale($this->variations ?? [], $this->price);
     }
 
     /**

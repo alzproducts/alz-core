@@ -933,7 +933,8 @@ final class ProductControllerTest extends TestCase
             effectivePrice: 5.99,
             isOnSale: false,
             profitMargin: 58.26,
-            stock: 5,
+            availableStock: 5,
+            physicalStock: 5,
             weight: null,
             vatExclusive: false,
             mpn: null,
@@ -974,6 +975,8 @@ final class ProductControllerTest extends TestCase
             updatedAt: new DateTimeImmutable('2024-01-01'),
             meta: new ProductViewMeta([$variation], null, null),
             hasAnyVariationOnSale: ProductVariationView::anyOnSale([$variation]),
+            parentAvailableStock: 0,
+            parentPhysicalStock: 0,
         );
     }
 
@@ -1012,6 +1015,8 @@ final class ProductControllerTest extends TestCase
             updatedAt: new DateTimeImmutable('2024-01-01'),
             meta: new ProductViewMeta([], null, null),
             hasAnyVariationOnSale: ProductVariationView::anyOnSale([]),
+            parentAvailableStock: 0,
+            parentPhysicalStock: 0,
         );
     }
 }

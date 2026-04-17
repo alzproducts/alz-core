@@ -9,8 +9,8 @@ use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Application\Contracts\Shopwired\ProductUpdateClientInterface;
 use App\Application\Contracts\Shopwired\SaleSettingsRepositoryInterface;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
-use App\Domain\Catalog\Product\ValueObjects\Product;
 use App\Domain\Catalog\Product\ValueObjects\ProductFieldUpdate;
+use App\Domain\Catalog\Product\ValueObjects\ProductView;
 use App\Domain\Catalog\Product\ValueObjects\SaleSettings;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
@@ -23,16 +23,14 @@ use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\IntId;
 
 /**
- * Adds a product to sale on ShopWired: sale category, sort order, and custom fields.
+ * Adds a product to sale on ShopWired: sale category and sale custom fields.
  *
  * Reads SaleSettings fresh from DB at execution time to avoid stale data.
- * Fails permanently if settings are missing after applying category + sort order
+ * Fails permanently if settings are missing after applying the sale category
  * (partial success by design — product is in sale category but custom fields are defaults).
  */
 final readonly class AddProductToSaleUseCase
 {
-    private const int SALE_SORT_ORDER = 3;
-
     public function __construct(
         private ProductRepositoryInterface $productRepo,
         private ProductFieldUpdateClientInterface $fieldUpdateClient,
@@ -54,31 +52,36 @@ final readonly class AddProductToSaleUseCase
      */
     public function execute(IntId $productId): void
     {
-        $product = $this->productRepo->getProduct($productId);
+        $view = $this->productRepo->findDetailedProductView($productId);
         $saleSettings = $this->saleSettingsRepo->findByProduct($productId);
 
-        $this->fieldUpdateClient->update($productId->value, ...self::buildFieldUpdates($product, $this->saleCategoryId));
-        $this->productUpdateClient->updateCustomFields($productId->value, SaleSettings::toCustomFieldsArray($saleSettings, $product->sortOrder));
+        $fieldUpdates = self::buildFieldUpdates($view, $this->saleCategoryId);
+        if ($fieldUpdates !== []) {
+            $this->fieldUpdateClient->update($productId->value, ...$fieldUpdates);
+        }
 
-        // Fail permanently if settings missing — category + sort order applied but custom fields are empty/default
+        $this->productUpdateClient->updateCustomFields($productId->value, SaleSettings::toCustomFieldsArray($saleSettings));
+
+        // Fail permanently if settings missing — sale category applied but custom fields are empty/default
         if ($saleSettings === null) {
             throw new ResourceNotFoundException('shopwired', 'ProductSaleSettings', $productId->value);
         }
     }
 
     /**
-     * Build field updates: always set sort order, conditionally add sale category.
+     * Build field updates: add the sale category if the product is not already a member.
      *
      * @return list<ProductFieldUpdate>
      */
-    private static function buildFieldUpdates(Product $product, int $saleCategoryId): array
+    private static function buildFieldUpdates(ProductView $view, int $saleCategoryId): array
     {
-        $fieldUpdates = [ProductFieldUpdate::sortOrder(self::SALE_SORT_ORDER)];
-
-        if (! $product->isInCategory($saleCategoryId)) {
-            $fieldUpdates[] = ProductFieldUpdate::categories([...$product->categoryIds, $saleCategoryId]);
+        $saleCategory = IntId::from($saleCategoryId);
+        if ($view->isInCategory($saleCategory)) {
+            return [];
         }
 
-        return $fieldUpdates;
+        $currentCategoryIds = \array_map(static fn(IntId $id): int => $id->value, $view->categoryIds);
+
+        return [ProductFieldUpdate::categories([...$currentCategoryIds, $saleCategoryId])];
     }
 }

@@ -10,7 +10,13 @@ use App\Application\Contracts\Shopwired\SaleSettingsRepositoryInterface;
 use App\Application\Shopwired\SaleManagement\Resolvers\ProductSaleStateResolver;
 use App\Application\Shopwired\SaleManagement\Results\ProductSaleStateResult;
 use App\Application\Shopwired\SaleManagement\UseCases\ReconcileProductSaleStateUseCase;
-use App\Domain\Catalog\Product\ValueObjects\Product;
+use App\Domain\Catalog\CustomFields\Enums\CustomFieldItemType;
+use App\Domain\Catalog\CustomFields\Enums\CustomFieldType;
+use App\Domain\Catalog\CustomFields\ValueObjects\AbstractCustomFieldValue;
+use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldDefinition;
+use App\Domain\Catalog\CustomFields\ValueObjects\StringCustomFieldValue;
+use App\Domain\Catalog\Product\Enums\ProductInclude;
+use App\Domain\Catalog\Product\ValueObjects\ProductView;
 use App\Domain\Catalog\Product\ValueObjects\SaleSettings;
 use App\Domain\ValueObjects\IntId;
 use DateTimeImmutable;
@@ -78,7 +84,7 @@ final class ReconcileProductSaleStateUseCaseTest extends TestCase
             ->andReturnFalse();
 
         // Must NOT load product or dispatch anything
-        $this->productRepo->shouldNotReceive('getProduct');
+        $this->productRepo->shouldNotReceive('findDetailedProductView');
         $this->dispatcher->shouldNotReceive('dispatchAddToSale');
         $this->dispatcher->shouldNotReceive('dispatchRemoveFromSale');
         $this->saleSettingsRepo->shouldNotReceive('findByProduct');
@@ -94,7 +100,7 @@ final class ReconcileProductSaleStateUseCaseTest extends TestCase
     public function dispatches_add_to_sale_when_drift_needs_add_and_settings_in_db(): void
     {
         $productId = IntId::from(10);
-        $product = self::createProduct(id: 10, sku: 'SKU-010');
+        $view = self::createView();
         $dbSettings = new SaleSettings(saleReason: 'Flash Sale');
 
         $result = new ProductSaleStateResult(
@@ -105,14 +111,17 @@ final class ReconcileProductSaleStateUseCaseTest extends TestCase
         );
 
         $this->productRepo->shouldReceive('hasSaleStateDrift')->once()->andReturnTrue();
-        $this->productRepo->shouldReceive('getProduct')
+        $this->productRepo->shouldReceive('findDetailedProductView')
             ->once()
-            ->with(Mockery::on(static fn(IntId $id): bool => $id->value === 10))
-            ->andReturn($product);
+            ->with(
+                Mockery::on(static fn(IntId $id): bool => $id->value === 10),
+                [ProductInclude::CustomFields],
+            )
+            ->andReturn($view);
 
         $this->specification->shouldReceive('evaluate')
             ->once()
-            ->with($product)
+            ->with($view)
             ->andReturn($result);
 
         // DB has existing settings — no save needed
@@ -139,7 +148,7 @@ final class ReconcileProductSaleStateUseCaseTest extends TestCase
     public function dispatches_remove_from_sale_and_sku_updates_when_drift_needs_remove(): void
     {
         $productId = IntId::from(20);
-        $product = self::createProduct(id: 20, sku: 'SKU-020');
+        $view = self::createView();
 
         $result = new ProductSaleStateResult(
             productId: $productId,
@@ -149,14 +158,17 @@ final class ReconcileProductSaleStateUseCaseTest extends TestCase
         );
 
         $this->productRepo->shouldReceive('hasSaleStateDrift')->once()->andReturnTrue();
-        $this->productRepo->shouldReceive('getProduct')
+        $this->productRepo->shouldReceive('findDetailedProductView')
             ->once()
-            ->with(Mockery::on(static fn(IntId $id): bool => $id->value === 20))
-            ->andReturn($product);
+            ->with(
+                Mockery::on(static fn(IntId $id): bool => $id->value === 20),
+                [ProductInclude::CustomFields],
+            )
+            ->andReturn($view);
 
         $this->specification->shouldReceive('evaluate')
             ->once()
-            ->with($product)
+            ->with($view)
             ->andReturn($result);
 
         $this->dispatcher->shouldNotReceive('dispatchAddToSale');
@@ -177,7 +189,7 @@ final class ReconcileProductSaleStateUseCaseTest extends TestCase
     public function does_not_dispatch_when_specification_says_no_correction_needed(): void
     {
         $productId = IntId::from(30);
-        $product = self::createProduct(id: 30, sku: 'SKU-030');
+        $view = self::createView();
 
         $result = new ProductSaleStateResult(
             productId: $productId,
@@ -187,7 +199,7 @@ final class ReconcileProductSaleStateUseCaseTest extends TestCase
         );
 
         $this->productRepo->shouldReceive('hasSaleStateDrift')->once()->andReturnTrue();
-        $this->productRepo->shouldReceive('getProduct')->once()->andReturn($product);
+        $this->productRepo->shouldReceive('findDetailedProductView')->once()->andReturn($view);
         $this->specification->shouldReceive('evaluate')->once()->andReturn($result);
 
         $this->dispatcher->shouldNotReceive('dispatchAddToSale');
@@ -205,11 +217,11 @@ final class ReconcileProductSaleStateUseCaseTest extends TestCase
     public function reconstructs_and_persists_sale_settings_from_custom_fields_when_no_db_row(): void
     {
         $productId = IntId::from(40);
-        $product = self::createProduct(id: 40, sku: 'SKU-040', rawCustomFields: [
-            'sale_reason' => 'Clearance',
-            'sale_comments' => 'End of line',
-            'sale_date_end' => '2099-12-31',
-            'sale_ends_stock' => '10',
+        $view = self::createView(customFields: [
+            self::stringField('sale_reason', 'Clearance'),
+            self::stringField('sale_comments', 'End of line'),
+            self::stringField('sale_date_end', '2099-12-31'),
+            self::stringField('sale_ends_stock', '10'),
         ]);
 
         $result = new ProductSaleStateResult(
@@ -220,7 +232,7 @@ final class ReconcileProductSaleStateUseCaseTest extends TestCase
         );
 
         $this->productRepo->shouldReceive('hasSaleStateDrift')->once()->andReturnTrue();
-        $this->productRepo->shouldReceive('getProduct')->once()->andReturn($product);
+        $this->productRepo->shouldReceive('findDetailedProductView')->once()->andReturn($view);
         $this->specification->shouldReceive('evaluate')->once()->andReturn($result);
 
         // No DB row — triggers fallback build + persist
@@ -255,7 +267,7 @@ final class ReconcileProductSaleStateUseCaseTest extends TestCase
     public function uses_fallback_reconciliation_reason_when_no_db_row_and_no_custom_fields(): void
     {
         $productId = IntId::from(50);
-        $product = self::createProduct(id: 50, sku: 'SKU-050', rawCustomFields: []);
+        $view = self::createView(customFields: []);
 
         $result = new ProductSaleStateResult(
             productId: $productId,
@@ -265,7 +277,7 @@ final class ReconcileProductSaleStateUseCaseTest extends TestCase
         );
 
         $this->productRepo->shouldReceive('hasSaleStateDrift')->once()->andReturnTrue();
-        $this->productRepo->shouldReceive('getProduct')->once()->andReturn($product);
+        $this->productRepo->shouldReceive('findDetailedProductView')->once()->andReturn($view);
         $this->specification->shouldReceive('evaluate')->once()->andReturn($result);
 
         $this->saleSettingsRepo->shouldReceive('findByProduct')
@@ -294,44 +306,29 @@ final class ReconcileProductSaleStateUseCaseTest extends TestCase
     // ========================================================================
 
     /**
-     * @param array<string, mixed> $rawCustomFields
+     * @param list<AbstractCustomFieldValue> $customFields
      */
-    private static function createProduct(
-        int $id,
-        ?string $sku,
-        bool $isActive = true,
-        int $stock = 100,
-        array $rawCustomFields = [],
-    ): Product {
-        return new Product(
-            id: $id,
-            sku: $sku,
-            gtin: null,
-            title: "Product {$id}",
-            description: null,
-            slug: "product-{$id}",
-            url: "https://example.com/product-{$id}",
-            price: 25.00,
-            costPrice: null,
-            salePrice: 20.00,
-            comparePrice: null,
-            stock: $stock,
-            isActive: $isActive,
-            vatExclusive: false,
-            vatRelief: false,
-            weight: null,
-            metaTitle: null,
-            metaDescription: null,
-            categoryIds: [],
-            variations: null,
-            images: [],
-            rawCustomFields: $rawCustomFields,
-            customFields: [],
-            rawFilters: [],
-            filters: [],
-            sortOrder: null,
-            createdAt: new DateTimeImmutable('2024-01-01'),
-            updatedAt: new DateTimeImmutable('2024-01-01'),
+    private static function createView(array $customFields = []): ProductView&MockInterface
+    {
+        $view = Mockery::mock(ProductView::class);
+        $view->customFields = $customFields;
+
+        return $view;
+    }
+
+    private static function stringField(string $name, string $value): StringCustomFieldValue
+    {
+        return new StringCustomFieldValue(
+            new CustomFieldDefinition(
+                id: \abs(\crc32($name)) ?: 1,
+                name: $name,
+                type: CustomFieldType::Text,
+                label: null,
+                itemType: CustomFieldItemType::Product,
+                sortOrder: null,
+                allowedValues: null,
+            ),
+            $value,
         );
     }
 }

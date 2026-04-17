@@ -100,6 +100,8 @@ final readonly class ProductViewAssembler
             updatedAt: $model->shopwired_updated_at->toDateTimeImmutable(),
             meta: new ProductViewMeta($allVariations, $defaultSupplier, $stockItem?->is_composite),
             hasAnyVariationOnSale: ProductVariationView::anyOnSale($allVariations),
+            parentAvailableStock: $model->available_stock,
+            parentPhysicalStock: $model->physical_stock,
             saleSettings: self::resolveSaleSettings($model, $includes),
             freeDelivery: self::resolveFreeDelivery($typedCustomFields),
             suppliers: self::resolveSuppliers($model, $includes),
