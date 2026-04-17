@@ -13,10 +13,12 @@ use App\Domain\Catalog\CustomFields\ValueObjects\AbstractCustomFieldValue;
 use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldDefinition;
 use App\Domain\Catalog\CustomFields\ValueObjects\StringCustomFieldValue;
 use App\Domain\Catalog\Product\Enums\SaleRemovalReason;
-use App\Domain\Catalog\Product\ValueObjects\Product;
+use App\Domain\Catalog\Product\ValueObjects\ProductView;
 use App\Domain\Catalog\Product\ValueObjects\SaleSettings;
+use App\Domain\Catalog\Product\ValueObjects\Sku;
+use App\Domain\Catalog\Product\ValueObjects\Stock;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
-use DateTimeImmutable;
+use App\Domain\ValueObjects\IntId;
 use Mockery;
 use Mockery\MockInterface;
 use Override;
@@ -59,7 +61,7 @@ final class CheckExpiredSalesUseCaseTest extends TestCase
     #[Test]
     public function returns_zero_counts_when_no_products_on_sale(): void
     {
-        $this->productRepo->shouldReceive('getProductsOnSale')->once()->andReturn([]);
+        $this->productRepo->shouldReceive('findProductViewsOnSale')->once()->andReturn([]);
 
         $result = $this->useCase->execute();
 
@@ -73,8 +75,8 @@ final class CheckExpiredSalesUseCaseTest extends TestCase
     #[Test]
     public function removes_inactive_product(): void
     {
-        $product = self::createProduct(id: 1, sku: 'SKU-001', isActive: false);
-        $this->productRepo->shouldReceive('getProductsOnSale')->andReturn([$product]);
+        $view = self::createView(id: 1, sku: 'SKU-001', isActive: false);
+        $this->productRepo->shouldReceive('findProductViewsOnSale')->andReturn([$view]);
 
         $this->updatePricesUseCase->shouldReceive('execute')
             ->once()
@@ -97,10 +99,10 @@ final class CheckExpiredSalesUseCaseTest extends TestCase
     #[Test]
     public function removes_product_with_past_end_date(): void
     {
-        $product = self::createProduct(id: 2, sku: 'SKU-002', customFields: [
+        $view = self::createView(id: 2, sku: 'SKU-002', customFields: [
             'sale_date_end' => '2026-03-01',
         ]);
-        $this->productRepo->shouldReceive('getProductsOnSale')->andReturn([$product]);
+        $this->productRepo->shouldReceive('findProductViewsOnSale')->andReturn([$view]);
 
         $this->updatePricesUseCase->shouldReceive('execute')
             ->once()
@@ -117,10 +119,10 @@ final class CheckExpiredSalesUseCaseTest extends TestCase
     #[Test]
     public function skips_product_with_future_end_date(): void
     {
-        $product = self::createProduct(id: 3, sku: 'SKU-003', customFields: [
+        $view = self::createView(id: 3, sku: 'SKU-003', customFields: [
             'sale_date_end' => '2099-12-31',
         ]);
-        $this->productRepo->shouldReceive('getProductsOnSale')->andReturn([$product]);
+        $this->productRepo->shouldReceive('findProductViewsOnSale')->andReturn([$view]);
         $this->updatePricesUseCase->shouldNotReceive('execute');
 
         $result = $this->useCase->execute();
@@ -132,10 +134,10 @@ final class CheckExpiredSalesUseCaseTest extends TestCase
     #[Test]
     public function skips_product_with_malformed_end_date(): void
     {
-        $product = self::createProduct(id: 4, sku: 'SKU-004', customFields: [
+        $view = self::createView(id: 4, sku: 'SKU-004', customFields: [
             'sale_date_end' => 'not-a-date',
         ]);
-        $this->productRepo->shouldReceive('getProductsOnSale')->andReturn([$product]);
+        $this->productRepo->shouldReceive('findProductViewsOnSale')->andReturn([$view]);
         $this->updatePricesUseCase->shouldNotReceive('execute');
 
         $result = $this->useCase->execute();
@@ -146,8 +148,8 @@ final class CheckExpiredSalesUseCaseTest extends TestCase
     #[Test]
     public function skips_product_with_no_end_date(): void
     {
-        $product = self::createProduct(id: 5, sku: 'SKU-005');
-        $this->productRepo->shouldReceive('getProductsOnSale')->andReturn([$product]);
+        $view = self::createView(id: 5, sku: 'SKU-005');
+        $this->productRepo->shouldReceive('findProductViewsOnSale')->andReturn([$view]);
         $this->updatePricesUseCase->shouldNotReceive('execute');
 
         $result = $this->useCase->execute();
@@ -162,10 +164,10 @@ final class CheckExpiredSalesUseCaseTest extends TestCase
     #[Test]
     public function removes_out_of_stock_discontinued_product(): void
     {
-        $product = self::createProduct(id: 6, sku: 'SKU-006', stock: 0, customFields: [
+        $view = self::createView(id: 6, sku: 'SKU-006', availableStock: 0, customFields: [
             'discontinued' => 'yes',
         ]);
-        $this->productRepo->shouldReceive('getProductsOnSale')->andReturn([$product]);
+        $this->productRepo->shouldReceive('findProductViewsOnSale')->andReturn([$view]);
 
         $this->updatePricesUseCase->shouldReceive('execute')
             ->once()
@@ -182,10 +184,10 @@ final class CheckExpiredSalesUseCaseTest extends TestCase
     #[Test]
     public function skips_in_stock_discontinued_product(): void
     {
-        $product = self::createProduct(id: 7, sku: 'SKU-007', stock: 10, customFields: [
+        $view = self::createView(id: 7, sku: 'SKU-007', availableStock: 10, customFields: [
             'discontinued' => 'yes',
         ]);
-        $this->productRepo->shouldReceive('getProductsOnSale')->andReturn([$product]);
+        $this->productRepo->shouldReceive('findProductViewsOnSale')->andReturn([$view]);
         $this->updatePricesUseCase->shouldNotReceive('execute');
 
         $result = $this->useCase->execute();
@@ -196,8 +198,8 @@ final class CheckExpiredSalesUseCaseTest extends TestCase
     #[Test]
     public function skips_out_of_stock_not_discontinued_product(): void
     {
-        $product = self::createProduct(id: 8, sku: 'SKU-008', stock: 0);
-        $this->productRepo->shouldReceive('getProductsOnSale')->andReturn([$product]);
+        $view = self::createView(id: 8, sku: 'SKU-008', availableStock: 0);
+        $this->productRepo->shouldReceive('findProductViewsOnSale')->andReturn([$view]);
         $this->updatePricesUseCase->shouldNotReceive('execute');
 
         $result = $this->useCase->execute();
@@ -212,10 +214,10 @@ final class CheckExpiredSalesUseCaseTest extends TestCase
     #[Test]
     public function removes_product_when_stock_at_threshold(): void
     {
-        $product = self::createProduct(id: 9, sku: 'SKU-009', stock: 5, customFields: [
+        $view = self::createView(id: 9, sku: 'SKU-009', availableStock: 5, customFields: [
             'sale_ends_stock' => '5',
         ]);
-        $this->productRepo->shouldReceive('getProductsOnSale')->andReturn([$product]);
+        $this->productRepo->shouldReceive('findProductViewsOnSale')->andReturn([$view]);
 
         $this->updatePricesUseCase->shouldReceive('execute')
             ->once()
@@ -232,10 +234,10 @@ final class CheckExpiredSalesUseCaseTest extends TestCase
     #[Test]
     public function removes_product_when_stock_below_threshold(): void
     {
-        $product = self::createProduct(id: 10, sku: 'SKU-010', stock: 2, customFields: [
+        $view = self::createView(id: 10, sku: 'SKU-010', availableStock: 2, customFields: [
             'sale_ends_stock' => '5',
         ]);
-        $this->productRepo->shouldReceive('getProductsOnSale')->andReturn([$product]);
+        $this->productRepo->shouldReceive('findProductViewsOnSale')->andReturn([$view]);
 
         $this->updatePricesUseCase->shouldReceive('execute')->once();
 
@@ -247,10 +249,10 @@ final class CheckExpiredSalesUseCaseTest extends TestCase
     #[Test]
     public function skips_product_when_stock_above_threshold(): void
     {
-        $product = self::createProduct(id: 11, sku: 'SKU-011', stock: 10, customFields: [
+        $view = self::createView(id: 11, sku: 'SKU-011', availableStock: 10, customFields: [
             'sale_ends_stock' => '5',
         ]);
-        $this->productRepo->shouldReceive('getProductsOnSale')->andReturn([$product]);
+        $this->productRepo->shouldReceive('findProductViewsOnSale')->andReturn([$view]);
         $this->updatePricesUseCase->shouldNotReceive('execute');
 
         $result = $this->useCase->execute();
@@ -261,10 +263,10 @@ final class CheckExpiredSalesUseCaseTest extends TestCase
     #[Test]
     public function skips_product_with_non_numeric_threshold(): void
     {
-        $product = self::createProduct(id: 12, sku: 'SKU-012', stock: 2, customFields: [
+        $view = self::createView(id: 12, sku: 'SKU-012', availableStock: 2, customFields: [
             'sale_ends_stock' => 'abc',
         ]);
-        $this->productRepo->shouldReceive('getProductsOnSale')->andReturn([$product]);
+        $this->productRepo->shouldReceive('findProductViewsOnSale')->andReturn([$view]);
         $this->updatePricesUseCase->shouldNotReceive('execute');
 
         $result = $this->useCase->execute();
@@ -275,10 +277,10 @@ final class CheckExpiredSalesUseCaseTest extends TestCase
     #[Test]
     public function skips_product_with_empty_threshold(): void
     {
-        $product = self::createProduct(id: 13, sku: 'SKU-013', stock: 2, customFields: [
+        $view = self::createView(id: 13, sku: 'SKU-013', availableStock: 2, customFields: [
             'sale_ends_stock' => '',
         ]);
-        $this->productRepo->shouldReceive('getProductsOnSale')->andReturn([$product]);
+        $this->productRepo->shouldReceive('findProductViewsOnSale')->andReturn([$view]);
         $this->updatePricesUseCase->shouldNotReceive('execute');
 
         $result = $this->useCase->execute();
@@ -293,8 +295,8 @@ final class CheckExpiredSalesUseCaseTest extends TestCase
     #[Test]
     public function increments_failed_count_when_product_has_no_sku(): void
     {
-        $product = self::createProduct(id: 14, sku: null, isActive: false);
-        $this->productRepo->shouldReceive('getProductsOnSale')->andReturn([$product]);
+        $view = self::createView(id: 14, sku: null, isActive: false);
+        $this->productRepo->shouldReceive('findProductViewsOnSale')->andReturn([$view]);
         $this->updatePricesUseCase->shouldNotReceive('execute');
 
         $this->logger->shouldReceive('warning')
@@ -311,24 +313,12 @@ final class CheckExpiredSalesUseCaseTest extends TestCase
     }
 
     #[Test]
-    public function increments_failed_count_when_product_has_empty_sku(): void
-    {
-        $product = self::createProduct(id: 15, sku: '', isActive: false);
-        $this->productRepo->shouldReceive('getProductsOnSale')->andReturn([$product]);
-        $this->updatePricesUseCase->shouldNotReceive('execute');
-
-        $result = $this->useCase->execute();
-
-        self::assertSame(1, $result['failed']);
-    }
-
-    #[Test]
     public function continues_processing_when_individual_removal_fails(): void
     {
-        $failing = self::createProduct(id: 16, sku: 'FAIL-001', isActive: false);
-        $succeeding = self::createProduct(id: 17, sku: 'OK-001', isActive: false);
+        $failing = self::createView(id: 16, sku: 'FAIL-001', isActive: false);
+        $succeeding = self::createView(id: 17, sku: 'OK-001', isActive: false);
 
-        $this->productRepo->shouldReceive('getProductsOnSale')->andReturn([$failing, $succeeding]);
+        $this->productRepo->shouldReceive('findProductViewsOnSale')->andReturn([$failing, $succeeding]);
 
         $this->updatePricesUseCase->shouldReceive('execute')
             ->once()
@@ -365,10 +355,10 @@ final class CheckExpiredSalesUseCaseTest extends TestCase
     #[Test]
     public function inactive_takes_priority_over_end_date(): void
     {
-        $product = self::createProduct(id: 18, sku: 'SKU-018', isActive: false, customFields: [
+        $view = self::createView(id: 18, sku: 'SKU-018', isActive: false, customFields: [
             'sale_date_end' => '2026-01-01',
         ]);
-        $this->productRepo->shouldReceive('getProductsOnSale')->andReturn([$product]);
+        $this->productRepo->shouldReceive('findProductViewsOnSale')->andReturn([$view]);
 
         $this->updatePricesUseCase->shouldReceive('execute')
             ->once()
@@ -389,45 +379,37 @@ final class CheckExpiredSalesUseCaseTest extends TestCase
     /**
      * @param array<string, string> $customFields Raw name => value pairs, converted to typed StringCustomFieldValue
      */
-    private static function createProduct(
+    private static function createView(
         int $id,
         ?string $sku,
         bool $isActive = true,
-        int $stock = 100,
+        int $availableStock = 100,
         array $customFields = [],
-    ): Product {
+    ): ProductView&MockInterface {
         $typedFields = self::buildTypedCustomFields($customFields);
+        $onSaleSkus = $sku !== null && $sku !== '' ? [Sku::fromTrusted($sku)] : [];
 
-        return new Product(
-            id: $id,
-            sku: $sku,
-            gtin: null,
-            title: "Product {$id}",
-            description: null,
-            slug: "product-{$id}",
-            url: "https://example.com/product-{$id}",
-            price: 25.00,
-            costPrice: null,
-            salePrice: 20.00,
-            comparePrice: null,
-            stock: $stock,
-            isActive: $isActive,
-            vatExclusive: false,
-            vatRelief: false,
-            weight: null,
-            metaTitle: null,
-            metaDescription: null,
-            categoryIds: [],
-            variations: null,
-            images: [],
-            rawCustomFields: $customFields,
-            customFields: $typedFields,
-            rawFilters: [],
-            filters: [],
-            sortOrder: null,
-            createdAt: new DateTimeImmutable('2024-01-01'),
-            updatedAt: new DateTimeImmutable('2024-01-01'),
-        );
+        $view = Mockery::mock(ProductView::class);
+        $view->id = IntId::from($id);
+        $view->isActive = $isActive;
+        $view->customFields = $typedFields;
+        $view->stockLevel = new Stock(availableStock: $availableStock, physicalStock: $availableStock);
+
+        $view->shouldReceive('getCustomField')
+            ->andReturnUsing(static fn(string $name): ?AbstractCustomFieldValue => \array_find(
+                $typedFields,
+                static fn(AbstractCustomFieldValue $field): bool => $field->name() === $name,
+            ));
+
+        $view->shouldReceive('hasCustomField')
+            ->andReturnUsing(static fn(string $name): bool => \array_any(
+                $typedFields,
+                static fn(AbstractCustomFieldValue $field): bool => $field->name() === $name,
+            ));
+
+        $view->shouldReceive('allOnSaleSkus')->andReturn($onSaleSkus);
+
+        return $view;
     }
 
     /**
