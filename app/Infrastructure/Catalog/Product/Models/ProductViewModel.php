@@ -56,6 +56,8 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property float|null $profit_margin Gross profit margin % computed at DB level
  * @property bool $has_free_delivery Whether product has a free delivery designation
  * @property list<int> $main_category_ids Main category IDs this product belongs to (directly or via ancestor chain)
+ * @property int|null $popularity_rank Latest snapshot's calculated_sort_order (1 = most popular)
+ * @property int|null $popularity_max Max_rank from the config active at snapshot time
  * @property-read Collection<int, ProductVariationViewModel> $variations
  * @property-read StockItemModel|null $stockItem
  */
@@ -99,6 +101,8 @@ final class ProductViewModel extends Model
             'profit_margin' => 'float',
             'available_stock' => 'integer',
             'physical_stock' => 'integer',
+            'popularity_rank' => 'integer',
+            'popularity_max' => 'integer',
         ];
     }
 
