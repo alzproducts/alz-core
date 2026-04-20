@@ -9,6 +9,7 @@ use App\Domain\Catalog\CustomFields\ValueObjects\AbstractCustomFieldValue;
 use App\Domain\Catalog\Filters\ValueObjects\ProductFilter;
 use App\Domain\Catalog\Product\Enums\FreeDeliveryType;
 use App\Domain\Catalog\Product\Enums\ProductInclude;
+use App\Domain\Catalog\Product\ValueObjects\Popularity;
 use App\Domain\Catalog\Product\ValueObjects\ProductImage;
 use App\Domain\Catalog\Product\ValueObjects\ProductInventory;
 use App\Domain\Catalog\Product\ValueObjects\ProductLinks;
@@ -96,6 +97,7 @@ final readonly class ProductViewAssembler
             customFields: \in_array(ProductInclude::CustomFields, $includes, true) ? $typedCustomFields : [],
             filters: $this->resolveFilters($model, $includes),
             sortOrder: $model->sort_order,
+            popularity: Popularity::fromRank($model->popularity_rank, $model->popularity_max),
             createdAt: $model->shopwired_created_at->toDateTimeImmutable(),
             updatedAt: $model->shopwired_updated_at->toDateTimeImmutable(),
             meta: new ProductViewMeta($allVariations, $defaultSupplier, $stockItem?->is_composite),

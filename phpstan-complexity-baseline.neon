@@ -506,7 +506,7 @@ parameters:
 			path: app/Domain/Catalog/Product/ValueObjects/ProductVariationView.php
 
 		-
-			rawMessage: 'Method __construct() is 66 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			rawMessage: 'Method __construct() is 67 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Domain/Catalog/Product/ValueObjects/ProductView.php
@@ -663,7 +663,7 @@ parameters:
 			path: app/Infrastructure/Catalog/Product/Mappers/ProductVariationModelMapper.php
 
 		-
-			rawMessage: 'Method toViewDomain() is 51 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			rawMessage: 'Method toViewDomain() is 52 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Infrastructure/Catalog/Product/Mappers/ProductViewAssembler.php
@@ -1655,7 +1655,7 @@ parameters:
 			path: app/Presentation/Http/Api/Resources/ProductVariationResource.php
 
 		-
-			rawMessage: 'Method baseFields() is 38 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			rawMessage: 'Method baseFields() is 39 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Presentation/Http/Api/Resources/ProductResource.php

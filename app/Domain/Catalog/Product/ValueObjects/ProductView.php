@@ -115,6 +115,7 @@ final readonly class ProductView
         public ?bool $isComposite = null,
         /** @var list<int> */
         array $mainCategoryIds = [],
+        public ?Popularity $popularity = null,
     ) {
         $taxType = $vatExclusive ? TaxType::ZeroRated : TaxType::Inclusive;
 
