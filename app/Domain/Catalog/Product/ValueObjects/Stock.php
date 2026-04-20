@@ -4,15 +4,16 @@ declare(strict_types=1);
 
 namespace App\Domain\Catalog\Product\ValueObjects;
 
-use Webmozart\Assert\Assert;
-
 /**
  * Read-side stock totals for a product or variation view.
  *
  * Exposes two concepts:
- * - availableStock: what's sellable right now (what ShopWired displays; matches
- *   the value pushed by the stock sync — Linnworks `Level_LessOrderBook`).
- * - physicalStock: on-hand quantity before order-book allocation.
+ * - availableStock: what's sellable right now. Negative raw inputs are clamped
+ *   to 0 — the sellable count is non-negative by definition. For raw Linnworks
+ *   values including oversold state, use `ProductStock` (`?include=stock`) or
+ *   `ProductInventory` (`?include=inventory`).
+ * - physicalStock: on-hand quantity before order-book allocation, likewise
+ *   clamped to 0.
  *
  * For a parent ProductView with variations, both totals sum across variations
  * via fromParentAndVariants() — parent SKUs don't hold their own stock when
@@ -20,12 +21,14 @@ use Webmozart\Assert\Assert;
  */
 final readonly class Stock
 {
-    public function __construct(
-        public int $availableStock,
-        public int $physicalStock,
-    ) {
-        Assert::greaterThanEq($availableStock, 0, 'availableStock cannot be negative');
-        Assert::greaterThanEq($physicalStock, 0, 'physicalStock cannot be negative');
+    public int $availableStock;
+
+    public int $physicalStock;
+
+    public function __construct(int $availableStock, int $physicalStock)
+    {
+        $this->availableStock = \max(0, $availableStock);
+        $this->physicalStock = \max(0, $physicalStock);
     }
 
     /**
