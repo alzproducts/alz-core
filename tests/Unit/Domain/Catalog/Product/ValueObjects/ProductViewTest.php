@@ -4,12 +4,18 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Domain\Catalog\Product\ValueObjects;
 
+use App\Domain\Catalog\CustomFields\Enums\CustomFieldItemType;
+use App\Domain\Catalog\CustomFields\Enums\CustomFieldType;
+use App\Domain\Catalog\CustomFields\ValueObjects\AbstractCustomFieldValue;
+use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldDefinition;
+use App\Domain\Catalog\CustomFields\ValueObjects\StringCustomFieldValue;
 use App\Domain\Catalog\Product\Enums\FreeDeliveryType;
 use App\Domain\Catalog\Product\ValueObjects\ProductLinks;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariationView;
 use App\Domain\Catalog\Product\ValueObjects\ProductView;
 use App\Domain\Catalog\Product\ValueObjects\ProductViewMeta;
 use App\Domain\Shared\ValueObjects\DateFormat;
+use App\Domain\ValueObjects\IntId;
 use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -46,7 +52,8 @@ final class ProductViewTest extends TestCase
             effectivePrice: 30.00,
             isOnSale: true,
             profitMargin: null,
-            stock: 5,
+            availableStock: 5,
+            physicalStock: 5,
             weight: null,
             vatExclusive: false,
             mpn: null,
@@ -74,7 +81,8 @@ final class ProductViewTest extends TestCase
             effectivePrice: 50.00,
             isOnSale: false,
             profitMargin: null,
-            stock: 5,
+            availableStock: 5,
+            physicalStock: 5,
             weight: null,
             vatExclusive: false,
             mpn: null,
@@ -297,6 +305,251 @@ final class ProductViewTest extends TestCase
 
     /*
     |--------------------------------------------------------------------------
+    | isInCategory
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function is_in_category_true_when_id_present(): void
+    {
+        $view = $this->createView(categoryIds: [10, 20, 30]);
+
+        self::assertTrue($view->isInCategory(IntId::from(20)));
+    }
+
+    #[Test]
+    public function is_in_category_false_when_id_absent(): void
+    {
+        $view = $this->createView(categoryIds: [10, 20, 30]);
+
+        self::assertFalse($view->isInCategory(IntId::from(99)));
+    }
+
+    #[Test]
+    public function is_in_category_false_when_category_ids_empty(): void
+    {
+        $view = $this->createView(categoryIds: []);
+
+        self::assertFalse($view->isInCategory(IntId::from(10)));
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | getCustomField / hasCustomField
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function get_custom_field_returns_matching_field_by_name(): void
+    {
+        $field = $this->stringCustomField('sale_reason', 'Spring clearance');
+        $view = $this->createView(customFields: [$field]);
+
+        self::assertSame($field, $view->getCustomField('sale_reason'));
+    }
+
+    #[Test]
+    public function get_custom_field_returns_null_when_name_not_found(): void
+    {
+        $view = $this->createView(customFields: [
+            $this->stringCustomField('sale_reason', 'Spring clearance'),
+        ]);
+
+        self::assertNull($view->getCustomField('missing_field'));
+    }
+
+    #[Test]
+    public function has_custom_field_true_when_field_present(): void
+    {
+        $view = $this->createView(customFields: [
+            $this->stringCustomField('discontinued', 'yes'),
+        ]);
+
+        self::assertTrue($view->hasCustomField('discontinued'));
+    }
+
+    #[Test]
+    public function has_custom_field_false_when_field_missing(): void
+    {
+        $view = $this->createView(customFields: []);
+
+        self::assertFalse($view->hasCustomField('discontinued'));
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | stockLevel
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function stock_level_sums_variations_when_present(): void
+    {
+        $view = $this->createView(variations: [
+            $this->createVariation(availableStock: 3, physicalStock: 4),
+            $this->createVariation(availableStock: 7, physicalStock: 9),
+            $this->createVariation(availableStock: 0, physicalStock: 1),
+        ]);
+
+        self::assertSame(10, $view->stockLevel->availableStock);
+        self::assertSame(14, $view->stockLevel->physicalStock);
+    }
+
+    #[Test]
+    public function stock_level_uses_parent_values_when_no_variations(): void
+    {
+        $view = $this->createView(variations: [], parentAvailableStock: 42, parentPhysicalStock: 50);
+
+        self::assertSame(42, $view->stockLevel->availableStock);
+        self::assertSame(50, $view->stockLevel->physicalStock);
+    }
+
+    #[Test]
+    public function stock_level_zero_when_no_variations_and_parent_stock_zero(): void
+    {
+        $view = $this->createView(variations: [], parentAvailableStock: 0, parentPhysicalStock: 0);
+
+        self::assertSame(0, $view->stockLevel->availableStock);
+        self::assertSame(0, $view->stockLevel->physicalStock);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | allOnSaleSkus
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function all_on_sale_skus_includes_master_when_on_sale(): void
+    {
+        $view = $this->createView(
+            sku: 'MASTER-SKU',
+            isOnSale: true,
+            variations: [],
+        );
+
+        $skus = $view->allOnSaleSkus();
+
+        self::assertCount(1, $skus);
+        self::assertSame('MASTER-SKU', $skus[0]->value);
+    }
+
+    #[Test]
+    public function all_on_sale_skus_excludes_master_when_not_on_sale(): void
+    {
+        $view = $this->createView(
+            sku: 'MASTER-SKU',
+            isOnSale: false,
+            variations: [],
+        );
+
+        self::assertSame([], $view->allOnSaleSkus());
+    }
+
+    #[Test]
+    public function all_on_sale_skus_includes_variation_on_sale(): void
+    {
+        $variation = new ProductVariationView(
+            externalId: 10,
+            sku: 'VAR-SKU-1',
+            gtin: null,
+            price: 50.00,
+            costPrice: null,
+            salePrice: 30.00,
+            rrp: null,
+            effectivePrice: 30.00,
+            isOnSale: true,
+            profitMargin: null,
+            availableStock: 5,
+            physicalStock: 5,
+            weight: null,
+            vatExclusive: false,
+            mpn: null,
+            imageIndex: null,
+            options: [],
+        );
+
+        $view = $this->createView(
+            sku: 'MASTER-SKU',
+            isOnSale: false,
+            variations: [$variation],
+        );
+
+        $skus = $view->allOnSaleSkus();
+
+        self::assertCount(1, $skus);
+        self::assertSame('VAR-SKU-1', $skus[0]->value);
+    }
+
+    #[Test]
+    public function all_on_sale_skus_collects_master_and_variations(): void
+    {
+        $variationOnSale = new ProductVariationView(
+            externalId: 10,
+            sku: 'VAR-SKU-1',
+            gtin: null,
+            price: 50.00,
+            costPrice: null,
+            salePrice: 30.00,
+            rrp: null,
+            effectivePrice: 30.00,
+            isOnSale: true,
+            profitMargin: null,
+            availableStock: 5,
+            physicalStock: 5,
+            weight: null,
+            vatExclusive: false,
+            mpn: null,
+            imageIndex: null,
+            options: [],
+        );
+        $variationNotOnSale = new ProductVariationView(
+            externalId: 11,
+            sku: 'VAR-SKU-2',
+            gtin: null,
+            price: 50.00,
+            costPrice: null,
+            salePrice: null,
+            rrp: null,
+            effectivePrice: 50.00,
+            isOnSale: false,
+            profitMargin: null,
+            availableStock: 5,
+            physicalStock: 5,
+            weight: null,
+            vatExclusive: false,
+            mpn: null,
+            imageIndex: null,
+            options: [],
+        );
+
+        $view = $this->createView(
+            sku: 'MASTER-SKU',
+            isOnSale: true,
+            variations: [$variationOnSale, $variationNotOnSale],
+        );
+
+        $skus = $view->allOnSaleSkus();
+
+        self::assertCount(2, $skus);
+        self::assertSame('MASTER-SKU', $skus[0]->value);
+        self::assertSame('VAR-SKU-1', $skus[1]->value);
+    }
+
+    #[Test]
+    public function all_on_sale_skus_skips_null_master_sku(): void
+    {
+        $view = $this->createView(
+            sku: null,
+            isOnSale: true,
+            variations: [],
+        );
+
+        self::assertSame([], $view->allOnSaleSkus());
+    }
+
+    /*
+    |--------------------------------------------------------------------------
     | Helpers
     |--------------------------------------------------------------------------
     */
@@ -304,6 +557,7 @@ final class ProductViewTest extends TestCase
     /**
      * @param list<ProductVariationView>|null $variations
      * @param list<int> $categoryIds
+     * @param list<AbstractCustomFieldValue> $customFields
      */
     private function createView(
         float $price = 100.00,
@@ -318,6 +572,9 @@ final class ProductViewTest extends TestCase
         ?FreeDeliveryType $freeDelivery = null,
         ?DateTimeImmutable $createdAt = null,
         ?DateTimeImmutable $updatedAt = null,
+        array $customFields = [],
+        int $parentAvailableStock = 0,
+        int $parentPhysicalStock = 0,
     ): ProductView {
         return new ProductView(
             externalId: 1,
@@ -345,20 +602,40 @@ final class ProductViewTest extends TestCase
             categoryIds: $categoryIds,
             variations: $variations,
             images: [],
-            customFields: [],
+            customFields: $customFields,
             filters: [],
             sortOrder: null,
             createdAt: $createdAt ?? new DateTimeImmutable('2024-01-01'),
             updatedAt: $updatedAt ?? new DateTimeImmutable('2024-01-01'),
             meta: new ProductViewMeta($variations, null, null),
             hasAnyVariationOnSale: ProductVariationView::anyOnSale($variations),
+            parentAvailableStock: $parentAvailableStock,
+            parentPhysicalStock: $parentPhysicalStock,
             freeDelivery: $freeDelivery,
+        );
+    }
+
+    private function stringCustomField(string $name, string $value): StringCustomFieldValue
+    {
+        return new StringCustomFieldValue(
+            new CustomFieldDefinition(
+                id: 1,
+                name: $name,
+                type: CustomFieldType::Text,
+                label: null,
+                itemType: CustomFieldItemType::Product,
+                sortOrder: null,
+                allowedValues: null,
+            ),
+            $value,
         );
     }
 
     private function createVariation(
         float $price = 50.00,
         ?float $rrp = null,
+        int $availableStock = 5,
+        int $physicalStock = 5,
     ): ProductVariationView {
         static $id = 100;
 
@@ -373,7 +650,8 @@ final class ProductViewTest extends TestCase
             effectivePrice: $price,
             isOnSale: false,
             profitMargin: null,
-            stock: 5,
+            availableStock: $availableStock,
+            physicalStock: $physicalStock,
             weight: null,
             vatExclusive: false,
             mpn: null,

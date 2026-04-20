@@ -17,7 +17,6 @@ enum SaleCustomField: string
     case Reason = 'sale_reason';
     case Comments = 'sale_comments';
     case EndsStock = 'sale_ends_stock';
-    case DefaultSortOrder = 'default_sort_order';
 
     /**
      * All sale custom fields set to empty strings (for clearing on removal).

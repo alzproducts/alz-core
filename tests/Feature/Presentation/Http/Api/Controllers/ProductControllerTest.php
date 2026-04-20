@@ -12,6 +12,7 @@ use App\Domain\Access\ValueObjects\AuthenticatedUser;
 use App\Domain\Catalog\Product\Enums\ProductFilterField;
 use App\Domain\Catalog\Product\Enums\ProductInclude;
 use App\Domain\Catalog\Product\Enums\ProductSortField;
+use App\Domain\Catalog\Product\ValueObjects\Popularity;
 use App\Domain\Catalog\Product\ValueObjects\ProductLinks;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariationOption;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariationView;
@@ -752,7 +753,7 @@ final class ProductControllerTest extends TestCase
             'is_active', 'is_on_sale', 'has_any_sale', 'has_free_delivery',
             'vat_exclusive', 'vat_relief',
             'meta_title', 'meta_description', 'free_delivery',
-            'sort_order', 'images', 'created_at', 'updated_at',
+            'sort_order', 'popularity', 'images', 'created_at', 'updated_at',
         ];
 
         foreach ($expectedKeys as $key) {
@@ -765,9 +766,36 @@ final class ProductControllerTest extends TestCase
         $this->assertSame(9.99, $productData['price']);
         $this->assertTrue($productData['is_active']);
         $this->assertFalse($productData['is_on_sale']);
+        $this->assertNull($productData['popularity']);
         $this->assertMatchesRegularExpression(
             '/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+\d{2}:\d{2}$/',
             $productData['created_at'],
+        );
+    }
+
+    #[Test]
+    public function response_exposes_nested_popularity_object_when_present(): void
+    {
+        $product = $this->createProduct(
+            id: 42,
+            title: 'Popular Product',
+            popularity: new Popularity(rank: 3, max: 12),
+        );
+        $dto = PaginatedListDTO::fromPage(items: [$product], total: 1, perPage: 500, currentPage: 1);
+
+        $this->productRepository
+            ->shouldReceive('paginate')
+            ->once()
+            ->andReturn($dto);
+
+        $response = $this->asApprovedUser()->getJson('/api/products');
+
+        $response->assertStatus(200);
+        $productData = $response->json()['data'][0];
+
+        $this->assertSame(
+            ['rank' => 3, 'max' => 12, 'level' => 5],
+            $productData['popularity'],
         );
     }
 
@@ -807,6 +835,80 @@ final class ProductControllerTest extends TestCase
         $this->assertSame(5, $variation['stock']);
         $this->assertFalse($variation['is_on_sale']);
         $this->assertSame(58.26, $variation['profit_margin']);
+    }
+
+    #[Test]
+    public function negative_available_stock_is_clamped_to_zero_in_response(): void
+    {
+        $variation = new ProductVariationView(
+            externalId: 61599625,
+            sku: 'FS-ABR/BUDGET F',
+            gtin: null,
+            price: 5.99,
+            costPrice: null,
+            salePrice: null,
+            rrp: null,
+            effectivePrice: 5.99,
+            isOnSale: false,
+            profitMargin: null,
+            availableStock: -4,
+            physicalStock: 0,
+            weight: null,
+            vatExclusive: false,
+            mpn: null,
+            imageIndex: null,
+            options: [],
+        );
+
+        $product = new ProductView(
+            externalId: 42,
+            sku: null,
+            gtin: null,
+            title: 'Oversold Product',
+            description: null,
+            slug: 'oversold-product',
+            links: new ProductLinks(
+                publicUrl: 'https://example.com/oversold-product',
+                editWebsiteUrl: 'https://admin.myshopwired.uk/business/manage-ecommerce-add-product/42',
+            ),
+            price: 9.99,
+            costPrice: null,
+            salePrice: null,
+            rrp: null,
+            effectivePrice: 9.99,
+            isOnSale: false,
+            profitMargin: null,
+            isActive: true,
+            vatExclusive: false,
+            vatRelief: false,
+            metaTitle: null,
+            metaDescription: null,
+            categoryIds: [],
+            variations: [$variation],
+            images: [],
+            customFields: [],
+            filters: [],
+            sortOrder: null,
+            createdAt: new DateTimeImmutable('2024-01-01'),
+            updatedAt: new DateTimeImmutable('2024-01-01'),
+            meta: new ProductViewMeta([$variation], null, null),
+            hasAnyVariationOnSale: ProductVariationView::anyOnSale([$variation]),
+            parentAvailableStock: -4,
+            parentPhysicalStock: 0,
+        );
+
+        $dto = PaginatedListDTO::fromPage(items: [$product], total: 1, perPage: 500, currentPage: 1);
+
+        $this->productRepository
+            ->shouldReceive('paginate')
+            ->once()
+            ->andReturn($dto);
+
+        $response = $this->asApprovedUser()->getJson('/api/products?include=variations');
+
+        $response->assertStatus(200);
+        $variationJson = $response->json()['data'][0]['variations'][0];
+        $this->assertSame(0, $variationJson['stock']);
     }
 
     #[Test]
@@ -933,7 +1035,8 @@ final class ProductControllerTest extends TestCase
             effectivePrice: 5.99,
             isOnSale: false,
             profitMargin: 58.26,
-            stock: 5,
+            availableStock: 5,
+            physicalStock: 5,
             weight: null,
             vatExclusive: false,
             mpn: null,
@@ -974,10 +1077,12 @@ final class ProductControllerTest extends TestCase
             updatedAt: new DateTimeImmutable('2024-01-01'),
             meta: new ProductViewMeta([$variation], null, null),
             hasAnyVariationOnSale: ProductVariationView::anyOnSale([$variation]),
+            parentAvailableStock: 0,
+            parentPhysicalStock: 0,
         );
     }
 
-    private function createProduct(int $id, string $title): ProductView
+    private function createProduct(int $id, string $title, ?Popularity $popularity = null): ProductView
     {
         return new ProductView(
             externalId: $id,
@@ -1012,6 +1117,9 @@ final class ProductControllerTest extends TestCase
             updatedAt: new DateTimeImmutable('2024-01-01'),
             meta: new ProductViewMeta([], null, null),
             hasAnyVariationOnSale: ProductVariationView::anyOnSale([]),
+            parentAvailableStock: 0,
+            parentPhysicalStock: 0,
+            popularity: $popularity,
         );
     }
 }

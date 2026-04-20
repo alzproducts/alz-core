@@ -49,56 +49,29 @@ final readonly class ProductView
     /** @var list<IntId> */
     public array $mainCategoryIds;
 
-    /** @var bool Whether this product has a free delivery designation */
     public bool $hasFreeDelivery;
 
-    /** @var bool Whether this product or any of its variations is on sale */
     public bool $hasAnySale;
 
     public ?ProductSupplier $defaultSupplier;
 
-    /** @var string UK-formatted creation date (dd/mm/yyyy) */
     public string $createdAtFormatted;
 
-    /** @var string UK-formatted last-update date (dd/mm/yyyy) */
     public string $updatedAtFormatted;
 
     /**
-     * @param int $externalId ShopWired product ID
-     * @param string|null $sku Master SKU
-     * @param string|null $gtin Product barcode (GTIN/EAN/UPC)
-     * @param string $title Product title
-     * @param string|null $description HTML description
-     * @param string $slug URL slug
-     * @param ProductLinks $links Public and admin edit URLs
-     * @param float $price Selling price
-     * @param float|null $costPrice Cost price from Linnworks (null = unknown)
-     * @param float|null $salePrice Discounted price (null = no sale)
-     * @param float|null $rrp RRP / "Was" price from per-SKU extra data
-     * @param float $effectivePrice Selling price after sale logic
-     * @param bool $isOnSale Whether this product is currently on sale (from view)
-     * @param float|null $profitMargin Retail profit margin % (from view, null when cost unknown)
-     * @param bool $isActive Published/visible
-     * @param bool $vatExclusive Price excludes VAT
-     * @param bool $vatRelief VAT relief eligible
-     * @param string|null $metaTitle SEO title
-     * @param string|null $metaDescription SEO description
-     * @param list<int> $categoryIds ShopWired category IDs
-     * @param list<int> $mainCategoryIds Main category IDs this product belongs to (directly or via ancestor chain)
-     * @param list<ProductVariationView>|null $variations Variations exposed in API response (null = not requested)
-     * @param list<ProductImage> $images Product images
-     * @param list<AbstractCustomFieldValue> $customFields Typed custom field values
-     * @param list<ProductFilter> $filters Typed filter values
-     * @param int|null $sortOrder ShopWired sort order
-     * @param DateTimeImmutable $createdAt ShopWired creation timestamp
-     * @param DateTimeImmutable $updatedAt ShopWired last update timestamp
-     * @param ProductViewMeta $meta Pre-computed meta flags (always computed from full variation list)
-     * @param bool $hasAnyVariationOnSale Pre-computed from full variation list (independent of API exposure)
-     * @param SaleSettings|null $saleSettings Sale metadata (null = not loaded or no sale)
-     * @param FreeDeliveryType|null $freeDelivery Free delivery tier (null = no designation)
-     * @param list<ProductSupplier>|null $suppliers Suppliers (null = not loaded)
-     * @param ProductInventory|null $inventory Linnworks inventory data (null = not loaded)
-     * @param ProductStock|null $stock Linnworks stock levels (null = not loaded)
+     * Aggregate stock level — sums across variations when present, otherwise
+     * uses the parent's own values. See Stock::fromParentAndVariants().
+     */
+    public Stock $stockLevel;
+
+    /**
+     * @param list<int> $categoryIds
+     * @param list<int> $mainCategoryIds
+     * @param list<ProductVariationView>|null $variations
+     * @param list<ProductImage> $images
+     * @param list<AbstractCustomFieldValue> $customFields
+     * @param list<ProductFilter> $filters
      */
     public function __construct(
         int $externalId,
@@ -130,6 +103,8 @@ final readonly class ProductView
         public DateTimeImmutable $updatedAt,
         ProductViewMeta $meta,
         bool $hasAnyVariationOnSale,
+        int $parentAvailableStock,
+        int $parentPhysicalStock,
         public ?SaleSettings $saleSettings = null,
         public ?FreeDeliveryType $freeDelivery = null,
         /** @var list<ProductSupplier>|null */
@@ -140,6 +115,7 @@ final readonly class ProductView
         public ?bool $isComposite = null,
         /** @var list<int> */
         array $mainCategoryIds = [],
+        public ?Popularity $popularity = null,
     ) {
         $taxType = $vatExclusive ? TaxType::ZeroRated : TaxType::Inclusive;
 
@@ -159,6 +135,11 @@ final readonly class ProductView
         $this->defaultSupplier = $defaultSupplier;
         $this->createdAtFormatted = $createdAt->format(DateFormat::DEFAULT_DATE_FORMAT);
         $this->updatedAtFormatted = $updatedAt->format(DateFormat::DEFAULT_DATE_FORMAT);
+        $this->stockLevel = Stock::fromParentAndVariants(
+            $parentAvailableStock,
+            $parentPhysicalStock,
+            $variations,
+        );
     }
 
     /**
@@ -210,5 +191,46 @@ final readonly class ProductView
             static fn(Money $max, Money $rrp): Money => $rrp->toGross() > $max->toGross() ? $rrp : $max,
             $rrps[0],
         );
+    }
+
+    public function isInCategory(IntId $categoryId): bool
+    {
+        return \array_any(
+            $this->categoryIds,
+            static fn(IntId $id): bool => $id->equals($categoryId),
+        );
+    }
+
+    public function getCustomField(string $name): ?AbstractCustomFieldValue
+    {
+        return \array_find(
+            $this->customFields,
+            static fn(AbstractCustomFieldValue $field): bool => $field->name() === $name,
+        );
+    }
+
+    public function hasCustomField(string $name): bool
+    {
+        return $this->getCustomField($name) !== null;
+    }
+
+    /** @return list<Sku> */
+    public function allOnSaleSkus(): array
+    {
+        Assert::notNull($this->variations, 'variations must be loaded');
+
+        $skus = [];
+
+        if ($this->sku !== null && $this->isOnSale) {
+            $skus[] = $this->sku;
+        }
+
+        foreach ($this->variations as $variation) {
+            if ($variation->sku !== null && $variation->isOnSale) {
+                $skus[] = $variation->sku;
+            }
+        }
+
+        return $skus;
     }
 }

@@ -12,6 +12,7 @@ use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\ResourceNotAvailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
+use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\IntId;
 use App\Infrastructure\Jobs\Enums\QueueName;
 use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
@@ -48,8 +49,8 @@ final class UpdateProductCategoryMembershipJob implements ShouldQueue
     public int $timeout = 60;
 
     /**
-     * @param  list<int>  $addCategoryIds
-     * @param  list<int>  $removeCategoryIds
+     * @param  list<IntId>  $addCategoryIds
+     * @param  list<IntId>  $removeCategoryIds
      */
     public function __construct(
         public readonly IntId $productId,
@@ -82,6 +83,7 @@ final class UpdateProductCategoryMembershipJob implements ShouldQueue
      * @throws AuthenticationExpiredException When credentials invalid
      * @throws ExternalServiceUnavailableException When API or DB unavailable
      * @throws DatabaseOperationFailedException On DB query failure
+     * @throws DuplicateRecordException On DB constraint violation
      */
     public function handle(UpdateProductCategoryMembershipUseCase $useCase): void
     {

@@ -10,8 +10,8 @@ use App\Application\Contracts\Shopwired\ProductUpdateClientInterface;
 use App\Application\Contracts\Shopwired\SaleSettingsRepositoryInterface;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\Product\Enums\SaleCustomField;
-use App\Domain\Catalog\Product\ValueObjects\Product;
 use App\Domain\Catalog\Product\ValueObjects\ProductFieldUpdate;
+use App\Domain\Catalog\Product\ValueObjects\ProductView;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
@@ -23,7 +23,7 @@ use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\IntId;
 
 /**
- * Removes a product from sale on ShopWired: sale category, sort order restore, and custom field cleanup.
+ * Removes a product from sale on ShopWired: sale category removal and sale custom field cleanup.
  */
 final readonly class RemoveProductFromSaleUseCase
 {
@@ -48,8 +48,8 @@ final readonly class RemoveProductFromSaleUseCase
      */
     public function execute(IntId $productId): void
     {
-        $product = $this->productRepo->getProduct($productId);
-        $fieldUpdates = self::buildRemovalFieldUpdates($product, $this->saleCategoryId);
+        $view = $this->productRepo->findDetailedProductView($productId);
+        $fieldUpdates = self::buildRemovalFieldUpdates($view, $this->saleCategoryId);
 
         if ($fieldUpdates !== []) {
             $this->fieldUpdateClient->update($productId->value, ...$fieldUpdates);
@@ -62,29 +62,22 @@ final readonly class RemoveProductFromSaleUseCase
     }
 
     /**
-     * Build field updates for removing a product from sale.
-     *
-     * Removes the sale category and restores the original sort order.
+     * Build field updates for removing a product from sale: drop the sale category.
      *
      * @return list<ProductFieldUpdate>
      */
-    private static function buildRemovalFieldUpdates(Product $product, int $saleCategoryId): array
+    private static function buildRemovalFieldUpdates(ProductView $view, int $saleCategoryId): array
     {
-        $fieldUpdates = [];
-
-        if ($product->isInCategory($saleCategoryId)) {
-            $filteredCategories = \array_values(\array_filter(
-                $product->categoryIds,
-                static fn(int $id): bool => $id !== $saleCategoryId,
-            ));
-            $fieldUpdates[] = ProductFieldUpdate::categories($filteredCategories);
+        $saleCategory = IntId::from($saleCategoryId);
+        if (! $view->isInCategory($saleCategory)) {
+            return [];
         }
 
-        $defaultSortOrder = $product->rawCustomFields[SaleCustomField::DefaultSortOrder->value] ?? null;
-        if (\is_string($defaultSortOrder) && $defaultSortOrder !== '' && \is_numeric($defaultSortOrder)) {
-            $fieldUpdates[] = ProductFieldUpdate::sortOrder((int) $defaultSortOrder);
-        }
+        $filteredCategories = \array_values(\array_filter(
+            \array_map(static fn(IntId $id): int => $id->value, $view->categoryIds),
+            static fn(int $id): bool => $id !== $saleCategoryId,
+        ));
 
-        return $fieldUpdates;
+        return [ProductFieldUpdate::categories($filteredCategories)];
     }
 }

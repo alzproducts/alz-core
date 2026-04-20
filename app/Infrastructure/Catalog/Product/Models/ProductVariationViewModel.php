@@ -29,6 +29,8 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property string|null $mpn Manufacturer Part Number
  * @property int|null $image_index Index into parent product's images array
  * @property list<array{option_id: int, option_name: string, value_id: int, value_name: string}> $options Option attributes
+ * @property int $available_stock Sellable stock (Linnworks `available` column, COALESCEd to `stock`)
+ * @property int $physical_stock On-hand stock (Linnworks `quantity` column, COALESCEd to `stock`)
  * @property CarbonImmutable $created_at
  * @property CarbonImmutable $updated_at
  * @property float|null $raw_price Variation's own price before parent inheritance
@@ -67,6 +69,8 @@ final class ProductVariationViewModel extends Model
             'cost_price' => 'float',
             'profit_margin' => 'float',
             'is_on_sale' => 'boolean',
+            'available_stock' => 'integer',
+            'physical_stock' => 'integer',
             'options' => 'array',
             'created_at' => 'immutable_datetime',
             'updated_at' => 'immutable_datetime',

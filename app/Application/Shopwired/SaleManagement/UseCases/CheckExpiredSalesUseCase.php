@@ -11,7 +11,7 @@ use App\Domain\Catalog\CustomFields\ValueObjects\StringCustomFieldValue;
 use App\Domain\Catalog\Product\Commands\UpdatePriceCommand;
 use App\Domain\Catalog\Product\Enums\SaleCustomField;
 use App\Domain\Catalog\Product\Enums\SaleRemovalReason;
-use App\Domain\Catalog\Product\ValueObjects\Product;
+use App\Domain\Catalog\Product\ValueObjects\ProductView;
 use App\Domain\Catalog\Product\ValueObjects\SaleSettings;
 use App\Domain\Catalog\Product\ValueObjects\Sku;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
@@ -57,22 +57,22 @@ final readonly class CheckExpiredSalesUseCase
      */
     public function execute(): array
     {
-        $products = $this->productRepository->getProductsOnSale();
+        $views = $this->productRepository->findProductViewsOnSale();
         $removed = 0;
         $failed = 0;
         $today = new DateTimeImmutable('today');
 
-        foreach ($products as $product) {
-            $reason = $this->evaluateRemovalConditions($product, $today);
+        foreach ($views as $view) {
+            $reason = $this->evaluateRemovalConditions($view, $today);
 
             if ($reason === null) {
                 continue;
             }
 
-            $onSaleSkus = $product->allOnSaleSkus();
+            $onSaleSkus = $view->allOnSaleSkus();
             if ($onSaleSkus === []) {
                 $this->logger->warning('Cannot auto-remove sale: product has no on-sale SKUs', [
-                    'product_id' => $product->id,
+                    'product_id' => $view->id->value,
                     'reason' => $reason->value,
                 ]);
                 $failed++;
@@ -85,7 +85,7 @@ final readonly class CheckExpiredSalesUseCase
                 $removed++;
 
                 $this->logger->info('Auto-removed product from sale', [
-                    'product_id' => $product->id,
+                    'product_id' => $view->id->value,
                     'skus' => \array_map(static fn(Sku $s): string => $s->value, $onSaleSkus),
                     'reason' => $reason->value,
                 ]);
@@ -93,7 +93,7 @@ final readonly class CheckExpiredSalesUseCase
                 $failed++;
 
                 $this->logger->error('Failed to auto-remove product from sale', [
-                    'product_id' => $product->id,
+                    'product_id' => $view->id->value,
                     'skus' => \array_map(static fn(Sku $s): string => $s->value, $onSaleSkus),
                     'reason' => $reason->value,
                     'exception' => $e->getMessage(),
@@ -102,38 +102,38 @@ final readonly class CheckExpiredSalesUseCase
         }
 
         $this->logger->info('Expired sales check completed', [
-            'checked' => \count($products),
+            'checked' => \count($views),
             'removed' => $removed,
             'failed' => $failed,
         ]);
 
         return [
-            'checked' => \count($products),
+            'checked' => \count($views),
             'removed' => $removed,
             'failed' => $failed,
         ];
     }
 
-    private function evaluateRemovalConditions(Product $product, DateTimeImmutable $today): ?SaleRemovalReason
+    private function evaluateRemovalConditions(ProductView $view, DateTimeImmutable $today): ?SaleRemovalReason
     {
-        if (! $product->isActive) {
+        if (! $view->isActive) {
             return SaleRemovalReason::ProductInactive;
         }
 
-        if ($this->isSaleEndDateReached($product, $today)) {
+        if ($this->isSaleEndDateReached($view, $today)) {
             return SaleRemovalReason::EndDateReached;
         }
 
-        if ($product->totalStock() <= 0 && $product->hasCustomField('discontinued')) {
+        if ($view->stockLevel->availableStock <= 0 && $view->hasCustomField('discontinued')) {
             return SaleRemovalReason::OutOfStockDiscontinued;
         }
 
-        return $this->evaluateStockThreshold($product);
+        return $this->evaluateStockThreshold($view);
     }
 
-    private function isSaleEndDateReached(Product $product, DateTimeImmutable $today): bool
+    private function isSaleEndDateReached(ProductView $view, DateTimeImmutable $today): bool
     {
-        $field = $product->getCustomField(SaleCustomField::DateEnd->value);
+        $field = $view->getCustomField(SaleCustomField::DateEnd->value);
 
         if (! $field instanceof StringCustomFieldValue || $field->value === '') {
             return false;
@@ -146,15 +146,15 @@ final readonly class CheckExpiredSalesUseCase
         }
     }
 
-    private function evaluateStockThreshold(Product $product): ?SaleRemovalReason
+    private function evaluateStockThreshold(ProductView $view): ?SaleRemovalReason
     {
-        $field = $product->getCustomField(SaleCustomField::EndsStock->value);
+        $field = $view->getCustomField(SaleCustomField::EndsStock->value);
 
         if (! $field instanceof StringCustomFieldValue || ! \is_numeric($field->value)) {
             return null;
         }
 
-        return $product->totalStock() <= (int) $field->value
+        return $view->stockLevel->availableStock <= (int) $field->value
             ? SaleRemovalReason::SaleUnitsSold
             : null;
     }

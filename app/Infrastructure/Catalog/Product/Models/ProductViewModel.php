@@ -32,7 +32,9 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property float $price Selling price
  * @property float|null $sale_price Discounted price
  * @property float|null $compare_price RRP / "Was" price
- * @property int|null $stock Master stock quantity
+ * @property int|null $stock Master stock quantity (legacy — prefer available_stock/physical_stock)
+ * @property int $available_stock Sellable stock (Linnworks `available` column, COALESCEd to `stock`)
+ * @property int $physical_stock On-hand stock (Linnworks `quantity` column, COALESCEd to `stock`)
  * @property bool $is_active Published/visible
  * @property bool $vat_exclusive Price excludes VAT
  * @property bool|null $vat_relief VAT relief eligible
@@ -54,6 +56,8 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property float|null $profit_margin Gross profit margin % computed at DB level
  * @property bool $has_free_delivery Whether product has a free delivery designation
  * @property list<int> $main_category_ids Main category IDs this product belongs to (directly or via ancestor chain)
+ * @property int|null $popularity_rank Latest snapshot's calculated_sort_order (1 = most popular)
+ * @property int|null $popularity_max Max_rank from the config active at snapshot time
  * @property-read Collection<int, ProductVariationViewModel> $variations
  * @property-read StockItemModel|null $stockItem
  */
@@ -95,6 +99,10 @@ final class ProductViewModel extends Model
             'effective_price' => 'float',
             'cost_price' => 'float',
             'profit_margin' => 'float',
+            'available_stock' => 'integer',
+            'physical_stock' => 'integer',
+            'popularity_rank' => 'integer',
+            'popularity_max' => 'integer',
         ];
     }
 

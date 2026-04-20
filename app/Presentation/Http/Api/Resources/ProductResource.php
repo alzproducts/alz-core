@@ -83,6 +83,7 @@ final class ProductResource extends JsonResource
             'default_supplier' => $product->defaultSupplier?->toArray(),
             'free_delivery' => $product->freeDelivery?->value,
             'sort_order' => $product->sortOrder,
+            'popularity' => $product->popularity?->toArray(),
             'images' => \array_map(
                 static fn(ProductImage $img): array => $img->toArray(),
                 $product->images,
