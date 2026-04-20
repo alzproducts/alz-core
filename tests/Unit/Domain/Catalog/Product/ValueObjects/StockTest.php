@@ -6,7 +6,6 @@ namespace Tests\Unit\Domain\Catalog\Product\ValueObjects;
 
 use App\Domain\Catalog\Product\ValueObjects\ProductVariationView;
 use App\Domain\Catalog\Product\ValueObjects\Stock;
-use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -24,19 +23,25 @@ final class StockTest extends TestCase
     }
 
     #[Test]
-    public function rejects_negative_available_stock(): void
+    public function clamps_negative_available_stock_to_zero(): void
     {
-        $this->expectException(InvalidArgumentException::class);
+        $stock = new Stock(availableStock: -4, physicalStock: 0);
 
-        new Stock(availableStock: -1, physicalStock: 0);
+        self::assertSame(0, $stock->availableStock);
+        self::assertSame(0, $stock->physicalStock);
     }
 
     #[Test]
-    public function rejects_negative_physical_stock(): void
+    public function clamps_negative_physical_stock_to_zero(): void
     {
-        $this->expectException(InvalidArgumentException::class);
+        $stock = new Stock(availableStock: 0, physicalStock: -1);
 
-        new Stock(availableStock: 0, physicalStock: -1);
+        self::assertSame(0, $stock->physicalStock);
+
+        // Larger magnitude kills the `max(-1, 0) == 0` boundary mutant
+        $deeplyNegative = new Stock(availableStock: 0, physicalStock: -100);
+
+        self::assertSame(0, $deeplyNegative->physicalStock);
     }
 
     #[Test]
