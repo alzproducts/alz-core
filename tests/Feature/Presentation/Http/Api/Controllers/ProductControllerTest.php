@@ -838,6 +838,80 @@ final class ProductControllerTest extends TestCase
     }
 
     #[Test]
+    public function negative_available_stock_is_clamped_to_zero_in_response(): void
+    {
+        $variation = new ProductVariationView(
+            externalId: 61599625,
+            sku: 'FS-ABR/BUDGET F',
+            gtin: null,
+            price: 5.99,
+            costPrice: null,
+            salePrice: null,
+            rrp: null,
+            effectivePrice: 5.99,
+            isOnSale: false,
+            profitMargin: null,
+            availableStock: -4,
+            physicalStock: 0,
+            weight: null,
+            vatExclusive: false,
+            mpn: null,
+            imageIndex: null,
+            options: [],
+        );
+
+        $product = new ProductView(
+            externalId: 42,
+            sku: null,
+            gtin: null,
+            title: 'Oversold Product',
+            description: null,
+            slug: 'oversold-product',
+            links: new ProductLinks(
+                publicUrl: 'https://example.com/oversold-product',
+                editWebsiteUrl: 'https://admin.myshopwired.uk/business/manage-ecommerce-add-product/42',
+            ),
+            price: 9.99,
+            costPrice: null,
+            salePrice: null,
+            rrp: null,
+            effectivePrice: 9.99,
+            isOnSale: false,
+            profitMargin: null,
+            isActive: true,
+            vatExclusive: false,
+            vatRelief: false,
+            metaTitle: null,
+            metaDescription: null,
+            categoryIds: [],
+            variations: [$variation],
+            images: [],
+            customFields: [],
+            filters: [],
+            sortOrder: null,
+            createdAt: new DateTimeImmutable('2024-01-01'),
+            updatedAt: new DateTimeImmutable('2024-01-01'),
+            meta: new ProductViewMeta([$variation], null, null),
+            hasAnyVariationOnSale: ProductVariationView::anyOnSale([$variation]),
+            parentAvailableStock: -4,
+            parentPhysicalStock: 0,
+        );
+
+        $dto = PaginatedListDTO::fromPage(items: [$product], total: 1, perPage: 500, currentPage: 1);
+
+        $this->productRepository
+            ->shouldReceive('paginate')
+            ->once()
+            ->andReturn($dto);
+
+        $response = $this->asApprovedUser()->getJson('/api/products?include=variations');
+
+        $response->assertStatus(200);
+        $variationJson = $response->json()['data'][0]['variations'][0];
+        $this->assertSame(0, $variationJson['stock']);
+    }
+
+    #[Test]
     public function empty_result_set_returns_correct_structure(): void
     {
         $dto = PaginatedListDTO::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
