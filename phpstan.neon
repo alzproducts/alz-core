@@ -308,6 +308,12 @@ parameters:
         -
             identifier: missingType.checkedException
             path: app/Domain/ValueObjects/DateRange.php
+        # Popularity::level() division throws DivisionByZeroError only if max=0, but the constructor
+        # asserts max ∈ [2, 100]. PHPStan can't narrow promoted int properties across the fromRank()
+        # factory boundary without breaking the ?int input contract.
+        -
+            identifier: missingType.checkedException
+            path: app/Domain/Catalog/Product/ValueObjects/Popularity.php
         # Stage 4: Symplify rule exceptions for Laravel/PHP conventions
         # Layer base exceptions follow PHP convention: named after layer, not "Abstract*" prefix
         # Examples: Symfony's HttpException, Laravel's ModelNotFoundException

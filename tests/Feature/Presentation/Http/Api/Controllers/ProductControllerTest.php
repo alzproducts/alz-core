@@ -12,6 +12,7 @@ use App\Domain\Access\ValueObjects\AuthenticatedUser;
 use App\Domain\Catalog\Product\Enums\ProductFilterField;
 use App\Domain\Catalog\Product\Enums\ProductInclude;
 use App\Domain\Catalog\Product\Enums\ProductSortField;
+use App\Domain\Catalog\Product\ValueObjects\Popularity;
 use App\Domain\Catalog\Product\ValueObjects\ProductLinks;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariationOption;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariationView;
@@ -752,7 +753,7 @@ final class ProductControllerTest extends TestCase
             'is_active', 'is_on_sale', 'has_any_sale', 'has_free_delivery',
             'vat_exclusive', 'vat_relief',
             'meta_title', 'meta_description', 'free_delivery',
-            'sort_order', 'images', 'created_at', 'updated_at',
+            'sort_order', 'popularity', 'images', 'created_at', 'updated_at',
         ];
 
         foreach ($expectedKeys as $key) {
@@ -765,9 +766,36 @@ final class ProductControllerTest extends TestCase
         $this->assertSame(9.99, $productData['price']);
         $this->assertTrue($productData['is_active']);
         $this->assertFalse($productData['is_on_sale']);
+        $this->assertNull($productData['popularity']);
         $this->assertMatchesRegularExpression(
             '/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+\d{2}:\d{2}$/',
             $productData['created_at'],
+        );
+    }
+
+    #[Test]
+    public function response_exposes_nested_popularity_object_when_present(): void
+    {
+        $product = $this->createProduct(
+            id: 42,
+            title: 'Popular Product',
+            popularity: new Popularity(rank: 3, max: 12),
+        );
+        $dto = PaginatedListDTO::fromPage(items: [$product], total: 1, perPage: 500, currentPage: 1);
+
+        $this->productRepository
+            ->shouldReceive('paginate')
+            ->once()
+            ->andReturn($dto);
+
+        $response = $this->asApprovedUser()->getJson('/api/products');
+
+        $response->assertStatus(200);
+        $productData = $response->json()['data'][0];
+
+        $this->assertSame(
+            ['rank' => 3, 'max' => 12, 'level' => 5],
+            $productData['popularity'],
         );
     }
 
@@ -980,7 +1008,7 @@ final class ProductControllerTest extends TestCase
         );
     }
 
-    private function createProduct(int $id, string $title): ProductView
+    private function createProduct(int $id, string $title, ?Popularity $popularity = null): ProductView
     {
         return new ProductView(
             externalId: $id,
@@ -1017,6 +1045,7 @@ final class ProductControllerTest extends TestCase
             hasAnyVariationOnSale: ProductVariationView::anyOnSale([]),
             parentAvailableStock: 0,
             parentPhysicalStock: 0,
+            popularity: $popularity,
         );
     }
 }
