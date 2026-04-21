@@ -41,10 +41,21 @@ Adds variant-level aggregation (common / minimum) for price, effective price, co
 - **Why**: All three shifts come from the plan-mandated additions (shadow `$allVariations` param, `hasSingleSellingPrice` property and derivation call, three new Resource fields). Each is an update to an already-baselined method, not a new baseline entry. Class-length and parameter-count rules are satisfied without any new baseline entries.
 - **Tradeoff**: The `__construct` shift is 8 lines — larger than a passive "import shift". Documented here to make the growth explicit.
 
+### 2026-04-21 (post-review refactor)
+- **Decision**: Merge the newly-added top-level `available_stock`/`physical_stock` fields into the existing `ProductStock` VO as `aggregate_available`/`aggregate_physical` exposed via `?include=stock`. Drop the top-level duplicates from `ProductResource::baseFields()`. Strip all "Linnworks" vocabulary from the VO docblocks — the VO is a catalog concept, not a Linnworks leak.
+- **Why**: User review: "Why add to top-level when the frontend already reads `product.stock.quantity` from `?include=stock`?" A single nested `stock` object is a cleaner API surface; fewer top-level keys on the list response; the VO retains its framework-independent Catalog identity. Also avoids the earlier concern that the top-level `stockLevel` serialisation path was under-specified in the plan.
+- **Tradeoff**: The list API now requires `?include=stock` to get aggregate stock values — the front-end already uses this include, so no client change is needed. `ProductStock` VO grows from 5 to 7 fields.
+
+### 2026-04-21 (post-review construction pattern)
+- **Decision**: Replace `StockItemModel::toProductStock()` instance method with a static `StockItemModel::buildProductStock(?self $master, int $aggregateAvailable, int $aggregatePhysical)` factory that accepts a nullable master record.
+- **Why**: User rejected a proposed `ProductStock::aggregateOnly()` named constructor as a "partial construct" — VOs should always be built with all fields fulfilled via a single path. The static factory handles master-absent (variant-only) and master-present cases through the same construction path; nullability of master-level fields is a legitimate business state (no master inventory record), not a partial construct.
+- **Tradeoff**: The factory must live on `StockItemModel` (Infrastructure) rather than as a domain constructor — Domain cannot know about `StockItemModel`. Call sites go from `$model->toProductStock()` to `StockItemModel::buildProductStock($model, $a, $p)`, which is slightly more verbose but makes the aggregate-vs-master split explicit.
+
 ## Deviations from Plan
 
-- **Added**: `'available_stock'` + `'physical_stock'` to `ProductResource::baseFields()` (plan only called for `'has_single_selling_price'`). Necessary to meet the issue's no-include `available_stock` success criterion — the derived `stockLevel` VO exists for exactly this purpose but had no serialisation path.
+- **Reverted + redesigned**: Originally added `'available_stock'` + `'physical_stock'` to `ProductResource::baseFields()`; post-review they were merged into the existing `ProductStock` VO as `aggregate_available`/`aggregate_physical` surfaced via `?include=stock`. Net result: no new top-level fields on the list response; the existing nested `stock` object grew two fields. Still meets the issue's success criterion because the front-end already uses `?include=stock`.
 - **Added**: Two new VOs `MasterPricing` and `ProductViewPricing` (plan placed aggregation helpers directly on `ProductView`). Inline helpers pushed the class past the 250-line limit and the constructor past the 20-line limit with cognitive complexity 18. Extraction restores all class/method/param/complexity limits while keeping public behaviour identical.
+- **Refactor**: Replaced `StockItemModel::toProductStock()` instance method with `StockItemModel::buildProductStock(?self, int, int)` static factory. Plan did not anticipate the aggregate-merge refactor that required accepting a nullable master.
 
 ## Blockers / Open Questions
 

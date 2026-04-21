@@ -75,8 +75,6 @@ final class ProductResource extends JsonResource
             'has_any_sale' => $product->hasAnySale,
             'has_single_selling_price' => $product->hasSingleSellingPrice,
             'has_free_delivery' => $product->hasFreeDelivery,
-            'available_stock' => $product->stockLevel->availableStock,
-            'physical_stock' => $product->stockLevel->physicalStock,
             'vat_exclusive' => $product->vatExclusive,
             'vat_relief' => $product->vatRelief,
             'meta_title' => $product->metaTitle,

@@ -163,15 +163,26 @@ final class StockItemModel extends Model implements EloquentDomainMappableInterf
         );
     }
 
-    /** Project this stock item as a catalog stock-level VO. */
-    public function toProductStock(): ProductStock
-    {
+    /**
+     * Build a catalog stock-level VO from an optional master record plus aggregate values.
+     *
+     * $master may be null when the product tracks stock only at the variation level — in
+     * that case the master-level fields (quantity, available, in_order, due) remain null
+     * and callers rely on the aggregate values.
+     */
+    public static function buildProductStock(
+        ?self $master,
+        int $aggregateAvailable,
+        int $aggregatePhysical,
+    ): ProductStock {
         return new ProductStock(
-            quantity: $this->quantity,
-            available: $this->available,
-            inOrder: $this->in_order,
-            due: $this->due,
-            jit: $this->jit,
+            quantity: $master?->quantity,
+            available: $master?->available,
+            inOrder: $master?->in_order,
+            due: $master?->due,
+            jit: $master !== null && $master->jit,
+            aggregateAvailable: $aggregateAvailable,
+            aggregatePhysical: $aggregatePhysical,
         );
     }
 

@@ -13,6 +13,7 @@ use App\Domain\Catalog\Product\Enums\ProductInclude;
 use App\Domain\Catalog\Product\Enums\ProductSortField;
 use App\Domain\Catalog\Product\ValueObjects\Popularity;
 use App\Domain\Catalog\Product\ValueObjects\ProductLinks;
+use App\Domain\Catalog\Product\ValueObjects\ProductStock;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariationOption;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariationView;
 use App\Domain\Catalog\Product\ValueObjects\ProductView;
@@ -748,7 +749,6 @@ final class ProductControllerTest extends TestCase
             'price', 'cost_price', 'sale_price', 'rrp',
             'effective_price', 'profit_margin',
             'is_active', 'is_on_sale', 'has_any_sale', 'has_single_selling_price', 'has_free_delivery',
-            'available_stock', 'physical_stock',
             'vat_exclusive', 'vat_relief',
             'meta_title', 'meta_description', 'free_delivery',
             'sort_order', 'popularity', 'images', 'created_at', 'updated_at',
@@ -911,7 +911,7 @@ final class ProductControllerTest extends TestCase
     }
 
     #[Test]
-    public function variant_only_product_exposes_aggregated_stock_and_common_price_without_include(): void
+    public function variant_only_product_aggregates_stock_under_include_stock_and_exposes_common_price(): void
     {
         $product = $this->createVariantOnlyProduct(variationPrices: [12.99, 12.99], stockPerVariation: 3);
         $dto = PaginatedListDTO::fromPage(items: [$product], total: 1, perPage: 500, currentPage: 1);
@@ -921,14 +921,15 @@ final class ProductControllerTest extends TestCase
             ->once()
             ->andReturn($dto);
 
-        $response = $this->asApprovedUser()->getJson('/api/products');
+        $response = $this->asApprovedUser()->getJson('/api/products?include=stock');
 
         $response->assertStatus(200);
         $body = $response->json();
         $productData = $body['data'][0];
 
         // Regression: master-level stock/price were zero; variation-level must fill the gap.
-        $this->assertSame(6, $productData['available_stock']);
+        $this->assertSame(6, $productData['stock']['aggregate_available']);
+        $this->assertSame(6, $productData['stock']['aggregate_physical']);
         $this->assertSame(12.99, $productData['price']);
         $this->assertSame(12.99, $productData['effective_price']);
         $this->assertTrue($productData['has_single_selling_price']);
@@ -945,14 +946,14 @@ final class ProductControllerTest extends TestCase
             ->once()
             ->andReturn($dto);
 
-        $response = $this->asApprovedUser()->getJson('/api/products');
+        $response = $this->asApprovedUser()->getJson('/api/products?include=stock');
 
         $response->assertStatus(200);
         $body = $response->json();
         $productData = $body['data'][0];
 
         // Non-uniform variation prices: aggregate to the minimum, flag as not single-priced.
-        $this->assertSame(6, $productData['available_stock']);
+        $this->assertSame(6, $productData['stock']['aggregate_available']);
         $this->assertSame(14.99, $productData['price']);
         $this->assertSame(14.99, $productData['effective_price']);
         $this->assertFalse($productData['has_single_selling_price']);
@@ -1164,6 +1165,8 @@ final class ProductControllerTest extends TestCase
             \array_keys($variationPrices),
         );
 
+        $totalStock = $stockPerVariation * \count($variations);
+
         return new ProductView(
             externalId: 77,
             sku: null,
@@ -1200,6 +1203,15 @@ final class ProductControllerTest extends TestCase
             parentAvailableStock: 0,
             parentPhysicalStock: 0,
             allVariations: $variations,
+            stock: new ProductStock(
+                quantity: null,
+                available: null,
+                inOrder: null,
+                due: null,
+                jit: false,
+                aggregateAvailable: $totalStock,
+                aggregatePhysical: $totalStock,
+            ),
         );
     }
 }
