@@ -747,7 +747,8 @@ final class ProductControllerTest extends TestCase
             'id', 'sku', 'title', 'slug', 'links',
             'price', 'cost_price', 'sale_price', 'rrp',
             'effective_price', 'profit_margin',
-            'is_active', 'is_on_sale', 'has_any_sale', 'has_free_delivery',
+            'is_active', 'is_on_sale', 'has_any_sale', 'has_single_selling_price', 'has_free_delivery',
+            'available_stock', 'physical_stock',
             'vat_exclusive', 'vat_relief',
             'meta_title', 'meta_description', 'free_delivery',
             'sort_order', 'popularity', 'images', 'created_at', 'updated_at',
@@ -892,6 +893,7 @@ final class ProductControllerTest extends TestCase
             hasAnyVariationOnSale: ProductVariationView::anyOnSale([$variation]),
             parentAvailableStock: -4,
             parentPhysicalStock: 0,
+            allVariations: [$variation],
         );
 
         $dto = PaginatedListDTO::fromPage(items: [$product], total: 1, perPage: 500, currentPage: 1);
@@ -906,6 +908,54 @@ final class ProductControllerTest extends TestCase
         $response->assertStatus(200);
         $variationJson = $response->json()['data'][0]['variations'][0];
         $this->assertSame(0, $variationJson['stock']);
+    }
+
+    #[Test]
+    public function variant_only_product_exposes_aggregated_stock_and_common_price_without_include(): void
+    {
+        $product = $this->createVariantOnlyProduct(variationPrices: [12.99, 12.99], stockPerVariation: 3);
+        $dto = PaginatedListDTO::fromPage(items: [$product], total: 1, perPage: 500, currentPage: 1);
+
+        $this->productRepository
+            ->shouldReceive('paginate')
+            ->once()
+            ->andReturn($dto);
+
+        $response = $this->asApprovedUser()->getJson('/api/products');
+
+        $response->assertStatus(200);
+        $body = $response->json();
+        $productData = $body['data'][0];
+
+        // Regression: master-level stock/price were zero; variation-level must fill the gap.
+        $this->assertSame(6, $productData['available_stock']);
+        $this->assertSame(12.99, $productData['price']);
+        $this->assertSame(12.99, $productData['effective_price']);
+        $this->assertTrue($productData['has_single_selling_price']);
+    }
+
+    #[Test]
+    public function variant_only_product_with_differing_prices_uses_minimum_and_reports_non_uniform(): void
+    {
+        $product = $this->createVariantOnlyProduct(variationPrices: [19.99, 24.99, 14.99], stockPerVariation: 2);
+        $dto = PaginatedListDTO::fromPage(items: [$product], total: 1, perPage: 500, currentPage: 1);
+
+        $this->productRepository
+            ->shouldReceive('paginate')
+            ->once()
+            ->andReturn($dto);
+
+        $response = $this->asApprovedUser()->getJson('/api/products');
+
+        $response->assertStatus(200);
+        $body = $response->json();
+        $productData = $body['data'][0];
+
+        // Non-uniform variation prices: aggregate to the minimum, flag as not single-priced.
+        $this->assertSame(6, $productData['available_stock']);
+        $this->assertSame(14.99, $productData['price']);
+        $this->assertSame(14.99, $productData['effective_price']);
+        $this->assertFalse($productData['has_single_selling_price']);
     }
 
     #[Test]
@@ -1039,6 +1089,7 @@ final class ProductControllerTest extends TestCase
             hasAnyVariationOnSale: ProductVariationView::anyOnSale([$variation]),
             parentAvailableStock: 0,
             parentPhysicalStock: 0,
+            allVariations: [$variation],
         );
     }
 
@@ -1079,7 +1130,76 @@ final class ProductControllerTest extends TestCase
             hasAnyVariationOnSale: ProductVariationView::anyOnSale([]),
             parentAvailableStock: 0,
             parentPhysicalStock: 0,
+            allVariations: null,
             popularity: $popularity,
+        );
+    }
+
+    /**
+     * @param list<float> $variationPrices
+     */
+    private function createVariantOnlyProduct(array $variationPrices, int $stockPerVariation = 5): ProductView
+    {
+        $variations = \array_map(
+            static fn(float $price, int $idx): ProductVariationView => new ProductVariationView(
+                externalId: 200 + $idx,
+                sku: 'VAR-' . $idx,
+                gtin: null,
+                price: $price,
+                costPrice: null,
+                salePrice: null,
+                rrp: null,
+                effectivePrice: $price,
+                isOnSale: false,
+                profitMargin: null,
+                availableStock: $stockPerVariation,
+                physicalStock: $stockPerVariation,
+                weight: null,
+                vatExclusive: false,
+                mpn: null,
+                imageIndex: null,
+                options: [],
+            ),
+            $variationPrices,
+            \array_keys($variationPrices),
+        );
+
+        return new ProductView(
+            externalId: 77,
+            sku: null,
+            gtin: null,
+            title: 'Variant-Only Product',
+            description: null,
+            slug: 'variant-only-product',
+            links: new ProductLinks(
+                publicUrl: 'https://example.com/variant-only-product',
+                editWebsiteUrl: 'https://admin.myshopwired.uk/business/manage-ecommerce-add-product/77',
+            ),
+            price: 0.00,
+            costPrice: null,
+            salePrice: null,
+            rrp: null,
+            effectivePrice: 0.00,
+            isOnSale: false,
+            profitMargin: null,
+            isActive: true,
+            vatExclusive: false,
+            vatRelief: false,
+            metaTitle: null,
+            metaDescription: null,
+            categoryIds: [],
+            variations: null,
+            images: [],
+            customFields: [],
+            filters: [],
+            sortOrder: null,
+            createdAt: new DateTimeImmutable('2024-01-01'),
+            updatedAt: new DateTimeImmutable('2024-01-01'),
+            meta: new ProductViewMeta($variations, null, null),
+            hasAnyVariationOnSale: ProductVariationView::anyOnSale($variations),
+            parentAvailableStock: 0,
+            parentPhysicalStock: 0,
+            allVariations: $variations,
         );
     }
 }

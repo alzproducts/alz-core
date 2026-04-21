@@ -93,6 +93,7 @@ final readonly class ProductViewAssembler
             categoryIds: $model->category_ids,
             mainCategoryIds: $model->main_category_ids,
             variations: \in_array(ProductInclude::Variations, $includes, true) ? $allVariations : null,
+            allVariations: $allVariations,
             images: self::buildImages($model->images),
             customFields: \in_array(ProductInclude::CustomFields, $includes, true) ? $typedCustomFields : [],
             filters: $this->resolveFilters($model, $includes),

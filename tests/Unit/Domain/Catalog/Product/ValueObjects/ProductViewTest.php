@@ -114,7 +114,7 @@ final class ProductViewTest extends TestCase
     {
         $view = $this->createView(variations: []);
 
-        self::assertTrue($view->hasSingleSellingPrice());
+        self::assertTrue($view->hasSingleSellingPrice);
     }
 
     #[Test]
@@ -128,7 +128,7 @@ final class ProductViewTest extends TestCase
             ],
         );
 
-        self::assertTrue($view->hasSingleSellingPrice());
+        self::assertTrue($view->hasSingleSellingPrice);
     }
 
     #[Test]
@@ -142,7 +142,7 @@ final class ProductViewTest extends TestCase
             ],
         );
 
-        self::assertFalse($view->hasSingleSellingPrice());
+        self::assertFalse($view->hasSingleSellingPrice);
     }
 
     #[Test]
@@ -157,7 +157,7 @@ final class ProductViewTest extends TestCase
             ],
         );
 
-        self::assertTrue($view->hasSingleSellingPrice());
+        self::assertTrue($view->hasSingleSellingPrice);
     }
 
     #[Test]
@@ -172,7 +172,7 @@ final class ProductViewTest extends TestCase
             ],
         );
 
-        self::assertFalse($view->hasSingleSellingPrice());
+        self::assertFalse($view->hasSingleSellingPrice);
     }
 
     /*
@@ -550,12 +550,274 @@ final class ProductViewTest extends TestCase
 
     /*
     |--------------------------------------------------------------------------
+    | Stock regression — derive from $allVariations when public $variations null
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function stock_level_sums_all_variations_even_when_public_include_not_requested(): void
+    {
+        $view = $this->createView(
+            variations: null,
+            allVariations: [
+                $this->createVariation(availableStock: 3, physicalStock: 4),
+                $this->createVariation(availableStock: 7, physicalStock: 9),
+            ],
+        );
+
+        self::assertNull($view->variations);
+        self::assertSame(10, $view->stockLevel->availableStock);
+        self::assertSame(13, $view->stockLevel->physicalStock);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | price fallback rules
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function price_uses_master_when_non_zero(): void
+    {
+        $view = $this->createView(
+            price: 29.99,
+            variations: [$this->createVariation(price: 10.00), $this->createVariation(price: 20.00)],
+        );
+
+        self::assertSame(29.99, $view->price->toGross());
+    }
+
+    #[Test]
+    public function price_falls_back_to_common_variation_when_master_zero(): void
+    {
+        $view = $this->createView(
+            price: 0.00,
+            variations: [$this->createVariation(price: 19.99), $this->createVariation(price: 19.99)],
+        );
+
+        self::assertSame(19.99, $view->price->toGross());
+    }
+
+    #[Test]
+    public function price_falls_back_to_minimum_variation_when_master_zero_and_variations_differ(): void
+    {
+        $view = $this->createView(
+            price: 0.00,
+            variations: [$this->createVariation(price: 35.00), $this->createVariation(price: 19.99)],
+        );
+
+        self::assertSame(19.99, $view->price->toGross());
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | effectivePrice fallback rules
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function effective_price_uses_master_when_non_zero(): void
+    {
+        $view = $this->createView(
+            effectivePrice: 49.99,
+            variations: [$this->createVariation(effectivePrice: 10.00), $this->createVariation(effectivePrice: 20.00)],
+        );
+
+        self::assertSame(49.99, $view->effectivePrice->toGross());
+    }
+
+    #[Test]
+    public function effective_price_falls_back_to_common_variation_when_master_zero(): void
+    {
+        $view = $this->createView(
+            effectivePrice: 0.00,
+            variations: [$this->createVariation(effectivePrice: 12.50), $this->createVariation(effectivePrice: 12.50)],
+        );
+
+        self::assertSame(12.50, $view->effectivePrice->toGross());
+    }
+
+    #[Test]
+    public function effective_price_falls_back_to_minimum_variation_when_master_zero_and_variations_differ(): void
+    {
+        $view = $this->createView(
+            effectivePrice: 0.00,
+            variations: [$this->createVariation(effectivePrice: 20.00), $this->createVariation(effectivePrice: 12.50)],
+        );
+
+        self::assertSame(12.50, $view->effectivePrice->toGross());
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | costPrice fallback rules
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function cost_price_uses_master_when_non_null(): void
+    {
+        $view = $this->createView(
+            costPrice: 5.00,
+            variations: [$this->createVariation(costPrice: 1.00), $this->createVariation(costPrice: 2.00)],
+        );
+
+        self::assertSame(5.00, $view->costPrice?->toNet());
+    }
+
+    #[Test]
+    public function cost_price_falls_back_to_common_variation_when_master_null(): void
+    {
+        $view = $this->createView(
+            costPrice: null,
+            variations: [$this->createVariation(costPrice: 4.00), $this->createVariation(costPrice: 4.00)],
+        );
+
+        self::assertSame(4.00, $view->costPrice?->toNet());
+    }
+
+    #[Test]
+    public function cost_price_is_null_when_variations_differ_on_cost(): void
+    {
+        $view = $this->createView(
+            costPrice: null,
+            variations: [$this->createVariation(costPrice: 4.00), $this->createVariation(costPrice: 6.00)],
+        );
+
+        self::assertNull($view->costPrice);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | profitMargin recompute rules
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function profit_margin_recomputed_when_cost_and_effective_both_from_common_variants(): void
+    {
+        $view = $this->createView(
+            price: 0.00,
+            costPrice: null,
+            effectivePrice: 0.00,
+            variations: [
+                $this->createVariation(price: 12.00, costPrice: 3.00, effectivePrice: 12.00),
+                $this->createVariation(price: 12.00, costPrice: 3.00, effectivePrice: 12.00),
+            ],
+        );
+
+        // net effective = 12 / 1.2 = 10, net cost = 3 → (10 - 3) / 10 * 100 = 70
+        self::assertSame(70.0, $view->profitMargin);
+    }
+
+    #[Test]
+    public function profit_margin_keeps_master_value_when_master_cost_present(): void
+    {
+        $view = $this->createView(
+            costPrice: 2.00,
+            profitMargin: 25.0,
+            variations: [
+                $this->createVariation(costPrice: 3.00, effectivePrice: 12.00),
+                $this->createVariation(costPrice: 3.00, effectivePrice: 12.00),
+            ],
+        );
+
+        self::assertSame(25.0, $view->profitMargin);
+    }
+
+    #[Test]
+    public function profit_margin_keeps_master_value_when_no_cost_available(): void
+    {
+        $view = $this->createView(
+            costPrice: null,
+            profitMargin: null,
+            effectivePrice: 0.00,
+            variations: [
+                $this->createVariation(costPrice: null, effectivePrice: 12.00),
+                $this->createVariation(costPrice: null, effectivePrice: 12.00),
+            ],
+        );
+
+        self::assertNull($view->profitMargin);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | hasSingleSellingPrice (constructor-derived property)
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function has_single_selling_price_uses_first_variation_as_reference_when_master_is_zero(): void
+    {
+        $view = $this->createView(
+            price: 0.00,
+            effectivePrice: 0.00,
+            variations: [$this->createVariation(price: 29.99), $this->createVariation(price: 29.99)],
+        );
+
+        // Price resolved to 29.99 via commonPrice → hasSingleSellingPrice must still be true.
+        self::assertSame(29.99, $view->price->toGross());
+        self::assertTrue($view->hasSingleSellingPrice);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
     | Helpers
     |--------------------------------------------------------------------------
     */
 
+
+    private function stringCustomField(string $name, string $value): StringCustomFieldValue
+    {
+        return new StringCustomFieldValue(
+            new CustomFieldDefinition(
+                id: 1,
+                name: $name,
+                type: CustomFieldType::Text,
+                label: null,
+                itemType: CustomFieldItemType::Product,
+                sortOrder: null,
+                allowedValues: null,
+            ),
+            $value,
+        );
+    }
+
+    private function createVariation(
+        float $price = 50.00,
+        ?float $rrp = null,
+        int $availableStock = 5,
+        int $physicalStock = 5,
+        ?float $costPrice = null,
+        ?float $effectivePrice = null,
+    ): ProductVariationView {
+        static $id = 100;
+
+        return new ProductVariationView(
+            externalId: $id++,
+            sku: null,
+            gtin: null,
+            price: $price,
+            costPrice: $costPrice,
+            salePrice: null,
+            rrp: $rrp,
+            effectivePrice: $effectivePrice ?? $price,
+            isOnSale: false,
+            profitMargin: null,
+            availableStock: $availableStock,
+            physicalStock: $physicalStock,
+            weight: null,
+            vatExclusive: false,
+            mpn: null,
+            imageIndex: null,
+            options: [],
+        );
+    }
+
     /**
-     * @param list<ProductVariationView>|null $variations
+     * @param list<ProductVariationView>|null $variations Public gate (forwarded to $variations)
+     * @param list<ProductVariationView>|null $allVariations Shadow list for derivations; defaults to $variations
      * @param list<int> $categoryIds
      * @param list<AbstractCustomFieldValue> $customFields
      */
@@ -565,6 +827,7 @@ final class ProductViewTest extends TestCase
         ?float $salePrice = null,
         float $effectivePrice = 100.00,
         ?array $variations = null,
+        ?array $allVariations = null,
         bool $isOnSale = false,
         ?float $profitMargin = null,
         ?string $sku = null,
@@ -576,6 +839,8 @@ final class ProductViewTest extends TestCase
         int $parentAvailableStock = 0,
         int $parentPhysicalStock = 0,
     ): ProductView {
+        $effectiveAllVariations = $allVariations ?? $variations;
+
         return new ProductView(
             externalId: 1,
             sku: $sku,
@@ -607,56 +872,12 @@ final class ProductViewTest extends TestCase
             sortOrder: null,
             createdAt: $createdAt ?? new DateTimeImmutable('2024-01-01'),
             updatedAt: $updatedAt ?? new DateTimeImmutable('2024-01-01'),
-            meta: new ProductViewMeta($variations, null, null),
-            hasAnyVariationOnSale: ProductVariationView::anyOnSale($variations),
+            meta: new ProductViewMeta($effectiveAllVariations, null, null),
+            hasAnyVariationOnSale: ProductVariationView::anyOnSale($effectiveAllVariations),
             parentAvailableStock: $parentAvailableStock,
             parentPhysicalStock: $parentPhysicalStock,
+            allVariations: $effectiveAllVariations,
             freeDelivery: $freeDelivery,
-        );
-    }
-
-    private function stringCustomField(string $name, string $value): StringCustomFieldValue
-    {
-        return new StringCustomFieldValue(
-            new CustomFieldDefinition(
-                id: 1,
-                name: $name,
-                type: CustomFieldType::Text,
-                label: null,
-                itemType: CustomFieldItemType::Product,
-                sortOrder: null,
-                allowedValues: null,
-            ),
-            $value,
-        );
-    }
-
-    private function createVariation(
-        float $price = 50.00,
-        ?float $rrp = null,
-        int $availableStock = 5,
-        int $physicalStock = 5,
-    ): ProductVariationView {
-        static $id = 100;
-
-        return new ProductVariationView(
-            externalId: $id++,
-            sku: null,
-            gtin: null,
-            price: $price,
-            costPrice: null,
-            salePrice: null,
-            rrp: $rrp,
-            effectivePrice: $price,
-            isOnSale: false,
-            profitMargin: null,
-            availableStock: $availableStock,
-            physicalStock: $physicalStock,
-            weight: null,
-            vatExclusive: false,
-            mpn: null,
-            imageIndex: null,
-            options: [],
         );
     }
 }
