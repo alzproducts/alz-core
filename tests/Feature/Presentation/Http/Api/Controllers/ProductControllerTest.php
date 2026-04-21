@@ -8,7 +8,6 @@ use App\Application\Catalog\Queries\ProductDetailQueryParams;
 use App\Application\Catalog\Queries\ProductListQueryParams;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Application\DTOs\PaginatedListDTO;
-use App\Domain\Access\ValueObjects\AuthenticatedUser;
 use App\Domain\Catalog\Product\Enums\ProductFilterField;
 use App\Domain\Catalog\Product\Enums\ProductInclude;
 use App\Domain\Catalog\Product\Enums\ProductSortField;
@@ -20,22 +19,20 @@ use App\Domain\Catalog\Product\ValueObjects\ProductView;
 use App\Domain\Catalog\Product\ValueObjects\ProductViewMeta;
 use App\Domain\Shared\Pagination\Enums\SortDirection;
 use App\Presentation\Http\Api\Controllers\ProductController;
-use App\Presentation\Http\Auth\Middleware\ValidateSupabaseJwtMiddleware;
-use App\Presentation\Http\Middleware\EnsureUserApprovedMiddleware;
-use Closure;
 use DateTimeImmutable;
-use Illuminate\Http\Request;
 use Mockery;
 use Mockery\MockInterface;
 use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
-use Symfony\Component\HttpFoundation\Response;
+use Tests\Feature\Concerns\AuthenticatesAsApprovedUser;
 use Tests\TestCase;
 
 #[CoversClass(ProductController::class)]
 final class ProductControllerTest extends TestCase
 {
+    use AuthenticatesAsApprovedUser;
+
     private ProductRepositoryInterface&MockInterface $productRepository;
 
     #[Override]
@@ -984,43 +981,6 @@ final class ProductControllerTest extends TestCase
     |--------------------------------------------------------------------------
     */
 
-    /**
-     * Make requests as an approved user, bypassing auth middleware.
-     *
-     * Replaces ValidateSupabaseJwtMiddleware and EnsureUserApprovedMiddleware
-     * with a stub that injects a pre-built AuthenticatedUser into request attributes.
-     */
-    private function asApprovedUser(): static
-    {
-        $approvedUser = new AuthenticatedUser(
-            id: 'd9dd22a9-c3ab-413b-8a93-25b462231a98',
-            email: 'test@example.com',
-            isApproved: true,
-            roleName: 'admin',
-        );
-
-        // Bind a stub class that sets authenticated_user and delegates, in place of both auth middleware
-        $stub = new class ($approvedUser) {
-            public function __construct(private readonly AuthenticatedUser $user) {}
-
-            public function handle(Request $request, Closure $next): Response
-            {
-                $request->attributes->set('authenticated_user', $this->user);
-
-                return $next($request);
-            }
-        };
-
-        $this->app->bind(ValidateSupabaseJwtMiddleware::class, static fn() => $stub);
-        $this->app->bind(EnsureUserApprovedMiddleware::class, static fn() => new class {
-            public function handle(Request $request, Closure $next): Response
-            {
-                return $next($request);
-            }
-        });
-
-        return $this;
-    }
 
     private function createProductWithVariations(): ProductView
     {

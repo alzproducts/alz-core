@@ -28,6 +28,14 @@ interface ShopwiredSyncDispatcherInterface
 
     public function dispatchOrdersRangeSync(DateTimeImmutable $from, DateTimeImmutable $to): void;
 
+    /**
+     * Dispatch a full product catalogue sync from ShopWired.
+     *
+     * Deduplicated by ShouldBeUnique on the underlying job — a dispatch while
+     * another run is in flight is a silent no-op.
+     */
+    public function dispatchAllProductsSync(): void;
+
     public function dispatchFreeDeliveryUpdate(SetFreeDeliveryCommand $command): void;
 
     public function dispatchReconcileComparePrice(IntId $productId): void;
