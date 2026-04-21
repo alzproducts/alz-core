@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Presentation\Http\Api\Controllers;
 
+use App\Application\Catalog\UseCases\RefreshCategoryViewUseCase;
 use App\Application\Catalog\UseCases\UpdateCategoryCustomFieldsUseCase;
 use App\Application\Catalog\UseCases\UpdateCategoryFieldsUseCase;
+use App\Application\Shopwired\UseCases\SyncCategoriesUseCase;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
@@ -18,6 +20,7 @@ use App\Domain\ValueObjects\IntId;
 use App\Presentation\Http\Api\DTOs\UpdateCategoryFieldsRequestDTO;
 use App\Presentation\Http\Api\DTOs\UpdateCustomFieldsRequestDTO;
 use Illuminate\Http\JsonResponse;
+use RuntimeException;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -30,6 +33,8 @@ final readonly class CategoryUpdateController
     public function __construct(
         private UpdateCategoryFieldsUseCase $fieldsUseCase,
         private UpdateCategoryCustomFieldsUseCase $customFieldsUseCase,
+        private RefreshCategoryViewUseCase $refreshUseCase,
+        private SyncCategoriesUseCase $syncAllUseCase,
     ) {}
 
     /**
@@ -68,6 +73,40 @@ final readonly class CategoryUpdateController
             categoryId: IntId::from($categoryId),
             rawFields: $data->custom_fields,
         );
+
+        return new JsonResponse(null, Response::HTTP_NO_CONTENT);
+    }
+
+    /**
+     * Force-refresh a single category's data from ShopWired synchronously.
+     *
+     * @throws ResourceNotAvailableException When category not found in ShopWired (404)
+     * @throws AuthenticationExpiredException When credentials invalid (401/403)
+     * @throws InvalidApiRequestException When request parameters invalid (400)
+     * @throws InvalidApiResponseException When API response parsing fails
+     * @throws ExternalServiceUnavailableException When API unavailable
+     * @throws DatabaseOperationFailedException When database save fails
+     * @throws DuplicateRecordException When unique constraint violated
+     */
+    public function refresh(int $categoryId): JsonResponse
+    {
+        $this->refreshUseCase->execute(IntId::from($categoryId));
+
+        return new JsonResponse(null, Response::HTTP_NO_CONTENT);
+    }
+
+    /**
+     * Force-refresh the full category list from ShopWired synchronously.
+     *
+     * @throws AuthenticationExpiredException When ShopWired credentials invalid/expired
+     * @throws InvalidApiRequestException When request parameters invalid
+     * @throws ExternalServiceUnavailableException When ShopWired API unavailable
+     * @throws InvalidApiResponseException When API response parsing fails
+     * @throws RuntimeException When API returns zero categories (unexpected)
+     */
+    public function refreshAll(): JsonResponse
+    {
+        $this->syncAllUseCase->execute();
 
         return new JsonResponse(null, Response::HTTP_NO_CONTENT);
     }

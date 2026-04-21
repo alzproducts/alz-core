@@ -145,6 +145,7 @@ Route::middleware([ValidateSupabaseJwtMiddleware::class, EnsureUserApprovedMiddl
             ->whereNumber('productId');
         Route::put('products/{productId}/prices', [ProductUpdateController::class, 'updatePrices'])
             ->whereNumber('productId');
+        Route::post('products/refresh', [ProductUpdateController::class, 'refreshAll']);
         Route::post('products/{productId}/refresh', [ProductUpdateController::class, 'refresh'])
             ->whereNumber('productId');
         Route::post('products/free-delivery', [ProductUpdateController::class, 'updateFreeDelivery']);
@@ -160,6 +161,9 @@ Route::middleware([ValidateSupabaseJwtMiddleware::class, EnsureUserApprovedMiddl
             ->whereNumber('categoryId');
         Route::put('categories/{categoryId}/custom-fields', [CategoryUpdateController::class, 'updateCustomFields'])
             ->whereNumber('categoryId');
+        Route::post('categories/refresh', [CategoryUpdateController::class, 'refreshAll']);
+        Route::post('categories/{categoryId}/refresh', [CategoryUpdateController::class, 'refresh'])
+            ->whereNumber('categoryId');
 
         // Brand endpoints
         Route::get('brands', [BrandController::class, 'index']);
@@ -170,6 +174,9 @@ Route::middleware([ValidateSupabaseJwtMiddleware::class, EnsureUserApprovedMiddl
         Route::get('brands/{brandId}/custom-fields', [BrandController::class, 'customFields'])
             ->whereNumber('brandId');
         Route::put('brands/{brandId}/custom-fields', [BrandUpdateController::class, 'updateCustomFields'])
+            ->whereNumber('brandId');
+        Route::post('brands/refresh', [BrandUpdateController::class, 'refreshAll']);
+        Route::post('brands/{brandId}/refresh', [BrandUpdateController::class, 'refresh'])
             ->whereNumber('brandId');
 
         Route::get('filter-groups', [FilterGroupController::class, 'index']);
