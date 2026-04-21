@@ -57,7 +57,7 @@ final readonly class ReconcileShopwiredComparePriceUseCase
 
         $productView = $this->productRepo->findDetailedProductView($productId, [ProductInclude::Variations]);
 
-        $target = $productView->hasSingleSellingPrice()
+        $target = $productView->hasSingleSellingPrice
             ? $productView->resolveHighestRrp()?->toGross()
             : null;
 
