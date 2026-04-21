@@ -6,6 +6,7 @@ namespace Tests\Feature\Presentation\Http\Api\Controllers;
 
 use App\Application\Contracts\Shopwired\BrandClientInterface;
 use App\Application\Contracts\Shopwired\BrandRepositoryInterface;
+use App\Application\Contracts\Shopwired\BrandUpdateClientInterface;
 use App\Application\Results\SaveManyResult;
 use App\Domain\Catalog\Brand\ValueObjects\Brand;
 use App\Presentation\Http\Api\Controllers\BrandUpdateController;
@@ -37,6 +38,12 @@ final class BrandUpdateControllerRefreshTest extends TestCase
 
         $this->app->instance(BrandClientInterface::class, $this->client);
         $this->app->instance(BrandRepositoryInterface::class, $this->repository);
+
+        // Controller constructor also pulls in UpdateBrandFieldsUseCase +
+        // UpdateBrandCustomFieldsUseCase — both resolve BrandUpdateClientInterface
+        // whose binding calls ShopwiredClientFactory::getTransport(). Bind an empty
+        // mock so the container doesn't trigger real config reads.
+        $this->app->instance(BrandUpdateClientInterface::class, Mockery::mock(BrandUpdateClientInterface::class));
     }
 
     #[Override]

@@ -5,7 +5,13 @@ declare(strict_types=1);
 namespace Tests\Feature\Presentation\Http\Api\Controllers;
 
 use App\Application\Catalog\UseCases\RefreshAllProductsUseCase;
+use App\Application\Contracts\Linnworks\InventoryClientInterface;
+use App\Application\Contracts\Linnworks\InventoryUpdateClientInterface;
 use App\Application\Contracts\Linnworks\LinnworksSyncDispatcherInterface;
+use App\Application\Contracts\Shopwired\PriceUpdateClientInterface;
+use App\Application\Contracts\Shopwired\ProductClientInterface;
+use App\Application\Contracts\Shopwired\ProductFieldUpdateClientInterface;
+use App\Application\Contracts\Shopwired\ProductUpdateClientInterface;
 use App\Application\Contracts\Shopwired\ShopwiredSyncDispatcherInterface;
 use App\Presentation\Http\Api\Controllers\ProductUpdateController;
 use Mockery;
@@ -35,6 +41,19 @@ final class ProductUpdateControllerRefreshAllTest extends TestCase
 
         $this->app->instance(ShopwiredSyncDispatcherInterface::class, $this->shopwiredDispatcher);
         $this->app->instance(LinnworksSyncDispatcherInterface::class, $this->linnworksDispatcher);
+
+        // ProductUpdateController's constructor eagerly resolves every use case it
+        // holds — including the update/price/cost-price/refresh paths this test
+        // doesn't exercise. Those bindings call Shopwired/Linnworks factory
+        // getTransport() methods that throw on empty config. Bind empty mocks so
+        // the container can satisfy type constraints without triggering real
+        // config reads.
+        $this->app->instance(ProductClientInterface::class, Mockery::mock(ProductClientInterface::class));
+        $this->app->instance(ProductUpdateClientInterface::class, Mockery::mock(ProductUpdateClientInterface::class));
+        $this->app->instance(ProductFieldUpdateClientInterface::class, Mockery::mock(ProductFieldUpdateClientInterface::class));
+        $this->app->instance(PriceUpdateClientInterface::class, Mockery::mock(PriceUpdateClientInterface::class));
+        $this->app->instance(InventoryClientInterface::class, Mockery::mock(InventoryClientInterface::class));
+        $this->app->instance(InventoryUpdateClientInterface::class, Mockery::mock(InventoryUpdateClientInterface::class));
     }
 
     #[Override]

@@ -6,6 +6,7 @@ namespace Tests\Feature\Presentation\Http\Api\Controllers;
 
 use App\Application\Contracts\Shopwired\CategoryClientInterface;
 use App\Application\Contracts\Shopwired\CategoryRepositoryInterface;
+use App\Application\Contracts\Shopwired\CategoryUpdateClientInterface;
 use App\Application\Results\SaveManyResult;
 use App\Domain\Catalog\Category\ValueObjects\Category;
 use App\Presentation\Http\Api\Controllers\CategoryUpdateController;
@@ -37,6 +38,12 @@ final class CategoryUpdateControllerRefreshTest extends TestCase
 
         $this->app->instance(CategoryClientInterface::class, $this->client);
         $this->app->instance(CategoryRepositoryInterface::class, $this->repository);
+
+        // Controller constructor also pulls in UpdateCategoryFieldsUseCase +
+        // UpdateCategoryCustomFieldsUseCase — both resolve CategoryUpdateClientInterface
+        // whose binding calls ShopwiredClientFactory::getTransport(). Bind an empty
+        // mock so the container doesn't trigger real config reads.
+        $this->app->instance(CategoryUpdateClientInterface::class, Mockery::mock(CategoryUpdateClientInterface::class));
     }
 
     #[Override]
