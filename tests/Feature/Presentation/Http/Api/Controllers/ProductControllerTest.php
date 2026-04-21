@@ -8,34 +8,32 @@ use App\Application\Catalog\Queries\ProductDetailQueryParams;
 use App\Application\Catalog\Queries\ProductListQueryParams;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Application\DTOs\PaginatedListDTO;
-use App\Domain\Access\ValueObjects\AuthenticatedUser;
 use App\Domain\Catalog\Product\Enums\ProductFilterField;
 use App\Domain\Catalog\Product\Enums\ProductInclude;
 use App\Domain\Catalog\Product\Enums\ProductSortField;
 use App\Domain\Catalog\Product\ValueObjects\Popularity;
 use App\Domain\Catalog\Product\ValueObjects\ProductLinks;
+use App\Domain\Catalog\Product\ValueObjects\ProductStock;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariationOption;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariationView;
 use App\Domain\Catalog\Product\ValueObjects\ProductView;
 use App\Domain\Catalog\Product\ValueObjects\ProductViewMeta;
 use App\Domain\Shared\Pagination\Enums\SortDirection;
 use App\Presentation\Http\Api\Controllers\ProductController;
-use App\Presentation\Http\Auth\Middleware\ValidateSupabaseJwtMiddleware;
-use App\Presentation\Http\Middleware\EnsureUserApprovedMiddleware;
-use Closure;
 use DateTimeImmutable;
-use Illuminate\Http\Request;
 use Mockery;
 use Mockery\MockInterface;
 use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
-use Symfony\Component\HttpFoundation\Response;
+use Tests\Feature\Concerns\AuthenticatesAsApprovedUser;
 use Tests\TestCase;
 
 #[CoversClass(ProductController::class)]
 final class ProductControllerTest extends TestCase
 {
+    use AuthenticatesAsApprovedUser;
+
     private ProductRepositoryInterface&MockInterface $productRepository;
 
     #[Override]
@@ -750,7 +748,7 @@ final class ProductControllerTest extends TestCase
             'id', 'sku', 'title', 'slug', 'links',
             'price', 'cost_price', 'sale_price', 'rrp',
             'effective_price', 'profit_margin',
-            'is_active', 'is_on_sale', 'has_any_sale', 'has_free_delivery',
+            'is_active', 'is_on_sale', 'has_any_sale', 'has_single_selling_price', 'has_free_delivery',
             'vat_exclusive', 'vat_relief',
             'meta_title', 'meta_description', 'free_delivery',
             'sort_order', 'popularity', 'images', 'created_at', 'updated_at',
@@ -895,6 +893,7 @@ final class ProductControllerTest extends TestCase
             hasAnyVariationOnSale: ProductVariationView::anyOnSale([$variation]),
             parentAvailableStock: -4,
             parentPhysicalStock: 0,
+            allVariations: [$variation],
         );
 
         $dto = PaginatedListDTO::fromPage(items: [$product], total: 1, perPage: 500, currentPage: 1);
@@ -909,6 +908,55 @@ final class ProductControllerTest extends TestCase
         $response->assertStatus(200);
         $variationJson = $response->json()['data'][0]['variations'][0];
         $this->assertSame(0, $variationJson['stock']);
+    }
+
+    #[Test]
+    public function variant_only_product_aggregates_stock_under_include_stock_and_exposes_common_price(): void
+    {
+        $product = $this->createVariantOnlyProduct(variationPrices: [12.99, 12.99], stockPerVariation: 3);
+        $dto = PaginatedListDTO::fromPage(items: [$product], total: 1, perPage: 500, currentPage: 1);
+
+        $this->productRepository
+            ->shouldReceive('paginate')
+            ->once()
+            ->andReturn($dto);
+
+        $response = $this->asApprovedUser()->getJson('/api/products?include=stock');
+
+        $response->assertStatus(200);
+        $body = $response->json();
+        $productData = $body['data'][0];
+
+        // Regression: master-level stock/price were zero; variation-level must fill the gap.
+        $this->assertSame(6, $productData['stock']['aggregate_available']);
+        $this->assertSame(6, $productData['stock']['aggregate_physical']);
+        $this->assertSame(12.99, $productData['price']);
+        $this->assertSame(12.99, $productData['effective_price']);
+        $this->assertTrue($productData['has_single_selling_price']);
+    }
+
+    #[Test]
+    public function variant_only_product_with_differing_prices_uses_minimum_and_reports_non_uniform(): void
+    {
+        $product = $this->createVariantOnlyProduct(variationPrices: [19.99, 24.99, 14.99], stockPerVariation: 2);
+        $dto = PaginatedListDTO::fromPage(items: [$product], total: 1, perPage: 500, currentPage: 1);
+
+        $this->productRepository
+            ->shouldReceive('paginate')
+            ->once()
+            ->andReturn($dto);
+
+        $response = $this->asApprovedUser()->getJson('/api/products?include=stock');
+
+        $response->assertStatus(200);
+        $body = $response->json();
+        $productData = $body['data'][0];
+
+        // Non-uniform variation prices: aggregate to the minimum, flag as not single-priced.
+        $this->assertSame(6, $productData['stock']['aggregate_available']);
+        $this->assertSame(14.99, $productData['price']);
+        $this->assertSame(14.99, $productData['effective_price']);
+        $this->assertFalse($productData['has_single_selling_price']);
     }
 
     #[Test]
@@ -984,43 +1032,6 @@ final class ProductControllerTest extends TestCase
     |--------------------------------------------------------------------------
     */
 
-    /**
-     * Make requests as an approved user, bypassing auth middleware.
-     *
-     * Replaces ValidateSupabaseJwtMiddleware and EnsureUserApprovedMiddleware
-     * with a stub that injects a pre-built AuthenticatedUser into request attributes.
-     */
-    private function asApprovedUser(): static
-    {
-        $approvedUser = new AuthenticatedUser(
-            id: 'd9dd22a9-c3ab-413b-8a93-25b462231a98',
-            email: 'test@example.com',
-            isApproved: true,
-            roleName: 'admin',
-        );
-
-        // Bind a stub class that sets authenticated_user and delegates, in place of both auth middleware
-        $stub = new class ($approvedUser) {
-            public function __construct(private readonly AuthenticatedUser $user) {}
-
-            public function handle(Request $request, Closure $next): Response
-            {
-                $request->attributes->set('authenticated_user', $this->user);
-
-                return $next($request);
-            }
-        };
-
-        $this->app->bind(ValidateSupabaseJwtMiddleware::class, static fn() => $stub);
-        $this->app->bind(EnsureUserApprovedMiddleware::class, static fn() => new class {
-            public function handle(Request $request, Closure $next): Response
-            {
-                return $next($request);
-            }
-        });
-
-        return $this;
-    }
 
     private function createProductWithVariations(): ProductView
     {
@@ -1079,6 +1090,7 @@ final class ProductControllerTest extends TestCase
             hasAnyVariationOnSale: ProductVariationView::anyOnSale([$variation]),
             parentAvailableStock: 0,
             parentPhysicalStock: 0,
+            allVariations: [$variation],
         );
     }
 
@@ -1119,7 +1131,87 @@ final class ProductControllerTest extends TestCase
             hasAnyVariationOnSale: ProductVariationView::anyOnSale([]),
             parentAvailableStock: 0,
             parentPhysicalStock: 0,
+            allVariations: null,
             popularity: $popularity,
+        );
+    }
+
+    /**
+     * @param list<float> $variationPrices
+     */
+    private function createVariantOnlyProduct(array $variationPrices, int $stockPerVariation = 5): ProductView
+    {
+        $variations = \array_map(
+            static fn(float $price, int $idx): ProductVariationView => new ProductVariationView(
+                externalId: 200 + $idx,
+                sku: 'VAR-' . $idx,
+                gtin: null,
+                price: $price,
+                costPrice: null,
+                salePrice: null,
+                rrp: null,
+                effectivePrice: $price,
+                isOnSale: false,
+                profitMargin: null,
+                availableStock: $stockPerVariation,
+                physicalStock: $stockPerVariation,
+                weight: null,
+                vatExclusive: false,
+                mpn: null,
+                imageIndex: null,
+                options: [],
+            ),
+            $variationPrices,
+            \array_keys($variationPrices),
+        );
+
+        $totalStock = $stockPerVariation * \count($variations);
+
+        return new ProductView(
+            externalId: 77,
+            sku: null,
+            gtin: null,
+            title: 'Variant-Only Product',
+            description: null,
+            slug: 'variant-only-product',
+            links: new ProductLinks(
+                publicUrl: 'https://example.com/variant-only-product',
+                editWebsiteUrl: 'https://admin.myshopwired.uk/business/manage-ecommerce-add-product/77',
+            ),
+            price: 0.00,
+            costPrice: null,
+            salePrice: null,
+            rrp: null,
+            effectivePrice: 0.00,
+            isOnSale: false,
+            profitMargin: null,
+            isActive: true,
+            vatExclusive: false,
+            vatRelief: false,
+            metaTitle: null,
+            metaDescription: null,
+            categoryIds: [],
+            variations: null,
+            images: [],
+            customFields: [],
+            filters: [],
+            sortOrder: null,
+            createdAt: new DateTimeImmutable('2024-01-01'),
+            updatedAt: new DateTimeImmutable('2024-01-01'),
+            meta: new ProductViewMeta($variations, null, null),
+            hasAnyVariationOnSale: ProductVariationView::anyOnSale($variations),
+            parentAvailableStock: 0,
+            parentPhysicalStock: 0,
+            allVariations: $variations,
+            stock: new ProductStock(
+                quantity: null,
+                available: null,
+                inOrder: null,
+                due: null,
+                jit: false,
+                aggregateAvailable: $totalStock,
+                aggregatePhysical: $totalStock,
+            ),
         );
     }
 }

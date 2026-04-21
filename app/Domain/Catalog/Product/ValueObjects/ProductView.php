@@ -43,6 +43,16 @@ final readonly class ProductView
 
     public Money $effectivePrice;
 
+    public ?float $profitMargin;
+
+    /**
+     * True when all sellable SKUs share the same selling price.
+     *
+     * Pre-computed from the fully-loaded variation list so it serialises on the
+     * list API without requiring `?include=variations`.
+     */
+    public bool $hasSingleSellingPrice;
+
     /** @var list<IntId> */
     public array $categoryIds;
 
@@ -69,6 +79,9 @@ final readonly class ProductView
      * @param list<int> $categoryIds
      * @param list<int> $mainCategoryIds
      * @param list<ProductVariationView>|null $variations
+     * @param list<ProductVariationView>|null $allVariations Fully-loaded variations for internal
+     *        derivations (stock, price fallbacks). Independent of the public $variations gate.
+     *        Not stored — derivation-only. Defaults to $variations when omitted.
      * @param list<ProductImage> $images
      * @param list<AbstractCustomFieldValue> $customFields
      * @param list<ProductFilter> $filters
@@ -87,7 +100,7 @@ final readonly class ProductView
         ?float $rrp,
         float $effectivePrice,
         public bool $isOnSale,
-        public ?float $profitMargin,
+        ?float $profitMargin,
         public bool $isActive,
         public bool $vatExclusive,
         public bool $vatRelief,
@@ -105,6 +118,7 @@ final readonly class ProductView
         bool $hasAnyVariationOnSale,
         int $parentAvailableStock,
         int $parentPhysicalStock,
+        ?array $allVariations = null,
         public ?SaleSettings $saleSettings = null,
         public ?FreeDeliveryType $freeDelivery = null,
         /** @var list<ProductSupplier>|null */
@@ -118,16 +132,14 @@ final readonly class ProductView
         public ?Popularity $popularity = null,
     ) {
         $taxType = $vatExclusive ? TaxType::ZeroRated : TaxType::Inclusive;
+        $derivationVariations = $allVariations ?? $variations;
 
         $this->id = IntId::from($externalId);
         $this->sku = $sku !== null && \mb_trim($sku) !== '' ? Sku::fromTrusted(\mb_trim($sku)) : null;
         $this->gtin = $gtin !== null && \mb_trim($gtin) !== '' ? Gtin::fromTrusted(\mb_trim($gtin)) : null;
-        $this->price = Money::fromTaxType($price, $taxType);
-        $this->costPrice = Money::nonZeroOrNull($costPrice, TaxType::Exclusive);
         $this->salePrice = Money::nonZeroOrNull($salePrice, $taxType);
         $this->rrp = Money::nonZeroOrNull($rrp, $taxType);
         $this->meta = $meta;
-        $this->effectivePrice = Money::fromTaxType($effectivePrice, $taxType);
         $this->categoryIds = \array_map(static fn(int $id): IntId => IntId::from($id), $categoryIds);
         $this->mainCategoryIds = \array_map(static fn(int $id): IntId => IntId::from($id), $mainCategoryIds);
         $this->hasFreeDelivery = $freeDelivery !== null && ! $freeDelivery->isNone();
@@ -135,38 +147,20 @@ final readonly class ProductView
         $this->defaultSupplier = $defaultSupplier;
         $this->createdAtFormatted = $createdAt->format(DateFormat::DEFAULT_DATE_FORMAT);
         $this->updatedAtFormatted = $updatedAt->format(DateFormat::DEFAULT_DATE_FORMAT);
-        $this->stockLevel = Stock::fromParentAndVariants(
-            $parentAvailableStock,
-            $parentPhysicalStock,
-            $variations,
+
+        $master = new MasterPricing(
+            Money::fromTaxType($price, $taxType),
+            Money::fromTaxType($effectivePrice, $taxType),
+            Money::nonZeroOrNull($costPrice, TaxType::Exclusive),
+            $profitMargin,
         );
-    }
-
-    /**
-     * Whether all sellable SKUs share the same selling price.
-     *
-     * Requires variations to be loaded (asserts non-null). Products with no
-     * variations trivially have a single selling price.
-     *
-     * When the master product price is zero (variant-only pricing model),
-     * variations are compared against each other instead of the master.
-     */
-    public function hasSingleSellingPrice(): bool
-    {
-        Assert::notNull($this->variations, 'variations must be loaded');
-
-        if ($this->variations === []) {
-            return true;
-        }
-
-        $reference = $this->price->isZero()
-            ? $this->variations[0]->price
-            : $this->price;
-
-        return \array_all(
-            $this->variations,
-            static fn(ProductVariationView $v): bool => $v->price->amountEquals($reference),
-        );
+        $pricing = ProductViewPricing::aggregate($master, $derivationVariations);
+        $this->price = $pricing->price;
+        $this->effectivePrice = $pricing->effectivePrice;
+        $this->costPrice = $pricing->costPrice;
+        $this->profitMargin = $pricing->profitMargin;
+        $this->hasSingleSellingPrice = ProductViewPricing::hasSingleSellingPrice($pricing->price, $derivationVariations);
+        $this->stockLevel = Stock::fromParentAndVariants($parentAvailableStock, $parentPhysicalStock, $derivationVariations);
     }
 
     /**

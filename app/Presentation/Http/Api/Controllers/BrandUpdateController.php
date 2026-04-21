@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Presentation\Http\Api\Controllers;
 
+use App\Application\Catalog\UseCases\RefreshBrandViewUseCase;
 use App\Application\Catalog\UseCases\UpdateBrandCustomFieldsUseCase;
 use App\Application\Catalog\UseCases\UpdateBrandFieldsUseCase;
+use App\Application\Shopwired\UseCases\SyncBrandsUseCase;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
@@ -18,6 +20,7 @@ use App\Domain\ValueObjects\IntId;
 use App\Presentation\Http\Api\DTOs\UpdateBrandFieldsRequestDTO;
 use App\Presentation\Http\Api\DTOs\UpdateCustomFieldsRequestDTO;
 use Illuminate\Http\JsonResponse;
+use RuntimeException;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -30,6 +33,8 @@ final readonly class BrandUpdateController
     public function __construct(
         private UpdateBrandFieldsUseCase $fieldsUseCase,
         private UpdateBrandCustomFieldsUseCase $customFieldsUseCase,
+        private RefreshBrandViewUseCase $refreshUseCase,
+        private SyncBrandsUseCase $syncAllUseCase,
     ) {}
 
     /**
@@ -68,6 +73,40 @@ final readonly class BrandUpdateController
             brandId: IntId::from($brandId),
             rawFields: $data->custom_fields,
         );
+
+        return new JsonResponse(null, Response::HTTP_NO_CONTENT);
+    }
+
+    /**
+     * Force-refresh a single brand's data from ShopWired synchronously.
+     *
+     * @throws ResourceNotAvailableException When brand not found in ShopWired (404)
+     * @throws AuthenticationExpiredException When credentials invalid (401/403)
+     * @throws InvalidApiRequestException When request parameters invalid (400)
+     * @throws InvalidApiResponseException When API response parsing fails
+     * @throws ExternalServiceUnavailableException When API unavailable
+     * @throws DatabaseOperationFailedException When database save fails
+     * @throws DuplicateRecordException When unique constraint violated
+     */
+    public function refresh(int $brandId): JsonResponse
+    {
+        $this->refreshUseCase->execute(IntId::from($brandId));
+
+        return new JsonResponse(null, Response::HTTP_NO_CONTENT);
+    }
+
+    /**
+     * Force-refresh the full brand list from ShopWired synchronously.
+     *
+     * @throws AuthenticationExpiredException When ShopWired credentials invalid/expired
+     * @throws InvalidApiRequestException When request parameters invalid
+     * @throws ExternalServiceUnavailableException When ShopWired API unavailable
+     * @throws InvalidApiResponseException When API response parsing fails
+     * @throws RuntimeException When API returns zero brands (unexpected)
+     */
+    public function refreshAll(): JsonResponse
+    {
+        $this->syncAllUseCase->execute();
 
         return new JsonResponse(null, Response::HTTP_NO_CONTENT);
     }
