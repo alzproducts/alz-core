@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Presentation\Http\Api\Controllers;
 
+use App\Application\Catalog\UseCases\RefreshAllProductsUseCase;
 use App\Application\Catalog\UseCases\RefreshProductViewUseCase;
 use App\Application\Catalog\UseCases\UpdateProductCustomFieldsUseCase;
 use App\Application\Catalog\UseCases\UpdateProductFieldsUseCase;
@@ -35,6 +36,7 @@ use App\Presentation\Http\Api\DTOs\CostPriceItemDTO;
 use App\Presentation\Http\Api\DTOs\UpdateCostPricesRequestDTO;
 use App\Presentation\Http\Api\DTOs\UpdateCustomFieldsRequestDTO;
 use App\Presentation\Http\Api\DTOs\UpdateProductFieldsRequestDTO;
+use App\Presentation\Http\Api\Responses\AsyncRefreshAcceptedResponseDTO;
 use App\Presentation\Http\Api\Responses\BulkUpdateResponseDTO;
 use App\Presentation\Http\Requests\SetFreeDeliveryRequest;
 use App\Presentation\Http\Shopwired\DTOs\SkuPriceUpdateDTO;
@@ -57,6 +59,7 @@ final readonly class ProductUpdateController
         private UpdateProductFieldsUseCase $fieldsUseCase,
         private UpdateCostPriceBySupplierUseCase $costPriceUseCase,
         private RefreshProductViewUseCase $refreshUseCase,
+        private RefreshAllProductsUseCase $refreshAllUseCase,
     ) {}
 
     /**
@@ -96,6 +99,23 @@ final readonly class ProductUpdateController
         $this->refreshUseCase->execute(IntId::from($productId));
 
         return new JsonResponse(null, Response::HTTP_NO_CONTENT);
+    }
+
+    /**
+     * Force-refresh the full product catalogue + Linnworks stock items asynchronously.
+     *
+     * Dispatches SyncShopwiredProductsJob + SyncLinnworksStockItemsJob. Both jobs carry
+     * ShouldBeUnique guards, so concurrent dispatches (scheduled or on-demand) are deduped
+     * silently — a 202 means "dispatch attempted", not "a new job is queued".
+     */
+    public function refreshAll(): AsyncRefreshAcceptedResponseDTO
+    {
+        $this->refreshAllUseCase->execute();
+
+        return new AsyncRefreshAcceptedResponseDTO(
+            message: 'Product & stock refresh queued',
+            estimatedDurationSeconds: RefreshAllProductsUseCase::ESTIMATED_DURATION_SECONDS,
+        );
     }
 
     /**
