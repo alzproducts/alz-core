@@ -182,6 +182,7 @@ final class ProductPricingUpdatedSlackListenerTest extends TestCase
             hasAnyVariationOnSale: ProductVariationView::anyOnSale([]),
             parentAvailableStock: 100,
             parentPhysicalStock: 100,
+            allVariations: [],
         );
     }
 }

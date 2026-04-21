@@ -19,12 +19,14 @@ use App\Domain\Catalog\Product\ValueObjects\ProductVariationView;
 use App\Domain\Catalog\Product\ValueObjects\ProductView;
 use App\Domain\Catalog\Product\ValueObjects\ProductViewMeta;
 use App\Domain\Catalog\Product\ValueObjects\SaleSettings;
+use App\Domain\Catalog\Product\ValueObjects\Stock;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Data\MissingRequiredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Infrastructure\Catalog\Product\Models\ProductVariationViewModel;
 use App\Infrastructure\Catalog\Product\Models\ProductViewModel;
+use App\Infrastructure\Linnworks\Models\StockItemModel;
 use App\Infrastructure\Linnworks\Models\StockItemSupplierModel;
 use App\Infrastructure\Shopwired\Factories\CustomFieldFactory;
 use App\Infrastructure\Shopwired\Factories\ProductFilterFactory;
@@ -93,6 +95,7 @@ final readonly class ProductViewAssembler
             categoryIds: $model->category_ids,
             mainCategoryIds: $model->main_category_ids,
             variations: \in_array(ProductInclude::Variations, $includes, true) ? $allVariations : null,
+            allVariations: $allVariations,
             images: self::buildImages($model->images),
             customFields: \in_array(ProductInclude::CustomFields, $includes, true) ? $typedCustomFields : [],
             filters: $this->resolveFilters($model, $includes),
@@ -108,7 +111,7 @@ final readonly class ProductViewAssembler
             freeDelivery: self::resolveFreeDelivery($typedCustomFields),
             suppliers: self::resolveSuppliers($model, $includes),
             inventory: self::resolveInventory($model, $includes),
-            stock: self::resolveStock($model, $includes),
+            stock: self::resolveStock($model, $includes, $allVariations),
             defaultSupplier: $defaultSupplier,
             isComposite: $stockItem?->is_composite,
         );
@@ -214,16 +217,18 @@ final readonly class ProductViewAssembler
 
     /**
      * @param list<ProductInclude> $includes
+     * @param list<ProductVariationView>|null $allVariations
      */
-    private static function resolveStock(ProductViewModel $model, array $includes): ?ProductStock
+    private static function resolveStock(ProductViewModel $model, array $includes, ?array $allVariations): ?ProductStock
     {
-        if (! \in_array(ProductInclude::Stock, $includes, true)
-            || ! $model->relationLoaded('stockItem')
-            || $model->stockItem === null) {
+        if (! \in_array(ProductInclude::Stock, $includes, true)) {
             return null;
         }
 
-        return $model->stockItem->toProductStock();
+        $master = $model->relationLoaded('stockItem') ? $model->stockItem : null;
+        $aggregate = Stock::fromParentAndVariants($model->available_stock, $model->physical_stock, $allVariations);
+
+        return StockItemModel::buildProductStock($master, $aggregate->availableStock, $aggregate->physicalStock);
     }
 
     /** @param list<ProductVariationView>|null $variations */
@@ -275,7 +280,6 @@ final readonly class ProductViewAssembler
 
     /**
      * @param list<array{id: int, url: string, description: string|null, sort_order: int}> $images
-     *
      * @return list<ProductImage>
      */
     private static function buildImages(array $images): array

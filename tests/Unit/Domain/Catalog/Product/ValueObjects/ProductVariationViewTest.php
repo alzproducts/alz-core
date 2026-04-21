@@ -6,6 +6,7 @@ namespace Tests\Unit\Domain\Catalog\Product\ValueObjects;
 
 use App\Domain\Catalog\Product\ValueObjects\ProductSupplier;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariationView;
+use App\Domain\Shared\Money\ValueObjects\Money;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -218,6 +219,187 @@ final class ProductVariationViewTest extends TestCase
     public function common_default_supplier_null_when_empty(): void
     {
         self::assertNull(ProductVariationView::commonDefaultSupplier([]));
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | commonCostPrice
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function common_cost_price_returns_shared_money_when_all_agree(): void
+    {
+        $variations = [
+            $this->createView(costPrice: 3.50),
+            $this->createView(costPrice: 3.50),
+        ];
+
+        $result = ProductVariationView::commonCostPrice($variations);
+
+        self::assertNotNull($result);
+        self::assertSame(3.50, $result->toNet());
+    }
+
+    #[Test]
+    public function common_cost_price_returns_null_when_any_differs(): void
+    {
+        $variations = [
+            $this->createView(costPrice: 3.50),
+            $this->createView(costPrice: 4.00),
+        ];
+
+        self::assertNull(ProductVariationView::commonCostPrice($variations));
+    }
+
+    #[Test]
+    public function common_cost_price_returns_null_when_any_variation_has_null_cost(): void
+    {
+        $variations = [
+            $this->createView(costPrice: 3.50),
+            $this->createView(costPrice: null),
+        ];
+
+        self::assertNull(ProductVariationView::commonCostPrice($variations));
+    }
+
+    #[Test]
+    public function common_cost_price_returns_null_when_first_variation_has_null_cost(): void
+    {
+        $variations = [
+            $this->createView(costPrice: null),
+            $this->createView(costPrice: 3.50),
+        ];
+
+        self::assertNull(ProductVariationView::commonCostPrice($variations));
+    }
+
+    #[Test]
+    public function common_cost_price_returns_null_when_empty(): void
+    {
+        self::assertNull(ProductVariationView::commonCostPrice([]));
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | commonPrice
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function common_price_returns_shared_money_when_all_agree(): void
+    {
+        $variations = [
+            $this->createView(price: 29.99),
+            $this->createView(price: 29.99),
+        ];
+
+        $result = ProductVariationView::commonPrice($variations);
+
+        self::assertNotNull($result);
+        self::assertSame(29.99, $result->toGross());
+    }
+
+    #[Test]
+    public function common_price_returns_null_when_any_differs(): void
+    {
+        $variations = [
+            $this->createView(price: 29.99),
+            $this->createView(price: 39.99),
+        ];
+
+        self::assertNull(ProductVariationView::commonPrice($variations));
+    }
+
+    #[Test]
+    public function common_price_returns_null_when_empty(): void
+    {
+        self::assertNull(ProductVariationView::commonPrice([]));
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | commonEffectivePrice
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function common_effective_price_returns_shared_money_when_all_agree(): void
+    {
+        $variations = [
+            $this->createView(effectivePrice: 12.50),
+            $this->createView(effectivePrice: 12.50),
+        ];
+
+        $result = ProductVariationView::commonEffectivePrice($variations);
+
+        self::assertNotNull($result);
+        self::assertSame(12.50, $result->toGross());
+    }
+
+    #[Test]
+    public function common_effective_price_returns_null_when_any_differs(): void
+    {
+        $variations = [
+            $this->createView(effectivePrice: 12.50),
+            $this->createView(effectivePrice: 14.00),
+        ];
+
+        self::assertNull(ProductVariationView::commonEffectivePrice($variations));
+    }
+
+    #[Test]
+    public function common_effective_price_returns_null_when_empty(): void
+    {
+        self::assertNull(ProductVariationView::commonEffectivePrice([]));
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | minPrice / minEffectivePrice
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function min_price_picks_lowest(): void
+    {
+        $variations = [
+            $this->createView(price: 30.00),
+            $this->createView(price: 10.00),
+            $this->createView(price: 20.00),
+        ];
+
+        $result = ProductVariationView::minPrice($variations);
+
+        self::assertInstanceOf(Money::class, $result);
+        self::assertSame(10.00, $result->toGross());
+    }
+
+    #[Test]
+    public function min_price_returns_null_when_empty(): void
+    {
+        self::assertNull(ProductVariationView::minPrice([]));
+    }
+
+    #[Test]
+    public function min_effective_price_picks_lowest(): void
+    {
+        $variations = [
+            $this->createView(effectivePrice: 25.00),
+            $this->createView(effectivePrice: 9.99),
+            $this->createView(effectivePrice: 18.00),
+        ];
+
+        $result = ProductVariationView::minEffectivePrice($variations);
+
+        self::assertInstanceOf(Money::class, $result);
+        self::assertSame(9.99, $result->toGross());
+    }
+
+    #[Test]
+    public function min_effective_price_returns_null_when_empty(): void
+    {
+        self::assertNull(ProductVariationView::minEffectivePrice([]));
     }
 
     /*

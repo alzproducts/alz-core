@@ -149,4 +149,105 @@ final readonly class ProductVariationView
             static fn(self $v): bool => $v->isOnSale,
         );
     }
+
+    /**
+     * Return the common cost price when every variation shares the same non-null cost.
+     *
+     * @param list<self> $variations
+     */
+    public static function commonCostPrice(array $variations): ?Money
+    {
+        return self::commonByField($variations, static fn(self $v): ?Money => $v->costPrice);
+    }
+
+    /**
+     * Return the common selling price when every variation shares the same price.
+     *
+     * @param list<self> $variations
+     */
+    public static function commonPrice(array $variations): ?Money
+    {
+        return self::commonByField($variations, static fn(self $v): Money => $v->price);
+    }
+
+    /**
+     * Return the common effective price when every variation shares the same effective price.
+     *
+     * @param list<self> $variations
+     */
+    public static function commonEffectivePrice(array $variations): ?Money
+    {
+        return self::commonByField($variations, static fn(self $v): Money => $v->effectivePrice);
+    }
+
+    /**
+     * Return the lowest price across variations, compared by gross value for
+     * a stable ordering regardless of tax type.
+     *
+     * @param list<self> $variations
+     */
+    public static function minPrice(array $variations): ?Money
+    {
+        return self::minByField($variations, static fn(self $v): Money => $v->price);
+    }
+
+    /**
+     * Return the lowest effective price across variations, compared by gross value
+     * for a stable ordering regardless of tax type.
+     *
+     * @param list<self> $variations
+     */
+    public static function minEffectivePrice(array $variations): ?Money
+    {
+        return self::minByField($variations, static fn(self $v): Money => $v->effectivePrice);
+    }
+
+    /**
+     * Returns null when variations are empty, the extracted value on the first variation
+     * is null, or any extracted value differs from the first.
+     *
+     * @param list<self> $variations
+     * @param callable(self): ?Money $extractor
+     */
+    private static function commonByField(array $variations, callable $extractor): ?Money
+    {
+        if ($variations === []) {
+            return null;
+        }
+
+        $first = $extractor($variations[0]);
+        if ($first === null) {
+            return null;
+        }
+
+        foreach ($variations as $variation) {
+            $value = $extractor($variation);
+            if ($value === null || ! $value->amountEquals($first)) {
+                return null;
+            }
+        }
+
+        return $first;
+    }
+
+    /**
+     * @param list<self> $variations
+     * @param callable(self): Money $extractor
+     */
+    private static function minByField(array $variations, callable $extractor): ?Money
+    {
+        if ($variations === []) {
+            return null;
+        }
+
+        return \array_reduce(
+            $variations,
+            static function (Money $min, self $v) use ($extractor): Money {
+                $value = $extractor($v);
+
+                return $value->toGross() < $min->toGross() ? $value : $min;
+            },
+            $extractor($variations[0]),
+        );
+    }
 }

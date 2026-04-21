@@ -73,6 +73,7 @@ final class ProductResource extends JsonResource
             'is_active' => $product->isActive,
             'is_on_sale' => $product->isOnSale,
             'has_any_sale' => $product->hasAnySale,
+            'has_single_selling_price' => $product->hasSingleSellingPrice,
             'has_free_delivery' => $product->hasFreeDelivery,
             'vat_exclusive' => $product->vatExclusive,
             'vat_relief' => $product->vatRelief,
