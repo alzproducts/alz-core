@@ -632,49 +632,13 @@ parameters:
 
 
 		-
-			rawMessage: 'Method parseDirectArray() is 26 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Infrastructure/Linnworks/Clients/InventoryClient.php
-
-		-
-			rawMessage: 'Method parseSingleToDomain() is 25 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Infrastructure/Linnworks/Clients/InventoryClient.php
-
-		-
-			rawMessage: 'Method parseWrappedArray() is 37 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Infrastructure/Linnworks/Clients/InventoryClient.php
-
-		-
 			rawMessage: 'Method setExtendedProperties() is 41 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Infrastructure/Linnworks/Clients/InventoryUpdateClient.php
 
 		-
-			rawMessage: 'Method parseDirectArray() is 26 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Infrastructure/Linnworks/Clients/OrderClient.php
-
-		-
 			rawMessage: 'Method parseGetOrdersResponse() is 22 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Infrastructure/Linnworks/Clients/OrderClient.php
-
-		-
-			rawMessage: 'Method parseSingleToDomain() is 25 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Infrastructure/Linnworks/Clients/OrderClient.php
-
-		-
-			rawMessage: 'Method parseWrappedArray() is 37 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Infrastructure/Linnworks/Clients/OrderClient.php
@@ -687,24 +651,6 @@ parameters:
 			path: app/Infrastructure/Linnworks/Clients/PurchaseOrderUpdateClient.php
 
 		-
-			rawMessage: 'Method parseDirectArray() is 26 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Infrastructure/Linnworks/Clients/PurchaseOrderClient.php
-
-		-
-			rawMessage: 'Method parseSingleToDomain() is 25 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Infrastructure/Linnworks/Clients/PurchaseOrderClient.php
-
-		-
-			rawMessage: 'Method parseWrappedArray() is 37 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Infrastructure/Linnworks/Clients/PurchaseOrderClient.php
-
-		-
 			rawMessage: 'Method searchPurchaseOrders() is 30 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
@@ -713,24 +659,6 @@ parameters:
 
 		-
 			rawMessage: 'Method modifyAdditionalCosts() is 24 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Infrastructure/Linnworks/Clients/PurchaseOrderUpdateClient.php
-
-		-
-			rawMessage: 'Method parseDirectArray() is 26 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Infrastructure/Linnworks/Clients/PurchaseOrderUpdateClient.php
-
-		-
-			rawMessage: 'Method parseSingleToDomain() is 25 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Infrastructure/Linnworks/Clients/PurchaseOrderUpdateClient.php
-
-		-
-			rawMessage: 'Method parseWrappedArray() is 37 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Infrastructure/Linnworks/Clients/PurchaseOrderUpdateClient.php

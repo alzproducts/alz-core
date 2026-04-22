@@ -202,6 +202,31 @@ Not in the original plan — added mid-run because `BingAdsConfig.__construct` (
 - Existing `ExcessiveClassLengthRuleTest` (2 cases) and `ExcessiveMethodLengthRuleTest` (4 cases) pass without modification — default thresholds unchanged
 - No new rule tests added for Phase 0 (would require 500+ line fixture files for Infrastructure cluster coverage; real-codebase lint validates the new branches)
 
+#### 2026-04-23 — Phase 1 (LinnworksResponseParserTrait) complete
+
+Three over-limit parse methods (parseWrappedArray 37, parseDirectArray 26, parseSingleToDomain 25) consumed by 4 Linnworks clients, generating 12 baseline entries (4 × 3).
+
+**Refactor shape (Option A — two focused helpers):**
+- `throwParsingFailure(string $message, mixed $data, ?Throwable $previous = null): never` — log + throw `InvalidApiResponseException`. When `$previous` is non-null the failure originated from Spatie `CannotCreateData` (generic message + chained cause); otherwise it's a structural guard (message used verbatim).
+- `mapDtosFromArray(array $items, class-string<Data> $dtoClass, mixed $rawData): list<T>` — wraps the `array_map(::from)` + `catch CannotCreateData` pattern; always returns a list (via `array_values`).
+- Convention: `private static` matches existing trait helpers (`logParsingFailure`, `validateArrayResponse`, `groupByGuid`).
+
+**Result:**
+- `parseWrappedArray`: 37 → 15 lines (span)
+- `parseDirectArray`: 26 → 9 lines
+- `parseSingleToDomain`: 25 → 15 lines
+
+All three under the 20-line default threshold; 12 baseline entries cleared in one trait edit because PHPStan counts trait methods against each consuming class.
+
+**Out of scope (deferred to Phase 3):**
+10 `parseWrappedArrayToDomain` entries remain at 23 lines. Body is only ~8 lines — PhpParser/PHPStan is measuring the attached docblock as part of the node span. These belong to specific client files and will be investigated alongside the other Infrastructure/Linnworks client methods.
+
+**Baseline: 1430 → 1370 lines (-60).** 12 entries × 5 lines each = 60 line reduction.
+
+**Verification:**
+- `make lint` clean (all 5 linters)
+- Trait behavior preserved: guards still throw `InvalidApiResponseException` with same messages; `CannotCreateData` path still produces generic "API returned invalid data structure" message with the SDK exception chained as `previous`
+
 ---
 
 ## Issue #399 — Cross-cutting, Presentation & DevTools (127 errors)
