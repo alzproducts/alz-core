@@ -120,12 +120,7 @@ final class CustomFieldValueFactory implements CustomFieldValueFactoryInterface
     private static function createStringValue(ConfiguredFieldDefinition $definition, mixed $value): StringCustomFieldValue
     {
         if (!\is_string($value)) {
-            throw new InvalidCustomFieldValueException(
-                fieldName: $definition->base->name,
-                expectedType: $definition->base->type,
-                actualType: \get_debug_type($value),
-                rawValue: $value,
-            );
+            throw InvalidCustomFieldValueException::forMismatch($definition, $value);
         }
 
         return new StringCustomFieldValue($definition, $value);
@@ -137,12 +132,7 @@ final class CustomFieldValueFactory implements CustomFieldValueFactoryInterface
     private static function createToggleValue(ConfiguredFieldDefinition $definition, mixed $value): ToggleCustomFieldValue
     {
         if (!\is_bool($value)) {
-            throw new InvalidCustomFieldValueException(
-                fieldName: $definition->base->name,
-                expectedType: $definition->base->type,
-                actualType: \get_debug_type($value),
-                rawValue: $value,
-            );
+            throw InvalidCustomFieldValueException::forMismatch($definition, $value);
         }
 
         return new ToggleCustomFieldValue($definition, $value);
@@ -154,12 +144,7 @@ final class CustomFieldValueFactory implements CustomFieldValueFactoryInterface
     private static function createDateTimeValue(ConfiguredFieldDefinition $definition, mixed $value): DateTimeCustomFieldValue
     {
         if (!\is_int($value)) {
-            throw new InvalidCustomFieldValueException(
-                fieldName: $definition->base->name,
-                expectedType: $definition->base->type,
-                actualType: \get_debug_type($value),
-                rawValue: $value,
-            );
+            throw InvalidCustomFieldValueException::forMismatch($definition, $value);
         }
 
         return DateTimeCustomFieldValue::fromTimestamp($definition, $value);
@@ -171,12 +156,7 @@ final class CustomFieldValueFactory implements CustomFieldValueFactoryInterface
     private static function createValueListValue(ConfiguredFieldDefinition $definition, mixed $value): ValueListCustomFieldValue
     {
         if (!\is_array($value)) {
-            throw new InvalidCustomFieldValueException(
-                fieldName: $definition->base->name,
-                expectedType: $definition->base->type,
-                actualType: \get_debug_type($value),
-                rawValue: $value,
-            );
+            throw InvalidCustomFieldValueException::forMismatch($definition, $value);
         }
 
         foreach ($value as $item) {
@@ -200,12 +180,7 @@ final class CustomFieldValueFactory implements CustomFieldValueFactoryInterface
     private static function createProductListValue(ConfiguredFieldDefinition $definition, mixed $value): ProductListCustomFieldValue
     {
         if (!\is_array($value)) {
-            throw new InvalidCustomFieldValueException(
-                fieldName: $definition->base->name,
-                expectedType: $definition->base->type,
-                actualType: \get_debug_type($value),
-                rawValue: $value,
-            );
+            throw InvalidCustomFieldValueException::forMismatch($definition, $value);
         }
 
         foreach ($value as $item) {

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\Catalog\CustomFields\Exceptions;
 
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldType;
+use App\Domain\Catalog\CustomFields\ValueObjects\ConfiguredFieldDefinition;
 use App\Domain\Exceptions\DomainException;
 use Throwable;
 
@@ -34,6 +35,23 @@ final class InvalidCustomFieldValueException extends DomainException
     ) {
         $this->rawValueType = \get_debug_type($rawValue);
         parent::__construct('Custom field value type mismatch', previous: $previous);
+    }
+
+    /**
+     * Shorthand for the common case: raw value's PHP type doesn't match the definition.
+     *
+     * Composite cases (invalid choice, bad array element, unparseable timestamp)
+     * still instantiate the exception directly so the richer `actualType` detail
+     * stays visible at the throw site.
+     */
+    public static function forMismatch(ConfiguredFieldDefinition $definition, mixed $value): self
+    {
+        return new self(
+            fieldName: $definition->base->name,
+            expectedType: $definition->base->type,
+            actualType: \get_debug_type($value),
+            rawValue: $value,
+        );
     }
 
     public function context(): array
