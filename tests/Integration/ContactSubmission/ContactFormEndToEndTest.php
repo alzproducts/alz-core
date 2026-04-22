@@ -22,6 +22,7 @@ use Illuminate\Support\Facades\Queue;
 use Mockery\MockInterface;
 use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -35,6 +36,7 @@ use Tests\TestCase;
  * this project uses a shared Supabase database (no RefreshDatabase).
  */
 #[CoversClass(ProcessContactSubmissionJob::class)]
+#[Group('integration')]
 final class ContactFormEndToEndTest extends TestCase
 {
     private Generator $faker;

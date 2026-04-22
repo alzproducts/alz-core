@@ -18,6 +18,7 @@ use Mockery;
 use Mockery\MockInterface;
 use PDOException;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use Psr\Log\LoggerInterface;
 use ReflectionProperty;
@@ -30,6 +31,7 @@ use Tests\TestCase;
  * Per TestingStrategy.md: one happy path, key error paths only.
  */
 #[CoversClass(DatabaseGateway::class)]
+#[Group('integration')]
 final class DatabaseGatewayTest extends TestCase
 {
     private LoggerInterface&MockInterface $mockLogger;
