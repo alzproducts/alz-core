@@ -261,6 +261,32 @@ All three under the 20-line default threshold; 12 baseline entries cleared in on
 - `make lint` clean (all 5 linters)
 - Behavior preserved: same upsert/delete sequence, same nullable-key skip semantics, same `attributesFromDomain` field list on the model
 
+#### 2026-04-23 — Phase 3a (Linnworks repositories) complete
+
+Two repository refactors — same pattern as Phase 2 for LinnworksOrder, different pattern for StockItem.
+
+**EloquentLinnworksOrderRepository (3 entries):**
+- `entityToAttributes` (71 lines) → 5-line delegation to `LinnworksOrderModel::attributesFromDomain(LinnworksOrder)`. 56 field mappings moved verbatim to the Model (rule-exempt by name).
+- Extracted 3 local sync helpers: `deleteAllChildrenForOrder`, `upsertChildRows`, `deleteOrphansByOrder` — same shape as Phase 2 but hardcoded `'linnworks_order_id'` parent column (vs `'linnworks_purchase_id'` in Phase 2).
+- `syncItems`/`syncExtendedProperties`: 36 → ~16 lines each.
+
+**EloquentStockItemRepository (1 entry):**
+- `save()` (59 lines) → 17 lines via two helpers: `replaceExtendedProperties`, `replaceSuppliers`.
+- These use a **delete-and-reinsert** strategy (not upsert+orphan-delete), matching the existing repo semantics — "catches removals in Linnworks" per the docblock.
+- Transaction wrapper preserved — helpers called inside `transact(attempts: 3)` closure.
+
+**Intentional DRY tradeoff:**
+The two "sync" repos (LinnworksOrder + PurchaseOrderSync) now share a helper *pattern* but keep local copies rather than a shared base. Both have only 2-5 child entities and the helpers are trivial — a shared abstraction would obscure without simplifying. If a third sync repo emerges with the same pattern, that's the time to extract.
+
+**Behavior preservation (verified via sequential-thinking review + field-by-field diff):**
+- 56 LinnworksOrderModel field mappings identical (only `$entity` → `$order` parameter rename)
+- StockItem delete-reinsert order preserved (upsertOne → deleteWhere(EP) → conditional insertMany(EP) → deleteWhere(Supplier) → conditional insertMany(Supplier))
+- Exception propagation via `@throws` on helpers matches original
+
+**Baseline: 1335 → 1315 lines (-20).** 4 entries cleared.
+
+**Verification:** `make lint` clean; `make test` 3192 passed, 0 failures.
+
 ---
 
 ## Issue #399 — Cross-cutting, Presentation & DevTools (127 errors)

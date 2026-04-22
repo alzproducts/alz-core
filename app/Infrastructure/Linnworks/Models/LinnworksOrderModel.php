@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Linnworks\Models;
 
+use App\Domain\Linnworks\ValueObjects\LinnworksOrder;
+use App\Domain\Linnworks\ValueObjects\LinnworksOrderNote;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
@@ -105,6 +107,87 @@ final class LinnworksOrderModel extends Model
             'postage_cost_ex_tax' => 'float',
             'created_at' => 'immutable_datetime',
             'updated_at' => 'immutable_datetime',
+        ];
+    }
+
+    /**
+     * Build attribute row from a LinnworksOrder domain VO.
+     *
+     * Notes are stored as a JSONB column (no independent queryability); items and
+     * extended properties live in separate tables and are synced by the repository.
+     *
+     * @return array<string, mixed>
+     */
+    public static function attributesFromDomain(LinnworksOrder $order): array
+    {
+        return [
+            'linnworks_order_id' => $order->orderId->value,
+            'num_order_id' => $order->numOrderId->value,
+            'processed' => $order->processed,
+            'last_updated' => $order->lastUpdated,
+            'processed_on' => $order->processedOn,
+            'paid_on' => $order->paidOn,
+            'received_date' => $order->receivedDate,
+
+            // GeneralInfo
+            'reference_num' => $order->referenceNum,
+            'external_reference_num' => $order->externalReferenceNum,
+            'secondary_reference' => $order->secondaryReference,
+            'status' => $order->status,
+            'is_cancelled' => $order->isCancelled,
+            'hold_or_cancel' => $order->holdOrCancel,
+            'marker' => $order->marker,
+            'is_parked' => $order->isParked,
+            'source' => $order->source,
+            'sub_source' => $order->subSource,
+            'despatch_by_date' => $order->despatchByDate,
+            'fulfilment_location_id' => $order->fulfilmentLocationId,
+            'location' => $order->location,
+            'folder_names' => $order->folderNames,
+
+            // Notes (JSONB)
+            'notes' => \array_map(
+                static fn(LinnworksOrderNote $note): array => $note->toArray(),
+                $order->notes,
+            ),
+
+            // TotalsInfo
+            'total_charge' => $order->totalCharge,
+            'subtotal' => $order->subtotal,
+            'tax' => $order->tax,
+            'payment_method' => $order->paymentMethod,
+            'payment_method_id' => $order->paymentMethodId->value,
+            'currency' => $order->currency,
+
+            // ShippingInfo
+            'postal_service_name' => $order->postalServiceName,
+            'vendor' => $order->vendor,
+            'postage_cost' => $order->postageCost,
+            'postage_cost_ex_tax' => $order->postageCostExTax,
+            'tracking_number' => $order->trackingNumber,
+
+            // CustomerInfo — Shipping
+            'channel_buyer_name' => $order->channelBuyerName,
+            'ship_email' => $order->shipEmail,
+            'ship_full_name' => $order->shipFullName,
+            'ship_company' => $order->shipCompany,
+            'ship_address1' => $order->shipAddress1,
+            'ship_address2' => $order->shipAddress2,
+            'ship_address3' => $order->shipAddress3,
+            'ship_town' => $order->shipTown,
+            'ship_postcode' => $order->shipPostcode,
+            'ship_country' => $order->shipCountry,
+
+            // CustomerInfo — Billing
+            'bill_email' => $order->billEmail,
+            'bill_full_name' => $order->billFullName,
+            'bill_company' => $order->billCompany,
+            'bill_address1' => $order->billAddress1,
+            'bill_address2' => $order->billAddress2,
+            'bill_address3' => $order->billAddress3,
+            'bill_town' => $order->billTown,
+            'bill_postcode' => $order->billPostcode,
+            'bill_country' => $order->billCountry,
         ];
     }
 
