@@ -20,8 +20,9 @@ return new class extends Migration {
         Schema::create('catalog.custom_field_general_settings', static function (Blueprint $table): void {
             $table->uuid('id')->primary()->default(DB::raw('gen_random_uuid()'));
 
-            $table->uuid('custom_field_definition_id')->unique();
-            $table->foreign('custom_field_definition_id')
+            $table->uuid('custom_field_definition_id');
+            $table->unique('custom_field_definition_id', 'cf_general_settings_definition_id_uniq');
+            $table->foreign('custom_field_definition_id', 'cf_general_settings_definition_id_fk')
                 ->references('id')
                 ->on('shopwired.custom_field_definitions')
                 ->cascadeOnDelete();
