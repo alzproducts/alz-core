@@ -162,31 +162,37 @@ parameters:
             paths:
                 - app/Infrastructure/Jobs/*
                 - app/Infrastructure/*/Listeners/*
-        # Mixpanel, Ads, and Feed classes: too large to decompose safely (#398)
+        # Mixpanel, Ads, and Feed classes: too large to decompose safely (#398).
+        # MixpanelClient (392 lines) no longer listed — now cleared by the 500-line
+        # Infrastructure cluster threshold for *Client/*Repository/*Transport classes.
         -
             identifier: alz.excessiveClassLength
             paths:
                 - app/Application/Mixpanel/UseCases/SyncOrdersToMixpanelUseCase.php
                 - app/Infrastructure/BingAds/BingAdsTransport.php
                 - app/Infrastructure/Feeds/DoofinderFeedProcessor.php
-                - app/Infrastructure/Mixpanel/MixpanelClient.php
         # EloquentGateway: genuinely cohesive DB gateway (900 lines). All methods are
         # self-contained database operations whose length comes from error handling +
         # structured logging, not mixed concerns. Extraction would scatter readable
         # top-to-bottom flows into fragments across the class (#399).
-        # AbstractEloquentRepository: base class for all Eloquent repos (258 lines,
-        # just over threshold). Splitting would lose cohesion of shared repo operations.
         -
             identifier: alz.excessiveClassLength
-            paths:
-                - app/Infrastructure/Persistence/EloquentGateway.php
-                - app/Infrastructure/Repositories/AbstractEloquentRepository.php
+            path: app/Infrastructure/Persistence/EloquentGateway.php
         -
             identifier: alz.excessiveMethodLength
             path: app/Infrastructure/Persistence/EloquentGateway.php
         -
             identifier: alz.excessiveParameterCount
             path: app/Infrastructure/Persistence/EloquentGateway.php
+        # LinnworksOrder: flattened readonly Domain VO with 42 promoted properties.
+        # The class docblock explicitly documents the flat shape as intentional —
+        # "flattened into a single object" pending future enum/VO refinement. Sub-VO
+        # decomposition is a Domain-modelling decision, not a complexity-rule one,
+        # and would ripple through every Linnworks mapper, repository, and test.
+        # The constructor is pure property promotion with no extractable logic (#397).
+        -
+            identifier: alz.excessiveMethodLength
+            path: app/Domain/Linnworks/ValueObjects/LinnworksOrder.php
         # Application classes using config() — flagged as tech debt (#211).
         # TODO: Refactor to constructor injection.
         -

@@ -146,8 +146,45 @@ _(Not yet started)_
 
 ## Issue #397 — Linnworks, Inventory, Catalog & Domain (105 errors)
 
+**Branch**: `feature/397-complexity-baseline-linnworks-domain`
+**Plan Document**: `.ai/plans/2026-04-04_397-reduce-phpstan-complexity-baseline-linnworks-inventory-catalog-domain.md`
+**Started**: 2026-04-23
+
 ### Decisions
-_(Not yet started)_
+
+#### 2026-04-23 — Kickoff
+- Joint effort with user — checkpointing at each phase boundary for architectural alignment
+- Starting baseline: 1656 lines (down from ~2920 during #399 work; 2524 at #399 start)
+- Plan is 19 days old — some entries likely stale from intervening work. Strategy per plan: after Phase 0 rule changes, strip ALL in-scope baseline entries and use `make lint` output as authoritative list.
+
+#### 2026-04-23 — Phase 0 (rule changes) complete
+
+**Rule changes:**
+- `ExcessiveMethodLengthRule`: added `CONSTRUCTOR_THRESHOLD = 40` for non-DTO constructors. Added `casts` and `attributesFromDomain` to `EXCLUDED_METHODS`. Rationale: pure assignment / Eloquent declarations grow linearly with field count, no extractable logic.
+- `ExcessiveClassLengthRule`: added `INFRASTRUCTURE_CLUSTER_THRESHOLD = 500` for Infrastructure classes whose name ends with `Client`, `Repository`, or `Transport`. Initially tried namespace-fragment matching (`\\Clients`) but that missed `ShopwiredHttpTransport` and `LinnworksHttpTransport`, which sit at service-integration root (`App\Infrastructure\Shopwired\`) not a `\Transport\` subnamespace. Class-name-suffix matching covers both conventions.
+- `phpstan.neon`: permanent exclusion added for `LinnworksOrder.__construct` (73-line readonly VO with 42 promoted properties — class docblock explicitly documents flat shape as intentional pending enum refinement).
+
+**Permanent exclusions cleaned up (now covered by new 500 cluster threshold):**
+- `AbstractEloquentRepository` (258 lines → under 500) — removed from phpstan.neon
+- `MixpanelClient` (392 lines → under 500) — removed from phpstan.neon
+
+**Baseline cleared (39 entries across all issues):**
+- 22 constructor entries ≤ 40 lines (13 Domain VOs in #397 scope + 9 Infrastructure Response/Config DTOs across #396/#398 scopes)
+- 8 `casts()` / `attributesFromDomain()` entries (6 in #397 scope, 2 #396 bonus)
+- 7 Infrastructure cluster class-length entries under 500 (4 #397 + 3 #396 bonus)
+- 1 LinnworksOrder constructor entry (now permanent exclusion)
+- Plus `LinnworksOrder` class had only the constructor, so file-level `alz.excessiveMethodLength` exclusion in phpstan.neon is equivalent
+
+**Baseline updates (8 entries — threshold string refreshed, entries retained):**
+- Still-failing constructor entries (> 40): ProductView (75, Phase 8), BingAdsConfig (52), MixpanelConfig (56), CustomerResponse (58), OrderResponse (73), ProductResponse (47)
+- Still-failing class-length entries (> 500): EloquentOrderRepository (526), EloquentProductRepository (945)
+
+**Baseline: 1656 → 1440 lines (-216)**. Plan estimated ~28 entries cleared; actual was 39 because the #577 DTO-constructor exemption (2026-04-16) wasn't accounted for in the plan.
+
+**Verification:**
+- `make lint` clean (Pint + PHPStan + PHPArkitect + Deptrac + TLint)
+- Existing `ExcessiveClassLengthRuleTest` (2 cases) and `ExcessiveMethodLengthRuleTest` (4 cases) pass without modification — default thresholds unchanged
+- No new rule tests added for Phase 0 (would require 500+ line fixture files for Infrastructure cluster coverage; real-codebase lint validates the new branches)
 
 ---
 

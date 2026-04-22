@@ -22,17 +22,24 @@ use PHPStan\Rules\RuleErrorBuilder;
  * methods are inherently denser — gateway wrapping, query building, and result
  * mapping are a single coherent operation that doesn't compress well.
  *
+ * Non-DTO constructors get a 40-line threshold because pure property promotion
+ * grows linearly with field count and has no extractable logic — the rule still
+ * fires on genuinely overweight constructors that mix assignment with transform
+ * logic (e.g. ProductView).
+ *
  * @implements Rule<ClassMethod>
  */
 final class ExcessiveMethodLengthRule implements Rule
 {
     private const int DEFAULT_THRESHOLD = 20;
     private const int REPOSITORY_THRESHOLD = 30;
+    private const int CONSTRUCTOR_THRESHOLD = 40;
 
     /**
-     * Methods that are structural listings (field mappings, service arrays)
-     * whose length grows linearly with entry count. They have no extractable
-     * logic and are exempt from the method-length rule.
+     * Methods that are structural listings (field mappings, service arrays,
+     * Eloquent cast declarations, domain→model attribute conversion) whose
+     * length grows linearly with entry count. They have no extractable logic
+     * and are exempt from the method-length rule.
      */
     private const array EXCLUDED_METHODS = [
         'toDomain',
@@ -41,6 +48,8 @@ final class ExcessiveMethodLengthRule implements Rule
         'toSdk',
         'fromDomain',
         'provides',
+        'casts',
+        'attributesFromDomain',
     ];
 
     public function getNodeType(): string
@@ -57,7 +66,7 @@ final class ExcessiveMethodLengthRule implements Rule
             return [];
         }
 
-        $threshold = self::resolveThreshold($scope);
+        $threshold = self::resolveThreshold($node, $scope);
         $length = self::measureLength($node);
 
         if ($length === null || $length <= $threshold) {
@@ -67,8 +76,12 @@ final class ExcessiveMethodLengthRule implements Rule
         return [self::buildError($node->name->name, $length, $threshold)];
     }
 
-    private static function resolveThreshold(Scope $scope): int
+    private static function resolveThreshold(ClassMethod $node, Scope $scope): int
     {
+        if ($node->name->name === '__construct') {
+            return self::CONSTRUCTOR_THRESHOLD;
+        }
+
         return self::isRepository($scope) ? self::REPOSITORY_THRESHOLD : self::DEFAULT_THRESHOLD;
     }
 
