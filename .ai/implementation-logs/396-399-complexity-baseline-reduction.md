@@ -287,6 +287,52 @@ The two "sync" repos (LinnworksOrder + PurchaseOrderSync) now share a helper *pa
 
 **Verification:** `make lint` clean; `make test` 3192 passed, 0 failures.
 
+#### 2026-04-23 — Phase 3b (Linnworks clients + Infrastructure cluster rule) complete
+
+This phase is mostly a RULE change with 2 targeted refactors. The key insight: Infrastructure API clients encapsulate a single API contract step (build request → transport call → validate response → return typed result), which is analogous to what Repository methods do (gateway wrap + query + mapping). Both deserve the same threshold. The original Phase 0 work had already unified Client/Repository/Transport as the "Infrastructure cluster" for class-length purposes — the method-length rule was the missing piece.
+
+**Rule change (ExcessiveMethodLengthRule):**
+- Renamed `REPOSITORY_THRESHOLD` → `INFRASTRUCTURE_CLUSTER_THRESHOLD` (same value 30)
+- Added `INFRASTRUCTURE_CLUSTER_SUFFIXES = ['Client', 'Repository', 'Transport']` — mirrors `ExcessiveClassLengthRule`
+- Replaced `isRepository()` with `isInfrastructureCluster()` using a union check:
+  (a) namespace contains `\\Repositories` — preserves 30-line threshold for non-Repository-suffix classes in Repositories namespace (e.g. `RelatedProductsAlgorithmSql`)
+  (b) class name ends with Client/Repository/Transport — new cluster coverage
+- Added `ValidClient.php` + `InvalidClient.php` fixtures and 2 test cases
+
+**Why a union check and not just suffix:** Initially attempted suffix-only, but `RelatedProductsAlgorithmSql` (in `Infrastructure\Catalog\Repositories\` namespace, class ends with `Sql` not `Repository`) would have regressed to 20-line threshold. The union preserves all prior 30-line coverage while extending to Client/Transport.
+
+**Cross-issue mechanical impact (baseline bulk-updated via awk):**
+- 13 cluster-class methods still over 30 lines → message updated from "20-line limit" to "30-line limit" (no refactor needed; still baseline-tracked)
+- Dozens of cluster-class methods now under 30 lines → entries removed entirely (mechanical clearance from rule)
+- Specifically cleared: 10× `parseWrappedArrayToDomain` (Shopwired #396), 10× `parseArrayResponse` (#396), 10× `parseSingleResponse` (#396), plus Linnworks `post`, `parseGetOrdersResponse`, `createPurchaseOrderInitial`, `modifyAdditionalCosts`, `searchPurchaseOrders` (#397), various Ads/BingAds/HelpScout/Mixpanel entries (#398)
+- 1 stale pattern entry deleted (`buildStorageException` in `S3StorageClient.php` — method now under 30)
+
+**2 targeted refactors (methods still over 30):**
+
+1. `DashboardsClient::execute` (33 → ~8 lines)
+   - `parseSqlQueryResponse(Response): SqlQueryResponse` — try/catch DTO parse + CRITICAL log + throw
+   - `assertNotError(SqlQueryResponse, string, Response): void` — error-flag check + ERROR log + throw
+   - Added `use Illuminate\Http\Client\Response`
+
+2. `InventoryUpdateClient::setExtendedProperties` (41 → ~27 lines)
+   - `partitionExtendedProperties(list, StockItemFull, Guid): array{updates, creates}` — the 3-way classification foreach (skip-if-match / update / create)
+   - Added `use App\Domain\Inventory\ValueObjects\StockItemFull`
+
+**4 methods NOT refactored (fit the natural client shape under new threshold):**
+- `parseGetOrdersResponse` (22), `createPurchaseOrderInitial` (21), `modifyAdditionalCosts` (24), `searchPurchaseOrders` (30) — all are single cohesive HTTP→DTO→return flows. Extracting would have obscured the API contract. Preserving `parseGetOrdersResponse` unchanged also means its specific "invalid order data structure" error message is untouched.
+
+**Behavior preservation (verified via sequential-thinking review):**
+- `DashboardsClient::execute`: Same log levels (critical/error), same log contexts, same exception types, same messages. Negated guard in `assertNotError` (`if (!isError) return;`) semantically equivalent to original `if (isError) { throw }`.
+- `setExtendedProperties`: Same 3-way classification, same `fromWrite()` args, same conditional transport calls with same endpoints/payloads, same update-before-create order.
+- Rule change is **additive**: no class loses its prior 30-line budget.
+
+**Baseline: 1315 → 961 lines (-354).** ~45-50 entries cleared mechanically across all 4 issues + 2 from targeted refactors.
+
+**Verification:**
+- `make lint` clean (all 5 linters)
+- `make test` 3194 passed (+2 new rule tests), 0 failures
+- 6 rule tests (including 2 new Client fixture tests) all pass
+
 ---
 
 ## Issue #399 — Cross-cutting, Presentation & DevTools (127 errors)

@@ -18,9 +18,12 @@ use PHPStan\Rules\RuleErrorBuilder;
  * comments), matching PHPMD and ESLint conventions. Long methods are a signal
  * that a method is doing too much and should be broken into smaller, focused units.
  *
- * Infrastructure repositories get a higher threshold (30 lines) because their
- * methods are inherently denser — gateway wrapping, query building, and result
- * mapping are a single coherent operation that doesn't compress well.
+ * Infrastructure "cluster" classes (Client/Repository/Transport suffixes) get a
+ * higher threshold (30 lines) because their methods are inherently denser —
+ * gateway wrapping, query building, and result mapping (repos) or build-request
+ * → transport call → validate-response → return-typed-result (clients) are each
+ * a single coherent operation that doesn't compress well. Same 3 suffixes that
+ * ExcessiveClassLengthRule treats as the Infrastructure cluster.
  *
  * Non-DTO constructors get a 40-line threshold because pure property promotion
  * grows linearly with field count and has no extractable logic — the rule still
@@ -32,8 +35,11 @@ use PHPStan\Rules\RuleErrorBuilder;
 final class ExcessiveMethodLengthRule implements Rule
 {
     private const int DEFAULT_THRESHOLD = 20;
-    private const int REPOSITORY_THRESHOLD = 30;
+    private const int INFRASTRUCTURE_CLUSTER_THRESHOLD = 30;
     private const int CONSTRUCTOR_THRESHOLD = 40;
+
+    /** Class-name suffixes that identify the Infrastructure cluster. */
+    private const array INFRASTRUCTURE_CLUSTER_SUFFIXES = ['Client', 'Repository', 'Transport'];
 
     /**
      * Methods that are structural listings (field mappings, service arrays,
@@ -82,16 +88,36 @@ final class ExcessiveMethodLengthRule implements Rule
             return self::CONSTRUCTOR_THRESHOLD;
         }
 
-        return self::isRepository($scope) ? self::REPOSITORY_THRESHOLD : self::DEFAULT_THRESHOLD;
+        return self::isInfrastructureCluster($scope) ? self::INFRASTRUCTURE_CLUSTER_THRESHOLD : self::DEFAULT_THRESHOLD;
     }
 
-    private static function isRepository(Scope $scope): bool
+    /**
+     * Infrastructure cluster = class under App\Infrastructure\ that either
+     * (a) lives in a \Repositories\ namespace (SQL builders, query objects, etc.)
+     * or (b) has a class name ending in Client, Repository, or Transport.
+     *
+     * The namespace check preserves the 30-line threshold for non-Repository-suffix
+     * helpers inside the Repositories directory (e.g. RelatedProductsAlgorithmSql).
+     * The suffix check matches ExcessiveClassLengthRule's Infrastructure cluster.
+     */
+    private static function isInfrastructureCluster(Scope $scope): bool
     {
         $namespace = $scope->getNamespace();
 
-        return $namespace !== null
-            && \str_starts_with($namespace, 'App\\Infrastructure\\')
-            && \str_contains($namespace, '\\Repositories');
+        if ($namespace === null || !\str_starts_with($namespace, 'App\\Infrastructure\\')) {
+            return false;
+        }
+
+        if (\str_contains($namespace, '\\Repositories')) {
+            return true;
+        }
+
+        $name = $scope->getClassReflection()?->getName() ?? '';
+
+        return \array_any(
+            self::INFRASTRUCTURE_CLUSTER_SUFFIXES,
+            static fn(string $suffix): bool => \str_ends_with($name, $suffix),
+        );
     }
 
     private static function isInAppNamespace(Scope $scope): bool
