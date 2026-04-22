@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Application\Contracts\Catalog;
 
-use App\Application\Catalog\DTOs\ProductFilterChangeDTO;
+use App\Application\Catalog\Commands\ProductFilterChangeCommand;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Data\InvalidEnumValueException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
@@ -18,7 +18,7 @@ interface ShippingOptionsFilterQueryRepositoryInterface
      * Each row's `desiredFilterValues` is derived from stock availability:
      * parent `stock > 0` OR any variation `stock > 0` → Next Day Delivery Available, otherwise empty.
      *
-     * @return list<ProductFilterChangeDTO>
+     * @return list<ProductFilterChangeCommand>
      *
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Catalog\Repositories;
 
-use App\Application\Catalog\DTOs\ProductSortOrderChangeDTO;
+use App\Application\Catalog\Commands\ProductSortOrderChangeCommand;
 use App\Application\Contracts\Catalog\ProductSortOrderQueryRepositoryInterface;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
@@ -33,7 +33,7 @@ final class ProductSortOrderQueryRepository implements ProductSortOrderQueryRepo
     /**
      * {@inheritDoc}
      *
-     * @return list<ProductSortOrderChangeDTO>
+     * @return list<ProductSortOrderChangeCommand>
      *
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
@@ -58,17 +58,17 @@ final class ProductSortOrderQueryRepository implements ProductSortOrderQueryRepo
                 SQL,
             ));
 
-        return self::mapRowsToDtos($rows);
+        return self::mapRowsToCommands($rows);
     }
 
     /**
      * @param  list<object{product_id: int, calculated_sort_order: int}>  $rows
-     * @return list<ProductSortOrderChangeDTO>
+     * @return list<ProductSortOrderChangeCommand>
      */
-    private static function mapRowsToDtos(array $rows): array
+    private static function mapRowsToCommands(array $rows): array
     {
         return \array_map(
-            static fn(object $row): ProductSortOrderChangeDTO => new ProductSortOrderChangeDTO(
+            static fn(object $row): ProductSortOrderChangeCommand => new ProductSortOrderChangeCommand(
                 productId: IntId::from($row->product_id),
                 sortOrder: $row->calculated_sort_order,
             ),

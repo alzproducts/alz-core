@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Application\Contracts\ReviewsIo;
 
-use App\Application\ReviewsIo\DTOs\ProductRatingChangeDTO;
+use App\Application\Catalog\Commands\ProductRatingChangeCommand;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
@@ -25,7 +25,7 @@ interface ChangedRatingQueryRepositoryInterface
      * - Compares against current custom_fields values
      * - Returns only products where values have changed
      *
-     * @return list<ProductRatingChangeDTO> Products needing updates
+     * @return list<ProductRatingChangeCommand> Products needing updates
      *
      * @throws DatabaseOperationFailedException On query failure
      * @throws DuplicateRecordException On constraint violation

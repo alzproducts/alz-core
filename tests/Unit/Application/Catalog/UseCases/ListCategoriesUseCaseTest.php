@@ -7,8 +7,8 @@ namespace Tests\Unit\Application\Catalog\UseCases;
 use App\Application\Catalog\Queries\CategoryListQueryParams;
 use App\Application\Catalog\UseCases\ListCategoriesUseCase;
 use App\Application\Contracts\Shopwired\CategoryRepositoryInterface;
-use App\Application\DTOs\PaginatedListDTO;
 use App\Domain\Catalog\Category\Enums\CategoryInclude;
+use App\Domain\ValueObjects\PaginatedList;
 use Mockery;
 use Mockery\MockInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -41,7 +41,7 @@ final class ListCategoriesUseCaseTest extends TestCase
     #[Test]
     public function execute_delegates_to_repository_and_returns_paginated_dto(): void
     {
-        $expected = PaginatedListDTO::fromPage(items: [], total: 0, perPage: 10, currentPage: 1);
+        $expected = PaginatedList::fromPage(items: [], total: 0, perPage: 10, currentPage: 1);
 
         $params = new CategoryListQueryParams();
 
@@ -63,7 +63,7 @@ final class ListCategoriesUseCaseTest extends TestCase
     public function execute_passes_includes_and_include_inactive_through_to_repository(): void
     {
         $includes = [CategoryInclude::CustomFields];
-        $expected = PaginatedListDTO::fromPage(items: [], total: 5, perPage: 20, currentPage: 2);
+        $expected = PaginatedList::fromPage(items: [], total: 5, perPage: 20, currentPage: 2);
         $params = new CategoryListQueryParams(includes: $includes, includeInactive: true);
 
         $this->categoryRepository
@@ -84,7 +84,7 @@ final class ListCategoriesUseCaseTest extends TestCase
     public function execute_logs_listing_and_listed_messages_with_correct_context(): void
     {
         $items = ['item1', 'item2', 'item3'];
-        $dto = PaginatedListDTO::fromPage(items: $items, total: 100, perPage: 10, currentPage: 1);
+        $dto = PaginatedList::fromPage(items: $items, total: 100, perPage: 10, currentPage: 1);
 
         $this->categoryRepository
             ->shouldReceive('paginate')

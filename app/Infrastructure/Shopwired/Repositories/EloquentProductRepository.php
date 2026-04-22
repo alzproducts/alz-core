@@ -8,7 +8,6 @@ use App\Application\Catalog\Queries\ProductDetailQueryParams;
 use App\Application\Catalog\Queries\ProductListQueryParams;
 use App\Application\Contracts\DatabaseGatewayInterface;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
-use App\Application\DTOs\PaginatedListDTO;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\Product\Enums\ProductFilterField;
 use App\Domain\Catalog\Product\Enums\ProductInclude;
@@ -22,6 +21,7 @@ use App\Domain\Exceptions\Data\MissingRequiredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\IntId;
+use App\Domain\ValueObjects\PaginatedList;
 use App\Infrastructure\Catalog\Product\Mappers\ProductModelMapper;
 use App\Infrastructure\Catalog\Product\Mappers\ProductSortFieldMapper;
 use App\Infrastructure\Catalog\Product\Mappers\ProductVariationModelMapper;
@@ -77,7 +77,7 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
     /**
      * {@inheritDoc}
      *
-     * @return PaginatedListDTO<ProductView>
+     * @return PaginatedList<ProductView>
      *
      * @throws InvalidCustomFieldValueException
      * @throws MissingRequiredDataException
@@ -85,7 +85,7 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      */
-    public function paginate(ProductListQueryParams $query): PaginatedListDTO
+    public function paginate(ProductListQueryParams $query): PaginatedList
     {
         return $this->eloquentGateway->paginate(
             modelClass: self::VIEW_MODEL_CLASS,

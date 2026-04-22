@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Application\Contracts\Shopwired;
 
 use App\Application\Contracts\RepositoryWriteInterface;
-use App\Application\DTOs\PaginatedListDTO;
 use App\Domain\Catalog\Brand\Enums\BrandInclude;
 use App\Domain\Catalog\Brand\ValueObjects\Brand;
 use App\Domain\Catalog\Brand\ValueObjects\BrandView;
@@ -16,6 +15,7 @@ use App\Domain\Exceptions\Data\MissingRequiredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\IntId;
+use App\Domain\ValueObjects\PaginatedList;
 
 /**
  * Repository for ShopWired brand persistence.
@@ -65,7 +65,7 @@ interface BrandRepositoryInterface extends RepositoryWriteInterface
      *
      * @param list<BrandInclude> $includes Requested embeds
      *
-     * @return PaginatedListDTO<BrandView>
+     * @return PaginatedList<BrandView>
      *
      * @throws DatabaseOperationFailedException On query failure
      * @throws DuplicateRecordException On constraint violation
@@ -73,7 +73,7 @@ interface BrandRepositoryInterface extends RepositoryWriteInterface
      * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
      * @throws MissingRequiredDataException When custom field definitions table is empty
      */
-    public function paginate(int $perPage, int $page, array $includes = [], bool $includeInactive = false): PaginatedListDTO;
+    public function paginate(int $perPage, int $page, array $includes = [], bool $includeInactive = false): PaginatedList;
 
     /**
      * Find a brand by external ID for the API.

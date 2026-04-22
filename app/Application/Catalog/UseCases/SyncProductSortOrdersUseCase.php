@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Application\Catalog\UseCases;
 
-use App\Application\Catalog\DTOs\ProductSortOrderChangeDTO;
+use App\Application\Catalog\Commands\ProductSortOrderChangeCommand;
 use App\Application\Contracts\Catalog\CatalogSyncDispatcherInterface;
 use App\Application\Contracts\Catalog\ProductSortOrderQueryRepositoryInterface;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
@@ -50,7 +50,7 @@ final readonly class SyncProductSortOrdersUseCase
         ]);
     }
 
-    /** @param list<ProductSortOrderChangeDTO> $changes */
+    /** @param list<ProductSortOrderChangeCommand> $changes */
     private function dispatchAll(array $changes): void
     {
         foreach ($changes as $change) {
