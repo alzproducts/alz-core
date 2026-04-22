@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Application\Contracts\Shopwired;
+namespace App\Application\Contracts\Catalog;
 
 use App\Application\Contracts\RepositoryWriteInterface;
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldItemType;
@@ -13,11 +13,15 @@ use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 
 /**
- * Repository for ShopWired custom field definition persistence.
+ * Repository for custom field definitions — owns both sync persistence and enriched reads.
  *
- * Read methods return the composed {@see ConfiguredFieldDefinition} — a ShopWired
- * definition plus local catalog settings. The write path (sync from ShopWired)
- * still operates on the immutable {@see CustomFieldDefinition}.
+ * Write path (shopwired schema only): accepts raw {@see CustomFieldDefinition} entities
+ * from the ShopWired sync and upserts them into `shopwired.custom_field_definitions`.
+ * Sync never touches local catalog settings.
+ *
+ * Read path (cross-schema): joins `shopwired.custom_field_definitions` with
+ * `catalog.custom_field_{general,product}_settings` and returns {@see ConfiguredFieldDefinition}.
+ * Callers never see a raw definition on the read surface.
  *
  * @extends RepositoryWriteInterface<CustomFieldDefinition>
  */

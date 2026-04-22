@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Infrastructure\Shopwired\Repositories;
+namespace App\Infrastructure\Catalog\CustomFields\Repositories;
 
-use App\Application\Contracts\Shopwired\CustomFieldRepositoryInterface;
+use App\Application\Contracts\Catalog\CustomFieldRepositoryInterface;
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldItemType;
 use App\Domain\Catalog\CustomFields\ValueObjects\ConfiguredFieldDefinition;
 use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldDefinition;
@@ -15,11 +15,16 @@ use App\Infrastructure\Repositories\AbstractEloquentRepository;
 use App\Infrastructure\Shopwired\Models\CustomFieldDefinitionModel;
 
 /**
- * Eloquent implementation of ShopWired custom field repository.
+ * Eloquent implementation of the custom field repository.
  *
- * Read methods eager-load the local settings relations and return ConfiguredFieldDefinition
- * so callers never see a raw CustomFieldDefinition on the read path. Write path continues
- * to operate on CustomFieldDefinition — sync from ShopWired doesn't touch local settings.
+ * Two asymmetric roles under one class:
+ *   • Write path (shopwired schema): upsert raw {@see CustomFieldDefinition} synced from ShopWired.
+ *     Lives in `shopwired.custom_field_definitions`. Local catalog settings are never touched by sync.
+ *   • Read path (cross-schema): eager-load the catalog-schema settings relations and return
+ *     {@see ConfiguredFieldDefinition} so consumers see a single enriched value object.
+ *
+ * The model itself is ShopWired-owned (`App\Infrastructure\Shopwired\Models\CustomFieldDefinitionModel`)
+ * and defines `hasOne` relations into the catalog-schema settings tables.
  *
  * @extends AbstractEloquentRepository<CustomFieldDefinition>
  */
@@ -28,11 +33,50 @@ final class EloquentCustomFieldRepository extends AbstractEloquentRepository imp
     /** @var class-string<CustomFieldDefinitionModel> */
     private const string MODEL_CLASS = CustomFieldDefinitionModel::class;
 
-    private const array SETTINGS_RELATIONS = ['generalSettings', 'productSettings'];
+    // ═════════════════════════════════════════════════════════════════════════
+    // Write path — shopwired schema only (sync from ShopWired API)
+    // Implements AbstractEloquentRepository<CustomFieldDefinition>
+    // ═════════════════════════════════════════════════════════════════════════
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Interface Implementation
-    // ─────────────────────────────────────────────────────────────────────────
+    protected function getModelClass(): string
+    {
+        return self::MODEL_CLASS;
+    }
+
+    protected function getEntityIdentifier(object $entity): int
+    {
+        /** @var CustomFieldDefinition $entity */
+        return $entity->id;
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @param CustomFieldDefinition $entity
+     */
+    protected function entityToAttributes(object $entity): array
+    {
+        return [
+            'external_id' => $entity->id,
+            ...CustomFieldDefinitionModel::fromDomainAttributes($entity),
+        ];
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    protected function getUpsertKeys(): array
+    {
+        return ['external_id'];
+    }
+
+    // ═════════════════════════════════════════════════════════════════════════
+    // Read path — cross-schema (shopwired definitions + catalog settings)
+    // Eager-loads `generalSettings` and `productSettings` on every query so
+    // ConfiguredFieldDefinition assembly never issues lazy queries.
+    // ═════════════════════════════════════════════════════════════════════════
+
+    private const array SETTINGS_RELATIONS = ['generalSettings', 'productSettings'];
 
     /**
      * {@inheritDoc}
@@ -93,41 +137,5 @@ final class EloquentCustomFieldRepository extends AbstractEloquentRepository imp
                 ->map(static fn(CustomFieldDefinitionModel $model): ConfiguredFieldDefinition => $model->toConfiguredDomain())
                 ->all(),
         ));
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // Abstract Method Implementations
-    // ─────────────────────────────────────────────────────────────────────────
-
-    protected function getModelClass(): string
-    {
-        return self::MODEL_CLASS;
-    }
-
-    protected function getEntityIdentifier(object $entity): int
-    {
-        /** @var CustomFieldDefinition $entity */
-        return $entity->id;
-    }
-
-    /**
-     * {@inheritDoc}
-     *
-     * @param CustomFieldDefinition $entity
-     */
-    protected function entityToAttributes(object $entity): array
-    {
-        return [
-            'external_id' => $entity->id,
-            ...CustomFieldDefinitionModel::fromDomainAttributes($entity),
-        ];
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    protected function getUpsertKeys(): array
-    {
-        return ['external_id'];
     }
 }
