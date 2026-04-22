@@ -7,6 +7,7 @@ namespace Tests\Integration\Persistence;
 use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\CoversNothing;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use RuntimeException;
 use Tests\TestCase;
@@ -27,6 +28,7 @@ use Tests\TestCase;
  * They don't cover specific application classes, hence #[CoversNothing].
  */
 #[CoversNothing]
+#[Group('integration')]
 class RlsConnectionTest extends TestCase
 {
     /**
