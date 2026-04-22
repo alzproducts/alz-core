@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Integration\Infrastructure\Notifications;
 
+use App\Application\Notifications\DTOs\PriceUpdateAlertDataDTO;
 use App\Domain\Catalog\Product\ValueObjects\ProductRetailPricing;
 use App\Domain\Catalog\Product\ValueObjects\Sku;
 use App\Domain\Catalog\Product\ValueObjects\SkuPriceChange;
@@ -19,6 +20,7 @@ use Illuminate\Support\Facades\Notification;
 use Mockery;
 use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -29,6 +31,7 @@ use Tests\TestCase;
  * Tests config resolution, notification dispatch, and exception translation.
  */
 #[CoversClass(SlackChatNotificationClient::class)]
+#[Group('integration')]
 final class SlackChatNotificationClientTest extends TestCase
 {
     private SlackChatNotificationClient $client;
@@ -54,13 +57,16 @@ final class SlackChatNotificationClientTest extends TestCase
             $this->app->make(NotificationDispatcher::class),
         );
 
-        $client->sendPriceUpdateAlert(IntId::from(123), [
-            new SkuPriceChange(
-                sku: Sku::fromTrusted('WEB-100'),
-                previousPrices: new ProductRetailPricing(Money::inclusive(24.99)),
-                newPrices: new ProductRetailPricing(Money::inclusive(19.99)),
-            ),
-        ]);
+        $client->sendPriceUpdateAlert(new PriceUpdateAlertDataDTO(
+            productId: IntId::from(123),
+            priceChanges: [
+                new SkuPriceChange(
+                    sku: Sku::fromTrusted('WEB-100'),
+                    previousPrices: new ProductRetailPricing(Money::inclusive(24.99)),
+                    newPrices: new ProductRetailPricing(Money::inclusive(19.99)),
+                ),
+            ],
+        ));
 
         Notification::assertSentOnDemand(ProductPricingUpdatedNotification::class);
     }
@@ -70,10 +76,17 @@ final class SlackChatNotificationClientTest extends TestCase
     {
         \config()->set('services.slack.notifications.verbose_channel', '');
 
-        $this->expectException(InvalidConfigurationException::class);
-        $this->expectExceptionMessage("Slack channel 'verbose_channel' is not configured");
-
-        $this->client->sendPriceUpdateAlert(IntId::from(123), []);
+        try {
+            $this->client->sendPriceUpdateAlert(new PriceUpdateAlertDataDTO(
+                productId: IntId::from(123),
+                priceChanges: [],
+            ));
+            $this->fail('Expected InvalidConfigurationException');
+        } catch (InvalidConfigurationException $e) {
+            $this->assertSame('Required configuration is missing or invalid', $e->getMessage());
+            $this->assertSame('services.slack.notifications.verbose_channel', $e->configKey);
+            $this->assertStringContainsString("Slack channel 'verbose_channel' is not configured", $e->detail);
+        }
     }
 
     #[Test]
@@ -87,7 +100,10 @@ final class SlackChatNotificationClientTest extends TestCase
         $client = new SlackChatNotificationClient($mockDispatcher);
 
         try {
-            $client->sendPriceUpdateAlert(IntId::from(123), []);
+            $client->sendPriceUpdateAlert(new PriceUpdateAlertDataDTO(
+                productId: IntId::from(123),
+                priceChanges: [],
+            ));
             $this->fail('Expected ExternalServiceUnavailableException');
         } catch (ExternalServiceUnavailableException $e) {
             $this->assertSame('Slack', $e->serviceName);

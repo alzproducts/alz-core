@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Application\Catalog\UseCases;
 
-use App\Application\Catalog\DTOs\ProductFilterChangeDTO;
+use App\Application\Catalog\Commands\ProductFilterChangeCommand;
 use App\Application\Catalog\UseCases\SyncOffersFiltersUseCase;
 use App\Application\Contracts\Catalog\CatalogSyncDispatcherInterface;
 use App\Application\Contracts\Catalog\OffersFilterQueryRepositoryInterface;
@@ -80,8 +80,8 @@ final class SyncOffersFiltersUseCaseTest extends TestCase
     public function execute_dispatches_filter_updates_for_changed_products(): void
     {
         $changes = [
-            new ProductFilterChangeDTO(IntId::from(1001), 14, [OffersFilterValue::OnSale]),
-            new ProductFilterChangeDTO(IntId::from(1002), 14, [OffersFilterValue::OnSale]),
+            new ProductFilterChangeCommand(IntId::from(1001), 14, [OffersFilterValue::OnSale]),
+            new ProductFilterChangeCommand(IntId::from(1002), 14, [OffersFilterValue::OnSale]),
         ];
 
         $this->offersFilterRepo
@@ -128,7 +128,7 @@ final class SyncOffersFiltersUseCaseTest extends TestCase
     public function execute_dispatches_null_for_products_with_empty_filter_values(): void
     {
         $changes = [
-            new ProductFilterChangeDTO(IntId::from(1001), 14, []),
+            new ProductFilterChangeCommand(IntId::from(1001), 14, []),
         ];
 
         $this->offersFilterRepo
@@ -166,9 +166,9 @@ final class SyncOffersFiltersUseCaseTest extends TestCase
     public function execute_handles_mix_of_add_and_remove_filter_values(): void
     {
         $changes = [
-            new ProductFilterChangeDTO(IntId::from(1001), 14, [OffersFilterValue::OnSale]),
-            new ProductFilterChangeDTO(IntId::from(1002), 14, []),
-            new ProductFilterChangeDTO(IntId::from(1003), 14, [OffersFilterValue::OnSale]),
+            new ProductFilterChangeCommand(IntId::from(1001), 14, [OffersFilterValue::OnSale]),
+            new ProductFilterChangeCommand(IntId::from(1002), 14, []),
+            new ProductFilterChangeCommand(IntId::from(1003), 14, [OffersFilterValue::OnSale]),
         ];
 
         $this->offersFilterRepo

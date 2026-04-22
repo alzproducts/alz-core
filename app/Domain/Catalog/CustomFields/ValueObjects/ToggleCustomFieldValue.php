@@ -15,12 +15,12 @@ use Webmozart\Assert\Assert;
 final readonly class ToggleCustomFieldValue extends AbstractCustomFieldValue
 {
     public function __construct(
-        CustomFieldDefinition $definition,
+        ConfiguredFieldDefinition $definition,
         public bool $value,
     ) {
         Assert::true(
-            $definition->type->isBooleanType(),
-            "ToggleCustomFieldValue requires boolean type (Toggle), got '{$definition->type->value}'",
+            $definition->base->type->isBooleanType(),
+            "ToggleCustomFieldValue requires boolean type (Toggle), got '{$definition->base->type->value}'",
         );
 
         parent::__construct($definition);

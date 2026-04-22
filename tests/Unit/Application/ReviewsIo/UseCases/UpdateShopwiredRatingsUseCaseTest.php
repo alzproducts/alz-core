@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Application\ReviewsIo\UseCases;
 
+use App\Application\Catalog\Commands\ProductRatingChangeCommand;
 use App\Application\Contracts\ReviewsIo\ChangedRatingQueryRepositoryInterface;
 use App\Application\Contracts\Shopwired\ProductUpdateClientInterface;
-use App\Application\ReviewsIo\DTOs\ProductRatingChangeDTO;
 use App\Application\ReviewsIo\UseCases\UpdateShopwiredRatingsUseCase;
 use App\Domain\Exceptions\Api\ResourceNotAvailableException;
 use App\Domain\ValueObjects\IntId;
@@ -87,8 +87,8 @@ final class UpdateShopwiredRatingsUseCaseTest extends TestCase
     public function execute_updates_all_products_successfully(): void
     {
         $changes = [
-            new ProductRatingChangeDTO(IntId::from(1001), '4.5000', 25),
-            new ProductRatingChangeDTO(IntId::from(1002), '4.8000', 50),
+            new ProductRatingChangeCommand(IntId::from(1001), '4.5000', 25),
+            new ProductRatingChangeCommand(IntId::from(1002), '4.8000', 50),
         ];
 
         $this->ratingRepository
@@ -129,9 +129,9 @@ final class UpdateShopwiredRatingsUseCaseTest extends TestCase
     public function execute_handles_resource_not_found_and_continues(): void
     {
         $changes = [
-            new ProductRatingChangeDTO(IntId::from(1001), '4.5000', 25),
-            new ProductRatingChangeDTO(IntId::from(9999), '4.8000', 50), // Will fail
-            new ProductRatingChangeDTO(IntId::from(1003), '4.2000', 10),
+            new ProductRatingChangeCommand(IntId::from(1001), '4.5000', 25),
+            new ProductRatingChangeCommand(IntId::from(9999), '4.8000', 50), // Will fail
+            new ProductRatingChangeCommand(IntId::from(1003), '4.2000', 10),
         ];
 
         $this->ratingRepository
@@ -183,7 +183,7 @@ final class UpdateShopwiredRatingsUseCaseTest extends TestCase
     public function execute_handles_null_average_rating(): void
     {
         $changes = [
-            new ProductRatingChangeDTO(IntId::from(1001), null, 0), // No reviews
+            new ProductRatingChangeCommand(IntId::from(1001), null, 0), // No reviews
         ];
 
         $this->ratingRepository

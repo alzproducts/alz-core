@@ -6,13 +6,18 @@ namespace App\Infrastructure\Shopwired\Models;
 
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldItemType;
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldType;
+use App\Domain\Catalog\CustomFields\ValueObjects\ConfiguredFieldDefinition;
 use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldDefinition;
-use App\Domain\Exceptions\Api\InvalidApiResponseException;
+use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldGeneralSettings;
+use App\Domain\Catalog\CustomFields\ValueObjects\ProductFieldSettings;
+use App\Infrastructure\Catalog\CustomFields\Models\CustomFieldGeneralSettingsModel;
+use App\Infrastructure\Catalog\CustomFields\Models\CustomFieldProductSettingsModel;
 use App\Infrastructure\Contracts\EloquentDomainMappableInterface;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\Log;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Webmozart\Assert\Assert;
 
 /**
  * Eloquent model for shopwired.custom_field_definitions table.
@@ -23,9 +28,9 @@ use Illuminate\Support\Facades\Log;
  * @property string $id Internal UUID
  * @property int $external_id ShopWired custom field ID
  * @property string $name Field identifier (snake_case)
- * @property string $type Field type (text, toggle, choice, list, date, date_time, value_list, product_list)
+ * @property CustomFieldType $type Field type (text, toggle, choice, list, date, date_time, value_list, product_list)
  * @property string|null $label Human-readable display label
- * @property string $item_type Entity type (product, category, customer, brand, order, page, blog_post)
+ * @property CustomFieldItemType $item_type Entity type (product, category, customer, brand, order, page, blog_post)
  * @property int|null $sort_order Display ordering
  * @property array<int, string>|null $allowed_values Valid values for choice/list types
  * @property CarbonImmutable $created_at When first synced locally
@@ -54,6 +59,8 @@ final class CustomFieldDefinitionModel extends Model implements EloquentDomainMa
     {
         return [
             'external_id' => 'integer',
+            'type' => CustomFieldType::class,
+            'item_type' => CustomFieldItemType::class,
             'sort_order' => 'integer',
             'allowed_values' => 'array',
             'created_at' => 'immutable_datetime',
@@ -62,48 +69,81 @@ final class CustomFieldDefinitionModel extends Model implements EloquentDomainMa
     }
 
     /**
+     * @return HasOne<CustomFieldGeneralSettingsModel, $this>
+     */
+    public function generalSettings(): HasOne
+    {
+        return $this->hasOne(CustomFieldGeneralSettingsModel::class, 'custom_field_definition_id', 'id');
+    }
+
+    /**
+     * @return HasOne<CustomFieldProductSettingsModel, $this>
+     */
+    public function productSettings(): HasOne
+    {
+        return $this->hasOne(CustomFieldProductSettingsModel::class, 'custom_field_definition_id', 'id');
+    }
+
+    /**
      * Convert this Eloquent model to its corresponding Domain object.
-     *
-     * @throws InvalidApiResponseException When stored enum values are invalid (indicates data corruption)
      */
     public function toDomain(): CustomFieldDefinition
     {
-        $type = CustomFieldType::tryFrom($this->type);
-        $itemType = CustomFieldItemType::tryFrom($this->item_type);
-
-        if ($type === null) {
-            Log::critical('Invalid CustomFieldType in database - possible API schema change', [
-                'external_id' => $this->external_id,
-                'type' => $this->type,
-            ]);
-
-            throw new InvalidApiResponseException(
-                serviceName: 'Shopwired',
-                message: "Unknown custom field type '{$this->type}' for definition {$this->external_id}. API schema may have changed.",
-            );
-        }
-
-        if ($itemType === null) {
-            Log::critical('Invalid CustomFieldItemType in database - possible API schema change', [
-                'external_id' => $this->external_id,
-                'item_type' => $this->item_type,
-            ]);
-
-            throw new InvalidApiResponseException(
-                serviceName: 'Shopwired',
-                message: "Unknown custom field item type '{$this->item_type}' for definition {$this->external_id}. API schema may have changed.",
-            );
-        }
-
         return new CustomFieldDefinition(
             id: $this->external_id,
             name: $this->name,
-            type: $type,
+            type: $this->type,
             label: $this->label,
-            itemType: $itemType,
+            itemType: $this->item_type,
             sortOrder: $this->sort_order,
             allowedValues: $this->allowed_values !== null ? \array_values($this->allowed_values) : null,
         );
+    }
+
+    /**
+     * Convert to the read-path wrapper that pairs the ShopWired definition with local settings.
+     *
+     * Requires both settings relations to be eager-loaded by the repository. A missing
+     * relation is a programming error (the repo forgot to eager-load) and fails fast;
+     * an absent row on a loaded relation is expressed as null on the wrapper.
+     */
+    public function toConfiguredDomain(): ConfiguredFieldDefinition
+    {
+        $base = $this->toDomain();
+
+        return new ConfiguredFieldDefinition(
+            base: $base,
+            generalSettings: $this->resolveGeneralSettings(),
+            productSettings: $this->resolveProductSettings($base),
+        );
+    }
+
+    private function resolveGeneralSettings(): ?CustomFieldGeneralSettings
+    {
+        Assert::true(
+            $this->relationLoaded('generalSettings'),
+            'generalSettings relation must be eager-loaded before calling toConfiguredDomain()',
+        );
+
+        $model = $this->generalSettings;
+
+        return $model instanceof CustomFieldGeneralSettingsModel ? $model->toDomain() : null;
+    }
+
+    private function resolveProductSettings(CustomFieldDefinition $base): ?ProductFieldSettings
+    {
+        if (! $base->isProductField()) {
+            return null;
+        }
+
+        Assert::true(
+            $this->relationLoaded('productSettings'),
+            'productSettings relation must be eager-loaded before calling toConfiguredDomain() on a product-type field',
+        );
+
+        $model = $this->productSettings;
+
+        return $model instanceof CustomFieldProductSettingsModel ? $model->toDomain() : null;
     }
 
     /**

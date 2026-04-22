@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Infrastructure\Linnworks\Clients;
 
 use App\Application\Contracts\Linnworks\PurchaseOrderClientInterface;
-use App\Application\DTOs\PaginatedListDTO;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
@@ -19,6 +18,7 @@ use App\Domain\Linnworks\ValueObjects\PurchaseOrderFull;
 use App\Domain\Linnworks\ValueObjects\PurchaseOrderHeader;
 use App\Domain\Linnworks\ValueObjects\PurchaseOrderNote;
 use App\Domain\ValueObjects\Guid;
+use App\Domain\ValueObjects\PaginatedList;
 use App\Infrastructure\Linnworks\Contracts\LinnworksTransportInterface;
 use App\Infrastructure\Linnworks\Requests\GetPurchaseOrdersWithStockItemsRequest;
 use App\Infrastructure\Linnworks\Responses\PurchaseOrder\PurchaseOrderAdditionalCostResponse;
@@ -183,7 +183,7 @@ final readonly class PurchaseOrderClient implements PurchaseOrderClientInterface
     /**
      * {@inheritDoc}
      *
-     * @return PaginatedListDTO<PurchaseOrderHeader>
+     * @return PaginatedList<PurchaseOrderHeader>
      *
      * @throws JsonException When JSON encoding fails
      * @throws AuthenticationExpiredException When credentials are invalid
@@ -192,7 +192,7 @@ final readonly class PurchaseOrderClient implements PurchaseOrderClientInterface
      * @throws InvalidApiResponseException When API response structure is invalid
      * @throws ResourceNotFoundException When resource not found
      */
-    public function searchPurchaseOrders(array $searchParams): PaginatedListDTO
+    public function searchPurchaseOrders(array $searchParams): PaginatedList
     {
         $response = $this->transport->postFormParams(
             endpoint: '/api/PurchaseOrder/Search_PurchaseOrders',
@@ -216,7 +216,7 @@ final readonly class PurchaseOrderClient implements PurchaseOrderClientInterface
         /** @var list<PurchaseOrderHeader> $headers */
         $headers = self::parseDirectArrayToDomain($results, PurchaseOrderHeaderResponse::class);
 
-        return PaginatedListDTO::fromPage(
+        return PaginatedList::fromPage(
             items: $headers,
             total: $totalRecords,
             perPage: $perPage,

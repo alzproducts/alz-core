@@ -25,6 +25,7 @@ use Mockery;
 use Mockery\MockInterface;
 use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -35,6 +36,7 @@ use Tests\TestCase;
  * Per TestingStrategy.md: 1-2 integration tests at HTTP boundary.
  */
 #[CoversClass(InventoryFieldUpdateClient::class)]
+#[Group('integration')]
 final class InventoryFieldUpdateClientTest extends TestCase
 {
     private const string TEST_SERVER_URL = 'https://eu-ext.linnworks.net';
@@ -178,7 +180,7 @@ final class InventoryFieldUpdateClientTest extends TestCase
             ->once()
             ->andReturn($guid);
 
-        $retailPrice = Money::exclusive(10.0);
+        $retailPrice = Money::inclusive(10.0);
         $purchasePrice = Money::exclusive(6.0);
         $barcode = Gtin::fromTrusted('73513537');
         $weight = Weight::kilogram(1.5);
@@ -250,9 +252,12 @@ final class InventoryFieldUpdateClientTest extends TestCase
             ->once()
             ->andReturn($guid);
 
-        $this->expectException(InvalidApiRequestException::class);
-        $this->expectExceptionMessage('Invalid field value');
-
-        $this->client->updateFields($guid, InventoryFieldUpdate::category('Bad'));
+        try {
+            $this->client->updateFields($guid, InventoryFieldUpdate::category('Bad'));
+            $this->fail('Expected InvalidApiRequestException');
+        } catch (InvalidApiRequestException $e) {
+            $this->assertSame('API request validation failed', $e->getMessage());
+            $this->assertSame('Invalid field value', $e->detail);
+        }
     }
 }

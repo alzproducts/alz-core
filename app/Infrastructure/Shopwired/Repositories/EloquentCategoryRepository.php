@@ -7,7 +7,6 @@ namespace App\Infrastructure\Shopwired\Repositories;
 use App\Application\Catalog\Queries\CategoryListQueryParams;
 use App\Application\Contracts\DatabaseGatewayInterface;
 use App\Application\Contracts\Shopwired\CategoryRepositoryInterface;
-use App\Application\DTOs\PaginatedListDTO;
 use App\Domain\Catalog\Category\ValueObjects\Category;
 use App\Domain\Catalog\Category\ValueObjects\CategoryView;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
@@ -17,6 +16,7 @@ use App\Domain\Exceptions\Data\MissingRequiredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\IntId;
+use App\Domain\ValueObjects\PaginatedList;
 use App\Infrastructure\Catalog\Category\Mappers\CategoryViewAssembler;
 use App\Infrastructure\Persistence\EloquentGateway;
 use App\Infrastructure\Repositories\AbstractEloquentRepository;
@@ -121,7 +121,7 @@ final class EloquentCategoryRepository extends AbstractEloquentRepository implem
     /**
      * {@inheritDoc}
      *
-     * @return PaginatedListDTO<CategoryView>
+     * @return PaginatedList<CategoryView>
      *
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
@@ -129,7 +129,7 @@ final class EloquentCategoryRepository extends AbstractEloquentRepository implem
      * @throws InvalidCustomFieldValueException
      * @throws MissingRequiredDataException
      */
-    public function paginate(int $perPage, int $page, CategoryListQueryParams $params = new CategoryListQueryParams()): PaginatedListDTO
+    public function paginate(int $perPage, int $page, CategoryListQueryParams $params = new CategoryListQueryParams()): PaginatedList
     {
         return $this->eloquentGateway->paginate(
             modelClass: self::MODEL_CLASS,
