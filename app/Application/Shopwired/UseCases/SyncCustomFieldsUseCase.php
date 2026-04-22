@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Application\Shopwired\UseCases;
 
+use App\Application\Contracts\Catalog\CustomFieldRepositoryInterface;
 use App\Application\Contracts\Shopwired\CustomFieldClientInterface;
-use App\Application\Contracts\Shopwired\CustomFieldRepositoryInterface;
 use App\Application\Results\SyncResult;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;

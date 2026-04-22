@@ -29,12 +29,12 @@ final readonly class DateTimeCustomFieldValue extends AbstractCustomFieldValue
      * @throws InvalidCustomFieldValueException If value cannot be parsed as timestamp
      */
     public function __construct(
-        CustomFieldDefinition $definition,
+        ConfiguredFieldDefinition $definition,
         public DateTimeImmutable $value,
     ) {
         Assert::true(
-            $definition->type->isDateType(),
-            "DateTimeCustomFieldValue requires date type (Date/DateTime), got '{$definition->type->value}'",
+            $definition->base->type->isDateType(),
+            "DateTimeCustomFieldValue requires date type (Date/DateTime), got '{$definition->base->type->value}'",
         );
 
         parent::__construct($definition);
@@ -47,15 +47,15 @@ final readonly class DateTimeCustomFieldValue extends AbstractCustomFieldValue
      *
      * @throws InvalidCustomFieldValueException If timestamp is invalid
      */
-    public static function fromTimestamp(CustomFieldDefinition $definition, int $timestamp): self
+    public static function fromTimestamp(ConfiguredFieldDefinition $definition, int $timestamp): self
     {
         $timezone = new DateTimeZone(self::TIMEZONE);
         $parsed = DateTimeImmutable::createFromFormat('U', (string) $timestamp);
 
         if ($parsed === false) {
             throw new InvalidCustomFieldValueException(
-                fieldName: $definition->name,
-                expectedType: $definition->type,
+                fieldName: $definition->base->name,
+                expectedType: $definition->base->type,
                 actualType: 'int (invalid timestamp)',
                 rawValue: $timestamp,
             );

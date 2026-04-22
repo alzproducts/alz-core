@@ -10,6 +10,7 @@ use App\Application\Shopwired\SaleManagement\UseCases\CheckExpiredSalesUseCase;
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldItemType;
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldType;
 use App\Domain\Catalog\CustomFields\ValueObjects\AbstractCustomFieldValue;
+use App\Domain\Catalog\CustomFields\ValueObjects\ConfiguredFieldDefinition;
 use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldDefinition;
 use App\Domain\Catalog\CustomFields\ValueObjects\StringCustomFieldValue;
 use App\Domain\Catalog\Product\Enums\SaleRemovalReason;
@@ -424,14 +425,18 @@ final class CheckExpiredSalesUseCaseTest extends TestCase
 
         foreach ($rawFields as $name => $value) {
             $typed[] = new StringCustomFieldValue(
-                definition: new CustomFieldDefinition(
-                    id: ++$id,
-                    name: $name,
-                    type: CustomFieldType::Text,
-                    label: $name,
-                    itemType: CustomFieldItemType::Product,
-                    sortOrder: null,
-                    allowedValues: null,
+                definition: new ConfiguredFieldDefinition(
+                    new CustomFieldDefinition(
+                        id: ++$id,
+                        name: $name,
+                        type: CustomFieldType::Text,
+                        label: $name,
+                        itemType: CustomFieldItemType::Product,
+                        sortOrder: null,
+                        allowedValues: null,
+                    ),
+                    null,
+                    null,
                 ),
                 value: $value,
             );

@@ -6,6 +6,7 @@ namespace Tests\Unit\Domain\Catalog\CustomFields\ValueObjects;
 
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldItemType;
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldType;
+use App\Domain\Catalog\CustomFields\ValueObjects\ConfiguredFieldDefinition;
 use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldDefinition;
 use App\Domain\Catalog\CustomFields\ValueObjects\DateTimeCustomFieldValue;
 use DateTimeImmutable;
@@ -53,14 +54,12 @@ final class DateTimeCustomFieldValueTest extends TestCase
     public function from_timestamp_creates_value_in_london_timezone(): void
     {
         $definition = $this->createDateTimeDefinition();
-        // Use a known timestamp: 2024-06-15 12:00:00 UTC
         $utcDateTime = new DateTimeImmutable('2024-06-15 12:00:00', new DateTimeZone('UTC'));
         $timestamp = $utcDateTime->getTimestamp();
 
         $value = DateTimeCustomFieldValue::fromTimestamp($definition, $timestamp);
 
         self::assertSame('Europe/London', $value->value->getTimezone()->getName());
-        // In BST (summer time), London is UTC+1, so 12:00 UTC = 13:00 London
         self::assertSame('2024-06-15 13:00:00', $value->value->format('Y-m-d H:i:s'));
     }
 
@@ -68,14 +67,12 @@ final class DateTimeCustomFieldValueTest extends TestCase
     public function from_timestamp_handles_winter_time(): void
     {
         $definition = $this->createDateTimeDefinition();
-        // Use a known timestamp: 2024-01-15 12:00:00 UTC (winter, no DST)
         $utcDateTime = new DateTimeImmutable('2024-01-15 12:00:00', new DateTimeZone('UTC'));
         $timestamp = $utcDateTime->getTimestamp();
 
         $value = DateTimeCustomFieldValue::fromTimestamp($definition, $timestamp);
 
         self::assertSame('Europe/London', $value->value->getTimezone()->getName());
-        // In GMT (winter time), London is UTC+0, so 12:00 UTC = 12:00 London
         self::assertSame('2024-01-15 12:00:00', $value->value->format('Y-m-d H:i:s'));
     }
 
@@ -95,7 +92,6 @@ final class DateTimeCustomFieldValueTest extends TestCase
         $definition = $this->createDateTimeDefinition();
         $value = DateTimeCustomFieldValue::fromTimestamp($definition, 0);
 
-        // Epoch (1970-01-01 00:00:00 UTC) in London timezone
         self::assertSame('1970-01-01 01:00:00', $value->value->format('Y-m-d H:i:s'));
     }
 
@@ -179,7 +175,7 @@ final class DateTimeCustomFieldValueTest extends TestCase
     #[Test]
     public function it_rejects_text_type(): void
     {
-        $definition = new CustomFieldDefinition(
+        $definition = self::wrap(new CustomFieldDefinition(
             id: 1,
             name: 'notes',
             type: CustomFieldType::Text,
@@ -187,7 +183,7 @@ final class DateTimeCustomFieldValueTest extends TestCase
             itemType: CustomFieldItemType::Product,
             sortOrder: null,
             allowedValues: null,
-        );
+        ));
 
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage("DateTimeCustomFieldValue requires date type (Date/DateTime), got 'text'");
@@ -198,7 +194,7 @@ final class DateTimeCustomFieldValueTest extends TestCase
     #[Test]
     public function it_rejects_toggle_type(): void
     {
-        $definition = new CustomFieldDefinition(
+        $definition = self::wrap(new CustomFieldDefinition(
             id: 1,
             name: 'is_featured',
             type: CustomFieldType::Toggle,
@@ -206,7 +202,7 @@ final class DateTimeCustomFieldValueTest extends TestCase
             itemType: CustomFieldItemType::Product,
             sortOrder: null,
             allowedValues: null,
-        );
+        ));
 
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage("DateTimeCustomFieldValue requires date type (Date/DateTime), got 'toggle'");
@@ -217,7 +213,7 @@ final class DateTimeCustomFieldValueTest extends TestCase
     #[Test]
     public function it_rejects_choice_type(): void
     {
-        $definition = new CustomFieldDefinition(
+        $definition = self::wrap(new CustomFieldDefinition(
             id: 1,
             name: 'color',
             type: CustomFieldType::Choice,
@@ -225,7 +221,7 @@ final class DateTimeCustomFieldValueTest extends TestCase
             itemType: CustomFieldItemType::Product,
             sortOrder: null,
             allowedValues: ['Red', 'Blue'],
-        );
+        ));
 
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage("DateTimeCustomFieldValue requires date type (Date/DateTime), got 'choice'");
@@ -236,7 +232,7 @@ final class DateTimeCustomFieldValueTest extends TestCase
     #[Test]
     public function it_rejects_value_list_type(): void
     {
-        $definition = new CustomFieldDefinition(
+        $definition = self::wrap(new CustomFieldDefinition(
             id: 1,
             name: 'tags',
             type: CustomFieldType::ValueList,
@@ -244,7 +240,7 @@ final class DateTimeCustomFieldValueTest extends TestCase
             itemType: CustomFieldItemType::Product,
             sortOrder: null,
             allowedValues: null,
-        );
+        ));
 
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage("DateTimeCustomFieldValue requires date type (Date/DateTime), got 'value_list'");
@@ -255,7 +251,7 @@ final class DateTimeCustomFieldValueTest extends TestCase
     #[Test]
     public function it_rejects_product_list_type(): void
     {
-        $definition = new CustomFieldDefinition(
+        $definition = self::wrap(new CustomFieldDefinition(
             id: 1,
             name: 'related',
             type: CustomFieldType::ProductList,
@@ -263,7 +259,7 @@ final class DateTimeCustomFieldValueTest extends TestCase
             itemType: CustomFieldItemType::Product,
             sortOrder: null,
             allowedValues: null,
-        );
+        ));
 
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage("DateTimeCustomFieldValue requires date type (Date/DateTime), got 'product_list'");
@@ -275,9 +271,9 @@ final class DateTimeCustomFieldValueTest extends TestCase
     // Helpers
     // ========================================================================
 
-    private function createDateDefinition(): CustomFieldDefinition
+    private function createDateDefinition(): ConfiguredFieldDefinition
     {
-        return new CustomFieldDefinition(
+        return self::wrap(new CustomFieldDefinition(
             id: 1,
             name: 'release_date',
             type: CustomFieldType::Date,
@@ -285,12 +281,12 @@ final class DateTimeCustomFieldValueTest extends TestCase
             itemType: CustomFieldItemType::Product,
             sortOrder: 0,
             allowedValues: null,
-        );
+        ));
     }
 
-    private function createDateTimeDefinition(): CustomFieldDefinition
+    private function createDateTimeDefinition(): ConfiguredFieldDefinition
     {
-        return new CustomFieldDefinition(
+        return self::wrap(new CustomFieldDefinition(
             id: 2,
             name: 'published_at',
             type: CustomFieldType::DateTime,
@@ -298,6 +294,11 @@ final class DateTimeCustomFieldValueTest extends TestCase
             itemType: CustomFieldItemType::Product,
             sortOrder: 1,
             allowedValues: null,
-        );
+        ));
+    }
+
+    private static function wrap(CustomFieldDefinition $base): ConfiguredFieldDefinition
+    {
+        return new ConfiguredFieldDefinition($base, null, null);
     }
 }
