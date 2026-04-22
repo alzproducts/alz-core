@@ -227,6 +227,40 @@ All three under the 20-line default threshold; 12 baseline entries cleared in on
 - `make lint` clean (all 5 linters)
 - Trait behavior preserved: guards still throw `InvalidApiResponseException` with same messages; `CannotCreateData` path still produces generic "API returned invalid data structure" message with the SDK exception chained as `previous`
 
+#### 2026-04-23 — Phase 2 (EloquentPurchaseOrderSyncRepository) complete
+
+7 baseline entries across one repository: `saveCoresBatch` (49), `coreToAttributes` (32), and 5 sync methods (36-43 lines each).
+
+**Three-part refactor:**
+
+1. **Move `coreToAttributes` → `PurchaseOrderModel::attributesFromDomain(PurchaseOrderCore)`.**
+  - The 32-line field-mapping method belongs on the Model per the Infrastructure CLAUDE.md canonical pattern, not on the repository.
+  - `attributesFromDomain` is already in `EXCLUDED_METHODS` → rule-exempt once relocated.
+  - Takes `PurchaseOrderCore` (not `PurchaseOrderHeader`) because `note_count` lives on Core. Core is the accurate "domain for this table."
+
+2. **Extract two sync helpers** (3 + 4 params — under the 4-param rule):
+  - `upsertChildRows(class-string<Model>, list<array>, string)`
+  - `deleteOrphansByParent(class-string<Model>, string, string, list<string|int>)` — encapsulates the nullable-key skip (empty `$childIds` → no-op)
+  - Originally sketched as one 5-param helper; split because `alz.excessiveParameterCount` enforces 4 max.
+
+3. **Extract `buildBulkCoreRows` from `saveCoresBatch`.**
+  - The foreach over purchase orders + flatten-to-rows logic becomes a private helper returning an array shape `{headers, items, purchaseIds, itemIds}`.
+  - `saveCoresBatch` stays as orchestration: guard → build → 3 DB calls.
+
+**Result:**
+- `saveCoresBatch`: 49 → 28 lines
+- 5 sync methods: 36-43 → ≤29 lines each
+- `coreToAttributes` relocated to `PurchaseOrderModel::attributesFromDomain` (rule-exempt by name)
+
+**Type discovery:**
+- Child ID types vary across VOs: `list<string>` for Guid-valued IDs, `list<int>` for `purchaseAdditionalCostItemId` and `rowId`. Helper signature widened to `list<string|int>` — narrower would force unnecessary conversions at each call site.
+
+**Baseline: 1370 → 1335 lines (-35).** 7 entries cleared.
+
+**Verification:**
+- `make lint` clean (all 5 linters)
+- Behavior preserved: same upsert/delete sequence, same nullable-key skip semantics, same `attributesFromDomain` field list on the model
+
 ---
 
 ## Issue #399 — Cross-cutting, Presentation & DevTools (127 errors)

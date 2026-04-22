@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Linnworks\Models;
 
+use App\Domain\Linnworks\ValueObjects\PurchaseOrderCore;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
@@ -81,6 +82,48 @@ final class PurchaseOrderModel extends Model
             'synced_at' => 'immutable_datetime',
             'created_at' => 'immutable_datetime',
             'updated_at' => 'immutable_datetime',
+        ];
+    }
+
+    /**
+     * Build attribute row from a PurchaseOrderCore domain VO.
+     *
+     * Takes Core (not Header) because note_count lives on Core — Core is the
+     * domain representation of the purchase_orders row.
+     *
+     * @return array<string, mixed>
+     */
+    public static function attributesFromDomain(PurchaseOrderCore $core): array
+    {
+        $header = $core->header;
+
+        return [
+            'linnworks_purchase_id' => $header->pkPurchaseId->value,
+            'fk_supplier_id' => $header->fkSupplierId->value,
+            'fk_location_id' => $header->fkLocationId->value,
+            'external_invoice_number' => $header->externalInvoiceNumber,
+            'status' => $header->status->value,
+            'locked' => $header->locked,
+            'line_count' => $header->lineCount,
+            'delivered_lines_count' => $header->deliveredLinesCount,
+            'currency' => $header->currency,
+            'supplier_reference_number' => $header->supplierReferenceNumber,
+            'unit_amount_tax_included_type' => $header->unitAmountTaxIncludedType,
+            'postage_paid' => $header->postagePaid->toNet(),
+            'total_cost' => $header->totalCost,
+            'tax_paid' => $header->taxPaid,
+            'shipping_tax_rate' => $header->shippingTaxRate?->percentage,
+            'conversion_rate' => $header->conversionRate,
+            'converted_shipping_cost' => $header->convertedShippingCost,
+            'converted_shipping_tax' => $header->convertedShippingTax,
+            'converted_other_cost' => $header->convertedOtherCost,
+            'converted_other_tax' => $header->convertedOtherTax,
+            'converted_grand_total' => $header->convertedGrandTotal,
+            'date_of_purchase' => $header->dateOfPurchase,
+            'date_of_delivery' => $header->dateOfDelivery,
+            'quoted_delivery_date' => $header->quotedDeliveryDate,
+            'note_count' => $core->noteCount,
+            'synced_at' => CarbonImmutable::now(),
         ];
     }
 

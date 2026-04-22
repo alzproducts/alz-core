@@ -728,49 +728,6 @@ parameters:
 
 
 		-
-			rawMessage: 'Method saveCoresBatch() is 49 lines long — exceeds the 30-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Infrastructure/Linnworks/Repositories/EloquentPurchaseOrderSyncRepository.php
-
-		-
-			rawMessage: 'Method coreToAttributes() is 32 lines long — exceeds the 30-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Infrastructure/Linnworks/Repositories/EloquentPurchaseOrderSyncRepository.php
-
-		-
-			rawMessage: 'Method syncAdditionalCosts() is 43 lines long — exceeds the 30-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Infrastructure/Linnworks/Repositories/EloquentPurchaseOrderSyncRepository.php
-
-		-
-			rawMessage: 'Method syncDeliveredRecords() is 36 lines long — exceeds the 30-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Infrastructure/Linnworks/Repositories/EloquentPurchaseOrderSyncRepository.php
-
-		-
-			rawMessage: 'Method syncExtendedProperties() is 42 lines long — exceeds the 30-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Infrastructure/Linnworks/Repositories/EloquentPurchaseOrderSyncRepository.php
-
-		-
-			rawMessage: 'Method syncItems() is 36 lines long — exceeds the 30-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Infrastructure/Linnworks/Repositories/EloquentPurchaseOrderSyncRepository.php
-
-		-
-			rawMessage: 'Method syncNotes() is 36 lines long — exceeds the 30-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Infrastructure/Linnworks/Repositories/EloquentPurchaseOrderSyncRepository.php
-
-
-		-
 			rawMessage: 'Method save() is 59 lines long — exceeds the 30-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
