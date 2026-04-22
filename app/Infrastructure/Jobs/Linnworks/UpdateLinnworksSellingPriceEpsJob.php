@@ -48,7 +48,7 @@ final class UpdateLinnworksSellingPriceEpsJob implements ShouldQueue
 
     public bool $failOnTimeout = true;
 
-    public int $timeout = 30;
+    public int $timeout = 60;
 
     public function __construct(
         public readonly IntId $productId,
