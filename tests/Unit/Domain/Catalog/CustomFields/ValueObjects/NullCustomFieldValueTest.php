@@ -8,7 +8,6 @@ use App\Domain\Catalog\CustomFields\Enums\CustomFieldItemType;
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldType;
 use App\Domain\Catalog\CustomFields\ValueObjects\ConfiguredFieldDefinition;
 use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldDefinition;
-use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldGeneralSettings;
 use App\Domain\Catalog\CustomFields\ValueObjects\NullCustomFieldValue;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -76,7 +75,7 @@ final class NullCustomFieldValueTest extends TestCase
                 sortOrder: 1,
                 allowedValues: ['Red', 'Green', 'Blue'],
             ),
-            CustomFieldGeneralSettings::defaults(),
+            null,
             null,
         );
     }

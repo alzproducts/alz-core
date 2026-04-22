@@ -8,7 +8,6 @@ use App\Domain\Catalog\CustomFields\Enums\CustomFieldItemType;
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldType;
 use App\Domain\Catalog\CustomFields\ValueObjects\ConfiguredFieldDefinition;
 use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldDefinition;
-use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldGeneralSettings;
 use App\Domain\Catalog\CustomFields\ValueObjects\StringCustomFieldValue;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -321,6 +320,6 @@ final class StringCustomFieldValueTest extends TestCase
 
     private static function wrap(CustomFieldDefinition $base): ConfiguredFieldDefinition
     {
-        return new ConfiguredFieldDefinition($base, CustomFieldGeneralSettings::defaults(), null);
+        return new ConfiguredFieldDefinition($base, null, null);
     }
 }

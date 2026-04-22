@@ -25,7 +25,7 @@ final readonly class ConfiguredFieldDefinition
 {
     public function __construct(
         public CustomFieldDefinition $base,
-        public CustomFieldGeneralSettings $generalSettings,
+        public ?CustomFieldGeneralSettings $generalSettings,
         public ?ProductFieldSettings $productSettings,
     ) {
         Assert::true(

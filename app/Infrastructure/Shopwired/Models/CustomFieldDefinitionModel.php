@@ -17,6 +17,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Webmozart\Assert\Assert;
 
 /**
  * Eloquent model for shopwired.custom_field_definitions table.
@@ -102,8 +103,9 @@ final class CustomFieldDefinitionModel extends Model implements EloquentDomainMa
     /**
      * Convert to the read-path wrapper that pairs the ShopWired definition with local settings.
      *
-     * Relies on eager-loaded `generalSettings` / `productSettings` relations; when a settings
-     * row is absent, sensible defaults are used so the wrapper is always present.
+     * Requires both settings relations to be eager-loaded by the repository. A missing
+     * relation is a programming error (the repo forgot to eager-load) and fails fast;
+     * an absent row on a loaded relation is expressed as null on the wrapper.
      */
     public function toConfiguredDomain(): ConfiguredFieldDefinition
     {
@@ -116,20 +118,28 @@ final class CustomFieldDefinitionModel extends Model implements EloquentDomainMa
         );
     }
 
-    private function resolveGeneralSettings(): CustomFieldGeneralSettings
+    private function resolveGeneralSettings(): ?CustomFieldGeneralSettings
     {
-        $model = $this->relationLoaded('generalSettings') ? $this->generalSettings : null;
+        Assert::true(
+            $this->relationLoaded('generalSettings'),
+            'generalSettings relation must be eager-loaded before calling toConfiguredDomain()',
+        );
 
-        return $model instanceof CustomFieldGeneralSettingsModel
-            ? $model->toDomain()
-            : CustomFieldGeneralSettings::defaults();
+        $model = $this->generalSettings;
+
+        return $model instanceof CustomFieldGeneralSettingsModel ? $model->toDomain() : null;
     }
 
     private function resolveProductSettings(CustomFieldDefinition $base): ?ProductFieldSettings
     {
-        if (! $base->isProductField() || ! $this->relationLoaded('productSettings')) {
+        if (! $base->isProductField()) {
             return null;
         }
+
+        Assert::true(
+            $this->relationLoaded('productSettings'),
+            'productSettings relation must be eager-loaded before calling toConfiguredDomain() on a product-type field',
+        );
 
         $model = $this->productSettings;
 

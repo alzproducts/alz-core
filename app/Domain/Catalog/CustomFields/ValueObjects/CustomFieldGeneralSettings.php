@@ -11,9 +11,8 @@ use App\Domain\Catalog\CustomFields\Enums\CustomFieldValueSelectType;
  * Local, presentation/behaviour settings applied to any custom field definition.
  *
  * Paired with a ShopWired {@see CustomFieldDefinition} inside
- * {@see ConfiguredFieldDefinition}. Always present on the wrapper — when no
- * row exists in catalog.custom_field_general_settings, {@see self::defaults()}
- * supplies sensible defaults so downstream code never branches on null.
+ * {@see ConfiguredFieldDefinition}. Null on the wrapper when no row exists in
+ * catalog.custom_field_general_settings for that definition.
  */
 final readonly class CustomFieldGeneralSettings
 {
@@ -24,18 +23,4 @@ final readonly class CustomFieldGeneralSettings
         public bool $adminOnly,
         public ?CustomFieldValidationRule $validationRule,
     ) {}
-
-    /**
-     * Default settings for a definition with no persisted overrides.
-     */
-    public static function defaults(): self
-    {
-        return new self(
-            tooltip: null,
-            selectType: null,
-            suggestCommonData: null,
-            adminOnly: false,
-            validationRule: null,
-        );
-    }
 }

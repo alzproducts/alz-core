@@ -31,26 +31,4 @@ final class CustomFieldGeneralSettingsTest extends TestCase
         self::assertTrue($settings->adminOnly);
         self::assertSame(CustomFieldValidationRule::Url, $settings->validationRule);
     }
-
-    #[Test]
-    public function defaults_returns_non_admin_and_all_nullable_fields_null(): void
-    {
-        $settings = CustomFieldGeneralSettings::defaults();
-
-        self::assertNull($settings->tooltip);
-        self::assertNull($settings->selectType);
-        self::assertNull($settings->suggestCommonData);
-        self::assertFalse($settings->adminOnly);
-        self::assertNull($settings->validationRule);
-    }
-
-    #[Test]
-    public function defaults_returns_a_new_instance_each_call(): void
-    {
-        $first = CustomFieldGeneralSettings::defaults();
-        $second = CustomFieldGeneralSettings::defaults();
-
-        self::assertNotSame($first, $second);
-        self::assertEquals($first, $second);
-    }
 }

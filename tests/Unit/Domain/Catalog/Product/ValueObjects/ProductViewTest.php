@@ -9,7 +9,6 @@ use App\Domain\Catalog\CustomFields\Enums\CustomFieldType;
 use App\Domain\Catalog\CustomFields\ValueObjects\AbstractCustomFieldValue;
 use App\Domain\Catalog\CustomFields\ValueObjects\ConfiguredFieldDefinition;
 use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldDefinition;
-use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldGeneralSettings;
 use App\Domain\Catalog\CustomFields\ValueObjects\StringCustomFieldValue;
 use App\Domain\Catalog\Product\Enums\FreeDeliveryType;
 use App\Domain\Catalog\Product\ValueObjects\ProductLinks;
@@ -783,7 +782,7 @@ final class ProductViewTest extends TestCase
                     sortOrder: null,
                     allowedValues: null,
                 ),
-                CustomFieldGeneralSettings::defaults(),
+                null,
                 null,
             ),
             $value,

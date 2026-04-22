@@ -8,7 +8,6 @@ use App\Domain\Catalog\CustomFields\Enums\CustomFieldItemType;
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldType;
 use App\Domain\Catalog\CustomFields\ValueObjects\ConfiguredFieldDefinition;
 use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldDefinition;
-use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldGeneralSettings;
 use App\Domain\Catalog\CustomFields\ValueObjects\DateTimeCustomFieldValue;
 use App\Domain\Catalog\CustomFields\ValueObjects\StringCustomFieldValue;
 use App\Domain\Catalog\Product\Enums\SaleCustomField;
@@ -200,7 +199,7 @@ final class SaleSettingsTest extends TestCase
                     sortOrder: null,
                     allowedValues: null,
                 ),
-                CustomFieldGeneralSettings::defaults(),
+                null,
                 null,
             ),
             $value,
@@ -220,7 +219,7 @@ final class SaleSettingsTest extends TestCase
                     sortOrder: null,
                     allowedValues: null,
                 ),
-                CustomFieldGeneralSettings::defaults(),
+                null,
                 null,
             ),
             $value,

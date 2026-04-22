@@ -24,7 +24,13 @@ final class ConfiguredFieldDefinitionTest extends TestCase
     public function exposes_base_definition_and_settings(): void
     {
         $base = self::productDefinition();
-        $general = CustomFieldGeneralSettings::defaults();
+        $general = new CustomFieldGeneralSettings(
+            tooltip: 'Admin hover text',
+            selectType: null,
+            suggestCommonData: null,
+            adminOnly: true,
+            validationRule: null,
+        );
         $product = new ProductFieldSettings(LinnworksStockItemUpdateMode::Single);
 
         $configured = new ConfiguredFieldDefinition($base, $general, $product);
@@ -35,11 +41,23 @@ final class ConfiguredFieldDefinitionTest extends TestCase
     }
 
     #[Test]
+    public function accepts_null_general_settings(): void
+    {
+        $configured = new ConfiguredFieldDefinition(
+            self::productDefinition(),
+            null,
+            null,
+        );
+
+        self::assertNull($configured->generalSettings);
+    }
+
+    #[Test]
     public function accepts_null_product_settings_for_product_field(): void
     {
         $configured = new ConfiguredFieldDefinition(
             self::productDefinition(),
-            CustomFieldGeneralSettings::defaults(),
+            null,
             null,
         );
 
@@ -52,7 +70,7 @@ final class ConfiguredFieldDefinitionTest extends TestCase
     {
         $configured = new ConfiguredFieldDefinition(
             self::definitionWithItemType($itemType),
-            CustomFieldGeneralSettings::defaults(),
+            null,
             null,
         );
 
@@ -69,7 +87,7 @@ final class ConfiguredFieldDefinitionTest extends TestCase
 
         new ConfiguredFieldDefinition(
             self::definitionWithItemType($itemType),
-            CustomFieldGeneralSettings::defaults(),
+            null,
             new ProductFieldSettings(LinnworksStockItemUpdateMode::AllVariants),
         );
     }

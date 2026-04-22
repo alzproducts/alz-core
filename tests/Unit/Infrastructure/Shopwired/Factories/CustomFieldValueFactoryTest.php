@@ -10,7 +10,6 @@ use App\Domain\Catalog\CustomFields\Enums\CustomFieldType;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\CustomFields\ValueObjects\ConfiguredFieldDefinition;
 use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldDefinition;
-use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldGeneralSettings;
 use App\Domain\Catalog\CustomFields\ValueObjects\StringCustomFieldValue;
 use App\Infrastructure\Shopwired\Factories\CustomFieldValueFactory;
 use Mockery;
@@ -175,6 +174,6 @@ final class CustomFieldValueFactoryTest extends TestCase
 
     private static function wrap(CustomFieldDefinition $base): ConfiguredFieldDefinition
     {
-        return new ConfiguredFieldDefinition($base, CustomFieldGeneralSettings::defaults(), null);
+        return new ConfiguredFieldDefinition($base, null, null);
     }
 }

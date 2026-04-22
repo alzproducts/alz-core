@@ -12,6 +12,7 @@ use App\Domain\Catalog\CustomFields\Enums\LinnworksStockItemUpdateMode;
 use App\Infrastructure\Catalog\CustomFields\Models\CustomFieldGeneralSettingsModel;
 use App\Infrastructure\Catalog\CustomFields\Models\CustomFieldProductSettingsModel;
 use App\Infrastructure\Shopwired\Models\CustomFieldDefinitionModel;
+use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -43,6 +44,7 @@ final class CustomFieldDefinitionModelTest extends TestCase
         $configured = $model->toConfiguredDomain();
 
         self::assertSame(42, $configured->base->id);
+        self::assertNotNull($configured->generalSettings);
         self::assertSame('Shown on hover', $configured->generalSettings->tooltip);
         self::assertSame(CustomFieldValueSelectType::Brand, $configured->generalSettings->selectType);
         self::assertTrue($configured->generalSettings->suggestCommonData);
@@ -56,46 +58,49 @@ final class CustomFieldDefinitionModelTest extends TestCase
     }
 
     #[Test]
-    public function uses_default_general_settings_when_no_settings_row_exists(): void
+    public function general_settings_is_null_when_relation_loaded_but_no_row_exists(): void
     {
         $model = self::definitionModel(itemType: CustomFieldItemType::Product);
-        // Eager-loaded but no row found
         $model->setRelation('generalSettings', null);
         $model->setRelation('productSettings', null);
 
         $configured = $model->toConfiguredDomain();
 
-        self::assertNull($configured->generalSettings->tooltip);
-        self::assertNull($configured->generalSettings->selectType);
-        self::assertNull($configured->generalSettings->suggestCommonData);
-        self::assertFalse($configured->generalSettings->adminOnly);
-        self::assertNull($configured->generalSettings->validationRule);
+        self::assertNull($configured->generalSettings);
         self::assertNull($configured->productSettings);
     }
 
     #[Test]
-    public function uses_default_general_settings_when_relation_not_eager_loaded(): void
+    public function fails_fast_when_general_settings_relation_not_eager_loaded(): void
     {
         $model = self::definitionModel(itemType: CustomFieldItemType::Product);
-        // Deliberately omit setRelation() — relationLoaded() must return false
+        // Deliberately omit setRelation() — relationLoaded() returns false
 
-        $configured = $model->toConfiguredDomain();
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('generalSettings relation must be eager-loaded');
 
-        self::assertNull($configured->generalSettings->tooltip);
-        self::assertFalse($configured->generalSettings->adminOnly);
-        self::assertNull($configured->productSettings);
+        $model->toConfiguredDomain();
     }
 
     #[Test]
-    public function ignores_product_settings_for_non_product_field_even_if_eager_loaded(): void
+    public function fails_fast_when_product_settings_relation_not_eager_loaded(): void
+    {
+        $model = self::definitionModel(itemType: CustomFieldItemType::Product);
+        // generalSettings loaded, productSettings deliberately omitted
+        $model->setRelation('generalSettings', null);
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('productSettings relation must be eager-loaded');
+
+        $model->toConfiguredDomain();
+    }
+
+    #[Test]
+    public function skips_product_settings_for_non_product_field_without_requiring_relation(): void
     {
         $model = self::definitionModel(itemType: CustomFieldItemType::Category);
         $model->setRelation('generalSettings', null);
-        // A product_settings row would be illegal per the domain invariant; verify the
-        // model guards against it by refusing to attach it on non-product fields.
-        $model->setRelation('productSettings', self::productSettingsModel(
-            updateMode: LinnworksStockItemUpdateMode::Single,
-        ));
+        // productSettings relation intentionally NOT loaded — must not be asserted for non-product fields
 
         $configured = $model->toConfiguredDomain();
 
