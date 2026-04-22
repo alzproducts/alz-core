@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Catalog\CustomFields\Models;
 
-use App\Domain\Catalog\CustomFields\Enums\LinnworksStockItemUpdateMode;
+use App\Domain\Catalog\CustomFields\Enums\StockItemUpdateMode;
 use App\Domain\Catalog\CustomFields\ValueObjects\ProductFieldSettings;
 use App\Infrastructure\Contracts\EloquentDomainMappableInterface;
 use App\Infrastructure\Shopwired\Models\CustomFieldDefinitionModel;
@@ -21,7 +21,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  *
  * @property string $id Internal UUID
  * @property string $custom_field_definition_id FK to shopwired.custom_field_definitions.id
- * @property LinnworksStockItemUpdateMode|null $update_linnworks_stock_item
+ * @property StockItemUpdateMode|null $stock_item_update_mode
  * @property CarbonImmutable $created_at
  * @property CarbonImmutable $updated_at
  *
@@ -41,7 +41,7 @@ final class CustomFieldProductSettingsModel extends Model implements EloquentDom
     protected function casts(): array
     {
         return [
-            'update_linnworks_stock_item' => LinnworksStockItemUpdateMode::class,
+            'stock_item_update_mode' => StockItemUpdateMode::class,
             'created_at' => 'immutable_datetime',
             'updated_at' => 'immutable_datetime',
         ];
@@ -57,7 +57,7 @@ final class CustomFieldProductSettingsModel extends Model implements EloquentDom
 
     public function toDomain(): ProductFieldSettings
     {
-        return new ProductFieldSettings(updateLinnworksStockItem: $this->update_linnworks_stock_item);
+        return new ProductFieldSettings(stockItemUpdateMode: $this->stock_item_update_mode);
     }
 
     /**
@@ -71,7 +71,7 @@ final class CustomFieldProductSettingsModel extends Model implements EloquentDom
     {
         /** @var ProductFieldSettings $entity */
         return [
-            'update_linnworks_stock_item' => $entity->updateLinnworksStockItem?->value,
+            'stock_item_update_mode' => $entity->stockItemUpdateMode?->value,
         ];
     }
 }

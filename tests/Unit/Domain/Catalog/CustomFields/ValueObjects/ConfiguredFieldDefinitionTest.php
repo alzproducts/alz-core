@@ -6,7 +6,7 @@ namespace Tests\Unit\Domain\Catalog\CustomFields\ValueObjects;
 
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldItemType;
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldType;
-use App\Domain\Catalog\CustomFields\Enums\LinnworksStockItemUpdateMode;
+use App\Domain\Catalog\CustomFields\Enums\StockItemUpdateMode;
 use App\Domain\Catalog\CustomFields\ValueObjects\ConfiguredFieldDefinition;
 use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldDefinition;
 use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldGeneralSettings;
@@ -31,7 +31,7 @@ final class ConfiguredFieldDefinitionTest extends TestCase
             adminOnly: true,
             validationRule: null,
         );
-        $product = new ProductFieldSettings(LinnworksStockItemUpdateMode::Single);
+        $product = new ProductFieldSettings(StockItemUpdateMode::Single);
 
         $configured = new ConfiguredFieldDefinition($base, $general, $product);
 
@@ -88,7 +88,7 @@ final class ConfiguredFieldDefinitionTest extends TestCase
         new ConfiguredFieldDefinition(
             self::definitionWithItemType($itemType),
             null,
-            new ProductFieldSettings(LinnworksStockItemUpdateMode::AllVariants),
+            new ProductFieldSettings(StockItemUpdateMode::AllVariants),
         );
     }
 

@@ -25,7 +25,7 @@ return new class extends Migration {
                 ->on('shopwired.custom_field_definitions')
                 ->cascadeOnDelete();
 
-            $table->string('update_linnworks_stock_item', 20)->nullable();
+            $table->string('stock_item_update_mode', 20)->nullable();
 
             $table->timestampsTz();
         });

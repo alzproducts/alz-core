@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\Catalog\CustomFields\ValueObjects;
 
-use App\Domain\Catalog\CustomFields\Enums\LinnworksStockItemUpdateMode;
+use App\Domain\Catalog\CustomFields\Enums\StockItemUpdateMode;
 
 /**
  * Local settings specific to product-type custom field definitions.
@@ -15,6 +15,6 @@ use App\Domain\Catalog\CustomFields\Enums\LinnworksStockItemUpdateMode;
 final readonly class ProductFieldSettings
 {
     public function __construct(
-        public ?LinnworksStockItemUpdateMode $updateLinnworksStockItem,
+        public ?StockItemUpdateMode $stockItemUpdateMode,
     ) {}
 }

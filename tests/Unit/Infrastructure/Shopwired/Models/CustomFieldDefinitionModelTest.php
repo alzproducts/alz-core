@@ -8,7 +8,7 @@ use App\Domain\Catalog\CustomFields\Enums\CustomFieldItemType;
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldType;
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldValidationRule;
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldValueSelectType;
-use App\Domain\Catalog\CustomFields\Enums\LinnworksStockItemUpdateMode;
+use App\Domain\Catalog\CustomFields\Enums\StockItemUpdateMode;
 use App\Infrastructure\Catalog\CustomFields\Models\CustomFieldGeneralSettingsModel;
 use App\Infrastructure\Catalog\CustomFields\Models\CustomFieldProductSettingsModel;
 use App\Infrastructure\Shopwired\Models\CustomFieldDefinitionModel;
@@ -38,7 +38,7 @@ final class CustomFieldDefinitionModelTest extends TestCase
             validationRule: CustomFieldValidationRule::Url,
         ));
         $model->setRelation('productSettings', self::productSettingsModel(
-            updateMode: LinnworksStockItemUpdateMode::AllVariants,
+            updateMode: StockItemUpdateMode::AllVariants,
         ));
 
         $configured = $model->toConfiguredDomain();
@@ -52,8 +52,8 @@ final class CustomFieldDefinitionModelTest extends TestCase
         self::assertSame(CustomFieldValidationRule::Url, $configured->generalSettings->validationRule);
         self::assertNotNull($configured->productSettings);
         self::assertSame(
-            LinnworksStockItemUpdateMode::AllVariants,
-            $configured->productSettings->updateLinnworksStockItem,
+            StockItemUpdateMode::AllVariants,
+            $configured->productSettings->stockItemUpdateMode,
         );
     }
 
@@ -159,13 +159,13 @@ final class CustomFieldDefinitionModelTest extends TestCase
     }
 
     private static function productSettingsModel(
-        ?LinnworksStockItemUpdateMode $updateMode,
+        ?StockItemUpdateMode $updateMode,
     ): CustomFieldProductSettingsModel {
         $model = new CustomFieldProductSettingsModel();
         $model->setRawAttributes([
             'id' => '33333333-3333-4333-8333-333333333333',
             'custom_field_definition_id' => '11111111-1111-4111-8111-111111111111',
-            'update_linnworks_stock_item' => $updateMode?->value,
+            'stock_item_update_mode' => $updateMode?->value,
         ]);
 
         return $model;

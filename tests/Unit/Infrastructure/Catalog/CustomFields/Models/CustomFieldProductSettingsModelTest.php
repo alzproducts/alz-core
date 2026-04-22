@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Infrastructure\Catalog\CustomFields\Models;
 
-use App\Domain\Catalog\CustomFields\Enums\LinnworksStockItemUpdateMode;
+use App\Domain\Catalog\CustomFields\Enums\StockItemUpdateMode;
 use App\Domain\Catalog\CustomFields\ValueObjects\ProductFieldSettings;
 use App\Infrastructure\Catalog\CustomFields\Models\CustomFieldProductSettingsModel;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -18,27 +18,27 @@ final class CustomFieldProductSettingsModelTest extends TestCase
     #[Test]
     public function to_domain_maps_update_mode(): void
     {
-        $model = self::modelWith(['update_linnworks_stock_item' => 'all_variants']);
+        $model = self::modelWith(['stock_item_update_mode' => 'all_variants']);
 
         $settings = $model->toDomain();
 
-        self::assertSame(LinnworksStockItemUpdateMode::AllVariants, $settings->updateLinnworksStockItem);
+        self::assertSame(StockItemUpdateMode::AllVariants, $settings->stockItemUpdateMode);
     }
 
     #[Test]
     public function to_domain_returns_null_when_column_unset(): void
     {
-        $model = self::modelWith(['update_linnworks_stock_item' => null]);
+        $model = self::modelWith(['stock_item_update_mode' => null]);
 
         $settings = $model->toDomain();
 
-        self::assertNull($settings->updateLinnworksStockItem);
+        self::assertNull($settings->stockItemUpdateMode);
     }
 
     #[Test]
     public function to_domain_throws_value_error_for_unknown_update_mode(): void
     {
-        $model = self::modelWith(['update_linnworks_stock_item' => 'bogus_mode']);
+        $model = self::modelWith(['stock_item_update_mode' => 'bogus_mode']);
 
         $this->expectException(ValueError::class);
         $model->toDomain();
@@ -47,12 +47,12 @@ final class CustomFieldProductSettingsModelTest extends TestCase
     #[Test]
     public function from_domain_attributes_serialises_enum(): void
     {
-        $settings = new ProductFieldSettings(LinnworksStockItemUpdateMode::Single);
+        $settings = new ProductFieldSettings(StockItemUpdateMode::Single);
 
         $attributes = CustomFieldProductSettingsModel::fromDomainAttributes($settings);
 
         self::assertSame([
-            'update_linnworks_stock_item' => 'single',
+            'stock_item_update_mode' => 'single',
         ], $attributes);
     }
 
@@ -64,7 +64,7 @@ final class CustomFieldProductSettingsModelTest extends TestCase
         $attributes = CustomFieldProductSettingsModel::fromDomainAttributes($settings);
 
         self::assertSame([
-            'update_linnworks_stock_item' => null,
+            'stock_item_update_mode' => null,
         ], $attributes);
     }
 

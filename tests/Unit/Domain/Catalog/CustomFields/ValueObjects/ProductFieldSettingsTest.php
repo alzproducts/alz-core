@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Domain\Catalog\CustomFields\ValueObjects;
 
-use App\Domain\Catalog\CustomFields\Enums\LinnworksStockItemUpdateMode;
+use App\Domain\Catalog\CustomFields\Enums\StockItemUpdateMode;
 use App\Domain\Catalog\CustomFields\ValueObjects\ProductFieldSettings;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -16,17 +16,17 @@ final class ProductFieldSettingsTest extends TestCase
     #[Test]
     public function constructor_stores_single_mode(): void
     {
-        $settings = new ProductFieldSettings(LinnworksStockItemUpdateMode::Single);
+        $settings = new ProductFieldSettings(StockItemUpdateMode::Single);
 
-        self::assertSame(LinnworksStockItemUpdateMode::Single, $settings->updateLinnworksStockItem);
+        self::assertSame(StockItemUpdateMode::Single, $settings->stockItemUpdateMode);
     }
 
     #[Test]
     public function constructor_stores_all_variants_mode(): void
     {
-        $settings = new ProductFieldSettings(LinnworksStockItemUpdateMode::AllVariants);
+        $settings = new ProductFieldSettings(StockItemUpdateMode::AllVariants);
 
-        self::assertSame(LinnworksStockItemUpdateMode::AllVariants, $settings->updateLinnworksStockItem);
+        self::assertSame(StockItemUpdateMode::AllVariants, $settings->stockItemUpdateMode);
     }
 
     #[Test]
@@ -34,6 +34,6 @@ final class ProductFieldSettingsTest extends TestCase
     {
         $settings = new ProductFieldSettings(null);
 
-        self::assertNull($settings->updateLinnworksStockItem);
+        self::assertNull($settings->stockItemUpdateMode);
     }
 }
