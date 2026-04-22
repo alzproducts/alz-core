@@ -21,13 +21,13 @@ final readonly class ProductListCustomFieldValue extends AbstractCustomFieldValu
      * @param list<int> $productIds ShopWired external product IDs
      */
     public function __construct(
-        CustomFieldDefinition $definition,
+        ConfiguredFieldDefinition $definition,
         public array $productIds,
     ) {
         Assert::same(
-            $definition->type,
+            $definition->base->type,
             CustomFieldType::ProductList,
-            "ProductListCustomFieldValue requires ProductList type, got '{$definition->type->value}'",
+            "ProductListCustomFieldValue requires ProductList type, got '{$definition->base->type->value}'",
         );
         // @phpstan-ignore staticMethod.alreadyNarrowedType (runtime validation for external data)
         Assert::allInteger($productIds, 'ProductList values must all be integers');

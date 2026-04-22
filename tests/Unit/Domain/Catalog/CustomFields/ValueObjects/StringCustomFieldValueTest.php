@@ -6,6 +6,7 @@ namespace Tests\Unit\Domain\Catalog\CustomFields\ValueObjects;
 
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldItemType;
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldType;
+use App\Domain\Catalog\CustomFields\ValueObjects\ConfiguredFieldDefinition;
 use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldDefinition;
 use App\Domain\Catalog\CustomFields\ValueObjects\StringCustomFieldValue;
 use InvalidArgumentException;
@@ -119,7 +120,7 @@ final class StringCustomFieldValueTest extends TestCase
     #[Test]
     public function it_rejects_toggle_type(): void
     {
-        $definition = new CustomFieldDefinition(
+        $definition = self::wrap(new CustomFieldDefinition(
             id: 1,
             name: 'is_featured',
             type: CustomFieldType::Toggle,
@@ -127,7 +128,7 @@ final class StringCustomFieldValueTest extends TestCase
             itemType: CustomFieldItemType::Product,
             sortOrder: null,
             allowedValues: null,
-        );
+        ));
 
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage("StringCustomFieldValue requires string type (Text/Choice/List), got 'toggle'");
@@ -138,7 +139,7 @@ final class StringCustomFieldValueTest extends TestCase
     #[Test]
     public function it_rejects_date_type(): void
     {
-        $definition = new CustomFieldDefinition(
+        $definition = self::wrap(new CustomFieldDefinition(
             id: 1,
             name: 'release_date',
             type: CustomFieldType::Date,
@@ -146,7 +147,7 @@ final class StringCustomFieldValueTest extends TestCase
             itemType: CustomFieldItemType::Product,
             sortOrder: null,
             allowedValues: null,
-        );
+        ));
 
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage("StringCustomFieldValue requires string type (Text/Choice/List), got 'date'");
@@ -157,7 +158,7 @@ final class StringCustomFieldValueTest extends TestCase
     #[Test]
     public function it_rejects_value_list_type(): void
     {
-        $definition = new CustomFieldDefinition(
+        $definition = self::wrap(new CustomFieldDefinition(
             id: 1,
             name: 'tags',
             type: CustomFieldType::ValueList,
@@ -165,7 +166,7 @@ final class StringCustomFieldValueTest extends TestCase
             itemType: CustomFieldItemType::Product,
             sortOrder: null,
             allowedValues: null,
-        );
+        ));
 
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage("StringCustomFieldValue requires string type (Text/Choice/List), got 'value_list'");
@@ -176,7 +177,7 @@ final class StringCustomFieldValueTest extends TestCase
     #[Test]
     public function it_rejects_product_list_type(): void
     {
-        $definition = new CustomFieldDefinition(
+        $definition = self::wrap(new CustomFieldDefinition(
             id: 1,
             name: 'related',
             type: CustomFieldType::ProductList,
@@ -184,7 +185,7 @@ final class StringCustomFieldValueTest extends TestCase
             itemType: CustomFieldItemType::Product,
             sortOrder: null,
             allowedValues: null,
-        );
+        ));
 
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage("StringCustomFieldValue requires string type (Text/Choice/List), got 'product_list'");
@@ -226,7 +227,7 @@ final class StringCustomFieldValueTest extends TestCase
     #[Test]
     public function to_array_includes_all_definition_metadata(): void
     {
-        $definition = new CustomFieldDefinition(
+        $definition = self::wrap(new CustomFieldDefinition(
             id: 10,
             name: 'material',
             type: CustomFieldType::Text,
@@ -234,7 +235,7 @@ final class StringCustomFieldValueTest extends TestCase
             itemType: CustomFieldItemType::Product,
             sortOrder: 3,
             allowedValues: null,
-        );
+        ));
         $value = new StringCustomFieldValue($definition, 'Cotton');
 
         $result = $value->toArray();
@@ -250,7 +251,7 @@ final class StringCustomFieldValueTest extends TestCase
     #[Test]
     public function to_array_includes_null_label_and_sort_order(): void
     {
-        $definition = new CustomFieldDefinition(
+        $definition = self::wrap(new CustomFieldDefinition(
             id: 11,
             name: 'notes',
             type: CustomFieldType::Text,
@@ -258,7 +259,7 @@ final class StringCustomFieldValueTest extends TestCase
             itemType: CustomFieldItemType::Product,
             sortOrder: null,
             allowedValues: null,
-        );
+        ));
         $value = new StringCustomFieldValue($definition, 'some note');
 
         $result = $value->toArray();
@@ -272,9 +273,9 @@ final class StringCustomFieldValueTest extends TestCase
     // Helpers
     // ========================================================================
 
-    private function createTextDefinition(): CustomFieldDefinition
+    private function createTextDefinition(): ConfiguredFieldDefinition
     {
-        return new CustomFieldDefinition(
+        return self::wrap(new CustomFieldDefinition(
             id: 1,
             name: 'product_notes',
             type: CustomFieldType::Text,
@@ -282,12 +283,15 @@ final class StringCustomFieldValueTest extends TestCase
             itemType: CustomFieldItemType::Product,
             sortOrder: 0,
             allowedValues: null,
-        );
+        ));
     }
 
-    private function createChoiceDefinition(array $allowedValues): CustomFieldDefinition
+    /**
+     * @param list<string> $allowedValues
+     */
+    private function createChoiceDefinition(array $allowedValues): ConfiguredFieldDefinition
     {
-        return new CustomFieldDefinition(
+        return self::wrap(new CustomFieldDefinition(
             id: 2,
             name: 'color',
             type: CustomFieldType::Choice,
@@ -295,12 +299,15 @@ final class StringCustomFieldValueTest extends TestCase
             itemType: CustomFieldItemType::Product,
             sortOrder: 1,
             allowedValues: $allowedValues,
-        );
+        ));
     }
 
-    private function createListDefinition(array $allowedValues): CustomFieldDefinition
+    /**
+     * @param list<string> $allowedValues
+     */
+    private function createListDefinition(array $allowedValues): ConfiguredFieldDefinition
     {
-        return new CustomFieldDefinition(
+        return self::wrap(new CustomFieldDefinition(
             id: 3,
             name: 'size',
             type: CustomFieldType::List,
@@ -308,6 +315,11 @@ final class StringCustomFieldValueTest extends TestCase
             itemType: CustomFieldItemType::Product,
             sortOrder: 2,
             allowedValues: $allowedValues,
-        );
+        ));
+    }
+
+    private static function wrap(CustomFieldDefinition $base): ConfiguredFieldDefinition
+    {
+        return new ConfiguredFieldDefinition($base, null, null);
     }
 }

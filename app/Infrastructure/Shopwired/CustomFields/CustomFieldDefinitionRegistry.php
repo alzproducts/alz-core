@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace App\Infrastructure\Shopwired\CustomFields;
 
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldItemType;
-use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldDefinition;
+use App\Domain\Catalog\CustomFields\ValueObjects\ConfiguredFieldDefinition;
 
 /**
- * In-memory registry of custom field definitions keyed by name.
+ * In-memory registry of configured custom field definitions keyed by name.
  *
  * Used by domain factories to look up field types when transforming
  * raw API custom field values into typed value objects.
@@ -21,7 +21,7 @@ use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldDefinition;
 final readonly class CustomFieldDefinitionRegistry
 {
     /**
-     * @param array<string, CustomFieldDefinition> $byName Definitions indexed by name
+     * @param array<string, ConfiguredFieldDefinition> $byName Definitions indexed by name
      */
     private function __construct(
         private array $byName,
@@ -30,7 +30,7 @@ final readonly class CustomFieldDefinitionRegistry
     /**
      * Create a registry from a list of definitions, filtering by item type.
      *
-     * @param list<CustomFieldDefinition> $definitions All definitions from repository
+     * @param list<ConfiguredFieldDefinition> $definitions All definitions from repository
      * @param CustomFieldItemType $itemType Item type to filter for (e.g., Product)
      */
     public static function forItemType(array $definitions, CustomFieldItemType $itemType): self
@@ -38,8 +38,8 @@ final readonly class CustomFieldDefinitionRegistry
         $byName = [];
 
         foreach ($definitions as $definition) {
-            if ($definition->itemType === $itemType) {
-                $byName[$definition->name] = $definition;
+            if ($definition->base->itemType === $itemType) {
+                $byName[$definition->base->name] = $definition;
             }
         }
 
@@ -49,7 +49,7 @@ final readonly class CustomFieldDefinitionRegistry
     /**
      * Find a definition by its field name.
      */
-    public function findByName(string $name): ?CustomFieldDefinition
+    public function findByName(string $name): ?ConfiguredFieldDefinition
     {
         return $this->byName[$name] ?? null;
     }
@@ -65,7 +65,7 @@ final readonly class CustomFieldDefinitionRegistry
     /**
      * Get all registered definitions.
      *
-     * @return list<CustomFieldDefinition>
+     * @return list<ConfiguredFieldDefinition>
      */
     public function definitions(): array
     {

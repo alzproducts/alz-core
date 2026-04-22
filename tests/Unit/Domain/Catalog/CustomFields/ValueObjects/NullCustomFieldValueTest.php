@@ -6,6 +6,7 @@ namespace Tests\Unit\Domain\Catalog\CustomFields\ValueObjects;
 
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldItemType;
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldType;
+use App\Domain\Catalog\CustomFields\ValueObjects\ConfiguredFieldDefinition;
 use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldDefinition;
 use App\Domain\Catalog\CustomFields\ValueObjects\NullCustomFieldValue;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -62,16 +63,20 @@ final class NullCustomFieldValueTest extends TestCase
         self::assertSame(1, $result['sort_order']);
     }
 
-    private function createDefinition(): CustomFieldDefinition
+    private function createDefinition(): ConfiguredFieldDefinition
     {
-        return new CustomFieldDefinition(
-            id: 1,
-            name: 'color',
-            type: CustomFieldType::Choice,
-            label: 'Color',
-            itemType: CustomFieldItemType::Product,
-            sortOrder: 1,
-            allowedValues: ['Red', 'Green', 'Blue'],
+        return new ConfiguredFieldDefinition(
+            new CustomFieldDefinition(
+                id: 1,
+                name: 'color',
+                type: CustomFieldType::Choice,
+                label: 'Color',
+                itemType: CustomFieldItemType::Product,
+                sortOrder: 1,
+                allowedValues: ['Red', 'Green', 'Blue'],
+            ),
+            null,
+            null,
         );
     }
 }

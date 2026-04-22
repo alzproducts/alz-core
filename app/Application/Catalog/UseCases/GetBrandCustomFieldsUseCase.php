@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Application\Catalog\UseCases;
 
 use App\Application\Catalog\CustomFieldMergerService;
+use App\Application\Contracts\Catalog\CustomFieldRepositoryInterface;
 use App\Application\Contracts\Shopwired\BrandRepositoryInterface;
-use App\Application\Contracts\Shopwired\CustomFieldRepositoryInterface;
 use App\Domain\Catalog\Brand\Enums\BrandInclude;
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldItemType;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;

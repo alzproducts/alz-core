@@ -5,11 +5,12 @@ declare(strict_types=1);
 namespace Tests\Unit\Application\Catalog\UseCases;
 
 use App\Application\Catalog\UseCases\GetProductCustomFieldsUseCase;
-use App\Application\Contracts\Shopwired\CustomFieldRepositoryInterface;
+use App\Application\Contracts\Catalog\CustomFieldRepositoryInterface;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldItemType;
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldType;
 use App\Domain\Catalog\CustomFields\ValueObjects\AbstractCustomFieldValue;
+use App\Domain\Catalog\CustomFields\ValueObjects\ConfiguredFieldDefinition;
 use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldDefinition;
 use App\Domain\Catalog\CustomFields\ValueObjects\NullCustomFieldValue;
 use App\Domain\Catalog\CustomFields\ValueObjects\StringCustomFieldValue;
@@ -196,7 +197,7 @@ final class GetProductCustomFieldsUseCaseTest extends TestCase
     }
 
     /**
-     * @param list<CustomFieldDefinition> $definitions
+     * @param list<ConfiguredFieldDefinition> $definitions
      */
     private function stubDefinitions(array $definitions): void
     {
@@ -215,17 +216,21 @@ final class GetProductCustomFieldsUseCaseTest extends TestCase
         CustomFieldType $type,
         ?int $sortOrder,
         ?array $allowedValues = null,
-    ): CustomFieldDefinition {
+    ): ConfiguredFieldDefinition {
         static $idCounter = 0;
 
-        return new CustomFieldDefinition(
-            id: ++$idCounter,
-            name: $name,
-            type: $type,
-            label: \ucfirst(\str_replace('_', ' ', $name)),
-            itemType: CustomFieldItemType::Product,
-            sortOrder: $sortOrder,
-            allowedValues: $allowedValues,
+        return new ConfiguredFieldDefinition(
+            new CustomFieldDefinition(
+                id: ++$idCounter,
+                name: $name,
+                type: $type,
+                label: \ucfirst(\str_replace('_', ' ', $name)),
+                itemType: CustomFieldItemType::Product,
+                sortOrder: $sortOrder,
+                allowedValues: $allowedValues,
+            ),
+            null,
+            null,
         );
     }
 }

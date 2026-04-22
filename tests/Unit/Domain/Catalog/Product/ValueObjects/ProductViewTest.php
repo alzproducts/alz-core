@@ -7,6 +7,7 @@ namespace Tests\Unit\Domain\Catalog\Product\ValueObjects;
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldItemType;
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldType;
 use App\Domain\Catalog\CustomFields\ValueObjects\AbstractCustomFieldValue;
+use App\Domain\Catalog\CustomFields\ValueObjects\ConfiguredFieldDefinition;
 use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldDefinition;
 use App\Domain\Catalog\CustomFields\ValueObjects\StringCustomFieldValue;
 use App\Domain\Catalog\Product\Enums\FreeDeliveryType;
@@ -771,14 +772,18 @@ final class ProductViewTest extends TestCase
     private function stringCustomField(string $name, string $value): StringCustomFieldValue
     {
         return new StringCustomFieldValue(
-            new CustomFieldDefinition(
-                id: 1,
-                name: $name,
-                type: CustomFieldType::Text,
-                label: null,
-                itemType: CustomFieldItemType::Product,
-                sortOrder: null,
-                allowedValues: null,
+            new ConfiguredFieldDefinition(
+                new CustomFieldDefinition(
+                    id: 1,
+                    name: $name,
+                    type: CustomFieldType::Text,
+                    label: null,
+                    itemType: CustomFieldItemType::Product,
+                    sortOrder: null,
+                    allowedValues: null,
+                ),
+                null,
+                null,
             ),
             $value,
         );

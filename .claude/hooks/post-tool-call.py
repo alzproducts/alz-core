@@ -86,7 +86,10 @@ def main():
         file_path = extract_file_path(tool_name, tool_input)
         if file_path:
             timestamp_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
-            send_diff_to_webserver(file_path, timestamp_ms)
+            try:
+                send_diff_to_webserver(file_path, timestamp_ms)
+            except ProvenanceHookError:
+                pass
 
 if __name__ == "__main__":
     sys.excepthook = excepthook
