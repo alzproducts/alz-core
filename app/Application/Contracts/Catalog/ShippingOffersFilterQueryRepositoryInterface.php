@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Application\Contracts\Catalog;
 
-use App\Application\Catalog\DTOs\ProductFilterChangeDTO;
+use App\Application\Catalog\Commands\ProductFilterChangeCommand;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Data\InvalidEnumValueException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
@@ -18,7 +18,7 @@ interface ShippingOffersFilterQueryRepositoryInterface
      * Each row's `desiredFilterValues` is derived from the `free_delivery` custom field:
      * `Standard` → Free Standard Delivery, `Express` → Free Express Delivery, otherwise empty.
      *
-     * @return list<ProductFilterChangeDTO>
+     * @return list<ProductFilterChangeCommand>
      *
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException

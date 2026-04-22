@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Application\Catalog\UseCases;
 
-use App\Application\Catalog\DTOs\ProductFilterChangeDTO;
+use App\Application\Catalog\Commands\ProductFilterChangeCommand;
 use App\Application\Catalog\UseCases\SyncRatingFiltersUseCase;
 use App\Application\Contracts\Catalog\CatalogSyncDispatcherInterface;
 use App\Application\Contracts\Catalog\RatingFilterQueryRepositoryInterface;
@@ -80,8 +80,8 @@ final class SyncRatingFiltersUseCaseTest extends TestCase
     public function execute_dispatches_filter_updates_for_changed_products(): void
     {
         $changes = [
-            new ProductFilterChangeDTO(IntId::from(1001), 15, [RatingFilterValue::FourStars, RatingFilterValue::FourAndHalfStars]),
-            new ProductFilterChangeDTO(IntId::from(1002), 15, [RatingFilterValue::FourStars]),
+            new ProductFilterChangeCommand(IntId::from(1001), 15, [RatingFilterValue::FourStars, RatingFilterValue::FourAndHalfStars]),
+            new ProductFilterChangeCommand(IntId::from(1002), 15, [RatingFilterValue::FourStars]),
         ];
 
         $this->ratingFilterRepo
@@ -128,7 +128,7 @@ final class SyncRatingFiltersUseCaseTest extends TestCase
     public function execute_dispatches_null_for_products_with_empty_filter_values(): void
     {
         $changes = [
-            new ProductFilterChangeDTO(IntId::from(1001), 15, []),
+            new ProductFilterChangeCommand(IntId::from(1001), 15, []),
         ];
 
         $this->ratingFilterRepo
@@ -166,9 +166,9 @@ final class SyncRatingFiltersUseCaseTest extends TestCase
     public function execute_handles_mix_of_add_and_remove_filter_values(): void
     {
         $changes = [
-            new ProductFilterChangeDTO(IntId::from(1001), 15, [RatingFilterValue::FourStars, RatingFilterValue::FourAndHalfStars]),
-            new ProductFilterChangeDTO(IntId::from(1002), 15, []),
-            new ProductFilterChangeDTO(IntId::from(1003), 15, [RatingFilterValue::FourStars]),
+            new ProductFilterChangeCommand(IntId::from(1001), 15, [RatingFilterValue::FourStars, RatingFilterValue::FourAndHalfStars]),
+            new ProductFilterChangeCommand(IntId::from(1002), 15, []),
+            new ProductFilterChangeCommand(IntId::from(1003), 15, [RatingFilterValue::FourStars]),
         ];
 
         $this->ratingFilterRepo

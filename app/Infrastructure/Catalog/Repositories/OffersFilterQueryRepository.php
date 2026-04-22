@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Catalog\Repositories;
 
-use App\Application\Catalog\DTOs\ProductFilterChangeDTO;
+use App\Application\Catalog\Commands\ProductFilterChangeCommand;
 use App\Application\Contracts\Catalog\OffersFilterQueryRepositoryInterface;
 use App\Domain\Catalog\Product\Enums\OffersFilterValue;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
@@ -37,7 +37,7 @@ final class OffersFilterQueryRepository implements OffersFilterQueryRepositoryIn
     /**
      * {@inheritDoc}
      *
-     * @return list<ProductFilterChangeDTO>
+     * @return list<ProductFilterChangeCommand>
      *
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
@@ -52,19 +52,19 @@ final class OffersFilterQueryRepository implements OffersFilterQueryRepositoryIn
             ->getConnection()
             ->select('SELECT product_id, desired_filter_values FROM catalog.products_with_changed_offers_filters'));
 
-        return self::mapRowsToDtos($rows, FilterGroupOptionNo::Offers->value);
+        return self::mapRowsToCommands($rows, FilterGroupOptionNo::Offers->value);
     }
 
     /**
      * @param  list<object{product_id: int, desired_filter_values: string}>  $rows
-     * @return list<ProductFilterChangeDTO>
+     * @return list<ProductFilterChangeCommand>
      *
      * @throws InvalidEnumValueException
      */
-    private static function mapRowsToDtos(array $rows, int $optionNo): array
+    private static function mapRowsToCommands(array $rows, int $optionNo): array
     {
         return \array_map(
-            static fn(object $row): ProductFilterChangeDTO => new ProductFilterChangeDTO(
+            static fn(object $row): ProductFilterChangeCommand => new ProductFilterChangeCommand(
                 productId: IntId::from($row->product_id),
                 optionNo: $optionNo,
                 desiredFilterValues: OffersFilterValue::fromJsonArray($row->desired_filter_values),

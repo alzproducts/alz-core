@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Application\Catalog\UseCases;
 
-use App\Application\Catalog\DTOs\ProductFilterChangeDTO;
+use App\Application\Catalog\Commands\ProductFilterChangeCommand;
 use App\Application\Catalog\UseCases\SyncVatReliefFiltersUseCase;
 use App\Application\Contracts\Catalog\CatalogSyncDispatcherInterface;
 use App\Application\Contracts\Catalog\VatReliefFilterQueryRepositoryInterface;
@@ -80,8 +80,8 @@ final class SyncVatReliefFiltersUseCaseTest extends TestCase
     public function execute_dispatches_filter_updates_for_changed_products(): void
     {
         $changes = [
-            new ProductFilterChangeDTO(IntId::from(1001), 2, [VatReliefFilterValue::Yes]),
-            new ProductFilterChangeDTO(IntId::from(1002), 2, [VatReliefFilterValue::Yes]),
+            new ProductFilterChangeCommand(IntId::from(1001), 2, [VatReliefFilterValue::Yes]),
+            new ProductFilterChangeCommand(IntId::from(1002), 2, [VatReliefFilterValue::Yes]),
         ];
 
         $this->vatReliefFilterRepo
@@ -128,7 +128,7 @@ final class SyncVatReliefFiltersUseCaseTest extends TestCase
     public function execute_dispatches_null_for_products_with_empty_filter_values(): void
     {
         $changes = [
-            new ProductFilterChangeDTO(IntId::from(1001), 2, []),
+            new ProductFilterChangeCommand(IntId::from(1001), 2, []),
         ];
 
         $this->vatReliefFilterRepo
@@ -166,9 +166,9 @@ final class SyncVatReliefFiltersUseCaseTest extends TestCase
     public function execute_handles_mix_of_add_and_remove_filter_values(): void
     {
         $changes = [
-            new ProductFilterChangeDTO(IntId::from(1001), 2, [VatReliefFilterValue::Yes]),
-            new ProductFilterChangeDTO(IntId::from(1002), 2, []),
-            new ProductFilterChangeDTO(IntId::from(1003), 2, [VatReliefFilterValue::Yes]),
+            new ProductFilterChangeCommand(IntId::from(1001), 2, [VatReliefFilterValue::Yes]),
+            new ProductFilterChangeCommand(IntId::from(1002), 2, []),
+            new ProductFilterChangeCommand(IntId::from(1003), 2, [VatReliefFilterValue::Yes]),
         ];
 
         $this->vatReliefFilterRepo

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Application\Catalog\UseCases;
 
-use App\Application\Catalog\DTOs\ProductFilterChangeDTO;
+use App\Application\Catalog\Commands\ProductFilterChangeCommand;
 use App\Application\Catalog\UseCases\SyncShippingOptionsFiltersUseCase;
 use App\Application\Contracts\Catalog\CatalogSyncDispatcherInterface;
 use App\Application\Contracts\Catalog\ShippingOptionsFilterQueryRepositoryInterface;
@@ -80,8 +80,8 @@ final class SyncShippingOptionsFiltersUseCaseTest extends TestCase
     public function execute_dispatches_filter_updates_for_changed_products(): void
     {
         $changes = [
-            new ProductFilterChangeDTO(IntId::from(1001), 25, [ShippingOptionsFilterValue::NextDayDeliveryAvailable]),
-            new ProductFilterChangeDTO(IntId::from(1002), 25, [ShippingOptionsFilterValue::NextDayDeliveryAvailable]),
+            new ProductFilterChangeCommand(IntId::from(1001), 25, [ShippingOptionsFilterValue::NextDayDeliveryAvailable]),
+            new ProductFilterChangeCommand(IntId::from(1002), 25, [ShippingOptionsFilterValue::NextDayDeliveryAvailable]),
         ];
 
         $this->shippingOptionsFilterRepo
@@ -128,7 +128,7 @@ final class SyncShippingOptionsFiltersUseCaseTest extends TestCase
     public function execute_dispatches_null_for_out_of_stock_products(): void
     {
         $changes = [
-            new ProductFilterChangeDTO(IntId::from(1001), 25, []),
+            new ProductFilterChangeCommand(IntId::from(1001), 25, []),
         ];
 
         $this->shippingOptionsFilterRepo
@@ -166,9 +166,9 @@ final class SyncShippingOptionsFiltersUseCaseTest extends TestCase
     public function execute_handles_mix_of_in_stock_and_out_of_stock_products(): void
     {
         $changes = [
-            new ProductFilterChangeDTO(IntId::from(1001), 25, [ShippingOptionsFilterValue::NextDayDeliveryAvailable]),
-            new ProductFilterChangeDTO(IntId::from(1002), 25, []),
-            new ProductFilterChangeDTO(IntId::from(1003), 25, [ShippingOptionsFilterValue::NextDayDeliveryAvailable]),
+            new ProductFilterChangeCommand(IntId::from(1001), 25, [ShippingOptionsFilterValue::NextDayDeliveryAvailable]),
+            new ProductFilterChangeCommand(IntId::from(1002), 25, []),
+            new ProductFilterChangeCommand(IntId::from(1003), 25, [ShippingOptionsFilterValue::NextDayDeliveryAvailable]),
         ];
 
         $this->shippingOptionsFilterRepo

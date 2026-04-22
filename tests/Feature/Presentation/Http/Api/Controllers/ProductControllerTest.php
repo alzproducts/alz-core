@@ -7,7 +7,6 @@ namespace Tests\Feature\Presentation\Http\Api\Controllers;
 use App\Application\Catalog\Queries\ProductDetailQueryParams;
 use App\Application\Catalog\Queries\ProductListQueryParams;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
-use App\Application\DTOs\PaginatedListDTO;
 use App\Domain\Catalog\Product\Enums\ProductFilterField;
 use App\Domain\Catalog\Product\Enums\ProductInclude;
 use App\Domain\Catalog\Product\Enums\ProductSortField;
@@ -19,6 +18,7 @@ use App\Domain\Catalog\Product\ValueObjects\ProductVariationView;
 use App\Domain\Catalog\Product\ValueObjects\ProductView;
 use App\Domain\Catalog\Product\ValueObjects\ProductViewMeta;
 use App\Domain\Shared\Pagination\Enums\SortDirection;
+use App\Domain\ValueObjects\PaginatedList;
 use App\Presentation\Http\Api\Controllers\ProductController;
 use DateTimeImmutable;
 use Mockery;
@@ -77,7 +77,7 @@ final class ProductControllerTest extends TestCase
     public function authenticated_request_returns_paginated_products_with_data_meta_links(): void
     {
         $product = $this->createProduct(id: 1, title: 'Test Product');
-        $dto = PaginatedListDTO::fromPage(items: [$product], total: 1, perPage: 50, currentPage: 1);
+        $dto = PaginatedList::fromPage(items: [$product], total: 1, perPage: 50, currentPage: 1);
 
         $this->productRepository
             ->shouldReceive('paginate')
@@ -99,7 +99,7 @@ final class ProductControllerTest extends TestCase
     #[Test]
     public function include_variations_parameter_passes_through_to_use_case(): void
     {
-        $dto = PaginatedListDTO::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
+        $dto = PaginatedList::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
 
         $this->productRepository
             ->shouldReceive('paginate')
@@ -121,7 +121,7 @@ final class ProductControllerTest extends TestCase
     #[Test]
     public function category_id_filter_passes_through_to_query(): void
     {
-        $dto = PaginatedListDTO::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
+        $dto = PaginatedList::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
 
         $this->productRepository
             ->shouldReceive('paginate')
@@ -137,7 +137,7 @@ final class ProductControllerTest extends TestCase
     #[Test]
     public function is_on_sale_filter_passes_through_to_query(): void
     {
-        $dto = PaginatedListDTO::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
+        $dto = PaginatedList::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
 
         $this->productRepository
             ->shouldReceive('paginate')
@@ -153,7 +153,7 @@ final class ProductControllerTest extends TestCase
     #[Test]
     public function sku_filter_passes_through_to_query(): void
     {
-        $dto = PaginatedListDTO::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
+        $dto = PaginatedList::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
 
         $this->productRepository
             ->shouldReceive('paginate')
@@ -169,7 +169,7 @@ final class ProductControllerTest extends TestCase
     #[Test]
     public function has_free_delivery_filter_passes_through_to_query(): void
     {
-        $dto = PaginatedListDTO::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
+        $dto = PaginatedList::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
 
         $this->productRepository
             ->shouldReceive('paginate')
@@ -185,7 +185,7 @@ final class ProductControllerTest extends TestCase
     #[Test]
     public function omitted_filters_are_not_included_in_query(): void
     {
-        $dto = PaginatedListDTO::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
+        $dto = PaginatedList::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
 
         $this->productRepository
             ->shouldReceive('paginate')
@@ -269,7 +269,7 @@ final class ProductControllerTest extends TestCase
     #[Test]
     public function default_per_page_is_500_and_page_is_1(): void
     {
-        $dto = PaginatedListDTO::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
+        $dto = PaginatedList::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
 
         $this->productRepository
             ->shouldReceive('paginate')
@@ -289,7 +289,7 @@ final class ProductControllerTest extends TestCase
     public function pagination_links_preserve_query_string_parameters(): void
     {
         $items = \array_fill(0, 50, $this->createProduct(id: 1, title: 'Product'));
-        $dto = PaginatedListDTO::fromPage(items: $items, total: 200, perPage: 50, currentPage: 1);
+        $dto = PaginatedList::fromPage(items: $items, total: 200, perPage: 50, currentPage: 1);
 
         $this->productRepository
             ->shouldReceive('paginate')
@@ -313,7 +313,7 @@ final class ProductControllerTest extends TestCase
     #[Test]
     public function sort_by_title_passes_sort_field_to_query(): void
     {
-        $dto = PaginatedListDTO::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
+        $dto = PaginatedList::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
 
         $this->productRepository
             ->shouldReceive('paginate')
@@ -329,7 +329,7 @@ final class ProductControllerTest extends TestCase
     #[Test]
     public function sort_by_price_passes_sort_field_to_query(): void
     {
-        $dto = PaginatedListDTO::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
+        $dto = PaginatedList::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
 
         $this->productRepository
             ->shouldReceive('paginate')
@@ -345,7 +345,7 @@ final class ProductControllerTest extends TestCase
     #[Test]
     public function sort_by_effective_price_passes_sort_field_to_query(): void
     {
-        $dto = PaginatedListDTO::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
+        $dto = PaginatedList::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
 
         $this->productRepository
             ->shouldReceive('paginate')
@@ -361,7 +361,7 @@ final class ProductControllerTest extends TestCase
     #[Test]
     public function sort_by_stock_passes_sort_field_to_query(): void
     {
-        $dto = PaginatedListDTO::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
+        $dto = PaginatedList::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
 
         $this->productRepository
             ->shouldReceive('paginate')
@@ -377,7 +377,7 @@ final class ProductControllerTest extends TestCase
     #[Test]
     public function sort_by_profit_margin_passes_sort_field_to_query(): void
     {
-        $dto = PaginatedListDTO::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
+        $dto = PaginatedList::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
 
         $this->productRepository
             ->shouldReceive('paginate')
@@ -393,7 +393,7 @@ final class ProductControllerTest extends TestCase
     #[Test]
     public function sort_by_created_at_passes_sort_field_to_query(): void
     {
-        $dto = PaginatedListDTO::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
+        $dto = PaginatedList::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
 
         $this->productRepository
             ->shouldReceive('paginate')
@@ -409,7 +409,7 @@ final class ProductControllerTest extends TestCase
     #[Test]
     public function sort_by_updated_at_passes_sort_field_to_query(): void
     {
-        $dto = PaginatedListDTO::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
+        $dto = PaginatedList::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
 
         $this->productRepository
             ->shouldReceive('paginate')
@@ -425,7 +425,7 @@ final class ProductControllerTest extends TestCase
     #[Test]
     public function sort_direction_asc_passes_through_to_query(): void
     {
-        $dto = PaginatedListDTO::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
+        $dto = PaginatedList::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
 
         $this->productRepository
             ->shouldReceive('paginate')
@@ -441,7 +441,7 @@ final class ProductControllerTest extends TestCase
     #[Test]
     public function sort_direction_desc_passes_through_to_query(): void
     {
-        $dto = PaginatedListDTO::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
+        $dto = PaginatedList::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
 
         $this->productRepository
             ->shouldReceive('paginate')
@@ -457,7 +457,7 @@ final class ProductControllerTest extends TestCase
     #[Test]
     public function default_sort_is_title_asc_when_sort_params_omitted(): void
     {
-        $dto = PaginatedListDTO::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
+        $dto = PaginatedList::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
 
         $this->productRepository
             ->shouldReceive('paginate')
@@ -506,7 +506,7 @@ final class ProductControllerTest extends TestCase
     #[Test]
     public function multiple_filters_combine_correctly(): void
     {
-        $dto = PaginatedListDTO::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
+        $dto = PaginatedList::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
 
         $this->productRepository
             ->shouldReceive('paginate')
@@ -526,7 +526,7 @@ final class ProductControllerTest extends TestCase
     #[Test]
     public function sort_and_filter_combine_correctly(): void
     {
-        $dto = PaginatedListDTO::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
+        $dto = PaginatedList::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
 
         $this->productRepository
             ->shouldReceive('paginate')
@@ -544,7 +544,7 @@ final class ProductControllerTest extends TestCase
     #[Test]
     public function full_combination_of_sort_filter_pagination_and_include(): void
     {
-        $dto = PaginatedListDTO::fromPage(items: [], total: 0, perPage: 25, currentPage: 3);
+        $dto = PaginatedList::fromPage(items: [], total: 0, perPage: 25, currentPage: 3);
 
         $this->productRepository
             ->shouldReceive('paginate')
@@ -566,7 +566,7 @@ final class ProductControllerTest extends TestCase
     #[Test]
     public function kitchen_sink_all_params_at_once(): void
     {
-        $dto = PaginatedListDTO::fromPage(items: [], total: 0, perPage: 100, currentPage: 2);
+        $dto = PaginatedList::fromPage(items: [], total: 0, perPage: 100, currentPage: 2);
 
         $this->productRepository
             ->shouldReceive('paginate')
@@ -598,7 +598,7 @@ final class ProductControllerTest extends TestCase
     #[Test]
     public function is_on_sale_false_passes_false_to_query(): void
     {
-        $dto = PaginatedListDTO::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
+        $dto = PaginatedList::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
 
         $this->productRepository
             ->shouldReceive('paginate')
@@ -614,7 +614,7 @@ final class ProductControllerTest extends TestCase
     #[Test]
     public function has_free_delivery_false_passes_false_to_query(): void
     {
-        $dto = PaginatedListDTO::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
+        $dto = PaginatedList::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
 
         $this->productRepository
             ->shouldReceive('paginate')
@@ -666,7 +666,7 @@ final class ProductControllerTest extends TestCase
     #[Test]
     public function per_page_minimum_boundary_accepted(): void
     {
-        $dto = PaginatedListDTO::fromPage(items: [], total: 0, perPage: 1, currentPage: 1);
+        $dto = PaginatedList::fromPage(items: [], total: 0, perPage: 1, currentPage: 1);
 
         $this->productRepository
             ->shouldReceive('paginate')
@@ -682,7 +682,7 @@ final class ProductControllerTest extends TestCase
     #[Test]
     public function per_page_maximum_boundary_accepted(): void
     {
-        $dto = PaginatedListDTO::fromPage(items: [], total: 0, perPage: 1000, currentPage: 1);
+        $dto = PaginatedList::fromPage(items: [], total: 0, perPage: 1000, currentPage: 1);
 
         $this->productRepository
             ->shouldReceive('paginate')
@@ -698,7 +698,7 @@ final class ProductControllerTest extends TestCase
     #[Test]
     public function page_number_passes_through_to_query(): void
     {
-        $dto = PaginatedListDTO::fromPage(items: [], total: 0, perPage: 500, currentPage: 2);
+        $dto = PaginatedList::fromPage(items: [], total: 0, perPage: 500, currentPage: 2);
 
         $this->productRepository
             ->shouldReceive('paginate')
@@ -731,7 +731,7 @@ final class ProductControllerTest extends TestCase
     public function response_contains_all_product_resource_fields(): void
     {
         $product = $this->createProduct(id: 42, title: 'Full Field Product');
-        $dto = PaginatedListDTO::fromPage(items: [$product], total: 1, perPage: 500, currentPage: 1);
+        $dto = PaginatedList::fromPage(items: [$product], total: 1, perPage: 500, currentPage: 1);
 
         $this->productRepository
             ->shouldReceive('paginate')
@@ -779,7 +779,7 @@ final class ProductControllerTest extends TestCase
             title: 'Popular Product',
             popularity: new Popularity(rank: 3, max: 12),
         );
-        $dto = PaginatedListDTO::fromPage(items: [$product], total: 1, perPage: 500, currentPage: 1);
+        $dto = PaginatedList::fromPage(items: [$product], total: 1, perPage: 500, currentPage: 1);
 
         $this->productRepository
             ->shouldReceive('paginate')
@@ -801,7 +801,7 @@ final class ProductControllerTest extends TestCase
     public function response_includes_variation_fields_when_requested(): void
     {
         $product = $this->createProductWithVariations();
-        $dto = PaginatedListDTO::fromPage(items: [$product], total: 1, perPage: 500, currentPage: 1);
+        $dto = PaginatedList::fromPage(items: [$product], total: 1, perPage: 500, currentPage: 1);
 
         $this->productRepository
             ->shouldReceive('paginate')
@@ -896,7 +896,7 @@ final class ProductControllerTest extends TestCase
             allVariations: [$variation],
         );
 
-        $dto = PaginatedListDTO::fromPage(items: [$product], total: 1, perPage: 500, currentPage: 1);
+        $dto = PaginatedList::fromPage(items: [$product], total: 1, perPage: 500, currentPage: 1);
 
         $this->productRepository
             ->shouldReceive('paginate')
@@ -914,7 +914,7 @@ final class ProductControllerTest extends TestCase
     public function variant_only_product_aggregates_stock_under_include_stock_and_exposes_common_price(): void
     {
         $product = $this->createVariantOnlyProduct(variationPrices: [12.99, 12.99], stockPerVariation: 3);
-        $dto = PaginatedListDTO::fromPage(items: [$product], total: 1, perPage: 500, currentPage: 1);
+        $dto = PaginatedList::fromPage(items: [$product], total: 1, perPage: 500, currentPage: 1);
 
         $this->productRepository
             ->shouldReceive('paginate')
@@ -939,7 +939,7 @@ final class ProductControllerTest extends TestCase
     public function variant_only_product_with_differing_prices_uses_minimum_and_reports_non_uniform(): void
     {
         $product = $this->createVariantOnlyProduct(variationPrices: [19.99, 24.99, 14.99], stockPerVariation: 2);
-        $dto = PaginatedListDTO::fromPage(items: [$product], total: 1, perPage: 500, currentPage: 1);
+        $dto = PaginatedList::fromPage(items: [$product], total: 1, perPage: 500, currentPage: 1);
 
         $this->productRepository
             ->shouldReceive('paginate')
@@ -962,7 +962,7 @@ final class ProductControllerTest extends TestCase
     #[Test]
     public function empty_result_set_returns_correct_structure(): void
     {
-        $dto = PaginatedListDTO::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
+        $dto = PaginatedList::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
 
         $this->productRepository
             ->shouldReceive('paginate')

@@ -6,12 +6,12 @@ namespace App\Application\Catalog\UseCases;
 
 use App\Application\Catalog\Queries\ProductListQueryParams;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
-use App\Application\DTOs\PaginatedListDTO;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\Product\ValueObjects\ProductView;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use App\Domain\ValueObjects\PaginatedList;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -27,14 +27,14 @@ final readonly class ListProductsUseCase
     ) {}
 
     /**
-     * @return PaginatedListDTO<ProductView>
+     * @return PaginatedList<ProductView>
      *
      * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
      * @throws DatabaseOperationFailedException On query failure
      * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      */
-    public function execute(ProductListQueryParams $query): PaginatedListDTO
+    public function execute(ProductListQueryParams $query): PaginatedList
     {
         $this->logger->info('Listing products', [
             'page' => $query->pagination->page,

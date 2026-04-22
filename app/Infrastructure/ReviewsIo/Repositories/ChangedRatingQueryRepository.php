@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\ReviewsIo\Repositories;
 
+use App\Application\Catalog\Commands\ProductRatingChangeCommand;
 use App\Application\Contracts\ReviewsIo\ChangedRatingQueryRepositoryInterface;
-use App\Application\ReviewsIo\DTOs\ProductRatingChangeDTO;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
@@ -31,7 +31,7 @@ final class ChangedRatingQueryRepository implements ChangedRatingQueryRepository
     /**
      * {@inheritDoc}
      *
-     * @return list<ProductRatingChangeDTO>
+     * @return list<ProductRatingChangeCommand>
      *
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
@@ -46,7 +46,7 @@ final class ChangedRatingQueryRepository implements ChangedRatingQueryRepository
             );
 
             return \array_map(
-                static fn(object $row): ProductRatingChangeDTO => new ProductRatingChangeDTO(
+                static fn(object $row): ProductRatingChangeCommand => new ProductRatingChangeCommand(
                     productId: IntId::from($row->product_id),
                     newAverageRating: $row->new_average,
                     newNumRatings: $row->new_count,

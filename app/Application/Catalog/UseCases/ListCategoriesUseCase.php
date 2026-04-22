@@ -6,7 +6,6 @@ namespace App\Application\Catalog\UseCases;
 
 use App\Application\Catalog\Queries\CategoryListQueryParams;
 use App\Application\Contracts\Shopwired\CategoryRepositoryInterface;
-use App\Application\DTOs\PaginatedListDTO;
 use App\Domain\Catalog\Category\Enums\CategoryInclude;
 use App\Domain\Catalog\Category\ValueObjects\CategoryView;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
@@ -14,6 +13,7 @@ use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Data\MissingRequiredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use App\Domain\ValueObjects\PaginatedList;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -29,7 +29,7 @@ final readonly class ListCategoriesUseCase
     ) {}
 
     /**
-     * @return PaginatedListDTO<CategoryView>
+     * @return PaginatedList<CategoryView>
      *
      * @throws DatabaseOperationFailedException On query failure
      * @throws DuplicateRecordException On constraint violation
@@ -37,7 +37,7 @@ final readonly class ListCategoriesUseCase
      * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
      * @throws MissingRequiredDataException When category model data is incomplete
      */
-    public function execute(int $perPage, int $page, CategoryListQueryParams $params = new CategoryListQueryParams()): PaginatedListDTO
+    public function execute(int $perPage, int $page, CategoryListQueryParams $params = new CategoryListQueryParams()): PaginatedList
     {
         $this->logger->info('Listing categories', [
             'page' => $page,
