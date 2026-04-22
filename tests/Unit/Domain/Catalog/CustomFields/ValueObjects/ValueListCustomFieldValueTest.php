@@ -6,7 +6,9 @@ namespace Tests\Unit\Domain\Catalog\CustomFields\ValueObjects;
 
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldItemType;
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldType;
+use App\Domain\Catalog\CustomFields\ValueObjects\ConfiguredFieldDefinition;
 use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldDefinition;
+use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldGeneralSettings;
 use App\Domain\Catalog\CustomFields\ValueObjects\ValueListCustomFieldValue;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -131,7 +133,7 @@ final class ValueListCustomFieldValueTest extends TestCase
     #[Test]
     public function it_rejects_text_type(): void
     {
-        $definition = new CustomFieldDefinition(
+        $definition = self::wrap(new CustomFieldDefinition(
             id: 1,
             name: 'notes',
             type: CustomFieldType::Text,
@@ -139,7 +141,7 @@ final class ValueListCustomFieldValueTest extends TestCase
             itemType: CustomFieldItemType::Product,
             sortOrder: null,
             allowedValues: null,
-        );
+        ));
 
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage("ValueListCustomFieldValue requires ValueList type, got 'text'");
@@ -150,7 +152,7 @@ final class ValueListCustomFieldValueTest extends TestCase
     #[Test]
     public function it_rejects_toggle_type(): void
     {
-        $definition = new CustomFieldDefinition(
+        $definition = self::wrap(new CustomFieldDefinition(
             id: 1,
             name: 'is_featured',
             type: CustomFieldType::Toggle,
@@ -158,7 +160,7 @@ final class ValueListCustomFieldValueTest extends TestCase
             itemType: CustomFieldItemType::Product,
             sortOrder: null,
             allowedValues: null,
-        );
+        ));
 
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage("ValueListCustomFieldValue requires ValueList type, got 'toggle'");
@@ -169,7 +171,7 @@ final class ValueListCustomFieldValueTest extends TestCase
     #[Test]
     public function it_rejects_choice_type(): void
     {
-        $definition = new CustomFieldDefinition(
+        $definition = self::wrap(new CustomFieldDefinition(
             id: 1,
             name: 'color',
             type: CustomFieldType::Choice,
@@ -177,7 +179,7 @@ final class ValueListCustomFieldValueTest extends TestCase
             itemType: CustomFieldItemType::Product,
             sortOrder: null,
             allowedValues: ['Red', 'Blue'],
-        );
+        ));
 
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage("ValueListCustomFieldValue requires ValueList type, got 'choice'");
@@ -188,7 +190,7 @@ final class ValueListCustomFieldValueTest extends TestCase
     #[Test]
     public function it_rejects_product_list_type(): void
     {
-        $definition = new CustomFieldDefinition(
+        $definition = self::wrap(new CustomFieldDefinition(
             id: 1,
             name: 'related',
             type: CustomFieldType::ProductList,
@@ -196,7 +198,7 @@ final class ValueListCustomFieldValueTest extends TestCase
             itemType: CustomFieldItemType::Product,
             sortOrder: null,
             allowedValues: null,
-        );
+        ));
 
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage("ValueListCustomFieldValue requires ValueList type, got 'product_list'");
@@ -224,9 +226,9 @@ final class ValueListCustomFieldValueTest extends TestCase
     // Helpers
     // ========================================================================
 
-    private function createValueListDefinition(): CustomFieldDefinition
+    private function createValueListDefinition(): ConfiguredFieldDefinition
     {
-        return new CustomFieldDefinition(
+        return self::wrap(new CustomFieldDefinition(
             id: 1,
             name: 'tags',
             type: CustomFieldType::ValueList,
@@ -234,6 +236,11 @@ final class ValueListCustomFieldValueTest extends TestCase
             itemType: CustomFieldItemType::Product,
             sortOrder: 0,
             allowedValues: null,
-        );
+        ));
+    }
+
+    private static function wrap(CustomFieldDefinition $base): ConfiguredFieldDefinition
+    {
+        return new ConfiguredFieldDefinition($base, CustomFieldGeneralSettings::defaults(), null);
     }
 }

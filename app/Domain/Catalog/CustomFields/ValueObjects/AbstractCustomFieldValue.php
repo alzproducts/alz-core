@@ -10,8 +10,8 @@ use DateTimeImmutable;
 /**
  * Abstract base for typed custom field values.
  *
- * Represents a custom field value with its embedded definition, providing
- * complete context (label, type, allowedValues) without additional lookups.
+ * Represents a custom field value with its embedded configured definition,
+ * providing complete context (label, type, allowedValues) without additional lookups.
  *
  * Entity-agnostic: can be used for Products, Customers, Orders, etc.
  *
@@ -25,7 +25,7 @@ use DateTimeImmutable;
 abstract readonly class AbstractCustomFieldValue
 {
     public function __construct(
-        public CustomFieldDefinition $definition,
+        public ConfiguredFieldDefinition $definition,
     ) {}
 
     /**
@@ -40,7 +40,7 @@ abstract readonly class AbstractCustomFieldValue
      */
     public function name(): string
     {
-        return $this->definition->name;
+        return $this->definition->base->name;
     }
 
     /**
@@ -48,7 +48,7 @@ abstract readonly class AbstractCustomFieldValue
      */
     public function label(): ?string
     {
-        return $this->definition->label;
+        return $this->definition->base->label;
     }
 
     /**
@@ -56,7 +56,7 @@ abstract readonly class AbstractCustomFieldValue
      */
     public function type(): CustomFieldType
     {
-        return $this->definition->type;
+        return $this->definition->base->type;
     }
 
     /**
@@ -69,10 +69,10 @@ abstract readonly class AbstractCustomFieldValue
         return [
             'name' => $this->name(),
             'type' => $this->type()->value,
-            'label' => $this->definition->label,
+            'label' => $this->definition->base->label,
             'value' => $this->rawValue(),
-            'allowed_values' => $this->definition->allowedValues,
-            'sort_order' => $this->definition->sortOrder,
+            'allowed_values' => $this->definition->base->allowedValues,
+            'sort_order' => $this->definition->base->sortOrder,
         ];
     }
 }

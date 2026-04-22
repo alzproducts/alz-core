@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Application\Catalog;
 
 use App\Domain\Catalog\CustomFields\ValueObjects\AbstractCustomFieldValue;
-use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldDefinition;
+use App\Domain\Catalog\CustomFields\ValueObjects\ConfiguredFieldDefinition;
 use App\Domain\Catalog\CustomFields\ValueObjects\NullCustomFieldValue;
 
 /**
@@ -18,7 +18,7 @@ final class CustomFieldMergerService
 {
     /**
      * @param list<AbstractCustomFieldValue> $populatedFields Fields with values from the entity
-     * @param list<CustomFieldDefinition> $definitions All custom field definitions for the item type
+     * @param list<ConfiguredFieldDefinition> $definitions All configured custom field definitions for the item type
      *
      * @return list<AbstractCustomFieldValue>
      */
@@ -34,8 +34,8 @@ final class CustomFieldMergerService
         $fields = [];
         $coveredNames = [];
         foreach ($definitions as $definition) {
-            $coveredNames[$definition->name] = true;
-            $fields[] = $populatedByName[$definition->name]
+            $coveredNames[$definition->base->name] = true;
+            $fields[] = $populatedByName[$definition->base->name]
                 ?? new NullCustomFieldValue($definition);
         }
 
@@ -48,8 +48,8 @@ final class CustomFieldMergerService
 
         // Sort by sortOrder (null last)
         \usort($fields, static function (AbstractCustomFieldValue $a, AbstractCustomFieldValue $b): int {
-            $aSort = $a->definition->sortOrder;
-            $bSort = $b->definition->sortOrder;
+            $aSort = $a->definition->base->sortOrder;
+            $bSort = $b->definition->base->sortOrder;
 
             if ($aSort === null && $bSort === null) {
                 return 0;

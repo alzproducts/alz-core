@@ -146,11 +146,9 @@ final readonly class ProductViewAssembler
 
     private static function resolveVariationDefaultSupplier(ProductVariationViewModel $model): ?ProductSupplier
     {
-        if (! $model->relationLoaded('stockItem') || $model->stockItem === null) {
-            return null;
-        }
+        $stockItem = $model->relationLoaded('stockItem') ? $model->stockItem : null;
 
-        return $model->stockItem->defaultSupplier()?->toProductSupplier();
+        return $stockItem?->defaultSupplier()?->toProductSupplier();
     }
 
     /** @return list<ProductSupplier> */

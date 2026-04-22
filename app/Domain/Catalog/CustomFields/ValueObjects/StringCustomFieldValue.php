@@ -21,12 +21,12 @@ use Webmozart\Assert\Assert;
 final readonly class StringCustomFieldValue extends AbstractCustomFieldValue
 {
     public function __construct(
-        CustomFieldDefinition $definition,
+        ConfiguredFieldDefinition $definition,
         public string $value,
     ) {
         Assert::true(
-            $definition->type->isStringType(),
-            "StringCustomFieldValue requires string type (Text/Choice/List), got '{$definition->type->value}'",
+            $definition->base->type->isStringType(),
+            "StringCustomFieldValue requires string type (Text/Choice/List), got '{$definition->base->type->value}'",
         );
 
         parent::__construct($definition);

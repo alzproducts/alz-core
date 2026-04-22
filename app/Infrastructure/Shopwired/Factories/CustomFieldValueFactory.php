@@ -11,7 +11,7 @@ use App\Domain\Catalog\CustomFields\Enums\CustomFieldType;
 use App\Domain\Catalog\CustomFields\Exceptions\CustomFieldNotFoundException;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\CustomFields\ValueObjects\AbstractCustomFieldValue;
-use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldDefinition;
+use App\Domain\Catalog\CustomFields\ValueObjects\ConfiguredFieldDefinition;
 use App\Domain\Catalog\CustomFields\ValueObjects\DateTimeCustomFieldValue;
 use App\Domain\Catalog\CustomFields\ValueObjects\ProductListCustomFieldValue;
 use App\Domain\Catalog\CustomFields\ValueObjects\StringCustomFieldValue;
@@ -73,10 +73,10 @@ final class CustomFieldValueFactory implements CustomFieldValueFactoryInterface
             }
 
             // Write-path validation: reject invalid choice values before VO construction
-            if ($definition->hasAllowedValues() && \is_string($value) && !$definition->isValueAllowed($value)) {
+            if ($definition->base->hasAllowedValues() && \is_string($value) && !$definition->base->isValueAllowed($value)) {
                 throw new InvalidCustomFieldValueException(
                     fieldName: $name,
-                    expectedType: $definition->type,
+                    expectedType: $definition->base->type,
                     actualType: 'string (invalid choice)',
                     rawValue: $value,
                 );
@@ -89,16 +89,16 @@ final class CustomFieldValueFactory implements CustomFieldValueFactoryInterface
     }
 
     /**
-     * Create a typed CustomFieldValue from a definition and raw value.
+     * Create a typed CustomFieldValue from a configured definition and raw value.
      *
-     * Public so ProductCustomFieldFactory can delegate individual field creation
+     * Public so CustomFieldFactory can delegate individual field creation
      * while handling unknown-field logic itself.
      *
      * @throws InvalidCustomFieldValueException When value type mismatches definition
      */
-    public static function createTypedValueFromDefinition(CustomFieldDefinition $definition, mixed $value): AbstractCustomFieldValue
+    public static function createTypedValueFromDefinition(ConfiguredFieldDefinition $definition, mixed $value): AbstractCustomFieldValue
     {
-        return match ($definition->type) {
+        return match ($definition->base->type) {
             CustomFieldType::Text,
             CustomFieldType::Choice,
             CustomFieldType::List => self::createStringValue($definition, $value),
@@ -117,12 +117,12 @@ final class CustomFieldValueFactory implements CustomFieldValueFactoryInterface
     /**
      * @throws InvalidCustomFieldValueException
      */
-    private static function createStringValue(CustomFieldDefinition $definition, mixed $value): StringCustomFieldValue
+    private static function createStringValue(ConfiguredFieldDefinition $definition, mixed $value): StringCustomFieldValue
     {
         if (!\is_string($value)) {
             throw new InvalidCustomFieldValueException(
-                fieldName: $definition->name,
-                expectedType: $definition->type,
+                fieldName: $definition->base->name,
+                expectedType: $definition->base->type,
                 actualType: \get_debug_type($value),
                 rawValue: $value,
             );
@@ -134,12 +134,12 @@ final class CustomFieldValueFactory implements CustomFieldValueFactoryInterface
     /**
      * @throws InvalidCustomFieldValueException
      */
-    private static function createToggleValue(CustomFieldDefinition $definition, mixed $value): ToggleCustomFieldValue
+    private static function createToggleValue(ConfiguredFieldDefinition $definition, mixed $value): ToggleCustomFieldValue
     {
         if (!\is_bool($value)) {
             throw new InvalidCustomFieldValueException(
-                fieldName: $definition->name,
-                expectedType: $definition->type,
+                fieldName: $definition->base->name,
+                expectedType: $definition->base->type,
                 actualType: \get_debug_type($value),
                 rawValue: $value,
             );
@@ -151,12 +151,12 @@ final class CustomFieldValueFactory implements CustomFieldValueFactoryInterface
     /**
      * @throws InvalidCustomFieldValueException
      */
-    private static function createDateTimeValue(CustomFieldDefinition $definition, mixed $value): DateTimeCustomFieldValue
+    private static function createDateTimeValue(ConfiguredFieldDefinition $definition, mixed $value): DateTimeCustomFieldValue
     {
         if (!\is_int($value)) {
             throw new InvalidCustomFieldValueException(
-                fieldName: $definition->name,
-                expectedType: $definition->type,
+                fieldName: $definition->base->name,
+                expectedType: $definition->base->type,
                 actualType: \get_debug_type($value),
                 rawValue: $value,
             );
@@ -168,12 +168,12 @@ final class CustomFieldValueFactory implements CustomFieldValueFactoryInterface
     /**
      * @throws InvalidCustomFieldValueException
      */
-    private static function createValueListValue(CustomFieldDefinition $definition, mixed $value): ValueListCustomFieldValue
+    private static function createValueListValue(ConfiguredFieldDefinition $definition, mixed $value): ValueListCustomFieldValue
     {
         if (!\is_array($value)) {
             throw new InvalidCustomFieldValueException(
-                fieldName: $definition->name,
-                expectedType: $definition->type,
+                fieldName: $definition->base->name,
+                expectedType: $definition->base->type,
                 actualType: \get_debug_type($value),
                 rawValue: $value,
             );
@@ -182,8 +182,8 @@ final class CustomFieldValueFactory implements CustomFieldValueFactoryInterface
         foreach ($value as $item) {
             if (!\is_string($item)) {
                 throw new InvalidCustomFieldValueException(
-                    fieldName: $definition->name,
-                    expectedType: $definition->type,
+                    fieldName: $definition->base->name,
+                    expectedType: $definition->base->type,
                     actualType: 'array with non-string element: ' . \get_debug_type($item),
                     rawValue: $value,
                 );
@@ -197,12 +197,12 @@ final class CustomFieldValueFactory implements CustomFieldValueFactoryInterface
     /**
      * @throws InvalidCustomFieldValueException
      */
-    private static function createProductListValue(CustomFieldDefinition $definition, mixed $value): ProductListCustomFieldValue
+    private static function createProductListValue(ConfiguredFieldDefinition $definition, mixed $value): ProductListCustomFieldValue
     {
         if (!\is_array($value)) {
             throw new InvalidCustomFieldValueException(
-                fieldName: $definition->name,
-                expectedType: $definition->type,
+                fieldName: $definition->base->name,
+                expectedType: $definition->base->type,
                 actualType: \get_debug_type($value),
                 rawValue: $value,
             );
@@ -211,8 +211,8 @@ final class CustomFieldValueFactory implements CustomFieldValueFactoryInterface
         foreach ($value as $item) {
             if (!\is_int($item) || $item <= 0) {
                 throw new InvalidCustomFieldValueException(
-                    fieldName: $definition->name,
-                    expectedType: $definition->type,
+                    fieldName: $definition->base->name,
+                    expectedType: $definition->base->type,
                     actualType: 'array with invalid product ID: ' . \get_debug_type($item),
                     rawValue: $value,
                 );

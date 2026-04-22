@@ -6,7 +6,9 @@ namespace Tests\Unit\Domain\Catalog\CustomFields\ValueObjects;
 
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldItemType;
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldType;
+use App\Domain\Catalog\CustomFields\ValueObjects\ConfiguredFieldDefinition;
 use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldDefinition;
+use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldGeneralSettings;
 use App\Domain\Catalog\CustomFields\ValueObjects\ToggleCustomFieldValue;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -65,7 +67,7 @@ final class ToggleCustomFieldValueTest extends TestCase
     #[Test]
     public function label_can_be_null(): void
     {
-        $definition = new CustomFieldDefinition(
+        $definition = self::wrap(new CustomFieldDefinition(
             id: 1,
             name: 'internal_flag',
             type: CustomFieldType::Toggle,
@@ -73,7 +75,7 @@ final class ToggleCustomFieldValueTest extends TestCase
             itemType: CustomFieldItemType::Product,
             sortOrder: null,
             allowedValues: null,
-        );
+        ));
         $value = new ToggleCustomFieldValue($definition, false);
 
         self::assertNull($value->label());
@@ -95,7 +97,7 @@ final class ToggleCustomFieldValueTest extends TestCase
     #[Test]
     public function it_rejects_text_type(): void
     {
-        $definition = new CustomFieldDefinition(
+        $definition = self::wrap(new CustomFieldDefinition(
             id: 1,
             name: 'notes',
             type: CustomFieldType::Text,
@@ -103,7 +105,7 @@ final class ToggleCustomFieldValueTest extends TestCase
             itemType: CustomFieldItemType::Product,
             sortOrder: null,
             allowedValues: null,
-        );
+        ));
 
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage("ToggleCustomFieldValue requires boolean type (Toggle), got 'text'");
@@ -114,7 +116,7 @@ final class ToggleCustomFieldValueTest extends TestCase
     #[Test]
     public function it_rejects_choice_type(): void
     {
-        $definition = new CustomFieldDefinition(
+        $definition = self::wrap(new CustomFieldDefinition(
             id: 1,
             name: 'color',
             type: CustomFieldType::Choice,
@@ -122,7 +124,7 @@ final class ToggleCustomFieldValueTest extends TestCase
             itemType: CustomFieldItemType::Product,
             sortOrder: null,
             allowedValues: ['Red', 'Blue'],
-        );
+        ));
 
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage("ToggleCustomFieldValue requires boolean type (Toggle), got 'choice'");
@@ -133,7 +135,7 @@ final class ToggleCustomFieldValueTest extends TestCase
     #[Test]
     public function it_rejects_date_type(): void
     {
-        $definition = new CustomFieldDefinition(
+        $definition = self::wrap(new CustomFieldDefinition(
             id: 1,
             name: 'release_date',
             type: CustomFieldType::Date,
@@ -141,7 +143,7 @@ final class ToggleCustomFieldValueTest extends TestCase
             itemType: CustomFieldItemType::Product,
             sortOrder: null,
             allowedValues: null,
-        );
+        ));
 
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage("ToggleCustomFieldValue requires boolean type (Toggle), got 'date'");
@@ -152,7 +154,7 @@ final class ToggleCustomFieldValueTest extends TestCase
     #[Test]
     public function it_rejects_date_time_type(): void
     {
-        $definition = new CustomFieldDefinition(
+        $definition = self::wrap(new CustomFieldDefinition(
             id: 1,
             name: 'published_at',
             type: CustomFieldType::DateTime,
@@ -160,7 +162,7 @@ final class ToggleCustomFieldValueTest extends TestCase
             itemType: CustomFieldItemType::Product,
             sortOrder: null,
             allowedValues: null,
-        );
+        ));
 
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage("ToggleCustomFieldValue requires boolean type (Toggle), got 'date_time'");
@@ -171,7 +173,7 @@ final class ToggleCustomFieldValueTest extends TestCase
     #[Test]
     public function it_rejects_value_list_type(): void
     {
-        $definition = new CustomFieldDefinition(
+        $definition = self::wrap(new CustomFieldDefinition(
             id: 1,
             name: 'tags',
             type: CustomFieldType::ValueList,
@@ -179,7 +181,7 @@ final class ToggleCustomFieldValueTest extends TestCase
             itemType: CustomFieldItemType::Product,
             sortOrder: null,
             allowedValues: null,
-        );
+        ));
 
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage("ToggleCustomFieldValue requires boolean type (Toggle), got 'value_list'");
@@ -190,7 +192,7 @@ final class ToggleCustomFieldValueTest extends TestCase
     #[Test]
     public function it_rejects_product_list_type(): void
     {
-        $definition = new CustomFieldDefinition(
+        $definition = self::wrap(new CustomFieldDefinition(
             id: 1,
             name: 'related',
             type: CustomFieldType::ProductList,
@@ -198,7 +200,7 @@ final class ToggleCustomFieldValueTest extends TestCase
             itemType: CustomFieldItemType::Product,
             sortOrder: null,
             allowedValues: null,
-        );
+        ));
 
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage("ToggleCustomFieldValue requires boolean type (Toggle), got 'product_list'");
@@ -210,9 +212,9 @@ final class ToggleCustomFieldValueTest extends TestCase
     // Helpers
     // ========================================================================
 
-    private function createToggleDefinition(): CustomFieldDefinition
+    private function createToggleDefinition(): ConfiguredFieldDefinition
     {
-        return new CustomFieldDefinition(
+        return self::wrap(new CustomFieldDefinition(
             id: 1,
             name: 'is_featured',
             type: CustomFieldType::Toggle,
@@ -220,6 +222,11 @@ final class ToggleCustomFieldValueTest extends TestCase
             itemType: CustomFieldItemType::Product,
             sortOrder: 0,
             allowedValues: null,
-        );
+        ));
+    }
+
+    private static function wrap(CustomFieldDefinition $base): ConfiguredFieldDefinition
+    {
+        return new ConfiguredFieldDefinition($base, CustomFieldGeneralSettings::defaults(), null);
     }
 }

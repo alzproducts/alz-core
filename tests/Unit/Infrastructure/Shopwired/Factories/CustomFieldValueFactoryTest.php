@@ -8,7 +8,9 @@ use App\Application\Contracts\Shopwired\CustomFieldRepositoryInterface;
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldItemType;
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldType;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
+use App\Domain\Catalog\CustomFields\ValueObjects\ConfiguredFieldDefinition;
 use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldDefinition;
+use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldGeneralSettings;
 use App\Domain\Catalog\CustomFields\ValueObjects\StringCustomFieldValue;
 use App\Infrastructure\Shopwired\Factories\CustomFieldValueFactory;
 use Mockery;
@@ -85,8 +87,6 @@ final class CustomFieldValueFactoryTest extends TestCase
     #[Test]
     public function from_raw_fields_skips_choice_check_for_non_string_values(): void
     {
-        // Non-string values should fail at the type check in createTypedValueFromDefinition,
-        // not at the choice validation
         $this->stubRegistryWith([
             $this->createChoiceDefinition('color', ['Red', 'Green', 'Blue']),
         ]);
@@ -109,7 +109,6 @@ final class CustomFieldValueFactoryTest extends TestCase
 
         $result = $this->factory->fromRawFields(['size' => null]);
 
-        // Null values are skipped (not turned into VOs) — the merge logic handles removal
         self::assertSame([], $result);
     }
 
@@ -132,7 +131,7 @@ final class CustomFieldValueFactoryTest extends TestCase
     // ========================================================================
 
     /**
-     * @param list<CustomFieldDefinition> $definitions
+     * @param list<ConfiguredFieldDefinition> $definitions
      */
     private function stubRegistryWith(array $definitions): void
     {
@@ -142,9 +141,12 @@ final class CustomFieldValueFactoryTest extends TestCase
             ->andReturn($definitions);
     }
 
-    private function createChoiceDefinition(string $name, array $allowedValues): CustomFieldDefinition
+    /**
+     * @param list<string> $allowedValues
+     */
+    private function createChoiceDefinition(string $name, array $allowedValues): ConfiguredFieldDefinition
     {
-        return new CustomFieldDefinition(
+        return self::wrap(new CustomFieldDefinition(
             id: 1,
             name: $name,
             type: CustomFieldType::Choice,
@@ -152,12 +154,15 @@ final class CustomFieldValueFactoryTest extends TestCase
             itemType: CustomFieldItemType::Product,
             sortOrder: 0,
             allowedValues: $allowedValues,
-        );
+        ));
     }
 
-    private function createListDefinition(string $name, array $allowedValues): CustomFieldDefinition
+    /**
+     * @param list<string> $allowedValues
+     */
+    private function createListDefinition(string $name, array $allowedValues): ConfiguredFieldDefinition
     {
-        return new CustomFieldDefinition(
+        return self::wrap(new CustomFieldDefinition(
             id: 2,
             name: $name,
             type: CustomFieldType::List,
@@ -165,6 +170,11 @@ final class CustomFieldValueFactoryTest extends TestCase
             itemType: CustomFieldItemType::Product,
             sortOrder: 1,
             allowedValues: $allowedValues,
-        );
+        ));
+    }
+
+    private static function wrap(CustomFieldDefinition $base): ConfiguredFieldDefinition
+    {
+        return new ConfiguredFieldDefinition($base, CustomFieldGeneralSettings::defaults(), null);
     }
 }

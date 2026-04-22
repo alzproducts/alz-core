@@ -19,13 +19,13 @@ final readonly class ValueListCustomFieldValue extends AbstractCustomFieldValue
      * @param list<string> $values
      */
     public function __construct(
-        CustomFieldDefinition $definition,
+        ConfiguredFieldDefinition $definition,
         public array $values,
     ) {
         Assert::same(
-            $definition->type,
+            $definition->base->type,
             CustomFieldType::ValueList,
-            "ValueListCustomFieldValue requires ValueList type, got '{$definition->type->value}'",
+            "ValueListCustomFieldValue requires ValueList type, got '{$definition->base->type->value}'",
         );
         // @phpstan-ignore staticMethod.alreadyNarrowedType (runtime validation for external data)
         Assert::allString($values, 'ValueList values must all be strings');

@@ -7,7 +7,9 @@ namespace Tests\Unit\Application\Catalog;
 use App\Application\Catalog\CustomFieldMergerService;
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldItemType;
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldType;
+use App\Domain\Catalog\CustomFields\ValueObjects\ConfiguredFieldDefinition;
 use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldDefinition;
+use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldGeneralSettings;
 use App\Domain\Catalog\CustomFields\ValueObjects\NullCustomFieldValue;
 use App\Domain\Catalog\CustomFields\ValueObjects\StringCustomFieldValue;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -133,16 +135,20 @@ final class CustomFieldMergerServiceTest extends TestCase
     // Helpers
     // ========================================================================
 
-    private function makeDefinition(int $id, string $name, ?int $sortOrder): CustomFieldDefinition
+    private function makeDefinition(int $id, string $name, ?int $sortOrder): ConfiguredFieldDefinition
     {
-        return new CustomFieldDefinition(
-            id: $id,
-            name: $name,
-            type: CustomFieldType::Text,
-            label: \ucfirst($name),
-            itemType: CustomFieldItemType::Product,
-            sortOrder: $sortOrder,
-            allowedValues: null,
+        return new ConfiguredFieldDefinition(
+            new CustomFieldDefinition(
+                id: $id,
+                name: $name,
+                type: CustomFieldType::Text,
+                label: \ucfirst($name),
+                itemType: CustomFieldItemType::Product,
+                sortOrder: $sortOrder,
+                allowedValues: null,
+            ),
+            CustomFieldGeneralSettings::defaults(),
+            null,
         );
     }
 }
