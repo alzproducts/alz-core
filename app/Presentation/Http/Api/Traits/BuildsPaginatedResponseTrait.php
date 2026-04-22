@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace App\Presentation\Http\Api\Traits;
 
-use App\Application\DTOs\PaginatedListDTO;
+use App\Domain\ValueObjects\PaginatedList;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Http\Resources\Json\ResourceCollection;
 use Illuminate\Pagination\LengthAwarePaginator;
 
 /**
- * Convert PaginatedListDTO to a Laravel ResourceCollection.
+ * Convert PaginatedList to a Laravel ResourceCollection.
  *
  * Reconstructs a LengthAwarePaginator from the framework-free DTO,
  * preserving query string parameters in pagination links.
@@ -18,10 +18,10 @@ use Illuminate\Pagination\LengthAwarePaginator;
 trait BuildsPaginatedResponseTrait
 {
     /**
-     * @param PaginatedListDTO<mixed> $result
+     * @param PaginatedList<mixed> $result
      * @param class-string<JsonResource> $resourceClass
      */
-    protected function paginatedResponse(PaginatedListDTO $result, string $resourceClass): ResourceCollection
+    protected function paginatedResponse(PaginatedList $result, string $resourceClass): ResourceCollection
     {
         $paginator = (new LengthAwarePaginator(
             items: $result->items,

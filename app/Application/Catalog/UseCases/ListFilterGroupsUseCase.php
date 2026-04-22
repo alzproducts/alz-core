@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace App\Application\Catalog\UseCases;
 
 use App\Application\Contracts\Shopwired\FilterGroupRepositoryInterface;
-use App\Application\DTOs\PaginatedListDTO;
 use App\Domain\Catalog\Filters\ValueObjects\FilterGroupDefinition;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use App\Domain\ValueObjects\PaginatedList;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -25,13 +25,13 @@ final readonly class ListFilterGroupsUseCase
     ) {}
 
     /**
-     * @return PaginatedListDTO<FilterGroupDefinition>
+     * @return PaginatedList<FilterGroupDefinition>
      *
      * @throws DatabaseOperationFailedException On query failure
      * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      */
-    public function execute(int $perPage, int $page): PaginatedListDTO
+    public function execute(int $perPage, int $page): PaginatedList
     {
         $this->logger->info('Listing filter groups', [
             'page' => $page,

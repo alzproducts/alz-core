@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Application\ReviewsIo\UseCases;
 
+use App\Application\Catalog\Commands\ProductRatingChangeCommand;
 use App\Application\Contracts\ReviewsIo\ChangedRatingQueryRepositoryInterface;
 use App\Application\Contracts\Shopwired\ProductUpdateClientInterface;
-use App\Application\ReviewsIo\DTOs\ProductRatingChangeDTO;
 use App\Application\ReviewsIo\Results\RatingsUpdateResult;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
@@ -64,7 +64,7 @@ final readonly class UpdateShopwiredRatingsUseCase
     /**
      * Apply updates to each changed product and build the result.
      *
-     * @param list<ProductRatingChangeDTO> $changedProducts
+     * @param list<ProductRatingChangeCommand> $changedProducts
      *
      * @throws ExternalServiceUnavailableException When ShopWired API unavailable
      * @throws AuthenticationExpiredException When credentials invalid
@@ -92,7 +92,7 @@ final readonly class UpdateShopwiredRatingsUseCase
     }
 
     /**
-     * @param list<ProductRatingChangeDTO> $changedProducts
+     * @param list<ProductRatingChangeCommand> $changedProducts
      *
      * @return array{int<0, max>, int<0, max>, list<int>} [updated, failed, failedProductIds]
      *

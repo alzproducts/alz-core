@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace App\Application\Catalog\DTOs;
+namespace App\Application\Catalog\Commands;
 
 use App\Domain\Catalog\Product\Contracts\ShopwiredFilterValueInterface;
 use App\Domain\ValueObjects\IntId;
 use BackedEnum;
 
-final readonly class ProductFilterChangeDTO
+final readonly class ProductFilterChangeCommand
 {
     /**
      * @param list<ShopwiredFilterValueInterface&BackedEnum> $desiredFilterValues

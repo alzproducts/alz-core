@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Application\DTOs;
+namespace App\Domain\ValueObjects;
 
 /**
  * Framework-free paginated result.
@@ -12,7 +12,7 @@ namespace App\Application\DTOs;
  *
  * @template-covariant T
  */
-final readonly class PaginatedListDTO
+final readonly class PaginatedList
 {
     /**
      * @param list<T> $items

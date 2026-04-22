@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Application\Catalog\UseCases;
 
 use App\Application\Contracts\Shopwired\BrandRepositoryInterface;
-use App\Application\DTOs\PaginatedListDTO;
 use App\Domain\Catalog\Brand\Enums\BrandInclude;
 use App\Domain\Catalog\Brand\ValueObjects\BrandView;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
@@ -13,6 +12,7 @@ use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Data\MissingRequiredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use App\Domain\ValueObjects\PaginatedList;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -30,7 +30,7 @@ final readonly class ListBrandsUseCase
     /**
      * @param list<BrandInclude> $includes Embed names to load
      *
-     * @return PaginatedListDTO<BrandView>
+     * @return PaginatedList<BrandView>
      *
      * @throws DatabaseOperationFailedException On query failure
      * @throws DuplicateRecordException On constraint violation
@@ -38,7 +38,7 @@ final readonly class ListBrandsUseCase
      * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
      * @throws MissingRequiredDataException When custom field definitions table is empty
      */
-    public function execute(int $perPage, int $page, array $includes = [], bool $includeInactive = false): PaginatedListDTO
+    public function execute(int $perPage, int $page, array $includes = [], bool $includeInactive = false): PaginatedList
     {
         $this->logger->info('Listing brands', [
             'page' => $page,

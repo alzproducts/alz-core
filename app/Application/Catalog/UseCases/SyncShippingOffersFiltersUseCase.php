@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Application\Catalog\UseCases;
 
-use App\Application\Catalog\DTOs\ProductFilterChangeDTO;
+use App\Application\Catalog\Commands\ProductFilterChangeCommand;
 use App\Application\Contracts\Catalog\CatalogSyncDispatcherInterface;
 use App\Application\Contracts\Catalog\ShippingOffersFilterQueryRepositoryInterface;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
@@ -46,7 +46,7 @@ final readonly class SyncShippingOffersFiltersUseCase
         ]);
     }
 
-    /** @param list<ProductFilterChangeDTO> $changes */
+    /** @param list<ProductFilterChangeCommand> $changes */
     private function dispatchAll(array $changes): void
     {
         foreach ($changes as $change) {
