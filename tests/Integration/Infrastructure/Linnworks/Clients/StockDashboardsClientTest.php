@@ -19,6 +19,7 @@ use Mockery;
 use Mockery\MockInterface;
 use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -30,6 +31,7 @@ use Tests\TestCase;
  */
 #[CoversClass(StockDashboardsClient::class)]
 #[CoversClass(DashboardsClient::class)]
+#[Group('integration')]
 final class StockDashboardsClientTest extends TestCase
 {
     private const string TEST_SERVER_URL = 'https://eu-ext.linnworks.net';
@@ -180,10 +182,13 @@ final class StockDashboardsClientTest extends TestCase
             ]),
         ]);
 
-        $this->expectException(InvalidApiResponseException::class);
-        $this->expectExceptionMessage('SQL query returned error');
-
-        $this->client->findStockItemsBySku(['SKU001']);
+        try {
+            $this->client->findStockItemsBySku(['SKU001']);
+            $this->fail('Expected InvalidApiResponseException');
+        } catch (InvalidApiResponseException $e) {
+            $this->assertSame('API response validation failed', $e->getMessage());
+            $this->assertSame('SQL query returned error', $e->detail);
+        }
     }
 
     #[Test]
@@ -195,9 +200,12 @@ final class StockDashboardsClientTest extends TestCase
             ]),
         ]);
 
-        $this->expectException(InvalidApiResponseException::class);
-        $this->expectExceptionMessage('SQL query response malformed');
-
-        $this->client->findStockItemsBySku(['SKU001']);
+        try {
+            $this->client->findStockItemsBySku(['SKU001']);
+            $this->fail('Expected InvalidApiResponseException');
+        } catch (InvalidApiResponseException $e) {
+            $this->assertSame('API response validation failed', $e->getMessage());
+            $this->assertSame('SQL query response malformed', $e->detail);
+        }
     }
 }

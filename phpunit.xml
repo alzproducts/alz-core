@@ -26,8 +26,9 @@
             <directory>tests/Unit/Presentation</directory>
         </testsuite>
         <!-- Integration tests — require live DB (Supabase); fail = sync local + prod -->
+        <!-- CI skips this suite via the `exclude-group=integration` Pest flag; local make test runs it -->
         <testsuite name="Integration">
-            <directory>tests/Integration/Catalog</directory>
+            <directory>tests/Integration</directory>
         </testsuite>
         <!-- Supporting test suites -->
         <!-- Temporarily disabled: Google Ads SDK PHP 8.4 deprecation - see todo.php
@@ -85,6 +86,7 @@
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
+        <env name="HELPSCOUT_SYSTEM_USER_ID" value="999999"/>
     </php>
     <extensions>
         <bootstrap class="DG\BypassFinals\PHPUnitExtension"/>

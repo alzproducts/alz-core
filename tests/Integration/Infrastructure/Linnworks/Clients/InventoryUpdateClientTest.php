@@ -8,9 +8,6 @@ use App\Application\Contracts\Linnworks\InventoryClientInterface;
 use App\Domain\Catalog\Product\ValueObjects\Sku;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Inventory\Enums\LinnworksInventoryField;
-use App\Domain\Inventory\ValueObjects\Dimensions;
-use App\Domain\Inventory\ValueObjects\StockItem;
-use App\Domain\Inventory\ValueObjects\Weight;
 use App\Domain\ValueObjects\Guid;
 use App\Infrastructure\Linnworks\Clients\InventoryUpdateClient;
 use App\Infrastructure\Linnworks\LinnworksConfig;
@@ -24,6 +21,7 @@ use Mockery;
 use Mockery\MockInterface;
 use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -34,6 +32,7 @@ use Tests\TestCase;
  * Per TestingStrategy.md: 1-2 integration tests at HTTP boundary.
  */
 #[CoversClass(InventoryUpdateClient::class)]
+#[Group('integration')]
 final class InventoryUpdateClientTest extends TestCase
 {
     private const string TEST_SERVER_URL = 'https://eu-ext.linnworks.net';
@@ -77,27 +76,6 @@ final class InventoryUpdateClientTest extends TestCase
         );
     }
 
-    private function createStockItem(string $stockItemId = self::TEST_STOCK_ITEM_ID): StockItem
-    {
-        return new StockItem(
-            stockItemId: $stockItemId,
-            sku: 'OLD-SKU',
-            title: 'Test Product',
-            barcode: '',
-            quantity: 10,
-            available: 10,
-            inOrder: 0,
-            due: 0,
-            minimumLevel: 0,
-            purchasePrice: 10.00,
-            retailPrice: 19.99,
-            taxRate: 20.0,
-            weight: Weight::zero(),
-            dimensions: new Dimensions(0, 0, 0),
-            isComposite: false,
-        );
-    }
-
     /*
     |--------------------------------------------------------------------------
     | Happy Path Tests
@@ -113,6 +91,12 @@ final class InventoryUpdateClientTest extends TestCase
 
         $guid = new Guid(self::TEST_STOCK_ITEM_ID);
         $newSku = Sku::fromTrusted('NEW-SKU-123');
+
+        $this->inventoryClient
+            ->shouldReceive('resolveStockItemId')
+            ->once()
+            ->with($guid)
+            ->andReturn($guid);
 
         $this->client->updateSku($guid, $newSku);
 
@@ -142,20 +126,20 @@ final class InventoryUpdateClientTest extends TestCase
             self::TEST_SERVER_URL . '/api/Inventory/UpdateInventoryItemField' => Http::response(null, 204),
         ]);
 
-        // Mock the inventory client to resolve SKU to stock item
-        $this->inventoryClient
-            ->shouldReceive('getStockItemBySku')
-            ->once()
-            ->with('OLD-SKU')
-            ->andReturn($this->createStockItem());
-
         $currentSku = Sku::fromTrusted('OLD-SKU');
         $newSku = Sku::fromTrusted('RESOLVED-NEW-SKU');
+        $resolvedGuid = new Guid(self::TEST_STOCK_ITEM_ID);
+
+        $this->inventoryClient
+            ->shouldReceive('resolveStockItemId')
+            ->once()
+            ->with($currentSku)
+            ->andReturn($resolvedGuid);
 
         $this->client->updateSku($currentSku, $newSku);
 
         Http::assertSent(function (Request $request) {
-            // Should use resolved stockItemId from the StockItem
+            // Should use resolved stockItemId from resolveStockItemId()
             $this->assertSame(self::TEST_STOCK_ITEM_ID, $request->data()['inventoryItemId']);
             $this->assertSame('RESOLVED-NEW-SKU', $request->data()['fieldValue']);
 
@@ -182,9 +166,18 @@ final class InventoryUpdateClientTest extends TestCase
         $guid = new Guid(self::TEST_STOCK_ITEM_ID);
         $newSku = Sku::fromTrusted('DUPLICATE-SKU');
 
-        $this->expectException(InvalidApiRequestException::class);
-        $this->expectExceptionMessage('SKU already exists');
+        $this->inventoryClient
+            ->shouldReceive('resolveStockItemId')
+            ->once()
+            ->with($guid)
+            ->andReturn($guid);
 
-        $this->client->updateSku($guid, $newSku);
+        try {
+            $this->client->updateSku($guid, $newSku);
+            $this->fail('Expected InvalidApiRequestException');
+        } catch (InvalidApiRequestException $e) {
+            $this->assertSame('API request validation failed', $e->getMessage());
+            $this->assertSame('SKU already exists', $e->detail);
+        }
     }
 }
