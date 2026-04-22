@@ -61,6 +61,7 @@ final readonly class MixpanelConfig
      * @param int $retryDelay Delay between retries in milliseconds (0-5000)
      * @param bool $allowEmptyExport Allow empty export results (for initial sync bootstrap only)
      *
+     * @throws InvalidConfigurationException When a required string is empty
      * @throws InvalidArgumentException When numeric parameters are out of bounds
      */
     public function __construct(
@@ -76,32 +77,37 @@ final readonly class MixpanelConfig
         public int $retryDelay = 100,
         public bool $allowEmptyExport = false,
     ) {
-        if ($dataApiBaseUrl === '') {
-            throw new InvalidConfigurationException('mixpanel.base_url', 'Mixpanel data API base URL cannot be empty');
+        // lookupTableIds validated by MixpanelClientFactory (type + non-empty).
+        self::validateRequiredStrings([
+            'mixpanel.base_url' => [$dataApiBaseUrl, 'Mixpanel data API base URL cannot be empty'],
+            'mixpanel.export_api_base_url' => [$exportApiBaseUrl, 'Mixpanel export API base URL cannot be empty'],
+            'mixpanel.service_account_username' => [$serviceAccountUsername, 'Mixpanel service account username cannot be empty'],
+            'mixpanel.service_account_password' => [$serviceAccountPassword, 'Mixpanel service account password cannot be empty'],
+            'mixpanel.project_id' => [$projectId, 'Mixpanel project ID cannot be empty'],
+            'mixpanel.analytics_salt' => [$analyticsSalt, 'Analytics salt cannot be empty'],
+        ]);
+        self::validateRanges($timeout, $retryTimes, $retryDelay);
+    }
+
+    /**
+     * @param array<string, array{string, string}> $fields keyed by config key; value is [configValue, errorMessage]
+     *
+     * @throws InvalidConfigurationException
+     */
+    private static function validateRequiredStrings(array $fields): void
+    {
+        foreach ($fields as $configKey => [$value, $message]) {
+            if ($value === '') {
+                throw new InvalidConfigurationException($configKey, $message);
+            }
         }
+    }
 
-        if ($exportApiBaseUrl === '') {
-            throw new InvalidConfigurationException('mixpanel.export_api_base_url', 'Mixpanel export API base URL cannot be empty');
-        }
-
-        if ($serviceAccountUsername === '') {
-            throw new InvalidConfigurationException('mixpanel.service_account_username', 'Mixpanel service account username cannot be empty');
-        }
-
-        if ($serviceAccountPassword === '') {
-            throw new InvalidConfigurationException('mixpanel.service_account_password', 'Mixpanel service account password cannot be empty');
-        }
-
-        if ($projectId === '') {
-            throw new InvalidConfigurationException('mixpanel.project_id', 'Mixpanel project ID cannot be empty');
-        }
-
-        if ($analyticsSalt === '') {
-            throw new InvalidConfigurationException('mixpanel.analytics_salt', 'Analytics salt cannot be empty');
-        }
-
-        // Note: lookupTableIds validated by MixpanelClientFactory (type + non-empty)
-
+    /**
+     * @throws InvalidArgumentException
+     */
+    private static function validateRanges(int $timeout, int $retryTimes, int $retryDelay): void
+    {
         if (($timeout < 1) || ($timeout > self::MAX_TIMEOUT_SECONDS)) {
             throw new InvalidArgumentException(
                 \sprintf('Timeout must be between 1-%d seconds, got %d', self::MAX_TIMEOUT_SECONDS, $timeout),

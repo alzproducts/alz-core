@@ -181,6 +181,22 @@ _(Not yet started)_
 
 **Baseline: 1656 → 1440 lines (-216)**. Plan estimated ~28 entries cleared; actual was 39 because the #577 DTO-constructor exemption (2026-04-16) wasn't accounted for in the plan.
 
+#### 2026-04-23 — Phase 0.5 (Config validation refactor) complete
+
+Not in the original plan — added mid-run because `BingAdsConfig.__construct` (52 lines) and `MixpanelConfig.__construct` (56 lines) were left in the baseline when #398 closed. Both have extractable fail-fast validation (not pure property promotion), so a permanent exclusion would have papered over real debt.
+
+**Refactor shape (per joint decision):**
+- `validateRequiredStrings(array $fields)` — keyed by config key, value is `[configValue, errorMessage]` pair. Loops and throws `InvalidConfigurationException` per empty field.
+- `validateRanges(...)` — per-class numeric-bound and enum checks. Throws `InvalidArgumentException`.
+- Constructor body becomes `self::validateRequiredStrings([...]); self::validateRanges(...);` — property promotion signature unchanged.
+- Preserved exception-type split: empty-string misconfig → `InvalidConfigurationException` (carries config key), out-of-range → `InvalidArgumentException` (programmer error). Different signals for different root causes.
+
+**Behavior preservation:**
+- Same exception types, messages, and config keys for every failure mode.
+- No existing test coverage for either Config class, so manual reasoning only. Both failure paths (empty string, out-of-range) traced to identical thrown exceptions.
+
+**Baseline: 1440 → 1430 lines (-10).** Two constructor entries cleared.
+
 **Verification:**
 - `make lint` clean (Pint + PHPStan + PHPArkitect + Deptrac + TLint)
 - Existing `ExcessiveClassLengthRuleTest` (2 cases) and `ExcessiveMethodLengthRuleTest` (4 cases) pass without modification — default thresholds unchanged

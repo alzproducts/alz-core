@@ -501,11 +501,6 @@ parameters:
 			count: 1
 			path: app/Infrastructure/BingAds/BingAdsClientFactory.php
 
-		-
-			rawMessage: 'Method __construct() is 52 lines long — exceeds the 40-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Infrastructure/BingAds/BingAdsConfig.php
 
 		-
 			rawMessage: 'Method createSessionFromOAuth() is 23 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
@@ -926,11 +921,6 @@ parameters:
 			count: 1
 			path: app/Infrastructure/Mixpanel/MixpanelClient.php
 
-		-
-			rawMessage: 'Method __construct() is 56 lines long — exceeds the 40-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Infrastructure/Mixpanel/MixpanelConfig.php
 
 		-
 			rawMessage: 'Method request() has 5 parameters — exceeds the 4-parameter limit. Consider a parameter object or splitting the method.'
