@@ -70,6 +70,11 @@ final readonly class ProcessContactSubmissionUseCase
      */
     public function execute(string $submissionId, string $actionId): ?int
     {
+        $this->logger->info('Processing contact submission', [
+            'submission_id' => $submissionId,
+            'action_id' => $actionId,
+        ]);
+
         if ($this->isAlreadyCompleted($actionId)) {
             return null;
         }
@@ -117,6 +122,12 @@ final readonly class ProcessContactSubmissionUseCase
             customerName: $submission->form->name,
             customerEmail: $submission->form->email,
         ));
+
+        $this->logger->info('Contact submission processed', [
+            'submission_id' => $submissionId,
+            'action_id' => $actionId,
+            'conversation_id' => $conversationId,
+        ]);
 
         return $conversationId;
     }

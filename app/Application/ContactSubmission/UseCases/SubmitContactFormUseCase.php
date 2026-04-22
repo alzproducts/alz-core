@@ -14,6 +14,7 @@ use App\Domain\ContactSubmission\ValueObjects\ContactSubmission;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use Psr\Log\LoggerInterface;
 
 /**
  * Orchestrates contact form submission persistence and async processing.
@@ -31,6 +32,7 @@ final readonly class SubmitContactFormUseCase
         private ContactSubmissionActionRepositoryInterface $actionRepository,
         private DatabaseGatewayInterface $database,
         private ContactFormDispatcherInterface $dispatcher,
+        private LoggerInterface $logger,
     ) {}
 
     /**
@@ -45,6 +47,15 @@ final readonly class SubmitContactFormUseCase
      */
     public function execute(ContactSubmission $submission): SubmitContactFormResult
     {
+        $this->logger->info('Contact submission received', [
+            'reason' => $submission->form->reason->value,
+            'email_hash' => hash('sha256', $submission->form->email),
+            'has_phone' => $submission->form->phone !== null,
+            'has_order_number' => $submission->form->orderNumber !== null,
+            'has_product_context' => $submission->product !== null,
+            'has_shopwired_customer_id' => $submission->shopwiredCustomerId !== null,
+        ]);
+
         $result = $this->database->transact(function () use ($submission): SubmitContactFormResult {
             $submissionId = $this->submissionRepository->save($submission);
 
@@ -60,6 +71,11 @@ final readonly class SubmitContactFormUseCase
         });
 
         $this->dispatcher->dispatchContactSubmissionProcessing($result->submissionId, $result->actionId);
+
+        $this->logger->info('Contact submission persisted and dispatched', [
+            'submission_id' => $result->submissionId,
+            'action_id' => $result->actionId,
+        ]);
 
         return $result;
     }
