@@ -717,52 +717,6 @@ parameters:
 
 
 		-
-			rawMessage: 'Method createConfig() is 25 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Infrastructure/Linnworks/LinnworksClientFactory.php
-
-
-
-		-
-			rawMessage: 'Method executeWithAuthRetry() is 51 lines long — exceeds the 30-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Infrastructure/Linnworks/LinnworksHttpTransport.php
-
-
-
-		-
-			rawMessage: 'Method fromAuthResponse() is 28 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Infrastructure/Linnworks/LinnworksSession.php
-
-
-		-
-			rawMessage: 'Method authenticate() is 39 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Infrastructure/Linnworks/LinnworksSessionManager.php
-
-
-		-
-			rawMessage: 'Method handleAuthRequestException() is 23 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Infrastructure/Linnworks/LinnworksSessionManager.php
-
-
-
-		-
-			rawMessage: 'Method mapResponse() is 22 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Infrastructure/Linnworks/Queries/PurchaseOrderItemsBatchQuery.php
-
-
-
-		-
 			rawMessage: 'Method request() has 5 parameters — exceeds the 4-parameter limit. Consider a parameter object or splitting the method.'
 			identifier: alz.excessiveParameterCount
 			count: 1
