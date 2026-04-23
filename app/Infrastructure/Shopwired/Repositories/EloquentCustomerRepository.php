@@ -8,7 +8,7 @@ use App\Application\Contracts\Shopwired\CustomerRepositoryInterface;
 use App\Application\Results\SaveManyResult;
 use App\Domain\Customer\ValueObjects\Customer;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
-use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\IntId;
@@ -101,7 +101,7 @@ final class EloquentCustomerRepository extends AbstractEloquentRepository implem
     /**
      * {@inheritDoc}
      *
-     * @throws ResourceNotFoundException
+     * @throws RecordNotFoundException
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
@@ -115,7 +115,7 @@ final class EloquentCustomerRepository extends AbstractEloquentRepository implem
         );
 
         if ($deleted === 0) {
-            throw new ResourceNotFoundException('Database', $this->getEntityTypeName(), $externalId->value);
+            throw new RecordNotFoundException($this->getEntityTypeName(), $externalId->value);
         }
     }
 

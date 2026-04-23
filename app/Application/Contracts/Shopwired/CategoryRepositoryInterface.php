@@ -11,7 +11,7 @@ use App\Domain\Catalog\Category\ValueObjects\Category;
 use App\Domain\Catalog\Category\ValueObjects\CategoryView;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
-use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Data\MissingRequiredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
@@ -54,7 +54,7 @@ interface CategoryRepositoryInterface extends RepositoryWriteInterface
      *
      * Used by `category.deleted` webhook.
      *
-     * @throws ResourceNotFoundException When no category found with this external ID
+     * @throws RecordNotFoundException When no category found with this external ID
      * @throws DatabaseOperationFailedException On deletion failure
      * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
@@ -81,7 +81,7 @@ interface CategoryRepositoryInterface extends RepositoryWriteInterface
      *
      * @param list<CategoryInclude> $includes Requested embeds
      *
-     * @throws ResourceNotFoundException When no category matches the ID
+     * @throws RecordNotFoundException When no category matches the ID
      * @throws DatabaseOperationFailedException On query failure
      * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database temporarily unavailable

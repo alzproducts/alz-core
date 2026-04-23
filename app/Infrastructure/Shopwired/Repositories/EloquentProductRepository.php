@@ -16,7 +16,7 @@ use App\Domain\Catalog\Product\ValueObjects\ProductVariation;
 use App\Domain\Catalog\Product\ValueObjects\ProductView;
 use App\Domain\Catalog\Product\ValueObjects\Sku;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
-use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Data\MissingRequiredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
@@ -124,7 +124,7 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
     /**
      * {@inheritDoc}
      *
-     * @throws ResourceNotFoundException
+     * @throws RecordNotFoundException
      * @throws InvalidCustomFieldValueException
      * @throws MissingRequiredDataException
      * @throws DatabaseOperationFailedException
@@ -151,7 +151,7 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
     /**
      * {@inheritDoc}
      *
-     * @throws ResourceNotFoundException
+     * @throws RecordNotFoundException
      * @throws InvalidCustomFieldValueException
      * @throws MissingRequiredDataException
      * @throws DatabaseOperationFailedException
@@ -318,7 +318,7 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
      * Note: This method searches both tables sequentially when the entity type is unknown.
      * For better performance when you know the type, consider using specific repository methods.
      *
-     * @throws ResourceNotFoundException
+     * @throws RecordNotFoundException
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
@@ -338,7 +338,7 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
      * Searches products first, then variations. Most external IDs will be
      * variations (SKU-less items), but products can also be looked up by ID.
      *
-     * @throws ResourceNotFoundException
+     * @throws RecordNotFoundException
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
@@ -357,7 +357,7 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
                 entityTypeName: 'Product',
                 mapper: fn(ProductModel $model): Product => $this->mapModelToDomain($model),
             );
-        } catch (ResourceNotFoundException) {
+        } catch (RecordNotFoundException) {
             Log::debug('Product not found by ID, trying variation', ['external_id' => $id->value]);
         }
 
@@ -377,7 +377,7 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
      *
      * Searches products (master SKU) first, then variations (variant SKU).
      *
-     * @throws ResourceNotFoundException
+     * @throws RecordNotFoundException
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
@@ -396,7 +396,7 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
                 entityTypeName: 'Product',
                 mapper: fn(ProductModel $model): Product => $this->mapModelToDomain($model),
             );
-        } catch (ResourceNotFoundException) {
+        } catch (RecordNotFoundException) {
             Log::debug('Product not found by SKU, trying variation', ['sku' => $sku->value]);
         }
 
@@ -414,7 +414,7 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
     /**
      * {@inheritDoc}
      *
-     * @throws ResourceNotFoundException
+     * @throws RecordNotFoundException
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
@@ -436,7 +436,7 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
     /**
      * {@inheritDoc}
      *
-     * @throws ResourceNotFoundException
+     * @throws RecordNotFoundException
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
@@ -651,7 +651,7 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
     /**
      * {@inheritDoc}
      *
-     * @throws ResourceNotFoundException
+     * @throws RecordNotFoundException
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
@@ -669,14 +669,14 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
 
         if ($affected === 0) {
             $entityType = $isVariation ? 'ProductVariation' : $this->getEntityTypeName();
-            throw new ResourceNotFoundException('Database', $entityType, $sku->value);
+            throw new RecordNotFoundException($entityType, $sku->value);
         }
     }
 
     /**
      * {@inheritDoc}
      *
-     * @throws ResourceNotFoundException
+     * @throws RecordNotFoundException
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
@@ -688,7 +688,7 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
         // Try product master SKU first
         try {
             return $this->getProduct($sku);
-        } catch (ResourceNotFoundException) {
+        } catch (RecordNotFoundException) {
             Log::debug('Product not found by master SKU, trying variations', ['sku' => $sku->value]);
         }
 
@@ -704,7 +704,7 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
         );
 
         if ($productExternalId === null) {
-            throw new ResourceNotFoundException('Database', 'Product', $sku->value);
+            throw new RecordNotFoundException('Product', $sku->value);
         }
 
         // Load parent product with variations
@@ -879,7 +879,7 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
     /**
      * {@inheritDoc}
      *
-     * @throws ResourceNotFoundException
+     * @throws RecordNotFoundException
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
@@ -893,7 +893,7 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
         );
 
         if ($deleted === 0) {
-            throw new ResourceNotFoundException('Database', $this->getEntityTypeName(), $externalId->value);
+            throw new RecordNotFoundException($this->getEntityTypeName(), $externalId->value);
         }
     }
 
