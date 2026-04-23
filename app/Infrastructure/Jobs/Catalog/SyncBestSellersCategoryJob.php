@@ -7,6 +7,7 @@ namespace App\Infrastructure\Jobs\Catalog;
 use App\Application\Catalog\UseCases\SyncBestSellersCategoryUseCase;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Data\MissingRequiredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
@@ -70,7 +71,8 @@ final class SyncBestSellersCategoryJob implements ShouldBeUnique, ShouldQueue
     }
 
     /**
-     * @throws ResourceNotFoundException When Best Sellers category is missing or inactive
+     * @throws ResourceNotFoundException When Best Sellers category is inactive
+     * @throws RecordNotFoundException When Best Sellers category row is missing in DB
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
