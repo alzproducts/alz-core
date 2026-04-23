@@ -116,6 +116,17 @@ final readonly class ProcessContactSubmissionUseCase
         $this->addEmailValidationNoteIfInvalid($submission->form->email, $conversationId);
         $this->actionRepository->markCompleted($actionId, (string) $conversationId);
 
+        $this->notifyProcessed($submission, $submissionId, $actionId, $conversationId);
+
+        return $conversationId;
+    }
+
+    private function notifyProcessed(
+        ContactSubmission $submission,
+        string $submissionId,
+        string $actionId,
+        int $conversationId,
+    ): void {
         $this->eventDispatcher->dispatch(new ContactFormProcessedEvent(
             submissionId: $submissionId,
             conversationId: IntId::from($conversationId),
@@ -128,8 +139,6 @@ final readonly class ProcessContactSubmissionUseCase
             'action_id' => $actionId,
             'conversation_id' => $conversationId,
         ]);
-
-        return $conversationId;
     }
 
     /**

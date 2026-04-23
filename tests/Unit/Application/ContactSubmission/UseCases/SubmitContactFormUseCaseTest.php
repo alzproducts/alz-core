@@ -92,7 +92,15 @@ final class SubmitContactFormUseCaseTest extends TestCase
     #[Test]
     public function execute_dispatches_async_processing_after_transaction(): void
     {
-        $this->setupSuccessfulSubmission();
+        $this->database->expects('transact')
+            ->andReturnUsing(static fn(Closure $fn): SubmitContactFormResult => $fn());
+
+        $this->submissionRepository->expects('save')
+            ->andReturn(self::SUBMISSION_ID);
+
+        $this->actionRepository->expects('create')
+            ->with(self::SUBMISSION_ID, ActionType::HelpScout)
+            ->andReturn(self::ACTION_ID);
 
         $this->dispatcher->expects('dispatchContactSubmissionProcessing')
             ->with(self::SUBMISSION_ID, self::ACTION_ID)
@@ -117,7 +125,7 @@ final class SubmitContactFormUseCaseTest extends TestCase
             ->with(
                 'Contact submission received',
                 Mockery::on(static fn(array $ctx): bool => $ctx['reason'] === ContactReason::Other->value
-                    && $ctx['email_hash'] === hash('sha256', 'customer@example.com')
+                    && $ctx['email_hash'] === \hash('sha256', 'customer@example.com')
                     && $ctx['has_phone'] === false
                     && $ctx['has_order_number'] === false
                     && $ctx['has_product_context'] === false
