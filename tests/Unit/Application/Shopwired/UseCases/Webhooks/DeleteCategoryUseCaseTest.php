@@ -6,7 +6,7 @@ namespace Tests\Unit\Application\Shopwired\UseCases\Webhooks;
 
 use App\Application\Contracts\Shopwired\CategoryRepositoryInterface;
 use App\Application\Shopwired\UseCases\Webhooks\DeleteCategoryUseCase;
-use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\ValueObjects\IntId;
 use Mockery;
 use Mockery\MockInterface;
@@ -62,7 +62,7 @@ final class DeleteCategoryUseCaseTest extends TestCase
 
         $this->repository->shouldReceive('deleteByExternalId')
             ->once()
-            ->andThrow(new ResourceNotFoundException('Database', 'Category', 42));
+            ->andThrow(new RecordNotFoundException('Category', 42));
 
         $this->logger->shouldReceive('info')
             ->once()

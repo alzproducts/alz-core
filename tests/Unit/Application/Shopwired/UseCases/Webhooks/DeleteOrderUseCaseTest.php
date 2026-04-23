@@ -6,7 +6,7 @@ namespace Tests\Unit\Application\Shopwired\UseCases\Webhooks;
 
 use App\Application\Contracts\Shopwired\OrderRepositoryInterface;
 use App\Application\Shopwired\UseCases\Webhooks\DeleteOrderUseCase;
-use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Notifications\Events\ManagerAlertEvent;
 use App\Domain\ValueObjects\IntId;
 use Illuminate\Contracts\Events\Dispatcher;
@@ -79,7 +79,7 @@ final class DeleteOrderUseCaseTest extends TestCase
 
         $this->repository->shouldReceive('deleteByExternalId')
             ->once()
-            ->andThrow(new ResourceNotFoundException('ShopWired', 'order', 42));
+            ->andThrow(new RecordNotFoundException('order', 42));
 
         $this->logger->shouldReceive('info')
             ->once()
