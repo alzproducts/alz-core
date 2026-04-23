@@ -352,48 +352,6 @@ parameters:
 
 
 		-
-			rawMessage: 'Method extractCustomerReferenceNumber() is 35 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Domain/Catalog/Order/ValueObjects/Order.php
-
-
-		-
-			rawMessage: 'Method generateCandidateHashes() is 21 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Domain/Catalog/Order/ValueObjects/OrderAnalyticsHashMatcher.php
-
-
-		-
-			rawMessage: 'Method resolve() is 21 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Domain/Catalog/Product/Resolvers/VariationImageResolver.php
-
-
-		-
-			rawMessage: 'Method resolve() is 21 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Domain/Catalog/Product/Resolvers/VariationPriceResolver.php
-
-
-		-
-			rawMessage: 'Method validate() is 28 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Domain/Catalog/Product/Validators/PriceCommandsVatRoundTripValidator.php
-
-
-		-
-			rawMessage: 'Method fromString() is 28 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Domain/Catalog/Product/ValueObjects/Gtin.php
-
-
-		-
 			rawMessage: 'Method __construct() is 75 lines long — exceeds the 40-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
@@ -407,20 +365,6 @@ parameters:
 			count: 1
 			path: app/Domain/Customer/ValueObjects/CustomerAddress.php
 
-
-
-		-
-			rawMessage: 'Method validate() is 21 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Domain/Shared/Money/Validators/NullableMoneyEqualsValidator.php
-
-
-		-
-			rawMessage: 'Method chunk() is 21 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Domain/ValueObjects/DateRange.php
 
 
 		-
