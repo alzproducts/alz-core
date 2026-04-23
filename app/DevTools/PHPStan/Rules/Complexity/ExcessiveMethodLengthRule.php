@@ -49,6 +49,7 @@ final class ExcessiveMethodLengthRule implements Rule
      */
     private const array EXCLUDED_METHODS = [
         'toDomain',
+        'toViewDomain',
         'fromModel',
         'toModelAttributes',
         'toSdk',

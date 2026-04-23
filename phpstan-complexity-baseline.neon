@@ -644,35 +644,6 @@ parameters:
 
 
 		-
-			rawMessage: 'Method coreAttributes() is 24 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Infrastructure/Catalog/Product/Mappers/ProductModelMapper.php
-
-
-		-
-			rawMessage: 'Method toWebhookAttributes() is 28 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Infrastructure/Catalog/Product/Mappers/ProductModelMapper.php
-
-
-
-		-
-			rawMessage: 'Method toViewDomain() is 31 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Infrastructure/Catalog/Product/Mappers/ProductVariationModelMapper.php
-
-
-		-
-			rawMessage: 'Method toViewDomain() is 53 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Infrastructure/Catalog/Product/Mappers/ProductViewAssembler.php
-
-
-		-
 			rawMessage: 'Method extractSqlState() is 22 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
