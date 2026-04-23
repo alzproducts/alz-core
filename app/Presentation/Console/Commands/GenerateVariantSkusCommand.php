@@ -13,6 +13,7 @@ use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
+use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Api\ResourceNotAvailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Data\InvalidSkuException;
@@ -68,7 +69,7 @@ final class GenerateVariantSkusCommand extends Command
             $result = $useCase->execute($this->buildCommand($productId, $templateSku));
 
             return $this->displaySuccessResult($result);
-        } catch (ResourceNotFoundException|InvalidTemplateException|LockAcquisitionException|AuthenticationExpiredException|ExternalServiceUnavailableException|InvalidApiRequestException|InvalidApiResponseException|DatabaseOperationFailedException|DuplicateRecordException $e) {
+        } catch (ResourceNotFoundException|RecordNotFoundException|InvalidTemplateException|LockAcquisitionException|AuthenticationExpiredException|ExternalServiceUnavailableException|InvalidApiRequestException|InvalidApiResponseException|DatabaseOperationFailedException|DuplicateRecordException $e) {
             return $this->handleExecutionError($e);
         }
     }
@@ -156,7 +157,7 @@ final class GenerateVariantSkusCommand extends Command
      * Handle UseCase execution errors with user-friendly messages.
      */
     private function handleExecutionError(
-        ResourceNotFoundException|InvalidTemplateException|LockAcquisitionException|AuthenticationExpiredException|ExternalServiceUnavailableException|InvalidApiRequestException|InvalidApiResponseException|DatabaseOperationFailedException|DuplicateRecordException $e,
+        ResourceNotFoundException|RecordNotFoundException|InvalidTemplateException|LockAcquisitionException|AuthenticationExpiredException|ExternalServiceUnavailableException|InvalidApiRequestException|InvalidApiResponseException|DatabaseOperationFailedException|DuplicateRecordException $e,
     ): int {
         [$errorMsg, $hintMsg] = self::resolveErrorMessages($e);
 
@@ -174,12 +175,16 @@ final class GenerateVariantSkusCommand extends Command
      * @return array{string, string}
      */
     private static function resolveErrorMessages(
-        ResourceNotFoundException|InvalidTemplateException|LockAcquisitionException|AuthenticationExpiredException|ExternalServiceUnavailableException|InvalidApiRequestException|InvalidApiResponseException|DatabaseOperationFailedException|DuplicateRecordException $e,
+        ResourceNotFoundException|RecordNotFoundException|InvalidTemplateException|LockAcquisitionException|AuthenticationExpiredException|ExternalServiceUnavailableException|InvalidApiRequestException|InvalidApiResponseException|DatabaseOperationFailedException|DuplicateRecordException $e,
     ): array {
         return match (true) {
             $e instanceof ResourceNotFoundException => [
                 "Resource not found: {$e->getMessage()}",
                 'Check that the product ID and template SKU exist',
+            ],
+            $e instanceof RecordNotFoundException => [
+                "Record not found in local DB: {$e->resourceType} '{$e->resourceId}'",
+                'Sync the record locally first, or retry if it may resolve',
             ],
             $e instanceof InvalidTemplateException => [
                 "Invalid template: {$e->getMessage()}",

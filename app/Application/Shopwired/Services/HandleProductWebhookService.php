@@ -17,6 +17,7 @@ use App\Domain\Catalog\Product\Enums\ProductWebhookIntent;
 use App\Domain\Catalog\Product\ValueObjects\Sku;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
+use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Data\InvalidEnumValueException;
 use App\Domain\Exceptions\Data\InvalidSkuException;
@@ -45,6 +46,7 @@ final readonly class HandleProductWebhookService
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
+     * @throws RecordNotFoundException When product row not found in database
      */
     public function execute(RawWebhookPayloadDTO $payload): void
     {
@@ -101,6 +103,7 @@ final readonly class HandleProductWebhookService
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
+     * @throws RecordNotFoundException When product row not found in database
      */
     private function executeStockChanged(WebhookContextDTO $context, IntId $productId, array $data): void
     {

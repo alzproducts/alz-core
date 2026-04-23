@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Presentation\Http\Api;
 
 use App\Domain\Exceptions\Api\PermanentApiFailure;
+use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Api\TransientApiFailure;
 use App\Domain\Exceptions\Data\InvalidSkuException;
@@ -60,6 +61,10 @@ final class InternalApiExceptionMapper
         ))->toJsonResponse();
     }
 
+    /**
+     * Note: RecordNotFoundException must precede TransientApiFailure in the match arms
+     * below — it extends TransientApiFailure but needs 404, not 503.
+     */
     private static function statusCode(Throwable $e): int
     {
         return match (true) {
@@ -67,6 +72,7 @@ final class InternalApiExceptionMapper
             $e instanceof InvalidSkuException => Response::HTTP_UNPROCESSABLE_ENTITY,
             $e instanceof MissingRequiredDataException => Response::HTTP_UNPROCESSABLE_ENTITY,
             $e instanceof ResourceNotFoundException => Response::HTTP_NOT_FOUND,
+            $e instanceof RecordNotFoundException => Response::HTTP_NOT_FOUND,
             $e instanceof DuplicateRecordException => Response::HTTP_CONFLICT,
             $e instanceof TransientApiFailure => Response::HTTP_SERVICE_UNAVAILABLE,
             $e instanceof LockAcquisitionException => Response::HTTP_SERVICE_UNAVAILABLE,
@@ -83,6 +89,15 @@ final class InternalApiExceptionMapper
 
     private static function errorType(Throwable $e, int $status): ApiErrorTypeEnum
     {
+        return self::errorTypeFromException($e) ?? self::errorTypeFromStatus($status);
+    }
+
+    /**
+     * Note: RecordNotFoundException must precede TransientApiFailure in the match arms
+     * below — it extends TransientApiFailure but needs NotFound, not ServiceUnavailable.
+     */
+    private static function errorTypeFromException(Throwable $e): ?ApiErrorTypeEnum
+    {
         return match (true) {
             $e instanceof ValidationFailedException,
             $e instanceof InvalidSkuException,
@@ -90,12 +105,20 @@ final class InternalApiExceptionMapper
             $e instanceof ValidationException,
             $e instanceof CannotCreateData => ApiErrorTypeEnum::ValidationError,
             $e instanceof ResourceNotFoundException,
+            $e instanceof RecordNotFoundException,
             $e instanceof NotFoundHttpException => ApiErrorTypeEnum::NotFound,
             $e instanceof DuplicateRecordException => ApiErrorTypeEnum::Conflict,
             $e instanceof TransientApiFailure,
             $e instanceof LockAcquisitionException => ApiErrorTypeEnum::ServiceUnavailable,
             $e instanceof PermanentApiFailure => ApiErrorTypeEnum::UpstreamError,
             $e instanceof MethodNotAllowedHttpException => ApiErrorTypeEnum::MethodNotAllowed,
+            default => null,
+        };
+    }
+
+    private static function errorTypeFromStatus(int $status): ApiErrorTypeEnum
+    {
+        return match (true) {
             $status === Response::HTTP_UNAUTHORIZED => ApiErrorTypeEnum::Unauthorized,
             $status === Response::HTTP_FORBIDDEN => ApiErrorTypeEnum::Forbidden,
             $status >= 500 => ApiErrorTypeEnum::ServerError,
@@ -132,7 +155,7 @@ final class InternalApiExceptionMapper
     private static function fixedSafeMessage(Throwable $e): ?string
     {
         return match (true) {
-            $e instanceof TransientApiFailure,
+            $e instanceof TransientApiFailure && ! $e instanceof RecordNotFoundException,
             $e instanceof LockAcquisitionException => 'The service is temporarily unavailable. Please try again shortly.',
             $e instanceof PermanentApiFailure && ! $e instanceof ResourceNotFoundException => 'An upstream service encountered an error.',
             $e instanceof DuplicateRecordException => 'A conflicting record already exists.',

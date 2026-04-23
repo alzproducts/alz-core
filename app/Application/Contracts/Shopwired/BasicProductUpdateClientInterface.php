@@ -8,8 +8,8 @@ use App\Domain\Catalog\Product\Commands\UpdateBasicProductCommand;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
+use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Api\ResourceNotAvailableException;
-use App\Domain\Exceptions\Api\ResourceNotFoundException;
 
 /**
  * Update non-price attributes on ShopWired products and variations via PUT.
@@ -22,7 +22,7 @@ use App\Domain\Exceptions\Api\ResourceNotFoundException;
 interface BasicProductUpdateClientInterface
 {
     /**
-     * @throws ResourceNotFoundException When SKU not found locally
+     * @throws RecordNotFoundException When SKU not found locally
      * @throws ResourceNotAvailableException When product/variation not found in ShopWired
      * @throws InvalidApiRequestException When update parameters invalid
      * @throws AuthenticationExpiredException When credentials invalid

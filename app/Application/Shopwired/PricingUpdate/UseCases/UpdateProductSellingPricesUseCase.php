@@ -26,6 +26,7 @@ use App\Domain\Catalog\Product\ValueObjects\SkuPriceChange;
 use App\Domain\Exceptions\Api\AbstractApiException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
+use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Api\TransientApiFailure;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
@@ -74,6 +75,7 @@ final readonly class UpdateProductSellingPricesUseCase
      * @throws ExternalServiceUnavailableException When API transport initialization fails
      * @throws DatabaseOperationFailedException When local product lookup fails
      * @throws DuplicateRecordException On sale settings DB constraint violation
+     * @throws RecordNotFoundException When product row not found in database
      * @throws InvalidCustomFieldValueException When custom field mapping fails during product lookup
      * @throws ValidationFailedException When any submitted price fails VAT round-trip check
      */

@@ -14,7 +14,7 @@ use App\Domain\Catalog\Product\ValueObjects\ProductVariation;
 use App\Domain\Catalog\Product\ValueObjects\ProductView;
 use App\Domain\Catalog\Product\ValueObjects\Sku;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
-use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\IntId;
@@ -48,7 +48,7 @@ interface ProductRepositoryInterface extends RepositoryWriteInterface
      * Returns the read-only API projection with requested embeds loaded.
      * Unloaded relations/enrichments are null on the ProductView VO.
      *
-     * @throws ResourceNotFoundException When no product matches the ID
+     * @throws RecordNotFoundException When no product matches the ID
      * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
      * @throws DatabaseOperationFailedException On query failure
      * @throws DuplicateRecordException On constraint violation
@@ -62,7 +62,7 @@ interface ProductRepositoryInterface extends RepositoryWriteInterface
      *
      * @param list<ProductInclude> $includes Embeds to load (empty = defaults)
      *
-     * @throws ResourceNotFoundException When no product matches the ID
+     * @throws RecordNotFoundException When no product matches the ID
      * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
      * @throws DatabaseOperationFailedException On query failure
      * @throws DuplicateRecordException On constraint violation
@@ -123,7 +123,7 @@ interface ProductRepositoryInterface extends RepositoryWriteInterface
      *
      * @param Sku|IntId $identifier SKU to search, or variation external ID
      *
-     * @throws ResourceNotFoundException When no product or variation matches
+     * @throws RecordNotFoundException When no product or variation matches
      * @throws DatabaseOperationFailedException On query failure
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      */
@@ -139,7 +139,7 @@ interface ProductRepositoryInterface extends RepositoryWriteInterface
      *
      * @param Sku|IntId $identifier Product SKU or external ID
      *
-     * @throws ResourceNotFoundException When no product matches the identifier
+     * @throws RecordNotFoundException When no product matches the identifier
      * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
      * @throws DatabaseOperationFailedException On query failure
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
@@ -159,7 +159,7 @@ interface ProductRepositoryInterface extends RepositoryWriteInterface
      *
      * @param Sku|IntId $identifier Variation SKU or external ID
      *
-     * @throws ResourceNotFoundException When no variation matches the identifier
+     * @throws RecordNotFoundException When no variation matches the identifier
      * @throws DatabaseOperationFailedException On query failure
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      */
@@ -217,7 +217,7 @@ interface ProductRepositoryInterface extends RepositoryWriteInterface
      * @param bool $isVariation Whether the SKU refers to a variation
      * @param int $newQuantity New stock quantity
      *
-     * @throws ResourceNotFoundException When no product/variation found with this SKU
+     * @throws RecordNotFoundException When no product/variation found with this SKU
      * @throws DatabaseOperationFailedException On query failure
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      */
@@ -244,7 +244,7 @@ interface ProductRepositoryInterface extends RepositoryWriteInterface
      * Searches products (master SKU) first, then variations (variant SKU).
      * Always returns the full parent Product with variations loaded.
      *
-     * @throws ResourceNotFoundException When no product or variation has this SKU
+     * @throws RecordNotFoundException When no product or variation has this SKU
      * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
      * @throws DatabaseOperationFailedException On query failure
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
@@ -256,7 +256,7 @@ interface ProductRepositoryInterface extends RepositoryWriteInterface
      *
      * Used by `product.deleted` webhook. Cascades to variations via FK constraint.
      *
-     * @throws ResourceNotFoundException When no product found with this external ID
+     * @throws RecordNotFoundException When no product found with this external ID
      * @throws DatabaseOperationFailedException On deletion failure
      * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database temporarily unavailable

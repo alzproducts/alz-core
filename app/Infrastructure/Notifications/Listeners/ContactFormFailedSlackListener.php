@@ -8,7 +8,7 @@ use App\Application\Contracts\ChatNotificationInterface;
 use App\Application\Contracts\ContactSubmission\ContactSubmissionRepositoryInterface;
 use App\Domain\ContactSubmission\Events\ContactFormProcessingFailedEvent;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
-use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Data\MalformedStoredDataException;
 use App\Domain\Exceptions\InvalidConfigurationException;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -34,7 +34,7 @@ final class ContactFormFailedSlackListener implements ShouldQueue
     ) {}
 
     /**
-     * @throws ResourceNotFoundException When submission not found
+     * @throws RecordNotFoundException When submission not found
      * @throws MalformedStoredDataException When stored data is corrupted
      * @throws InvalidConfigurationException When Slack channel is not configured
      * @throws ExternalServiceUnavailableException On transient database or Slack delivery failure

@@ -16,6 +16,7 @@ use App\Domain\ContactSubmission\ValueObjects\ContactSubmission;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
+use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Api\UnexpectedApiResultException;
 use App\Domain\Exceptions\Data\InsufficientDataException;
@@ -60,6 +61,7 @@ final readonly class ProcessContactSubmissionUseCase
      * @return int|null HelpScout conversation ID (null if already completed - idempotent)
      *
      * @throws ResourceNotFoundException When submission not found
+     * @throws RecordNotFoundException When submission row not found in database
      * @throws MalformedStoredDataException When stored data is corrupted
      * @throws DatabaseOperationFailedException When DB operation fails (permanent)
      * @throws ExternalServiceUnavailableException When HelpScout/DB unavailable (transient - retry)

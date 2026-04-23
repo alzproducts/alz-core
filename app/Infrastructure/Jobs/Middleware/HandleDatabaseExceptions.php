@@ -16,10 +16,10 @@ use Closure;
  *
  * Fails immediately on permanent exceptions that retrying cannot fix:
  * - AbstractInfrastructureException: DatabaseOperationFailedException, DuplicateRecordException
- * - PermanentApiFailure: ResourceNotFoundException (thrown by DB repositories for missing records)
+ * - PermanentApiFailure
  *
- * All other exceptions (e.g., ExternalServiceUnavailableException for transient DB
- * unavailability) bubble to the Worker for retry with $backoff.
+ * Transient DB conditions — ExternalServiceUnavailableException and RecordNotFoundException
+ * (race against concurrent sync transactions) — bubble to the Worker for retry with $backoff.
  */
 final class HandleDatabaseExceptions
 {

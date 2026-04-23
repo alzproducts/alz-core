@@ -11,6 +11,7 @@ use App\Domain\Catalog\Product\Enums\ProductInclude;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
+use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Api\ResourceNotAvailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Data\MissingRequiredDataException;
@@ -46,6 +47,7 @@ final readonly class ReconcileShopwiredComparePriceUseCase
      * @throws ExternalServiceUnavailableException When API or DB unavailable
      * @throws DatabaseOperationFailedException When product lookup fails
      * @throws DuplicateRecordException On constraint violation
+     * @throws RecordNotFoundException When product row not found in database
      * @throws InvalidCustomFieldValueException When custom field mapping fails
      * @throws MissingRequiredDataException When custom field definitions empty
      */

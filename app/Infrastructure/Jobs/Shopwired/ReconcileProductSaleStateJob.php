@@ -7,7 +7,7 @@ namespace App\Infrastructure\Jobs\Shopwired;
 use App\Application\Shopwired\SaleManagement\UseCases\ReconcileProductSaleStateUseCase;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
-use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\IntId;
@@ -69,7 +69,7 @@ final class ReconcileProductSaleStateJob implements ShouldBeUnique, ShouldQueue
     }
 
     /**
-     * @throws ResourceNotFoundException When product not found in DB
+     * @throws RecordNotFoundException When product not found in DB
      * @throws InvalidCustomFieldValueException When custom field mapping fails
      * @throws DatabaseOperationFailedException On query failure
      * @throws DuplicateRecordException On constraint violation

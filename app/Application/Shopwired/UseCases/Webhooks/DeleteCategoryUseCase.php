@@ -6,7 +6,7 @@ namespace App\Application\Shopwired\UseCases\Webhooks;
 
 use App\Application\Contracts\Shopwired\CategoryRepositoryInterface;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
-use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\IntId;
@@ -37,7 +37,7 @@ final readonly class DeleteCategoryUseCase
 
         try {
             $this->categoryRepository->deleteByExternalId($categoryId);
-        } catch (ResourceNotFoundException) {
+        } catch (RecordNotFoundException) {
             $this->logger->info('Category already deleted — skipping', $context);
 
             return;

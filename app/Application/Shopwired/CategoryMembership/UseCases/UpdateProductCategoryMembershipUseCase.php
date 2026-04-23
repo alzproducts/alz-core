@@ -11,6 +11,7 @@ use App\Domain\Catalog\Product\ValueObjects\ProductFieldUpdate;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
+use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Api\ResourceNotAvailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
@@ -45,6 +46,7 @@ final readonly class UpdateProductCategoryMembershipUseCase
      * @throws ExternalServiceUnavailableException When API or DB unavailable
      * @throws DatabaseOperationFailedException On DB query failure
      * @throws DuplicateRecordException On DB constraint violation
+     * @throws RecordNotFoundException When product row not found in database
      */
     public function execute(IntId $productId, array $addCategoryIds, array $removeCategoryIds): void
     {

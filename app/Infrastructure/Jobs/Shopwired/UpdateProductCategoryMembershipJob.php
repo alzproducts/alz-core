@@ -9,6 +9,7 @@ use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
+use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Api\ResourceNotAvailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
@@ -76,7 +77,8 @@ final class UpdateProductCategoryMembershipJob implements ShouldQueue
     }
 
     /**
-     * @throws ResourceNotFoundException When product not found in DB
+     * @throws RecordNotFoundException When product row not found in local DB
+     * @throws ResourceNotFoundException When product not found on ShopWired API
      * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
      * @throws ResourceNotAvailableException When product not found on API
      * @throws InvalidApiRequestException When request parameters invalid

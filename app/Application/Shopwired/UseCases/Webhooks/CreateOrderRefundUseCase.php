@@ -8,6 +8,7 @@ use App\Application\Contracts\Shopwired\OrderRepositoryInterface;
 use App\Application\Contracts\Shopwired\ShopwiredSyncDispatcherInterface;
 use App\Domain\Catalog\Order\ValueObjects\OrderRefund;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
@@ -34,6 +35,7 @@ final readonly class CreateOrderRefundUseCase
      * @throws ResourceNotFoundException
      * @throws DatabaseOperationFailedException
      * @throws ExternalServiceUnavailableException
+     * @throws RecordNotFoundException When order row not found in database
      */
     public function execute(DateTimeImmutable $eventTime, int $webhookId, IntId $orderId, OrderRefund $refund): void
     {

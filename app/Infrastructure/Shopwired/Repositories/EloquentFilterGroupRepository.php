@@ -7,6 +7,7 @@ namespace App\Infrastructure\Shopwired\Repositories;
 use App\Application\Contracts\Shopwired\FilterGroupRepositoryInterface;
 use App\Domain\Catalog\Filters\ValueObjects\FilterGroupDefinition;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
@@ -39,6 +40,7 @@ final class EloquentFilterGroupRepository extends AbstractEloquentRepository imp
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
+     * @throws RecordNotFoundException
      */
     public function getByOptionNo(int $optionNo): FilterGroupDefinition
     {
