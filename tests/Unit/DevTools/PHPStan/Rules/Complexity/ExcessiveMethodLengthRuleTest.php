@@ -61,4 +61,26 @@ final class ExcessiveMethodLengthRuleTest extends RuleTestCase
             ],
         );
     }
+
+    public function testNoErrorOnClientMethodUnderThirtyLines(): void
+    {
+        $this->analyse(
+            [__DIR__ . '/Fixtures/ExcessiveMethodLengthRule/ValidClient.php'],
+            [],
+        );
+    }
+
+    public function testErrorOnClientMethodExceedingThirtyLines(): void
+    {
+        $this->analyse(
+            [__DIR__ . '/Fixtures/ExcessiveMethodLengthRule/InvalidClient.php'],
+            [
+                [
+                    'Method tooLongClientMethod() is 33 lines long — exceeds the 30-line limit. Break it into smaller, focused methods.',
+                    9,
+                    'Extract logical sections into well-named private methods, each with a single responsibility. Do not split arbitrarily at a line count — each extracted method should represent a coherent operation.',
+                ],
+            ],
+        );
+    }
 }

@@ -49,18 +49,34 @@ final readonly class ModifyPurchaseOrderAdditionalCostsUseCase
     ): void {
         $this->logger->info('Modifying purchase order additional costs', [
             'purchase_id' => $purchaseId->value,
-            'adding' => \count($itemsToAdd),
-            'updating' => \count($itemsToUpdate),
-            'deleting' => \count($itemIdsToDelete),
+            ...self::buildCostChangeCounts($itemsToAdd, $itemsToUpdate, $itemIdsToDelete, present: true),
         ]);
 
         $this->client->modifyAdditionalCosts($purchaseId, $itemsToAdd, $itemsToUpdate, $itemIdsToDelete);
 
         $this->logger->info('Modified purchase order additional costs', [
             'purchase_id' => $purchaseId->value,
-            'added' => \count($itemsToAdd),
-            'updated' => \count($itemsToUpdate),
-            'deleted' => \count($itemIdsToDelete),
+            ...self::buildCostChangeCounts($itemsToAdd, $itemsToUpdate, $itemIdsToDelete, present: false),
         ]);
+    }
+
+    /**
+     * @param list<NewAdditionalCostDTO> $itemsToAdd
+     * @param list<AdditionalCostUpdateDTO> $itemsToUpdate
+     * @param list<int> $itemIdsToDelete
+     *
+     * @return array<string, int>
+     */
+    private static function buildCostChangeCounts(
+        array $itemsToAdd,
+        array $itemsToUpdate,
+        array $itemIdsToDelete,
+        bool $present,
+    ): array {
+        return [
+            $present ? 'adding' : 'added' => \count($itemsToAdd),
+            $present ? 'updating' : 'updated' => \count($itemsToUpdate),
+            $present ? 'deleting' : 'deleted' => \count($itemIdsToDelete),
+        ];
     }
 }

@@ -43,20 +43,12 @@ final readonly class VariationImageResolver
      */
     public function resolve(ProductVariation $variation, array $parentImages): ?ProductImage
     {
-        // No image index set on variation
-        if ($variation->imageIndex === null) {
+        if ($variation->imageIndex === null || $parentImages === []) {
             return null;
         }
 
-        // No parent images to look up
-        if ($parentImages === []) {
-            return null;
-        }
-
-        // Convert 1-based imageIndex (from ShopWired UI) to 0-based array index
         $arrayIndex = $variation->imageIndex - 1;
 
-        // Index out of bounds (defensive - shouldn't happen with valid data)
         if ($arrayIndex < 0 || !isset($parentImages[$arrayIndex])) {
             return null;
         }

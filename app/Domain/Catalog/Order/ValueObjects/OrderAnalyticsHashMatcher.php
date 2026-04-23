@@ -59,6 +59,9 @@ final readonly class OrderAnalyticsHashMatcher
     /**
      * Generate all 4 candidate hashes for an order.
      *
+     * Order: [SHA-256+configured, SHA-256+fallback, Base64+configured, Base64+fallback].
+     * See class docblock for why all four variations are needed.
+     *
      * @param int $orderReference Order reference number
      * @param DateTimeImmutable $orderPlacedAt Order placement timestamp (for fallback salt)
      * @param string $configuredSalt The configured analytics salt
@@ -77,13 +80,9 @@ final readonly class OrderAnalyticsHashMatcher
         $referenceStr = (string) $orderReference;
 
         return [
-            // 1. SHA-256 + configured salt (correct path)
             self::sha256Hash($referenceStr . $configuredSalt),
-            // 2. SHA-256 + fallback salt (buggy salt, modern browser)
             self::sha256Hash($referenceStr . $fallbackSalt),
-            // 3. Legacy Base64 + configured salt (old browser, correct salt)
             self::legacyBase64Hash($referenceStr . $configuredSalt),
-            // 4. Legacy Base64 + fallback salt (old browser, buggy salt)
             self::legacyBase64Hash($referenceStr . $fallbackSalt),
         ];
     }

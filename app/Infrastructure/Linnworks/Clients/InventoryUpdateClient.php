@@ -15,6 +15,7 @@ use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Inventory\Commands\AddInventoryItemCommand;
 use App\Domain\Inventory\Enums\LinnworksInventoryField;
 use App\Domain\Inventory\ValueObjects\ExtendedPropertyWrite;
+use App\Domain\Inventory\ValueObjects\StockItemFull;
 use App\Domain\Inventory\ValueObjects\StockItemSupplierStat;
 use App\Domain\Inventory\ValueObjects\SupplierLinkParams;
 use App\Domain\ValueObjects\Guid;
@@ -188,9 +189,42 @@ final readonly class InventoryUpdateClient implements InventoryUpdateClientInter
         $stockItem = $this->inventoryClient->getStockItemFull($identifier);
         $stockItemId = new Guid($stockItem->stockItemId);
 
-        /** @var list<array<string, string>> $updates */
+        ['updates' => $updates, 'creates' => $creates] = self::partitionExtendedProperties(
+            $properties,
+            $stockItem,
+            $stockItemId,
+        );
+
+        if ($updates !== []) {
+            $this->transport->postFormParams(
+                endpoint: '/api/Inventory/UpdateInventoryItemExtendedProperties',
+                params: ['inventoryItemExtendedProperties' => $updates],
+            );
+        }
+
+        if ($creates !== []) {
+            $this->transport->postFormParams(
+                endpoint: '/api/Inventory/CreateInventoryItemExtendedProperties',
+                params: ['inventoryItemExtendedProperties' => $creates],
+            );
+        }
+    }
+
+    /**
+     * Split desired extended properties into update vs create payloads based on
+     * whether a matching row already exists on the stock item. Properties whose
+     * current value equals the desired value are skipped entirely.
+     *
+     * @param list<ExtendedPropertyWrite> $properties
+     *
+     * @return array{updates: list<array<string, string>>, creates: list<array<string, string>>}
+     */
+    private static function partitionExtendedProperties(
+        array $properties,
+        StockItemFull $stockItem,
+        Guid $stockItemId,
+    ): array {
         $updates = [];
-        /** @var list<array<string, string>> $creates */
         $creates = [];
 
         foreach ($properties as $property) {
@@ -207,19 +241,7 @@ final readonly class InventoryUpdateClient implements InventoryUpdateClientInter
             }
         }
 
-        if ($updates !== []) {
-            $this->transport->postFormParams(
-                endpoint: '/api/Inventory/UpdateInventoryItemExtendedProperties',
-                params: ['inventoryItemExtendedProperties' => $updates],
-            );
-        }
-
-        if ($creates !== []) {
-            $this->transport->postFormParams(
-                endpoint: '/api/Inventory/CreateInventoryItemExtendedProperties',
-                params: ['inventoryItemExtendedProperties' => $creates],
-            );
-        }
+        return ['updates' => $updates, 'creates' => $creates];
     }
 
     /**

@@ -84,47 +84,90 @@ final readonly class SyncStockItemWithCursorUseCase
     {
         $storedCursor = $this->cursorRepository->getLastSyncDate(SyncCursorType::LinnworksStockItemFull);
         $since = $this->resolveSince($storedCursor);
+        $this->logStart($storedCursor, $since);
 
+        $modifiedItems = $this->dashboardsClient->getModifiedStockItemIdsSince($since);
+        $this->processModifiedItems($modifiedItems, $since);
+    }
+
+    private function logStart(?DateTimeImmutable $storedCursor, DateTimeImmutable $since): void
+    {
         $this->logger->info('Stock item cursor sync: starting', [
             'stored_cursor' => $storedCursor?->format('Y-m-d H:i:s.v'),
             'since' => $since->format('Y-m-d H:i:s.v'),
         ]);
+    }
 
-        $modifiedItems = $this->dashboardsClient->getModifiedStockItemIdsSince($since);
-
+    /**
+     * @param list<ModifiedStockItemDTO> $modifiedItems
+     *
+     * @throws AuthenticationExpiredException
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     * @throws InvalidApiRequestException
+     * @throws InvalidApiResponseException
+     * @throws ResourceNotFoundException
+     */
+    private function processModifiedItems(array $modifiedItems, DateTimeImmutable $since): void
+    {
         if ($modifiedItems === []) {
-            $this->logger->info('Stock item cursor sync: no changes since cursor', [
-                'since' => $since->format('Y-m-d H:i:s.v'),
-            ]);
+            $this->logger->info('Stock item cursor sync: no changes since cursor', ['since' => $since->format('Y-m-d H:i:s.v')]);
 
             return;
         }
 
-        // Overflow: SQL hit the TOP limit — trigger bulk sync instead of 500+ individual calls
         if (\count($modifiedItems) >= self::OVERFLOW_THRESHOLD) {
-            $this->logger->warning('Stock item cursor sync: modified items hit threshold, triggering full sync', [
-                'count' => \count($modifiedItems),
-                'threshold' => self::OVERFLOW_THRESHOLD,
-            ]);
-
-            $this->dispatcher->dispatchFullStockItemsSync();
-
-            $this->cursorRepository->updateLastSyncDate(
-                SyncCursorType::LinnworksStockItemFull,
-                new DateTimeImmutable('now'),
-            );
+            $this->handleOverflow($modifiedItems);
 
             return;
         }
 
-        // Normal path: dispatch per-item sync jobs
+        $this->dispatchAndAdvanceCursor($modifiedItems);
+    }
+
+    /**
+     * SQL hit the TOP limit — trigger bulk sync instead of 500+ individual calls.
+     *
+     * @param non-empty-list<ModifiedStockItemDTO> $modifiedItems
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    private function handleOverflow(array $modifiedItems): void
+    {
+        $this->logger->warning('Stock item cursor sync: modified items hit threshold, triggering full sync', [
+            'count' => \count($modifiedItems),
+            'threshold' => self::OVERFLOW_THRESHOLD,
+        ]);
+
+        $this->dispatcher->dispatchFullStockItemsSync();
+
+        $this->cursorRepository->updateLastSyncDate(
+            SyncCursorType::LinnworksStockItemFull,
+            new DateTimeImmutable('now'),
+        );
+    }
+
+    /**
+     * Dispatch per-item sync jobs, then advance cursor to the newest ModifiedDate.
+     *
+     * Rows ordered ASC — last element holds the newest ModifiedDate.
+     * Strict > in the SQL means next run fetches only strictly newer rows.
+     *
+     * @param non-empty-list<ModifiedStockItemDTO> $modifiedItems
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    private function dispatchAndAdvanceCursor(array $modifiedItems): void
+    {
         foreach ($modifiedItems as $item) {
             $this->dispatcher->dispatchStockItemSync($item->stockItemId);
         }
 
-        // Rows ordered ASC — last element holds the newest ModifiedDate.
-        // Strict > in the SQL means next run fetches only strictly newer rows.
-        /** @var non-empty-list<ModifiedStockItemDTO> $modifiedItems */
         $newCursor = $modifiedItems[\count($modifiedItems) - 1]->modifiedDate;
         $this->cursorRepository->updateLastSyncDate(SyncCursorType::LinnworksStockItemFull, $newCursor);
 

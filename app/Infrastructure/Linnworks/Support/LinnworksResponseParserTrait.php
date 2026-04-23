@@ -13,6 +13,7 @@ use Closure;
 use Illuminate\Support\Facades\Log;
 use Spatie\LaravelData\Data;
 use Spatie\LaravelData\Exceptions\CannotCreateData;
+use Throwable;
 
 /**
  * Shared response parsing utilities for Linnworks API clients.
@@ -44,40 +45,17 @@ trait LinnworksResponseParserTrait
     private static function parseWrappedArray(mixed $data, string $dtoClass, string $key = 'Items'): array
     {
         if (!\is_array($data)) {
-            self::logParsingFailure("Expected wrapped response with '{$key}' key", $data);
-
-            throw new InvalidApiResponseException(
-                serviceName: self::SERVICE_NAME,
-                message: "Expected wrapped response with '{$key}' key",
-            );
+            self::throwParsingFailure("Expected wrapped response with '{$key}' key", $data);
         }
 
         $items = $data[$key] ?? [];
 
         if (!\is_array($items)) {
-            self::logParsingFailure("Expected '{$key}' to be an array", $data);
-
-            throw new InvalidApiResponseException(
-                serviceName: self::SERVICE_NAME,
-                message: "Expected '{$key}' to be an array",
-            );
+            self::throwParsingFailure("Expected '{$key}' to be an array", $data);
         }
 
-        try {
-            /** @var list<T> */
-            return \array_values(\array_map(
-                static fn(mixed $item): Data => $dtoClass::from($item),
-                $items,
-            ));
-        } catch (CannotCreateData $e) {
-            self::logParsingFailure($e->getMessage(), $data);
-
-            throw new InvalidApiResponseException(
-                serviceName: self::SERVICE_NAME,
-                message: 'API returned invalid data structure',
-                previous: $e,
-            );
-        }
+        /** @var list<T> */
+        return self::mapDtosFromArray($items, $dtoClass, $data);
     }
 
     /**
@@ -96,29 +74,11 @@ trait LinnworksResponseParserTrait
     private static function parseDirectArray(mixed $data, string $dtoClass): array
     {
         if (!\is_array($data) || !\array_is_list($data)) {
-            self::logParsingFailure('Expected direct array response', $data);
-
-            throw new InvalidApiResponseException(
-                serviceName: self::SERVICE_NAME,
-                message: 'Expected direct array response',
-            );
+            self::throwParsingFailure('Expected direct array response', $data);
         }
 
-        try {
-            /** @var list<T> */
-            return \array_map(
-                static fn(mixed $item): Data => $dtoClass::from($item),
-                $data,
-            );
-        } catch (CannotCreateData $e) {
-            self::logParsingFailure($e->getMessage(), $data);
-
-            throw new InvalidApiResponseException(
-                serviceName: self::SERVICE_NAME,
-                message: 'API returned invalid data structure',
-                previous: $e,
-            );
-        }
+        /** @var list<T> */
+        return self::mapDtosFromArray($data, $dtoClass, $data);
     }
 
     /**
@@ -184,12 +144,7 @@ trait LinnworksResponseParserTrait
     private static function parseSingleToDomain(mixed $data, string $dtoClass): object
     {
         if ($data === null || !\is_array($data)) {
-            self::logParsingFailure('Expected object response', $data);
-
-            throw new InvalidApiResponseException(
-                serviceName: self::SERVICE_NAME,
-                message: 'Expected object response',
-            );
+            self::throwParsingFailure('Expected object response', $data);
         }
 
         try {
@@ -198,13 +153,7 @@ trait LinnworksResponseParserTrait
 
             return $dto->toDomain();
         } catch (CannotCreateData $e) {
-            self::logParsingFailure($e->getMessage(), $data);
-
-            throw new InvalidApiResponseException(
-                serviceName: self::SERVICE_NAME,
-                message: 'API returned invalid data structure',
-                previous: $e,
-            );
+            self::throwParsingFailure($e->getMessage(), $data, $e);
         }
     }
 
@@ -257,6 +206,52 @@ trait LinnworksResponseParserTrait
         }
 
         return $grouped;
+    }
+
+    /**
+     * Log and throw an InvalidApiResponseException.
+     *
+     * When $previous is non-null, the failure originated from Spatie DTO validation
+     * (API contract drift); the thrown message is generic and $previous is chained.
+     * Otherwise the failure is a structural guard and the message is used verbatim.
+     *
+     * @throws InvalidApiResponseException Always.
+     */
+    private static function throwParsingFailure(string $message, mixed $data, ?Throwable $previous = null): never
+    {
+        self::logParsingFailure($message, $data);
+
+        throw new InvalidApiResponseException(
+            serviceName: self::SERVICE_NAME,
+            message: $previous !== null ? 'API returned invalid data structure' : $message,
+            previous: $previous,
+        );
+    }
+
+    /**
+     * Map each item through $dtoClass::from(), translating CannotCreateData into
+     * InvalidApiResponseException. Result is always a list (re-indexed).
+     *
+     * @template T of Data
+     *
+     * @param array<array-key, mixed> $items
+     * @param class-string<T> $dtoClass
+     *
+     * @return list<T>
+     *
+     * @throws InvalidApiResponseException When any item fails DTO validation.
+     */
+    private static function mapDtosFromArray(array $items, string $dtoClass, mixed $rawData): array
+    {
+        try {
+            /** @var list<T> */
+            return \array_values(\array_map(
+                static fn(mixed $item): Data => $dtoClass::from($item),
+                $items,
+            ));
+        } catch (CannotCreateData $e) {
+            self::throwParsingFailure($e->getMessage(), $rawData, $e);
+        }
     }
 
     /**

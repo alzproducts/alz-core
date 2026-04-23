@@ -42,6 +42,22 @@ final readonly class UpdateBrandFieldsUseCase
             'field_names' => \array_keys($fields),
         ]);
 
+        $this->updateClient->update($brandId->value, ...self::buildFieldUpdates($fields));
+
+        $this->logger->info('Updated brand fields', [
+            'brand_id' => $brandId->value,
+        ]);
+    }
+
+    /**
+     * @param array<string, string> $fields
+     *
+     * @return list<BrandFieldUpdate>
+     *
+     * @throws UnsupportedFieldException When a field name is not supported
+     */
+    private static function buildFieldUpdates(array $fields): array
+    {
         $updates = [];
         foreach ($fields as $name => $value) {
             $updates[] = match ($name) {
@@ -53,10 +69,6 @@ final readonly class UpdateBrandFieldsUseCase
             };
         }
 
-        $this->updateClient->update($brandId->value, ...$updates);
-
-        $this->logger->info('Updated brand fields', [
-            'brand_id' => $brandId->value,
-        ]);
+        return $updates;
     }
 }

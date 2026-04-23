@@ -7,6 +7,7 @@ namespace App\Application\Linnworks\UseCases\PurchaseOrder;
 use App\Application\Contracts\Linnworks\PurchaseOrderClientInterface;
 use App\Application\Contracts\Linnworks\PurchaseOrderUpdateClientInterface;
 use App\Application\Linnworks\DTOs\PurchaseOrder\DesiredExtendedPropertyDTO;
+use App\Application\Linnworks\DTOs\PurchaseOrder\ExtendedPropertyChangesetDTO;
 use App\Application\Linnworks\Services\ExtendedPropertyDiffService;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
@@ -47,20 +48,33 @@ final readonly class UpdatePurchaseOrderExtendedPropertiesUseCase
         $changeset = ExtendedPropertyDiffService::diff($current, $desired);
 
         if ($changeset->isEmpty()) {
-            $this->logger->info('Extended properties already up to date', [
-                'purchase_id' => $purchaseId->value,
-            ]);
+            $this->logger->info('Extended properties already up to date', ['purchase_id' => $purchaseId->value]);
 
             return;
         }
 
-        $this->logger->info('Updating purchase order extended properties', [
-            'purchase_id' => $purchaseId->value,
-            'creating' => \count($changeset->toCreate),
-            'updating' => \count($changeset->toUpdate),
-            'deleting' => \count($changeset->toDelete),
-        ]);
+        $this->logChangeset('Updating purchase order extended properties', $purchaseId, $changeset, present: true);
+        $this->applyChangeset($purchaseId, $changeset);
+        $this->logChangeset('Updated purchase order extended properties', $purchaseId, $changeset, present: false);
+    }
 
+    private function logChangeset(string $event, Guid $purchaseId, ExtendedPropertyChangesetDTO $changeset, bool $present): void
+    {
+        $this->logger->info($event, [
+            'purchase_id' => $purchaseId->value,
+            ...self::buildChangesetCounts($changeset, $present),
+        ]);
+    }
+
+    /**
+     * @throws AuthenticationExpiredException
+     * @throws ExternalServiceUnavailableException
+     * @throws InvalidApiRequestException
+     * @throws InvalidApiResponseException
+     * @throws ResourceNotFoundException
+     */
+    private function applyChangeset(Guid $purchaseId, ExtendedPropertyChangesetDTO $changeset): void
+    {
         if ($changeset->toCreate !== []) {
             $this->writeClient->addPurchaseOrderExtendedProperties($purchaseId, $changeset->toCreate);
         }
@@ -72,12 +86,17 @@ final readonly class UpdatePurchaseOrderExtendedPropertiesUseCase
         if ($changeset->toDelete !== []) {
             $this->writeClient->deletePurchaseOrderExtendedProperties($purchaseId, $changeset->toDelete);
         }
+    }
 
-        $this->logger->info('Updated purchase order extended properties', [
-            'purchase_id' => $purchaseId->value,
-            'created' => \count($changeset->toCreate),
-            'updated' => \count($changeset->toUpdate),
-            'deleted' => \count($changeset->toDelete),
-        ]);
+    /**
+     * @return array<string, int>
+     */
+    private static function buildChangesetCounts(ExtendedPropertyChangesetDTO $changeset, bool $present): array
+    {
+        return [
+            $present ? 'creating' : 'created' => \count($changeset->toCreate),
+            $present ? 'updating' : 'updated' => \count($changeset->toUpdate),
+            $present ? 'deleting' : 'deleted' => \count($changeset->toDelete),
+        ];
     }
 }
