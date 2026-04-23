@@ -235,6 +235,9 @@ final readonly class GenerateVariantSkusUseCase
     /**
      * Process a single variation: create in Linnworks, update ShopWired.
      *
+     * LockAcquisitionException intentionally bubbles up — it indicates infrastructure
+     * problems (Redis down, stuck lock) that would affect ALL variations. Fail-fast is correct.
+     *
      * @return Sku|null The created SKU, or null on failure
      *
      * @throws LockAcquisitionException When SKU generation lock unavailable
@@ -247,27 +250,31 @@ final readonly class GenerateVariantSkusUseCase
         ]);
 
         try {
-            // Build params from variation data
             $params = $this->paramsBuilder->build($variation, $context);
-
-            // Delegate to service (handles Linnworks creation, ShopWired update, rollback)
             $sku = $this->stockItemGenerator->generate($params, $variation->id);
-
-            $this->logger->info('Variation processed successfully', [
-                'variation_id' => $variation->id,
-                'sku' => $sku->value,
-            ]);
+            $this->logVariationSuccess($variation, $sku);
 
             return $sku;
-            // Note: LockAcquisitionException intentionally bubbles up - it indicates infrastructure
-            // problems (Redis down, stuck lock) that would affect ALL variations. Fail-fast is correct.
         } catch (AbstractApiException $e) {
-            $this->logger->error('Failed to process variation', [
-                'variation_id' => $variation->id,
-                'error' => $e->getMessage(),
-            ]);
+            $this->logVariationFailure($variation, $e);
 
             return null;
         }
+    }
+
+    private function logVariationSuccess(ProductVariation $variation, Sku $sku): void
+    {
+        $this->logger->info('Variation processed successfully', [
+            'variation_id' => $variation->id,
+            'sku' => $sku->value,
+        ]);
+    }
+
+    private function logVariationFailure(ProductVariation $variation, AbstractApiException $error): void
+    {
+        $this->logger->error('Failed to process variation', [
+            'variation_id' => $variation->id,
+            'error' => $error->getMessage(),
+        ]);
     }
 }

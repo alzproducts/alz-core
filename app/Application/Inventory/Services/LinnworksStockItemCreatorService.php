@@ -18,6 +18,7 @@ use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Infrastructure\LockAcquisitionException;
 use App\Domain\Inventory\Commands\AddInventoryItemCommand;
 use App\Domain\Inventory\ValueObjects\SupplierLinkParams;
+use App\Domain\Shared\Money\ValueObjects\Money;
 use App\Domain\ValueObjects\Guid;
 use Psr\Log\LoggerInterface;
 
@@ -137,20 +138,10 @@ final readonly class LinnworksStockItemCreatorService
      */
     private function completeItemSetup(Guid $stockItemId, CreateStockItemParams $params): void
     {
-        // Link supplier (skipped when supplierId is null, e.g. --no-supplier flag)
         if ($params->supplierId !== null) {
-            $this->inventoryUpdateClient->createSupplierStat(
-                identifier: $stockItemId,
-                params: new SupplierLinkParams(
-                    supplierId: $params->supplierId,
-                    purchasePrice: $params->purchasePrice,
-                    supplierCode: $params->supplierCode,
-                    isDefault: true,
-                ),
-            );
+            $this->linkDefaultSupplier($stockItemId, $params->supplierId, $params->purchasePrice, $params->supplierCode);
         }
 
-        // Add extended properties
         foreach ($params->extendedProperties as $name => $value) {
             $this->inventoryUpdateClient->addExtendedProperty(
                 identifier: $stockItemId,
@@ -159,10 +150,29 @@ final readonly class LinnworksStockItemCreatorService
             );
         }
 
-        // Add image if provided
         if ($params->imageUrl !== null) {
             $this->inventoryUpdateClient->addImage($stockItemId, $params->imageUrl);
         }
+    }
+
+    /**
+     * @throws ResourceNotFoundException When stock item or supplier not found
+     * @throws InvalidApiRequestException When parameters invalid
+     * @throws InvalidApiResponseException When API response malformed
+     * @throws AuthenticationExpiredException When credentials invalid
+     * @throws ExternalServiceUnavailableException When API unavailable
+     */
+    private function linkDefaultSupplier(Guid $stockItemId, Guid $supplierId, ?Money $purchasePrice, ?string $supplierCode): void
+    {
+        $this->inventoryUpdateClient->createSupplierStat(
+            identifier: $stockItemId,
+            params: new SupplierLinkParams(
+                supplierId: $supplierId,
+                purchasePrice: $purchasePrice,
+                supplierCode: $supplierCode,
+                isDefault: true,
+            ),
+        );
     }
 
     /**

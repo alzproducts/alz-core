@@ -100,13 +100,6 @@ parameters:
 
 
 		-
-			rawMessage: 'Method completeItemSetup() is 28 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Application/Inventory/Services/LinnworksStockItemCreatorService.php
-
-
-		-
 			rawMessage: 'Method create() is 43 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
@@ -128,38 +121,10 @@ parameters:
 
 
 		-
-			rawMessage: 'Method processVariation() is 30 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Application/Inventory/UseCases/GenerateVariantSkusUseCase.php
-
-
-		-
 			rawMessage: 'Method execute() is 63 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Application/Inventory/UseCases/SyncDeltaStockToShopwiredUseCase.php
-
-
-		-
-			rawMessage: 'Method syncUnderLock() is 29 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Application/Inventory/UseCases/SyncDeltaStockToShopwiredUseCase.php
-
-
-		-
-			rawMessage: 'Method execute() is 39 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Application/Inventory/UseCases/SyncFullStockToShopwiredUseCase.php
-
-
-		-
-			rawMessage: 'Method syncUnderLock() is 30 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Application/Inventory/UseCases/SyncFullStockToShopwiredUseCase.php
 
 
 		-
