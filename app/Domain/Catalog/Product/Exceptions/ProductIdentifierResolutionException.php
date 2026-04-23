@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\Catalog\Product\Exceptions;
 
 use App\Domain\Exceptions\DomainException;
+use Override;
 
 /**
  * Product identifier could not be resolved to a valid product.
@@ -38,6 +39,7 @@ final class ProductIdentifierResolutionException extends DomainException
         return new self($productId, 'product_id');
     }
 
+    #[Override]
     public function context(): array
     {
         return [

@@ -20,6 +20,7 @@ use App\Infrastructure\Linnworks\Models\StockItemModel;
 use App\Infrastructure\Linnworks\Models\StockItemSupplierModel;
 use App\Infrastructure\Persistence\EloquentGateway;
 use App\Infrastructure\Repositories\AbstractEloquentRepository;
+use Override;
 
 /**
  * Eloquent implementation of Linnworks stock item repository.
@@ -47,6 +48,7 @@ final class EloquentStockItemRepository extends AbstractEloquentRepository imple
      *
      * @param StockItemFull $entity
      */
+    #[Override]
     public function save(object $entity): void
     {
         $this->eloquentGateway->transact(function () use ($entity): void {

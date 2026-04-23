@@ -10,6 +10,7 @@ use App\Infrastructure\Linnworks\Mappers\SupplierMapper;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
+use Override;
 
 /**
  * Eloquent model for linnworks.suppliers table.
@@ -50,6 +51,7 @@ final class SupplierModel extends Model implements EloquentDomainMappableInterfa
     /**
      * @return array<string, string>
      */
+    #[Override]
     protected function casts(): array
     {
         return [

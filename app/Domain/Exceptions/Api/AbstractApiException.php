@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\Exceptions\Api;
 
 use App\Domain\Exceptions\DomainException;
+use Override;
 use Throwable;
 
 /**
@@ -31,6 +32,7 @@ abstract class AbstractApiException extends DomainException
         parent::__construct($message, 0, $previous);
     }
 
+    #[Override]
     public function context(): array
     {
         return ['service_name' => $this->serviceName];

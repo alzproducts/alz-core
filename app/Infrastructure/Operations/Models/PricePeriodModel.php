@@ -8,6 +8,7 @@ use App\Domain\Operations\ValueObjects\PriceSnapshot;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
+use Override;
 
 /**
  * Eloquent model for the operations.price_periods SCD2 table.
@@ -70,6 +71,7 @@ final class PricePeriodModel extends Model
     /**
      * @return array<string, string>
      */
+    #[Override]
     protected function casts(): array
     {
         return [

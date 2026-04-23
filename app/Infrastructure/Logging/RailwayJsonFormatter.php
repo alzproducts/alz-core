@@ -7,6 +7,7 @@ namespace App\Infrastructure\Logging;
 use Monolog\Formatter\JsonFormatter;
 use Monolog\Level;
 use Monolog\LogRecord;
+use Override;
 use RuntimeException;
 
 /**
@@ -44,6 +45,7 @@ final class RailwayJsonFormatter extends JsonFormatter
     /**
      * @throws RuntimeException
      */
+    #[Override]
     public function format(LogRecord $record): string
     {
         $normalized = $this->normalizeRecord($record);

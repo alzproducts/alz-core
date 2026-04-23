@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\Exceptions\Infrastructure;
 
+use Override;
 use Throwable;
 
 /**
@@ -24,6 +25,7 @@ final class ConfigurationNotFoundException extends AbstractInfrastructureExcepti
         parent::__construct('Required configuration not found', 0, $previous);
     }
 
+    #[Override]
     public function context(): array
     {
         return ['config_name' => $this->configName];

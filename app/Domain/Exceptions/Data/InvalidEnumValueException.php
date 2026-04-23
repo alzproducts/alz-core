@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\Exceptions\Data;
 
+use Override;
 use Throwable;
 
 /**
@@ -30,6 +31,7 @@ final class InvalidEnumValueException extends AbstractDataException
         parent::__construct('Invalid enum value', 0, $previous);
     }
 
+    #[Override]
     public function context(): array
     {
         return [

@@ -36,6 +36,7 @@ use Generator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Log;
+use Override;
 
 /**
  * Eloquent implementation of ShopWired product repository.
@@ -171,6 +172,7 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      */
+    #[Override]
     public function save(object $entity): void
     {
         /** @var Product $entity */
@@ -595,6 +597,7 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
         return self::MODEL_CLASS;
     }
 
+    #[Override]
     protected function getEagerLoadRelations(): array
     {
         return self::EAGER_LOAD_RELATIONS;
@@ -634,6 +637,7 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
      * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
      * @throws MissingRequiredDataException When custom field definitions table is empty
      */
+    #[Override]
     protected function mapModelToDomain(Model $model): Product
     {
         /** @var ProductModel $model */

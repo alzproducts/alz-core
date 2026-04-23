@@ -21,7 +21,7 @@ use Closure;
 use DateTimeImmutable;
 use Mockery;
 use Mockery\MockInterface;
-use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Test;
 use Psr\Log\LoggerInterface;
 use Tests\TestCase;
@@ -34,7 +34,7 @@ use Tests\TestCase;
  * - Completion log emitted after dispatch (with submission/action IDs)
  * - Result returned with correct IDs
  */
-#[CoversClass(SubmitContactFormUseCase::class)]
+#[CoversNothing]
 final class SubmitContactFormUseCaseTest extends TestCase
 {
     private ContactSubmissionRepositoryInterface&MockInterface $submissionRepository;

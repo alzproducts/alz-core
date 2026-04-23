@@ -8,6 +8,7 @@ use App\Domain\CustomerService\ValueObjects\ConversationSnooze;
 use DateTimeInterface;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Override;
 
 /**
  * API resource for conversation snooze state.
@@ -25,6 +26,7 @@ final class SnoozeResource extends JsonResource
     /**
      * @return array<string, mixed>
      */
+    #[Override]
     public function toArray(Request $request): array
     {
         return \array_filter([

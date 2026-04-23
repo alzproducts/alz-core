@@ -7,6 +7,7 @@ namespace App\Presentation\Http\HelpScout\Resources;
 use App\Domain\CustomerService\ValueObjects\ConversationAssignee;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Override;
 
 /**
  * API resource for conversation assignees.
@@ -20,6 +21,7 @@ final class AssigneeResource extends JsonResource
     /**
      * @return array<string, mixed>
      */
+    #[Override]
     public function toArray(Request $request): array
     {
         return \array_filter([

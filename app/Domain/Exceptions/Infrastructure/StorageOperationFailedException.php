@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\Exceptions\Infrastructure;
 
+use Override;
 use Throwable;
 
 /**
@@ -25,6 +26,7 @@ final class StorageOperationFailedException extends AbstractInfrastructureExcept
         parent::__construct('Storage operation failed', previous: $previous);
     }
 
+    #[Override]
     public function context(): array
     {
         return [

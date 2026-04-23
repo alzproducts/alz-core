@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\Exceptions\Data;
 
+use Override;
 use Throwable;
 
 /**
@@ -28,6 +29,7 @@ final class MalformedFeedDataException extends AbstractDataException
         parent::__construct('Malformed feed data', previous: $previous);
     }
 
+    #[Override]
     public function context(): array
     {
         return ['feed_name' => $this->feedName, 'reason' => $this->reason];

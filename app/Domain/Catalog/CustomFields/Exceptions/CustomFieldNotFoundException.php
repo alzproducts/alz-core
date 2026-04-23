@@ -6,6 +6,7 @@ namespace App\Domain\Catalog\CustomFields\Exceptions;
 
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldItemType;
 use App\Domain\Exceptions\DomainException;
+use Override;
 use Throwable;
 
 /**
@@ -31,6 +32,7 @@ final class CustomFieldNotFoundException extends DomainException
         parent::__construct('Custom field not found in registry', previous: $previous);
     }
 
+    #[Override]
     public function context(): array
     {
         return [

@@ -38,6 +38,7 @@ final class RelatedProductsAlgorithmParamsModel extends Model implements Eloquen
     protected $guarded = [];
 
     /** @return array<string, string> */
+    #[Override]
     protected function casts(): array
     {
         return [

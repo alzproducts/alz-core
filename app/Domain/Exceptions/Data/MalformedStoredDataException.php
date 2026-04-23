@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\Exceptions\Data;
 
+use Override;
 use Throwable;
 
 /**
@@ -34,6 +35,7 @@ final class MalformedStoredDataException extends AbstractDataException
         parent::__construct('Malformed stored data', previous: $previous);
     }
 
+    #[Override]
     public function context(): array
     {
         return ['source' => $this->source, 'reason' => $this->reason];

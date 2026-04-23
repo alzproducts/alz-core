@@ -8,6 +8,7 @@ use App\Domain\CustomerService\ValueObjects\Conversation;
 use DateTimeInterface;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Override;
 
 /**
  * API resource for HelpScout conversations.
@@ -27,6 +28,7 @@ final class ConversationResource extends JsonResource
     /**
      * @return array<string, mixed>
      */
+    #[Override]
     public function toArray(Request $request): array
     {
         return \array_filter([

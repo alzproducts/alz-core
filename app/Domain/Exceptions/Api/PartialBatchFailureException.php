@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\Exceptions\Api;
 
 use App\Domain\Exceptions\DomainException;
+use Override;
 
 /**
  * Wraps multiple independent API failures from a batch operation.
@@ -28,6 +29,7 @@ final class PartialBatchFailureException extends DomainException
         parent::__construct('Partial batch failure');
     }
 
+    #[Override]
     public function context(): array
     {
         return [

@@ -6,6 +6,7 @@ namespace App\Infrastructure\Customer\Models;
 
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
+use Override;
 
 /**
  * Read-only Eloquent model for catalog.customers_view.
@@ -39,6 +40,7 @@ final class CustomerViewModel extends Model
     /**
      * @return array<string, string>
      */
+    #[Override]
     protected function casts(): array
     {
         return [

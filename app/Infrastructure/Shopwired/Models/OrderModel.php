@@ -11,6 +11,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Override;
 
 /**
  * Eloquent model for shopwired.orders table.
@@ -104,6 +105,7 @@ final class OrderModel extends Model implements EloquentDomainMappableInterface
     /**
      * @return array<string, string>
      */
+    #[Override]
     protected function casts(): array
     {
         return [

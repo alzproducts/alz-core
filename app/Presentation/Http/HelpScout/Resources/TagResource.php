@@ -7,6 +7,7 @@ namespace App\Presentation\Http\HelpScout\Resources;
 use App\Domain\CustomerService\ValueObjects\ConversationTag;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Override;
 
 /**
  * API resource for conversation tags.
@@ -21,6 +22,7 @@ final class TagResource extends JsonResource
     /**
      * @return array<string, mixed>
      */
+    #[Override]
     public function toArray(Request $request): array
     {
         return [

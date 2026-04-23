@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Override;
 
 /**
  * Eloquent model for shopwired.products table.
@@ -65,6 +66,7 @@ final class ProductModel extends Model
     /**
      * @return array<string, string>
      */
+    #[Override]
     protected function casts(): array
     {
         return [

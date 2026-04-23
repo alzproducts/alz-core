@@ -8,6 +8,7 @@ use App\Domain\Inventory\Enums\SkuUpdateReason;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
+use Override;
 
 /**
  * Eloquent model for the operations.sku_changes audit table.
@@ -52,6 +53,7 @@ final class SkuChangeModel extends Model
     /**
      * @return array<string, string>
      */
+    #[Override]
     protected function casts(): array
     {
         return [

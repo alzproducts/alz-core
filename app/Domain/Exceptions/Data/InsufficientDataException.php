@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Domain\Exceptions\Data;
 
+use Override;
+
 /**
  * Thrown when provided data is insufficient for an operation.
  *
@@ -29,6 +31,7 @@ final class InsufficientDataException extends AbstractDataException
         parent::__construct('Insufficient data for operation');
     }
 
+    #[Override]
     public function context(): array
     {
         return ['entity_type' => $this->entityType, 'requirement' => $this->requirement];

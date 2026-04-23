@@ -14,6 +14,7 @@ use App\Infrastructure\Linnworks\Models\LinnworksOrderItemModel;
 use App\Infrastructure\Linnworks\Models\LinnworksOrderModel;
 use App\Infrastructure\Repositories\AbstractEloquentRepository;
 use Illuminate\Database\Eloquent\Model;
+use Override;
 
 /**
  * Eloquent implementation of Linnworks order repository.
@@ -44,6 +45,7 @@ final class EloquentLinnworksOrderRepository extends AbstractEloquentRepository 
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      */
+    #[Override]
     public function save(object $entity): void
     {
         $this->eloquentGateway->transact(function () use ($entity): void {
