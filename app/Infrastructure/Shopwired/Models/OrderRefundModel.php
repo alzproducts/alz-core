@@ -12,6 +12,7 @@ use DateTimeImmutable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Override;
 
 /**
  * Eloquent model for shopwired.order_refunds table.
@@ -47,6 +48,7 @@ final class OrderRefundModel extends Model implements EloquentDomainMappableInte
     /**
      * @return array<string, string>
      */
+    #[Override]
     protected function casts(): array
     {
         return [

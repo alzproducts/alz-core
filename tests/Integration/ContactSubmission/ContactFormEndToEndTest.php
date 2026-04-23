@@ -37,6 +37,7 @@ use Tests\TestCase;
  */
 #[CoversClass(ProcessContactSubmissionJob::class)]
 #[Group('integration')]
+#[Group('slack')]
 final class ContactFormEndToEndTest extends TestCase
 {
     private Generator $faker;

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\Exceptions\Infrastructure;
 
+use Override;
 use Throwable;
 
 /**
@@ -22,6 +23,7 @@ final class DuplicateRecordException extends AbstractInfrastructureException
         parent::__construct('Duplicate record constraint violation', 0, $previous);
     }
 
+    #[Override]
     public function context(): array
     {
         return ['table' => $this->table, 'constraint' => $this->constraint];

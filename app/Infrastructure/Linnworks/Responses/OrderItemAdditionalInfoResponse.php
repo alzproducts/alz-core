@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Infrastructure\Linnworks\Responses;
 
 use App\Infrastructure\Linnworks\Support\PascalCaseMapper;
+use Override;
 use Spatie\LaravelData\Attributes\MapInputName;
 use Spatie\LaravelData\Data;
 
@@ -25,6 +26,7 @@ final class OrderItemAdditionalInfoResponse extends Data
     /**
      * @return array{optionId: string, property: string, value: string}
      */
+    #[Override]
     public function toArray(): array
     {
         return [

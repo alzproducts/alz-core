@@ -8,6 +8,7 @@ use App\Domain\Catalog\Category\ValueObjects\CategoryView;
 use DateTimeInterface;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Override;
 
 /**
  * API resource for CategoryView domain value object.
@@ -21,6 +22,7 @@ final class CategoryResource extends JsonResource
     /**
      * @return array<string, mixed>
      */
+    #[Override]
     public function toArray(Request $request): array
     {
         /** @var CategoryView $category */

@@ -9,6 +9,7 @@ use App\Domain\Catalog\Brand\Enums\BrandInclude;
 use App\Domain\Catalog\CustomFields\ValueObjects\AbstractCustomFieldValue;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Override;
 
 /**
  * API resource for single brand detail with conditional embeds.
@@ -23,6 +24,7 @@ final class BrandDetailResource extends JsonResource
     /**
      * @return array<string, mixed>
      */
+    #[Override]
     public function toArray(Request $request): array
     {
         /** @var GetBrandResult $result */

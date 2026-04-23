@@ -25,6 +25,7 @@ use App\Infrastructure\Shopwired\Models\OrderProductModel;
 use App\Infrastructure\Shopwired\Models\OrderRefundModel;
 use DateTimeImmutable;
 use Illuminate\Support\Collection;
+use Override;
 
 /**
  * Eloquent implementation of ShopWired order repository.
@@ -55,6 +56,7 @@ final class EloquentOrderRepository extends AbstractEloquentRepository implement
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      */
+    #[Override]
     public function save(object $entity): void
     {
         /** @var Order $entity */
@@ -335,6 +337,7 @@ final class EloquentOrderRepository extends AbstractEloquentRepository implement
     /**
      * {@inheritDoc}
      */
+    #[Override]
     protected function getEagerLoadRelations(): array
     {
         return self::EAGER_LOAD_RELATIONS;

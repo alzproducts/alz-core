@@ -8,6 +8,7 @@ use App\Infrastructure\Linnworks\Models\StockItemModel;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Override;
 
 /**
  * Read-only Eloquent model for catalog.product_variations_view.
@@ -57,6 +58,7 @@ final class ProductVariationViewModel extends Model
     /**
      * @return array<string, string>
      */
+    #[Override]
     protected function casts(): array
     {
         return [

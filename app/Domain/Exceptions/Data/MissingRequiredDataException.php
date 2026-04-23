@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\Exceptions\Data;
 
+use Override;
 use Throwable;
 
 /**
@@ -35,6 +36,7 @@ final class MissingRequiredDataException extends AbstractDataException
         parent::__construct('Required data not available', previous: $previous);
     }
 
+    #[Override]
     public function context(): array
     {
         return \array_filter([

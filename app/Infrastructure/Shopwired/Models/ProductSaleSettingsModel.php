@@ -9,6 +9,7 @@ use App\Infrastructure\Contracts\EloquentDomainMappableInterface;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
+use Override;
 
 /**
  * Eloquent model for shopwired.product_sale_settings table.
@@ -40,6 +41,7 @@ final class ProductSaleSettingsModel extends Model implements EloquentDomainMapp
     /**
      * @return array<string, string>
      */
+    #[Override]
     protected function casts(): array
     {
         return [

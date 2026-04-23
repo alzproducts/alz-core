@@ -6,6 +6,7 @@ namespace App\Domain\Linnworks\Exceptions;
 
 use App\Domain\Exceptions\DomainException;
 use App\Domain\Linnworks\Enums\PurchaseOrderStatus;
+use Override;
 
 /**
  * Thrown when attempting an invalid PO status transition.
@@ -22,6 +23,7 @@ final class InvalidPurchaseOrderStatusTransitionException extends DomainExceptio
         parent::__construct('Invalid purchase order status transition');
     }
 
+    #[Override]
     public function context(): array
     {
         return ['from' => $this->from->value, 'to' => $this->to->value];

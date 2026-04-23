@@ -10,6 +10,7 @@ use App\Domain\ValueObjects\IntId;
 use DateTimeInterface;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Override;
 
 /**
  * API resource for ProductView domain value object.
@@ -25,6 +26,7 @@ final class ProductResource extends JsonResource
     /**
      * @return array<string, mixed>
      */
+    #[Override]
     public function toArray(Request $request): array
     {
         /** @var ProductView $product */

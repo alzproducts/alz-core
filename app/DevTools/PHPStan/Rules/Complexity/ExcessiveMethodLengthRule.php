@@ -57,6 +57,7 @@ final class ExcessiveMethodLengthRule implements Rule
         'provides',
         'casts',
         'attributesFromDomain',
+        'toArray',
     ];
 
     public function getNodeType(): string
@@ -156,6 +157,15 @@ final class ExcessiveMethodLengthRule implements Rule
 
         if ($startLine === -1 || $endLine === -1) {
             return null;
+        }
+
+        // Attributes count toward the node's start line but are metadata, not body.
+        // Skip past the last attribute group so length reflects the method body only.
+        foreach ($node->attrGroups as $attrGroup) {
+            $attrEndLine = $attrGroup->getEndLine();
+            if ($attrEndLine !== -1 && $attrEndLine + 1 > $startLine) {
+                $startLine = $attrEndLine + 1;
+            }
         }
 
         return $endLine - $startLine;
