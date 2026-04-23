@@ -128,6 +128,28 @@ final class VariationPriceResolverTest extends TestCase
         self::assertNull($result->costPrice);
     }
 
+    #[Test]
+    public function it_returns_null_cost_price_when_parent_is_negative_one_sentinel(): void
+    {
+        // Parent's cost price of -1.0 is ShopWired's "not set" sentinel — must be normalized
+        // before inheritance, otherwise the sentinel leaks into ResolvedVariationPrices and
+        // trips its `greaterThan($costPrice, 0)` assertion.
+        $variation = self::createVariation(costPrice: null);
+        $result = $this->resolver->resolve($variation, parentPrice: 29.99, parentCostPrice: -1.0, parentSalePrice: null);
+
+        self::assertNull($result->costPrice);
+    }
+
+    #[Test]
+    public function it_returns_null_cost_price_when_parent_is_zero(): void
+    {
+        // 0.00 is never a valid cost price; normalize parent to null before inheritance.
+        $variation = self::createVariation(costPrice: null);
+        $result = $this->resolver->resolve($variation, parentPrice: 29.99, parentCostPrice: 0.0, parentSalePrice: null);
+
+        self::assertNull($result->costPrice);
+    }
+
     /*
     |--------------------------------------------------------------------------
     | Sale Price Resolution Tests
@@ -207,6 +229,9 @@ final class VariationPriceResolverTest extends TestCase
             '-1 sentinel inherits parent' => ['variationCost' => -1.0, 'parentCost' => 15.00, 'expected' => 15.00],
             'zero becomes null' => ['variationCost' => 0.0, 'parentCost' => 15.00, 'expected' => null],
             'null with null parent' => ['variationCost' => null, 'parentCost' => null, 'expected' => null],
+            'parent -1 sentinel normalises to null' => ['variationCost' => null, 'parentCost' => -1.0, 'expected' => null],
+            'parent zero normalises to null' => ['variationCost' => null, 'parentCost' => 0.0, 'expected' => null],
+            'variation -1 with parent -1 both null' => ['variationCost' => -1.0, 'parentCost' => -1.0, 'expected' => null],
         ];
     }
 
