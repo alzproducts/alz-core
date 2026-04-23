@@ -196,41 +196,14 @@ final readonly class LinnworksHttpTransport implements LinnworksTransportInterfa
      */
     private function executeWithAuthRetry(Closure $request, string $endpoint): Response
     {
-        try {
-            $session = $this->sessionManager->getSession();
-        } catch (DateMalformedStringException $e) {
-            // Session data from Linnworks API has malformed date - API contract violation
-            Log::critical(self::SERVICE_NAME . ' session contains malformed date', [
-                'error' => $e->getMessage(),
-            ]);
-
-            throw new InvalidApiResponseException(
-                self::SERVICE_NAME,
-                'Session response contains malformed date: ' . $e->getMessage(),
-                $e,
-            );
-        }
+        $session = $this->fetchSession();
 
         try {
             return $request($session);
         } catch (RequestException $e) {
             if ($e->response->status() === 401) {
-                // Invalidate and retry once
                 $this->sessionManager->invalidate();
-
-                try {
-                    $session = $this->sessionManager->getSession();
-                } catch (DateMalformedStringException $dateException) {
-                    Log::critical(self::SERVICE_NAME . ' session contains malformed date after refresh', [
-                        'error' => $dateException->getMessage(),
-                    ]);
-
-                    throw new InvalidApiResponseException(
-                        self::SERVICE_NAME,
-                        'Session response contains malformed date: ' . $dateException->getMessage(),
-                        $dateException,
-                    );
-                }
+                $session = $this->fetchSession();
 
                 try {
                     return $request($session);
@@ -244,6 +217,30 @@ final readonly class LinnworksHttpTransport implements LinnworksTransportInterfa
             throw LinnworksErrorHandler::handleConnectionException($e);
         } catch (Exception $e) {
             throw LinnworksErrorHandler::handleUnexpectedException($e);
+        }
+    }
+
+    /**
+     * Fetch a valid session, translating malformed-date errors into an API-contract violation.
+     *
+     * @throws InvalidApiResponseException When session payload contains a malformed date
+     * @throws AuthenticationExpiredException When credentials are invalid
+     * @throws ExternalServiceUnavailableException When auth endpoint unavailable
+     */
+    private function fetchSession(): LinnworksSession
+    {
+        try {
+            return $this->sessionManager->getSession();
+        } catch (DateMalformedStringException $e) {
+            Log::critical(self::SERVICE_NAME . ' session contains malformed date', [
+                'error' => $e->getMessage(),
+            ]);
+
+            throw new InvalidApiResponseException(
+                self::SERVICE_NAME,
+                'Session response contains malformed date: ' . $e->getMessage(),
+                $e,
+            );
         }
     }
 

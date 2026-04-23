@@ -68,22 +68,32 @@ final readonly class SyncLinnworksCursorUseCase
         ]);
 
         $result = $this->ordersUseCase->execute($fromDate);
-
-        // Advance cursor if we received orders
-        if ($result->latestLastUpdated !== null) {
-            $this->cursorRepository->updateLastSyncDate(
-                SyncCursorType::LinnworksOrdersCursor,
-                $result->latestLastUpdated,
-            );
-
-            $this->logger->info('Linnworks cursor order sync: cursor advanced', [
-                'new_cursor' => $result->latestLastUpdated->format('Y-m-d H:i:s'),
-                'fetched' => $result->fetched,
-                'saved' => $result->saved,
-            ]);
-        }
+        $this->advanceCursorIfReceived($result);
 
         return $result;
+    }
+
+    /**
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    private function advanceCursorIfReceived(SyncResult $result): void
+    {
+        if ($result->latestLastUpdated === null) {
+            return;
+        }
+
+        $this->cursorRepository->updateLastSyncDate(
+            SyncCursorType::LinnworksOrdersCursor,
+            $result->latestLastUpdated,
+        );
+
+        $this->logger->info('Linnworks cursor order sync: cursor advanced', [
+            'new_cursor' => $result->latestLastUpdated->format('Y-m-d H:i:s'),
+            'fetched' => $result->fetched,
+            'saved' => $result->saved,
+        ]);
     }
 
     /**

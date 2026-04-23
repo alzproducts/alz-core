@@ -44,7 +44,8 @@ final readonly class BingAdsConfig
      * @param int $reportPollIntervalSeconds Seconds between report status polls (1-120)
      * @param int $reportPollMaxAttempts Maximum report poll attempts before timeout (1-100)
      *
-     * @throws InvalidArgumentException When parameters are invalid
+     * @throws InvalidConfigurationException When a required string is empty
+     * @throws InvalidArgumentException When environment or range parameters are invalid
      */
     public function __construct(
         public string $clientId,
@@ -57,31 +58,37 @@ final readonly class BingAdsConfig
         public int $reportPollIntervalSeconds = 10,
         public int $reportPollMaxAttempts = 30,
     ) {
-        if ($clientId === '') {
-            throw new InvalidConfigurationException('bing-ads.client_id', 'Bing Ads client ID cannot be empty');
-        }
+        self::validateRequiredStrings([
+            'bing-ads.client_id' => [$clientId, 'Bing Ads client ID cannot be empty'],
+            'bing-ads.client_secret' => [$clientSecret, 'Bing Ads client secret cannot be empty'],
+            'bing-ads.refresh_token' => [$refreshToken, 'Bing Ads refresh token cannot be empty'],
+            'bing-ads.developer_token' => [$developerToken, 'Bing Ads developer token cannot be empty'],
+            'bing-ads.account_id' => [$accountId, 'Bing Ads account ID cannot be empty'],
+            'bing-ads.customer_id' => [$customerId, 'Bing Ads customer ID cannot be empty'],
+        ]);
+        self::validateRanges($environment, $reportPollIntervalSeconds, $reportPollMaxAttempts);
+    }
 
-        if ($clientSecret === '') {
-            throw new InvalidConfigurationException('bing-ads.client_secret', 'Bing Ads client secret cannot be empty');
+    /**
+     * @param array<string, array{string, string}> $fields keyed by config key; value is [configValue, errorMessage]
+     *
+     * @throws InvalidConfigurationException
+     */
+    private static function validateRequiredStrings(array $fields): void
+    {
+        foreach ($fields as $configKey => [$value, $message]) {
+            if ($value === '') {
+                throw new InvalidConfigurationException($configKey, $message);
+            }
         }
+    }
 
-        if ($refreshToken === '') {
-            throw new InvalidConfigurationException('bing-ads.refresh_token', 'Bing Ads refresh token cannot be empty');
-        }
-
-        if ($developerToken === '') {
-            throw new InvalidConfigurationException('bing-ads.developer_token', 'Bing Ads developer token cannot be empty');
-        }
-
-        if ($accountId === '') {
-            throw new InvalidConfigurationException('bing-ads.account_id', 'Bing Ads account ID cannot be empty');
-        }
-
-        if ($customerId === '') {
-            throw new InvalidConfigurationException('bing-ads.customer_id', 'Bing Ads customer ID cannot be empty');
-        }
-
-        if (!\in_array($environment, ['Production', 'Sandbox'], true)) {
+    /**
+     * @throws InvalidArgumentException
+     */
+    private static function validateRanges(string $environment, int $reportPollIntervalSeconds, int $reportPollMaxAttempts): void
+    {
+        if (! \in_array($environment, ['Production', 'Sandbox'], true)) {
             throw new InvalidArgumentException(
                 \sprintf("Bing Ads environment must be 'Production' or 'Sandbox', got '%s'", $environment),
             );

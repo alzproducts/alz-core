@@ -37,32 +37,47 @@ final readonly class Gtin
      */
     public static function fromString(string $value): self
     {
-        // Remove any whitespace or dashes
+        $normalized = self::normalize($value);
+        self::assertDigitsAndLength($normalized, $value);
+
+        if (!self::isValidCheckDigit($normalized)) {
+            throw new InvalidGtinException($value, 'invalid check digit');
+        }
+
+        return new self($normalized);
+    }
+
+    /**
+     * Strip whitespace and dashes, then verify the result is a string.
+     *
+     * @throws InvalidGtinException When normalization returns a non-string
+     */
+    private static function normalize(string $value): string
+    {
         $normalized = \preg_replace('/[\s\-]/', '', $value);
 
         if (!\is_string($normalized)) {
             throw new InvalidGtinException($value, 'normalization failed');
         }
 
-        // Must be digits only
+        return $normalized;
+    }
+
+    /**
+     * @throws InvalidGtinException When the string is non-digit or the length is not one of VALID_LENGTHS
+     */
+    private static function assertDigitsAndLength(string $normalized, string $original): void
+    {
         if (\preg_match('/^\d+$/', $normalized) !== 1) {
-            throw new InvalidGtinException($value, 'must contain only digits');
+            throw new InvalidGtinException($original, 'must contain only digits');
         }
 
-        // Must be valid length
         if (!\in_array(\mb_strlen($normalized), self::VALID_LENGTHS, true)) {
             throw new InvalidGtinException(
-                $value,
+                $original,
                 \sprintf('must be %s digits, got %d', \implode('/', self::VALID_LENGTHS), \mb_strlen($normalized)),
             );
         }
-
-        // Validate check digit
-        if (!self::isValidCheckDigit($normalized)) {
-            throw new InvalidGtinException($value, 'invalid check digit');
-        }
-
-        return new self($normalized);
     }
 
     /**

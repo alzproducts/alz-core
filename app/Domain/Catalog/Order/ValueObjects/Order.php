@@ -177,26 +177,34 @@ final readonly class Order
      */
     public static function extractCustomerReferenceNumber(string $comments): ?string
     {
-        if ($comments === '') {
+        if ($comments === '' || self::isStructuredComment($comments)) {
             return null;
         }
 
-        // Exclude structured comments (contain delimiters)
-        if (\str_contains($comments, self::COMMENT_DELIM_OLD)
-            || \str_contains($comments, self::COMMENT_DELIM_NEW)) {
-            return null;
-        }
-
-        // Case-insensitive search for "reference "
         $pos = \mb_stripos($comments, 'reference ');
         if ($pos === false) {
             return null;
         }
 
-        // Extract from after "Reference " until end of line (not end of string)
-        $afterReference = \mb_substr($comments, $pos + 10);
+        return self::extractReferenceAfterPosition($comments, $pos);
+    }
 
-        // Find first newline to stop extraction
+    /**
+     * Structured comments use reserved delimiters and never contain plain "reference NNN" text.
+     */
+    private static function isStructuredComment(string $comments): bool
+    {
+        return \str_contains($comments, self::COMMENT_DELIM_OLD)
+            || \str_contains($comments, self::COMMENT_DELIM_NEW);
+    }
+
+    /**
+     * Extract the reference value starting 10 chars after the "reference " match,
+     * terminating at the first newline. Truncated to 255 chars (DB column limit).
+     */
+    private static function extractReferenceAfterPosition(string $comments, int $pos): ?string
+    {
+        $afterReference = \mb_substr($comments, $pos + 10);
         $newlinePos = \mb_strpos($afterReference, "\n");
         $reference = $newlinePos !== false
             ? \mb_substr($afterReference, 0, $newlinePos)
@@ -208,7 +216,6 @@ final readonly class Order
             return null;
         }
 
-        // Truncate to 255 chars (database column limit)
         return \mb_substr($reference, 0, 255);
     }
 }

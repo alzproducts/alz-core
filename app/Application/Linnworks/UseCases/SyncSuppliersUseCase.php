@@ -6,6 +6,7 @@ namespace App\Application\Linnworks\UseCases;
 
 use App\Application\Contracts\Linnworks\InventoryClientInterface;
 use App\Application\Contracts\Linnworks\SupplierRepositoryInterface;
+use App\Application\Results\SaveManyResult;
 use App\Application\Results\SyncResult;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
@@ -59,14 +60,60 @@ final readonly class SyncSuppliersUseCase
         }
 
         $saveResult = $this->supplierRepository->saveSuppliersBulk($suppliers);
+        $this->logSaveFailuresIfAny($saveResult);
 
-        if ($saveResult->hasFailures()) {
-            $this->logger->error('Failed to save some suppliers to database', [
-                'failed_count' => $saveResult->failed,
-                'failed_ids' => $saveResult->failedReferences,
-            ]);
+        $deleted = $this->reconcileStaleSuppliers($suppliers);
+        $this->logCompletion($fetched, $saveResult, $deleted);
+
+        return self::buildSyncResult($fetched, $saveResult);
+    }
+
+    private function logCompletion(int $fetched, SaveManyResult $saveResult, int $deleted): void
+    {
+        $this->logger->info('Supplier directory sync completed', [
+            'fetched' => $fetched,
+            'saved' => $saveResult->succeeded,
+            'failed' => $saveResult->failed,
+            'deleted' => $deleted,
+        ]);
+    }
+
+    /**
+     * @param int<0, max> $fetched
+     */
+    private static function buildSyncResult(int $fetched, SaveManyResult $saveResult): SyncResult
+    {
+        return new SyncResult(
+            fetched: $fetched,
+            saved: $saveResult->succeeded,
+            failed: $saveResult->failed,
+            failedReferences: $saveResult->failedReferences,
+        );
+    }
+
+    private function logSaveFailuresIfAny(SaveManyResult $saveResult): void
+    {
+        if (!$saveResult->hasFailures()) {
+            return;
         }
 
+        $this->logger->error('Failed to save some suppliers to database', [
+            'failed_count' => $saveResult->failed,
+            'failed_ids' => $saveResult->failedReferences,
+        ]);
+    }
+
+    /**
+     * Delete stale supplier rows not present in the freshly-fetched list, and log the count.
+     *
+     * @param list<Supplier> $suppliers
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    private function reconcileStaleSuppliers(array $suppliers): int
+    {
         $pkSupplierIds = \array_map(
             static fn(Supplier $supplier): string => $supplier->pkSupplierId,
             $suppliers,
@@ -75,23 +122,9 @@ final readonly class SyncSuppliersUseCase
         $deleted = $this->supplierRepository->deleteWhereNotIn($pkSupplierIds);
 
         if ($deleted > 0) {
-            $this->logger->info('Reconciled stale suppliers', [
-                'deleted' => $deleted,
-            ]);
+            $this->logger->info('Reconciled stale suppliers', ['deleted' => $deleted]);
         }
 
-        $this->logger->info('Supplier directory sync completed', [
-            'fetched' => $fetched,
-            'saved' => $saveResult->succeeded,
-            'failed' => $saveResult->failed,
-            'deleted' => $deleted,
-        ]);
-
-        return new SyncResult(
-            fetched: $fetched,
-            saved: $saveResult->succeeded,
-            failed: $saveResult->failed,
-            failedReferences: $saveResult->failedReferences,
-        );
+        return $deleted;
     }
 }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Catalog\Product\Models;
 
+use App\Domain\Catalog\Product\ValueObjects\Product;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
@@ -112,5 +113,44 @@ final class ProductModel extends Model
     public function extraData(): HasOne
     {
         return $this->hasOne(ProductExtraDataModel::class, 'sku', 'sku');
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Domain → Attributes
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Convert Domain Product to core scalar attributes (no embeds, no PK).
+     *
+     * Embed-dependent columns (vat_relief, category_ids, images, custom_fields,
+     * filters) are written by the mapper — full save always, webhook save only
+     * when the embed was present in the payload.
+     *
+     * @return array<string, mixed>
+     */
+    public static function attributesFromDomain(Product $product): array
+    {
+        return [
+            'external_id' => $product->id,
+            'sku' => $product->sku,
+            'gtin' => $product->gtin?->value,
+            'title' => $product->title,
+            'description' => $product->description,
+            'slug' => $product->slug,
+            'url' => $product->url,
+            'price' => $product->price,
+            'cost_price' => $product->costPrice,
+            'sale_price' => $product->salePrice,
+            'compare_price' => $product->comparePrice,
+            'stock' => $product->stock,
+            'is_active' => $product->isActive,
+            'vat_exclusive' => $product->vatExclusive,
+            'weight' => $product->weight,
+            'meta_title' => $product->metaTitle,
+            'meta_description' => $product->metaDescription,
+            'sort_order' => $product->sortOrder,
+            'shopwired_created_at' => $product->createdAt,
+            'shopwired_updated_at' => $product->updatedAt,
+        ];
     }
 }

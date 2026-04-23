@@ -48,20 +48,10 @@ final readonly class VariationPriceResolver
         ?float $parentCostPrice,
         ?float $parentSalePrice,
     ): ResolvedVariationPrices {
-        // Price: variation → parent (parent always has a price)
-        $price = $variation->price ?? $parentPrice;
-
-        // Cost price: special handling for ShopWired sentinel values
-        // -1.0 = inherit from parent, 0.00 = unknown/null, > 0 = valid cost
-        $costPrice = $this->resolveCostPrice($variation->costPrice, $parentCostPrice);
-
-        // Sale price: variation → parent (both can be null = no sale)
-        $salePrice = $variation->salePrice ?? $parentSalePrice;
-
         return new ResolvedVariationPrices(
-            price: $price,
-            costPrice: $costPrice,
-            salePrice: $salePrice,
+            price: $variation->price ?? $parentPrice,
+            costPrice: $this->resolveCostPrice($variation->costPrice, $parentCostPrice),
+            salePrice: $variation->salePrice ?? $parentSalePrice,
         );
     }
 

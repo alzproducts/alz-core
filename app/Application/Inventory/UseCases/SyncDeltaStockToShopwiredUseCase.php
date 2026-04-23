@@ -200,15 +200,31 @@ final readonly class SyncDeltaStockToShopwiredUseCase
             return ['toUpdate' => [], 'result' => null];
         }
 
+        $result = $this->applyStockDiff($toUpdate);
+
+        return ['toUpdate' => $toUpdate, 'result' => $result];
+    }
+
+    /**
+     * Push diff to ShopWired, update local DB for successes, rethrow first transport failure.
+     *
+     * The job will retry; only items from failed batches will still appear as diffs.
+     *
+     * @param list<ItemStockLevel> $toUpdate
+     *
+     * @throws AbstractApiException Re-thrown from partial batch transport failure
+     * @throws InvalidApiResponseException
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     */
+    private function applyStockDiff(array $toUpdate): StockUpdateResult
+    {
         $result = $this->shopwiredClient->updateStockQuantity($toUpdate);
 
-        // Always update local DB for items that made it through
         if ($result->pushed !== []) {
             $this->stockRepository->updateStockLevels($result->pushed);
         }
 
-        // Re-throw first transport failure after local DB is updated — job will retry
-        // and only items from failed batches will still appear as diffs.
         if ($result->transportFailures !== []) {
             $this->logger->warning('Delta stock sync: batch transport failure, local DB updated for pushed items', [
                 'pushed_count' => \count($result->pushed),
@@ -219,7 +235,7 @@ final readonly class SyncDeltaStockToShopwiredUseCase
             throw $result->transportFailures[0];
         }
 
-        return ['toUpdate' => $toUpdate, 'result' => $result];
+        return $result;
     }
 
     /**

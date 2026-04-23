@@ -84,20 +84,28 @@ final readonly class PurchaseOrderItemsBatchQuery extends AbstractLinnworksQuery
 
         foreach ($response->results as $row) {
             $parsed = PurchaseOrderItemsBatchRow::from($row);
-            $grouped[$parsed->fkPurchasId][] = new PurchaseOrderItem(
-                pkPurchaseItemId: Guid::fromTrusted($parsed->pkPurchaseItemId),
-                fkStockItemId: Guid::fromTrusted($parsed->fkStockItemId),
-                quantity: (int) $parsed->Quantity,
-                delivered: (int) $parsed->Delivered,
-                packQuantity: (int) $parsed->PackQuantity,
-                packSize: (int) $parsed->PackSize,
-                cost: (float) $parsed->Cost,
-                tax: (float) $parsed->Tax,
-                taxRate: (float) $parsed->TaxRate < 0 ? null : TaxRate::fromPercentage((float) $parsed->TaxRate), // -1 means "not set"
-                sortOrder: (int) $parsed->SortOrder,
-            );
+            $grouped[$parsed->fkPurchasId][] = self::mapRowToItem($parsed);
         }
 
         return $grouped;
+    }
+
+    private static function mapRowToItem(PurchaseOrderItemsBatchRow $row): PurchaseOrderItem
+    {
+        // Linnworks uses -1 to signal "tax rate not set".
+        $taxRateValue = (float) $row->TaxRate;
+
+        return new PurchaseOrderItem(
+            pkPurchaseItemId: Guid::fromTrusted($row->pkPurchaseItemId),
+            fkStockItemId: Guid::fromTrusted($row->fkStockItemId),
+            quantity: (int) $row->Quantity,
+            delivered: (int) $row->Delivered,
+            packQuantity: (int) $row->PackQuantity,
+            packSize: (int) $row->PackSize,
+            cost: (float) $row->Cost,
+            tax: (float) $row->Tax,
+            taxRate: $taxRateValue < 0 ? null : TaxRate::fromPercentage($taxRateValue),
+            sortOrder: (int) $row->SortOrder,
+        );
     }
 }
