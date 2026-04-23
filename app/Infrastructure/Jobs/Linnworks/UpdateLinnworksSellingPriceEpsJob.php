@@ -13,6 +13,7 @@ use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
+use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Inventory\Enums\ExtendedPropertyName;
@@ -73,7 +74,8 @@ final class UpdateLinnworksSellingPriceEpsJob implements ShouldQueue
     }
 
     /**
-     * @throws ResourceNotFoundException When product not found in DB or stock item not found
+     * @throws RecordNotFoundException When product not found in local DB
+     * @throws ResourceNotFoundException When stock item not found in Linnworks
      * @throws InvalidCustomFieldValueException When custom field mapping fails
      * @throws DatabaseOperationFailedException On DB query failure
      * @throws InvalidApiRequestException When parameters invalid

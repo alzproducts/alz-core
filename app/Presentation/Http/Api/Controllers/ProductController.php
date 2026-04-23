@@ -12,6 +12,7 @@ use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\CustomFields\ValueObjects\AbstractCustomFieldValue;
 use App\Domain\Catalog\Product\Enums\ProductInclude;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Data\InvalidEnumValueException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
@@ -69,6 +70,7 @@ final readonly class ProductController
      * @throws DatabaseOperationFailedException On query failure
      * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
+     * @throws RecordNotFoundException When product row not found in database
      * @throws InvalidEnumValueException
      */
     public function show(int $productId, ShowProductRequestDTO $data): ProductDetailResource
@@ -91,6 +93,7 @@ final readonly class ProductController
      * @throws DatabaseOperationFailedException On query failure
      * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
+     * @throws RecordNotFoundException When product row not found in database
      */
     public function customFields(int $productId, GetProductCustomFieldsRequestDTO $data): JsonResponse
     {

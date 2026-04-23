@@ -10,6 +10,7 @@ use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Application\Contracts\Shopwired\ShopwiredSyncDispatcherInterface;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Data\MissingRequiredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
@@ -34,6 +35,7 @@ final readonly class SyncBestSellersCategoryUseCase
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
+     * @throws RecordNotFoundException When the category row is not found in database
      * @throws InvalidCustomFieldValueException
      * @throws MissingRequiredDataException
      */
@@ -63,6 +65,7 @@ final readonly class SyncBestSellersCategoryUseCase
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
+     * @throws RecordNotFoundException
      * @throws InvalidCustomFieldValueException
      * @throws MissingRequiredDataException
      */

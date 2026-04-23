@@ -21,6 +21,7 @@ use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
+use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Api\ResourceNotAvailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
@@ -65,6 +66,7 @@ final readonly class GenerateVariantSkusUseCase
      *
      * @throws ResourceNotAvailableException When product not found in ShopWired
      * @throws ResourceNotFoundException When template not found in Linnworks
+     * @throws RecordNotFoundException When standard sign product not found in local DB
      * @throws AuthenticationExpiredException When credentials invalid
      * @throws ExternalServiceUnavailableException When APIs unavailable
      * @throws InvalidApiRequestException When request parameters invalid
@@ -198,7 +200,7 @@ final readonly class GenerateVariantSkusUseCase
      *
      * @return list<ProductVariation>
      *
-     * @throws ResourceNotFoundException When standard sign product not found in local DB
+     * @throws RecordNotFoundException When standard sign product not found in local DB
      * @throws ExternalServiceUnavailableException When ShopWired API unavailable
      * @throws DatabaseOperationFailedException When local DB query fails
      * @throws InvalidCustomFieldValueException When product custom fields invalid

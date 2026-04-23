@@ -17,6 +17,7 @@ use App\Application\Shopwired\UseCases\Webhooks\UpdateOrderStatusUseCase;
 use App\Domain\Catalog\Order\Enums\OrderWebhookIntent;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
+use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Data\InvalidEnumValueException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
@@ -44,6 +45,7 @@ final readonly class HandleOrderWebhookService
      * @throws InvalidApiResponseException
      * @throws InvalidEnumValueException
      * @throws ExternalServiceUnavailableException
+     * @throws RecordNotFoundException When order row not found in database
      * @throws ResourceNotFoundException
      */
     public function execute(RawWebhookPayloadDTO $payload): void
@@ -92,6 +94,7 @@ final readonly class HandleOrderWebhookService
      * @throws DatabaseOperationFailedException
      * @throws ExternalServiceUnavailableException
      * @throws InvalidApiResponseException
+     * @throws RecordNotFoundException When order row not found in database
      * @throws ResourceNotFoundException
      */
     private function handleRefundCreated(WebhookContextDTO $context, array $data): void
