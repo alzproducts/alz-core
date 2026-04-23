@@ -14,6 +14,7 @@ use App\Domain\ContactSubmission\ValueObjects\ContactSubmission;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use Psr\Log\LoggerInterface;
 
 /**
  * Orchestrates contact form submission persistence and async processing.
@@ -31,6 +32,7 @@ final readonly class SubmitContactFormUseCase
         private ContactSubmissionActionRepositoryInterface $actionRepository,
         private DatabaseGatewayInterface $database,
         private ContactFormDispatcherInterface $dispatcher,
+        private LoggerInterface $logger,
     ) {}
 
     /**
@@ -45,7 +47,37 @@ final readonly class SubmitContactFormUseCase
      */
     public function execute(ContactSubmission $submission): SubmitContactFormResult
     {
-        $result = $this->database->transact(function () use ($submission): SubmitContactFormResult {
+        $this->logSubmissionReceived($submission);
+
+        $result = $this->persistAndCreateAction($submission);
+
+        $this->dispatcher->dispatchContactSubmissionProcessing($result->submissionId, $result->actionId);
+
+        $this->logSubmissionDispatched($result);
+
+        return $result;
+    }
+
+    private function logSubmissionReceived(ContactSubmission $submission): void
+    {
+        $this->logger->info('Contact submission received', [
+            'reason' => $submission->form->reason->value,
+            'email_hash' => \hash('sha256', $submission->form->email),
+            'has_phone' => $submission->form->phone !== null,
+            'has_order_number' => $submission->form->orderNumber !== null,
+            'has_product_context' => $submission->product !== null,
+            'has_shopwired_customer_id' => $submission->shopwiredCustomerId !== null,
+        ]);
+    }
+
+    /**
+     * @throws DatabaseOperationFailedException On insert failure (permanent)
+     * @throws DuplicateRecordException On unique constraint violation (permanent)
+     * @throws ExternalServiceUnavailableException On transient database failure (retry)
+     */
+    private function persistAndCreateAction(ContactSubmission $submission): SubmitContactFormResult
+    {
+        return $this->database->transact(function () use ($submission): SubmitContactFormResult {
             $submissionId = $this->submissionRepository->save($submission);
 
             $actionId = $this->actionRepository->create(
@@ -58,9 +90,13 @@ final readonly class SubmitContactFormUseCase
                 actionId: $actionId,
             );
         });
+    }
 
-        $this->dispatcher->dispatchContactSubmissionProcessing($result->submissionId, $result->actionId);
-
-        return $result;
+    private function logSubmissionDispatched(SubmitContactFormResult $result): void
+    {
+        $this->logger->info('Contact submission persisted and dispatched', [
+            'submission_id' => $result->submissionId,
+            'action_id' => $result->actionId,
+        ]);
     }
 }

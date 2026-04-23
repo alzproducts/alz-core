@@ -79,7 +79,7 @@ final class ProcessContactSubmissionUseCaseTest extends TestCase
         $this->helpScoutClient = Mockery::mock(ConversationWriteClientInterface::class);
         $this->transformer = Mockery::mock(ContactSubmissionToConversationCommandTransformer::class);
         $this->emailValidator = Mockery::mock(EmailValidationServiceInterface::class);
-        $this->logger = Mockery::mock(LoggerInterface::class);
+        $this->logger = Mockery::mock(LoggerInterface::class)->shouldIgnoreMissing();
 
         $this->useCase = new ProcessContactSubmissionUseCase(
             submissionRepository: $this->submissionRepository,
