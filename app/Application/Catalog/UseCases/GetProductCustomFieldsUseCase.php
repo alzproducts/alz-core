@@ -46,10 +46,7 @@ final readonly class GetProductCustomFieldsUseCase
      */
     public function execute(int $productId, array $fieldNames = []): array
     {
-        $this->logger->info('Getting product custom fields', [
-            'product_id' => $productId,
-            'field_filter' => $fieldNames,
-        ]);
+        $this->logStart($productId, $fieldNames);
 
         $product = $this->productRepository->findDetailedProductView(
             IntId::from($productId),
@@ -58,20 +55,47 @@ final readonly class GetProductCustomFieldsUseCase
 
         $definitions = $this->customFieldRepository->findByItemType(CustomFieldItemType::Product);
         $fields = CustomFieldMergerService::mergeWithDefinitions($product->customFields, $definitions);
+        $fields = self::filterByNames($fields, $fieldNames);
 
-        // Apply field name filter after merge
-        if ($fieldNames !== []) {
-            $fields = \array_values(\array_filter(
-                $fields,
-                static fn(AbstractCustomFieldValue $field): bool => \in_array($field->name(), $fieldNames, true),
-            ));
-        }
-
-        $this->logger->info('Got product custom fields', [
-            'product_id' => $productId,
-            'field_count' => \count($fields),
-        ]);
+        $this->logEnd($productId, \count($fields));
 
         return $fields;
+    }
+
+    /**
+     * @param list<string> $fieldNames
+     */
+    private function logStart(int $productId, array $fieldNames): void
+    {
+        $this->logger->info('Getting product custom fields', [
+            'product_id' => $productId,
+            'field_filter' => $fieldNames,
+        ]);
+    }
+
+    private function logEnd(int $productId, int $fieldCount): void
+    {
+        $this->logger->info('Got product custom fields', [
+            'product_id' => $productId,
+            'field_count' => $fieldCount,
+        ]);
+    }
+
+    /**
+     * @param list<AbstractCustomFieldValue> $fields
+     * @param list<string> $fieldNames
+     *
+     * @return list<AbstractCustomFieldValue>
+     */
+    private static function filterByNames(array $fields, array $fieldNames): array
+    {
+        if ($fieldNames === []) {
+            return $fields;
+        }
+
+        return \array_values(\array_filter(
+            $fields,
+            static fn(AbstractCustomFieldValue $field): bool => \in_array($field->name(), $fieldNames, true),
+        ));
     }
 }
