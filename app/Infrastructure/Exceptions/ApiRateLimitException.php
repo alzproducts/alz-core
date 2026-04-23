@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Exceptions;
 
+use Override;
 use Throwable;
 
 final class ApiRateLimitException extends ApiException
@@ -24,6 +25,7 @@ final class ApiRateLimitException extends ApiException
         return $this->retryAfter;
     }
 
+    #[Override]
     public function context(): array
     {
         return ['retry_after' => $this->retryAfter, 'detail' => $this->detail];

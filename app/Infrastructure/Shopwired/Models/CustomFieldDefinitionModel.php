@@ -17,6 +17,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Override;
 use Webmozart\Assert\Assert;
 
 /**
@@ -55,6 +56,7 @@ final class CustomFieldDefinitionModel extends Model implements EloquentDomainMa
      *
      * @return array<string, string>
      */
+    #[Override]
     protected function casts(): array
     {
         return [

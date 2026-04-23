@@ -7,6 +7,7 @@ namespace App\Presentation\Http\Requests;
 use App\Domain\Catalog\Product\Enums\FreeDeliveryType;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Override;
 
 /**
  * Validates bulk free delivery update requests.
@@ -41,6 +42,7 @@ final class SetFreeDeliveryRequest extends FormRequest
     /**
      * @return array<string, string>
      */
+    #[Override]
     public function messages(): array
     {
         return [

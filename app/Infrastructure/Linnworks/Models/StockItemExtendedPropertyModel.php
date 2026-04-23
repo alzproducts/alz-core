@@ -11,6 +11,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Override;
 
 /**
  * Eloquent model for linnworks.stock_item_extended_properties table.
@@ -41,6 +42,7 @@ final class StockItemExtendedPropertyModel extends Model implements EloquentDoma
     /**
      * @return array<string, string>
      */
+    #[Override]
     protected function casts(): array
     {
         return [

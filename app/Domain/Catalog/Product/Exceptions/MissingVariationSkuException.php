@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\Catalog\Product\Exceptions;
 
 use App\Domain\Exceptions\DomainException;
+use Override;
 
 /**
  * Product variation is missing a required SKU.
@@ -29,6 +30,7 @@ final class MissingVariationSkuException extends DomainException
         parent::__construct('Product variation missing required SKU');
     }
 
+    #[Override]
     public function context(): array
     {
         return [

@@ -6,6 +6,7 @@ namespace App\Infrastructure\Catalog\Order\Models;
 
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
+use Override;
 
 /**
  * Read-only Eloquent model for catalog.orders_view.
@@ -45,6 +46,7 @@ final class OrderViewModel extends Model
     /**
      * @return array<string, string>
      */
+    #[Override]
     protected function casts(): array
     {
         return [

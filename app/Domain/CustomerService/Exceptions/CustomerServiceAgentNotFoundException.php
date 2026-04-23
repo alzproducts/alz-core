@@ -7,6 +7,7 @@ declare(strict_types=1);
 namespace App\Domain\CustomerService\Exceptions;
 
 use App\Domain\Exceptions\DomainException;
+use Override;
 
 /**
  * Thrown when an authenticated user has no matching support agent account.
@@ -27,6 +28,7 @@ final class CustomerServiceAgentNotFoundException extends DomainException
         parent::__construct('Customer service agent not found');
     }
 
+    #[Override]
     public function context(): array
     {
         return ['email' => $this->email];

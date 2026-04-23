@@ -8,6 +8,7 @@ use App\Domain\Catalog\Brand\ValueObjects\BrandView;
 use DateTimeInterface;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Override;
 
 /**
  * API resource for BrandView domain value object.
@@ -21,6 +22,7 @@ final class BrandResource extends JsonResource
     /**
      * @return array<string, mixed>
      */
+    #[Override]
     public function toArray(Request $request): array
     {
         /** @var BrandView $brand */

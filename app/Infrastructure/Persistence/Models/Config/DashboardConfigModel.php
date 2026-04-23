@@ -7,6 +7,7 @@ namespace App\Infrastructure\Persistence\Models\Config;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
+use Override;
 
 /**
  * Eloquent model for the config.dashboard table.
@@ -40,6 +41,7 @@ final class DashboardConfigModel extends Model
     /**
      * @return array<string, string>
      */
+    #[Override]
     protected function casts(): array
     {
         return [

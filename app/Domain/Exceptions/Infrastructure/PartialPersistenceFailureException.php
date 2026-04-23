@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Domain\Exceptions\Infrastructure;
 
+use Override;
+
 /**
  * Thrown when a batch persistence operation partially fails.
  *
@@ -27,6 +29,7 @@ final class PartialPersistenceFailureException extends AbstractInfrastructureExc
         parent::__construct('Partial persistence failure');
     }
 
+    #[Override]
     public function context(): array
     {
         return [

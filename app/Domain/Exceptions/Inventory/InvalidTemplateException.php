@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\Exceptions\Inventory;
 
 use App\Domain\Exceptions\DomainException;
+use Override;
 
 /**
  * Thrown when a template stock item doesn't meet requirements for an operation.
@@ -26,6 +27,7 @@ final class InvalidTemplateException extends DomainException
         return new self($templateSku, 'no default supplier configured');
     }
 
+    #[Override]
     public function context(): array
     {
         return [

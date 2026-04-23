@@ -30,13 +30,6 @@ parameters:
 
 
 		-
-			message: '#Method register\(\) is \d+ lines long#'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Providers/ProductSearchFeedServiceProvider.php
-
-
-		-
 			rawMessage: 'Method execute() is 36 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
@@ -723,14 +716,7 @@ parameters:
 
 
 		-
-			rawMessage: 'Method toArray() is 21 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Infrastructure/Shopwired/OrderQueryParams.php
-
-
-		-
-			rawMessage: 'Class EloquentOrderRepository is 526 lines long — exceeds the 500-line limit. Consider decomposing into smaller, focused classes.'
+			rawMessage: 'Class EloquentOrderRepository is 528 lines long — exceeds the 500-line limit. Consider decomposing into smaller, focused classes.'
 			identifier: alz.excessiveClassLength
 			count: 1
 			path: app/Infrastructure/Shopwired/Repositories/EloquentOrderRepository.php
@@ -744,7 +730,7 @@ parameters:
 
 
 		-
-			rawMessage: 'Class EloquentProductRepository is 945 lines long — exceeds the 500-line limit. Consider decomposing into smaller, focused classes.'
+			rawMessage: 'Class EloquentProductRepository is 948 lines long — exceeds the 500-line limit. Consider decomposing into smaller, focused classes.'
 			identifier: alz.excessiveClassLength
 			count: 1
 			path: app/Infrastructure/Shopwired/Repositories/EloquentProductRepository.php

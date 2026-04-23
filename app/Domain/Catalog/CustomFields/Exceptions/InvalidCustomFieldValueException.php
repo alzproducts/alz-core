@@ -7,6 +7,7 @@ namespace App\Domain\Catalog\CustomFields\Exceptions;
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldType;
 use App\Domain\Catalog\CustomFields\ValueObjects\ConfiguredFieldDefinition;
 use App\Domain\Exceptions\DomainException;
+use Override;
 use Throwable;
 
 /**
@@ -54,6 +55,7 @@ final class InvalidCustomFieldValueException extends DomainException
         );
     }
 
+    #[Override]
     public function context(): array
     {
         return [

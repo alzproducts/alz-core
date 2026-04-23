@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Infrastructure\BingAds\Exceptions;
 
 use App\Infrastructure\Exceptions\ApiException;
+use Override;
 
 /**
  * Thrown when Bing Ads API response contains invalid or unexpected data.
@@ -40,6 +41,7 @@ final class InvalidBingAdsResponseException extends ApiException
         return new self('', $reason);
     }
 
+    #[Override]
     public function context(): array
     {
         return \array_filter([

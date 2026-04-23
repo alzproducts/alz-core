@@ -10,6 +10,7 @@ use App\Domain\Catalog\CustomFields\ValueObjects\AbstractCustomFieldValue;
 use App\Domain\ValueObjects\IntId;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Override;
 
 /**
  * API resource for single category detail with conditional embeds.
@@ -24,6 +25,7 @@ final class CategoryDetailResource extends JsonResource
     /**
      * @return array<string, mixed>
      */
+    #[Override]
     public function toArray(Request $request): array
     {
         /** @var GetCategoryResult $result */

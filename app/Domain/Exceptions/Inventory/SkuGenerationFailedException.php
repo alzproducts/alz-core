@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\Exceptions\Inventory;
 
 use App\Domain\Exceptions\Infrastructure\AbstractInfrastructureException;
+use Override;
 use Throwable;
 
 /**
@@ -22,6 +23,7 @@ final class SkuGenerationFailedException extends AbstractInfrastructureException
         parent::__construct('Failed to generate new SKU', previous: $previous);
     }
 
+    #[Override]
     public function context(): array
     {
         return ['reason' => $this->reason];

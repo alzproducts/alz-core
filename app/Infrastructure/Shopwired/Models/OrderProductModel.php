@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use InvalidArgumentException;
 use JsonException;
+use Override;
 
 /**
  * Eloquent model for shopwired.order_products table.
@@ -60,6 +61,7 @@ final class OrderProductModel extends Model implements EloquentDomainMappableInt
     /**
      * @return array<string, string>
      */
+    #[Override]
     protected function casts(): array
     {
         return [

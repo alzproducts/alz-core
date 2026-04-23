@@ -6,6 +6,7 @@ namespace App\Domain\Exceptions;
 
 use App\Domain\Shared\Validation\Concerns\ThrowsOnValidationFailureTrait;
 use App\Domain\Shared\Validation\Contracts\DescribableValidationResultInterface;
+use Override;
 
 /**
  * Thrown when a domain validation check fails.
@@ -41,6 +42,7 @@ final class ValidationFailedException extends DomainException
     /**
      * @return array<string, mixed>
      */
+    #[Override]
     public function context(): array
     {
         return $this->context;

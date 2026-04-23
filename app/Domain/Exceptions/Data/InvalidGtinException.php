@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Domain\Exceptions\Data;
 
+use Override;
+
 /**
  * GTIN (barcode) validation failed.
  *
@@ -19,6 +21,7 @@ final class InvalidGtinException extends AbstractDataException
         parent::__construct('Invalid GTIN');
     }
 
+    #[Override]
     public function context(): array
     {
         return ['value' => $this->value, 'reason' => $this->reason];

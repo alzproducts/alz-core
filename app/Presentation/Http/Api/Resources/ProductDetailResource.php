@@ -12,6 +12,7 @@ use App\Domain\Catalog\Product\ValueObjects\ProductSupplier;
 use App\Domain\ValueObjects\IntId;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Override;
 
 /**
  * API resource for single product detail with conditional embeds.
@@ -26,6 +27,7 @@ final class ProductDetailResource extends JsonResource
     /**
      * @return array<string, mixed>
      */
+    #[Override]
     public function toArray(Request $request): array
     {
         /** @var GetProductResult $result */
