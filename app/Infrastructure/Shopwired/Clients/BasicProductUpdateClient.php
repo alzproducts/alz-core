@@ -14,8 +14,8 @@ use App\Domain\Catalog\Product\ValueObjects\ProductVariation;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
+use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Api\ResourceNotAvailableException;
-use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Infrastructure\Shopwired\Contracts\ShopwiredTransportInterface;
 
@@ -46,7 +46,7 @@ final readonly class BasicProductUpdateClient implements BasicProductUpdateClien
     /**
      * {@inheritDoc}
      *
-     * @throws ResourceNotFoundException When product/variation not found locally
+     * @throws RecordNotFoundException When product/variation not found locally
      * @throws ResourceNotAvailableException When product/variation not found in ShopWired
      * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
      * @throws InvalidApiRequestException When update parameters invalid
@@ -76,7 +76,7 @@ final readonly class BasicProductUpdateClient implements BasicProductUpdateClien
      * When ProductType is specified, uses single-table lookup for efficiency.
      * Otherwise searches both products and variations tables.
      *
-     * @throws ResourceNotFoundException When entity not found
+     * @throws RecordNotFoundException When entity not found
      * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
      * @throws DatabaseOperationFailedException When local lookup fails
      * @throws ExternalServiceUnavailableException When database unavailable

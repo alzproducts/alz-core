@@ -7,7 +7,7 @@ namespace App\Infrastructure\Ingest\ContactSubmission\Repositories;
 use App\Application\Contracts\ContactSubmission\ContactSubmissionRepositoryInterface;
 use App\Domain\ContactSubmission\ValueObjects\ContactSubmission;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
-use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Data\MalformedStoredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
@@ -43,7 +43,7 @@ final readonly class EloquentContactSubmissionRepository implements ContactSubmi
     }
 
     /**
-     * @throws ResourceNotFoundException When submission not found
+     * @throws RecordNotFoundException When submission not found
      * @throws MalformedStoredDataException If product JSONB is corrupted
      * @throws ExternalServiceUnavailableException
      * @throws DatabaseOperationFailedException

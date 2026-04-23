@@ -6,7 +6,7 @@ namespace Tests\Unit\Application\Shopwired\UseCases\Webhooks;
 
 use App\Application\Contracts\Shopwired\BrandRepositoryInterface;
 use App\Application\Shopwired\UseCases\Webhooks\DeleteBrandUseCase;
-use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\ValueObjects\IntId;
 use Mockery;
 use Mockery\MockInterface;
@@ -62,7 +62,7 @@ final class DeleteBrandUseCaseTest extends TestCase
 
         $this->repository->shouldReceive('deleteByExternalId')
             ->once()
-            ->andThrow(new ResourceNotFoundException('Database', 'Brand', 7));
+            ->andThrow(new RecordNotFoundException('Brand', 7));
 
         $this->logger->shouldReceive('info')
             ->once()

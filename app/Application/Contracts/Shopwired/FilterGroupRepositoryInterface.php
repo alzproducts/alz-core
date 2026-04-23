@@ -7,6 +7,7 @@ namespace App\Application\Contracts\Shopwired;
 use App\Application\Contracts\RepositoryWriteInterface;
 use App\Domain\Catalog\Filters\ValueObjects\FilterGroupDefinition;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
@@ -28,6 +29,7 @@ interface FilterGroupRepositoryInterface extends RepositoryWriteInterface
      * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      * @throws ResourceNotFoundException When no filter group exists with the given optionNo
+     * @throws RecordNotFoundException When filter group row not found in database
      */
     public function getByOptionNo(int $optionNo): FilterGroupDefinition;
 

@@ -16,6 +16,7 @@ use App\Domain\Catalog\Product\ValueObjects\SaleSettings;
 use App\Domain\Catalog\Product\ValueObjects\Sku;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
+use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
@@ -169,6 +170,7 @@ final readonly class CheckExpiredSalesUseCase
      * @throws ExternalServiceUnavailableException When API unavailable
      * @throws DatabaseOperationFailedException When local product lookup fails
      * @throws DuplicateRecordException On sale settings DB constraint violation
+     * @throws RecordNotFoundException When product row not found in database
      * @throws InvalidCustomFieldValueException When custom field mapping fails
      * @throws ValidationFailedException When price fails VAT round-trip check
      */

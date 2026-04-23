@@ -16,6 +16,8 @@ use Throwable;
  * Use cases:
  * - API returns 404 for a specific resource ID
  * - Search returns no results for a known identifier
+ *
+ * @see RecordNotFoundException For transient local-DB row-not-found (retryable)
  */
 final class ResourceNotFoundException extends PermanentApiFailure
 {

@@ -8,7 +8,7 @@ use App\Application\Contracts\RepositoryWriteInterface;
 use App\Application\Results\SaveManyResult;
 use App\Domain\Customer\ValueObjects\Customer;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
-use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\IntId;
@@ -66,7 +66,7 @@ interface CustomerRepositoryInterface extends RepositoryWriteInterface
      *
      * Used by `customer.deleted` webhook.
      *
-     * @throws ResourceNotFoundException When no customer found with this external ID
+     * @throws RecordNotFoundException When no customer found with this external ID
      * @throws DatabaseOperationFailedException On deletion failure
      * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database temporarily unavailable

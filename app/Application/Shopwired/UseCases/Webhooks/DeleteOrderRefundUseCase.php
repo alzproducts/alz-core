@@ -7,7 +7,7 @@ namespace App\Application\Shopwired\UseCases\Webhooks;
 use App\Application\Contracts\Shopwired\OrderRepositoryInterface;
 use App\Application\Contracts\Shopwired\ShopwiredSyncDispatcherInterface;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
-use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\Notifications\Events\ManagerAlertEvent;
@@ -44,7 +44,7 @@ final readonly class DeleteOrderRefundUseCase
 
         try {
             $this->orderRepository->deleteRefund($orderId, $refundExternalId);
-        } catch (ResourceNotFoundException) {
+        } catch (RecordNotFoundException) {
             $this->logger->info('Order refund already deleted — skipping', $context);
 
             return;

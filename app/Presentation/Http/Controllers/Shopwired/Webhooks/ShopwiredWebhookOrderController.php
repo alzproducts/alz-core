@@ -8,6 +8,7 @@ use App\Application\Shopwired\DTOs\RawWebhookPayloadDTO;
 use App\Application\Shopwired\Services\HandleOrderWebhookService;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
+use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Data\InvalidEnumValueException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
@@ -33,6 +34,7 @@ final readonly class ShopwiredWebhookOrderController
      * @throws ExternalServiceUnavailableException
      * @throws InvalidApiResponseException
      * @throws InvalidEnumValueException
+     * @throws RecordNotFoundException When order row not found in database
      * @throws ResourceNotFoundException
      */
     public function __invoke(Request $request): JsonResponse

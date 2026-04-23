@@ -13,6 +13,7 @@ use App\Domain\Catalog\Product\Commands\UpdateRetailPriceCommand;
 use App\Domain\Catalog\Product\ValueObjects\SaleSettings;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
+use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
@@ -45,6 +46,7 @@ final readonly class UpdateProductPricesUseCase
      * @throws ExternalServiceUnavailableException When API or DB unavailable
      * @throws DatabaseOperationFailedException When local product lookup fails
      * @throws DuplicateRecordException On sale settings DB constraint violation
+     * @throws RecordNotFoundException When product row not found in database
      * @throws InvalidCustomFieldValueException When custom field mapping fails
      * @throws ValidationFailedException When any submitted price fails VAT round-trip check
      */

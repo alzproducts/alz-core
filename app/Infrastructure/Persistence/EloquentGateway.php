@@ -7,7 +7,7 @@ namespace App\Infrastructure\Persistence;
 use App\Application\Contracts\DatabaseGatewayInterface;
 use App\Application\Results\SaveManyResult;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
-use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\PaginatedList;
@@ -155,7 +155,7 @@ final readonly class EloquentGateway
      *
      * @return ($mapper is null ? TModel : TResult)
      *
-     * @throws ResourceNotFoundException When record not found
+     * @throws RecordNotFoundException When record not found
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
@@ -171,7 +171,7 @@ final readonly class EloquentGateway
         $model = $this->find($modelClass, $column, $value, $relations);
 
         if ($model === null) {
-            throw new ResourceNotFoundException('Database', $entityTypeName, $value);
+            throw new RecordNotFoundException($entityTypeName, $value);
         }
 
         return $mapper !== null ? $mapper($model) : $model;
