@@ -177,20 +177,6 @@ parameters:
 
 
 		-
-			rawMessage: 'Method execute() is 28 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Application/Linnworks/UseCases/PurchaseOrder/CreatePurchaseOrderUseCase.php
-
-
-		-
-			rawMessage: 'Method execute() is 38 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Application/Linnworks/UseCases/PurchaseOrder/UpdatePurchaseOrderExtendedPropertiesUseCase.php
-
-
-		-
 			rawMessage: 'Method execute() is 74 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
@@ -205,31 +191,10 @@ parameters:
 
 
 		-
-			rawMessage: 'Method execute() is 27 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Application/Linnworks/UseCases/SyncLinnworksCursorUseCase.php
-
-
-		-
 			rawMessage: 'Method execute() is 88 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Application/Linnworks/UseCases/SyncLinnworksOrdersUseCase.php
-
-
-		-
-			rawMessage: 'Method execute() is 52 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Application/Linnworks/UseCases/SyncStockItemWithCursorUseCase.php
-
-
-		-
-			rawMessage: 'Method execute() is 48 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Application/Linnworks/UseCases/SyncSuppliersUseCase.php
 
 
 		-
