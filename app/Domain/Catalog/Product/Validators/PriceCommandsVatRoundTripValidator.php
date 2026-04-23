@@ -8,6 +8,7 @@ use App\Domain\Catalog\Product\Commands\UpdatePriceCommand;
 use App\Domain\Shared\Money\Validators\VatRoundTripAggregateResult;
 use App\Domain\Shared\Money\Validators\VatRoundTripResult;
 use App\Domain\Shared\Money\Validators\VatRoundTripValidator;
+use App\Domain\Shared\Money\ValueObjects\Money;
 use App\Domain\Shared\Validation\Contracts\ValidatorInterface;
 use App\Domain\ValueObjects\TaxRate;
 
@@ -34,26 +35,24 @@ final readonly class PriceCommandsVatRoundTripValidator implements ValidatorInte
 
         foreach ($this->commands as $command) {
             if ($command->price !== null) {
-                $key = "{$command->sku->value}.price";
-                $results[$key] = (new VatRoundTripValidator(
-                    grossAmount: $command->price->toGross(),
-                    sku: $command->sku->value,
-                    field: 'price',
-                    taxRate: $this->taxRate,
-                ))->validate();
+                $results["{$command->sku->value}.price"] = $this->runFieldValidation($command->sku->value, 'price', $command->price);
             }
 
             if ($command->salePrice !== null && ! $command->salePrice->isZero()) {
-                $key = "{$command->sku->value}.salePrice";
-                $results[$key] = (new VatRoundTripValidator(
-                    grossAmount: $command->salePrice->toGross(),
-                    sku: $command->sku->value,
-                    field: 'salePrice',
-                    taxRate: $this->taxRate,
-                ))->validate();
+                $results["{$command->sku->value}.salePrice"] = $this->runFieldValidation($command->sku->value, 'salePrice', $command->salePrice);
             }
         }
 
         return new VatRoundTripAggregateResult($results);
+    }
+
+    private function runFieldValidation(string $sku, string $field, Money $amount): VatRoundTripResult
+    {
+        return (new VatRoundTripValidator(
+            grossAmount: $amount->toGross(),
+            sku: $sku,
+            field: $field,
+            taxRate: $this->taxRate,
+        ))->validate();
     }
 }

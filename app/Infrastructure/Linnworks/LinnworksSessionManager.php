@@ -13,6 +13,7 @@ use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use JsonException;
 
 /**
  * Manages Linnworks session lifecycle: authentication, caching, and refresh.
@@ -75,43 +76,65 @@ final class LinnworksSessionManager
      */
     private function authenticate(): LinnworksSession
     {
+        $data = $this->performAuthRequest();
+
+        return LinnworksSession::fromAuthResponse($data, $this->config->cacheTtlBuffer);
+    }
+
+    /**
+     * @return array<string, mixed>
+     *
+     * @throws AuthenticationExpiredException When credentials are invalid
+     * @throws ExternalServiceUnavailableException When auth endpoint unavailable
+     */
+    private function performAuthRequest(): array
+    {
         try {
-            $response = Http::timeout($this->config->timeout)
-                ->send('POST', LinnworksConfig::AUTH_URL, [
-                    'form_params' => [
-                        'applicationId' => $this->config->applicationId,
-                        'applicationSecret' => $this->config->applicationSecret,
-                        'token' => $this->config->installationToken,
-                    ],
-                ])
-                ->throw();
-
-            /** @var array<string, mixed> $data */
-            $data = $response->json();
-
-            return LinnworksSession::fromAuthResponse(
-                $data,
-                $this->config->cacheTtlBuffer,
-            );
+            return $this->sendAuthHttpRequest();
         } catch (RequestException $e) {
             $this->handleAuthRequestException($e);
         } catch (ConnectionException $e) {
-            Log::error(self::SERVICE_NAME . ' auth connection failed', [
+            throw $this->logAndBuildUnavailable($e, 'auth connection failed', ['error' => $e->getMessage()]);
+        } catch (JsonException $e) {
+            throw $this->logAndBuildUnavailable($e, 'auth response JSON decode failed', [
                 'error' => $e->getMessage(),
             ]);
-
-            throw new ExternalServiceUnavailableException(self::SERVICE_NAME, previous: $e);
-        } catch (DateMalformedStringException $e) {
-            // Let this propagate - transport layer translates to InvalidApiResponseException
-            throw $e;
-        } catch (Exception $e) {
-            Log::error(self::SERVICE_NAME . ' auth unexpected error', [
-                'exception' => $e::class,
-                'error' => $e->getMessage(),
-            ]);
-
-            throw new ExternalServiceUnavailableException(self::SERVICE_NAME, previous: $e);
         }
+    }
+
+    /**
+     * @return array<string, mixed>
+     *
+     * @throws RequestException When the Linnworks API returns a non-2xx response
+     * @throws ConnectionException When the HTTP connection fails
+     * @throws JsonException When the auth response body is not valid JSON
+     */
+    private function sendAuthHttpRequest(): array
+    {
+        $response = Http::timeout($this->config->timeout)
+            ->send('POST', LinnworksConfig::AUTH_URL, [
+                'form_params' => [
+                    'applicationId' => $this->config->applicationId,
+                    'applicationSecret' => $this->config->applicationSecret,
+                    'token' => $this->config->installationToken,
+                ],
+            ])
+            ->throw();
+
+        /** @var array<string, mixed> $data */
+        $data = $response->json();
+
+        return $data;
+    }
+
+    /**
+     * @param array<string, mixed> $context
+     */
+    private function logAndBuildUnavailable(Exception $e, string $event, array $context): ExternalServiceUnavailableException
+    {
+        Log::error(self::SERVICE_NAME . ' ' . $event, $context);
+
+        return new ExternalServiceUnavailableException(self::SERVICE_NAME, previous: $e);
     }
 
     /**
@@ -123,25 +146,19 @@ final class LinnworksSessionManager
     private function handleAuthRequestException(RequestException $e): never
     {
         $status = $e->response->status();
+        $isAuthFailure = ($status === 401) || ($status === 403);
 
-        if (($status === 401) || ($status === 403)) {
-            Log::error(self::SERVICE_NAME . ' authentication failed', [
-                'status' => $status,
-                'error' => $e->getMessage(),
-            ]);
+        Log::error(
+            self::SERVICE_NAME . ($isAuthFailure ? ' authentication failed' : ' auth endpoint error'),
+            ['status' => $status, 'error' => $e->getMessage()],
+        );
 
-            throw new AuthenticationExpiredException(
+        throw $isAuthFailure
+            ? new AuthenticationExpiredException(
                 self::SERVICE_NAME,
                 'Invalid credentials or application not authorized',
                 $e,
-            );
-        }
-
-        Log::error(self::SERVICE_NAME . ' auth endpoint error', [
-            'status' => $status,
-            'error' => $e->getMessage(),
-        ]);
-
-        throw new ExternalServiceUnavailableException(self::SERVICE_NAME, previous: $e);
+            )
+            : new ExternalServiceUnavailableException(self::SERVICE_NAME, previous: $e);
     }
 }

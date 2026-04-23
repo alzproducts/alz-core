@@ -24,13 +24,38 @@ final class CustomFieldMergerService
      */
     public static function mergeWithDefinitions(array $populatedFields, array $definitions): array
     {
-        // Index populated fields by name for O(1) lookup
-        $populatedByName = [];
+        $populatedByName = self::indexByName($populatedFields);
+        [$fields, $coveredNames] = self::buildDefinedFields($populatedByName, $definitions);
+        $fields = self::appendUncoveredFields($fields, $populatedByName, $coveredNames);
+
+        return self::sortByFieldOrder($fields);
+    }
+
+    /**
+     * @param list<AbstractCustomFieldValue> $populatedFields
+     *
+     * @return array<string, AbstractCustomFieldValue>
+     */
+    private static function indexByName(array $populatedFields): array
+    {
+        $indexed = [];
         foreach ($populatedFields as $field) {
-            $populatedByName[$field->name()] = $field;
+            $indexed[$field->name()] = $field;
         }
 
-        // Build merged list: use populated value or create NullCustomFieldValue
+        return $indexed;
+    }
+
+    /**
+     * Use populated value where available, fall back to NullCustomFieldValue.
+     *
+     * @param array<string, AbstractCustomFieldValue> $populatedByName
+     * @param list<ConfiguredFieldDefinition> $definitions
+     *
+     * @return array{list<AbstractCustomFieldValue>, array<string, true>}
+     */
+    private static function buildDefinedFields(array $populatedByName, array $definitions): array
+    {
         $fields = [];
         $coveredNames = [];
         foreach ($definitions as $definition) {
@@ -39,14 +64,38 @@ final class CustomFieldMergerService
                 ?? new NullCustomFieldValue($definition);
         }
 
-        // Append populated fields not in definitions (forward compatibility)
+        return [$fields, $coveredNames];
+    }
+
+    /**
+     * Append populated fields not covered by a definition (forward compatibility).
+     *
+     * @param list<AbstractCustomFieldValue> $fields
+     * @param array<string, AbstractCustomFieldValue> $populatedByName
+     * @param array<string, true> $coveredNames
+     *
+     * @return list<AbstractCustomFieldValue>
+     */
+    private static function appendUncoveredFields(array $fields, array $populatedByName, array $coveredNames): array
+    {
         foreach ($populatedByName as $name => $field) {
             if (!isset($coveredNames[$name])) {
                 $fields[] = $field;
             }
         }
 
-        // Sort by sortOrder (null last)
+        return $fields;
+    }
+
+    /**
+     * Sort by sortOrder ascending, null last.
+     *
+     * @param list<AbstractCustomFieldValue> $fields
+     *
+     * @return list<AbstractCustomFieldValue>
+     */
+    private static function sortByFieldOrder(array $fields): array
+    {
         \usort($fields, static function (AbstractCustomFieldValue $a, AbstractCustomFieldValue $b): int {
             $aSort = $a->definition->base->sortOrder;
             $bSort = $b->definition->base->sortOrder;

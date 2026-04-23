@@ -228,29 +228,27 @@ final class LinnworksClientFactory
      */
     private static function createConfig(): LinnworksConfig
     {
-        $applicationId = \config('linnworks.application_id');
-        $applicationSecret = \config('linnworks.application_secret');
-        $installationToken = \config('linnworks.installation_token');
-
-        if (!\is_string($applicationId) || ($applicationId === '')) {
-            throw new InvalidConfigurationException('LINNWORKS_APPLICATION_ID');
-        }
-
-        if (!\is_string($applicationSecret) || ($applicationSecret === '')) {
-            throw new InvalidConfigurationException('LINNWORKS_APPLICATION_SECRET');
-        }
-
-        if (!\is_string($installationToken) || ($installationToken === '')) {
-            throw new InvalidConfigurationException('LINNWORKS_INSTALLATION_TOKEN');
-        }
-
         return new LinnworksConfig(
-            applicationId: $applicationId,
-            applicationSecret: $applicationSecret,
-            installationToken: $installationToken,
+            applicationId: self::requireStringConfig('linnworks.application_id', 'LINNWORKS_APPLICATION_ID'),
+            applicationSecret: self::requireStringConfig('linnworks.application_secret', 'LINNWORKS_APPLICATION_SECRET'),
+            installationToken: self::requireStringConfig('linnworks.installation_token', 'LINNWORKS_INSTALLATION_TOKEN'),
             timeout: Config::integer('linnworks.timeout', 30),
             cacheTtlBuffer: Config::integer('linnworks.cache_ttl_buffer', 300),
         );
+    }
+
+    /**
+     * @throws InvalidConfigurationException When the config value is missing or not a non-empty string.
+     */
+    private static function requireStringConfig(string $configKey, string $envVar): string
+    {
+        $value = \config($configKey);
+
+        if (!\is_string($value) || ($value === '')) {
+            throw new InvalidConfigurationException($envVar);
+        }
+
+        return $value;
     }
 
     /**

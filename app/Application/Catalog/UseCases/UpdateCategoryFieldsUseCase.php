@@ -42,6 +42,22 @@ final readonly class UpdateCategoryFieldsUseCase
             'field_names' => \array_keys($fields),
         ]);
 
+        $this->updateClient->update($categoryId->value, ...self::buildFieldUpdates($fields));
+
+        $this->logger->info('Updated category fields', [
+            'category_id' => $categoryId->value,
+        ]);
+    }
+
+    /**
+     * @param array<string, string> $fields
+     *
+     * @return list<CategoryFieldUpdate>
+     *
+     * @throws UnsupportedFieldException When a field name is not supported
+     */
+    private static function buildFieldUpdates(array $fields): array
+    {
         $updates = [];
         foreach ($fields as $name => $value) {
             $updates[] = match ($name) {
@@ -53,10 +69,6 @@ final readonly class UpdateCategoryFieldsUseCase
             };
         }
 
-        $this->updateClient->update($categoryId->value, ...$updates);
-
-        $this->logger->info('Updated category fields', [
-            'category_id' => $categoryId->value,
-        ]);
+        return $updates;
     }
 }

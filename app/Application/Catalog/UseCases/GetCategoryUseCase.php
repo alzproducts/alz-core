@@ -39,10 +39,7 @@ final readonly class GetCategoryUseCase
      */
     public function execute(int $categoryId, array $includes = []): GetCategoryResult
     {
-        $this->logger->info('Getting category', [
-            'category_id' => $categoryId,
-            'includes' => \array_map(static fn(CategoryInclude $i): string => $i->value, $includes),
-        ]);
+        $this->logStart($categoryId, $includes);
 
         $category = $this->categoryRepository->findCategoryForApi(
             IntId::from($categoryId),
@@ -58,5 +55,16 @@ final readonly class GetCategoryUseCase
             category: $category,
             includes: $includes,
         );
+    }
+
+    /**
+     * @param list<CategoryInclude> $includes
+     */
+    private function logStart(int $categoryId, array $includes): void
+    {
+        $this->logger->info('Getting category', [
+            'category_id' => $categoryId,
+            'includes' => \array_map(static fn(CategoryInclude $i): string => $i->value, $includes),
+        ]);
     }
 }

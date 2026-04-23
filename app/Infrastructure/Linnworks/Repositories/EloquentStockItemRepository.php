@@ -60,52 +60,75 @@ final class EloquentStockItemRepository extends AbstractEloquentRepository imple
                 uniqueBy: ['stock_item_id'],
             );
 
-            // 2. Delete existing extended properties
-            $this->eloquentGateway->deleteWhere(
-                modelClass: StockItemExtendedPropertyModel::class,
-                column: 'stock_item_id',
-                value: $entity->stockItemId,
-            );
-
-            // 3. Insert fresh extended properties
-            if ($entity->hasExtendedProperties()) {
-                $epRecords = \array_map(
-                    static fn(StockItemExtendedProperty $ep): array => [
-                        'stock_item_id' => $entity->stockItemId,
-                        ...StockItemExtendedPropertyMapper::toModelAttributes($ep),
-                    ],
-                    $entity->extendedProperties,
-                );
-
-                $this->eloquentGateway->insertMany(
-                    modelClass: StockItemExtendedPropertyModel::class,
-                    rows: $epRecords,
-                );
-            }
-
-            // 4. Delete existing suppliers
-            $this->eloquentGateway->deleteWhere(
-                modelClass: StockItemSupplierModel::class,
-                column: 'stock_item_id',
-                value: $entity->stockItemId,
-            );
-
-            // 5. Insert fresh suppliers
-            if ($entity->hasSuppliers()) {
-                $supplierRecords = \array_map(
-                    static fn(StockItemSupplier $supplier): array => [
-                        'stock_item_id' => $entity->stockItemId,
-                        ...StockItemSupplierModel::attributesFromDomain($supplier),
-                    ],
-                    $entity->suppliers,
-                );
-
-                $this->eloquentGateway->insertMany(
-                    modelClass: StockItemSupplierModel::class,
-                    rows: $supplierRecords,
-                );
-            }
+            $this->replaceExtendedProperties($entity);
+            $this->replaceSuppliers($entity);
         }, attempts: 3);
+    }
+
+    /**
+     * Delete existing extended properties and re-insert fresh rows from the domain object.
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    private function replaceExtendedProperties(StockItemFull $entity): void
+    {
+        $this->eloquentGateway->deleteWhere(
+            modelClass: StockItemExtendedPropertyModel::class,
+            column: 'stock_item_id',
+            value: $entity->stockItemId,
+        );
+
+        if (!$entity->hasExtendedProperties()) {
+            return;
+        }
+
+        $rows = \array_map(
+            static fn(StockItemExtendedProperty $ep): array => [
+                'stock_item_id' => $entity->stockItemId,
+                ...StockItemExtendedPropertyMapper::toModelAttributes($ep),
+            ],
+            $entity->extendedProperties,
+        );
+
+        $this->eloquentGateway->insertMany(
+            modelClass: StockItemExtendedPropertyModel::class,
+            rows: $rows,
+        );
+    }
+
+    /**
+     * Delete existing suppliers and re-insert fresh rows from the domain object.
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    private function replaceSuppliers(StockItemFull $entity): void
+    {
+        $this->eloquentGateway->deleteWhere(
+            modelClass: StockItemSupplierModel::class,
+            column: 'stock_item_id',
+            value: $entity->stockItemId,
+        );
+
+        if (!$entity->hasSuppliers()) {
+            return;
+        }
+
+        $rows = \array_map(
+            static fn(StockItemSupplier $supplier): array => [
+                'stock_item_id' => $entity->stockItemId,
+                ...StockItemSupplierModel::attributesFromDomain($supplier),
+            ],
+            $entity->suppliers,
+        );
+
+        $this->eloquentGateway->insertMany(
+            modelClass: StockItemSupplierModel::class,
+            rows: $rows,
+        );
     }
 
     /**

@@ -64,8 +64,34 @@ final readonly class SyncFullStockToShopwiredUseCase
             'linnworks_count' => \count($linnworksStock),
         ]);
 
-        // Lock covers: local DB read → diff → ShopWired push → local DB write.
-        // Logging happens after the lock is released.
+        $outcome = $this->runSyncUnderLock($linnworksStock);
+
+        $this->logCompletionOutcome(
+            \count($linnworksStock),
+            $outcome['local_count'],
+            $outcome['toUpdate'],
+            $outcome['result'],
+        );
+    }
+
+    /**
+     * Run the critical section under the stock-sync lock and return its outcome.
+     *
+     * Lock covers: local DB read → diff → ShopWired push → local DB write.
+     * Logging happens after the lock is released.
+     *
+     * @param list<ItemStockLevel> $linnworksStock
+     *
+     * @return array{toUpdate: list<ItemStockLevel>, result: StockUpdateResult|null, local_count: int}
+     *
+     * @throws LockAcquisitionException When lock cannot be acquired within timeout
+     * @throws AbstractApiException Re-thrown from partial batch transport failure
+     * @throws InvalidApiResponseException
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     */
+    private function runSyncUnderLock(array $linnworksStock): array
+    {
         /** @var array{toUpdate: list<ItemStockLevel>, result: StockUpdateResult|null, local_count: int} $outcome */
         $outcome = $this->lockManager->withLock(
             LockName::StockSync->value,
@@ -73,13 +99,19 @@ final readonly class SyncFullStockToShopwiredUseCase
             fn(): array => $this->syncUnderLock($linnworksStock),
         );
 
-        $toUpdate = $outcome['toUpdate'];
-        $result = $outcome['result'];
-        $localCount = $outcome['local_count'];
+        return $outcome;
+    }
 
+    /**
+     * Log either the no-differences or completed outcome.
+     *
+     * @param list<ItemStockLevel> $toUpdate
+     */
+    private function logCompletionOutcome(int $linnworksCount, int $localCount, array $toUpdate, ?StockUpdateResult $result): void
+    {
         if ($toUpdate === []) {
             $this->logger->info('Full stock sync: no differences found', [
-                'linnworks_count' => \count($linnworksStock),
+                'linnworks_count' => $linnworksCount,
                 'local_count' => $localCount,
             ]);
 
@@ -87,7 +119,7 @@ final readonly class SyncFullStockToShopwiredUseCase
         }
 
         $this->logger->info('Full stock sync: completed', [
-            'linnworks_count' => \count($linnworksStock),
+            'linnworks_count' => $linnworksCount,
             'local_count' => $localCount,
             'attempted' => \count($toUpdate),
             'pushed' => $result !== null ? \count($result->pushed) : 0,
@@ -123,15 +155,31 @@ final readonly class SyncFullStockToShopwiredUseCase
             return ['toUpdate' => [], 'result' => null, 'local_count' => $localCount];
         }
 
+        $result = $this->applyStockDiff($toUpdate);
+
+        return ['toUpdate' => $toUpdate, 'result' => $result, 'local_count' => $localCount];
+    }
+
+    /**
+     * Push diff to ShopWired, update local DB for successes, rethrow first transport failure.
+     *
+     * The job will retry; only items from failed batches will still appear as diffs.
+     *
+     * @param list<ItemStockLevel> $toUpdate
+     *
+     * @throws AbstractApiException Re-thrown from partial batch transport failure
+     * @throws InvalidApiResponseException
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     */
+    private function applyStockDiff(array $toUpdate): StockUpdateResult
+    {
         $result = $this->shopwiredClient->updateStockQuantity($toUpdate);
 
-        // Always update local DB for items that made it through
         if ($result->pushed !== []) {
             $this->stockRepository->updateStockLevels($result->pushed);
         }
 
-        // Re-throw first transport failure after local DB is updated — job will retry
-        // and only items from failed batches will still appear as diffs.
         if ($result->transportFailures !== []) {
             $this->logger->warning('Full stock sync: batch transport failure, local DB updated for pushed items', [
                 'pushed_count' => \count($result->pushed),
@@ -142,7 +190,7 @@ final readonly class SyncFullStockToShopwiredUseCase
             throw $result->transportFailures[0];
         }
 
-        return ['toUpdate' => $toUpdate, 'result' => $result, 'local_count' => $localCount];
+        return $result;
     }
 
     /**

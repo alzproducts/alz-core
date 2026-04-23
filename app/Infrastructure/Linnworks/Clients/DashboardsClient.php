@@ -12,6 +12,7 @@ use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Infrastructure\Linnworks\Contracts\LinnworksQueryInterface;
 use App\Infrastructure\Linnworks\Contracts\LinnworksTransportInterface;
 use App\Infrastructure\Linnworks\Responses\SqlQueryResponse;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Log;
 use Spatie\LaravelData\Exceptions\CannotCreateData;
 
@@ -55,9 +56,21 @@ final readonly class DashboardsClient
     {
         $sql = $query->buildSql();
         $response = $this->transport->post(self::ENDPOINT, ['Script' => $sql]);
+        $dto = self::parseSqlQueryResponse($response);
+        self::assertNotError($dto, $sql, $response);
 
+        return $query->mapResponse($dto);
+    }
+
+    /**
+     * Parse the raw transport response into a typed SqlQueryResponse DTO.
+     *
+     * @throws InvalidApiResponseException When the DTO fails Spatie validation.
+     */
+    private static function parseSqlQueryResponse(Response $response): SqlQueryResponse
+    {
         try {
-            $dto = SqlQueryResponse::from($response->json());
+            return SqlQueryResponse::from($response->json());
         } catch (CannotCreateData $e) {
             Log::critical('Linnworks SQL query response validation failed', [
                 'error' => $e->getMessage(),
@@ -70,19 +83,25 @@ final readonly class DashboardsClient
                 $e,
             );
         }
+    }
 
-        if ($dto->isError) {
-            Log::error('Linnworks SQL query returned error', [
-                'sql' => $sql,
-                'response' => $response->json(),
-            ]);
-
-            throw new InvalidApiResponseException(
-                self::SERVICE_NAME,
-                'SQL query returned error',
-            );
+    /**
+     * @throws InvalidApiResponseException When the DTO reports an error.
+     */
+    private static function assertNotError(SqlQueryResponse $dto, string $sql, Response $response): void
+    {
+        if (!$dto->isError) {
+            return;
         }
 
-        return $query->mapResponse($dto);
+        Log::error('Linnworks SQL query returned error', [
+            'sql' => $sql,
+            'response' => $response->json(),
+        ]);
+
+        throw new InvalidApiResponseException(
+            self::SERVICE_NAME,
+            'SQL query returned error',
+        );
     }
 }

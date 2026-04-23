@@ -51,16 +51,15 @@ final readonly class DateRange
         $cursor = $this->from;
 
         while ($cursor <= $this->to) {
-            $chunkEnd = $cursor->add($endOffset);
-
-            if ($chunkEnd > $this->to) {
-                $chunkEnd = $this->to;
-            }
-
-            $chunks[] = new self($cursor, $chunkEnd);
+            $chunks[] = new self($cursor, $this->clampToRangeEnd($cursor->add($endOffset)));
             $cursor = $cursor->add($step);
         }
 
         return $chunks;
+    }
+
+    private function clampToRangeEnd(DateTimeImmutable $candidate): DateTimeImmutable
+    {
+        return $candidate > $this->to ? $this->to : $candidate;
     }
 }

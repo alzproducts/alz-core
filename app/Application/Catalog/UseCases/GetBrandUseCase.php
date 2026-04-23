@@ -39,10 +39,7 @@ final readonly class GetBrandUseCase
      */
     public function execute(int $brandId, array $includes = []): GetBrandResult
     {
-        $this->logger->info('Getting brand', [
-            'brand_id' => $brandId,
-            'includes' => \array_map(static fn(BrandInclude $i): string => $i->value, $includes),
-        ]);
+        $this->logStart($brandId, $includes);
 
         $brand = $this->brandRepository->findBrandForApi(
             IntId::from($brandId),
@@ -58,5 +55,16 @@ final readonly class GetBrandUseCase
             brand: $brand,
             includes: $includes,
         );
+    }
+
+    /**
+     * @param list<BrandInclude> $includes
+     */
+    private function logStart(int $brandId, array $includes): void
+    {
+        $this->logger->info('Getting brand', [
+            'brand_id' => $brandId,
+            'includes' => \array_map(static fn(BrandInclude $i): string => $i->value, $includes),
+        ]);
     }
 }

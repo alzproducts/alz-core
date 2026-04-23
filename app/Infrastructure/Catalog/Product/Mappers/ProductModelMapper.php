@@ -104,7 +104,7 @@ final class ProductModelMapper
     public static function toModelAttributes(Product $product): array
     {
         return [
-            ...self::coreAttributes($product),
+            ...ProductModel::attributesFromDomain($product),
             ...self::embedAttributes($product),
         ];
     }
@@ -121,68 +121,15 @@ final class ProductModelMapper
      */
     public static function toWebhookAttributes(Product $product, array $presentEmbeds): array
     {
-        $attributes = self::coreAttributes($product);
-
-        if (\in_array('vat_relief', $presentEmbeds, true)) {
-            $attributes['vat_relief'] = $product->vatRelief;
-        }
-
-        if (\in_array('categories', $presentEmbeds, true)) {
-            $attributes['category_ids'] = $product->categoryIds;
-        }
-
-        if (\in_array('images', $presentEmbeds, true)) {
-            $attributes['images'] = \array_map(
-                static fn(ProductImage $img): array => $img->toArray(),
-                $product->images,
-            );
-        }
-
-        if (\in_array('custom_fields', $presentEmbeds, true)) {
-            $attributes['custom_fields'] = $product->rawCustomFields;
-        }
-
-        if (\in_array('filters', $presentEmbeds, true)) {
-            $attributes['filters'] = $product->rawFilters;
-        }
-
-        return $attributes;
+        return [
+            ...ProductModel::attributesFromDomain($product),
+            ...self::webhookEmbedAttributes($product, $presentEmbeds),
+        ];
     }
 
     // ─────────────────────────────────────────────────────────────────────────
     // Private Helpers
     // ─────────────────────────────────────────────────────────────────────────
-
-    /**
-     * Core scalar attributes shared by full and webhook save paths.
-     *
-     * @return array<string, mixed>
-     */
-    private static function coreAttributes(Product $product): array
-    {
-        return [
-            'external_id' => $product->id,
-            'sku' => $product->sku,
-            'gtin' => $product->gtin?->value,
-            'title' => $product->title,
-            'description' => $product->description,
-            'slug' => $product->slug,
-            'url' => $product->url,
-            'price' => $product->price,
-            'cost_price' => $product->costPrice,
-            'sale_price' => $product->salePrice,
-            'compare_price' => $product->comparePrice,
-            'stock' => $product->stock,
-            'is_active' => $product->isActive,
-            'vat_exclusive' => $product->vatExclusive,
-            'weight' => $product->weight,
-            'meta_title' => $product->metaTitle,
-            'meta_description' => $product->metaDescription,
-            'sort_order' => $product->sortOrder,
-            'shopwired_created_at' => $product->createdAt,
-            'shopwired_updated_at' => $product->updatedAt,
-        ];
-    }
 
     /**
      * Embed-dependent attributes (always written by full save, conditionally by webhook save).
@@ -201,6 +148,34 @@ final class ProductModelMapper
             'custom_fields' => $product->rawCustomFields,
             'filters' => $product->rawFilters,
         ];
+    }
+
+    /**
+     * Embed columns included only when the corresponding embed was present in the webhook payload.
+     *
+     * @param list<string> $presentEmbeds
+     *
+     * @return array<string, mixed>
+     */
+    private static function webhookEmbedAttributes(Product $product, array $presentEmbeds): array
+    {
+        $candidates = [
+            'vat_relief' => ['vat_relief', $product->vatRelief],
+            'categories' => ['category_ids', $product->categoryIds],
+            'images' => ['images', \array_map(static fn(ProductImage $img): array => $img->toArray(), $product->images)],
+            'custom_fields' => ['custom_fields', $product->rawCustomFields],
+            'filters' => ['filters', $product->rawFilters],
+        ];
+
+        $attributes = [];
+
+        foreach ($candidates as $embed => [$column, $value]) {
+            if (\in_array($embed, $presentEmbeds, true)) {
+                $attributes[$column] = $value;
+            }
+        }
+
+        return $attributes;
     }
 
     /**

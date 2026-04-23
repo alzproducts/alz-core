@@ -22,21 +22,21 @@ final readonly class NullableMoneyEqualsValidator implements ValidatorInterface
         $proposedGross = $this->proposed?->toGross();
         $currentGross = $this->current?->toGross();
 
-        // Both null = equal
+        return new NullableMoneyEqualsResult($this->resolveEquality(), $proposedGross, $currentGross);
+    }
+
+    private function resolveEquality(): bool
+    {
         if ($this->proposed === null && $this->current === null) {
-            return new NullableMoneyEqualsResult(true, $proposedGross, $currentGross);
+            return true;
         }
 
-        // One null, one not = different
         if ($this->proposed === null || $this->current === null) {
-            return new NullableMoneyEqualsResult(false, $proposedGross, $currentGross);
+            return false;
         }
 
-        // Both non-null — delegate to MoneyEqualsValidator
-        $equal = (new MoneyEqualsValidator($this->proposed, $this->current))
+        return (new MoneyEqualsValidator($this->proposed, $this->current))
             ->validate()
             ->passed();
-
-        return new NullableMoneyEqualsResult($equal, $proposedGross, $currentGross);
     }
 }

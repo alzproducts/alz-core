@@ -22,7 +22,7 @@ use App\Infrastructure\Linnworks\Models\PurchaseOrderItemModel;
 use App\Infrastructure\Linnworks\Models\PurchaseOrderModel;
 use App\Infrastructure\Linnworks\Models\PurchaseOrderNoteModel;
 use App\Infrastructure\Repositories\AbstractEloquentRepository;
-use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Model;
 
 /**
  * Eloquent implementation of the purchase order sync repository.
@@ -59,7 +59,7 @@ final class EloquentPurchaseOrderSyncRepository extends AbstractEloquentReposito
 
             $this->eloquentGateway->upsertOne(
                 modelClass: PurchaseOrderModel::class,
-                attributes: $this->coreToAttributes($entity->core),
+                attributes: PurchaseOrderModel::attributesFromDomain($entity->core),
                 uniqueBy: $this->getUpsertKeys(),
             );
 
@@ -85,7 +85,7 @@ final class EloquentPurchaseOrderSyncRepository extends AbstractEloquentReposito
 
             $this->eloquentGateway->upsertOne(
                 modelClass: PurchaseOrderModel::class,
-                attributes: $this->coreToAttributes($purchaseOrder),
+                attributes: PurchaseOrderModel::attributesFromDomain($purchaseOrder),
                 uniqueBy: $this->getUpsertKeys(),
             );
 
@@ -112,48 +112,28 @@ final class EloquentPurchaseOrderSyncRepository extends AbstractEloquentReposito
             return;
         }
 
-        $headerRows = [];
-        $itemRows = [];
-        $allPurchaseIds = [];
-        $allItemIds = [];
+        $bulk = $this->buildBulkCoreRows($purchaseOrders);
 
-        foreach ($purchaseOrders as $core) {
-            $purchaseId = $core->header->pkPurchaseId->value;
-            $allPurchaseIds[] = $purchaseId;
-            $headerRows[] = $this->coreToAttributes($core);
-
-            foreach ($core->items as $item) {
-                $allItemIds[] = $item->pkPurchaseItemId->value;
-                $itemRows[] = [
-                    'linnworks_purchase_id' => $purchaseId,
-                    ...PurchaseOrderItemModel::attributesFromDomain($item),
-                ];
-            }
-        }
-
-        // 1. Bulk upsert all headers
         $this->eloquentGateway->upsertMany(
             modelClass: PurchaseOrderModel::class,
-            rows: $headerRows,
+            rows: $bulk['headers'],
             uniqueBy: $this->getUpsertKeys(),
         );
 
-        // 2. Bulk upsert all items across all POs
-        if ($itemRows !== []) {
+        if ($bulk['items'] !== []) {
             $this->eloquentGateway->upsertMany(
                 modelClass: PurchaseOrderItemModel::class,
-                rows: $itemRows,
+                rows: $bulk['items'],
                 uniqueBy: ['linnworks_purchase_item_id'],
             );
         }
 
-        // 3. Bulk orphan-delete items for all POs in one query
         $this->eloquentGateway->deleteWhereInAndNotIn(
             modelClass: PurchaseOrderItemModel::class,
             whereInColumn: 'linnworks_purchase_id',
-            whereInValues: $allPurchaseIds,
+            whereInValues: $bulk['purchaseIds'],
             notInColumn: 'linnworks_purchase_item_id',
-            notInValues: $allItemIds,
+            notInValues: $bulk['itemIds'],
         );
     }
 
@@ -175,7 +155,7 @@ final class EloquentPurchaseOrderSyncRepository extends AbstractEloquentReposito
      */
     protected function entityToAttributes(object $entity): array
     {
-        return $this->coreToAttributes($entity->core);
+        return PurchaseOrderModel::attributesFromDomain($entity->core);
     }
 
     protected function getUpsertKeys(): array
@@ -184,41 +164,43 @@ final class EloquentPurchaseOrderSyncRepository extends AbstractEloquentReposito
     }
 
     /**
-     * Build parent row attributes from a PurchaseOrderCore.
+     * Flatten a list of PurchaseOrderCore into bulk-upsert-ready rows.
      *
-     * @return array<string, mixed>
+     * @param list<PurchaseOrderCore> $purchaseOrders
+     *
+     * @return array{
+     *     headers: list<array<string, mixed>>,
+     *     items: list<array<string, mixed>>,
+     *     purchaseIds: list<string>,
+     *     itemIds: list<string>,
+     * }
      */
-    private function coreToAttributes(PurchaseOrderCore $core): array
+    private function buildBulkCoreRows(array $purchaseOrders): array
     {
-        $header = $core->header;
+        $headers = [];
+        $items = [];
+        $purchaseIds = [];
+        $itemIds = [];
+
+        foreach ($purchaseOrders as $core) {
+            $purchaseId = $core->header->pkPurchaseId->value;
+            $purchaseIds[] = $purchaseId;
+            $headers[] = PurchaseOrderModel::attributesFromDomain($core);
+
+            foreach ($core->items as $item) {
+                $itemIds[] = $item->pkPurchaseItemId->value;
+                $items[] = [
+                    'linnworks_purchase_id' => $purchaseId,
+                    ...PurchaseOrderItemModel::attributesFromDomain($item),
+                ];
+            }
+        }
 
         return [
-            'linnworks_purchase_id' => $header->pkPurchaseId->value,
-            'fk_supplier_id' => $header->fkSupplierId->value,
-            'fk_location_id' => $header->fkLocationId->value,
-            'external_invoice_number' => $header->externalInvoiceNumber,
-            'status' => $header->status->value,
-            'locked' => $header->locked,
-            'line_count' => $header->lineCount,
-            'delivered_lines_count' => $header->deliveredLinesCount,
-            'currency' => $header->currency,
-            'supplier_reference_number' => $header->supplierReferenceNumber,
-            'unit_amount_tax_included_type' => $header->unitAmountTaxIncludedType,
-            'postage_paid' => $header->postagePaid->toNet(),
-            'total_cost' => $header->totalCost,
-            'tax_paid' => $header->taxPaid,
-            'shipping_tax_rate' => $header->shippingTaxRate?->percentage,
-            'conversion_rate' => $header->conversionRate,
-            'converted_shipping_cost' => $header->convertedShippingCost,
-            'converted_shipping_tax' => $header->convertedShippingTax,
-            'converted_other_cost' => $header->convertedOtherCost,
-            'converted_other_tax' => $header->convertedOtherTax,
-            'converted_grand_total' => $header->convertedGrandTotal,
-            'date_of_purchase' => $header->dateOfPurchase,
-            'date_of_delivery' => $header->dateOfDelivery,
-            'quoted_delivery_date' => $header->quotedDeliveryDate,
-            'note_count' => $core->noteCount,
-            'synced_at' => CarbonImmutable::now(),
+            'headers' => $headers,
+            'items' => $items,
+            'purchaseIds' => $purchaseIds,
+            'itemIds' => $itemIds,
         ];
     }
 
@@ -234,11 +216,7 @@ final class EloquentPurchaseOrderSyncRepository extends AbstractEloquentReposito
     private function syncItems(string $purchaseId, array $items): void
     {
         if ($items === []) {
-            $this->eloquentGateway->deleteWhere(
-                modelClass: PurchaseOrderItemModel::class,
-                column: 'linnworks_purchase_id',
-                value: $purchaseId,
-            );
+            $this->deleteAllChildrenForParent(PurchaseOrderItemModel::class, $purchaseId);
 
             return;
         }
@@ -254,18 +232,12 @@ final class EloquentPurchaseOrderSyncRepository extends AbstractEloquentReposito
             ];
         }
 
-        $this->eloquentGateway->upsertMany(
+        $this->upsertChildRows(PurchaseOrderItemModel::class, $rows, 'linnworks_purchase_item_id');
+        $this->deleteOrphansByParent(
             modelClass: PurchaseOrderItemModel::class,
-            rows: $rows,
-            uniqueBy: ['linnworks_purchase_item_id'],
-        );
-
-        $this->eloquentGateway->deleteWhereNotIn(
-            modelClass: PurchaseOrderItemModel::class,
-            whereColumn: 'linnworks_purchase_id',
-            whereValue: $purchaseId,
-            notInColumn: 'linnworks_purchase_item_id',
-            notInValues: $itemIds,
+            uniqueColumn: 'linnworks_purchase_item_id',
+            purchaseId: $purchaseId,
+            childIds: $itemIds,
         );
     }
 
@@ -281,11 +253,7 @@ final class EloquentPurchaseOrderSyncRepository extends AbstractEloquentReposito
     private function syncAdditionalCosts(string $purchaseId, array $costs): void
     {
         if ($costs === []) {
-            $this->eloquentGateway->deleteWhere(
-                modelClass: PurchaseOrderAdditionalCostModel::class,
-                column: 'linnworks_purchase_id',
-                value: $purchaseId,
-            );
+            $this->deleteAllChildrenForParent(PurchaseOrderAdditionalCostModel::class, $purchaseId);
 
             return;
         }
@@ -304,23 +272,13 @@ final class EloquentPurchaseOrderSyncRepository extends AbstractEloquentReposito
             ];
         }
 
-        $this->eloquentGateway->upsertMany(
+        $this->upsertChildRows(PurchaseOrderAdditionalCostModel::class, $rows, 'linnworks_additional_cost_item_id');
+        $this->deleteOrphansByParent(
             modelClass: PurchaseOrderAdditionalCostModel::class,
-            rows: $rows,
-            uniqueBy: ['linnworks_additional_cost_item_id'],
+            uniqueColumn: 'linnworks_additional_cost_item_id',
+            purchaseId: $purchaseId,
+            childIds: $costIds,
         );
-
-        // Nullable upsert key — skip orphan-delete when all IDs are null to avoid
-        // deleting rows that can't be identified. The upsert handles dedup for non-null keys.
-        if ($costIds !== []) {
-            $this->eloquentGateway->deleteWhereNotIn(
-                modelClass: PurchaseOrderAdditionalCostModel::class,
-                whereColumn: 'linnworks_purchase_id',
-                whereValue: $purchaseId,
-                notInColumn: 'linnworks_additional_cost_item_id',
-                notInValues: $costIds,
-            );
-        }
     }
 
     /**
@@ -335,11 +293,7 @@ final class EloquentPurchaseOrderSyncRepository extends AbstractEloquentReposito
     private function syncDeliveredRecords(string $purchaseId, array $records): void
     {
         if ($records === []) {
-            $this->eloquentGateway->deleteWhere(
-                modelClass: PurchaseOrderDeliveredRecordModel::class,
-                column: 'linnworks_purchase_id',
-                value: $purchaseId,
-            );
+            $this->deleteAllChildrenForParent(PurchaseOrderDeliveredRecordModel::class, $purchaseId);
 
             return;
         }
@@ -355,18 +309,12 @@ final class EloquentPurchaseOrderSyncRepository extends AbstractEloquentReposito
             ];
         }
 
-        $this->eloquentGateway->upsertMany(
+        $this->upsertChildRows(PurchaseOrderDeliveredRecordModel::class, $rows, 'linnworks_delivery_record_id');
+        $this->deleteOrphansByParent(
             modelClass: PurchaseOrderDeliveredRecordModel::class,
-            rows: $rows,
-            uniqueBy: ['linnworks_delivery_record_id'],
-        );
-
-        $this->eloquentGateway->deleteWhereNotIn(
-            modelClass: PurchaseOrderDeliveredRecordModel::class,
-            whereColumn: 'linnworks_purchase_id',
-            whereValue: $purchaseId,
-            notInColumn: 'linnworks_delivery_record_id',
-            notInValues: $recordIds,
+            uniqueColumn: 'linnworks_delivery_record_id',
+            purchaseId: $purchaseId,
+            childIds: $recordIds,
         );
     }
 
@@ -384,11 +332,7 @@ final class EloquentPurchaseOrderSyncRepository extends AbstractEloquentReposito
     private function syncNotes(string $purchaseId, array $notes): void
     {
         if ($notes === []) {
-            $this->eloquentGateway->deleteWhere(
-                modelClass: PurchaseOrderNoteModel::class,
-                column: 'linnworks_purchase_id',
-                value: $purchaseId,
-            );
+            $this->deleteAllChildrenForParent(PurchaseOrderNoteModel::class, $purchaseId);
 
             return;
         }
@@ -404,18 +348,12 @@ final class EloquentPurchaseOrderSyncRepository extends AbstractEloquentReposito
             ];
         }
 
-        $this->eloquentGateway->upsertMany(
+        $this->upsertChildRows(PurchaseOrderNoteModel::class, $rows, 'linnworks_purchase_order_note_id');
+        $this->deleteOrphansByParent(
             modelClass: PurchaseOrderNoteModel::class,
-            rows: $rows,
-            uniqueBy: ['linnworks_purchase_order_note_id'],
-        );
-
-        $this->eloquentGateway->deleteWhereNotIn(
-            modelClass: PurchaseOrderNoteModel::class,
-            whereColumn: 'linnworks_purchase_id',
-            whereValue: $purchaseId,
-            notInColumn: 'linnworks_purchase_order_note_id',
-            notInValues: $noteIds,
+            uniqueColumn: 'linnworks_purchase_order_note_id',
+            purchaseId: $purchaseId,
+            childIds: $noteIds,
         );
     }
 
@@ -433,11 +371,7 @@ final class EloquentPurchaseOrderSyncRepository extends AbstractEloquentReposito
     private function syncExtendedProperties(string $purchaseId, array $extendedProperties): void
     {
         if ($extendedProperties === []) {
-            $this->eloquentGateway->deleteWhere(
-                modelClass: PurchaseOrderExtendedPropertyModel::class,
-                column: 'linnworks_purchase_id',
-                value: $purchaseId,
-            );
+            $this->deleteAllChildrenForParent(PurchaseOrderExtendedPropertyModel::class, $purchaseId);
 
             return;
         }
@@ -456,21 +390,75 @@ final class EloquentPurchaseOrderSyncRepository extends AbstractEloquentReposito
             ];
         }
 
-        $this->eloquentGateway->upsertMany(
+        $this->upsertChildRows(PurchaseOrderExtendedPropertyModel::class, $rows, 'row_id');
+        $this->deleteOrphansByParent(
             modelClass: PurchaseOrderExtendedPropertyModel::class,
-            rows: $rows,
-            uniqueBy: ['row_id'],
+            uniqueColumn: 'row_id',
+            purchaseId: $purchaseId,
+            childIds: $rowIds,
         );
+    }
 
-        // Nullable upsert key — skip orphan-delete when all IDs are null (see syncAdditionalCosts)
-        if ($rowIds !== []) {
-            $this->eloquentGateway->deleteWhereNotIn(
-                modelClass: PurchaseOrderExtendedPropertyModel::class,
-                whereColumn: 'linnworks_purchase_id',
-                whereValue: $purchaseId,
-                notInColumn: 'row_id',
-                notInValues: $rowIds,
-            );
+    /**
+     * Delete all child rows for a given purchase order (used when the incoming
+     * child list is empty and represents the authoritative state).
+     *
+     * @param class-string<Model> $modelClass
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    private function deleteAllChildrenForParent(string $modelClass, string $purchaseId): void
+    {
+        $this->eloquentGateway->deleteWhere(
+            modelClass: $modelClass,
+            column: 'linnworks_purchase_id',
+            value: $purchaseId,
+        );
+    }
+
+    /**
+     * @param class-string<Model> $modelClass
+     * @param list<array<string, mixed>> $rows
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    private function upsertChildRows(string $modelClass, array $rows, string $uniqueColumn): void
+    {
+        $this->eloquentGateway->upsertMany(
+            modelClass: $modelClass,
+            rows: $rows,
+            uniqueBy: [$uniqueColumn],
+        );
+    }
+
+    /**
+     * @param class-string<Model> $modelClass
+     * @param list<string|int> $childIds
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    private function deleteOrphansByParent(
+        string $modelClass,
+        string $uniqueColumn,
+        string $purchaseId,
+        array $childIds,
+    ): void {
+        if ($childIds === []) {
+            return;
         }
+
+        $this->eloquentGateway->deleteWhereNotIn(
+            modelClass: $modelClass,
+            whereColumn: 'linnworks_purchase_id',
+            whereValue: $purchaseId,
+            notInColumn: $uniqueColumn,
+            notInValues: $childIds,
+        );
     }
 }

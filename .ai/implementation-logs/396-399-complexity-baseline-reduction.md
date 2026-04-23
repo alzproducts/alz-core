@@ -146,8 +146,192 @@ _(Not yet started)_
 
 ## Issue #397 — Linnworks, Inventory, Catalog & Domain (105 errors)
 
+**Branch**: `feature/397-complexity-baseline-linnworks-domain`
+**Plan Document**: `.ai/plans/2026-04-04_397-reduce-phpstan-complexity-baseline-linnworks-inventory-catalog-domain.md`
+**Started**: 2026-04-23
+
 ### Decisions
-_(Not yet started)_
+
+#### 2026-04-23 — Kickoff
+- Joint effort with user — checkpointing at each phase boundary for architectural alignment
+- Starting baseline: 1656 lines (down from ~2920 during #399 work; 2524 at #399 start)
+- Plan is 19 days old — some entries likely stale from intervening work. Strategy per plan: after Phase 0 rule changes, strip ALL in-scope baseline entries and use `make lint` output as authoritative list.
+
+#### 2026-04-23 — Phase 0 (rule changes) complete
+
+**Rule changes:**
+- `ExcessiveMethodLengthRule`: added `CONSTRUCTOR_THRESHOLD = 40` for non-DTO constructors. Added `casts` and `attributesFromDomain` to `EXCLUDED_METHODS`. Rationale: pure assignment / Eloquent declarations grow linearly with field count, no extractable logic.
+- `ExcessiveClassLengthRule`: added `INFRASTRUCTURE_CLUSTER_THRESHOLD = 500` for Infrastructure classes whose name ends with `Client`, `Repository`, or `Transport`. Initially tried namespace-fragment matching (`\\Clients`) but that missed `ShopwiredHttpTransport` and `LinnworksHttpTransport`, which sit at service-integration root (`App\Infrastructure\Shopwired\`) not a `\Transport\` subnamespace. Class-name-suffix matching covers both conventions.
+- `phpstan.neon`: permanent exclusion added for `LinnworksOrder.__construct` (73-line readonly VO with 42 promoted properties — class docblock explicitly documents flat shape as intentional pending enum refinement).
+
+**Permanent exclusions cleaned up (now covered by new 500 cluster threshold):**
+- `AbstractEloquentRepository` (258 lines → under 500) — removed from phpstan.neon
+- `MixpanelClient` (392 lines → under 500) — removed from phpstan.neon
+
+**Baseline cleared (39 entries across all issues):**
+- 22 constructor entries ≤ 40 lines (13 Domain VOs in #397 scope + 9 Infrastructure Response/Config DTOs across #396/#398 scopes)
+- 8 `casts()` / `attributesFromDomain()` entries (6 in #397 scope, 2 #396 bonus)
+- 7 Infrastructure cluster class-length entries under 500 (4 #397 + 3 #396 bonus)
+- 1 LinnworksOrder constructor entry (now permanent exclusion)
+- Plus `LinnworksOrder` class had only the constructor, so file-level `alz.excessiveMethodLength` exclusion in phpstan.neon is equivalent
+
+**Baseline updates (8 entries — threshold string refreshed, entries retained):**
+- Still-failing constructor entries (> 40): ProductView (75, Phase 8), BingAdsConfig (52), MixpanelConfig (56), CustomerResponse (58), OrderResponse (73), ProductResponse (47)
+- Still-failing class-length entries (> 500): EloquentOrderRepository (526), EloquentProductRepository (945)
+
+**Baseline: 1656 → 1440 lines (-216)**. Plan estimated ~28 entries cleared; actual was 39 because the #577 DTO-constructor exemption (2026-04-16) wasn't accounted for in the plan.
+
+#### 2026-04-23 — Phase 0.5 (Config validation refactor) complete
+
+Not in the original plan — added mid-run because `BingAdsConfig.__construct` (52 lines) and `MixpanelConfig.__construct` (56 lines) were left in the baseline when #398 closed. Both have extractable fail-fast validation (not pure property promotion), so a permanent exclusion would have papered over real debt.
+
+**Refactor shape (per joint decision):**
+- `validateRequiredStrings(array $fields)` — keyed by config key, value is `[configValue, errorMessage]` pair. Loops and throws `InvalidConfigurationException` per empty field.
+- `validateRanges(...)` — per-class numeric-bound and enum checks. Throws `InvalidArgumentException`.
+- Constructor body becomes `self::validateRequiredStrings([...]); self::validateRanges(...);` — property promotion signature unchanged.
+- Preserved exception-type split: empty-string misconfig → `InvalidConfigurationException` (carries config key), out-of-range → `InvalidArgumentException` (programmer error). Different signals for different root causes.
+
+**Behavior preservation:**
+- Same exception types, messages, and config keys for every failure mode.
+- No existing test coverage for either Config class, so manual reasoning only. Both failure paths (empty string, out-of-range) traced to identical thrown exceptions.
+
+**Baseline: 1440 → 1430 lines (-10).** Two constructor entries cleared.
+
+**Verification:**
+- `make lint` clean (Pint + PHPStan + PHPArkitect + Deptrac + TLint)
+- Existing `ExcessiveClassLengthRuleTest` (2 cases) and `ExcessiveMethodLengthRuleTest` (4 cases) pass without modification — default thresholds unchanged
+- No new rule tests added for Phase 0 (would require 500+ line fixture files for Infrastructure cluster coverage; real-codebase lint validates the new branches)
+
+#### 2026-04-23 — Phase 1 (LinnworksResponseParserTrait) complete
+
+Three over-limit parse methods (parseWrappedArray 37, parseDirectArray 26, parseSingleToDomain 25) consumed by 4 Linnworks clients, generating 12 baseline entries (4 × 3).
+
+**Refactor shape (Option A — two focused helpers):**
+- `throwParsingFailure(string $message, mixed $data, ?Throwable $previous = null): never` — log + throw `InvalidApiResponseException`. When `$previous` is non-null the failure originated from Spatie `CannotCreateData` (generic message + chained cause); otherwise it's a structural guard (message used verbatim).
+- `mapDtosFromArray(array $items, class-string<Data> $dtoClass, mixed $rawData): list<T>` — wraps the `array_map(::from)` + `catch CannotCreateData` pattern; always returns a list (via `array_values`).
+- Convention: `private static` matches existing trait helpers (`logParsingFailure`, `validateArrayResponse`, `groupByGuid`).
+
+**Result:**
+- `parseWrappedArray`: 37 → 15 lines (span)
+- `parseDirectArray`: 26 → 9 lines
+- `parseSingleToDomain`: 25 → 15 lines
+
+All three under the 20-line default threshold; 12 baseline entries cleared in one trait edit because PHPStan counts trait methods against each consuming class.
+
+**Out of scope (deferred to Phase 3):**
+10 `parseWrappedArrayToDomain` entries remain at 23 lines. Body is only ~8 lines — PhpParser/PHPStan is measuring the attached docblock as part of the node span. These belong to specific client files and will be investigated alongside the other Infrastructure/Linnworks client methods.
+
+**Baseline: 1430 → 1370 lines (-60).** 12 entries × 5 lines each = 60 line reduction.
+
+**Verification:**
+- `make lint` clean (all 5 linters)
+- Trait behavior preserved: guards still throw `InvalidApiResponseException` with same messages; `CannotCreateData` path still produces generic "API returned invalid data structure" message with the SDK exception chained as `previous`
+
+#### 2026-04-23 — Phase 2 (EloquentPurchaseOrderSyncRepository) complete
+
+7 baseline entries across one repository: `saveCoresBatch` (49), `coreToAttributes` (32), and 5 sync methods (36-43 lines each).
+
+**Three-part refactor:**
+
+1. **Move `coreToAttributes` → `PurchaseOrderModel::attributesFromDomain(PurchaseOrderCore)`.**
+  - The 32-line field-mapping method belongs on the Model per the Infrastructure CLAUDE.md canonical pattern, not on the repository.
+  - `attributesFromDomain` is already in `EXCLUDED_METHODS` → rule-exempt once relocated.
+  - Takes `PurchaseOrderCore` (not `PurchaseOrderHeader`) because `note_count` lives on Core. Core is the accurate "domain for this table."
+
+2. **Extract two sync helpers** (3 + 4 params — under the 4-param rule):
+  - `upsertChildRows(class-string<Model>, list<array>, string)`
+  - `deleteOrphansByParent(class-string<Model>, string, string, list<string|int>)` — encapsulates the nullable-key skip (empty `$childIds` → no-op)
+  - Originally sketched as one 5-param helper; split because `alz.excessiveParameterCount` enforces 4 max.
+
+3. **Extract `buildBulkCoreRows` from `saveCoresBatch`.**
+  - The foreach over purchase orders + flatten-to-rows logic becomes a private helper returning an array shape `{headers, items, purchaseIds, itemIds}`.
+  - `saveCoresBatch` stays as orchestration: guard → build → 3 DB calls.
+
+**Result:**
+- `saveCoresBatch`: 49 → 28 lines
+- 5 sync methods: 36-43 → ≤29 lines each
+- `coreToAttributes` relocated to `PurchaseOrderModel::attributesFromDomain` (rule-exempt by name)
+
+**Type discovery:**
+- Child ID types vary across VOs: `list<string>` for Guid-valued IDs, `list<int>` for `purchaseAdditionalCostItemId` and `rowId`. Helper signature widened to `list<string|int>` — narrower would force unnecessary conversions at each call site.
+
+**Baseline: 1370 → 1335 lines (-35).** 7 entries cleared.
+
+**Verification:**
+- `make lint` clean (all 5 linters)
+- Behavior preserved: same upsert/delete sequence, same nullable-key skip semantics, same `attributesFromDomain` field list on the model
+
+#### 2026-04-23 — Phase 3a (Linnworks repositories) complete
+
+Two repository refactors — same pattern as Phase 2 for LinnworksOrder, different pattern for StockItem.
+
+**EloquentLinnworksOrderRepository (3 entries):**
+- `entityToAttributes` (71 lines) → 5-line delegation to `LinnworksOrderModel::attributesFromDomain(LinnworksOrder)`. 56 field mappings moved verbatim to the Model (rule-exempt by name).
+- Extracted 3 local sync helpers: `deleteAllChildrenForOrder`, `upsertChildRows`, `deleteOrphansByOrder` — same shape as Phase 2 but hardcoded `'linnworks_order_id'` parent column (vs `'linnworks_purchase_id'` in Phase 2).
+- `syncItems`/`syncExtendedProperties`: 36 → ~16 lines each.
+
+**EloquentStockItemRepository (1 entry):**
+- `save()` (59 lines) → 17 lines via two helpers: `replaceExtendedProperties`, `replaceSuppliers`.
+- These use a **delete-and-reinsert** strategy (not upsert+orphan-delete), matching the existing repo semantics — "catches removals in Linnworks" per the docblock.
+- Transaction wrapper preserved — helpers called inside `transact(attempts: 3)` closure.
+
+**Intentional DRY tradeoff:**
+The two "sync" repos (LinnworksOrder + PurchaseOrderSync) now share a helper *pattern* but keep local copies rather than a shared base. Both have only 2-5 child entities and the helpers are trivial — a shared abstraction would obscure without simplifying. If a third sync repo emerges with the same pattern, that's the time to extract.
+
+**Behavior preservation (verified via sequential-thinking review + field-by-field diff):**
+- 56 LinnworksOrderModel field mappings identical (only `$entity` → `$order` parameter rename)
+- StockItem delete-reinsert order preserved (upsertOne → deleteWhere(EP) → conditional insertMany(EP) → deleteWhere(Supplier) → conditional insertMany(Supplier))
+- Exception propagation via `@throws` on helpers matches original
+
+**Baseline: 1335 → 1315 lines (-20).** 4 entries cleared.
+
+**Verification:** `make lint` clean; `make test` 3192 passed, 0 failures.
+
+#### 2026-04-23 — Phase 3b (Linnworks clients + Infrastructure cluster rule) complete
+
+This phase is mostly a RULE change with 2 targeted refactors. The key insight: Infrastructure API clients encapsulate a single API contract step (build request → transport call → validate response → return typed result), which is analogous to what Repository methods do (gateway wrap + query + mapping). Both deserve the same threshold. The original Phase 0 work had already unified Client/Repository/Transport as the "Infrastructure cluster" for class-length purposes — the method-length rule was the missing piece.
+
+**Rule change (ExcessiveMethodLengthRule):**
+- Renamed `REPOSITORY_THRESHOLD` → `INFRASTRUCTURE_CLUSTER_THRESHOLD` (same value 30)
+- Added `INFRASTRUCTURE_CLUSTER_SUFFIXES = ['Client', 'Repository', 'Transport']` — mirrors `ExcessiveClassLengthRule`
+- Replaced `isRepository()` with `isInfrastructureCluster()` using a union check:
+  (a) namespace contains `\\Repositories` — preserves 30-line threshold for non-Repository-suffix classes in Repositories namespace (e.g. `RelatedProductsAlgorithmSql`)
+  (b) class name ends with Client/Repository/Transport — new cluster coverage
+- Added `ValidClient.php` + `InvalidClient.php` fixtures and 2 test cases
+
+**Why a union check and not just suffix:** Initially attempted suffix-only, but `RelatedProductsAlgorithmSql` (in `Infrastructure\Catalog\Repositories\` namespace, class ends with `Sql` not `Repository`) would have regressed to 20-line threshold. The union preserves all prior 30-line coverage while extending to Client/Transport.
+
+**Cross-issue mechanical impact (baseline bulk-updated via awk):**
+- 13 cluster-class methods still over 30 lines → message updated from "20-line limit" to "30-line limit" (no refactor needed; still baseline-tracked)
+- Dozens of cluster-class methods now under 30 lines → entries removed entirely (mechanical clearance from rule)
+- Specifically cleared: 10× `parseWrappedArrayToDomain` (Shopwired #396), 10× `parseArrayResponse` (#396), 10× `parseSingleResponse` (#396), plus Linnworks `post`, `parseGetOrdersResponse`, `createPurchaseOrderInitial`, `modifyAdditionalCosts`, `searchPurchaseOrders` (#397), various Ads/BingAds/HelpScout/Mixpanel entries (#398)
+- 1 stale pattern entry deleted (`buildStorageException` in `S3StorageClient.php` — method now under 30)
+
+**2 targeted refactors (methods still over 30):**
+
+1. `DashboardsClient::execute` (33 → ~8 lines)
+   - `parseSqlQueryResponse(Response): SqlQueryResponse` — try/catch DTO parse + CRITICAL log + throw
+   - `assertNotError(SqlQueryResponse, string, Response): void` — error-flag check + ERROR log + throw
+   - Added `use Illuminate\Http\Client\Response`
+
+2. `InventoryUpdateClient::setExtendedProperties` (41 → ~27 lines)
+   - `partitionExtendedProperties(list, StockItemFull, Guid): array{updates, creates}` — the 3-way classification foreach (skip-if-match / update / create)
+   - Added `use App\Domain\Inventory\ValueObjects\StockItemFull`
+
+**4 methods NOT refactored (fit the natural client shape under new threshold):**
+- `parseGetOrdersResponse` (22), `createPurchaseOrderInitial` (21), `modifyAdditionalCosts` (24), `searchPurchaseOrders` (30) — all are single cohesive HTTP→DTO→return flows. Extracting would have obscured the API contract. Preserving `parseGetOrdersResponse` unchanged also means its specific "invalid order data structure" error message is untouched.
+
+**Behavior preservation (verified via sequential-thinking review):**
+- `DashboardsClient::execute`: Same log levels (critical/error), same log contexts, same exception types, same messages. Negated guard in `assertNotError` (`if (!isError) return;`) semantically equivalent to original `if (isError) { throw }`.
+- `setExtendedProperties`: Same 3-way classification, same `fromWrite()` args, same conditional transport calls with same endpoints/payloads, same update-before-create order.
+- Rule change is **additive**: no class loses its prior 30-line budget.
+
+**Baseline: 1315 → 961 lines (-354).** ~45-50 entries cleared mechanically across all 4 issues + 2 from targeted refactors.
+
+**Verification:**
+- `make lint` clean (all 5 linters)
+- `make test` 3194 passed (+2 new rule tests), 0 failures
+- 6 rule tests (including 2 new Client fixture tests) all pass
 
 ---
 

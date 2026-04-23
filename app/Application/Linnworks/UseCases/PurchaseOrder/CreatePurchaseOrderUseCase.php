@@ -45,13 +45,7 @@ final readonly class CreatePurchaseOrderUseCase
     public function execute(CreatePurchaseOrderCommand $command): Guid
     {
         $purchaseId = $this->client->createPurchaseOrderInitial($command, $command->reference);
-
-        $this->logger->info('Purchase order created', [
-            'purchase_id' => $purchaseId->value,
-            'reference' => $command->reference->value,
-            'supplier_id' => $command->fkSupplierId->value,
-            'item_count' => \count($command->items),
-        ]);
+        $this->logCreated($purchaseId, $command);
 
         try {
             $this->addLineItems($purchaseId, $command->items);
@@ -62,14 +56,29 @@ final readonly class CreatePurchaseOrderUseCase
             throw $e;
         }
 
+        $this->logCompleted($purchaseId, $command);
+
+        return $purchaseId;
+    }
+
+    private function logCreated(Guid $purchaseId, CreatePurchaseOrderCommand $command): void
+    {
+        $this->logger->info('Purchase order created', [
+            'purchase_id' => $purchaseId->value,
+            'reference' => $command->reference->value,
+            'supplier_id' => $command->fkSupplierId->value,
+            'item_count' => \count($command->items),
+        ]);
+    }
+
+    private function logCompleted(Guid $purchaseId, CreatePurchaseOrderCommand $command): void
+    {
         $this->logger->info('Purchase order creation completed', [
             'purchase_id' => $purchaseId->value,
             'reference' => $command->reference->value,
             'item_count' => \count($command->items),
             'extended_property_count' => \count($command->extendedProperties),
         ]);
-
-        return $purchaseId;
     }
 
     /**

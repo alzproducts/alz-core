@@ -60,31 +60,30 @@ final readonly class LinnworksSession
      */
     public static function fromAuthResponse(array $response, int $ttlBuffer): self
     {
-        $token = $response['Token'] ?? null;
-        $server = $response['Server'] ?? null;
+        $token = self::requireStringField($response, 'Token');
+        $server = self::requireStringField($response, 'Server');
 
-        if (!\is_string($token) || ($token === '')) {
-            throw new InvalidArgumentException('Auth response missing valid Token');
-        }
-
-        if (!\is_string($server) || ($server === '')) {
-            throw new InvalidArgumentException('Auth response missing valid Server');
-        }
-
-        // Linnworks TTL is typically 24 hours (86400 seconds)
-        // Default to 24 hours if not provided
+        // Linnworks TTL is typically 24 hours; default if not provided.
         $ttl = $response['TTL'] ?? null;
         $ttl = \is_int($ttl) ? $ttl : 86400;
 
-        // Apply buffer to refresh session before actual expiry
         $effectiveTtl = \max(1, $ttl - $ttlBuffer);
-
         $expiresAt = new DateTimeImmutable()->modify("+{$effectiveTtl} seconds");
 
-        return new self(
-            token: $token,
-            serverUrl: $server,
-            expiresAt: $expiresAt,
-        );
+        return new self(token: $token, serverUrl: $server, expiresAt: $expiresAt);
+    }
+
+    /**
+     * @param array<string, mixed> $response
+     */
+    private static function requireStringField(array $response, string $key): string
+    {
+        $value = $response[$key] ?? null;
+
+        if (!\is_string($value) || ($value === '')) {
+            throw new InvalidArgumentException("Auth response missing valid {$key}");
+        }
+
+        return $value;
     }
 }
