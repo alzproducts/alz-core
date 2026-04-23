@@ -22,7 +22,7 @@ final class TLintPrePushHook extends AbstractProcessHook
 
     protected function getTimeout(): int
     {
-        return 30; // 30 seconds (typically ~7s)
+        return 60; // 60 seconds (typically ~30s after #[Override] annotation sweep)
     }
 
     protected function getSuccessMessage(): string

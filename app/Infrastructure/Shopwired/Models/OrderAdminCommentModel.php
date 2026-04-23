@@ -12,6 +12,7 @@ use DateTimeImmutable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Override;
 
 /**
  * Eloquent model for shopwired.order_admin_comments table.
@@ -47,6 +48,7 @@ final class OrderAdminCommentModel extends Model implements EloquentDomainMappab
     /**
      * @return array<string, string>
      */
+    #[Override]
     protected function casts(): array
     {
         return [

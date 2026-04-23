@@ -7,6 +7,7 @@ namespace App\Infrastructure\ReviewsIo\Models;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
+use Override;
 
 /**
  * Eloquent model for reviews_io.product_ratings table.
@@ -36,6 +37,7 @@ final class ProductRatingModel extends Model
     /**
      * @return array<string, string>
      */
+    #[Override]
     protected function casts(): array
     {
         return [

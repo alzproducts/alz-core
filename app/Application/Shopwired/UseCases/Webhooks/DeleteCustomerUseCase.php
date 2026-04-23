@@ -6,7 +6,7 @@ namespace App\Application\Shopwired\UseCases\Webhooks;
 
 use App\Application\Contracts\Shopwired\CustomerRepositoryInterface;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
-use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\IntId;
@@ -38,7 +38,7 @@ final readonly class DeleteCustomerUseCase
 
         try {
             $this->customerRepository->deleteByExternalId($customerId);
-        } catch (ResourceNotFoundException) {
+        } catch (RecordNotFoundException) {
             $this->logger->info('Customer already deleted — skipping', $context);
 
             return;

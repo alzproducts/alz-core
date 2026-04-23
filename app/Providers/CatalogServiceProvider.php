@@ -34,9 +34,11 @@ use App\Infrastructure\Catalog\Repositories\ShippingOptionsFilterQueryRepository
 use App\Infrastructure\Catalog\Repositories\VatReliefFilterQueryRepository;
 use Illuminate\Contracts\Support\DeferrableProvider;
 use Illuminate\Support\ServiceProvider;
+use Override;
 
 final class CatalogServiceProvider extends ServiceProvider implements DeferrableProvider
 {
+    #[Override]
     public function register(): void
     {
         $this->registerRepositories();
@@ -50,6 +52,7 @@ final class CatalogServiceProvider extends ServiceProvider implements Deferrable
     }
 
     /** @return list<class-string> */
+    #[Override]
     public function provides(): array
     {
         return [

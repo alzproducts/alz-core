@@ -16,6 +16,7 @@ use App\Domain\ContactSubmission\ValueObjects\ContactSubmission;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
+use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Api\UnexpectedApiResultException;
 use App\Domain\Exceptions\Data\InsufficientDataException;
@@ -60,6 +61,7 @@ final readonly class ProcessContactSubmissionUseCase
      * @return int|null HelpScout conversation ID (null if already completed - idempotent)
      *
      * @throws ResourceNotFoundException When submission not found
+     * @throws RecordNotFoundException When submission row not found in database
      * @throws MalformedStoredDataException When stored data is corrupted
      * @throws DatabaseOperationFailedException When DB operation fails (permanent)
      * @throws ExternalServiceUnavailableException When HelpScout/DB unavailable (transient - retry)
@@ -70,6 +72,11 @@ final readonly class ProcessContactSubmissionUseCase
      */
     public function execute(string $submissionId, string $actionId): ?int
     {
+        $this->logger->info('Processing contact submission', [
+            'submission_id' => $submissionId,
+            'action_id' => $actionId,
+        ]);
+
         if ($this->isAlreadyCompleted($actionId)) {
             return null;
         }
@@ -111,6 +118,17 @@ final readonly class ProcessContactSubmissionUseCase
         $this->addEmailValidationNoteIfInvalid($submission->form->email, $conversationId);
         $this->actionRepository->markCompleted($actionId, (string) $conversationId);
 
+        $this->notifyProcessed($submission, $submissionId, $actionId, $conversationId);
+
+        return $conversationId;
+    }
+
+    private function notifyProcessed(
+        ContactSubmission $submission,
+        string $submissionId,
+        string $actionId,
+        int $conversationId,
+    ): void {
         $this->eventDispatcher->dispatch(new ContactFormProcessedEvent(
             submissionId: $submissionId,
             conversationId: IntId::from($conversationId),
@@ -118,7 +136,11 @@ final readonly class ProcessContactSubmissionUseCase
             customerEmail: $submission->form->email,
         ));
 
-        return $conversationId;
+        $this->logger->info('Contact submission processed', [
+            'submission_id' => $submissionId,
+            'action_id' => $actionId,
+            'conversation_id' => $conversationId,
+        ]);
     }
 
     /**

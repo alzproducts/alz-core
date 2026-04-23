@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\Exceptions\Api;
 
+use Override;
 use Throwable;
 
 /**
@@ -33,6 +34,7 @@ final class AuthenticationExpiredException extends PermanentApiFailure
         parent::__construct($serviceName, 'Authentication failed', $previous);
     }
 
+    #[Override]
     public function context(): array
     {
         return [...parent::context(), 'detail' => $this->detail];

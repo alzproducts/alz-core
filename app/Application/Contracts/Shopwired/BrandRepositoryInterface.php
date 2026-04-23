@@ -10,7 +10,7 @@ use App\Domain\Catalog\Brand\ValueObjects\Brand;
 use App\Domain\Catalog\Brand\ValueObjects\BrandView;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
-use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Data\MissingRequiredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
@@ -53,7 +53,7 @@ interface BrandRepositoryInterface extends RepositoryWriteInterface
      *
      * Used by `brand.deleted` webhook.
      *
-     * @throws ResourceNotFoundException When no brand found with this external ID
+     * @throws RecordNotFoundException When no brand found with this external ID
      * @throws DatabaseOperationFailedException On deletion failure
      * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
@@ -82,7 +82,7 @@ interface BrandRepositoryInterface extends RepositoryWriteInterface
      *
      * @param list<BrandInclude> $includes Requested embeds
      *
-     * @throws ResourceNotFoundException When no brand matches the ID
+     * @throws RecordNotFoundException When no brand matches the ID
      * @throws DatabaseOperationFailedException On query failure
      * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database temporarily unavailable

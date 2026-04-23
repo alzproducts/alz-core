@@ -9,6 +9,7 @@ use App\Domain\Customer\Enums\CustomerType;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
+use Override;
 
 /**
  * Eloquent model for public_ingest.contact_submissions table.
@@ -75,6 +76,7 @@ final class ContactSubmissionModel extends Model
     /**
      * @return array<string, string>
      */
+    #[Override]
     protected function casts(): array
     {
         return [

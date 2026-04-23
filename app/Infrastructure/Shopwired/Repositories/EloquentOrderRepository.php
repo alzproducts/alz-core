@@ -12,7 +12,7 @@ use App\Domain\Catalog\Order\ValueObjects\OrderProduct;
 use App\Domain\Catalog\Order\ValueObjects\OrderRefund;
 use App\Domain\Catalog\Order\ValueObjects\OrderStatus;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
-use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\IntId;
@@ -25,6 +25,7 @@ use App\Infrastructure\Shopwired\Models\OrderProductModel;
 use App\Infrastructure\Shopwired\Models\OrderRefundModel;
 use DateTimeImmutable;
 use Illuminate\Support\Collection;
+use Override;
 
 /**
  * Eloquent implementation of ShopWired order repository.
@@ -55,6 +56,7 @@ final class EloquentOrderRepository extends AbstractEloquentRepository implement
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      */
+    #[Override]
     public function save(object $entity): void
     {
         /** @var Order $entity */
@@ -125,7 +127,7 @@ final class EloquentOrderRepository extends AbstractEloquentRepository implement
      * 1. Non-cancelled order (if exactly one exists)
      * 2. Highest external_id (most recent ShopWired order ID)
      *
-     * @throws ResourceNotFoundException
+     * @throws RecordNotFoundException
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
@@ -140,7 +142,7 @@ final class EloquentOrderRepository extends AbstractEloquentRepository implement
                 ->get();
 
             if ($orders->isEmpty()) {
-                throw new ResourceNotFoundException('Database', $this->getEntityTypeName(), $reference);
+                throw new RecordNotFoundException($this->getEntityTypeName(), $reference);
             }
 
             $selected = self::selectPreferredOrder($orders);
@@ -220,7 +222,7 @@ final class EloquentOrderRepository extends AbstractEloquentRepository implement
     /**
      * {@inheritDoc}
      *
-     * @throws ResourceNotFoundException
+     * @throws RecordNotFoundException
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
@@ -240,7 +242,7 @@ final class EloquentOrderRepository extends AbstractEloquentRepository implement
         );
 
         if ($affected === 0) {
-            throw new ResourceNotFoundException('Database', $this->getEntityTypeName(), $externalId->value);
+            throw new RecordNotFoundException($this->getEntityTypeName(), $externalId->value);
         }
     }
 
@@ -250,7 +252,7 @@ final class EloquentOrderRepository extends AbstractEloquentRepository implement
      * Idempotent via upsert on (order_external_id, external_id) unique constraint.
      * Duplicate webhooks for the same refund will update rather than insert.
      *
-     * @throws ResourceNotFoundException
+     * @throws RecordNotFoundException
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
@@ -264,7 +266,7 @@ final class EloquentOrderRepository extends AbstractEloquentRepository implement
                 ->value('id');
 
             if ($orderUuid === null) {
-                throw new ResourceNotFoundException('Database', $this->getEntityTypeName(), $orderExternalId->value);
+                throw new RecordNotFoundException($this->getEntityTypeName(), $orderExternalId->value);
             }
 
             $this->eloquentGateway->upsertOne(
@@ -282,7 +284,7 @@ final class EloquentOrderRepository extends AbstractEloquentRepository implement
     /**
      * {@inheritDoc}
      *
-     * @throws ResourceNotFoundException
+     * @throws RecordNotFoundException
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
@@ -297,7 +299,7 @@ final class EloquentOrderRepository extends AbstractEloquentRepository implement
                 ->delete();
 
             if ($deleted === 0) {
-                throw new ResourceNotFoundException('Database', 'order_refund', $refundExternalId->value);
+                throw new RecordNotFoundException('OrderRefund', $refundExternalId->value);
             }
         });
     }
@@ -305,7 +307,7 @@ final class EloquentOrderRepository extends AbstractEloquentRepository implement
     /**
      * {@inheritDoc}
      *
-     * @throws ResourceNotFoundException
+     * @throws RecordNotFoundException
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
@@ -319,7 +321,7 @@ final class EloquentOrderRepository extends AbstractEloquentRepository implement
         );
 
         if ($deleted === 0) {
-            throw new ResourceNotFoundException('Database', $this->getEntityTypeName(), $externalId->value);
+            throw new RecordNotFoundException($this->getEntityTypeName(), $externalId->value);
         }
     }
 
@@ -335,6 +337,7 @@ final class EloquentOrderRepository extends AbstractEloquentRepository implement
     /**
      * {@inheritDoc}
      */
+    #[Override]
     protected function getEagerLoadRelations(): array
     {
         return self::EAGER_LOAD_RELATIONS;

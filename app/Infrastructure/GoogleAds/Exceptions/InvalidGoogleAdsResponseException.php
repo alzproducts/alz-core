@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Infrastructure\GoogleAds\Exceptions;
 
 use App\Infrastructure\Exceptions\ApiException;
+use Override;
 
 final class InvalidGoogleAdsResponseException extends ApiException
 {
@@ -34,6 +35,7 @@ final class InvalidGoogleAdsResponseException extends ApiException
         return new self($field, $reason);
     }
 
+    #[Override]
     public function context(): array
     {
         return ['field' => $this->field, 'detail' => $this->detail];

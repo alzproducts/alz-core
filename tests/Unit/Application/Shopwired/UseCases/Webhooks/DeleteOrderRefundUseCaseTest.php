@@ -7,7 +7,7 @@ namespace Tests\Unit\Application\Shopwired\UseCases\Webhooks;
 use App\Application\Contracts\Shopwired\OrderRepositoryInterface;
 use App\Application\Contracts\Shopwired\ShopwiredSyncDispatcherInterface;
 use App\Application\Shopwired\UseCases\Webhooks\DeleteOrderRefundUseCase;
-use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Notifications\Events\ManagerAlertEvent;
 use App\Domain\ValueObjects\IntId;
 use Illuminate\Contracts\Events\Dispatcher;
@@ -93,7 +93,7 @@ final class DeleteOrderRefundUseCaseTest extends TestCase
 
         $this->repository->shouldReceive('deleteRefund')
             ->once()
-            ->andThrow(new ResourceNotFoundException('Database', 'order_refund', 999));
+            ->andThrow(new RecordNotFoundException('OrderRefund', 999));
 
         $this->logger->shouldReceive('info')
             ->once()

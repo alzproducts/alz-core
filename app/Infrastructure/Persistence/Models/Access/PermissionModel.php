@@ -8,6 +8,7 @@ use App\Infrastructure\Persistence\Models\Auth\ProfileModel;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Override;
 
 /**
  * Eloquent model for the access.permissions table.
@@ -36,6 +37,7 @@ final class PermissionModel extends Model
     /**
      * @return array<string, string>
      */
+    #[Override]
     protected function casts(): array
     {
         return [

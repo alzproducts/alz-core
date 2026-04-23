@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\Exceptions\Infrastructure;
 
+use Override;
 use Throwable;
 
 /**
@@ -22,6 +23,7 @@ final class LockAcquisitionException extends AbstractInfrastructureException
         parent::__construct('Failed to acquire lock', previous: $previous);
     }
 
+    #[Override]
     public function context(): array
     {
         return [

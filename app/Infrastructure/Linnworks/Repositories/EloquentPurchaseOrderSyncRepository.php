@@ -23,6 +23,7 @@ use App\Infrastructure\Linnworks\Models\PurchaseOrderModel;
 use App\Infrastructure\Linnworks\Models\PurchaseOrderNoteModel;
 use App\Infrastructure\Repositories\AbstractEloquentRepository;
 use Illuminate\Database\Eloquent\Model;
+use Override;
 
 /**
  * Eloquent implementation of the purchase order sync repository.
@@ -51,6 +52,7 @@ final class EloquentPurchaseOrderSyncRepository extends AbstractEloquentReposito
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      */
+    #[Override]
     public function save(object $entity): void
     {
         /** @var PurchaseOrderFull $entity */

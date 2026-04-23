@@ -8,6 +8,7 @@ use App\Application\Contracts\Shopwired\BrandRepositoryInterface;
 use App\Domain\Catalog\Brand\Enums\BrandInclude;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Data\MissingRequiredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
@@ -34,6 +35,7 @@ final readonly class GetBrandUseCase
      * @throws DatabaseOperationFailedException On query failure
      * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
+     * @throws RecordNotFoundException When brand row not found in database
      * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
      * @throws MissingRequiredDataException When custom field definitions table is empty
      */

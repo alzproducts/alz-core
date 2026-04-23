@@ -8,6 +8,7 @@ use App\Application\Shopwired\DTOs\RawWebhookPayloadDTO;
 use App\Application\Shopwired\Services\HandleProductWebhookService;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
+use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Data\InvalidEnumValueException;
 use App\Domain\Exceptions\Data\InvalidSkuException;
@@ -35,6 +36,7 @@ final readonly class ShopwiredWebhookProductController
      * @throws InvalidApiResponseException
      * @throws InvalidEnumValueException
      * @throws InvalidSkuException
+     * @throws RecordNotFoundException When product row not found in database
      * @throws ResourceNotFoundException
      */
     public function __invoke(Request $request): JsonResponse

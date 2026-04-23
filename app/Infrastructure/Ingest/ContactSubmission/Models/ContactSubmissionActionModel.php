@@ -9,6 +9,7 @@ use App\Domain\ContactSubmission\Enums\ActionType;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
+use Override;
 
 /**
  * Eloquent model for customer_service.contact_submission_actions table.
@@ -49,6 +50,7 @@ final class ContactSubmissionActionModel extends Model
     /**
      * @return array<string, string>
      */
+    #[Override]
     protected function casts(): array
     {
         return [

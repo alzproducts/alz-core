@@ -10,6 +10,7 @@ use App\Application\Contracts\Shopwired\WebhookIdempotencyServiceInterface;
 use App\Application\Shopwired\DTOs\StockChangeDataDTO;
 use App\Application\Shopwired\DTOs\WebhookContextDTO;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
@@ -37,6 +38,7 @@ final readonly class UpdateProductStockUseCase
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
+     * @throws RecordNotFoundException When product row not found in database
      */
     public function execute(WebhookContextDTO $context, StockChangeDataDTO $data): void
     {

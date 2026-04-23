@@ -12,6 +12,7 @@ use App\Domain\Catalog\Category\Enums\CategoryInclude;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\CustomFields\ValueObjects\AbstractCustomFieldValue;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Data\InvalidEnumValueException;
 use App\Domain\Exceptions\Data\MissingRequiredDataException;
@@ -76,6 +77,7 @@ final readonly class CategoryController
      * @throws DatabaseOperationFailedException On query failure
      * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
+     * @throws RecordNotFoundException When category row not found in database
      * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
      * @throws InvalidEnumValueException
      * @throws MissingRequiredDataException
@@ -98,6 +100,7 @@ final readonly class CategoryController
      * @throws DatabaseOperationFailedException On query failure
      * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
+     * @throws RecordNotFoundException When category row not found in database
      * @throws MissingRequiredDataException When custom field definitions table is empty
      */
     public function customFields(int $categoryId, GetCategoryCustomFieldsRequestDTO $data): JsonResponse

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\Exceptions\Api;
 
+use Override;
 use Throwable;
 
 /**
@@ -34,6 +35,7 @@ final class PayloadSerializationException extends PermanentApiFailure
         parent::__construct($serviceName, 'Failed to serialize payload', $previous);
     }
 
+    #[Override]
     public function context(): array
     {
         return [...parent::context(), 'detail' => $this->detail];

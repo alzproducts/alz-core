@@ -7,6 +7,7 @@ namespace App\Presentation\Http\Api\Resources;
 use App\Domain\Catalog\Filters\ValueObjects\FilterGroupDefinition;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Override;
 
 /**
  * API resource for FilterGroupDefinition domain value object.
@@ -20,6 +21,7 @@ final class FilterGroupResource extends JsonResource
     /**
      * @return array<string, mixed>
      */
+    #[Override]
     public function toArray(Request $request): array
     {
         /** @var FilterGroupDefinition $filterGroup */

@@ -7,6 +7,7 @@ namespace App\Infrastructure\Persistence\Models\Auth;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
+use Override;
 
 /**
  * Eloquent model for the auth_allowed_emails table.
@@ -36,6 +37,7 @@ final class AuthAllowedEmailModel extends Model
     /**
      * @return array<string, string>
      */
+    #[Override]
     protected function casts(): array
     {
         return [

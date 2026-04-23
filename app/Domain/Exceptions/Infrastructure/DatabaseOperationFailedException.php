@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\Exceptions\Infrastructure;
 
+use Override;
 use Throwable;
 
 /**
@@ -26,6 +27,7 @@ final class DatabaseOperationFailedException extends AbstractInfrastructureExcep
         parent::__construct('Database operation failed', 0, $previous);
     }
 
+    #[Override]
     public function context(): array
     {
         return ['operation' => $this->operation, 'reason' => $this->reason];

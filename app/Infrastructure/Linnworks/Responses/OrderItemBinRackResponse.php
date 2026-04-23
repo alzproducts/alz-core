@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Infrastructure\Linnworks\Responses;
 
 use App\Infrastructure\Linnworks\Support\PascalCaseMapper;
+use Override;
 use Spatie\LaravelData\Attributes\MapInputName;
 use Spatie\LaravelData\Data;
 
@@ -28,6 +29,7 @@ final class OrderItemBinRackResponse extends Data
     /**
      * @return array{location: string, binRack: string, batchId: ?int, orderItemBatchId: ?int, quantity: int, addedDate: ?string}
      */
+    #[Override]
     public function toArray(): array
     {
         return [

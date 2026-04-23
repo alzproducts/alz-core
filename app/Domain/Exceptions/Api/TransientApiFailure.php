@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\Exceptions\Api;
 
+use Override;
 use Throwable;
 
 /**
@@ -27,6 +28,7 @@ abstract class TransientApiFailure extends AbstractApiException
         parent::__construct($serviceName, $message, $previous);
     }
 
+    #[Override]
     public function context(): array
     {
         return \array_filter(

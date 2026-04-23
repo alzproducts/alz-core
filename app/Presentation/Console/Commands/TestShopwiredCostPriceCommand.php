@@ -13,6 +13,7 @@ use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
+use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Api\ResourceNotAvailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
@@ -47,6 +48,7 @@ final class TestShopwiredCostPriceCommand extends Command
      * @throws ResourceNotFoundException
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
+     * @throws RecordNotFoundException When variation row not found in database
      */
     public function handle(
         ProductSyncService $syncService,
@@ -98,6 +100,7 @@ final class TestShopwiredCostPriceCommand extends Command
      * @throws ResourceNotFoundException
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
+     * @throws RecordNotFoundException When variation row not found in database
      */
     private function sendCostPriceUpdate(BasicProductUpdateClientInterface $updateClient, ProductVariation $variation, float $value): void
     {

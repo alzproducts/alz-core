@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Domain\Exceptions\Data;
 
+use Override;
+
 /**
  * SKU validation failed.
  *
@@ -19,6 +21,7 @@ final class InvalidSkuException extends AbstractDataException
         parent::__construct('Invalid SKU');
     }
 
+    #[Override]
     public function context(): array
     {
         return ['value' => $this->value, 'reason' => $this->reason];

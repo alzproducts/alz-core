@@ -11,7 +11,7 @@ use App\Domain\Catalog\Category\ValueObjects\Category;
 use App\Domain\Catalog\Category\ValueObjects\CategoryView;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
-use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Data\MissingRequiredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
@@ -100,7 +100,7 @@ final class EloquentCategoryRepository extends AbstractEloquentRepository implem
     /**
      * {@inheritDoc}
      *
-     * @throws ResourceNotFoundException
+     * @throws RecordNotFoundException
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
@@ -114,7 +114,7 @@ final class EloquentCategoryRepository extends AbstractEloquentRepository implem
         );
 
         if ($deleted === 0) {
-            throw new ResourceNotFoundException('Database', $this->getEntityTypeName(), $externalId->value);
+            throw new RecordNotFoundException($this->getEntityTypeName(), $externalId->value);
         }
     }
 
@@ -161,7 +161,7 @@ final class EloquentCategoryRepository extends AbstractEloquentRepository implem
     /**
      * {@inheritDoc}
      *
-     * @throws ResourceNotFoundException
+     * @throws RecordNotFoundException
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\Exceptions\Api;
 
+use Override;
 use Throwable;
 
 /**
@@ -31,6 +32,7 @@ final class UnexpectedApiResultException extends PermanentApiFailure
         );
     }
 
+    #[Override]
     public function context(): array
     {
         return [...parent::context(), 'reason' => $this->reason];

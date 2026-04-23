@@ -238,9 +238,9 @@ refactor: ## Run Rector + Pint combo
 	@$(MAKE) fix
 
 # Testing (layer-based, see tests/TestingStrategy.md)
-test: ## Run full Pest test suite (all layers)
+test: ## Run full Pest test suite (all layers, excludes tests that send real Slack messages)
 	@echo "$(MODE)"
-	$(EXEC) vendor/bin/pest --parallel
+	$(EXEC) vendor/bin/pest --parallel --exclude-group=slack
 
 test-quick: ## Run Domain tests only (fast, no external deps)
 	@echo "$(MODE)"

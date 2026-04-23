@@ -13,6 +13,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Override;
 
 /**
  * Eloquent model for catalog.custom_field_general_settings.
@@ -43,6 +44,7 @@ final class CustomFieldGeneralSettingsModel extends Model implements EloquentDom
     /**
      * @return array<string, string>
      */
+    #[Override]
     protected function casts(): array
     {
         return [

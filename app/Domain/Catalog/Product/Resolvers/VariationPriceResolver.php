@@ -16,9 +16,11 @@ use App\Domain\Catalog\Product\ValueObjects\ResolvedVariationPrices;
  * - `0.00` → Keep as zero (explicitly set, e.g., "temporarily removed from sale")
  *
  * **Resolution Rules for costPrice (ShopWired-specific):**
- * - `-1.0` → Inherit from parent (ShopWired's "not set" sentinel)
- * - `0.00` → Treat as null/unknown (invalid cost price)
- * - `> 0.00` → Valid variation cost price
+ * - Variation `-1.0` → Inherit from parent (ShopWired's "not set" sentinel)
+ * - Variation `0.00` → Treat as null/unknown (invalid cost price)
+ * - Variation `> 0.00` → Valid variation cost price
+ * - Parent `-1.0` or `0.00` → Normalized to null before inheritance
+ *   (ShopWired returns -1 for unset parent cost; 0 is never a valid cost)
  *
  * This distinction is critical: a £0.00 selling price is intentional (perhaps
  * a free sample or withdrawn item), while null means "use the parent's price".
@@ -65,9 +67,12 @@ final readonly class VariationPriceResolver
      */
     private function resolveCostPrice(?float $variationCost, ?float $parentCost): ?float
     {
-        // null or -1.0 = inherit from parent
+        // Normalize parent: ShopWired may emit -1.0 or 0.0 for "unset/invalid"
+        $normalizedParent = $this->normalizeSentinel($parentCost);
+
+        // null or -1.0 = inherit from (normalized) parent
         if ($variationCost === null || $variationCost === -1.0) {
-            return $parentCost;
+            return $normalizedParent;
         }
 
         // 0.00 = treat as unknown (not a valid cost price)
@@ -77,6 +82,15 @@ final readonly class VariationPriceResolver
 
         // > 0.00 = valid variation cost price
         return $variationCost;
+    }
+
+    private function normalizeSentinel(?float $cost): ?float
+    {
+        if ($cost === null || $cost === -1.0 || $cost === 0.0) {
+            return null;
+        }
+
+        return $cost;
     }
 
     /**

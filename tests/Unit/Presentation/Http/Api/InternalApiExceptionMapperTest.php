@@ -6,6 +6,7 @@ namespace Tests\Unit\Presentation\Http\Api;
 
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\PermanentApiFailure;
+use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Data\InvalidSkuException;
 use App\Domain\Exceptions\DomainException;
@@ -118,6 +119,21 @@ final class InternalApiExceptionMapperTest extends TestCase
         $this->assertSame(404, $response->getStatusCode());
         $body = $response->getData(assoc: true);
         $this->assertSame('not_found', $body['error']['type']);
+    }
+
+    #[Test]
+    public function render_maps_record_not_found_exception_to_404(): void
+    {
+        $exception = new RecordNotFoundException('Product', 42);
+        $request = $this->jsonRequest();
+
+        $response = InternalApiExceptionMapper::render($exception, $request);
+
+        $this->assertNotNull($response);
+        $this->assertSame(404, $response->getStatusCode());
+        $body = $response->getData(assoc: true);
+        $this->assertSame('not_found', $body['error']['type']);
+        $this->assertSame('Record not found in database', $body['error']['message']);
     }
 
     #[Test]

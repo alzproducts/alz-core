@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\Exceptions\Api;
 
+use Override;
 use Throwable;
 
 /**
@@ -34,6 +35,7 @@ final class ResourceNotAvailableException extends TransientApiFailure
         );
     }
 
+    #[Override]
     public function context(): array
     {
         return [

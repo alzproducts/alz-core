@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\Exceptions\Inventory;
 
 use App\Domain\Exceptions\Infrastructure\AbstractInfrastructureException;
+use Override;
 use Throwable;
 
 /**
@@ -25,6 +26,7 @@ final class SkuUpdateFailedException extends AbstractInfrastructureException
         parent::__construct('SKU update failed', previous: $previous);
     }
 
+    #[Override]
     public function context(): array
     {
         return [
