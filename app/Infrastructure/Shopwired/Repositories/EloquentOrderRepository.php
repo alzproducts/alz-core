@@ -299,7 +299,7 @@ final class EloquentOrderRepository extends AbstractEloquentRepository implement
                 ->delete();
 
             if ($deleted === 0) {
-                throw new RecordNotFoundException('order_refund', $refundExternalId->value);
+                throw new RecordNotFoundException('OrderRefund', $refundExternalId->value);
             }
         });
     }

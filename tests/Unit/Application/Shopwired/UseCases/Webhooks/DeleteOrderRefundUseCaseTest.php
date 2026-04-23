@@ -93,7 +93,7 @@ final class DeleteOrderRefundUseCaseTest extends TestCase
 
         $this->repository->shouldReceive('deleteRefund')
             ->once()
-            ->andThrow(new RecordNotFoundException('order_refund', 999));
+            ->andThrow(new RecordNotFoundException('OrderRefund', 999));
 
         $this->logger->shouldReceive('info')
             ->once()

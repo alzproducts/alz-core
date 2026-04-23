@@ -61,6 +61,10 @@ final class InternalApiExceptionMapper
         ))->toJsonResponse();
     }
 
+    /**
+     * Note: RecordNotFoundException must precede TransientApiFailure in the match arms
+     * below — it extends TransientApiFailure but needs 404, not 503.
+     */
     private static function statusCode(Throwable $e): int
     {
         return match (true) {
@@ -88,6 +92,10 @@ final class InternalApiExceptionMapper
         return self::errorTypeFromException($e) ?? self::errorTypeFromStatus($status);
     }
 
+    /**
+     * Note: RecordNotFoundException must precede TransientApiFailure in the match arms
+     * below — it extends TransientApiFailure but needs NotFound, not ServiceUnavailable.
+     */
     private static function errorTypeFromException(Throwable $e): ?ApiErrorTypeEnum
     {
         return match (true) {
