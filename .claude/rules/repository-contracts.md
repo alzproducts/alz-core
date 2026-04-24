@@ -5,28 +5,20 @@ paths:
 
 # Repository Contract Interface Rules
 
-## Shared: @throws Declarations
+## @throws Declarations
 
-**DO declare every `@throws` the implementation can raise.** PHPStan cannot verify `@throws` on interface methods, so gaps silently propagate up the call chain.
-
-| Implementation uses | Interface must declare |
-|---|---|
-| `DatabaseGateway::transact()` / `query()` | `DatabaseOperationFailedException`, `DuplicateRecordException`, `ExternalServiceUnavailableException` |
-| External API transport (HTTP clients) | All translated domain exceptions the implementation can throw |
-
-Both write and query interfaces call through `DatabaseGateway`, so both carry the DB `@throws`.
+- DO declare every `@throws` the implementation can raise — PHPStan cannot verify `@throws` on interface methods, so gaps silently propagate up the call chain
+- DO include `DatabaseOperationFailedException`, `DuplicateRecordException`, `ExternalServiceUnavailableException` on any interface whose implementation calls `DatabaseGateway::transact()` / `query()` — applies to both write and query interfaces
+- DO include every translated domain exception the implementation can throw on interfaces backed by external-API transport
 
 ## Write Repositories — `*RepositoryInterface.php`
 
-(Any `*RepositoryInterface.php` that is NOT `*QueryRepositoryInterface.php`.)
-
-- Extends `RepositoryWriteInterface`
-- Paired with an `Eloquent*Repository` implementation under `app/Infrastructure/**/Repositories/`
-- Exposes write operations (`save`, `delete`, `upsert`, `insertBatch`, etc.)
+- DO extend `RepositoryWriteInterface`
+- DO expose only write operations (`save`, `delete`, `upsert`, etc.)
+- EXCEPTION — infrastructure-state repositories (sync cursors, singleton config) MAY omit `RepositoryWriteInterface`. Canonical: `SyncCursorRepositoryInterface`
 
 ## Query Repositories — `*QueryRepositoryInterface.php`
 
-- **Read-only projections** — no `save()`, `update()`, `delete()`, `upsert()` on the interface
-- Typically backed by a PostgreSQL view (e.g. `ProductViewQueryRepositoryInterface` → `catalog.products_view`)
-- Does **NOT** extend `RepositoryWriteInterface`
-- Implementation pairs with a `*ViewModel` under `app/Infrastructure/**/Models/`
+- DO NOT extend `RepositoryWriteInterface`
+- DO NOT declare `save()`, `update()`, `delete()`, or `upsert()`
+- DO pair the implementation with a `*ViewModel` under `app/Infrastructure/**/Models/` (typically backed by a PostgreSQL view)

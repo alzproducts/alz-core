@@ -6,22 +6,28 @@ paths:
 
 # Eloquent Repository Rules
 
+## Check EloquentGateway First
+
+Before inlining `$modelClass::query()`, `transact()`, or adding a new helper method, check `$this->eloquentGateway` for an existing method that covers the operation.
+
 ## Creating a New Repository
 
-**All new repositories MUST:**
-1. Define interface extending `RepositoryWriteInterface` in `Application/Contracts/`
-2. Create implementation extending `AbstractEloquentRepository`
+- DO declare the class `final` extending `AbstractEloquentRepository` and implementing `<Thing>RepositoryInterface` (the interface extends `RepositoryWriteInterface` in `Application/Contracts/`)
+- EXCEPTION — persisting infrastructure state (sync cursors, singleton config), not a domain entity: inject `EloquentGateway` directly in a `final readonly class`; do NOT extend `AbstractEloquentRepository`. Canonical: `EloquentSyncCursorRepository`
+
+## Save Method Overrides
+
+- DO NOT override `save()` unless the entity has child relations
+- DO NOT override `saveMany()` unless coordinating multi-table transactions
+- DO call the inherited protected `saveManyBulk()` helper from an overridden `saveMany()` for flat-entity bulk upsert
 
 ## Domain-to-Model Mapping
 
-- DO call `Model::attributesFromDomain($vo)` — never inline field-by-field mapping in the repository
-- DO merge parent FK with model attributes using spread: `['fk' => $id, ...Model::attributesFromDomain($vo)]`
-- Canonical example: `StockItemSupplierModel::attributesFromDomain()`
+- DO NOT inline field-by-field mapping
+- DO call `Model::fromDomainAttributes($entity)` (interface-compliant) or `Model::attributesFromDomain($typed)` (typed-parameter form) — both naming conventions exist in the codebase
+- DO spread the mapper output alongside any parent FK or upsert key the repository adds
 
 ## Database Access
 
-Use `DatabaseGateway`, never the `DB::` facade directly. All `DatabaseGateway::transact()` / `query()` calls must be declared in `@throws` on the repository interface:
-
-| Implementation uses | Interface must declare |
-|---|---|
-| `DatabaseGateway::transact()` / `query()` | `DatabaseOperationFailedException`, `DuplicateRecordException`, `ExternalServiceUnavailableException` |
+- DO NOT use the `DB::` facade directly; use `DatabaseGateway` / `EloquentGateway`
+- DO declare every exception thrown by `DatabaseGateway::transact()` / `query()` on the interface's `@throws`: `DatabaseOperationFailedException`, `DuplicateRecordException`, `ExternalServiceUnavailableException`
