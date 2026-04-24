@@ -365,6 +365,14 @@ parameters:
         -
             identifier: missingType.checkedException
             path: app/Presentation/Http/Api/DTOs/ListProductsRequestDTO.php
+        # Custom field settings PUT DTOs: toCommand() calls enum::from() on values pre-validated
+        # by the #[Enum(...)] Spatie Data attribute. ::from() cannot throw TypeError/ValueError
+        # at runtime — upstream validation guarantees the value is a valid backing type and case.
+        -
+            identifier: missingType.checkedException
+            paths:
+                - app/Presentation/Http/Api/DTOs/UpdateCustomFieldGeneralSettingsRequestDTO.php
+                - app/Presentation/Http/Api/DTOs/UpdateCustomFieldProductSettingsRequestDTO.php
     paths:
         - app/
         - bootstrap/

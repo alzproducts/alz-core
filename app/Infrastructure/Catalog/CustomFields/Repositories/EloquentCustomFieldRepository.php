@@ -4,13 +4,16 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Catalog\CustomFields\Repositories;
 
+use App\Application\Catalog\Results\CustomFieldResolutionResult;
 use App\Application\Contracts\Catalog\CustomFieldRepositoryInterface;
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldItemType;
 use App\Domain\Catalog\CustomFields\ValueObjects\ConfiguredFieldDefinition;
 use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldDefinition;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use App\Domain\ValueObjects\Uuid;
 use App\Infrastructure\Repositories\AbstractEloquentRepository;
 use App\Infrastructure\Shopwired\Models\CustomFieldDefinitionModel;
 
@@ -32,6 +35,8 @@ final class EloquentCustomFieldRepository extends AbstractEloquentRepository imp
 {
     /** @var class-string<CustomFieldDefinitionModel> */
     private const string MODEL_CLASS = CustomFieldDefinitionModel::class;
+
+    private const string RESOURCE_TYPE = 'custom_field_definition';
 
     // ═════════════════════════════════════════════════════════════════════════
     // Write path — shopwired schema only (sync from ShopWired API)
@@ -137,5 +142,77 @@ final class EloquentCustomFieldRepository extends AbstractEloquentRepository imp
                 ->map(static fn(CustomFieldDefinitionModel $model): ConfiguredFieldDefinition => $model->toConfiguredDomain())
                 ->all(),
         ));
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @throws RecordNotFoundException
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function findByExternalId(int $externalId): ConfiguredFieldDefinition
+    {
+        return $this->eloquentGateway->findOrFail(
+            modelClass: self::MODEL_CLASS,
+            column: 'external_id',
+            value: $externalId,
+            relations: self::SETTINGS_RELATIONS,
+            entityTypeName: self::RESOURCE_TYPE,
+            mapper: static fn(CustomFieldDefinitionModel $model): ConfiguredFieldDefinition => $model->toConfiguredDomain(),
+        );
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @throws RecordNotFoundException
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function findInternalIdByExternalId(int $externalId): Uuid
+    {
+        $id = $this->eloquentGateway->query(static function () use ($externalId): ?string {
+            /** @var string|null $id */
+            $id = CustomFieldDefinitionModel::query()
+                ->where('external_id', $externalId)
+                ->value('id');
+
+            return $id;
+        });
+
+        if ($id === null) {
+            throw new RecordNotFoundException(
+                resourceType: self::RESOURCE_TYPE,
+                resourceId: $externalId,
+            );
+        }
+
+        return Uuid::fromTrusted($id);
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @throws RecordNotFoundException
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function findEnrichedWithInternalId(int $externalId): CustomFieldResolutionResult
+    {
+        return $this->eloquentGateway->findOrFail(
+            modelClass: self::MODEL_CLASS,
+            column: 'external_id',
+            value: $externalId,
+            relations: self::SETTINGS_RELATIONS,
+            entityTypeName: self::RESOURCE_TYPE,
+            mapper: static fn(CustomFieldDefinitionModel $model): CustomFieldResolutionResult => new CustomFieldResolutionResult(
+                internalId: Uuid::fromTrusted($model->id),
+                definition: $model->toConfiguredDomain(),
+            ),
+        );
     }
 }

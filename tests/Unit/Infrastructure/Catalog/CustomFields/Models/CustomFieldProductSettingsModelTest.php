@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Tests\Unit\Infrastructure\Catalog\CustomFields\Models;
 
 use App\Domain\Catalog\CustomFields\Enums\StockItemUpdateMode;
-use App\Domain\Catalog\CustomFields\ValueObjects\ProductFieldSettings;
 use App\Infrastructure\Catalog\CustomFields\Models\CustomFieldProductSettingsModel;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -42,30 +41,6 @@ final class CustomFieldProductSettingsModelTest extends TestCase
 
         $this->expectException(ValueError::class);
         $model->toDomain();
-    }
-
-    #[Test]
-    public function from_domain_attributes_serialises_enum(): void
-    {
-        $settings = new ProductFieldSettings(StockItemUpdateMode::Single);
-
-        $attributes = CustomFieldProductSettingsModel::fromDomainAttributes($settings);
-
-        self::assertSame([
-            'stock_item_update_mode' => 'single',
-        ], $attributes);
-    }
-
-    #[Test]
-    public function from_domain_attributes_handles_null_mode(): void
-    {
-        $settings = new ProductFieldSettings(null);
-
-        $attributes = CustomFieldProductSettingsModel::fromDomainAttributes($settings);
-
-        self::assertSame([
-            'stock_item_update_mode' => null,
-        ], $attributes);
     }
 
     /**

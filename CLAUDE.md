@@ -221,11 +221,10 @@ This project follows **Clean Architecture** (Robert C. Martin) — dependencies 
 
 ## Key Architectural Decisions
 
-1. **Cache-first**: Default to caching, remove only when needed
-2. **Queue everything**: Webhooks respond immediately, process async
-3. **Supabase shared**: Same PostgreSQL database as Next.js frontend
-4. **Production uses Octane**: We run long-running daemon processes (Laravel Octane) in production. Be cautious with date/time calculations in queue jobs—always calculate timestamps in `handle()` method, not in constructor, to ensure fresh evaluations on each execution (not stale values from job creation time).
-5. **Enforce over warn**: When reviewing security controls, prefer enforcement (fail-fast) over warnings. If a security boundary can be enforced, do that instead of logging a warning that might be ignored.
+1. **Queue everything**: Webhooks respond immediately, process async
+2. **Supabase shared**: Same PostgreSQL database as Next.js frontend
+3. **Production uses Octane**: We run long-running daemon processes (Laravel Octane) in production. Be cautious with date/time calculations in queue jobs—always calculate timestamps in `handle()` method, not in constructor, to ensure fresh evaluations on each execution (not stale values from job creation time).
+4. **Enforce over warn**: When reviewing security controls, prefer enforcement (fail-fast) over warnings. If a security boundary can be enforced, do that instead of logging a warning that might be ignored.
 
 ### Common Pitfalls
 

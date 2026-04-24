@@ -8,6 +8,9 @@ use App\Presentation\Http\Api\Controllers\BrandController;
 use App\Presentation\Http\Api\Controllers\BrandUpdateController;
 use App\Presentation\Http\Api\Controllers\CategoryController;
 use App\Presentation\Http\Api\Controllers\CategoryUpdateController;
+use App\Presentation\Http\Api\Controllers\CustomFieldDefinitionController;
+use App\Presentation\Http\Api\Controllers\CustomFieldGeneralSettingsController;
+use App\Presentation\Http\Api\Controllers\CustomFieldProductSettingsController;
 use App\Presentation\Http\Api\Controllers\FilterGroupController;
 use App\Presentation\Http\Api\Controllers\ProductController;
 use App\Presentation\Http\Api\Controllers\ProductUpdateController;
@@ -180,4 +183,13 @@ Route::middleware([ValidateSupabaseJwtMiddleware::class, EnsureUserApprovedMiddl
             ->whereNumber('brandId');
 
         Route::get('filter-groups', [FilterGroupController::class, 'index']);
+
+        // Custom field definition endpoints (catalog)
+        Route::get('catalog/custom-field-definitions', [CustomFieldDefinitionController::class, 'index']);
+        Route::get('catalog/custom-field-definitions/{definitionId}', [CustomFieldDefinitionController::class, 'show'])
+            ->whereNumber('definitionId');
+        Route::put('catalog/custom-field-definitions/{definitionId}/general-settings', CustomFieldGeneralSettingsController::class)
+            ->whereNumber('definitionId');
+        Route::put('catalog/custom-field-definitions/{definitionId}/product-settings', CustomFieldProductSettingsController::class)
+            ->whereNumber('definitionId');
     });
