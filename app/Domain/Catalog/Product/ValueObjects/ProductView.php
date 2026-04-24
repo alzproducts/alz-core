@@ -164,27 +164,53 @@ final readonly class ProductView
     }
 
     /**
-     * Resolve the highest RRP across the master product and all variations.
+     * Resolve the single RRP that applies uniformly across every sellable SKU,
+     * or null when SKUs carry differing or missing RRPs.
      *
-     * Requires variations to be loaded. Returns null when no SKU has an RRP set.
+     * Shopwired stores one comparePrice per product — meaningful output
+     * requires every sellable SKU (parent, where it has its own SKU, plus
+     * each variation with a SKU) to share the same non-null RRP.
      */
-    public function resolveHighestRrp(): ?Money
+    public function uniformRrp(): ?Money
     {
         Assert::notNull($this->variations, 'variations must be loaded');
 
-        $allRrps = [$this->rrp, ...\array_map(
-            static fn(ProductVariationView $v): ?Money => $v->rrp,
-            $this->variations,
-        )];
+        return self::pickUniform($this->collectSellableRrps());
+    }
 
-        /** @var list<Money> $rrps */
-        $rrps = \array_values(\array_filter($allRrps, static fn(?Money $rrp): bool => $rrp !== null));
+    /** @return list<?Money> */
+    private function collectSellableRrps(): array
+    {
+        Assert::notNull($this->variations, 'variations must be loaded');
 
-        return $rrps === [] ? null : \array_reduce(
-            $rrps,
-            static fn(Money $max, Money $rrp): Money => $rrp->toGross() > $max->toGross() ? $rrp : $max,
-            $rrps[0],
-        );
+        $rrps = [];
+        if ($this->sku !== null) {
+            $rrps[] = $this->rrp;
+        }
+        foreach ($this->variations as $variation) {
+            if ($variation->sku !== null) {
+                $rrps[] = $variation->rrp;
+            }
+        }
+
+        return $rrps;
+    }
+
+    /** @param list<?Money> $rrps */
+    private static function pickUniform(array $rrps): ?Money
+    {
+        if ($rrps === [] || $rrps[0] === null) {
+            return null;
+        }
+
+        $first = $rrps[0];
+        foreach ($rrps as $rrp) {
+            if ($rrp === null || ! $rrp->amountEquals($first)) {
+                return null;
+            }
+        }
+
+        return $first;
     }
 
     public function isInCategory(IntId $categoryId): bool
