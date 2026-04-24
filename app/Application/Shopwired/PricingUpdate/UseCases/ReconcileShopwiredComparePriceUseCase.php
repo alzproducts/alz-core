@@ -24,9 +24,11 @@ use Psr\Log\LoggerInterface;
  * Reconcile ShopWired comparePrice from per-SKU RRP data.
  *
  * Business rule:
- * - Uniform selling price → set comparePrice to highest RRP across all SKUs
- * - Non-uniform prices → clear comparePrice (null/0)
- * - No RRP data → clear comparePrice
+ * - Every sellable SKU shares the same non-null RRP → push that RRP as comparePrice
+ * - Any null or mismatched RRP across sellable SKUs → clear comparePrice (null)
+ *
+ * ShopWired stores one comparePrice per product; a uniform RRP is the only
+ * value that honestly represents every variant the customer can buy.
  *
  * Always sends the computed value to ShopWired — the local compare_price column
  * is stale (updated by product sync, not by our PUT), so no-op detection is unreliable.
@@ -59,9 +61,7 @@ final readonly class ReconcileShopwiredComparePriceUseCase
 
         $productView = $this->productRepo->findDetailedProductView($productId, [ProductInclude::Variations]);
 
-        $target = $productView->hasSingleSellingPrice
-            ? $productView->resolveHighestRrp()?->toGross()
-            : null;
+        $target = $productView->uniformRrp()?->toGross();
 
         $this->productUpdateClient->updateComparePrice($productView->id->value, $target);
         $this->logger->info('Reconciled ShopWired comparePrice', [
