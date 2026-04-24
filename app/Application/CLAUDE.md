@@ -59,14 +59,7 @@ Client:  receive pre-resolved values → structural mapping → transport
 
 ### Interface @throws Declarations
 
-**Interfaces must declare all `@throws` from their implementations.** PHPStan cannot verify this — it has no body to analyse on interface methods, so under-declared `@throws` silently propagates incomplete exception information up the call chain.
-
-| Implementation uses | Interface must declare |
-|---|---|
-| `DatabaseGateway::transact()` / `query()` | `DatabaseOperationFailedException`, `DuplicateRecordException`, `ExternalServiceUnavailableException` |
-| External API transport (HTTP clients) | All translated domain exceptions the implementation can throw |
-
-**Why:** If the interface under-declares, every UseCase and listener calling it inherits the gap. Jobs won't know about transient exceptions and can't retry appropriately.
+> Repository interface `@throws` rules (`DatabaseGateway` exception declarations, write vs query split) → `.claude/rules/repository-contracts.md` (auto-loads on `Application/Contracts/**/*Repository*.php`)
 
 ---
 
