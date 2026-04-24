@@ -18,7 +18,6 @@ use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\Product\Commands\SetFreeDeliveryCommand;
 use App\Domain\Catalog\Product\Commands\UpdateCostPriceCommand;
 use App\Domain\Catalog\Product\Commands\UpdatePriceCommand;
-use App\Domain\Catalog\Product\Enums\FreeDeliveryType;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
@@ -34,12 +33,13 @@ use App\Domain\Exceptions\Infrastructure\PartialPersistenceFailureException;
 use App\Domain\Exceptions\ValidationFailedException;
 use App\Domain\ValueObjects\IntId;
 use App\Presentation\Http\Api\DTOs\CostPriceItemDTO;
+use App\Presentation\Http\Api\DTOs\FreeDeliveryUpdateItemDTO;
 use App\Presentation\Http\Api\DTOs\UpdateCostPricesRequestDTO;
 use App\Presentation\Http\Api\DTOs\UpdateCustomFieldsRequestDTO;
+use App\Presentation\Http\Api\DTOs\UpdateFreeDeliveryRequestDTO;
 use App\Presentation\Http\Api\DTOs\UpdateProductFieldsRequestDTO;
 use App\Presentation\Http\Api\Responses\AsyncRefreshAcceptedResponseDTO;
 use App\Presentation\Http\Api\Responses\BulkUpdateResponseDTO;
-use App\Presentation\Http\Requests\SetFreeDeliveryRequest;
 use App\Presentation\Http\Shopwired\DTOs\SkuPriceUpdateDTO;
 use App\Presentation\Http\Shopwired\DTOs\UpdateProductPricesDTO;
 use Illuminate\Http\JsonResponse;
@@ -127,16 +127,12 @@ final readonly class ProductUpdateController
      *
      * @throws ValueError When free delivery type is invalid (should not happen after validation)
      */
-    public function updateFreeDelivery(SetFreeDeliveryRequest $request): JsonResponse
+    public function updateFreeDelivery(UpdateFreeDeliveryRequestDTO $data): JsonResponse
     {
-        /** @var list<array{identifier: string|int, type: string}> $updates */
-        $updates = $request->validated('updates');
+        /** @var list<SetFreeDeliveryCommand> $commands */
         $commands = \array_map(
-            static fn(array $update): SetFreeDeliveryCommand => new SetFreeDeliveryCommand(
-                $update['identifier'],
-                FreeDeliveryType::fromString($update['type']),
-            ),
-            $updates,
+            static fn(FreeDeliveryUpdateItemDTO $item): SetFreeDeliveryCommand => $item->toCommand(),
+            \iterator_to_array($data->updates, preserve_keys: false),
         );
         $this->dispatchUseCase->execute($commands);
 

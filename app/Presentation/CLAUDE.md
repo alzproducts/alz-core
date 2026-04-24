@@ -6,19 +6,26 @@ Catches exceptions **only for delivery mechanism**: HTTP responses, console outp
 
 Jobs live in Application layer (`app/Application/Jobs/`), not Presentation. See `app/Application/CLAUDE.md`.
 
+## Exception Handling
+
+Catch only at the delivery boundary — never to log or suppress.
+
+**Decision tree:**
+- **HTTP controller**: let `bootstrap/app.php` global handler map domain exceptions to JSON. Catch only when you need transaction rollback + redirect in the same action.
+- **Console command**: catch domain exceptions to render `$this->error(...)` and return `self::FAILURE`.
+
 ## Anti-Patterns
 
 - ❌ No business logic in Presentation — delegate entirely to Application use cases
 - ❌ Don't catch just to log — Laravel already logs unhandled exceptions
+- ❌ No Laravel `FormRequest` — all HTTP input uses Spatie LaravelData DTOs
 
-## Directory Organization
+## Golden Rule
 
-**Feature threshold**: Create subdirectory when feature has 2+ related files.
+> Presentation speaks Laravel to the framework, business concepts to users.
 
-| Location | Contents |
-|----------|----------|
-| `Http/{Feature}/` | Feature-specific DTOs, mappers, resources |
-| `Http/Middleware/` | Global-only middleware |
-| `Http/Controllers/{Feature}/` | Feature controllers |
+When neither architecture nor scoped rules give a clear answer, this reframes the decision.
 
-See `.claude/rules/presentation-controllers.md` and `.claude/rules/presentation-commands.md` for file-type-specific rules.
+## Per-File Conventions
+
+See `.claude/rules/` for file-type-specific rules (controllers, request DTOs, API resources, middleware, console commands).
