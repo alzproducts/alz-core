@@ -12,8 +12,6 @@ namespace App\Domain\Catalog\Product\ValueObjects;
  */
 final readonly class ProductViewMeta
 {
-    public bool $canEditRrp;
-
     public bool $canEditCostPrice;
 
     /**
@@ -23,33 +21,17 @@ final readonly class ProductViewMeta
      */
     public function __construct(?array $variations, ?ProductSupplier $defaultSupplier, ?bool $isComposite = null)
     {
-        $this->canEditRrp = self::resolveCanEditRrp($variations);
         $this->canEditCostPrice = self::resolveCanEditCostPrice($variations, $defaultSupplier, $isComposite);
     }
 
     /**
-     * @return array{can_edit_rrp: bool, can_edit_cost_price: bool}
+     * @return array{can_edit_cost_price: bool}
      */
     public function toArray(): array
     {
         return [
-            'can_edit_rrp' => $this->canEditRrp,
             'can_edit_cost_price' => $this->canEditCostPrice,
         ];
-    }
-
-    /**
-     * RRP can be edited when variations are absent or all share the same base price.
-     *
-     * Uses base price (not effectivePrice) — RRP is permanent, not tied to active sales.
-     *
-     * @param list<ProductVariationView>|null $variations
-     */
-    private static function resolveCanEditRrp(?array $variations): bool
-    {
-        return $variations === null
-            || $variations === []
-            || self::variationsHaveSameSellingPrice($variations);
     }
 
     /**
@@ -78,18 +60,4 @@ final readonly class ProductViewMeta
 
         return ProductVariationView::commonDefaultSupplier($variations) !== null;
     }
-
-    /**
-     * @param list<ProductVariationView> $variations Non-empty list
-     */
-    private static function variationsHaveSameSellingPrice(array $variations): bool
-    {
-        $uniquePrices = \array_unique(\array_map(
-            static fn(ProductVariationView $v): float => $v->price->toGross(),
-            $variations,
-        ));
-
-        return \count($uniquePrices) === 1;
-    }
-
 }

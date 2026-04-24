@@ -33,12 +33,28 @@ final readonly class ProductViewPricing
         $commonCost = $variations !== null && $master->costPrice === null
             ? ProductVariationView::commonCostPrice($variations) : null;
 
+        $resolvedCost = $commonCost ?? $master->costPrice;
+
         return new self(
             price: self::resolvePrice($master->price, $variations),
             effectivePrice: $commonEffective ?? self::resolveEffectiveFallback($master->effectivePrice, $variations),
-            costPrice: $commonCost ?? $master->costPrice,
-            profitMargin: self::recomputeMargin($commonEffective, $commonCost) ?? $master->profitMargin,
+            costPrice: $resolvedCost,
+            profitMargin: self::resolveMargin($master, $commonEffective, $commonCost, $resolvedCost),
         );
+    }
+
+    /**
+     * No cost ⇒ no margin: the caller-supplied master->profitMargin is stale
+     * when costPrice has collapsed to null (e.g. Money::nonZeroOrNull on a 0 cost).
+     */
+    private static function resolveMargin(
+        MasterPricing $master,
+        ?Money $commonEffective,
+        ?Money $commonCost,
+        ?Money $resolvedCost,
+    ): ?float {
+        return self::recomputeMargin($commonEffective, $commonCost)
+            ?? ($resolvedCost === null ? null : $master->profitMargin);
     }
 
     /**

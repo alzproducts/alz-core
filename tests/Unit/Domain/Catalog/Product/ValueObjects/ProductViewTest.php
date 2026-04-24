@@ -742,6 +742,143 @@ final class ProductViewTest extends TestCase
         self::assertNull($view->profitMargin);
     }
 
+    #[Test]
+    public function profit_margin_resets_to_null_when_cost_price_collapses_to_null(): void
+    {
+        // costPrice: 0.0 collapses to null via Money::nonZeroOrNull.
+        // Caller-supplied profitMargin = 100.0 (from computing (price - 0) / price * 100)
+        // is stale and must not surface as "100% margin".
+        $view = $this->createView(
+            costPrice: 0.0,
+            profitMargin: 100.0,
+        );
+
+        self::assertNull($view->costPrice);
+        self::assertNull($view->profitMargin);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | uniformRrp
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function uniform_rrp_returns_parent_rrp_for_simple_sellable_product(): void
+    {
+        $view = $this->createView(sku: 'PARENT-1', rrp: 15.00, variations: []);
+
+        self::assertNotNull($view->uniformRrp());
+        self::assertSame(15.00, $view->uniformRrp()->toGross());
+    }
+
+    #[Test]
+    public function uniform_rrp_returns_null_for_simple_product_without_rrp(): void
+    {
+        $view = $this->createView(sku: 'PARENT-1', rrp: null, variations: []);
+
+        self::assertNull($view->uniformRrp());
+    }
+
+    #[Test]
+    public function uniform_rrp_returns_null_when_parent_has_no_sku_and_no_variations(): void
+    {
+        $view = $this->createView(sku: null, rrp: 15.00, variations: []);
+
+        self::assertNull($view->uniformRrp());
+    }
+
+    #[Test]
+    public function uniform_rrp_returns_shared_rrp_when_all_sellable_variations_match(): void
+    {
+        $view = $this->createView(
+            sku: null,
+            rrp: null,
+            variations: [
+                $this->createVariation(sku: 'V-1', rrp: 20.00),
+                $this->createVariation(sku: 'V-2', rrp: 20.00),
+            ],
+        );
+
+        self::assertNotNull($view->uniformRrp());
+        self::assertSame(20.00, $view->uniformRrp()->toGross());
+    }
+
+    #[Test]
+    public function uniform_rrp_returns_shared_rrp_when_parent_and_variations_all_match(): void
+    {
+        $view = $this->createView(
+            sku: 'PARENT-1',
+            rrp: 20.00,
+            variations: [
+                $this->createVariation(sku: 'V-1', rrp: 20.00),
+                $this->createVariation(sku: 'V-2', rrp: 20.00),
+            ],
+        );
+
+        self::assertNotNull($view->uniformRrp());
+        self::assertSame(20.00, $view->uniformRrp()->toGross());
+    }
+
+    #[Test]
+    public function uniform_rrp_returns_null_when_parent_rrp_differs_from_variations(): void
+    {
+        $view = $this->createView(
+            sku: 'PARENT-1',
+            rrp: 25.00,
+            variations: [
+                $this->createVariation(sku: 'V-1', rrp: 20.00),
+                $this->createVariation(sku: 'V-2', rrp: 20.00),
+            ],
+        );
+
+        self::assertNull($view->uniformRrp());
+    }
+
+    #[Test]
+    public function uniform_rrp_returns_null_when_variations_disagree(): void
+    {
+        $view = $this->createView(
+            sku: null,
+            variations: [
+                $this->createVariation(sku: 'V-1', rrp: 20.00),
+                $this->createVariation(sku: 'V-2', rrp: 22.00),
+            ],
+        );
+
+        self::assertNull($view->uniformRrp());
+    }
+
+    #[Test]
+    public function uniform_rrp_returns_null_when_any_sellable_variation_has_no_rrp(): void
+    {
+        $view = $this->createView(
+            sku: null,
+            variations: [
+                $this->createVariation(sku: 'V-1', rrp: 20.00),
+                $this->createVariation(sku: 'V-2', rrp: null),
+            ],
+        );
+
+        self::assertNull($view->uniformRrp());
+    }
+
+    #[Test]
+    public function uniform_rrp_ignores_non_sellable_variation_without_sku(): void
+    {
+        // Variations without a SKU are not storefront-sellable → excluded from the uniformity check.
+        $view = $this->createView(
+            sku: null,
+            variations: [
+                $this->createVariation(sku: 'V-1', rrp: 20.00),
+                $this->createVariation(sku: null, rrp: 15.00),
+            ],
+        );
+
+        self::assertNotNull($view->uniformRrp());
+        self::assertSame(20.00, $view->uniformRrp()->toGross());
+    }
+
     /*
     |--------------------------------------------------------------------------
     | hasSingleSellingPrice (constructor-derived property)
@@ -796,12 +933,13 @@ final class ProductViewTest extends TestCase
         int $physicalStock = 5,
         ?float $costPrice = null,
         ?float $effectivePrice = null,
+        ?string $sku = null,
     ): ProductVariationView {
         static $id = 100;
 
         return new ProductVariationView(
             externalId: $id++,
-            sku: null,
+            sku: $sku,
             gtin: null,
             price: $price,
             costPrice: $costPrice,
@@ -830,6 +968,7 @@ final class ProductViewTest extends TestCase
         float $price = 100.00,
         ?float $costPrice = null,
         ?float $salePrice = null,
+        ?float $rrp = null,
         float $effectivePrice = 100.00,
         ?array $variations = null,
         ?array $allVariations = null,
@@ -860,7 +999,7 @@ final class ProductViewTest extends TestCase
             price: $price,
             costPrice: $costPrice,
             salePrice: $salePrice,
-            rrp: null,
+            rrp: $rrp,
             effectivePrice: $effectivePrice,
             isOnSale: $isOnSale,
             profitMargin: $profitMargin,
