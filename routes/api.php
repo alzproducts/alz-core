@@ -188,8 +188,8 @@ Route::middleware([ValidateSupabaseJwtMiddleware::class, EnsureUserApprovedMiddl
         Route::get('catalog/custom-field-definitions', [CustomFieldDefinitionController::class, 'index']);
         Route::get('catalog/custom-field-definitions/{definitionId}', [CustomFieldDefinitionController::class, 'show'])
             ->whereNumber('definitionId');
-        Route::put('catalog/custom-field-definitions/{definitionId}/general-settings', CustomFieldGeneralSettingsController::class)
-            ->whereNumber('definitionId');
-        Route::put('catalog/custom-field-definitions/{definitionId}/product-settings', CustomFieldProductSettingsController::class)
-            ->whereNumber('definitionId');
+        Route::put('catalog/custom-field-definitions/{definitionUuid}/general-settings', CustomFieldGeneralSettingsController::class)
+            ->whereUuid('definitionUuid');
+        Route::put('catalog/custom-field-definitions/{definitionUuid}/product-settings', CustomFieldProductSettingsController::class)
+            ->whereUuid('definitionUuid');
     });

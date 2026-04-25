@@ -10,6 +10,7 @@ use App\Domain\Catalog\CustomFields\ValueObjects\ConfiguredFieldDefinition;
 use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldDefinition;
 use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldGeneralSettings;
 use App\Domain\Catalog\CustomFields\ValueObjects\ProductFieldSettings;
+use App\Domain\ValueObjects\Uuid;
 use App\Infrastructure\Catalog\CustomFields\Models\CustomFieldGeneralSettingsModel;
 use App\Infrastructure\Catalog\CustomFields\Models\CustomFieldProductSettingsModel;
 use App\Infrastructure\Contracts\EloquentDomainMappableInterface;
@@ -114,6 +115,7 @@ final class CustomFieldDefinitionModel extends Model implements EloquentDomainMa
         $base = $this->toDomain();
 
         return new ConfiguredFieldDefinition(
+            internalId: Uuid::fromTrusted($this->id),
             base: $base,
             generalSettings: $this->resolveGeneralSettings(),
             productSettings: $this->resolveProductSettings($base),

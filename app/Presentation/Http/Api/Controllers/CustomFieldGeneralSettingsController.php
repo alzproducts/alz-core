@@ -9,16 +9,18 @@ use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use App\Domain\ValueObjects\Uuid;
 use App\Presentation\Http\Api\DTOs\UpdateCustomFieldGeneralSettingsRequestDTO;
 use App\Presentation\Http\Api\Resources\ConfiguredFieldDefinitionResource;
 
 /**
- * PUT /catalog/custom-field-definitions/{definitionId}/general-settings
+ * PUT /catalog/custom-field-definitions/{definitionUuid}/general-settings
  *
  * Upserts the `catalog.custom_field_general_settings` row associated with the
  * definition using partial-update semantics (absent fields left unchanged,
- * explicit nulls clear the column). Returns the full enriched definition so
- * the frontend can replace its cache entry in one round-trip.
+ * explicit nulls clear the column). Keyed by the internal UUID — the canonical
+ * identifier for catalog-owned settings rows. Returns the full enriched
+ * definition so the frontend can replace its cache entry in one round-trip.
  */
 final readonly class CustomFieldGeneralSettingsController
 {
@@ -27,17 +29,17 @@ final readonly class CustomFieldGeneralSettingsController
     ) {}
 
     /**
-     * @throws RecordNotFoundException When no definition matches the ID
+     * @throws RecordNotFoundException When no definition matches the UUID
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      */
     public function __invoke(
-        int $definitionId,
+        string $definitionUuid,
         UpdateCustomFieldGeneralSettingsRequestDTO $data,
     ): ConfiguredFieldDefinitionResource {
         $definition = $this->useCase->execute(
-            definitionExternalId: $definitionId,
+            internalId: new Uuid($definitionUuid),
             command: $data->toCommand(),
         );
 

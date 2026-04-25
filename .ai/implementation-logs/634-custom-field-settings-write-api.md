@@ -157,3 +157,68 @@ Phase 1 (#611) delivered the storage and read-side composition wrapper. Frontend
 ### Testing
 - Existing tests (Phase 1 read path) remain green.
 - (Feature tests per plan verification — see Section Verification in plan.)
+
+## UUID-keyed write paths (2026-04-24, post-sweep refactor)
+
+**Architectural shift**: settings write endpoints now identify the resource by the catalog-schema UUID, not the ShopWired external int id. Rationale: the UUID is our canonical identifier for settings rows (the tables FK it). The ShopWired external id is canonical for *upstream-owned* entities (Product, Brand) but not for our own catalog rows. The frontend always fetches the enriched definition before editing settings, so it has the UUID. Decision: expose internal_id on ConfiguredFieldDefinitionResource; routes switch to `{definitionUuid}` with `whereUuid()`.
+
+### Scope of refactor
+Pre-sweep state was already committed: commit `0ea02796` (`feat(catalog): add write API for custom field general and product settings (#634)`). Current branch state is that commit plus in-progress edits.
+
+**Completed:**
+- `ConfiguredFieldDefinition` VO — added `public Uuid $internalId` as first constructor arg (before `$base`). Edit already applied to `app/Domain/Catalog/CustomFields/ValueObjects/ConfiguredFieldDefinition.php`.
+
+**Next (in order):**
+1. `CustomFieldDefinitionModel::toConfiguredDomain()` — pass `Uuid::fromTrusted($this->id)` as first arg.
+2. All 28 existing `new ConfiguredFieldDefinition(...)` call sites — add `internalId:` (named) or prepend UUID (positional). Mostly test fixtures, harmless UUID like `11111111-2222-3333-4444-555555555555`. Full list from `git grep -n "new ConfiguredFieldDefinition("` — includes domain VO tests (DateTime/Null/String/Toggle/etc), SaleManagement, ProductView, SaleSettings tests, plus my four new PR test files.
+3. Delete `app/Application/Catalog/Results/CustomFieldResolutionResult.php` (all callers removed after next step).
+4. `CustomFieldRepositoryInterface`:
+   - Delete `findInternalIdByExternalId(int): Uuid`
+   - Delete `findEnrichedWithInternalId(int): CustomFieldResolutionResult`
+   - Add `findByInternalId(Uuid): ConfiguredFieldDefinition` (throws RecordNotFoundException)
+5. `EloquentCustomFieldRepository` — delete the two old methods, add `findByInternalId` (reuses `findOrFail` on 'id' column).
+6. `SaveCustomFieldGeneralSettingsUseCase::execute(Uuid $internalId, Command): ConfiguredFieldDefinition` — body: `save()` then `findByInternalId()` refresh. Drop `CustomFieldRepositoryInterface::findInternalIdByExternalId` call.
+7. `SaveCustomFieldProductSettingsUseCase::execute(Uuid $internalId, Command): ConfiguredFieldDefinition` — body: `findByInternalId()` → `assertProductField()` → `save()` → `findByInternalId()` refresh. Drop `CustomFieldResolutionResult` import.
+8. `GetConfiguredFieldDefinitionUseCase::execute(IntId $definitionExternalId)` — migrate to IntId (GET keeps external-id path).
+9. `routes/api.php`:
+   - Settings PUT routes: `{definitionUuid}` + `->whereUuid('definitionUuid')` (no `->whereNumber()`)
+   - GET show: unchanged (still `whereNumber`).
+10. Controllers:
+    - `CustomFieldGeneralSettingsController::__invoke(string $definitionUuid, UpdateCustomFieldGeneralSettingsRequestDTO $data)` — calls `execute(new Uuid($definitionUuid), $data->toCommand())`.
+    - `CustomFieldProductSettingsController` — same shape.
+    - `CustomFieldDefinitionController::show(int $definitionId)` — calls `execute(IntId::from($definitionId))`.
+11. `ConfiguredFieldDefinitionResource::toArray()` — add `'internal_id' => $definition->internalId->value` (additive, after `id`).
+12. Tests:
+    - `ConfiguredFieldDefinitionResourceTest` (5 call sites) — pass `internalId` and assert it appears.
+    - `ConfiguredFieldDefinitionTest` (5 call sites) — pass `internalId`.
+    - `SaveCustomFieldGeneralSettingsUseCaseTest` — rewrite: mocks `findByInternalId`, drops `findInternalIdByExternalId`.
+    - `SaveCustomFieldProductSettingsUseCaseTest` — rewrite: mocks `findByInternalId` twice (guard + refresh), drops `CustomFieldResolutionResult`.
+    - `CustomFieldGeneralSettingsControllerTest` + `CustomFieldProductSettingsControllerTest` — URL changes to `/catalog/custom-field-definitions/{uuid}/...`, mock `findByInternalId`, controller takes Uuid.
+    - Misc VO tests (DateTime/Null/String/Toggle/etc, SaleManagement, ProductView, SaleSettings, CustomFieldMergerService, CustomFieldValueFactory, GetProductCustomFieldsUseCase, CustomFieldDefinitionModel) — pass a constant UUID to ConfiguredFieldDefinition; no semantic change.
+13. `findColumnOrFail` on `EloquentGateway` — **NOT added this PR** (user originally requested it, but with `findInternalIdByExternalId` deleted the concrete caller disappeared; can revisit if another use case needs it).
+
+### Decisions locked via AskUserQuestion this session
+- GET show endpoint stays on external int id (IntId).
+- UUID exposed as new `internal_id` field in the resource (non-breaking, additive).
+- `ConfiguredFieldDefinition` gets UUID as first constructor arg (full ripple over wrapper approach).
+- `CustomFieldResolutionResult` deleted; `findColumnOrFail` deferred.
+- Items 2/3/7 (touchedAttributes placement + touchedKeys command shape) — deferred for later discussion.
+
+### Blockers / watch-outs
+- PHPStan may flag `alz.shopwiredModelMustImplementMappable` again when I touch the model (unlikely; the rule was widened previously to accept `DomainConvertibleInterface`).
+- Make sure the Uuid assertion constructor doesn't choke on the UUID literal used in test fixtures (`11111111-2222-3333-4444-555555555555` is valid v4-ish format).
+
+### Refactor complete (2026-04-24 session close)
+
+All items 1–12 landed. `make test` + `make lint` green.
+
+**Mockery gotcha surfaced in Feature tests**: Mockery's default `with($uuidObject)` comparator fails when the controller constructs a *fresh* `Uuid` instance from the URL string — even though the two instances are value-equal. Fixed by switching the three feature-level mocks (2× product-settings, 1× general-settings happy path) to `Mockery::on(static fn(Uuid $u) => $u->value === self::FIXTURE_UUID)`. Unit-level `SaveCustomField*UseCaseTest` continues to use `with($internalId)` directly because the same instance is passed through the use case in that scenario.
+
+**Resource test addition**: new `exposes_internal_uuid_alongside_external_id` test pins the `internal_id` field so future edits to `ConfiguredFieldDefinitionResource::toArray()` can't silently drop it.
+
+**Dual-identity flow for reviewers**:
+- GET list / show → keyed by ShopWired external `IntId` (legacy pairing with Product list)
+- PUT general-settings / product-settings → keyed by catalog `Uuid`
+- Response body carries both `id` (external int) + `internal_id` (UUID) so the frontend can do a one-shot fetch-then-edit.
+
+**Item 13 (`findColumnOrFail` on EloquentGateway)** remains out of scope; no live caller in this PR.

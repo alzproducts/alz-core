@@ -4,26 +4,30 @@ declare(strict_types=1);
 
 namespace App\Domain\Catalog\CustomFields\ValueObjects;
 
+use App\Domain\ValueObjects\Uuid;
 use Webmozart\Assert\Assert;
 
 /**
  * Read-path composition: a ShopWired custom field definition paired with local settings.
  *
- * ShopWired owns the sync contract via {@see CustomFieldDefinition} (immutable, identical
- * per field type). Local presentation/behaviour overrides live in two settings VOs that
- * reference the definition by UUID. This wrapper carries the combined read-model.
+ * Carries both identifiers for the row:
+ *   • `$internalId` — the catalog-schema UUID we own. This is the canonical key for any
+ *     write targeting the settings rows (those FK the UUID, not the ShopWired id).
+ *   • `$base->id` — the ShopWired external integer id. Kept for lookups that originate
+ *     from upstream contexts (e.g. a product exposing customField references by int id).
+ *
+ * Local presentation/behaviour overrides live in two settings VOs; when no row exists in
+ * the corresponding settings table the field is null on the wrapper.
  *
  * The inner ShopWired definition is exposed as `$base` (not `$definition`) so callers
  * inside the value hierarchy read `$this->definition->base->name` instead of the noisier
- * `$this->definition->definition->name`.
- *
- * No delegation accessors are provided — callers reach through `->base` directly. This
- * keeps the wrapper a pure structural pass-through and avoids maintaining a parallel
- * API that duplicates {@see CustomFieldDefinition}'s surface.
+ * `$this->definition->definition->name`. No delegation accessors — callers reach through
+ * `->base` directly.
  */
 final readonly class ConfiguredFieldDefinition
 {
     public function __construct(
+        public Uuid $internalId,
         public CustomFieldDefinition $base,
         public ?CustomFieldGeneralSettings $generalSettings,
         public ?ProductFieldSettings $productSettings,

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Application\Contracts\Catalog;
 
-use App\Application\Catalog\Results\CustomFieldResolutionResult;
 use App\Application\Contracts\RepositoryWriteInterface;
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldItemType;
 use App\Domain\Catalog\CustomFields\ValueObjects\ConfiguredFieldDefinition;
@@ -72,28 +71,15 @@ interface CustomFieldRepositoryInterface extends RepositoryWriteInterface
     public function findByExternalId(int $externalId): ConfiguredFieldDefinition;
 
     /**
-     * Resolve a ShopWired external ID to the internal catalog UUID.
+     * Find a custom field definition by its internal catalog UUID.
      *
-     * Used by write use cases that need to persist settings rows keyed by the
-     * internal UUID without loading the full enriched read model.
+     * Used by settings-write use cases, which identify the parent definition by the
+     * UUID that the settings tables foreign-key to.
      *
-     * @throws RecordNotFoundException When no definition matches the external ID
+     * @throws RecordNotFoundException When no definition matches the internal UUID
      * @throws DatabaseOperationFailedException On query failure
      * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      */
-    public function findInternalIdByExternalId(int $externalId): Uuid;
-
-    /**
-     * Find a definition AND its internal UUID in a single round-trip.
-     *
-     * Used by write flows that need both the enriched read model (for
-     * business-rule checks like item_type) and the UUID for settings FKs.
-     *
-     * @throws RecordNotFoundException When no definition matches the external ID
-     * @throws DatabaseOperationFailedException On query failure
-     * @throws DuplicateRecordException On constraint violation
-     * @throws ExternalServiceUnavailableException When database temporarily unavailable
-     */
-    public function findEnrichedWithInternalId(int $externalId): CustomFieldResolutionResult;
+    public function findByInternalId(Uuid $internalId): ConfiguredFieldDefinition;
 }

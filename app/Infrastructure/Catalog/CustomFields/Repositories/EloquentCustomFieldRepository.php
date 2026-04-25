@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Catalog\CustomFields\Repositories;
 
-use App\Application\Catalog\Results\CustomFieldResolutionResult;
 use App\Application\Contracts\Catalog\CustomFieldRepositoryInterface;
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldItemType;
 use App\Domain\Catalog\CustomFields\ValueObjects\ConfiguredFieldDefinition;
@@ -172,47 +171,15 @@ final class EloquentCustomFieldRepository extends AbstractEloquentRepository imp
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      */
-    public function findInternalIdByExternalId(int $externalId): Uuid
-    {
-        $id = $this->eloquentGateway->query(static function () use ($externalId): ?string {
-            /** @var string|null $id */
-            $id = CustomFieldDefinitionModel::query()
-                ->where('external_id', $externalId)
-                ->value('id');
-
-            return $id;
-        });
-
-        if ($id === null) {
-            throw new RecordNotFoundException(
-                resourceType: self::RESOURCE_TYPE,
-                resourceId: $externalId,
-            );
-        }
-
-        return Uuid::fromTrusted($id);
-    }
-
-    /**
-     * {@inheritDoc}
-     *
-     * @throws RecordNotFoundException
-     * @throws DatabaseOperationFailedException
-     * @throws DuplicateRecordException
-     * @throws ExternalServiceUnavailableException
-     */
-    public function findEnrichedWithInternalId(int $externalId): CustomFieldResolutionResult
+    public function findByInternalId(Uuid $internalId): ConfiguredFieldDefinition
     {
         return $this->eloquentGateway->findOrFail(
             modelClass: self::MODEL_CLASS,
-            column: 'external_id',
-            value: $externalId,
+            column: 'id',
+            value: $internalId->value,
             relations: self::SETTINGS_RELATIONS,
             entityTypeName: self::RESOURCE_TYPE,
-            mapper: static fn(CustomFieldDefinitionModel $model): CustomFieldResolutionResult => new CustomFieldResolutionResult(
-                internalId: Uuid::fromTrusted($model->id),
-                definition: $model->toConfiguredDomain(),
-            ),
+            mapper: static fn(CustomFieldDefinitionModel $model): ConfiguredFieldDefinition => $model->toConfiguredDomain(),
         );
     }
 }

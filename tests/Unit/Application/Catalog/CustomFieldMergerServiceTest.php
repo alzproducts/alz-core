@@ -11,6 +11,7 @@ use App\Domain\Catalog\CustomFields\ValueObjects\ConfiguredFieldDefinition;
 use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldDefinition;
 use App\Domain\Catalog\CustomFields\ValueObjects\NullCustomFieldValue;
 use App\Domain\Catalog\CustomFields\ValueObjects\StringCustomFieldValue;
+use App\Domain\ValueObjects\Uuid;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -137,6 +138,7 @@ final class CustomFieldMergerServiceTest extends TestCase
     private function makeDefinition(int $id, string $name, ?int $sortOrder): ConfiguredFieldDefinition
     {
         return new ConfiguredFieldDefinition(
+            new Uuid('11111111-2222-3333-4444-555555555555'),
             new CustomFieldDefinition(
                 id: $id,
                 name: $name,

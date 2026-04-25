@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Tests\Unit\Application\Catalog\UseCases;
 
 use App\Application\Catalog\Commands\SaveCustomFieldProductSettingsCommand;
-use App\Application\Catalog\Results\CustomFieldResolutionResult;
 use App\Application\Catalog\UseCases\SaveCustomFieldProductSettingsUseCase;
 use App\Application\Contracts\Catalog\CustomFieldProductSettingsRepositoryInterface;
 use App\Application\Contracts\Catalog\CustomFieldRepositoryInterface;
@@ -51,38 +50,37 @@ final class SaveCustomFieldProductSettingsUseCaseTest extends TestCase
     }
 
     #[Test]
-    public function saves_command_for_product_field_and_returns_enriched_definition(): void
+    public function saves_command_for_product_field_and_returns_refreshed_definition(): void
     {
-        $definitionExternalId = 42;
         $internalId = new Uuid('11111111-2222-3333-4444-555555555555');
         $command = new SaveCustomFieldProductSettingsCommand(
             stockItemUpdateMode: StockItemUpdateMode::AllVariants,
             touchedKeys: ['stock_item_update_mode'],
         );
-        $resolved = new CustomFieldResolutionResult(
-            internalId: $internalId,
-            definition: $this->makeDefinition($definitionExternalId, CustomFieldItemType::Product),
-        );
-        $refreshed = $this->makeDefinition($definitionExternalId, CustomFieldItemType::Product);
+        $existing = $this->makeDefinition($internalId, CustomFieldItemType::Product);
+        $refreshed = $this->makeDefinition($internalId, CustomFieldItemType::Product);
 
         $this->customFieldRepository
-            ->shouldReceive('findEnrichedWithInternalId')
+            ->shouldReceive('findByInternalId')
             ->once()
-            ->with($definitionExternalId)
-            ->andReturn($resolved);
+            ->ordered()
+            ->with($internalId)
+            ->andReturn($existing);
 
         $this->productSettingsRepository
             ->shouldReceive('save')
             ->once()
+            ->ordered()
             ->with($internalId, $command);
 
         $this->customFieldRepository
-            ->shouldReceive('findByExternalId')
+            ->shouldReceive('findByInternalId')
             ->once()
-            ->with($definitionExternalId)
+            ->ordered()
+            ->with($internalId)
             ->andReturn($refreshed);
 
-        $result = $this->useCase->execute($definitionExternalId, $command);
+        $result = $this->useCase->execute($internalId, $command);
 
         self::assertSame($refreshed, $result);
     }
@@ -90,39 +88,36 @@ final class SaveCustomFieldProductSettingsUseCaseTest extends TestCase
     #[Test]
     public function throws_product_settings_not_applicable_for_non_product_definition(): void
     {
-        $definitionExternalId = 42;
+        $internalId = new Uuid('11111111-2222-3333-4444-555555555555');
         $command = new SaveCustomFieldProductSettingsCommand(
             stockItemUpdateMode: StockItemUpdateMode::Single,
             touchedKeys: ['stock_item_update_mode'],
         );
-        $resolved = new CustomFieldResolutionResult(
-            internalId: new Uuid('11111111-2222-3333-4444-555555555555'),
-            definition: $this->makeDefinition($definitionExternalId, CustomFieldItemType::Category),
-        );
+        $existing = $this->makeDefinition($internalId, CustomFieldItemType::Category);
 
         $this->customFieldRepository
-            ->shouldReceive('findEnrichedWithInternalId')
+            ->shouldReceive('findByInternalId')
             ->once()
-            ->with($definitionExternalId)
-            ->andReturn($resolved);
+            ->with($internalId)
+            ->andReturn($existing);
 
         $this->productSettingsRepository->shouldNotReceive('save');
-        $this->customFieldRepository->shouldNotReceive('findByExternalId');
 
         try {
-            $this->useCase->execute($definitionExternalId, $command);
+            $this->useCase->execute($internalId, $command);
             self::fail('Expected ProductSettingsNotApplicableException');
         } catch (ProductSettingsNotApplicableException $e) {
-            self::assertSame($definitionExternalId, $e->definitionExternalId);
+            self::assertSame(42, $e->definitionExternalId);
             self::assertSame(CustomFieldItemType::Category, $e->itemType);
         }
     }
 
-    private function makeDefinition(int $id, CustomFieldItemType $itemType): ConfiguredFieldDefinition
+    private function makeDefinition(Uuid $internalId, CustomFieldItemType $itemType): ConfiguredFieldDefinition
     {
         return new ConfiguredFieldDefinition(
+            internalId: $internalId,
             base: new CustomFieldDefinition(
-                id: $id,
+                id: 42,
                 name: 'colour',
                 type: CustomFieldType::Text,
                 label: 'Colour',

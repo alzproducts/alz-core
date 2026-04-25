@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Tests\Feature\Presentation\Http\Api\Controllers;
 
 use App\Application\Catalog\Commands\SaveCustomFieldProductSettingsCommand;
-use App\Application\Catalog\Results\CustomFieldResolutionResult;
 use App\Application\Contracts\Catalog\CustomFieldProductSettingsRepositoryInterface;
 use App\Application\Contracts\Catalog\CustomFieldRepositoryInterface;
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldItemType;
@@ -53,11 +52,15 @@ final class CustomFieldProductSettingsControllerTest extends TestCase
         parent::tearDown();
     }
 
+    private const string FIXTURE_UUID = '11111111-2222-3333-4444-555555555555';
+
+    private const string FIXTURE_UUID_MISSING = '00000000-0000-0000-0000-000000000000';
+
     #[Test]
     public function unauthenticated_request_returns_401(): void
     {
         $response = $this->putJson(
-            '/api/catalog/custom-field-definitions/42/product-settings',
+            '/api/catalog/custom-field-definitions/' . self::FIXTURE_UUID . '/product-settings',
             ['stock_item_update_mode' => 'single'],
         );
 
@@ -67,63 +70,66 @@ final class CustomFieldProductSettingsControllerTest extends TestCase
     #[Test]
     public function put_upserts_touched_fields_for_product_definition_and_returns_enriched_definition(): void
     {
-        $definitionExternalId = 42;
-        $internalId = new Uuid('11111111-2222-3333-4444-555555555555');
-        $productDefinition = $this->makeDefinition($definitionExternalId, CustomFieldItemType::Product, null);
+        $internalId = new Uuid(self::FIXTURE_UUID);
+        $matchesInternalId = Mockery::on(static fn(Uuid $u): bool => $u->value === self::FIXTURE_UUID);
+        $productDefinition = $this->makeDefinition($internalId, CustomFieldItemType::Product, null);
         $refreshed = $this->makeDefinition(
-            $definitionExternalId,
+            $internalId,
             CustomFieldItemType::Product,
             StockItemUpdateMode::AllVariants,
         );
 
         $this->customFieldRepository
-            ->shouldReceive('findEnrichedWithInternalId')
+            ->shouldReceive('findByInternalId')
             ->once()
-            ->with($definitionExternalId)
-            ->andReturn(new CustomFieldResolutionResult($internalId, $productDefinition));
+            ->ordered()
+            ->with($matchesInternalId)
+            ->andReturn($productDefinition);
 
         $this->productSettingsRepository
             ->shouldReceive('save')
             ->once()
+            ->ordered()
             ->with(
-                $internalId,
+                $matchesInternalId,
                 Mockery::on(static fn(SaveCustomFieldProductSettingsCommand $c): bool => $c->stockItemUpdateMode === StockItemUpdateMode::AllVariants
                     && $c->touchedKeys === ['stock_item_update_mode']),
             );
 
         $this->customFieldRepository
-            ->shouldReceive('findByExternalId')
+            ->shouldReceive('findByInternalId')
             ->once()
-            ->with($definitionExternalId)
+            ->ordered()
+            ->with($matchesInternalId)
             ->andReturn($refreshed);
 
         $response = $this->asApprovedUser()->putJson(
-            '/api/catalog/custom-field-definitions/42/product-settings',
+            '/api/catalog/custom-field-definitions/' . self::FIXTURE_UUID . '/product-settings',
             ['stock_item_update_mode' => 'all_variants'],
         );
 
         $response->assertStatus(200);
         $body = $response->json();
+        self::assertSame(self::FIXTURE_UUID, $body['data']['internal_id']);
         self::assertSame('all_variants', $body['data']['product']['stock_item_update_mode']);
     }
 
     #[Test]
     public function put_returns_422_when_definition_is_not_product_type(): void
     {
-        $definitionExternalId = 42;
-        $internalId = new Uuid('11111111-2222-3333-4444-555555555555');
-        $nonProduct = $this->makeDefinition($definitionExternalId, CustomFieldItemType::Category, null);
+        $internalId = new Uuid(self::FIXTURE_UUID);
+        $nonProduct = $this->makeDefinition($internalId, CustomFieldItemType::Category, null);
 
         $this->customFieldRepository
-            ->shouldReceive('findEnrichedWithInternalId')
+            ->shouldReceive('findByInternalId')
             ->once()
-            ->with($definitionExternalId)
-            ->andReturn(new CustomFieldResolutionResult($internalId, $nonProduct));
+            ->with(Mockery::on(static fn(Uuid $u): bool => $u->value === self::FIXTURE_UUID))
+            ->andReturn($nonProduct);
 
         $this->productSettingsRepository->shouldNotReceive('save');
 
         $response = $this->asApprovedUser()->putJson(
-            '/api/catalog/custom-field-definitions/42/product-settings',
+            '/api/catalog/custom-field-definitions/' . self::FIXTURE_UUID . '/product-settings',
             ['stock_item_update_mode' => 'single'],
         );
 
@@ -131,7 +137,7 @@ final class CustomFieldProductSettingsControllerTest extends TestCase
         $body = $response->json();
         self::assertSame('validation_error', $body['error']['type']);
         self::assertSame('product_settings_not_applicable', $body['error']['errors']['code']);
-        self::assertSame($definitionExternalId, $body['error']['errors']['definition_id']);
+        self::assertSame(42, $body['error']['errors']['definition_id']);
         self::assertSame('category', $body['error']['errors']['item_type']);
     }
 
@@ -139,15 +145,15 @@ final class CustomFieldProductSettingsControllerTest extends TestCase
     public function put_returns_404_when_definition_not_found(): void
     {
         $this->customFieldRepository
-            ->shouldReceive('findEnrichedWithInternalId')
+            ->shouldReceive('findByInternalId')
             ->once()
-            ->with(999)
-            ->andThrow(new RecordNotFoundException('custom_field_definition', 999));
+            ->with(Mockery::on(static fn(Uuid $u): bool => $u->value === self::FIXTURE_UUID_MISSING))
+            ->andThrow(new RecordNotFoundException('custom_field_definition', self::FIXTURE_UUID_MISSING));
 
         $this->productSettingsRepository->shouldNotReceive('save');
 
         $response = $this->asApprovedUser()->putJson(
-            '/api/catalog/custom-field-definitions/999/product-settings',
+            '/api/catalog/custom-field-definitions/' . self::FIXTURE_UUID_MISSING . '/product-settings',
             ['stock_item_update_mode' => 'single'],
         );
 
@@ -156,13 +162,14 @@ final class CustomFieldProductSettingsControllerTest extends TestCase
     }
 
     private function makeDefinition(
-        int $id,
+        Uuid $internalId,
         CustomFieldItemType $itemType,
         ?StockItemUpdateMode $stockItemUpdateMode,
     ): ConfiguredFieldDefinition {
         return new ConfiguredFieldDefinition(
+            internalId: $internalId,
             base: new CustomFieldDefinition(
-                id: $id,
+                id: 42,
                 name: 'colour',
                 type: CustomFieldType::Text,
                 label: 'Colour',

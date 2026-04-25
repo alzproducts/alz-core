@@ -12,12 +12,15 @@ use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use App\Domain\ValueObjects\Uuid;
 use Psr\Log\LoggerInterface;
 
 /**
  * Upsert the general settings for a custom field definition using partial-update
  * semantics. The {@see SaveCustomFieldGeneralSettingsCommand} already carries the
  * merged values for touched columns; untouched columns are left alone by the repo.
+ *
+ * Addressed by internal UUID — the canonical identifier for settings rows.
  */
 final readonly class SaveCustomFieldGeneralSettingsUseCase
 {
@@ -28,27 +31,26 @@ final readonly class SaveCustomFieldGeneralSettingsUseCase
     ) {}
 
     /**
-     * @throws RecordNotFoundException When no definition matches the external ID
+     * @throws RecordNotFoundException When no definition matches the internal UUID (refresh load)
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      */
     public function execute(
-        int $definitionExternalId,
+        Uuid $internalId,
         SaveCustomFieldGeneralSettingsCommand $command,
     ): ConfiguredFieldDefinition {
         $this->logger->info('Saving custom field general settings', [
-            'definition_id' => $definitionExternalId,
+            'definition_internal_id' => $internalId->value,
             'fields_changed' => $command->touchedKeys,
         ]);
 
-        $internalId = $this->customFieldRepository->findInternalIdByExternalId($definitionExternalId);
         $this->generalSettingsRepository->save($internalId, $command);
 
         $this->logger->info('Saved custom field general settings', [
-            'definition_id' => $definitionExternalId,
+            'definition_internal_id' => $internalId->value,
         ]);
 
-        return $this->customFieldRepository->findByExternalId($definitionExternalId);
+        return $this->customFieldRepository->findByInternalId($internalId);
     }
 }

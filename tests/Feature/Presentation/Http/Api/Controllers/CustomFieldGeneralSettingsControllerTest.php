@@ -51,10 +51,17 @@ final class CustomFieldGeneralSettingsControllerTest extends TestCase
         parent::tearDown();
     }
 
+    private const string FIXTURE_UUID = '11111111-2222-3333-4444-555555555555';
+
+    private const string FIXTURE_UUID_MISSING = '00000000-0000-0000-0000-000000000000';
+
     #[Test]
     public function unauthenticated_request_returns_401(): void
     {
-        $response = $this->putJson('/api/catalog/custom-field-definitions/42/general-settings', ['tooltip' => 'Hi']);
+        $response = $this->putJson(
+            '/api/catalog/custom-field-definitions/' . self::FIXTURE_UUID . '/general-settings',
+            ['tooltip' => 'Hi'],
+        );
 
         $response->assertStatus(401);
     }
@@ -62,38 +69,33 @@ final class CustomFieldGeneralSettingsControllerTest extends TestCase
     #[Test]
     public function put_upserts_touched_fields_and_returns_enriched_definition(): void
     {
-        $definitionExternalId = 42;
-        $internalId = new Uuid('11111111-2222-3333-4444-555555555555');
-
-        $this->customFieldRepository
-            ->shouldReceive('findInternalIdByExternalId')
-            ->once()
-            ->with($definitionExternalId)
-            ->andReturn($internalId);
+        $internalId = new Uuid(self::FIXTURE_UUID);
+        $matchesInternalId = Mockery::on(static fn(Uuid $u): bool => $u->value === self::FIXTURE_UUID);
 
         $this->generalSettingsRepository
             ->shouldReceive('save')
             ->once()
             ->with(
-                $internalId,
+                $matchesInternalId,
                 Mockery::on(static fn(SaveCustomFieldGeneralSettingsCommand $c): bool => $c->tooltip === 'Helpful tooltip'
                     && $c->touchedKeys === ['tooltip']),
             );
 
         $this->customFieldRepository
-            ->shouldReceive('findByExternalId')
+            ->shouldReceive('findByInternalId')
             ->once()
-            ->with($definitionExternalId)
-            ->andReturn($this->makeDefinitionWithTooltip($definitionExternalId, 'Helpful tooltip'));
+            ->with($matchesInternalId)
+            ->andReturn($this->makeDefinitionWithTooltip($internalId, 'Helpful tooltip'));
 
         $response = $this->asApprovedUser()->putJson(
-            '/api/catalog/custom-field-definitions/42/general-settings',
+            '/api/catalog/custom-field-definitions/' . self::FIXTURE_UUID . '/general-settings',
             ['tooltip' => 'Helpful tooltip'],
         );
 
         $response->assertStatus(200);
         $body = $response->json();
-        self::assertSame($definitionExternalId, $body['data']['id']);
+        self::assertSame(42, $body['data']['id']);
+        self::assertSame(self::FIXTURE_UUID, $body['data']['internal_id']);
         self::assertSame('Helpful tooltip', $body['data']['general']['tooltip']);
         self::assertFalse($body['data']['general']['admin_only']);
     }
@@ -101,16 +103,16 @@ final class CustomFieldGeneralSettingsControllerTest extends TestCase
     #[Test]
     public function put_returns_404_when_definition_not_found(): void
     {
-        $this->customFieldRepository
-            ->shouldReceive('findInternalIdByExternalId')
-            ->once()
-            ->with(999)
-            ->andThrow(new RecordNotFoundException('custom_field_definition', 999));
+        $this->generalSettingsRepository->shouldReceive('save')->once();
 
-        $this->generalSettingsRepository->shouldNotReceive('save');
+        $this->customFieldRepository
+            ->shouldReceive('findByInternalId')
+            ->once()
+            ->with(Mockery::on(static fn(Uuid $u): bool => $u->value === self::FIXTURE_UUID_MISSING))
+            ->andThrow(new RecordNotFoundException('custom_field_definition', self::FIXTURE_UUID_MISSING));
 
         $response = $this->asApprovedUser()->putJson(
-            '/api/catalog/custom-field-definitions/999/general-settings',
+            '/api/catalog/custom-field-definitions/' . self::FIXTURE_UUID_MISSING . '/general-settings',
             ['tooltip' => 'ignored'],
         );
 
@@ -121,11 +123,11 @@ final class CustomFieldGeneralSettingsControllerTest extends TestCase
     #[Test]
     public function invalid_select_type_enum_returns_422(): void
     {
-        $this->customFieldRepository->shouldNotReceive('findInternalIdByExternalId');
+        $this->customFieldRepository->shouldNotReceive('findByInternalId');
         $this->generalSettingsRepository->shouldNotReceive('save');
 
         $response = $this->asApprovedUser()->putJson(
-            '/api/catalog/custom-field-definitions/42/general-settings',
+            '/api/catalog/custom-field-definitions/' . self::FIXTURE_UUID . '/general-settings',
             ['select_type' => 'not-a-valid-enum'],
         );
 
@@ -133,11 +135,12 @@ final class CustomFieldGeneralSettingsControllerTest extends TestCase
         self::assertSame('validation_error', $response->json('error.type'));
     }
 
-    private function makeDefinitionWithTooltip(int $id, string $tooltip): ConfiguredFieldDefinition
+    private function makeDefinitionWithTooltip(Uuid $internalId, string $tooltip): ConfiguredFieldDefinition
     {
         return new ConfiguredFieldDefinition(
+            internalId: $internalId,
             base: new CustomFieldDefinition(
-                id: $id,
+                id: 42,
                 name: 'colour',
                 type: CustomFieldType::Text,
                 label: 'Colour',

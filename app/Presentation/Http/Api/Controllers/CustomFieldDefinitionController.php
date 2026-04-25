@@ -11,6 +11,7 @@ use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use App\Domain\ValueObjects\IntId;
 use App\Presentation\Http\Api\Resources\ConfiguredFieldDefinitionResource;
 use Illuminate\Http\Resources\Json\ResourceCollection;
 
@@ -53,7 +54,7 @@ final readonly class CustomFieldDefinitionController
     public function show(int $definitionId): ConfiguredFieldDefinitionResource
     {
         return new ConfiguredFieldDefinitionResource(
-            $this->getUseCase->execute($definitionId),
+            $this->getUseCase->execute(IntId::from($definitionId)),
         );
     }
 }

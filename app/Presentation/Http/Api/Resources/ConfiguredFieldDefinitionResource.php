@@ -34,6 +34,7 @@ final class ConfiguredFieldDefinitionResource extends JsonResource
 
         return [
             'id' => $definition->base->id,
+            'internal_id' => $definition->internalId->value,
             'name' => $definition->base->name,
             'type' => $definition->base->type->value,
             'label' => $definition->base->label,

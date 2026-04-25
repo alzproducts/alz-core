@@ -48,9 +48,8 @@ final class SaveCustomFieldGeneralSettingsUseCaseTest extends TestCase
     }
 
     #[Test]
-    public function resolves_internal_id_saves_command_and_returns_enriched_definition(): void
+    public function saves_command_and_returns_refreshed_definition(): void
     {
-        $definitionExternalId = 42;
         $internalId = new Uuid('11111111-2222-3333-4444-555555555555');
         $command = new SaveCustomFieldGeneralSettingsCommand(
             tooltip: 'Helpful tooltip',
@@ -60,13 +59,7 @@ final class SaveCustomFieldGeneralSettingsUseCaseTest extends TestCase
             validationRule: null,
             touchedKeys: ['tooltip'],
         );
-        $refreshed = $this->makeDefinition($definitionExternalId);
-
-        $this->customFieldRepository
-            ->shouldReceive('findInternalIdByExternalId')
-            ->once()
-            ->with($definitionExternalId)
-            ->andReturn($internalId);
+        $refreshed = $this->makeDefinition($internalId);
 
         $this->generalSettingsRepository
             ->shouldReceive('save')
@@ -74,21 +67,22 @@ final class SaveCustomFieldGeneralSettingsUseCaseTest extends TestCase
             ->with($internalId, $command);
 
         $this->customFieldRepository
-            ->shouldReceive('findByExternalId')
+            ->shouldReceive('findByInternalId')
             ->once()
-            ->with($definitionExternalId)
+            ->with($internalId)
             ->andReturn($refreshed);
 
-        $result = $this->useCase->execute($definitionExternalId, $command);
+        $result = $this->useCase->execute($internalId, $command);
 
         self::assertSame($refreshed, $result);
     }
 
-    private function makeDefinition(int $id): ConfiguredFieldDefinition
+    private function makeDefinition(Uuid $internalId): ConfiguredFieldDefinition
     {
         return new ConfiguredFieldDefinition(
+            internalId: $internalId,
             base: new CustomFieldDefinition(
-                id: $id,
+                id: 42,
                 name: 'colour',
                 type: CustomFieldType::Text,
                 label: 'Colour',

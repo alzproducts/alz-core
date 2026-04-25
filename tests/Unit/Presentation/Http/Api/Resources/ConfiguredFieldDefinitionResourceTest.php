@@ -13,6 +13,7 @@ use App\Domain\Catalog\CustomFields\ValueObjects\ConfiguredFieldDefinition;
 use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldDefinition;
 use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldGeneralSettings;
 use App\Domain\Catalog\CustomFields\ValueObjects\ProductFieldSettings;
+use App\Domain\ValueObjects\Uuid;
 use App\Presentation\Http\Api\Resources\ConfiguredFieldDefinitionResource;
 use Illuminate\Http\Request;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -22,10 +23,29 @@ use Tests\TestCase;
 #[CoversClass(ConfiguredFieldDefinitionResource::class)]
 final class ConfiguredFieldDefinitionResourceTest extends TestCase
 {
+    private const string FIXTURE_UUID = '11111111-2222-3333-4444-555555555555';
+
+    #[Test]
+    public function exposes_internal_uuid_alongside_external_id(): void
+    {
+        $definition = new ConfiguredFieldDefinition(
+            internalId: new Uuid(self::FIXTURE_UUID),
+            base: self::productBase(),
+            generalSettings: null,
+            productSettings: null,
+        );
+
+        $array = (new ConfiguredFieldDefinitionResource($definition))->toArray(new Request());
+
+        self::assertSame(42, $array['id']);
+        self::assertSame(self::FIXTURE_UUID, $array['internal_id']);
+    }
+
     #[Test]
     public function general_block_defaults_admin_only_to_false_when_settings_row_missing(): void
     {
         $definition = new ConfiguredFieldDefinition(
+            internalId: new Uuid(self::FIXTURE_UUID),
             base: self::productBase(),
             generalSettings: null,
             productSettings: null,
@@ -49,6 +69,7 @@ final class ConfiguredFieldDefinitionResourceTest extends TestCase
     public function general_block_reflects_stored_settings_when_row_present(): void
     {
         $definition = new ConfiguredFieldDefinition(
+            internalId: new Uuid(self::FIXTURE_UUID),
             base: self::productBase(),
             generalSettings: new CustomFieldGeneralSettings(
                 tooltip: 'Help text',
@@ -78,6 +99,7 @@ final class ConfiguredFieldDefinitionResourceTest extends TestCase
     public function product_block_is_null_for_non_product_definitions(): void
     {
         $definition = new ConfiguredFieldDefinition(
+            internalId: new Uuid(self::FIXTURE_UUID),
             base: new CustomFieldDefinition(
                 id: 7,
                 name: 'for_customer',
@@ -100,6 +122,7 @@ final class ConfiguredFieldDefinitionResourceTest extends TestCase
     public function product_block_is_null_when_product_field_has_no_settings_row(): void
     {
         $definition = new ConfiguredFieldDefinition(
+            internalId: new Uuid(self::FIXTURE_UUID),
             base: self::productBase(),
             generalSettings: null,
             productSettings: null,
@@ -114,6 +137,7 @@ final class ConfiguredFieldDefinitionResourceTest extends TestCase
     public function product_block_reflects_settings_when_present(): void
     {
         $definition = new ConfiguredFieldDefinition(
+            internalId: new Uuid(self::FIXTURE_UUID),
             base: self::productBase(),
             generalSettings: null,
             productSettings: new ProductFieldSettings(

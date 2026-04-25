@@ -10,6 +10,7 @@ use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use App\Domain\ValueObjects\IntId;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -28,16 +29,16 @@ final readonly class GetConfiguredFieldDefinitionUseCase
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      */
-    public function execute(int $definitionExternalId): ConfiguredFieldDefinition
+    public function execute(IntId $definitionExternalId): ConfiguredFieldDefinition
     {
         $this->logger->info('Getting custom field definition', [
-            'definition_id' => $definitionExternalId,
+            'definition_id' => $definitionExternalId->value,
         ]);
 
-        $definition = $this->customFieldRepository->findByExternalId($definitionExternalId);
+        $definition = $this->customFieldRepository->findByExternalId($definitionExternalId->value);
 
         $this->logger->info('Got custom field definition', [
-            'definition_id' => $definitionExternalId,
+            'definition_id' => $definitionExternalId->value,
             'name' => $definition->base->name,
         ]);
 

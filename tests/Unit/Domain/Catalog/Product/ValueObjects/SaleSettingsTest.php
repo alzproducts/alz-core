@@ -13,6 +13,7 @@ use App\Domain\Catalog\CustomFields\ValueObjects\StringCustomFieldValue;
 use App\Domain\Catalog\Product\Enums\SaleCustomField;
 use App\Domain\Catalog\Product\Enums\SaleRemovalReason;
 use App\Domain\Catalog\Product\ValueObjects\SaleSettings;
+use App\Domain\ValueObjects\Uuid;
 use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -190,6 +191,7 @@ final class SaleSettingsTest extends TestCase
     {
         return new StringCustomFieldValue(
             new ConfiguredFieldDefinition(
+                new Uuid('11111111-2222-3333-4444-555555555555'),
                 new CustomFieldDefinition(
                     id: 1,
                     name: $name,
@@ -210,6 +212,7 @@ final class SaleSettingsTest extends TestCase
     {
         return new DateTimeCustomFieldValue(
             new ConfiguredFieldDefinition(
+                new Uuid('11111111-2222-3333-4444-555555555555'),
                 new CustomFieldDefinition(
                     id: 1,
                     name: $name,
