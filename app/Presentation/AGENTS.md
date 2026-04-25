@@ -4,7 +4,7 @@
 
 Catches exceptions **only for delivery mechanism**: HTTP responses, console output. This is "the Laravel stuff" — framework integration.
 
-Jobs live in Application layer (`app/Application/Jobs/`), not Presentation. See `app/Application/CLAUDE.md`.
+Jobs live in Application layer (`app/Application/Jobs/`), not Presentation. See `app/Application/AGENTS.md`.
 
 ## Exception Handling
 

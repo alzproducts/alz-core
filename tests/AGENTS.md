@@ -214,7 +214,7 @@ cat tmp/test-output.txt | sed 's/\x1b\[[0-9;]*m//g' | tail -30
 | Deprecation notices (`!` markers) | PHP 8.4 deprecations in app code | Fix the deprecated usage, or set `failOnDeprecation="false"` in `phpunit.xml` |
 | Skipped tests (`s` markers) | `markTestSkipped()` in `--parallel` mode | ParaTest may return exit 1 for skips — investigate the skip or exclude the test from parallel runs |
 
-**Step 3 — If output is truncated** (Claude Code / CI), redirect to a file and read the tail:
+**Step 3 — If output is truncated** (agent CLI / CI), redirect to a file and read the tail:
 ```bash
 make test > tmp/test-output.txt 2>&1
 cat tmp/test-output.txt | sed 's/\x1b\[[0-9;]*m//g' | tail -30

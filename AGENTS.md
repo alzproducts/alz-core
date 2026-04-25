@@ -1,6 +1,6 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to AI coding agents working on this repository.
 
 **Architecture guide**: [`.ai/docs/architecture-overview.md`](.ai/docs/architecture-overview.md) — high-level system context, deployment topology, layer diagrams, and key data flows. Use as orientation only; always verify details against the code.
 
@@ -106,13 +106,13 @@ When working on a GitHub issue with an associated plan document, maintain an imp
 - Read existing implementation logs at the start of conversations to restore context
 - Use the PR Notes section to draft the PR description before creating the PR
 
-See `.ai/implementation-logs/CLAUDE.md` for the full template and guidelines.
+See `.ai/implementation-logs/AGENTS.md` for the full template and guidelines.
 
 ## Git Workflow
 
 **Branching:** Base = `develop` (not `main`) | Features = `feature/{issue}-{desc}` | PRs → `develop`
 
-**Proactive commits enabled.** Claude commits/pushes after logical changes. User approves via UI.
+**Proactive commits enabled.** The agent commits/pushes after logical changes. User approves via UI.
 
 **Commit format:** `type(scope): description`
 Types: `feat` | `fix` | `refactor` | `test` | `docs` | `chore` | `perf` | `ci`
@@ -132,7 +132,7 @@ Types: `feat` | `fix` | `refactor` | `test` | `docs` | `chore` | `perf` | `ci`
 - ❌ Force push, rebase shared branches, push to main/develop, `Co-Authored-By` trailers
 - ✅ Use `git mv` for renames (preserves history)
 
-**Branch management:** User creates/switches branches. Claude works on current branch only.
+**Branch management:** User creates/switches branches. The agent works on current branch only.
 
 ## Development Environment
 
@@ -143,7 +143,7 @@ Types: `feat` | `fix` | `refactor` | `test` | `docs` | `chore` | `perf` | `ci`
 
 ### Quick Reference
 ```bash
-make db-reset-full                # Full DB reset (Supabase + Laravel migrations) — see database/CLAUDE.md
+make db-reset-full                # Full DB reset (Supabase + Laravel migrations) — see database/AGENTS.md
 make supabase-seed-users          # Seed test users only (no DB reset)
 make redis                        # Start Redis (Docker)
 php artisan migrate               # Run migrations
@@ -208,7 +208,7 @@ This project follows **Clean Architecture** (Robert C. Martin) — dependencies 
 
 ### Spatie LaravelData
 
-❌ **NOT in Domain** (must stay framework-independent). Use in Application (response DTOs) and Infrastructure (API parsing). See `app/Infrastructure/CLAUDE.md`.
+❌ **NOT in Domain** (must stay framework-independent). Use in Application (response DTOs) and Infrastructure (API parsing). See `app/Infrastructure/AGENTS.md`.
 
 ### Interface Placement
 
@@ -325,7 +325,7 @@ Enforced by `phparkitect.php` (layer dependencies defined in Clean Architecture 
 
 **⚠️ Read `tests/TestingStrategy.md` first** — defines what to test per layer, avoiding wasted effort.
 
-**Consider `zen:testgen` MCP** for complex test suites or when you want a second opinion on edge cases. See `tests/CLAUDE.md` for mutation testing workflow.
+**Consider `zen:testgen` MCP** for complex test suites or when you want a second opinion on edge cases. See `tests/AGENTS.md` for mutation testing workflow.
 
 ### ⚠️ IMPORTANT: Bypassing Linters
 
@@ -338,7 +338,7 @@ If a linter reports an issue, fix the code—don't suppress it. Only bypass when
 
 ### Complexity Baseline (`phpstan-complexity-baseline.neon`)
 
-**Only update existing entries** when line counts shift (e.g., adding an import changes surrounding classes). **NEVER add new baseline entries for new code** — instead, decompose the code to fit within limits (see `app/Application/CLAUDE.md` → Use Case Decomposition).
+**Only update existing entries** when line counts shift (e.g., adding an import changes surrounding classes). **NEVER add new baseline entries for new code** — instead, decompose the code to fit within limits (see `app/Application/AGENTS.md` → Use Case Decomposition).
 
 ### 📖 Stubborn Linting Issues
 
@@ -354,4 +354,4 @@ If a linter reports an issue, fix the code—don't suppress it. Only bypass when
 
 ---
 
-*See README.md for project overview and setup. See tests/CLAUDE.md for testing guidance.*
+*See README.md for project overview and setup. See tests/AGENTS.md for testing guidance.*
