@@ -9,7 +9,6 @@ use App\Application\Catalog\UseCases\GetProductCustomFieldsUseCase;
 use App\Application\Catalog\UseCases\GetProductUseCase;
 use App\Application\Catalog\UseCases\ListProductsUseCase;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
-use App\Domain\Catalog\CustomFields\ValueObjects\AbstractCustomFieldValue;
 use App\Domain\Catalog\Product\Enums\ProductInclude;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\RecordNotFoundException;
@@ -21,10 +20,10 @@ use App\Domain\ValueObjects\IntId;
 use App\Presentation\Http\Api\DTOs\GetProductCustomFieldsRequestDTO;
 use App\Presentation\Http\Api\DTOs\ListProductsRequestDTO;
 use App\Presentation\Http\Api\DTOs\ShowProductRequestDTO;
+use App\Presentation\Http\Api\Resources\CustomFieldValueResource;
 use App\Presentation\Http\Api\Resources\ProductDetailResource;
 use App\Presentation\Http\Api\Resources\ProductResource;
 use App\Presentation\Http\Api\Traits\BuildsPaginatedResponseTrait;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\ResourceCollection;
 
 /**
@@ -95,18 +94,13 @@ final readonly class ProductController
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      * @throws RecordNotFoundException When product row not found in database
      */
-    public function customFields(int $productId, GetProductCustomFieldsRequestDTO $data): JsonResponse
+    public function customFields(int $productId, GetProductCustomFieldsRequestDTO $data): ResourceCollection
     {
         $fields = $this->getProductCustomFieldsUseCase->execute(
             productId: $productId,
             fieldNames: $data->fieldNames(),
         );
 
-        return new JsonResponse([
-            'data' => \array_map(
-                static fn(AbstractCustomFieldValue $field): array => $field->toArray(),
-                $fields,
-            ),
-        ]);
+        return CustomFieldValueResource::collection($fields);
     }
 }

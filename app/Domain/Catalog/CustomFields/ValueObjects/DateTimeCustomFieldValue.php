@@ -6,9 +6,7 @@ namespace App\Domain\Catalog\CustomFields\ValueObjects;
 
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use DateTimeImmutable;
-use DateTimeInterface;
 use DateTimeZone;
-use Override;
 use Webmozart\Assert\Assert;
 
 /**
@@ -69,14 +67,5 @@ final readonly class DateTimeCustomFieldValue extends AbstractCustomFieldValue
     public function rawValue(): DateTimeImmutable
     {
         return $this->value;
-    }
-
-    /**
-     * @return array{name: string, type: string, label: ?string, value: string, allowed_values: ?list<string>, sort_order: ?int}
-     */
-    #[Override]
-    public function toArray(): array
-    {
-        return [...parent::toArray(), 'value' => $this->value->format(DateTimeInterface::ATOM)];
     }
 }

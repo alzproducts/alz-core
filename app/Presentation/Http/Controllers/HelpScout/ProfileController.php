@@ -9,7 +9,7 @@ use App\Domain\Access\ValueObjects\AuthenticatedUser;
 use App\Domain\CustomerService\Exceptions\CustomerServiceAgentNotFoundException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
-use Illuminate\Http\JsonResponse;
+use App\Presentation\Http\HelpScout\Resources\AgentProfileResource;
 
 /**
  * HelpScout user profile endpoint.
@@ -31,18 +31,8 @@ final readonly class ProfileController
      * @throws ExternalServiceUnavailableException When HelpScout API unavailable
      * @throws InvalidApiResponseException When API response structure is invalid
      */
-    public function __invoke(AuthenticatedUser $user): JsonResponse
+    public function __invoke(AuthenticatedUser $user): AgentProfileResource
     {
-        $agent = $this->service->getAgentProfile($user->email);
-
-        return new JsonResponse([
-            'data' => [
-                'id' => $agent->id,
-                'email' => $agent->email,
-                'firstName' => $agent->firstName,
-                'lastName' => $agent->lastName,
-                'role' => $agent->role,
-            ],
-        ]);
+        return new AgentProfileResource($this->service->getAgentProfile($user->email));
     }
 }

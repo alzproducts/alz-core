@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Presentation\Http\Api\Resources;
 
 use App\Application\Catalog\UseCases\GetProductResult;
-use App\Domain\Catalog\CustomFields\ValueObjects\AbstractCustomFieldValue;
 use App\Domain\Catalog\Filters\ValueObjects\ProductFilter;
 use App\Domain\Catalog\Product\Enums\ProductInclude;
 use App\Domain\Catalog\Product\ValueObjects\ProductSupplier;
@@ -34,18 +33,18 @@ final class ProductDetailResource extends JsonResource
         $result = $this->resource;
 
         return ProductResource::baseFields($result->product)
-            + $this->conditionalIncludes($result)
+            + $this->conditionalIncludes($result, $request)
             + ['meta' => $result->product->meta->toArray()];
     }
 
     /**
      * @return array<string, mixed>
      */
-    private function conditionalIncludes(GetProductResult $result): array
+    private function conditionalIncludes(GetProductResult $result, Request $request): array
     {
         return $this->scalarIncludes($result)
             + $this->linnworksIncludes($result)
-            + $this->collectionIncludes($result);
+            + $this->collectionIncludes($result, $request);
     }
 
     /**
@@ -92,7 +91,7 @@ final class ProductDetailResource extends JsonResource
     /**
      * @return array<string, mixed>
      */
-    private function collectionIncludes(GetProductResult $result): array
+    private function collectionIncludes(GetProductResult $result, Request $request): array
     {
         $product = $result->product;
         $data = [];
@@ -100,7 +99,7 @@ final class ProductDetailResource extends JsonResource
             $data['category_ids'] = \array_map(static fn(IntId $id): int => $id->value, $product->categoryIds);
         }
         if ($result->hasInclude(ProductInclude::CustomFields)) {
-            $data['custom_fields'] = \array_map(static fn(AbstractCustomFieldValue $field): array => $field->toArray(), $product->customFields);
+            $data['custom_fields'] = CustomFieldValueResource::collection($product->customFields)->resolve($request);
         }
         if ($result->hasInclude(ProductInclude::Filters)) {
             $data['filters'] = \array_map(static fn(ProductFilter $filter): array => $filter->toArray(), $product->filters);
