@@ -17,6 +17,7 @@ use App\Domain\Catalog\CustomFields\ValueObjects\StringCustomFieldValue;
 use App\Domain\Catalog\Product\Enums\ProductInclude;
 use App\Domain\Catalog\Product\ValueObjects\ProductView;
 use App\Domain\ValueObjects\IntId;
+use App\Domain\ValueObjects\Uuid;
 use Mockery;
 use Mockery\MockInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -220,6 +221,7 @@ final class GetProductCustomFieldsUseCaseTest extends TestCase
         static $idCounter = 0;
 
         return new ConfiguredFieldDefinition(
+            new Uuid('11111111-2222-3333-4444-555555555555'),
             new CustomFieldDefinition(
                 id: ++$idCounter,
                 name: $name,

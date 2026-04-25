@@ -11,6 +11,7 @@ use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\CustomFields\ValueObjects\ConfiguredFieldDefinition;
 use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldDefinition;
 use App\Domain\Catalog\CustomFields\ValueObjects\StringCustomFieldValue;
+use App\Domain\ValueObjects\Uuid;
 use App\Infrastructure\Shopwired\Factories\CustomFieldValueFactory;
 use Mockery;
 use Mockery\MockInterface;
@@ -174,6 +175,11 @@ final class CustomFieldValueFactoryTest extends TestCase
 
     private static function wrap(CustomFieldDefinition $base): ConfiguredFieldDefinition
     {
-        return new ConfiguredFieldDefinition($base, null, null);
+        return new ConfiguredFieldDefinition(
+            new Uuid('11111111-2222-3333-4444-555555555555'),
+            $base,
+            null,
+            null,
+        );
     }
 }

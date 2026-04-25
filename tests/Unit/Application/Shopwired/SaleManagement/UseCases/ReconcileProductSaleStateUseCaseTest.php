@@ -20,6 +20,7 @@ use App\Domain\Catalog\Product\Enums\ProductInclude;
 use App\Domain\Catalog\Product\ValueObjects\ProductView;
 use App\Domain\Catalog\Product\ValueObjects\SaleSettings;
 use App\Domain\ValueObjects\IntId;
+use App\Domain\ValueObjects\Uuid;
 use DateTimeImmutable;
 use Mockery;
 use Mockery\MockInterface;
@@ -321,6 +322,7 @@ final class ReconcileProductSaleStateUseCaseTest extends TestCase
     {
         return new StringCustomFieldValue(
             new ConfiguredFieldDefinition(
+                new Uuid('11111111-2222-3333-4444-555555555555'),
                 new CustomFieldDefinition(
                     id: \abs(\crc32($name)) ?: 1,
                     name: $name,

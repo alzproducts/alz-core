@@ -11,6 +11,7 @@ use App\Domain\Catalog\CustomFields\ValueObjects\ConfiguredFieldDefinition;
 use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldDefinition;
 use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldGeneralSettings;
 use App\Domain\Catalog\CustomFields\ValueObjects\ProductFieldSettings;
+use App\Domain\ValueObjects\Uuid;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -20,9 +21,12 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(ConfiguredFieldDefinition::class)]
 final class ConfiguredFieldDefinitionTest extends TestCase
 {
+    private const string FIXTURE_UUID = '11111111-2222-3333-4444-555555555555';
+
     #[Test]
     public function exposes_base_definition_and_settings(): void
     {
+        $internalId = new Uuid(self::FIXTURE_UUID);
         $base = self::productDefinition();
         $general = new CustomFieldGeneralSettings(
             tooltip: 'Admin hover text',
@@ -33,8 +37,9 @@ final class ConfiguredFieldDefinitionTest extends TestCase
         );
         $product = new ProductFieldSettings(StockItemUpdateMode::Single);
 
-        $configured = new ConfiguredFieldDefinition($base, $general, $product);
+        $configured = new ConfiguredFieldDefinition($internalId, $base, $general, $product);
 
+        self::assertSame($internalId, $configured->internalId);
         self::assertSame($base, $configured->base);
         self::assertSame($general, $configured->generalSettings);
         self::assertSame($product, $configured->productSettings);
@@ -44,6 +49,7 @@ final class ConfiguredFieldDefinitionTest extends TestCase
     public function accepts_null_general_settings(): void
     {
         $configured = new ConfiguredFieldDefinition(
+            new Uuid(self::FIXTURE_UUID),
             self::productDefinition(),
             null,
             null,
@@ -56,6 +62,7 @@ final class ConfiguredFieldDefinitionTest extends TestCase
     public function accepts_null_product_settings_for_product_field(): void
     {
         $configured = new ConfiguredFieldDefinition(
+            new Uuid(self::FIXTURE_UUID),
             self::productDefinition(),
             null,
             null,
@@ -69,6 +76,7 @@ final class ConfiguredFieldDefinitionTest extends TestCase
     public function accepts_null_product_settings_for_non_product_field(CustomFieldItemType $itemType): void
     {
         $configured = new ConfiguredFieldDefinition(
+            new Uuid(self::FIXTURE_UUID),
             self::definitionWithItemType($itemType),
             null,
             null,
@@ -86,6 +94,7 @@ final class ConfiguredFieldDefinitionTest extends TestCase
         $this->expectExceptionMessage('ProductFieldSettings can only be attached to Product-type custom fields');
 
         new ConfiguredFieldDefinition(
+            new Uuid(self::FIXTURE_UUID),
             self::definitionWithItemType($itemType),
             null,
             new ProductFieldSettings(StockItemUpdateMode::AllVariants),
