@@ -20,3 +20,4 @@ paths:
 ## Item DTOs
 
 - DO expose a `toCommand(): {Domain}Command` method on DTOs that map 1:1 to a Domain command. Hold wire types on the DTO (string, int, float, nullable scalars); construct value objects / enums / Money inside `toCommand()`. Canonical: `CostPriceItemDTO::toCommand()`.
+- DO follow the merge-patch shape (two-map split + field enum) for partial-update DTOs whose properties are `Optional|T|null` — see `.claude/rules/application-commands.md`.

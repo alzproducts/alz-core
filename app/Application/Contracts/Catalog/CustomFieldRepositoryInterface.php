@@ -9,8 +9,10 @@ use App\Domain\Catalog\CustomFields\Enums\CustomFieldItemType;
 use App\Domain\Catalog\CustomFields\ValueObjects\ConfiguredFieldDefinition;
 use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldDefinition;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use App\Domain\ValueObjects\Uuid;
 
 /**
  * Repository for custom field definitions — owns both sync persistence and enriched reads.
@@ -57,4 +59,27 @@ interface CustomFieldRepositoryInterface extends RepositoryWriteInterface
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      */
     public function findAll(): array;
+
+    /**
+     * Find a custom field definition by its ShopWired external ID.
+     *
+     * @throws RecordNotFoundException When no definition matches the external ID
+     * @throws DatabaseOperationFailedException On query failure
+     * @throws DuplicateRecordException On constraint violation
+     * @throws ExternalServiceUnavailableException When database temporarily unavailable
+     */
+    public function findByExternalId(int $externalId): ConfiguredFieldDefinition;
+
+    /**
+     * Find a custom field definition by its internal catalog UUID.
+     *
+     * Used by settings-write use cases, which identify the parent definition by the
+     * UUID that the settings tables foreign-key to.
+     *
+     * @throws RecordNotFoundException When no definition matches the internal UUID
+     * @throws DatabaseOperationFailedException On query failure
+     * @throws DuplicateRecordException On constraint violation
+     * @throws ExternalServiceUnavailableException When database temporarily unavailable
+     */
+    public function findByInternalId(Uuid $internalId): ConfiguredFieldDefinition;
 }

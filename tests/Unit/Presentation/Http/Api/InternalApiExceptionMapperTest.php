@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Presentation\Http\Api;
 
+use App\Domain\Catalog\CustomFields\Enums\CustomFieldItemType;
+use App\Domain\Catalog\CustomFields\Exceptions\ProductSettingsNotApplicableException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\PermanentApiFailure;
 use App\Domain\Exceptions\Api\RecordNotFoundException;
@@ -334,6 +336,56 @@ final class InternalApiExceptionMapperTest extends TestCase
         $body = $response->getData(assoc: true);
         $this->assertSame('upstream_error', $body['error']['type']);
         $this->assertSame('An upstream service encountered an error.', $body['error']['message']);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | ProductSettingsNotApplicableException (422 with context in errors)
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function render_maps_product_settings_not_applicable_to_422_validation_error(): void
+    {
+        $exception = new ProductSettingsNotApplicableException(
+            definitionExternalId: 77,
+            itemType: CustomFieldItemType::Category,
+        );
+        $request = $this->jsonRequest();
+
+        $response = InternalApiExceptionMapper::render($exception, $request);
+
+        $this->assertNotNull($response);
+        $this->assertSame(422, $response->getStatusCode());
+        $body = $response->getData(assoc: true);
+        $this->assertSame('validation_error', $body['error']['type']);
+        $this->assertSame(
+            'Product settings are not applicable to this custom field definition',
+            $body['error']['message'],
+        );
+    }
+
+    #[Test]
+    public function render_exposes_product_settings_not_applicable_context_in_errors(): void
+    {
+        $exception = new ProductSettingsNotApplicableException(
+            definitionExternalId: 77,
+            itemType: CustomFieldItemType::Category,
+        );
+        $request = $this->jsonRequest();
+
+        $response = InternalApiExceptionMapper::render($exception, $request);
+
+        $this->assertNotNull($response);
+        $body = $response->getData(assoc: true);
+        $this->assertSame(
+            [
+                'code' => 'product_settings_not_applicable',
+                'definition_id' => 77,
+                'item_type' => 'category',
+            ],
+            $body['error']['errors'],
+        );
     }
 
     /*
