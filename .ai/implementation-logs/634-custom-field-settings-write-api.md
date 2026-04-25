@@ -221,4 +221,115 @@ All items 1–12 landed. `make test` + `make lint` green.
 - PUT general-settings / product-settings → keyed by catalog `Uuid`
 - Response body carries both `id` (external int) + `internal_id` (UUID) so the frontend can do a one-shot fetch-then-edit.
 
-**Item 13 (`findColumnOrFail` on EloquentGateway)** remains out of scope; no live caller in this PR.
+**Item 13 (`findColumnOrFail` on EloquentGateway)** remains out of scope; no live caller in this PR. Decision (2026-04-25): drop entirely, do not track. YAGNI — extract when a real second caller appears.
+
+### Next steps (in-scope, before PR): A + B as the merge-patch standard
+
+Items A and B from the post-sweep discussion are both in-scope for THIS PR. They share the same six files and produce one coherent Command shape.
+
+**Codebase convention (to be standardised):** Every PUT/PATCH endpoint with merge-patch semantics uses the **two-map split + field enum** shape. Three states (untouched / set / clear) encoded as three structural positions, no null overloading anywhere.
+
+#### Convention shape
+
+1. **One field enum per settings table**, in `app/Domain/Catalog/CustomFields/Enums/` (alongside existing `CustomFieldType` etc):
+   - `CustomFieldGeneralSettingsField` — cases `Tooltip`, `SelectType`, `SuggestCommonData`, `AdminOnly`, `ValidationRule`. Backing values = DB column names.
+   - `CustomFieldProductSettingsField` — cases `StockItemUpdateMode`. Backing value = DB column name.
+   - Each enum exposes `isClearable(): bool` (e.g. `AdminOnly` is NOT NULL → not clearable).
+
+2. **Command shape** replaces `touchedKeys: list<string>` + nullable per-property values:
+   ```php
+   final readonly class SaveCustomFieldGeneralSettingsCommand {
+       public function __construct(
+           /** @var array<value-of<CustomFieldGeneralSettingsField>, scalar|null> */ public array $valuesToSet,
+           /** @var list<CustomFieldGeneralSettingsField> */ public array $columnsToClear,
+       ) {
+           Assert::null(array_intersect(array_keys($valuesToSet), array_map(fn($c) => $c->value, $columnsToClear)));
+           Assert::allTrue(array_map(fn($c) => $c->isClearable(), $columnsToClear));
+       }
+   }
+   ```
+
+3. **DTO** (`UpdateCustomField{Resource}RequestDTO`) builds the two maps in `toCommand()` instead of pushing string literals into `touchedKeys`. Spatie `Optional` sentinel → field appears in neither map; explicit `null` → key in `columnsToClear`; value → key in `valuesToSet`.
+
+4. **Repository** body collapses to a one-liner:
+   ```php
+   $this->eloquentGateway->upsertOne(
+       attributes: [
+           'custom_field_definition_id' => $internalId->value,
+           ...$command->valuesToSet,
+           ...array_fill_keys(array_map(fn($c) => $c->value, $command->columnsToClear), null),
+       ],
+       uniqueBy: ['custom_field_definition_id'],
+   );
+   ```
+   Existing private `touchedAttributes()` helper deleted.
+
+#### Why this shape (rejected alternatives)
+
+- **Optional-sentinel-per-property (Spatie shape)**: forces every repo to project sentinel-objects back into an array — wasted round-trip. Doesn't solve column-name leakage.
+- **Tagged union `Patch<T>` per property**: theoretical FP-perfect answer; PHP's type system doesn't reward the verbosity (generics are docblock-only). Repos would need a `match` per field — wrong tool for "spread valid values into upsert attrs".
+- **Status quo + discipline**: discipline-enforced invariants are exactly the bug class we're fixing.
+
+#### Files this PR will touch (extension of the existing diff)
+
+- NEW: `app/Domain/Catalog/CustomFields/Enums/CustomFieldGeneralSettingsField.php`
+- NEW: `app/Domain/Catalog/CustomFields/Enums/CustomFieldProductSettingsField.php`
+- MODIFIED: `app/Application/Catalog/Commands/SaveCustomFieldGeneralSettingsCommand.php`
+- MODIFIED: `app/Application/Catalog/Commands/SaveCustomFieldProductSettingsCommand.php`
+- MODIFIED: `app/Presentation/Http/Api/DTOs/UpdateCustomFieldGeneralSettingsRequestDTO.php`
+- MODIFIED: `app/Presentation/Http/Api/DTOs/UpdateCustomFieldProductSettingsRequestDTO.php`
+- MODIFIED: `app/Infrastructure/Catalog/CustomFields/Repositories/EloquentCustomFieldGeneralSettingsRepository.php`
+- MODIFIED: `app/Infrastructure/Catalog/CustomFields/Repositories/EloquentCustomFieldProductSettingsRepository.php`
+- MODIFIED: every test fixture that constructs a `SaveCustomField*Command` (DTO tests, use case tests, feature controller tests)
+
+#### Documenting the convention (location TBD)
+
+Landed (2026-04-25):
+- New `.claude/rules/application-commands.md` (auto-loads on `app/Application/**/Commands/*Command.php`) carries the two-map-split directive, the `isClearable()` field-enum requirement, and the constructor-invariant rule. Canonical pointer: `SaveCustomFieldGeneralSettingsCommand` + `CustomFieldGeneralSettingsField`.
+- Cross-reference one-liner appended to `.claude/rules/presentation-request-dtos.md` (DTO `toCommand()` walking `Optional|T|null` properties).
+- Cross-reference one-liner appended to `.claude/rules/repository-contracts.md` (Write Repositories accepting merge-patch Commands).
+
+### A + B implementation (2026-04-25)
+
+Refactor landed cleanly. `make lint` + `make test` green (3256 passed, 7418 assertions).
+
+**Shape change:**
+- New domain enums: `CustomFieldGeneralSettingsField` (5 cases, `AdminOnly` is the only `isClearable() === false`); `CustomFieldProductSettingsField` (1 case, all clearable).
+- Both `SaveCustomField*Command`s now take `array<value-of<{Field}Enum>, scalar> $valuesToSet` + `list<{Field}Enum> $columnsToClear`. Constructor invariants via `Webmozart\Assert`: mutual-exclusion of keys vs cleared cases, and clearability check.
+- DTOs' `toCommand()` populate the two maps directly. The General DTO uses a private static `classify()` helper returning `[$valuesToSet, $columnsToClear]` tuple (pass-by-reference disallowed by `symplify.noReference`); Product DTO inlines the single field. **No more enum `::from()` calls in the DTOs** — wire scalars flow straight to the Command, DB takes them as-is, and the model's `toDomain()` reconstructs enums on the read path.
+- Repos drop the `touchedAttributes()` helper. `save()` is now a single `EloquentGateway::upsertOne` call spreading both maps: `[...$command->valuesToSet, ...array_fill_keys(array_map(fn $c => $c->value, $command->columnsToClear), null)]`.
+- Use case logging swapped from `'fields_changed' => $command->touchedKeys` to a structured `'fields_set' + 'fields_cleared'` split — log analysis can now distinguish set vs clear operations.
+
+**Vestigial cleanup:**
+- Removed the `phpstan.neon` path-based `missingType.checkedException` ignore for both DTOs (added during the previous lint pass for enum `::from()` calls — those calls no longer exist).
+
+**PHPStan gotchas surfaced + resolved:**
+- `shipmonk.defaultMatchArmWithEnum` on `CustomFieldGeneralSettingsField::isClearable()` — replaced `default => true` with explicit case enumeration so adding a future non-clearable case forces a compile-time decision.
+- `symplify.noReference` on the DTO's `classify()` helper — pass-by-reference accumulator is banned project-wide; switched to return-tuple destructuring at every call site.
+- `argument.type` mismatch between `array<string, scalar>` (helper return) and Command's narrower `array<value-of<{Field}Enum>, scalar>` — fixed by annotating the helper's `$valuesToSet` param + return type with `value-of<{Field}Enum>`. PHPStan then tracks `$column->value` as the literal-string union through the helper boundary.
+
+**Closed (initial pass).**
+
+### Helper consolidation (2026-04-25, in progress)
+
+User flagged that the `classify()` helper was duplicated implicitly via the convention; pushed for extraction.
+
+**Decisions locked via AskUserQuestion:**
+- Extract to a static utility class (over trait or inline). Reason: PHPStan template binding works on classes/methods, not traits.
+- Loosen Command's `$valuesToSet` @param to `array<string, scalar>` (PHPStan can't propagate `value-of<TField>` through a generic helper boundary even with method-level `@template`). Compensate with a runtime `Assert::allOneOf` against `EnumType::cases()->value`.
+- Add `BackedEnum` to phparkitect.php's Presentation whitelist (consistent with existing built-in PHP types: `stdClass`, `Closure`, `Throwable`, `Exception`, `DateTime` etc.).
+
+**Then user pushed for further extraction:** consolidate the per-property `classify(value, column, $vts, $ctc)` chain into a single `buildMaps(list of [enum, value] pairs)` call.
+
+**Landed (so far):**
+- New `app/Presentation/Http/Api/Support/MergePatchMapper.php` with `buildMaps(): array{0: array<string, scalar>, 1: list<TField>}` taking `list<array{0: TField, 1: Optional|scalar|null}>` pairs. Method-level `@template TField of BackedEnum`.
+- Both DTOs' `toCommand()` collapsed to a single `MergePatchMapper::buildMaps([...])` call. `UpdateCustomFieldGeneralSettingsRequestDTO::toCommand()` is now ~12 lines (was ~25 with helper); the Product variant is ~12 lines.
+- Renamed from `MergePatchClassifier` → `MergePatchMapper` to satisfy PHPArkitect Presentation suffix whitelist (`*Mapper` is allowed).
+
+**Landed in full (2026-04-25):**
+- Both Save Commands' `$valuesToSet` @param widened to `array<string, scalar>`; constructors gain `Assert::allOneOf(array_keys($valuesToSet), {Field}Enum::cases()->value)` so unknown column names still fail fast.
+- `phparkitect.php` Rule 4 whitelist gains `BackedEnum` (one new line, alongside `stdClass`/`Closure`/`Throwable`).
+- `MergePatchMapper::buildMaps()` casts `(string) $column->value` before array assignment — PHPStan widens `BackedEnum::value` to `int|string` inside generic context; cast is a no-op for string-backed enums (which is what the codebase uses) and narrows the helper return type to `array<string, scalar>` cleanly.
+- `.claude/rules/application-commands.md` DTO directive now reads as a one-line `MergePatchMapper::buildMaps([[FieldEnum::Case, $this->property], …])` recipe.
+
+`make lint` + `make test` green (3256 passed, 7418 assertions). Ready for commit.

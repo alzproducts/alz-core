@@ -7,6 +7,7 @@ namespace App\Application\Catalog\UseCases;
 use App\Application\Catalog\Commands\SaveCustomFieldProductSettingsCommand;
 use App\Application\Contracts\Catalog\CustomFieldProductSettingsRepositoryInterface;
 use App\Application\Contracts\Catalog\CustomFieldRepositoryInterface;
+use App\Domain\Catalog\CustomFields\Enums\CustomFieldProductSettingsField;
 use App\Domain\Catalog\CustomFields\Exceptions\ProductSettingsNotApplicableException;
 use App\Domain\Catalog\CustomFields\ValueObjects\ConfiguredFieldDefinition;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
@@ -43,7 +44,8 @@ final readonly class SaveCustomFieldProductSettingsUseCase
     ): ConfiguredFieldDefinition {
         $this->logger->info('Saving custom field product settings', [
             'definition_internal_id' => $internalId->value,
-            'fields_changed' => $command->touchedKeys,
+            'fields_set' => \array_keys($command->valuesToSet),
+            'fields_cleared' => \array_map(static fn(CustomFieldProductSettingsField $c): string => $c->value, $command->columnsToClear),
         ]);
 
         $definition = $this->customFieldRepository->findByInternalId($internalId);

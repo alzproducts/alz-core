@@ -6,6 +6,7 @@ namespace App\Infrastructure\Catalog\CustomFields\Repositories;
 
 use App\Application\Catalog\Commands\SaveCustomFieldGeneralSettingsCommand;
 use App\Application\Contracts\Catalog\CustomFieldGeneralSettingsRepositoryInterface;
+use App\Domain\Catalog\CustomFields\Enums\CustomFieldGeneralSettingsField;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
@@ -34,31 +35,13 @@ final readonly class EloquentCustomFieldGeneralSettingsRepository implements Cus
             modelClass: CustomFieldGeneralSettingsModel::class,
             attributes: [
                 'custom_field_definition_id' => $definitionInternalId->value,
-                ...self::touchedAttributes($command),
+                ...$command->valuesToSet,
+                ...\array_fill_keys(
+                    \array_map(static fn(CustomFieldGeneralSettingsField $c): string => $c->value, $command->columnsToClear),
+                    null,
+                ),
             ],
             uniqueBy: ['custom_field_definition_id'],
         );
-    }
-
-    /**
-     * Build the INSERT/UPDATE attribute map from only the command's touched keys.
-     *
-     * The DB upsert treats the returned columns as the update column list, so
-     * untouched columns keep their previous value on conflict (or fall back to
-     * schema defaults on first create).
-     *
-     * @return array<string, mixed>
-     */
-    private static function touchedAttributes(SaveCustomFieldGeneralSettingsCommand $command): array
-    {
-        $all = [
-            'tooltip' => $command->tooltip,
-            'select_type' => $command->selectType?->value,
-            'suggest_common_data' => $command->suggestCommonData,
-            'admin_only' => $command->adminOnly,
-            'field_validation_rule' => $command->validationRule?->value,
-        ];
-
-        return \array_intersect_key($all, \array_flip($command->touchedKeys));
     }
 }

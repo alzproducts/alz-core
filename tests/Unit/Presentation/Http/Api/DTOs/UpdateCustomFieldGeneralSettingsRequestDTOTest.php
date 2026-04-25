@@ -4,8 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Presentation\Http\Api\DTOs;
 
-use App\Domain\Catalog\CustomFields\Enums\CustomFieldValidationRule;
-use App\Domain\Catalog\CustomFields\Enums\CustomFieldValueSelectType;
+use App\Domain\Catalog\CustomFields\Enums\CustomFieldGeneralSettingsField;
 use App\Presentation\Http\Api\DTOs\UpdateCustomFieldGeneralSettingsRequestDTO;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -16,18 +15,14 @@ use Tests\TestCase;
 final class UpdateCustomFieldGeneralSettingsRequestDTOTest extends TestCase
 {
     #[Test]
-    public function to_command_has_empty_touched_keys_when_all_fields_absent(): void
+    public function to_command_has_empty_maps_when_all_fields_absent(): void
     {
         $dto = new UpdateCustomFieldGeneralSettingsRequestDTO();
 
         $command = $dto->toCommand();
 
-        self::assertSame([], $command->touchedKeys);
-        self::assertNull($command->tooltip);
-        self::assertNull($command->selectType);
-        self::assertNull($command->suggestCommonData);
-        self::assertNull($command->adminOnly);
-        self::assertNull($command->validationRule);
+        self::assertSame([], $command->valuesToSet);
+        self::assertSame([], $command->columnsToClear);
     }
 
     #[Test]
@@ -39,12 +34,12 @@ final class UpdateCustomFieldGeneralSettingsRequestDTOTest extends TestCase
 
         $command = $dto->toCommand();
 
-        self::assertSame(['tooltip'], $command->touchedKeys);
-        self::assertSame('Updated tooltip', $command->tooltip);
+        self::assertSame(['tooltip' => 'Updated tooltip'], $command->valuesToSet);
+        self::assertSame([], $command->columnsToClear);
     }
 
     #[Test]
-    public function to_command_preserves_explicit_null_for_nullable_fields(): void
+    public function to_command_routes_explicit_null_to_columns_to_clear(): void
     {
         $dto = new UpdateCustomFieldGeneralSettingsRequestDTO(
             tooltip: null,
@@ -55,18 +50,20 @@ final class UpdateCustomFieldGeneralSettingsRequestDTOTest extends TestCase
 
         $command = $dto->toCommand();
 
+        self::assertSame([], $command->valuesToSet);
         self::assertSame(
-            ['tooltip', 'select_type', 'suggest_common_data', 'field_validation_rule'],
-            $command->touchedKeys,
+            [
+                CustomFieldGeneralSettingsField::Tooltip,
+                CustomFieldGeneralSettingsField::SelectType,
+                CustomFieldGeneralSettingsField::SuggestCommonData,
+                CustomFieldGeneralSettingsField::ValidationRule,
+            ],
+            $command->columnsToClear,
         );
-        self::assertNull($command->tooltip);
-        self::assertNull($command->selectType);
-        self::assertNull($command->suggestCommonData);
-        self::assertNull($command->validationRule);
     }
 
     #[Test]
-    public function to_command_includes_admin_only_when_explicitly_set(): void
+    public function to_command_routes_admin_only_to_values_when_explicitly_set(): void
     {
         $dto = new UpdateCustomFieldGeneralSettingsRequestDTO(
             admin_only: true,
@@ -74,12 +71,12 @@ final class UpdateCustomFieldGeneralSettingsRequestDTOTest extends TestCase
 
         $command = $dto->toCommand();
 
-        self::assertSame(['admin_only'], $command->touchedKeys);
-        self::assertTrue($command->adminOnly);
+        self::assertSame(['admin_only' => true], $command->valuesToSet);
+        self::assertSame([], $command->columnsToClear);
     }
 
     #[Test]
-    public function to_command_resolves_enums_and_reports_all_touched_keys_when_all_fields_set(): void
+    public function to_command_routes_every_set_field_into_values_to_set(): void
     {
         $dto = new UpdateCustomFieldGeneralSettingsRequestDTO(
             tooltip: 'Help text',
@@ -92,14 +89,16 @@ final class UpdateCustomFieldGeneralSettingsRequestDTOTest extends TestCase
         $command = $dto->toCommand();
 
         self::assertSame(
-            ['tooltip', 'select_type', 'suggest_common_data', 'admin_only', 'field_validation_rule'],
-            $command->touchedKeys,
+            [
+                'tooltip' => 'Help text',
+                'select_type' => 'category',
+                'suggest_common_data' => true,
+                'admin_only' => false,
+                'field_validation_rule' => 1,
+            ],
+            $command->valuesToSet,
         );
-        self::assertSame('Help text', $command->tooltip);
-        self::assertSame(CustomFieldValueSelectType::Category, $command->selectType);
-        self::assertTrue($command->suggestCommonData);
-        self::assertFalse($command->adminOnly);
-        self::assertSame(CustomFieldValidationRule::Url, $command->validationRule);
+        self::assertSame([], $command->columnsToClear);
     }
 
     #[Test]

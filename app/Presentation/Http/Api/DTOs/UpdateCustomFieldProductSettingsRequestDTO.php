@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Presentation\Http\Api\DTOs;
 
 use App\Application\Catalog\Commands\SaveCustomFieldProductSettingsCommand;
+use App\Domain\Catalog\CustomFields\Enums\CustomFieldProductSettingsField;
 use App\Domain\Catalog\CustomFields\Enums\StockItemUpdateMode;
 use App\Domain\Catalog\CustomFields\Exceptions\ProductSettingsNotApplicableException;
+use App\Presentation\Http\Api\Support\MergePatchMapper;
 use Spatie\LaravelData\Attributes\Validation\Enum;
 use Spatie\LaravelData\Data;
 use Spatie\LaravelData\Optional;
@@ -27,19 +29,13 @@ final class UpdateCustomFieldProductSettingsRequestDTO extends Data
 
     public function toCommand(): SaveCustomFieldProductSettingsCommand
     {
-        $touchedKeys = [];
-        $stockItemUpdateMode = null;
-
-        if (! $this->stock_item_update_mode instanceof Optional) {
-            $touchedKeys[] = 'stock_item_update_mode';
-            $stockItemUpdateMode = $this->stock_item_update_mode === null
-                ? null
-                : StockItemUpdateMode::from($this->stock_item_update_mode);
-        }
+        [$valuesToSet, $columnsToClear] = MergePatchMapper::buildMaps([
+            [CustomFieldProductSettingsField::StockItemUpdateMode, $this->stock_item_update_mode],
+        ]);
 
         return new SaveCustomFieldProductSettingsCommand(
-            stockItemUpdateMode: $stockItemUpdateMode,
-            touchedKeys: $touchedKeys,
+            valuesToSet: $valuesToSet,
+            columnsToClear: $columnsToClear,
         );
     }
 }

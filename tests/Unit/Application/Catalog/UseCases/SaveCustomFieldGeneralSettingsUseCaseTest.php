@@ -52,12 +52,8 @@ final class SaveCustomFieldGeneralSettingsUseCaseTest extends TestCase
     {
         $internalId = new Uuid('11111111-2222-3333-4444-555555555555');
         $command = new SaveCustomFieldGeneralSettingsCommand(
-            tooltip: 'Helpful tooltip',
-            selectType: null,
-            suggestCommonData: null,
-            adminOnly: null,
-            validationRule: null,
-            touchedKeys: ['tooltip'],
+            valuesToSet: ['tooltip' => 'Helpful tooltip'],
+            columnsToClear: [],
         );
         $refreshed = $this->makeDefinition($internalId);
 

@@ -16,6 +16,7 @@ paths:
 - DO extend `RepositoryWriteInterface`
 - DO expose only write operations (`save`, `delete`, `upsert`, etc.)
 - EXCEPTION — infrastructure-state repositories (sync cursors, singleton config) MAY omit `RepositoryWriteInterface`. Canonical: `SyncCursorRepositoryInterface`
+- DO accept the merge-patch Command shape (two-map split + field enum) for partial-update writes — see `.claude/rules/application-commands.md`.
 
 ## Query Repositories — `*QueryRepositoryInterface.php`
 

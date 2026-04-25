@@ -19,7 +19,7 @@ use App\Domain\ValueObjects\Uuid;
 interface CustomFieldProductSettingsRepositoryInterface
 {
     /**
-     * Upsert the subset of product-settings columns named in the command.
+     * Upsert the subset of product-settings columns referenced by the command.
      *
      * @throws DatabaseOperationFailedException On constraint violation or schema error
      * @throws DuplicateRecordException When unique constraint violated

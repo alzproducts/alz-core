@@ -92,8 +92,8 @@ final class CustomFieldProductSettingsControllerTest extends TestCase
             ->ordered()
             ->with(
                 $matchesInternalId,
-                Mockery::on(static fn(SaveCustomFieldProductSettingsCommand $c): bool => $c->stockItemUpdateMode === StockItemUpdateMode::AllVariants
-                    && $c->touchedKeys === ['stock_item_update_mode']),
+                Mockery::on(static fn(SaveCustomFieldProductSettingsCommand $c): bool => $c->valuesToSet === ['stock_item_update_mode' => 'all_variants']
+                    && $c->columnsToClear === []),
             );
 
         $this->customFieldRepository

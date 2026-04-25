@@ -10,7 +10,6 @@ use App\Application\Contracts\Catalog\CustomFieldProductSettingsRepositoryInterf
 use App\Application\Contracts\Catalog\CustomFieldRepositoryInterface;
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldItemType;
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldType;
-use App\Domain\Catalog\CustomFields\Enums\StockItemUpdateMode;
 use App\Domain\Catalog\CustomFields\Exceptions\ProductSettingsNotApplicableException;
 use App\Domain\Catalog\CustomFields\ValueObjects\ConfiguredFieldDefinition;
 use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldDefinition;
@@ -54,8 +53,8 @@ final class SaveCustomFieldProductSettingsUseCaseTest extends TestCase
     {
         $internalId = new Uuid('11111111-2222-3333-4444-555555555555');
         $command = new SaveCustomFieldProductSettingsCommand(
-            stockItemUpdateMode: StockItemUpdateMode::AllVariants,
-            touchedKeys: ['stock_item_update_mode'],
+            valuesToSet: ['stock_item_update_mode' => 'all_variants'],
+            columnsToClear: [],
         );
         $existing = $this->makeDefinition($internalId, CustomFieldItemType::Product);
         $refreshed = $this->makeDefinition($internalId, CustomFieldItemType::Product);
@@ -90,8 +89,8 @@ final class SaveCustomFieldProductSettingsUseCaseTest extends TestCase
     {
         $internalId = new Uuid('11111111-2222-3333-4444-555555555555');
         $command = new SaveCustomFieldProductSettingsCommand(
-            stockItemUpdateMode: StockItemUpdateMode::Single,
-            touchedKeys: ['stock_item_update_mode'],
+            valuesToSet: ['stock_item_update_mode' => 'single'],
+            columnsToClear: [],
         );
         $existing = $this->makeDefinition($internalId, CustomFieldItemType::Category);
 

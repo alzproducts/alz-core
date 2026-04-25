@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Presentation\Http\Api\DTOs;
 
-use App\Domain\Catalog\CustomFields\Enums\StockItemUpdateMode;
+use App\Domain\Catalog\CustomFields\Enums\CustomFieldProductSettingsField;
 use App\Presentation\Http\Api\DTOs\UpdateCustomFieldProductSettingsRequestDTO;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -15,18 +15,18 @@ use Tests\TestCase;
 final class UpdateCustomFieldProductSettingsRequestDTOTest extends TestCase
 {
     #[Test]
-    public function to_command_has_empty_touched_keys_when_field_absent(): void
+    public function to_command_has_empty_maps_when_field_absent(): void
     {
         $dto = new UpdateCustomFieldProductSettingsRequestDTO();
 
         $command = $dto->toCommand();
 
-        self::assertSame([], $command->touchedKeys);
-        self::assertNull($command->stockItemUpdateMode);
+        self::assertSame([], $command->valuesToSet);
+        self::assertSame([], $command->columnsToClear);
     }
 
     #[Test]
-    public function to_command_preserves_explicit_null(): void
+    public function to_command_routes_explicit_null_to_columns_to_clear(): void
     {
         $dto = new UpdateCustomFieldProductSettingsRequestDTO(
             stock_item_update_mode: null,
@@ -34,12 +34,15 @@ final class UpdateCustomFieldProductSettingsRequestDTOTest extends TestCase
 
         $command = $dto->toCommand();
 
-        self::assertSame(['stock_item_update_mode'], $command->touchedKeys);
-        self::assertNull($command->stockItemUpdateMode);
+        self::assertSame([], $command->valuesToSet);
+        self::assertSame(
+            [CustomFieldProductSettingsField::StockItemUpdateMode],
+            $command->columnsToClear,
+        );
     }
 
     #[Test]
-    public function to_command_resolves_enum_when_value_set(): void
+    public function to_command_routes_value_to_values_to_set(): void
     {
         $dto = new UpdateCustomFieldProductSettingsRequestDTO(
             stock_item_update_mode: 'single',
@@ -47,8 +50,8 @@ final class UpdateCustomFieldProductSettingsRequestDTOTest extends TestCase
 
         $command = $dto->toCommand();
 
-        self::assertSame(['stock_item_update_mode'], $command->touchedKeys);
-        self::assertSame(StockItemUpdateMode::Single, $command->stockItemUpdateMode);
+        self::assertSame(['stock_item_update_mode' => 'single'], $command->valuesToSet);
+        self::assertSame([], $command->columnsToClear);
     }
 
     #[Test]

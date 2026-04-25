@@ -14,14 +14,15 @@ use App\Domain\ValueObjects\Uuid;
  * Write-side repository for `catalog.custom_field_general_settings`.
  *
  * Rows are identified by `custom_field_definition_id` (the internal UUID of the
- * ShopWired definition). A partial upsert writes only the columns named in
- * {@see SaveCustomFieldGeneralSettingsCommand::$touchedKeys}; DB defaults cover
- * the rest on first-create.
+ * ShopWired definition). A partial upsert writes only the columns present in
+ * the command's {@see SaveCustomFieldGeneralSettingsCommand::$valuesToSet} or
+ * {@see SaveCustomFieldGeneralSettingsCommand::$columnsToClear} maps; DB
+ * defaults cover the rest on first-create.
  */
 interface CustomFieldGeneralSettingsRepositoryInterface
 {
     /**
-     * Upsert the subset of general-settings columns named in the command.
+     * Upsert the subset of general-settings columns referenced by the command.
      *
      * Untouched columns keep their existing value on update; on first-create,
      * DB defaults populate them.

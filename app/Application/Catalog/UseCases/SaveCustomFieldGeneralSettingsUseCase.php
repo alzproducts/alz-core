@@ -7,6 +7,7 @@ namespace App\Application\Catalog\UseCases;
 use App\Application\Catalog\Commands\SaveCustomFieldGeneralSettingsCommand;
 use App\Application\Contracts\Catalog\CustomFieldGeneralSettingsRepositoryInterface;
 use App\Application\Contracts\Catalog\CustomFieldRepositoryInterface;
+use App\Domain\Catalog\CustomFields\Enums\CustomFieldGeneralSettingsField;
 use App\Domain\Catalog\CustomFields\ValueObjects\ConfiguredFieldDefinition;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\RecordNotFoundException;
@@ -42,7 +43,8 @@ final readonly class SaveCustomFieldGeneralSettingsUseCase
     ): ConfiguredFieldDefinition {
         $this->logger->info('Saving custom field general settings', [
             'definition_internal_id' => $internalId->value,
-            'fields_changed' => $command->touchedKeys,
+            'fields_set' => \array_keys($command->valuesToSet),
+            'fields_cleared' => \array_map(static fn(CustomFieldGeneralSettingsField $c): string => $c->value, $command->columnsToClear),
         ]);
 
         $this->generalSettingsRepository->save($internalId, $command);

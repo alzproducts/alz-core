@@ -77,8 +77,8 @@ final class CustomFieldGeneralSettingsControllerTest extends TestCase
             ->once()
             ->with(
                 $matchesInternalId,
-                Mockery::on(static fn(SaveCustomFieldGeneralSettingsCommand $c): bool => $c->tooltip === 'Helpful tooltip'
-                    && $c->touchedKeys === ['tooltip']),
+                Mockery::on(static fn(SaveCustomFieldGeneralSettingsCommand $c): bool => $c->valuesToSet === ['tooltip' => 'Helpful tooltip']
+                    && $c->columnsToClear === []),
             );
 
         $this->customFieldRepository
