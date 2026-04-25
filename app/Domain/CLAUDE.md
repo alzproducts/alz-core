@@ -11,19 +11,13 @@ Domain exceptions represent **business concepts**: service unavailable, authenti
 - ✅ **Authentication/Authorization** — e.g. `AuthenticationExpiredException` with `serviceName`
 - ✅ **Domain state violations** — e.g. `OrderCannotBeCancelledException` with `orderId`, `currentStatus`
 
-## Exception Design Rules
-
-- Must be `final` classes with `readonly` constructor-promoted properties carrying business context (IDs, amounts, status)
-- Exception messages MUST be static strings (no interpolated IDs/names/dynamic data) — dynamic data goes in `context()` via readonly properties, enabling Sentry grouping
-- Extend `\DomainException` or `\LogicException`
-- Use **named constructors** (`::fromFailedRecords()`) for complex creation logic
-- Document `@throws` on interface methods
-
 ## What NOT to Put in Domain
 
 - ❌ **Generic wrappers** (`SyncFailedException`, `ApiErrorException`) — use specific business states instead
 - ❌ **Framework dependencies** — never extend `\Illuminate\*` exceptions, extend `\DomainException`
 - ❌ **Infrastructure details** (`RateLimitException`, `HttpTimeoutException`) — use `ExternalServiceUnavailableException` with `retryAfter`
+
+> Exception design rules → `.claude/rules/domain-exceptions.md` (auto-loads on `app/Domain/**/Exceptions/**/*.php`)
 
 ## Domain Rarely Catches
 
@@ -34,13 +28,7 @@ Domain primarily **throws**, not catches. The exception: catching PHP built-in e
 - **Assertions** (`webmozart/assert`): Programming errors, developer mistakes, internal contract violations
 - **Exceptions**: Business rule violations, runtime conditions — always active
 
-## Validators
-
-Live in `Validators/` subdirectories alongside their domain concept (e.g., `Catalog/Product/Validators/`). Validation infrastructure (contracts, traits) in `Shared/Validation/` — see `Shared/Validation/CLAUDE.md`.
-
-## Integer IDs
-
-**Use `IntId` value object** for all integer identifiers, not primitive `int`.
+> Validator patterns → `.claude/rules/domain-validators.md` (auto-loads on `app/Domain/**/Validators/*.php`)
 
 ## Native Domain Types
 
