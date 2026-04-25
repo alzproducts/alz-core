@@ -332,4 +332,8 @@ User flagged that the `classify()` helper was duplicated implicitly via the conv
 - `MergePatchMapper::buildMaps()` casts `(string) $column->value` before array assignment — PHPStan widens `BackedEnum::value` to `int|string` inside generic context; cast is a no-op for string-backed enums (which is what the codebase uses) and narrows the helper return type to `array<string, scalar>` cleanly.
 - `.claude/rules/application-commands.md` DTO directive now reads as a one-line `MergePatchMapper::buildMaps([[FieldEnum::Case, $this->property], …])` recipe.
 
-`make lint` + `make test` green (3256 passed, 7418 assertions). Ready for commit.
+`make lint` + `make test` green (3256 passed, 7418 assertions).
+
+Committed as `4d2e65a0` (`refactor(catalog): adopt typed merge-patch shape for partial-update commands`). 25 files changed, +420/-237. Pre-commit hooks (Pint + Larastan + PHPArkitect) all passed.
+
+**Closed.**
