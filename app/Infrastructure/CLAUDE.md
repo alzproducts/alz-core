@@ -10,25 +10,11 @@
 
 ## Exception Handling: Catch and Translate
 
-Infrastructure **always catches** SDK/HTTP exceptions and **translates** to Domain exceptions. This is where technical → business translation happens.
+Infrastructure **always catches** SDK/HTTP exceptions and **translates** to Domain exceptions. This is where technical → business translation happens. The try-catch lives in dedicated `*HttpTransport.php` classes — clients delegate via their `*TransportInterface` and never inline try-catch themselves.
 
-### Core Pattern: Catch and Translate
+> HTTP transport exception handling → `.claude/rules/infrastructure-http-transports.md` (auto-loads on `*Transport.php`)
 
-- Wrap all external API/SDK calls in try-catch
-- **Log technical details first** — SDK error codes, messages, raw responses. These won't exist in the Domain exception
-- Differentiate error types and translate:
-  - Rate limit / throttle → `ExternalServiceUnavailableException` with `retryAfter`
-  - Auth / credential failure → `AuthenticationExpiredException`
-  - Connection / timeout / general → `ExternalServiceUnavailableException`
-
-### Nested Pattern: Spatie DTO Validation
-
-When parsing API responses through Spatie DTOs (`::from()`), use a nested try-catch:
-- **Inner catch** around `SomeResponse::from($row)` catches `ValidationException` — this is an API contract violation (permanent failure)
-  - Log at **CRITICAL** level — code needs immediate update
-  - Include **raw response** in log (needed to fix the DTO)
-  - Throw `InvalidApiResponseException` — do NOT retry (permanent until code changes)
-- **Outer catch** handles API/network errors as usual (transient failures)
+> Nested DTO validation pattern → `.claude/rules/infrastructure-response-parsers.md` (auto-loads on `*ResponseParserTrait.php`)
 
 ### Critical Rules
 
@@ -38,11 +24,11 @@ When parsing API responses through Spatie DTOs (`::from()`), use a nested try-ca
 
 ## Configuration Validation
 
-Use `RuntimeException` for missing/invalid config values — these are programming mistakes, not runtime conditions.
+> Client factory config validation → `.claude/rules/infrastructure-client-factories.md` (auto-loads on `*ClientFactory.php`)
 
 ## Spatie LaravelData
 
-Use for parsing external API responses. Supports `#[MapInputName(SnakeCaseMapper::class)]` for property mapping. ❌ **NOT allowed in Domain layer** — Domain must stay framework-independent.
+> Response DTO conventions → `.claude/rules/infrastructure-response-dtos.md` (auto-loads on `Responses/**/*Response.php`)
 
 ## Domain-to-Model Mapping & Bulk Inserts
 
@@ -50,57 +36,10 @@ Use for parsing external API responses. Supports `#[MapInputName(SnakeCaseMapper
 
 ## Client Contracts: Structural Mapping Only
 
-Application-layer interfaces accept **pre-resolved** commands containing opaque external IDs and domain values — the UseCase orchestrates all resolution (SKU→ID, supplier→ID) via separate resolver interfaces.
-
-The Infrastructure client performs **only structural mapping** (key renaming, scalar conversion, null handling) via a plain `readonly` Request class with a static factory:
-
-```
-InfraRequest::fromResolved($resolvedId, $domainValue, ...)→toArray()
-```
+Application-layer interfaces accept **pre-resolved** commands containing opaque external IDs and domain values — the UseCase orchestrates all resolution (SKU→ID, supplier→ID) via separate resolver interfaces. The Infrastructure client performs **only structural mapping** via a `final readonly` Request class with a static factory.
 
 **Resolution is orchestration; orchestration belongs in the UseCase.**
 
-### Request Class Pattern
-
-```php
-// Infrastructure/{Integration}/Requests/
-final readonly class SomeApiRequest
-{
-    private function __construct(private string $id, private float $price) {}
-
-    public static function fromResolved(string $id, Guid $guid, Money $price): self
-    {
-        return new self($id, $price->toNet());
-    }
-
-    public function toArray(): array { /* API key names */ }
-
-    // Bulk: accepts the same params as the interface method
-    public static function buildBulkPayload(Guid $guid, array $itemPrices): array
-    {
-        // foreach → fromResolved()→toArray()
-    }
-}
-```
-
-The client method becomes a one-liner — all conversion lives in the Request:
-
-```php
-public function updateBulk(Guid $guid, array $prices): void
-{
-    $this->transport->postFormParams(
-        endpoint: '/api/SomeEndpoint',
-        params: ['items' => SomeApiRequest::buildBulkPayload($guid, $prices)],
-    );
-}
-```
-
-### Rules
-
-- ✅ `fromResolved()` accepts domain types (Guid, Money) — extracts scalars
-- ✅ `toArray()` returns API-specific key names (`StockItemId`, `SupplierID`, etc.)
-- ✅ Constructor is `private` — factory is the only entry point
-- ❌ No resolution logic (no `resolveStockItemId()`, no `getSupplierByName()`)
-- ❌ No business decisions — just shape transformation
+> Request class contract → `.claude/rules/infrastructure-requests.md` (auto-loads on `Infrastructure/**/Requests/*.php`)
 
 **Golden Rule**: Nothing leaves Infrastructure without a Domain exception passport.
