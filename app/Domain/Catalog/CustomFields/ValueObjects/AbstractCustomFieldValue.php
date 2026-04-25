@@ -58,21 +58,4 @@ abstract readonly class AbstractCustomFieldValue
     {
         return $this->definition->base->type;
     }
-
-    /**
-     * Serialize to API-friendly array with definition metadata.
-     *
-     * @return array{name: string, type: string, label: ?string, value: string|bool|list<string>|list<int>|DateTimeImmutable|null, allowed_values: ?list<string>, sort_order: ?int}
-     */
-    public function toArray(): array
-    {
-        return [
-            'name' => $this->name(),
-            'type' => $this->type()->value,
-            'label' => $this->definition->base->label,
-            'value' => $this->rawValue(),
-            'allowed_values' => $this->definition->base->allowedValues,
-            'sort_order' => $this->definition->base->sortOrder,
-        ];
-    }
 }

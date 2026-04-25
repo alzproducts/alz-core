@@ -6,7 +6,6 @@ namespace App\Presentation\Http\Api\Resources;
 
 use App\Application\Catalog\UseCases\GetCategoryResult;
 use App\Domain\Catalog\Category\Enums\CategoryInclude;
-use App\Domain\Catalog\CustomFields\ValueObjects\AbstractCustomFieldValue;
 use App\Domain\ValueObjects\IntId;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -32,13 +31,13 @@ final class CategoryDetailResource extends JsonResource
         $result = $this->resource;
 
         return CategoryResource::baseFields($result->category)
-            + $this->conditionalIncludes($result);
+            + $this->conditionalIncludes($result, $request);
     }
 
     /**
      * @return array<string, mixed>
      */
-    private function conditionalIncludes(GetCategoryResult $result): array
+    private function conditionalIncludes(GetCategoryResult $result, Request $request): array
     {
         $category = $result->category;
         $data = [];
@@ -52,7 +51,7 @@ final class CategoryDetailResource extends JsonResource
             $data['parent_ids'] = \array_map(static fn(IntId $id): int => $id->value, $category->parentIds);
         }
         if ($result->hasInclude(CategoryInclude::CustomFields) && $category->customFields !== null) {
-            $data['custom_fields'] = \array_map(static fn(AbstractCustomFieldValue $field): array => $field->toArray(), $category->customFields);
+            $data['custom_fields'] = CustomFieldValueResource::collection($category->customFields)->resolve($request);
         }
         return $data;
     }

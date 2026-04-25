@@ -222,11 +222,11 @@ final class StringCustomFieldValueTest extends TestCase
     }
 
     // ========================================================================
-    // toArray - AbstractCustomFieldValue
+    // Typed accessors
     // ========================================================================
 
     #[Test]
-    public function to_array_includes_all_definition_metadata(): void
+    public function it_exposes_typed_metadata_accessors(): void
     {
         $definition = self::wrap(new CustomFieldDefinition(
             id: 10,
@@ -239,18 +239,16 @@ final class StringCustomFieldValueTest extends TestCase
         ));
         $value = new StringCustomFieldValue($definition, 'Cotton');
 
-        $result = $value->toArray();
-
-        self::assertSame('material', $result['name']);
-        self::assertSame('text', $result['type']);
-        self::assertSame('Material', $result['label']);
-        self::assertSame('Cotton', $result['value']);
-        self::assertNull($result['allowed_values']);
-        self::assertSame(3, $result['sort_order']);
+        self::assertSame('material', $value->name());
+        self::assertSame(CustomFieldType::Text, $value->type());
+        self::assertSame('Material', $value->label());
+        self::assertSame('Cotton', $value->rawValue());
+        self::assertNull($value->definition->base->allowedValues);
+        self::assertSame(3, $value->definition->base->sortOrder);
     }
 
     #[Test]
-    public function to_array_includes_null_label_and_sort_order(): void
+    public function it_exposes_null_label_and_sort_order(): void
     {
         $definition = self::wrap(new CustomFieldDefinition(
             id: 11,
@@ -263,11 +261,9 @@ final class StringCustomFieldValueTest extends TestCase
         ));
         $value = new StringCustomFieldValue($definition, 'some note');
 
-        $result = $value->toArray();
-
-        self::assertNull($result['label']);
-        self::assertNull($result['sort_order']);
-        self::assertSame('some note', $result['value']);
+        self::assertNull($value->label());
+        self::assertNull($value->definition->base->sortOrder);
+        self::assertSame('some note', $value->rawValue());
     }
 
     // ========================================================================
