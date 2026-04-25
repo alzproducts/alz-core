@@ -29,6 +29,10 @@ final class CustomFieldProductSettingsControllerTest extends TestCase
 {
     use AuthenticatesAsApprovedUser;
 
+    private const string FIXTURE_UUID = '11111111-2222-3333-4444-555555555555';
+
+    private const string FIXTURE_UUID_MISSING = '00000000-0000-0000-0000-000000000000';
+
     private CustomFieldRepositoryInterface&MockInterface $customFieldRepository;
 
     private CustomFieldProductSettingsRepositoryInterface&MockInterface $productSettingsRepository;
@@ -51,10 +55,6 @@ final class CustomFieldProductSettingsControllerTest extends TestCase
         Mockery::close();
         parent::tearDown();
     }
-
-    private const string FIXTURE_UUID = '11111111-2222-3333-4444-555555555555';
-
-    private const string FIXTURE_UUID_MISSING = '00000000-0000-0000-0000-000000000000';
 
     #[Test]
     public function unauthenticated_request_returns_401(): void
