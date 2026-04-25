@@ -9,6 +9,7 @@ use App\Domain\Catalog\CustomFields\Enums\CustomFieldType;
 use App\Domain\Catalog\CustomFields\ValueObjects\ConfiguredFieldDefinition;
 use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldDefinition;
 use App\Domain\Catalog\CustomFields\ValueObjects\ValueListCustomFieldValue;
+use App\Domain\ValueObjects\Uuid;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -240,6 +241,11 @@ final class ValueListCustomFieldValueTest extends TestCase
 
     private static function wrap(CustomFieldDefinition $base): ConfiguredFieldDefinition
     {
-        return new ConfiguredFieldDefinition($base, null, null);
+        return new ConfiguredFieldDefinition(
+            new Uuid('11111111-2222-3333-4444-555555555555'),
+            $base,
+            null,
+            null,
+        );
     }
 }

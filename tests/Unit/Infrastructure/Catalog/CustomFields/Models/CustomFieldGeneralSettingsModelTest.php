@@ -6,7 +6,6 @@ namespace Tests\Unit\Infrastructure\Catalog\CustomFields\Models;
 
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldValidationRule;
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldValueSelectType;
-use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldGeneralSettings;
 use App\Infrastructure\Catalog\CustomFields\Models\CustomFieldGeneralSettingsModel;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -78,28 +77,6 @@ final class CustomFieldGeneralSettingsModelTest extends TestCase
 
         $this->expectException(ValueError::class);
         $model->toDomain();
-    }
-
-    #[Test]
-    public function from_domain_attributes_serialises_enum_values(): void
-    {
-        $settings = new CustomFieldGeneralSettings(
-            tooltip: 'Hover text',
-            selectType: CustomFieldValueSelectType::Product,
-            suggestCommonData: false,
-            adminOnly: true,
-            validationRule: CustomFieldValidationRule::Integer,
-        );
-
-        $attributes = CustomFieldGeneralSettingsModel::fromDomainAttributes($settings);
-
-        self::assertSame([
-            'tooltip' => 'Hover text',
-            'select_type' => 'product',
-            'suggest_common_data' => false,
-            'admin_only' => true,
-            'field_validation_rule' => 3,
-        ], $attributes);
     }
 
     /**

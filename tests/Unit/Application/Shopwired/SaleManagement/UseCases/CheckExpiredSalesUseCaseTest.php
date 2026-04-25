@@ -20,6 +20,7 @@ use App\Domain\Catalog\Product\ValueObjects\Sku;
 use App\Domain\Catalog\Product\ValueObjects\Stock;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\ValueObjects\IntId;
+use App\Domain\ValueObjects\Uuid;
 use Mockery;
 use Mockery\MockInterface;
 use Override;
@@ -426,6 +427,7 @@ final class CheckExpiredSalesUseCaseTest extends TestCase
         foreach ($rawFields as $name => $value) {
             $typed[] = new StringCustomFieldValue(
                 definition: new ConfiguredFieldDefinition(
+                    new Uuid('11111111-2222-3333-4444-555555555555'),
                     new CustomFieldDefinition(
                         id: ++$id,
                         name: $name,

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Presentation\Http\Api;
 
+use App\Domain\Catalog\CustomFields\Exceptions\ProductSettingsNotApplicableException;
 use App\Domain\Exceptions\Api\PermanentApiFailure;
 use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
@@ -67,23 +68,38 @@ final class InternalApiExceptionMapper
      */
     private static function statusCode(Throwable $e): int
     {
+        return self::domainStatusCode($e)
+            ?? self::frameworkStatusCode($e)
+            ?? Response::HTTP_INTERNAL_SERVER_ERROR;
+    }
+
+    private static function domainStatusCode(Throwable $e): ?int
+    {
         return match (true) {
-            $e instanceof ValidationFailedException => Response::HTTP_UNPROCESSABLE_ENTITY,
-            $e instanceof InvalidSkuException => Response::HTTP_UNPROCESSABLE_ENTITY,
-            $e instanceof MissingRequiredDataException => Response::HTTP_UNPROCESSABLE_ENTITY,
-            $e instanceof ResourceNotFoundException => Response::HTTP_NOT_FOUND,
+            $e instanceof ValidationFailedException,
+            $e instanceof InvalidSkuException,
+            $e instanceof MissingRequiredDataException,
+            $e instanceof ProductSettingsNotApplicableException => Response::HTTP_UNPROCESSABLE_ENTITY,
+            $e instanceof ResourceNotFoundException,
             $e instanceof RecordNotFoundException => Response::HTTP_NOT_FOUND,
             $e instanceof DuplicateRecordException => Response::HTTP_CONFLICT,
-            $e instanceof TransientApiFailure => Response::HTTP_SERVICE_UNAVAILABLE,
+            $e instanceof TransientApiFailure,
             $e instanceof LockAcquisitionException => Response::HTTP_SERVICE_UNAVAILABLE,
             $e instanceof PermanentApiFailure => Response::HTTP_BAD_GATEWAY,
             $e instanceof DomainException => Response::HTTP_INTERNAL_SERVER_ERROR,
-            $e instanceof CannotCreateData => Response::HTTP_UNPROCESSABLE_ENTITY,
+            default => null,
+        };
+    }
+
+    private static function frameworkStatusCode(Throwable $e): ?int
+    {
+        return match (true) {
+            $e instanceof CannotCreateData,
             $e instanceof ValidationException => Response::HTTP_UNPROCESSABLE_ENTITY,
             $e instanceof NotFoundHttpException => Response::HTTP_NOT_FOUND,
             $e instanceof MethodNotAllowedHttpException => Response::HTTP_METHOD_NOT_ALLOWED,
             $e instanceof HttpException => $e->getStatusCode(),
-            default => Response::HTTP_INTERNAL_SERVER_ERROR,
+            default => null,
         };
     }
 
@@ -102,6 +118,7 @@ final class InternalApiExceptionMapper
             $e instanceof ValidationFailedException,
             $e instanceof InvalidSkuException,
             $e instanceof MissingRequiredDataException,
+            $e instanceof ProductSettingsNotApplicableException,
             $e instanceof ValidationException,
             $e instanceof CannotCreateData => ApiErrorTypeEnum::ValidationError,
             $e instanceof ResourceNotFoundException,
@@ -178,6 +195,10 @@ final class InternalApiExceptionMapper
 
         if ($e instanceof ValidationFailedException && $e->context !== []) {
             return $e->context;
+        }
+
+        if ($e instanceof ProductSettingsNotApplicableException) {
+            return $e->context();
         }
 
         return null;

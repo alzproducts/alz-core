@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\DevTools\PHPStan\Rules\Infrastructure;
 
+use App\Infrastructure\Contracts\DomainConvertibleInterface;
+use App\Infrastructure\Contracts\EloquentDomainMappableInterface;
+use App\Infrastructure\Repositories\AbstractEloquentRepository;
 use PhpParser\Node;
 use PHPStan\Analyser\Scope;
 use PHPStan\Node\InClassNode;
@@ -12,11 +15,21 @@ use PHPStan\Rules\Rule;
 use PHPStan\Rules\RuleErrorBuilder;
 
 /**
- * Shopwired Eloquent models must implement EloquentDomainMappableInterface.
+ * Shopwired / Catalog Eloquent models must expose Domain conversion.
  *
- * This ensures all Shopwired models provide toDomain() and fromDomainAttributes()
- * methods for bidirectional conversion between Eloquent and Domain objects.
- * The interface enables generic repository operations via AbstractEloquentRepository.
+ * Every model under `App\Infrastructure\Shopwired\Models\` or
+ * `App\Infrastructure\Catalog\**\Models\` must implement either:
+ *   • {@see EloquentDomainMappableInterface} — bidirectional
+ *     (`toDomain()` + `fromDomainAttributes()`) for models driven by
+ *     {@see AbstractEloquentRepository}'s generic flow.
+ *   • {@see DomainConvertibleInterface} — read-only
+ *     (`toDomain()` only) for models whose write side uses an Application-layer Command
+ *     instead of a Domain VO (e.g. custom-field settings partial upserts).
+ *
+ * The weaker read-only contract is the universal floor — if a model is persisted at all,
+ * the write side has its own typed path (Command → repo inline mapping). The stronger
+ * bidirectional contract is still required by the generic repository abstraction when
+ * applicable.
  *
  * @implements Rule<InClassNode>
  */
@@ -36,14 +49,15 @@ final class ShopwiredModelMustImplementMappableRule implements Rule
             return [];
         }
 
-        if (self::implementsMappableInterface($node)) {
+        if (self::implementsConvertibleInterface($node)) {
             return [];
         }
 
         return [
             RuleErrorBuilder::message(
-                'Shopwired model must implement EloquentDomainMappableInterface '
-                . 'for bidirectional Domain conversion (toDomain + fromDomainAttributes).',
+                'Shopwired/Catalog model must implement DomainConvertibleInterface '
+                . '(toDomain) or EloquentDomainMappableInterface (bidirectional) '
+                . 'to expose Domain conversion.',
             )
                 ->identifier('alz.shopwiredModelMustImplementMappable')
                 ->build(),
@@ -81,10 +95,10 @@ final class ShopwiredModelMustImplementMappableRule implements Rule
             || \str_contains($className, '\\Infrastructure\\Catalog\\');
     }
 
-    private static function implementsMappableInterface(InClassNode $node): bool
+    private static function implementsConvertibleInterface(InClassNode $node): bool
     {
         return $node->getClassReflection()
             ->getNativeReflection()
-            ->implementsInterface('App\\Infrastructure\\Contracts\\EloquentDomainMappableInterface');
+            ->implementsInterface('App\\Infrastructure\\Contracts\\DomainConvertibleInterface');
     }
 }

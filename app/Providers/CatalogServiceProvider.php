@@ -7,6 +7,8 @@ namespace App\Providers;
 use App\Application\Catalog\UseCases\SyncBestSellersCategoryUseCase;
 use App\Application\Contracts\Catalog\BestSellersRankingStateQueryRepositoryInterface;
 use App\Application\Contracts\Catalog\CatalogSyncDispatcherInterface;
+use App\Application\Contracts\Catalog\CustomFieldGeneralSettingsRepositoryInterface;
+use App\Application\Contracts\Catalog\CustomFieldProductSettingsRepositoryInterface;
 use App\Application\Contracts\Catalog\OffersFilterQueryRepositoryInterface;
 use App\Application\Contracts\Catalog\ProductExtraDataRepositoryInterface;
 use App\Application\Contracts\Catalog\ProductPopularityRankingSnapshotRepositoryInterface;
@@ -19,6 +21,8 @@ use App\Application\Contracts\Catalog\ShippingOffersFilterQueryRepositoryInterfa
 use App\Application\Contracts\Catalog\ShippingOptionsFilterQueryRepositoryInterface;
 use App\Application\Contracts\Catalog\VatReliefFilterQueryRepositoryInterface;
 use App\Domain\Exceptions\InvalidConfigurationException;
+use App\Infrastructure\Catalog\CustomFields\Repositories\EloquentCustomFieldGeneralSettingsRepository;
+use App\Infrastructure\Catalog\CustomFields\Repositories\EloquentCustomFieldProductSettingsRepository;
 use App\Infrastructure\Catalog\Dispatchers\QueuedCatalogSyncDispatcher;
 use App\Infrastructure\Catalog\Product\Repositories\EloquentProductExtraDataRepository;
 use App\Infrastructure\Catalog\Repositories\BestSellersRankingStateQueryRepository;
@@ -44,6 +48,7 @@ final class CatalogServiceProvider extends ServiceProvider implements Deferrable
         $this->registerRepositories();
         $this->registerBestSellersBindings();
         $this->registerRelatedProductsRepositories();
+        $this->registerCustomFieldSettingsRepositories();
 
         $this->app->scoped(
             CatalogSyncDispatcherInterface::class,
@@ -63,6 +68,8 @@ final class CatalogServiceProvider extends ServiceProvider implements Deferrable
             ShippingOffersFilterQueryRepositoryInterface::class,
             ShippingOptionsFilterQueryRepositoryInterface::class,
             CatalogSyncDispatcherInterface::class,
+            CustomFieldGeneralSettingsRepositoryInterface::class,
+            CustomFieldProductSettingsRepositoryInterface::class,
             ProductExtraDataRepositoryInterface::class,
             ProductPopularityRankingSnapshotRepositoryInterface::class,
             ProductSortOrderQueryRepositoryInterface::class,
@@ -160,6 +167,19 @@ final class CatalogServiceProvider extends ServiceProvider implements Deferrable
         $this->app->scoped(
             ProductViewQueryRepositoryInterface::class,
             ProductViewQueryRepository::class,
+        );
+    }
+
+    private function registerCustomFieldSettingsRepositories(): void
+    {
+        $this->app->scoped(
+            CustomFieldGeneralSettingsRepositoryInterface::class,
+            EloquentCustomFieldGeneralSettingsRepository::class,
+        );
+
+        $this->app->scoped(
+            CustomFieldProductSettingsRepositoryInterface::class,
+            EloquentCustomFieldProductSettingsRepository::class,
         );
     }
 

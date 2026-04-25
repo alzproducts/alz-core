@@ -277,6 +277,7 @@ return static function (Config $config): void {
                                'Override',
                                'Closure',
                                'stdClass',
+                               'BackedEnum',
                                'Symfony\Component\HttpFoundation',
                                'Symfony\Component\HttpKernel',
                                'Firebase\JWT',

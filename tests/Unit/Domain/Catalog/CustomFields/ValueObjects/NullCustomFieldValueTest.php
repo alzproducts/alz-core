@@ -9,6 +9,7 @@ use App\Domain\Catalog\CustomFields\Enums\CustomFieldType;
 use App\Domain\Catalog\CustomFields\ValueObjects\ConfiguredFieldDefinition;
 use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldDefinition;
 use App\Domain\Catalog\CustomFields\ValueObjects\NullCustomFieldValue;
+use App\Domain\ValueObjects\Uuid;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -66,6 +67,7 @@ final class NullCustomFieldValueTest extends TestCase
     private function createDefinition(): ConfiguredFieldDefinition
     {
         return new ConfiguredFieldDefinition(
+            new Uuid('11111111-2222-3333-4444-555555555555'),
             new CustomFieldDefinition(
                 id: 1,
                 name: 'color',
