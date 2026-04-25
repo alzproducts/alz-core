@@ -11,7 +11,6 @@ use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldDefinition;
 use App\Domain\Catalog\CustomFields\ValueObjects\DateTimeCustomFieldValue;
 use App\Domain\ValueObjects\Uuid;
 use DateTimeImmutable;
-use DateTimeInterface;
 use DateTimeZone;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -137,36 +136,32 @@ final class DateTimeCustomFieldValueTest extends TestCase
     }
 
     // ========================================================================
-    // toArray - DateTimeCustomFieldValue Override
+    // Typed accessors
     // ========================================================================
 
     #[Test]
-    public function to_array_formats_value_as_atom_string(): void
+    public function it_preserves_datetime_immutable_value_and_timestamp(): void
     {
         $definition = $this->createDateTimeDefinition();
         $dateTime = new DateTimeImmutable('2024-06-15T14:30:00+00:00');
         $value = new DateTimeCustomFieldValue($definition, $dateTime);
 
-        $result = $value->toArray();
-
-        self::assertSame($dateTime->format(DateTimeInterface::ATOM), $result['value']);
-        self::assertIsString($result['value']);
+        self::assertInstanceOf(DateTimeImmutable::class, $value->value);
+        self::assertSame($dateTime->getTimestamp(), $value->value->getTimestamp());
     }
 
     #[Test]
-    public function to_array_includes_definition_metadata(): void
+    public function it_exposes_typed_metadata_accessors(): void
     {
         $definition = $this->createDateTimeDefinition();
         $dateTime = new DateTimeImmutable('2024-06-15T14:30:00+00:00');
         $value = new DateTimeCustomFieldValue($definition, $dateTime);
 
-        $result = $value->toArray();
-
-        self::assertSame('published_at', $result['name']);
-        self::assertSame('date_time', $result['type']);
-        self::assertSame('Published At', $result['label']);
-        self::assertNull($result['allowed_values']);
-        self::assertSame(1, $result['sort_order']);
+        self::assertSame('published_at', $value->name());
+        self::assertSame(CustomFieldType::DateTime, $value->type());
+        self::assertSame('Published At', $value->label());
+        self::assertNull($value->definition->base->allowedValues);
+        self::assertSame(1, $value->definition->base->sortOrder);
     }
 
     // ========================================================================

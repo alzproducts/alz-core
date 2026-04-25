@@ -50,18 +50,16 @@ final class NullCustomFieldValueTest extends TestCase
     }
 
     #[Test]
-    public function to_array_includes_null_value_with_definition_metadata(): void
+    public function it_exposes_typed_metadata_accessors_with_null_value(): void
     {
         $value = new NullCustomFieldValue($this->createDefinition());
 
-        $result = $value->toArray();
-
-        self::assertSame('color', $result['name']);
-        self::assertSame('choice', $result['type']);
-        self::assertSame('Color', $result['label']);
-        self::assertNull($result['value']);
-        self::assertSame(['Red', 'Green', 'Blue'], $result['allowed_values']);
-        self::assertSame(1, $result['sort_order']);
+        self::assertSame('color', $value->name());
+        self::assertSame(CustomFieldType::Choice, $value->type());
+        self::assertSame('Color', $value->label());
+        self::assertNull($value->rawValue());
+        self::assertSame(['Red', 'Green', 'Blue'], $value->definition->base->allowedValues);
+        self::assertSame(1, $value->definition->base->sortOrder);
     }
 
     private function createDefinition(): ConfiguredFieldDefinition
