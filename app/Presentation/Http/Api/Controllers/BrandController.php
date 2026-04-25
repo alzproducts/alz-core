@@ -9,7 +9,6 @@ use App\Application\Catalog\UseCases\GetBrandUseCase;
 use App\Application\Catalog\UseCases\ListBrandsUseCase;
 use App\Domain\Catalog\Brand\Enums\BrandInclude;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
-use App\Domain\Catalog\CustomFields\ValueObjects\AbstractCustomFieldValue;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
@@ -22,8 +21,8 @@ use App\Presentation\Http\Api\DTOs\ListBrandsRequestDTO;
 use App\Presentation\Http\Api\DTOs\ShowBrandRequestDTO;
 use App\Presentation\Http\Api\Resources\BrandDetailResource;
 use App\Presentation\Http\Api\Resources\BrandResource;
+use App\Presentation\Http\Api\Resources\CustomFieldValueResource;
 use App\Presentation\Http\Api\Traits\BuildsPaginatedResponseTrait;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\ResourceCollection;
 
 /**
@@ -100,18 +99,13 @@ final readonly class BrandController
      * @throws RecordNotFoundException When brand row not found in database
      * @throws MissingRequiredDataException When custom field definitions table is empty
      */
-    public function customFields(int $brandId, GetBrandCustomFieldsRequestDTO $data): JsonResponse
+    public function customFields(int $brandId, GetBrandCustomFieldsRequestDTO $data): ResourceCollection
     {
         $fields = $this->getBrandCustomFieldsUseCase->execute(
             brandId: $brandId,
             fieldNames: $data->fieldNames(),
         );
 
-        return new JsonResponse([
-            'data' => \array_map(
-                static fn(AbstractCustomFieldValue $field): array => $field->toArray(),
-                $fields,
-            ),
-        ]);
+        return CustomFieldValueResource::collection($fields);
     }
 }

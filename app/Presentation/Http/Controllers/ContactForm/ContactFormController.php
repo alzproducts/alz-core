@@ -9,11 +9,10 @@ use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Data\InvalidEnumValueException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use App\Presentation\Http\Api\Responses\ContactSubmissionAcceptedResponseDTO;
 use App\Presentation\Http\ContactForm\DTOs\ContactFormRequestDTO;
 use App\Presentation\Http\ContactForm\Mappers\ContactSubmissionMapper;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Handles contact form submissions from the frontend.
@@ -38,7 +37,7 @@ final readonly class ContactFormController
      * @throws ExternalServiceUnavailableException On transient database failure (retry)
      * @throws InvalidEnumValueException When enum values don't match expected values
      */
-    public function __invoke(Request $request): JsonResponse
+    public function __invoke(Request $request): ContactSubmissionAcceptedResponseDTO
     {
         // Validate + type request data in one step
         $data = ContactFormRequestDTO::from($request);
@@ -49,9 +48,6 @@ final readonly class ContactFormController
         // Save to database, dispatch async HelpScout processing
         $result = $this->useCase->execute($submission);
 
-        return new JsonResponse(
-            ['id' => $result->submissionId],
-            Response::HTTP_OK,
-        );
+        return ContactSubmissionAcceptedResponseDTO::from($result->submissionId);
     }
 }

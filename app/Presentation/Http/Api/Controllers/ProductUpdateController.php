@@ -9,9 +9,6 @@ use App\Application\Catalog\UseCases\RefreshProductViewUseCase;
 use App\Application\Catalog\UseCases\UpdateProductCustomFieldsUseCase;
 use App\Application\Catalog\UseCases\UpdateProductFieldsUseCase;
 use App\Application\Linnworks\UpdateCostPriceBySupplier\UpdateCostPriceBySupplierUseCase;
-use App\Application\Shopwired\PricingUpdate\Results\FailedPriceUpdateResult;
-use App\Application\Shopwired\PricingUpdate\Results\PriceUpdateResult;
-use App\Application\Shopwired\PricingUpdate\Results\SkippedPriceUpdateResult;
 use App\Application\Shopwired\PricingUpdate\UseCases\UpdateProductPricesUseCase;
 use App\Application\Shopwired\UseCases\DispatchProductFreeDeliveryJobsUseCase;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
@@ -40,6 +37,7 @@ use App\Presentation\Http\Api\DTOs\UpdateFreeDeliveryRequestDTO;
 use App\Presentation\Http\Api\DTOs\UpdateProductFieldsRequestDTO;
 use App\Presentation\Http\Api\Responses\AsyncRefreshAcceptedResponseDTO;
 use App\Presentation\Http\Api\Responses\BulkUpdateResponseDTO;
+use App\Presentation\Http\Api\Responses\PriceUpdateResponseDTO;
 use App\Presentation\Http\Shopwired\DTOs\SkuPriceUpdateDTO;
 use App\Presentation\Http\Shopwired\DTOs\UpdateProductPricesDTO;
 use Illuminate\Http\JsonResponse;
@@ -154,7 +152,7 @@ final readonly class ProductUpdateController
      * @throws InvalidCustomFieldValueException When custom field mapping fails
      * @throws ValidationFailedException When any submitted price fails VAT round-trip check
      */
-    public function updatePrices(UpdateProductPricesDTO $data, string $productId): JsonResponse
+    public function updatePrices(UpdateProductPricesDTO $data, string $productId): PriceUpdateResponseDTO
     {
         /** @var list<UpdatePriceCommand> $commands */
         $commands = [];
@@ -169,43 +167,7 @@ final readonly class ProductUpdateController
             $data->saleSettings?->toDomain(),
         );
 
-        return new JsonResponse($this->buildPriceUpdateResponse($result));
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function buildPriceUpdateResponse(PriceUpdateResult $result): array
-    {
-        return [
-            'total' => $result->total,
-            'succeeded' => $result->succeeded,
-            'skipped' => \array_map(
-                static fn(SkippedPriceUpdateResult $item): array => [
-                    'sku' => $item->sku->value,
-                    'reason' => $item->reason,
-                ],
-                $result->skipped,
-            ),
-            'permanent_failures' => self::mapFailures($result->permanentFailures),
-            'temporary_failures' => self::mapFailures($result->temporaryFailures),
-        ];
-    }
-
-    /**
-     * @param list<FailedPriceUpdateResult> $failures
-     *
-     * @return list<array{sku: string|null, error: string}>
-     */
-    private static function mapFailures(array $failures): array
-    {
-        return \array_map(
-            static fn(FailedPriceUpdateResult $item): array => [
-                'sku' => $item->sku?->value,
-                'error' => $item->error,
-            ],
-            $failures,
-        );
+        return PriceUpdateResponseDTO::fromResult($result);
     }
 
     /**

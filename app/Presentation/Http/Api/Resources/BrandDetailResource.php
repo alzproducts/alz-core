@@ -6,7 +6,6 @@ namespace App\Presentation\Http\Api\Resources;
 
 use App\Application\Catalog\UseCases\GetBrandResult;
 use App\Domain\Catalog\Brand\Enums\BrandInclude;
-use App\Domain\Catalog\CustomFields\ValueObjects\AbstractCustomFieldValue;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Override;
@@ -38,10 +37,7 @@ final class BrandDetailResource extends JsonResource
         }
 
         if ($result->hasInclude(BrandInclude::CustomFields) && $brand->customFields !== null) {
-            $data['custom_fields'] = \array_map(
-                static fn(AbstractCustomFieldValue $field): array => $field->toArray(),
-                $brand->customFields,
-            );
+            $data['custom_fields'] = CustomFieldValueResource::collection($brand->customFields)->resolve($request);
         }
 
         return $data;

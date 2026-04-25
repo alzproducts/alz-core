@@ -16,8 +16,8 @@ use App\Domain\Exceptions\Infrastructure\ConfigurationNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Presentation\Http\HelpScout\Resources\ConversationResource;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\ResourceCollection;
 
 /**
  * HelpScout conversation endpoints for dashboard widgets.
@@ -43,15 +43,13 @@ final readonly class ConversationsController
      * @throws ExternalServiceUnavailableException When HelpScout API unavailable
      * @throws InvalidApiResponseException When API response structure is invalid
      */
-    public function assigned(Request $request, AuthenticatedUser $user): JsonResponse
+    public function assigned(Request $request, AuthenticatedUser $user): ResourceCollection
     {
         $forceRefresh = (bool) $request->attributes->get('forceRefresh', false);
         $params = ConversationQueryParams::assigned($this->resolveAgentId($user));
         $conversations = $this->getConversations->execute($params, forceRefresh: $forceRefresh);
 
-        return new JsonResponse([
-            'data' => ConversationResource::collection($conversations),
-        ]);
+        return ConversationResource::collection($conversations);
     }
 
     /**
@@ -61,15 +59,13 @@ final readonly class ConversationsController
      * @throws ExternalServiceUnavailableException When HelpScout API unavailable
      * @throws InvalidApiResponseException When API response structure is invalid
      */
-    public function todos(Request $request, AuthenticatedUser $user): JsonResponse
+    public function todos(Request $request, AuthenticatedUser $user): ResourceCollection
     {
         $forceRefresh = (bool) $request->attributes->get('forceRefresh', false);
         $params = ConversationQueryParams::todos($this->resolveAgentId($user));
         $conversations = $this->getConversations->execute($params, forceRefresh: $forceRefresh);
 
-        return new JsonResponse([
-            'data' => ConversationResource::collection($conversations),
-        ]);
+        return ConversationResource::collection($conversations);
     }
 
     /**
@@ -78,15 +74,13 @@ final readonly class ConversationsController
      * @throws ExternalServiceUnavailableException When HelpScout API unavailable
      * @throws InvalidApiResponseException When API response structure is invalid
      */
-    public function negativeReviews(Request $request): JsonResponse
+    public function negativeReviews(Request $request): ResourceCollection
     {
         $forceRefresh = (bool) $request->attributes->get('forceRefresh', false);
         $params = ConversationQueryParams::negativeReviews();
         $conversations = $this->getConversations->execute($params, forceRefresh: $forceRefresh);
 
-        return new JsonResponse([
-            'data' => ConversationResource::collection($conversations),
-        ]);
+        return ConversationResource::collection($conversations);
     }
 
     /**
@@ -101,14 +95,12 @@ final readonly class ConversationsController
      * @throws ExternalServiceUnavailableException When HelpScout API or database unavailable
      * @throws InvalidApiResponseException When API response structure is invalid
      */
-    public function escalations(Request $request, GetEscalationsUseCase $useCase): JsonResponse
+    public function escalations(Request $request, GetEscalationsUseCase $useCase): ResourceCollection
     {
         $forceRefresh = (bool) $request->attributes->get('forceRefresh', false);
         $conversations = $useCase->execute(forceRefresh: $forceRefresh);
 
-        return new JsonResponse([
-            'data' => ConversationResource::collection($conversations),
-        ]);
+        return ConversationResource::collection($conversations);
     }
 
     /**

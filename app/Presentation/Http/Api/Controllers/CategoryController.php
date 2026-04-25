@@ -10,7 +10,6 @@ use App\Application\Catalog\UseCases\GetCategoryUseCase;
 use App\Application\Catalog\UseCases\ListCategoriesUseCase;
 use App\Domain\Catalog\Category\Enums\CategoryInclude;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
-use App\Domain\Catalog\CustomFields\ValueObjects\AbstractCustomFieldValue;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
@@ -23,8 +22,8 @@ use App\Presentation\Http\Api\DTOs\ListCategoriesRequestDTO;
 use App\Presentation\Http\Api\DTOs\ShowCategoryRequestDTO;
 use App\Presentation\Http\Api\Resources\CategoryDetailResource;
 use App\Presentation\Http\Api\Resources\CategoryResource;
+use App\Presentation\Http\Api\Resources\CustomFieldValueResource;
 use App\Presentation\Http\Api\Traits\BuildsPaginatedResponseTrait;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\ResourceCollection;
 
 /**
@@ -103,18 +102,13 @@ final readonly class CategoryController
      * @throws RecordNotFoundException When category row not found in database
      * @throws MissingRequiredDataException When custom field definitions table is empty
      */
-    public function customFields(int $categoryId, GetCategoryCustomFieldsRequestDTO $data): JsonResponse
+    public function customFields(int $categoryId, GetCategoryCustomFieldsRequestDTO $data): ResourceCollection
     {
         $fields = $this->getCategoryCustomFieldsUseCase->execute(
             categoryId: $categoryId,
             fieldNames: $data->fieldNames(),
         );
 
-        return new JsonResponse([
-            'data' => \array_map(
-                static fn(AbstractCustomFieldValue $field): array => $field->toArray(),
-                $fields,
-            ),
-        ]);
+        return CustomFieldValueResource::collection($fields);
     }
 }
