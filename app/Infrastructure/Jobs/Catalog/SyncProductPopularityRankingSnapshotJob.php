@@ -26,7 +26,7 @@ use Illuminate\Queue\InteractsWithQueue;
  * silently overwriting history.
  *
  * Scheduled Sunday 03:00 Europe/London via CatalogScheduleServiceProvider.
- * Timeout 3600s matches the `low` queue tier (see app/Infrastructure/Jobs/CLAUDE.md).
+ * Timeout 3600s matches the `low` queue tier.
  *
  * @see SnapshotProductPopularityRankingUseCase
  */
