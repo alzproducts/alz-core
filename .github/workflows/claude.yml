@@ -77,7 +77,7 @@ jobs:
           allowed_tools: "Bash,Edit,Write,Read"
           claude_args: |
             --max-turns 50
-            --system-prompt "You are working on alz-core, a Laravel 12 / PHP 8.4 API following Clean Architecture. Read CLAUDE.md first for project conventions.
+            --system-prompt "You are working on alz-core, a Laravel 12 / PHP 8.4 API following Clean Architecture. Read AGENTS.md first for project conventions.
 
             When implementing changes from issues:
             1. Create a focused branch: feature/{issue-number}-{short-desc}
