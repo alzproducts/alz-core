@@ -11,8 +11,6 @@ use Spatie\LaravelData\Support\Validation\ValidationContext;
 
 /**
  * GET /api/clickup/tasks query params.
- *
- * Pass `?refresh=1` to invalidate the 120s task cache before fetching.
  */
 final class GetMyClickUpTasksRequestDTO extends Data
 {
@@ -25,7 +23,6 @@ final class GetMyClickUpTasksRequestDTO extends Data
         public readonly array $statuses = [],
         #[ArrayType]
         public readonly array $tags = [],
-        public readonly bool $refresh = false,
     ) {}
 
     /**
@@ -46,7 +43,6 @@ final class GetMyClickUpTasksRequestDTO extends Data
         return new ClickUpTaskQueryParams(
             statuses: $this->statuses,
             tags: $this->tags,
-            forceRefresh: $this->refresh,
         );
     }
 }

@@ -8,14 +8,12 @@ use App\Application\ClickUp\UseCases\CompleteClickUpTaskUseCase;
 use App\Application\ClickUp\UseCases\GetMyClickUpTasksUseCase;
 use App\Application\Contracts\Access\ApiKeyCipherInterface;
 use App\Application\Contracts\Access\UserApiKeyRepositoryInterface;
-use App\Application\Contracts\ClickUp\ClickUpTasksCacheInterface;
 use App\Application\Contracts\ClickUp\ClickUpUserCacheInterface;
 use App\Application\Contracts\ClickUp\TasksClientInterface;
 use App\Application\Contracts\ClickUp\UsersClientInterface;
 use App\Domain\Exceptions\InvalidConfigurationException;
 use App\Infrastructure\Access\EloquentUserApiKeyRepository;
 use App\Infrastructure\Access\OpensslApiKeyCipher;
-use App\Infrastructure\ClickUp\Cache\ClickUpTasksCache;
 use App\Infrastructure\ClickUp\Cache\ClickUpUserCache;
 use App\Infrastructure\ClickUp\ClickUpConfig;
 use App\Infrastructure\ClickUp\ClickUpHttpTransport;
@@ -42,7 +40,7 @@ final class ClickUpServiceProvider extends ServiceProvider implements Deferrable
     {
         $this->registerCipher();
         $this->registerRepository();
-        $this->registerCache();
+        $this->registerUserCache();
         $this->registerClients();
         $this->registerUseCases();
     }
@@ -67,18 +65,11 @@ final class ClickUpServiceProvider extends ServiceProvider implements Deferrable
         );
     }
 
-    private function registerCache(): void
+    private function registerUserCache(): void
     {
         $this->app->singleton(
             ClickUpUserCacheInterface::class,
             static fn(Application $app): ClickUpUserCache => new ClickUpUserCache(
-                $app->make(CacheRepository::class),
-            ),
-        );
-
-        $this->app->singleton(
-            ClickUpTasksCacheInterface::class,
-            static fn(Application $app): ClickUpTasksCache => new ClickUpTasksCache(
                 $app->make(CacheRepository::class),
             ),
         );
@@ -132,7 +123,6 @@ final class ClickUpServiceProvider extends ServiceProvider implements Deferrable
             static fn(Application $app): GetMyClickUpTasksUseCase => new GetMyClickUpTasksUseCase(
                 repository: $app->make(UserApiKeyRepositoryInterface::class),
                 tasksClient: $app->make(TasksClientInterface::class),
-                tasksCache: $app->make(ClickUpTasksCacheInterface::class),
                 listId: self::requireConfigString(
                     'clickup.list_ids.alz_products_team_tasks',
                     'clickup.list_ids.alz_products_team_tasks must be set in config/clickup.php',
@@ -149,7 +139,6 @@ final class ClickUpServiceProvider extends ServiceProvider implements Deferrable
             static fn(Application $app): CompleteClickUpTaskUseCase => new CompleteClickUpTaskUseCase(
                 repository: $app->make(UserApiKeyRepositoryInterface::class),
                 tasksClient: $app->make(TasksClientInterface::class),
-                tasksCache: $app->make(ClickUpTasksCacheInterface::class),
                 completeStatus: self::requireConfigString(
                     'clickup.complete_status',
                     'clickup.complete_status (CLICKUP_COMPLETE_STATUS) must be set',
@@ -199,7 +188,6 @@ final class ClickUpServiceProvider extends ServiceProvider implements Deferrable
             ApiKeyCipherInterface::class,
             UserApiKeyRepositoryInterface::class,
             ClickUpUserCacheInterface::class,
-            ClickUpTasksCacheInterface::class,
             ClickUpConfig::class,
             ClickUpHttpTransport::class,
             UsersClientInterface::class,

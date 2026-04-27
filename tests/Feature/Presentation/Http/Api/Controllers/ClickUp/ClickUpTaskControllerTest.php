@@ -97,24 +97,6 @@ final class ClickUpTaskControllerTest extends TestCase
             ->assertJsonPath('error.type', 'precondition_failed');
     }
 
-    #[Test]
-    public function index_passes_force_refresh_flag_to_use_case(): void
-    {
-        $this->getTasksUseCase->shouldReceive('execute')
-            ->once()
-            ->with(
-                Mockery::any(),
-                Mockery::on(
-                    static fn($params): bool => $params->forceRefresh === true,
-                ),
-            )
-            ->andReturn([]);
-
-        $response = $this->asApprovedUser()->getJson('/api/clickup/tasks?refresh=1');
-
-        $response->assertOk();
-    }
-
     // ─────────────────────────────────────────────────────────────────────────
     // POST /api/clickup/tasks/{taskId}/complete
     // ─────────────────────────────────────────────────────────────────────────

@@ -23,7 +23,7 @@ final readonly class ClickUpUserCache implements ClickUpUserCacheInterface
 {
     private const string KEY_PREFIX = 'clickup:user:';
 
-    private const int TTL_SECONDS = 86400; // 24 hours
+    private const int TTL_SECONDS = 604800; // 7 days
 
     public function __construct(
         private CacheRepository $cache,

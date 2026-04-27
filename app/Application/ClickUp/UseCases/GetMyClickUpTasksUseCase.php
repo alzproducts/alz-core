@@ -7,7 +7,6 @@ namespace App\Application\ClickUp\UseCases;
 use App\Application\ClickUp\DTOs\ClickUpTaskDataDTO;
 use App\Application\ClickUp\Queries\ClickUpTaskQueryParams;
 use App\Application\Contracts\Access\UserApiKeyRepositoryInterface;
-use App\Application\Contracts\ClickUp\ClickUpTasksCacheInterface;
 use App\Application\Contracts\ClickUp\TasksClientInterface;
 use App\Domain\Access\Enums\ThirdPartyService;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
@@ -27,7 +26,6 @@ final readonly class GetMyClickUpTasksUseCase
     public function __construct(
         private UserApiKeyRepositoryInterface $repository,
         private TasksClientInterface $tasksClient,
-        private ClickUpTasksCacheInterface $tasksCache,
         private string $listId,
         private LoggerInterface $logger,
     ) {}
@@ -47,47 +45,17 @@ final readonly class GetMyClickUpTasksUseCase
      */
     public function execute(Guid $userId, ClickUpTaskQueryParams $params): array
     {
-        if ($params->forceRefresh) {
-            $this->tasksCache->forget($userId);
-        }
-
-        $cached = $this->tasksCache->get($userId, $params);
-        if ($cached !== null) {
-            $this->logger->info('ClickUp tasks returned from cache', [
-                'user_id' => $userId->value, 'task_count' => \count($cached),
-            ]);
-
-            return $cached;
-        }
-
-        return $this->fetchFromApiAndCache($userId, $params);
-    }
-
-    /**
-     * @return list<ClickUpTaskDataDTO>
-     *
-     * @throws MissingApiKeyException
-     * @throws AuthenticationExpiredException
-     * @throws InvalidApiRequestException
-     * @throws InvalidApiResponseException
-     * @throws ResourceNotFoundException
-     * @throws ExternalServiceUnavailableException
-     * @throws DatabaseOperationFailedException
-     * @throws DuplicateRecordException
-     * @throws CorruptApiKeyException
-     */
-    private function fetchFromApiAndCache(Guid $userId, ClickUpTaskQueryParams $params): array
-    {
         $token = $this->repository->tokenForUser($userId, ThirdPartyService::ClickUp);
         if ($token === null) {
             throw new MissingApiKeyException(ThirdPartyService::ClickUp);
         }
 
         $tasks = $this->tasksClient->getTasksForList($token, $this->listId, $params);
-        $this->tasksCache->put($userId, $params, $tasks);
 
-        $this->logger->info('ClickUp tasks fetched from API and cached', [
-            'user_id' => $userId->value, 'task_count' => \count($tasks), 'list_id' => $this->listId,
+        $this->logger->info('ClickUp tasks fetched', [
+            'user_id' => $userId->value,
+            'task_count' => \count($tasks),
+            'list_id' => $this->listId,
         ]);
 
         return $tasks;

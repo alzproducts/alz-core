@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Application\ClickUp\UseCases;
 
 use App\Application\Contracts\Access\UserApiKeyRepositoryInterface;
-use App\Application\Contracts\ClickUp\ClickUpTasksCacheInterface;
 use App\Application\Contracts\ClickUp\ClickUpUserCacheInterface;
 use App\Domain\Access\Enums\ThirdPartyService;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
@@ -19,7 +18,6 @@ final readonly class DeleteClickUpApiKeyUseCase
     public function __construct(
         private UserApiKeyRepositoryInterface $repository,
         private ClickUpUserCacheInterface $userCache,
-        private ClickUpTasksCacheInterface $tasksCache,
         private LoggerInterface $logger,
     ) {}
 
@@ -36,9 +34,8 @@ final readonly class DeleteClickUpApiKeyUseCase
 
         $this->repository->delete($userId, ThirdPartyService::ClickUp);
         $this->userCache->forget($userId);
-        $this->tasksCache->forget($userId);
 
-        $this->logger->info('ClickUp API key deleted and caches cleared', [
+        $this->logger->info('ClickUp API key deleted and user cache cleared', [
             'user_id' => $userId->value,
         ]);
     }

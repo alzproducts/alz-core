@@ -13,6 +13,5 @@ final readonly class ClickUpTaskQueryParams
     public function __construct(
         public array $statuses = [],
         public array $tags = [],
-        public bool $forceRefresh = false,
     ) {}
 }

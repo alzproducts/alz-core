@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Application\ClickUp\UseCases;
 
 use App\Application\Contracts\Access\UserApiKeyRepositoryInterface;
-use App\Application\Contracts\ClickUp\ClickUpTasksCacheInterface;
 use App\Application\Contracts\ClickUp\TasksClientInterface;
 use App\Domain\Access\Enums\ThirdPartyService;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
@@ -24,7 +23,6 @@ final readonly class CompleteClickUpTaskUseCase
     public function __construct(
         private UserApiKeyRepositoryInterface $repository,
         private TasksClientInterface $tasksClient,
-        private ClickUpTasksCacheInterface $tasksCache,
         private string $completeStatus,
         private LoggerInterface $logger,
     ) {}
@@ -52,9 +50,8 @@ final readonly class CompleteClickUpTaskUseCase
         }
 
         $this->tasksClient->updateStatus($token, $taskId, $this->completeStatus);
-        $this->tasksCache->forget($userId);
 
-        $this->logger->info('ClickUp task marked complete and cache invalidated', [
+        $this->logger->info('ClickUp task marked complete', [
             'user_id' => $userId->value,
             'task_id' => $taskId,
         ]);
