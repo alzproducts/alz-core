@@ -7,6 +7,7 @@ use App\Providers\AuthServiceProvider;
 use App\Providers\BingAdsServiceProvider;
 use App\Providers\CacheServiceProvider;
 use App\Providers\CatalogServiceProvider;
+use App\Providers\ClickUpServiceProvider;
 use App\Providers\ContactSubmissionServiceProvider;
 use App\Providers\DatabaseServiceProvider;
 use App\Providers\EventServiceProvider;
@@ -41,6 +42,7 @@ return [
     AuthServiceProvider::class,
     BingAdsServiceProvider::class,
     CacheServiceProvider::class,
+    ClickUpServiceProvider::class,
     CatalogServiceProvider::class,
     ContactSubmissionServiceProvider::class,
     GoogleAdsServiceProvider::class,
