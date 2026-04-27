@@ -10,6 +10,15 @@ paths:
 
 Before inlining `$modelClass::query()`, `transact()`, or adding a new helper method, check `$this->eloquentGateway` for an existing method that covers the operation.
 
+**Why:** Inline closures duplicate the read-vs-write transaction distinction the gateway already encodes — picking `query()` instead of `transact()` for a write is unreachable when you go through `upsertOne` / `deleteWhere*`. If no gateway method fits a compound predicate, prefer adding a primitive to `EloquentGateway` over inlining.
+
+## Inline query() vs transact() — when no gateway method fits
+
+If a one-off case genuinely requires `$this->eloquentGateway->query()` or `->transact()` directly (see rule above):
+
+- DO call `transact()` for writes. Wraps the operation in a transaction with retry on deadlock.
+- DO call `query()` for reads. No transaction overhead.
+
 ## Creating a New Repository
 
 - DO declare the class `final` extending `AbstractEloquentRepository` and implementing `<Thing>RepositoryInterface` (the interface extends `RepositoryWriteInterface` in `Application/Contracts/`)

@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Presentation\Http\Api;
 
 use App\Domain\Catalog\CustomFields\Exceptions\ProductSettingsNotApplicableException;
+use App\Domain\Exceptions\Api\CorruptApiKeyException;
+use App\Domain\Exceptions\Api\MissingApiKeyException;
 use App\Domain\Exceptions\Api\PermanentApiFailure;
 use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
@@ -85,6 +87,8 @@ final class InternalApiExceptionMapper
             $e instanceof DuplicateRecordException => Response::HTTP_CONFLICT,
             $e instanceof TransientApiFailure,
             $e instanceof LockAcquisitionException => Response::HTTP_SERVICE_UNAVAILABLE,
+            $e instanceof MissingApiKeyException,
+            $e instanceof CorruptApiKeyException => Response::HTTP_PRECONDITION_FAILED,
             $e instanceof PermanentApiFailure => Response::HTTP_BAD_GATEWAY,
             $e instanceof DomainException => Response::HTTP_INTERNAL_SERVER_ERROR,
             default => null,
@@ -114,23 +118,33 @@ final class InternalApiExceptionMapper
      */
     private static function errorTypeFromException(Throwable $e): ?ApiErrorTypeEnum
     {
+        if (self::isValidationException($e)) {
+            return ApiErrorTypeEnum::ValidationError;
+        }
+
         return match (true) {
-            $e instanceof ValidationFailedException,
-            $e instanceof InvalidSkuException,
-            $e instanceof MissingRequiredDataException,
-            $e instanceof ProductSettingsNotApplicableException,
-            $e instanceof ValidationException,
-            $e instanceof CannotCreateData => ApiErrorTypeEnum::ValidationError,
             $e instanceof ResourceNotFoundException,
             $e instanceof RecordNotFoundException,
             $e instanceof NotFoundHttpException => ApiErrorTypeEnum::NotFound,
             $e instanceof DuplicateRecordException => ApiErrorTypeEnum::Conflict,
             $e instanceof TransientApiFailure,
             $e instanceof LockAcquisitionException => ApiErrorTypeEnum::ServiceUnavailable,
+            $e instanceof CorruptApiKeyException => ApiErrorTypeEnum::CipherCorrupted,
+            $e instanceof MissingApiKeyException => ApiErrorTypeEnum::PreconditionFailed,
             $e instanceof PermanentApiFailure => ApiErrorTypeEnum::UpstreamError,
             $e instanceof MethodNotAllowedHttpException => ApiErrorTypeEnum::MethodNotAllowed,
             default => null,
         };
+    }
+
+    private static function isValidationException(Throwable $e): bool
+    {
+        return $e instanceof ValidationFailedException
+            || $e instanceof InvalidSkuException
+            || $e instanceof MissingRequiredDataException
+            || $e instanceof ProductSettingsNotApplicableException
+            || $e instanceof ValidationException
+            || $e instanceof CannotCreateData;
     }
 
     private static function errorTypeFromStatus(int $status): ApiErrorTypeEnum
@@ -174,6 +188,8 @@ final class InternalApiExceptionMapper
         return match (true) {
             $e instanceof TransientApiFailure && ! $e instanceof RecordNotFoundException,
             $e instanceof LockAcquisitionException => 'The service is temporarily unavailable. Please try again shortly.',
+            $e instanceof MissingApiKeyException => null,
+            $e instanceof CorruptApiKeyException => 'Your stored API key cannot be read. Please re-paste it in Settings.',
             $e instanceof PermanentApiFailure && ! $e instanceof ResourceNotFoundException => 'An upstream service encountered an error.',
             $e instanceof DuplicateRecordException => 'A conflicting record already exists.',
             $e instanceof CannotCreateData => 'The request data could not be processed.',
