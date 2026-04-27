@@ -51,7 +51,7 @@ final readonly class CompleteClickUpTaskUseCase
             throw new MissingApiKeyException(ThirdPartyService::ClickUp);
         }
 
-        $this->tasksClient->completeTask($token, $taskId, $this->completeStatus);
+        $this->tasksClient->updateStatus($token, $taskId, $this->completeStatus);
         $this->tasksCache->forget($userId);
 
         $this->logger->info('ClickUp task marked complete and cache invalidated', [

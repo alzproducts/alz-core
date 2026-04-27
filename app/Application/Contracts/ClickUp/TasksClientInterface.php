@@ -29,12 +29,12 @@ interface TasksClientInterface
     public function getTasksForList(ApiKeyToken $token, string $listId, ClickUpTaskQueryParams $params): array;
 
     /**
-     * Set a task's status to the configured "complete" value.
+     * Update a task's status to the supplied value.
      *
      * @throws ResourceNotFoundException When the task does not exist (404)
      * @throws AuthenticationExpiredException When the API key is invalid or revoked (401/403)
      * @throws InvalidApiRequestException When the request is malformed (400/422)
      * @throws ExternalServiceUnavailableException When ClickUp is rate-limited or unavailable
      */
-    public function completeTask(ApiKeyToken $token, string $taskId, string $status): void;
+    public function updateStatus(ApiKeyToken $token, string $taskId, string $status): void;
 }

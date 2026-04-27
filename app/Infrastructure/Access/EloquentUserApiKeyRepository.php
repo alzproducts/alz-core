@@ -17,8 +17,6 @@ use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\Guid;
 use App\Infrastructure\Persistence\EloquentGateway;
 use App\Infrastructure\Persistence\Models\Access\UserApiKeyModel;
-use DateTimeImmutable;
-use DateTimeInterface;
 
 final readonly class EloquentUserApiKeyRepository implements UserApiKeyRepositoryInterface
 {
@@ -58,12 +56,11 @@ final readonly class EloquentUserApiKeyRepository implements UserApiKeyRepositor
             return new UserApiKeyMetaResult(hasKey: false, maskedKey: null, lastUsedAt: null);
         }
 
-        $masked = $this->cipher->decrypt($model->encrypted_key)->masked();
-        $lastUsedAt = $model->last_used_at instanceof DateTimeInterface
-            ? DateTimeImmutable::createFromInterface($model->last_used_at)
-            : null;
-
-        return new UserApiKeyMetaResult(hasKey: true, maskedKey: $masked, lastUsedAt: $lastUsedAt);
+        return new UserApiKeyMetaResult(
+            hasKey: true,
+            maskedKey: $this->cipher->decrypt($model->encrypted_key)->masked(),
+            lastUsedAt: $model->last_used_at,
+        );
     }
 
     /**
@@ -74,14 +71,16 @@ final readonly class EloquentUserApiKeyRepository implements UserApiKeyRepositor
      */
     public function save(Guid $userId, ThirdPartyService $service, ApiKeyToken $token): void
     {
-        $encrypted = $this->cipher->encrypt($token);
-
-        $this->eloquentGateway->query(static function () use ($userId, $service, $encrypted): void {
-            UserApiKeyModel::query()->updateOrCreate(
-                ['user_id' => $userId->value, 'service' => $service->value],
-                ['encrypted_key' => $encrypted, 'is_valid' => true],
-            );
-        });
+        $this->eloquentGateway->upsertOne(
+            modelClass: UserApiKeyModel::class,
+            attributes: [
+                'user_id' => $userId->value,
+                'service' => $service->value,
+                'encrypted_key' => $this->cipher->encrypt($token),
+                'is_valid' => true,
+            ],
+            uniqueBy: ['user_id', 'service'],
+        );
     }
 
     /**
@@ -91,12 +90,10 @@ final readonly class EloquentUserApiKeyRepository implements UserApiKeyRepositor
      */
     public function delete(Guid $userId, ThirdPartyService $service): void
     {
-        $this->eloquentGateway->query(static function () use ($userId, $service): void {
-            UserApiKeyModel::query()
-                ->where('user_id', $userId->value)
-                ->where('service', $service->value)
-                ->delete();
-        });
+        $this->eloquentGateway->deleteWhereAll(UserApiKeyModel::class, [
+            'user_id' => $userId->value,
+            'service' => $service->value,
+        ]);
     }
 
     /**
@@ -106,13 +103,10 @@ final readonly class EloquentUserApiKeyRepository implements UserApiKeyRepositor
      */
     private function findModel(Guid $userId, ThirdPartyService $service): ?UserApiKeyModel
     {
-        /** @var UserApiKeyModel|null */
-        return $this->eloquentGateway->query(
-            static fn(): ?UserApiKeyModel => UserApiKeyModel::query()
-                ->where('user_id', $userId->value)
-                ->where('service', $service->value)
-                ->where('is_valid', true)
-                ->first(),
-        );
+        return $this->eloquentGateway->firstWhereAll(UserApiKeyModel::class, [
+            'user_id' => $userId->value,
+            'service' => $service->value,
+            'is_valid' => true,
+        ]);
     }
 }

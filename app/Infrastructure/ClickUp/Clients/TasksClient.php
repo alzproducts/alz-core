@@ -61,7 +61,7 @@ final readonly class TasksClient implements TasksClientInterface
      * @throws InvalidApiRequestException
      * @throws ExternalServiceUnavailableException
      */
-    public function completeTask(ApiKeyToken $token, string $taskId, string $status): void
+    public function updateStatus(ApiKeyToken $token, string $taskId, string $status): void
     {
         $this->transport->put($token, "/task/{$taskId}", ['status' => $status]);
     }
