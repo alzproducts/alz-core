@@ -387,6 +387,9 @@ endif
 redis: ## Start Redis only (not PostgreSQL from compose.yaml)
 	docker compose up -d redis
 
+redis-recreate: ## Recreate Redis container (fixes dropped host-port bindings)
+	docker compose up -d --force-recreate redis
+
 # Development Tools
 serve: ## Start full dev environment (Docker + Octane + Queue)
 	bin/serve
