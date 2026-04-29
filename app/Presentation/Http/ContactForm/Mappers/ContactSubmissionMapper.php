@@ -14,6 +14,7 @@ use App\Domain\ContactSubmission\ValueObjects\SelectedProduct;
 use App\Domain\ContactSubmission\ValueObjects\SubmissionContext;
 use App\Domain\Customer\Enums\CustomerType;
 use App\Domain\Exceptions\Data\InvalidEnumValueException;
+use App\Domain\Shared\Money\ValueObjects\Money;
 use App\Domain\ValueObjects\IntId;
 use App\Presentation\Http\ContactForm\DTOs\ContactFormRequestDTO;
 use App\Presentation\Http\ContactForm\DTOs\FormSectionRequestDTO;
@@ -122,7 +123,9 @@ final readonly class ContactSubmissionMapper
             productId: IntId::from($data->product->productId),
             sku: $data->product->sku,
             title: $data->product->title,
-            price: $data->product->price,
+            price: $data->product->price !== null
+                ? Money::exclusiveFromString($data->product->price)
+                : null,
             url: $data->product->url,
             source: $data->product->source !== null
                 ? ProductSource::fromValue($data->product->source)
