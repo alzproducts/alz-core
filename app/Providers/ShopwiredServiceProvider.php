@@ -77,6 +77,7 @@ use App\Infrastructure\Shopwired\Clients\CustomerFieldUpdateClient;
 use App\Infrastructure\Shopwired\Clients\ProductClient;
 use App\Infrastructure\Shopwired\Clients\ProductFieldUpdateClient;
 use App\Infrastructure\Shopwired\Clients\ProductUpdateClient;
+use App\Infrastructure\Shopwired\CustomFields\UnknownCustomFieldReporter;
 use App\Infrastructure\Shopwired\Dispatchers\QueuedSaleReconciliationDispatcher;
 use App\Infrastructure\Shopwired\Dispatchers\QueuedShopwiredSyncDispatcher;
 use App\Infrastructure\Shopwired\Factories\CustomFieldFactory;
@@ -225,6 +226,8 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
     private function registerFactories(): void
     {
         $this->app->scoped(ProductDomainFactory::class);
+        // Scoped: aggregates unknown-field warnings into one summary per request — never singleton.
+        $this->app->scoped(UnknownCustomFieldReporter::class);
         $this->registerCustomFieldValueFactories();
         $this->registerCustomFieldFactories();
         $this->app->scoped(ProductFilterFactory::class);
@@ -261,23 +264,22 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
 
     private function registerCustomFieldFactories(): void
     {
-        $this->app->when([ProductModelMapper::class, ProductViewAssembler::class])
+        $this->bindCustomFieldFactoryFor([ProductModelMapper::class, ProductViewAssembler::class], CustomFieldItemType::Product);
+        $this->bindCustomFieldFactoryFor(CategoryViewAssembler::class, CustomFieldItemType::Category);
+        $this->bindCustomFieldFactoryFor(BrandViewAssembler::class, CustomFieldItemType::Brand);
+    }
+
+    /**
+     * @param class-string|list<class-string> $consumers
+     */
+    private function bindCustomFieldFactoryFor(string|array $consumers, CustomFieldItemType $itemType): void
+    {
+        $this->app->when($consumers)
             ->needs(CustomFieldFactory::class)
             ->give(static fn(Application $app): CustomFieldFactory => new CustomFieldFactory(
                 $app->make(CustomFieldRepositoryInterface::class),
-                CustomFieldItemType::Product,
-            ));
-        $this->app->when(CategoryViewAssembler::class)
-            ->needs(CustomFieldFactory::class)
-            ->give(static fn(Application $app): CustomFieldFactory => new CustomFieldFactory(
-                $app->make(CustomFieldRepositoryInterface::class),
-                CustomFieldItemType::Category,
-            ));
-        $this->app->when(BrandViewAssembler::class)
-            ->needs(CustomFieldFactory::class)
-            ->give(static fn(Application $app): CustomFieldFactory => new CustomFieldFactory(
-                $app->make(CustomFieldRepositoryInterface::class),
-                CustomFieldItemType::Brand,
+                $itemType,
+                $app->make(UnknownCustomFieldReporter::class),
             ));
     }
 
@@ -404,6 +406,7 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
             SaleSettingsRepositoryInterface::class,
             ShopwiredSyncDispatcherInterface::class,
             StockClientInterface::class,
+            UnknownCustomFieldReporter::class,
             WebhookClientInterface::class,
             WebhookIdempotencyServiceInterface::class,
         ];
