@@ -1,4 +1,4 @@
-.PHONY: help install up down shell migrate db-reset-full pint pint-test test test-quick test-coverage coverage-html pest-mutate test-ai test-mutate lint lint-sequential lint-full fix analyse phparkitect deptrac tlint tlint-full psalm psalm-ci psalm-baseline stan rector rector-dry-run refactor check ide-helper test-domain test-domain-coverage test-app test-app-coverage mutate-domain mutate-app supabase-start supabase-functions supabase-stop supabase-status supabase-reset supabase-seed-users redis serve pail
+.PHONY: help install up down shell migrate db-reset-full db-reset-full-pii pint pint-test test test-quick test-coverage coverage-html pest-mutate test-ai test-mutate lint lint-sequential lint-full fix analyse phparkitect deptrac tlint tlint-full psalm psalm-ci psalm-baseline stan rector rector-dry-run refactor check ide-helper test-domain test-domain-coverage test-app test-app-coverage mutate-domain mutate-app supabase-start supabase-functions supabase-stop supabase-status supabase-reset supabase-seed-users redis serve pail
 
 # Enable strict shell mode for robust error handling
 SHELL := bash
@@ -322,20 +322,33 @@ migrate: ## Run database migrations
 # migrate:reset, or db:wipe directly - they destroy Supabase auth tables.
 # Use this target instead for safe, coordinated resets.
 
-db-reset-full: ## Full database reset (Supabase auth + Laravel migrations)
+db-reset-full: ## Full database reset (Supabase auth + Laravel migrations + core data sync)
 	@echo "$(YELLOW)=== FULL DATABASE RESET ===$(NC)"
-	@echo "$(YELLOW)This resets Supabase auth tables AND re-runs Laravel migrations.$(NC)"
+	@echo "$(YELLOW)This resets Supabase auth tables AND re-runs Laravel migrations + core sync jobs.$(NC)"
 	@echo ""
 	@echo "$(YELLOW)Step 1/2: Resetting Supabase (auth tables, test users)...$(NC)"
 	@$(MAKE) supabase-reset
 	@echo ""
-	@echo "$(YELLOW)Step 2/2: Running Laravel migrations...$(NC)"
-	@$(MAKE) migrate
+	@echo "$(YELLOW)Step 2/2: Migrating + dispatching core sync jobs...$(NC)"
+	@$(EXEC) artisan dev:seed-sync
 	@echo ""
 	@echo "$(GREEN)Full database reset complete.$(NC)"
 	@echo "$(GREEN)- Supabase auth tables: reset$(NC)"
 	@echo "$(GREEN)- Test users: seeded$(NC)"
 	@echo "$(GREEN)- Laravel tables: migrated$(NC)"
+	@echo "$(GREEN)- Core sync jobs: dispatched (queue worker must be running)$(NC)"
+	@echo "$(YELLOW)Note: DB populates async — wait for queue to drain before testing.$(NC)"
+
+db-reset-full-pii: ## Full database reset including PII sync (customers + orders)
+	@echo "$(YELLOW)=== FULL DATABASE RESET (with PII) ===$(NC)"
+	@echo "$(YELLOW)Step 1/2: Resetting Supabase (auth tables, test users)...$(NC)"
+	@$(MAKE) supabase-reset
+	@echo ""
+	@echo "$(YELLOW)Step 2/2: Migrating + dispatching core + PII sync jobs...$(NC)"
+	@$(EXEC) artisan dev:seed-sync --incl-pii
+	@echo ""
+	@echo "$(GREEN)Full database reset (with PII) complete.$(NC)"
+	@echo "$(YELLOW)Note: PII sync (customers + orders) takes longer to drain than core.$(NC)"
 
 # =============================================================================
 # Supabase (Local Development)

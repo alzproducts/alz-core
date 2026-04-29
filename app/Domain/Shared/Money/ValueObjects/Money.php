@@ -84,6 +84,22 @@ final readonly class Money
     }
 
     /**
+     * Create a tax-exclusive (net) price from a decimal string.
+     *
+     * Preserves the precision of the caller's string (e.g. contact form payloads
+     * send `"12.345678"`) without the rounding that `exclusive()` applies at 2dp.
+     *
+     * @param string $amount Numeric decimal string (e.g. "12.345678")
+     * @param string $currency Currency code (default: GBP)
+     */
+    public static function exclusiveFromString(string $amount, string $currency = 'GBP'): self
+    {
+        Assert::numeric($amount, 'Money amount string must be numeric');
+
+        return new self((float) $amount, TaxType::Exclusive, $currency);
+    }
+
+    /**
      * Create a zero-rated price (no tax applies).
      *
      * Use for items exempt from VAT (children's clothing, books, etc.).
@@ -143,6 +159,26 @@ final readonly class Money
         };
 
         return $precision !== null ? \round($result, $precision) : $result;
+    }
+
+    /**
+     * Format the net (excl VAT) value as a decimal string with fixed decimal places.
+     *
+     * Enforces trailing zeros (e.g. "12.00" not "12") for consistent display.
+     */
+    public function formatNet(int $decimals = 2, string $decimalSep = '.', string $thousandsSep = ''): string
+    {
+        return \number_format($this->toNet(precision: $decimals), $decimals, $decimalSep, $thousandsSep);
+    }
+
+    /**
+     * Format the gross (incl VAT) value as a decimal string with fixed decimal places.
+     *
+     * Enforces trailing zeros (e.g. "12.00" not "12") for consistent display.
+     */
+    public function formatGross(int $decimals = 2, string $decimalSep = '.', string $thousandsSep = ''): string
+    {
+        return \number_format($this->toGross(precision: $decimals), $decimals, $decimalSep, $thousandsSep);
     }
 
     /**

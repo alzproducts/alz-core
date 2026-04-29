@@ -74,6 +74,48 @@ final class MoneyTest extends TestCase
     }
 
     #[Test]
+    public function exclusive_from_string_preserves_high_precision_decimal(): void
+    {
+        $money = Money::exclusiveFromString('12.345678');
+
+        self::assertSame(TaxType::Exclusive, $money->taxType);
+        self::assertSame('GBP', $money->currency);
+        self::assertSame(12.345678, $money->toNet(precision: null));
+    }
+
+    #[Test]
+    public function exclusive_from_string_accepts_integer_string(): void
+    {
+        $money = Money::exclusiveFromString('100');
+
+        self::assertSame(100.0, $money->toNet(precision: null));
+    }
+
+    #[Test]
+    public function exclusive_from_string_accepts_custom_currency(): void
+    {
+        $money = Money::exclusiveFromString('9.99', 'USD');
+
+        self::assertSame('USD', $money->currency);
+    }
+
+    #[Test]
+    public function exclusive_from_string_rejects_non_numeric_input(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        Money::exclusiveFromString('not-a-number');
+    }
+
+    #[Test]
+    public function exclusive_from_string_rejects_negative_amount(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        Money::exclusiveFromString('-1.00');
+    }
+
+    #[Test]
     public function exclusive_creates_tax_exclusive_money(): void
     {
         $money = Money::exclusive(20.00);
@@ -353,5 +395,52 @@ final class MoneyTest extends TestCase
         $money2 = Money::inclusive(10.00);
 
         self::assertFalse($money1->isLessThan($money2));
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | formatNet() / formatGross() Tests
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function format_net_returns_two_decimal_places_by_default(): void
+    {
+        $money = Money::exclusive(12.30);
+
+        self::assertSame('12.30', $money->formatNet());
+    }
+
+    #[Test]
+    public function format_net_enforces_trailing_zeros_for_whole_numbers(): void
+    {
+        $money = Money::exclusive(12.00);
+
+        self::assertSame('12.00', $money->formatNet());
+    }
+
+    #[Test]
+    public function format_net_accepts_zero_decimals(): void
+    {
+        $money = Money::exclusiveFromString('12.345678');
+
+        self::assertSame('12', $money->formatNet(0));
+    }
+
+    #[Test]
+    public function format_gross_adds_vat_and_formats_to_two_decimal_places(): void
+    {
+        $money = Money::exclusive(10.00);
+
+        // 10.00 * 1.20 = 12.00
+        self::assertSame('12.00', $money->formatGross());
+    }
+
+    #[Test]
+    public function format_gross_enforces_trailing_zeros_for_inclusive_price(): void
+    {
+        $money = Money::inclusive(24.00);
+
+        self::assertSame('24.00', $money->formatGross());
     }
 }

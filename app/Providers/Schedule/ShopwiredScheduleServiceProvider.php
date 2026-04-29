@@ -25,7 +25,8 @@ use RuntimeException;
  * ShopWired Integration Schedule Definitions
  *
  * Syncs orders, customers, and products from ShopWired API to local PostgreSQL.
- * Orders/customers: 2-tier frequency (monthly full + 6-hourly quick). Products: daily full sync.
+ * Orders: 3-tier frequency (monthly full + 6-hourly quick + hourly micro).
+ * Customers: 2-tier (monthly full + 6-hourly quick). Products: daily full sync.
  *
  * Webhooks handle real-time create/update/delete events. Polling serves as a safety net
  * to catch anything webhooks might miss (downtime, network issues, edge cases).
@@ -73,31 +74,42 @@ final class ShopwiredScheduleServiceProvider extends ServiceProvider
     }
 
     /**
-     * ShopWired Order Sync (Generator-based): 2-tier frequency strategy.
+     * ShopWired Order Sync (Generator-based): 3-tier frequency strategy.
      * Memory-efficient pagination from newest → oldest using generators.
      *
      * @throws RuntimeException
      */
     private function registerOrderSchedules(Closure $skipDuringMonthlySync): void
     {
-        // MONTHLY: Full order sync on first Sunday at 01:00 UK time
-        // Iterates all orders (newest first) until reaching already-synced orders
-        Schedule::job(new SyncShopwiredOrdersJob())
-            ->name('sync-shopwired-orders-full')
-            ->cron('0 1 * * 0')
-            ->timezone('Europe/London')
-            ->when(static fn(): bool => Carbon::now('Europe/London')->day <= 7)
-            ->onOneServer()
-            ->withoutOverlapping(260); // ~4.3hrs lock (matches 4hr timeout + buffer)
+        $this->registerMonthlyFullOrderSync();
 
-        // EVERY 6 HOURS: Quick sync (5 pages, ~500 orders)
-        // Safety net — webhooks handle real-time, this catches anything missed
+        Schedule::job(new SyncShopwiredOrdersJob(maxPages: 1))
+            ->name('sync-shopwired-orders-hourly')
+            ->hourly()
+            ->onOneServer()
+            ->withoutOverlapping(5)
+            ->skip($skipDuringMonthlySync);
+
         Schedule::job(new SyncShopwiredOrdersJob(maxPages: 5))
             ->name('sync-shopwired-orders-quick')
             ->everySixHours()
             ->onOneServer()
             ->withoutOverlapping(5)
             ->skip($skipDuringMonthlySync);
+    }
+
+    /**
+     * @throws RuntimeException
+     */
+    private function registerMonthlyFullOrderSync(): void
+    {
+        Schedule::job(new SyncShopwiredOrdersJob())
+            ->name('sync-shopwired-orders-full')
+            ->cron('0 1 * * 0')
+            ->timezone('Europe/London')
+            ->when(static fn(): bool => Carbon::now('Europe/London')->day <= 7)
+            ->onOneServer()
+            ->withoutOverlapping(260);
     }
 
     /**

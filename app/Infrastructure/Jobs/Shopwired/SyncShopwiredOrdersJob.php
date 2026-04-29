@@ -24,6 +24,7 @@ use Illuminate\Queue\InteractsWithQueue;
  * Usage:
  * - Full sync: SyncShopwiredOrdersJob::dispatch() — monthly, all orders
  * - Quick sync: SyncShopwiredOrdersJob::dispatch(5) — every 6 hours, ~500 orders
+ * - Micro sync: SyncShopwiredOrdersJob::dispatch(1) — hourly, ~100 orders
  *
  * @see SyncShopwiredOrdersRangeJob For date-range based sync
  */

@@ -6,6 +6,7 @@ namespace App\Domain\ContactSubmission\ValueObjects;
 
 use App\Domain\ContactSubmission\Enums\ProductSource;
 use App\Domain\Exceptions\Data\InvalidEnumValueException;
+use App\Domain\Shared\Money\ValueObjects\Money;
 use App\Domain\ValueObjects\IntId;
 use Webmozart\Assert\Assert;
 
@@ -25,7 +26,7 @@ final readonly class SelectedProduct
         public IntId $productId,
         public ?string $sku = null,
         public ?string $title = null,
-        public ?string $price = null,
+        public ?Money $price = null,
         public ?string $url = null,
         public ?ProductSource $source = null,
         public ?string $manualUrl = null,
@@ -39,6 +40,8 @@ final readonly class SelectedProduct
     /**
      * Convert to array for JSONB storage.
      *
+     * Price uses toNet(precision: null) to stay backward-compatible with existing rows. No migration needed.
+     *
      * @return array<string, string|int|null>
      */
     public function toArray(): array
@@ -47,7 +50,7 @@ final readonly class SelectedProduct
             'product_id' => $this->productId->value,
             'sku' => $this->sku,
             'title' => $this->title,
-            'price' => $this->price,
+            'price' => $this->price !== null ? (string) $this->price->toNet(precision: null) : null,
             'url' => $this->url,
             'source' => $this->source?->value,
             'manual_url' => $this->manualUrl,
@@ -68,7 +71,7 @@ final readonly class SelectedProduct
             productId: IntId::from($data['product_id']),
             sku: $data['sku'] ?? null,
             title: $data['title'] ?? null,
-            price: $data['price'] ?? null,
+            price: isset($data['price']) ? Money::exclusiveFromString($data['price']) : null,
             url: $data['url'] ?? null,
             source: isset($data['source']) ? ProductSource::fromValue($data['source']) : null,
             manualUrl: $data['manual_url'] ?? null,
