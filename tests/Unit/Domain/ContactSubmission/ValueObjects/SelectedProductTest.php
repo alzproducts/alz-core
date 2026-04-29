@@ -7,6 +7,7 @@ namespace Tests\Unit\Domain\ContactSubmission\ValueObjects;
 use App\Domain\ContactSubmission\Enums\ProductSource;
 use App\Domain\ContactSubmission\ValueObjects\SelectedProduct;
 use App\Domain\Exceptions\Data\InvalidEnumValueException;
+use App\Domain\Shared\Money\ValueObjects\Money;
 use App\Domain\ValueObjects\IntId;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -63,7 +64,7 @@ final class SelectedProductTest extends TestCase
             productId: IntId::from(67890),
             sku: 'PROD-456',
             title: 'Premium Walking Frame',
-            price: '£149.99',
+            price: Money::exclusive(149.99),
             url: 'https://alzproducts.co.uk/products/walking-frame',
             source: ProductSource::RecentlyViewed,
             manualUrl: 'https://manual.example.com/walking-frame.pdf',
@@ -73,7 +74,7 @@ final class SelectedProductTest extends TestCase
         self::assertSame(67890, $product->productId->value);
         self::assertSame('PROD-456', $product->sku);
         self::assertSame('Premium Walking Frame', $product->title);
-        self::assertSame('£149.99', $product->price);
+        self::assertSame(149.99, $product->price->toNet());
         self::assertSame('https://alzproducts.co.uk/products/walking-frame', $product->url);
         self::assertSame(ProductSource::RecentlyViewed, $product->source);
         self::assertSame('https://manual.example.com/walking-frame.pdf', $product->manualUrl);
@@ -197,7 +198,7 @@ final class SelectedProductTest extends TestCase
             productId: IntId::from(54321),
             sku: 'PROD-789',
             title: 'Test Product',
-            price: '£99.99',
+            price: Money::exclusive(99.99),
             url: 'https://example.com/product',
             source: ProductSource::RecentlyOrdered,
             manualUrl: 'https://example.com/manual.pdf',
@@ -209,7 +210,7 @@ final class SelectedProductTest extends TestCase
         self::assertSame(54321, $array['product_id']);
         self::assertSame('PROD-789', $array['sku']);
         self::assertSame('Test Product', $array['title']);
-        self::assertSame('£99.99', $array['price']);
+        self::assertSame('99.99', $array['price']);
         self::assertSame('https://example.com/product', $array['url']);
         self::assertSame('recently_ordered', $array['source']);
         self::assertSame('https://example.com/manual.pdf', $array['manual_url']);
@@ -260,7 +261,7 @@ final class SelectedProductTest extends TestCase
             'product_id' => 99999,
             'sku' => 'RESTORED-123',
             'title' => 'Restored Product',
-            'price' => '£199.99',
+            'price' => '199.99',
             'url' => 'https://example.com/restored',
             'source' => 'recently_viewed',
             'manual_url' => 'https://example.com/restored-manual.pdf',
@@ -272,7 +273,7 @@ final class SelectedProductTest extends TestCase
         self::assertSame(99999, $product->productId->value);
         self::assertSame('RESTORED-123', $product->sku);
         self::assertSame('Restored Product', $product->title);
-        self::assertSame('£199.99', $product->price);
+        self::assertSame(199.99, $product->price->toNet());
         self::assertSame('https://example.com/restored', $product->url);
         self::assertSame(ProductSource::RecentlyViewed, $product->source);
         self::assertSame('https://example.com/restored-manual.pdf', $product->manualUrl);
@@ -338,7 +339,7 @@ final class SelectedProductTest extends TestCase
             productId: IntId::from(88888),
             sku: 'ROUNDTRIP',
             title: 'Roundtrip Test',
-            price: '£50.00',
+            price: Money::exclusive(50.00),
             url: 'https://example.com/roundtrip',
             source: ProductSource::RecentlyOrdered,
             manualUrl: 'https://example.com/roundtrip-manual.pdf',
@@ -350,7 +351,7 @@ final class SelectedProductTest extends TestCase
         self::assertSame($original->productId->value, $restored->productId->value);
         self::assertSame($original->sku, $restored->sku);
         self::assertSame($original->title, $restored->title);
-        self::assertSame($original->price, $restored->price);
+        self::assertSame($original->price->toNet(), $restored->price->toNet());
         self::assertSame($original->url, $restored->url);
         self::assertSame($original->source, $restored->source);
         self::assertSame($original->manualUrl, $restored->manualUrl);

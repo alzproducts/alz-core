@@ -105,7 +105,7 @@ final readonly class ContactSubmissionToConversationCommandTransformer
     {
         $lines = \array_filter([
             $this->formatProductIdentifier($product),
-            $product->price !== null ? '<strong>Price:</strong> ' . self::e($product->price) : null,
+            $product->price !== null ? '<strong>Price (excl VAT):</strong> ' . self::e($product->price->formatNet()) : null,
             $product->quantity !== null ? "<strong>Quantity:</strong> {$product->quantity}" : null,
         ], static fn(?string $line): bool => $line !== null);
 
