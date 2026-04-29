@@ -59,6 +59,14 @@ final class OrderShippingTest extends TestCase
         $this->assertSame(20.0, $shipping->vatRate);
     }
 
+    #[Test]
+    public function it_accepts_a_null_name_for_staff_orders_without_a_shipping_method(): void
+    {
+        $shipping = $this->createOrderShipping(['name' => null]);
+
+        $this->assertNull($shipping->name);
+    }
+
     /*
     |--------------------------------------------------------------------------
     | Charge Assertion Tests
