@@ -34,12 +34,20 @@ Examples:
 - **Include the "why"** — The code shows *what*, the log explains *why*
 - **Note tradeoffs** — What did you give up? What alternatives were rejected?
 
-## After Completion
+## Lifecycle Gate: Seal the Log Before `/pr`
 
-When a feature is merged:
-1. Update status to "Complete" with completion date
-2. Fill in the PR Notes section if not already done
-3. Leave the file in place (historical reference) or move to `.ai/implementation-logs/archive/`
+The PR Notes section feeds the PR description, so it has to exist **before** the PR is opened — not after. Treat the log as **sealed** the moment `/pr` is invoked.
+
+**Before invoking `/pr`:**
+1. Finalize the PR Notes section (What / Why / Key Decisions / Testing). This is the source material `/pr` will draw on; an empty section means a thin PR description.
+2. Confirm Decision Log, Deviations, and Blockers reflect reality.
+3. Commit any pending log edits — `/pr` will refuse to proceed with dirty state cleanly, and any post-PR edit is by definition too late to influence the PR description.
+
+**After the PR is merged**, the only permitted edits are:
+1. Set Status to "Complete" with a completion date.
+2. Optionally move the file to `.ai/implementation-logs/archive/`.
+
+Do **not** retroactively rewrite PR Notes after the PR exists — GitHub is the source of truth for the PR description from that point forward, and divergent local copies create confusion.
 
 ---
 
