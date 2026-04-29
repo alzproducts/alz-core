@@ -205,7 +205,7 @@ final class TestSlackNotificationCommand extends Command
                 productId: IntId::from(123456),
                 sku: null,
                 title: 'Folding Mobility Scooter - Blue',
-                price: '£899.00',
+                price: Money::exclusive(899.00),
             ),
             submittedAt: $submittedAt,
         );

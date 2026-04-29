@@ -12,6 +12,7 @@ use App\Domain\ContactSubmission\ValueObjects\MarketingAttribution;
 use App\Domain\ContactSubmission\ValueObjects\SelectedProduct;
 use App\Domain\ContactSubmission\ValueObjects\SubmissionContext;
 use App\Domain\Exceptions\Data\MalformedStoredDataException;
+use App\Domain\Shared\Money\ValueObjects\Money;
 use App\Domain\ValueObjects\IntId;
 use App\Infrastructure\Ingest\ContactSubmission\Models\ContactSubmissionModel;
 
@@ -145,16 +146,14 @@ final class ContactSubmissionMapper
         }
 
         $data = $model->product;
-        $productId = self::extractRequiredProductId($data);
-        $source = self::extractOptionalSource($data);
 
         return new SelectedProduct(
-            productId: $productId,
+            productId: self::extractRequiredProductId($data),
             sku: self::extractString($data, 'sku'),
             title: self::extractString($data, 'title'),
-            price: self::extractString($data, 'price'),
+            price: self::extractOptionalPrice($data),
             url: self::extractString($data, 'url'),
-            source: $source,
+            source: self::extractOptionalSource($data),
             manualUrl: self::extractString($data, 'manual_url'),
             quantity: isset($data['quantity']) && \is_int($data['quantity']) ? $data['quantity'] : null,
         );
@@ -202,6 +201,18 @@ final class ContactSubmissionMapper
         }
 
         return $source;
+    }
+
+    /**
+     * Extract optional price field as Money (exclusive tax type).
+     *
+     * @param array<string, mixed> $data
+     */
+    private static function extractOptionalPrice(array $data): ?Money
+    {
+        $price = self::extractString($data, 'price');
+
+        return $price !== null ? Money::exclusiveFromString($price) : null;
     }
 
     /**

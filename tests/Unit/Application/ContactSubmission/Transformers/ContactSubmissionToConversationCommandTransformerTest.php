@@ -17,6 +17,7 @@ use App\Domain\Customer\Enums\CustomerType;
 use App\Domain\CustomerService\Enums\ConversationStatus;
 use App\Domain\CustomerService\Enums\ConversationType;
 use App\Domain\CustomerService\Enums\Mailbox;
+use App\Domain\Shared\Money\ValueObjects\Money;
 use App\Domain\ValueObjects\IntId;
 use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -287,12 +288,12 @@ final class ContactSubmissionToConversationCommandTransformerTest extends TestCa
     #[Test]
     public function body_includes_product_price_when_present(): void
     {
-        $product = new SelectedProduct(productId: IntId::from(12345), price: '£149.99');
+        $product = new SelectedProduct(productId: IntId::from(12345), price: Money::exclusive(149.99));
         $submission = $this->createSubmission(product: $product);
 
         $command = $this->transformer->transform($submission);
 
-        self::assertStringContainsString('<strong>Price:</strong> £149.99', $command->body);
+        self::assertStringContainsString('<strong>Price (excl VAT):</strong> 149.99', $command->body);
     }
 
     #[Test]
@@ -497,7 +498,7 @@ final class ContactSubmissionToConversationCommandTransformerTest extends TestCa
             productId: IntId::from(98765),
             sku: 'FULL-TEST',
             title: 'Complete Test Product',
-            price: '£99.99',
+            price: Money::exclusive(99.99),
             url: 'https://example.com/product/full-test',
             source: ProductSource::RecentlyViewed,
             quantity: 3,
@@ -531,7 +532,7 @@ final class ContactSubmissionToConversationCommandTransformerTest extends TestCa
         // Body contains all expected sections
         self::assertStringContainsString('Where is my delivery?', $command->body);
         self::assertStringContainsString('<strong>Product:</strong> <a href="https://example.com/product/full-test">Complete Test Product</a> - FULL-TEST', $command->body);
-        self::assertStringContainsString('<strong>Price:</strong> £99.99', $command->body);
+        self::assertStringContainsString('<strong>Price (excl VAT):</strong> 99.99', $command->body);
         self::assertStringContainsString('<strong>Quantity:</strong> 3', $command->body);
         self::assertStringContainsString('<strong>Customer Type:</strong> Care Home', $command->body);
         self::assertStringContainsString('<strong>Order Number:</strong> ORD-999', $command->body);
