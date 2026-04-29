@@ -39,32 +39,52 @@ final readonly class UpdateOrderStatusUseCase
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
-     * @throws RecordNotFoundException When order row not found in database
      */
     public function execute(WebhookContextDTO $context, IntId $orderId, OrderStatus $status): void
     {
         $logContext = ['webhook_id' => $context->webhookId, 'subject_id' => $orderId->value];
         $this->logger->info('Processing order status webhook', $logContext);
 
+        if (! $this->shouldProcess($context, $orderId, $logContext)) {
+            return;
+        }
+
+        try {
+            $this->orderRepository->updateStatus($orderId, $status);
+        } catch (RecordNotFoundException) {
+            $this->logger->warning('Order not found locally — dispatching sync to backfill', $logContext);
+            $this->dispatcher->dispatchOrderSync($orderId);
+            return;
+        }
+
+        $this->idempotency->record($orderId, $context->topic, $context->webhookId, $context->eventTime);
+        $this->dispatcher->dispatchOrderSync($orderId);
+        $this->logger->info('Order status webhook processed — sync queued', $logContext);
+    }
+
+    /**
+     * @param  array<string, int>  $logContext
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    private function shouldProcess(WebhookContextDTO $context, IntId $orderId, array $logContext): bool
+    {
         $cutoff = (new DateTimeImmutable())->setTimestamp(\time() - ($this->webhookStalenessHours * 3600));
 
         if ($context->eventTime < $cutoff) {
             $this->logger->info('Discarding stale order status webhook', $logContext);
 
-            return;
+            return false;
         }
 
         if ($this->idempotency->isSuperseded($orderId, $context->topic, $context->webhookId)) {
             $this->logger->info('Discarding superseded order status webhook', $logContext);
 
-            return;
+            return false;
         }
 
-        $this->orderRepository->updateStatus($orderId, $status);
-        $this->idempotency->record($orderId, $context->topic, $context->webhookId, $context->eventTime);
-
-        $this->dispatcher->dispatchOrderSync($orderId);
-
-        $this->logger->info('Order status webhook processed — sync queued', $logContext);
+        return true;
     }
 }
