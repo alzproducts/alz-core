@@ -8,6 +8,8 @@ use App\Presentation\Http\Api\Controllers\BrandController;
 use App\Presentation\Http\Api\Controllers\BrandUpdateController;
 use App\Presentation\Http\Api\Controllers\CategoryController;
 use App\Presentation\Http\Api\Controllers\CategoryUpdateController;
+use App\Presentation\Http\Api\Controllers\ClickUp\ClickUpAuthController;
+use App\Presentation\Http\Api\Controllers\ClickUp\ClickUpTaskController;
 use App\Presentation\Http\Api\Controllers\CustomFieldDefinitionController;
 use App\Presentation\Http\Api\Controllers\CustomFieldGeneralSettingsController;
 use App\Presentation\Http\Api\Controllers\CustomFieldProductSettingsController;
@@ -101,7 +103,7 @@ Route::middleware([
     | DetectRefreshMiddleware converts HTTP verb to forceRefresh attribute.
     |
     */
-    Route::prefix('helpscout')->middleware(HandleHelpScoutExceptionsMiddleware::class)->group(static function (): void {
+    Route::prefix('helpscout')->middleware([HandleHelpScoutExceptionsMiddleware::class, EnsureUserApprovedMiddleware::class])->group(static function (): void {
         Route::prefix('conversations')->middleware(DetectRefreshMiddleware::class)->group(static function (): void {
             Route::match(['get', 'post'], 'assigned', [ConversationsController::class, 'assigned']);
             Route::match(['get', 'post'], 'todos', [ConversationsController::class, 'todos']);
@@ -183,6 +185,16 @@ Route::middleware([ValidateSupabaseJwtMiddleware::class, EnsureUserApprovedMiddl
             ->whereNumber('brandId');
 
         Route::get('filter-groups', [FilterGroupController::class, 'index']);
+
+        // ClickUp endpoints
+        Route::prefix('clickup')->group(static function (): void {
+            Route::post('api-key', [ClickUpAuthController::class, 'save']);
+            Route::get('api-key', [ClickUpAuthController::class, 'info']);
+            Route::delete('api-key', [ClickUpAuthController::class, 'delete']);
+
+            Route::get('tasks', [ClickUpTaskController::class, 'index']);
+            Route::post('tasks/{taskId}/complete', [ClickUpTaskController::class, 'complete']);
+        });
 
         // Custom field definition endpoints (catalog)
         Route::get('catalog/custom-field-definitions', [CustomFieldDefinitionController::class, 'index']);

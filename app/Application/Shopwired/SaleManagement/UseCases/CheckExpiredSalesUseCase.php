@@ -24,6 +24,7 @@ use App\Domain\Exceptions\ValidationFailedException;
 use App\Domain\Shared\Money\ValueObjects\Money;
 use DateMalformedStringException;
 use DateTimeImmutable;
+use DateTimeZone;
 use Exception;
 use Psr\Log\LoggerInterface;
 
@@ -32,7 +33,7 @@ use Psr\Log\LoggerInterface;
  *
  * Evaluates 4 removal conditions against local DB data:
  * 1. Product inactive
- * 2. Sale end date passed
+ * 2. Sale end date passed (inclusive — sale runs through the end date in UK time)
  * 3. Out of stock + discontinued
  * 4. Sale units sold (stock <= threshold)
  *
@@ -42,6 +43,16 @@ use Psr\Log\LoggerInterface;
  */
 final readonly class CheckExpiredSalesUseCase
 {
+    /**
+     * Business timezone used for date-only sale end comparisons.
+     *
+     * Why: app.timezone is UTC, but `sale_date_end` is a UK-merchandiser concept.
+     * Pinning the comparison to Europe/London ensures "ends April 3rd" means the
+     * full UK calendar day, matching Google Merchant feed `sale_price_effective_date`
+     * semantics (end date inclusive).
+     */
+    private const string BUSINESS_TIMEZONE = 'Europe/London';
+
     public function __construct(
         private ProductRepositoryInterface $productRepository,
         private UpdateProductSellingPricesUseCase $updatePricesUseCase,
@@ -61,7 +72,7 @@ final readonly class CheckExpiredSalesUseCase
         $views = $this->productRepository->findProductViewsOnSale();
         $removed = 0;
         $failed = 0;
-        $today = new DateTimeImmutable('today');
+        $today = new DateTimeImmutable('today', new DateTimeZone(self::BUSINESS_TIMEZONE));
 
         foreach ($views as $view) {
             $reason = $this->evaluateRemovalConditions($view, $today);
@@ -141,7 +152,11 @@ final readonly class CheckExpiredSalesUseCase
         }
 
         try {
-            return new DateTimeImmutable($field->value) <= $today;
+            // Inclusive end-date semantic: a sale set to "end April 3rd" stays active
+            // throughout April 3rd in UK time and ends at the first hourly tick on April 4th.
+            $endDate = new DateTimeImmutable($field->value, new DateTimeZone(self::BUSINESS_TIMEZONE));
+
+            return $endDate < $today;
         } catch (DateMalformedStringException) { // @ignoreException — invalid date format in custom field, skip condition
             return false;
         }

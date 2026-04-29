@@ -16,6 +16,8 @@ enum ApiErrorTypeEnum: string
     case Forbidden = 'forbidden';
     case ValidationError = 'validation_error';
     case NotFound = 'not_found';
+    case PreconditionFailed = 'precondition_failed';
+    case CipherCorrupted = 'cipher_corrupted';
     case Conflict = 'conflict';
     case MethodNotAllowed = 'method_not_allowed';
     case ServiceUnavailable = 'service_unavailable';

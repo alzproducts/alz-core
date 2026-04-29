@@ -410,6 +410,7 @@ return static function (Config $config): void {
     // EXCEPTION: Internal Infrastructure contracts (marked @internal) for:
     // - DomainConvertibleInterface: Marks DTOs that can convert to Domain objects
     // - DomainConvertibleChildInterface: Marks child DTOs needing parent ID to convert
+    // - DtoConvertibleInterface: Marks DTOs that can convert to Application-layer DTOs
     // - PaginatableQueryParamsInterface: Marks query params supporting pagination
     // - EloquentDomainMappableInterface: Marks Eloquent models with domain mapping
     // - LinnworksTransportInterface: Internal transport abstraction for decorator pattern
@@ -433,6 +434,7 @@ return static function (Config $config): void {
                    ->that(new HaveNameMatching('*Interface'))
                    ->andThat(new NotHaveNameMatching('DomainConvertibleInterface'))
                    ->andThat(new NotHaveNameMatching('DomainConvertibleChildInterface'))
+                   ->andThat(new NotHaveNameMatching('DtoConvertibleInterface'))
                    ->andThat(new NotHaveNameMatching('PaginatableQueryParamsInterface'))
                    ->andThat(new NotHaveNameMatching('EloquentDomainMappableInterface'))
                    ->andThat(new NotHaveNameMatching('LinnworksTransportInterface'))

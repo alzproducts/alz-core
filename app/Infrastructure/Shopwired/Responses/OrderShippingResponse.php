@@ -12,7 +12,8 @@ use Spatie\LaravelData\Mappers\SnakeCaseMapper;
 /**
  * ShopWired API Response: Order Shipping.
  *
- * Always embedded in Standard/Detail modes - all fields non-nullable.
+ * `name` is nullable: staff can create an order without selecting a shipping method,
+ * in which case ShopWired sends a shipping line with a null (or empty-string) name.
  * Note: API returns shipping as array; use Order::getFirstShipping().
  *
  * @see https://shopwired.readme.io/reference/listorders
@@ -21,7 +22,7 @@ use Spatie\LaravelData\Mappers\SnakeCaseMapper;
 final class OrderShippingResponse extends Data
 {
     public function __construct(
-        public readonly string $name,
+        public readonly ?string $name,
         public readonly float $value,
         public readonly float $vatRate,
         public readonly ?int $id = null,
@@ -31,7 +32,7 @@ final class OrderShippingResponse extends Data
     {
         return new OrderShipping(
             id: $this->id,
-            name: $this->name,
+            name: $this->name !== '' ? $this->name : null,
             chargeNet: $this->value,
             vatRate: $this->vatRate,
         );

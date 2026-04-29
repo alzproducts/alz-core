@@ -178,6 +178,48 @@ final readonly class EloquentGateway
     }
 
     /**
+     * Find a single record matching all of the provided criteria.
+     *
+     * Use for compound predicates (e.g. user_id + service + is_valid). Each
+     * criterion is applied as an equality `where`. Reads do not open a
+     * transaction.
+     *
+     * @template TModel of Model
+     *
+     * @param class-string<TModel> $modelClass
+     * @param array<string, bool|int|string> $criteria Column => value equality pairs
+     * @param list<string> $relations Relations to eager load
+     *
+     * @return TModel|null
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function firstWhereAll(
+        string $modelClass,
+        array $criteria,
+        array $relations = [],
+    ): ?Model {
+        /** @var TModel|null */
+        return $this->dbGateway->query(
+            static function () use ($modelClass, $criteria, $relations): ?Model {
+                $query = $modelClass::query();
+
+                foreach ($criteria as $column => $value) {
+                    $query->where($column, $value);
+                }
+
+                if ($relations !== []) {
+                    $query->with($relations);
+                }
+
+                return $query->first();
+            },
+        );
+    }
+
+    /**
      * Find multiple records by column values.
      *
      * @param class-string<Model> $modelClass
@@ -734,6 +776,47 @@ final readonly class EloquentGateway
             'model' => $modelName,
             'column' => $column,
             'value' => $value,
+            'deleted' => $deleted,
+        ]);
+
+        return $deleted;
+    }
+
+    /**
+     * Delete records matching all of the provided criteria.
+     *
+     * Use for compound predicates (e.g. user_id + service). Each criterion is
+     * applied as an equality `where`. Wraps the delete in a transaction.
+     *
+     * @param class-string<Model> $modelClass
+     * @param array<string, bool|int|string> $criteria Column => value equality pairs
+     *
+     * @return int Number of rows deleted
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function deleteWhereAll(string $modelClass, array $criteria): int
+    {
+        $modelName = \class_basename($modelClass);
+
+        $deleted = $this->dbGateway->transact(
+            static function () use ($modelClass, $criteria): int {
+                $query = $modelClass::query();
+
+                foreach ($criteria as $column => $value) {
+                    $query->where($column, $value);
+                }
+
+                /** @var int */
+                return $query->delete();
+            },
+        );
+
+        Log::debug('Compound delete completed', [
+            'model' => $modelName,
+            'criteria' => $criteria,
             'deleted' => $deleted,
         ]);
 

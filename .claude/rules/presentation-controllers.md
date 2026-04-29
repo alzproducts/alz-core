@@ -20,6 +20,7 @@ paths:
 
 ## Request / Response
 
+- DO use a `*RequestDTO` whenever the action reads body or query input that needs parsing, validation, or coercion. The `Request` parameter is permitted only for request-meta (headers, IP, signed-URL inspection), never for reading user input. Canonical: `SaveClickUpApiKeyRequestDTO` paired with `ClickUpAuthController::save`.
 - DO convert wire types to value objects at the boundary: `IntId::from($productId)` for typed route params; VO construction belongs inside a DTO's `toCommand()`. The use case receives domain types, never raw scalars.
 - DO return `new JsonResponse(null, Response::HTTP_NO_CONTENT)` for successful writes with no body.
 - DO wrap a single domain result in `{Entity}DetailResource`; paginated lists via `$this->paginatedResponse($result, {Entity}Resource::class)` from `BuildsPaginatedResponseTrait`.
