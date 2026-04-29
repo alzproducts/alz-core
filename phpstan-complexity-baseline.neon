@@ -630,13 +630,6 @@ parameters:
 
 
 		-
-			rawMessage: 'Method fromRawFields() is 27 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
-			identifier: alz.excessiveMethodLength
-			count: 1
-			path: app/Infrastructure/Shopwired/Factories/CustomFieldFactory.php
-
-
-		-
 			rawMessage: 'Method fromRawFields() is 34 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1

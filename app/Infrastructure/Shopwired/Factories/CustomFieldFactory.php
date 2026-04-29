@@ -19,8 +19,10 @@ use Illuminate\Support\Facades\Log;
  * Graceful-degradation factory for creating typed custom field values on the sync/read path.
  *
  * Delegates to CustomFieldValueFactory for typed value creation. Unknown fields
- * (CustomFieldNotFoundException) are logged as warnings and skipped — preserving
- * the read path's tolerance for out-of-sync field definitions.
+ * (CustomFieldNotFoundException) are counted and skipped, with a single
+ * per-request summary warning emitted on application terminate — preserving
+ * the read path's tolerance for out-of-sync field definitions without flooding
+ * the log when many products share the same unknown field.
  *
  * Parameterised by CustomFieldItemType so the same factory serves Products,
  * Categories, and Brands — each getting a registry filtered to their item type.
@@ -35,16 +37,31 @@ final class CustomFieldFactory
 {
     private ?CustomFieldDefinitionRegistry $registry = null;
 
+    /** @var array<string, int> */
+    private array $warnedFieldCounts = [];
+
     public function __construct(
         private readonly CustomFieldRepositoryInterface $customFieldRepository,
         private readonly CustomFieldItemType $itemType,
-    ) {}
+    ) {
+        \app()->terminating(function (): void {
+            if ($this->warnedFieldCounts === []) {
+                return;
+            }
+
+            Log::warning('Unknown custom fields encountered - run dev:seed-sync', [
+                'fields' => $this->warnedFieldCounts,
+                'item_type' => $this->itemType->value,
+            ]);
+        });
+    }
 
     /**
      * Build typed custom field values from raw data.
      *
-     * Unknown field names are logged as warnings and skipped (may indicate
-     * custom field definitions are out of sync - re-run SyncCustomFieldsJob).
+     * Unknown field names are counted and emitted as a single per-request
+     * summary warning (may indicate custom field definitions are out of sync -
+     * re-run SyncShopwiredCustomFieldsJob).
      * Type mismatches throw InvalidCustomFieldValueException.
      *
      * @param array<string, mixed> $rawFields Raw custom field data (name => value)
@@ -62,28 +79,43 @@ final class CustomFieldFactory
         $result = [];
 
         foreach ($rawFields as $name => $value) {
-            $definition = $this->registry()->findByName($name);
+            $typed = $this->resolveTypedValue($name, $value);
 
-            if ($definition === null) {
-                Log::warning('Unknown custom field - re-run SyncCustomFieldsJob', [
-                    'field_name' => $name,
-                    'item_type' => $this->itemType->value,
-                ]);
-
-                continue;
+            if ($typed !== null) {
+                $result[] = $typed;
             }
-
-            // Null means "clear this field" — skip type validation (same as write path).
-            // The merge logic in GetProductCustomFieldsUseCase::mergeWithDefinitions()
-            // fills null gaps with NullCustomFieldValue for API responses.
-            if ($value === null) {
-                continue;
-            }
-
-            $result[] = CustomFieldValueFactory::createTypedValueFromDefinition($definition, $value);
         }
 
         return $result;
+    }
+
+    /**
+     * Resolve a single raw (name, value) pair to a typed value, or null when
+     * the entry should be skipped (unknown field — counted for summary warning;
+     * null value — caller's "clear this field" intent, merged downstream by
+     * GetProductCustomFieldsUseCase::mergeWithDefinitions()).
+     *
+     * @throws DatabaseOperationFailedException When custom field registry fails to load
+     * @throws DuplicateRecordException On constraint violation
+     * @throws ExternalServiceUnavailableException When database temporarily unavailable
+     * @throws InvalidCustomFieldValueException When value type mismatches definition
+     * @throws MissingRequiredDataException When custom field definitions table is empty
+     */
+    private function resolveTypedValue(string $name, mixed $value): ?AbstractCustomFieldValue
+    {
+        $definition = $this->registry()->findByName($name);
+
+        if ($definition === null) {
+            $this->warnedFieldCounts[$name] = ($this->warnedFieldCounts[$name] ?? 0) + 1;
+
+            return null;
+        }
+
+        if ($value === null) {
+            return null;
+        }
+
+        return CustomFieldValueFactory::createTypedValueFromDefinition($definition, $value);
     }
 
     /**
@@ -103,7 +135,7 @@ final class CustomFieldFactory
                 throw new MissingRequiredDataException(
                     dataType: 'custom field definitions',
                     operation: "CustomFieldFactory ({$this->itemType->value})",
-                    resolution: 'Run SyncCustomFieldsJob or php artisan app:sync-custom-fields',
+                    resolution: 'Run SyncShopwiredCustomFieldsJob or php artisan dev:seed-sync',
                 );
             }
 

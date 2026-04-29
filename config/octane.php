@@ -219,14 +219,14 @@ return [
     */
 
     'watch' => [
-        'app',
+        'app/**/*.php',
         'bootstrap/app.php',
         'bootstrap/providers.php',
         'config/**/*.php',
         'database/**/*.php',
         'public/**/*.php',
         'resources/**/*.php',
-        'routes',
+        'routes/**/*.php',
         'composer.lock',
         '.env',
     ],
