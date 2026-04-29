@@ -13,16 +13,16 @@ use App\Domain\Exceptions\Data\MissingRequiredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Infrastructure\Shopwired\CustomFields\CustomFieldDefinitionRegistry;
-use Illuminate\Support\Facades\Log;
+use App\Infrastructure\Shopwired\CustomFields\UnknownCustomFieldReporter;
 
 /**
  * Graceful-degradation factory for creating typed custom field values on the sync/read path.
  *
  * Delegates to CustomFieldValueFactory for typed value creation. Unknown fields
- * (CustomFieldNotFoundException) are counted and skipped, with a single
- * per-request summary warning emitted on application terminate — preserving
- * the read path's tolerance for out-of-sync field definitions without flooding
- * the log when many products share the same unknown field.
+ * are skipped and recorded with the injected UnknownCustomFieldReporter, which
+ * aggregates across every factory in the request and emits one summary log line
+ * — preserving the read path's tolerance for out-of-sync field definitions
+ * without flooding the log when many products share the same unknown field.
  *
  * Parameterised by CustomFieldItemType so the same factory serves Products,
  * Categories, and Brands — each getting a registry filtered to their item type.
@@ -37,24 +37,11 @@ final class CustomFieldFactory
 {
     private ?CustomFieldDefinitionRegistry $registry = null;
 
-    /** @var array<string, int> */
-    private array $warnedFieldCounts = [];
-
     public function __construct(
         private readonly CustomFieldRepositoryInterface $customFieldRepository,
         private readonly CustomFieldItemType $itemType,
-    ) {
-        \app()->terminating(function (): void {
-            if ($this->warnedFieldCounts === []) {
-                return;
-            }
-
-            Log::warning('Unknown custom fields encountered - run dev:seed-sync', [
-                'fields' => $this->warnedFieldCounts,
-                'item_type' => $this->itemType->value,
-            ]);
-        });
-    }
+        private readonly UnknownCustomFieldReporter $reporter,
+    ) {}
 
     /**
      * Build typed custom field values from raw data.
@@ -106,7 +93,7 @@ final class CustomFieldFactory
         $definition = $this->registry()->findByName($name);
 
         if ($definition === null) {
-            $this->warnedFieldCounts[$name] = ($this->warnedFieldCounts[$name] ?? 0) + 1;
+            $this->reporter->record($this->itemType, $name);
 
             return null;
         }
