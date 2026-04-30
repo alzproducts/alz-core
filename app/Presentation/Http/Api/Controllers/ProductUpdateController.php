@@ -8,6 +8,7 @@ use App\Application\Catalog\UseCases\RefreshAllProductsUseCase;
 use App\Application\Catalog\UseCases\RefreshProductViewUseCase;
 use App\Application\Catalog\UseCases\UpdateProductCustomFieldsUseCase;
 use App\Application\Catalog\UseCases\UpdateProductFieldsUseCase;
+use App\Application\Inventory\UseCases\GenerateVariantSkusUseCase;
 use App\Application\Linnworks\UpdateCostPriceBySupplier\UpdateCostPriceBySupplierUseCase;
 use App\Application\Shopwired\PricingUpdate\UseCases\UpdateProductPricesUseCase;
 use App\Application\Shopwired\UseCases\DispatchProductFreeDeliveryJobsUseCase;
@@ -26,17 +27,21 @@ use App\Domain\Exceptions\Data\InvalidSkuException;
 use App\Domain\Exceptions\Data\MissingRequiredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use App\Domain\Exceptions\Infrastructure\LockAcquisitionException;
 use App\Domain\Exceptions\Infrastructure\PartialPersistenceFailureException;
+use App\Domain\Exceptions\Inventory\InvalidTemplateException;
 use App\Domain\Exceptions\ValidationFailedException;
 use App\Domain\ValueObjects\IntId;
 use App\Presentation\Http\Api\DTOs\CostPriceItemDTO;
 use App\Presentation\Http\Api\DTOs\FreeDeliveryUpdateItemDTO;
+use App\Presentation\Http\Api\DTOs\GenerateVariantSkusRequestDTO;
 use App\Presentation\Http\Api\DTOs\UpdateCostPricesRequestDTO;
 use App\Presentation\Http\Api\DTOs\UpdateCustomFieldsRequestDTO;
 use App\Presentation\Http\Api\DTOs\UpdateFreeDeliveryRequestDTO;
 use App\Presentation\Http\Api\DTOs\UpdateProductFieldsRequestDTO;
 use App\Presentation\Http\Api\Responses\AsyncRefreshAcceptedResponseDTO;
 use App\Presentation\Http\Api\Responses\BulkUpdateResponseDTO;
+use App\Presentation\Http\Api\Responses\GenerateVariantSkusResponseDTO;
 use App\Presentation\Http\Api\Responses\PriceUpdateResponseDTO;
 use App\Presentation\Http\Shopwired\DTOs\SkuPriceUpdateDTO;
 use App\Presentation\Http\Shopwired\DTOs\UpdateProductPricesDTO;
@@ -59,6 +64,7 @@ final readonly class ProductUpdateController
         private UpdateCostPriceBySupplierUseCase $costPriceUseCase,
         private RefreshProductViewUseCase $refreshUseCase,
         private RefreshAllProductsUseCase $refreshAllUseCase,
+        private GenerateVariantSkusUseCase $generateVariantSkusUseCase,
     ) {}
 
     /**
@@ -216,5 +222,29 @@ final readonly class ProductUpdateController
         $result = $this->costPriceUseCase->execute($data->supplierName, $commands);
 
         return BulkUpdateResponseDTO::fromCostPriceResult($result);
+    }
+
+    /**
+     * Generate Linnworks inventory items for SKU-less product variations.
+     *
+     * @throws InvalidSkuException When template SKU format is invalid (422)
+     * @throws InvalidTemplateException When template has no default supplier (422)
+     * @throws InvalidCustomFieldValueException When product custom fields invalid
+     * @throws ResourceNotAvailableException When product not found in ShopWired (404)
+     * @throws ResourceNotFoundException When template not found in Linnworks (404)
+     * @throws RecordNotFoundException When standard sign product not found in local DB (404)
+     * @throws AuthenticationExpiredException When credentials invalid (401/403)
+     * @throws ExternalServiceUnavailableException When APIs unavailable (503)
+     * @throws InvalidApiRequestException When request parameters invalid (400)
+     * @throws InvalidApiResponseException When API response malformed
+     * @throws LockAcquisitionException When SKU generation lock unavailable (503)
+     * @throws DatabaseOperationFailedException When local refresh fails
+     * @throws DuplicateRecordException When local refresh encounters duplicate
+     */
+    public function generateVariantSkus(int $productId, GenerateVariantSkusRequestDTO $data): GenerateVariantSkusResponseDTO
+    {
+        $result = $this->generateVariantSkusUseCase->execute($data->toCommand(IntId::from($productId)));
+
+        return GenerateVariantSkusResponseDTO::fromResult($result);
     }
 }
