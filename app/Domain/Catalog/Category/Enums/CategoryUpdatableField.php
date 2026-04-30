@@ -13,4 +13,5 @@ enum CategoryUpdatableField
     case Description;
     case MetaTitle;
     case MetaDescription;
+    case Description2;
 }
