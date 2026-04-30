@@ -117,12 +117,16 @@ final class MixpanelClientFactory
         }
 
         foreach ($value as $key => $tableId) {
+            if (!\is_string($key)) {
+                throw new InvalidConfigurationException('mixpanel.lookup_tables', "Lookup table keys must be strings, got key of type '" . \gettype($key) . "'");
+            }
+
             if (!\is_string($tableId) || $tableId === '') {
                 throw new InvalidConfigurationException("mixpanel.lookup_tables.{$key}", "Lookup table '{$key}' must be a non-empty string");
             }
         }
 
-        /** @var array<string, string> $value */
+        /** @var non-empty-array<string, non-empty-string> $value */
         return $value;
     }
 }
