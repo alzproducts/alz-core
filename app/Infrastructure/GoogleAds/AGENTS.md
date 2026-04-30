@@ -30,7 +30,7 @@ Google Ads SDK returns integers, not strings:
 
 ## Key Differences from HTTP Clients
 
-- gRPC via SDK (not HTTP)
+- REST transport via `google/gax` auto-detection (`ext-grpc` not installed → falls back from gRPC to REST). Installing `ext-grpc` would auto-enable gRPC with no code changes.
 - SDK handles OAuth2 refresh, retry, connection pooling
 - GAQL queries, not REST endpoints
 - `PagedListResponse` iterables, not JSON
