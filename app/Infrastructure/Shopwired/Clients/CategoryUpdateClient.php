@@ -82,6 +82,7 @@ final readonly class CategoryUpdateClient implements CategoryUpdateClientInterfa
             CategoryUpdatableField::Description => 'description',
             CategoryUpdatableField::MetaTitle => 'metaTitle',
             CategoryUpdatableField::MetaDescription => 'metaDescription',
+            CategoryUpdatableField::Description2 => 'description2',
         };
     }
 }
