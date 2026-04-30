@@ -15,7 +15,7 @@ use App\Infrastructure\Shopwired\Models\CustomFieldDefinitionModel;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\TestCase;
+use Tests\TestCase;
 
 /**
  * Unit tests for the read-path hydration branching in CustomFieldDefinitionModel.
