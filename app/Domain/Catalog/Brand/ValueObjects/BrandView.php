@@ -32,6 +32,7 @@ final readonly class BrandView
      * @param ?BrandImage $image Brand image
      * @param DateTimeImmutable $createdAt ShopWired creation timestamp
      * @param ?string $description Brand description (null = not loaded)
+     * @param ?string $description2 Secondary description (null = not loaded)
      * @param ?list<AbstractCustomFieldValue> $customFields Typed custom field values (null = not loaded)
      */
     public function __construct(
@@ -47,6 +48,7 @@ final readonly class BrandView
         public ?BrandImage $image,
         public DateTimeImmutable $createdAt,
         public ?string $description = null,
+        public ?string $description2 = null,
         public ?array $customFields = null,
     ) {}
 }
