@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "a9e42b584698249d80ab3aafa77b3ead",
+    "content-hash": "2be2f4344ef8da1d3c94981dc55d1716",
     "packages": [
         {
             "name": "aws/aws-crt-php",
@@ -12737,38 +12737,37 @@
         },
         {
             "name": "phparkitect/phparkitect",
-            "version": "0.8.0",
+            "version": "1.0.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/phparkitect/arkitect.git",
-                "reference": "8097d801c1f76498d9fdd24e321c4a3b42b256f8"
+                "reference": "7b1fa40f40b65b323005aca65405b97965a15ee8"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/phparkitect/arkitect/zipball/8097d801c1f76498d9fdd24e321c4a3b42b256f8",
-                "reference": "8097d801c1f76498d9fdd24e321c4a3b42b256f8",
+                "url": "https://api.github.com/repos/phparkitect/arkitect/zipball/7b1fa40f40b65b323005aca65405b97965a15ee8",
+                "reference": "7b1fa40f40b65b323005aca65405b97965a15ee8",
                 "shasum": ""
             },
             "require": {
                 "ext-json": "*",
                 "nikic/php-parser": "~5",
                 "ondram/ci-detector": "^4.2",
-                "php": "^7.4|^8",
+                "php": "^8.0",
                 "phpstan/phpdoc-parser": "^1.2|^2.0",
-                "symfony/console": "^3.0|^4.0|^5.0|^6.0|^7.0|^8.0",
-                "symfony/event-dispatcher": "^3.0|^4.0|^5.0|^6.0|^7.0|^8.0",
-                "symfony/finder": "^3.0|^4.0|^5.0|^6.0|^7.0|^8.0",
-                "symfony/polyfill-php80": "^1.33",
-                "webmozart/assert": "^1.12"
+                "symfony/console": "^5.4|^6.0|^7.0|^8.0",
+                "symfony/finder": "^5.4|^6.0|^7.0|^8.0",
+                "webmozart/assert": "^1.12|^2.0"
             },
             "require-dev": {
-                "friendsofphp/php-cs-fixer": "^3.92",
+                "friendsofphp/php-cs-fixer": "^3.95",
                 "mikey179/vfsstream": "^1.6",
                 "phpspec/prophecy": "^1.10",
-                "phpspec/prophecy-phpunit": "^2.4",
-                "phpunit/phpunit": "^7.5|^9.0|^10.0",
+                "phpspec/prophecy-phpunit": "^2.5",
+                "phpunit/phpunit": "^9.6|^10.0|^11.0",
                 "roave/security-advisories": "dev-master",
-                "symfony/var-dumper": "^3.0|^4.0|^5.0|^6.0|^7.0|^8.0"
+                "symfony/process": "^5.4|^6.0|^7.0|^8.0",
+                "symfony/var-dumper": "^5.4|^6.0|^7.0|^8.0"
             },
             "bin": [
                 "bin-stub/phparkitect"
@@ -12804,7 +12803,7 @@
             "description": "Enforce architectural constraints in your PHP applications",
             "support": {
                 "issues": "https://github.com/phparkitect/arkitect/issues",
-                "source": "https://github.com/phparkitect/arkitect/tree/0.8.0"
+                "source": "https://github.com/phparkitect/arkitect/tree/1.0.0"
             },
             "funding": [
                 {
@@ -12816,7 +12815,7 @@
                     "type": "github"
                 }
             ],
-            "time": "2026-01-28T20:58:15+00:00"
+            "time": "2026-04-25T17:12:49+00:00"
         },
         {
             "name": "phpdocumentor/graphviz",
