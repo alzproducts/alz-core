@@ -34,6 +34,7 @@ final class BrandDetailResource extends JsonResource
 
         if ($result->hasInclude(BrandInclude::Description)) {
             $data['description'] = $brand->description;
+            $data['description2'] = $brand->description2;
         }
 
         if ($result->hasInclude(BrandInclude::CustomFields) && $brand->customFields !== null) {
