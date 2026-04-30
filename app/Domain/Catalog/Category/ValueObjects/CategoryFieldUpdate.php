@@ -38,4 +38,9 @@ final readonly class CategoryFieldUpdate
     {
         return new self(CategoryUpdatableField::MetaDescription, $metaDescription);
     }
+
+    public static function description2(string $description2): self
+    {
+        return new self(CategoryUpdatableField::Description2, $description2);
+    }
 }

@@ -35,6 +35,7 @@ final class UpdateCategoryFieldsRequestDTO extends Data
             'fields.description' => ['string'],
             'fields.meta_title' => ['string', 'max:255'],
             'fields.meta_description' => ['string', 'max:500'],
+            'fields.description2' => ['string'],
         ];
     }
 
@@ -43,6 +44,6 @@ final class UpdateCategoryFieldsRequestDTO extends Data
      */
     protected static function allowedFieldKeys(): array
     {
-        return ['title', 'description', 'meta_title', 'meta_description'];
+        return ['title', 'description', 'meta_title', 'meta_description', 'description2'];
     }
 }
