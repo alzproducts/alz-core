@@ -153,6 +153,8 @@ Route::middleware([ValidateSupabaseJwtMiddleware::class, EnsureUserApprovedMiddl
         Route::post('products/refresh', [ProductUpdateController::class, 'refreshAll']);
         Route::post('products/{productId}/refresh', [ProductUpdateController::class, 'refresh'])
             ->whereNumber('productId');
+        Route::post('products/{productId}/generate-variant-skus', [ProductUpdateController::class, 'generateVariantSkus'])
+            ->whereNumber('productId');
         Route::post('products/free-delivery', [ProductUpdateController::class, 'updateFreeDelivery']);
         Route::put('products/cost-prices', [ProductUpdateController::class, 'updateCostPrices']);
 
