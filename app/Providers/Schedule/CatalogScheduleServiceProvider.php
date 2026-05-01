@@ -12,6 +12,7 @@ use App\Infrastructure\Jobs\Catalog\SyncRatingFiltersJob;
 use App\Infrastructure\Jobs\Catalog\SyncRelatedProductsJob;
 use App\Infrastructure\Jobs\Catalog\SyncShippingOffersFiltersJob;
 use App\Infrastructure\Jobs\Catalog\SyncShippingOptionsFiltersJob;
+use App\Infrastructure\Jobs\Catalog\SyncSkuPopularityRankingSnapshotJob;
 use App\Infrastructure\Jobs\Catalog\SyncVatReliefFiltersJob;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Schedule;
@@ -47,6 +48,7 @@ final class CatalogScheduleServiceProvider extends ServiceProvider
         $this->registerShippingOffersFilterSchedule();
         $this->registerShippingOptionsFilterSchedule();
         $this->registerProductPopularityRankingSnapshotSchedule();
+        $this->registerSkuPopularityRankingSnapshotSchedule();
         $this->registerProductSortOrderSyncSchedule();
         $this->registerBestSellersCategorySchedule();
         $this->registerRelatedProductsSyncSchedule();
@@ -163,6 +165,26 @@ final class CatalogScheduleServiceProvider extends ServiceProvider
     {
         Schedule::job(new SyncProductPopularityRankingSnapshotJob())
             ->name('sync-product-popularity-ranking-snapshot')
+            ->weeklyOn(Carbon::SUNDAY, '03:00')
+            ->timezone('Europe/London')
+            ->onOneServer()
+            ->withoutOverlapping(60);
+    }
+
+    /**
+     * Weekly SKU popularity ranking snapshot.
+     *
+     * Runs Sunday 03:00 Europe/London — same window as the product snapshot,
+     * capturing a snapshot of the `catalog.sku_popularity_ranking` view.
+     * Each run inserts one row per catalog SKU tagged with `algorithm_version`
+     * from the active config row.
+     *
+     * @throws RuntimeException
+     */
+    private function registerSkuPopularityRankingSnapshotSchedule(): void
+    {
+        Schedule::job(new SyncSkuPopularityRankingSnapshotJob())
+            ->name('sync-sku-popularity-ranking-snapshot')
             ->weeklyOn(Carbon::SUNDAY, '03:00')
             ->timezone('Europe/London')
             ->onOneServer()

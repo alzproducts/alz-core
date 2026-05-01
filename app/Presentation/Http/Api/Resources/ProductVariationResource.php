@@ -35,7 +35,35 @@ final class ProductVariationResource extends JsonResource
      */
     private static function buildData(ProductVariationView $variation): array
     {
-        $data = [
+        return self::baseFields($variation)
+            + self::conditionalIncludes($variation);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private static function baseFields(ProductVariationView $variation): array
+    {
+        return self::identityAndPricingFields($variation) + [
+            'stock' => $variation->stockLevel->availableStock,
+            'weight' => $variation->weight?->value,
+            'image_index' => $variation->imageIndex,
+            'options' => \array_map(static fn(ProductVariationOption $opt): array => $opt->toArray(), $variation->options),
+            'is_composite' => $variation->isComposite,
+            'default_supplier' => $variation->defaultSupplier?->toArray(),
+            'popularity' => $variation->popularity?->toArray(),
+            'meta' => [
+                'can_edit_cost_price' => $variation->canEditCostPrice,
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private static function identityAndPricingFields(ProductVariationView $variation): array
+    {
+        return [
             'id' => $variation->id->value,
             'sku' => $variation->sku?->value,
             'gtin' => $variation->gtin?->value,
@@ -47,16 +75,15 @@ final class ProductVariationResource extends JsonResource
             'effective_price' => $variation->effectivePrice->toGross(),
             'profit_margin' => $variation->profitMargin,
             'is_on_sale' => $variation->isOnSale,
-            'stock' => $variation->stockLevel->availableStock,
-            'weight' => $variation->weight?->value,
-            'image_index' => $variation->imageIndex,
-            'options' => \array_map(static fn(ProductVariationOption $opt): array => $opt->toArray(), $variation->options),
-            'is_composite' => $variation->isComposite,
-            'default_supplier' => $variation->defaultSupplier?->toArray(),
-            'meta' => [
-                'can_edit_cost_price' => $variation->canEditCostPrice,
-            ],
         ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private static function conditionalIncludes(ProductVariationView $variation): array
+    {
+        $data = [];
 
         if ($variation->suppliers !== null) {
             $data['suppliers'] = \array_map(static fn(ProductSupplier $s): array => $s->toArray(), $variation->suppliers);
