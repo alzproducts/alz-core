@@ -42,6 +42,8 @@ use Override;
  * @property float $effective_price Selling price after sale logic
  * @property float|null $cost_price Linnworks cost price (by variation SKU, tax-exclusive)
  * @property float|null $profit_margin Gross profit margin % computed at DB level
+ * @property int|null $popularity_rank Popularity rank from SKU snapshot pipeline (calculated_sort_order)
+ * @property int|null $popularity_max Max rank from active SKU popularity config (max_rank)
  */
 final class ProductVariationViewModel extends Model
 {
@@ -70,6 +72,8 @@ final class ProductVariationViewModel extends Model
             'effective_price' => 'float',
             'cost_price' => 'float',
             'profit_margin' => 'float',
+            'popularity_rank' => 'integer',
+            'popularity_max' => 'integer',
             'is_on_sale' => 'boolean',
             'available_stock' => 'integer',
             'physical_stock' => 'integer',

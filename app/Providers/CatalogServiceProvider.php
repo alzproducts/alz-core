@@ -19,6 +19,7 @@ use App\Application\Contracts\Catalog\RelatedProductsAlgorithmParamsRepositoryIn
 use App\Application\Contracts\Catalog\RelatedProductsQueryRepositoryInterface;
 use App\Application\Contracts\Catalog\ShippingOffersFilterQueryRepositoryInterface;
 use App\Application\Contracts\Catalog\ShippingOptionsFilterQueryRepositoryInterface;
+use App\Application\Contracts\Catalog\SkuPopularityRankingSnapshotRepositoryInterface;
 use App\Application\Contracts\Catalog\VatReliefFilterQueryRepositoryInterface;
 use App\Domain\Exceptions\InvalidConfigurationException;
 use App\Infrastructure\Catalog\CustomFields\Repositories\EloquentCustomFieldGeneralSettingsRepository;
@@ -35,6 +36,7 @@ use App\Infrastructure\Catalog\Repositories\RelatedProductsAlgorithmParamsReposi
 use App\Infrastructure\Catalog\Repositories\RelatedProductsQueryRepository;
 use App\Infrastructure\Catalog\Repositories\ShippingOffersFilterQueryRepository;
 use App\Infrastructure\Catalog\Repositories\ShippingOptionsFilterQueryRepository;
+use App\Infrastructure\Catalog\Repositories\SkuPopularityRankingSnapshotRepository;
 use App\Infrastructure\Catalog\Repositories\VatReliefFilterQueryRepository;
 use Illuminate\Contracts\Support\DeferrableProvider;
 use Illuminate\Support\ServiceProvider;
@@ -72,6 +74,7 @@ final class CatalogServiceProvider extends ServiceProvider implements Deferrable
             CustomFieldProductSettingsRepositoryInterface::class,
             ProductExtraDataRepositoryInterface::class,
             ProductPopularityRankingSnapshotRepositoryInterface::class,
+            SkuPopularityRankingSnapshotRepositoryInterface::class,
             ProductSortOrderQueryRepositoryInterface::class,
             RelatedProductsAlgorithmParamsRepositoryInterface::class,
             RelatedProductsQueryRepositoryInterface::class,
@@ -85,15 +88,24 @@ final class CatalogServiceProvider extends ServiceProvider implements Deferrable
         $this->registerShippingFilterRepositories();
         $this->registerSortOrderRepositories();
         $this->registerBestSellersRepositories();
+        $this->registerPopularitySnapshotRepositories();
 
         $this->app->scoped(
             ProductExtraDataRepositoryInterface::class,
             EloquentProductExtraDataRepository::class,
         );
+    }
 
+    private function registerPopularitySnapshotRepositories(): void
+    {
         $this->app->scoped(
             ProductPopularityRankingSnapshotRepositoryInterface::class,
             ProductPopularityRankingSnapshotRepository::class,
+        );
+
+        $this->app->scoped(
+            SkuPopularityRankingSnapshotRepositoryInterface::class,
+            SkuPopularityRankingSnapshotRepository::class,
         );
     }
 
