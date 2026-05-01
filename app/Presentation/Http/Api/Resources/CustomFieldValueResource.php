@@ -41,6 +41,10 @@ final class CustomFieldValueResource extends JsonResource
             },
             'allowed_values' => $field->definition->base->allowedValues,
             'sort_order' => $field->definition->base->sortOrder,
+            'general' => (new CustomFieldGeneralSettingsResource($field->definition->generalSettings))->toArray($request),
+            'product' => $field->definition->base->isProductField()
+                ? (new ProductFieldSettingsResource($field->definition->productSettings))->toArray($request)
+                : null,
         ];
     }
 }
