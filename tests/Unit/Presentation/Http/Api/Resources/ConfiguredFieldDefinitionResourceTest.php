@@ -119,7 +119,7 @@ final class ConfiguredFieldDefinitionResourceTest extends TestCase
     }
 
     #[Test]
-    public function product_block_is_null_when_product_field_has_no_settings_row(): void
+    public function product_block_returns_defaults_when_product_field_has_no_settings_row(): void
     {
         $definition = new ConfiguredFieldDefinition(
             internalId: new Uuid(self::FIXTURE_UUID),
@@ -130,7 +130,7 @@ final class ConfiguredFieldDefinitionResourceTest extends TestCase
 
         $array = (new ConfiguredFieldDefinitionResource($definition))->toArray(new Request());
 
-        $this->assertNull($array['product']);
+        $this->assertSame(['stock_item_update_mode' => null], $array['product']);
     }
 
     #[Test]
