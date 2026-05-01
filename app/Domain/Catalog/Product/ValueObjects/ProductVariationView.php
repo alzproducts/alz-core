@@ -64,6 +64,7 @@ final readonly class ProductVariationView
      * @param list<ProductSupplier>|null $suppliers All suppliers (null when not requested via include)
      * @param bool $isComposite Whether this variation's stock item is a composite parent
      * @param ProductInventory|null $inventory Linnworks inventory data (null when not requested via include)
+     * @param Popularity|null $popularity SKU-level popularity from snapshot pipeline
      */
     public function __construct(
         int $externalId,
@@ -87,6 +88,7 @@ final readonly class ProductVariationView
         public ?array $suppliers = null,
         public bool $isComposite = false,
         public ?ProductInventory $inventory = null,
+        public ?Popularity $popularity = null,
     ) {
         $taxType = $vatExclusive ? TaxType::ZeroRated : TaxType::Inclusive;
 

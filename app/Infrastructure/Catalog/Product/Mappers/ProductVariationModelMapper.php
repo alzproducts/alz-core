@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Infrastructure\Catalog\Product\Mappers;
 
 use App\Domain\Catalog\Product\ValueObjects\Gtin;
+use App\Domain\Catalog\Product\ValueObjects\Popularity;
 use App\Domain\Catalog\Product\ValueObjects\ProductSupplier;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariation;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariationOption;
@@ -86,6 +87,7 @@ final class ProductVariationModelMapper
             suppliers: $suppliers,
             isComposite: $stockItem !== null && $stockItem->is_composite,
             inventory: $stockItem?->toProductInventory(),
+            popularity: Popularity::fromRank($model->popularity_rank, $model->popularity_max),
         );
     }
 

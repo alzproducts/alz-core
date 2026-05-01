@@ -31,7 +31,7 @@ use Generator;
 interface ProductRepositoryInterface extends RepositoryWriteInterface
 {
     /**
-     * Paginate active products with optional eager-loaded relations.
+     * Paginate products with optional eager-loaded relations and filters.
      *
      * @return PaginatedList<ProductView>
      *

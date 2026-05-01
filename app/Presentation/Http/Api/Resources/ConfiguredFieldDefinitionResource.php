@@ -5,8 +5,6 @@ declare(strict_types=1);
 namespace App\Presentation\Http\Api\Resources;
 
 use App\Domain\Catalog\CustomFields\ValueObjects\ConfiguredFieldDefinition;
-use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldGeneralSettings;
-use App\Domain\Catalog\CustomFields\ValueObjects\ProductFieldSettings;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Override;
@@ -16,8 +14,9 @@ use Override;
  *
  * The `general` block is always present — when no settings row exists, its
  * fields reflect their default values (null for nullable columns, `false` for
- * `admin_only`). The `product` block is `null` unless the definition's
- * item_type is `product` AND a settings row exists.
+ * `admin_only`). The `product` block is `null` for non-product entities; for
+ * product entities it is always an object (defaults to `{stock_item_update_mode: null}`
+ * when no settings row exists).
  *
  * @mixin ConfiguredFieldDefinition
  */
@@ -41,50 +40,10 @@ final class ConfiguredFieldDefinitionResource extends JsonResource
             'item_type' => $definition->base->itemType->value,
             'sort_order' => $definition->base->sortOrder,
             'allowed_values' => $definition->base->allowedValues,
-            'general' => self::generalBlock($definition->generalSettings),
-            'product' => self::productBlock($definition),
-        ];
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private static function generalBlock(?CustomFieldGeneralSettings $settings): array
-    {
-        return [
-            'tooltip' => $settings?->tooltip,
-            'select_type' => $settings?->selectType?->value,
-            'suggest_common_data' => $settings?->suggestCommonData,
-            'admin_only' => $settings === null ? false : $settings->adminOnly,
-            'field_validation_rule' => $settings?->validationRule?->value,
-        ];
-    }
-
-    /**
-     * @return array<string, mixed>|null
-     */
-    private static function productBlock(ConfiguredFieldDefinition $definition): ?array
-    {
-        if (! $definition->base->isProductField()) {
-            return null;
-        }
-
-        $product = $definition->productSettings;
-
-        if ($product === null) {
-            return null;
-        }
-
-        return self::productPayload($product);
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private static function productPayload(ProductFieldSettings $settings): array
-    {
-        return [
-            'stock_item_update_mode' => $settings->stockItemUpdateMode?->value,
+            'general' => (new CustomFieldGeneralSettingsResource($definition->generalSettings))->toArray($request),
+            'product' => $definition->base->isProductField()
+                ? (new ProductFieldSettingsResource($definition->productSettings))->toArray($request)
+                : null,
         ];
     }
 }

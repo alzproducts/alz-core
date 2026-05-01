@@ -48,6 +48,8 @@ final class ListProductsRequestDTO extends Data
         public readonly ?string $sku = null,
         #[Nullable, BooleanType]
         public readonly ?bool $has_free_delivery = null,
+        #[Nullable, BooleanType]
+        public readonly ?bool $is_active = null,
     ) {}
 
     /**
@@ -97,7 +99,10 @@ final class ListProductsRequestDTO extends Data
      */
     private function buildFilters(): array
     {
-        $filters = [ProductFilterField::IsActive->value => true];
+        $filters = [];
+        if ($this->is_active !== null) {
+            $filters[ProductFilterField::IsActive->value] = $this->is_active;
+        }
         if ($this->category_id !== null) {
             $filters[ProductFilterField::CategoryId->value] = $this->category_id;
         }

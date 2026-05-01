@@ -190,11 +190,7 @@ final class ProductControllerTest extends TestCase
         $this->productRepository
             ->shouldReceive('paginate')
             ->once()
-            ->with(Mockery::on(static function (ProductListQueryParams $q): bool {
-                // Only is_active should be present when no filters specified
-                return \count($q->filters) === 1
-                    && ($q->filters[ProductFilterField::IsActive->value] ?? null) === true;
-            }))
+            ->with(Mockery::on(static fn(ProductListQueryParams $q): bool => \count($q->filters) === 0))
             ->andReturn($dto);
 
         $response = $this->asApprovedUser()->getJson('/api/products');
@@ -511,8 +507,7 @@ final class ProductControllerTest extends TestCase
         $this->productRepository
             ->shouldReceive('paginate')
             ->once()
-            ->with(Mockery::on(static fn(ProductListQueryParams $q): bool => \count($q->filters) === 4
-                    && ($q->filters[ProductFilterField::IsActive->value] ?? null) === true
+            ->with(Mockery::on(static fn(ProductListQueryParams $q): bool => \count($q->filters) === 3
                     && ($q->filters[ProductFilterField::CategoryId->value] ?? null) === 42
                     && ($q->filters[ProductFilterField::IsOnSale->value] ?? null) === true
                     && ($q->filters[ProductFilterField::Sku->value] ?? null) === 'ABC-123'))
@@ -576,8 +571,7 @@ final class ProductControllerTest extends TestCase
                     && $q->pagination->perPage === 100
                     && $q->pagination->page === 2
                     && $q->includes === [ProductInclude::Variations]
-                    && \count($q->filters) === 5
-                    && ($q->filters[ProductFilterField::IsActive->value] ?? null) === true
+                    && \count($q->filters) === 4
                     && ($q->filters[ProductFilterField::CategoryId->value] ?? null) === 99
                     && ($q->filters[ProductFilterField::IsOnSale->value] ?? null) === true
                     && ($q->filters[ProductFilterField::Sku->value] ?? null) === 'FULL-TEST'
@@ -623,6 +617,54 @@ final class ProductControllerTest extends TestCase
             ->andReturn($dto);
 
         $response = $this->asApprovedUser()->getJson('/api/products?has_free_delivery=0');
+
+        $response->assertStatus(200);
+    }
+
+    #[Test]
+    public function is_active_true_passes_true_to_query(): void
+    {
+        $dto = PaginatedList::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
+
+        $this->productRepository
+            ->shouldReceive('paginate')
+            ->once()
+            ->with(Mockery::on(static fn(ProductListQueryParams $q): bool => ($q->filters[ProductFilterField::IsActive->value] ?? null) === true))
+            ->andReturn($dto);
+
+        $response = $this->asApprovedUser()->getJson('/api/products?is_active=1');
+
+        $response->assertStatus(200);
+    }
+
+    #[Test]
+    public function is_active_false_passes_false_to_query(): void
+    {
+        $dto = PaginatedList::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
+
+        $this->productRepository
+            ->shouldReceive('paginate')
+            ->once()
+            ->with(Mockery::on(static fn(ProductListQueryParams $q): bool => ($q->filters[ProductFilterField::IsActive->value] ?? null) === false))
+            ->andReturn($dto);
+
+        $response = $this->asApprovedUser()->getJson('/api/products?is_active=0');
+
+        $response->assertStatus(200);
+    }
+
+    #[Test]
+    public function omitted_is_active_does_not_add_filter(): void
+    {
+        $dto = PaginatedList::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
+
+        $this->productRepository
+            ->shouldReceive('paginate')
+            ->once()
+            ->with(Mockery::on(static fn(ProductListQueryParams $q): bool => !\array_key_exists(ProductFilterField::IsActive->value, $q->filters)))
+            ->andReturn($dto);
+
+        $response = $this->asApprovedUser()->getJson('/api/products');
 
         $response->assertStatus(200);
     }

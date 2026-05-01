@@ -15,7 +15,7 @@ use App\Domain\ValueObjects\PaginatedList;
 use Psr\Log\LoggerInterface;
 
 /**
- * List active products with optional eager-loaded relations.
+ * List products with optional eager-loaded relations and filters.
  *
  * @see ProductRepositoryInterface::paginate()
  */
