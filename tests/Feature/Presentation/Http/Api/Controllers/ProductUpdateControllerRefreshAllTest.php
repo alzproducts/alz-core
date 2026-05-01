@@ -13,6 +13,7 @@ use App\Application\Contracts\Shopwired\ProductClientInterface;
 use App\Application\Contracts\Shopwired\ProductFieldUpdateClientInterface;
 use App\Application\Contracts\Shopwired\ProductUpdateClientInterface;
 use App\Application\Contracts\Shopwired\ShopwiredSyncDispatcherInterface;
+use App\Application\Inventory\UseCases\GenerateVariantSkusUseCase;
 use App\Presentation\Http\Api\Controllers\ProductUpdateController;
 use Mockery;
 use Mockery\MockInterface;
@@ -54,6 +55,7 @@ final class ProductUpdateControllerRefreshAllTest extends TestCase
         $this->app->instance(PriceUpdateClientInterface::class, Mockery::mock(PriceUpdateClientInterface::class));
         $this->app->instance(InventoryClientInterface::class, Mockery::mock(InventoryClientInterface::class));
         $this->app->instance(InventoryUpdateClientInterface::class, Mockery::mock(InventoryUpdateClientInterface::class));
+        $this->app->instance(GenerateVariantSkusUseCase::class, Mockery::mock(GenerateVariantSkusUseCase::class));
     }
 
     #[Override]

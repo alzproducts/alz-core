@@ -16,6 +16,7 @@ use App\Domain\Exceptions\Data\MissingRequiredDataException;
 use App\Domain\Exceptions\DomainException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\Exceptions\Infrastructure\LockAcquisitionException;
+use App\Domain\Exceptions\Inventory\InvalidTemplateException;
 use App\Domain\Exceptions\ValidationFailedException;
 use App\Presentation\Http\Api\Responses\ApiErrorResponseDTO;
 use App\Presentation\Http\Api\Responses\ApiErrorTypeEnum;
@@ -80,6 +81,7 @@ final class InternalApiExceptionMapper
         return match (true) {
             $e instanceof ValidationFailedException,
             $e instanceof InvalidSkuException,
+            $e instanceof InvalidTemplateException,
             $e instanceof MissingRequiredDataException,
             $e instanceof ProductSettingsNotApplicableException => Response::HTTP_UNPROCESSABLE_ENTITY,
             $e instanceof ResourceNotFoundException,
@@ -141,6 +143,7 @@ final class InternalApiExceptionMapper
     {
         return $e instanceof ValidationFailedException
             || $e instanceof InvalidSkuException
+            || $e instanceof InvalidTemplateException
             || $e instanceof MissingRequiredDataException
             || $e instanceof ProductSettingsNotApplicableException
             || $e instanceof ValidationException
@@ -213,7 +216,7 @@ final class InternalApiExceptionMapper
             return $e->context;
         }
 
-        if ($e instanceof ProductSettingsNotApplicableException) {
+        if ($e instanceof ProductSettingsNotApplicableException || $e instanceof InvalidTemplateException) {
             return $e->context();
         }
 

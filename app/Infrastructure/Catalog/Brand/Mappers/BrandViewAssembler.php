@@ -58,6 +58,7 @@ final readonly class BrandViewAssembler
             image: self::buildImage($model),
             createdAt: $model->shopwired_created_at->toDateTimeImmutable(),
             description: \in_array(BrandInclude::Description, $includes, true) ? $model->description : null,
+            description2: \in_array(BrandInclude::Description, $includes, true) ? self::extractDescription2($model->custom_fields) : null,
             customFields: $this->resolveCustomFields($model, $includes),
         );
     }
@@ -76,6 +77,16 @@ final readonly class BrandViewAssembler
     }
 
     /**
+     * @param array<string, mixed> $customFields
+     */
+    private static function extractDescription2(array $customFields): ?string
+    {
+        $value = $customFields['description2'] ?? null;
+
+        return \is_string($value) ? $value : null;
+    }
+
+    /**
      * @param  list<BrandInclude>  $includes
      * @return list<AbstractCustomFieldValue>|null
      *
@@ -87,8 +98,13 @@ final readonly class BrandViewAssembler
      */
     private function resolveCustomFields(BrandModel $model, array $includes): ?array
     {
-        return \in_array(BrandInclude::CustomFields, $includes, true)
-            ? $this->customFieldFactory->fromRawFields($model->custom_fields)
-            : null;
+        if (! \in_array(BrandInclude::CustomFields, $includes, true)) {
+            return null;
+        }
+
+        $rawFields = $model->custom_fields;
+        unset($rawFields['description2']);
+
+        return $this->customFieldFactory->fromRawFields($rawFields);
     }
 }

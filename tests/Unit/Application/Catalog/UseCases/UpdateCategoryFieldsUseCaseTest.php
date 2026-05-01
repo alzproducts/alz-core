@@ -42,7 +42,7 @@ final class UpdateCategoryFieldsUseCaseTest extends TestCase
     }
 
     #[Test]
-    public function maps_all_four_fields_and_delegates_to_client(): void
+    public function maps_all_five_fields_and_delegates_to_client(): void
     {
         $categoryId = IntId::from(3);
 
@@ -50,7 +50,7 @@ final class UpdateCategoryFieldsUseCaseTest extends TestCase
             ->shouldReceive('update')
             ->once()
             ->withArgs(static function (int $id, CategoryFieldUpdate ...$updates) {
-                if ($id !== 3 || \count($updates) !== 4) {
+                if ($id !== 3 || \count($updates) !== 5) {
                     return false;
                 }
 
@@ -64,6 +64,7 @@ final class UpdateCategoryFieldsUseCaseTest extends TestCase
                     'Description' => 'All electronic goods',
                     'MetaTitle' => 'SEO Title',
                     'MetaDescription' => 'SEO Description',
+                    'Description2' => 'Secondary description',
                 ];
             });
 
@@ -72,6 +73,7 @@ final class UpdateCategoryFieldsUseCaseTest extends TestCase
             'description' => 'All electronic goods',
             'meta_title' => 'SEO Title',
             'meta_description' => 'SEO Description',
+            'description2' => 'Secondary description',
         ]);
     }
 

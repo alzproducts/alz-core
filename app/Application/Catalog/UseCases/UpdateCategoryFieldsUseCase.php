@@ -65,6 +65,7 @@ final readonly class UpdateCategoryFieldsUseCase
                 'description' => CategoryFieldUpdate::description($value),
                 'meta_title' => CategoryFieldUpdate::metaTitle($value),
                 'meta_description' => CategoryFieldUpdate::metaDescription($value),
+                'description2' => CategoryFieldUpdate::description2($value),
                 default => throw new UnsupportedFieldException($name, 'category'),
             };
         }
