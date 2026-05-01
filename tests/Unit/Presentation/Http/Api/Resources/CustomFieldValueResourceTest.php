@@ -6,10 +6,13 @@ namespace Tests\Unit\Presentation\Http\Api\Resources;
 
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldItemType;
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldType;
+use App\Domain\Catalog\CustomFields\Enums\StockItemUpdateMode;
 use App\Domain\Catalog\CustomFields\ValueObjects\ConfiguredFieldDefinition;
 use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldDefinition;
+use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldGeneralSettings;
 use App\Domain\Catalog\CustomFields\ValueObjects\DateTimeCustomFieldValue;
 use App\Domain\Catalog\CustomFields\ValueObjects\NullCustomFieldValue;
+use App\Domain\Catalog\CustomFields\ValueObjects\ProductFieldSettings;
 use App\Domain\Catalog\CustomFields\ValueObjects\ProductListCustomFieldValue;
 use App\Domain\Catalog\CustomFields\ValueObjects\StringCustomFieldValue;
 use App\Domain\Catalog\CustomFields\ValueObjects\ToggleCustomFieldValue;
@@ -217,6 +220,144 @@ final class CustomFieldValueResourceTest extends TestCase
 
         self::assertSame(['S', 'M', 'L', 'XL'], $result['allowed_values']);
         self::assertSame(9, $result['sort_order']);
+    }
+
+    // ========================================================================
+    // general block
+    // ========================================================================
+
+    #[Test]
+    public function it_includes_general_defaults_when_no_settings_row_exists(): void
+    {
+        $definition = self::wrap(new CustomFieldDefinition(
+            id: 10,
+            name: 'notes',
+            type: CustomFieldType::Text,
+            label: 'Notes',
+            itemType: CustomFieldItemType::Product,
+            sortOrder: 0,
+            allowedValues: null,
+        ));
+        $vo = new StringCustomFieldValue($definition, 'some note');
+
+        $result = (new CustomFieldValueResource($vo))->toArray(Request::create('/'));
+
+        self::assertSame([
+            'tooltip' => null,
+            'select_type' => null,
+            'suggest_common_data' => null,
+            'admin_only' => false,
+            'field_validation_rule' => null,
+        ], $result['general']);
+    }
+
+    #[Test]
+    public function it_includes_populated_general_block_when_settings_exist(): void
+    {
+        $base = new CustomFieldDefinition(
+            id: 11,
+            name: 'material',
+            type: CustomFieldType::Text,
+            label: 'Material',
+            itemType: CustomFieldItemType::Product,
+            sortOrder: 1,
+            allowedValues: null,
+        );
+        $definition = new ConfiguredFieldDefinition(
+            new Uuid('11111111-2222-3333-4444-555555555555'),
+            $base,
+            new CustomFieldGeneralSettings(
+                tooltip: 'Enter the primary material',
+                selectType: null,
+                suggestCommonData: true,
+                adminOnly: false,
+                validationRule: null,
+            ),
+            null,
+        );
+        $vo = new StringCustomFieldValue($definition, 'cotton');
+
+        $result = (new CustomFieldValueResource($vo))->toArray(Request::create('/'));
+
+        self::assertSame([
+            'tooltip' => 'Enter the primary material',
+            'select_type' => null,
+            'suggest_common_data' => true,
+            'admin_only' => false,
+            'field_validation_rule' => null,
+        ], $result['general']);
+    }
+
+    // ========================================================================
+    // product block
+    // ========================================================================
+
+    #[Test]
+    public function it_includes_null_product_block_for_non_product_entity(): void
+    {
+        $definition = new ConfiguredFieldDefinition(
+            new Uuid('11111111-2222-3333-4444-555555555555'),
+            new CustomFieldDefinition(
+                id: 12,
+                name: 'brand_note',
+                type: CustomFieldType::Text,
+                label: 'Brand Note',
+                itemType: CustomFieldItemType::Brand,
+                sortOrder: 0,
+                allowedValues: null,
+            ),
+            null,
+            null,
+        );
+        $vo = new StringCustomFieldValue($definition, 'note');
+
+        $result = (new CustomFieldValueResource($vo))->toArray(Request::create('/'));
+
+        self::assertNull($result['product']);
+    }
+
+    #[Test]
+    public function it_includes_product_defaults_when_product_field_has_no_settings_row(): void
+    {
+        $definition = self::wrap(new CustomFieldDefinition(
+            id: 13,
+            name: 'stock_note',
+            type: CustomFieldType::Text,
+            label: 'Stock Note',
+            itemType: CustomFieldItemType::Product,
+            sortOrder: 0,
+            allowedValues: null,
+        ));
+        $vo = new StringCustomFieldValue($definition, 'in stock');
+
+        $result = (new CustomFieldValueResource($vo))->toArray(Request::create('/'));
+
+        self::assertSame(['stock_item_update_mode' => null], $result['product']);
+    }
+
+    #[Test]
+    public function it_includes_populated_product_block_when_settings_exist(): void
+    {
+        $base = new CustomFieldDefinition(
+            id: 14,
+            name: 'update_mode',
+            type: CustomFieldType::Text,
+            label: 'Update Mode',
+            itemType: CustomFieldItemType::Product,
+            sortOrder: 0,
+            allowedValues: null,
+        );
+        $definition = new ConfiguredFieldDefinition(
+            new Uuid('11111111-2222-3333-4444-555555555555'),
+            $base,
+            null,
+            new ProductFieldSettings(stockItemUpdateMode: StockItemUpdateMode::Single),
+        );
+        $vo = new StringCustomFieldValue($definition, 'value');
+
+        $result = (new CustomFieldValueResource($vo))->toArray(Request::create('/'));
+
+        self::assertSame(['stock_item_update_mode' => StockItemUpdateMode::Single->value], $result['product']);
     }
 
     // ========================================================================
