@@ -15,6 +15,8 @@ use App\Presentation\Http\Api\Controllers\CustomFieldGeneralSettingsController;
 use App\Presentation\Http\Api\Controllers\CustomFieldProductSettingsController;
 use App\Presentation\Http\Api\Controllers\FilterGroupController;
 use App\Presentation\Http\Api\Controllers\ProductController;
+use App\Presentation\Http\Api\Controllers\ProductPricingUpdateController;
+use App\Presentation\Http\Api\Controllers\ProductRefreshController;
 use App\Presentation\Http\Api\Controllers\ProductUpdateController;
 use App\Presentation\Http\Api\Controllers\VariationController;
 use App\Presentation\Http\Auth\Middleware\ValidateSupabaseJwtMiddleware;
@@ -149,15 +151,15 @@ Route::middleware([ValidateSupabaseJwtMiddleware::class, EnsureUserApprovedMiddl
             ->whereNumber('productId');
         Route::put('products/{productId}/custom-fields', [ProductUpdateController::class, 'updateCustomFields'])
             ->whereNumber('productId');
-        Route::put('products/{productId}/prices', [ProductUpdateController::class, 'updatePrices'])
+        Route::put('products/{productId}/prices', [ProductPricingUpdateController::class, 'updatePrices'])
             ->whereNumber('productId');
-        Route::post('products/refresh', [ProductUpdateController::class, 'refreshAll']);
-        Route::post('products/{productId}/refresh', [ProductUpdateController::class, 'refresh'])
+        Route::post('products/refresh', [ProductRefreshController::class, 'refreshAll']);
+        Route::post('products/{productId}/refresh', [ProductRefreshController::class, 'refresh'])
             ->whereNumber('productId');
         Route::post('products/{productId}/generate-variant-skus', [ProductUpdateController::class, 'generateVariantSkus'])
             ->whereNumber('productId');
         Route::post('products/free-delivery', [ProductUpdateController::class, 'updateFreeDelivery']);
-        Route::put('products/cost-prices', [ProductUpdateController::class, 'updateCostPrices']);
+        Route::put('products/cost-prices', [ProductPricingUpdateController::class, 'updateCostPrices']);
 
         // Variation endpoints
         Route::get('products/variations', [VariationController::class, 'index']);
