@@ -1,4 +1,5 @@
 ---
+name: frontend-spec
 description: Generate frontend specification from backend feature for alz-admin consumption
 argument-hint: "app/path/to/File.php {/api/endpoint GET description}"
 model: opus
