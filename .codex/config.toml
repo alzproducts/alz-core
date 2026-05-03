@@ -1,0 +1,5 @@
+[shell_environment_policy]
+inherit = "core"
+
+[shell_environment_policy.set]
+API_BYPASS_SECRET = "d9810b4aa681ea959abc0ae1b0ca1b7a"

@@ -716,7 +716,7 @@ parameters:
 
 
 		-
-			rawMessage: 'Class EloquentProductRepository is 948 lines long — exceeds the 500-line limit. Consider decomposing into smaller, focused classes.'
+			rawMessage: 'Class EloquentProductRepository is 953 lines long — exceeds the 500-line limit. Consider decomposing into smaller, focused classes.'
 			identifier: alz.excessiveClassLength
 			count: 1
 			path: app/Infrastructure/Shopwired/Repositories/EloquentProductRepository.php

@@ -20,12 +20,15 @@ use App\Application\Contracts\Catalog\RelatedProductsQueryRepositoryInterface;
 use App\Application\Contracts\Catalog\ShippingOffersFilterQueryRepositoryInterface;
 use App\Application\Contracts\Catalog\ShippingOptionsFilterQueryRepositoryInterface;
 use App\Application\Contracts\Catalog\SkuPopularityRankingSnapshotRepositoryInterface;
+use App\Application\Contracts\Catalog\VariationQueryRepositoryInterface;
 use App\Application\Contracts\Catalog\VatReliefFilterQueryRepositoryInterface;
 use App\Domain\Exceptions\InvalidConfigurationException;
 use App\Infrastructure\Catalog\CustomFields\Repositories\EloquentCustomFieldGeneralSettingsRepository;
 use App\Infrastructure\Catalog\CustomFields\Repositories\EloquentCustomFieldProductSettingsRepository;
 use App\Infrastructure\Catalog\Dispatchers\QueuedCatalogSyncDispatcher;
+use App\Infrastructure\Catalog\Product\Mappers\ProductVariationViewModelMapper;
 use App\Infrastructure\Catalog\Product\Repositories\EloquentProductExtraDataRepository;
+use App\Infrastructure\Catalog\Product\Repositories\EloquentVariationQueryRepository;
 use App\Infrastructure\Catalog\Repositories\BestSellersRankingStateQueryRepository;
 use App\Infrastructure\Catalog\Repositories\OffersFilterQueryRepository;
 use App\Infrastructure\Catalog\Repositories\ProductPopularityRankingSnapshotRepository;
@@ -79,6 +82,8 @@ final class CatalogServiceProvider extends ServiceProvider implements Deferrable
             RelatedProductsAlgorithmParamsRepositoryInterface::class,
             RelatedProductsQueryRepositoryInterface::class,
             ProductViewQueryRepositoryInterface::class,
+            VariationQueryRepositoryInterface::class,
+            ProductVariationViewModelMapper::class,
         ];
     }
 
@@ -94,6 +99,13 @@ final class CatalogServiceProvider extends ServiceProvider implements Deferrable
             ProductExtraDataRepositoryInterface::class,
             EloquentProductExtraDataRepository::class,
         );
+
+        $this->app->scoped(
+            VariationQueryRepositoryInterface::class,
+            EloquentVariationQueryRepository::class,
+        );
+
+        $this->app->scoped(ProductVariationViewModelMapper::class);
     }
 
     private function registerPopularitySnapshotRepositories(): void

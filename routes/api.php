@@ -18,6 +18,7 @@ use App\Presentation\Http\Api\Controllers\ProductController;
 use App\Presentation\Http\Api\Controllers\ProductPricingUpdateController;
 use App\Presentation\Http\Api\Controllers\ProductRefreshController;
 use App\Presentation\Http\Api\Controllers\ProductUpdateController;
+use App\Presentation\Http\Api\Controllers\VariationController;
 use App\Presentation\Http\Auth\Middleware\ValidateSupabaseJwtMiddleware;
 use App\Presentation\Http\Controllers\ContactForm\ContactFormController;
 use App\Presentation\Http\Controllers\HelpScout\ConversationsController;
@@ -159,6 +160,9 @@ Route::middleware([ValidateSupabaseJwtMiddleware::class, EnsureUserApprovedMiddl
             ->whereNumber('productId');
         Route::post('products/free-delivery', [ProductUpdateController::class, 'updateFreeDelivery']);
         Route::put('products/cost-prices', [ProductPricingUpdateController::class, 'updateCostPrices']);
+
+        // Variation endpoints
+        Route::get('products/variations', [VariationController::class, 'index']);
 
         // Category endpoints
         Route::get('categories', [CategoryController::class, 'index']);

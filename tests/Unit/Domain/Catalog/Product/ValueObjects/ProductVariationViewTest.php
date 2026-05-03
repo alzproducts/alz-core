@@ -7,6 +7,7 @@ namespace Tests\Unit\Domain\Catalog\Product\ValueObjects;
 use App\Domain\Catalog\Product\ValueObjects\ProductSupplier;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariationView;
 use App\Domain\Shared\Money\ValueObjects\Money;
+use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -438,6 +439,8 @@ final class ProductVariationViewTest extends TestCase
             mpn: null,
             imageIndex: null,
             options: [],
+            createdAt: new DateTimeImmutable('2024-01-01'),
+            updatedAt: new DateTimeImmutable('2024-01-01'),
             defaultSupplier: $supplierName !== null ? self::createSupplier($supplierName) : null,
             isComposite: $isComposite,
         );
