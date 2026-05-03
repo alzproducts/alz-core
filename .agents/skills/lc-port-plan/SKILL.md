@@ -1,4 +1,5 @@
 ---
+name: lc-port-plan
 argument-hint: "path/to/legacy-report.md"
 description: Create a porting plan from a legacy feature report
 allowed-tools: mcp__phpstorm__*, mcp__intellij__*, mcp__sequential-thinking__sequentialthinking, Read, Grep, Glob, Agent, AskUserQuestion, Write, Edit, Bash(gh *), Bash(git log *), Bash(git diff *)
