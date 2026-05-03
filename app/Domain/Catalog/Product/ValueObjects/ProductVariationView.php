@@ -8,6 +8,7 @@ use App\Domain\Inventory\ValueObjects\Weight;
 use App\Domain\Shared\Money\ValueObjects\Money;
 use App\Domain\ValueObjects\IntId;
 use App\Domain\ValueObjects\TaxType;
+use DateTimeImmutable;
 
 /**
  * Read-only API projection of a product variation.
@@ -16,7 +17,7 @@ use App\Domain\ValueObjects\TaxType;
  * The $vatExclusive param is a construction-only value from the parent product
  * used for TaxType derivation — not stored as a property.
  *
- * Constructed by ProductVariationModelMapper::toViewDomain() after price resolution.
+ * Constructed by ProductVariationViewModelMapper::toViewDomain() after price resolution.
  */
 final readonly class ProductVariationView
 {
@@ -65,6 +66,8 @@ final readonly class ProductVariationView
      * @param bool $isComposite Whether this variation's stock item is a composite parent
      * @param ProductInventory|null $inventory Linnworks inventory data (null when not requested via include)
      * @param Popularity|null $popularity SKU-level popularity from snapshot pipeline
+     * @param DateTimeImmutable $createdAt Variation creation timestamp
+     * @param DateTimeImmutable $updatedAt Variation last-update timestamp
      */
     public function __construct(
         int $externalId,
@@ -84,6 +87,8 @@ final readonly class ProductVariationView
         public ?string $mpn,
         public ?int $imageIndex,
         public array $options,
+        public DateTimeImmutable $createdAt,
+        public DateTimeImmutable $updatedAt,
         public ?ProductSupplier $defaultSupplier = null,
         public ?array $suppliers = null,
         public bool $isComposite = false,

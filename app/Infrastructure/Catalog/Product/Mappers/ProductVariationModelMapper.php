@@ -5,21 +5,18 @@ declare(strict_types=1);
 namespace App\Infrastructure\Catalog\Product\Mappers;
 
 use App\Domain\Catalog\Product\ValueObjects\Gtin;
-use App\Domain\Catalog\Product\ValueObjects\Popularity;
-use App\Domain\Catalog\Product\ValueObjects\ProductSupplier;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariation;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariationOption;
-use App\Domain\Catalog\Product\ValueObjects\ProductVariationView;
 use App\Infrastructure\Catalog\Product\Models\ProductVariationModel;
-use App\Infrastructure\Catalog\Product\Models\ProductVariationViewModel;
 
 /**
- * Single source of truth for ProductVariationModel ↔ Domain mapping.
+ * Maps ProductVariationModel (write model) ↔ Domain ProductVariation.
  *
- * Three mapping paths (mirrors ProductModelMapper):
- * - `toDomain()`: Basic conversion (internal/write paths)
- * - `toViewDomain()`: API projection from view model with resolved prices and Linnworks cost
+ * Two mapping paths:
+ * - `toDomain()`: Eloquent → Domain (internal/write paths)
  * - `toModelAttributes()`: Domain → Eloquent attributes (persistence)
+ *
+ * Read-path mapping (view model → ProductVariationView) lives in ProductVariationViewModelMapper.
  */
 final class ProductVariationModelMapper
 {
@@ -43,51 +40,6 @@ final class ProductVariationModelMapper
             mpn: $model->mpn,
             imageIndex: $model->image_index,
             options: self::buildOptions($model->options),
-        );
-    }
-
-    /**
-     * API projection: returns a domain-typed ProductVariationView from a view model.
-     *
-     * Passes primitives directly — the VO self-constructs domain types.
-     * Prices are already resolved (parent inheritance applied in SQL via COALESCE).
-     * Supplier data is pre-resolved by the assembler and passed through.
-     *
-     * @param bool $vatExclusive Whether prices exclude VAT (from parent product)
-     * @param ProductSupplier|null $defaultSupplier Pre-resolved default supplier
-     * @param list<ProductSupplier>|null $suppliers Pre-resolved suppliers (null = not requested)
-     */
-    public function toViewDomain(
-        ProductVariationViewModel $model,
-        bool $vatExclusive,
-        ?ProductSupplier $defaultSupplier = null,
-        ?array $suppliers = null,
-    ): ProductVariationView {
-        $stockItem = $model->relationLoaded('stockItem') ? $model->stockItem : null;
-
-        return new ProductVariationView(
-            externalId: $model->external_id,
-            sku: $model->sku,
-            gtin: $model->gtin,
-            price: $model->price,
-            costPrice: $model->cost_price,
-            salePrice: $model->sale_price,
-            rrp: $model->extraData?->rrp,
-            effectivePrice: $model->effective_price,
-            isOnSale: $model->is_on_sale,
-            profitMargin: $model->profit_margin,
-            availableStock: $model->available_stock,
-            physicalStock: $model->physical_stock,
-            weight: $model->weight,
-            vatExclusive: $vatExclusive,
-            mpn: $model->mpn,
-            imageIndex: $model->image_index,
-            options: self::buildOptions($model->options),
-            defaultSupplier: $defaultSupplier,
-            suppliers: $suppliers,
-            isComposite: $stockItem !== null && $stockItem->is_composite,
-            inventory: $stockItem?->toProductInventory(),
-            popularity: Popularity::fromRank($model->popularity_rank, $model->popularity_max),
         );
     }
 

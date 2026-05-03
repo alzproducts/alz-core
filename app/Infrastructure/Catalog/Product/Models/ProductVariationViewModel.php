@@ -7,6 +7,7 @@ namespace App\Infrastructure\Catalog\Product\Models;
 use App\Infrastructure\Linnworks\Models\StockItemModel;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Override;
 
@@ -44,6 +45,10 @@ use Override;
  * @property float|null $profit_margin Gross profit margin % computed at DB level
  * @property int|null $popularity_rank Popularity rank from SKU snapshot pipeline (calculated_sort_order)
  * @property int|null $popularity_max Max rank from active SKU popularity config (max_rank)
+ * @property string $variation_title Computed: parent title + ' - ' + option value_names (or just parent title when no options)
+ * @property bool $parent_is_active Parent product visibility (filter column — stays in view for WHERE clause)
+ * @property bool $parent_has_free_delivery Whether parent has free delivery (filter column)
+ * @property list<int> $parent_main_category_ids Parent product main category IDs (filter column)
  */
 final class ProductVariationViewModel extends Model
 {
@@ -80,12 +85,28 @@ final class ProductVariationViewModel extends Model
             'options' => 'array',
             'created_at' => 'immutable_datetime',
             'updated_at' => 'immutable_datetime',
+            'parent_is_active' => 'boolean',
+            'parent_has_free_delivery' => 'boolean',
+            'parent_main_category_ids' => 'array',
         ];
     }
 
     // ─────────────────────────────────────────────────────────────────────────
     // Relationships
     // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Get the parent product for this variation.
+     *
+     * Provides parent context (title, url, images, custom_fields, vat_exclusive, vat_relief)
+     * via eager-loading instead of denormalized SQL view columns.
+     *
+     * @return BelongsTo<ProductModel, $this>
+     */
+    public function product(): BelongsTo
+    {
+        return $this->belongsTo(ProductModel::class, 'product_id', 'id');
+    }
 
     /**
      * Get the variation's extra data (RRP, etc.) matched by SKU.
