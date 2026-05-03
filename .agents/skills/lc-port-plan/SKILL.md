@@ -70,10 +70,10 @@ Before any planning discussions, present a structured summary of what the agents
 - List each existing piece of infrastructure with its location
 
 **Exists but needs extending:**
-- List infrastructure that exists but needs new methods/endpoints
+- List infrastructure that exists but needs new methods/capabilities
 
 **Needs building from scratch:**
-- List what doesn't exist yet
+- List what must be created from scratch
 
 Ask the user to confirm this assessment is accurate before continuing. They know the codebase — if something was missed, they'll flag it.
 
