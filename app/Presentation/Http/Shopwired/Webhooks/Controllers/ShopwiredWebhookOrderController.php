@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Presentation\Http\Controllers\Shopwired\Webhooks;
+namespace App\Presentation\Http\Shopwired\Webhooks\Controllers;
 
 use App\Application\Shopwired\DTOs\RawWebhookPayloadDTO;
 use App\Application\Shopwired\Services\HandleOrderWebhookService;

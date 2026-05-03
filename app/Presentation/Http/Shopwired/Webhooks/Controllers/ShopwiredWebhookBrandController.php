@@ -2,16 +2,13 @@
 
 declare(strict_types=1);
 
-namespace App\Presentation\Http\Controllers\Shopwired\Webhooks;
+namespace App\Presentation\Http\Shopwired\Webhooks\Controllers;
 
 use App\Application\Shopwired\DTOs\RawWebhookPayloadDTO;
-use App\Application\Shopwired\Services\HandleProductWebhookService;
+use App\Application\Shopwired\Services\HandleBrandWebhookService;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
-use App\Domain\Exceptions\Api\RecordNotFoundException;
-use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Data\InvalidEnumValueException;
-use App\Domain\Exceptions\Data\InvalidSkuException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Presentation\Http\Shopwired\Webhooks\DTOs\WebhookEnvelopeDTO;
@@ -19,15 +16,15 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 /**
- * Receives all ShopWired product-related webhook events and routes them
+ * Receives all ShopWired brand-related webhook events and routes them
  * to the appropriate use case based on event topic.
  *
  * Authentication is handled upstream by VerifyShopwiredWebhookSignature middleware.
  * No try-catch — exceptions bubble to the global handler.
  */
-final readonly class ShopwiredWebhookProductController
+final readonly class ShopwiredWebhookBrandController
 {
-    public function __construct(private HandleProductWebhookService $service) {}
+    public function __construct(private HandleBrandWebhookService $service) {}
 
     /**
      * @throws DatabaseOperationFailedException
@@ -35,9 +32,6 @@ final readonly class ShopwiredWebhookProductController
      * @throws ExternalServiceUnavailableException
      * @throws InvalidApiResponseException
      * @throws InvalidEnumValueException
-     * @throws InvalidSkuException
-     * @throws RecordNotFoundException When product row not found in database
-     * @throws ResourceNotFoundException
      */
     public function __invoke(Request $request): JsonResponse
     {

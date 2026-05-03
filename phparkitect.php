@@ -346,7 +346,10 @@ return static function (Config $config): void {
 
     // Controllers must end with "Controller"
     $rules[] = Rule::allClasses()
-                   ->that(new ResideInOneOfTheseNamespaces('App\Presentation\Http\Controllers'))
+                   ->that(new ResideInOneOfTheseNamespaces(
+                       'App\Presentation\Http\Controllers',
+                       'App\Presentation\Http\*\Controllers',
+                   ))
                    ->should(new HaveNameMatching('*Controller'))
                    ->because('Controllers should have a "Controller" suffix for clarity.');
 
