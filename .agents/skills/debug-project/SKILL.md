@@ -1,4 +1,5 @@
 ---
+name: debug-project
 description: Debug Project
 allowed-tools: Bash(git *), Bash(make *), Bash(php *), Bash(curl *), Bash(jq *), mcp__phpstorm__*, mcp__webstorm__*, mcp__intellij__*, Read, Grep, Glob, Edit, Write, AskUserQuestion
 ---

@@ -1,4 +1,5 @@
 ---
+name: refactor
 description: "Safe behavioral-preserving refactor with implementation log and deviation tracking"
 allowed-tools: Bash(git *), Bash(make *), mcp__sequential-thinking__sequentialthinking, mcp__phpstorm__*, mcp__webstorm__*, mcp__intellij__*, Read, Grep, Glob, Edit, Write, AskUserQuestion, TaskCreate, TaskUpdate, TaskList, TaskGet
 ---
