@@ -132,12 +132,17 @@ return new class extends Migration {
                 srl.calculated_sort_order AS popularity_rank,
                 spc.max_rank              AS popularity_max,
 
-                -- Computed: variation title = parent title + ' - ' + space-separated option value_names
+                -- Computed: variation title = parent title + ' - ' + space-separated option value_names.
+                -- Outer COALESCE guards against options arrays whose elements lack 'value_name'
+                -- (string_agg returns NULL → concat collapses to NULL → fall back to bare title).
                 CASE
                     WHEN v.options IS NOT NULL AND jsonb_array_length(v.options) > 0
-                        THEN p.title || ' - ' || (
-                            SELECT string_agg(elem->>'value_name', ' ' ORDER BY ordinality)
-                            FROM jsonb_array_elements(v.options) WITH ORDINALITY AS t(elem, ordinality)
+                        THEN COALESCE(
+                            p.title || ' - ' || (
+                                SELECT string_agg(elem->>'value_name', ' ' ORDER BY ordinality)
+                                FROM jsonb_array_elements(v.options) WITH ORDINALITY AS t(elem, ordinality)
+                            ),
+                            p.title
                         )
                     ELSE p.title
                 END AS variation_title,
