@@ -337,6 +337,11 @@ If a linter reports an issue, fix the code—don't suppress it. Only bypass when
 2. Known false positive in framework/package (document why)
 3. Temporary external dependency issue (add TODO)
 
+**Mandatory order before any suppression** — applies even when mirroring an existing pattern:
+1. Consult [`.ai/docs/guides/common-linting-errors.md`](.ai/docs/guides/common-linting-errors.md) (see *Stubborn Linting Issues* below) for a workaround.
+2. If still required, prefer a scoped entry in `phpstan.neon` over an inline `@phpstan-ignore`.
+3. Inline `@phpstan-ignore` requires explicit approval per-occurrence — existing inline suppressions in the codebase do **not** count as approval and may themselves be uncorrected.
+
 ### Complexity Baseline (`phpstan-complexity-baseline.neon`)
 
 **Only update existing entries** when line counts shift (e.g., adding an import changes surrounding classes). **NEVER add new baseline entries for new code** — instead, decompose the code to fit within limits (see `app/Application/AGENTS.md` → Use Case Decomposition).

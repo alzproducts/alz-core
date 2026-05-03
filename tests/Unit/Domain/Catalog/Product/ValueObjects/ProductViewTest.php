@@ -61,6 +61,8 @@ final class ProductViewTest extends TestCase
             mpn: null,
             imageIndex: null,
             options: [],
+            createdAt: new DateTimeImmutable('2024-01-01'),
+            updatedAt: new DateTimeImmutable('2024-01-01'),
         );
 
         $view = $this->createView(isOnSale: false, variations: [$variation]);
@@ -90,6 +92,8 @@ final class ProductViewTest extends TestCase
             mpn: null,
             imageIndex: null,
             options: [],
+            createdAt: new DateTimeImmutable('2024-01-01'),
+            updatedAt: new DateTimeImmutable('2024-01-01'),
         );
 
         $view = $this->createView(isOnSale: false, variations: [$variation]);
@@ -469,6 +473,8 @@ final class ProductViewTest extends TestCase
             mpn: null,
             imageIndex: null,
             options: [],
+            createdAt: new DateTimeImmutable('2024-01-01'),
+            updatedAt: new DateTimeImmutable('2024-01-01'),
         );
 
         $view = $this->createView(
@@ -504,6 +510,8 @@ final class ProductViewTest extends TestCase
             mpn: null,
             imageIndex: null,
             options: [],
+            createdAt: new DateTimeImmutable('2024-01-01'),
+            updatedAt: new DateTimeImmutable('2024-01-01'),
         );
         $variationNotOnSale = new ProductVariationView(
             externalId: 11,
@@ -523,6 +531,8 @@ final class ProductViewTest extends TestCase
             mpn: null,
             imageIndex: null,
             options: [],
+            createdAt: new DateTimeImmutable('2024-01-01'),
+            updatedAt: new DateTimeImmutable('2024-01-01'),
         );
 
         $view = $this->createView(
@@ -957,6 +967,8 @@ final class ProductViewTest extends TestCase
             mpn: null,
             imageIndex: null,
             options: [],
+            createdAt: new DateTimeImmutable('2024-01-01'),
+            updatedAt: new DateTimeImmutable('2024-01-01'),
         );
     }
 

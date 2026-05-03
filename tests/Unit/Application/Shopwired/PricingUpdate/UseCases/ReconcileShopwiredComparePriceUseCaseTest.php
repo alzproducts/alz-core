@@ -214,6 +214,8 @@ final class ReconcileShopwiredComparePriceUseCaseTest extends TestCase
             mpn: null,
             imageIndex: null,
             options: [],
+            createdAt: new DateTimeImmutable('2024-01-01'),
+            updatedAt: new DateTimeImmutable('2024-01-01'),
         );
     }
 
