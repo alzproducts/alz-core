@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 '/Users/tom/code/IdeaProjects/alz-core/.codex/hooks/post-tool-call.py'"
+          }
+        ]
+      }
+    ]
+  }
+}

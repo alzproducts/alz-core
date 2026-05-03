@@ -1,0 +1,1 @@
+../../.agents/skills/check-migrations/SKILL.md
