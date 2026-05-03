@@ -15,6 +15,7 @@ use App\Presentation\Http\Api\Controllers\CustomFieldGeneralSettingsController;
 use App\Presentation\Http\Api\Controllers\CustomFieldProductSettingsController;
 use App\Presentation\Http\Api\Controllers\FilterGroupController;
 use App\Presentation\Http\Api\Controllers\ProductController;
+use App\Presentation\Http\Api\Controllers\ProductInventoryUpdateController;
 use App\Presentation\Http\Api\Controllers\ProductPricingUpdateController;
 use App\Presentation\Http\Api\Controllers\ProductRefreshController;
 use App\Presentation\Http\Api\Controllers\ProductUpdateController;
@@ -160,6 +161,7 @@ Route::middleware([ValidateSupabaseJwtMiddleware::class, EnsureUserApprovedMiddl
             ->whereNumber('productId');
         Route::post('products/free-delivery', [ProductUpdateController::class, 'updateFreeDelivery']);
         Route::put('products/cost-prices', [ProductPricingUpdateController::class, 'updateCostPrices']);
+        Route::put('products/inventory', [ProductInventoryUpdateController::class, 'update']);
 
         // Variation endpoints
         Route::get('products/variations', [VariationController::class, 'index']);

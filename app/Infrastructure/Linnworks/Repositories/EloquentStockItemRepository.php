@@ -6,9 +6,13 @@ namespace App\Infrastructure\Linnworks\Repositories;
 
 use App\Application\Contracts\Linnworks\StockItemRepositoryInterface;
 use App\Application\Results\SaveManyResult;
+use App\Domain\Catalog\Product\ValueObjects\Sku;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use App\Domain\Exceptions\UnsupportedFieldException;
+use App\Domain\Inventory\Enums\InventoryUpdatableField;
+use App\Domain\Inventory\ValueObjects\InventoryFieldUpdate;
 use App\Domain\Inventory\ValueObjects\StockItemExtendedProperty;
 use App\Domain\Inventory\ValueObjects\StockItemFull;
 use App\Domain\Inventory\ValueObjects\StockItemSupplier;
@@ -232,6 +236,52 @@ final class EloquentStockItemRepository extends AbstractEloquentRepository imple
         $this->eloquentGateway->transact(static function () use ($compositeIds): void {
             self::applyFlagSync('is_composite', $compositeIds);
         });
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function updateInventoryFieldsBySku(Sku $sku, InventoryFieldUpdate ...$updates): int
+    {
+        $columns = [];
+        foreach ($updates as $update) {
+            [$column, $value] = self::fieldMapping($update);
+            $columns[$column] = $value;
+        }
+
+        return $this->eloquentGateway->updateWhere(
+            modelClass: StockItemModel::class,
+            column: 'item_number',
+            value: $sku->value,
+            data: $columns,
+        );
+    }
+
+    /**
+     * @return array{0: string, 1: bool|int}
+     *
+     * @throws UnsupportedFieldException When the field has no local column mapping
+     */
+    private static function fieldMapping(InventoryFieldUpdate $update): array
+    {
+        return match ($update->field) {
+            InventoryUpdatableField::JIT => ['jit', $update->value === 'true'],
+            InventoryUpdatableField::MinimumLevel => ['minimum_level', (int) $update->value],
+            InventoryUpdatableField::Category,
+            InventoryUpdatableField::RetailPrice,
+            InventoryUpdatableField::PurchasePrice,
+            InventoryUpdatableField::BinRack,
+            InventoryUpdatableField::Barcode,
+            InventoryUpdatableField::Weight,
+            InventoryUpdatableField::Title => throw new UnsupportedFieldException(
+                fieldName: $update->field->name,
+                entityType: 'StockItem',
+            ),
+        };
     }
 
     protected function getModelClass(): string

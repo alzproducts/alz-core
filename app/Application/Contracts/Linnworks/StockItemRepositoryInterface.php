@@ -6,9 +6,11 @@ namespace App\Application\Contracts\Linnworks;
 
 use App\Application\Contracts\RepositoryWriteInterface;
 use App\Application\Results\SaveManyResult;
+use App\Domain\Catalog\Product\ValueObjects\Sku;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use App\Domain\Inventory\ValueObjects\InventoryFieldUpdate;
 use App\Domain\Inventory\ValueObjects\StockItemFull;
 use App\Domain\ValueObjects\Guid;
 
@@ -74,4 +76,16 @@ interface StockItemRepositoryInterface extends RepositoryWriteInterface
      * @throws ExternalServiceUnavailableException
      */
     public function syncCompositeFlags(array $compositeIds): void;
+
+    /**
+     * Update inventory fields on the local stock item row identified by SKU.
+     *
+     * Called after a successful Linnworks write to keep the local mirror in sync.
+     * Returns the number of affected rows (0 if the SKU is not found locally).
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function updateInventoryFieldsBySku(Sku $sku, InventoryFieldUpdate ...$updates): int;
 }
