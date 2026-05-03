@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Presentation\Http\Controllers\HelpScout;
+namespace App\Presentation\Http\HelpScout\Controllers;
 
 use App\Application\HelpScout\Services\CachingHelpScoutService;
 use App\Domain\Access\ValueObjects\AuthenticatedUser;

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Presentation\Http\Controllers\ContactForm;
+namespace App\Presentation\Http\ContactForm\Controllers;
 
 use App\Application\ContactSubmission\UseCases\SubmitContactFormUseCase;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;

@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Presentation\Http\Controllers\Shopwired\Webhooks;
+namespace App\Presentation\Http\Shopwired\Webhooks\Controllers;
 
 use App\Application\Shopwired\DTOs\RawWebhookPayloadDTO;
-use App\Application\Shopwired\Services\HandleBrandWebhookService;
+use App\Application\Shopwired\Services\HandleCustomerWebhookService;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Data\InvalidEnumValueException;
@@ -16,15 +16,15 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 /**
- * Receives all ShopWired brand-related webhook events and routes them
+ * Receives all ShopWired customer-related webhook events and routes them
  * to the appropriate use case based on event topic.
  *
  * Authentication is handled upstream by VerifyShopwiredWebhookSignature middleware.
  * No try-catch — exceptions bubble to the global handler.
  */
-final readonly class ShopwiredWebhookBrandController
+final readonly class ShopwiredWebhookCustomerController
 {
-    public function __construct(private HandleBrandWebhookService $service) {}
+    public function __construct(private HandleCustomerWebhookService $service) {}
 
     /**
      * @throws DatabaseOperationFailedException

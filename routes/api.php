@@ -20,19 +20,19 @@ use App\Presentation\Http\Api\Controllers\ProductRefreshController;
 use App\Presentation\Http\Api\Controllers\ProductUpdateController;
 use App\Presentation\Http\Api\Controllers\VariationController;
 use App\Presentation\Http\Auth\Middleware\ValidateSupabaseJwtMiddleware;
-use App\Presentation\Http\Controllers\ContactForm\ContactFormController;
-use App\Presentation\Http\Controllers\HelpScout\ConversationsController;
-use App\Presentation\Http\Controllers\HelpScout\ProfileController;
-use App\Presentation\Http\Controllers\Shopwired\Webhooks\ShopwiredWebhookBrandController;
-use App\Presentation\Http\Controllers\Shopwired\Webhooks\ShopwiredWebhookCategoryController;
-use App\Presentation\Http\Controllers\Shopwired\Webhooks\ShopwiredWebhookCustomerController;
-use App\Presentation\Http\Controllers\Shopwired\Webhooks\ShopwiredWebhookOrderController;
-use App\Presentation\Http\Controllers\Shopwired\Webhooks\ShopwiredWebhookProductController;
+use App\Presentation\Http\ContactForm\Controllers\ContactFormController;
+use App\Presentation\Http\HelpScout\Controllers\ConversationsController;
+use App\Presentation\Http\HelpScout\Controllers\ProfileController;
 use App\Presentation\Http\HelpScout\Middleware\DetectRefreshMiddleware;
 use App\Presentation\Http\HelpScout\Middleware\HandleHelpScoutExceptionsMiddleware;
 use App\Presentation\Http\Middleware\EnsureUserApprovedMiddleware;
 use App\Presentation\Http\Middleware\RejectHoneypotMiddleware;
 use App\Presentation\Http\Middleware\VerifyShopwiredWebhookSignatureMiddleware;
+use App\Presentation\Http\Shopwired\Webhooks\Controllers\ShopwiredWebhookBrandController;
+use App\Presentation\Http\Shopwired\Webhooks\Controllers\ShopwiredWebhookCategoryController;
+use App\Presentation\Http\Shopwired\Webhooks\Controllers\ShopwiredWebhookCustomerController;
+use App\Presentation\Http\Shopwired\Webhooks\Controllers\ShopwiredWebhookOrderController;
+use App\Presentation\Http\Shopwired\Webhooks\Controllers\ShopwiredWebhookProductController;
 use Illuminate\Support\Facades\Route;
 
 /*
