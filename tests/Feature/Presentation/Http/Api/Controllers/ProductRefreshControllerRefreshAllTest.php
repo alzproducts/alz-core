@@ -5,16 +5,10 @@ declare(strict_types=1);
 namespace Tests\Feature\Presentation\Http\Api\Controllers;
 
 use App\Application\Catalog\UseCases\RefreshAllProductsUseCase;
-use App\Application\Contracts\Linnworks\InventoryClientInterface;
-use App\Application\Contracts\Linnworks\InventoryUpdateClientInterface;
+use App\Application\Catalog\UseCases\RefreshProductViewUseCase;
 use App\Application\Contracts\Linnworks\LinnworksSyncDispatcherInterface;
-use App\Application\Contracts\Shopwired\PriceUpdateClientInterface;
-use App\Application\Contracts\Shopwired\ProductClientInterface;
-use App\Application\Contracts\Shopwired\ProductFieldUpdateClientInterface;
-use App\Application\Contracts\Shopwired\ProductUpdateClientInterface;
 use App\Application\Contracts\Shopwired\ShopwiredSyncDispatcherInterface;
-use App\Application\Inventory\UseCases\GenerateVariantSkusUseCase;
-use App\Presentation\Http\Api\Controllers\ProductUpdateController;
+use App\Presentation\Http\Api\Controllers\ProductRefreshController;
 use Mockery;
 use Mockery\MockInterface;
 use Override;
@@ -23,8 +17,8 @@ use PHPUnit\Framework\Attributes\Test;
 use Tests\Feature\Concerns\AuthenticatesAsApprovedUser;
 use Tests\TestCase;
 
-#[CoversClass(ProductUpdateController::class)]
-final class ProductUpdateControllerRefreshAllTest extends TestCase
+#[CoversClass(ProductRefreshController::class)]
+final class ProductRefreshControllerRefreshAllTest extends TestCase
 {
     use AuthenticatesAsApprovedUser;
 
@@ -43,19 +37,11 @@ final class ProductUpdateControllerRefreshAllTest extends TestCase
         $this->app->instance(ShopwiredSyncDispatcherInterface::class, $this->shopwiredDispatcher);
         $this->app->instance(LinnworksSyncDispatcherInterface::class, $this->linnworksDispatcher);
 
-        // ProductUpdateController's constructor eagerly resolves every use case it
-        // holds — including the update/price/cost-price/refresh paths this test
-        // doesn't exercise. Those bindings call Shopwired/Linnworks factory
-        // getTransport() methods that throw on empty config. Bind empty mocks so
-        // the container can satisfy type constraints without triggering real
-        // config reads.
-        $this->app->instance(ProductClientInterface::class, Mockery::mock(ProductClientInterface::class));
-        $this->app->instance(ProductUpdateClientInterface::class, Mockery::mock(ProductUpdateClientInterface::class));
-        $this->app->instance(ProductFieldUpdateClientInterface::class, Mockery::mock(ProductFieldUpdateClientInterface::class));
-        $this->app->instance(PriceUpdateClientInterface::class, Mockery::mock(PriceUpdateClientInterface::class));
-        $this->app->instance(InventoryClientInterface::class, Mockery::mock(InventoryClientInterface::class));
-        $this->app->instance(InventoryUpdateClientInterface::class, Mockery::mock(InventoryUpdateClientInterface::class));
-        $this->app->instance(GenerateVariantSkusUseCase::class, Mockery::mock(GenerateVariantSkusUseCase::class));
+        // ProductRefreshController injects RefreshProductViewUseCase alongside
+        // RefreshAllProductsUseCase. Bind an empty mock so the container can
+        // satisfy the type without triggering real config reads for its
+        // Shopwired/Linnworks transport dependencies.
+        $this->app->instance(RefreshProductViewUseCase::class, Mockery::mock(RefreshProductViewUseCase::class));
     }
 
     #[Override]
@@ -92,5 +78,4 @@ final class ProductUpdateControllerRefreshAllTest extends TestCase
             'estimated_duration_seconds' => RefreshAllProductsUseCase::ESTIMATED_DURATION_SECONDS,
         ]);
     }
-
 }
