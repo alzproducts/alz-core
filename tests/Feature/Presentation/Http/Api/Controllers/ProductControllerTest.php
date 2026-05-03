@@ -898,6 +898,8 @@ final class ProductControllerTest extends TestCase
             mpn: null,
             imageIndex: null,
             options: [],
+            createdAt: new DateTimeImmutable('2024-01-01'),
+            updatedAt: new DateTimeImmutable('2024-01-01'),
         );
 
         $product = new ProductView(
@@ -1095,6 +1097,8 @@ final class ProductControllerTest extends TestCase
             mpn: null,
             imageIndex: 0,
             options: [new ProductVariationOption(optionId: 1, optionName: 'Size', valueId: 10, valueName: 'Large')],
+            createdAt: new DateTimeImmutable('2024-01-01'),
+            updatedAt: new DateTimeImmutable('2024-01-01'),
         );
 
         return new ProductView(
@@ -1202,6 +1206,8 @@ final class ProductControllerTest extends TestCase
                 mpn: null,
                 imageIndex: null,
                 options: [],
+                createdAt: new DateTimeImmutable('2024-01-01'),
+                updatedAt: new DateTimeImmutable('2024-01-01'),
             ),
             $variationPrices,
             \array_keys($variationPrices),

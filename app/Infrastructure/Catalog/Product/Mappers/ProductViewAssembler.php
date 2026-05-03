@@ -44,7 +44,7 @@ final readonly class ProductViewAssembler
     public function __construct(
         private CustomFieldFactory $customFieldFactory,
         private ProductFilterFactory $filterFactory,
-        private ProductVariationModelMapper $variationMapper,
+        private ProductVariationViewModelMapper $variationMapper,
     ) {}
 
     /**
@@ -138,30 +138,10 @@ final readonly class ProductViewAssembler
             fn(ProductVariationViewModel $m): ProductVariationView => $this->variationMapper->toViewDomain(
                 model: $m,
                 vatExclusive: $model->vat_exclusive,
-                defaultSupplier: self::resolveVariationDefaultSupplier($m),
-                suppliers: $includeSuppliers ? self::resolveVariationSuppliers($m) : null,
+                defaultSupplier: ProductVariationViewModelMapper::resolveDefaultSupplier($m),
+                suppliers: $includeSuppliers ? ProductVariationViewModelMapper::resolveSuppliers($m) : null,
             ),
         )->all());
-    }
-
-    private static function resolveVariationDefaultSupplier(ProductVariationViewModel $model): ?ProductSupplier
-    {
-        $stockItem = $model->relationLoaded('stockItem') ? $model->stockItem : null;
-
-        return $stockItem?->defaultSupplier()?->toProductSupplier();
-    }
-
-    /** @return list<ProductSupplier> */
-    private static function resolveVariationSuppliers(ProductVariationViewModel $model): array
-    {
-        if (! $model->relationLoaded('stockItem') || $model->stockItem === null) {
-            return [];
-        }
-
-        return \array_values($model->stockItem->suppliers
-            ->sortByDesc('is_default')
-            ->map(static fn(StockItemSupplierModel $s): ProductSupplier => $s->toProductSupplier())
-            ->all());
     }
 
     /**

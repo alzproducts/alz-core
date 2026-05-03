@@ -301,6 +301,7 @@ final readonly class EloquentGateway
      * @template TResult
      *
      * @param class-string<TModel> $modelClass
+     * @param-immediately-invoked-callable $scope
      * @param Closure(Builder<covariant Model>): void $scope Query constraints (where clauses, ordering)
      * @param list<string> $relations Relations to eager load
      * @param-immediately-invoked-callable $mapper

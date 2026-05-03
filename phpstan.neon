@@ -359,12 +359,25 @@ parameters:
         -
             identifier: missingType.checkedException
             path: app/Infrastructure/HelpScout/Clients/ConversationWriteClient.php
-        # ListProductsRequestDTO::toQuery() calls enum::from() on values pre-validated by DTO rules
+        # List*RequestDTO::toQuery() calls enum::from() on values pre-validated by DTO rules
         # (sort_by uses 'in:...' validation, sort_direction uses In['asc','desc']).
         # PageRequest::from() uses Assert which throws InvalidArgumentException (unchecked).
         -
             identifier: missingType.checkedException
             path: app/Presentation/Http/Api/DTOs/ListProductsRequestDTO.php
+        -
+            identifier: missingType.checkedException
+            path: app/Presentation/Http/Api/DTOs/ListVariationsRequestDTO.php
+        # buildScope resolves filter enum keys via ::from() outside the closure.
+        # Keys are typed array<value-of<FilterField>, mixed> — ::from() can never actually throw.
+        -
+            identifier: missingType.checkedException
+            message: '#buildScope#'
+            path: app/Infrastructure/Shopwired/Repositories/EloquentProductRepository.php
+        -
+            identifier: missingType.checkedException
+            message: '#buildScope#'
+            path: app/Infrastructure/Catalog/Product/Repositories/EloquentVariationQueryRepository.php
     paths:
         - app/
         - bootstrap/

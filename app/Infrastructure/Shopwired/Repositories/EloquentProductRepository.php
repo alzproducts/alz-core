@@ -103,10 +103,15 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
      */
     private static function buildScope(ProductListQueryParams $query): Closure
     {
-        return static function (Builder $q) use ($query): void {
-            foreach ($query->filters as $field => $value) {
-                // @phpstan-ignore-next-line shipmonk.checkedExceptionInCallable ($field is value-of<ProductFilterField> — from() cannot throw; scope closure is immediately invoked by EloquentGateway::paginate())
-                $_ = match (ProductFilterField::from($field)) {
+        /** @var list<array{ProductFilterField, mixed}> $resolvedFilters */
+        $resolvedFilters = [];
+        foreach ($query->filters as $field => $value) {
+            $resolvedFilters[] = [ProductFilterField::from($field), $value];
+        }
+
+        return static function (Builder $q) use ($resolvedFilters, $query): void {
+            foreach ($resolvedFilters as [$filter, $value]) {
+                $_ = match ($filter) {
                     ProductFilterField::IsActive => $q->where('is_active', $value),
                     ProductFilterField::CategoryId => $q->whereJsonContains('category_ids', $value),
                     ProductFilterField::IsOnSale => $q->where('is_on_sale', $value),
