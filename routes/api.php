@@ -20,16 +20,16 @@ use App\Presentation\Http\Auth\Middleware\ValidateSupabaseJwtMiddleware;
 use App\Presentation\Http\ContactForm\Controllers\ContactFormController;
 use App\Presentation\Http\HelpScout\Controllers\ConversationsController;
 use App\Presentation\Http\HelpScout\Controllers\ProfileController;
-use App\Presentation\Http\Shopwired\Webhooks\Controllers\ShopwiredWebhookBrandController;
-use App\Presentation\Http\Shopwired\Webhooks\Controllers\ShopwiredWebhookCategoryController;
-use App\Presentation\Http\Shopwired\Webhooks\Controllers\ShopwiredWebhookCustomerController;
-use App\Presentation\Http\Shopwired\Webhooks\Controllers\ShopwiredWebhookOrderController;
-use App\Presentation\Http\Shopwired\Webhooks\Controllers\ShopwiredWebhookProductController;
 use App\Presentation\Http\HelpScout\Middleware\DetectRefreshMiddleware;
 use App\Presentation\Http\HelpScout\Middleware\HandleHelpScoutExceptionsMiddleware;
 use App\Presentation\Http\Middleware\EnsureUserApprovedMiddleware;
 use App\Presentation\Http\Middleware\RejectHoneypotMiddleware;
 use App\Presentation\Http\Middleware\VerifyShopwiredWebhookSignatureMiddleware;
+use App\Presentation\Http\Shopwired\Webhooks\Controllers\ShopwiredWebhookBrandController;
+use App\Presentation\Http\Shopwired\Webhooks\Controllers\ShopwiredWebhookCategoryController;
+use App\Presentation\Http\Shopwired\Webhooks\Controllers\ShopwiredWebhookCustomerController;
+use App\Presentation\Http\Shopwired\Webhooks\Controllers\ShopwiredWebhookOrderController;
+use App\Presentation\Http\Shopwired\Webhooks\Controllers\ShopwiredWebhookProductController;
 use Illuminate\Support\Facades\Route;
 
 /*
