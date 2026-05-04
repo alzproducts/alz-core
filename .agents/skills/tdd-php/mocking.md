@@ -1,59 +1,93 @@
 # When to Mock
 
-Mock at **system boundaries** only:
+Mock at **the outermost boundary you cannot test through**:
 
-- External APIs (payment, email, etc.)
-- Databases (sometimes - prefer test DB)
+- External APIs (payment gateways, third-party services, etc.)
+- Databases when you don't have a test DB available
 - Time/randomness
 - File system (sometimes)
 
-Don't mock:
+## The Boundary Rule
 
-- Your own classes/modules
-- Internal collaborators
-- Anything you control
+The core question is: *what is the outermost boundary for this test?*
 
-## Designing for Mockability
+In flat architectures (frontend, simple scripts), the boundary is the external API — everything between your entry point and that API is "your code" and should be tested through, not mocked.
 
-At system boundaries, design interfaces that are easy to mock:
+In **layered architectures** (Clean Architecture, DDD, hexagonal), each layer boundary is an intentional seam enforced by architecture rules. The layer interface IS the boundary. Mocking at that seam tests the contract, not the wiring.
 
-**1. Use dependency injection**
+**In a Clean Architecture PHP codebase:**
 
-Pass external dependencies in rather than creating them internally:
+```
+Presentation → [Application interface] → Application → [Domain interface] → Infrastructure
+```
 
-```typescript
-// Easy to mock
-function processPayment(order, paymentClient) {
-  return paymentClient.charge(order.total);
+When testing an Application UseCase:
+- **Mock** the interfaces it depends on (e.g., `PaymentClientInterface`, `OrderRepositoryInterface`) — these are your boundaries
+- **Do not mock** concrete Infrastructure classes directly — test through the interface
+- **Do not mock** other Application classes that belong to the same layer
+
+```php
+// CORRECT — mocking at the layer boundary (interface in Application/Contracts)
+$paymentClient = Mockery::mock(PaymentClientInterface::class);
+$paymentClient->shouldReceive('charge')->once()->with($order)->andReturn($receipt);
+
+$useCase = new ProcessOrderUseCase($paymentClient, $orderRepo);
+$result = $useCase->execute($command);
+
+// WRONG — mocking a concrete Infrastructure class
+$paymentClient = Mockery::mock(StripePaymentClient::class);
+```
+
+The interface is the contract the Application layer owns and depends on. Mocking it tests that the UseCase uses the contract correctly — that is behavioral testing.
+
+## Dependency Injection
+
+Testable PHP classes accept dependencies in their constructor rather than instantiating them internally:
+
+```php
+// Easy to mock — dependency injected
+class ProcessOrderUseCase
+{
+    public function __construct(
+        private readonly PaymentClientInterface $paymentClient,
+        private readonly OrderRepositoryInterface $orderRepository,
+    ) {}
 }
 
-// Hard to mock
-function processPayment(order) {
-  const client = new StripeClient(process.env.STRIPE_KEY);
-  return client.charge(order.total);
+// Hard to mock — dependency created internally
+class ProcessOrderUseCase
+{
+    public function execute(Order $order): void
+    {
+        $client = new StripeClient(config('services.stripe.key')); // can't substitute in tests
+        $client->charge($order);
+    }
 }
 ```
 
-**2. Prefer SDK-style interfaces over generic fetchers**
+In a PHP framework (Laravel, Symfony), constructor injection is handled by the service container — you declare the interface, the container resolves the concrete implementation in production and you supply a mock in tests.
 
-Create specific functions for each external operation instead of one generic function with conditional logic:
+## Prefer Specific Interfaces Over Generic Ones
 
-```typescript
-// GOOD: Each function is independently mockable
-const api = {
-  getUser: (id) => fetch(`/users/${id}`),
-  getOrders: (userId) => fetch(`/users/${userId}/orders`),
-  createOrder: (data) => fetch('/orders', { method: 'POST', body: data }),
-};
+Design interfaces with specific methods per operation rather than one generic method:
 
-// BAD: Mocking requires conditional logic inside the mock
-const api = {
-  fetch: (endpoint, options) => fetch(endpoint, options),
-};
+```php
+// GOOD: Each method is independently mockable with a specific return shape
+interface InventoryClientInterface
+{
+    public function updateJit(Sku $sku, bool $value): void;
+    public function updateMinimumLevel(Sku $sku, int $level): void;
+    public function getStockLevel(Sku $sku): StockLevel;
+}
+
+// BAD: Mocking requires conditional logic to handle all cases
+interface InventoryClientInterface
+{
+    public function call(string $operation, array $params): mixed;
+}
 ```
 
-The SDK approach means:
-- Each mock returns one specific shape
+Specific interfaces mean:
+- Each mock expectation returns one known shape
 - No conditional logic in test setup
-- Easier to see which endpoints a test exercises
-- Type safety per endpoint
+- Tests clearly document which operations a UseCase exercises

@@ -265,6 +265,21 @@ This strategy assumes current context. Revisit if:
 
 ---
 
+## Test-Driven Development (TDD) Compatibility
+
+This strategy defines test **depth** per layer — not whether to write tests first. When using TDD (`/tdd-php`), all layers use test-first development. The layer policies above determine how many RED-GREEN cycles to run and what to focus on:
+
+| Layer | TDD depth | Focus |
+|-------|-----------|-------|
+| Domain | Full — many cycles | Validation rules, calculations, edge cases |
+| Application | Full — moderate cycles | Orchestration branches, failure partitioning |
+| Infrastructure | Light — 2 cycles | Happy path + error path at external boundary |
+| Presentation | Light — 1-2 cycles | Route accessible, auth gate, response shape |
+
+"Light" means fewer cycles, not skipping test-first. Always write the test before the code.
+
+---
+
 ## Summary
 
 | Layer | Coverage | Mutation | Approach |

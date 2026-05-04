@@ -1,9 +1,9 @@
 ---
-name: tdd
-description: Test-driven development with red-green-refactor loop. Use when user wants to build features or fix bugs using TDD, mentions "red-green-refactor", wants integration tests, or asks for test-first development.
+name: tdd-php
+description: "Test-driven development with red-green-refactor loop for PHP. Use when user wants to build features or fix bugs using TDD, mentions 'red-green-refactor', or asks for test-first development."
 ---
 
-# Test-Driven Development
+# Test-Driven Development (PHP)
 
 ## Philosophy
 
@@ -46,6 +46,8 @@ RIGHT (vertical):
 
 Before writing any code:
 
+- [ ] Identify which architectural layer this code lives in (Domain, Application, Infrastructure, Presentation)
+- [ ] Read the project's testing strategy for layer-specific test depth and focus areas
 - [ ] Confirm with user what interface changes are needed
 - [ ] Confirm with user which behaviors to test (prioritize)
 - [ ] Identify opportunities for [deep modules](deep-modules.md) (small interface, deep implementation)
@@ -55,7 +57,7 @@ Before writing any code:
 
 Ask: "What should the public interface look like? Which behaviors are most important to test?"
 
-**You can't test everything.** Confirm with the user exactly which behaviors matter most. Focus testing effort on critical paths and complex logic, not every possible edge case.
+**You can't test everything.** Confirm with the user exactly which behaviors matter most. The project's testing strategy defines how many tests each layer needs and what to focus on — always write tests first, but calibrate depth accordingly.
 
 ### 2. Tracer Bullet
 
@@ -96,6 +98,16 @@ After all tests pass, look for [refactor candidates](refactoring.md):
 
 **Never refactor while RED.** Get to GREEN first.
 
+### 5. Validate Test Quality
+
+After refactoring, verify your tests actually catch regressions — don't skip this:
+
+- [ ] Run mutation testing if the project has it configured (e.g., Infection, Pest Mutate)
+- [ ] Fix escaped mutants by strengthening assertions until layer thresholds are met
+- [ ] Replace any weak assertions (`assertNotNull` → `assertSame`, `assertTrue($x > 0)` → `assertSame(42, $x)`)
+
+This step catches the #1 weakness in AI-generated tests: assertions that are too loose to catch real regressions.
+
 ## Checklist Per Cycle
 
 ```
@@ -104,4 +116,5 @@ After all tests pass, look for [refactor candidates](refactoring.md):
 [ ] Test would survive internal refactor
 [ ] Code is minimal for this test
 [ ] No speculative features added
+[ ] Assertions are specific values, not just truthiness
 ```
