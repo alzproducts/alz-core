@@ -90,7 +90,7 @@ final class InventoryFieldUpdateClientTest extends TestCase
     public function it_updates_a_field_using_guid_identifier(): void
     {
         Http::fake([
-            self::TEST_SERVER_URL . '/api/Inventory/UpdateInventoryItemField' => Http::response(null, 204),
+            self::TEST_SERVER_URL . '/api/Inventory/UpdateInventoryItemLocationField' => Http::response(null, 204),
         ]);
 
         $guid = new Guid(self::TEST_STOCK_ITEM_ID);
@@ -101,10 +101,10 @@ final class InventoryFieldUpdateClientTest extends TestCase
             ->with(Mockery::type(Guid::class))
             ->andReturn($guid);
 
-        $this->client->updateFields($guid, InventoryFieldUpdate::category('Accessories'));
+        $this->client->updateFields($guid, null, InventoryFieldUpdate::category('Accessories'));
 
         Http::assertSent(function (Request $request) {
-            $this->assertStringEndsWith('/api/Inventory/UpdateInventoryItemField', $request->url());
+            $this->assertStringEndsWith('/api/Inventory/UpdateInventoryItemLocationField', $request->url());
             $this->assertSame('POST', $request->method());
             $this->assertSame(self::TEST_STOCK_ITEM_ID, $request->data()['inventoryItemId']);
             $this->assertSame(LinnworksInventoryField::Category->value, $request->data()['fieldName']);
@@ -119,7 +119,7 @@ final class InventoryFieldUpdateClientTest extends TestCase
     public function it_resolves_sku_identifier_and_sends_correct_field_params(): void
     {
         Http::fake([
-            self::TEST_SERVER_URL . '/api/Inventory/UpdateInventoryItemField' => Http::response(null, 204),
+            self::TEST_SERVER_URL . '/api/Inventory/UpdateInventoryItemLocationField' => Http::response(null, 204),
         ]);
 
         $resolvedGuid = new Guid(self::TEST_STOCK_ITEM_ID);
@@ -131,7 +131,7 @@ final class InventoryFieldUpdateClientTest extends TestCase
             ->with(Mockery::type(Sku::class))
             ->andReturn($resolvedGuid);
 
-        $this->client->updateFields($sku, InventoryFieldUpdate::minimumLevel(5));
+        $this->client->updateFields($sku, null, InventoryFieldUpdate::minimumLevel(5));
 
         Http::assertSent(function (Request $request) {
             $this->assertSame(self::TEST_STOCK_ITEM_ID, $request->data()['inventoryItemId']);
@@ -146,7 +146,7 @@ final class InventoryFieldUpdateClientTest extends TestCase
     public function it_issues_one_api_call_per_field_update(): void
     {
         Http::fake([
-            self::TEST_SERVER_URL . '/api/Inventory/UpdateInventoryItemField' => Http::response(null, 204),
+            self::TEST_SERVER_URL . '/api/Inventory/UpdateInventoryItemLocationField' => Http::response(null, 204),
         ]);
 
         $guid = new Guid(self::TEST_STOCK_ITEM_ID);
@@ -158,6 +158,7 @@ final class InventoryFieldUpdateClientTest extends TestCase
 
         $this->client->updateFields(
             $guid,
+            null,
             InventoryFieldUpdate::category('Electronics'),
             InventoryFieldUpdate::minimumLevel(10),
             InventoryFieldUpdate::jit(true),
@@ -170,7 +171,7 @@ final class InventoryFieldUpdateClientTest extends TestCase
     public function it_serialises_all_field_types_correctly(): void
     {
         Http::fake([
-            self::TEST_SERVER_URL . '/api/Inventory/UpdateInventoryItemField' => Http::response(null, 204),
+            self::TEST_SERVER_URL . '/api/Inventory/UpdateInventoryItemLocationField' => Http::response(null, 204),
         ]);
 
         $guid = new Guid(self::TEST_STOCK_ITEM_ID);
@@ -187,6 +188,7 @@ final class InventoryFieldUpdateClientTest extends TestCase
 
         $this->client->updateFields(
             $guid,
+            null,
             InventoryFieldUpdate::category('Clothing'),
             InventoryFieldUpdate::minimumLevel(3),
             InventoryFieldUpdate::jit(false),
@@ -239,7 +241,7 @@ final class InventoryFieldUpdateClientTest extends TestCase
     public function it_throws_invalid_api_request_on_400_response(): void
     {
         Http::fake([
-            self::TEST_SERVER_URL . '/api/Inventory/UpdateInventoryItemField' => Http::response(
+            self::TEST_SERVER_URL . '/api/Inventory/UpdateInventoryItemLocationField' => Http::response(
                 ['Message' => 'Invalid field value'],
                 400,
             ),
@@ -253,7 +255,7 @@ final class InventoryFieldUpdateClientTest extends TestCase
             ->andReturn($guid);
 
         try {
-            $this->client->updateFields($guid, InventoryFieldUpdate::category('Bad'));
+            $this->client->updateFields($guid, null, InventoryFieldUpdate::category('Bad'));
             $this->fail('Expected InvalidApiRequestException');
         } catch (InvalidApiRequestException $e) {
             $this->assertSame('API request validation failed', $e->getMessage());
