@@ -154,7 +154,7 @@ final class StockItemModel extends Model implements EloquentDomainMappableInterf
     {
         return new ProductInventory(
             barcode: $this->barcode,
-            minimumLevel: $this->minimum_level,
+            minimumLevel: $this->minimum_level === null || $this->minimum_level < 0 ? null : $this->minimum_level, // -1 means "not set"
             weight: $this->weight,
             weightUnit: $this->weight_unit,
             height: $this->height,

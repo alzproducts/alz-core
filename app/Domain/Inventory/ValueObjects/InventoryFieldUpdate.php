@@ -16,6 +16,15 @@ use App\Domain\Shared\Money\ValueObjects\Money;
  * so validation happens immediately and the Infrastructure client stays trivial.
  *
  * API field name mapping lives in Infrastructure (InventoryFieldUpdateClient::mapField()).
+ *
+ * NOTE — adding new fields: Linnworks splits field updates across two endpoints
+ * by scope (location-scoped vs item-level). InventoryFieldUpdateClient
+ * currently only routes to the location-scoped endpoint
+ * (/api/Inventory/UpdateInventoryItemLocationField, camelCase params). If you
+ * add an item-level field (e.g. Category, Title, Barcode, Weight, RetailPrice,
+ * PurchasePrice), the client must be updated to route to
+ * /api/Inventory/UpdateInventoryItemField with PascalCase params — see
+ * InventoryFieldUpdateClient class docblock.
  */
 final readonly class InventoryFieldUpdate
 {

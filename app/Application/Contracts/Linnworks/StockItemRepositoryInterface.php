@@ -6,9 +6,11 @@ namespace App\Application\Contracts\Linnworks;
 
 use App\Application\Contracts\RepositoryWriteInterface;
 use App\Application\Results\SaveManyResult;
+use App\Domain\Catalog\Product\ValueObjects\Sku;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use App\Domain\Inventory\ValueObjects\InventoryFieldUpdate;
 use App\Domain\Inventory\ValueObjects\StockItemFull;
 use App\Domain\ValueObjects\Guid;
 
@@ -74,4 +76,37 @@ interface StockItemRepositoryInterface extends RepositoryWriteInterface
      * @throws ExternalServiceUnavailableException
      */
     public function syncCompositeFlags(array $compositeIds): void;
+
+    /**
+     * Resolve a set of SKUs to their Linnworks stock_item_id GUIDs.
+     *
+     * Returned map only contains entries for SKUs that exist locally; missing SKUs
+     * are silently omitted. Used by the inventory batch flow to dispatch
+     * reconciliation sync jobs after a local DB write fails — the API call already
+     * succeeded for those Guids in Linnworks, so we re-pull authoritative state.
+     *
+     * @return array<string, Guid> SKU → stock_item_id (only SKUs found locally)
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function resolveStockItemIdsBySkus(Sku ...$skus): array;
+
+    /**
+     * Bulk-update inventory fields on local stock_item rows, grouped by SKU.
+     *
+     * Groups updates by column and runs one UPDATE per column via PostgreSQL
+     * VALUES-join, all wrapped in a single transaction so the two writes succeed
+     * or roll back together.
+     *
+     * @param array<string, list<InventoryFieldUpdate>> $updatesBySku  SKU → list of field updates
+     *
+     * @return int Total rows affected across all UPDATE statements
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function bulkUpdateInventoryFieldsBySkus(array $updatesBySku): int;
 }
