@@ -8,21 +8,25 @@ use App\Domain\Catalog\Product\ValueObjects\Sku;
 use App\Domain\Exceptions\Data\InvalidSkuException;
 use App\Domain\Inventory\Commands\UpdateInventoryFieldsCommand;
 use App\Domain\Inventory\ValueObjects\InventoryFieldUpdate;
-use Spatie\LaravelData\Attributes\Validation\BooleanType;
 use Spatie\LaravelData\Attributes\Validation\IntegerType;
 use Spatie\LaravelData\Attributes\Validation\Min;
-use Spatie\LaravelData\Attributes\Validation\RequiredWithoutAll;
+use Spatie\LaravelData\Attributes\Validation\Required;
 use Spatie\LaravelData\Data;
-use Spatie\LaravelData\Optional;
 
+/**
+ * NOTE — JIT is intentionally not exposed here even though the underlying
+ * domain (`InventoryFieldUpdate::jit()`), client mapping, and repository
+ * column all support it. The current Linnworks subscription does not include
+ * the JIT feature — every JIT write returns 400 "Subscription does not have
+ * required feature to update JIT." Re-add a `bool|Optional $jit` property
+ * (and the matching `toCommand()` branch) once the subscription is upgraded.
+ */
 final class UpdateInventoryItemDTO extends Data
 {
     public function __construct(
         public readonly string $sku,
-        #[RequiredWithoutAll('minimum_level'), BooleanType]
-        public readonly bool|Optional $jit = new Optional(),
-        #[RequiredWithoutAll('jit'), IntegerType, Min(0)]
-        public readonly int|Optional $minimum_level = new Optional(),
+        #[Required, IntegerType, Min(0)]
+        public readonly int $minimum_level,
     ) {}
 
     /**
@@ -40,19 +44,9 @@ final class UpdateInventoryItemDTO extends Data
      */
     public function toCommand(): UpdateInventoryFieldsCommand
     {
-        $updates = [];
-
-        if (!($this->jit instanceof Optional)) {
-            $updates[] = InventoryFieldUpdate::jit($this->jit);
-        }
-
-        if (!($this->minimum_level instanceof Optional)) {
-            $updates[] = InventoryFieldUpdate::minimumLevel($this->minimum_level);
-        }
-
         return new UpdateInventoryFieldsCommand(
             sku: Sku::fromString($this->sku),
-            updates: $updates,
+            updates: [InventoryFieldUpdate::minimumLevel($this->minimum_level)],
         );
     }
 }

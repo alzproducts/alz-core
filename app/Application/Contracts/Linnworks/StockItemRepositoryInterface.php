@@ -78,14 +78,35 @@ interface StockItemRepositoryInterface extends RepositoryWriteInterface
     public function syncCompositeFlags(array $compositeIds): void;
 
     /**
-     * Update inventory fields on the local stock item row identified by SKU.
+     * Resolve a set of SKUs to their Linnworks stock_item_id GUIDs.
      *
-     * Called after a successful Linnworks write to keep the local mirror in sync.
-     * Returns the number of affected rows (0 if the SKU is not found locally).
+     * Returned map only contains entries for SKUs that exist locally; missing SKUs
+     * are silently omitted. Used by the inventory batch flow to dispatch
+     * reconciliation sync jobs after a local DB write fails — the API call already
+     * succeeded for those Guids in Linnworks, so we re-pull authoritative state.
+     *
+     * @return array<string, Guid> SKU → stock_item_id (only SKUs found locally)
      *
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      */
-    public function updateInventoryFieldsBySku(Sku $sku, InventoryFieldUpdate ...$updates): int;
+    public function resolveStockItemIdsBySkus(Sku ...$skus): array;
+
+    /**
+     * Bulk-update inventory fields on local stock_item rows, grouped by SKU.
+     *
+     * Groups updates by column and runs one UPDATE per column via PostgreSQL
+     * VALUES-join, all wrapped in a single transaction so the two writes succeed
+     * or roll back together.
+     *
+     * @param array<string, list<InventoryFieldUpdate>> $updatesBySku  SKU → list of field updates
+     *
+     * @return int Total rows affected across all UPDATE statements
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function bulkUpdateInventoryFieldsBySkus(array $updatesBySku): int;
 }

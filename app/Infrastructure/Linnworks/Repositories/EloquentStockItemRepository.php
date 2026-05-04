@@ -241,24 +241,106 @@ final class EloquentStockItemRepository extends AbstractEloquentRepository imple
     /**
      * {@inheritDoc}
      *
+     * @return array<string, Guid> SKU → stock_item_id (only SKUs found locally)
+     *
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      */
-    public function updateInventoryFieldsBySku(Sku $sku, InventoryFieldUpdate ...$updates): int
+    public function resolveStockItemIdsBySkus(Sku ...$skus): array
     {
-        $columns = [];
-        foreach ($updates as $update) {
-            [$column, $value] = self::fieldMapping($update);
-            $columns[$column] = $value;
+        if ($skus === []) {
+            return [];
         }
 
-        return $this->eloquentGateway->updateWhere(
-            modelClass: StockItemModel::class,
-            column: 'item_number',
-            value: $sku->value,
-            data: $columns,
+        $skuStrings = \array_map(static fn(Sku $s): string => $s->value, $skus);
+
+        /** @var array<string, string> $raw */
+        $raw = $this->eloquentGateway->query(
+            static fn(): array => StockItemModel::query()
+                ->whereIn('item_number', $skuStrings)
+                ->pluck('stock_item_id', 'item_number')
+                ->all(),
         );
+
+        return \array_map(static fn(string $id): Guid => new Guid($id), $raw);
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @param array<string, list<InventoryFieldUpdate>> $updatesBySku
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function bulkUpdateInventoryFieldsBySkus(array $updatesBySku): int
+    {
+        if ($updatesBySku === []) {
+            return 0;
+        }
+
+        // Group updates by column: column => [sku => primitive value]
+        $valuesByColumn = [];
+        foreach ($updatesBySku as $sku => $updates) {
+            foreach ($updates as $update) {
+                [$column, $value] = self::fieldMapping($update);
+                $valuesByColumn[$column][$sku] = $value;
+            }
+        }
+
+        /** @var int $totalAffected */
+        $totalAffected = $this->eloquentGateway->transact(static function () use ($valuesByColumn): int {
+            $running = 0;
+            foreach ($valuesByColumn as $column => $valuesBySku) {
+                $running += self::executeBulkColumnUpdate($column, $valuesBySku);
+            }
+            return $running;
+        });
+
+        return $totalAffected;
+    }
+
+    /**
+     * Run a single PostgreSQL VALUES-join UPDATE for one inventory column.
+     *
+     * @param array<string, bool|int> $valuesBySku  SKU → primitive value for this column
+     */
+    private static function executeBulkColumnUpdate(string $column, array $valuesBySku): int
+    {
+        if ($valuesBySku === []) {
+            return 0;
+        }
+
+        $valueCast = self::columnSqlCast($column);
+        $bindings = [];
+        foreach ($valuesBySku as $sku => $value) {
+            $bindings[] = $sku;
+            $bindings[] = $value;
+        }
+
+        $valuesPairs = \implode(', ', \array_fill(0, \count($valuesBySku), "(?::text, ?::{$valueCast})"));
+
+        return StockItemModel::query()->getConnection()->update(
+            "UPDATE linnworks.stock_items AS t SET {$column} = c.value FROM (VALUES {$valuesPairs}) AS c(item_number, value) WHERE t.item_number = c.item_number",
+            $bindings,
+        );
+    }
+
+    /**
+     * PostgreSQL cast keyword for the value column of a VALUES-join UPDATE.
+     */
+    private static function columnSqlCast(string $column): string
+    {
+        return match ($column) {
+            'jit' => 'boolean',
+            'minimum_level' => 'integer',
+            default => throw new UnsupportedFieldException(
+                fieldName: $column,
+                entityType: 'StockItem',
+            ),
+        };
     }
 
     /**

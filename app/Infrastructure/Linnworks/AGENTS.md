@@ -50,8 +50,15 @@ Linnworks uses inconsistent formats across endpoints:
 
 **Null values**: Linnworks write endpoints (Update/Create) reject `null` in payloads — filter them out with `array_filter`. See `UpdateStockSupplierStatRequest::toArray()` and legacy `AbstractStockItemSupplierStat::extract()`.
 
+## Test Product
+
+Canonical safe product for manual API calls during development: `config('shopwired.test_product')` — defined in `config/shopwired.php`. Returns `product_id` and `sku`. Use this SKU for smoke-testing any Linnworks write endpoint (inventory updates, cost prices, etc.) without asking the user to supply one.
+
 ## Known Quirks
 
 - `ProperyName` typo in Extended Properties response (missing 't')
 - `ItemExtendedProperties` vs `ExtendedProperties` varies by endpoint
 - Default location ID: `00000000-0000-0000-0000-000000000000`
+- Inventory field updates split across two endpoints by field scope (and they use **different param casing**):
+  - `/api/Inventory/UpdateInventoryItemLocationField` — **camelCase** (`inventoryItemId`, `fieldName`, `fieldValue`, `locationId`). Location-scoped fields: `MinimumLevel`, `JIT`, `BinRack`.
+  - `/api/Inventory/UpdateInventoryItemField` — **PascalCase** (`InventoryItemId`, `FieldName`, `FieldValue`). Item-level fields: `Title`, `Category`, `Barcode`, `Weight`, `RetailPrice`, `PurchasePrice`. Each rejects the other scope's fields with mirrored "field requiring location" / "field requiring operationPlace" errors.

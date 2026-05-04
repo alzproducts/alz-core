@@ -16,7 +16,17 @@ final class UpdateInventoryRequestDTO extends Data
      * @param DataCollection<int, UpdateInventoryItemDTO> $items
      */
     public function __construct(
-        #[Min(1), Max(1), DataCollectionOf(UpdateInventoryItemDTO::class)]
+        #[Min(1), Max(25), DataCollectionOf(UpdateInventoryItemDTO::class)]
         public readonly DataCollection $items,
     ) {}
+
+    /**
+     * @return array<string, array<int, string>>
+     */
+    public static function rules(): array
+    {
+        return [
+            'items.*.sku' => ['distinct'],
+        ];
+    }
 }

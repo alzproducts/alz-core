@@ -6,6 +6,7 @@ namespace App\Presentation\Http\Api\Responses;
 
 use App\Application\Catalog\Results\CostPriceUpdateResult;
 use App\Application\Catalog\Results\FailedCostPriceUpdateResult;
+use App\Application\Results\BatchUpdateResult;
 use Illuminate\Contracts\Support\Responsable;
 use Illuminate\Http\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
@@ -45,6 +46,43 @@ final readonly class BulkUpdateResponseDTO implements Responsable
                 ],
                 $result->failures,
             ),
+        );
+    }
+
+    /**
+     * Build the response from a SKU-keyed batch update result.
+     *
+     * Permanent and temporary failures are flattened into a single `failures` array
+     * — the wire contract intentionally hides the distinction; clients always see
+     * `{sku, error}` regardless of underlying retry semantics.
+     *
+     * @param BatchUpdateResult<string> $result
+     */
+    public static function fromBatchUpdateResult(BatchUpdateResult $result): self
+    {
+        return new self(
+            total: $result->total,
+            succeeded: $result->succeeded,
+            failures: [
+                ...self::mapFailures($result->permanentFailures),
+                ...self::mapFailures($result->temporaryFailures),
+            ],
+        );
+    }
+
+    /**
+     * @param list<array{identifier: string, error: string}> $failures
+     *
+     * @return list<array{sku: string, error: string}>
+     */
+    private static function mapFailures(array $failures): array
+    {
+        return \array_map(
+            static fn(array $failure): array => [
+                'sku' => $failure['identifier'],
+                'error' => $failure['error'],
+            ],
+            $failures,
         );
     }
 

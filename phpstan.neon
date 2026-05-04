@@ -229,6 +229,13 @@ parameters:
                 - app/Infrastructure/Shopwired/Responses/OrderResponse.php
                 - app/Infrastructure/Shopwired/Factories/ProductDomainFactory.php
                 - app/Infrastructure/ReviewsIo/ReviewsIoClient.php
+        # Batch UseCase safety net: catching Throwable so an unexpected per-SKU error
+        # becomes a per-item permanent failure instead of aborting the entire batch.
+        # Narrowing to a specific exception would silence the rule but break the
+        # partial-success contract that the endpoint advertises.
+        -
+            message: '#caught "Throwable" must be rethrown#'
+            path: app/Application/Inventory/UseCases/UpdateInventoryFieldsUseCase.php
         # Console commands: return null after showing user-friendly error message (#211).
         # Standard CLI pattern — error is communicated via $this->error() before returning.
         -
