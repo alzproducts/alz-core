@@ -10,6 +10,7 @@
 public function it_partitions_failures_by_exception_type(): void
 {
     $this->apiClient->shouldReceive('update')
+        ->once()
         ->andThrow(new ResourceNotFoundException('service', 'Item', 'SKU-1'));
 
     $result = $this->useCase->execute([$command]);
@@ -84,7 +85,9 @@ $repo = Mockery::mock(EloquentOrderRepository::class);
 $repo = Mockery::mock(OrderRepositoryInterface::class);
 ```
 
-**Bypassing the interface to verify state**:
+**Bypassing the interface to verify state** (integration tests):
+
+In integration tests where the repository is a real implementation, verify through the interface rather than poking at storage directly. In unit tests with a mocked repository, the equivalent principle is to assert on what was passed to the mock's write method — verification happens through orchestration assertions, not by reading state back.
 
 ```php
 // BAD: Bypasses the interface to inspect database state directly

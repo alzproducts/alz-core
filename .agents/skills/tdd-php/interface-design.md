@@ -4,28 +4,46 @@ Good interfaces make testing natural:
 
 1. **Accept dependencies, don't create them**
 
-   ```typescript
-   // Testable
-   function processOrder(order, paymentGateway) {}
+   ```php
+   // Testable — dependencies injected via constructor
+   final class ProcessOrderUseCase
+   {
+       public function __construct(
+           private readonly PaymentClientInterface $paymentClient,
+           private readonly OrderRepositoryInterface $orderRepository,
+       ) {}
 
-   // Hard to test
-   function processOrder(order) {
-     const gateway = new StripeGateway();
+       public function execute(OrderCommand $command): OrderResult { /* ... */ }
+   }
+
+   // Hard to test — dependency created internally
+   final class ProcessOrderUseCase
+   {
+       public function execute(OrderCommand $command): OrderResult
+       {
+           $client = new StripePaymentClient(config('services.stripe.key'));
+           // ...
+       }
    }
    ```
 
 2. **Return results, don't produce side effects**
 
-   ```typescript
-   // Testable
-   function calculateDiscount(cart): Discount {}
+   ```php
+   // Testable — pure function returning a value object
+   public function calculateDiscount(Cart $cart): Discount
+   {
+       // ...
+   }
 
-   // Hard to test
-   function applyDiscount(cart): void {
-     cart.total -= discount;
+   // Hard to test — mutates input, returns nothing
+   public function applyDiscount(Cart $cart): void
+   {
+       $cart->total -= $this->resolveDiscountAmount($cart);
    }
    ```
 
 3. **Small surface area**
    - Fewer methods = fewer tests needed
-   - Fewer params = simpler test setup
+   - Fewer parameters = simpler test setup
+   - Prefer specific value objects over `array $params` — typed inputs document intent and let PHPStan catch shape mismatches before tests run
