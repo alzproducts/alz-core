@@ -15,22 +15,10 @@ use App\Presentation\Http\Api\DTOs\UpdateInventoryRequestDTO;
 use App\Presentation\Http\Api\Responses\BulkUpdateResponseDTO;
 
 /**
- * Consumer API endpoint for product inventory field updates.
+ * PUT /api/products/inventory — bulk update Linnworks inventory fields.
  *
- * Currently only exposes `minimum_level` — `jit` is supported throughout
- * the underlying domain, client, and repository, but the API does not accept
- * it because the current Linnworks subscription doesn't include the JIT
- * feature (writes return 400 "Subscription does not have required feature").
- * To re-expose JIT once the subscription is upgraded, add a `jit` property
- * back onto `UpdateInventoryItemDTO` — see DTO docblock.
- *
- * Requires Supabase JWT authentication + approval gate.
- *
- * Returns 200 with `{total, succeeded, failures}` envelope. The endpoint is
- * partial-success: per-item Linnworks failures appear in `failures` rather
- * than aborting the whole batch. The aggregate response distinguishes only
- * `total` vs `succeeded` — the wire contract intentionally hides the
- * permanent/temporary failure split surfaced by `BatchUpdateResult`.
+ * Only `minimum_level` is exposed; JIT is wired throughout but blocked by the current
+ * Linnworks subscription. Re-add `jit` to UpdateInventoryItemDTO once upgraded.
  */
 final readonly class ProductInventoryUpdateController
 {
@@ -39,10 +27,10 @@ final readonly class ProductInventoryUpdateController
     ) {}
 
     /**
-     * @throws InvalidSkuException When a submitted SKU has invalid format
-     * @throws DatabaseOperationFailedException Surfaces only from the failure-path resolver call (bulk-write DB failures are demoted into the response body)
-     * @throws DuplicateRecordException Surfaces only from the failure-path resolver call (bulk-write DB failures are demoted into the response body)
-     * @throws ExternalServiceUnavailableException When the local DB write or the failure-path resolver call is unavailable
+     * @throws InvalidSkuException
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
      */
     public function update(UpdateInventoryRequestDTO $data): BulkUpdateResponseDTO
     {

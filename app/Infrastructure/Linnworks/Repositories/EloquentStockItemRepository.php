@@ -22,7 +22,6 @@ use App\Infrastructure\Linnworks\Mappers\StockItemModelMapper;
 use App\Infrastructure\Linnworks\Models\StockItemExtendedPropertyModel;
 use App\Infrastructure\Linnworks\Models\StockItemModel;
 use App\Infrastructure\Linnworks\Models\StockItemSupplierModel;
-use App\Infrastructure\Persistence\EloquentGateway;
 use App\Infrastructure\Repositories\AbstractEloquentRepository;
 use Override;
 
@@ -43,20 +42,12 @@ final class EloquentStockItemRepository extends AbstractEloquentRepository imple
     /**
      * {@inheritDoc}
      *
-     * Strategy:
-     * 1. Upsert stock item by stock_item_id
-     * 2. Delete existing extended properties for this item
-     * 3. Insert fresh extended properties from domain object
-     * 4. Delete existing suppliers for this item
-     * 5. Insert fresh suppliers from domain object
-     *
      * @param StockItemFull $entity
      */
     #[Override]
     public function save(object $entity): void
     {
         $this->eloquentGateway->transact(function () use ($entity): void {
-            // 1. Upsert stock item by stock_item_id (single query vs SELECT+INSERT)
             $this->eloquentGateway->upsertOne(
                 modelClass: StockItemModel::class,
                 attributes: [
@@ -72,8 +63,6 @@ final class EloquentStockItemRepository extends AbstractEloquentRepository imple
     }
 
     /**
-     * Delete existing extended properties and re-insert fresh rows from the domain object.
-     *
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
@@ -105,8 +94,6 @@ final class EloquentStockItemRepository extends AbstractEloquentRepository imple
     }
 
     /**
-     * Delete existing suppliers and re-insert fresh rows from the domain object.
-     *
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
@@ -140,10 +127,6 @@ final class EloquentStockItemRepository extends AbstractEloquentRepository imple
     /**
      * {@inheritDoc}
      *
-     * Bulk-updates is_archived and is_logically_deleted in a single transaction.
-     * Two-pass per flag: set true for flagged IDs, set false for any rows previously
-     * set but no longer flagged (avoids blanket reset, only touches changed rows).
-     *
      * @param list<Guid> $archivedIds
      * @param list<Guid> $deletedIds
      *
@@ -160,11 +143,6 @@ final class EloquentStockItemRepository extends AbstractEloquentRepository imple
     }
 
     /**
-     * Two-pass bulk update for a single boolean flag column.
-     *
-     * Sets the flag to true for flagged IDs, then resets it to false for any
-     * rows that previously had the flag but are no longer in the flagged set.
-     *
      * @param list<Guid> $flaggedIds
      */
     private static function applyFlagSync(string $column, array $flaggedIds): void
@@ -183,19 +161,8 @@ final class EloquentStockItemRepository extends AbstractEloquentRepository imple
     /**
      * {@inheritDoc}
      *
-     * Bypasses the {@see save()} override entirely — does NOT delete or
-     * re-insert extended-property or supplier child rows. This preserves
-     * historical child data for items transitioning from active to
-     * archived state, which the regular save path would destroy.
-     *
-     * Every row is marked `is_archived = true` and `is_logically_deleted = true`.
-     * Linnworks always co-sets both flags on archived items (verified against
-     * the `StockItem` table three-bucket breakdown), so hardcoding here keeps
-     * the two columns in sync without a per-row flag in the input.
-     *
-     * Uses {@see EloquentGateway::batchUpsertMany()}
-     * at the default batch size of 500 — ~8 batches for a typical ~3.6k
-     * archived catalogue.
+     * Bypasses {@see save()} — does NOT delete/re-insert child rows, preserving
+     * historical extended-property and supplier data for archived items.
      *
      * @param list<StockItemFull> $items
      */
@@ -281,7 +248,6 @@ final class EloquentStockItemRepository extends AbstractEloquentRepository imple
             return 0;
         }
 
-        // Group updates by column: column => [sku => primitive value]
         $valuesByColumn = [];
         foreach ($updatesBySku as $sku => $updates) {
             foreach ($updates as $update) {
@@ -303,9 +269,7 @@ final class EloquentStockItemRepository extends AbstractEloquentRepository imple
     }
 
     /**
-     * Run a single PostgreSQL VALUES-join UPDATE for one inventory column.
-     *
-     * @param array<string, bool|int> $valuesBySku  SKU → primitive value for this column
+     * @param array<string, bool|int> $valuesBySku SKU → primitive value for this column
      */
     private static function executeBulkColumnUpdate(string $column, array $valuesBySku): int
     {
@@ -328,9 +292,6 @@ final class EloquentStockItemRepository extends AbstractEloquentRepository imple
         );
     }
 
-    /**
-     * PostgreSQL cast keyword for the value column of a VALUES-join UPDATE.
-     */
     private static function columnSqlCast(string $column): string
     {
         return match ($column) {

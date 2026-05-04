@@ -17,18 +17,15 @@ use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\Inventory\Commands\UpdateInventoryFieldsCommand;
 use App\Domain\Inventory\ValueObjects\InventoryFieldUpdate;
 use Psr\Log\LoggerInterface;
-use Throwable;
 use Webmozart\Assert\Assert;
 
 /**
  * Bulk update Linnworks inventory fields (JIT, MinimumLevel) for one or more SKUs.
  *
- * Linnworks `UpdateInventoryItemField` is per-SKU per-field — this UseCase loops
- * the API call per command and accumulates per-item results so a single bad SKU
- * does not abort the batch. After the API loop, the local stock_items mirror is
- * updated for succeeded SKUs in a single bulk write. If the local write fails,
- * succeeded items are demoted to permanent failures and per-item reconciliation
- * sync jobs are dispatched to repair the divergence asynchronously.
+ * Per-item API failures are accumulated rather than aborting the batch. On success,
+ * the local stock_items mirror is updated in a single bulk write. If the local write
+ * fails, succeeded items are demoted to permanent failures and reconciliation syncs
+ * are dispatched asynchronously.
  */
 final readonly class UpdateInventoryFieldsUseCase
 {
@@ -44,9 +41,9 @@ final readonly class UpdateInventoryFieldsUseCase
      *
      * @return BatchUpdateResult<string>
      *
-     * @throws DatabaseOperationFailedException Surfaces only from the failure-path resolver call (bulk-write failures are demoted into the result)
-     * @throws DuplicateRecordException Surfaces only from the failure-path resolver call (bulk-write failures are demoted into the result)
-     * @throws ExternalServiceUnavailableException Surfaces only from the failure-path resolver call (bulk-write failures are demoted into the result)
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
      */
     public function execute(array $commands): BatchUpdateResult
     {
@@ -69,8 +66,6 @@ final readonly class UpdateInventoryFieldsUseCase
     }
 
     /**
-     * Loop the per-SKU Linnworks API call, partitioning into succeeded / permanent / temporary failures.
-     *
      * @param non-empty-list<UpdateInventoryFieldsCommand> $commands
      *
      * @return array{
@@ -93,8 +88,6 @@ final readonly class UpdateInventoryFieldsUseCase
                 $permanentFailures[] = ['identifier' => $command->sku->value, 'error' => $e->getMessage()];
             } catch (TransientApiFailure $e) {
                 $temporaryFailures[] = ['identifier' => $command->sku->value, 'error' => $e->getMessage()];
-            } catch (Throwable $e) {
-                $permanentFailures[] = ['identifier' => $command->sku->value, 'error' => $e->getMessage()];
             }
         }
 
@@ -109,9 +102,9 @@ final readonly class UpdateInventoryFieldsUseCase
      *
      * @return BatchUpdateResult<string>
      *
-     * @throws DatabaseOperationFailedException When the failure-path resolver call fails after a bulk-write failure
-     * @throws DuplicateRecordException When the failure-path resolver call fails after a bulk-write failure
-     * @throws ExternalServiceUnavailableException When the failure-path resolver call is unavailable
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
      */
     private function updateLocalDatabase(
         int $total,
@@ -135,8 +128,6 @@ final readonly class UpdateInventoryFieldsUseCase
     }
 
     /**
-     * Build the SKU → updates map for the bulk repository call.
-     *
      * @param non-empty-list<UpdateInventoryFieldsCommand> $succeeded
      *
      * @return array<string, list<InventoryFieldUpdate>>
@@ -151,8 +142,6 @@ final readonly class UpdateInventoryFieldsUseCase
     }
 
     /**
-     * Demote succeeded items to permanent failures and dispatch reconciliation syncs.
-     *
      * @param int<0, max> $total
      * @param non-empty-list<UpdateInventoryFieldsCommand> $succeeded
      * @param list<array{identifier: string, error: string}> $permanentFailures
@@ -160,9 +149,9 @@ final readonly class UpdateInventoryFieldsUseCase
      *
      * @return BatchUpdateResult<string>
      *
-     * @throws DatabaseOperationFailedException When the resolver call fails
-     * @throws DuplicateRecordException When the resolver call fails
-     * @throws ExternalServiceUnavailableException When the resolver call is unavailable
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
      */
     private function handleDbWriteFailure(
         int $total,
@@ -170,7 +159,7 @@ final readonly class UpdateInventoryFieldsUseCase
         array $permanentFailures,
         array $temporaryFailures,
     ): BatchUpdateResult {
-        $this->dispatchReconciliationSyncsForSucceeded($succeeded);
+        $this->dispatchReconciliationSyncs($succeeded);
 
         return new BatchUpdateResult(
             total: $total,
@@ -181,15 +170,13 @@ final readonly class UpdateInventoryFieldsUseCase
     }
 
     /**
-     * Resolve succeeded SKUs to stock_item_ids and dispatch a reconciliation sync per resolved Guid.
-     *
      * @param non-empty-list<UpdateInventoryFieldsCommand> $succeeded
      *
-     * @throws DatabaseOperationFailedException When the resolver call fails
-     * @throws DuplicateRecordException When the resolver call fails
-     * @throws ExternalServiceUnavailableException When the resolver call is unavailable
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
      */
-    private function dispatchReconciliationSyncsForSucceeded(array $succeeded): void
+    private function dispatchReconciliationSyncs(array $succeeded): void
     {
         $skus = \array_map(static fn(UpdateInventoryFieldsCommand $c): Sku => $c->sku, $succeeded);
         $stockItemIdsBySku = $this->stockItemRepository->resolveStockItemIdsBySkus(...$skus);

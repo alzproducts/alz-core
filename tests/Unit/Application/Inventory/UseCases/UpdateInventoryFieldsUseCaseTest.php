@@ -115,8 +115,7 @@ final class UpdateInventoryFieldsUseCaseTest extends TestCase
             new UpdateInventoryFieldsCommand(Sku::fromTrusted('GOOD-1'), [InventoryFieldUpdate::jit(true)]),
             new UpdateInventoryFieldsCommand(Sku::fromTrusted('PERM-2'), [InventoryFieldUpdate::jit(true)]),
             new UpdateInventoryFieldsCommand(Sku::fromTrusted('TRANS-3'), [InventoryFieldUpdate::jit(true)]),
-            new UpdateInventoryFieldsCommand(Sku::fromTrusted('UNKNOWN-4'), [InventoryFieldUpdate::jit(true)]),
-            new UpdateInventoryFieldsCommand(Sku::fromTrusted('GOOD-5'), [InventoryFieldUpdate::minimumLevel(7)]),
+            new UpdateInventoryFieldsCommand(Sku::fromTrusted('GOOD-4'), [InventoryFieldUpdate::minimumLevel(7)]),
         ];
 
         $this->fieldUpdateClient->shouldReceive('updateFields')
@@ -134,30 +133,51 @@ final class UpdateInventoryFieldsUseCaseTest extends TestCase
         $this->fieldUpdateClient->shouldReceive('updateFields')
             ->ordered()
             ->once()
-            ->andThrow(new RuntimeException('totally unexpected'));
-        $this->fieldUpdateClient->shouldReceive('updateFields')
-            ->ordered()
-            ->once()
-            ->withArgs(static fn($identifier): bool => $identifier->value === 'GOOD-5');
+            ->withArgs(static fn($identifier): bool => $identifier->value === 'GOOD-4');
 
         $this->stockItemRepository->shouldReceive('bulkUpdateInventoryFieldsBySkus')
             ->once()
             ->withArgs(
                 static fn(array $updatesBySku): bool
-                => \array_keys($updatesBySku) === ['GOOD-1', 'GOOD-5'],
+                => \array_keys($updatesBySku) === ['GOOD-1', 'GOOD-4'],
             )
             ->andReturn(2);
 
         $result = $this->useCase->execute($commands);
 
-        $this->assertSame(5, $result->total);
+        $this->assertSame(4, $result->total);
         $this->assertSame(2, $result->succeeded);
 
         $permanentSkus = \array_column($result->permanentFailures, 'identifier');
-        $this->assertSame(['PERM-2', 'UNKNOWN-4'], $permanentSkus);
+        $this->assertSame(['PERM-2'], $permanentSkus);
 
         $temporarySkus = \array_column($result->temporaryFailures, 'identifier');
         $this->assertSame(['TRANS-3'], $temporarySkus);
+    }
+
+    #[Test]
+    public function it_propagates_unexpected_exceptions_without_swallowing_them(): void
+    {
+        $commands = [
+            new UpdateInventoryFieldsCommand(Sku::fromTrusted('GOOD-1'), [InventoryFieldUpdate::jit(true)]),
+            new UpdateInventoryFieldsCommand(Sku::fromTrusted('BOOM-2'), [InventoryFieldUpdate::jit(true)]),
+        ];
+
+        $this->fieldUpdateClient->shouldReceive('updateFields')
+            ->ordered()
+            ->once()
+            ->withArgs(static fn($identifier): bool => $identifier->value === 'GOOD-1');
+        $this->fieldUpdateClient->shouldReceive('updateFields')
+            ->ordered()
+            ->once()
+            ->andThrow(new RuntimeException('totally unexpected'));
+
+        $this->stockItemRepository->shouldReceive('bulkUpdateInventoryFieldsBySkus')->never();
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('totally unexpected');
+
+        $this->useCase->execute($commands);
     }
 
     /*
