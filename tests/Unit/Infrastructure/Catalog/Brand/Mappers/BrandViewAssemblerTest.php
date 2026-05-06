@@ -45,7 +45,7 @@ final class BrandViewAssemblerTest extends TestCase
     #[Test]
     public function it_populates_description2_from_custom_fields_when_description_include_is_present(): void
     {
-        $model = self::buildBrandModel(customFields: ['description2' => '<p>Secondary content</p>']);
+        $model = self::buildBrandModel(customFields: ['description_2' => '<p>Secondary content</p>']);
 
         $result = $this->assembler->toViewDomain($model, [BrandInclude::Description]);
 
@@ -65,7 +65,7 @@ final class BrandViewAssemblerTest extends TestCase
     #[Test]
     public function it_returns_null_description2_when_description_include_is_absent(): void
     {
-        $model = self::buildBrandModel(customFields: ['description2' => '<p>Secondary content</p>']);
+        $model = self::buildBrandModel(customFields: ['description_2' => '<p>Secondary content</p>']);
 
         $result = $this->assembler->toViewDomain($model, []);
 
@@ -80,7 +80,7 @@ final class BrandViewAssemblerTest extends TestCase
     public function it_filters_description2_from_custom_fields_when_custom_fields_include_is_present(): void
     {
         $model = self::buildBrandModel(customFields: [
-            'description2' => '<p>Secondary</p>',
+            'description_2' => '<p>Secondary</p>',
             'material' => 'Cotton',
         ]);
 
@@ -89,7 +89,7 @@ final class BrandViewAssemblerTest extends TestCase
         $this->customFieldFactory
             ->shouldReceive('fromRawFields')
             ->once()
-            ->with(Mockery::on(static fn(array $fields): bool => ! \array_key_exists('description2', $fields)
+            ->with(Mockery::on(static fn(array $fields): bool => ! \array_key_exists('description_2', $fields)
                     && \array_key_exists('material', $fields)
                     && $fields['material'] === 'Cotton'))
             ->andReturn([$typedField]);
@@ -102,7 +102,7 @@ final class BrandViewAssemblerTest extends TestCase
     #[Test]
     public function it_filters_description2_even_when_no_other_custom_fields_exist(): void
     {
-        $model = self::buildBrandModel(customFields: ['description2' => '<p>Only field</p>']);
+        $model = self::buildBrandModel(customFields: ['description_2' => '<p>Only field</p>']);
 
         $this->customFieldFactory
             ->shouldReceive('fromRawFields')
