@@ -6,9 +6,13 @@ namespace App\Infrastructure\Linnworks\Repositories;
 
 use App\Application\Contracts\Linnworks\StockItemRepositoryInterface;
 use App\Application\Results\SaveManyResult;
+use App\Domain\Catalog\Product\ValueObjects\Sku;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use App\Domain\Exceptions\UnsupportedFieldException;
+use App\Domain\Inventory\Enums\InventoryUpdatableField;
+use App\Domain\Inventory\ValueObjects\InventoryFieldUpdate;
 use App\Domain\Inventory\ValueObjects\StockItemExtendedProperty;
 use App\Domain\Inventory\ValueObjects\StockItemFull;
 use App\Domain\Inventory\ValueObjects\StockItemSupplier;
@@ -18,7 +22,6 @@ use App\Infrastructure\Linnworks\Mappers\StockItemModelMapper;
 use App\Infrastructure\Linnworks\Models\StockItemExtendedPropertyModel;
 use App\Infrastructure\Linnworks\Models\StockItemModel;
 use App\Infrastructure\Linnworks\Models\StockItemSupplierModel;
-use App\Infrastructure\Persistence\EloquentGateway;
 use App\Infrastructure\Repositories\AbstractEloquentRepository;
 use Override;
 
@@ -39,20 +42,12 @@ final class EloquentStockItemRepository extends AbstractEloquentRepository imple
     /**
      * {@inheritDoc}
      *
-     * Strategy:
-     * 1. Upsert stock item by stock_item_id
-     * 2. Delete existing extended properties for this item
-     * 3. Insert fresh extended properties from domain object
-     * 4. Delete existing suppliers for this item
-     * 5. Insert fresh suppliers from domain object
-     *
      * @param StockItemFull $entity
      */
     #[Override]
     public function save(object $entity): void
     {
         $this->eloquentGateway->transact(function () use ($entity): void {
-            // 1. Upsert stock item by stock_item_id (single query vs SELECT+INSERT)
             $this->eloquentGateway->upsertOne(
                 modelClass: StockItemModel::class,
                 attributes: [
@@ -68,8 +63,6 @@ final class EloquentStockItemRepository extends AbstractEloquentRepository imple
     }
 
     /**
-     * Delete existing extended properties and re-insert fresh rows from the domain object.
-     *
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
@@ -101,8 +94,6 @@ final class EloquentStockItemRepository extends AbstractEloquentRepository imple
     }
 
     /**
-     * Delete existing suppliers and re-insert fresh rows from the domain object.
-     *
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
@@ -136,10 +127,6 @@ final class EloquentStockItemRepository extends AbstractEloquentRepository imple
     /**
      * {@inheritDoc}
      *
-     * Bulk-updates is_archived and is_logically_deleted in a single transaction.
-     * Two-pass per flag: set true for flagged IDs, set false for any rows previously
-     * set but no longer flagged (avoids blanket reset, only touches changed rows).
-     *
      * @param list<Guid> $archivedIds
      * @param list<Guid> $deletedIds
      *
@@ -156,11 +143,6 @@ final class EloquentStockItemRepository extends AbstractEloquentRepository imple
     }
 
     /**
-     * Two-pass bulk update for a single boolean flag column.
-     *
-     * Sets the flag to true for flagged IDs, then resets it to false for any
-     * rows that previously had the flag but are no longer in the flagged set.
-     *
      * @param list<Guid> $flaggedIds
      */
     private static function applyFlagSync(string $column, array $flaggedIds): void
@@ -179,19 +161,8 @@ final class EloquentStockItemRepository extends AbstractEloquentRepository imple
     /**
      * {@inheritDoc}
      *
-     * Bypasses the {@see save()} override entirely — does NOT delete or
-     * re-insert extended-property or supplier child rows. This preserves
-     * historical child data for items transitioning from active to
-     * archived state, which the regular save path would destroy.
-     *
-     * Every row is marked `is_archived = true` and `is_logically_deleted = true`.
-     * Linnworks always co-sets both flags on archived items (verified against
-     * the `StockItem` table three-bucket breakdown), so hardcoding here keeps
-     * the two columns in sync without a per-row flag in the input.
-     *
-     * Uses {@see EloquentGateway::batchUpsertMany()}
-     * at the default batch size of 500 — ~8 batches for a typical ~3.6k
-     * archived catalogue.
+     * Bypasses {@see save()} — does NOT delete/re-insert child rows, preserving
+     * historical extended-property and supplier data for archived items.
      *
      * @param list<StockItemFull> $items
      */
@@ -232,6 +203,128 @@ final class EloquentStockItemRepository extends AbstractEloquentRepository imple
         $this->eloquentGateway->transact(static function () use ($compositeIds): void {
             self::applyFlagSync('is_composite', $compositeIds);
         });
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @return array<string, Guid> SKU → stock_item_id (only SKUs found locally)
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function resolveStockItemIdsBySkus(Sku ...$skus): array
+    {
+        if ($skus === []) {
+            return [];
+        }
+
+        $skuStrings = \array_map(static fn(Sku $s): string => $s->value, $skus);
+
+        /** @var array<string, string> $raw */
+        $raw = $this->eloquentGateway->query(
+            static fn(): array => StockItemModel::query()
+                ->whereIn('item_number', $skuStrings)
+                ->pluck('stock_item_id', 'item_number')
+                ->all(),
+        );
+
+        return \array_map(static fn(string $id): Guid => new Guid($id), $raw);
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @param array<string, list<InventoryFieldUpdate>> $updatesBySku
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function bulkUpdateInventoryFieldsBySkus(array $updatesBySku): int
+    {
+        if ($updatesBySku === []) {
+            return 0;
+        }
+
+        $valuesByColumn = [];
+        foreach ($updatesBySku as $sku => $updates) {
+            foreach ($updates as $update) {
+                [$column, $value] = self::fieldMapping($update);
+                $valuesByColumn[$column][$sku] = $value;
+            }
+        }
+
+        /** @var int $totalAffected */
+        $totalAffected = $this->eloquentGateway->transact(static function () use ($valuesByColumn): int {
+            $running = 0;
+            foreach ($valuesByColumn as $column => $valuesBySku) {
+                $running += self::executeBulkColumnUpdate($column, $valuesBySku);
+            }
+            return $running;
+        });
+
+        return $totalAffected;
+    }
+
+    /**
+     * @param array<string, bool|int> $valuesBySku SKU → primitive value for this column
+     */
+    private static function executeBulkColumnUpdate(string $column, array $valuesBySku): int
+    {
+        if ($valuesBySku === []) {
+            return 0;
+        }
+
+        $valueCast = self::columnSqlCast($column);
+        $bindings = [];
+        foreach ($valuesBySku as $sku => $value) {
+            $bindings[] = $sku;
+            $bindings[] = $value;
+        }
+
+        $valuesPairs = \implode(', ', \array_fill(0, \count($valuesBySku), "(?::text, ?::{$valueCast})"));
+
+        return StockItemModel::query()->getConnection()->update(
+            "UPDATE linnworks.stock_items AS t SET {$column} = c.value FROM (VALUES {$valuesPairs}) AS c(item_number, value) WHERE t.item_number = c.item_number",
+            $bindings,
+        );
+    }
+
+    private static function columnSqlCast(string $column): string
+    {
+        return match ($column) {
+            'jit' => 'boolean',
+            'minimum_level' => 'integer',
+            default => throw new UnsupportedFieldException(
+                fieldName: $column,
+                entityType: 'StockItem',
+            ),
+        };
+    }
+
+    /**
+     * @return array{0: string, 1: bool|int}
+     *
+     * @throws UnsupportedFieldException When the field has no local column mapping
+     */
+    private static function fieldMapping(InventoryFieldUpdate $update): array
+    {
+        return match ($update->field) {
+            InventoryUpdatableField::JIT => ['jit', $update->value === 'true'],
+            InventoryUpdatableField::MinimumLevel => ['minimum_level', (int) $update->value],
+            InventoryUpdatableField::Category,
+            InventoryUpdatableField::RetailPrice,
+            InventoryUpdatableField::PurchasePrice,
+            InventoryUpdatableField::BinRack,
+            InventoryUpdatableField::Barcode,
+            InventoryUpdatableField::Weight,
+            InventoryUpdatableField::Title => throw new UnsupportedFieldException(
+                fieldName: $update->field->name,
+                entityType: 'StockItem',
+            ),
+        };
     }
 
     protected function getModelClass(): string

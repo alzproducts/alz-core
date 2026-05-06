@@ -81,7 +81,7 @@ final readonly class BrandViewAssembler
      */
     private static function extractDescription2(array $customFields): ?string
     {
-        $value = $customFields['description2'] ?? null;
+        $value = $customFields['description_2'] ?? null;
 
         return \is_string($value) ? $value : null;
     }
@@ -103,7 +103,7 @@ final readonly class BrandViewAssembler
         }
 
         $rawFields = $model->custom_fields;
-        unset($rawFields['description2']);
+        unset($rawFields['description_2']);
 
         return $this->customFieldFactory->fromRawFields($rawFields);
     }
