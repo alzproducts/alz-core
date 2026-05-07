@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Presentation\Http\Api\DTOs;
 
 use App\Application\Catalog\Queries\VariationListQueryParams;
+use App\Domain\Catalog\Product\Enums\PopularityBucket;
 use App\Domain\Catalog\Product\Enums\VariationFilterField;
 use App\Domain\Catalog\Product\Enums\VariationInclude;
 use App\Domain\Catalog\Product\Enums\VariationSortField;
@@ -48,6 +49,12 @@ final class ListVariationsRequestDTO extends Data
         public readonly ?bool $has_free_delivery = null,
         #[Nullable, BooleanType]
         public readonly ?bool $is_active = null,
+        #[Nullable, BooleanType]
+        public readonly ?bool $in_stock = null,
+        #[Nullable, StringType]
+        public readonly ?string $default_supplier = null,
+        #[Nullable, StringType]
+        public readonly ?string $popularity_bucket = null,
     ) {}
 
     /**
@@ -60,6 +67,7 @@ final class ListVariationsRequestDTO extends Data
             'sort_by' => ['nullable', 'string', 'in:' . \implode(',', \array_column(VariationSortField::cases(), 'value'))],
             'sort_direction' => ['nullable', 'string', 'in:' . \implode(',', \array_column(SortDirection::cases(), 'value'))],
             'category_id' => ['nullable', 'integer', 'min:1'],
+            'popularity_bucket' => ['nullable', 'string', 'in:' . \implode(',', \array_column(PopularityBucket::cases(), 'value'))],
         ];
     }
 
@@ -87,20 +95,14 @@ final class ListVariationsRequestDTO extends Data
      */
     private function buildFilters(): array
     {
-        $filters = [];
-        if ($this->is_active !== null) {
-            $filters[VariationFilterField::IsActive->value] = $this->is_active;
-        }
-        if ($this->category_id !== null) {
-            $filters[VariationFilterField::CategoryId->value] = $this->category_id;
-        }
-        if ($this->is_on_sale !== null) {
-            $filters[VariationFilterField::IsOnSale->value] = $this->is_on_sale;
-        }
-        if ($this->has_free_delivery !== null) {
-            $filters[VariationFilterField::HasFreeDelivery->value] = $this->has_free_delivery;
-        }
-
-        return $filters;
+        return \array_filter([
+            VariationFilterField::IsActive->value => $this->is_active,
+            VariationFilterField::CategoryId->value => $this->category_id,
+            VariationFilterField::IsOnSale->value => $this->is_on_sale,
+            VariationFilterField::HasFreeDelivery->value => $this->has_free_delivery,
+            VariationFilterField::InStock->value => $this->in_stock,
+            VariationFilterField::DefaultSupplier->value => $this->default_supplier,
+            VariationFilterField::PopularityBucket->value => $this->popularity_bucket,
+        ], static fn(mixed $v): bool => $v !== null);
     }
 }

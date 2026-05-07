@@ -49,6 +49,8 @@ use Override;
  * @property bool $parent_is_active Parent product visibility (filter column — stays in view for WHERE clause)
  * @property bool $parent_has_free_delivery Whether parent has free delivery (filter column)
  * @property list<int> $parent_main_category_ids Parent product main category IDs (filter column)
+ * @property string|null $default_supplier_name Default supplier name (filter column, from view)
+ * @property float|null $stock_value Stock value = purchase_price × available stock (null when no supplier cost)
  */
 final class ProductVariationViewModel extends Model
 {
@@ -88,6 +90,7 @@ final class ProductVariationViewModel extends Model
             'parent_is_active' => 'boolean',
             'parent_has_free_delivery' => 'boolean',
             'parent_main_category_ids' => 'array',
+            'stock_value' => 'float',
         ];
     }
 

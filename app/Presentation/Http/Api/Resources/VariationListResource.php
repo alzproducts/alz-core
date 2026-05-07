@@ -46,6 +46,7 @@ final class VariationListResource extends JsonResource
             'stock' => [
                 'available_stock' => $variation->stockLevel->availableStock,
                 'physical_stock' => $variation->stockLevel->physicalStock,
+                'stock_value' => $variation->stockValue?->toNet(),
             ],
             'weight' => $variation->weight?->value,
             'options' => \array_map(static fn(ProductVariationOption $opt): array => $opt->toArray(), $variation->options),
@@ -84,7 +85,6 @@ final class VariationListResource extends JsonResource
     {
         return [
             'parent_product_id' => $item->parentProductId->value,
-            'parent_sku' => $item->parentSku?->value,
             'variation_title' => $item->variationTitle,
             'links' => [
                 'public_url' => $item->links->publicUrl,
