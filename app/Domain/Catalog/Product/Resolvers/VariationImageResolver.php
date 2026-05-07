@@ -43,17 +43,7 @@ final readonly class VariationImageResolver
      */
     public function resolve(ProductVariation $variation, array $parentImages): ?ProductImage
     {
-        if ($variation->imageIndex === null || $parentImages === []) {
-            return null;
-        }
-
-        $arrayIndex = $variation->imageIndex - 1;
-
-        if ($arrayIndex < 0 || !isset($parentImages[$arrayIndex])) {
-            return null;
-        }
-
-        return $parentImages[$arrayIndex];
+        return OneBasedIndexLookup::at($variation->imageIndex, $parentImages);
     }
 
     /**

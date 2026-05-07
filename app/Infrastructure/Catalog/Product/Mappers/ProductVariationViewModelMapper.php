@@ -63,6 +63,7 @@ final class ProductVariationViewModelMapper
             isComposite: $stockItem !== null && $stockItem->is_composite,
             inventory: $stockItem?->toProductInventory(),
             popularity: Popularity::fromRank($model->popularity_rank, $model->popularity_max),
+            stockValue: $model->stock_value,
         );
     }
 

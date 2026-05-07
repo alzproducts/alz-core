@@ -12,4 +12,5 @@ enum VariationSortField: string
     case ProfitMargin = 'profit_margin';
     case CreatedAt = 'created_at';
     case UpdatedAt = 'updated_at';
+    case Popularity = 'popularity';
 }

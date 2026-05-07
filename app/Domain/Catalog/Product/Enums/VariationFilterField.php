@@ -10,4 +10,7 @@ enum VariationFilterField: string
     case CategoryId = 'category_id';
     case IsOnSale = 'is_on_sale';
     case HasFreeDelivery = 'has_free_delivery';
+    case InStock = 'in_stock';
+    case DefaultSupplier = 'default_supplier';
+    case PopularityBucket = 'popularity_bucket';
 }
