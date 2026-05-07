@@ -20,6 +20,7 @@ final class VariationSortFieldMapper
             VariationSortField::Stock => 'available_stock',
             VariationSortField::CreatedAt => 'created_at',
             VariationSortField::UpdatedAt => 'updated_at',
+            VariationSortField::Popularity => 'popularity_rank',
         };
     }
 }

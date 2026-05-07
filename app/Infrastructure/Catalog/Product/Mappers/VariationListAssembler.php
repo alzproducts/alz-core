@@ -57,7 +57,6 @@ final readonly class VariationListAssembler
         return new VariationListItem(
             variation: $variation,
             parentExternalId: $model->product_external_id,
-            parentSkuRaw: $parent->sku,
             variationTitle: $model->variation_title,
             links: self::buildLinks($model, $parent, $variation),
             isActive: $model->parent_is_active,
