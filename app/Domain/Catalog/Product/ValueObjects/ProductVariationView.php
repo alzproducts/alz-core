@@ -43,6 +43,8 @@ final readonly class ProductVariationView
 
     public Stock $stockLevel;
 
+    public ?Money $stockValue;
+
     /**
      * @param int $externalId ShopWired variation ID
      * @param string|null $sku Variation SKU (nullable for legacy data)
@@ -94,9 +96,9 @@ final readonly class ProductVariationView
         public bool $isComposite = false,
         public ?ProductInventory $inventory = null,
         public ?Popularity $popularity = null,
+        ?float $stockValue = null,
     ) {
         $taxType = $vatExclusive ? TaxType::ZeroRated : TaxType::Inclusive;
-
         $this->id = IntId::from($externalId);
         $this->sku = $sku !== null && \mb_trim($sku) !== '' ? Sku::fromTrusted(\mb_trim($sku)) : null;
         $this->gtin = $gtin !== null ? Gtin::fromTrusted($gtin) : null;
@@ -108,6 +110,7 @@ final readonly class ProductVariationView
         $this->weight = $weight !== null ? Weight::kilogram($weight) : null;
         $this->canEditCostPrice = ! $isComposite && $defaultSupplier !== null;
         $this->stockLevel = new Stock($availableStock, $physicalStock);
+        $this->stockValue = Money::nonZeroOrNull($stockValue, TaxType::Exclusive);
     }
 
     /**
