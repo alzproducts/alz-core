@@ -28,6 +28,7 @@ enum PaymentMethodRaw: string
     case SagepayDirect = 'Sagepay Direct';
     case SagepayForm = 'Sagepay Form';
     case SagepayHosted = 'Sagepay Hosted';
+    case ShopWiredPayments = 'ShopWired Payments';
 
     /**
      * Convert to Domain PaymentMethod.
@@ -46,6 +47,7 @@ enum PaymentMethodRaw: string
             self::SagepayDirect => PaymentMethod::Card,
             self::SagepayForm => PaymentMethod::Card,
             self::SagepayHosted => PaymentMethod::Card,
+            self::ShopWiredPayments => PaymentMethod::Card,
         };
     }
 
