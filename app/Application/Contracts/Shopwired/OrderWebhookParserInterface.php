@@ -21,11 +21,14 @@ interface OrderWebhookParserInterface
     /**
      * Parse a full Order domain object from the webhook event.data payload.
      *
+     * Returns null when the payload is recognisable but incomplete (e.g. missing
+     * reference) — the caller decides whether to skip or fail.
+     *
      * @param array<string, mixed> $data The event.data payload (contains 'object' key)
      *
      * @throws InvalidApiResponseException When the payload structure does not match the expected schema
      */
-    public function parseOrder(array $data): Order;
+    public function parseOrder(array $data): ?Order;
 
     /**
      * Parse an OrderStatus from an `order.status_changed` event.data payload.

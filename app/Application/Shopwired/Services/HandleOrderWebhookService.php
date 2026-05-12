@@ -23,6 +23,7 @@ use App\Domain\Exceptions\Data\InvalidEnumValueException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\IntId;
+use Psr\Log\LoggerInterface;
 
 /**
  * Routes order webhook events to the appropriate use case.
@@ -37,6 +38,7 @@ final readonly class HandleOrderWebhookService
         private DeleteOrderUseCase $deleteOrderUseCase,
         private OrderWebhookParserInterface $orderParser,
         private OrderWebhookEventResolverInterface $resolver,
+        private LoggerInterface $logger,
     ) {}
 
     /**
@@ -79,11 +81,31 @@ final readonly class HandleOrderWebhookService
                 refundExternalId: $this->orderParser->parseRefundExternalId($payload->data),
             ),
 
-            OrderWebhookIntent::Sync => $this->syncOrderUseCase->execute(
-                context: $context,
-                order: $this->orderParser->parseOrder($payload->data),
-            ),
+            OrderWebhookIntent::Sync => $this->handleOrderSync($context, $orderId, $payload->data),
         };
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     * @throws InvalidApiResponseException
+     */
+    private function handleOrderSync(WebhookContextDTO $context, IntId $orderId, array $data): void
+    {
+        $order = $this->orderParser->parseOrder($data);
+
+        if ($order === null) {
+            $this->logger->info('Skipping incomplete order webhook (batch sync will handle)', [
+                'order_id' => $orderId->value,
+            ]);
+
+            return;
+        }
+
+        $this->syncOrderUseCase->execute(context: $context, order: $order);
     }
 
     /**

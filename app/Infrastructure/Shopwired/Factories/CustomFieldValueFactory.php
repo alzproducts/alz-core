@@ -143,11 +143,15 @@ final class CustomFieldValueFactory implements CustomFieldValueFactoryInterface
      */
     private static function createDateTimeValue(ConfiguredFieldDefinition $definition, mixed $value): DateTimeCustomFieldValue
     {
-        if (!\is_int($value)) {
-            throw InvalidCustomFieldValueException::forMismatch($definition, $value);
+        if (\is_string($value)) {
+            return DateTimeCustomFieldValue::fromDateString($definition, $value);
         }
 
-        return DateTimeCustomFieldValue::fromTimestamp($definition, $value);
+        if (\is_int($value)) {
+            return DateTimeCustomFieldValue::fromTimestamp($definition, $value);
+        }
+
+        throw InvalidCustomFieldValueException::forMismatch($definition, $value);
     }
 
     /**
