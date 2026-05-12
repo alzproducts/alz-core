@@ -10,6 +10,7 @@ use App\Domain\Catalog\CustomFields\Enums\CustomFieldType;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\CustomFields\ValueObjects\ConfiguredFieldDefinition;
 use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldDefinition;
+use App\Domain\Catalog\CustomFields\ValueObjects\DateTimeCustomFieldValue;
 use App\Domain\Catalog\CustomFields\ValueObjects\StringCustomFieldValue;
 use App\Domain\ValueObjects\Uuid;
 use App\Infrastructure\Shopwired\Factories\CustomFieldValueFactory;
@@ -97,6 +98,49 @@ final class CustomFieldValueFactoryTest extends TestCase
     }
 
     // ========================================================================
+    // Date field string acceptance
+    // ========================================================================
+
+    #[Test]
+    public function from_raw_fields_accepts_date_string_for_date_field(): void
+    {
+        $this->stubRegistryWith([
+            $this->createDateDefinition('preorder_date'),
+        ]);
+
+        $result = $this->factory->fromRawFields(['preorder_date' => '2026-06-15']);
+
+        self::assertCount(1, $result);
+        self::assertInstanceOf(DateTimeCustomFieldValue::class, $result[0]);
+        self::assertSame('2026-06-15', $result[0]->rawValue()->format('Y-m-d'));
+    }
+
+    #[Test]
+    public function from_raw_fields_accepts_integer_timestamp_for_date_field(): void
+    {
+        $this->stubRegistryWith([
+            $this->createDateDefinition('preorder_date'),
+        ]);
+
+        $result = $this->factory->fromRawFields(['preorder_date' => 1718409600]);
+
+        self::assertCount(1, $result);
+        self::assertInstanceOf(DateTimeCustomFieldValue::class, $result[0]);
+    }
+
+    #[Test]
+    public function from_raw_fields_throws_on_boolean_for_date_field(): void
+    {
+        $this->stubRegistryWith([
+            $this->createDateDefinition('preorder_date'),
+        ]);
+
+        $this->expectException(InvalidCustomFieldValueException::class);
+
+        $this->factory->fromRawFields(['preorder_date' => true]);
+    }
+
+    // ========================================================================
     // Null values — "clear this field"
     // ========================================================================
 
@@ -170,6 +214,19 @@ final class CustomFieldValueFactoryTest extends TestCase
             itemType: CustomFieldItemType::Product,
             sortOrder: 1,
             allowedValues: $allowedValues,
+        ));
+    }
+
+    private function createDateDefinition(string $name): ConfiguredFieldDefinition
+    {
+        return self::wrap(new CustomFieldDefinition(
+            id: 3,
+            name: $name,
+            type: CustomFieldType::Date,
+            label: \ucfirst($name),
+            itemType: CustomFieldItemType::Product,
+            sortOrder: 0,
+            allowedValues: null,
         ));
     }
 

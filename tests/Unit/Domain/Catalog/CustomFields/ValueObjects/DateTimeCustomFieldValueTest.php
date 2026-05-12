@@ -6,6 +6,7 @@ namespace Tests\Unit\Domain\Catalog\CustomFields\ValueObjects;
 
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldItemType;
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldType;
+use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\CustomFields\ValueObjects\ConfiguredFieldDefinition;
 use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldDefinition;
 use App\Domain\Catalog\CustomFields\ValueObjects\DateTimeCustomFieldValue;
@@ -93,6 +94,59 @@ final class DateTimeCustomFieldValueTest extends TestCase
         $value = DateTimeCustomFieldValue::fromTimestamp($definition, 0);
 
         self::assertSame('1970-01-01 01:00:00', $value->value->format('Y-m-d H:i:s'));
+    }
+
+    // ========================================================================
+    // Happy Path - fromDateString Factory
+    // ========================================================================
+
+    #[Test]
+    public function from_date_string_parses_date_only(): void
+    {
+        $definition = $this->createDateDefinition();
+
+        $value = DateTimeCustomFieldValue::fromDateString($definition, '2026-06-15');
+
+        self::assertSame('2026-06-15', $value->value->format('Y-m-d'));
+        self::assertSame('Europe/London', $value->value->getTimezone()->getName());
+    }
+
+    #[Test]
+    public function from_date_string_parses_datetime_with_time(): void
+    {
+        $definition = $this->createDateTimeDefinition();
+
+        $value = DateTimeCustomFieldValue::fromDateString($definition, '2026-06-15T14:30:00');
+
+        self::assertSame('2026-06-15 14:30:00', $value->value->format('Y-m-d H:i:s'));
+        self::assertSame('Europe/London', $value->value->getTimezone()->getName());
+    }
+
+    #[Test]
+    public function from_date_string_parses_iso8601_with_timezone(): void
+    {
+        $definition = $this->createDateTimeDefinition();
+
+        $value = DateTimeCustomFieldValue::fromDateString($definition, '2026-06-15T14:30:00+02:00');
+
+        self::assertSame('2026-06-15 13:30:00', $value->value->format('Y-m-d H:i:s'));
+        self::assertSame('Europe/London', $value->value->getTimezone()->getName());
+    }
+
+    #[Test]
+    public function from_date_string_throws_on_invalid_string(): void
+    {
+        $definition = $this->createDateDefinition();
+
+        try {
+            DateTimeCustomFieldValue::fromDateString($definition, 'not-a-date');
+            self::fail('Expected InvalidCustomFieldValueException');
+        } catch (InvalidCustomFieldValueException $e) {
+            self::assertSame('release_date', $e->fieldName);
+            self::assertSame(CustomFieldType::Date, $e->expectedType);
+            self::assertSame('string (invalid date)', $e->actualType);
+            self::assertSame('not-a-date', $e->rawValue);
+        }
     }
 
     // ========================================================================
