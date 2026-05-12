@@ -29,11 +29,17 @@ final readonly class ShopwiredOrderWebhookParser implements OrderWebhookParserIn
      *
      * @throws InvalidApiResponseException When the payload structure does not match the expected schema
      */
-    public function parseOrder(array $data): Order
+    public function parseOrder(array $data): ?Order
     {
+        /** @var array<string, mixed> $object */
+        $object = $data['object'] ?? [];
+
+        if (!isset($object['reference'])) {
+            return null;
+        }
+
         try {
-            /** @var array{object: array<string, mixed>} $data */
-            return OrderResponse::from($data['object'])->toDomain();
+            return OrderResponse::from($object)->toDomain();
         } catch (TypeError|CannotCreateData $e) {
             Log::error('ShopWired order webhook payload type mismatch', ['error' => $e->getMessage()]);
             throw new InvalidApiResponseException('ShopWired', previous: $e);
