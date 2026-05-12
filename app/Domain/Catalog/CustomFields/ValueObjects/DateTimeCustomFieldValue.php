@@ -16,9 +16,7 @@ use Webmozart\Assert\Assert;
  * - Date: Date only (no time component)
  * - DateTime: Date with time
  *
- * Parses Unix timestamps from the API into DateTimeImmutable with Europe/London timezone.
- *
- * NOTE: Assumed API returns Unix timestamps. Verify actual format during integration testing.
+ * Accepts Unix timestamps (int) or ISO 8601 date strings. All values normalised to Europe/London.
  */
 final readonly class DateTimeCustomFieldValue extends AbstractCustomFieldValue
 {
@@ -60,7 +58,28 @@ final readonly class DateTimeCustomFieldValue extends AbstractCustomFieldValue
             );
         }
 
-        // Convert to London timezone
+        return new self($definition, $parsed->setTimezone($timezone));
+    }
+
+    /**
+     * Create from an ISO 8601 date or datetime string (e.g. "2026-06-15" or "2026-06-15T10:30:00").
+     *
+     * @throws InvalidCustomFieldValueException If the string cannot be parsed
+     */
+    public static function fromDateString(ConfiguredFieldDefinition $definition, string $dateString): self
+    {
+        $timezone = new DateTimeZone(self::TIMEZONE);
+        $parsed = \date_create_immutable($dateString, $timezone);
+
+        if ($parsed === false) {
+            throw new InvalidCustomFieldValueException(
+                fieldName: $definition->base->name,
+                expectedType: $definition->base->type,
+                actualType: 'string (invalid date)',
+                rawValue: $dateString,
+            );
+        }
+
         return new self($definition, $parsed->setTimezone($timezone));
     }
 
