@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Application\Catalog\UseCases;
 
-use App\Application\Catalog\BestSellerLabels\BestSellerLabelTransformer;
+use App\Application\Catalog\Enums\BestSellerLabel;
 use App\Application\Contracts\Shopwired\ProductUpdateClientInterface;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
@@ -20,18 +20,16 @@ final readonly class SetProductBestSellerLabelUseCase
     ) {}
 
     /**
-     * @param list<string>|null $targetLabels
-     *
      * @throws ResourceNotAvailableException
      * @throws InvalidApiRequestException
      * @throws AuthenticationExpiredException
      * @throws ExternalServiceUnavailableException
      * @throws InvalidApiResponseException
      */
-    public function execute(IntId $productId, ?array $targetLabels): void
+    public function execute(IntId $productId, ?string $label): void
     {
         $this->updateClient->updateCustomFields($productId->value, [
-            BestSellerLabelTransformer::FIELD => $targetLabels,
+            BestSellerLabel::FIELD => $label,
         ]);
     }
 }
