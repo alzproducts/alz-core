@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Application\Catalog\UseCases;
 
 use App\Application\Catalog\BestSellerLabels\BestSellerLabelChangesResult;
-use App\Application\Catalog\BestSellerLabels\BestSellerLabelTransformer;
+use App\Application\Catalog\Enums\BestSellerLabel;
 use App\Application\Contracts\Catalog\ProductViewQueryRepositoryInterface;
 use App\Application\Contracts\Shopwired\ShopwiredSyncDispatcherInterface;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
@@ -48,14 +48,12 @@ final readonly class SyncBestSellerLabelUseCase
 
     private function dispatchChanges(BestSellerLabelChangesResult $changes): void
     {
-        foreach ($changes->toAdd as $candidate) {
-            $targetLabels = BestSellerLabelTransformer::addLabel($candidate->currentLabels);
-            $this->dispatcher->dispatchBestSellerLabelUpdate($candidate->productId, $targetLabels);
+        foreach ($changes->toAdd as $productId) {
+            $this->dispatcher->dispatchBestSellerLabelUpdate($productId, BestSellerLabel::BestSellers->value);
         }
 
-        foreach ($changes->toRemove as $candidate) {
-            $targetLabels = BestSellerLabelTransformer::removeLabel($candidate->currentLabels);
-            $this->dispatcher->dispatchBestSellerLabelUpdate($candidate->productId, $targetLabels);
+        foreach ($changes->toRemove as $productId) {
+            $this->dispatcher->dispatchBestSellerLabelUpdate($productId, null);
         }
     }
 }

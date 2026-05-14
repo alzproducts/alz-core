@@ -5,8 +5,7 @@ declare(strict_types=1);
 namespace App\Infrastructure\Catalog\Repositories;
 
 use App\Application\Catalog\BestSellerLabels\BestSellerLabelChangesResult;
-use App\Application\Catalog\BestSellerLabels\BestSellerLabelTransformer;
-use App\Application\Catalog\BestSellerLabels\ProductLabelCandidateDTO;
+use App\Application\Catalog\Enums\BestSellerLabel;
 use App\Application\Contracts\Catalog\ProductViewQueryRepositoryInterface;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
@@ -25,9 +24,7 @@ final class ProductViewQueryRepository implements ProductViewQueryRepositoryInte
     /** @var class-string<ProductViewModel> */
     private const string MODEL_CLASS = ProductViewModel::class;
 
-    private const array LABEL_COLUMNS = ['external_id', 'custom_fields'];
-
-    private const string LABEL_JSONB_PATH = "custom_fields->'" . BestSellerLabelTransformer::FIELD . "'";
+    private const string LABEL_TEXT_PATH = "custom_fields->>'" . BestSellerLabel::FIELD . "'";
 
     public function __construct(
         private readonly EloquentGateway $eloquentGateway,
@@ -63,11 +60,9 @@ final class ProductViewQueryRepository implements ProductViewQueryRepositoryInte
     #[Override]
     public function findBestSellerLabelChanges(): BestSellerLabelChangesResult
     {
-        $jsonbContains = '["' . BestSellerLabelTransformer::LABEL . '"]';
-
         return new BestSellerLabelChangesResult(
-            toAdd: self::mapToCandidates($this->queryProductsNeedingLabel($jsonbContains)),
-            toRemove: self::mapToCandidates($this->queryProductsLosingLabel($jsonbContains)),
+            toAdd: self::mapToIds($this->queryProductsNeedingLabel()),
+            toRemove: self::mapToIds($this->queryProductsLosingLabel()),
         );
     }
 
@@ -80,18 +75,18 @@ final class ProductViewQueryRepository implements ProductViewQueryRepositoryInte
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      */
-    private function queryProductsNeedingLabel(string $jsonbContains): array
+    private function queryProductsNeedingLabel(): array
     {
         /** @var list<ProductViewModel> */
         return $this->eloquentGateway->query(
             static fn(): array => self::MODEL_CLASS::query()
                 ->whereNotNull('popularity_rank')
                 ->where('popularity_rank', '<=', 2)
-                ->where(static function (Builder $q) use ($jsonbContains): void {
-                    $q->whereRaw(self::LABEL_JSONB_PATH . ' IS NULL')
-                        ->orWhereRaw('NOT (' . self::LABEL_JSONB_PATH . ' @> ?::jsonb)', [$jsonbContains]);
+                ->where(static function (Builder $q): void {
+                    $q->whereRaw(self::LABEL_TEXT_PATH . ' IS NULL')
+                        ->orWhereRaw(self::LABEL_TEXT_PATH . ' != ?', [BestSellerLabel::BestSellers->value]);
                 })
-                ->get(self::LABEL_COLUMNS)
+                ->get(['external_id'])
                 ->all(),
         );
     }
@@ -105,7 +100,7 @@ final class ProductViewQueryRepository implements ProductViewQueryRepositoryInte
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      */
-    private function queryProductsLosingLabel(string $jsonbContains): array
+    private function queryProductsLosingLabel(): array
     {
         /** @var list<ProductViewModel> */
         return $this->eloquentGateway->query(
@@ -113,29 +108,22 @@ final class ProductViewQueryRepository implements ProductViewQueryRepositoryInte
                 ->where(static fn(Builder $q): Builder => $q
                     ->whereNull('popularity_rank')
                     ->orWhere('popularity_rank', '>', 2))
-                ->whereRaw(self::LABEL_JSONB_PATH . ' @> ?::jsonb', [$jsonbContains])
-                ->get(self::LABEL_COLUMNS)
+                ->whereRaw(self::LABEL_TEXT_PATH . ' = ?', [BestSellerLabel::BestSellers->value])
+                ->get(['external_id'])
                 ->all(),
         );
     }
 
     /**
      * @param list<ProductViewModel> $rows
-     * @return list<ProductLabelCandidateDTO>
+     * @return list<IntId>
      */
-    private static function mapToCandidates(array $rows): array
+    private static function mapToIds(array $rows): array
     {
-        return \array_map(static function (ProductViewModel $row): ProductLabelCandidateDTO {
-            /** @var array<string, mixed> $customFields */
-            $customFields = $row->custom_fields;
-            /** @var list<string> $labels */
-            $labels = $customFields[BestSellerLabelTransformer::FIELD] ?? [];
-
-            return new ProductLabelCandidateDTO(
-                productId: IntId::fromTrusted($row->external_id),
-                currentLabels: $labels,
-            );
-        }, $rows);
+        return \array_map(
+            static fn(ProductViewModel $row): IntId => IntId::fromTrusted($row->external_id),
+            $rows,
+        );
     }
 
     /**
