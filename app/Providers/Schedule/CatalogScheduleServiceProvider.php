@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Providers\Schedule;
 
+use App\Infrastructure\Jobs\Catalog\SyncBestSellerLabelJob;
 use App\Infrastructure\Jobs\Catalog\SyncBestSellersCategoryJob;
 use App\Infrastructure\Jobs\Catalog\SyncOffersFiltersJob;
 use App\Infrastructure\Jobs\Catalog\SyncProductPopularityRankingSnapshotJob;
@@ -33,6 +34,7 @@ use RuntimeException;
  *   - Weekly popularity ranking snapshot (Sunday 03:00)
  *   - Product sort orders (04:00, consumes latest snapshot)
  *   - Best Sellers category membership (04:00, top-N from snapshot)
+ *   - Best Sellers label (04:15, custom_label_4 list merge)
  *   - Related products custom field (04:30, algorithm SQL + order-sensitive diff)
  */
 final class CatalogScheduleServiceProvider extends ServiceProvider
@@ -51,6 +53,7 @@ final class CatalogScheduleServiceProvider extends ServiceProvider
         $this->registerSkuPopularityRankingSnapshotSchedule();
         $this->registerProductSortOrderSyncSchedule();
         $this->registerBestSellersCategorySchedule();
+        $this->registerBestSellerLabelSchedule();
         $this->registerRelatedProductsSyncSchedule();
     }
 
@@ -225,6 +228,24 @@ final class CatalogScheduleServiceProvider extends ServiceProvider
         Schedule::job(new SyncBestSellersCategoryJob())
             ->name('sync-best-sellers-category')
             ->dailyAt('04:00')
+            ->timezone('Europe/London')
+            ->onOneServer()
+            ->withoutOverlapping(30);
+    }
+
+    /**
+     * Daily Best Sellers label sync from popularity ranking to custom_label_4.
+     *
+     * Runs at 04:15 Europe/London — 15 minutes after the Best Sellers category sync (04:00),
+     * giving the category membership jobs a head start before the label sync dispatches.
+     *
+     * @throws RuntimeException
+     */
+    private function registerBestSellerLabelSchedule(): void
+    {
+        Schedule::job(new SyncBestSellerLabelJob())
+            ->name('sync-best-seller-label')
+            ->dailyAt('04:15')
             ->timezone('Europe/London')
             ->onOneServer()
             ->withoutOverlapping(30);

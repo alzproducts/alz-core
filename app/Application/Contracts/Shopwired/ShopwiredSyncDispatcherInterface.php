@@ -63,4 +63,11 @@ interface ShopwiredSyncDispatcherInterface
         IntId $productId,
         array $relatedProductIds,
     ): void;
+
+    /**
+     * Dispatch a job to set the Best Sellers label on a product's custom_label_4 field.
+     *
+     * @param list<string>|null $targetLabels Pre-computed label list, or null to clear the field.
+     */
+    public function dispatchBestSellerLabelUpdate(IntId $productId, ?array $targetLabels): void;
 }
