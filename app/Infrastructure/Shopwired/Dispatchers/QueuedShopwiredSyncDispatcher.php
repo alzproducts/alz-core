@@ -8,6 +8,7 @@ use App\Application\Contracts\Shopwired\ShopwiredSyncDispatcherInterface;
 use App\Domain\Catalog\Product\Commands\SetFreeDeliveryCommand;
 use App\Domain\ValueObjects\IntId;
 use App\Infrastructure\Jobs\Shopwired\ReconcileShopwiredComparePriceJob;
+use App\Infrastructure\Jobs\Shopwired\SetProductBestSellerLabelJob;
 use App\Infrastructure\Jobs\Shopwired\SetProductFreeDeliveryJob;
 use App\Infrastructure\Jobs\Shopwired\SyncShopwiredBrandJob;
 use App\Infrastructure\Jobs\Shopwired\SyncShopwiredCategoryJob;
@@ -104,5 +105,11 @@ final readonly class QueuedShopwiredSyncDispatcher implements ShopwiredSyncDispa
             $productId,
             ['related_products' => \array_map(static fn(IntId $id): int => $id->value, $relatedProductIds)],
         );
+    }
+
+    #[Override]
+    public function dispatchBestSellerLabelUpdate(IntId $productId, ?array $targetLabels): void
+    {
+        SetProductBestSellerLabelJob::dispatch($productId, $targetLabels);
     }
 }
