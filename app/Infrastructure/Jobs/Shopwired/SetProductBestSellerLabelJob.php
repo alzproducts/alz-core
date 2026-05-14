@@ -46,12 +46,9 @@ final class SetProductBestSellerLabelJob implements ShouldBeUnique, ShouldQueue
     /** @var array<int> */
     public array $backoff = [60, 300, 900];
 
-    /**
-     * @param list<string>|null $targetLabels
-     */
     public function __construct(
         public readonly IntId $productId,
-        public readonly ?array $targetLabels,
+        public readonly ?string $label,
     ) {
         $this->onQueue(QueueName::Bulk->value);
     }
@@ -85,6 +82,6 @@ final class SetProductBestSellerLabelJob implements ShouldBeUnique, ShouldQueue
      */
     public function handle(SetProductBestSellerLabelUseCase $useCase): void
     {
-        $useCase->execute($this->productId, $this->targetLabels);
+        $useCase->execute($this->productId, $this->label);
     }
 }

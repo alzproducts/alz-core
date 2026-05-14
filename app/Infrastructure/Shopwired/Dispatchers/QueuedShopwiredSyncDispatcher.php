@@ -108,8 +108,8 @@ final readonly class QueuedShopwiredSyncDispatcher implements ShopwiredSyncDispa
     }
 
     #[Override]
-    public function dispatchBestSellerLabelUpdate(IntId $productId, ?array $targetLabels): void
+    public function dispatchBestSellerLabelUpdate(IntId $productId, ?string $label): void
     {
-        SetProductBestSellerLabelJob::dispatch($productId, $targetLabels);
+        SetProductBestSellerLabelJob::dispatch($productId, $label);
     }
 }
