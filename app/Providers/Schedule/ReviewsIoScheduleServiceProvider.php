@@ -13,9 +13,9 @@ use RuntimeException;
 /**
  * Reviews.io Schedule Definitions
  *
- * Two-stage pipeline for syncing product ratings:
- * - Stage 1 (03:00): Fetch ratings from Reviews.io API → local database
- * - Stage 2 (03:30): Push aggregated ratings to ShopWired custom fields
+ * Two-stage pipeline for syncing product ratings, every 4 hours:
+ * - Stage 1 (:00): Fetch ratings from Reviews.io API → local database
+ * - Stage 2 (:30): Push aggregated ratings to ShopWired custom fields
  *
  * The 30-minute gap between stages ensures:
  * 1. Stage 1 has time to complete (typically 2-5 min for ~500 SKUs)
@@ -40,16 +40,15 @@ final class ReviewsIoScheduleServiceProvider extends ServiceProvider
         // Stage 1: Fetch ratings from Reviews.io API and store locally
         Schedule::job(new SyncProductRatingsJob())
             ->name('reviews-io-sync-ratings-stage-1')
-            ->dailyAt('03:00')
+            ->cron('0 */4 * * *')
             ->timezone('Europe/London')
             ->onOneServer()
             ->withoutOverlapping(15);
 
         // Stage 2: Push aggregated ratings to ShopWired custom fields
-        // Runs 30 minutes after Stage 1 to ensure fresh data is available
         Schedule::job(new UpdateShopwiredRatingsJob())
             ->name('reviews-io-sync-ratings-stage-2')
-            ->dailyAt('03:30')
+            ->cron('30 */4 * * *')
             ->timezone('Europe/London')
             ->onOneServer()
             ->withoutOverlapping(30);
