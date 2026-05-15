@@ -132,7 +132,7 @@ Types: `feat` | `fix` | `refactor` | `test` | `docs` | `chore` | `perf` | `ci`
 - ❌ Force push, rebase shared branches, push to main/develop, `Co-Authored-By` trailers
 - ✅ Use `git mv` for renames (preserves history)
 
-**Branch management:** User creates/switches branches. The agent works on current branch only.
+**Branch management:** The agent creates feature branches when skills require them. Do not switch to unrelated branches mid-task.
 
 ## Development Environment
 
