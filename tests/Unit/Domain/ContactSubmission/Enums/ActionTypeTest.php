@@ -39,6 +39,8 @@ final class ActionTypeTest extends TestCase
     {
         return [
             'HelpScout returns HelpScout' => [ActionType::HelpScout, 'HelpScout'],
+            'LeadReceived returns Lead Received' => [ActionType::LeadReceived, 'Lead Received'],
+            'QuoteIssued returns Quote Issued' => [ActionType::QuoteIssued, 'Quote Issued'],
         ];
     }
 
@@ -51,14 +53,14 @@ final class ActionTypeTest extends TestCase
     #[Test]
     public function enum_has_expected_case_count(): void
     {
-        // Currently only HelpScout; update when new integrations added
-        self::assertCount(1, ActionType::cases());
+        self::assertCount(3, ActionType::cases());
     }
 
     #[Test]
     public function backing_values_match_database_constraint(): void
     {
-        // These values must match the CHECK constraint in customer_service.contact_submission_actions
         self::assertSame('helpscout', ActionType::HelpScout->value);
+        self::assertSame('lead_received', ActionType::LeadReceived->value);
+        self::assertSame('quote_issued', ActionType::QuoteIssued->value);
     }
 }

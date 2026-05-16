@@ -12,6 +12,8 @@ namespace App\Domain\ContactSubmission\Enums;
 enum ActionType: string
 {
     case HelpScout = 'helpscout';
+    case LeadReceived = 'lead_received';
+    case QuoteIssued = 'quote_issued';
 
     /**
      * Human-readable label for display.
@@ -20,6 +22,8 @@ enum ActionType: string
     {
         return match ($this) {
             self::HelpScout => 'HelpScout',
+            self::LeadReceived => 'Lead Received',
+            self::QuoteIssued => 'Quote Issued',
         };
     }
 }
