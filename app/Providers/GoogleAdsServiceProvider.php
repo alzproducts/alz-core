@@ -6,6 +6,7 @@ namespace App\Providers;
 
 use App\Application\AdSpend\UseCases\SyncAdSpendUseCase;
 use App\Application\Contracts\GoogleAdsClientInterface;
+use App\Application\Contracts\GoogleAdsConversionClientInterface;
 use App\Application\Contracts\MixpanelClientInterface;
 use App\Application\Mixpanel\UseCases\SyncLookupTableUseCase;
 use App\Infrastructure\GoogleAds\GoogleAdsClientFactory;
@@ -42,6 +43,7 @@ final class GoogleAdsServiceProvider extends ServiceProvider implements Deferrab
     public function register(): void
     {
         $this->registerClient();
+        $this->registerConversionClient();
         $this->registerAdSpendBinding();
         $this->registerLookupTableBinding();
     }
@@ -51,6 +53,14 @@ final class GoogleAdsServiceProvider extends ServiceProvider implements Deferrab
         $this->app->singleton(
             GoogleAdsClientInterface::class,
             static fn(): GoogleAdsClientInterface => GoogleAdsClientFactory::create(),
+        );
+    }
+
+    private function registerConversionClient(): void
+    {
+        $this->app->singleton(
+            GoogleAdsConversionClientInterface::class,
+            static fn(): GoogleAdsConversionClientInterface => GoogleAdsClientFactory::createConversionClient(),
         );
     }
 
@@ -98,6 +108,7 @@ final class GoogleAdsServiceProvider extends ServiceProvider implements Deferrab
     {
         return [
             GoogleAdsClientInterface::class,
+            GoogleAdsConversionClientInterface::class,
         ];
     }
 }
