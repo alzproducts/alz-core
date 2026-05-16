@@ -59,6 +59,7 @@ use Override;
  * @property list<int> $main_category_ids Main category IDs this product belongs to (directly or via ancestor chain)
  * @property int|null $popularity_rank Latest snapshot's calculated_sort_order (1 = most popular)
  * @property int|null $popularity_max Max_rank from the config active at snapshot time
+ * @property float|null $net_margin_single_unit Worst-case gross margin % for a single-unit free-delivery order
  * @property-read Collection<int, ProductVariationViewModel> $variations
  * @property-read StockItemModel|null $stockItem
  */
@@ -105,6 +106,7 @@ final class ProductViewModel extends Model
             'physical_stock' => 'integer',
             'popularity_rank' => 'integer',
             'popularity_max' => 'integer',
+            'net_margin_single_unit' => 'float',
         ];
     }
 
