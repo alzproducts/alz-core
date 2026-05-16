@@ -132,7 +132,10 @@ Types: `feat` | `fix` | `refactor` | `test` | `docs` | `chore` | `perf` | `ci`
 - ❌ Force push, rebase shared branches, push to main/develop, `Co-Authored-By` trailers
 - ✅ Use `git mv` for renames (preserves history)
 
-**Branch management:** The agent creates feature branches when skills require them. Do not switch to unrelated branches mid-task.
+**Branch management:**
+- Before editing any file for a plan/issue, check the current branch. If the plan names a branch (e.g. `feature/{issue}-{desc}`) and HEAD isn't already on it, create it from `develop` first — applies whether or not a skill is orchestrating the work.
+- Never implement on `main`, `develop`, or a `worktree/*` branch. Worktree branches are scratch/session containers, not feature branches.
+- Do not switch to unrelated branches mid-task.
 
 ## Development Environment
 
