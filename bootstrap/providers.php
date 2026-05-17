@@ -9,6 +9,7 @@ use App\Providers\CacheServiceProvider;
 use App\Providers\CatalogServiceProvider;
 use App\Providers\ClickUpServiceProvider;
 use App\Providers\ContactSubmissionServiceProvider;
+use App\Providers\ConversionServiceProvider;
 use App\Providers\DatabaseServiceProvider;
 use App\Providers\EventServiceProvider;
 use App\Providers\GoogleAdsServiceProvider;
@@ -45,6 +46,7 @@ return [
     ClickUpServiceProvider::class,
     CatalogServiceProvider::class,
     ContactSubmissionServiceProvider::class,
+    ConversionServiceProvider::class,
     GoogleAdsServiceProvider::class,
     HelpScoutServiceProvider::class,
     LinnworksServiceProvider::class,

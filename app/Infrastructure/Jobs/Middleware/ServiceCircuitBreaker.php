@@ -42,6 +42,11 @@ final class ServiceCircuitBreaker
         return self::create('reviewsio');
     }
 
+    public static function googleAds(): ThrottlesExceptions
+    {
+        return self::create('google-ads');
+    }
+
     private static function create(string $serviceKey): ThrottlesExceptions
     {
         return (new ThrottlesExceptions(maxAttempts: 10, decaySeconds: 300))
