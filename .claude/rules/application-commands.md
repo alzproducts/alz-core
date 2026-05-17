@@ -5,6 +5,11 @@ paths:
 
 # Application — Command Rules
 
+## Property Types
+
+- DO type every property with the project's domain value types, never primitives. Refer to the type table in `app/Domain/CLAUDE.md` (`Guid`, `IntId`, `Money`, `Sku`, `Gtin`, etc.).
+- DO update callers and callees when introducing domain types — wrapping at the boundary (`Guid::fromTrusted($id)` in the use case, `->value` in the dispatcher) is expected and intentional. **Why:** primitives here leak into the whole dispatch chain and are hard to retrofit once the pipeline is wired.
+
 ## Partial-Update / Merge-Patch Commands
 
 Apply when the command represents a JSON Merge Patch (RFC 7396) write — body fields are individually optional and `null` means *clear the column*.

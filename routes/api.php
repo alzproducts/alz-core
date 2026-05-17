@@ -10,6 +10,7 @@ use App\Presentation\Http\Api\Controllers\CategoryController;
 use App\Presentation\Http\Api\Controllers\CategoryUpdateController;
 use App\Presentation\Http\Api\Controllers\ClickUp\ClickUpAuthController;
 use App\Presentation\Http\Api\Controllers\ClickUp\ClickUpTaskController;
+use App\Presentation\Http\Api\Controllers\Conversion\LeadConversionController;
 use App\Presentation\Http\Api\Controllers\CustomFieldDefinitionController;
 use App\Presentation\Http\Api\Controllers\CustomFieldGeneralSettingsController;
 use App\Presentation\Http\Api\Controllers\CustomFieldProductSettingsController;
@@ -205,6 +206,9 @@ Route::middleware([ValidateSupabaseJwtMiddleware::class, EnsureUserApprovedMiddl
             Route::get('tasks', [ClickUpTaskController::class, 'index']);
             Route::post('tasks/{taskId}/complete', [ClickUpTaskController::class, 'complete']);
         });
+
+        // Conversion endpoints
+        Route::post('conversions/lead', LeadConversionController::class);
 
         // Custom field definition endpoints (catalog)
         Route::get('catalog/custom-field-definitions', [CustomFieldDefinitionController::class, 'index']);

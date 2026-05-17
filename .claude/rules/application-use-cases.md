@@ -5,6 +5,11 @@ paths:
 
 # Application — UseCase Rules
 
+## Logging
+
+- DO open every `execute()` with an `info` log as its **first statement** — before guard clauses and early returns. **Why:** a silent early return is otherwise indistinguishable in logs from the use case never being invoked.
+- DO close `execute()` with an `info` log immediately after the last side-effect. Include only data that is new at that point (e.g. IDs created or outcomes resolved during execution).
+
 ## Async Dispatch
 
 - DO dispatch async work via **dispatcher interfaces** (e.g., `ShopwiredSyncDispatcherInterface`), never job classes directly (`SomeJob::dispatch()`). **Why:** Jobs live in `Infrastructure/Jobs/` — they are a delivery mechanism, not an Application concern.
