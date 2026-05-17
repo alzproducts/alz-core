@@ -38,4 +38,16 @@ interface ContactSubmissionRepositoryInterface
      * @throws ExternalServiceUnavailableException On transient database failure
      */
     public function findById(string $id): ContactSubmission;
+
+    /**
+     * Check whether a submission row exists.
+     *
+     * Lightweight existence probe used by write paths that need to guard against missing
+     * parents without paying the cost of {@see findById()} (which also parses the row).
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function existsById(string $id): bool;
 }
