@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Application\Contracts\Conversion;
 
 use App\Application\Conversion\Commands\LeadConversionCommand;
+use App\Application\Conversion\Commands\QuoteConversionCommand;
 
 /**
  * Dispatch async offline-conversion processing.
@@ -15,4 +16,6 @@ use App\Application\Conversion\Commands\LeadConversionCommand;
 interface ConversionDispatcherInterface
 {
     public function dispatchLeadConversion(LeadConversionCommand $command): void;
+
+    public function dispatchQuoteConversion(QuoteConversionCommand $command): void;
 }

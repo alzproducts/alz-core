@@ -41,4 +41,14 @@ interface ContactSubmissionActionRepositoryInterface extends AsyncActionReposito
      * @throws ExternalServiceUnavailableException On transient database failure
      */
     public function getStatus(string $actionId): ?ActionStatus;
+
+    /**
+     * Check whether a submission has a completed action of the given type.
+     *
+     * Used for sequential enforcement — e.g. a QuoteIssued action requires a
+     * completed LeadReceived action on the same submission.
+     *
+     * @throws ExternalServiceUnavailableException On transient database failure
+     */
+    public function hasCompletedAction(string $submissionId, ActionType $actionType): bool;
 }
