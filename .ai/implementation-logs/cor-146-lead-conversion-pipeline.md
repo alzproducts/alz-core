@@ -31,6 +31,17 @@ POST /conversions/lead {submission_id}
 | `LeadConversionCommand` DTO | Type safety over raw strings; dispatcher signature self-documenting. |
 | Empty-string gclid treated as null | Defensive against form data quirks — same precondition failure either way. |
 
+### Code Review Polish (post-initial-commit, 2026-05-17)
+
+| Decision | Rationale |
+|----------|-----------|
+| `LeadConversionCommand` uses `Guid` for both IDs (not `string`) | Domain CLAUDE.md type table mandates `Guid` for UUIDs in new code; cascade is `Guid::fromTrusted()` in the use case + `->value` extraction in the dispatcher. |
+| Drop `submittedAt ?? now()` fallback — throw `InsufficientDataException` instead | Reverses the Step 3 open-decision compromise. Mapper always sets `submittedAt` from `created_at`, so the fallback was dead code that would silently send Google Ads a wrong conversion timestamp. Job catches `InsufficientDataException` → fails immediately. |
+| Open + close `info` logs on both UseCase `execute()` methods | Without an entry log, a silent early return (terminal idempotency guard) is indistinguishable from the use case never being invoked. |
+| Extract `ensureGclidPresent()` in `SubmitLeadConversionUseCase` | Adding the opening log pushed `execute()` to 24 lines; `alz.excessiveMethodLength` (custom PHPStan rule) fires at 20. Pre-flight gclid validation is a coherent operation worth its own named method. |
+| Document why `markActionFailed()` swallows exceptions | If Laravel's `failed()` callback throws, the new exception masks the *original* one in `failed_jobs` and Sentry, hiding the actual root cause. The catch is intentional — `failed()` must always complete cleanly. |
+| Two new scoped rules written | `application-use-cases.md` § Logging (opening + closing info logs); `application-commands.md` § Property Types (no primitives — use `Guid`/`IntId`/`Money`, update callers/callees). Both prevent recurrence of mistakes caught in this review. |
+
 ## Progress
 
 - [x] Step 1 — Fetch Linear issue
@@ -76,6 +87,12 @@ The submission's `gclid` feeds Google's bidding algorithms so it can optimise fo
 - **Dispatcher under `Infrastructure/Conversion/`, not `Infrastructure/GoogleAds/`** — action types are platform-agnostic; future Bing fan-out goes here too.
 - **New `ConversionServiceProvider`** (deferred) — conversion is its own bounded context, not coupled to any single ad platform.
 - **Empty-string gclid treated as null** — defensive against form-data quirks.
+
+### Post-Review Polish
+- `LeadConversionCommand` uses `Guid` VOs (not raw strings) — applies the domain type table from `app/Domain/CLAUDE.md` to new code.
+- Dropped `submittedAt ?? now()` fallback in favour of `InsufficientDataException` — the mapper always sets the timestamp from `created_at`, so the fallback was a silent data lie.
+- Opening + closing `info` logs on both `execute()` methods so silent early returns are distinguishable from never-invoked.
+- Two new scoped rules added — UseCase logging convention and Command property-type convention — to prevent recurrence.
 
 ### Testing
 - `make test`: 3413 tests pass (12 pre-existing notices, 1 risky — none from this slice).

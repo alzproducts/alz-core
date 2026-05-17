@@ -15,6 +15,7 @@ use App\Domain\Exceptions\Data\InsufficientDataException;
 use App\Domain\Exceptions\Data\MalformedStoredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use App\Domain\ValueObjects\Guid;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -47,23 +48,34 @@ final readonly class SubmitLeadConversionUseCase
      */
     public function execute(string $submissionId): void
     {
-        $submission = $this->submissionRepository->findById($submissionId);
+        $this->logger->info('Submitting lead conversion', [
+            'submission_id' => $submissionId,
+        ]);
 
-        // Treat empty-string gclid the same as null — defensive against form data quirks.
-        $gclid = $submission->attribution->gclid;
-        if ($gclid === null || $gclid === '') {
-            throw new InsufficientDataException('ContactSubmission', 'a gclid for conversion tracking');
-        }
+        $submission = $this->submissionRepository->findById($submissionId);
+        $this->ensureGclidPresent($submission->attribution->gclid);
 
         $actionId = $this->actionRepository->create($submissionId, ActionType::LeadReceived);
 
         $this->dispatcher->dispatchLeadConversion(
-            new LeadConversionCommand($submissionId, $actionId),
+            new LeadConversionCommand(Guid::fromTrusted($submissionId), Guid::fromTrusted($actionId)),
         );
 
         $this->logger->info('Lead conversion dispatched', [
             'submission_id' => $submissionId,
             'action_id' => $actionId,
         ]);
+    }
+
+    /**
+     * Treat empty-string gclid the same as null — defensive against form data quirks.
+     *
+     * @throws InsufficientDataException When gclid is absent or empty
+     */
+    private function ensureGclidPresent(?string $gclid): void
+    {
+        if ($gclid === null || $gclid === '') {
+            throw new InsufficientDataException('ContactSubmission', 'a gclid for conversion tracking');
+        }
     }
 }

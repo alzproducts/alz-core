@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Application\Conversion\Commands;
 
+use App\Domain\ValueObjects\Guid;
+
 /**
  * Carries the resolved identifiers needed to dispatch lead conversion processing.
  *
@@ -13,7 +15,7 @@ namespace App\Application\Conversion\Commands;
 final readonly class LeadConversionCommand
 {
     public function __construct(
-        public string $submissionId,
-        public string $actionId,
+        public Guid $submissionId,
+        public Guid $actionId,
     ) {}
 }

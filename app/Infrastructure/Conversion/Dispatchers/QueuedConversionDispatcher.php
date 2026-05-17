@@ -19,6 +19,6 @@ final readonly class QueuedConversionDispatcher implements ConversionDispatcherI
     #[Override]
     public function dispatchLeadConversion(LeadConversionCommand $command): void
     {
-        ProcessLeadConversionJob::dispatch($command->submissionId, $command->actionId);
+        ProcessLeadConversionJob::dispatch($command->submissionId->value, $command->actionId->value);
     }
 }

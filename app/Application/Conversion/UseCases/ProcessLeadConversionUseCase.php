@@ -47,10 +47,15 @@ final readonly class ProcessLeadConversionUseCase
      * @throws RecordNotFoundException When the submission no longer exists
      * @throws MalformedStoredDataException When stored submission JSONB is corrupted
      * @throws DatabaseOperationFailedException When DB update fails (permanent)
-     * @throws InsufficientDataException When gclid is missing at processing time (permanent)
+     * @throws InsufficientDataException When gclid or submission timestamp is missing (permanent)
      */
     public function execute(string $submissionId, string $actionId): void
     {
+        $this->logger->info('Processing lead conversion', [
+            'submission_id' => $submissionId,
+            'action_id' => $actionId,
+        ]);
+
         if ($this->isAlreadyTerminal($submissionId, $actionId)) {
             return;
         }
@@ -89,7 +94,7 @@ final readonly class ProcessLeadConversionUseCase
      * @throws AuthenticationExpiredException When Google Ads credentials invalid
      * @throws InvalidApiRequestException When Google Ads rejects the conversion
      * @throws DatabaseOperationFailedException When DB update fails
-     * @throws InsufficientDataException When gclid is missing at processing time
+     * @throws InsufficientDataException When gclid or submission timestamp is missing
      */
     private function uploadAndMarkComplete(ContactSubmission $submission, string $submissionId, string $actionId): void
     {
@@ -108,12 +113,12 @@ final readonly class ProcessLeadConversionUseCase
     /**
      * Compose the Google Ads upload payload from the submission snapshot.
      *
-     * Validates gclid at processing time — SubmitLeadConversionUseCase already
-     * checked it, but the submission could theoretically be mutated between
-     * dispatch and handling, and InsufficientDataException causes the job to
-     * fail immediately rather than retry.
+     * Validates required fields — gclid was checked at submission time but could
+     * theoretically be mutated; submittedAt is always set from DB created_at but
+     * null-checked explicitly since the VO type is nullable.
+     * Both throw InsufficientDataException so the job fails immediately (no retry).
      *
-     * @throws InsufficientDataException When gclid is missing at processing time
+     * @throws InsufficientDataException When gclid or submission timestamp is missing
      */
     private static function buildClickConversionData(ContactSubmission $submission): ClickConversionData
     {
@@ -122,10 +127,15 @@ final readonly class ProcessLeadConversionUseCase
             throw new InsufficientDataException('ContactSubmission', 'a gclid for Google Ads conversion upload');
         }
 
+        $submittedAt = $submission->submittedAt;
+        if ($submittedAt === null) {
+            throw new InsufficientDataException('ContactSubmission', 'a submission timestamp for conversion time');
+        }
+
         return new ClickConversionData(
             gclid: $gclid,
             email: $submission->form->email,
-            convertedAt: $submission->submittedAt ?? \now()->toDateTimeImmutable(),
+            convertedAt: $submittedAt,
             value: null,
         );
     }
