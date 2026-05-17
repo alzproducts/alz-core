@@ -6,6 +6,8 @@ namespace App\Providers;
 
 use App\Application\Contracts\ContactSubmission\ContactFormDispatcherInterface;
 use App\Application\Contracts\ContactSubmission\ContactSubmissionActionRepositoryInterface;
+use App\Application\Contracts\ContactSubmission\ContactSubmissionAnnotationRepositoryInterface;
+use App\Application\Contracts\ContactSubmission\ContactSubmissionDashboardQueryRepositoryInterface;
 use App\Application\Contracts\ContactSubmission\ContactSubmissionRepositoryInterface;
 use App\Application\Contracts\EmailValidationServiceInterface;
 use App\Application\Contracts\HelpScout\ConversationWriteClientInterface;
@@ -13,6 +15,8 @@ use App\Infrastructure\HelpScout\Dispatchers\QueuedContactFormDispatcher;
 use App\Infrastructure\HelpScout\HelpScoutClientFactory;
 use App\Infrastructure\Ingest\ContactSubmission\Repositories\EloquentContactSubmissionActionRepository;
 use App\Infrastructure\Ingest\ContactSubmission\Repositories\EloquentContactSubmissionRepository;
+use App\Infrastructure\Marketing\Repositories\EloquentContactSubmissionAnnotationRepository;
+use App\Infrastructure\Marketing\Repositories\EloquentContactSubmissionDashboardQueryRepository;
 use App\Infrastructure\Validation\EmailValidationService;
 use Illuminate\Contracts\Support\DeferrableProvider;
 use Illuminate\Support\ServiceProvider;
@@ -41,6 +45,12 @@ final class ContactSubmissionServiceProvider extends ServiceProvider implements 
 
     private function registerRepositories(): void
     {
+        $this->registerWriteRepositories();
+        $this->registerDashboardRepositories();
+    }
+
+    private function registerWriteRepositories(): void
+    {
         $this->app->singleton(
             ContactSubmissionRepositoryInterface::class,
             EloquentContactSubmissionRepository::class,
@@ -49,6 +59,19 @@ final class ContactSubmissionServiceProvider extends ServiceProvider implements 
         $this->app->singleton(
             ContactSubmissionActionRepositoryInterface::class,
             EloquentContactSubmissionActionRepository::class,
+        );
+    }
+
+    private function registerDashboardRepositories(): void
+    {
+        $this->app->singleton(
+            ContactSubmissionDashboardQueryRepositoryInterface::class,
+            EloquentContactSubmissionDashboardQueryRepository::class,
+        );
+
+        $this->app->singleton(
+            ContactSubmissionAnnotationRepositoryInterface::class,
+            EloquentContactSubmissionAnnotationRepository::class,
         );
     }
 
@@ -75,6 +98,8 @@ final class ContactSubmissionServiceProvider extends ServiceProvider implements 
             ContactFormDispatcherInterface::class,
             ContactSubmissionRepositoryInterface::class,
             ContactSubmissionActionRepositoryInterface::class,
+            ContactSubmissionDashboardQueryRepositoryInterface::class,
+            ContactSubmissionAnnotationRepositoryInterface::class,
             ConversationWriteClientInterface::class,
             EmailValidationServiceInterface::class,
         ];
