@@ -118,12 +118,14 @@ Lint findings + user-approved resolutions:
 - Pending: re-run `make lint` after stop hook to confirm zero errors; manual smoke against the new view still requires DB migration apply.
 
 ### Tests
-- [ ] `ListContactSubmissionsUseCaseTest`
-- [ ] `UpsertContactSubmissionAnnotationUseCaseTest`
-- [ ] `ListContactSubmissionsRequestDTOTest`
-- [ ] `UpsertContactSubmissionAnnotationRequestDTOTest`
-- [ ] `EloquentContactSubmissionDashboardQueryRepositoryTest`
-- [ ] `EloquentContactSubmissionAnnotationRepositoryTest`
+Re-triaged against `tests/TestingStrategy.md` after the refactor pass — 3 written, 3 skipped.
+
+- [x] `UpsertContactSubmissionAnnotationUseCaseTest` — two paths (existsById=true → upsert + both logs; existsById=false → throws `RecordNotFoundException`, upsert skipped). Logger expectations strict on shape.
+- [x] `ListContactSubmissionsRequestDTOTest` — exercises the post-validation parsers: `parseBoolFilter` (5-case data provider × 2 properties), `parseDateFilter` (start-of-day for `dateFrom`, next-day-midnight for `dateTo`, 24h single-day half-open window), `parseConversionStatus` (enum resolution + null pass-through). Defaults and pagination passthrough also covered.
+- [x] `UpsertContactSubmissionAnnotationRequestDTOTest` — three-state merge-patch fold via `toCommand()`: all-Optional → empty maps; scalars → `valuesToSet`; explicit `null` → `columnsToClear`; mixed branch independence; `quoted_at` wire string parsed to ATOM (`+00:00`, not `+0000` — Carbon's `toIso8601String()` delegates to `toAtomString()`).
+- [~] `ListContactSubmissionsUseCaseTest` — **skipped per strategy**: `execute()` is pure delegation (log → call repo → log → return). Strategy explicitly says skip pure orchestration; PHPStan + the smoke run already prove the wiring.
+- [~] `EloquentContactSubmissionDashboardQueryRepositoryTest` — **skipped per strategy**: Infrastructure boundary already exercised by the smoke matrix end-to-end against the live view (all 5 filters + happy path + 422 paths).
+- [~] `EloquentContactSubmissionAnnotationRepositoryTest` — **skipped per strategy**: same — round-trip (set / clear / preserve via partial PUT) already verified in the smoke matrix.
 
 ## Validation Results
 
@@ -133,6 +135,7 @@ Lint findings + user-approved resolutions:
   - Same file `:105` — `actionFieldSubquery()` missing return generics. Fix: add `@return Builder<ContactSubmissionActionModel>`.
   - Same file `:121` — `applyFilters` is 36 lines, limit 30. Fix: extract `applyBooleanFilters` + `applyDateFilters` helpers.
   - `app/Providers/ContactSubmissionServiceProvider.php:46` — `registerRepositories` is 21 lines (just 1 over limit). Fix: split into two private methods (e.g. `registerWriteRepositories` + `registerQueryRepositories`).
+- New tests (2026-05-18): 3 written, all green (Pest, 20 cases, 0 failures). 3 deferred from the original plan re-triaged as `skipped per strategy` — pure-delegation UseCase and the two Infrastructure repos whose boundary is already covered by the smoke matrix.
 - Manual smoke test: ✅ found and fixed two live bugs:
   1. `applyConversionStatusFilter` typed the `whereExists`/`whereNotExists` closures as `Illuminate\Database\Eloquent\Builder`, but Laravel forwards a `Illuminate\Database\Query\Builder` at runtime. PHPStan trusted the annotation; only surfaced on `conversion_status=none` (HTTP 500). Fix: typehint both closures with `QueryBuilder`.
   2. `has_gclid` / `is_potential_quote` declared as `?bool` with Spatie `BooleanType` — rejected the natural query-string form `?has_gclid=true` (Laravel's `boolean` rule only coerces "1"/"0"). Fix: declared as `?string` with `in:true,false,1,0` validation and added `parseBoolFilter()` to convert in `buildFilters`.
