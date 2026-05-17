@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Presentation\Http\Api\DTOs;
 
+use App\Application\ContactSubmission\Queries\ContactSubmissionDashboardFiltersParams;
 use App\Application\ContactSubmission\Queries\ContactSubmissionListQueryParams;
-use App\Domain\ContactSubmission\Enums\ContactSubmissionFilterField;
 use App\Domain\ContactSubmission\Enums\ConversionStatus;
 use App\Domain\Shared\Pagination\ValueObjects\PageRequest;
 use Carbon\CarbonImmutable;
@@ -69,24 +69,13 @@ final class ListContactSubmissionsRequestDTO extends Data
     {
         return new ContactSubmissionListQueryParams(
             pagination: PageRequest::from(page: $this->page, perPage: $this->per_page),
-            filters: $this->buildFilters(),
-        );
-    }
-
-    /**
-     * @return array<value-of<ContactSubmissionFilterField>, mixed>
-     */
-    private function buildFilters(): array
-    {
-        return \array_filter(
-            [
-                ContactSubmissionFilterField::HasGclid->value => self::parseBoolFilter($this->has_gclid),
-                ContactSubmissionFilterField::IsPotentialQuote->value => self::parseBoolFilter($this->is_potential_quote),
-                ContactSubmissionFilterField::DateFrom->value => self::parseDateFilter($this->date_from, addDay: false),
-                ContactSubmissionFilterField::DateTo->value => self::parseDateFilter($this->date_to, addDay: true),
-                ContactSubmissionFilterField::ConversionStatus->value => self::parseConversionStatus($this->conversion_status),
-            ],
-            static fn(mixed $v): bool => $v !== null,
+            filters: new ContactSubmissionDashboardFiltersParams(
+                hasGclid: self::parseBoolFilter($this->has_gclid),
+                isPotentialQuote: self::parseBoolFilter($this->is_potential_quote),
+                dateFrom: self::parseDateFilter($this->date_from, addDay: false),
+                dateTo: self::parseDateFilter($this->date_to, addDay: true),
+                conversionStatus: self::parseConversionStatus($this->conversion_status),
+            ),
         );
     }
 

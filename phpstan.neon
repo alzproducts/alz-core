@@ -253,6 +253,7 @@ parameters:
             identifier: staticMethod.dynamicCall
             paths:
                 - app/Infrastructure/*/Repositories/*
+                - app/Infrastructure/*/Queries/*
                 - app/Infrastructure/Database/DatabaseGateway.php
                 - app/Infrastructure/Persistence/EloquentGateway.php
                 - app/Infrastructure/Shopwired/Services/EloquentWebhookIdempotencyService.php

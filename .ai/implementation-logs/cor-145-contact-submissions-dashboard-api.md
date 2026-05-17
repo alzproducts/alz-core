@@ -18,6 +18,7 @@ Joins across 3 schemas: `public_ingest.contact_submissions`, `customer_service.c
 - 2026-05-17: Workflow started via `/work COR-145`. Plan is implementation-ready; following Phases 1-5 in order.
 - 2026-05-17: Branch `feature/cor-145-contact-submissions-dashboard-api-list-annotations` created from `origin/develop`.
 - 2026-05-17: Plan footnote allows deferring to `application-commands.md`. Verified: established pattern is two-map (`$valuesToSet` + `$columnsToClear`) + Field enum (DB-column-name backing values, `isClearable()`) + `MergePatchMapper` for DTO→command folding. Canonical: `SaveCustomFieldGeneralSettingsCommand` + `CustomFieldGeneralSettingsField`. **Will use two-map pattern instead of `UnsetValue` sentinel.** Plan intent (three-state partial-patch) preserved; only mechanism differs.
+- 2026-05-17 (refactor pass via `/check`): `EloquentContactSubmissionDashboardQueryRepository` flagged as a structural mess — it hydrated the ingest write model `ContactSubmissionModel` and bolted on `selectSub` columns + 3 correlated subqueries + LEFT JOIN annotations, violating the `*QueryRepository ↔ *ViewModel ↔ pg view` convention. Agreed (A+C+D) to land a refactor in this same PR. Discovered `customer_service.contact_submission_actions` has UNIQUE INDEX on `(contact_submission_id, action_type)` (migration `2026_02_01_200002` line 83), so latest-per-group reduces to plain LEFT JOINs per action_type — simpler than LATERAL or DISTINCT ON. `is_potential_quote` stays nullable end-to-end (NULL = untriaged is a real domain state, not a join artefact). Filter semantics for `=false` are literal-only (NULL rows excluded); presentation choice, easy to revisit.
 
 ## Discovered Patterns (verified before implementing)
 
@@ -89,6 +90,32 @@ Joins across 3 schemas: `public_ingest.contact_submissions`, `customer_service.c
 ### Known cleanup needed before lint
 - `EloquentContactSubmissionDashboardQueryRepository::applyConversionStatusFilter`: unused `$negate` variable, awkward `from(ContactSubmissionActionModel::query()->getModel()->getTable())` pattern — simplify
 - May need PHPStan ignores for `getAttribute()` returning mixed in dashboard mapper
+
+### Phase 6 — Dashboard query refactor (uncommitted, 2026-05-17)
+- [x] `database/migrations/2026_05_17_300000_create_marketing_contact_submission_dashboard_view.php` — view joining submissions + annotations + 3 LEFT JOINs into actions (one per action_type, no LIMIT/DISTINCT thanks to unique index)
+- [x] `app/Infrastructure/Marketing/Models/ContactSubmissionDashboardViewModel.php` — read-only ViewModel with full casts (`reason`, `customer_type`, `lead_status`, `quote_status` as enum casts; `is_potential_quote` as bool; `created_at`/`quoted_at` as immutable_datetime)
+- [x] `app/Application/ContactSubmission/Queries/ContactSubmissionDashboardFilters.php` — typed VO replacing the `array<value-of<FilterField>, mixed>` shape
+- [x] `app/Application/ContactSubmission/Queries/ContactSubmissionListQueryParams.php` — swapped `array $filters` for the VO (default constructed)
+- [x] `app/Infrastructure/Marketing/Queries/ContactSubmissionDashboardQuery.php` — predicate builder; `IsPotentialQuote=false` now literal-only (NULL excluded); `ConversionStatus::None` filters `lead_status IS NULL AND quote_status IS NULL` on view columns
+- [x] `app/Infrastructure/Marketing/Repositories/EloquentContactSubmissionDashboardQueryRepository.php` — slimmed to ~85 lines: paginate view, delegate filters to query class, map ViewModel → ContactSubmissionListItem via direct property access (no more `getAttribute('...')` / `is_string` / `tryFrom` defensive code)
+- [x] `app/Presentation/Http/Api/DTOs/ListContactSubmissionsRequestDTO.php` — `toQuery()` constructs the VO directly (drops the `buildFilters` array indirection)
+- [x] `app/Application/ContactSubmission/UseCases/ListContactSubmissionsUseCase.php` — log fields rewired from `array_keys($query->filters)` to explicit per-filter values
+- [x] `app/Domain/ContactSubmission/Enums/ContactSubmissionFilterField.php` — **DELETED** (no callers after refactor; was glue between wire strings and array keys)
+- [x] `make lint` run — 8 PHPStan + 1 PHPArkitect errors surfaced; all caused by the refactor, fixes below
+- [ ] Manual smoke against the new view not yet run (`make db-reset-full` needed first to apply the view migration)
+
+### Phase 6 — Lint fixes (in progress, 2026-05-17)
+Lint findings + user-approved resolutions:
+- **PHPArkitect**: `ContactSubmissionDashboardFilters` violates Application-layer suffix list. Rename to `ContactSubmissionDashboardFiltersParams` (keeps "Filters" semantics + adds allowed `*Params` suffix).
+- **PHPStan `staticMethod.dynamicCall`** (6 errors in `ContactSubmissionDashboardQuery`): root cause is the existing phpstan.neon exemption covers `app/Infrastructure/*/Repositories/*` but the new `app/Infrastructure/*/Queries/*` location is outside it. Same Larastan/Eloquent fluent-API rationale. **Approved**: extend the existing exemption to include `Queries/*`.
+- **PHPStan `shipmonk.unusedMatchResult`** (1 error, line 84): my match-for-side-effects discards Builder return values. Fix: restructure to destructure a tuple `[$column, $statuses]` from the match (matches the original repo's pattern), then issue a separate `whereIn`. The destructure makes the match's return type used.
+- **PHPStan method-length** (1 error, `ListContactSubmissionsUseCase::execute()` at 22 lines): extract a private `buildLogContext()` helper for the per-filter log array.
+- Applied + verified file state:
+  - VO renamed: `ContactSubmissionDashboardFilters` → `ContactSubmissionDashboardFiltersParams` (file + class + 3 callers + log).
+  - `phpstan.neon` exemption widened to include `app/Infrastructure/*/Queries/*` alongside existing `Repositories/*` entry.
+  - `applyConversionStatus` refactored: if-then for `None` branch + destructure-from-tuple-match for the four remaining cases, with the tuple-match itself extracted into `predicateForStatus()` (16-line + 10-line methods, both under the 20-line limit). Added `LogicException` import.
+  - `ListContactSubmissionsUseCase::execute()` reduced to ~10 lines; per-filter logging moved into private static `buildLogContext()`.
+- Pending: re-run `make lint` after stop hook to confirm zero errors; manual smoke against the new view still requires DB migration apply.
 
 ### Tests
 - [ ] `ListContactSubmissionsUseCaseTest`

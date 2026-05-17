@@ -36,11 +36,7 @@ final readonly class ListContactSubmissionsUseCase
      */
     public function execute(ContactSubmissionListQueryParams $query): PaginatedList
     {
-        $this->logger->info('Listing contact submissions', [
-            'page' => $query->pagination->page,
-            'per_page' => $query->pagination->perPage,
-            'filters' => \array_keys($query->filters),
-        ]);
+        $this->logger->info('Listing contact submissions', self::buildLogContext($query));
 
         $result = $this->dashboardQueryRepository->paginate($query);
 
@@ -50,5 +46,23 @@ final readonly class ListContactSubmissionsUseCase
         ]);
 
         return $result;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private static function buildLogContext(ContactSubmissionListQueryParams $query): array
+    {
+        $filters = $query->filters;
+
+        return [
+            'page' => $query->pagination->page,
+            'per_page' => $query->pagination->perPage,
+            'has_gclid' => $filters->hasGclid,
+            'is_potential_quote' => $filters->isPotentialQuote,
+            'date_from' => $filters->dateFrom?->format(\DATE_ATOM),
+            'date_to' => $filters->dateTo?->format(\DATE_ATOM),
+            'conversion_status' => $filters->conversionStatus?->value,
+        ];
     }
 }
