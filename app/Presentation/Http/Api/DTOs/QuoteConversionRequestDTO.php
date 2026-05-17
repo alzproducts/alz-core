@@ -7,7 +7,7 @@ namespace App\Presentation\Http\Api\DTOs;
 use Spatie\LaravelData\Attributes\MapInputName;
 use Spatie\LaravelData\Attributes\Validation\BeforeOrEqual;
 use Spatie\LaravelData\Attributes\Validation\Date;
-use Spatie\LaravelData\Attributes\Validation\Min;
+use Spatie\LaravelData\Attributes\Validation\GreaterThan;
 use Spatie\LaravelData\Attributes\Validation\Numeric;
 use Spatie\LaravelData\Attributes\Validation\Required;
 use Spatie\LaravelData\Attributes\Validation\StringType;
@@ -26,7 +26,7 @@ final class QuoteConversionRequestDTO extends Data
     public function __construct(
         #[Required, Uuid, MapInputName('submission_id')]
         public readonly string $submissionId,
-        #[Required, Numeric, Min(0.01)]
+        #[Required, Numeric, GreaterThan(0)]
         public readonly float $value,
         #[Required, StringType, Date, BeforeOrEqual('now'), MapInputName('converted_at')]
         public readonly string $convertedAt,
