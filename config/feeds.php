@@ -15,7 +15,7 @@ return [
     */
 
     'doofinder' => [
-        'source_url' => 'https://www.alzproducts.co.uk/feed/products',
+        'source_url' => env('FEEDS_DOOFINDER_SOURCE_URL'),
         'storage_disk' => env('FEEDS_STORAGE_DISK', 's3'),
         'storage_path' => 'feeds/doofinder-processed.xml',
         'public_prefix' => 'doofinder',

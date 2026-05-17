@@ -37,7 +37,6 @@ return [
     |--------------------------------------------------------------------------
     |
     | API environment: 'Production' or 'Sandbox'.
-    | Sandbox uses developer token: BBD37VB98
     |
     */
 
