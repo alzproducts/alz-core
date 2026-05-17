@@ -103,7 +103,7 @@ return [
     |
     */
 
-    'sale_category_id' => (int) env('SHOPWIRED_SALE_CATEGORY_ID', 64939),
+    'sale_category_id' => (int) env('SHOPWIRED_SALE_CATEGORY_ID'),
 
     /*
     |--------------------------------------------------------------------------
@@ -111,7 +111,7 @@ return [
     |--------------------------------------------------------------------------
     |
     | How many products (ordered by final_score DESC from the popularity ranking
-    | snapshot) qualify for the Best Sellers category (ID 64943).
+    | snapshot) qualify for the Best Sellers category (see best_sellers_category_id).
     | Products outside the top N are removed from the category on the next daily
     | sync at 04:00 Europe/London.
     |
@@ -130,7 +130,7 @@ return [
     |
     */
 
-    'best_sellers_category_id' => (int) env('SHOPWIRED_BEST_SELLERS_CATEGORY_ID', 64943),
+    'best_sellers_category_id' => (int) env('SHOPWIRED_BEST_SELLERS_CATEGORY_ID'),
 
     /*
     |--------------------------------------------------------------------------
@@ -163,8 +163,8 @@ return [
     */
 
     'test_product' => [
-        'product_id' => 5585518,
-        'sku' => '1005356',
+        'product_id' => (int) env('SHOPWIRED_TEST_PRODUCT_ID'),
+        'sku' => (string) env('SHOPWIRED_TEST_PRODUCT_SKU'),
     ],
 
 ];

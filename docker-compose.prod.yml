@@ -70,7 +70,7 @@ services:
       SKIP_DB_CHECK: false
 
       # Supabase (not needed for local testing)
-      SUPABASE_JWT_SECRET: test-secret-key-not-for-production
+      SUPABASE_JWT_SECRET: ${SUPABASE_JWT_SECRET}
 
       # Telescope (disabled in production)
       TELESCOPE_ENABLED: false
