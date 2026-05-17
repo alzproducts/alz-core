@@ -59,4 +59,14 @@ final readonly class EloquentContactSubmissionRepository implements ContactSubmi
             mapper: ContactSubmissionMapper::fromModel(...),
         );
     }
+
+    /**
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function existsById(string $id): bool
+    {
+        return $this->gateway->exists(ContactSubmissionModel::class, 'id', $id);
+    }
 }

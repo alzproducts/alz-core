@@ -16,6 +16,7 @@ paths:
 - DO use `public static function rules()` for array-keyed payloads (`'fields' => [...]`, `'fields.title' => [...]`).
 - DO use `RejectsUnknownFieldKeysTrait` + implement `allowedFieldKeys()` whenever accepting a closed-set `fields` map — prevents unexpected keys silently reaching the use case.
 - DO use `ValidatesIncludesTrait` + implement `allowedIncludes()` for any endpoint accepting an `include=` query param; DO declare `public readonly ?string $include = null`.
+- DO NOT use `BooleanType` on query-string boolean filters — query params arrive as raw strings, so Spatie's cast fails before validation runs. Use `public readonly ?string $flag = null` with `#[Nullable, StringType]` + `'in:true,false,1,0'` in `rules()` + a static `parseBoolFilter()` to resolve to `?bool`. EXCEPTION: `BooleanType` + `?bool` is correct for POST/JSON body properties (JSON sends typed booleans). Canonical: `ListContactSubmissionsRequestDTO`.
 
 ## Item DTOs
 
