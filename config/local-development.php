@@ -20,7 +20,7 @@ return [
     | Test User Personas
     |--------------------------------------------------------------------------
     |
-    | Maps Supabase test emails (e.g., tom@alzadmin.test) to real developer
+    | Maps Supabase test emails (e.g., dev@alzadmin.test) to real developer
     | credentials. This is necessary because external services like HelpScout
     | require real email addresses, but local development uses test users.
     |
@@ -38,7 +38,7 @@ return [
     */
 
     'test_user_personas' => [
-        'tom@alzadmin.test' => [
+        'dev@alzadmin.test' => [
             'email' => env('EMAIL_PRIMARY'),
             'user_id' => '00000000-0000-0000-0000-000000000001',
             'is_approved' => true,

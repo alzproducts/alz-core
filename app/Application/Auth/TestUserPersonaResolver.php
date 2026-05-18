@@ -10,7 +10,7 @@ use RuntimeException;
 /**
  * Resolves test user personas for local development.
  *
- * Maps Supabase test emails (e.g., tom@alzadmin.test) to real developer
+ * Maps Supabase test emails (e.g., dev@alzadmin.test) to real developer
  * credentials that external services like HelpScout require.
  *
  * Security:

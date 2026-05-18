@@ -12,7 +12,7 @@ beforeEach(function (): void {
     $this->configKey = 'local-development.test_user_personas';
 
     $this->uppercasePersona = [
-        'TOM@ALZADMIN.TEST' => [
+        'DEV@ALZADMIN.TEST' => [
             'email' => 'tom@real.com',
             'user_id' => '550e8400-e29b-41d4-a716-446655440000',
             'is_approved' => true,
@@ -45,7 +45,7 @@ it('normalizes config keys to lowercase', function (): void {
     Config::set($this->configKey, $this->uppercasePersona);
 
     $resolver = TestUserPersonaResolver::fromConfig();
-    $user = $resolver->resolve('tom@alzadmin.test');
+    $user = $resolver->resolve('dev@alzadmin.test');
 
     expect($user->email)->toBe('tom@real.com');
 });

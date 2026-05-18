@@ -6,7 +6,7 @@ use App\Application\Auth\TestUserPersonaResolver;
 
 beforeEach(function (): void {
     $this->validPersonas = [
-        'tom@alzadmin.test' => [
+        'dev@alzadmin.test' => [
             'email' => 'tom@real.com',
             'user_id' => '550e8400-e29b-41d4-a716-446655440000',
             'is_approved' => true,
@@ -39,7 +39,7 @@ beforeEach(function (): void {
 it('resolves known test email to authenticated user', function (): void {
     $resolver = new TestUserPersonaResolver($this->validPersonas);
 
-    $user = $resolver->resolve('tom@alzadmin.test');
+    $user = $resolver->resolve('dev@alzadmin.test');
 
     expect($user->id)->toBe('550e8400-e29b-41d4-a716-446655440000')
         ->and($user->email)->toBe('tom@real.com')
@@ -51,7 +51,7 @@ it('resolves known test email to authenticated user', function (): void {
 it('performs case-insensitive email lookup', function (): void {
     $resolver = new TestUserPersonaResolver($this->validPersonas);
 
-    $user = $resolver->resolve('TOM@ALZADMIN.TEST');
+    $user = $resolver->resolve('DEV@ALZADMIN.TEST');
 
     expect($user->email)->toBe('tom@real.com');
 });
