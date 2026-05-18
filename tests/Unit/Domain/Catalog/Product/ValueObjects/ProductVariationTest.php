@@ -17,7 +17,7 @@ use PHPUnit\Framework\TestCase;
  *
  * Note: SKU is nullable to support legacy products without SKUs.
  * Active purchasable variants should have SKUs for inventory tracking.
- * See .ai/docs/known-issues.md "Product Variations with Missing SKUs".
+ * See docs/known-issues.md "Product Variations with Missing SKUs".
  */
 #[CoversClass(ProductVariation::class)]
 final class ProductVariationTest extends TestCase
@@ -245,7 +245,7 @@ final class ProductVariationTest extends TestCase
     // isOnSale() and effectivePrice() removed from ProductVariation because
     // it no longer implements BasicProductInterface. Nullable price semantics
     // (null = inherit parent, 0.00 = removed from sale) require parent context.
-    // See: .ai/docs/known-issues.md "BasicProductInterface and ProductVariation"
+    // See: docs/known-issues.md "BasicProductInterface and ProductVariation"
     // ========================================================================
 
     // ========================================================================

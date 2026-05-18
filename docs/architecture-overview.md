@@ -210,6 +210,6 @@ Infrastructure catches SDK exceptions, logs technical details, and translates to
 
 - [CLAUDE.md](../../CLAUDE.md) — Project conventions, layer rules, development setup
 - [tests/TestingStrategy.md](../../tests/TestingStrategy.md) — What to test per layer
-- [.ai/docs/guides/critical-pitfalls.md](guides/critical-pitfalls.md) — Date range and sync pitfalls
-- [.ai/docs/railway-octane-setup.md](railway-octane-setup.md) — Railway deployment details
+- [docs/guides/critical-pitfalls.md](guides/critical-pitfalls.md) — Date range and sync pitfalls
+- [docs/deployment/railway-octane-setup.md](deployment/railway-octane-setup.md) — Railway deployment details
 - Layer-specific CLAUDE.md files in `app/Domain/`, `app/Application/`, `app/Infrastructure/`, `app/Presentation/`

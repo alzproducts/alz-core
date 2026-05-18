@@ -284,8 +284,6 @@ railway ssh -s alz-core-worker "php artisan horizon:status"
 
 ## Project Documentation
 
-- **Project Plan**: `.ai/plans/alz-core-initial-plan.md`
-- **Deferred Decisions**: `.ai/plans/alz-core-deferred-decisions.md`
 - **Development Guide**: `CLAUDE.md`
 
 ## License

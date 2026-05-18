@@ -12,7 +12,6 @@ use App\Domain\Catalog\Order\ValueObjects\OrderLifecycleStatus;
  * Status IDs are account-specific in ShopWired. These values are for
  * the production account and should be verified if account changes.
  *
- * @see .ai/docs/api-reference/shopwired-order-statuses.json for raw API response
  */
 final class OrderLifecycleStatusMapper
 {

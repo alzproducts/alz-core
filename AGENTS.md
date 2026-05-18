@@ -2,7 +2,7 @@
 
 This file provides guidance to AI coding agents working on this repository.
 
-**Architecture guide**: [`.ai/docs/architecture-overview.md`](.ai/docs/architecture-overview.md) — high-level system context, deployment topology, layer diagrams, and key data flows. Use as orientation only; always verify details against the code.
+**Architecture guide**: [`docs/architecture-overview.md`](docs/architecture-overview.md) — high-level system context, deployment topology, layer diagrams, and key data flows. Use as orientation only; always verify details against the code.
 
 ## ⚠️ Important: Stop Hooks
 
@@ -106,7 +106,7 @@ When working on a GitHub issue with an associated plan document, maintain an imp
 - Read existing implementation logs at the start of conversations to restore context
 - Use the PR Notes section to draft the PR description before creating the PR
 
-See `.ai/implementation-logs/AGENTS.md` for the full template and guidelines.
+Note: `.ai/implementation-logs/` is a local-only AI workspace and is not committed to the public repo.
 
 ## Git Workflow
 
@@ -232,7 +232,7 @@ This project follows **Clean Architecture** (Robert C. Martin) — dependencies 
 
 ### Common Pitfalls
 
-**Date Range Windows**: Never use `subMonths()` directly for backfill/sync windows—creates gaps at month boundaries. Use `startOfMonth()->subMonths()` instead. See [`.ai/docs/guides/critical-pitfalls.md`](.ai/docs/guides/critical-pitfalls.md).
+**Date Range Windows**: Never use `subMonths()` directly for backfill/sync windows—creates gaps at month boundaries. Use `startOfMonth()->subMonths()` instead. See [`docs/guides/critical-pitfalls.md`](docs/guides/critical-pitfalls.md).
 
 ## Exception Handling in Clean Architecture
 
@@ -278,7 +278,7 @@ See layer-specific guides for detailed patterns.
 - **Internal contracts** → `webmozart/assert` (zero cost in production)
 - **Type narrowing** → PHPStan annotations (never use assertions as PHPStan workarounds)
 
-See [`.ai/docs/guides/assertion-validation-reference.md`](.ai/docs/guides/assertion-validation-reference.md) for full reference.
+See [`docs/guides/assertion-validation-reference.md`](docs/guides/assertion-validation-reference.md) for full reference.
 
 ## Build System: Makefile vs Composer
 
@@ -341,7 +341,7 @@ If a linter reports an issue, fix the code—don't suppress it. Only bypass when
 3. Temporary external dependency issue (add TODO)
 
 **Mandatory order before any suppression** — applies even when mirroring an existing pattern:
-1. Consult [`.ai/docs/guides/common-linting-errors.md`](.ai/docs/guides/common-linting-errors.md) (see *Stubborn Linting Issues* below) for a workaround.
+1. Consult [`docs/guides/common-linting-errors.md`](docs/guides/common-linting-errors.md) (see *Stubborn Linting Issues* below) for a workaround.
 2. If still required, prefer a scoped entry in `phpstan.neon` over an inline `@phpstan-ignore`.
 3. Inline `@phpstan-ignore` requires explicit approval per-occurrence — existing inline suppressions in the codebase do **not** count as approval and may themselves be uncorrected.
 
@@ -351,7 +351,7 @@ If a linter reports an issue, fix the code—don't suppress it. Only bypass when
 
 ### 📖 Stubborn Linting Issues
 
-**When encountering persistent linting errors**, consult [`.ai/docs/guides/common-linting-errors.md`](.ai/docs/guides/common-linting-errors.md) for ranked solutions. This guide covers:
+**When encountering persistent linting errors**, consult [`docs/guides/common-linting-errors.md`](docs/guides/common-linting-errors.md) for ranked solutions. This guide covers:
 - `shipmonk.checkedExceptionInCallable` — checked exceptions in closures
 - `missingType.checkedException` — false positives with `@param-immediately-invoked-callable`
 - `shipmonk.nonNormalizedType` — parent/child exception hierarchies in `@throws`

@@ -4,8 +4,6 @@
 
 Validation logic was previously scattered across UseCases as ad-hoc checks with inline exception throws. This system provides a unified contract so every validator follows the same structure: parameterless `validate()`, rich result objects, two consumption paths.
 
-**Design report**: [`.ai/reports/domain-validator-report.md`](../../reports/domain-validator-report.md) — contains full rationale, aggregate examples, and deferred decisions.
-
 **Infrastructure location**: `App\Domain\Shared\Validation\` (contracts + traits)
 
 **Validator location**: Co-located with their domain concept in `Validators/` subdirectories (e.g., `App\Domain\Catalog\Product\Validators\`)

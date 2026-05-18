@@ -2,7 +2,7 @@
 
 The backend for ALZ — a Laravel/Octane service that syncs catalog, orders, and operational data between ShopWired (storefront), Linnworks (inventory + warehouse), and various marketing/analytics vendors. Clean Architecture: Presentation → Infrastructure → Application → Domain (outer-to-inner; dependencies point inward).
 
-This file is a project glossary, not a how-to. Definitions describe what something **is**, not how it's implemented. For architecture, see [`.ai/docs/architecture-overview.md`](.ai/docs/architecture-overview.md). For decisions, see [`docs/adr/`](docs/adr/).
+This file is a project glossary, not a how-to. Definitions describe what something **is**, not how it's implemented. For architecture, see [`docs/architecture-overview.md`](docs/architecture-overview.md). For decisions, see [`docs/adr/`](docs/adr/).
 
 ## Language
 
