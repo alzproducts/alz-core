@@ -11,6 +11,7 @@ use App\Domain\Exceptions\Api\PermanentApiFailure;
 use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Api\TransientApiFailure;
+use App\Domain\Exceptions\Data\InsufficientDataException;
 use App\Domain\Exceptions\Data\InvalidSkuException;
 use App\Domain\Exceptions\Data\MissingRequiredDataException;
 use App\Domain\Exceptions\DomainException;
@@ -82,6 +83,7 @@ final class InternalApiExceptionMapper
             $e instanceof ValidationFailedException,
             $e instanceof InvalidSkuException,
             $e instanceof InvalidTemplateException,
+            $e instanceof InsufficientDataException,
             $e instanceof MissingRequiredDataException,
             $e instanceof ProductSettingsNotApplicableException => Response::HTTP_UNPROCESSABLE_ENTITY,
             $e instanceof ResourceNotFoundException,
@@ -145,6 +147,7 @@ final class InternalApiExceptionMapper
             || $e instanceof InvalidSkuException
             || $e instanceof InvalidTemplateException
             || $e instanceof MissingRequiredDataException
+            || $e instanceof InsufficientDataException
             || $e instanceof ProductSettingsNotApplicableException
             || $e instanceof ValidationException
             || $e instanceof CannotCreateData;

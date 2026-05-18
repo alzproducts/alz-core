@@ -1,0 +1,7 @@
+# ADR-0001: Single-row config for margin-tier thresholds
+
+**Context.** The margin-tier sync (COR-148) needs configurable thresholds for the Low/Standard/High band boundaries. Two precedents exist in this codebase for "configurable algorithm parameters in DB" — `catalog.product_popularity_ranking_config` and `catalog.related_products_algorithm_params` — both keyed by `algorithm_version` with a partial unique index on `is_active = true`. A reader familiar with those precedents would naturally expect a third versioned table.
+
+**Decision.** Use a single-row config table (`catalog.margin_tier_thresholds`, `CHECK (id = 1)`) instead of the `algorithm_version`-versioned shape. Two numeric columns: `low_max_pct`, `standard_max_pct`. Label strings live in `App\Application\Catalog\Enums\MarginTier`.
+
+**Why.** Margin-tier classification is not an algorithm — it's a threshold band assignment with two numeric parameters. There is no algorithm to iterate on, no A/B testing surface for which versioning helps, and no need for history beyond what Postgres' WAL + audit logging already provide. The versioned shape would carry conceptual overhead (active-row management, `algorithm_version` references in the products_view JOIN) without earning it. If a future feature genuinely needs versioning (e.g. per-region or per-category tier sets), this table can be expanded with an additional discriminator column at that point — cheaper than ripping out unused versioning machinery up-front.

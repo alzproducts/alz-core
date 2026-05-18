@@ -10,6 +10,9 @@ use App\Presentation\Http\Api\Controllers\CategoryController;
 use App\Presentation\Http\Api\Controllers\CategoryUpdateController;
 use App\Presentation\Http\Api\Controllers\ClickUp\ClickUpAuthController;
 use App\Presentation\Http\Api\Controllers\ClickUp\ClickUpTaskController;
+use App\Presentation\Http\Api\Controllers\ContactSubmissionDashboardController;
+use App\Presentation\Http\Api\Controllers\Conversion\LeadConversionController;
+use App\Presentation\Http\Api\Controllers\Conversion\QuoteConversionController;
 use App\Presentation\Http\Api\Controllers\CustomFieldDefinitionController;
 use App\Presentation\Http\Api\Controllers\CustomFieldGeneralSettingsController;
 use App\Presentation\Http\Api\Controllers\CustomFieldProductSettingsController;
@@ -206,6 +209,10 @@ Route::middleware([ValidateSupabaseJwtMiddleware::class, EnsureUserApprovedMiddl
             Route::post('tasks/{taskId}/complete', [ClickUpTaskController::class, 'complete']);
         });
 
+        // Conversion endpoints
+        Route::post('conversions/lead', LeadConversionController::class);
+        Route::post('conversions/quote', QuoteConversionController::class);
+
         // Custom field definition endpoints (catalog)
         Route::get('catalog/custom-field-definitions', [CustomFieldDefinitionController::class, 'index']);
         Route::get('catalog/custom-field-definitions/{definitionId}', [CustomFieldDefinitionController::class, 'show'])
@@ -214,4 +221,9 @@ Route::middleware([ValidateSupabaseJwtMiddleware::class, EnsureUserApprovedMiddl
             ->whereUuid('definitionUuid');
         Route::put('catalog/custom-field-definitions/{definitionUuid}/product-settings', CustomFieldProductSettingsController::class)
             ->whereUuid('definitionUuid');
+
+        // Contact submissions dashboard
+        Route::get('contact-submissions', [ContactSubmissionDashboardController::class, 'index']);
+        Route::put('contact-submissions/{id}/annotations', [ContactSubmissionDashboardController::class, 'upsertAnnotation'])
+            ->whereUuid('id');
     });

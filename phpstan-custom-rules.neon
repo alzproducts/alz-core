@@ -1,6 +1,5 @@
-# Custom PHPStan rules for alz-core-two
+# Custom PHPStan rules for alz-core
 # Included by phpstan.neon — project-specific disallowed calls and custom rule services.
-# See: .ai/plans/2026-02-06_211-phpstan-custom-rules.md
 
 parameters:
     # ── Disallowed Calls (spaze/phpstan-disallowed-calls) ─────────────

@@ -6,9 +6,12 @@ namespace App\Infrastructure\GoogleAds;
 
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Infrastructure\Support\RetryAfterParser;
 use Google\Ads\GoogleAds\Lib\V22\GoogleAdsClient as SdkGoogleAdsClient;
 use Google\Ads\GoogleAds\V22\Services\SearchGoogleAdsRequest;
+use Google\Ads\GoogleAds\V22\Services\UploadClickConversionsRequest;
+use Google\Ads\GoogleAds\V22\Services\UploadClickConversionsResponse;
 use Google\ApiCore\ApiException;
 use Google\ApiCore\PagedListResponse;
 use Google\Rpc\Code;
@@ -59,6 +62,30 @@ final readonly class GoogleAdsTransport
             $request = $this->createSearchRequest($query);
 
             return $this->sdkClient->getGoogleAdsServiceClient()->search($request);
+        } catch (ApiException $e) {
+            throw $this->handleApiException($e);
+        }
+    }
+
+    /**
+     * Upload click conversions via the Google Ads ConversionUploadService.
+     *
+     * Per-conversion data faults surface via the `partial_failure_error` field on the
+     * response (not as a thrown ApiException). We translate those to
+     * {@see InvalidApiRequestException} so callers see them as request-level rejections.
+     *
+     * @throws ExternalServiceUnavailableException When API unavailable or rate limited
+     * @throws AuthenticationExpiredException When credentials invalid or insufficient permissions
+     * @throws InvalidApiRequestException When Google rejects the conversion data (partial failure)
+     */
+    public function uploadClickConversion(UploadClickConversionsRequest $request): void
+    {
+        try {
+            $response = $this->sdkClient
+                ->getConversionUploadServiceClient()
+                ->uploadClickConversions($request);
+
+            $this->handlePartialFailure($response);
         } catch (ApiException $e) {
             throw $this->handleApiException($e);
         }
@@ -178,6 +205,31 @@ final readonly class GoogleAdsTransport
         }
 
         return $e->getMessage();
+    }
+
+    /**
+     * Translate partial_failure_error on a successful response into a Domain exception.
+     *
+     * Google returns 2xx with `partial_failure_error` populated when individual conversions
+     * inside an otherwise-valid request were rejected (e.g. expired gclid, unknown action ID).
+     * This is a request-data fault, not a service-availability fault.
+     *
+     * @throws InvalidApiRequestException When at least one conversion was rejected
+     */
+    private function handlePartialFailure(UploadClickConversionsResponse $response): void
+    {
+        $error = $response->getPartialFailureError();
+
+        if ($error === null || $error->getCode() === 0) {
+            return;
+        }
+
+        Log::error(self::SERVICE_NAME . ' conversion upload partial failure', [
+            'code' => $error->getCode(),
+            'message' => $error->getMessage(),
+        ]);
+
+        throw new InvalidApiRequestException(self::SERVICE_NAME, $error->getMessage());
     }
 
     /**

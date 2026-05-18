@@ -27,6 +27,8 @@ final readonly class GoogleAdsConfig
      * @param string $developerToken Google Ads API developer token
      * @param string $customerId Google Ads customer ID (without hyphens)
      * @param string|null $loginCustomerId Manager account ID for delegated access (MCC)
+     * @param string|null $leadConversionActionId Google Ads conversion action ID for Lead Received uploads (required for ConversionUploadService; null for read-only clients)
+     * @param string|null $quoteConversionActionId Google Ads conversion action ID for Quote Issued uploads (required for ConversionUploadService; null for read-only clients)
      */
     public function __construct(
         public string $clientId,
@@ -35,29 +37,37 @@ final readonly class GoogleAdsConfig
         public string $developerToken,
         public string $customerId,
         public ?string $loginCustomerId = null,
+        public ?string $leadConversionActionId = null,
+        public ?string $quoteConversionActionId = null,
     ) {
-        if ($clientId === '') {
-            throw new InvalidConfigurationException('google-ads.client_id', 'Google Ads client ID cannot be empty');
-        }
+        self::rejectEmpty($clientId, 'google-ads.client_id', 'Google Ads client ID cannot be empty');
+        self::rejectEmpty($clientSecret, 'google-ads.client_secret', 'Google Ads client secret cannot be empty');
+        self::rejectEmpty($refreshToken, 'google-ads.refresh_token', 'Google Ads refresh token cannot be empty');
+        self::rejectEmpty($developerToken, 'google-ads.developer_token', 'Google Ads developer token cannot be empty');
+        self::rejectEmpty($customerId, 'google-ads.customer_id', 'Google Ads customer ID cannot be empty');
+        self::rejectEmpty($loginCustomerId, 'google-ads.login_customer_id', 'Google Ads login customer ID cannot be empty when provided');
+        self::rejectEmpty($leadConversionActionId, 'google-ads.lead_conversion_action_id', 'Google Ads lead conversion action ID cannot be empty when provided');
+        self::rejectEmpty($quoteConversionActionId, 'google-ads.quote_conversion_action_id', 'Google Ads quote conversion action ID cannot be empty when provided');
+    }
 
-        if ($clientSecret === '') {
-            throw new InvalidConfigurationException('google-ads.client_secret', 'Google Ads client secret cannot be empty');
-        }
+    public function withConversionActionIds(string $leadActionId, string $quoteActionId): self
+    {
+        return new self(
+            clientId: $this->clientId,
+            clientSecret: $this->clientSecret,
+            refreshToken: $this->refreshToken,
+            developerToken: $this->developerToken,
+            customerId: $this->customerId,
+            loginCustomerId: $this->loginCustomerId,
+            leadConversionActionId: $leadActionId,
+            quoteConversionActionId: $quoteActionId,
+        );
+    }
 
-        if ($refreshToken === '') {
-            throw new InvalidConfigurationException('google-ads.refresh_token', 'Google Ads refresh token cannot be empty');
-        }
-
-        if ($developerToken === '') {
-            throw new InvalidConfigurationException('google-ads.developer_token', 'Google Ads developer token cannot be empty');
-        }
-
-        if ($customerId === '') {
-            throw new InvalidConfigurationException('google-ads.customer_id', 'Google Ads customer ID cannot be empty');
-        }
-
-        if ($loginCustomerId === '') {
-            throw new InvalidConfigurationException('google-ads.login_customer_id', 'Google Ads login customer ID cannot be empty when provided');
+    private static function rejectEmpty(?string $value, string $configKey, string $message): void
+    {
+        if ($value === '') {
+            throw new InvalidConfigurationException($configKey, $message);
         }
     }
 }

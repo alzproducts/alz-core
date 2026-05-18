@@ -51,6 +51,7 @@ use Override;
  * @property list<int> $parent_main_category_ids Parent product main category IDs (filter column)
  * @property string|null $default_supplier_name Default supplier name (filter column, from view)
  * @property float|null $stock_value Stock value = purchase_price × available stock (null when no supplier cost)
+ * @property float|null $net_margin_single_unit Worst-case gross margin % for a single-unit free-delivery order
  */
 final class ProductVariationViewModel extends Model
 {
@@ -91,6 +92,7 @@ final class ProductVariationViewModel extends Model
             'parent_has_free_delivery' => 'boolean',
             'parent_main_category_ids' => 'array',
             'stock_value' => 'float',
+            'net_margin_single_unit' => 'float',
         ];
     }
 

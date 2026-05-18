@@ -13,10 +13,10 @@ return [
     |
     */
     'mailboxes' => [
-        'support' => 11667,
-        'purchase_orders' => 29767,
-        'suppliers_purchasing' => 55362,
-        'accounts' => 140494,
+        'support' => (int) env('HELPSCOUT_MAILBOX_SUPPORT'),
+        'purchase_orders' => (int) env('HELPSCOUT_MAILBOX_PURCHASE_ORDERS'),
+        'suppliers_purchasing' => (int) env('HELPSCOUT_MAILBOX_SUPPLIERS_PURCHASING'),
+        'accounts' => (int) env('HELPSCOUT_MAILBOX_ACCOUNTS'),
     ],
 
     /*

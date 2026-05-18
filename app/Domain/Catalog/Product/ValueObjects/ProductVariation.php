@@ -24,10 +24,10 @@ use Webmozart\Assert\Assert;
  *
  * **SKU Nullable**: SKU can be null for legacy/inactive products that lack SKUs
  * in ShopWired. Active purchasable variants should always have SKUs.
- * See .ai/docs/known-issues.md "Product Variations with Missing SKUs".
+ * See docs/known-issues.md "Product Variations with Missing SKUs".
  *
  * NOTE: Does not implement BasicProductInterface due to nullable price semantics.
- * See .ai/docs/known-issues.md "BasicProductInterface and ProductVariation".
+ * See docs/known-issues.md "BasicProductInterface and ProductVariation".
  *
  * @see https://shopwired.readme.io/reference/getproduct
  */
