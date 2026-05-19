@@ -50,7 +50,20 @@
             "Bash(*migrate:reset*)",
             "Bash(*db:wipe*)",
             "Bash(*queue:work*)",
-            "Bash(*queue:listen*)"
+            "Bash(*queue:listen*)",
+            "Read(node_modules/**)",
+            "Read(composer.lock)",
+            "Read(package-lock.json)",
+            "Read(yarn.lock)",
+            "Read(pnpm-lock.yaml)",
+            "Read(.idea/**)",
+            "Read(_ide_helper.php)",
+            "Read(_ide_helper_models.php)",
+            "Read(.phpstorm.meta.php)",
+            "Read(storage/framework/**)",
+            "Read(public/build/**)",
+            "Read(public/hot/**)",
+            "Read(public/storage/**)"
         ]
     }
 }
