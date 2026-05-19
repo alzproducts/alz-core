@@ -1,7 +1,7 @@
 # alz-core
 
 ![PHPStan Level max](https://img.shields.io/badge/PHPStan-level%20max-brightgreen)
-![CI](https://github.com/alzproducts/alz-core/actions/workflows/ci.yml/badge.svg?branch=develop)
+![CI](https://github.com/alzproducts/alz-core/actions/workflows/ci.yml/badge.svg?branch=main&event=push)
 ![PHP 8.4](https://img.shields.io/badge/PHP-8.4-blue)
 
 Production backend for a UK e-commerce business selling disability aids to individuals, businesses, and the public sector. The system orchestrates 11 third-party integrations, 73 queued jobs, and 57 scheduled tasks across inventory management, order processing, ad spend tracking, and customer service. All behind a mechanically enforced Clean Architecture. Built for correctness and maintainability in a small team, not horizontal scale.
