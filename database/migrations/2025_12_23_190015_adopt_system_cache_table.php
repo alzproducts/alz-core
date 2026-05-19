@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\DB;
  * Note: pg_cron cleanup job exists in Supabase but is not created locally (extension unavailable).
  * Local cleanup should be handled by Laravel scheduler if needed.
  *
- * @see /Users/tom/WebstormProjects/alz-admin/supabase/migrations/20250902051135_add_system_cache_table.sql
+ * @see ${FRONTEND_APP}/supabase/migrations/20250902051135_add_system_cache_table.sql
  */
 return new class extends Migration {
     public function up(): void

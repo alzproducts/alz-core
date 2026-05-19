@@ -12,7 +12,7 @@ use Override;
 /**
  * API resource for HelpScout agent profile.
  *
- * camelCase keys match the contract expected by alz-admin's settings page.
+ * camelCase keys match the contract expected by ${FRONTEND_APP}'s settings page.
  *
  * @mixin SupportAgent
  */

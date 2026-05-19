@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\DB;
  * In production, this schema already exists - migration skips creation.
  * In CI/testing, creates the schema from scratch.
  *
- * Source: /Users/tom/WebstormProjects/alz-admin/supabase/migrations/
+ * Source: ${FRONTEND_APP}/supabase/migrations/
  *   - 00000000000000_initial_schema.sql (line 348: create schema if not exists "access")
  */
 return new class extends Migration {

@@ -9,20 +9,20 @@ This file is a project glossary, not a how-to. Definitions describe what somethi
 ### Catalog & ShopWired sync
 
 **Margin tier**:
-One of four mutually-exclusive labels (`1 - Low margin`, `2 - Standard margin`, `3 - High margin`, `4 - Unknown margin`) assigned to a ShopWired product on `custom_label_1`. See COR-148.
+One of four mutually-exclusive labels (`1 - Low margin`, `2 - Standard margin`, `3 - High margin`, `4 - Unknown margin`) assigned to a ShopWired product on `custom_label_1`.
 
 **Margin midpoint**:
 The value `(net_margin_single_unit_min + net_margin_single_unit_max) / 2` compared against margin-tier thresholds. Smooths single-outlier variations without computing a true per-variation average.
 
 **ShopWired custom_label_N**:
-ShopWired's `custom_label_N` series of single-select string custom fields on products. Two known owners in this codebase: `custom_label_4` → Best Sellers (COR-128), `custom_label_1` → Margin tier (COR-148). Design intent: each field is written by exactly one sync (see **Drift** below for why).
-_Avoid_: treating these as value-list/array fields. Despite the "label" naming, they are single-select strings — the confusion produced the silent-write bug COR-129 fixed.
+ShopWired's `custom_label_N` series of single-select string custom fields on products. Two known owners in this codebase: `custom_label_4` → Best Sellers, `custom_label_1` → Margin tier. Design intent: each field is written by exactly one sync (see **Drift** below for why).
+_Avoid_: treating these as value-list/array fields. Despite the "label" naming, they are single-select strings — the confusion previously produced a silent-write bug.
 
 **Drift**:
 The state when a product's current `custom_label_N` value differs from the value the sync would compute now. Detected by a single SQL query per sync and resolved by dispatching per-product update jobs.
 
 **Best Sellers label**:
-The string `"Best Sellers"` written to `custom_label_4` for products with `popularity_rank <= 2`. See COR-128.
+The string `"Best Sellers"` written to `custom_label_4` for products with `popularity_rank <= 2`.
 
 ### Pricing & margin
 
@@ -44,7 +44,7 @@ The price a customer actually pays — `sale_price` when `is_on_sale`, otherwise
 > **Domain expert:** "No. The **margin tier** is recomputed by the daily **drift query** at 04:45. The **effective price** change is reflected in `products_view.net_margin_single_unit_min/max` immediately because it's a view, but the **drift query** only fires on the schedule — so `custom_label_1` lags by up to 24h."
 
 > **Dev:** "Can two syncs write to the same **ShopWired custom_label_N**?"
-> **Domain expert:** "By design no — we want each `custom_label_N` written by exactly one sync. We learned the hard way (COR-129) that these are single-select string fields; if two syncs wrote to the same field they'd clobber each other on every cycle."
+> **Domain expert:** "By design no — we want each `custom_label_N` written by exactly one sync. We learned the hard way that these are single-select string fields; if two syncs wrote to the same field they'd clobber each other on every cycle."
 
 ## Flagged ambiguities
 
