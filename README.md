@@ -1,291 +1,228 @@
-# ALZ Core
+# alz-core
 
-Backend service for e-commerce webhooks and background jobs. Portfolio piece demonstrating modern Laravel best practices with clean architecture.
+![PHPStan Level max](https://img.shields.io/badge/PHPStan-level%20max-brightgreen)
+![CI](https://github.com/alzproducts/alz-core/actions/workflows/ci.yml/badge.svg)
+![PHP 8.4](https://img.shields.io/badge/PHP-8.4-blue)
 
-## Overview
+Production backend for a UK e-commerce business selling disability aids to individuals, businesses, and the public sector. The system orchestrates 11 third-party integrations, 73 queued jobs, and 57 scheduled tasks across inventory management, order processing, ad spend tracking, and customer service. All behind a mechanically enforced Clean Architecture. Built for correctness and maintainability in a small team, not horizontal scale.
 
-- **Team**: Solo developer (1 person)
-- **Users**: 3-4 internal staff
-- **Purpose**: Process webhooks, sync orders/inventory/products, scheduled tasks
-- **Frontend**: Separate Next.js app using Supabase (separate repo)
-- **Deployment**: Railway (multi-service architecture)
+## Table of Contents
+
+- [Architecture](#architecture)
+- [Key Engineering Decisions](#key-engineering-decisions)
+- [Tech Stack](#tech-stack)
+- [Integrations](#integrations)
+- [Testing Strategy](#testing-strategy)
+- [Development Workflow](#development-workflow)
+- [CI/CD Pipeline](#cicd-pipeline)
+- [Known Limitations & What's Next](#known-limitations--whats-next)
+
+## Architecture
+
+Layer boundaries are enforced by tooling, not discipline. PHPArkitect validates dependency rules across four layers on every commit, and 27 custom PHPStan rules enforce conventions beyond what built-in type checking can catch.
+
+The result is a codebase where architectural violations are caught in the editor, not in code review.
+
+```mermaid
+graph TD
+    P["Presentation\nControllers · Commands\nWebhooks · Middleware"]
+    A["Application\nUseCases · Services\nCommands · Contracts"]
+    D["Domain\nValueObjects · Entities\nEvents · Validators"]
+    I["Infrastructure\nAPI Clients · Repositories\nJobs · Mappers · Models"]
+
+    P -->|delegates to| A
+    A -->|orchestrates| D
+    I -->|implements| A
+    I -->|implements| D
+    P -.->|reads| D
+
+    style D fill:#2d5016,stroke:#4a7c2e,color:#fff
+    style A fill:#1a3a5c,stroke:#2d6a9f,color:#fff
+    style I fill:#5c3a1a,stroke:#9f6a2d,color:#fff
+    style P fill:#3a1a5c,stroke:#6a2d9f,color:#fff
+```
+
+**Enforcement tools:** PHPArkitect (layer dependencies) · PHPStan max level with bleeding edge · 99% type coverage target · Cognitive complexity limits · Disallowed calls (no facades in domain/application, no `DB::`, no `Artisan::call`)
+
+**27 custom PHPStan rules** cover job resilience (`$tries`, `$timeout`, `backoff()`, `failed()` required on every job), exception taxonomy (domain exceptions must extend the base, infrastructure `@throws` must not reference vendor exceptions), complexity limits (20-line methods, 4-parameter cap, tiered class length by layer), and naming conventions enforced per layer.
+
+## Key Engineering Decisions
+
+### No caching layer — the database already is one
+
+Started implementing Redis caching, then stopped to ask what it would actually gain. Most tables have their source of truth in a third-party system; regular syncs and webhooks mean PostgreSQL already provides the core benefit of a cache: fast local reads of remote data.
+
+Evaluated the standard justifications and none applied to a small internal tool operating well within its resource limits, especially with Octane's persistent workers already providing fast response times and a high throughput ceiling:
+
+- High throughput? Internal tool with 3-4 users.
+- Ultra-fast customer-facing responses? Not customer-facing.
+- Reducing database load? Nowhere near capacity.
+
+The downsides (invalidation complexity, consistency bugs, solo-developer maintenance burden) far outweighed the only real benefit: slightly faster loads. Would add targeted caching when query performance degrades or when customer-facing features (e.g. delivery lead times) demand it.
+
+### Webhook partial-save → re-fetch → reconcile
+
+ShopWired webhook payloads are partial; the full entity must be re-fetched from the API regardless. Webhooks save the partial payload, return `200 OK` immediately to avoid timeouts, and dispatch a re-fetch job. Webhooks allowed us to significantly reduce polling frequency while keeping data accurate within tight external API rate limits.
+
+Would revisit if ShopWired added complete payloads with guaranteed ordering.
+
+### HelpScout SDK for writes, direct HTTP for reads
+
+The SDK's entity hydration silently drops response fields on reads. The `snooze` field needed by all four dashboard widget types was being discarded. Writes work correctly through the SDK.
+
+Rather than replacing the SDK entirely or working around it, the hybrid approach uses each path where it's reliable. Would revisit if HelpScout shipped an SDK version that preserves all response fields.
+
+### Test implementation delegated to AI; mutation testing as the quality floor
+
+Test writing was the only area of the codebase fully delegated to AI tooling. Architecture, design, and production code were collaborative. Critical business logic tests were developed together; the rest were AI-generated within testing guides and validated by Mutation Score Indicator (85%+ MSI domain, 70%+ MSI application).
+
+- The trade-off is velocity over hand-crafted test design
+- The realistic consequence is that test quality is uneven outside of core domain logic
+- The mutation score, not coverage percentage, is the real quality gate
 
 ## Tech Stack
 
-- Laravel 12 (backend-only API)
-- PHP 8.4+
-- Laravel Octane with Swoole (application server)
-- PostgreSQL via Supabase (production + local dev)
-- Redis (cache, queues, sessions)
-- Laravel Horizon (queue monitoring)
-- Laravel Telescope (debugging)
+| Layer | Technology | Notes |
+|-------|-----------|-------|
+| Language | PHP 8.4 | Strict types, readonly properties, enums |
+| Framework | Laravel 12 | Octane (Swoole) for HTTP serving |
+| Database | PostgreSQL | Via Supabase; schema-qualified tables enforced by custom PHPStan rule |
+| Queue | Redis + Laravel Horizon | 5 priority tiers, 3 Railway services (web, worker, scheduler) |
+| Static Analysis | PHPStan max + bleeding edge | Larastan, shipmonk-rules, strict-rules, disallowed-calls, cognitive-complexity, type-coverage |
+| Architecture | PHPArkitect | Layer dependency validation on every commit |
+| Testing | Pest 4 + mutation testing | Layer-specific coverage targets, Pest Mutate (190+ mutators) |
+| Deployment | Docker → Railway | Multi-stage build, Swoole runtime |
+| Error Tracking | Sentry | Filtered by expected/unexpected; user context capture |
+| Domain Invariants | webmozart/assert | Constructor-enforced value objects throughout domain layer |
+| DTOs | Spatie Laravel Data | Presentation and application boundary DTOs; domain uses value objects |
 
-## Development Setup
+## Integrations
 
-### Prerequisites
+The system connects to 11 external services, each with its own authentication model, rate limits, and data format quirks.
 
-- **PHP 8.4+** via Homebrew with extensions: `redis`, `swoole`, `pdo_pgsql`
-- **Docker Desktop** (for Redis)
-- **Node.js + pnpm** (for Supabase CLI in alz-admin)
-- **alz-admin** repo cloned (contains Supabase config)
-- Git
+```mermaid
+graph LR
+    ALC["alz-core\nLaravel · PostgreSQL"]
 
-**Shell configuration** (add to `~/.zshrc`):
-```bash
-export ALZ_ADMIN=/path/to/alz-admin
+    subgraph Ecommerce["E-commerce"]
+        SW["ShopWired\n14 clients · webhooks + polling"]
+    end
+
+    subgraph Inventory["Inventory & Orders"]
+        LW["Linnworks\n10 clients · cursor sync"]
+    end
+
+    subgraph Ads["Ad Spend"]
+        GA["Google Ads\ngRPC · conversion tracking"]
+        BA["Bing Ads\nSOAP · async reports"]
+    end
+
+    subgraph Analytics
+        MP["Mixpanel\nlookup tables · order sync"]
+    end
+
+    subgraph Support["Customer Service"]
+        HS["HelpScout\n5 clients · OAuth 2.0"]
+        RV["Reviews.io\ntwo-stage fetch + push"]
+    end
+
+    subgraph Infra["Infrastructure"]
+        CF["Cloudflare\nR2 · Workers · CDN"]
+        SE["Sentry\nerror tracking"]
+        SB["Supabase\nauth · PostgreSQL"]
+    end
+
+    subgraph Tasks["Task Management"]
+        CU["ClickUp\nencrypted API keys"]
+    end
+
+    SW <-->|"HTTP Basic · HMAC webhooks"| ALC
+    LW <-->|"OAuth 2.0 · cursor + tiered"| ALC
+    GA <-->|"OAuth 2.0 · GAQL + conversions"| ALC
+    BA -->|"OAuth 2.0 · SOAP + ZIP"| ALC
+    MP <-->|"Basic Auth"| ALC
+    HS <-->|"OAuth 2.0"| ALC
+    RV -->|"API key"| ALC
+    CF <-->|"S3-compat"| ALC
+    ALC -->|"DSN"| SE
+    SB <-->|"JWT"| ALC
+    CU <-->|"API key"| ALC
 ```
 
-#### macOS PHP Setup
+Sync runs on a tiered schedule: cursor-based incremental polling (every 1–5 minutes), hourly/daily catch-up sweeps, and weekly/monthly full reconciliation. 57 scheduled tasks across 10 dedicated schedule providers.
 
-```bash
-# Install PHP 8.4
-brew install php@8.4
-brew link php@8.4 --force
+## Testing Strategy
 
-# Install required extensions
-pecl install redis swoole
+Testing is organised by architectural layer, with coverage targets calibrated to where bugs are most costly.
 
-# Verify
-php -v          # Should show 8.4.x
-php -m | grep redis   # Should show 'redis'
-php -m | grep swoole  # Should show 'swoole'
-```
+| Layer | Targets | Focus |
+|-------|---------|-------|
+| Domain | 90%+ coverage, 85%+ MSI | Pure business logic. Mutation testing catches tests that pass without verifying behaviour. Value object invariants, validators, and transformers are the priority. |
+| Application | 70%+ coverage, 70%+ MSI | UseCase orchestration, service logic, command handling. Tests verify branching logic and error paths. Pure-delegation UseCases excluded from coverage. |
+| Infrastructure | Integration tests only | Live service tests where mocking would hide real failures. No mutation testing. |
+| Presentation | Smoke + feature tests | HTTP endpoints, webhook signature verification, auth middleware, rate limiting, request validation. |
 
-### First-Time Setup
+The philosophy: test what static analysis can't catch. With PHPStan at max level, 99% type coverage, and 27 custom rules, the type system handles a large class of bugs that other codebases rely on tests to find. Tests focus on business logic, state transitions, and integration boundaries.
 
-```bash
-# Clone repository
-git clone <repo-url>
-cd alz-core
+## Development Workflow
 
-# Install PHP dependencies
-composer install
+**Branching:** Feature branches → `develop` → `main`, with linear history enforced via squash/rebase merges and GitHub branch protection rulesets preventing direct pushes.
 
-# Copy environment file
-cp .env.example .env
+**Feature development** scales with scope:
 
-# Reset Supabase and seed test users
-# (Runs in alz-admin: resets DB, regenerates types, seeds users)
-make supabase-reset
+- **Small:** Scoped in conversation, implemented autonomously, manually reviewed.
+- **Medium:** Interactive design session → implementation plan (checked against planning decisions) → Linear issue updated → autonomous implementation in fresh context → human review and iteration.
+- **Large:** Organised as Linear projects with blocking dependencies and milestones.
 
-# Start Redis
-make redis
+Every change, regardless of size, gets its own Linear issue, branch, and PR.
 
-# Run Laravel migrations (adopts existing Supabase schema)
-php artisan migrate
+**AI-assisted development:** Claude Code is the primary implementation tool, operating within 28 scoped rule files that encode architectural constraints, naming conventions, and layer-specific patterns. The architecture, design decisions, and code review remain human-driven; AI handles implementation velocity within guardrails.
 
-# Verify tests pass
-make test
-```
+**Documentation:** 162 technical plan documents and 132 implementation logs in the project's development history capture decision context across its lifetime.
 
-### Daily Development
+## CI/CD Pipeline
 
-```bash
-# Start Supabase (if not running)
-make supabase-start
+Pull requests trigger a 7-job pipeline with change detection (docs-only PRs skip expensive jobs):
 
-# Start Redis (if not running)
-make redis
+| Stage | Trigger | Checks |
+|-------|---------|--------|
+| Pre-commit | Every commit | Pint (style) → PHPStan (analysis) → PHPArkitect (architecture) |
+| Pre-push | Every push | Pest (tests) → Deptrac (layer deps) → TLint |
+| CI (all PRs) | Pull request | Code style · Pest parallel (PostgreSQL 17 + Redis 7) · Security audit · Taint analysis (Psalm) |
+| CI (main only) | PR to main | Mutation testing: Domain 90%+ MSI, Application 70%+ MSI (informational, not blocking) |
 
-# Start Octane server with hot reload
-php artisan octane:start --watch
+## Known Limitations & What's Next
 
-# In another terminal: start queue worker
-php artisan queue:listen -v --timeout=3600 --queue=high,default,low
+- No distributed tracing. Sentry captures errors effectively, but request-level tracing across queue jobs and API calls isn't instrumented. Error volume at current scale doesn't justify the implementation cost.
+- Integration tests require a live Supabase database and can't run in CI. Containerised PostgreSQL for CI is a known improvement.
+- Architectural decision records are underway (`docs/adr/`) but only one has been formalised so far. The 162 plan documents in the project's development history contain the reasoning but aren't in ADR format yet.
 
-# Optional: start edge functions (for auth flows)
-make supabase-functions
-```
+**What's next:**
 
-### Database Modes
+### Product Image Optimisation Pipeline
 
-This project uses **two different database setups** depending on context:
+Two-tier Cloudflare R2 storage (lossless master + web-optimised derivative), event-driven processing via Intervention Image v3 + libvips + Spatie Image Optimizer. Includes automated ShopWired sync, quality reporting, and backfill of ~12,000 existing product images. Planned across 3 milestones in Linear.
 
-| Mode | Database | Port | Managed By | When Used |
-|------|----------|------|------------|-----------|
-| **Local Dev** | Supabase PostgreSQL | 54322 | alz-admin project | Daily development |
-| **CI/Testing** | Docker PostgreSQL | 5432 | GitHub Actions services | CI pipeline |
+### QuickBooks Online Integration
 
-**Local development** connects to Supabase (shared with alz-admin frontend). User authentication, profiles, and roles are managed by Supabase Auth.
+Replace the current Zapier-based invoice/sales receipt sync from ShopWired with a native integration in alz-core. The business requires conditional branching logic to determine whether each transaction becomes an invoice or a sales receipt, and off-the-shelf integrations can't handle this.
 
-**CI/Testing** uses isolated Docker PostgreSQL with mocked auth schema. This allows tests to run without Supabase dependencies.
+### Server-Side Estimated Delivery Dates
 
-**Database Commands** (Local Development):
-```bash
-make supabase-status      # Check if Supabase is running
-make supabase-reset       # Full reset: wipe DB, seed data, create test users
-make supabase-seed-users  # Seed test users only (no DB wipe)
-make migrate              # Run Laravel migrations (safe, additive)
-make supabase-stop        # Stop Supabase when done
-```
+Move delivery date calculations off Twig templates and onto alz-core:
 
-**Testing & Linting**:
-```bash
-make test              # Run all tests
-make test-quick        # Domain tests only (~5s)
-make lint              # Run linters (before commit)
-```
+1. Staff configure closed days, excluded dispatch dates, and per-delivery-method lead time thresholds via the admin UI
+2. Lead times are synced to Cloudflare KV on a schedule
+3. Served as first-party cookies via Cloudflare Workers to every visitor
+4. Rendered immediately on page load via inline scripts, matching server-side speed without a server round-trip
 
-## Code Quality Standards
+### B2B Customer Identification & Marketing Pipeline
 
-We maintain strict code quality with automated linting:
+Heuristic algorithm to identify likely B2B cash buyers from order data (business name, order value, product volume), exposed via API for staff to confirm and label customer type.
 
-- **Laravel Pint** - Code style (PER preset with strict rules)
-- **PHPStan Level max** - Static analysis with bleeding edge features
-- **PHPArkitect** - Clean Architecture layer enforcement
-- **Deptrac** - Layer dependency analysis
+Feeds two automated outputs:
 
-```bash
-# Fast linting (pre-commit) - ~5-10 seconds
-make lint
+- A continuously updated B2B best-sellers product list
+- A matched audience segment for targeted digital marketing campaigns
 
-# Full linting (pre-push) - ~20-30 seconds
-make lint-full
-
-# Run everything (tests + linters)
-make check
-
-# Alternative: via composer (delegates to make)
-composer run lint
-composer run check
-```
-
-Git hooks automatically enforce these standards on commit/push.
-
-## Security Notes
-
-### API Debug Logging
-
-The `SHOPWIRED_LOG_LEVEL` and `LINNWORKS_LOG_LEVEL` environment variables enable request/response logging for debugging API issues.
-
-**⚠️ Do NOT enable in production.** Debug mode logs request/response bodies which may contain:
-- Customer names, addresses, and contact information (PII)
-- Order details and payment information
-- Product pricing and stock levels
-
-Use only in local development or isolated debugging sessions. Auth credentials are never logged.
-
-## Railway Deployment
-
-**Deployment Architecture**: "Majestic Monolith" - one codebase, multiple Railway services.
-
-### Service Configuration
-
-All configuration is done via Railway Dashboard UI (Settings persist across deployments).
-
-#### Service 1: Web (`alz-core-web`)
-
-**Settings → Deploy**
-- **Source**: Connect to GitHub repository
-- **Deploy Command**: `php artisan migrate --force && php artisan config:cache && php artisan route:cache`
-- **Start Command**: `php artisan octane:start --server=swoole --host=0.0.0.0 --port=${PORT:-8000}`
-- **Health Check Path**: `/up`
-- **Health Check Timeout**: 300 seconds
-
-**Settings → Environment**
-```
-APP_ENV=production
-APP_DEBUG=false
-LOG_CHANNEL=errorlog
-QUEUE_CONNECTION=redis
-CACHE_DRIVER=redis
-SESSION_DRIVER=redis
-
-# Octane Configuration
-OCTANE_SERVER=swoole
-OCTANE_WORKERS=4
-OCTANE_TASK_WORKERS=6
-OCTANE_MAX_REQUESTS=500
-```
-
-#### Service 2: Worker (`alz-core-worker`)
-
-**Settings → Deploy**
-- **Source**: Same GitHub repository as Web service
-- **Start Command**: `php artisan horizon`
-
-**Settings → Environment**
-- Share all environment variables with Web service
-
-**Settings → Deploy**
-- **Restart Policy**: `ON_FAILURE`
-- **Restart Max Retries**: `3`
-
-#### Service 3: Redis
-
-**Create from Template**
-- Railway automatically provisions Redis
-- Connection details auto-injected as `REDIS_URL` to Web and Worker services
-
-#### Service 4: PostgreSQL Database
-
-**Use Supabase Integration**
-- Shared database with Next.js frontend
-- Configure `DATABASE_URL` environment variable in Web and Worker services
-
-### Health Check Endpoint
-
-The `/health` endpoint is required for zero-downtime deployments:
-
-```php
-// routes/web.php
-Route::get('/health', function () {
-    return response()->json(['status' => 'ok'], 200);
-});
-```
-
-### Deployment Workflow
-
-1. **One-Time Setup**: Configure services in Railway Dashboard (as documented above)
-2. **Every Push**: `git push origin main` → Railway auto-deploys both Web and Worker services
-
-Railway remembers all UI configuration. No config files needed.
-
-### Why No railway.toml or Procfile?
-
-Railway's 2025 best practice is **configuration via UI**, not config files:
-
-- ✅ **Railway UI**: Source of truth for deployment settings
-- ❌ **railway.toml**: Deprecated (Nixpacks in maintenance mode, `php artisan serve` not production-ready)
-- ❌ **Procfile**: Ignored in multi-service architecture
-
-**Benefits of UI Configuration**:
-- Each service can point to different branches
-- Independent scaling and environment variables per service
-- Deployment settings don't clutter codebase
-- Secrets never touch repository
-
-### Architecture Notes
-
-**Laravel Octane**: We use Laravel Octane with Swoole for improved performance. Octane keeps the application in memory across requests, eliminating bootstrap overhead. This is the modern standard for Laravel deployments regardless of scale.
-
-**Separate Services**: Web and Worker run as separate Railway services for:
-- Independent scaling (scale web without scaling worker)
-- Different resource profiles (HTTP concurrency vs long-running processes)
-- Deployment safety (worker failures don't affect web server)
-
-**Scheduler**: The `alz-core-scheduler` service runs `php artisan schedule:work` to execute scheduled tasks defined in `routes/console.php`.
-
-### SSH Quick Reference
-
-```bash
-# List available services
-railway service list
-
-# SSH into a service
-railway ssh -s alz-core-worker "php artisan tinker --execute=\"...\""
-
-# Dispatch jobs manually
-railway ssh -s alz-core-worker "php artisan tinker --execute=\"App\\Presentation\\Jobs\\Shopwired\\SyncShopwiredCustomersJob::dispatch();\""
-
-# Check Horizon status
-railway ssh -s alz-core-worker "php artisan horizon:status"
-```
-
-## Project Documentation
-
-- **Development Guide**: `CLAUDE.md`
-
-## License
-
-This project is proprietary. All rights reserved.
+The combination targets the right products at the right customers, and refines itself through regular staff feedback.
