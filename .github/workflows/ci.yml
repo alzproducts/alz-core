@@ -3,9 +3,11 @@ name: Laravel 12 CI Pipeline
 on:
   pull_request:
     branches: [main, develop]
+  push:
+    branches: [main]
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 env:
