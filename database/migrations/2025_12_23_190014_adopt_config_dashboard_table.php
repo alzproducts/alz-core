@@ -11,8 +11,8 @@ use Illuminate\Support\Facades\DB;
  * Table stores JSONB settings per dashboard table (thresholds, tags, display options).
  * RLS policies allow authenticated users to read, admins/managers to modify.
  *
- * @see /Users/tom/WebstormProjects/alz-admin/supabase/migrations/20250901103108_add_dashboard_config.sql
- * @see /Users/tom/WebstormProjects/alz-admin/supabase/migrations/20250906154806_update_dashboard_config_policy_for_managers.sql
+ * @see ${FRONTEND_APP}/supabase/migrations/20250901103108_add_dashboard_config.sql
+ * @see ${FRONTEND_APP}/supabase/migrations/20250906154806_update_dashboard_config_policy_for_managers.sql
  */
 return new class extends Migration {
     public function up(): void

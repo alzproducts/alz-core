@@ -24,7 +24,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 /**
  * Tests API contract compliance for HelpScout Resources.
  *
- * These tests validate that the API output matches the Zod schemas in alz-admin,
+ * These tests validate that the API output matches the Zod schemas in ${FRONTEND_APP},
  * which are based on the original HelpScout API response format.
  *
  * @see docs/helpscout-api-serialization-fix.md

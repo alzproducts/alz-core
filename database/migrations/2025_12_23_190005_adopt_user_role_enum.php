@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\DB;
  * In production, this type already exists - migration skips creation.
  * In CI/testing, creates the type from scratch.
  *
- * Source: /Users/tom/WebstormProjects/alz-admin/supabase/migrations/
+ * Source: ${FRONTEND_APP}/supabase/migrations/
  *   - 00000000000000_initial_schema.sql (line 1)
  */
 return new class extends Migration {

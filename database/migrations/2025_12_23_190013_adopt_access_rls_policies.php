@@ -21,7 +21,7 @@ use Illuminate\Support\Facades\DB;
  * All policies are idempotent - if a policy already exists (e.g., from Supabase),
  * it will be skipped without error.
  *
- * @see /Users/tom/WebstormProjects/alz-admin/supabase/migrations/00000000000000_initial_schema.sql
+ * @see ${FRONTEND_APP}/supabase/migrations/00000000000000_initial_schema.sql
  */
 return new class extends Migration {
     public function up(): void

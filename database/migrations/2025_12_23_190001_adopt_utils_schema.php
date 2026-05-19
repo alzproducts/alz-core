@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\DB;
  * In production, this schema already exists - migration skips creation.
  * In CI/testing, creates the schema from scratch.
  *
- * Source: /Users/tom/WebstormProjects/alz-admin/supabase/migrations/
+ * Source: ${FRONTEND_APP}/supabase/migrations/
  *   - 20250708051436_admin_manager_update_approval_policy.sql (schema creation)
  */
 return new class extends Migration {

@@ -34,6 +34,7 @@ _ide_helper_models.php
 /.deptrac.cache
 
 /examples
-/.ai/
+/.ai
 /tmp
 /.claude/scheduled_tasks.lock
+/.claude/settings.local.json

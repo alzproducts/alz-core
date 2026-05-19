@@ -62,12 +62,23 @@ final class AdminAlertNotification extends Notification
         }
 
         $contextText = \implode("\n", \array_map(
-            static fn(mixed $value): string => \sprintf('• %s', \print_r($value, true)),
+            static fn(mixed $value): string => '• ' . self::formatValue($value),
             $this->context,
         ));
 
         $message->sectionBlock(static function (SectionBlock $block) use ($contextText): void {
             $block->text($contextText)->markdown();
         });
+    }
+
+    private static function formatValue(mixed $value): string
+    {
+        if (\is_scalar($value)) {
+            return (string) $value;
+        }
+
+        $encoded = \json_encode($value, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
+        return $encoded === false ? '(unencodable)' : $encoded;
     }
 }

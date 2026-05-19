@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\DB;
  * Stores encrypted API keys (AES-256-GCM) for services like ClickUp, HelpScout.
  * RLS policy allows users to manage only their own keys.
  *
- * @see /Users/tom/WebstormProjects/alz-admin/supabase/migrations/20250819175239_user_api_keys.sql
+ * @see ${FRONTEND_APP}/supabase/migrations/20250819175239_user_api_keys.sql
  */
 return new class extends Migration {
     public function up(): void

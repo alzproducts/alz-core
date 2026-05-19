@@ -1,6 +1,6 @@
 # HelpScout API Resources
 
-Transform Domain objects to match HelpScout API contract (alz-admin Zod schemas).
+Transform Domain objects to match HelpScout API contract (${FRONTEND_APP} Zod schemas).
 
 ## Patterns
 
