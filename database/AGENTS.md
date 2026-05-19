@@ -2,7 +2,7 @@
 
 ## CRITICAL: Shared Database with Supabase
 
-This Laravel project shares PostgreSQL with Supabase (`alz-admin`). Supabase owns `auth.*` tables.
+This Laravel project shares PostgreSQL with Supabase (`${FRONTEND_APP}`). Supabase owns `auth.*` tables.
 
 ### Forbidden Commands
 
@@ -24,7 +24,7 @@ make db-reset-full
 
 This runs two steps in sequence:
 
-**Step 1 — `make supabase-reset`** (runs `pnpm db:setup-local` in `alz-admin`):
+**Step 1 — `make supabase-reset`** (runs `pnpm db:setup-local` in `${FRONTEND_APP}`):
 - Recreates the PostgreSQL database from scratch
 - Applies all Supabase schema migrations (`supabase/migrations/`)
 - Generates TypeScript types

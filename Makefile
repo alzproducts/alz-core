@@ -317,6 +317,10 @@ migrate: ## Run database migrations
 # =============================================================================
 # Database Reset (Coordinated)
 # =============================================================================
+# NOTE: The supabase-* targets below require a private companion frontend
+# project (set via ALZ_ADMIN env var). They are not usable by external
+# contributors cloning this repo standalone.
+#
 # IMPORTANT: This project shares PostgreSQL with Supabase (alz-admin).
 # Supabase owns auth.* tables. NEVER run migrate:fresh, migrate:refresh,
 # migrate:reset, or db:wipe directly - they destroy Supabase auth tables.

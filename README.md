@@ -6,6 +6,8 @@
 
 Production backend for a UK e-commerce business selling disability aids to individuals, businesses, and the public sector. The system orchestrates 11 third-party integrations, 73 queued jobs, and 57 scheduled tasks across inventory management, order processing, ad spend tracking, and customer service. All behind a mechanically enforced Clean Architecture. Built for correctness and maintainability in a small team, not horizontal scale.
 
+> **Status:** Portfolio showcase. This repository is published for reference and is not accepting external contributions or issues.
+
 ## Table of Contents
 
 - [Architecture](#architecture)

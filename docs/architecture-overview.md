@@ -15,7 +15,7 @@ C4Context
     Person(staff, "Staff User", "Customer service, operations")
 
     System(alzCore, "alz-core", "Laravel backend: order processing, inventory sync, analytics, customer service APIs")
-    System(alzAdmin, "alz-admin", "Next.js dashboard: staff-facing UI")
+    System(alzAdmin, "Admin Dashboard", "Next.js dashboard: staff-facing UI")
 
     System_Ext(shopwired, "Shopwired", "eCommerce platform: orders, products, customers")
     System_Ext(linnworks, "Linnworks", "Inventory management: stock items, suppliers")
@@ -25,7 +25,7 @@ C4Context
     System_Ext(helpscout, "HelpScout", "Customer service: conversations, mailboxes")
     System_Ext(reviewsIo, "Reviews.io", "Product ratings and reviews")
 
-    SystemDb(supabase, "Supabase PostgreSQL", "Shared database with alz-admin")
+    SystemDb(supabase, "Supabase PostgreSQL", "Shared database with Admin Dashboard")
     System_Ext(redis, "Redis", "Cache, queues, sessions, distributed locks")
     System_Ext(sentry, "Sentry", "Error tracking")
 
@@ -48,7 +48,7 @@ C4Context
 ```
 
 **Key relationships:**
-- **Shared database** — alz-core and alz-admin share the same Supabase PostgreSQL. Supabase manages `auth.*`; Laravel manages `shopwired.*` and `public.*`.
+- **Shared database** — alz-core and the Admin Dashboard share the same Supabase PostgreSQL. Supabase manages `auth.*`; Laravel manages `shopwired.*` and `public.*`.
 - **Webhook-driven** — Shopwired pushes real-time events via HMAC-signed webhooks. alz-core saves the partial payload, then dispatches a job to re-fetch the full entity from the API.
 - **Analytics pipeline** — Order and ad spend data flow into Mixpanel via scheduled jobs.
 
@@ -61,7 +61,7 @@ C4Container
     title Container Diagram — Railway Deployment
 
     Person(staff, "Staff User")
-    System_Ext(alzAdmin, "alz-admin", "Next.js dashboard")
+    System_Ext(alzAdmin, "Admin Dashboard", "Next.js dashboard")
     System_Ext(shopwired, "Shopwired", "eCommerce platform")
     System_Ext(integrations, "External APIs", "Linnworks, Google Ads, Bing Ads, Mixpanel, HelpScout, Reviews.io")
 
@@ -178,7 +178,7 @@ Nine schedule providers orchestrate background work: Shopwired entity syncs, Lin
 
 ```mermaid
 flowchart LR
-    ADMIN[alz-admin] -->|"JWT Bearer"| WEB[Web Service]
+    ADMIN[Admin Dashboard] -->|"JWT Bearer"| WEB[Web Service]
     WEB --> UC[Use Case]
     UC -->|Check cache| CACHE[(Redis)]
     CACHE -->|Miss or refresh| HS[HelpScout API]

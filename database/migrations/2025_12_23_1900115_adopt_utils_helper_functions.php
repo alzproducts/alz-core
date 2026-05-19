@@ -26,7 +26,7 @@ use Illuminate\Support\Facades\DB;
  * In production, these functions already exist - migration skips creation.
  * In CI/testing, creates the functions from scratch.
  *
- * Source: /Users/tom/WebstormProjects/alz-admin/supabase/migrations/
+ * Source: ${FRONTEND_APP}/supabase/migrations/
  *   - 20250814135342_fix_role_assignment_rls_infinite_recursion.sql
  */
 return new class extends Migration {

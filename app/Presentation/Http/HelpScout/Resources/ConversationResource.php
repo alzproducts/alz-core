@@ -14,7 +14,7 @@ use Override;
  * API resource for HelpScout conversations.
  *
  * Transforms Domain objects to match the HelpScout API contract expected by
- * alz-admin's Zod schemas. Key transformations:
+ * ${FRONTEND_APP}'s Zod schemas. Key transformations:
  *
  * - `customer` → `primaryCustomer`
  * - `customerWaitingSince` + `customerWaitingFriendly` → `{time, friendly}` object

@@ -1,6 +1,6 @@
 ---
 name: frontend-spec
-description: Generate frontend specification from backend feature for alz-admin consumption
+description: Generate frontend specification from backend feature for ${FRONTEND_APP} consumption
 argument-hint: "app/path/to/File.php {/api/endpoint GET description}"
 model: opus
 effort: medium
@@ -8,6 +8,10 @@ allowed-tools: mcp__phpstorm__*, mcp__intellij__*, mcp__sequential-thinking__seq
 ---
 
 # Generate Frontend Specification
+
+## Setup
+
+This skill resolves `${FRONTEND_APP}` and `${FRONTEND_APP_PATH}` from the `env` block in `.claude/settings.local.json`. If those vars are missing, set them there before invoking — e.g. `FRONTEND_APP=my-frontend` and `FRONTEND_APP_PATH=/absolute/path/to/my-frontend`.
 
 <backend_file>
 $ARGUMENTS
@@ -33,11 +37,11 @@ Process each input independently through the same Read → Catalogue → Write p
 
 ## Goal
 
-From the given backend file, produce a specification document in `/Users/tom/WebstormProjects/alz-admin/.ai/specs/` that gives an LLM everything it needs to build the corresponding frontend feature. **Pointers to source files, not translations** — the consuming agent reads the backend files directly.
+From the given backend file, produce a specification document in `${FRONTEND_APP_PATH}/.ai/specs/` that gives an LLM everything it needs to build the corresponding frontend feature. **Pointers to source files, not translations** — the consuming agent reads the backend files directly.
 
 ## Scope
 
-**Stay in alz-core only.** Do not read or traverse alz-admin. The spec is a backend-only artefact — the consuming agent handles frontend concerns itself.
+**Stay in alz-core only.** Do not read or traverse ${FRONTEND_APP}. The spec is a backend-only artefact — the consuming agent handles frontend concerns itself.
 
 **Do NOT include:** frontend file suggestions, recommended directory layouts, framework-specific patterns, or any advice about how to build the frontend. The consuming agent knows its own conventions.
 
@@ -47,7 +51,7 @@ Use JetBrains MCP tools and Explore agents in parallel for speed.
 
 1. **Read & trace** — Read the input file. Trace to the HTTP layer: find the controller, route, request DTO/FormRequest, and response shape. If no HTTP endpoint exists, ask user how to proceed.
 2. **Catalogue** — Collect all relevant backend files. Verify each exists. Note business rules and domain concepts that affect the frontend.
-3. **Write spec** — Output to `/Users/tom/WebstormProjects/alz-admin/.ai/specs/{feature-name}.md` (kebab-case). If the file already exists, ask before overwriting.
+3. **Write spec** — Output to `${FRONTEND_APP_PATH}/.ai/specs/{feature-name}.md` (kebab-case). If the file already exists, ask before overwriting.
 
 ## Output Format
 

@@ -62,8 +62,7 @@ class TelescopeServiceProvider extends TelescopeApplicationServiceProvider
     #[Override]
     protected function gate(): void
     {
-        Gate::define('viewTelescope', static fn(User $user): bool
-            // TODO: Add authorized emails here
-            => false);
+        // Telescope is intentionally closed in non-local environments.
+        Gate::define('viewTelescope', static fn(User $user): bool => false);
     }
 }

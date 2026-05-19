@@ -87,14 +87,6 @@ ShopWired allows variations to exist without SKUs. While active purchasable vari
 - These variations sync successfully but have `sku = null` in the database
 - Cannot be looked up by SKU (obviously)
 
-### Affected Products
-
-Main offenders (by variation count):
-- Product 5585555: 480 variations
-- Product 2979152: 140 variations
-- Product 2979171, 2979170, 2979167: 128 each
-- 14 other products with 4 variations each
-
 ### Workarounds
 
 SKU is now nullable in the domain model. Variations without SKUs sync successfully but are logged at `notice` level for visibility. Callers looking up by SKU will not find these variations.
