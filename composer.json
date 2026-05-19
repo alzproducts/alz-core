@@ -4,7 +4,7 @@
     "type": "project",
     "description": "Backend engine for AlzAdmin platform - handles sync, webhooks, and background processing",
     "keywords": ["laravel", "framework", "webhooks", "background-jobs"],
-    "license": "proprietary",
+    "license": "MIT",
     "require": {
         "php": "^8.4",
         "ext-dom": "*",
