@@ -6,6 +6,8 @@ namespace App\Infrastructure\Catalog\Repositories;
 
 use App\Application\Catalog\BestSellerLabels\BestSellerLabelChangesResult;
 use App\Application\Catalog\Enums\BestSellerLabel;
+use App\Application\Catalog\Enums\MarginTier;
+use App\Application\Catalog\MarginTiers\MarginTierAssignmentDTO;
 use App\Application\Contracts\Catalog\ProductViewQueryRepositoryInterface;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
@@ -15,6 +17,7 @@ use App\Infrastructure\Catalog\Product\Models\ProductViewModel;
 use App\Infrastructure\Persistence\EloquentGateway;
 use Illuminate\Database\Eloquent\Builder;
 use Override;
+use Webmozart\Assert\Assert;
 
 /**
  * Read-model queries against catalog.products_view via ProductViewModel.
@@ -63,6 +66,37 @@ final class ProductViewQueryRepository implements ProductViewQueryRepositoryInte
         return new BestSellerLabelChangesResult(
             toAdd: self::mapToIds($this->queryProductsNeedingLabel()),
             toRemove: self::mapToIds($this->queryProductsLosingLabel()),
+        );
+    }
+
+    /**
+     * @return list<MarginTierAssignmentDTO>
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    #[Override]
+    public function findMarginTierDrift(): array
+    {
+        /** @var list<object{external_id: int, target_label: string}> $rows */
+        $rows = $this->eloquentGateway->query(
+            static fn(): array => self::MODEL_CLASS::query()
+                ->getConnection()
+                ->select(MarginTierDriftSql::SQL),
+        );
+
+        return \array_map(
+            static function (object $row): MarginTierAssignmentDTO {
+                $tier = MarginTier::tryFrom($row->target_label);
+                Assert::notNull($tier, 'SQL returned unrecognised margin tier label');
+
+                return new MarginTierAssignmentDTO(
+                    productId: IntId::fromTrusted($row->external_id),
+                    targetLabel: $tier,
+                );
+            },
+            $rows,
         );
     }
 
