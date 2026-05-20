@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace App\Application\Conversion\UseCases;
 
+use App\Application\ContactSubmission\Commands\UpsertAnnotationCommand;
 use App\Application\Contracts\ContactSubmission\ContactSubmissionActionRepositoryInterface;
+use App\Application\Contracts\ContactSubmission\ContactSubmissionAnnotationRepositoryInterface;
 use App\Application\Contracts\ContactSubmission\ContactSubmissionRepositoryInterface;
 use App\Application\Contracts\Conversion\ConversionDispatcherInterface;
+use App\Application\Contracts\DatabaseGatewayInterface;
 use App\Application\Conversion\Commands\LeadConversionCommand;
 use App\Domain\ContactSubmission\Enums\ActionType;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
@@ -21,19 +24,18 @@ use Psr\Log\LoggerInterface;
 /**
  * Synchronous entry point for marking a contact submission as a qualified lead.
  *
- * Validates the submission, ensures a gclid is present (required for Google Ads
- * offline conversion attribution), creates the action row in pending state, then
- * dispatches the async upload job.
- *
- * The DB insert + dispatch run without a transaction — only one row is written
- * (the action) and `DuplicateRecordException` handles the idempotency case at
- * the row level.
+ * Atomic dual-write: the action row (workflow state) and annotation row (`is_potential_quote`
+ * captured at conversion time) are inserted in one DB transaction so the dashboard never
+ * sees a lead-completed row without its potential-quote classification. The async upload
+ * dispatcher fires post-commit, matching the project-wide dispatch-after-commit pattern.
  */
 final readonly class SubmitLeadConversionUseCase
 {
     public function __construct(
         private ContactSubmissionRepositoryInterface $submissionRepository,
         private ContactSubmissionActionRepositoryInterface $actionRepository,
+        private ContactSubmissionAnnotationRepositoryInterface $annotationRepository,
+        private DatabaseGatewayInterface $database,
         private ConversionDispatcherInterface $dispatcher,
         private LoggerInterface $logger,
     ) {}
@@ -46,16 +48,17 @@ final readonly class SubmitLeadConversionUseCase
      * @throws DatabaseOperationFailedException When the action insert fails (permanent)
      * @throws ExternalServiceUnavailableException When the database is transiently unavailable
      */
-    public function execute(string $submissionId): void
+    public function execute(string $submissionId, bool $isPotentialQuote): void
     {
         $this->logger->info('Submitting lead conversion', [
             'submission_id' => $submissionId,
+            'is_potential_quote' => $isPotentialQuote,
         ]);
 
         $submission = $this->submissionRepository->findById($submissionId);
         $this->ensureGclidPresent($submission->attribution->gclid);
 
-        $actionId = $this->actionRepository->create($submissionId, ActionType::LeadReceived);
+        $actionId = $this->writeActionAndAnnotation($submissionId, $isPotentialQuote);
 
         $this->dispatcher->dispatchLeadConversion(
             new LeadConversionCommand(Guid::fromTrusted($submissionId), Guid::fromTrusted($actionId)),
@@ -65,6 +68,28 @@ final readonly class SubmitLeadConversionUseCase
             'submission_id' => $submissionId,
             'action_id' => $actionId,
         ]);
+    }
+
+    /**
+     * Insert action + annotation in a single transaction; returns the new action id.
+     *
+     * @throws DuplicateRecordException
+     * @throws DatabaseOperationFailedException
+     * @throws ExternalServiceUnavailableException
+     */
+    private function writeActionAndAnnotation(string $submissionId, bool $isPotentialQuote): string
+    {
+        return $this->database->transact(function () use ($submissionId, $isPotentialQuote): string {
+            $actionId = $this->actionRepository->create($submissionId, ActionType::LeadReceived);
+
+            $this->annotationRepository->upsert(new UpsertAnnotationCommand(
+                contactSubmissionId: $submissionId,
+                valuesToSet: ['is_potential_quote' => $isPotentialQuote],
+                columnsToClear: [],
+            ));
+
+            return $actionId;
+        });
     }
 
     /**

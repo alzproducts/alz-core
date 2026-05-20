@@ -4,12 +4,17 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Presentation\Http\Api\Controllers;
 
+use App\Application\ContactSubmission\UseCases\DismissContactSubmissionUseCase;
 use App\Application\ContactSubmission\UseCases\ListContactSubmissionsByViewUseCase;
+use App\Application\ContactSubmission\UseCases\MarkNoQuoteExpectedUseCase;
 use App\Domain\Access\ValueObjects\AuthenticatedUser;
 use App\Domain\ContactSubmission\Enums\ActionStatus;
+use App\Domain\ContactSubmission\Enums\ActionType;
 use App\Domain\ContactSubmission\Enums\ContactReason;
 use App\Domain\ContactSubmission\Enums\ContactSubmissionView;
+use App\Domain\ContactSubmission\Exceptions\InvalidActionStageException;
 use App\Domain\ContactSubmission\ValueObjects\ContactSubmissionListItem;
+use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Shared\Pagination\ValueObjects\PageRequest;
 use App\Domain\ValueObjects\Guid;
 use App\Domain\ValueObjects\PaginatedList;
@@ -35,6 +40,10 @@ final class ContactSubmissionDashboardControllerTest extends TestCase
 
     private ListContactSubmissionsByViewUseCase&MockInterface $listByViewUseCase;
 
+    private DismissContactSubmissionUseCase&MockInterface $dismissUseCase;
+
+    private MarkNoQuoteExpectedUseCase&MockInterface $noQuoteUseCase;
+
     #[Override]
     protected function setUp(): void
     {
@@ -42,6 +51,12 @@ final class ContactSubmissionDashboardControllerTest extends TestCase
 
         $this->listByViewUseCase = Mockery::mock(ListContactSubmissionsByViewUseCase::class);
         $this->app->instance(ListContactSubmissionsByViewUseCase::class, $this->listByViewUseCase);
+
+        $this->dismissUseCase = Mockery::mock(DismissContactSubmissionUseCase::class);
+        $this->app->instance(DismissContactSubmissionUseCase::class, $this->dismissUseCase);
+
+        $this->noQuoteUseCase = Mockery::mock(MarkNoQuoteExpectedUseCase::class);
+        $this->app->instance(MarkNoQuoteExpectedUseCase::class, $this->noQuoteUseCase);
     }
 
     #[Override]
@@ -205,6 +220,128 @@ final class ContactSubmissionDashboardControllerTest extends TestCase
             ->assertJsonPath('data.0.lead_status', ActionStatus::Failed->value)
             ->assertJsonPath('data.1.quote_status', ActionStatus::Failed->value);
     }
+
+    /**
+     * @return iterable<string, array{0: string}>
+     */
+    public static function actionEndpoints(): iterable
+    {
+        yield 'dismiss' => ['/api/contact-submissions/' . self::ACTION_SUBMISSION_ID . '/dismiss'];
+        yield 'no-quote-expected' => ['/api/contact-submissions/' . self::ACTION_SUBMISSION_ID . '/no-quote-expected'];
+    }
+
+    #[Test]
+    #[DataProvider('actionEndpoints')]
+    public function action_endpoint_unauthenticated_returns_401(string $path): void
+    {
+        $response = $this->postJson($path);
+
+        $response->assertStatus(401);
+    }
+
+    #[Test]
+    public function dismiss_dispatches_to_use_case_with_submission_id_and_returns_204(): void
+    {
+        $this->dismissUseCase
+            ->shouldReceive('execute')
+            ->once()
+            ->with(self::ACTION_SUBMISSION_ID);
+
+        $response = $this->asApprovedUser()
+            ->postJson('/api/contact-submissions/' . self::ACTION_SUBMISSION_ID . '/dismiss');
+
+        $response->assertNoContent();
+    }
+
+    #[Test]
+    public function dismiss_returns_409_when_submission_past_triage_stage(): void
+    {
+        $this->dismissUseCase
+            ->shouldReceive('execute')
+            ->once()
+            ->with(self::ACTION_SUBMISSION_ID)
+            ->andThrow(new InvalidActionStageException(
+                submissionId: self::ACTION_SUBMISSION_ID,
+                action: ActionType::LeadReceived,
+                currentStatus: ActionStatus::Completed,
+            ));
+
+        $response = $this->asApprovedUser()
+            ->postJson('/api/contact-submissions/' . self::ACTION_SUBMISSION_ID . '/dismiss');
+
+        $response->assertStatus(409)
+            ->assertJsonPath('error.type', 'conflict');
+    }
+
+    #[Test]
+    public function dismiss_returns_404_when_submission_missing(): void
+    {
+        $this->dismissUseCase
+            ->shouldReceive('execute')
+            ->once()
+            ->andThrow(new RecordNotFoundException('ContactSubmission', self::ACTION_SUBMISSION_ID));
+
+        $response = $this->asApprovedUser()
+            ->postJson('/api/contact-submissions/' . self::ACTION_SUBMISSION_ID . '/dismiss');
+
+        $response->assertStatus(404);
+    }
+
+    #[Test]
+    public function dismiss_route_rejects_non_uuid_id(): void
+    {
+        $this->dismissUseCase->shouldNotReceive('execute');
+
+        $response = $this->asApprovedUser()
+            ->postJson('/api/contact-submissions/not-a-uuid/dismiss');
+
+        $response->assertStatus(404);
+    }
+
+    #[Test]
+    public function mark_no_quote_expected_dispatches_to_use_case_and_returns_204(): void
+    {
+        $this->noQuoteUseCase
+            ->shouldReceive('execute')
+            ->once()
+            ->with(self::ACTION_SUBMISSION_ID);
+
+        $response = $this->asApprovedUser()
+            ->postJson('/api/contact-submissions/' . self::ACTION_SUBMISSION_ID . '/no-quote-expected');
+
+        $response->assertNoContent();
+    }
+
+    #[Test]
+    public function mark_no_quote_expected_returns_409_when_not_in_awaiting_quote_stage(): void
+    {
+        $this->noQuoteUseCase
+            ->shouldReceive('execute')
+            ->once()
+            ->andThrow(new InvalidActionStageException(
+                submissionId: self::ACTION_SUBMISSION_ID,
+                action: ActionType::QuoteIssued,
+                currentStatus: ActionStatus::Completed,
+            ));
+
+        $response = $this->asApprovedUser()
+            ->postJson('/api/contact-submissions/' . self::ACTION_SUBMISSION_ID . '/no-quote-expected');
+
+        $response->assertStatus(409)
+            ->assertJsonPath('error.type', 'conflict');
+    }
+
+    #[Test]
+    public function legacy_index_endpoint_is_removed(): void
+    {
+        $response = $this->asApprovedUser()->getJson('/api/contact-submissions');
+
+        // 404, not 405: Laravel only reports 405 when another method is registered on the same path,
+        // and every remaining workflow route on this resource carries a suffix.
+        $response->assertStatus(404);
+    }
+
+    private const string ACTION_SUBMISSION_ID = '11111111-1111-1111-1111-111111111111';
 
     private static function makeListItem(
         string $id,

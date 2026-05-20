@@ -22,4 +22,38 @@ interface ContactSubmissionAnnotationRepositoryInterface
      * @throws ExternalServiceUnavailableException
      */
     public function upsert(UpsertAnnotationCommand $command): void;
+
+    /**
+     * Stamp `dismissed_at` on the annotation row, idempotently and only when no `lead_received`
+     * action row exists for the submission.
+     *
+     * The atomic guard closes the TOCTOU race between the use-case pre-check and this write —
+     * if a lead action is inserted between the two, this call affects 0 rows (which the HTTP
+     * layer treats as a 204 no-op; the dismiss has been race-resolved). Idempotent: repeat calls
+     * never overwrite the original timestamp.
+     *
+     * Bypasses {@see UpsertAnnotationCommand} because the predicate references a separate table
+     * (`customer_service.contact_submission_actions`) — implemented via raw `affectingStatement`.
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function markDismissed(string $submissionId): void;
+
+    /**
+     * Clear `is_potential_quote` on the annotation row, only when it is currently `true` AND no
+     * `quote_issued` action row exists for the submission.
+     *
+     * The atomic guard closes the TOCTOU race between the use-case pre-check and the
+     * `POST /conversions/quote` write — if a quote action arrives concurrently, this call
+     * affects 0 rows (HTTP 204 no-op; the awaiting-quote item already left the queue). Plain
+     * UPDATE (no INSERT branch) because Stage 2's lead use case writes the annotation row up
+     * front, so the row is guaranteed to exist for any submission that has reached awaiting-quote.
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function markNoQuoteExpected(string $submissionId): void;
 }

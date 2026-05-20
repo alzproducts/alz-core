@@ -37,7 +37,7 @@ final readonly class LeadConversionController
      */
     public function __invoke(LeadConversionRequestDTO $request): JsonResponse
     {
-        $this->useCase->execute($request->submissionId);
+        $this->useCase->execute($request->submissionId, $request->isPotentialQuote);
 
         return new JsonResponse(
             ['message' => 'Lead conversion queued'],
