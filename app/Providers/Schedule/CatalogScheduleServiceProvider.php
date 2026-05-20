@@ -6,6 +6,7 @@ namespace App\Providers\Schedule;
 
 use App\Infrastructure\Jobs\Catalog\SyncBestSellerLabelJob;
 use App\Infrastructure\Jobs\Catalog\SyncBestSellersCategoryJob;
+use App\Infrastructure\Jobs\Catalog\SyncMarginTierLabelJob;
 use App\Infrastructure\Jobs\Catalog\SyncOffersFiltersJob;
 use App\Infrastructure\Jobs\Catalog\SyncProductPopularityRankingSnapshotJob;
 use App\Infrastructure\Jobs\Catalog\SyncProductSortOrdersJob;
@@ -36,6 +37,7 @@ use RuntimeException;
  *   - Best Sellers category membership (04:00, top-N from snapshot)
  *   - Best Sellers label (04:15, custom_label_4 list merge)
  *   - Related products custom field (04:30, algorithm SQL + order-sensitive diff)
+ *   - Margin-tier label (04:45, custom_label_1 four-tier band)
  */
 final class CatalogScheduleServiceProvider extends ServiceProvider
 {
@@ -55,6 +57,7 @@ final class CatalogScheduleServiceProvider extends ServiceProvider
         $this->registerBestSellersCategorySchedule();
         $this->registerBestSellerLabelSchedule();
         $this->registerRelatedProductsSyncSchedule();
+        $this->registerMarginTierLabelSchedule();
     }
 
     /**
@@ -268,5 +271,21 @@ final class CatalogScheduleServiceProvider extends ServiceProvider
             ->timezone('Europe/London')
             ->onOneServer()
             ->withoutOverlapping(60);
+    }
+
+    /**
+     * Daily margin-tier label sync to custom_label_1. 04:45 Europe/London,
+     * 15 minutes after related products (04:30).
+     *
+     * @throws RuntimeException
+     */
+    private function registerMarginTierLabelSchedule(): void
+    {
+        Schedule::job(new SyncMarginTierLabelJob())
+            ->name('sync-margin-tier-label')
+            ->dailyAt('04:45')
+            ->timezone('Europe/London')
+            ->onOneServer()
+            ->withoutOverlapping(30);
     }
 }

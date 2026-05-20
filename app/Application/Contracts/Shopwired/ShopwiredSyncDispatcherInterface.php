@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Application\Contracts\Shopwired;
 
+use App\Application\Catalog\Enums\MarginTier;
 use App\Domain\Catalog\Product\Commands\SetFreeDeliveryCommand;
 use App\Domain\ValueObjects\IntId;
 use DateTimeImmutable;
@@ -70,4 +71,9 @@ interface ShopwiredSyncDispatcherInterface
      * @param string|null $label Label value, or null to clear the field.
      */
     public function dispatchBestSellerLabelUpdate(IntId $productId, ?string $label): void;
+
+    /**
+     * Dispatch a job to set the margin-tier label on a product's custom_label_1 field.
+     */
+    public function dispatchMarginTierLabelUpdate(IntId $productId, MarginTier $label): void;
 }

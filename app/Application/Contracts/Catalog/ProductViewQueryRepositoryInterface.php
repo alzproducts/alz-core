@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Application\Contracts\Catalog;
 
 use App\Application\Catalog\BestSellerLabels\BestSellerLabelChangesResult;
+use App\Application\Catalog\MarginTiers\MarginTierAssignmentDTO;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
@@ -41,4 +42,20 @@ interface ProductViewQueryRepositoryInterface
      * @throws ExternalServiceUnavailableException
      */
     public function findBestSellerLabelChanges(): BestSellerLabelChangesResult;
+
+    /**
+     * Find active products whose custom_label_1 margin-tier label differs from
+     * the tier computed from `(net_margin_single_unit_min + _max) / 2` versus
+     * `catalog.margin_tier_thresholds`.
+     *
+     * NULL margin → "4 - Unknown margin". On first run every active product
+     * appears in the result (current_label IS NULL, target is non-NULL).
+     *
+     * @return list<MarginTierAssignmentDTO>
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function findMarginTierDrift(): array;
 }
