@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Domain\Exceptions\ValidationFailedException;
 use App\Presentation\Http\Api\InternalApiExceptionMapper;
+use App\Presentation\Http\Api\Middleware\ForceJsonResponseMiddleware;
 use App\Presentation\Http\Auth\Middleware\ValidateSupabaseJwtMiddleware;
 use App\Presentation\Http\Middleware\EnsureUserApprovedMiddleware;
 use App\Presentation\Http\Middleware\SetRequestContextMiddleware;
@@ -33,6 +34,10 @@ return Application::configure(basePath: dirname(__DIR__))
         // This is safe because Railway's network is isolated and all traffic
         // goes through their proxy - direct access to the container is not possible
         $middleware->trustProxies(at: '*');
+
+        // Force JSON Accept header on /api/* so expectsJson() is always true —
+        // covers routing-time 404s that fire before route-level middleware
+        $middleware->prepend(ForceJsonResponseMiddleware::class);
 
         // Correlation IDs: trace_id for all requests, propagates to queued jobs
         $middleware->append(SetRequestContextMiddleware::class);
