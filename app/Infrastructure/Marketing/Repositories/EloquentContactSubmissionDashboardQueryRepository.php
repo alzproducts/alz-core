@@ -6,11 +6,11 @@ namespace App\Infrastructure\Marketing\Repositories;
 
 use App\Application\ContactSubmission\Queries\ContactSubmissionListQueryParams;
 use App\Application\Contracts\ContactSubmission\ContactSubmissionDashboardQueryRepositoryInterface;
-use App\Domain\ContactSubmission\ValueObjects\ContactSubmissionListItem;
+use App\Domain\ContactSubmission\Enums\ContactSubmissionView;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
-use App\Domain\ValueObjects\Guid;
+use App\Domain\Shared\Pagination\ValueObjects\PageRequest;
 use App\Domain\ValueObjects\PaginatedList;
 use App\Infrastructure\Marketing\Models\ContactSubmissionDashboardViewModel;
 use App\Infrastructure\Marketing\Queries\ContactSubmissionDashboardQuery;
@@ -50,38 +50,31 @@ final readonly class EloquentContactSubmissionDashboardQueryRepository implement
                 $q->orderByDesc('created_at');
             },
             relations: [],
-            mapper: self::fromModel(...),
+            mapper: static fn(ContactSubmissionDashboardViewModel $model) => $model->toDomain(),
             perPage: $query->pagination->perPage,
             page: $query->pagination->page,
         );
     }
 
-    private static function fromModel(ContactSubmissionDashboardViewModel $model): ContactSubmissionListItem
+    /**
+     * {@inheritDoc}
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    #[Override]
+    public function paginateView(ContactSubmissionView $view, PageRequest $pagination): PaginatedList
     {
-        return new ContactSubmissionListItem(
-            id: Guid::fromTrusted($model->id),
-            name: $model->name,
-            email: $model->email,
-            reason: $model->reason,
-            customerType: $model->customer_type,
-            orderNumber: $model->order_number,
-            quantity: $model->quantity,
-            product: $model->product,
-            shopwiredCustomerId: $model->shopwired_customer_id,
-            gclid: $model->gclid,
-            msclkid: $model->msclkid,
-            fbclid: $model->fbclid,
-            utmSource: $model->utm_source,
-            utmMedium: $model->utm_medium,
-            utmCampaign: $model->utm_campaign,
-            pageUrl: $model->page_url,
-            createdAt: $model->created_at->toDateTimeImmutable(),
-            helpscoutExternalId: $model->helpscout_external_id,
-            leadStatus: $model->lead_status,
-            quoteStatus: $model->quote_status,
-            isPotentialQuote: $model->is_potential_quote,
-            notes: $model->notes,
-            quotedAt: $model->quoted_at?->toDateTimeImmutable(),
+        return $this->eloquentGateway->paginate(
+            modelClass: ContactSubmissionDashboardViewModel::class,
+            scope: static function (Builder $q) use ($view): void {
+                ContactSubmissionDashboardQuery::applyView($q, $view);
+            },
+            relations: [],
+            mapper: static fn(ContactSubmissionDashboardViewModel $model) => $model->toDomain(),
+            perPage: $pagination->perPage,
+            page: $pagination->page,
         );
     }
 }
