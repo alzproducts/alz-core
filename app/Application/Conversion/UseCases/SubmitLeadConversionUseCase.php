@@ -48,24 +48,24 @@ final readonly class SubmitLeadConversionUseCase
      * @throws DatabaseOperationFailedException When the action insert fails (permanent)
      * @throws ExternalServiceUnavailableException When the database is transiently unavailable
      */
-    public function execute(string $submissionId, bool $isPotentialQuote): void
+    public function execute(Guid $submissionId, bool $isPotentialQuote): void
     {
+        $id = $submissionId->value;
         $this->logger->info('Submitting lead conversion', [
-            'submission_id' => $submissionId,
+            'submission_id' => $id,
             'is_potential_quote' => $isPotentialQuote,
         ]);
 
-        $submission = $this->submissionRepository->findById($submissionId);
+        $submission = $this->submissionRepository->findById($id);
         $this->ensureGclidPresent($submission->attribution->gclid);
-
-        $actionId = $this->writeActionAndAnnotation($submissionId, $isPotentialQuote);
+        $actionId = $this->writeActionAndAnnotation($id, $isPotentialQuote);
 
         $this->dispatcher->dispatchLeadConversion(
-            new LeadConversionCommand(Guid::fromTrusted($submissionId), Guid::fromTrusted($actionId)),
+            new LeadConversionCommand($submissionId, Guid::fromTrusted($actionId)),
         );
 
         $this->logger->info('Lead conversion dispatched', [
-            'submission_id' => $submissionId,
+            'submission_id' => $id,
             'action_id' => $actionId,
         ]);
     }

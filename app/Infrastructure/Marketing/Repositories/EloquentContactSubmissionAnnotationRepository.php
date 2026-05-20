@@ -23,7 +23,7 @@ use Override;
  *
  * The two stage-transition methods ({@see markDismissed}, {@see markNoQuoteExpected})
  * embed cross-table predicates that the merge-patch upsert cannot express, so they
- * inject the concrete {@see DatabaseGateway} for raw `affectingStatement` access.
+ * inject the concrete {@see DatabaseGateway} for {@see DatabaseGateway::runSql} access.
  */
 final readonly class EloquentContactSubmissionAnnotationRepository implements ContactSubmissionAnnotationRepositoryInterface
 {
@@ -71,12 +71,7 @@ final readonly class EloquentContactSubmissionAnnotationRepository implements Co
     {
         // Single PG statement is already atomic — no explicit transact() wrapper. Matches
         // ProductPopularityRankingSnapshotRepository::writeSnapshotForToday.
-        $this->databaseGateway->query(
-            fn(): int => $this->databaseGateway->connection()->affectingStatement(
-                self::dismissSql(),
-                [$submissionId, $submissionId],
-            ),
-        );
+        $this->databaseGateway->runSql(self::dismissSql(), [$submissionId, $submissionId]);
     }
 
     /**
@@ -87,15 +82,10 @@ final readonly class EloquentContactSubmissionAnnotationRepository implements Co
      * @throws ExternalServiceUnavailableException
      */
     #[Override]
-    public function markNoQuoteExpected(string $submissionId): void
+    public function markNoQuoteExpected(string $submissionId): bool
     {
         // Single-statement UPDATE — atomic in PG, no transact() needed.
-        $this->databaseGateway->query(
-            fn(): int => $this->databaseGateway->connection()->affectingStatement(
-                self::noQuoteExpectedSql(),
-                [$submissionId],
-            ),
-        );
+        return $this->databaseGateway->runSql(self::noQuoteExpectedSql(), [$submissionId]) > 0;
     }
 
     /**

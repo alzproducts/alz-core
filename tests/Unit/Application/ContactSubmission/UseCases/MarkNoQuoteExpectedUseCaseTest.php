@@ -12,6 +12,7 @@ use App\Domain\ContactSubmission\Enums\ActionStatus;
 use App\Domain\ContactSubmission\Enums\ActionType;
 use App\Domain\ContactSubmission\Exceptions\InvalidActionStageException;
 use App\Domain\Exceptions\Api\RecordNotFoundException;
+use App\Domain\ValueObjects\Guid;
 use Mockery;
 use Mockery\MockInterface;
 use Override;
@@ -85,9 +86,47 @@ final class MarkNoQuoteExpectedUseCaseTest extends TestCase
         $this->annotationRepository
             ->shouldReceive('markNoQuoteExpected')
             ->once()
+            ->with(self::SUBMISSION_ID)
+            ->andReturnTrue();
+
+        $this->useCase->execute(new Guid(self::SUBMISSION_ID));
+    }
+
+    #[Test]
+    public function logs_warning_when_atomic_guard_blocks_write(): void
+    {
+        $this->submissionRepository
+            ->shouldReceive('findById')
+            ->once()
             ->with(self::SUBMISSION_ID);
 
-        $this->useCase->execute(self::SUBMISSION_ID);
+        $this->actionRepository
+            ->shouldReceive('findActionStatus')
+            ->once()
+            ->with(self::SUBMISSION_ID, ActionType::LeadReceived)
+            ->andReturn(ActionStatus::Completed);
+
+        $this->actionRepository
+            ->shouldReceive('findActionStatus')
+            ->once()
+            ->with(self::SUBMISSION_ID, ActionType::QuoteIssued)
+            ->andReturnNull();
+
+        $this->annotationRepository
+            ->shouldReceive('markNoQuoteExpected')
+            ->once()
+            ->with(self::SUBMISSION_ID)
+            ->andReturnFalse();
+
+        $this->logger
+            ->shouldReceive('warning')
+            ->once()
+            ->with(
+                'markNoQuoteExpected atomic guard fired — concurrent quote action blocked the write',
+                ['submission_id' => self::SUBMISSION_ID],
+            );
+
+        $this->useCase->execute(new Guid(self::SUBMISSION_ID));
     }
 
     #[Test]
@@ -102,7 +141,7 @@ final class MarkNoQuoteExpectedUseCaseTest extends TestCase
 
         $this->expectException(RecordNotFoundException::class);
 
-        $this->useCase->execute(self::SUBMISSION_ID);
+        $this->useCase->execute(new Guid(self::SUBMISSION_ID));
     }
 
     /**
@@ -131,7 +170,7 @@ final class MarkNoQuoteExpectedUseCaseTest extends TestCase
         $this->annotationRepository->shouldNotReceive('markNoQuoteExpected');
 
         try {
-            $this->useCase->execute(self::SUBMISSION_ID);
+            $this->useCase->execute(new Guid(self::SUBMISSION_ID));
             self::fail('Expected InvalidActionStageException');
         } catch (InvalidActionStageException $e) {
             self::assertSame(ActionType::LeadReceived, $e->action);
@@ -171,7 +210,7 @@ final class MarkNoQuoteExpectedUseCaseTest extends TestCase
         $this->annotationRepository->shouldNotReceive('markNoQuoteExpected');
 
         try {
-            $this->useCase->execute(self::SUBMISSION_ID);
+            $this->useCase->execute(new Guid(self::SUBMISSION_ID));
             self::fail('Expected InvalidActionStageException');
         } catch (InvalidActionStageException $e) {
             self::assertSame(ActionType::QuoteIssued, $e->action);

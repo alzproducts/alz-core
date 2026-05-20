@@ -33,7 +33,7 @@ interface ContactSubmissionAnnotationRepositoryInterface
      * never overwrite the original timestamp.
      *
      * Bypasses {@see UpsertAnnotationCommand} because the predicate references a separate table
-     * (`customer_service.contact_submission_actions`) — implemented via raw `affectingStatement`.
+     * (`customer_service.contact_submission_actions`) — implemented via raw SQL.
      *
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
@@ -51,9 +51,12 @@ interface ContactSubmissionAnnotationRepositoryInterface
      * UPDATE (no INSERT branch) because Stage 2's lead use case writes the annotation row up
      * front, so the row is guaranteed to exist for any submission that has reached awaiting-quote.
      *
+     * @return bool `true` when the row was updated, `false` when the atomic guard blocked the
+     *              write (concurrent quote action won the race — caller should log and treat as no-op)
+     *
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      */
-    public function markNoQuoteExpected(string $submissionId): void;
+    public function markNoQuoteExpected(string $submissionId): bool;
 }

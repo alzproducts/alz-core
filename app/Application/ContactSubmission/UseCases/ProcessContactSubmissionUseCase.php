@@ -22,6 +22,7 @@ use App\Domain\Exceptions\Api\UnexpectedApiResultException;
 use App\Domain\Exceptions\Data\InsufficientDataException;
 use App\Domain\Exceptions\Data\MalformedStoredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
+use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\IntId;
 use Illuminate\Contracts\Events\Dispatcher;
 use Psr\Log\LoggerInterface;
@@ -64,6 +65,7 @@ final readonly class ProcessContactSubmissionUseCase
      * @throws RecordNotFoundException When submission row not found in database
      * @throws MalformedStoredDataException When stored data is corrupted
      * @throws DatabaseOperationFailedException When DB operation fails (permanent)
+     * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException When HelpScout/DB unavailable (transient - retry)
      * @throws AuthenticationExpiredException When HelpScout credentials invalid (permanent)
      * @throws InvalidApiRequestException When HelpScout rejects request (permanent)
@@ -90,6 +92,8 @@ final readonly class ProcessContactSubmissionUseCase
     }
 
     /**
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException When DB unavailable
      */
     private function isAlreadyCompleted(string $actionId): bool

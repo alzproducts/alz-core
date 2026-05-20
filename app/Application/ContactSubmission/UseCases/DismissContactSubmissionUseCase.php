@@ -14,6 +14,7 @@ use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Data\MalformedStoredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use App\Domain\ValueObjects\Guid;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -41,18 +42,20 @@ final readonly class DismissContactSubmissionUseCase
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      */
-    public function execute(string $submissionId): void
+    public function execute(Guid $submissionId): void
     {
+        $id = $submissionId->value;
+
         $this->logger->info('Dismissing contact submission', [
-            'submission_id' => $submissionId,
+            'submission_id' => $id,
         ]);
 
-        $this->ensureSubmissionInTriageStage($submissionId);
+        $this->ensureSubmissionInTriageStage($id);
 
-        $this->annotationRepository->markDismissed($submissionId);
+        $this->annotationRepository->markDismissed($id);
 
         $this->logger->info('Dismissed contact submission', [
-            'submission_id' => $submissionId,
+            'submission_id' => $id,
         ]);
     }
 

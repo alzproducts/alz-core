@@ -20,6 +20,7 @@ use App\Domain\ContactSubmission\ValueObjects\ContactSubmission;
 use App\Domain\ContactSubmission\ValueObjects\MarketingAttribution;
 use App\Domain\ContactSubmission\ValueObjects\SubmissionContext;
 use App\Domain\Exceptions\Data\InsufficientDataException;
+use App\Domain\ValueObjects\Guid;
 use Closure;
 use DateTimeImmutable;
 use Mockery;
@@ -104,7 +105,7 @@ final class SubmitLeadConversionUseCaseTest extends TestCase
         $this->dispatcher->shouldNotReceive('dispatchLeadConversion');
 
         try {
-            $this->useCase->execute(self::SUBMISSION_ID, true);
+            $this->useCase->execute(new Guid(self::SUBMISSION_ID), true);
             self::fail('Expected InsufficientDataException');
         } catch (InsufficientDataException $e) {
             self::assertSame('ContactSubmission', $e->entityType);
@@ -137,7 +138,7 @@ final class SubmitLeadConversionUseCaseTest extends TestCase
                 $captured = $cmd;
             });
 
-        $this->useCase->execute(self::SUBMISSION_ID, true);
+        $this->useCase->execute(new Guid(self::SUBMISSION_ID), true);
 
         self::assertNotNull($captured);
         self::assertSame(self::SUBMISSION_ID, $captured->submissionId->value);
@@ -161,7 +162,7 @@ final class SubmitLeadConversionUseCaseTest extends TestCase
 
         $this->dispatcher->expects('dispatchLeadConversion');
 
-        $this->useCase->execute(self::SUBMISSION_ID, false);
+        $this->useCase->execute(new Guid(self::SUBMISSION_ID), false);
     }
 
     #[Test]
@@ -177,7 +178,7 @@ final class SubmitLeadConversionUseCaseTest extends TestCase
 
         $this->expectException(RuntimeException::class);
 
-        $this->useCase->execute(self::SUBMISSION_ID, true);
+        $this->useCase->execute(new Guid(self::SUBMISSION_ID), true);
     }
 
     private function makeSubmission(?string $gclid): ContactSubmission

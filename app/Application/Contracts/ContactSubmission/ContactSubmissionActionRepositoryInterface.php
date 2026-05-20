@@ -38,6 +38,8 @@ interface ContactSubmissionActionRepositoryInterface extends AsyncActionReposito
      *
      * Narrows the return type from the generic interface.
      *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException On transient database failure
      */
     public function getStatus(string $actionId): ?ActionStatus;
@@ -48,6 +50,8 @@ interface ContactSubmissionActionRepositoryInterface extends AsyncActionReposito
      * Used for sequential enforcement — e.g. a QuoteIssued action requires a
      * completed LeadReceived action on the same submission.
      *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException On transient database failure
      */
     public function hasCompletedAction(string $submissionId, ActionType $actionType): bool;

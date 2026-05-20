@@ -34,9 +34,7 @@ final readonly class SkuPopularityRankingSnapshotRepository implements SkuPopula
     #[Override]
     public function writeSnapshotForToday(): int
     {
-        return $this->databaseGateway->query(
-            fn(): int => $this->databaseGateway->connection()->affectingStatement(self::buildInsertSql()),
-        );
+        return $this->databaseGateway->runSql(self::buildInsertSql());
     }
 
     /**

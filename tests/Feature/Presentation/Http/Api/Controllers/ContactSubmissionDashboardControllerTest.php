@@ -245,7 +245,7 @@ final class ContactSubmissionDashboardControllerTest extends TestCase
         $this->dismissUseCase
             ->shouldReceive('execute')
             ->once()
-            ->with(self::ACTION_SUBMISSION_ID);
+            ->with(Mockery::on(static fn (Guid $id): bool => $id->value === self::ACTION_SUBMISSION_ID));
 
         $response = $this->asApprovedUser()
             ->postJson('/api/contact-submissions/' . self::ACTION_SUBMISSION_ID . '/dismiss');
@@ -259,7 +259,7 @@ final class ContactSubmissionDashboardControllerTest extends TestCase
         $this->dismissUseCase
             ->shouldReceive('execute')
             ->once()
-            ->with(self::ACTION_SUBMISSION_ID)
+            ->with(Mockery::on(static fn (Guid $id): bool => $id->value === self::ACTION_SUBMISSION_ID))
             ->andThrow(new InvalidActionStageException(
                 submissionId: self::ACTION_SUBMISSION_ID,
                 action: ActionType::LeadReceived,
@@ -304,7 +304,7 @@ final class ContactSubmissionDashboardControllerTest extends TestCase
         $this->noQuoteUseCase
             ->shouldReceive('execute')
             ->once()
-            ->with(self::ACTION_SUBMISSION_ID);
+            ->with(Mockery::on(static fn (Guid $id): bool => $id->value === self::ACTION_SUBMISSION_ID));
 
         $response = $this->asApprovedUser()
             ->postJson('/api/contact-submissions/' . self::ACTION_SUBMISSION_ID . '/no-quote-expected');

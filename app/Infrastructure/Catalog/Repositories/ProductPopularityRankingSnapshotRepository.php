@@ -25,8 +25,7 @@ use Override;
  * database view. Precedent: ProductLookupTableProvider.
  *
  * DatabaseGateway (concrete, not the interface) is injected directly because
- * `connection()` — needed for raw `affectingStatement()` — is exposed only
- * on the concrete class, not on DatabaseGatewayInterface.
+ * `runSql()` is exposed only on the concrete class, not on DatabaseGatewayInterface.
  */
 final readonly class ProductPopularityRankingSnapshotRepository implements ProductPopularityRankingSnapshotRepositoryInterface
 {
@@ -44,9 +43,7 @@ final readonly class ProductPopularityRankingSnapshotRepository implements Produ
     #[Override]
     public function writeSnapshotForToday(): int
     {
-        return $this->databaseGateway->query(
-            fn(): int => $this->databaseGateway->connection()->affectingStatement(self::buildInsertSql()),
-        );
+        return $this->databaseGateway->runSql(self::buildInsertSql());
     }
 
     /**

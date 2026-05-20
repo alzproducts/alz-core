@@ -15,6 +15,7 @@ use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Data\MalformedStoredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use App\Domain\ValueObjects\Guid;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -45,17 +46,37 @@ final readonly class MarkNoQuoteExpectedUseCase
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      */
-    public function execute(string $submissionId): void
+    public function execute(Guid $submissionId): void
     {
+        $id = $submissionId->value;
+
         $this->logger->info('Marking contact submission no-quote-expected', [
-            'submission_id' => $submissionId,
+            'submission_id' => $id,
         ]);
 
-        $this->submissionRepository->findById($submissionId);
-        $this->ensureLeadCompleted($submissionId);
-        $this->ensureNoQuoteAction($submissionId);
+        $this->submissionRepository->findById($id);
+        $this->ensureLeadCompleted($id);
+        $this->ensureNoQuoteAction($id);
 
-        $this->annotationRepository->markNoQuoteExpected($submissionId);
+        $this->writeAnnotationAndLog($id);
+    }
+
+    /**
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    private function writeAnnotationAndLog(string $submissionId): void
+    {
+        $updated = $this->annotationRepository->markNoQuoteExpected($submissionId);
+
+        if (!$updated) {
+            $this->logger->warning('markNoQuoteExpected atomic guard fired — concurrent quote action blocked the write', [
+                'submission_id' => $submissionId,
+            ]);
+
+            return;
+        }
 
         $this->logger->info('Marked contact submission no-quote-expected', [
             'submission_id' => $submissionId,

@@ -12,6 +12,7 @@ use App\Domain\ContactSubmission\Enums\ActionStatus;
 use App\Domain\ContactSubmission\Enums\ActionType;
 use App\Domain\ContactSubmission\Exceptions\InvalidActionStageException;
 use App\Domain\Exceptions\Api\RecordNotFoundException;
+use App\Domain\ValueObjects\Guid;
 use Mockery;
 use Mockery\MockInterface;
 use Override;
@@ -81,7 +82,7 @@ final class DismissContactSubmissionUseCaseTest extends TestCase
             ->once()
             ->with(self::SUBMISSION_ID);
 
-        $this->useCase->execute(self::SUBMISSION_ID);
+        $this->useCase->execute(new Guid(self::SUBMISSION_ID));
     }
 
     #[Test]
@@ -98,7 +99,7 @@ final class DismissContactSubmissionUseCaseTest extends TestCase
 
         $this->expectException(RecordNotFoundException::class);
 
-        $this->useCase->execute(self::SUBMISSION_ID);
+        $this->useCase->execute(new Guid(self::SUBMISSION_ID));
     }
 
     /**
@@ -127,7 +128,7 @@ final class DismissContactSubmissionUseCaseTest extends TestCase
         $this->annotationRepository->shouldNotReceive('markDismissed');
 
         try {
-            $this->useCase->execute(self::SUBMISSION_ID);
+            $this->useCase->execute(new Guid(self::SUBMISSION_ID));
             self::fail('Expected InvalidActionStageException');
         } catch (InvalidActionStageException $e) {
             self::assertSame(self::SUBMISSION_ID, $e->submissionId);

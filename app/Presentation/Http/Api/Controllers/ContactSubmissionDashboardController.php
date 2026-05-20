@@ -107,7 +107,7 @@ final readonly class ContactSubmissionDashboardController
      */
     public function dismiss(string $id): JsonResponse
     {
-        $this->dismissUseCase->execute($id);
+        $this->dismissUseCase->execute(new Guid($id));
 
         return new JsonResponse(null, Response::HTTP_NO_CONTENT);
     }
@@ -122,7 +122,7 @@ final readonly class ContactSubmissionDashboardController
      */
     public function markNoQuoteExpected(string $id): JsonResponse
     {
-        $this->noQuoteUseCase->execute($id);
+        $this->noQuoteUseCase->execute(new Guid($id));
 
         return new JsonResponse(null, Response::HTTP_NO_CONTENT);
     }

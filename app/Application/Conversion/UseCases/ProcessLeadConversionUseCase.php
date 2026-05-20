@@ -17,6 +17,7 @@ use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Data\InsufficientDataException;
 use App\Domain\Exceptions\Data\MalformedStoredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
+use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -47,6 +48,7 @@ final readonly class ProcessLeadConversionUseCase
      * @throws RecordNotFoundException When the submission no longer exists
      * @throws MalformedStoredDataException When stored submission JSONB is corrupted
      * @throws DatabaseOperationFailedException When DB update fails (permanent)
+     * @throws DuplicateRecordException
      * @throws InsufficientDataException When gclid or submission timestamp is missing (permanent)
      */
     public function execute(string $submissionId, string $actionId): void
@@ -71,6 +73,8 @@ final readonly class ProcessLeadConversionUseCase
     /**
      * Idempotency guard — re-runs of the job after success/failure must be no-ops.
      *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException When DB unavailable
      */
     private function isAlreadyTerminal(string $submissionId, string $actionId): bool
