@@ -190,4 +190,24 @@ final readonly class EloquentContactSubmissionActionRepository implements Contac
                 ->exists(),
         );
     }
+
+    /**
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function findActionStatus(string $submissionId, ActionType $actionType): ?ActionStatus
+    {
+        return $this->gateway->query(
+            static function () use ($submissionId, $actionType): ?ActionStatus {
+                /** @var ContactSubmissionActionModel|null $model */
+                $model = ContactSubmissionActionModel::query()
+                    ->where('contact_submission_id', $submissionId)
+                    ->where('action_type', $actionType)
+                    ->first(['status']);
+
+                return $model?->status;
+            },
+        );
+    }
 }

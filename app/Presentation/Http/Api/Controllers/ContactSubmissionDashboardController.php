@@ -4,17 +4,19 @@ declare(strict_types=1);
 
 namespace App\Presentation\Http\Api\Controllers;
 
+use App\Application\ContactSubmission\UseCases\DismissContactSubmissionUseCase;
 use App\Application\ContactSubmission\UseCases\ListContactSubmissionsByViewUseCase;
-use App\Application\ContactSubmission\UseCases\ListContactSubmissionsUseCase;
+use App\Application\ContactSubmission\UseCases\MarkNoQuoteExpectedUseCase;
 use App\Application\ContactSubmission\UseCases\UpsertContactSubmissionAnnotationUseCase;
 use App\Domain\ContactSubmission\Enums\ContactSubmissionView;
+use App\Domain\ContactSubmission\Exceptions\InvalidActionStageException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\RecordNotFoundException;
+use App\Domain\Exceptions\Data\MalformedStoredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\Shared\Pagination\ValueObjects\PageRequest;
 use App\Domain\ValueObjects\Guid;
-use App\Presentation\Http\Api\DTOs\ListContactSubmissionsRequestDTO;
 use App\Presentation\Http\Api\DTOs\ListContactSubmissionsViewQueryDTO;
 use App\Presentation\Http\Api\DTOs\UpsertContactSubmissionAnnotationRequestDTO;
 use App\Presentation\Http\Api\Resources\ContactSubmissionListResource;
@@ -36,22 +38,11 @@ final readonly class ContactSubmissionDashboardController
     use BuildsPaginatedResponseTrait;
 
     public function __construct(
-        private ListContactSubmissionsUseCase $listUseCase,
         private ListContactSubmissionsByViewUseCase $listByViewUseCase,
         private UpsertContactSubmissionAnnotationUseCase $annotationUseCase,
+        private DismissContactSubmissionUseCase $dismissUseCase,
+        private MarkNoQuoteExpectedUseCase $noQuoteUseCase,
     ) {}
-
-    /**
-     * @throws DatabaseOperationFailedException
-     * @throws DuplicateRecordException
-     * @throws ExternalServiceUnavailableException
-     */
-    public function index(ListContactSubmissionsRequestDTO $data): ResourceCollection
-    {
-        $result = $this->listUseCase->execute($data->toQuery());
-
-        return $this->paginatedResponse($result, ContactSubmissionListResource::class);
-    }
 
     /**
      * @throws DatabaseOperationFailedException
@@ -102,6 +93,36 @@ final readonly class ContactSubmissionDashboardController
     public function upsertAnnotation(string $id, UpsertContactSubmissionAnnotationRequestDTO $data): JsonResponse
     {
         $this->annotationUseCase->execute($data->toCommand(new Guid($id)));
+
+        return new JsonResponse(null, Response::HTTP_NO_CONTENT);
+    }
+
+    /**
+     * @throws RecordNotFoundException When the contact submission does not exist
+     * @throws InvalidActionStageException When the submission is past Triage stage
+     * @throws MalformedStoredDataException When stored submission JSONB is corrupted
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function dismiss(string $id): JsonResponse
+    {
+        $this->dismissUseCase->execute(new Guid($id));
+
+        return new JsonResponse(null, Response::HTTP_NO_CONTENT);
+    }
+
+    /**
+     * @throws RecordNotFoundException When the contact submission does not exist
+     * @throws InvalidActionStageException When the submission is not in Awaiting Quote stage
+     * @throws MalformedStoredDataException When stored submission JSONB is corrupted
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function markNoQuoteExpected(string $id): JsonResponse
+    {
+        $this->noQuoteUseCase->execute(new Guid($id));
 
         return new JsonResponse(null, Response::HTTP_NO_CONTENT);
     }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Presentation\Http\Api;
 
 use App\Domain\Catalog\CustomFields\Exceptions\ProductSettingsNotApplicableException;
+use App\Domain\ContactSubmission\Exceptions\InvalidActionStageException;
 use App\Domain\Exceptions\Api\CorruptApiKeyException;
 use App\Domain\Exceptions\Api\MissingApiKeyException;
 use App\Domain\Exceptions\Api\PermanentApiFailure;
@@ -19,6 +20,7 @@ use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\Exceptions\Infrastructure\LockAcquisitionException;
 use App\Domain\Exceptions\Inventory\InvalidTemplateException;
 use App\Domain\Exceptions\ValidationFailedException;
+use App\Presentation\Http\Api\Middleware\ForceJsonResponseMiddleware;
 use App\Presentation\Http\Api\Responses\ApiErrorResponseDTO;
 use App\Presentation\Http\Api\Responses\ApiErrorTypeEnum;
 use Illuminate\Http\JsonResponse;
@@ -40,7 +42,9 @@ use Throwable;
  *
  * Registered in bootstrap/app.php via $exceptions->render().
  * Only activates for consumer API routes (/api/*) that expect JSON.
- * Non-API routes (e.g. /horizon/api/*) fall through to Laravel's default handler,
+ * {@see ForceJsonResponseMiddleware} guarantees `expectsJson()` is true for
+ * all /api/* requests — the guard below is retained as defence-in-depth for
+ * non-API routes (e.g. /horizon/api/*) where the middleware is a no-op,
  * preserving headers like WWW-Authenticate needed for Basic Auth negotiation.
  */
 final class InternalApiExceptionMapper
@@ -79,15 +83,14 @@ final class InternalApiExceptionMapper
 
     private static function domainStatusCode(Throwable $e): ?int
     {
+        if (self::isValidationException($e)) {
+            return Response::HTTP_UNPROCESSABLE_ENTITY;
+        }
+
         return match (true) {
-            $e instanceof ValidationFailedException,
-            $e instanceof InvalidSkuException,
-            $e instanceof InvalidTemplateException,
-            $e instanceof InsufficientDataException,
-            $e instanceof MissingRequiredDataException,
-            $e instanceof ProductSettingsNotApplicableException => Response::HTTP_UNPROCESSABLE_ENTITY,
             $e instanceof ResourceNotFoundException,
             $e instanceof RecordNotFoundException => Response::HTTP_NOT_FOUND,
+            $e instanceof InvalidActionStageException,
             $e instanceof DuplicateRecordException => Response::HTTP_CONFLICT,
             $e instanceof TransientApiFailure,
             $e instanceof LockAcquisitionException => Response::HTTP_SERVICE_UNAVAILABLE,
@@ -130,6 +133,7 @@ final class InternalApiExceptionMapper
             $e instanceof ResourceNotFoundException,
             $e instanceof RecordNotFoundException,
             $e instanceof NotFoundHttpException => ApiErrorTypeEnum::NotFound,
+            $e instanceof InvalidActionStageException,
             $e instanceof DuplicateRecordException => ApiErrorTypeEnum::Conflict,
             $e instanceof TransientApiFailure,
             $e instanceof LockAcquisitionException => ApiErrorTypeEnum::ServiceUnavailable,

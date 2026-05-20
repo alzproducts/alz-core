@@ -21,6 +21,7 @@ use Override;
  * @property bool|null $is_potential_quote
  * @property string|null $notes
  * @property CarbonImmutable|null $quoted_at
+ * @property CarbonImmutable|null $dismissed_at
  * @property CarbonImmutable $created_at
  * @property CarbonImmutable $updated_at
  */
@@ -45,6 +46,7 @@ final class ContactSubmissionAnnotationModel extends Model
         return [
             'is_potential_quote' => 'boolean',
             'quoted_at' => 'immutable_datetime',
+            'dismissed_at' => 'immutable_datetime',
             'created_at' => 'immutable_datetime',
             'updated_at' => 'immutable_datetime',
         ];

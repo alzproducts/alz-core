@@ -17,6 +17,7 @@ use App\Domain\Catalog\Product\ValueObjects\ProductVariationOption;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariationView;
 use App\Domain\Catalog\Product\ValueObjects\ProductView;
 use App\Domain\Catalog\Product\ValueObjects\ProductViewMeta;
+use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Shared\Pagination\Enums\SortDirection;
 use App\Domain\ValueObjects\PaginatedList;
 use App\Presentation\Http\Api\Controllers\ProductController;
@@ -1068,6 +1069,27 @@ final class ProductControllerTest extends TestCase
         $body = $response->json();
         $this->assertArrayHasKey('variations', $body['data']);
         $this->assertNotEmpty($body['data']['variations']);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Regression: COR-87 — missing Accept header must still return JSON
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function show_non_existent_product_without_accept_header_returns_json_404(): void
+    {
+        $this->productRepository
+            ->shouldReceive('findProductView')
+            ->once()
+            ->andThrow(new RecordNotFoundException('products', 99999));
+
+        $response = $this->asApprovedUser()->get('/api/products/99999');
+
+        $response->assertStatus(404);
+        $response->assertHeader('Content-Type', 'application/json');
+        $response->assertJsonPath('error.type', 'not_found');
     }
 
     /*
