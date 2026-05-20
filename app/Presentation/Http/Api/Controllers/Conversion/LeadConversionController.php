@@ -11,6 +11,7 @@ use App\Domain\Exceptions\Data\InsufficientDataException;
 use App\Domain\Exceptions\Data\MalformedStoredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use App\Domain\ValueObjects\Guid;
 use App\Presentation\Http\Api\DTOs\LeadConversionRequestDTO;
 use Illuminate\Http\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
@@ -37,7 +38,7 @@ final readonly class LeadConversionController
      */
     public function __invoke(LeadConversionRequestDTO $request): JsonResponse
     {
-        $this->useCase->execute($request->submissionId);
+        $this->useCase->execute(new Guid($request->submissionId), $request->isPotentialQuote);
 
         return new JsonResponse(
             ['message' => 'Lead conversion queued'],

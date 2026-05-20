@@ -38,6 +38,8 @@ interface ContactSubmissionActionRepositoryInterface extends AsyncActionReposito
      *
      * Narrows the return type from the generic interface.
      *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException On transient database failure
      */
     public function getStatus(string $actionId): ?ActionStatus;
@@ -48,7 +50,22 @@ interface ContactSubmissionActionRepositoryInterface extends AsyncActionReposito
      * Used for sequential enforcement — e.g. a QuoteIssued action requires a
      * completed LeadReceived action on the same submission.
      *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException On transient database failure
      */
     public function hasCompletedAction(string $submissionId, ActionType $actionType): bool;
+
+    /**
+     * Look up the current status of a submission's action by type.
+     *
+     * Distinguishes "no row exists" (`null`) from "exists but not completed" — a distinction
+     * {@see hasCompletedAction} cannot express. Used by workflow stage guards (e.g. dismiss
+     * requires no `lead_received` row of any status).
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException On transient database failure
+     */
+    public function findActionStatus(string $submissionId, ActionType $actionType): ?ActionStatus;
 }

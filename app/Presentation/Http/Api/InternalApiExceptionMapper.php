@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Presentation\Http\Api;
 
 use App\Domain\Catalog\CustomFields\Exceptions\ProductSettingsNotApplicableException;
+use App\Domain\ContactSubmission\Exceptions\InvalidActionStageException;
 use App\Domain\Exceptions\Api\CorruptApiKeyException;
 use App\Domain\Exceptions\Api\MissingApiKeyException;
 use App\Domain\Exceptions\Api\PermanentApiFailure;
@@ -79,15 +80,14 @@ final class InternalApiExceptionMapper
 
     private static function domainStatusCode(Throwable $e): ?int
     {
+        if (self::isValidationException($e)) {
+            return Response::HTTP_UNPROCESSABLE_ENTITY;
+        }
+
         return match (true) {
-            $e instanceof ValidationFailedException,
-            $e instanceof InvalidSkuException,
-            $e instanceof InvalidTemplateException,
-            $e instanceof InsufficientDataException,
-            $e instanceof MissingRequiredDataException,
-            $e instanceof ProductSettingsNotApplicableException => Response::HTTP_UNPROCESSABLE_ENTITY,
             $e instanceof ResourceNotFoundException,
             $e instanceof RecordNotFoundException => Response::HTTP_NOT_FOUND,
+            $e instanceof InvalidActionStageException,
             $e instanceof DuplicateRecordException => Response::HTTP_CONFLICT,
             $e instanceof TransientApiFailure,
             $e instanceof LockAcquisitionException => Response::HTTP_SERVICE_UNAVAILABLE,
@@ -130,6 +130,7 @@ final class InternalApiExceptionMapper
             $e instanceof ResourceNotFoundException,
             $e instanceof RecordNotFoundException,
             $e instanceof NotFoundHttpException => ApiErrorTypeEnum::NotFound,
+            $e instanceof InvalidActionStageException,
             $e instanceof DuplicateRecordException => ApiErrorTypeEnum::Conflict,
             $e instanceof TransientApiFailure,
             $e instanceof LockAcquisitionException => ApiErrorTypeEnum::ServiceUnavailable,

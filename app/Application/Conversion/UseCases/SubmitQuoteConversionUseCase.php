@@ -118,6 +118,8 @@ final readonly class SubmitQuoteConversionUseCase
 
     /**
      * @throws InsufficientDataException When no completed LeadReceived action exists for the submission
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      */
     private function ensureLeadCompleted(string $submissionId): void

@@ -119,6 +119,26 @@ final readonly class DatabaseGateway implements DatabaseGatewayInterface
         return $this->db->connection();
     }
 
+    /**
+     * Execute a raw SQL write statement and return the number of rows affected.
+     *
+     * For use when cross-table predicates or non-standard SQL constructs (e.g.
+     * INSERT…ON CONFLICT WHERE NOT EXISTS) cannot be expressed via Eloquent.
+     * Exception translation is handled by {@see query()}.
+     *
+     * NOTE: This method is on the concrete class only — same injection pattern as connection().
+     *
+     * @param list<scalar|null> $bindings
+     *
+     * @throws ExternalServiceUnavailableException
+     * @throws DuplicateRecordException
+     * @throws DatabaseOperationFailedException
+     */
+    public function runSql(string $sql, array $bindings = []): int
+    {
+        return $this->query(fn(): int => $this->db->connection()->affectingStatement($sql, $bindings));
+    }
+
     private function handleUniqueConstraint(UniqueConstraintViolationException $e): DuplicateRecordException
     {
         // Info level: duplicates are expected during idempotent sync operations

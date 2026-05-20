@@ -9,6 +9,7 @@ use App\Application\ContactSubmission\UseCases\ProcessContactSubmissionUseCase;
 use App\Domain\Exceptions\Data\InsufficientDataException;
 use App\Domain\Exceptions\Data\MalformedStoredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
+use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Infrastructure\Jobs\Enums\QueueName;
 use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
 use App\Infrastructure\Jobs\Middleware\ServiceCircuitBreaker;
@@ -90,6 +91,7 @@ final class ProcessContactSubmissionJob implements ShouldBeUnique, ShouldQueue
 
     /**
      * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
      */
     public function handle(ProcessContactSubmissionUseCase $useCase): void
     {

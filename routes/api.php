@@ -223,11 +223,14 @@ Route::middleware([ValidateSupabaseJwtMiddleware::class, EnsureUserApprovedMiddl
             ->whereUuid('definitionUuid');
 
         // Contact submissions dashboard — staff-only, requires admin approval.
-        Route::get('contact-submissions', [ContactSubmissionDashboardController::class, 'index']);
         Route::get('contact-submissions/triage', [ContactSubmissionDashboardController::class, 'triage']);
         Route::get('contact-submissions/awaiting-quote', [ContactSubmissionDashboardController::class, 'awaitingQuote']);
         Route::get('contact-submissions/failed', [ContactSubmissionDashboardController::class, 'failed']);
         Route::get('contact-submissions/completed', [ContactSubmissionDashboardController::class, 'completed']);
         Route::put('contact-submissions/{id}/annotations', [ContactSubmissionDashboardController::class, 'upsertAnnotation'])
+            ->whereUuid('id');
+        Route::post('contact-submissions/{id}/dismiss', [ContactSubmissionDashboardController::class, 'dismiss'])
+            ->whereUuid('id');
+        Route::post('contact-submissions/{id}/no-quote-expected', [ContactSubmissionDashboardController::class, 'markNoQuoteExpected'])
             ->whereUuid('id');
     });

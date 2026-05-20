@@ -17,6 +17,7 @@ use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Data\InsufficientDataException;
 use App\Domain\Exceptions\Data\MalformedStoredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
+use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\Shared\Money\ValueObjects\Money;
 use App\Infrastructure\Jobs\Conversion\ProcessQuoteConversionJob;
 use DateMalformedStringException;
@@ -61,6 +62,7 @@ final readonly class ProcessQuoteConversionUseCase
      * @throws RecordNotFoundException When the submission no longer exists
      * @throws MalformedStoredDataException When stored submission JSONB or convertedAt is corrupted
      * @throws DatabaseOperationFailedException When DB update fails (permanent)
+     * @throws DuplicateRecordException
      * @throws InsufficientDataException When gclid is missing (permanent)
      */
     public function execute(string $submissionId, string $actionId, float $value, string $convertedAt): void
@@ -88,6 +90,8 @@ final readonly class ProcessQuoteConversionUseCase
     /**
      * Idempotency guard — re-runs of the job after success/failure must be no-ops.
      *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException When DB unavailable
      */
     private function isAlreadyTerminal(string $submissionId, string $actionId): bool
