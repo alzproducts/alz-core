@@ -20,6 +20,7 @@ use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\Exceptions\Infrastructure\LockAcquisitionException;
 use App\Domain\Exceptions\Inventory\InvalidTemplateException;
 use App\Domain\Exceptions\ValidationFailedException;
+use App\Presentation\Http\Api\Middleware\ForceJsonResponseMiddleware;
 use App\Presentation\Http\Api\Responses\ApiErrorResponseDTO;
 use App\Presentation\Http\Api\Responses\ApiErrorTypeEnum;
 use Illuminate\Http\JsonResponse;
@@ -41,7 +42,9 @@ use Throwable;
  *
  * Registered in bootstrap/app.php via $exceptions->render().
  * Only activates for consumer API routes (/api/*) that expect JSON.
- * Non-API routes (e.g. /horizon/api/*) fall through to Laravel's default handler,
+ * {@see ForceJsonResponseMiddleware} guarantees `expectsJson()` is true for
+ * all /api/* requests — the guard below is retained as defence-in-depth for
+ * non-API routes (e.g. /horizon/api/*) where the middleware is a no-op,
  * preserving headers like WWW-Authenticate needed for Basic Auth negotiation.
  */
 final class InternalApiExceptionMapper
