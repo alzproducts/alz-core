@@ -30,11 +30,17 @@ If a one-off case genuinely requires `$this->eloquentGateway->query()` or `->tra
 - DO NOT override `saveMany()` unless coordinating multi-table transactions
 - DO call the inherited protected `saveManyBulk()` helper from an overridden `saveMany()` for flat-entity bulk upsert
 
-## Domain-to-Model Mapping
+## Domain-to-Model Mapping (writes)
 
 - DO NOT inline field-by-field mapping
 - DO call `Model::fromDomainAttributes($entity)` (interface-compliant) or `Model::attributesFromDomain($typed)` (typed-parameter form) — both naming conventions exist in the codebase
 - DO spread the mapper output alongside any parent FK or upsert key the repository adds
+
+## Model-to-Domain Mapping (reads)
+
+- DO call `$model->toDomain()` — the model owns its read-path projection.
+- DO NOT define a private `fromModel()`, `toEntity()`, or equivalent on the repository.
+- EXCEPTION: complex models with loaded Eloquent relations or injected dependencies that the model cannot hold: delegate to a standalone `*ModelMapper` class instead. Canonical: `OrderModelMapper::fromModelWithRelations()`, `ProductModelMapper`.
 
 ## Database Access
 

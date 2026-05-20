@@ -222,8 +222,12 @@ Route::middleware([ValidateSupabaseJwtMiddleware::class, EnsureUserApprovedMiddl
         Route::put('catalog/custom-field-definitions/{definitionUuid}/product-settings', CustomFieldProductSettingsController::class)
             ->whereUuid('definitionUuid');
 
-        // Contact submissions dashboard
+        // Contact submissions dashboard — staff-only, requires admin approval.
         Route::get('contact-submissions', [ContactSubmissionDashboardController::class, 'index']);
+        Route::get('contact-submissions/triage', [ContactSubmissionDashboardController::class, 'triage']);
+        Route::get('contact-submissions/awaiting-quote', [ContactSubmissionDashboardController::class, 'awaitingQuote']);
+        Route::get('contact-submissions/failed', [ContactSubmissionDashboardController::class, 'failed']);
+        Route::get('contact-submissions/completed', [ContactSubmissionDashboardController::class, 'completed']);
         Route::put('contact-submissions/{id}/annotations', [ContactSubmissionDashboardController::class, 'upsertAnnotation'])
             ->whereUuid('id');
     });

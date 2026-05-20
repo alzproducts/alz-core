@@ -6,7 +6,9 @@ namespace App\Infrastructure\Marketing\Models;
 
 use App\Domain\ContactSubmission\Enums\ActionStatus;
 use App\Domain\ContactSubmission\Enums\ContactReason;
+use App\Domain\ContactSubmission\ValueObjects\ContactSubmissionListItem;
 use App\Domain\Customer\Enums\CustomerType;
+use App\Domain\ValueObjects\Guid;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
 use Override;
@@ -41,6 +43,8 @@ use Override;
  * @property ActionStatus|null $lead_status
  * @property ActionStatus|null $quote_status
  * @property string|null $helpscout_external_id
+ * @property CarbonImmutable|null $dismissed_at
+ * @property bool $has_ad_id
  */
 final class ContactSubmissionDashboardViewModel extends Model
 {
@@ -70,6 +74,37 @@ final class ContactSubmissionDashboardViewModel extends Model
             'quoted_at' => 'immutable_datetime',
             'lead_status' => ActionStatus::class,
             'quote_status' => ActionStatus::class,
+            'dismissed_at' => 'immutable_datetime',
+            'has_ad_id' => 'boolean',
         ];
+    }
+
+    public function toDomain(): ContactSubmissionListItem
+    {
+        return new ContactSubmissionListItem(
+            id: Guid::fromTrusted($this->id),
+            name: $this->name,
+            email: $this->email,
+            reason: $this->reason,
+            customerType: $this->customer_type,
+            orderNumber: $this->order_number,
+            quantity: $this->quantity,
+            product: $this->product,
+            shopwiredCustomerId: $this->shopwired_customer_id,
+            gclid: $this->gclid,
+            msclkid: $this->msclkid,
+            fbclid: $this->fbclid,
+            utmSource: $this->utm_source,
+            utmMedium: $this->utm_medium,
+            utmCampaign: $this->utm_campaign,
+            pageUrl: $this->page_url,
+            createdAt: $this->created_at->toDateTimeImmutable(),
+            helpscoutExternalId: $this->helpscout_external_id,
+            leadStatus: $this->lead_status,
+            quoteStatus: $this->quote_status,
+            isPotentialQuote: $this->is_potential_quote,
+            notes: $this->notes,
+            quotedAt: $this->quoted_at?->toDateTimeImmutable(),
+        );
     }
 }
