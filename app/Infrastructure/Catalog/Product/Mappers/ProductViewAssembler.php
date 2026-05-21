@@ -114,6 +114,7 @@ final readonly class ProductViewAssembler
             stock: self::resolveStock($model, $includes, $allVariations),
             defaultSupplier: $defaultSupplier,
             isComposite: $stockItem?->is_composite,
+            priceLastUpdatedAt: $model->price_last_updated_at?->toDateTimeImmutable(),
         );
     }
 

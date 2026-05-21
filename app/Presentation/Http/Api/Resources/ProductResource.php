@@ -93,6 +93,7 @@ final class ProductResource extends JsonResource
             ),
             'created_at' => $product->createdAt->format(DateTimeInterface::ATOM),
             'updated_at' => $product->updatedAt->format(DateTimeInterface::ATOM),
+            'price_last_updated_at' => $product->priceLastUpdatedAt?->format(DateTimeInterface::ATOM),
         ];
     }
 }
