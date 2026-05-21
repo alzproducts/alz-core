@@ -53,11 +53,6 @@ final class SyncSkuPopularityRankingSnapshotJob implements ShouldBeUnique, Shoul
         $this->onQueue(QueueName::Low->value);
     }
 
-    public function uniqueId(): string
-    {
-        return 'sync-sku-popularity-ranking-snapshot';
-    }
-
     /** @return list<object> */
     public function middleware(): array
     {

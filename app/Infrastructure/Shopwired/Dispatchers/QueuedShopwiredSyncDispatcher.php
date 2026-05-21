@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Shopwired\Dispatchers;
 
+use App\Application\Catalog\Enums\CreditTier;
 use App\Application\Catalog\Enums\MarginTier;
 use App\Application\Contracts\Shopwired\ShopwiredSyncDispatcherInterface;
 use App\Domain\Catalog\Product\Commands\SetFreeDeliveryCommand;
 use App\Domain\ValueObjects\IntId;
 use App\Infrastructure\Jobs\Shopwired\ReconcileShopwiredComparePriceJob;
 use App\Infrastructure\Jobs\Shopwired\SetProductBestSellerLabelJob;
+use App\Infrastructure\Jobs\Shopwired\SetProductCreditTierLabelJob;
 use App\Infrastructure\Jobs\Shopwired\SetProductFreeDeliveryJob;
 use App\Infrastructure\Jobs\Shopwired\SetProductMarginTierLabelJob;
 use App\Infrastructure\Jobs\Shopwired\SyncShopwiredBrandJob;
@@ -119,5 +121,11 @@ final readonly class QueuedShopwiredSyncDispatcher implements ShopwiredSyncDispa
     public function dispatchMarginTierLabelUpdate(IntId $productId, MarginTier $label): void
     {
         SetProductMarginTierLabelJob::dispatch($productId, $label);
+    }
+
+    #[Override]
+    public function dispatchCreditTierLabelUpdate(IntId $productId, ?CreditTier $tier): void
+    {
+        SetProductCreditTierLabelJob::dispatch($productId, $tier);
     }
 }

@@ -6,17 +6,15 @@ namespace App\Providers\Schedule;
 
 use App\Infrastructure\Jobs\Catalog\SyncBestSellerLabelJob;
 use App\Infrastructure\Jobs\Catalog\SyncBestSellersCategoryJob;
+use App\Infrastructure\Jobs\Catalog\SyncCreditTierLabelJob;
 use App\Infrastructure\Jobs\Catalog\SyncMarginTierLabelJob;
 use App\Infrastructure\Jobs\Catalog\SyncOffersFiltersJob;
-use App\Infrastructure\Jobs\Catalog\SyncProductPopularityRankingSnapshotJob;
 use App\Infrastructure\Jobs\Catalog\SyncProductSortOrdersJob;
 use App\Infrastructure\Jobs\Catalog\SyncRatingFiltersJob;
 use App\Infrastructure\Jobs\Catalog\SyncRelatedProductsJob;
 use App\Infrastructure\Jobs\Catalog\SyncShippingOffersFiltersJob;
 use App\Infrastructure\Jobs\Catalog\SyncShippingOptionsFiltersJob;
-use App\Infrastructure\Jobs\Catalog\SyncSkuPopularityRankingSnapshotJob;
 use App\Infrastructure\Jobs\Catalog\SyncVatReliefFiltersJob;
-use Carbon\Carbon;
 use Illuminate\Support\Facades\Schedule;
 use Illuminate\Support\ServiceProvider;
 use RuntimeException;
@@ -31,13 +29,15 @@ use RuntimeException;
  *   - Shipping Offers filter (from shopwired.products.custom_fields->>'free_delivery')
  *   - Shipping Options filter (from shopwired product + variation stock; 10-min cadence, offset +5 min from the upstream stock sync)
  *
- * Popularity-driven syncs (daily, 03:00–04:30 window):
- *   - Weekly popularity ranking snapshot (Sunday 03:00)
+ * Popularity-driven consumer syncs (daily, 04:00–05:00 window):
  *   - Product sort orders (04:00, consumes latest snapshot)
  *   - Best Sellers category membership (04:00, top-N from snapshot)
  *   - Best Sellers label (04:15, custom_label_4 list merge)
  *   - Related products custom field (04:30, algorithm SQL + order-sensitive diff)
  *   - Margin-tier label (04:45, custom_label_1 four-tier band)
+ *   - Credit-tier label (05:00, custom_label_0 three-tier band, credit-only)
+ *
+ * Snapshot writers live in {@see PopularitySnapshotScheduleServiceProvider}.
  */
 final class CatalogScheduleServiceProvider extends ServiceProvider
 {
@@ -51,13 +51,12 @@ final class CatalogScheduleServiceProvider extends ServiceProvider
         $this->registerOffersFilterSchedule();
         $this->registerShippingOffersFilterSchedule();
         $this->registerShippingOptionsFilterSchedule();
-        $this->registerProductPopularityRankingSnapshotSchedule();
-        $this->registerSkuPopularityRankingSnapshotSchedule();
         $this->registerProductSortOrderSyncSchedule();
         $this->registerBestSellersCategorySchedule();
         $this->registerBestSellerLabelSchedule();
         $this->registerRelatedProductsSyncSchedule();
         $this->registerMarginTierLabelSchedule();
+        $this->registerCreditTierLabelSchedule();
     }
 
     /**
@@ -158,46 +157,6 @@ final class CatalogScheduleServiceProvider extends ServiceProvider
     }
 
     /**
-     * Weekly product popularity ranking snapshot.
-     *
-     * Runs Sunday 03:00 Europe/London — during the quietest traffic period,
-     * capturing a snapshot of the `catalog.product_popularity_ranking` view.
-     * Each run inserts ~2,500 rows (one per catalog product) tagged with
-     * `algorithm_version` from the active config row.
-     *
-     * @throws RuntimeException
-     */
-    private function registerProductPopularityRankingSnapshotSchedule(): void
-    {
-        Schedule::job(new SyncProductPopularityRankingSnapshotJob())
-            ->name('sync-product-popularity-ranking-snapshot')
-            ->weeklyOn(Carbon::SUNDAY, '03:00')
-            ->timezone('Europe/London')
-            ->onOneServer()
-            ->withoutOverlapping(60);
-    }
-
-    /**
-     * Weekly SKU popularity ranking snapshot.
-     *
-     * Runs Sunday 03:00 Europe/London — same window as the product snapshot,
-     * capturing a snapshot of the `catalog.sku_popularity_ranking` view.
-     * Each run inserts one row per catalog SKU tagged with `algorithm_version`
-     * from the active config row.
-     *
-     * @throws RuntimeException
-     */
-    private function registerSkuPopularityRankingSnapshotSchedule(): void
-    {
-        Schedule::job(new SyncSkuPopularityRankingSnapshotJob())
-            ->name('sync-sku-popularity-ranking-snapshot')
-            ->weeklyOn(Carbon::SUNDAY, '03:00')
-            ->timezone('Europe/London')
-            ->onOneServer()
-            ->withoutOverlapping(60);
-    }
-
-    /**
      * Daily product sort order sync from popularity snapshot.
      *
      * Runs at 04:00 Europe/London — one hour after the weekly popularity snapshot
@@ -284,6 +243,23 @@ final class CatalogScheduleServiceProvider extends ServiceProvider
         Schedule::job(new SyncMarginTierLabelJob())
             ->name('sync-margin-tier-label')
             ->dailyAt('04:45')
+            ->timezone('Europe/London')
+            ->onOneServer()
+            ->withoutOverlapping(30);
+    }
+
+    /**
+     * Daily credit-tier label sync to custom_label_0. 05:00 Europe/London,
+     * after the margin-tier label sync (04:45). On non-snapshot days the diff
+     * returns zero rows and the orchestrator exits cleanly.
+     *
+     * @throws RuntimeException
+     */
+    private function registerCreditTierLabelSchedule(): void
+    {
+        Schedule::job(new SyncCreditTierLabelJob())
+            ->name('sync-credit-tier-label')
+            ->dailyAt('05:00')
             ->timezone('Europe/London')
             ->onOneServer()
             ->withoutOverlapping(30);

@@ -4,12 +4,13 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Jobs\Catalog;
 
-use App\Application\Catalog\UseCases\SnapshotProductPopularityRankingUseCase;
+use App\Application\Catalog\UseCases\SyncCreditTierLabelUseCase;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Infrastructure\Jobs\Enums\QueueName;
 use App\Infrastructure\Jobs\Middleware\HandleDatabaseExceptions;
+use DateTimeImmutable;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -17,20 +18,11 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 
 /**
- * Weekly job: inserts ~2,500 snapshot rows into catalog.product_popularity_snapshots
- * by reading from catalog.product_popularity_ranking (expensive view) and stamping
- * CURRENT_DATE as the snapshot_date.
- *
- * The composite PK on (snapshot_date, parent_external_id) ensures accidental
- * double-fires on the same day throw DuplicateRecordException rather than
- * silently overwriting history.
- *
- * Scheduled Sunday 03:00 Europe/London via CatalogScheduleServiceProvider.
- * Timeout 3600s matches the `low` queue tier.
- *
- * @see SnapshotProductPopularityRankingUseCase
+ * Daily orchestrator: query active products whose custom_label_0 credit-tier
+ * label diverges from the latest credit popularity snapshot, and dispatch
+ * per-product label updates.
  */
-final class SyncProductPopularityRankingSnapshotJob implements ShouldBeUnique, ShouldQueue
+final class SyncCreditTierLabelJob implements ShouldBeUnique, ShouldQueue
 {
     use Dispatchable;
     use InteractsWithQueue;
@@ -38,15 +30,16 @@ final class SyncProductPopularityRankingSnapshotJob implements ShouldBeUnique, S
 
     public int $tries = 3;
 
-    public int $timeout = 3600;
+    public int $maxExceptions = 2;
+
+    public int $timeout = 120;
 
     public bool $failOnTimeout = true;
 
-    /** 6 hours — blocks double-fires within the same run window */
-    public int $uniqueFor = 21600;
+    public int $uniqueFor = 3600;
 
-    /** @var list<int> */
-    public array $backoff = [60, 300];
+    /** @var array<int> */
+    public array $backoff = [30, 60];
 
     public function __construct()
     {
@@ -61,12 +54,17 @@ final class SyncProductPopularityRankingSnapshotJob implements ShouldBeUnique, S
         ];
     }
 
+    public function retryUntil(): DateTimeImmutable
+    {
+        return \now()->addMinutes(45)->toDateTimeImmutable();
+    }
+
     /**
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      */
-    public function handle(SnapshotProductPopularityRankingUseCase $useCase): void
+    public function handle(SyncCreditTierLabelUseCase $useCase): void
     {
         $useCase->execute();
     }
