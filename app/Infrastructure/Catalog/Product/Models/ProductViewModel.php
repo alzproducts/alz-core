@@ -63,6 +63,7 @@ use Override;
  * @property float|null $profit_margin_max COALESCE(parent profit_margin, MAX(variation profit_margin))
  * @property float|null $net_margin_single_unit_min COALESCE(parent net_margin, MIN(variation net_margin_single_unit))
  * @property float|null $net_margin_single_unit_max COALESCE(parent net_margin, MAX(variation net_margin_single_unit))
+ * @property CarbonImmutable|null $price_last_updated_at Most recent effective_from across the product's SKUs in operations.price_periods (NULL when no SKU has a price-period row)
  * @property-read Collection<int, ProductVariationViewModel> $variations
  * @property-read StockItemModel|null $stockItem
  */
@@ -148,6 +149,7 @@ final class ProductViewModel extends Model
             'shopwired_updated_at' => 'immutable_datetime',
             'created_at' => 'immutable_datetime',
             'updated_at' => 'immutable_datetime',
+            'price_last_updated_at' => 'immutable_datetime',
         ];
     }
 

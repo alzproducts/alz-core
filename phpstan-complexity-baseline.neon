@@ -338,7 +338,7 @@ parameters:
 
 
 		-
-			rawMessage: 'Method __construct() is 75 lines long — exceeds the 40-line limit. Break it into smaller, focused methods.'
+			rawMessage: 'Method __construct() is 76 lines long — exceeds the 40-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Domain/Catalog/Product/ValueObjects/ProductView.php
@@ -888,7 +888,7 @@ parameters:
 
 
 		-
-			rawMessage: 'Method baseFields() is 40 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			rawMessage: 'Method baseFields() is 41 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Presentation/Http/Api/Resources/ProductResource.php
