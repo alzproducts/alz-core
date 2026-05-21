@@ -7,6 +7,7 @@ namespace App\Providers;
 use App\Application\Catalog\UseCases\SyncBestSellersCategoryUseCase;
 use App\Application\Contracts\Catalog\BestSellersRankingStateQueryRepositoryInterface;
 use App\Application\Contracts\Catalog\CatalogSyncDispatcherInterface;
+use App\Application\Contracts\Catalog\CreditProductPopularityRankingSnapshotRepositoryInterface;
 use App\Application\Contracts\Catalog\CustomFieldGeneralSettingsRepositoryInterface;
 use App\Application\Contracts\Catalog\CustomFieldProductSettingsRepositoryInterface;
 use App\Application\Contracts\Catalog\OffersFilterQueryRepositoryInterface;
@@ -30,6 +31,7 @@ use App\Infrastructure\Catalog\Product\Mappers\ProductVariationViewModelMapper;
 use App\Infrastructure\Catalog\Product\Repositories\EloquentProductExtraDataRepository;
 use App\Infrastructure\Catalog\Product\Repositories\EloquentVariationQueryRepository;
 use App\Infrastructure\Catalog\Repositories\BestSellersRankingStateQueryRepository;
+use App\Infrastructure\Catalog\Repositories\CreditProductPopularityRankingSnapshotRepository;
 use App\Infrastructure\Catalog\Repositories\OffersFilterQueryRepository;
 use App\Infrastructure\Catalog\Repositories\ProductPopularityRankingSnapshotRepository;
 use App\Infrastructure\Catalog\Repositories\ProductSortOrderQueryRepository;
@@ -77,6 +79,7 @@ final class CatalogServiceProvider extends ServiceProvider implements Deferrable
             CustomFieldProductSettingsRepositoryInterface::class,
             ProductExtraDataRepositoryInterface::class,
             ProductPopularityRankingSnapshotRepositoryInterface::class,
+            CreditProductPopularityRankingSnapshotRepositoryInterface::class,
             SkuPopularityRankingSnapshotRepositoryInterface::class,
             ProductSortOrderQueryRepositoryInterface::class,
             RelatedProductsAlgorithmParamsRepositoryInterface::class,
@@ -113,6 +116,11 @@ final class CatalogServiceProvider extends ServiceProvider implements Deferrable
         $this->app->scoped(
             ProductPopularityRankingSnapshotRepositoryInterface::class,
             ProductPopularityRankingSnapshotRepository::class,
+        );
+
+        $this->app->scoped(
+            CreditProductPopularityRankingSnapshotRepositoryInterface::class,
+            CreditProductPopularityRankingSnapshotRepository::class,
         );
 
         $this->app->scoped(

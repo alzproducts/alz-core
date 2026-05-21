@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Application\Contracts\Catalog;
 
 use App\Application\Catalog\BestSellerLabels\BestSellerLabelChangesResult;
+use App\Application\Catalog\CreditTierLabels\CreditTierLabelChangeDTO;
 use App\Application\Catalog\MarginTiers\MarginTierAssignmentDTO;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
@@ -58,4 +59,22 @@ interface ProductViewQueryRepositoryInterface
      * @throws ExternalServiceUnavailableException
      */
     public function findMarginTierDrift(): array;
+
+    /**
+     * Find active products whose custom_label_0 credit-tier label differs from
+     * the tier recorded in `catalog.credit_product_popularity_ranking_latest`.
+     *
+     * Compares latest snapshot's credit_tier against live state in
+     * `catalog.products_view`. NULL tier means "no credit sales — clear the label".
+     * `NULLIF(custom_fields->>'custom_label_0', '')` normalisation handles the
+     * MergesCustomFieldsTrait null→'' write quirk so cleared labels don't
+     * re-dispatch forever.
+     *
+     * @return list<CreditTierLabelChangeDTO>
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function findCreditTierChanges(): array;
 }
