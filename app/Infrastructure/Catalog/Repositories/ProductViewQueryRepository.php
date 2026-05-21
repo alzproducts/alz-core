@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Infrastructure\Catalog\Repositories;
 
 use App\Application\Catalog\BestSellerLabels\BestSellerLabelChangesResult;
+use App\Application\Catalog\CreditTierLabels\CreditTierLabelChangeDTO;
 use App\Application\Catalog\Enums\BestSellerLabel;
+use App\Application\Catalog\Enums\CreditTier;
 use App\Application\Catalog\Enums\MarginTier;
 use App\Application\Catalog\MarginTiers\MarginTierAssignmentDTO;
 use App\Application\Contracts\Catalog\ProductViewQueryRepositoryInterface;
@@ -94,6 +96,40 @@ final class ProductViewQueryRepository implements ProductViewQueryRepositoryInte
                 return new MarginTierAssignmentDTO(
                     productId: IntId::fromTrusted($row->external_id),
                     targetLabel: $tier,
+                );
+            },
+            $rows,
+        );
+    }
+
+    /**
+     * @return list<CreditTierLabelChangeDTO>
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    #[Override]
+    public function findCreditTierChanges(): array
+    {
+        /** @var list<object{external_id: int, target_label: string|null}> $rows */
+        $rows = $this->eloquentGateway->query(
+            static fn(): array => self::MODEL_CLASS::query()
+                ->getConnection()
+                ->select(CreditTierDriftSql::SQL),
+        );
+
+        return \array_map(
+            static function (object $row): CreditTierLabelChangeDTO {
+                $tier = $row->target_label === null ? null : CreditTier::tryFrom($row->target_label);
+                Assert::true(
+                    $row->target_label === null || $tier !== null,
+                    'SQL returned unrecognised credit tier label',
+                );
+
+                return new CreditTierLabelChangeDTO(
+                    productId: IntId::fromTrusted($row->external_id),
+                    targetTier: $tier,
                 );
             },
             $rows,

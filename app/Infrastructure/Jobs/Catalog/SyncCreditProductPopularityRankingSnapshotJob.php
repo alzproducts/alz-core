@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Jobs\Catalog;
 
-use App\Application\Catalog\UseCases\SnapshotProductPopularityRankingUseCase;
+use App\Application\Catalog\UseCases\SnapshotCreditProductPopularityRankingUseCase;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
@@ -17,20 +17,18 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 
 /**
- * Weekly job: inserts ~2,500 snapshot rows into catalog.product_popularity_snapshots
- * by reading from catalog.product_popularity_ranking (expensive view) and stamping
- * CURRENT_DATE as the snapshot_date.
+ * Weekly job: insert one row per product into
+ * catalog.credit_product_popularity_snapshots by reading from
+ * catalog.credit_product_popularity_ranking and stamping CURRENT_DATE.
  *
- * The composite PK on (snapshot_date, parent_external_id) ensures accidental
- * double-fires on the same day throw DuplicateRecordException rather than
- * silently overwriting history.
+ * Composite PK on (snapshot_date, parent_external_id) ensures accidental
+ * double-fires throw DuplicateRecordException instead of overwriting history.
  *
  * Scheduled Sunday 03:00 Europe/London via CatalogScheduleServiceProvider.
- * Timeout 3600s matches the `low` queue tier.
  *
- * @see SnapshotProductPopularityRankingUseCase
+ * @see SnapshotCreditProductPopularityRankingUseCase
  */
-final class SyncProductPopularityRankingSnapshotJob implements ShouldBeUnique, ShouldQueue
+final class SyncCreditProductPopularityRankingSnapshotJob implements ShouldBeUnique, ShouldQueue
 {
     use Dispatchable;
     use InteractsWithQueue;
@@ -66,7 +64,7 @@ final class SyncProductPopularityRankingSnapshotJob implements ShouldBeUnique, S
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      */
-    public function handle(SnapshotProductPopularityRankingUseCase $useCase): void
+    public function handle(SnapshotCreditProductPopularityRankingUseCase $useCase): void
     {
         $useCase->execute();
     }
