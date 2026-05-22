@@ -57,6 +57,7 @@ final readonly class BingAdsConfig
         public string $environment = 'Production',
         public int $reportPollIntervalSeconds = 10,
         public int $reportPollMaxAttempts = 30,
+        public ?string $offlineLeadConversionGoalName = null,
     ) {
         self::validateRequiredStrings([
             'bing-ads.client_id' => [$clientId, 'Bing Ads client ID cannot be empty'],
@@ -67,6 +68,29 @@ final readonly class BingAdsConfig
             'bing-ads.customer_id' => [$customerId, 'Bing Ads customer ID cannot be empty'],
         ]);
         self::validateRanges($environment, $reportPollIntervalSeconds, $reportPollMaxAttempts);
+
+        if ($offlineLeadConversionGoalName === '') {
+            throw new InvalidConfigurationException(
+                'bing-ads.offline_lead_conversion_goal_name',
+                'Bing Ads offline lead conversion goal name cannot be empty when provided',
+            );
+        }
+    }
+
+    public function withOfflineLeadConversionGoalName(string $offlineLeadConversionGoalName): self
+    {
+        return new self(
+            clientId: $this->clientId,
+            clientSecret: $this->clientSecret,
+            refreshToken: $this->refreshToken,
+            developerToken: $this->developerToken,
+            accountId: $this->accountId,
+            customerId: $this->customerId,
+            environment: $this->environment,
+            reportPollIntervalSeconds: $this->reportPollIntervalSeconds,
+            reportPollMaxAttempts: $this->reportPollMaxAttempts,
+            offlineLeadConversionGoalName: $offlineLeadConversionGoalName,
+        );
     }
 
     /**

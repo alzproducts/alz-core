@@ -56,4 +56,16 @@ return [
 
     'report_poll_interval_seconds' => (int) env('BING_ADS_REPORT_POLL_INTERVAL', 10),
     'report_poll_max_attempts' => (int) env('BING_ADS_REPORT_POLL_MAX_ATTEMPTS', 30),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Offline Conversion Goal Names
+    |--------------------------------------------------------------------------
+    |
+    | Conversion goal names as configured in the Microsoft Advertising UI.
+    | Each goal type maps to a named goal in the account.
+    |
+    */
+
+    'offline_lead_conversion_goal_name' => env('BING_ADS_OFFLINE_LEAD_CONVERSION_GOAL_NAME'),
 ];

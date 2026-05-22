@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace App\Infrastructure\BingAds;
 
 use App\Application\Contracts\BingAdsClientInterface;
+use App\Application\Contracts\BingAdsConversionInterface;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\UnexpectedApiResultException;
 use App\Domain\Exceptions\InvalidConfigurationException;
+use App\Infrastructure\Phone\PhoneNormalisationService;
 use Microsoft\BingAds\V13\CustomerManagement\CurrencyCode;
 
 /**
@@ -35,6 +37,30 @@ final class BingAdsClientFactory
         self::validateCurrency($transport);
 
         return new BingAdsClient($transport);
+    }
+
+    public static function createConversionService(
+        BingAdsSessionManager $sessionManager,
+        PhoneNormalisationService $phoneNormalisationService,
+    ): BingAdsConversionInterface {
+        $config = self::createConversionConfig();
+        $transport = new BingAdsConversionTransport($sessionManager, $config);
+        $client = new BingAdsConversionClient($transport, $config);
+
+        return new BingAdsConversionService($client, $config, $phoneNormalisationService);
+    }
+
+    /**
+     * Create conversion-capable config by extending the base config with goal names.
+     */
+    private static function createConversionConfig(): BingAdsConfig
+    {
+        $goalName = \config('bing-ads.offline_lead_conversion_goal_name');
+        if (!\is_string($goalName)) {
+            throw new InvalidConfigurationException('BING_ADS_OFFLINE_LEAD_CONVERSION_GOAL_NAME');
+        }
+
+        return self::createConfig()->withOfflineLeadConversionGoalName($goalName);
     }
 
     /**

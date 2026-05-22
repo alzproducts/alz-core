@@ -6,12 +6,14 @@ namespace App\Providers;
 
 use App\Application\AdSpend\UseCases\SyncAdSpendUseCase;
 use App\Application\Contracts\BingAdsClientInterface;
+use App\Application\Contracts\BingAdsConversionInterface;
 use App\Application\Contracts\LockableCacheInterface;
 use App\Application\Contracts\MixpanelClientInterface;
 use App\Infrastructure\BingAds\BingAdsClientFactory;
 use App\Infrastructure\BingAds\BingAdsConfig;
 use App\Infrastructure\BingAds\BingAdsSessionManager;
 use App\Infrastructure\Jobs\Mixpanel\SyncBingAdsToMixpanelJob;
+use App\Infrastructure\Phone\PhoneNormalisationService;
 use Illuminate\Contracts\Container\BindingResolutionException;
 use Illuminate\Contracts\Container\Container;
 use Illuminate\Contracts\Support\DeferrableProvider;
@@ -48,6 +50,7 @@ final class BingAdsServiceProvider extends ServiceProvider implements Deferrable
     {
         $this->registerSessionManager();
         $this->registerClient();
+        $this->registerConversionClient();
         $this->registerContextualBindings();
     }
 
@@ -68,6 +71,17 @@ final class BingAdsServiceProvider extends ServiceProvider implements Deferrable
             BingAdsClientInterface::class,
             static fn(Container $app): BingAdsClientInterface => BingAdsClientFactory::create(
                 $app->make(BingAdsSessionManager::class),
+            ),
+        );
+    }
+
+    private function registerConversionClient(): void
+    {
+        $this->app->singleton(
+            BingAdsConversionInterface::class,
+            static fn(Container $app): BingAdsConversionInterface => BingAdsClientFactory::createConversionService(
+                $app->make(BingAdsSessionManager::class),
+                $app->make(PhoneNormalisationService::class),
             ),
         );
     }
@@ -98,6 +112,7 @@ final class BingAdsServiceProvider extends ServiceProvider implements Deferrable
     {
         return [
             BingAdsClientInterface::class,
+            BingAdsConversionInterface::class,
             BingAdsSessionManager::class,
         ];
     }
