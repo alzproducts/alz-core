@@ -14,12 +14,15 @@ use Microsoft\MsAds\Rest\Model\CampaignManagementService\OfflineConversion;
 /**
  * Thin client that wraps an {@see OfflineConversion} in an upload request
  * and delegates to {@see BingAdsConversionTransport}.
+ *
+ * AccountId/CustomerId travel as CustomerAccountId/CustomerId HTTP headers
+ * via {@see BingAdsConversionTransport::createCampaignManagementApi()} — the
+ * SDK's request schema only contains `OfflineConversions`.
  */
 final readonly class BingAdsConversionClient
 {
     public function __construct(
         private BingAdsConversionTransport $transport,
-        private BingAdsConfig $config,
     ) {}
 
     /**
@@ -31,7 +34,6 @@ final readonly class BingAdsConversionClient
     public function uploadOfflineConversion(OfflineConversion $conversion): void
     {
         $request = new ApplyOfflineConversionsRequest([
-            'AccountId' => $this->config->accountId,
             'OfflineConversions' => [$conversion],
         ]);
 

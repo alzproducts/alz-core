@@ -43,7 +43,7 @@ final class BingAdsClientFactory
     ): BingAdsConversionClient {
         $transport = new BingAdsConversionTransport($sessionManager, $config);
 
-        return new BingAdsConversionClient($transport, $config);
+        return new BingAdsConversionClient($transport);
     }
 
     public static function createConversionConfig(): BingAdsConfig

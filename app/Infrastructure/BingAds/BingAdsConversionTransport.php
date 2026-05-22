@@ -47,8 +47,9 @@ final readonly class BingAdsConversionTransport
         $api = $this->createCampaignManagementApi();
 
         try {
-            /** @var ApplyOfflineConversionsResponse $response */
-            $response = $api->applyOfflineConversions($request);
+            /** @var array{0: ApplyOfflineConversionsResponse, 1: int, 2: array<array<string>>} $result */
+            $result = $api->applyOfflineConversionsWithHttpInfo($request);
+            [$response, , $headers] = $result;
         } catch (RestApiException $e) {
             throw $this->handleApiException($e);
         } catch (Exception $e) {
@@ -56,6 +57,12 @@ final readonly class BingAdsConversionTransport
         }
 
         $this->handlePartialErrors($response);
+
+        // Successful uploads have no per-conversion ID — only the TrackingId from
+        // the response headers ties the request back to Microsoft's audit log.
+        Log::info(self::SERVICE_NAME . ' conversion accepted', [
+            'tracking_id' => self::extractTrackingIdFromHeaders($headers),
+        ]);
     }
 
     /**
@@ -201,8 +208,14 @@ final readonly class BingAdsConversionTransport
 
     private function extractTrackingId(RestApiException $e): ?string
     {
-        $headers = $e->getResponseHeaders();
+        return self::extractTrackingIdFromHeaders($e->getResponseHeaders());
+    }
 
+    /**
+     * @param array<array<string>>|null $headers
+     */
+    private static function extractTrackingIdFromHeaders(?array $headers): ?string
+    {
         if ($headers === null) {
             return null;
         }
