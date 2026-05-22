@@ -149,6 +149,7 @@ final readonly class ProcessQuoteConversionUseCase
             email: $submission->form->email,
             convertedAt: $convertedAt,
             value: Money::exclusive($value),
+            phone: $submission->form->phone,
         );
     }
 

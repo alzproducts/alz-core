@@ -13,6 +13,7 @@ use App\Domain\Shared\Money\ValueObjects\Money;
 use App\Infrastructure\GoogleAds\GoogleAdsConfig;
 use App\Infrastructure\GoogleAds\GoogleAdsConversionClient;
 use App\Infrastructure\GoogleAds\GoogleAdsTransport;
+use App\Infrastructure\Phone\PhoneNormalisationService;
 use DateTimeImmutable;
 use Google\Ads\GoogleAds\V22\Services\ClickConversion;
 use Google\Ads\GoogleAds\V22\Services\UploadClickConversionsRequest;
@@ -59,7 +60,7 @@ final class GoogleAdsConversionClientTest extends TestCase
         );
 
         $this->mockTransport = Mockery::mock(GoogleAdsTransport::class);
-        $this->client = new GoogleAdsConversionClient($this->mockTransport, $config);
+        $this->client = new GoogleAdsConversionClient($this->mockTransport, $config, new PhoneNormalisationService());
     }
 
     #[Test]
@@ -375,6 +376,68 @@ final class GoogleAdsConversionClientTest extends TestCase
                 value: null,
             ),
         );
+    }
+
+    #[Test]
+    public function it_adds_hashed_phone_identifier_when_valid_phone_provided(): void
+    {
+        $captured = $this->captureUploadRequest();
+
+        $this->client->uploadConversion(
+            ConversionType::LeadReceived,
+            new ClickConversionData(
+                gclid: 'CjwKgclid',
+                email: 'user@example.com',
+                convertedAt: new DateTimeImmutable('2026-05-16 10:30:00+00:00'),
+                value: null,
+                phone: '07911 123456',
+            ),
+        );
+
+        $identifiers = \iterator_to_array($this->firstConversion($captured)->getUserIdentifiers());
+        $this->assertCount(2, $identifiers);
+        $this->assertSame(\hash('sha256', 'user@example.com'), $identifiers[0]->getHashedEmail());
+        $this->assertSame(\hash('sha256', '+447911123456'), $identifiers[1]->getHashedPhoneNumber());
+    }
+
+    #[Test]
+    public function it_omits_phone_identifier_when_phone_is_null(): void
+    {
+        $captured = $this->captureUploadRequest();
+
+        $this->client->uploadConversion(
+            ConversionType::LeadReceived,
+            new ClickConversionData(
+                gclid: 'CjwKgclid',
+                email: 'user@example.com',
+                convertedAt: new DateTimeImmutable('2026-05-16 10:30:00+00:00'),
+                value: null,
+                phone: null,
+            ),
+        );
+
+        $identifiers = \iterator_to_array($this->firstConversion($captured)->getUserIdentifiers());
+        $this->assertCount(1, $identifiers);
+    }
+
+    #[Test]
+    public function it_omits_phone_identifier_when_phone_cannot_be_normalised(): void
+    {
+        $captured = $this->captureUploadRequest();
+
+        $this->client->uploadConversion(
+            ConversionType::LeadReceived,
+            new ClickConversionData(
+                gclid: 'CjwKgclid',
+                email: 'user@example.com',
+                convertedAt: new DateTimeImmutable('2026-05-16 10:30:00+00:00'),
+                value: null,
+                phone: 'not-a-phone-number',
+            ),
+        );
+
+        $identifiers = \iterator_to_array($this->firstConversion($captured)->getUserIdentifiers());
+        $this->assertCount(1, $identifiers);
     }
 
     /**

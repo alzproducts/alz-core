@@ -141,6 +141,7 @@ final readonly class ProcessLeadConversionUseCase
             email: $submission->form->email,
             convertedAt: $submittedAt,
             value: null,
+            phone: $submission->form->phone,
         );
     }
 }

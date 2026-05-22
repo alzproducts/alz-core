@@ -10,6 +10,7 @@ use App\Domain\Conversion\ValueObjects\ClickConversionData;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
+use App\Infrastructure\Phone\PhoneNormalisationService;
 use Google\Ads\GoogleAds\V22\Common\UserIdentifier;
 use Google\Ads\GoogleAds\V22\Services\ClickConversion;
 use Google\Ads\GoogleAds\V22\Services\UploadClickConversionsRequest;
@@ -28,6 +29,7 @@ final readonly class GoogleAdsConversionClient implements GoogleAdsConversionCli
     public function __construct(
         private GoogleAdsTransport $transport,
         private GoogleAdsConfig $config,
+        private PhoneNormalisationService $phoneNormalisationService,
     ) {}
 
     /**
@@ -55,14 +57,11 @@ final readonly class GoogleAdsConversionClient implements GoogleAdsConversionCli
             $this->resolveActionId($type),
         );
 
-        $userIdentifier = new UserIdentifier();
-        $userIdentifier->setHashedEmail(self::hashEmail($data->email));
-
         $conversion = new ClickConversion();
         $conversion->setConversionAction($actionResourceName);
         $conversion->setGclid($data->gclid);
         $conversion->setConversionDateTime($data->convertedAt->format('Y-m-d H:i:sP'));
-        $conversion->setUserIdentifiers([$userIdentifier]);
+        $conversion->setUserIdentifiers($this->buildUserIdentifiers($data));
 
         if ($data->value !== null) {
             $conversion->setConversionValue($data->value->toNet());
@@ -70,6 +69,29 @@ final readonly class GoogleAdsConversionClient implements GoogleAdsConversionCli
         }
 
         return $conversion;
+    }
+
+    /**
+     * @return list<UserIdentifier>
+     */
+    private function buildUserIdentifiers(ClickConversionData $data): array
+    {
+        $emailIdentifier = new UserIdentifier();
+        $emailIdentifier->setHashedEmail(self::hashEmail($data->email));
+
+        $userIdentifiers = [$emailIdentifier];
+
+        if ($data->phone !== null) {
+            $e164 = $this->phoneNormalisationService->toE164($data->phone);
+
+            if ($e164 !== null) {
+                $phoneIdentifier = new UserIdentifier();
+                $phoneIdentifier->setHashedPhoneNumber(self::hashPhone($e164));
+                $userIdentifiers[] = $phoneIdentifier;
+            }
+        }
+
+        return $userIdentifiers;
     }
 
     private function resolveActionId(ConversionType $type): string
@@ -90,5 +112,10 @@ final readonly class GoogleAdsConversionClient implements GoogleAdsConversionCli
     private static function hashEmail(string $email): string
     {
         return \hash('sha256', \mb_strtolower(\mb_trim($email)));
+    }
+
+    private static function hashPhone(string $e164): string
+    {
+        return \hash('sha256', $e164);
     }
 }

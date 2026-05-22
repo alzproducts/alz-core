@@ -7,6 +7,7 @@ namespace App\Infrastructure\GoogleAds;
 use App\Application\Contracts\GoogleAdsClientInterface;
 use App\Application\Contracts\GoogleAdsConversionClientInterface;
 use App\Domain\Exceptions\InvalidConfigurationException;
+use App\Infrastructure\Phone\PhoneNormalisationService;
 use Google\Ads\GoogleAds\Lib\OAuth2TokenBuilder;
 use Google\Ads\GoogleAds\Lib\V22\GoogleAdsClient as SdkGoogleAdsClient;
 use Google\Ads\GoogleAds\Lib\V22\GoogleAdsClientBuilder;
@@ -34,7 +35,7 @@ final class GoogleAdsClientFactory
         $sdkClient = self::buildSdkClient($config);
         $transport = new GoogleAdsTransport($sdkClient, $config);
 
-        return new GoogleAdsConversionClient($transport, $config);
+        return new GoogleAdsConversionClient($transport, $config, new PhoneNormalisationService());
     }
 
     /**

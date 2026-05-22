@@ -15,6 +15,7 @@ final readonly class ClickConversionData
         public string $email,
         public DateTimeImmutable $convertedAt,
         public ?Money $value,
+        public ?string $phone = null,
     ) {
         Assert::notEmpty($gclid, 'gclid cannot be empty');
         Assert::notEmpty($email, 'email cannot be empty');
