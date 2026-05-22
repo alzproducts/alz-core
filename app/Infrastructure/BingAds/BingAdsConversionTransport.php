@@ -115,7 +115,13 @@ final readonly class BingAdsConversionTransport
             'first_message' => $message,
         ]);
 
-        throw new InvalidApiRequestException(self::SERVICE_NAME, $message);
+        // Bing's BatchError message can echo back rejected user input (email, msclkid, phone)
+        // depending on the error type. Keep the full message in logs only; the exception carries
+        // the code for Sentry grouping without risking PII in error tracking.
+        throw new InvalidApiRequestException(
+            self::SERVICE_NAME,
+            \sprintf('Conversion rejected by Bing (code: %s)', $code ?? 'unknown'),
+        );
     }
 
     private function handleApiException(RestApiException $e): AuthenticationExpiredException|ExternalServiceUnavailableException|InvalidApiRequestException

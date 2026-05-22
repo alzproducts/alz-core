@@ -6,6 +6,7 @@ namespace App\Application\Contracts;
 
 use App\Application\Conversion\BingConversionUploadDTO;
 use App\Domain\Conversion\Enums\ConversionType;
+use App\Domain\Conversion\Exceptions\UnsupportedConversionTypeException;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
@@ -23,6 +24,7 @@ interface BingAdsConversionInterface
      * @throws AuthenticationExpiredException When credentials are invalid or expired
      * @throws InvalidApiRequestException When Bing rejects the conversion data (e.g. unknown goal, duplicate conversion)
      * @throws InvalidApiResponseException When the OAuth token response is malformed
+     * @throws UnsupportedConversionTypeException When Bing does not support the given ConversionType
      */
     public function uploadOfflineConversion(ConversionType $type, BingConversionUploadDTO $data): void;
 }

@@ -7,11 +7,13 @@ namespace App\Infrastructure\BingAds;
 use App\Application\Contracts\BingAdsConversionInterface;
 use App\Application\Conversion\BingConversionUploadDTO;
 use App\Domain\Conversion\Enums\ConversionType;
+use App\Domain\Conversion\Exceptions\UnsupportedConversionTypeException;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Infrastructure\Phone\PhoneNormalisationService;
+use DateTimeInterface;
 use Microsoft\MsAds\Rest\Model\CampaignManagementService\OfflineConversion;
 use Webmozart\Assert\Assert;
 
@@ -21,6 +23,8 @@ use Webmozart\Assert\Assert;
  */
 final readonly class BingAdsConversionService implements BingAdsConversionInterface
 {
+    private const string PLATFORM_NAME = 'Bing Ads';
+
     public function __construct(
         private BingAdsConversionClient $client,
         private BingAdsConfig $config,
@@ -32,6 +36,7 @@ final readonly class BingAdsConversionService implements BingAdsConversionInterf
      * @throws AuthenticationExpiredException
      * @throws InvalidApiRequestException
      * @throws InvalidApiResponseException
+     * @throws UnsupportedConversionTypeException When Bing does not support the given ConversionType
      */
     public function uploadOfflineConversion(ConversionType $type, BingConversionUploadDTO $data): void
     {
@@ -40,11 +45,16 @@ final readonly class BingAdsConversionService implements BingAdsConversionInterf
         $this->client->uploadOfflineConversion($conversion);
     }
 
+    /**
+     * @throws UnsupportedConversionTypeException
+     */
     private function buildOfflineConversion(ConversionType $type, BingConversionUploadDTO $data): OfflineConversion
     {
         $fields = [
             'ConversionName' => $this->resolveGoalName($type),
-            'ConversionTime' => $data->convertedAt,
+            // SDK serializer's `instanceof \DateTime` check excludes DateTimeImmutable, so we
+            // pre-format to the ATOM string the SDK would have emitted (passes through scalar branch).
+            'ConversionTime' => $data->convertedAt->format(DateTimeInterface::ATOM),
             'MicrosoftClickId' => $data->msclkid,
             'HashedEmailAddress' => self::hashEmail($data->email),
             ...$this->buildEnhancedMatchFields($data),
@@ -87,13 +97,17 @@ final readonly class BingAdsConversionService implements BingAdsConversionInterf
         ];
     }
 
+    /**
+     * @throws UnsupportedConversionTypeException When Bing does not support the given ConversionType
+     */
     private function resolveGoalName(ConversionType $type): string
     {
         $goalName = match ($type) {
             ConversionType::LeadReceived => $this->config->offlineLeadConversionGoalName,
-            ConversionType::QuoteIssued => null,
+            ConversionType::QuoteIssued => throw new UnsupportedConversionTypeException($type, self::PLATFORM_NAME),
         };
 
+        // LeadReceived goal name presence is enforced at config-load time by BingAdsClientFactory::createConversionConfig().
         Assert::notNull(
             $goalName,
             'Bing Ads conversion goal name must be configured before using the conversion client',

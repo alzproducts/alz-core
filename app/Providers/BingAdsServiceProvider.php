@@ -79,18 +79,43 @@ final class BingAdsServiceProvider extends ServiceProvider implements Deferrable
 
     private function registerConversionClient(): void
     {
+        $this->registerConversionConfig();
+        $this->registerConversionClientBinding();
+        $this->registerConversionServiceBinding();
+    }
+
+    /**
+     * Shared singleton — Client and Service receive the same BingAdsConfig instance,
+     * so config + goal-name validation runs once per resolution. SOAP `BingAdsSessionManager`
+     * builds its own config inline (not via container), so this binding is reserved for
+     * the conversion variant.
+     */
+    private function registerConversionConfig(): void
+    {
+        $this->app->singleton(
+            BingAdsConfig::class,
+            static fn(): BingAdsConfig => BingAdsClientFactory::createConversionConfig(),
+        );
+    }
+
+    private function registerConversionClientBinding(): void
+    {
         $this->app->singleton(
             BingAdsConversionClient::class,
             static fn(Container $app): BingAdsConversionClient => BingAdsClientFactory::createConversionClient(
                 $app->make(BingAdsSessionManager::class),
+                $app->make(BingAdsConfig::class),
             ),
         );
+    }
 
+    private function registerConversionServiceBinding(): void
+    {
         $this->app->singleton(
             BingAdsConversionInterface::class,
             static fn(Container $app): BingAdsConversionInterface => new BingAdsConversionService(
                 $app->make(BingAdsConversionClient::class),
-                BingAdsClientFactory::createConversionConfig(),
+                $app->make(BingAdsConfig::class),
                 $app->make(PhoneNormalisationService::class),
             ),
         );

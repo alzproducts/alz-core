@@ -37,9 +37,10 @@ final class BingAdsClientFactory
         return new BingAdsClient($transport);
     }
 
-    public static function createConversionClient(BingAdsSessionManager $sessionManager): BingAdsConversionClient
-    {
-        $config = self::createConversionConfig();
+    public static function createConversionClient(
+        BingAdsSessionManager $sessionManager,
+        BingAdsConfig $config,
+    ): BingAdsConversionClient {
         $transport = new BingAdsConversionTransport($sessionManager, $config);
 
         return new BingAdsConversionClient($transport, $config);
