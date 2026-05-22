@@ -6,10 +6,10 @@ namespace App\Application\Conversion\UseCases;
 
 use App\Application\Contracts\ContactSubmission\ContactSubmissionActionRepositoryInterface;
 use App\Application\Contracts\ContactSubmission\ContactSubmissionRepositoryInterface;
-use App\Application\Contracts\GoogleAdsConversionClientInterface;
+use App\Application\Contracts\GoogleAdsConversionInterface;
+use App\Application\Conversion\GoogleConversionUploadDTO;
 use App\Domain\ContactSubmission\ValueObjects\ContactSubmission;
 use App\Domain\Conversion\Enums\ConversionType;
-use App\Domain\Conversion\ValueObjects\ClickConversionData;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
@@ -37,7 +37,7 @@ final readonly class ProcessLeadConversionUseCase
     public function __construct(
         private ContactSubmissionRepositoryInterface $submissionRepository,
         private ContactSubmissionActionRepositoryInterface $actionRepository,
-        private GoogleAdsConversionClientInterface $conversionClient,
+        private GoogleAdsConversionInterface $conversionClient,
         private LoggerInterface $logger,
     ) {}
 
@@ -102,7 +102,7 @@ final readonly class ProcessLeadConversionUseCase
      */
     private function uploadAndMarkComplete(ContactSubmission $submission, string $submissionId, string $actionId): void
     {
-        $data = self::buildClickConversionData($submission);
+        $data = self::buildConversionUploadDTO($submission);
 
         $this->conversionClient->uploadConversion(ConversionType::LeadReceived, $data);
 
@@ -124,7 +124,7 @@ final readonly class ProcessLeadConversionUseCase
      *
      * @throws InsufficientDataException When gclid or submission timestamp is missing
      */
-    private static function buildClickConversionData(ContactSubmission $submission): ClickConversionData
+    private static function buildConversionUploadDTO(ContactSubmission $submission): GoogleConversionUploadDTO
     {
         $gclid = $submission->attribution->gclid;
         if ($gclid === null || $gclid === '') {
@@ -136,11 +136,12 @@ final readonly class ProcessLeadConversionUseCase
             throw new InsufficientDataException('ContactSubmission', 'a submission timestamp for conversion time');
         }
 
-        return new ClickConversionData(
+        return new GoogleConversionUploadDTO(
             gclid: $gclid,
             email: $submission->form->email,
             convertedAt: $submittedAt,
             value: null,
+            phone: $submission->form->phone,
         );
     }
 }
