@@ -69,11 +69,10 @@ final readonly class BingAdsConfig
         ]);
         self::validateRanges($environment, $reportPollIntervalSeconds, $reportPollMaxAttempts);
 
-        if ($offlineLeadConversionGoalName === '') {
-            throw new InvalidConfigurationException(
-                'bing-ads.offline_lead_conversion_goal_name',
-                'Bing Ads offline lead conversion goal name cannot be empty when provided',
-            );
+        if ($offlineLeadConversionGoalName !== null) {
+            self::validateRequiredStrings([
+                'bing-ads.offline_lead_conversion_goal_name' => [$offlineLeadConversionGoalName, 'Bing Ads offline lead conversion goal name cannot be empty when provided'],
+            ]);
         }
     }
 

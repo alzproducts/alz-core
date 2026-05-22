@@ -11,6 +11,8 @@ use App\Application\Contracts\LockableCacheInterface;
 use App\Application\Contracts\MixpanelClientInterface;
 use App\Infrastructure\BingAds\BingAdsClientFactory;
 use App\Infrastructure\BingAds\BingAdsConfig;
+use App\Infrastructure\BingAds\BingAdsConversionClient;
+use App\Infrastructure\BingAds\BingAdsConversionService;
 use App\Infrastructure\BingAds\BingAdsSessionManager;
 use App\Infrastructure\Jobs\Mixpanel\SyncBingAdsToMixpanelJob;
 use App\Infrastructure\Phone\PhoneNormalisationService;
@@ -78,9 +80,17 @@ final class BingAdsServiceProvider extends ServiceProvider implements Deferrable
     private function registerConversionClient(): void
     {
         $this->app->singleton(
-            BingAdsConversionInterface::class,
-            static fn(Container $app): BingAdsConversionInterface => BingAdsClientFactory::createConversionService(
+            BingAdsConversionClient::class,
+            static fn(Container $app): BingAdsConversionClient => BingAdsClientFactory::createConversionClient(
                 $app->make(BingAdsSessionManager::class),
+            ),
+        );
+
+        $this->app->singleton(
+            BingAdsConversionInterface::class,
+            static fn(Container $app): BingAdsConversionInterface => new BingAdsConversionService(
+                $app->make(BingAdsConversionClient::class),
+                BingAdsClientFactory::createConversionConfig(),
                 $app->make(PhoneNormalisationService::class),
             ),
         );
@@ -112,6 +122,7 @@ final class BingAdsServiceProvider extends ServiceProvider implements Deferrable
     {
         return [
             BingAdsClientInterface::class,
+            BingAdsConversionClient::class,
             BingAdsConversionInterface::class,
             BingAdsSessionManager::class,
         ];

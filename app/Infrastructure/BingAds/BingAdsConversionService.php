@@ -33,11 +33,11 @@ final readonly class BingAdsConversionService implements BingAdsConversionInterf
      * @throws InvalidApiRequestException
      * @throws InvalidApiResponseException
      */
-    public function uploadConversion(ConversionType $type, BingConversionUploadDTO $data): void
+    public function uploadOfflineConversion(ConversionType $type, BingConversionUploadDTO $data): void
     {
         $conversion = $this->buildOfflineConversion($type, $data);
 
-        $this->client->uploadConversion($conversion);
+        $this->client->uploadOfflineConversion($conversion);
     }
 
     private function buildOfflineConversion(ConversionType $type, BingConversionUploadDTO $data): OfflineConversion
@@ -48,32 +48,43 @@ final readonly class BingAdsConversionService implements BingAdsConversionInterf
             'MicrosoftClickId' => $data->msclkid,
             'HashedEmailAddress' => self::hashEmail($data->email),
             ...$this->buildEnhancedMatchFields($data),
+            ...$this->buildConversionValueFields($data),
         ];
 
         return new OfflineConversion($fields);
     }
 
     /**
-     * @return array<string, string|float>
+     * @return array<string, string>
      */
     private function buildEnhancedMatchFields(BingConversionUploadDTO $data): array
     {
-        $fields = [];
-
-        if ($data->phone !== null) {
-            $e164 = $this->phoneNormalisationService->toE164($data->phone);
-
-            if ($e164 !== null) {
-                $fields['HashedPhoneNumber'] = self::hashPhone($e164);
-            }
+        if ($data->phone === null) {
+            return [];
         }
 
-        if ($data->value !== null) {
-            $fields['ConversionValue'] = $data->value->toNet();
-            $fields['ConversionCurrencyCode'] = $data->value->currency;
+        $e164 = $this->phoneNormalisationService->toE164($data->phone);
+
+        if ($e164 === null) {
+            return [];
         }
 
-        return $fields;
+        return ['HashedPhoneNumber' => self::hashPhone($e164)];
+    }
+
+    /**
+     * @return array<string, string|float>
+     */
+    private function buildConversionValueFields(BingConversionUploadDTO $data): array
+    {
+        if ($data->value === null) {
+            return [];
+        }
+
+        return [
+            'ConversionValue' => $data->value->toNet(),
+            'ConversionCurrencyCode' => $data->value->currency,
+        ];
     }
 
     private function resolveGoalName(ConversionType $type): string

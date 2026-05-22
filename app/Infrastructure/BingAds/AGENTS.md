@@ -11,15 +11,6 @@ Two SDK packages, two transport classes, one `SessionManager`:
 
 Both transports bridge auth from `BingAdsSessionManager` (OAuth token refresh + Redis caching). See ADR-0003.
 
-### Conversion chain
-`Config → SessionManager → ConversionTransport → ConversionClient → ConversionService`
-- **Service** builds `OfflineConversion` from DTO (hashes PII, resolves goal name)
-- **Client** packages conversion into `ApplyOfflineConversionsRequest` with account ID
-- **Transport** creates REST SDK API, calls SDK, translates exceptions
-
-### Report chain (existing)
-`Config → SessionManager → Transport → Client → Factory`
-
 ## Key Differences from Google Ads
 
 | Aspect | Google Ads | Bing Ads |

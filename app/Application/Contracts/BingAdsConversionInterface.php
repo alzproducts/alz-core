@@ -24,5 +24,5 @@ interface BingAdsConversionInterface
      * @throws InvalidApiRequestException When Bing rejects the conversion data (e.g. unknown goal, duplicate conversion)
      * @throws InvalidApiResponseException When the OAuth token response is malformed
      */
-    public function uploadConversion(ConversionType $type, BingConversionUploadDTO $data): void;
+    public function uploadOfflineConversion(ConversionType $type, BingConversionUploadDTO $data): void;
 }

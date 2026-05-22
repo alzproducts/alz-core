@@ -28,7 +28,7 @@ final readonly class BingAdsConversionClient
      * @throws InvalidApiRequestException
      * @throws InvalidApiResponseException
      */
-    public function uploadConversion(OfflineConversion $conversion): void
+    public function uploadOfflineConversion(OfflineConversion $conversion): void
     {
         $request = new ApplyOfflineConversionsRequest([
             'AccountId' => $this->config->accountId,
