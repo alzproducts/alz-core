@@ -15,6 +15,7 @@ use App\Domain\Catalog\Product\ValueObjects\ProductLinks;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariationView;
 use App\Domain\Catalog\Product\ValueObjects\ProductView;
 use App\Domain\Catalog\Product\ValueObjects\ProductViewMeta;
+use App\Domain\Catalog\Product\ValueObjects\StockStatus;
 use App\Domain\Shared\ValueObjects\DateFormat;
 use App\Domain\ValueObjects\IntId;
 use App\Domain\ValueObjects\Uuid;
@@ -417,6 +418,38 @@ final class ProductViewTest extends TestCase
 
         self::assertSame(0, $view->stockLevel->availableStock);
         self::assertSame(0, $view->stockLevel->physicalStock);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | stockStatus (always present; individual properties nullable)
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function stock_status_is_always_present_with_null_defaults(): void
+    {
+        $view = $this->createView();
+
+        self::assertInstanceOf(StockStatus::class, $view->stockStatus);
+        self::assertNull($view->stockStatus->discontinued);
+        self::assertNull($view->stockStatus->preorderDate);
+        self::assertNull($view->stockStatus->otherStockStatus);
+    }
+
+    #[Test]
+    public function stock_status_populated_from_constructor_args(): void
+    {
+        $preorderDate = new DateTimeImmutable('2026-06-15T00:00:00+00:00');
+        $view = $this->createView(
+            discontinued: 'yes',
+            preorderDate: $preorderDate,
+            otherStockStatus: 'awaiting_restock',
+        );
+
+        self::assertSame('yes', $view->stockStatus->discontinued);
+        self::assertSame($preorderDate, $view->stockStatus->preorderDate);
+        self::assertSame('awaiting_restock', $view->stockStatus->otherStockStatus);
     }
 
     /*
@@ -996,6 +1029,9 @@ final class ProductViewTest extends TestCase
         array $customFields = [],
         int $parentAvailableStock = 0,
         int $parentPhysicalStock = 0,
+        ?string $discontinued = null,
+        ?DateTimeImmutable $preorderDate = null,
+        ?string $otherStockStatus = null,
     ): ProductView {
         $effectiveAllVariations = $allVariations ?? $variations;
 
@@ -1036,6 +1072,9 @@ final class ProductViewTest extends TestCase
             parentPhysicalStock: $parentPhysicalStock,
             allVariations: $effectiveAllVariations,
             freeDelivery: $freeDelivery,
+            discontinued: $discontinued,
+            preorderDate: $preorderDate,
+            otherStockStatus: $otherStockStatus,
         );
     }
 }

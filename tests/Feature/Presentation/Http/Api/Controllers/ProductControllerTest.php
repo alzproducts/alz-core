@@ -22,6 +22,7 @@ use App\Domain\Shared\Pagination\Enums\SortDirection;
 use App\Domain\ValueObjects\PaginatedList;
 use App\Presentation\Http\Api\Controllers\ProductController;
 use DateTimeImmutable;
+use DateTimeInterface;
 use Mockery;
 use Mockery\MockInterface;
 use Override;
@@ -1004,6 +1005,60 @@ final class ProductControllerTest extends TestCase
         $this->assertFalse($productData['has_single_selling_price']);
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | stock_status (promoted ShopWired custom fields)
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function stock_status_is_present_on_every_product_with_null_defaults(): void
+    {
+        $product = $this->createProduct(id: 1, title: 'Plain Product');
+        $dto = PaginatedList::fromPage(items: [$product], total: 1, perPage: 500, currentPage: 1);
+
+        $this->productRepository
+            ->shouldReceive('paginate')
+            ->once()
+            ->andReturn($dto);
+
+        $response = $this->asApprovedUser()->getJson('/api/products');
+
+        $response->assertStatus(200);
+        $stockStatus = $response->json()['data'][0]['stock_status'];
+        $this->assertSame(
+            ['discontinued' => null, 'preorder_date' => null, 'other_stock_status' => null],
+            $stockStatus,
+        );
+    }
+
+    #[Test]
+    public function stock_status_populated_fields_appear_in_response_with_atom_date(): void
+    {
+        $preorderDate = new DateTimeImmutable('2026-06-15T00:00:00+00:00');
+        $product = $this->createProduct(
+            id: 1,
+            title: 'Preorder Product',
+            discontinued: 'yes',
+            preorderDate: $preorderDate,
+            otherStockStatus: 'awaiting_restock',
+        );
+        $dto = PaginatedList::fromPage(items: [$product], total: 1, perPage: 500, currentPage: 1);
+
+        $this->productRepository
+            ->shouldReceive('paginate')
+            ->once()
+            ->andReturn($dto);
+
+        $response = $this->asApprovedUser()->getJson('/api/products');
+
+        $response->assertStatus(200);
+        $stockStatus = $response->json()['data'][0]['stock_status'];
+        $this->assertSame('yes', $stockStatus['discontinued']);
+        $this->assertSame($preorderDate->format(DateTimeInterface::ATOM), $stockStatus['preorder_date']);
+        $this->assertSame('awaiting_restock', $stockStatus['other_stock_status']);
+    }
+
     #[Test]
     public function empty_result_set_returns_correct_structure(): void
     {
@@ -1162,8 +1217,14 @@ final class ProductControllerTest extends TestCase
         );
     }
 
-    private function createProduct(int $id, string $title, ?Popularity $popularity = null): ProductView
-    {
+    private function createProduct(
+        int $id,
+        string $title,
+        ?Popularity $popularity = null,
+        ?string $discontinued = null,
+        ?DateTimeImmutable $preorderDate = null,
+        ?string $otherStockStatus = null,
+    ): ProductView {
         return new ProductView(
             externalId: $id,
             sku: null,
@@ -1201,6 +1262,9 @@ final class ProductControllerTest extends TestCase
             parentPhysicalStock: 0,
             allVariations: null,
             popularity: $popularity,
+            discontinued: $discontinued,
+            preorderDate: $preorderDate,
+            otherStockStatus: $otherStockStatus,
         );
     }
 
