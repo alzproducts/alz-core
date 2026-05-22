@@ -44,20 +44,18 @@ final readonly class BingAdsConversionTransport
      */
     public function applyOfflineConversion(ApplyOfflineConversionsRequest $request): void
     {
-        try {
-            $api = $this->createCampaignManagementApi();
+        $api = $this->createCampaignManagementApi();
 
+        try {
             /** @var ApplyOfflineConversionsResponse $response */
             $response = $api->applyOfflineConversions($request);
-
-            $this->handlePartialErrors($response);
         } catch (RestApiException $e) {
             throw $this->handleApiException($e);
-        } catch (AuthenticationExpiredException|ExternalServiceUnavailableException|InvalidApiRequestException|InvalidApiResponseException $e) {
-            throw $e;
         } catch (Exception $e) {
             throw $this->handleServerError($e);
         }
+
+        $this->handlePartialErrors($response);
     }
 
     /**
@@ -89,6 +87,13 @@ final readonly class BingAdsConversionTransport
     }
 
     /**
+     * Translate batch-level partial failures into a single Domain exception.
+     *
+     * Only the first error message is preserved — safe because
+     * {@see BingAdsConversionClient::uploadOfflineConversion} wraps a single
+     * OfflineConversion per request. If batching is ever added, this needs to
+     * aggregate all PartialErrors so failures aren't silently dropped.
+     *
      * @throws InvalidApiRequestException When at least one conversion was rejected
      */
     private function handlePartialErrors(ApplyOfflineConversionsResponse $response): void
@@ -113,16 +118,16 @@ final readonly class BingAdsConversionTransport
         throw new InvalidApiRequestException(self::SERVICE_NAME, $message);
     }
 
-    /**
-     * @return AuthenticationExpiredException|ExternalServiceUnavailableException
-     */
-    private function handleApiException(RestApiException $e): AuthenticationExpiredException|ExternalServiceUnavailableException
+    private function handleApiException(RestApiException $e): AuthenticationExpiredException|ExternalServiceUnavailableException|InvalidApiRequestException
     {
         $statusCode = $e->getCode();
-
         $trackingId = $this->extractTrackingId($e);
 
-        if (\in_array($statusCode, [400, 401, 403], true)) {
+        if ($statusCode === 400) {
+            return $this->handleBadRequest($e, $trackingId);
+        }
+
+        if (\in_array($statusCode, [401, 403], true)) {
             return $this->handleAuthenticationFailure($e, $trackingId);
         }
 
@@ -131,6 +136,17 @@ final readonly class BingAdsConversionTransport
         }
 
         return $this->handleHttpError($e, $trackingId);
+    }
+
+    private function handleBadRequest(RestApiException $e, ?string $trackingId): InvalidApiRequestException
+    {
+        Log::error(self::SERVICE_NAME . ' API rejected request', [
+            'status' => $e->getCode(),
+            'error' => $e->getMessage(),
+            'tracking_id' => $trackingId,
+        ]);
+
+        return new InvalidApiRequestException(self::SERVICE_NAME, $e->getMessage(), $e);
     }
 
     private function handleAuthenticationFailure(RestApiException $e, ?string $trackingId): AuthenticationExpiredException
