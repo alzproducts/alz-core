@@ -7,6 +7,7 @@ use App\Providers\AuthServiceProvider;
 use App\Providers\BingAdsServiceProvider;
 use App\Providers\CacheServiceProvider;
 use App\Providers\CatalogServiceProvider;
+use App\Providers\CheckoutServiceProvider;
 use App\Providers\ClickUpServiceProvider;
 use App\Providers\ContactSubmissionServiceProvider;
 use App\Providers\ConversionServiceProvider;
@@ -46,6 +47,7 @@ return [
     CacheServiceProvider::class,
     ClickUpServiceProvider::class,
     CatalogServiceProvider::class,
+    CheckoutServiceProvider::class,
     ContactSubmissionServiceProvider::class,
     ConversionServiceProvider::class,
     GoogleAdsServiceProvider::class,

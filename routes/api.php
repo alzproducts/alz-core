@@ -24,6 +24,7 @@ use App\Presentation\Http\Api\Controllers\ProductRefreshController;
 use App\Presentation\Http\Api\Controllers\ProductUpdateController;
 use App\Presentation\Http\Api\Controllers\VariationController;
 use App\Presentation\Http\Auth\Middleware\ValidateSupabaseJwtMiddleware;
+use App\Presentation\Http\Checkout\Controllers\CheckoutSnapshotController;
 use App\Presentation\Http\ContactForm\Controllers\ContactFormController;
 use App\Presentation\Http\HelpScout\Controllers\ConversationsController;
 use App\Presentation\Http\HelpScout\Controllers\ProfileController;
@@ -50,10 +51,27 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::middleware([
-    'throttle:contact-form',
+    'throttle:public-default',
     RejectHoneypotMiddleware::class,
 ])->group(static function (): void {
     Route::post('contact', ContactFormController::class);
+});
+
+/*
+|--------------------------------------------------------------------------
+| Checkout Snapshot (No Authentication)
+|--------------------------------------------------------------------------
+|
+| Pre-checkout basket state captured server-side. Workaround for ShopWired
+| losing basket_comments on Safari/Apple submissions. Fire-and-forget from
+| the frontend; IP/UA are captured server-side for fuzzy order matching.
+|
+*/
+
+Route::middleware([
+    'throttle:public-default',
+])->group(static function (): void {
+    Route::post('checkout/snapshot', CheckoutSnapshotController::class);
 });
 
 /*
