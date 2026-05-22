@@ -1,18 +1,25 @@
 # Bing Ads API Client
 
-## Pattern
-`Config → SessionManager → Transport → Client → Factory`
+## Dual Transport Architecture
 
-SessionManager needed (unlike Google Ads) because PHP SDK doesn't auto-refresh OAuth tokens.
+Two SDK packages, two transport classes, one `SessionManager`:
+
+| Concern | SDK Package | Transport | Protocol |
+|---------|-------------|-----------|----------|
+| Ad-spend reporting | `microsoft/bingads` | `BingAdsTransport` (SOAP) | SOAP |
+| Offline conversions | `microsoft/msads` | `BingAdsConversionTransport` (REST) | REST |
+
+Both transports bridge auth from `BingAdsSessionManager` (OAuth token refresh + Redis caching). See ADR-0003.
 
 ## Key Differences from Google Ads
 
 | Aspect | Google Ads | Bing Ads |
 |--------|------------|----------|
-| Protocol | gRPC | SOAP |
+| Protocol | gRPC | SOAP + REST (dual) |
 | Reports | Instant (GAQL) | Async (submit → poll → ZIP → CSV) |
 | Token refresh | SDK handles | Manual via `BingAdsSessionManager` |
 | Rate limit | Retry-After header | Fixed 60s (no header) |
+| Circuit breaker | `google-ads` | `bing-ads-rest` (conversions) |
 
 ## SOAP Error Codes
 

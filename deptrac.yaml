@@ -81,11 +81,17 @@ deptrac:
         - type: classLike
           value: ^Google\\.*
 
-    # Bing Ads (Microsoft Advertising) SDK
+    # Bing Ads (Microsoft Advertising) SOAP SDK
     - name: BingAdsSdk
       collectors:
         - type: classLike
           value: ^Microsoft\\BingAds\\.*
+
+    # Bing Ads (Microsoft Advertising) REST SDK
+    - name: BingAdsRestSdk
+      collectors:
+        - type: classLike
+          value: ^Microsoft\\MsAds\\.*
 
     # HelpScout API SDK
     - name: HelpScoutSdk
@@ -180,6 +186,7 @@ deptrac:
       - SpatieData
       - GoogleAdsSdk
       - BingAdsSdk
+      - BingAdsRestSdk
       - HelpScoutSdk
       - GuzzleHttp
       - PsrInterfaces
@@ -225,6 +232,7 @@ deptrac:
     SpatieData: ~
     GoogleAdsSdk: ~
     BingAdsSdk: ~
+    BingAdsRestSdk: ~
     HelpScoutSdk: ~
     GuzzleHttp: ~
     SymfonyHttp: ~

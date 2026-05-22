@@ -47,6 +47,11 @@ final class ServiceCircuitBreaker
         return self::create('google-ads');
     }
 
+    public static function bingAdsRest(): ThrottlesExceptions
+    {
+        return self::create('bing-ads-rest');
+    }
+
     private static function create(string $serviceKey): ThrottlesExceptions
     {
         return (new ThrottlesExceptions(maxAttempts: 10, decaySeconds: 300))

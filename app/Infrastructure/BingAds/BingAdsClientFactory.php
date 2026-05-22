@@ -37,6 +37,25 @@ final class BingAdsClientFactory
         return new BingAdsClient($transport);
     }
 
+    public static function createConversionClient(
+        BingAdsSessionManager $sessionManager,
+        BingAdsConfig $config,
+    ): BingAdsConversionClient {
+        $transport = new BingAdsConversionTransport($sessionManager, $config);
+
+        return new BingAdsConversionClient($transport);
+    }
+
+    public static function createConversionConfig(): BingAdsConfig
+    {
+        $goalName = \config('bing-ads.offline_lead_conversion_goal_name');
+        if (!\is_string($goalName)) {
+            throw new InvalidConfigurationException('BING_ADS_OFFLINE_LEAD_CONVERSION_GOAL_NAME');
+        }
+
+        return self::createConfig()->withOfflineLeadConversionGoalName($goalName);
+    }
+
     /**
      * Create config from Laravel configuration.
      *
