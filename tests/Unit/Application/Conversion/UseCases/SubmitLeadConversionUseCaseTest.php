@@ -271,8 +271,8 @@ final class SubmitLeadConversionUseCaseTest extends TestCase
             ),
             consent: ConsentStatus::denied(),
             attribution: new MarketingAttribution(
-                gclid: Gclid::fromNullableForm($gclid),
-                msclkid: Msclkid::fromNullableForm($msclkid),
+                gclid: $gclid,
+                msclkid: $msclkid,
             ),
             context: new SubmissionContext(
                 clientTimestamp: new DateTimeImmutable('2026-05-15 09:00:00'),

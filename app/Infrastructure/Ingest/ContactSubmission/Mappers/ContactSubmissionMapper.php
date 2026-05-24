@@ -8,9 +8,7 @@ use App\Domain\ContactSubmission\Enums\ProductSource;
 use App\Domain\ContactSubmission\ValueObjects\ConsentStatus;
 use App\Domain\ContactSubmission\ValueObjects\ContactFormData;
 use App\Domain\ContactSubmission\ValueObjects\ContactSubmission;
-use App\Domain\ContactSubmission\ValueObjects\Gclid;
 use App\Domain\ContactSubmission\ValueObjects\MarketingAttribution;
-use App\Domain\ContactSubmission\ValueObjects\Msclkid;
 use App\Domain\ContactSubmission\ValueObjects\SelectedProduct;
 use App\Domain\ContactSubmission\ValueObjects\SubmissionContext;
 use App\Domain\Exceptions\Data\MalformedStoredDataException;
@@ -61,11 +59,11 @@ final class ContactSubmissionMapper
             'consent_has_responded' => $submission->consent->hasResponded,
 
             // Attribution (flattened)
-            'gclid' => $submission->attribution->gclid?->value,
+            'gclid' => $submission->attribution->gclid,
             'gclsrc' => $submission->attribution->gclsrc,
             'wbraid' => $submission->attribution->wbraid,
             'gbraid' => $submission->attribution->gbraid,
-            'msclkid' => $submission->attribution->msclkid?->value,
+            'msclkid' => $submission->attribution->msclkid,
             'fbclid' => $submission->attribution->fbclid,
             'utm_source' => $submission->attribution->utmSource,
             'utm_medium' => $submission->attribution->utmMedium,
@@ -107,11 +105,11 @@ final class ContactSubmissionMapper
                 hasResponded: $model->consent_has_responded,
             ),
             attribution: new MarketingAttribution(
-                gclid: Gclid::fromNullableForm($model->gclid),
+                gclid: $model->gclid,
                 gclsrc: $model->gclsrc,
                 wbraid: $model->wbraid,
                 gbraid: $model->gbraid,
-                msclkid: Msclkid::fromNullableForm($model->msclkid),
+                msclkid: $model->msclkid,
                 fbclid: $model->fbclid,
                 utmSource: $model->utm_source,
                 utmMedium: $model->utm_medium,

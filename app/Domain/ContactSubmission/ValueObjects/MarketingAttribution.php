@@ -7,11 +7,11 @@ namespace App\Domain\ContactSubmission\ValueObjects;
 final readonly class MarketingAttribution
 {
     public function __construct(
-        public ?Gclid $gclid = null,
+        public ?string $gclid = null,
         public ?string $gclsrc = null,
         public ?string $wbraid = null,
         public ?string $gbraid = null,
-        public ?Msclkid $msclkid = null,
+        public ?string $msclkid = null,
         public ?string $fbclid = null,
         public ?string $utmSource = null,
         public ?string $utmMedium = null,
@@ -26,7 +26,7 @@ final readonly class MarketingAttribution
             [$this->gclid, $this->gclsrc, $this->wbraid, $this->gbraid,
                 $this->msclkid, $this->fbclid, $this->utmSource, $this->utmMedium,
                 $this->utmCampaign, $this->utmContent, $this->utmTerm],
-            static fn(Gclid|Msclkid|string|null $value): bool => $value !== null,
+            static fn(?string $value): bool => $value !== null,
         );
     }
 

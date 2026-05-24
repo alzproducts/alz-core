@@ -9,12 +9,14 @@ use App\Application\Contracts\ContactSubmission\ContactSubmissionRepositoryInter
 use App\Application\Contracts\GoogleAdsConversionInterface;
 use App\Application\Conversion\GoogleConversionUploadDTO;
 use App\Domain\ContactSubmission\ValueObjects\ContactSubmission;
+use App\Domain\ContactSubmission\ValueObjects\Gclid;
 use App\Domain\Conversion\Enums\ConversionType;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Data\InsufficientDataException;
+use App\Domain\Exceptions\Data\InvalidFormatException;
 use App\Domain\Exceptions\Data\MalformedStoredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
@@ -50,6 +52,7 @@ final readonly class ProcessLeadConversionUseCase
      * @throws DatabaseOperationFailedException When DB update fails (permanent)
      * @throws DuplicateRecordException
      * @throws InsufficientDataException When gclid or submission timestamp is missing (permanent)
+     * @throws InvalidFormatException When stored gclid has an invalid format (permanent)
      */
     public function execute(string $submissionId, string $actionId): void
     {
@@ -99,6 +102,7 @@ final readonly class ProcessLeadConversionUseCase
      * @throws InvalidApiRequestException When Google Ads rejects the conversion
      * @throws DatabaseOperationFailedException When DB update fails
      * @throws InsufficientDataException When gclid or submission timestamp is missing
+     * @throws InvalidFormatException
      */
     private function uploadAndMarkComplete(ContactSubmission $submission, string $submissionId, string $actionId): void
     {
@@ -116,6 +120,7 @@ final readonly class ProcessLeadConversionUseCase
 
     /**
      * @throws InsufficientDataException
+     * @throws InvalidFormatException
      */
     private static function buildConversionUploadDTO(ContactSubmission $submission): GoogleConversionUploadDTO
     {
@@ -130,7 +135,7 @@ final readonly class ProcessLeadConversionUseCase
         }
 
         return new GoogleConversionUploadDTO(
-            gclid: $gclid->value,
+            gclid: Gclid::from($gclid)->value,
             email: $submission->form->email,
             convertedAt: $submittedAt,
             value: null,

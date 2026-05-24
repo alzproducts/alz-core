@@ -16,6 +16,7 @@ use App\Domain\ContactSubmission\ValueObjects\SelectedProduct;
 use App\Domain\ContactSubmission\ValueObjects\SubmissionContext;
 use App\Domain\Customer\Enums\CustomerType;
 use App\Domain\Exceptions\Data\InvalidEnumValueException;
+use App\Domain\Exceptions\Data\InvalidFormatException;
 use App\Domain\Shared\Money\ValueObjects\Money;
 use App\Domain\ValueObjects\IntId;
 use App\Presentation\Http\ContactForm\DTOs\ContactFormRequestDTO;
@@ -86,12 +87,13 @@ final readonly class ContactSubmissionMapper
             return MarketingAttribution::empty();
         }
 
+        self::reportInvalidClickIds($data->attribution->gclid, $data->attribution->msclkid);
         return new MarketingAttribution(
-            gclid: Gclid::fromNullableForm($data->attribution->gclid),
+            gclid: $data->attribution->gclid,
             gclsrc: $data->attribution->gclsrc,
             wbraid: $data->attribution->wbraid,
             gbraid: $data->attribution->gbraid,
-            msclkid: Msclkid::fromNullableForm($data->attribution->msclkid),
+            msclkid: $data->attribution->msclkid,
             fbclid: $data->attribution->fbclid,
             utmSource: $data->attribution->utmSource,
             utmMedium: $data->attribution->utmMedium,
@@ -99,6 +101,21 @@ final readonly class ContactSubmissionMapper
             utmContent: $data->attribution->utmContent,
             utmTerm: $data->attribution->utmTerm,
         );
+    }
+
+    private static function reportInvalidClickIds(?string $gclid, ?string $msclkid): void
+    {
+        try {
+            Gclid::fromNullableForm($gclid);
+        } catch (InvalidFormatException $e) {
+            \report($e);
+        }
+
+        try {
+            Msclkid::fromNullableForm($msclkid);
+        } catch (InvalidFormatException $e) {
+            \report($e);
+        }
     }
 
     private function mapContext(ContactFormRequestDTO $data, string $ipAddress): SubmissionContext
