@@ -13,6 +13,7 @@ use App\Domain\ContactSubmission\ValueObjects\MarketingAttribution;
 use App\Domain\ContactSubmission\ValueObjects\Msclkid;
 use App\Domain\ContactSubmission\ValueObjects\SelectedProduct;
 use App\Domain\ContactSubmission\ValueObjects\SubmissionContext;
+use App\Domain\Exceptions\Data\InvalidFormatException;
 use App\Domain\Exceptions\Data\MalformedStoredDataException;
 use App\Domain\Shared\Money\ValueObjects\Money;
 use App\Domain\ValueObjects\IntId;
@@ -85,6 +86,7 @@ final class ContactSubmissionMapper
     /**
      * Convert Eloquent model to Domain ContactSubmission.
      *
+     * @throws InvalidFormatException
      * @throws MalformedStoredDataException If product JSONB data is corrupted
      */
     public static function fromModel(ContactSubmissionModel $model): ContactSubmission

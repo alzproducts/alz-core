@@ -16,6 +16,7 @@ use App\Domain\ContactSubmission\ValueObjects\SelectedProduct;
 use App\Domain\ContactSubmission\ValueObjects\SubmissionContext;
 use App\Domain\Customer\Enums\CustomerType;
 use App\Domain\Exceptions\Data\InvalidEnumValueException;
+use App\Domain\Exceptions\Data\InvalidFormatException;
 use App\Domain\Shared\Money\ValueObjects\Money;
 use App\Domain\ValueObjects\IntId;
 use App\Presentation\Http\ContactForm\DTOs\ContactFormRequestDTO;
@@ -40,6 +41,7 @@ final readonly class ContactSubmissionMapper
      * @param string $ipAddress Client IP (from request, not DTO)
      *
      * @throws InvalidEnumValueException When enum values don't match expected values
+     * @throws InvalidFormatException
      */
     public function toDomain(ContactFormRequestDTO $data, string $ipAddress): ContactSubmission
     {
@@ -80,6 +82,9 @@ final readonly class ContactSubmissionMapper
         );
     }
 
+    /**
+     * @throws InvalidFormatException
+     */
     private function mapAttribution(ContactFormRequestDTO $data): MarketingAttribution
     {
         if ($data->attribution === null) {

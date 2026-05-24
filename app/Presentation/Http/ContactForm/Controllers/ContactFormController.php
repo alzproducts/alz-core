@@ -7,6 +7,7 @@ namespace App\Presentation\Http\ContactForm\Controllers;
 use App\Application\ContactSubmission\UseCases\SubmitContactFormUseCase;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Data\InvalidEnumValueException;
+use App\Domain\Exceptions\Data\InvalidFormatException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Presentation\Http\Api\Responses\ContactSubmissionAcceptedResponseDTO;
@@ -36,6 +37,7 @@ final readonly class ContactFormController
      * @throws DuplicateRecordException On unique constraint violation (permanent)
      * @throws ExternalServiceUnavailableException On transient database failure (retry)
      * @throws InvalidEnumValueException When enum values don't match expected values
+     * @throws InvalidFormatException
      */
     public function __invoke(Request $request): ContactSubmissionAcceptedResponseDTO
     {
