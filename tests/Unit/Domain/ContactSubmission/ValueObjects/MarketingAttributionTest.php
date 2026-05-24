@@ -4,9 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Domain\ContactSubmission\ValueObjects;
 
-use App\Domain\ContactSubmission\ValueObjects\Gclid;
 use App\Domain\ContactSubmission\ValueObjects\MarketingAttribution;
-use App\Domain\ContactSubmission\ValueObjects\Msclkid;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -22,11 +20,11 @@ final class MarketingAttributionTest extends TestCase
     public function it_creates_with_all_fields(): void
     {
         $attribution = new MarketingAttribution(
-            gclid: Gclid::from(self::VALID_GCLID),
+            gclid: self::VALID_GCLID,
             gclsrc: 'aw.ds',
             wbraid: 'WBRAID123',
             gbraid: 'GBRAID456',
-            msclkid: Msclkid::from(self::VALID_MSCLKID),
+            msclkid: self::VALID_MSCLKID,
             fbclid: 'FBCLID012',
             utmSource: 'google',
             utmMedium: 'cpc',
@@ -35,11 +33,11 @@ final class MarketingAttributionTest extends TestCase
             utmTerm: 'mobility aids',
         );
 
-        self::assertSame(self::VALID_GCLID, $attribution->gclid?->value);
+        self::assertSame(self::VALID_GCLID, $attribution->gclid);
         self::assertSame('aw.ds', $attribution->gclsrc);
         self::assertSame('WBRAID123', $attribution->wbraid);
         self::assertSame('GBRAID456', $attribution->gbraid);
-        self::assertSame(self::VALID_MSCLKID, $attribution->msclkid?->value);
+        self::assertSame(self::VALID_MSCLKID, $attribution->msclkid);
         self::assertSame('FBCLID012', $attribution->fbclid);
         self::assertSame('google', $attribution->utmSource);
         self::assertSame('cpc', $attribution->utmMedium);
@@ -95,7 +93,7 @@ final class MarketingAttributionTest extends TestCase
     #[Test]
     public function hasAnyAttribution_returns_true_when_gclid_present(): void
     {
-        $attribution = new MarketingAttribution(gclid: Gclid::from(self::VALID_GCLID));
+        $attribution = new MarketingAttribution(gclid: self::VALID_GCLID);
 
         self::assertTrue($attribution->hasAnyAttribution());
     }
@@ -127,7 +125,7 @@ final class MarketingAttributionTest extends TestCase
     #[Test]
     public function hasAnyAttribution_returns_true_when_msclkid_present(): void
     {
-        $attribution = new MarketingAttribution(msclkid: Msclkid::from(self::VALID_MSCLKID));
+        $attribution = new MarketingAttribution(msclkid: self::VALID_MSCLKID);
 
         self::assertTrue($attribution->hasAnyAttribution());
     }
@@ -184,11 +182,11 @@ final class MarketingAttributionTest extends TestCase
     public function hasAnyAttribution_returns_true_when_all_fields_present(): void
     {
         $attribution = new MarketingAttribution(
-            gclid: Gclid::from(self::VALID_GCLID),
+            gclid: self::VALID_GCLID,
             gclsrc: 'aw.ds',
             wbraid: 'WBRAID123',
             gbraid: 'GBRAID456',
-            msclkid: Msclkid::from(self::VALID_MSCLKID),
+            msclkid: self::VALID_MSCLKID,
             fbclid: 'FBCLID012',
             utmSource: 'google',
             utmMedium: 'cpc',

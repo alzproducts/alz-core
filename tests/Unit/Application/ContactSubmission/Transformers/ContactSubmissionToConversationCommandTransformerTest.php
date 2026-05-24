@@ -10,9 +10,7 @@ use App\Domain\ContactSubmission\Enums\ProductSource;
 use App\Domain\ContactSubmission\ValueObjects\ConsentStatus;
 use App\Domain\ContactSubmission\ValueObjects\ContactFormData;
 use App\Domain\ContactSubmission\ValueObjects\ContactSubmission;
-use App\Domain\ContactSubmission\ValueObjects\Gclid;
 use App\Domain\ContactSubmission\ValueObjects\MarketingAttribution;
-use App\Domain\ContactSubmission\ValueObjects\Msclkid;
 use App\Domain\ContactSubmission\ValueObjects\SelectedProduct;
 use App\Domain\ContactSubmission\ValueObjects\SubmissionContext;
 use App\Domain\Customer\Enums\CustomerType;
@@ -615,11 +613,11 @@ final class ContactSubmissionToConversationCommandTransformerTest extends TestCa
         );
 
         $attribution = new MarketingAttribution(
-            gclid: Gclid::fromNullableForm($gclid),
+            gclid: $gclid,
             gclsrc: $gclsrc,
             wbraid: $wbraid,
             gbraid: $gbraid,
-            msclkid: Msclkid::fromNullableForm($msclkid),
+            msclkid: $msclkid,
             fbclid: $fbclid,
             utmSource: $utmSource,
             utmMedium: $utmMedium,

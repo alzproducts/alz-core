@@ -9,7 +9,6 @@ use App\Domain\ContactSubmission\Enums\ProductSource;
 use App\Domain\ContactSubmission\ValueObjects\ConsentStatus;
 use App\Domain\ContactSubmission\ValueObjects\ContactFormData;
 use App\Domain\ContactSubmission\ValueObjects\ContactSubmission;
-use App\Domain\ContactSubmission\ValueObjects\Gclid;
 use App\Domain\ContactSubmission\ValueObjects\MarketingAttribution;
 use App\Domain\ContactSubmission\ValueObjects\SelectedProduct;
 use App\Domain\ContactSubmission\ValueObjects\SubmissionContext;
@@ -63,7 +62,7 @@ final class ContactSubmissionTest extends TestCase
     {
         $form = $this->createFormData();
         $consent = new ConsentStatus(true, true, true, true);
-        $attribution = new MarketingAttribution(gclid: Gclid::from('CNHz5eD_8pkCFRCdnAodzniYQg'));
+        $attribution = new MarketingAttribution(gclid: 'CNHz5eD_8pkCFRCdnAodzniYQg');
         $context = $this->createContext();
         $product = new SelectedProduct(productId: IntId::from(12345), sku: 'TEST-SKU', source: ProductSource::RecentlyViewed);
 

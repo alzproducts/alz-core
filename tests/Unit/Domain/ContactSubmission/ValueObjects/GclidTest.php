@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Domain\ContactSubmission\ValueObjects;
 
 use App\Domain\ContactSubmission\ValueObjects\Gclid;
-use InvalidArgumentException;
+use App\Domain\Exceptions\Data\InvalidFormatException;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -24,7 +24,7 @@ final class GclidTest extends TestCase
     #[Test]
     public function it_rejects_an_empty_string(): void
     {
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(InvalidFormatException::class);
 
         Gclid::from('');
     }
@@ -32,7 +32,7 @@ final class GclidTest extends TestCase
     #[Test]
     public function it_rejects_a_string_below_the_minimum_length(): void
     {
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(InvalidFormatException::class);
 
         Gclid::from(\str_repeat('a', 9));
     }
@@ -56,7 +56,7 @@ final class GclidTest extends TestCase
     #[Test]
     public function it_rejects_a_string_above_the_maximum_length(): void
     {
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(InvalidFormatException::class);
 
         Gclid::from(\str_repeat('a', 251));
     }
@@ -64,7 +64,7 @@ final class GclidTest extends TestCase
     #[Test]
     public function it_rejects_a_string_containing_a_space(): void
     {
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(InvalidFormatException::class);
 
         Gclid::from('CNHz5eD 8pkCFRCdnAodzniYQg');
     }
@@ -72,7 +72,7 @@ final class GclidTest extends TestCase
     #[Test]
     public function it_rejects_a_string_containing_a_dot(): void
     {
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(InvalidFormatException::class);
 
         // `.` is the fbclid separator — must not pass as a gclid.
         Gclid::from('IwAR0abcdef.ghijklmnop');
@@ -81,7 +81,7 @@ final class GclidTest extends TestCase
     #[Test]
     public function it_rejects_non_url_safe_base64_characters(): void
     {
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(InvalidFormatException::class);
 
         Gclid::from('CNHz5eD+8pkCFRCdnAodzniYQg');
     }
@@ -110,8 +110,20 @@ final class GclidTest extends TestCase
     #[Test]
     public function fromNullableForm_throws_for_an_invalid_non_empty_input(): void
     {
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(InvalidFormatException::class);
 
         Gclid::fromNullableForm('garbage with spaces');
+    }
+
+    #[Test]
+    public function it_exposes_field_and_value_on_the_exception(): void
+    {
+        try {
+            Gclid::from('invalid');
+            $this->fail('Expected InvalidFormatException');
+        } catch (InvalidFormatException $e) {
+            $this->assertSame('gclid', $e->field);
+            $this->assertSame('invalid', $e->value);
+        }
     }
 }
