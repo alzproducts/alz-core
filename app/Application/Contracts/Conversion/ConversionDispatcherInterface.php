@@ -7,15 +7,11 @@ namespace App\Application\Contracts\Conversion;
 use App\Application\Conversion\Commands\LeadConversionCommand;
 use App\Application\Conversion\Commands\QuoteConversionCommand;
 
-/**
- * Dispatch async offline-conversion processing.
- *
- * Application layer uses this to trigger uploads without knowing the delivery
- * mechanism (queue, inline, etc.) or which ad platform receives the conversion.
- */
 interface ConversionDispatcherInterface
 {
     public function dispatchLeadConversion(LeadConversionCommand $command): void;
+
+    public function dispatchBingLeadConversion(LeadConversionCommand $command): void;
 
     public function dispatchQuoteConversion(QuoteConversionCommand $command): void;
 }

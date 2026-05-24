@@ -8,7 +8,9 @@ use App\Application\Contracts\ContactSubmission\ContactSubmissionActionRepositor
 use App\Application\Contracts\ContactSubmission\ContactSubmissionRepositoryInterface;
 use App\Application\Contracts\Conversion\ConversionDispatcherInterface;
 use App\Application\Conversion\Commands\QuoteConversionCommand;
+use App\Application\Conversion\Enums\AdPlatform;
 use App\Domain\ContactSubmission\Enums\ActionType;
+use App\Domain\ContactSubmission\ValueObjects\MarketingAttribution;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Data\InsufficientDataException;
@@ -22,18 +24,14 @@ use DateTimeImmutable;
 use Psr\Log\LoggerInterface;
 
 /**
- * Synchronous entry point for marking a contact submission as a quote issued.
+ * Requires a Completed LeadReceived action before a quote may be issued.
+ * Quote value + staff-supplied timestamp are uploaded to Google Ads.
  *
- * Builds on the lead pipeline with two extra guards:
- * - Sequential enforcement — the submission must already have a Completed
- *   LeadReceived action (a quote cannot be issued for a non-qualified lead)
- * - Monetary value + staff-supplied conversion timestamp travel through the
- *   pipeline (quote value is uploaded to Google Ads as the conversion amount)
+ * Bing quotes are not yet wired; the gate accepts msclkid-only submissions
+ * but Google quote dispatch will mark those actions Failed downstream.
  *
- * The DB insert + dispatch run without a transaction — only one row is written
- * (the action) and `DuplicateRecordException` handles the idempotency case at
- * the row level. The hasCompletedAction → create race is also resolved by the
- * unique constraint (submission_id, action_type).
+ * No transaction: only one row is written, and the partial unique index
+ * `(submission_id, action_type, ad_platform)` resolves the hasCompletedAction → create race.
  */
 final readonly class SubmitQuoteConversionUseCase
 {
@@ -45,15 +43,15 @@ final readonly class SubmitQuoteConversionUseCase
     ) {}
 
     /**
-     * @param float $value GBP ex-VAT amount sent to Google Ads
-     * @param string $convertedAt ISO-8601 / parseable date string for the conversion moment
+     * @param float $value GBP ex-VAT
+     * @param string $convertedAt ISO-8601 / parseable date string
      *
-     * @throws RecordNotFoundException When the submission is missing → HTTP 404
-     * @throws InsufficientDataException When the submission lacks a gclid or no completed lead exists → HTTP 422
-     * @throws DuplicateRecordException When a quote action already exists → HTTP 409
-     * @throws MalformedStoredDataException When stored submission JSONB or convertedAt is corrupted
-     * @throws DatabaseOperationFailedException When the action insert fails (permanent)
-     * @throws ExternalServiceUnavailableException When the database is transiently unavailable
+     * @throws RecordNotFoundException
+     * @throws InsufficientDataException When neither click ID is present, or no completed lead exists
+     * @throws DuplicateRecordException
+     * @throws MalformedStoredDataException
+     * @throws DatabaseOperationFailedException
+     * @throws ExternalServiceUnavailableException
      */
     public function execute(string $submissionId, float $value, string $convertedAt): void
     {
@@ -64,10 +62,10 @@ final readonly class SubmitQuoteConversionUseCase
         ]);
 
         $submission = $this->submissionRepository->findById($submissionId);
-        self::ensureGclidPresent($submission->attribution->gclid);
+        self::ensureAdClickIdPresent($submission->attribution);
         $this->ensureLeadCompleted($submissionId);
 
-        $actionId = $this->actionRepository->create($submissionId, ActionType::QuoteIssued);
+        $actionId = $this->actionRepository->create($submissionId, ActionType::QuoteIssued, AdPlatform::Google);
 
         $this->dispatcher->dispatchQuoteConversion(self::buildCommand($submissionId, $actionId, $value, $convertedAt));
 
@@ -78,11 +76,10 @@ final readonly class SubmitQuoteConversionUseCase
     }
 
     /**
-     * The DTO validates `converted_at` with `#[Date]`, so a parse failure here would
-     * indicate either a validation bypass or a strtotime/DateTimeImmutable parser
-     * divergence — translate to a domain exception that maps to a meaningful response.
+     * The DTO's `#[Date]` rule already validated `$convertedAt`; a failure here
+     * means validation bypass or strtotime/DateTimeImmutable parser divergence.
      *
-     * @throws MalformedStoredDataException When the date string is not parseable
+     * @throws MalformedStoredDataException
      */
     private static function buildCommand(string $submissionId, string $actionId, float $value, string $convertedAt): QuoteConversionCommand
     {
@@ -105,14 +102,12 @@ final readonly class SubmitQuoteConversionUseCase
     }
 
     /**
-     * Treat empty-string gclid the same as null — defensive against form data quirks.
-     *
-     * @throws InsufficientDataException When gclid is absent or empty
+     * @throws InsufficientDataException
      */
-    private static function ensureGclidPresent(?string $gclid): void
+    private static function ensureAdClickIdPresent(MarketingAttribution $attribution): void
     {
-        if ($gclid === null || $gclid === '') {
-            throw new InsufficientDataException('ContactSubmission', 'a gclid for conversion tracking');
+        if (! $attribution->hasGclid() && ! $attribution->hasMsclkid()) {
+            throw new InsufficientDataException('ContactSubmission', 'a gclid or msclkid for conversion tracking');
         }
     }
 

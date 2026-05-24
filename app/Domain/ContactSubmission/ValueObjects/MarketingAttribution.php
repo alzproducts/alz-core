@@ -4,15 +4,6 @@ declare(strict_types=1);
 
 namespace App\Domain\ContactSubmission\ValueObjects;
 
-/**
- * Marketing attribution parameters from the form submission.
- *
- * Click IDs and UTM params are flattened columns in the database for
- * efficient querying when correlating with order conversions.
- *
- * Indexed click IDs (primary conversion tracking): gclid, msclkid, fbclid
- * Unindexed: gclsrc (flag value), wbraid/gbraid (Google privacy alternatives, rarely populated)
- */
 final readonly class MarketingAttribution
 {
     public function __construct(
@@ -29,9 +20,6 @@ final readonly class MarketingAttribution
         public ?string $utmTerm = null,
     ) {}
 
-    /**
-     * Whether any attribution data is present.
-     */
     public function hasAnyAttribution(): bool
     {
         return \array_any(
@@ -43,8 +31,18 @@ final readonly class MarketingAttribution
     }
 
     /**
-     * Create an empty attribution.
+     * Empty string treated as absent — form data sometimes arrives as `''` instead of `null`.
      */
+    public function hasGclid(): bool
+    {
+        return $this->gclid !== null && $this->gclid !== '';
+    }
+
+    public function hasMsclkid(): bool
+    {
+        return $this->msclkid !== null && $this->msclkid !== '';
+    }
+
     public static function empty(): self
     {
         return new self();

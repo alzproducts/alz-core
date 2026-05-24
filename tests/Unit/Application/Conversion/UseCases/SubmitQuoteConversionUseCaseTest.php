@@ -8,6 +8,7 @@ use App\Application\Contracts\ContactSubmission\ContactSubmissionActionRepositor
 use App\Application\Contracts\ContactSubmission\ContactSubmissionRepositoryInterface;
 use App\Application\Contracts\Conversion\ConversionDispatcherInterface;
 use App\Application\Conversion\Commands\QuoteConversionCommand;
+use App\Application\Conversion\Enums\AdPlatform;
 use App\Application\Conversion\UseCases\SubmitQuoteConversionUseCase;
 use App\Domain\ContactSubmission\Enums\ActionType;
 use App\Domain\ContactSubmission\Enums\ContactReason;
@@ -106,11 +107,11 @@ final class SubmitQuoteConversionUseCaseTest extends TestCase
     }
 
     #[Test]
-    public function execute_throws_insufficient_data_when_gclid_missing(): void
+    public function execute_throws_insufficient_data_when_both_click_ids_missing(): void
     {
         $this->submissionRepository->expects('findById')
             ->with(self::SUBMISSION_ID)
-            ->andReturn($this->makeSubmission(gclid: null));
+            ->andReturn($this->makeSubmission(gclid: null, msclkid: null));
 
         $this->actionRepository->shouldNotReceive('hasCompletedAction');
         $this->actionRepository->shouldNotReceive('create');
@@ -121,8 +122,28 @@ final class SubmitQuoteConversionUseCaseTest extends TestCase
             self::fail('Expected InsufficientDataException');
         } catch (InsufficientDataException $e) {
             self::assertSame('ContactSubmission', $e->entityType);
-            self::assertSame('a gclid for conversion tracking', $e->requirement);
+            self::assertSame('a gclid or msclkid for conversion tracking', $e->requirement);
         }
+    }
+
+    #[Test]
+    public function execute_accepts_msclkid_only_submission_and_dispatches_with_google_platform(): void
+    {
+        $this->submissionRepository->expects('findById')
+            ->with(self::SUBMISSION_ID)
+            ->andReturn($this->makeSubmission(gclid: null, msclkid: 'BingMsclkid'));
+
+        $this->actionRepository->expects('hasCompletedAction')
+            ->with(self::SUBMISSION_ID, ActionType::LeadReceived)
+            ->andReturn(true);
+
+        $this->actionRepository->expects('create')
+            ->with(self::SUBMISSION_ID, ActionType::QuoteIssued, AdPlatform::Google)
+            ->andReturn(self::ACTION_ID);
+
+        $this->dispatcher->expects('dispatchQuoteConversion');
+
+        $this->useCase->execute(self::SUBMISSION_ID, self::VALUE, self::CONVERTED_AT);
     }
 
     #[Test]
@@ -130,7 +151,7 @@ final class SubmitQuoteConversionUseCaseTest extends TestCase
     {
         $this->submissionRepository->expects('findById')
             ->with(self::SUBMISSION_ID)
-            ->andReturn($this->makeSubmission(gclid: self::GCLID));
+            ->andReturn($this->makeSubmission(gclid: self::GCLID, msclkid: null));
 
         $this->actionRepository->expects('hasCompletedAction')
             ->with(self::SUBMISSION_ID, ActionType::LeadReceived)
@@ -153,14 +174,14 @@ final class SubmitQuoteConversionUseCaseTest extends TestCase
     {
         $this->submissionRepository->expects('findById')
             ->with(self::SUBMISSION_ID)
-            ->andReturn($this->makeSubmission(gclid: self::GCLID));
+            ->andReturn($this->makeSubmission(gclid: self::GCLID, msclkid: null));
 
         $this->actionRepository->expects('hasCompletedAction')
             ->with(self::SUBMISSION_ID, ActionType::LeadReceived)
             ->andReturn(true);
 
         $this->actionRepository->expects('create')
-            ->with(self::SUBMISSION_ID, ActionType::QuoteIssued)
+            ->with(self::SUBMISSION_ID, ActionType::QuoteIssued, AdPlatform::Google)
             ->andThrow(new DuplicateRecordException(
                 'contact_submission_actions',
                 'contact_submission_actions_submission_action_unique',
@@ -178,14 +199,14 @@ final class SubmitQuoteConversionUseCaseTest extends TestCase
     {
         $this->submissionRepository->expects('findById')
             ->with(self::SUBMISSION_ID)
-            ->andReturn($this->makeSubmission(gclid: self::GCLID));
+            ->andReturn($this->makeSubmission(gclid: self::GCLID, msclkid: null));
 
         $this->actionRepository->expects('hasCompletedAction')
             ->with(self::SUBMISSION_ID, ActionType::LeadReceived)
             ->andReturn(true);
 
         $this->actionRepository->expects('create')
-            ->with(self::SUBMISSION_ID, ActionType::QuoteIssued)
+            ->with(self::SUBMISSION_ID, ActionType::QuoteIssued, AdPlatform::Google)
             ->andReturn(self::ACTION_ID);
 
         $captured = null;
@@ -204,7 +225,7 @@ final class SubmitQuoteConversionUseCaseTest extends TestCase
         self::assertSame(self::CONVERTED_AT, $captured->convertedAt->format(DateTimeInterface::ATOM));
     }
 
-    private function makeSubmission(?string $gclid): ContactSubmission
+    private function makeSubmission(?string $gclid, ?string $msclkid): ContactSubmission
     {
         return new ContactSubmission(
             form: new ContactFormData(
@@ -214,7 +235,7 @@ final class SubmitQuoteConversionUseCaseTest extends TestCase
                 message: 'Please quote for X.',
             ),
             consent: ConsentStatus::denied(),
-            attribution: new MarketingAttribution(gclid: $gclid),
+            attribution: new MarketingAttribution(gclid: $gclid, msclkid: $msclkid),
             context: new SubmissionContext(
                 clientTimestamp: new DateTimeImmutable('2026-05-15 09:00:00'),
                 ipAddress: '127.0.0.1',

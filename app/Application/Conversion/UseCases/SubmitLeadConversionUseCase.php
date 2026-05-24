@@ -11,7 +11,9 @@ use App\Application\Contracts\ContactSubmission\ContactSubmissionRepositoryInter
 use App\Application\Contracts\Conversion\ConversionDispatcherInterface;
 use App\Application\Contracts\DatabaseGatewayInterface;
 use App\Application\Conversion\Commands\LeadConversionCommand;
+use App\Application\Conversion\Enums\AdPlatform;
 use App\Domain\ContactSubmission\Enums\ActionType;
+use App\Domain\ContactSubmission\ValueObjects\MarketingAttribution;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Data\InsufficientDataException;
@@ -22,12 +24,12 @@ use App\Domain\ValueObjects\Guid;
 use Psr\Log\LoggerInterface;
 
 /**
- * Synchronous entry point for marking a contact submission as a qualified lead.
+ * Fans out one action row per eligible platform (gclid → Google, msclkid → Bing);
+ * per-platform jobs upload independently so a failure on one does not block the other.
  *
- * Atomic dual-write: the action row (workflow state) and annotation row (`is_potential_quote`
- * captured at conversion time) are inserted in one DB transaction so the dashboard never
- * sees a lead-completed row without its potential-quote classification. The async upload
- * dispatcher fires post-commit, matching the project-wide dispatch-after-commit pattern.
+ * Action rows + annotation are inserted in a single transaction so the dashboard
+ * never sees a lead row without its `is_potential_quote` classification.
+ * Dispatchers fire post-commit.
  */
 final readonly class SubmitLeadConversionUseCase
 {
@@ -41,12 +43,12 @@ final readonly class SubmitLeadConversionUseCase
     ) {}
 
     /**
-     * @throws RecordNotFoundException When the submission is missing → HTTP 404
-     * @throws InsufficientDataException When the submission lacks a gclid → HTTP 400
-     * @throws DuplicateRecordException When a lead action already exists → HTTP 409
-     * @throws MalformedStoredDataException When stored submission JSONB is corrupted
-     * @throws DatabaseOperationFailedException When the action insert fails (permanent)
-     * @throws ExternalServiceUnavailableException When the database is transiently unavailable
+     * @throws RecordNotFoundException
+     * @throws InsufficientDataException When the submission has neither gclid nor msclkid
+     * @throws DuplicateRecordException When a lead action already exists for a platform
+     * @throws MalformedStoredDataException
+     * @throws DatabaseOperationFailedException
+     * @throws ExternalServiceUnavailableException
      */
     public function execute(Guid $submissionId, bool $isPotentialQuote): void
     {
@@ -57,30 +59,38 @@ final readonly class SubmitLeadConversionUseCase
         ]);
 
         $submission = $this->submissionRepository->findById($id);
-        $this->ensureGclidPresent($submission->attribution->gclid);
-        $actionId = $this->writeActionAndAnnotation($id, $isPotentialQuote);
+        $platforms = self::resolveEligiblePlatforms($submission->attribution);
+        $actionIds = $this->writeActionsAndAnnotation($id, $isPotentialQuote, $platforms);
 
-        $this->dispatcher->dispatchLeadConversion(
-            new LeadConversionCommand($submissionId, Guid::fromTrusted($actionId)),
-        );
+        $this->dispatchPerPlatform($submissionId, $actionIds);
 
         $this->logger->info('Lead conversion dispatched', [
             'submission_id' => $id,
-            'action_id' => $actionId,
+            'action_ids' => $actionIds,
+            'platforms' => \array_keys($actionIds),
         ]);
     }
 
     /**
-     * Insert action + annotation in a single transaction; returns the new action id.
+     * @param list<AdPlatform> $platforms
+     *
+     * @return array<value-of<AdPlatform>, string>
      *
      * @throws DuplicateRecordException
      * @throws DatabaseOperationFailedException
      * @throws ExternalServiceUnavailableException
      */
-    private function writeActionAndAnnotation(string $submissionId, bool $isPotentialQuote): string
+    private function writeActionsAndAnnotation(string $submissionId, bool $isPotentialQuote, array $platforms): array
     {
-        return $this->database->transact(function () use ($submissionId, $isPotentialQuote): string {
-            $actionId = $this->actionRepository->create($submissionId, ActionType::LeadReceived);
+        return $this->database->transact(function () use ($submissionId, $isPotentialQuote, $platforms): array {
+            $actionIds = [];
+            foreach ($platforms as $platform) {
+                $actionIds[$platform->value] = $this->actionRepository->create(
+                    $submissionId,
+                    ActionType::LeadReceived,
+                    $platform,
+                );
+            }
 
             $this->annotationRepository->upsert(new UpsertAnnotationCommand(
                 contactSubmissionId: $submissionId,
@@ -88,19 +98,47 @@ final readonly class SubmitLeadConversionUseCase
                 columnsToClear: [],
             ));
 
-            return $actionId;
+            return $actionIds;
         });
     }
 
     /**
-     * Treat empty-string gclid the same as null — defensive against form data quirks.
-     *
-     * @throws InsufficientDataException When gclid is absent or empty
+     * @param array<value-of<AdPlatform>, string> $actionIds
      */
-    private function ensureGclidPresent(?string $gclid): void
+    private function dispatchPerPlatform(Guid $submissionId, array $actionIds): void
     {
-        if ($gclid === null || $gclid === '') {
-            throw new InsufficientDataException('ContactSubmission', 'a gclid for conversion tracking');
+        if (isset($actionIds[AdPlatform::Google->value])) {
+            $this->dispatcher->dispatchLeadConversion(
+                new LeadConversionCommand($submissionId, Guid::fromTrusted($actionIds[AdPlatform::Google->value])),
+            );
         }
+
+        if (isset($actionIds[AdPlatform::Bing->value])) {
+            $this->dispatcher->dispatchBingLeadConversion(
+                new LeadConversionCommand($submissionId, Guid::fromTrusted($actionIds[AdPlatform::Bing->value])),
+            );
+        }
+    }
+
+    /**
+     * @return list<AdPlatform>
+     *
+     * @throws InsufficientDataException When neither gclid nor msclkid is present
+     */
+    private static function resolveEligiblePlatforms(MarketingAttribution $attribution): array
+    {
+        $platforms = [];
+        if ($attribution->hasGclid()) {
+            $platforms[] = AdPlatform::Google;
+        }
+        if ($attribution->hasMsclkid()) {
+            $platforms[] = AdPlatform::Bing;
+        }
+
+        if ($platforms === []) {
+            throw new InsufficientDataException('ContactSubmission', 'a gclid or msclkid for conversion tracking');
+        }
+
+        return $platforms;
     }
 }

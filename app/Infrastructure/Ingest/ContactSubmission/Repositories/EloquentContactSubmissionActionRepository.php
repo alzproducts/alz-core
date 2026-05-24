@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Infrastructure\Ingest\ContactSubmission\Repositories;
 
 use App\Application\Contracts\ContactSubmission\ContactSubmissionActionRepositoryInterface;
+use App\Application\Conversion\Enums\AdPlatform;
 use App\Domain\ContactSubmission\Enums\ActionStatus;
 use App\Domain\ContactSubmission\Enums\ActionType;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
@@ -16,12 +17,6 @@ use Carbon\CarbonImmutable;
 use DateTimeImmutable;
 use RuntimeException;
 
-/**
- * Eloquent implementation of ContactSubmissionActionRepository.
- *
- * Manages mutable processing state in customer_service schema.
- * Uses EloquentGateway for model-agnostic operations and exception translation.
- */
 final readonly class EloquentContactSubmissionActionRepository implements ContactSubmissionActionRepositoryInterface
 {
     public function __construct(
@@ -34,13 +29,14 @@ final readonly class EloquentContactSubmissionActionRepository implements Contac
      * @throws ExternalServiceUnavailableException
      * @throws RuntimeException
      */
-    public function create(string $submissionId, ActionType $actionType): string
+    public function create(string $submissionId, ActionType $actionType, ?AdPlatform $adPlatform = null): string
     {
         return $this->gateway->insertOne(
             ContactSubmissionActionModel::class,
             [
                 'contact_submission_id' => $submissionId,
                 'action_type' => $actionType,
+                'ad_platform' => $adPlatform,
                 'status' => ActionStatus::Pending,
                 'attempts' => 0,
             ],
@@ -204,6 +200,15 @@ final readonly class EloquentContactSubmissionActionRepository implements Contac
                 $model = ContactSubmissionActionModel::query()
                     ->where('contact_submission_id', $submissionId)
                     ->where('action_type', $actionType)
+                    // ADR-0002 priority. `ELSE 5` keeps any future ActionStatus case
+                    // deterministically last instead of relying on NULL-ordering.
+                    ->orderByRaw("CASE status
+                        WHEN 'completed' THEN 1
+                        WHEN 'failed' THEN 2
+                        WHEN 'processing' THEN 3
+                        WHEN 'pending' THEN 4
+                        ELSE 5
+                    END")
                     ->first(['status']);
 
                 return $model?->status;
