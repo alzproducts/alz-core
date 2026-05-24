@@ -18,7 +18,9 @@ use App\Domain\ContactSubmission\Enums\ContactReason;
 use App\Domain\ContactSubmission\ValueObjects\ConsentStatus;
 use App\Domain\ContactSubmission\ValueObjects\ContactFormData;
 use App\Domain\ContactSubmission\ValueObjects\ContactSubmission;
+use App\Domain\ContactSubmission\ValueObjects\Gclid;
 use App\Domain\ContactSubmission\ValueObjects\MarketingAttribution;
+use App\Domain\ContactSubmission\ValueObjects\Msclkid;
 use App\Domain\ContactSubmission\ValueObjects\SubmissionContext;
 use App\Domain\Exceptions\Data\InsufficientDataException;
 use App\Domain\ValueObjects\Guid;
@@ -53,7 +55,7 @@ final class SubmitLeadConversionUseCaseTest extends TestCase
 
     private const string GCLID = 'CjwKCAjwTestGclid12345';
 
-    private const string MSCLKID = 'BingMsclkidTestValue678';
+    private const string MSCLKID = 'cdd4afcccb1c9a4cad9544dd7e5006d5-1';
 
     private ContactSubmissionRepositoryInterface&MockInterface $submissionRepository;
 
@@ -268,7 +270,10 @@ final class SubmitLeadConversionUseCaseTest extends TestCase
                 message: 'Please quote for X.',
             ),
             consent: ConsentStatus::denied(),
-            attribution: new MarketingAttribution(gclid: $gclid, msclkid: $msclkid),
+            attribution: new MarketingAttribution(
+                gclid: Gclid::fromNullableForm($gclid),
+                msclkid: Msclkid::fromNullableForm($msclkid),
+            ),
             context: new SubmissionContext(
                 clientTimestamp: new DateTimeImmutable('2026-05-15 09:00:00'),
                 ipAddress: '127.0.0.1',

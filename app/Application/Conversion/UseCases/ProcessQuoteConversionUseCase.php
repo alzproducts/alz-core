@@ -129,10 +129,7 @@ final readonly class ProcessQuoteConversionUseCase
     }
 
     /**
-     * Compose the Google Ads upload payload from the submission snapshot plus the
-     * staff-supplied conversion value and timestamp.
-     *
-     * @throws InsufficientDataException When gclid is missing
+     * @throws InsufficientDataException
      */
     private static function buildConversionUploadDTO(
         ContactSubmission $submission,
@@ -140,12 +137,12 @@ final readonly class ProcessQuoteConversionUseCase
         DateTimeImmutable $convertedAt,
     ): GoogleConversionUploadDTO {
         $gclid = $submission->attribution->gclid;
-        if ($gclid === null || $gclid === '') {
+        if ($gclid === null) {
             throw new InsufficientDataException('ContactSubmission', 'a gclid for Google Ads conversion upload');
         }
 
         return new GoogleConversionUploadDTO(
-            gclid: $gclid,
+            gclid: $gclid->value,
             email: $submission->form->email,
             convertedAt: $convertedAt,
             value: Money::exclusive($value),

@@ -106,7 +106,7 @@ final readonly class SubmitQuoteConversionUseCase
      */
     private static function ensureAdClickIdPresent(MarketingAttribution $attribution): void
     {
-        if (! $attribution->hasGclid() && ! $attribution->hasMsclkid()) {
+        if ($attribution->gclid === null && $attribution->msclkid === null) {
             throw new InsufficientDataException('ContactSubmission', 'a gclid or msclkid for conversion tracking');
         }
     }

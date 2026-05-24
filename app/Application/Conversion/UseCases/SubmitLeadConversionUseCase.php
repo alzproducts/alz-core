@@ -128,10 +128,10 @@ final readonly class SubmitLeadConversionUseCase
     private static function resolveEligiblePlatforms(MarketingAttribution $attribution): array
     {
         $platforms = [];
-        if ($attribution->hasGclid()) {
+        if ($attribution->gclid !== null) {
             $platforms[] = AdPlatform::Google;
         }
-        if ($attribution->hasMsclkid()) {
+        if ($attribution->msclkid !== null) {
             $platforms[] = AdPlatform::Bing;
         }
 

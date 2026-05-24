@@ -115,19 +115,12 @@ final readonly class ProcessLeadConversionUseCase
     }
 
     /**
-     * Compose the Google Ads upload payload from the submission snapshot.
-     *
-     * Validates required fields — gclid was checked at submission time but could
-     * theoretically be mutated; submittedAt is always set from DB created_at but
-     * null-checked explicitly since the VO type is nullable.
-     * Both throw InsufficientDataException so the job fails immediately (no retry).
-     *
-     * @throws InsufficientDataException When gclid or submission timestamp is missing
+     * @throws InsufficientDataException
      */
     private static function buildConversionUploadDTO(ContactSubmission $submission): GoogleConversionUploadDTO
     {
         $gclid = $submission->attribution->gclid;
-        if ($gclid === null || $gclid === '') {
+        if ($gclid === null) {
             throw new InsufficientDataException('ContactSubmission', 'a gclid for Google Ads conversion upload');
         }
 
@@ -137,7 +130,7 @@ final readonly class ProcessLeadConversionUseCase
         }
 
         return new GoogleConversionUploadDTO(
-            gclid: $gclid,
+            gclid: $gclid->value,
             email: $submission->form->email,
             convertedAt: $submittedAt,
             value: null,

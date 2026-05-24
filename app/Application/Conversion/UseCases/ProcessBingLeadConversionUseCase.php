@@ -116,15 +116,12 @@ final readonly class ProcessBingLeadConversionUseCase
     }
 
     /**
-     * Defensive null-checks: the VO types are nullable even though both fields
-     * are populated in practice (msclkid checked at submission; submittedAt from `created_at`).
-     *
      * @throws InsufficientDataException
      */
     private static function buildConversionUploadDTO(ContactSubmission $submission): BingConversionUploadDTO
     {
         $msclkid = $submission->attribution->msclkid;
-        if ($msclkid === null || $msclkid === '') {
+        if ($msclkid === null) {
             throw new InsufficientDataException('ContactSubmission', 'an msclkid for Bing Ads conversion upload');
         }
 
@@ -134,7 +131,7 @@ final readonly class ProcessBingLeadConversionUseCase
         }
 
         return new BingConversionUploadDTO(
-            msclkid: $msclkid,
+            msclkid: $msclkid->value,
             email: $submission->form->email,
             convertedAt: $submittedAt,
             value: null,
