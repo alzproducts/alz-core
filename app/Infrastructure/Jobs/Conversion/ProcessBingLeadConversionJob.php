@@ -8,6 +8,7 @@ use App\Application\Conversion\UseCases\HandleLeadConversionFailureUseCase;
 use App\Application\Conversion\UseCases\ProcessBingLeadConversionUseCase;
 use App\Domain\Conversion\Exceptions\UnsupportedConversionTypeException;
 use App\Domain\Exceptions\Data\InsufficientDataException;
+use App\Domain\Exceptions\Data\InvalidFormatException;
 use App\Domain\Exceptions\Data\MalformedStoredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
@@ -80,7 +81,7 @@ final class ProcessBingLeadConversionJob implements ShouldBeUnique, ShouldQueue
     {
         try {
             $useCase->execute($this->submissionId, $this->actionId);
-        } catch (InsufficientDataException|MalformedStoredDataException|UnsupportedConversionTypeException $e) {
+        } catch (InsufficientDataException|InvalidFormatException|MalformedStoredDataException|UnsupportedConversionTypeException $e) {
             $this->fail($e);
         }
     }

@@ -9,6 +9,7 @@ use App\Application\Contracts\ContactSubmission\ContactSubmissionActionRepositor
 use App\Application\Contracts\ContactSubmission\ContactSubmissionRepositoryInterface;
 use App\Application\Conversion\BingConversionUploadDTO;
 use App\Domain\ContactSubmission\ValueObjects\ContactSubmission;
+use App\Domain\ContactSubmission\ValueObjects\Msclkid;
 use App\Domain\Conversion\Enums\ConversionType;
 use App\Domain\Conversion\Exceptions\UnsupportedConversionTypeException;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
@@ -17,6 +18,7 @@ use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Data\InsufficientDataException;
+use App\Domain\Exceptions\Data\InvalidFormatException;
 use App\Domain\Exceptions\Data\MalformedStoredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
@@ -52,6 +54,7 @@ final readonly class ProcessBingLeadConversionUseCase
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws InsufficientDataException When msclkid or submission timestamp is missing
+     * @throws InvalidFormatException When stored msclkid has an invalid format (permanent)
      */
     public function execute(string $submissionId, string $actionId): void
     {
@@ -100,6 +103,7 @@ final readonly class ProcessBingLeadConversionUseCase
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws InsufficientDataException When msclkid or submission timestamp is missing
+     * @throws InvalidFormatException
      */
     private function uploadAndMarkComplete(ContactSubmission $submission, string $submissionId, string $actionId): void
     {
@@ -117,6 +121,7 @@ final readonly class ProcessBingLeadConversionUseCase
 
     /**
      * @throws InsufficientDataException
+     * @throws InvalidFormatException
      */
     private static function buildConversionUploadDTO(ContactSubmission $submission): BingConversionUploadDTO
     {
@@ -131,7 +136,7 @@ final readonly class ProcessBingLeadConversionUseCase
         }
 
         return new BingConversionUploadDTO(
-            msclkid: $msclkid->value,
+            msclkid: Msclkid::from($msclkid)->value,
             email: $submission->form->email,
             convertedAt: $submittedAt,
             value: null,

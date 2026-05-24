@@ -8,7 +8,6 @@ use App\Application\Contracts\ContactSubmission\ContactSubmissionRepositoryInter
 use App\Domain\ContactSubmission\ValueObjects\ContactSubmission;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\RecordNotFoundException;
-use App\Domain\Exceptions\Data\InvalidFormatException;
 use App\Domain\Exceptions\Data\MalformedStoredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
@@ -45,7 +44,6 @@ final readonly class EloquentContactSubmissionRepository implements ContactSubmi
 
     /**
      * @throws RecordNotFoundException When submission not found
-     * @throws InvalidFormatException
      * @throws MalformedStoredDataException If product JSONB is corrupted
      * @throws ExternalServiceUnavailableException
      * @throws DatabaseOperationFailedException

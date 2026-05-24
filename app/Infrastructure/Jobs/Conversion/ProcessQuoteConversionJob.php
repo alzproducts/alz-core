@@ -7,6 +7,7 @@ namespace App\Infrastructure\Jobs\Conversion;
 use App\Application\Conversion\UseCases\HandleQuoteConversionFailureUseCase;
 use App\Application\Conversion\UseCases\ProcessQuoteConversionUseCase;
 use App\Domain\Exceptions\Data\InsufficientDataException;
+use App\Domain\Exceptions\Data\InvalidFormatException;
 use App\Domain\Exceptions\Data\MalformedStoredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
@@ -101,7 +102,7 @@ final class ProcessQuoteConversionJob implements ShouldBeUnique, ShouldQueue
     {
         try {
             $useCase->execute($this->submissionId, $this->actionId, $this->value, $this->convertedAt);
-        } catch (InsufficientDataException|MalformedStoredDataException $e) {
+        } catch (InsufficientDataException|InvalidFormatException|MalformedStoredDataException $e) {
             $this->fail($e);
         }
     }

@@ -17,7 +17,6 @@ use App\Domain\ContactSubmission\ValueObjects\ContactFormData;
 use App\Domain\ContactSubmission\ValueObjects\ContactSubmission;
 use App\Domain\ContactSubmission\ValueObjects\Gclid;
 use App\Domain\ContactSubmission\ValueObjects\MarketingAttribution;
-use App\Domain\ContactSubmission\ValueObjects\Msclkid;
 use App\Domain\ContactSubmission\ValueObjects\SubmissionContext;
 use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Data\InsufficientDataException;
@@ -238,8 +237,8 @@ final class SubmitQuoteConversionUseCaseTest extends TestCase
             ),
             consent: ConsentStatus::denied(),
             attribution: new MarketingAttribution(
-                gclid: Gclid::fromNullableForm($gclid),
-                msclkid: Msclkid::fromNullableForm($msclkid),
+                gclid: $gclid,
+                msclkid: $msclkid,
             ),
             context: new SubmissionContext(
                 clientTimestamp: new DateTimeImmutable('2026-05-15 09:00:00'),
