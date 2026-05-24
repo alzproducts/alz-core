@@ -34,6 +34,7 @@ Spawn subagents **in parallel** using the Agent tool (multiple Agent blocks in a
 Each subagent prompt must include:
 - The changed files in its assigned layers
 - The checklist items from the relevant sections below
+- **Comment hygiene** (every changed file): apply the deletion test to every docblock and inline comment. If removing it loses nothing beyond what the signature and code already say, delete it. Keep only non-obvious WHY (hidden constraints, real prior bugs, subtle invariants). Strip: name-restatements, task/PR/issue references, "used by X" / caller mentions, narration of visible code, framework-convention boilerplate, and another-layer concerns (e.g. HTTP-code mappings inside Application `@throws`). `@throws`/`@param`/`@return` tags are not prose — evaluate them separately.
 - **Boundary rule**: read files outside your layers for context, but only edit files within your assigned layers
 - **Reference existing code** as the canonical example for fixes — do not invent patterns
 - Skip complex refactors — report them instead
@@ -108,7 +109,6 @@ After all subagents complete, handle the **General** checklist yourself — thes
 - **Singleton staleness (Octane)** — Any new or changed class registered as `singleton()` must not hold lazy-loaded mutable state (e.g., `private ?Foo $cached = null` populated from the DB). Classes with such state must use `scoped()` — either directly or transitively via a scoped consumer. Singletons persist for the entire Octane worker lifetime.
 - **Linting bypasses** — Scan changed files for `@phpstan-ignore`, `@psalm-suppress`, baseline additions, or similar suppression annotations. Each must have explicit user approval and a documented justification. Check `docs/guides/common-linting-errors.md` for ranked alternatives before accepting any bypass. Compare against existing bypasses in the codebase for precedent.
 - **Complexity baseline abuse** — If `phpstan-complexity-baseline.neon` is in the diff, verify that only **existing entries** were updated (e.g., line-number shifts from nearby edits). **New entries for new code are never acceptable** — the code must be decomposed to fit within PHPStan's complexity limits instead. Flag any new baselines for the user.
-- **Docblock quality** — Apply the deletion test: if removing a docblock loses nothing beyond what the signature and code already say, delete it. Keep comments that explain *why* (non-obvious constraints, format choices, architectural decisions). Delete comments that restate the method name, describe what the visible code does step-by-step, or document another layer's design decisions. `@throws`/`@param`/`@return` tags are not prose — evaluate them separately.
 
 ### Testing
 
