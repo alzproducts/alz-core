@@ -44,9 +44,26 @@ graph TD
     style P fill:#3a1a5c,stroke:#6a2d9f,color:#fff
 ```
 
+> System topology, container deployment, and end-to-end data flows: see [`docs/architecture-overview.md`](docs/architecture-overview.md).
+
 **Enforcement tools:** PHPArkitect (layer dependencies) · PHPStan max level with bleeding edge · 99% type coverage target · Cognitive complexity limits · Disallowed calls (no facades in domain/application, no `DB::`, no `Artisan::call`)
 
 **27 custom PHPStan rules** cover job resilience (`$tries`, `$timeout`, `backoff()`, `failed()` required on every job), exception taxonomy (domain exceptions must extend the base, infrastructure `@throws` must not reference vendor exceptions), complexity limits (20-line methods, 4-parameter cap, tiered class length by layer), and naming conventions enforced per layer.
+
+**Enforced invariants** — every rule below fails CI, not code review:
+
+| Invariant | Enforced by |
+|-----------|-------------|
+| Domain depends only on PHP built-ins + `webmozart/assert` | PHPArkitect + Deptrac |
+| Application never imports Infrastructure | PHPArkitect + Deptrac |
+| Presentation never imports Infrastructure | PHPArkitect + Deptrac |
+| No `DB::` facade anywhere — use `DatabaseGateway` | Custom PHPStan rule `NoDbFacadeRule` |
+| No `config()` / `Config::` in Domain or Application | `spaze/phpstan-disallowed-calls` |
+| No static properties (Octane persists state across requests) | Custom PHPStan rule `NoStaticPropertiesRule` |
+| Checked-exception semantics enforced via PHPStan — every thrown exception must be declared in `@throws` and propagated or caught by every caller (PHP itself does not enforce this) | PHPStan `exceptions.check` (`missingCheckedExceptionInThrows`) |
+| SDK exception types never appear in `@throws` — translated to Domain exceptions at the Infrastructure boundary | Custom rule `NoSdkExceptionsInThrowsRule` |
+| Every queue job declares `$tries`, `$timeout`, `backoff()`, `failed()`, implements `ShouldQueue`, and sets `onQueue()` | 6 custom rules under `DevTools/PHPStan/Rules/Jobs/` |
+| Every table reference must be schema-qualified (`auth.*`, `shopwired.*`, `public.*`) | Custom rule `SchemaQualifiedTableNameRule` |
 
 ## Key Engineering Decisions
 
