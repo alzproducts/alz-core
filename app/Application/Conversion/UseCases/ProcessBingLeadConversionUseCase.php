@@ -4,15 +4,17 @@ declare(strict_types=1);
 
 namespace App\Application\Conversion\UseCases;
 
+use App\Application\Contracts\BingAdsConversionInterface;
 use App\Application\Contracts\ContactSubmission\ContactSubmissionActionRepositoryInterface;
 use App\Application\Contracts\ContactSubmission\ContactSubmissionRepositoryInterface;
-use App\Application\Contracts\GoogleAdsConversionInterface;
-use App\Application\Conversion\GoogleConversionUploadDTO;
+use App\Application\Conversion\BingConversionUploadDTO;
 use App\Domain\ContactSubmission\ValueObjects\ContactSubmission;
 use App\Domain\Conversion\Enums\ConversionType;
+use App\Domain\Conversion\Exceptions\UnsupportedConversionTypeException;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
+use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Data\InsufficientDataException;
 use App\Domain\Exceptions\Data\MalformedStoredDataException;
@@ -21,39 +23,39 @@ use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use Psr\Log\LoggerInterface;
 
 /**
- * Uploads a lead conversion to Google Ads.
- *
- * Called by ProcessLeadConversionJob after action is created in pending state.
- * Idempotent — skips if action already terminal (completed or failed).
+ * Idempotent — re-runs on a terminal action are no-ops. See {@see ProcessLeadConversionUseCase}
+ * for the Google equivalent.
  */
-final readonly class ProcessLeadConversionUseCase
+final readonly class ProcessBingLeadConversionUseCase
 {
     /**
-     * Sentinel passed to `markCompleted()` since Google Ads returns no receipt ID for
-     * uploaded conversions — the action row still requires a non-null external reference.
+     * Bing Ads returns no receipt ID for uploaded conversions; the action row's
+     * `external_id` is NOT NULL so we store a sentinel.
      */
     private const string COMPLETION_RECEIPT = 'uploaded';
 
     public function __construct(
         private ContactSubmissionRepositoryInterface $submissionRepository,
         private ContactSubmissionActionRepositoryInterface $actionRepository,
-        private GoogleAdsConversionInterface $conversionClient,
+        private BingAdsConversionInterface $conversionClient,
         private LoggerInterface $logger,
     ) {}
 
     /**
-     * @throws ExternalServiceUnavailableException When Google Ads/DB unavailable (transient — retry)
-     * @throws AuthenticationExpiredException When Google Ads credentials invalid (permanent)
-     * @throws InvalidApiRequestException When Google Ads rejects the conversion (permanent)
-     * @throws RecordNotFoundException When the submission no longer exists
-     * @throws MalformedStoredDataException When stored submission JSONB is corrupted
-     * @throws DatabaseOperationFailedException When DB update fails (permanent)
+     * @throws ExternalServiceUnavailableException
+     * @throws AuthenticationExpiredException
+     * @throws InvalidApiRequestException
+     * @throws InvalidApiResponseException
+     * @throws UnsupportedConversionTypeException
+     * @throws RecordNotFoundException
+     * @throws MalformedStoredDataException
+     * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
-     * @throws InsufficientDataException When gclid or submission timestamp is missing (permanent)
+     * @throws InsufficientDataException When msclkid or submission timestamp is missing
      */
     public function execute(string $submissionId, string $actionId): void
     {
-        $this->logger->info('Processing lead conversion', [
+        $this->logger->info('Processing Bing lead conversion', [
             'submission_id' => $submissionId,
             'action_id' => $actionId,
         ]);
@@ -71,18 +73,16 @@ final readonly class ProcessLeadConversionUseCase
     }
 
     /**
-     * Idempotency guard — re-runs of the job after success/failure must be no-ops.
-     *
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
-     * @throws ExternalServiceUnavailableException When DB unavailable
+     * @throws ExternalServiceUnavailableException
      */
     private function isAlreadyTerminal(string $submissionId, string $actionId): bool
     {
         $isTerminal = $this->actionRepository->getStatus($actionId)?->isTerminal() === true;
 
         if ($isTerminal) {
-            $this->logger->info('Lead conversion action already terminal — skipping', [
+            $this->logger->info('Bing lead conversion action already terminal — skipping', [
                 'submission_id' => $submissionId,
                 'action_id' => $actionId,
             ]);
@@ -92,23 +92,24 @@ final readonly class ProcessLeadConversionUseCase
     }
 
     /**
-     * Upload to Google Ads then mark the action complete.
-     *
-     * @throws ExternalServiceUnavailableException When Google Ads/DB unavailable
-     * @throws AuthenticationExpiredException When Google Ads credentials invalid
-     * @throws InvalidApiRequestException When Google Ads rejects the conversion
-     * @throws DatabaseOperationFailedException When DB update fails
-     * @throws InsufficientDataException When gclid or submission timestamp is missing
+     * @throws ExternalServiceUnavailableException
+     * @throws AuthenticationExpiredException
+     * @throws InvalidApiRequestException
+     * @throws InvalidApiResponseException
+     * @throws UnsupportedConversionTypeException
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws InsufficientDataException When msclkid or submission timestamp is missing
      */
     private function uploadAndMarkComplete(ContactSubmission $submission, string $submissionId, string $actionId): void
     {
         $data = self::buildConversionUploadDTO($submission);
 
-        $this->conversionClient->uploadConversion(ConversionType::LeadReceived, $data);
+        $this->conversionClient->uploadOfflineConversion(ConversionType::LeadReceived, $data);
 
         $this->actionRepository->markCompleted($actionId, self::COMPLETION_RECEIPT);
 
-        $this->logger->info('Lead conversion uploaded', [
+        $this->logger->info('Bing lead conversion uploaded', [
             'submission_id' => $submissionId,
             'action_id' => $actionId,
         ]);
@@ -117,11 +118,11 @@ final readonly class ProcessLeadConversionUseCase
     /**
      * @throws InsufficientDataException
      */
-    private static function buildConversionUploadDTO(ContactSubmission $submission): GoogleConversionUploadDTO
+    private static function buildConversionUploadDTO(ContactSubmission $submission): BingConversionUploadDTO
     {
-        $gclid = $submission->attribution->gclid;
-        if ($gclid === null) {
-            throw new InsufficientDataException('ContactSubmission', 'a gclid for Google Ads conversion upload');
+        $msclkid = $submission->attribution->msclkid;
+        if ($msclkid === null) {
+            throw new InsufficientDataException('ContactSubmission', 'an msclkid for Bing Ads conversion upload');
         }
 
         $submittedAt = $submission->submittedAt;
@@ -129,8 +130,8 @@ final readonly class ProcessLeadConversionUseCase
             throw new InsufficientDataException('ContactSubmission', 'a submission timestamp for conversion time');
         }
 
-        return new GoogleConversionUploadDTO(
-            gclid: $gclid->value,
+        return new BingConversionUploadDTO(
+            msclkid: $msclkid->value,
             email: $submission->form->email,
             convertedAt: $submittedAt,
             value: null,

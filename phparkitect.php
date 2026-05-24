@@ -394,6 +394,7 @@ return static function (Config $config): void {
                        'App\Application\HelpScout\Config',
                        'App\Application\Enums',
                        'App\Application\Catalog\Enums',
+                       'App\Application\Conversion\Enums',
                        'App\Application\HelpScout\Queries\Conversation\Enums',
                        'App\Application\Inventory\Enums',
                        'App\Application\Linnworks\Enums',
