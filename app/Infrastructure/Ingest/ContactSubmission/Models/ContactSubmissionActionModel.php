@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Ingest\ContactSubmission\Models;
 
+use App\Application\Conversion\Enums\AdPlatform;
 use App\Domain\ContactSubmission\Enums\ActionStatus;
 use App\Domain\ContactSubmission\Enums\ActionType;
 use Carbon\CarbonImmutable;
@@ -12,18 +13,12 @@ use Illuminate\Database\Eloquent\Model;
 use Override;
 
 /**
- * Eloquent model for customer_service.contact_submission_actions table.
- *
- * Mutable processing state for contact submissions. Each action tracks:
- * - Processing status (pending → processing → completed|failed)
- * - External references (e.g., HelpScout conversation ID)
- * - Retry attempts and error messages
- *
- * @property string $id UUID primary key
- * @property string $contact_submission_id FK to contact_submissions
+ * @property string $id
+ * @property string $contact_submission_id
  * @property ActionType $action_type
+ * @property AdPlatform|null $ad_platform NULL for HelpScout rows
  * @property ActionStatus $status
- * @property string|null $external_id External system reference
+ * @property string|null $external_id
  * @property string|null $error_message
  * @property int $attempts
  * @property CarbonImmutable $created_at
@@ -41,10 +36,6 @@ final class ContactSubmissionActionModel extends Model
 
     protected $keyType = 'string';
 
-    /**
-     * No mass assignment protection needed - all writes are server-controlled
-     * via repository with explicit property assignment.
-     */
     protected $guarded = [];
 
     /**
@@ -55,6 +46,7 @@ final class ContactSubmissionActionModel extends Model
     {
         return [
             'action_type' => ActionType::class,
+            'ad_platform' => AdPlatform::class,
             'status' => ActionStatus::class,
             'attempts' => 'integer',
             'created_at' => 'immutable_datetime',

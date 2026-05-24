@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Infrastructure\GoogleAds;
 
 use App\Application\Contracts\GoogleAdsClientInterface;
-use App\Application\Contracts\GoogleAdsConversionClientInterface;
 use App\Domain\Exceptions\InvalidConfigurationException;
 use Google\Ads\GoogleAds\Lib\OAuth2TokenBuilder;
 use Google\Ads\GoogleAds\Lib\V22\GoogleAdsClient as SdkGoogleAdsClient;
@@ -28,7 +27,7 @@ final class GoogleAdsClientFactory
         return new GoogleAdsClient($transport);
     }
 
-    public static function createConversionClient(): GoogleAdsConversionClientInterface
+    public static function createConversionClient(): GoogleAdsConversionClient
     {
         $config = self::createConversionConfig();
         $sdkClient = self::buildSdkClient($config);
@@ -84,7 +83,7 @@ final class GoogleAdsClientFactory
     /**
      * Create conversion-capable config by extending the base config with conversion action IDs.
      */
-    private static function createConversionConfig(): GoogleAdsConfig
+    public static function createConversionConfig(): GoogleAdsConfig
     {
         $leadId = \config('google-ads.lead_conversion_action_id');
         $quoteId = \config('google-ads.quote_conversion_action_id');

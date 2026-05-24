@@ -46,6 +46,24 @@ The price a customer actually pays — `sale_price` when `is_on_sale`, otherwise
 > **Dev:** "Can two syncs write to the same **ShopWired custom_label_N**?"
 > **Domain expert:** "By design no — we want each `custom_label_N` written by exactly one sync. We learned the hard way that these are single-select string fields; if two syncs wrote to the same field they'd clobber each other on every cycle."
 
+### Offline conversion tracking
+
+**Offline conversion**:
+An event reported back to an ad platform (Google Ads, Bing Ads) indicating that a user who clicked an ad later performed a valuable action (qualified lead, quote issued). Uploaded via platform-specific APIs using the click ID captured at landing time.
+
+**Click ID**:
+A platform-specific identifier appended to the landing URL when a user clicks a paid ad. `gclid` (Google), `msclkid` (Bing/Microsoft), `fbclid` (Facebook). Stored on the contact submission at form-submit time. A submission may carry click IDs from multiple platforms.
+
+**Qualified Lead** (conversion type: `lead_received`):
+A staff-initiated action marking a contact submission as a genuine sales lead. Triggers async upload of the conversion to every ad platform that has a click ID on that submission. Distinct from **Quote Issued** (`quote_issued`), which carries a monetary value and staff-supplied timestamp.
+
+**Conversion goal name** (Bing-specific):
+The exact string name of an `OfflineConversionGoal` configured in the Bing Ads UI. Must match `ConversionName` in the upload payload case-sensitively. A mismatch causes silent drop — no error returned.
+_Avoid_: confusing with Google's numeric **conversion action ID**, which serves the same purpose but is an integer, not a string.
+
+**Ad platform**:
+One of the advertising networks that receives offline conversion uploads (`Google`, `Bing`). Each platform tracks its upload status independently per submission — a submission can succeed on Google and fail on Bing.
+
 ## Flagged ambiguities
 
 - "label" can mean (1) a **ShopWired custom_label_N** field, or (2) the **string value** written to it. Disambiguate in conversation by saying "the `custom_label_1` field" vs "the `1 - Low margin` label value".

@@ -31,6 +31,7 @@ use App\Infrastructure\Linnworks\Models\StockItemSupplierModel;
 use App\Infrastructure\Shopwired\Factories\CustomFieldFactory;
 use App\Infrastructure\Shopwired\Factories\ProductFilterFactory;
 use App\Infrastructure\Shopwired\ShopwiredAdminUrlResolver;
+use DateTimeImmutable;
 
 /**
  * Assembles ProductViewModel (Eloquent) into ProductView (Domain) for API responses.
@@ -115,6 +116,9 @@ final readonly class ProductViewAssembler
             defaultSupplier: $defaultSupplier,
             isComposite: $stockItem?->is_composite,
             priceLastUpdatedAt: $model->price_last_updated_at?->toDateTimeImmutable(),
+            discontinued: self::extractStringField($typedCustomFields, 'discontinued'),
+            preorderDate: self::extractDateTimeField($typedCustomFields, 'preorder_date'),
+            otherStockStatus: self::extractStringField($typedCustomFields, 'other_stock_status'),
         );
     }
 
@@ -221,9 +225,9 @@ final readonly class ProductViewAssembler
     }
 
     /** @param list<AbstractCustomFieldValue> $typedCustomFields */
-    private static function resolveFreeDelivery(array $typedCustomFields): ?FreeDeliveryType
+    private static function extractStringField(array $typedCustomFields, string $fieldName): ?string
     {
-        $field = \array_find($typedCustomFields, static fn(AbstractCustomFieldValue $cf): bool => $cf->name() === 'free_delivery');
+        $field = \array_find($typedCustomFields, static fn(AbstractCustomFieldValue $cf): bool => $cf->name() === $fieldName);
 
         if ($field === null) {
             return null;
@@ -231,11 +235,29 @@ final readonly class ProductViewAssembler
 
         $value = $field->rawValue();
 
-        if (! \is_string($value) || $value === '') {
+        return \is_string($value) && $value !== '' ? $value : null;
+    }
+
+    /** @param list<AbstractCustomFieldValue> $typedCustomFields */
+    private static function extractDateTimeField(array $typedCustomFields, string $fieldName): ?DateTimeImmutable
+    {
+        $field = \array_find($typedCustomFields, static fn(AbstractCustomFieldValue $cf): bool => $cf->name() === $fieldName);
+
+        if ($field === null) {
             return null;
         }
 
-        return FreeDeliveryType::tryFrom($value);
+        $value = $field->rawValue();
+
+        return $value instanceof DateTimeImmutable ? $value : null;
+    }
+
+    /** @param list<AbstractCustomFieldValue> $typedCustomFields */
+    private static function resolveFreeDelivery(array $typedCustomFields): ?FreeDeliveryType
+    {
+        $value = self::extractStringField($typedCustomFields, 'free_delivery');
+
+        return $value !== null ? FreeDeliveryType::tryFrom($value) : null;
     }
 
     /**

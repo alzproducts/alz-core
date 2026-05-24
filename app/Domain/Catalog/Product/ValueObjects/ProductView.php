@@ -76,6 +76,14 @@ final readonly class ProductView
     public Stock $stockLevel;
 
     /**
+     * Stock status flags promoted from ShopWired custom fields.
+     *
+     * Always present; individual properties are nullable when the underlying
+     * custom field is unset on the product.
+     */
+    public StockStatus $stockStatus;
+
+    /**
      * @param list<int> $categoryIds
      * @param list<int> $mainCategoryIds
      * @param list<ProductVariationView>|null $variations
@@ -131,6 +139,9 @@ final readonly class ProductView
         array $mainCategoryIds = [],
         public ?DateTimeImmutable $priceLastUpdatedAt = null,
         public ?Popularity $popularity = null,
+        ?string $discontinued = null,
+        ?DateTimeImmutable $preorderDate = null,
+        ?string $otherStockStatus = null,
     ) {
         $taxType = $vatExclusive ? TaxType::ZeroRated : TaxType::Inclusive;
         $derivationVariations = $allVariations ?? $variations;
@@ -162,6 +173,7 @@ final readonly class ProductView
         $this->profitMargin = $pricing->profitMargin;
         $this->hasSingleSellingPrice = ProductViewPricing::hasSingleSellingPrice($pricing->price, $derivationVariations);
         $this->stockLevel = Stock::fromParentAndVariants($parentAvailableStock, $parentPhysicalStock, $derivationVariations);
+        $this->stockStatus = new StockStatus($discontinued, $preorderDate, $otherStockStatus);
     }
 
     /**

@@ -6,10 +6,10 @@ namespace App\Application\Conversion\UseCases;
 
 use App\Application\Contracts\ContactSubmission\ContactSubmissionActionRepositoryInterface;
 use App\Application\Contracts\ContactSubmission\ContactSubmissionRepositoryInterface;
-use App\Application\Contracts\GoogleAdsConversionClientInterface;
+use App\Application\Contracts\GoogleAdsConversionInterface;
+use App\Application\Conversion\GoogleConversionUploadDTO;
 use App\Domain\ContactSubmission\ValueObjects\ContactSubmission;
 use App\Domain\Conversion\Enums\ConversionType;
-use App\Domain\Conversion\ValueObjects\ClickConversionData;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
@@ -48,7 +48,7 @@ final readonly class ProcessQuoteConversionUseCase
     public function __construct(
         private ContactSubmissionRepositoryInterface $submissionRepository,
         private ContactSubmissionActionRepositoryInterface $actionRepository,
-        private GoogleAdsConversionClientInterface $conversionClient,
+        private GoogleAdsConversionInterface $conversionClient,
         private LoggerInterface $logger,
     ) {}
 
@@ -82,7 +82,7 @@ final readonly class ProcessQuoteConversionUseCase
         $this->actionRepository->markProcessing($actionId);
 
         $submission = $this->submissionRepository->findById($submissionId);
-        $data = self::buildClickConversionData($submission, $value, self::parseConvertedAt($convertedAt));
+        $data = self::buildConversionUploadDTO($submission, $value, self::parseConvertedAt($convertedAt));
 
         $this->uploadAndMarkComplete($submissionId, $actionId, $data);
     }
@@ -116,7 +116,7 @@ final readonly class ProcessQuoteConversionUseCase
      * @throws InvalidApiRequestException When Google Ads rejects the conversion
      * @throws DatabaseOperationFailedException When DB update fails
      */
-    private function uploadAndMarkComplete(string $submissionId, string $actionId, ClickConversionData $data): void
+    private function uploadAndMarkComplete(string $submissionId, string $actionId, GoogleConversionUploadDTO $data): void
     {
         $this->conversionClient->uploadConversion(ConversionType::QuoteIssued, $data);
 
@@ -129,26 +129,24 @@ final readonly class ProcessQuoteConversionUseCase
     }
 
     /**
-     * Compose the Google Ads upload payload from the submission snapshot plus the
-     * staff-supplied conversion value and timestamp.
-     *
-     * @throws InsufficientDataException When gclid is missing
+     * @throws InsufficientDataException
      */
-    private static function buildClickConversionData(
+    private static function buildConversionUploadDTO(
         ContactSubmission $submission,
         float $value,
         DateTimeImmutable $convertedAt,
-    ): ClickConversionData {
+    ): GoogleConversionUploadDTO {
         $gclid = $submission->attribution->gclid;
-        if ($gclid === null || $gclid === '') {
+        if ($gclid === null) {
             throw new InsufficientDataException('ContactSubmission', 'a gclid for Google Ads conversion upload');
         }
 
-        return new ClickConversionData(
-            gclid: $gclid,
+        return new GoogleConversionUploadDTO(
+            gclid: $gclid->value,
             email: $submission->form->email,
             convertedAt: $convertedAt,
             value: Money::exclusive($value),
+            phone: $submission->form->phone,
         );
     }
 

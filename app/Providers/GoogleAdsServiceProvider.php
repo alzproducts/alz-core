@@ -6,13 +6,16 @@ namespace App\Providers;
 
 use App\Application\AdSpend\UseCases\SyncAdSpendUseCase;
 use App\Application\Contracts\GoogleAdsClientInterface;
-use App\Application\Contracts\GoogleAdsConversionClientInterface;
+use App\Application\Contracts\GoogleAdsConversionInterface;
 use App\Application\Contracts\MixpanelClientInterface;
 use App\Application\Mixpanel\UseCases\SyncLookupTableUseCase;
 use App\Infrastructure\GoogleAds\GoogleAdsClientFactory;
+use App\Infrastructure\GoogleAds\GoogleAdsConversionClient;
+use App\Infrastructure\GoogleAds\GoogleAdsConversionService;
 use App\Infrastructure\Jobs\Mixpanel\SyncCampaignLookupTableJob;
 use App\Infrastructure\Jobs\Mixpanel\SyncGoogleAdsToMixpanelJob;
 use App\Infrastructure\Mixpanel\LookupTables\CampaignLookupTableProvider;
+use App\Infrastructure\Phone\PhoneNormalisationService;
 use Illuminate\Contracts\Container\BindingResolutionException;
 use Illuminate\Contracts\Container\Container;
 use Illuminate\Contracts\Support\DeferrableProvider;
@@ -59,8 +62,17 @@ final class GoogleAdsServiceProvider extends ServiceProvider implements Deferrab
     private function registerConversionClient(): void
     {
         $this->app->singleton(
-            GoogleAdsConversionClientInterface::class,
-            static fn(): GoogleAdsConversionClientInterface => GoogleAdsClientFactory::createConversionClient(),
+            GoogleAdsConversionClient::class,
+            static fn(): GoogleAdsConversionClient => GoogleAdsClientFactory::createConversionClient(),
+        );
+
+        $this->app->singleton(
+            GoogleAdsConversionInterface::class,
+            static fn(Container $app): GoogleAdsConversionService => new GoogleAdsConversionService(
+                $app->make(GoogleAdsConversionClient::class),
+                GoogleAdsClientFactory::createConversionConfig(),
+                new PhoneNormalisationService(),
+            ),
         );
     }
 
@@ -108,7 +120,8 @@ final class GoogleAdsServiceProvider extends ServiceProvider implements Deferrab
     {
         return [
             GoogleAdsClientInterface::class,
-            GoogleAdsConversionClientInterface::class,
+            GoogleAdsConversionClient::class,
+            GoogleAdsConversionInterface::class,
         ];
     }
 }

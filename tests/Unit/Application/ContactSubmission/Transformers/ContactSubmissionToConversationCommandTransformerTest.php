@@ -10,7 +10,9 @@ use App\Domain\ContactSubmission\Enums\ProductSource;
 use App\Domain\ContactSubmission\ValueObjects\ConsentStatus;
 use App\Domain\ContactSubmission\ValueObjects\ContactFormData;
 use App\Domain\ContactSubmission\ValueObjects\ContactSubmission;
+use App\Domain\ContactSubmission\ValueObjects\Gclid;
 use App\Domain\ContactSubmission\ValueObjects\MarketingAttribution;
+use App\Domain\ContactSubmission\ValueObjects\Msclkid;
 use App\Domain\ContactSubmission\ValueObjects\SelectedProduct;
 use App\Domain\ContactSubmission\ValueObjects\SubmissionContext;
 use App\Domain\Customer\Enums\CustomerType;
@@ -368,22 +370,22 @@ final class ContactSubmissionToConversationCommandTransformerTest extends TestCa
     #[Test]
     public function body_excludes_gclid(): void
     {
-        $submission = $this->createSubmissionWithAttribution(gclid: 'CjwKCAjw');
+        $submission = $this->createSubmissionWithAttribution(gclid: 'CNHz5eD_8pkCFRCdnAodzniYQg');
 
         $command = $this->transformer->transform($submission);
 
-        self::assertStringNotContainsString('CjwKCAjw', $command->body);
+        self::assertStringNotContainsString('CNHz5eD_8pkCFRCdnAodzniYQg', $command->body);
         self::assertStringNotContainsString('gclid', $command->body);
     }
 
     #[Test]
     public function body_excludes_msclkid(): void
     {
-        $submission = $this->createSubmissionWithAttribution(msclkid: 'MSCLKID123456');
+        $submission = $this->createSubmissionWithAttribution(msclkid: 'cdd4afcccb1c9a4cad9544dd7e5006d5-1');
 
         $command = $this->transformer->transform($submission);
 
-        self::assertStringNotContainsString('MSCLKID123456', $command->body);
+        self::assertStringNotContainsString('cdd4afcccb1c9a4cad9544dd7e5006d5-1', $command->body);
         self::assertStringNotContainsString('msclkid', $command->body);
     }
 
@@ -613,11 +615,11 @@ final class ContactSubmissionToConversationCommandTransformerTest extends TestCa
         );
 
         $attribution = new MarketingAttribution(
-            gclid: $gclid,
+            gclid: Gclid::fromNullableForm($gclid),
             gclsrc: $gclsrc,
             wbraid: $wbraid,
             gbraid: $gbraid,
-            msclkid: $msclkid,
+            msclkid: Msclkid::fromNullableForm($msclkid),
             fbclid: $fbclid,
             utmSource: $utmSource,
             utmMedium: $utmMedium,

@@ -9,7 +9,9 @@ use App\Domain\ContactSubmission\Enums\ProductSource;
 use App\Domain\ContactSubmission\ValueObjects\ConsentStatus;
 use App\Domain\ContactSubmission\ValueObjects\ContactFormData;
 use App\Domain\ContactSubmission\ValueObjects\ContactSubmission;
+use App\Domain\ContactSubmission\ValueObjects\Gclid;
 use App\Domain\ContactSubmission\ValueObjects\MarketingAttribution;
+use App\Domain\ContactSubmission\ValueObjects\Msclkid;
 use App\Domain\ContactSubmission\ValueObjects\SelectedProduct;
 use App\Domain\ContactSubmission\ValueObjects\SubmissionContext;
 use App\Domain\Customer\Enums\CustomerType;
@@ -85,11 +87,11 @@ final readonly class ContactSubmissionMapper
         }
 
         return new MarketingAttribution(
-            gclid: $data->attribution->gclid,
+            gclid: Gclid::fromNullableForm($data->attribution->gclid),
             gclsrc: $data->attribution->gclsrc,
             wbraid: $data->attribution->wbraid,
             gbraid: $data->attribution->gbraid,
-            msclkid: $data->attribution->msclkid,
+            msclkid: Msclkid::fromNullableForm($data->attribution->msclkid),
             fbclid: $data->attribution->fbclid,
             utmSource: $data->attribution->utmSource,
             utmMedium: $data->attribution->utmMedium,

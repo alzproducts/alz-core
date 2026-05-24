@@ -5,15 +5,15 @@ declare(strict_types=1);
 /**
  * Cross-Origin Resource Sharing (CORS) Configuration.
  *
- * Enables cross-origin requests from the AlzProducts frontend to the contact form API.
- * Intentionally scoped to only the contact endpoint - other API routes are same-origin.
+ * Enables cross-origin requests from the AlzProducts frontend to the public form endpoints.
+ * Intentionally scoped to only the public endpoints - other API routes are same-origin.
  *
  * @see https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS
  */
 
 return [
-    // Only enable CORS for the contact form endpoint
-    'paths' => ['api/contact'],
+    // Enable CORS for public form/snapshot endpoints
+    'paths' => ['api/contact', 'api/checkout/snapshot'],
 
     'allowed_methods' => ['POST', 'OPTIONS'],
 
