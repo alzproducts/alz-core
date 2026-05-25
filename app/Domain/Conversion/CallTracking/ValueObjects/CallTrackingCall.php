@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Domain\Conversion\CallTracking\ValueObjects;
 
 use App\Domain\Conversion\CallTracking\Enums\CallStatus;
-use App\Domain\ValueObjects\Guid;
 use App\Domain\ValueObjects\IntId;
+use App\Domain\ValueObjects\Uuid;
 use DateTimeImmutable;
 
 final readonly class CallTrackingCall
@@ -16,7 +16,7 @@ final readonly class CallTrackingCall
         public PhoneNumberE164 $callerPhoneNumber,
         public CallStatus $callStatus,
         public ?IntId $helpscoutConversationId = null,
-        public ?Guid $id = null,
+        public ?Uuid $id = null,
         public ?DateTimeImmutable $createdAt = null,
     ) {}
 }

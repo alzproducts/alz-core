@@ -4,37 +4,35 @@ declare(strict_types=1);
 
 namespace App\Application\Contracts\Conversion\CallTracking;
 
-use App\Application\Conversion\Enums\AdPlatform;
 use App\Domain\Conversion\CallTracking\ValueObjects\CallTrackingVisit;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use App\Domain\ValueObjects\Uuid;
 use DateTimeImmutable;
 
 interface CallTrackingVisitRepositoryInterface
 {
     /**
-     * @return string UUID of the created record
-     *
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      */
-    public function save(CallTrackingVisit $visit): string;
+    public function save(CallTrackingVisit $visit): Uuid;
 
     /**
      * @throws RecordNotFoundException
      * @throws DatabaseOperationFailedException
      * @throws ExternalServiceUnavailableException
      */
-    public function findById(string $id): CallTrackingVisit;
+    public function findById(Uuid $id): CallTrackingVisit;
 
     /**
-     * `AdPlatform::Google` queries `gclid`; `AdPlatform::Bing` queries `msclkid`.
+     * Queries both `gclid` and `msclkid` columns — formats are structurally distinct.
      *
      * @throws DatabaseOperationFailedException
      * @throws ExternalServiceUnavailableException
      */
-    public function findRecentByClickId(string $clickId, AdPlatform $platform, DateTimeImmutable $after): ?CallTrackingVisit;
+    public function findRecentByClickId(string $clickId, DateTimeImmutable $after): ?CallTrackingVisit;
 }

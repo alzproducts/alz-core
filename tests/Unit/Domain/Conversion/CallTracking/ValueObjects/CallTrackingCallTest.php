@@ -7,8 +7,8 @@ namespace Tests\Unit\Domain\Conversion\CallTracking\ValueObjects;
 use App\Domain\Conversion\CallTracking\Enums\CallStatus;
 use App\Domain\Conversion\CallTracking\ValueObjects\CallTrackingCall;
 use App\Domain\Conversion\CallTracking\ValueObjects\PhoneNumberE164;
-use App\Domain\ValueObjects\Guid;
 use App\Domain\ValueObjects\IntId;
+use App\Domain\ValueObjects\Uuid;
 use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -56,7 +56,7 @@ final class CallTrackingCallTest extends TestCase
     #[Test]
     public function it_carries_id_and_created_at_when_hydrated(): void
     {
-        $id = Guid::fromTrusted('11111111-2222-3333-4444-555555555555');
+        $id = Uuid::fromTrusted('11111111-2222-3333-4444-555555555555');
         $createdAt = new DateTimeImmutable('2026-05-26T10:00:00+00:00');
 
         $call = new CallTrackingCall(
