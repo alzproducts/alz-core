@@ -37,6 +37,10 @@ The price a customer actually pays — `sale_price` when `is_on_sale`, otherwise
 - A **drift query** computes a target **margin tier** per eligible product and returns only those whose current label differs from the target
 - The design intent is for each **ShopWired custom_label_N** to be written by exactly one sync feature; multi-writer co-ownership creates clobbering risk because these are single-select string fields, not value-lists
 - The **margin midpoint** is derived from the **net margin (single unit)** min/max columns in `catalog.products_view`
+- A **tracking number** belongs to exactly one **number pool**
+- A **tracking number** is shown to at most one visitor within the **attribution window**
+- A **call-attributed conversion** carries a **click ID** resolved from the visit record, not from a contact submission
+- A **collision** means attribution is ambiguous — the row is excluded, not best-guessed
 
 ## Example dialogue
 
@@ -63,6 +67,25 @@ _Avoid_: confusing with Google's numeric **conversion action ID**, which serves 
 
 **Ad platform**:
 One of the advertising networks that receives offline conversion uploads (`Google`, `Bing`). Each platform tracks its upload status independently per submission — a submission can succeed on Google and fail on Bing.
+
+### Call tracking
+
+**Tracking number**:
+A Twilio phone number from a rotating pool, shown to eligible visitors (valid click ID + marketing consent) on the Contact Us page. Links the visitor's ad click to a subsequent phone call via the number they dialled.
+_Avoid_: "dynamic number", "virtual number"
+
+**Number pool**:
+The set of active Twilio tracking numbers available for rotation. Sequential assignment, modulo pool size. A number is never assigned to two different visitors within the **attribution window**.
+
+**Attribution window**:
+A single configurable duration (default: 6 hours) governing both visit deduplication (same click ID gets same number back) and call-to-visit merging (calls attributed to visits within this window). Unified to reduce operational complexity.
+_Avoid_: "merge window", "dedup window" (these are both facets of the single attribution window)
+
+**Call-attributed conversion**:
+An offline conversion where the click ID originates from a `call_tracking_visits` record (via phone call) rather than a `contact_submissions` record (via web form). Submitted to ad platforms through the same upload infrastructure but via an independent use case path.
+
+**Collision**:
+The error state where >1 visit exists for the same tracking number within the attribution window. Should be architecturally impossible at current volume (pool size guarantees ~5 day reuse). If detected: Sentry alert, row excluded from dashboard (junk data, not actionable).
 
 ## Flagged ambiguities
 
