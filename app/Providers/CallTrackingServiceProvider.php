@@ -30,7 +30,8 @@ final class CallTrackingServiceProvider extends ServiceProvider implements Defer
     #[Override]
     public function register(): void
     {
-        $this->registerRepositoryBindings();
+        $this->registerInboundCallBindings();
+        $this->registerNumberAssignmentBindings();
         $this->registerUseCaseConfig();
     }
 
@@ -49,7 +50,7 @@ final class CallTrackingServiceProvider extends ServiceProvider implements Defer
         ];
     }
 
-    private function registerRepositoryBindings(): void
+    private function registerInboundCallBindings(): void
     {
         $this->app->singleton(
             CallTrackingCallRepositoryInterface::class,
@@ -60,7 +61,10 @@ final class CallTrackingServiceProvider extends ServiceProvider implements Defer
             InboundCallDispatcherInterface::class,
             QueuedInboundCallDispatcher::class,
         );
+    }
 
+    private function registerNumberAssignmentBindings(): void
+    {
         $this->app->singleton(
             CallTrackingNumberRepositoryInterface::class,
             EloquentCallTrackingNumberRepository::class,
