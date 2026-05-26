@@ -12,8 +12,9 @@ use DateTimeImmutable;
 final readonly class CallTrackingCall
 {
     public function __construct(
-        public PhoneNumberE164 $trackingNumberDialled,
-        public PhoneNumberE164 $callerPhoneNumber,
+        public string $callSid,
+        public string $trackingNumberDialled,
+        public string $callerPhoneNumber,
         public CallStatus $callStatus,
         public ?IntId $helpscoutConversationId = null,
         public ?Uuid $id = null,

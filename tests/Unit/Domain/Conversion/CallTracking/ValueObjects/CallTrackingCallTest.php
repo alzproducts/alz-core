@@ -6,7 +6,6 @@ namespace Tests\Unit\Domain\Conversion\CallTracking\ValueObjects;
 
 use App\Domain\Conversion\CallTracking\Enums\CallStatus;
 use App\Domain\Conversion\CallTracking\ValueObjects\CallTrackingCall;
-use App\Domain\Conversion\CallTracking\ValueObjects\PhoneNumberE164;
 use App\Domain\ValueObjects\IntId;
 use App\Domain\ValueObjects\Uuid;
 use DateTimeImmutable;
@@ -17,20 +16,25 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(CallTrackingCall::class)]
 final class CallTrackingCallTest extends TestCase
 {
+    private const string CALL_SID = 'CA1234567890abcdef1234567890abcdef';
+
+    private const string TRACKING = '+441234567890';
+
+    private const string CALLER = '+447712345678';
+
     #[Test]
     public function it_constructs_with_the_required_fields(): void
     {
-        $tracking = PhoneNumberE164::from('+441234567890');
-        $caller = PhoneNumberE164::from('+447712345678');
-
         $call = new CallTrackingCall(
-            trackingNumberDialled: $tracking,
-            callerPhoneNumber: $caller,
+            callSid: self::CALL_SID,
+            trackingNumberDialled: self::TRACKING,
+            callerPhoneNumber: self::CALLER,
             callStatus: CallStatus::Initiated,
         );
 
-        $this->assertSame($tracking, $call->trackingNumberDialled);
-        $this->assertSame($caller, $call->callerPhoneNumber);
+        $this->assertSame(self::CALL_SID, $call->callSid);
+        $this->assertSame(self::TRACKING, $call->trackingNumberDialled);
+        $this->assertSame(self::CALLER, $call->callerPhoneNumber);
         $this->assertSame(CallStatus::Initiated, $call->callStatus);
         $this->assertNull($call->helpscoutConversationId);
         $this->assertNull($call->id);
@@ -43,8 +47,9 @@ final class CallTrackingCallTest extends TestCase
         $conversationId = IntId::from(123456);
 
         $call = new CallTrackingCall(
-            trackingNumberDialled: PhoneNumberE164::from('+441234567890'),
-            callerPhoneNumber: PhoneNumberE164::from('+447712345678'),
+            callSid: self::CALL_SID,
+            trackingNumberDialled: self::TRACKING,
+            callerPhoneNumber: self::CALLER,
             callStatus: CallStatus::Initiated,
             helpscoutConversationId: $conversationId,
         );
@@ -60,8 +65,9 @@ final class CallTrackingCallTest extends TestCase
         $createdAt = new DateTimeImmutable('2026-05-26T10:00:00+00:00');
 
         $call = new CallTrackingCall(
-            trackingNumberDialled: PhoneNumberE164::from('+441234567890'),
-            callerPhoneNumber: PhoneNumberE164::from('+447712345678'),
+            callSid: self::CALL_SID,
+            trackingNumberDialled: self::TRACKING,
+            callerPhoneNumber: self::CALLER,
             callStatus: CallStatus::Initiated,
             id: $id,
             createdAt: $createdAt,
