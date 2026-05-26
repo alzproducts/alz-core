@@ -6,6 +6,7 @@ use App\Providers\AppServiceProvider;
 use App\Providers\AuthServiceProvider;
 use App\Providers\BingAdsServiceProvider;
 use App\Providers\CacheServiceProvider;
+use App\Providers\CallTrackingServiceProvider;
 use App\Providers\CatalogServiceProvider;
 use App\Providers\CheckoutServiceProvider;
 use App\Providers\ClickUpServiceProvider;
@@ -45,6 +46,7 @@ return [
     AuthServiceProvider::class,
     BingAdsServiceProvider::class,
     CacheServiceProvider::class,
+    CallTrackingServiceProvider::class,
     ClickUpServiceProvider::class,
     CatalogServiceProvider::class,
     CheckoutServiceProvider::class,
