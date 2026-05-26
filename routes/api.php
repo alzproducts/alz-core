@@ -6,6 +6,7 @@ use App\Domain\Access\ValueObjects\AuthenticatedUser;
 use App\Infrastructure\Sentry\SentryUserContextMiddleware;
 use App\Presentation\Http\Api\Controllers\BrandController;
 use App\Presentation\Http\Api\Controllers\BrandUpdateController;
+use App\Presentation\Http\Api\Controllers\CallTracking\AssignTrackingNumberController;
 use App\Presentation\Http\Api\Controllers\CategoryController;
 use App\Presentation\Http\Api\Controllers\CategoryUpdateController;
 use App\Presentation\Http\Api\Controllers\ClickUp\ClickUpAuthController;
@@ -61,12 +62,13 @@ Route::middleware([
 
 /*
 |--------------------------------------------------------------------------
-| Checkout Snapshot (No Authentication)
+| Public Server-Side Capture Endpoints (No Authentication)
 |--------------------------------------------------------------------------
 |
-| Pre-checkout basket state captured server-side. Workaround for ShopWired
-| losing basket_comments on Safari/Apple submissions. Fire-and-forget from
-| the frontend; IP/UA are captured server-side for fuzzy order matching.
+| Fire-and-forget endpoints called by the storefront before/around checkout.
+| - checkout/snapshot: pre-checkout basket state (Safari/Apple basket_comments workaround).
+| - display-number: assigns a rotating tracking number per landing visit.
+| IP/UA are captured server-side from the request.
 |
 */
 
@@ -74,6 +76,7 @@ Route::middleware([
     'throttle:public-default',
 ])->group(static function (): void {
     Route::post('checkout/snapshot', CheckoutSnapshotController::class);
+    Route::post('display-number', AssignTrackingNumberController::class);
 });
 
 /*

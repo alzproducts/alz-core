@@ -69,6 +69,7 @@ final class AppServiceProvider extends ServiceProvider
     /** @var array<string, string> Config keys → human-readable descriptions */
     private const array REQUIRED_PRODUCTION_CONFIGS = [
         'app.key' => 'Application encryption key (APP_KEY)',
+        'call-tracking.default_business_phone_number' => 'Default business phone number (DEFAULT_BUSINESS_PHONE_NUMBER)',
         'database.connections.pgsql.host' => 'Database host (DB_HOST)',
         'database.connections.pgsql.password' => 'Database password (DB_PASSWORD)',
         'database.redis.default.host' => 'Redis host (REDIS_HOST)',

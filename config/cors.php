@@ -13,7 +13,7 @@ declare(strict_types=1);
 
 return [
     // Enable CORS for public form/snapshot endpoints
-    'paths' => ['api/contact', 'api/checkout/snapshot'],
+    'paths' => ['api/contact', 'api/checkout/snapshot', 'api/display-number'],
 
     'allowed_methods' => ['POST', 'OPTIONS'],
 
