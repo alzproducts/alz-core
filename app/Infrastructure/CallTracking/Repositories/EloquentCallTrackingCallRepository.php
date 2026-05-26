@@ -7,16 +7,13 @@ namespace App\Infrastructure\CallTracking\Repositories;
 use App\Application\Contracts\Conversion\CallTracking\CallTrackingCallRepositoryInterface;
 use App\Domain\Conversion\CallTracking\ValueObjects\CallTrackingCall;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
-use App\Domain\Exceptions\Data\MalformedStoredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\IntId;
-use App\Domain\ValueObjects\Uuid;
 use App\Infrastructure\CallTracking\Mappers\CallTrackingCallMapper;
 use App\Infrastructure\CallTracking\Models\CallTrackingCallModel;
 use App\Infrastructure\Persistence\EloquentGateway;
 use Override;
-use RuntimeException;
 
 final readonly class EloquentCallTrackingCallRepository implements CallTrackingCallRepositoryInterface
 {
@@ -28,35 +25,30 @@ final readonly class EloquentCallTrackingCallRepository implements CallTrackingC
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
-     * @throws RuntimeException When EloquentGateway fillForInsert returns unexpected result
      */
     #[Override]
-    public function save(CallTrackingCall $call): Uuid
+    public function saveOrIgnore(CallTrackingCall $call): void
     {
-        $id = $this->gateway->insertOne(
+        $this->gateway->insertOrIgnore(
             CallTrackingCallModel::class,
             CallTrackingCallMapper::toModelAttributes($call),
         );
-
-        return Uuid::fromTrusted($id);
     }
 
     /**
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
-     * @throws MalformedStoredDataException If stored phone numbers fail E.164 validation
      */
     #[Override]
-    public function findById(Uuid $id): ?CallTrackingCall
+    public function isFullyProcessed(string $callSid): bool
     {
-        $model = $this->gateway->query(
-            static fn(): ?CallTrackingCallModel => CallTrackingCallModel::query()
-                ->where('id', $id->value)
-                ->first(),
+        return $this->gateway->query(
+            static fn(): bool => CallTrackingCallModel::query()
+                ->where('call_sid', $callSid)
+                ->whereNotNull('helpscout_conversation_id')
+                ->exists(),
         );
-
-        return $model !== null ? CallTrackingCallMapper::fromModel($model) : null;
     }
 
     /**
@@ -65,12 +57,12 @@ final readonly class EloquentCallTrackingCallRepository implements CallTrackingC
      * @throws ExternalServiceUnavailableException
      */
     #[Override]
-    public function setHelpScoutConversationId(Uuid $callId, IntId $conversationId): void
+    public function setHelpScoutConversationIdByCallSid(string $callSid, IntId $conversationId): void
     {
         $this->gateway->updateWhere(
             CallTrackingCallModel::class,
-            'id',
-            $callId->value,
+            'call_sid',
+            $callSid,
             ['helpscout_conversation_id' => $conversationId->value],
         );
     }

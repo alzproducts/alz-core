@@ -32,7 +32,7 @@ final class TwilioCallStartedControllerTest extends TestCase
     }
 
     #[Test]
-    public function it_dispatches_inbound_call_processing_with_from_to_and_sid_then_returns_empty_200(): void
+    public function it_dispatches_inbound_call_processing_with_from_to_and_sid_then_returns_204(): void
     {
         $this->dispatcher
             ->shouldReceive('dispatchInboundCallProcessing')
@@ -47,7 +47,7 @@ final class TwilioCallStartedControllerTest extends TestCase
 
         $response = ($this->controller)($request);
 
-        self::assertSame(Response::HTTP_OK, $response->getStatusCode());
+        self::assertSame(Response::HTTP_NO_CONTENT, $response->getStatusCode());
         self::assertSame('', $response->getContent());
     }
 }

@@ -10,12 +10,10 @@ use App\Application\Conversion\CallTracking\UseCases\ProcessInboundCallUseCase;
 use App\Application\HelpScout\Commands\CreateCustomerConversationCommand;
 use App\Domain\Conversion\CallTracking\Enums\CallStatus;
 use App\Domain\Conversion\CallTracking\ValueObjects\CallTrackingCall;
-use App\Domain\Conversion\CallTracking\ValueObjects\PhoneNumberE164;
 use App\Domain\CustomerService\Enums\ConversationStatus;
 use App\Domain\CustomerService\Enums\ConversationType;
 use App\Domain\CustomerService\Enums\Mailbox;
 use App\Domain\ValueObjects\IntId;
-use App\Domain\ValueObjects\Uuid;
 use Mockery;
 use Mockery\MockInterface;
 use Override;
@@ -27,8 +25,6 @@ use Tests\TestCase;
 #[CoversClass(ProcessInboundCallUseCase::class)]
 final class ProcessInboundCallUseCaseTest extends TestCase
 {
-    private const string CALL_ID = '0193a1b2-c3d4-7000-8000-000000000001';
-
     private const string CALLER = '+447900123456';
 
     private const string TRACKING = '+441234567890';
@@ -62,157 +58,70 @@ final class ProcessInboundCallUseCaseTest extends TestCase
     }
 
     #[Test]
-    public function it_saves_call_creates_conversation_and_links_them_on_first_attempt(): void
+    public function it_saves_call_creates_conversation_and_links_them(): void
     {
-        $callId = Uuid::fromTrusted(self::CALL_ID);
-
-        $this->expectOpeningLog($callId);
+        $this->expectOpeningLog();
 
         $this->repository
-            ->shouldReceive('findById')
+            ->shouldReceive('saveOrIgnore')
             ->once()
-            ->with(Mockery::on(static fn(Uuid $id): bool => $id->value === self::CALL_ID))
-            ->andReturnNull();
-
-        $this->repository
-            ->shouldReceive('save')
-            ->once()
-            ->with(Mockery::on(static fn(CallTrackingCall $call): bool => $call->callStatus === CallStatus::Initiated
-                    && $call->callerPhoneNumber->value === self::CALLER
-                    && $call->trackingNumberDialled->value === self::TRACKING
-                    && $call->id instanceof Uuid
-                    && $call->id->value === self::CALL_ID
-                    && $call->helpscoutConversationId === null))
-            ->andReturn($callId);
+            ->with(Mockery::on(static fn(CallTrackingCall $call): bool => $call->callSid === self::CALL_SID
+                    && $call->callerPhoneNumber === self::CALLER
+                    && $call->trackingNumberDialled === self::TRACKING
+                    && $call->callStatus === CallStatus::Initiated));
 
         $this->expectConversationCreate();
 
         $this->repository
-            ->shouldReceive('setHelpScoutConversationId')
+            ->shouldReceive('setHelpScoutConversationIdByCallSid')
             ->once()
             ->with(
-                Mockery::on(static fn(Uuid $id): bool => $id->value === self::CALL_ID),
+                self::CALL_SID,
                 Mockery::on(static fn(IntId $conv): bool => $conv->value === self::CONVERSATION_ID),
             );
 
-        $this->expectClosingLog($callId);
+        $this->expectClosingLog();
 
-        $this->useCase->execute($callId, self::CALLER, self::TRACKING, self::CALL_SID);
+        $this->useCase->execute(self::CALL_SID, self::CALLER, self::TRACKING);
     }
 
     #[Test]
-    public function it_returns_early_when_call_already_has_helpscout_conversation_id(): void
+    public function it_creates_phone_conversation_with_null_email(): void
     {
-        $callId = Uuid::fromTrusted(self::CALL_ID);
-
-        $this->expectOpeningLog($callId);
-
-        $existing = new CallTrackingCall(
-            trackingNumberDialled: PhoneNumberE164::from(self::TRACKING),
-            callerPhoneNumber: PhoneNumberE164::from(self::CALLER),
-            callStatus: CallStatus::Initiated,
-            helpscoutConversationId: IntId::from(self::CONVERSATION_ID),
-            id: $callId,
-        );
-
-        $this->repository
-            ->shouldReceive('findById')
-            ->once()
-            ->andReturn($existing);
-
-        $this->logger
-            ->shouldReceive('info')
-            ->once()
-            ->with('Inbound call already fully processed; skipping', [
-                'call_id' => self::CALL_ID,
-                'helpscout_conversation_id' => self::CONVERSATION_ID,
-            ]);
-
-        $this->repository->shouldNotReceive('save');
-        $this->repository->shouldNotReceive('setHelpScoutConversationId');
-        $this->conversationClient->shouldNotReceive('createConversationFromCustomer');
-
-        $this->useCase->execute($callId, self::CALLER, self::TRACKING, self::CALL_SID);
-    }
-
-    #[Test]
-    public function it_skips_save_on_partial_retry_and_finishes_conversation_link(): void
-    {
-        $callId = Uuid::fromTrusted(self::CALL_ID);
-
-        $this->expectOpeningLog($callId);
-
-        $existing = new CallTrackingCall(
-            trackingNumberDialled: PhoneNumberE164::from(self::TRACKING),
-            callerPhoneNumber: PhoneNumberE164::from(self::CALLER),
-            callStatus: CallStatus::Initiated,
-            helpscoutConversationId: null,
-            id: $callId,
-        );
-
-        $this->repository
-            ->shouldReceive('findById')
-            ->once()
-            ->andReturn($existing);
-
-        $this->repository->shouldNotReceive('save');
-
-        $this->expectConversationCreate();
-
-        $this->repository
-            ->shouldReceive('setHelpScoutConversationId')
-            ->once()
-            ->with(
-                Mockery::on(static fn(Uuid $id): bool => $id->value === self::CALL_ID),
-                Mockery::on(static fn(IntId $conv): bool => $conv->value === self::CONVERSATION_ID),
-            );
-
-        $this->expectClosingLog($callId);
-
-        $this->useCase->execute($callId, self::CALLER, self::TRACKING, self::CALL_SID);
-    }
-
-    #[Test]
-    public function it_uses_placeholder_email_with_phone_digits_stripped_of_leading_plus(): void
-    {
-        $callId = Uuid::fromTrusted(self::CALL_ID);
-
-        $this->expectOpeningLog($callId);
-
-        $this->repository->shouldReceive('findById')->once()->andReturnNull();
-        $this->repository->shouldReceive('save')->once()->andReturn($callId);
+        $this->expectOpeningLog();
+        $this->repository->shouldReceive('saveOrIgnore')->once();
 
         $this->conversationClient
             ->shouldReceive('createConversationFromCustomer')
             ->once()
-            ->with(Mockery::on(static fn(CreateCustomerConversationCommand $command): bool => $command->email === 'call-447900123456@phone.placeholder.local'))
+            ->with(Mockery::on(static fn(CreateCustomerConversationCommand $command): bool => $command->email === null
+                    && $command->phone === self::CALLER))
             ->andReturn(self::CONVERSATION_ID);
 
-        $this->repository->shouldReceive('setHelpScoutConversationId')->once();
-        $this->expectClosingLog($callId);
+        $this->repository->shouldReceive('setHelpScoutConversationIdByCallSid')->once();
+        $this->expectClosingLog();
 
-        $this->useCase->execute($callId, self::CALLER, self::TRACKING, self::CALL_SID);
+        $this->useCase->execute(self::CALL_SID, self::CALLER, self::TRACKING);
     }
 
-    private function expectOpeningLog(Uuid $callId): void
+    private function expectOpeningLog(): void
     {
         $this->logger
             ->shouldReceive('info')
             ->once()
             ->with('Processing inbound call', [
-                'call_id' => $callId->value,
                 'call_sid' => self::CALL_SID,
                 'tracking_number' => self::TRACKING,
             ]);
     }
 
-    private function expectClosingLog(Uuid $callId): void
+    private function expectClosingLog(): void
     {
         $this->logger
             ->shouldReceive('info')
             ->once()
             ->with('Inbound call processed', [
-                'call_id' => $callId->value,
+                'call_sid' => self::CALL_SID,
                 'helpscout_conversation_id' => self::CONVERSATION_ID,
             ]);
     }
@@ -222,7 +131,8 @@ final class ProcessInboundCallUseCaseTest extends TestCase
         $this->conversationClient
             ->shouldReceive('createConversationFromCustomer')
             ->once()
-            ->with(Mockery::on(static fn(CreateCustomerConversationCommand $command): bool => $command->name === self::CALLER
+            ->with(Mockery::on(static fn(CreateCustomerConversationCommand $command): bool => $command->email === null
+                    && $command->name === self::CALLER
                     && $command->subject === 'Inbound call from ' . self::CALLER
                     && $command->body === 'This is a Tracked Conversion Call'
                     && $command->mailbox === Mailbox::Support

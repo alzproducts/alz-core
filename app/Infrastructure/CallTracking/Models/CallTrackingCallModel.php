@@ -15,11 +15,13 @@ use Override;
  * opened, which is what makes mid-pipeline retries observable.
  *
  * @property string $id
+ * @property string $call_sid
  * @property string $tracking_number_dialled
  * @property string $caller_phone_number
  * @property int|null $helpscout_conversation_id
  * @property CallStatus $call_status
  * @property CarbonImmutable $created_at
+ * @property CarbonImmutable|null $updated_at
  */
 final class CallTrackingCallModel extends Model
 {
@@ -30,8 +32,6 @@ final class CallTrackingCallModel extends Model
     public $incrementing = false;
 
     protected $keyType = 'string';
-
-    public const UPDATED_AT = null;
 
     protected $guarded = [];
 
@@ -45,6 +45,7 @@ final class CallTrackingCallModel extends Model
             'helpscout_conversation_id' => 'integer',
             'call_status' => CallStatus::class,
             'created_at' => 'immutable_datetime',
+            'updated_at' => 'immutable_datetime',
         ];
     }
 }

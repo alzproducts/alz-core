@@ -25,6 +25,6 @@ final readonly class TwilioCallStartedController
             callSid: $payload->callSid,
         );
 
-        return new Response(status: Response::HTTP_OK);
+        return new Response(status: Response::HTTP_NO_CONTENT);
     }
 }

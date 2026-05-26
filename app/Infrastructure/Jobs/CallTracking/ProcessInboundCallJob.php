@@ -4,13 +4,11 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Jobs\CallTracking;
 
+use App\Application\Contracts\Conversion\CallTracking\CallTrackingCallRepositoryInterface;
 use App\Application\Conversion\CallTracking\UseCases\ProcessInboundCallUseCase;
 use App\Domain\Exceptions\Data\InsufficientDataException;
-use App\Domain\Exceptions\Data\InvalidFormatException;
-use App\Domain\Exceptions\Data\MalformedStoredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
-use App\Domain\ValueObjects\Uuid;
 use App\Infrastructure\Jobs\Enums\QueueName;
 use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
 use App\Infrastructure\Jobs\Middleware\ServiceCircuitBreaker;
@@ -19,6 +17,7 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
+use Illuminate\Queue\Middleware\Skip;
 
 /**
  * Process an inbound Twilio call notification.
@@ -26,8 +25,7 @@ use Illuminate\Queue\InteractsWithQueue;
  * Exception Strategy:
  * - TransientApiFailure: {@see HandleApiExceptions} middleware (release/rethrow)
  * - PermanentApiFailure: {@see HandleApiExceptions} middleware (fail immediately)
- * - InvalidFormatException: malformed inbound phone — fail immediately (won't resolve on retry)
- * - MalformedStoredDataException: corrupt stored phone — fail immediately (won't resolve on retry)
+ * - Already-complete calls: {@see Skip} middleware (call_sid + conversation_id check)
  */
 final class ProcessInboundCallJob implements ShouldQueue
 {
@@ -47,10 +45,9 @@ final class ProcessInboundCallJob implements ShouldQueue
     public array $backoff = [60, 300, 3600];
 
     public function __construct(
-        public readonly string $callId,
+        public readonly string $callSid,
         public readonly string $callerPhoneNumber,
         public readonly string $trackingNumberDialled,
-        public readonly string $callSid,
     ) {
         $this->onQueue(QueueName::High->value);
     }
@@ -59,6 +56,8 @@ final class ProcessInboundCallJob implements ShouldQueue
     public function middleware(): array
     {
         return [
+            // @phpstan-ignore-next-line shipmonk.checkedExceptionInCallable (Skip invokes immediately; DB exceptions bubble to queue retry)
+            Skip::when(fn(): bool => \app(CallTrackingCallRepositoryInterface::class)->isFullyProcessed($this->callSid)),
             ServiceCircuitBreaker::helpscout(),
             new HandleApiExceptions(),
         ];
@@ -76,15 +75,10 @@ final class ProcessInboundCallJob implements ShouldQueue
      */
     public function handle(ProcessInboundCallUseCase $useCase): void
     {
-        try {
-            $useCase->execute(
-                Uuid::fromTrusted($this->callId),
-                $this->callerPhoneNumber,
-                $this->trackingNumberDialled,
-                $this->callSid,
-            );
-        } catch (InvalidFormatException|MalformedStoredDataException $e) {
-            $this->fail($e);
-        }
+        $useCase->execute(
+            $this->callSid,
+            $this->callerPhoneNumber,
+            $this->trackingNumberDialled,
+        );
     }
 }
