@@ -15,6 +15,7 @@ use Override;
  * @property bool $active
  * @property int $sort_order
  * @property CarbonImmutable $created_at
+ * @property CarbonImmutable $updated_at
  */
 final class CallTrackingNumberModel extends Model
 {
@@ -25,8 +26,6 @@ final class CallTrackingNumberModel extends Model
     public $incrementing = false;
 
     protected $keyType = 'string';
-
-    public const UPDATED_AT = null;
 
     protected $guarded = [];
 
@@ -40,6 +39,7 @@ final class CallTrackingNumberModel extends Model
             'active' => 'boolean',
             'sort_order' => 'integer',
             'created_at' => 'immutable_datetime',
+            'updated_at' => 'immutable_datetime',
         ];
     }
 }

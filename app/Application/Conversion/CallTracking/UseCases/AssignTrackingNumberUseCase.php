@@ -10,6 +10,7 @@ use App\Application\Contracts\DatabaseGatewayInterface;
 use App\Application\Conversion\CallTracking\Commands\AssignTrackingNumberCommand;
 use App\Application\Conversion\CallTracking\Results\AssignTrackingNumberResult;
 use App\Domain\ContactSubmission\ValueObjects\MarketingAttribution;
+use App\Domain\Conversion\CallTracking\Exceptions\CallTrackingNumberPoolEmptyException;
 use App\Domain\Conversion\CallTracking\ValueObjects\CallTrackingVisit;
 use App\Domain\Conversion\CallTracking\ValueObjects\PhoneNumberE164;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
@@ -57,15 +58,21 @@ final readonly class AssignTrackingNumberUseCase
 
         $pool = $this->numberRepository->findAllActive();
         if ($pool === []) {
-            return $this->poolEmptyResult();
+            return $this->poolEmptyResult($command);
         }
 
         return $this->rotateAndPersist($command, $pool);
     }
 
-    private function poolEmptyResult(): AssignTrackingNumberResult
+    private function poolEmptyResult(AssignTrackingNumberCommand $command): AssignTrackingNumberResult
     {
-        $this->logger->warning('Tracking number pool is empty, returning default');
+        $exception = new CallTrackingNumberPoolEmptyException(
+            hadClickId: $command->attribution->primaryClickId() !== null,
+            attributionWindowHours: $this->attributionWindowHours,
+        );
+
+        $this->logger->error($exception->getMessage(), $exception->context());
+        \report($exception);
 
         return new AssignTrackingNumberResult($this->defaultBusinessPhoneNumber, null);
     }
@@ -88,7 +95,7 @@ final readonly class AssignTrackingNumberUseCase
      */
     private function dedupedResultFor(MarketingAttribution $attribution): ?AssignTrackingNumberResult
     {
-        $clickId = $attribution->gclid ?? $attribution->msclkid;
+        $clickId = $attribution->primaryClickId();
         if ($clickId === null) {
             return null;
         }

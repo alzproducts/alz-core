@@ -32,11 +32,12 @@ return [
     | Twilio Credentials
     |--------------------------------------------------------------------------
     |
-    | Auth token for the Twilio account that hosts the tracking-number pool,
-    | plus the signing secret used to verify inbound webhooks.
+    | Account auth token for the Twilio account that hosts the tracking-number
+    | pool. Also signs inbound webhooks — Twilio's RequestValidator hashes the
+    | request URL + params with this token (no separate webhook signing secret,
+    | unlike Stripe).
     |
     */
 
     'twilio_auth_token' => env('TWILIO_AUTH_TOKEN'),
-    'twilio_webhook_signing_secret' => env('TWILIO_WEBHOOK_SIGNING_SECRET'),
 ];

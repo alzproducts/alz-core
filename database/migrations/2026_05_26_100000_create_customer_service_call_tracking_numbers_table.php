@@ -16,6 +16,7 @@ return new class extends Migration {
             $table->boolean('active')->default(true);
             $table->smallInteger('sort_order');
             $table->timestampTz('created_at')->useCurrent();
+            $table->timestampTz('updated_at')->useCurrent();
         });
     }
 

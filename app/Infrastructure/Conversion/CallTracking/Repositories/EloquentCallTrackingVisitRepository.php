@@ -20,6 +20,12 @@ use RuntimeException;
 
 final readonly class EloquentCallTrackingVisitRepository implements CallTrackingVisitRepositoryInterface
 {
+    /**
+     * Columns scanned when reusing a visit for a returning click-ID visitor.
+     * Extend here when adding a new ad-platform click ID (e.g. fbclid).
+     */
+    private const array CLICK_ID_COLUMNS = ['gclid', 'msclkid'];
+
     public function __construct(
         private EloquentGateway $gateway,
     ) {}
@@ -71,7 +77,9 @@ final readonly class EloquentCallTrackingVisitRepository implements CallTracking
         return $this->gateway->query(static function () use ($clickId, $after): ?CallTrackingVisit {
             $model = CallTrackingVisitModel::query()
                 ->where(static function (Builder $q) use ($clickId): void {
-                    $q->where('gclid', $clickId)->orWhere('msclkid', $clickId);
+                    foreach (self::CLICK_ID_COLUMNS as $column) {
+                        $q->orWhere($column, $clickId);
+                    }
                 })
                 ->where('created_at', '>', $after)
                 ->orderByDesc('created_at')
