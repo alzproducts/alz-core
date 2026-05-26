@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Marketing\Models;
 
+use App\Application\ContactSubmission\DTOs\ContactSubmissionListItemDTO;
+use App\Application\ContactSubmission\Enums\PotentialConversionSource;
 use App\Domain\ContactSubmission\Enums\ActionStatus;
 use App\Domain\ContactSubmission\Enums\ContactReason;
-use App\Domain\ContactSubmission\ValueObjects\ContactSubmissionListItem;
 use App\Domain\Customer\Enums\CustomerType;
 use App\Domain\ValueObjects\Guid;
 use Carbon\CarbonImmutable;
@@ -14,16 +15,11 @@ use Illuminate\Database\Eloquent\Model;
 use Override;
 
 /**
- * Read-only Eloquent model for marketing.contact_submission_dashboard_view.
- *
- * Each row is one contact submission with its annotation columns and latest
- * action statuses pre-joined. The view's underlying schema joins three tables;
- * consumers see a flat row with native-typed attributes.
- *
  * @property string $id
- * @property string $name
- * @property string $email
- * @property ContactReason $reason
+ * @property PotentialConversionSource $source
+ * @property string|null $name
+ * @property string|null $email
+ * @property ContactReason|null $reason
  * @property CustomerType|null $customer_type
  * @property string|null $order_number
  * @property int|null $quantity
@@ -45,10 +41,11 @@ use Override;
  * @property string|null $helpscout_external_id
  * @property CarbonImmutable|null $dismissed_at
  * @property bool $has_ad_id
+ * @property string|null $caller_phone_number
  */
 final class ContactSubmissionDashboardViewModel extends Model
 {
-    protected $table = 'marketing.contact_submission_dashboard_view';
+    protected $table = 'marketing.potential_conversions_view';
 
     public $timestamps = false;
 
@@ -65,6 +62,7 @@ final class ContactSubmissionDashboardViewModel extends Model
     protected function casts(): array
     {
         return [
+            'source' => PotentialConversionSource::class,
             'reason' => ContactReason::class,
             'customer_type' => CustomerType::class,
             'product' => 'array',
@@ -79,10 +77,11 @@ final class ContactSubmissionDashboardViewModel extends Model
         ];
     }
 
-    public function toDomain(): ContactSubmissionListItem
+    public function toDomain(): ContactSubmissionListItemDTO
     {
-        return new ContactSubmissionListItem(
+        return new ContactSubmissionListItemDTO(
             id: Guid::fromTrusted($this->id),
+            source: $this->source,
             name: $this->name,
             email: $this->email,
             reason: $this->reason,
@@ -105,6 +104,7 @@ final class ContactSubmissionDashboardViewModel extends Model
             isPotentialQuote: $this->is_potential_quote,
             notes: $this->notes,
             quotedAt: $this->quoted_at?->toDateTimeImmutable(),
+            callerPhoneNumber: $this->caller_phone_number,
         );
     }
 }

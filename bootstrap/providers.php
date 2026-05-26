@@ -27,6 +27,7 @@ use App\Providers\RateLimitServiceProvider;
 use App\Providers\ReviewsIoServiceProvider;
 use App\Providers\RlsDatabaseServiceProvider;
 use App\Providers\Schedule\AdsScheduleServiceProvider;
+use App\Providers\Schedule\CallTrackingScheduleServiceProvider;
 use App\Providers\Schedule\CatalogScheduleServiceProvider;
 use App\Providers\Schedule\ContactFormScheduleServiceProvider;
 use App\Providers\Schedule\FeedsScheduleServiceProvider;
@@ -71,6 +72,7 @@ return [
 
     // Schedule providers (must not be deferred - schedules register at boot)
     AdsScheduleServiceProvider::class,
+    CallTrackingScheduleServiceProvider::class,
     CatalogScheduleServiceProvider::class,
     ContactFormScheduleServiceProvider::class,
     FeedsScheduleServiceProvider::class,

@@ -17,13 +17,6 @@ use App\Infrastructure\Persistence\EloquentGateway;
 use Illuminate\Database\Eloquent\Builder;
 use Override;
 
-/**
- * Pagination + mapping over marketing.contact_submission_dashboard_view.
- *
- * All join shape and column derivation lives in the view. All per-view predicates
- * live in {@see ContactSubmissionDashboardQuery}. This repository is the thin
- * orchestration shim between them.
- */
 final readonly class EloquentContactSubmissionDashboardQueryRepository implements ContactSubmissionDashboardQueryRepositoryInterface
 {
     public function __construct(

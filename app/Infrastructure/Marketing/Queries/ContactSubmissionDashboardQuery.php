@@ -11,11 +11,10 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * Applies the per-view WHERE + ORDER BY to a marketing.contact_submission_dashboard_view query.
+ * Applies the per-view WHERE + ORDER BY to a marketing.potential_conversions_view query.
  *
- * The view has already pre-joined annotations and per-type latest action statuses, so every
- * predicate operates on view columns (no joins, no correlated subqueries). Every view enforces
- * `has_ad_id = true` — only paid-ad-driven leads ever appear on the dashboard.
+ * Every view enforces `has_ad_id = true` — only paid-ad-driven leads ever appear on the
+ * dashboard. Call rows have NULL lead/quote status so they currently only appear in Triage.
  *
  * Sort order is per-view: Triage shows oldest first (work-the-queue), all others show newest first.
  */
