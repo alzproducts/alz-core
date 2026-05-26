@@ -6,6 +6,7 @@ namespace App\Providers;
 
 use App\Application\Contracts\Conversion\CallTracking\CallTrackingCallRepositoryInterface;
 use App\Application\Contracts\Conversion\CallTracking\CallTrackingNumberRepositoryInterface;
+use App\Application\Contracts\Conversion\CallTracking\CallTrackingQueryRepositoryInterface;
 use App\Application\Contracts\Conversion\CallTracking\CallTrackingVisitRepositoryInterface;
 use App\Application\Contracts\Conversion\CallTracking\InboundCallDispatcherInterface;
 use App\Application\Conversion\CallTracking\UseCases\AssignTrackingNumberUseCase;
@@ -14,6 +15,7 @@ use App\Domain\Exceptions\Data\InvalidFormatException;
 use App\Domain\Exceptions\InvalidConfigurationException;
 use App\Infrastructure\CallTracking\Dispatchers\QueuedInboundCallDispatcher;
 use App\Infrastructure\CallTracking\Repositories\EloquentCallTrackingCallRepository;
+use App\Infrastructure\CallTracking\Repositories\EloquentCallTrackingQueryRepository;
 use App\Infrastructure\Conversion\CallTracking\Repositories\EloquentCallTrackingNumberRepository;
 use App\Infrastructure\Conversion\CallTracking\Repositories\EloquentCallTrackingVisitRepository;
 use Illuminate\Contracts\Support\DeferrableProvider;
@@ -32,6 +34,7 @@ final class CallTrackingServiceProvider extends ServiceProvider implements Defer
     {
         $this->registerInboundCallBindings();
         $this->registerNumberAssignmentBindings();
+        $this->registerQueryBindings();
         $this->registerUseCaseConfig();
     }
 
@@ -44,6 +47,7 @@ final class CallTrackingServiceProvider extends ServiceProvider implements Defer
         return [
             CallTrackingCallRepositoryInterface::class,
             CallTrackingNumberRepositoryInterface::class,
+            CallTrackingQueryRepositoryInterface::class,
             CallTrackingVisitRepositoryInterface::class,
             InboundCallDispatcherInterface::class,
             AssignTrackingNumberUseCase::class,
@@ -73,6 +77,14 @@ final class CallTrackingServiceProvider extends ServiceProvider implements Defer
         $this->app->singleton(
             CallTrackingVisitRepositoryInterface::class,
             EloquentCallTrackingVisitRepository::class,
+        );
+    }
+
+    private function registerQueryBindings(): void
+    {
+        $this->app->singleton(
+            CallTrackingQueryRepositoryInterface::class,
+            EloquentCallTrackingQueryRepository::class,
         );
     }
 

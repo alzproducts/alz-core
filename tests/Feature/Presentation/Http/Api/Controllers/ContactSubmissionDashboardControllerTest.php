@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Presentation\Http\Api\Controllers;
 
+use App\Application\ContactSubmission\DTOs\ContactSubmissionListItemDTO;
+use App\Application\ContactSubmission\Enums\PotentialConversionSource;
 use App\Application\ContactSubmission\UseCases\DismissContactSubmissionUseCase;
 use App\Application\ContactSubmission\UseCases\ListContactSubmissionsByViewUseCase;
 use App\Application\ContactSubmission\UseCases\MarkNoQuoteExpectedUseCase;
@@ -13,7 +15,6 @@ use App\Domain\ContactSubmission\Enums\ActionType;
 use App\Domain\ContactSubmission\Enums\ContactReason;
 use App\Domain\ContactSubmission\Enums\ContactSubmissionView;
 use App\Domain\ContactSubmission\Exceptions\InvalidActionStageException;
-use App\Domain\ContactSubmission\ValueObjects\ContactSubmissionListItem;
 use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Shared\Pagination\ValueObjects\PageRequest;
 use App\Domain\ValueObjects\Guid;
@@ -150,8 +151,9 @@ final class ContactSubmissionDashboardControllerTest extends TestCase
     #[Test]
     public function triage_serialises_list_items_as_contact_submission_list_resource(): void
     {
-        $item = new ContactSubmissionListItem(
+        $item = new ContactSubmissionListItemDTO(
             id: Guid::fromTrusted('d9dd22a9-c3ab-413b-8a93-25b462231a98'),
+            source: PotentialConversionSource::Form,
             name: 'Jane Doe',
             email: 'jane@example.com',
             reason: ContactReason::QuotationRequest,
@@ -174,6 +176,7 @@ final class ContactSubmissionDashboardControllerTest extends TestCase
             isPotentialQuote: null,
             notes: null,
             quotedAt: null,
+            callerPhoneNumber: null,
         );
 
         $this->listByViewUseCase->shouldReceive('execute')
@@ -185,10 +188,42 @@ final class ContactSubmissionDashboardControllerTest extends TestCase
         $response->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.id', 'd9dd22a9-c3ab-413b-8a93-25b462231a98')
+            ->assertJsonPath('data.0.source', 'form')
             ->assertJsonPath('data.0.email', 'jane@example.com')
             ->assertJsonPath('data.0.gclid', 'cl-123')
             ->assertJsonPath('data.0.lead_status', null)
+            ->assertJsonPath('data.0.caller_phone_number', null)
             ->assertJsonPath('meta.total', 1);
+    }
+
+    #[Test]
+    public function triage_serialises_call_sourced_row_with_nullable_fields(): void
+    {
+        $item = self::makeListItem(
+            id: 'a4caee36-c4d8-43b6-9b2f-1c5e8e3e7a01',
+            email: null,
+            source: PotentialConversionSource::Call,
+            name: null,
+            reason: null,
+            helpscoutExternalId: '987654',
+            callerPhoneNumber: '+447123456789',
+        );
+
+        $this->listByViewUseCase->shouldReceive('execute')
+            ->once()
+            ->andReturn(PaginatedList::fromPage(items: [$item], total: 1, perPage: 50, currentPage: 1));
+
+        $response = $this->asApprovedUser()->getJson('/api/contact-submissions/triage');
+
+        $response->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', 'a4caee36-c4d8-43b6-9b2f-1c5e8e3e7a01')
+            ->assertJsonPath('data.0.source', 'call')
+            ->assertJsonPath('data.0.name', null)
+            ->assertJsonPath('data.0.email', null)
+            ->assertJsonPath('data.0.reason', null)
+            ->assertJsonPath('data.0.caller_phone_number', '+447123456789')
+            ->assertJsonPath('data.0.helpscout_external_id', '987654');
     }
 
     #[Test]
@@ -345,15 +380,21 @@ final class ContactSubmissionDashboardControllerTest extends TestCase
 
     private static function makeListItem(
         string $id,
-        string $email,
+        ?string $email,
         ?ActionStatus $leadStatus = null,
         ?ActionStatus $quoteStatus = null,
-    ): ContactSubmissionListItem {
-        return new ContactSubmissionListItem(
+        PotentialConversionSource $source = PotentialConversionSource::Form,
+        ?string $name = 'Test',
+        ?ContactReason $reason = ContactReason::QuotationRequest,
+        ?string $helpscoutExternalId = null,
+        ?string $callerPhoneNumber = null,
+    ): ContactSubmissionListItemDTO {
+        return new ContactSubmissionListItemDTO(
             id: Guid::fromTrusted($id),
-            name: 'Test',
+            source: $source,
+            name: $name,
             email: $email,
-            reason: ContactReason::QuotationRequest,
+            reason: $reason,
             customerType: null,
             orderNumber: null,
             quantity: null,
@@ -367,12 +408,13 @@ final class ContactSubmissionDashboardControllerTest extends TestCase
             utmCampaign: null,
             pageUrl: null,
             createdAt: new DateTimeImmutable('2026-05-01T10:00:00+00:00'),
-            helpscoutExternalId: null,
+            helpscoutExternalId: $helpscoutExternalId,
             leadStatus: $leadStatus,
             quoteStatus: $quoteStatus,
             isPotentialQuote: null,
             notes: null,
             quotedAt: null,
+            callerPhoneNumber: $callerPhoneNumber,
         );
     }
 }
