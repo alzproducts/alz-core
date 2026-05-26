@@ -35,7 +35,6 @@ final class CallTrackingVisitTest extends TestCase
         $this->assertSame($trackingNumber, $visit->trackingNumberShown);
         $this->assertSame('203.0.113.42', $visit->ipAddress->value);
         $this->assertNull($visit->userAgent);
-        $this->assertNull($visit->refererUrl);
         $this->assertNull($visit->id);
         $this->assertNull($visit->createdAt);
     }
@@ -71,12 +70,10 @@ final class CallTrackingVisitTest extends TestCase
             trackingNumberShown: PhoneNumberE164::from('+441234567890'),
             ipAddress: IpAddress::from('203.0.113.42'),
             userAgent: 'Mozilla/5.0',
-            refererUrl: 'https://example.com/landing',
         );
 
         $this->assertFalse($visit->marketingConsentGranted);
         $this->assertSame('Mozilla/5.0', $visit->userAgent);
-        $this->assertSame('https://example.com/landing', $visit->refererUrl);
     }
 
     #[Test]

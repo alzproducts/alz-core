@@ -17,7 +17,6 @@ final readonly class CallTrackingVisit
         public PhoneNumberE164 $trackingNumberShown,
         public IpAddress $ipAddress,
         public ?string $userAgent = null,
-        public ?string $refererUrl = null,
         public ?Uuid $id = null,
         public ?DateTimeImmutable $createdAt = null,
     ) {}

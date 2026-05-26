@@ -6,7 +6,9 @@ namespace App\Application\Contracts\Conversion\CallTracking;
 
 use App\Domain\Conversion\CallTracking\ValueObjects\PhoneNumberE164;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Data\InvalidFormatException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
+use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 
 interface CallTrackingNumberRepositoryInterface
 {
@@ -16,7 +18,9 @@ interface CallTrackingNumberRepositoryInterface
      * @return list<PhoneNumberE164>
      *
      * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
+     * @throws InvalidFormatException If a stored phone number bypasses the column-length guard
      */
     public function findAllActive(): array;
 
@@ -25,6 +29,7 @@ interface CallTrackingNumberRepositoryInterface
      * so concurrent callers cannot read the same counter value.
      *
      * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      */
     public function incrementAndGetCounter(): int;

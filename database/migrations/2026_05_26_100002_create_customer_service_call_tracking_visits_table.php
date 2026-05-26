@@ -29,7 +29,6 @@ return new class extends Migration {
             $table->string('tracking_number_shown', 20);
             $table->ipAddress('ip_address');
             $table->text('user_agent')->nullable();
-            $table->text('referer_url')->nullable();
             $table->timestampTz('created_at')->useCurrent();
         });
 

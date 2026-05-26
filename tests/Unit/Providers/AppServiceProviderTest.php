@@ -55,6 +55,7 @@ final class AppServiceProviderTest extends TestCase
         // Set default valid config values
         $validConfig = [
             'app.key' => 'base64:' . \str_repeat('a', 32),
+            'call-tracking.default_business_phone_number' => '+441234567000',
             'database.connections.pgsql.host' => 'localhost',
             'database.connections.pgsql.password' => 'password',
             'database.redis.default.host' => 'localhost',
@@ -163,6 +164,7 @@ final class AppServiceProviderTest extends TestCase
     {
         return [
             'missing app.key' => ['app.key', 'Application encryption key (APP_KEY)'],
+            'missing default business phone' => ['call-tracking.default_business_phone_number', 'Default business phone number (DEFAULT_BUSINESS_PHONE_NUMBER)'],
             'missing db host' => ['database.connections.pgsql.host', 'Database host (DB_HOST)'],
             'missing db password' => ['database.connections.pgsql.password', 'Database password (DB_PASSWORD)'],
             'missing redis host' => ['database.redis.default.host', 'Redis host (REDIS_HOST)'],
