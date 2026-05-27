@@ -15,7 +15,8 @@ use App\Domain\Exceptions\Api\InvalidApiResponseException;
 interface BingAdsConversionInterface
 {
     /**
-     * Upload a single offline conversion attributed to the given msclkid + email.
+     * Upload a single offline conversion attributed to the given msclkid and
+     * at least one user identifier (email and/or phone).
      *
      * The implementation hashes PII (SHA-256, lowercased + trimmed) internally
      * before sending; callers pass plain values.
