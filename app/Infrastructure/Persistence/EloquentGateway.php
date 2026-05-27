@@ -669,6 +669,30 @@ final readonly class EloquentGateway
     }
 
     /**
+     * Insert a single record, silently ignoring unique constraint violations.
+     *
+     * Uses INSERT ... ON CONFLICT DO NOTHING (PostgreSQL). Returns true if
+     * the row was inserted, false if a unique constraint caused it to be skipped.
+     *
+     * @param class-string<Model> $modelClass
+     * @param array<string, mixed> $attributes Data to insert
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function insertOrIgnore(string $modelClass, array $attributes): bool
+    {
+        return $this->dbGateway->transact(
+            static function () use ($modelClass, $attributes): bool {
+                $preparedRows = $modelClass::query()->fillForInsert([$attributes]);
+
+                return $modelClass::query()->insertOrIgnore($preparedRows) > 0;
+            },
+        );
+    }
+
+    /**
      * Insert a single record and return the generated ID.
      *
      * Uses fillForInsert() to apply casts, generate UUID, and add timestamps.

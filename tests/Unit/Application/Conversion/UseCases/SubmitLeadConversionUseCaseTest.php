@@ -23,7 +23,7 @@ use App\Domain\ContactSubmission\ValueObjects\MarketingAttribution;
 use App\Domain\ContactSubmission\ValueObjects\Msclkid;
 use App\Domain\ContactSubmission\ValueObjects\SubmissionContext;
 use App\Domain\Exceptions\Data\InsufficientDataException;
-use App\Domain\ValueObjects\Guid;
+use App\Domain\ValueObjects\Uuid;
 use Closure;
 use DateTimeImmutable;
 use Mockery;
@@ -114,7 +114,7 @@ final class SubmitLeadConversionUseCaseTest extends TestCase
         $this->dispatcher->shouldNotReceive('dispatchBingLeadConversion');
 
         try {
-            $this->useCase->execute(new Guid(self::SUBMISSION_ID), true);
+            $this->useCase->execute(new Uuid(self::SUBMISSION_ID), true);
             self::fail('Expected InsufficientDataException');
         } catch (InsufficientDataException $e) {
             self::assertSame('ContactSubmission', $e->entityType);
@@ -148,7 +148,7 @@ final class SubmitLeadConversionUseCaseTest extends TestCase
             });
         $this->dispatcher->shouldNotReceive('dispatchBingLeadConversion');
 
-        $this->useCase->execute(new Guid(self::SUBMISSION_ID), true);
+        $this->useCase->execute(new Uuid(self::SUBMISSION_ID), true);
 
         self::assertNotNull($captured);
         self::assertSame(self::SUBMISSION_ID, $captured->submissionId->value);
@@ -178,7 +178,7 @@ final class SubmitLeadConversionUseCaseTest extends TestCase
             });
         $this->dispatcher->shouldNotReceive('dispatchLeadConversion');
 
-        $this->useCase->execute(new Guid(self::SUBMISSION_ID), true);
+        $this->useCase->execute(new Uuid(self::SUBMISSION_ID), true);
 
         self::assertNotNull($captured);
         self::assertSame(self::SUBMISSION_ID, $captured->submissionId->value);
@@ -215,7 +215,7 @@ final class SubmitLeadConversionUseCaseTest extends TestCase
                 $bingCmd = $cmd;
             });
 
-        $this->useCase->execute(new Guid(self::SUBMISSION_ID), true);
+        $this->useCase->execute(new Uuid(self::SUBMISSION_ID), true);
 
         self::assertNotNull($googleCmd);
         self::assertSame(self::GOOGLE_ACTION_ID, $googleCmd->actionId->value);
@@ -240,7 +240,7 @@ final class SubmitLeadConversionUseCaseTest extends TestCase
 
         $this->dispatcher->expects('dispatchLeadConversion');
 
-        $this->useCase->execute(new Guid(self::SUBMISSION_ID), false);
+        $this->useCase->execute(new Uuid(self::SUBMISSION_ID), false);
     }
 
     #[Test]
@@ -257,7 +257,7 @@ final class SubmitLeadConversionUseCaseTest extends TestCase
 
         $this->expectException(RuntimeException::class);
 
-        $this->useCase->execute(new Guid(self::SUBMISSION_ID), true);
+        $this->useCase->execute(new Uuid(self::SUBMISSION_ID), true);
     }
 
     private function makeSubmission(?string $gclid, ?string $msclkid): ContactSubmission

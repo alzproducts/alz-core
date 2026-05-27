@@ -295,7 +295,7 @@ final class GoogleAdsConversionServiceTest extends TestCase
     }
 
     #[Test]
-    public function it_throws_when_email_is_empty(): void
+    public function it_throws_when_email_is_empty_string(): void
     {
         $this->mockTransport->shouldNotReceive('uploadClickConversion');
 
@@ -308,6 +308,61 @@ final class GoogleAdsConversionServiceTest extends TestCase
                 email: '',
                 convertedAt: new DateTimeImmutable('2026-05-16 10:30:00+00:00'),
                 value: null,
+                phone: '07911 123456',
+            ),
+        );
+    }
+
+    #[Test]
+    public function it_throws_when_neither_email_nor_phone_is_provided(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        new GoogleConversionUploadDTO(
+            gclid: 'CjwKgclid',
+            email: null,
+            convertedAt: new DateTimeImmutable('2026-05-16 10:30:00+00:00'),
+            value: null,
+            phone: null,
+        );
+    }
+
+    #[Test]
+    public function it_adds_only_phone_identifier_when_email_is_null(): void
+    {
+        $captured = $this->captureUploadRequest();
+
+        $this->service->uploadConversion(
+            ConversionType::LeadReceived,
+            new GoogleConversionUploadDTO(
+                gclid: 'CjwKgclid',
+                email: null,
+                convertedAt: new DateTimeImmutable('2026-05-16 10:30:00+00:00'),
+                value: null,
+                phone: '07911 123456',
+            ),
+        );
+
+        $identifiers = \iterator_to_array($this->firstConversion($captured)->getUserIdentifiers());
+        $this->assertCount(1, $identifiers);
+        $this->assertSame(\hash('sha256', '+447911123456'), $identifiers[0]->getHashedPhoneNumber());
+    }
+
+    #[Test]
+    public function it_throws_when_email_is_null_and_phone_cannot_be_normalised(): void
+    {
+        $this->mockTransport->shouldNotReceive('uploadClickConversion');
+
+        $this->expectException(InvalidArgumentException::class);
+
+        $this->service->uploadConversion(
+            ConversionType::LeadReceived,
+            new GoogleConversionUploadDTO(
+                gclid: 'CjwKgclid',
+                email: null,
+                convertedAt: new DateTimeImmutable('2026-05-16 10:30:00+00:00'),
+                value: null,
+                phone: 'not-a-phone-number',
             ),
         );
     }

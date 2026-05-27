@@ -30,6 +30,16 @@ final readonly class MarketingAttribution
         );
     }
 
+    /**
+     * The click ID we use to deduplicate a returning visitor against an earlier
+     * visit. Gclid takes precedence over msclkid when both are present so a
+     * Google-then-Bing repeat visitor reuses the Google-attributed visit.
+     */
+    public function primaryClickId(): ?string
+    {
+        return $this->gclid ?? $this->msclkid;
+    }
+
     public static function empty(): self
     {
         return new self();

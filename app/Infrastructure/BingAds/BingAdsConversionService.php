@@ -58,12 +58,28 @@ final readonly class BingAdsConversionService implements BingAdsConversionInterf
             // DateTimeImmutable) by passing through the scalar branch.
             'ConversionTime' => $data->convertedAt->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d\TH:i:s\Z'),
             'MicrosoftClickId' => $data->msclkid,
-            'HashedEmailAddress' => self::hashEmail($data->email),
+            ...$this->buildEmailMatchFields($data),
             ...$this->buildEnhancedMatchFields($data),
             ...$this->buildConversionValueFields($data),
         ];
 
+        Assert::true(
+            isset($fields['HashedEmailAddress']) || isset($fields['HashedPhoneNumber']),
+            'At least one user identifier (email or valid phone) must resolve',
+        );
         return new OfflineConversion($fields);
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function buildEmailMatchFields(BingConversionUploadDTO $data): array
+    {
+        if ($data->email === null) {
+            return [];
+        }
+
+        return ['HashedEmailAddress' => self::hashEmail($data->email)];
     }
 
     /**

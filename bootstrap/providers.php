@@ -6,6 +6,7 @@ use App\Providers\AppServiceProvider;
 use App\Providers\AuthServiceProvider;
 use App\Providers\BingAdsServiceProvider;
 use App\Providers\CacheServiceProvider;
+use App\Providers\CallTrackingServiceProvider;
 use App\Providers\CatalogServiceProvider;
 use App\Providers\CheckoutServiceProvider;
 use App\Providers\ClickUpServiceProvider;
@@ -26,6 +27,7 @@ use App\Providers\RateLimitServiceProvider;
 use App\Providers\ReviewsIoServiceProvider;
 use App\Providers\RlsDatabaseServiceProvider;
 use App\Providers\Schedule\AdsScheduleServiceProvider;
+use App\Providers\Schedule\CallTrackingScheduleServiceProvider;
 use App\Providers\Schedule\CatalogScheduleServiceProvider;
 use App\Providers\Schedule\ContactFormScheduleServiceProvider;
 use App\Providers\Schedule\FeedsScheduleServiceProvider;
@@ -45,6 +47,7 @@ return [
     AuthServiceProvider::class,
     BingAdsServiceProvider::class,
     CacheServiceProvider::class,
+    CallTrackingServiceProvider::class,
     ClickUpServiceProvider::class,
     CatalogServiceProvider::class,
     CheckoutServiceProvider::class,
@@ -69,6 +72,7 @@ return [
 
     // Schedule providers (must not be deferred - schedules register at boot)
     AdsScheduleServiceProvider::class,
+    CallTrackingScheduleServiceProvider::class,
     CatalogScheduleServiceProvider::class,
     ContactFormScheduleServiceProvider::class,
     FeedsScheduleServiceProvider::class,

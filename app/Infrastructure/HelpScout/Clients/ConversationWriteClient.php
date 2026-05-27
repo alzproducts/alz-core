@@ -7,6 +7,7 @@ namespace App\Infrastructure\HelpScout\Clients;
 use App\Application\Contracts\HelpScout\ConversationWriteClientInterface;
 use App\Application\HelpScout\Commands\CreateCustomerConversationCommand;
 use App\Application\HelpScout\Requests\CreateCustomerRequestDTO;
+use App\Domain\CustomerService\Enums\ConversationType;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
@@ -21,6 +22,7 @@ use HelpScout\Api\ApiClient;
 use HelpScout\Api\Conversations\Conversation;
 use HelpScout\Api\Conversations\Threads\CustomerThread;
 use HelpScout\Api\Conversations\Threads\NoteThread;
+use HelpScout\Api\Conversations\Threads\PhoneThread;
 use HelpScout\Api\Customers\Customer;
 use Illuminate\Support\Facades\Log;
 
@@ -60,7 +62,9 @@ final readonly class ConversationWriteClient implements ConversationWriteClientI
         );
 
         $customer = $this->customerMapper->toSdk($customerRequest);
-        $thread = $this->buildCustomerThread($customer, $command->body);
+        $thread = $command->type === ConversationType::Phone
+            ? $this->buildPhoneThread($customer, $command->body)
+            : $this->buildCustomerThread($customer, $command->body);
         $conversation = $this->buildConversation($command, $customer, $thread);
 
         $conversationId = SdkExceptionTranslator::execute(
@@ -115,12 +119,24 @@ final readonly class ConversationWriteClient implements ConversationWriteClientI
     }
 
     /**
+     * Build SDK PhoneThread for phone-initiated conversations.
+     */
+    private function buildPhoneThread(Customer $customer, string $body): PhoneThread
+    {
+        $thread = new PhoneThread();
+        $thread->setCustomer($customer);
+        $thread->setText($body);
+
+        return $thread;
+    }
+
+    /**
      * Build SDK Conversation with all components.
      */
     private function buildConversation(
         CreateCustomerConversationCommand $command,
         Customer $customer,
-        CustomerThread $thread,
+        CustomerThread|PhoneThread $thread,
     ): Conversation {
         $conversation = new Conversation();
         $conversation->setMailboxId($this->config->getMailboxId($command->mailbox->value));

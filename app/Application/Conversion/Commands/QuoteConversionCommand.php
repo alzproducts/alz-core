@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Application\Conversion\Commands;
 
 use App\Domain\Shared\Money\ValueObjects\Money;
-use App\Domain\ValueObjects\Guid;
+use App\Domain\ValueObjects\Uuid;
 use DateTimeImmutable;
 
 /**
@@ -19,8 +19,8 @@ use DateTimeImmutable;
 final readonly class QuoteConversionCommand
 {
     public function __construct(
-        public Guid $submissionId,
-        public Guid $actionId,
+        public Uuid $submissionId,
+        public Uuid $actionId,
         public Money $value,
         public DateTimeImmutable $convertedAt,
     ) {}

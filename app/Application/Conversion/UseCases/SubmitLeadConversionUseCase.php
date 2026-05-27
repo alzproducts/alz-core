@@ -20,7 +20,7 @@ use App\Domain\Exceptions\Data\InsufficientDataException;
 use App\Domain\Exceptions\Data\MalformedStoredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
-use App\Domain\ValueObjects\Guid;
+use App\Domain\ValueObjects\Uuid;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -50,7 +50,7 @@ final readonly class SubmitLeadConversionUseCase
      * @throws DatabaseOperationFailedException
      * @throws ExternalServiceUnavailableException
      */
-    public function execute(Guid $submissionId, bool $isPotentialQuote): void
+    public function execute(Uuid $submissionId, bool $isPotentialQuote): void
     {
         $id = $submissionId->value;
         $this->logger->info('Submitting lead conversion', [
@@ -105,17 +105,17 @@ final readonly class SubmitLeadConversionUseCase
     /**
      * @param array<value-of<AdPlatform>, string> $actionIds
      */
-    private function dispatchPerPlatform(Guid $submissionId, array $actionIds): void
+    private function dispatchPerPlatform(Uuid $submissionId, array $actionIds): void
     {
         if (isset($actionIds[AdPlatform::Google->value])) {
             $this->dispatcher->dispatchLeadConversion(
-                new LeadConversionCommand($submissionId, Guid::fromTrusted($actionIds[AdPlatform::Google->value])),
+                new LeadConversionCommand($submissionId, Uuid::fromTrusted($actionIds[AdPlatform::Google->value])),
             );
         }
 
         if (isset($actionIds[AdPlatform::Bing->value])) {
             $this->dispatcher->dispatchBingLeadConversion(
-                new LeadConversionCommand($submissionId, Guid::fromTrusted($actionIds[AdPlatform::Bing->value])),
+                new LeadConversionCommand($submissionId, Uuid::fromTrusted($actionIds[AdPlatform::Bing->value])),
             );
         }
     }

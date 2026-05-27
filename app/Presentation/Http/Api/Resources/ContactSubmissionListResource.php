@@ -4,16 +4,14 @@ declare(strict_types=1);
 
 namespace App\Presentation\Http\Api\Resources;
 
-use App\Domain\ContactSubmission\ValueObjects\ContactSubmissionListItem;
+use App\Application\ContactSubmission\DTOs\ContactSubmissionListItemDTO;
 use DateTimeInterface;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Override;
 
 /**
- * Wire representation of a single row in the staff contact-submissions dashboard.
- *
- * @mixin ContactSubmissionListItem
+ * @mixin ContactSubmissionListItemDTO
  */
 final class ContactSubmissionListResource extends JsonResource
 {
@@ -23,14 +21,15 @@ final class ContactSubmissionListResource extends JsonResource
     #[Override]
     public function toArray(Request $request): array
     {
-        /** @var ContactSubmissionListItem $item */
+        /** @var ContactSubmissionListItemDTO $item */
         $item = $this->resource;
 
         return [
             'id' => $item->id->value,
+            'source' => $item->source->value,
             'name' => $item->name,
             'email' => $item->email,
-            'reason' => $item->reason->value,
+            'reason' => $item->reason?->value,
             'customer_type' => $item->customerType?->value,
             'order_number' => $item->orderNumber,
             'quantity' => $item->quantity,
@@ -50,6 +49,7 @@ final class ContactSubmissionListResource extends JsonResource
             'is_potential_quote' => $item->isPotentialQuote,
             'notes' => $item->notes,
             'quoted_at' => $item->quotedAt?->format(DateTimeInterface::ATOM),
+            'caller_phone_number' => $item->callerPhoneNumber,
         ];
     }
 }

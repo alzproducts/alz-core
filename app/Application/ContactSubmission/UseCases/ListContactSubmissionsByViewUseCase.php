@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Application\ContactSubmission\UseCases;
 
+use App\Application\ContactSubmission\DTOs\ContactSubmissionListItemDTO;
 use App\Application\Contracts\ContactSubmission\ContactSubmissionDashboardQueryRepositoryInterface;
 use App\Domain\ContactSubmission\Enums\ContactSubmissionView;
-use App\Domain\ContactSubmission\ValueObjects\ContactSubmissionListItem;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
@@ -30,7 +30,7 @@ final readonly class ListContactSubmissionsByViewUseCase
     ) {}
 
     /**
-     * @return PaginatedList<ContactSubmissionListItem>
+     * @return PaginatedList<ContactSubmissionListItemDTO>
      *
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
