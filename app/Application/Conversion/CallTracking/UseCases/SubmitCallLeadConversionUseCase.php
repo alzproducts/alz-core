@@ -89,7 +89,7 @@ final readonly class SubmitCallLeadConversionUseCase
     private function dispatchPerPlatform(Uuid $visitId, PhoneNumberE164 $callerPhone, array $actionIds): void
     {
         if (isset($actionIds[AdPlatform::Google->value])) {
-            $this->dispatcher->dispatchCallLeadConversion(
+            $this->dispatcher->dispatchGoogleCallLeadConversion(
                 new CallLeadConversionCommand($visitId, $actionIds[AdPlatform::Google->value], $callerPhone),
             );
         }

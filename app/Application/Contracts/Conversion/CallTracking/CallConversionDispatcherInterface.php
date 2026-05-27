@@ -8,7 +8,7 @@ use App\Application\Conversion\CallTracking\Commands\CallLeadConversionCommand;
 
 interface CallConversionDispatcherInterface
 {
-    public function dispatchCallLeadConversion(CallLeadConversionCommand $command): void;
+    public function dispatchGoogleCallLeadConversion(CallLeadConversionCommand $command): void;
 
     public function dispatchBingCallLeadConversion(CallLeadConversionCommand $command): void;
 }

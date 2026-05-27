@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Infrastructure\Jobs\Conversion\CallTracking;
 
 use App\Application\Conversion\CallTracking\UseCases\HandleCallLeadConversionFailureUseCase;
-use App\Application\Conversion\CallTracking\UseCases\ProcessCallLeadConversionUseCase;
+use App\Application\Conversion\CallTracking\UseCases\ProcessGoogleCallLeadConversionUseCase;
 use App\Domain\Exceptions\Data\InsufficientDataException;
 use App\Domain\Exceptions\Data\InvalidFormatException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
@@ -25,7 +25,7 @@ use Throwable;
  * `ShouldBeUnique` keyed by visit ID — Laravel FQCN-prefixes the lock so this won't
  * collide with `ProcessBingCallLeadConversionJob`'s lock for the same visit.
  */
-final class ProcessCallLeadConversionJob implements ShouldBeUnique, ShouldQueue
+final class ProcessGoogleCallLeadConversionJob implements ShouldBeUnique, ShouldQueue
 {
     use Dispatchable;
     use InteractsWithQueue;
@@ -75,7 +75,7 @@ final class ProcessCallLeadConversionJob implements ShouldBeUnique, ShouldQueue
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      */
-    public function handle(ProcessCallLeadConversionUseCase $useCase): void
+    public function handle(ProcessGoogleCallLeadConversionUseCase $useCase): void
     {
         try {
             $useCase->execute($this->visitId, $this->actionId, $this->callerPhone);

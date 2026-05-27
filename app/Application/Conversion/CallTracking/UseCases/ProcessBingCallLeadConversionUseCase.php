@@ -26,8 +26,8 @@ use App\Domain\ValueObjects\Uuid;
 use Psr\Log\LoggerInterface;
 
 /**
- * Uploads a call-sourced lead conversion to Bing Ads. See {@see ProcessCallLeadConversionUseCase}
- * for the Google equivalent. Idempotent — terminal re-runs are no-ops.
+ * Uploads a call-sourced lead conversion to Bing Ads. Sibling of
+ * {@see ProcessGoogleCallLeadConversionUseCase}. Idempotent — terminal re-runs are no-ops.
  */
 final readonly class ProcessBingCallLeadConversionUseCase
 {

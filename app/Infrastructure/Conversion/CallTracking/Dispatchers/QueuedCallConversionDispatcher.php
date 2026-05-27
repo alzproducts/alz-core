@@ -7,7 +7,7 @@ namespace App\Infrastructure\Conversion\CallTracking\Dispatchers;
 use App\Application\Contracts\Conversion\CallTracking\CallConversionDispatcherInterface;
 use App\Application\Conversion\CallTracking\Commands\CallLeadConversionCommand;
 use App\Infrastructure\Jobs\Conversion\CallTracking\ProcessBingCallLeadConversionJob;
-use App\Infrastructure\Jobs\Conversion\CallTracking\ProcessCallLeadConversionJob;
+use App\Infrastructure\Jobs\Conversion\CallTracking\ProcessGoogleCallLeadConversionJob;
 use Override;
 
 /**
@@ -16,9 +16,9 @@ use Override;
 final readonly class QueuedCallConversionDispatcher implements CallConversionDispatcherInterface
 {
     #[Override]
-    public function dispatchCallLeadConversion(CallLeadConversionCommand $command): void
+    public function dispatchGoogleCallLeadConversion(CallLeadConversionCommand $command): void
     {
-        ProcessCallLeadConversionJob::dispatch(
+        ProcessGoogleCallLeadConversionJob::dispatch(
             $command->visitId->value,
             $command->actionId->value,
             $command->callerPhone->value,

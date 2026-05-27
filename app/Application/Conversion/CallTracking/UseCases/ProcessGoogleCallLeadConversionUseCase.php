@@ -24,12 +24,10 @@ use App\Domain\ValueObjects\Uuid;
 use Psr\Log\LoggerInterface;
 
 /**
- * Uploads a call-sourced lead conversion to Google Ads.
- *
- * Called by ProcessCallLeadConversionJob after the action row is created in pending state.
- * Idempotent — skips if the action is already terminal (completed or failed).
+ * Uploads a call-sourced lead conversion to Google Ads. Sibling of
+ * {@see ProcessBingCallLeadConversionUseCase}. Idempotent — terminal re-runs are no-ops.
  */
-final readonly class ProcessCallLeadConversionUseCase
+final readonly class ProcessGoogleCallLeadConversionUseCase
 {
     /** Google Ads returns no receipt ID for uploaded conversions; sentinel keeps `external_id` populated. */
     private const string COMPLETION_RECEIPT = 'uploaded';
