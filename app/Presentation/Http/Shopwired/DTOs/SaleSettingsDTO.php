@@ -29,9 +29,9 @@ final class SaleSettingsDTO extends Data
     public function __construct(
         public readonly string $saleReason,
         public readonly ?string $saleComments,
-        #[WithCast(DateTimeInterfaceCast::class)]
+        #[WithCast(DateTimeInterfaceCast::class, format: 'Y-m-d')]
         public readonly ?DateTimeImmutable $saleStartDate,
-        #[WithCast(DateTimeInterfaceCast::class)]
+        #[WithCast(DateTimeInterfaceCast::class, format: 'Y-m-d')]
         public readonly ?DateTimeImmutable $saleEndDate,
         #[Min(0)]
         public readonly ?int $saleEndsStock,
