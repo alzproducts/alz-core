@@ -18,7 +18,7 @@ use App\Domain\Exceptions\Data\MalformedStoredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\Shared\Money\ValueObjects\Money;
-use App\Domain\ValueObjects\Guid;
+use App\Domain\ValueObjects\Uuid;
 use DateMalformedStringException;
 use DateTimeImmutable;
 use Psr\Log\LoggerInterface;
@@ -94,8 +94,8 @@ final readonly class SubmitQuoteConversionUseCase
         }
 
         return new QuoteConversionCommand(
-            submissionId: Guid::fromTrusted($submissionId),
-            actionId: Guid::fromTrusted($actionId),
+            submissionId: Uuid::fromTrusted($submissionId),
+            actionId: Uuid::fromTrusted($actionId),
             value: Money::exclusive($value),
             convertedAt: $convertedAtTime,
         );

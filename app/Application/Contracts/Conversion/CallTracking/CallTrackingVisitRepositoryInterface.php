@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Application\Contracts\Conversion\CallTracking;
 
+use App\Domain\Conversion\CallTracking\Exceptions\AmbiguousCallAttributionException;
 use App\Domain\Conversion\CallTracking\ValueObjects\CallTrackingVisit;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\RecordNotFoundException;
@@ -44,4 +45,17 @@ interface CallTrackingVisitRepositoryInterface
      * @throws InvalidFormatException If stored data bypasses VO guards
      */
     public function findRecentByClickId(string $clickId, DateTimeImmutable $after): ?CallTrackingVisit;
+
+    /**
+     * Resolve a call's matched visit via the temporal/tracking-number join used by the
+     * unified dashboard view. Throws if zero or multiple visits match (ambiguous attribution).
+     *
+     * @throws RecordNotFoundException When no unique visit matches the call
+     * @throws AmbiguousCallAttributionException When more than one visit matches within the attribution window
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     * @throws InvalidFormatException If stored data bypasses VO guards
+     */
+    public function findByCallId(Uuid $callId): CallTrackingVisit;
 }

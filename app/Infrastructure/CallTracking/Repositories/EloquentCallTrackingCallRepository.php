@@ -7,9 +7,11 @@ namespace App\Infrastructure\CallTracking\Repositories;
 use App\Application\Contracts\Conversion\CallTracking\CallTrackingCallRepositoryInterface;
 use App\Domain\Conversion\CallTracking\ValueObjects\CallTrackingCall;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\IntId;
+use App\Domain\ValueObjects\Uuid;
 use App\Infrastructure\CallTracking\Mappers\CallTrackingCallMapper;
 use App\Infrastructure\CallTracking\Models\CallTrackingCallModel;
 use App\Infrastructure\Persistence\EloquentGateway;
@@ -64,6 +66,25 @@ final readonly class EloquentCallTrackingCallRepository implements CallTrackingC
             'call_sid',
             $callSid,
             ['helpscout_conversation_id' => $conversationId->value],
+        );
+    }
+
+    /**
+     * @throws RecordNotFoundException
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    #[Override]
+    public function findById(Uuid $id): CallTrackingCall
+    {
+        /** @var CallTrackingCall */
+        return $this->gateway->findOrFail(
+            CallTrackingCallModel::class,
+            'id',
+            $id->value,
+            entityTypeName: 'CallTrackingCall',
+            mapper: static fn(CallTrackingCallModel $m): CallTrackingCall => $m->toDomain(),
         );
     }
 }

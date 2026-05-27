@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace App\Infrastructure\CallTracking\Models;
 
 use App\Domain\Conversion\CallTracking\Enums\CallStatus;
+use App\Domain\Conversion\CallTracking\ValueObjects\CallTrackingCall;
+use App\Domain\ValueObjects\IntId;
+use App\Domain\ValueObjects\Uuid;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
@@ -47,5 +50,20 @@ final class CallTrackingCallModel extends Model
             'created_at' => 'immutable_datetime',
             'updated_at' => 'immutable_datetime',
         ];
+    }
+
+    public function toDomain(): CallTrackingCall
+    {
+        return new CallTrackingCall(
+            callSid: $this->call_sid,
+            trackingNumberDialled: $this->tracking_number_dialled,
+            callerPhoneNumber: $this->caller_phone_number,
+            callStatus: $this->call_status,
+            helpscoutConversationId: $this->helpscout_conversation_id !== null
+                ? IntId::from($this->helpscout_conversation_id)
+                : null,
+            id: Uuid::fromTrusted($this->id),
+            createdAt: $this->created_at->toDateTimeImmutable(),
+        );
     }
 }

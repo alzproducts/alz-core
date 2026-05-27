@@ -17,14 +17,14 @@ final class LeadConversionRequestDTOTest extends TestCase
     private const string VALID_UUID = 'd9dd22a9-c3ab-413b-8a93-25b462231a98';
 
     #[Test]
-    public function maps_submission_id_and_is_potential_quote_from_snake_case_payload(): void
+    public function maps_id_and_is_potential_quote_from_snake_case_payload(): void
     {
         $dto = LeadConversionRequestDTO::validateAndCreate([
-            'submission_id' => self::VALID_UUID,
+            'id' => self::VALID_UUID,
             'is_potential_quote' => true,
         ]);
 
-        self::assertSame(self::VALID_UUID, $dto->submissionId);
+        self::assertSame(self::VALID_UUID, $dto->id);
         self::assertTrue($dto->isPotentialQuote);
     }
 
@@ -32,7 +32,7 @@ final class LeadConversionRequestDTOTest extends TestCase
     public function is_potential_quote_accepts_false_value(): void
     {
         $dto = LeadConversionRequestDTO::validateAndCreate([
-            'submission_id' => self::VALID_UUID,
+            'id' => self::VALID_UUID,
             'is_potential_quote' => false,
         ]);
 
@@ -44,14 +44,14 @@ final class LeadConversionRequestDTOTest extends TestCase
      */
     public static function invalidPayloads(): iterable
     {
-        yield 'missing is_potential_quote' => [['submission_id' => self::VALID_UUID]];
-        yield 'missing submission_id' => [['is_potential_quote' => true]];
+        yield 'missing is_potential_quote' => [['id' => self::VALID_UUID]];
+        yield 'missing id' => [['is_potential_quote' => true]];
         yield 'is_potential_quote as string' => [[
-            'submission_id' => self::VALID_UUID,
+            'id' => self::VALID_UUID,
             'is_potential_quote' => 'yes',
         ]];
-        yield 'submission_id not uuid' => [[
-            'submission_id' => 'not-a-uuid',
+        yield 'id not uuid' => [[
+            'id' => 'not-a-uuid',
             'is_potential_quote' => true,
         ]];
     }

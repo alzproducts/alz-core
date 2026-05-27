@@ -9,8 +9,8 @@ use Webmozart\Assert\Assert;
 /**
  * Globally Unique Identifier (UUID format).
  *
- * Used for external system identifiers like Linnworks stockItemId,
- * Supabase UUIDs, etc. Validates UUID v4 format.
+ * Used for external system identifiers like Linnworks stockItemId.
+ * Validates UUID v4 format.
  *
  * @template-pattern Domain Value Object
  */

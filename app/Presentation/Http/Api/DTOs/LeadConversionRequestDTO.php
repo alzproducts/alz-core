@@ -13,16 +13,16 @@ use Spatie\LaravelData\Data;
 /**
  * Request validation for POST /api/conversions/lead.
  *
- * Maps the wire-format `submission_id` / `is_potential_quote` to internal camelCase properties.
- * `is_potential_quote` is the staff's at-conversion-time classification — captured atomically
- * with the lead action so the dashboard's Awaiting Quote view is populated as soon as the lead
- * is recorded.
+ * `id` is source-agnostic — the orchestrator resolves whether it identifies a
+ * contact submission or a call. `is_potential_quote` is the staff classification
+ * captured at submit time so the dashboard's Awaiting Quote view populates
+ * immediately.
  */
 final class LeadConversionRequestDTO extends Data
 {
     public function __construct(
-        #[Required, Uuid, MapInputName('submission_id')]
-        public readonly string $submissionId,
+        #[Required, Uuid, MapInputName('id')]
+        public readonly string $id,
         #[Required, BooleanType, MapInputName('is_potential_quote')]
         public readonly bool $isPotentialQuote,
     ) {}
