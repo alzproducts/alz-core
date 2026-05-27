@@ -136,6 +136,12 @@ final readonly class EloquentCallTrackingVisitRepository implements CallTracking
         );
     }
 
+    /**
+     * Must match the predicate shape in `marketing.potential_conversions_view` so a
+     * dashboard row's attribution and this repository's resolution agree. The view
+     * uses a literal `INTERVAL '6 hours'`; if `call-tracking.attribution_window_hours`
+     * is overridden away from 6, the two resolve different visits.
+     */
     private static function applyTemporalTrackingNumberJoin(JoinClause $join, int $windowHours): JoinClause
     {
         return $join

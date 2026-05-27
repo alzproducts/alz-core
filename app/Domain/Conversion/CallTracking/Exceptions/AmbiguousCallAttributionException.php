@@ -7,6 +7,10 @@ namespace App\Domain\Conversion\CallTracking\Exceptions;
 use App\Domain\Exceptions\DomainException;
 use Override;
 
+/**
+ * The unified dashboard view hides ambiguous calls via `visit_match_count = 1`, so
+ * UI-driven submissions can't trigger this — it guards against direct-API callers.
+ */
 final class AmbiguousCallAttributionException extends DomainException
 {
     public function __construct(
