@@ -261,4 +261,140 @@ final class GtinTest extends TestCase
         // Act
         Gtin::fromString('   ');
     }
+
+    // ========================================================================
+    // tryFromString
+    // ========================================================================
+
+    #[Test]
+    public function try_from_string_returns_null_for_null(): void
+    {
+        self::assertNull(Gtin::tryFromString(null));
+    }
+
+    #[Test]
+    #[DataProvider('emptyInputProvider')]
+    public function try_from_string_returns_null_for_empty_or_whitespace(string $value): void
+    {
+        self::assertNull(Gtin::tryFromString($value));
+    }
+
+    /**
+     * @return array<string, array{0: string}>
+     */
+    public static function emptyInputProvider(): array
+    {
+        return [
+            'empty' => [''],
+            'single space' => [' '],
+            'multiple spaces' => ['     '],
+            'tabs' => ["\t\t"],
+        ];
+    }
+
+    /**
+     * @param non-empty-string $value
+     */
+    #[Test]
+    #[DataProvider('validGtinProvider')]
+    public function try_from_string_returns_gtin_for_valid_input(string $value, string $description): void
+    {
+        $gtin = Gtin::tryFromString($value);
+
+        self::assertInstanceOf(Gtin::class, $gtin, "Failed for: {$description}");
+        self::assertSame($value, $gtin->value);
+    }
+
+    #[Test]
+    public function try_from_string_normalizes_dashes_and_whitespace(): void
+    {
+        $gtin = Gtin::tryFromString('978-0-201-63361-0');
+
+        self::assertInstanceOf(Gtin::class, $gtin);
+        self::assertSame('9780201633610', $gtin->value);
+    }
+
+    #[Test]
+    #[DataProvider('tryFromStringInvalidProvider')]
+    public function try_from_string_returns_null_for_invalid_input(?string $value): void
+    {
+        self::assertNull(Gtin::tryFromString($value));
+    }
+
+    /**
+     * @return array<string, array{0: ?string}>
+     */
+    public static function tryFromStringInvalidProvider(): array
+    {
+        return [
+            'letters' => ['ABC12345678'],
+            'wrong length 9' => ['123456789'],
+            'wrong length 10' => ['1234567890'],
+            'too long' => ['123456789012345'],
+            'bad check digit GTIN-8' => ['12345671'],
+            'bad check digit GTIN-13' => ['9780201633611'],
+        ];
+    }
+
+    // ========================================================================
+    // Check digit algorithm — exact-value pinning per known fixture
+    // ========================================================================
+
+    #[Test]
+    #[DataProvider('checkDigitAlgorithmProvider')]
+    public function check_digit_algorithm_accepts_known_correct_values(string $gtin): void
+    {
+        $result = Gtin::fromString($gtin);
+
+        self::assertSame($gtin, $result->value);
+    }
+
+    /**
+     * Each fixture pairs a valid GTIN with its computed check digit position,
+     * exercising different alternating-multiplier paths in the algorithm.
+     *
+     * @return array<string, array{0: string}>
+     */
+    public static function checkDigitAlgorithmProvider(): array
+    {
+        return [
+            // GTIN-8: 8 digits, alternating 3,1,3,1,3,1,3 multipliers RTL excluding check
+            'GTIN-8 ends in 0' => ['12345670'],
+            'GTIN-8 ends in 4' => ['96385074'],
+            'GTIN-12 with leading zeros' => ['012345678905'],
+            'GTIN-13 ISBN' => ['9780201633610'],
+            // GTIN-14 exercises the longest digit sweep
+            'GTIN-14 logistics' => ['10012345678902'],
+        ];
+    }
+
+    // ========================================================================
+    // Normalization edge cases
+    // ========================================================================
+
+    #[Test]
+    public function normalization_preserves_internal_value_after_dash_strip(): void
+    {
+        $gtin = Gtin::fromString('978-0-201-63361-0');
+
+        self::assertSame('9780201633610', $gtin->value);
+        self::assertSame(13, \mb_strlen($gtin->value));
+    }
+
+    #[Test]
+    public function trusted_value_is_used_verbatim_without_normalization(): void
+    {
+        $gtin = Gtin::fromTrusted('9780201633610');
+
+        self::assertSame('9780201633610', $gtin->value);
+        self::assertSame('9780201633610', (string) $gtin);
+    }
+
+    #[Test]
+    public function from_trusted_does_not_normalize_or_strip_dashes(): void
+    {
+        $gtin = Gtin::fromTrusted('978-0-201-63361-0');
+
+        self::assertSame('978-0-201-63361-0', $gtin->value);
+    }
 }

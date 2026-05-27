@@ -184,6 +184,14 @@ final class OrderTest extends TestCase
     }
 
     #[Test]
+    public function total_discount_value_returns_zero_when_discounts_null(): void
+    {
+        $order = $this->createOrder(['discounts' => null]);
+
+        $this->assertSame(0.0, $order->totalDiscountValue());
+    }
+
+    #[Test]
     public function total_discount_value_returns_single_discount_value(): void
     {
         $discounts = [new OrderDiscount('15OFF', 15.75, null, null, null, null)];
@@ -240,6 +248,14 @@ final class OrderTest extends TestCase
     public function total_refund_value_returns_zero_when_no_refunds(): void
     {
         $order = $this->createOrder(['refunds' => []]);
+
+        $this->assertSame(0.0, $order->totalRefundValue());
+    }
+
+    #[Test]
+    public function total_refund_value_returns_zero_when_refunds_null(): void
+    {
+        $order = $this->createOrder(['refunds' => null]);
 
         $this->assertSame(0.0, $order->totalRefundValue());
     }

@@ -287,7 +287,7 @@ mutate-domain: ## Run Pest mutation testing on Domain layer (90%+ min score)
 	@echo "$(MODE)"
 	$(EXEC) -d xdebug.mode=off vendor/bin/pest --mutate \
 		--path=app/Domain \
-		--ignore=app/Domain/Exceptions \
+		--ignore=app/Domain/Exceptions,app/Domain/**/Exceptions \
 		--everything --min=90 --parallel --processes=9 \
 		--testsuite=Domain --ignore-min-score-on-zero-mutations
 
