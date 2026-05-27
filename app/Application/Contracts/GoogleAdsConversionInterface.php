@@ -19,7 +19,8 @@ use App\Domain\Exceptions\Api\InvalidApiRequestException;
 interface GoogleAdsConversionInterface
 {
     /**
-     * Upload a single click conversion attributed to the given gclid + email.
+     * Upload a single click conversion attributed to the given gclid and
+     * at least one user identifier (email and/or phone).
      *
      * The implementation hashes PII (SHA-256, lowercased + trimmed) internally
      * before sending; callers pass plain values.

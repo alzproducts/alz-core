@@ -66,22 +66,50 @@ final readonly class GoogleAdsConversionService implements GoogleAdsConversionIn
      */
     private function buildUserIdentifiers(GoogleConversionUploadDTO $data): array
     {
-        $emailIdentifier = new UserIdentifier();
-        $emailIdentifier->setHashedEmail(self::hashEmail($data->email));
+        $userIdentifiers = [
+            ...$this->buildEmailIdentifier($data),
+            ...$this->buildPhoneIdentifier($data),
+        ];
 
-        $userIdentifiers = [$emailIdentifier];
-
-        if ($data->phone !== null) {
-            $e164 = $this->phoneNormalisationService->toE164($data->phone);
-
-            if ($e164 !== null) {
-                $phoneIdentifier = new UserIdentifier();
-                $phoneIdentifier->setHashedPhoneNumber(self::hashPhone($e164));
-                $userIdentifiers[] = $phoneIdentifier;
-            }
-        }
+        Assert::notEmpty($userIdentifiers, 'At least one user identifier (email or valid phone) must resolve');
 
         return $userIdentifiers;
+    }
+
+    /**
+     * @return list<UserIdentifier>
+     */
+    private function buildEmailIdentifier(GoogleConversionUploadDTO $data): array
+    {
+        if ($data->email === null) {
+            return [];
+        }
+
+        $identifier = new UserIdentifier();
+        $identifier->setHashedEmail(self::hashEmail($data->email));
+
+        return [$identifier];
+    }
+
+    /**
+     * @return list<UserIdentifier>
+     */
+    private function buildPhoneIdentifier(GoogleConversionUploadDTO $data): array
+    {
+        if ($data->phone === null) {
+            return [];
+        }
+
+        $e164 = $this->phoneNormalisationService->toE164($data->phone);
+
+        if ($e164 === null) {
+            return [];
+        }
+
+        $identifier = new UserIdentifier();
+        $identifier->setHashedPhoneNumber(self::hashPhone($e164));
+
+        return [$identifier];
     }
 
     private function resolveActionId(ConversionType $type): string

@@ -12,12 +12,13 @@ final readonly class GoogleConversionUploadDTO
 {
     public function __construct(
         public string $gclid,
-        public string $email,
+        public ?string $email,
         public DateTimeImmutable $convertedAt,
         public ?Money $value,
         public ?string $phone = null,
     ) {
         Assert::notEmpty($gclid, 'gclid cannot be empty');
-        Assert::notEmpty($email, 'email cannot be empty');
+        Assert::nullOrNotEmpty($email, 'Email must be null or non-empty');
+        Assert::true($email !== null || $phone !== null, 'At least one of email or phone must be provided');
     }
 }
