@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\Domain\Catalog\Product\ValueObjects;
 
 use App\Domain\Catalog\CustomFields\ValueObjects\AbstractCustomFieldValue;
+use App\Domain\Catalog\Filters\ValueObjects\FilterGroupDefinition;
+use App\Domain\Catalog\Filters\ValueObjects\ProductFilter;
 use App\Domain\Catalog\Product\ValueObjects\Product;
 use App\Domain\Catalog\Product\ValueObjects\ProductImage;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariation;
@@ -12,6 +14,7 @@ use App\Domain\Catalog\Product\ValueObjects\Sku;
 use DateTimeImmutable;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -103,15 +106,20 @@ final class ProductTest extends TestCase
     /**
      * Create a variation for testing.
      */
-    private static function createVariation(int $id, string $sku, int $stock): ProductVariation
-    {
+    private static function createVariation(
+        int $id,
+        string $sku,
+        int $stock,
+        ?float $price = 29.99,
+        ?float $salePrice = null,
+    ): ProductVariation {
         return new ProductVariation(
             id: $id,
             productExternalId: 12345,
             sku: $sku,
-            price: 29.99,
+            price: $price,
             costPrice: 15.00,
-            salePrice: null,
+            salePrice: $salePrice,
             stock: $stock,
             weight: 0.5,
             gtin: null,
@@ -551,5 +559,159 @@ final class ProductTest extends TestCase
     {
         $product = self::createProduct(['weight' => 1.5]);
         self::assertSame(1.5, $product->weight());
+    }
+
+    // ========================================================================
+    // isSaleActive (static)
+    // ========================================================================
+
+    #[Test]
+    #[DataProvider('saleActiveProvider')]
+    public function is_sale_active_pins_each_branch(?float $salePrice, float $price, bool $expected): void
+    {
+        self::assertSame($expected, Product::isSaleActive($salePrice, $price));
+    }
+
+    /**
+     * @return array<string, array{0: ?float, 1: float, 2: bool}>
+     */
+    public static function saleActiveProvider(): array
+    {
+        return [
+            'null sale price' => [null, 29.99, false],
+            'zero sale price' => [0.0, 29.99, false],
+            'sale lower than price' => [19.99, 29.99, true],
+            'sale equals price' => [29.99, 29.99, false],
+            'sale higher than price' => [39.99, 29.99, false],
+            'sale 0.01 below price' => [29.98, 29.99, true],
+        ];
+    }
+
+    // ========================================================================
+    // allOnSaleSkus
+    // ========================================================================
+
+    #[Test]
+    public function all_on_sale_skus_returns_master_when_sale_active(): void
+    {
+        $product = self::createProduct([
+            'sku' => 'MASTER-001',
+            'price' => 29.99,
+            'salePrice' => 19.99,
+        ]);
+
+        $skus = $product->allOnSaleSkus();
+        $values = \array_map(static fn(Sku $s): string => $s->value, $skus);
+
+        self::assertSame(['MASTER-001'], $values);
+    }
+
+    #[Test]
+    public function all_on_sale_skus_excludes_master_when_sale_not_active(): void
+    {
+        $product = self::createProduct([
+            'sku' => 'MASTER-001',
+            'price' => 29.99,
+            'salePrice' => null,
+        ]);
+
+        self::assertSame([], $product->allOnSaleSkus());
+    }
+
+    #[Test]
+    public function all_on_sale_skus_excludes_master_with_empty_sku(): void
+    {
+        $product = self::createProduct([
+            'sku' => '',
+            'price' => 29.99,
+            'salePrice' => 19.99,
+        ]);
+
+        self::assertSame([], $product->allOnSaleSkus());
+    }
+
+    #[Test]
+    public function all_on_sale_skus_combines_master_and_variation_skus(): void
+    {
+        $variations = [
+            self::createVariation(id: 1, sku: 'VAR-001', stock: 10, price: 29.99, salePrice: 19.99),
+            self::createVariation(id: 2, sku: 'VAR-002', stock: 10, price: 29.99, salePrice: null),
+        ];
+        $product = self::createProduct(
+            ['sku' => 'MASTER-001', 'price' => 29.99, 'salePrice' => 19.99],
+            variations: $variations,
+        );
+
+        $values = \array_map(static fn(Sku $s): string => $s->value, $product->allOnSaleSkus());
+
+        self::assertSame(['MASTER-001', 'VAR-001'], $values);
+    }
+
+    #[Test]
+    public function all_on_sale_skus_handles_null_variations(): void
+    {
+        $product = self::createProduct([
+            'sku' => 'MASTER-001',
+            'price' => 29.99,
+            'salePrice' => 19.99,
+            'variations' => null,
+        ]);
+
+        self::assertSame(['MASTER-001'], \array_map(static fn(Sku $s): string => $s->value, $product->allOnSaleSkus()));
+    }
+
+    #[Test]
+    public function all_on_sale_skus_returns_only_variations_when_master_sku_null(): void
+    {
+        $variations = [
+            self::createVariation(id: 1, sku: 'VAR-001', stock: 10, price: 29.99, salePrice: 19.99),
+        ];
+        $product = self::createProduct(['sku' => null], variations: $variations);
+
+        $values = \array_map(static fn(Sku $s): string => $s->value, $product->allOnSaleSkus());
+
+        self::assertSame(['VAR-001'], $values);
+    }
+
+    // ========================================================================
+    // getFilter
+    // ========================================================================
+
+    #[Test]
+    public function get_filter_returns_matching_filter_by_title(): void
+    {
+        $sizeFilter = new ProductFilter(
+            new FilterGroupDefinition(id: 1, title: 'Size', optionNo: 1, sortOrder: 0),
+            ['Small', 'Large'],
+        );
+        $colourFilter = new ProductFilter(
+            new FilterGroupDefinition(id: 2, title: 'Colour', optionNo: 2, sortOrder: 1),
+            ['Red'],
+        );
+        $product = self::createProduct(['filters' => [$sizeFilter, $colourFilter]]);
+
+        $found = $product->getFilter('Colour');
+
+        self::assertSame($colourFilter, $found);
+    }
+
+    #[Test]
+    public function get_filter_returns_null_when_title_does_not_match(): void
+    {
+        $sizeFilter = new ProductFilter(
+            new FilterGroupDefinition(id: 1, title: 'Size', optionNo: 1, sortOrder: 0),
+            ['Small'],
+        );
+        $product = self::createProduct(['filters' => [$sizeFilter]]);
+
+        self::assertNull($product->getFilter('Missing'));
+    }
+
+    #[Test]
+    public function get_filter_returns_null_when_no_filters(): void
+    {
+        $product = self::createProduct(['filters' => []]);
+
+        self::assertNull($product->getFilter('Size'));
     }
 }

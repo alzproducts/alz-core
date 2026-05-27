@@ -15,7 +15,9 @@ use App\Domain\Catalog\Product\Enums\SaleRemovalReason;
 use App\Domain\Catalog\Product\ValueObjects\SaleSettings;
 use App\Domain\ValueObjects\Uuid;
 use DateTimeImmutable;
+use DateTimeInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -129,12 +131,13 @@ final class SaleSettingsTest extends TestCase
 
         $settings = SaleSettings::fromTypedCustomFields($fields);
 
-        self::assertNotNull($settings);
+        self::assertInstanceOf(SaleSettings::class, $settings);
         self::assertSame('Spring clearance', $settings->saleReason);
         self::assertSame('End of season', $settings->saleComments);
         self::assertSame('2026-03-23', $settings->saleStartDate?->format('Y-m-d'));
         self::assertSame('2026-04-01', $settings->saleEndDate?->format('Y-m-d'));
         self::assertSame(5, $settings->saleEndsStock);
+        self::assertNull($settings->removalReason);
     }
 
     #[Test]
@@ -180,11 +183,325 @@ final class SaleSettingsTest extends TestCase
 
         $settings = SaleSettings::fromTypedCustomFields($fields);
 
-        self::assertNotNull($settings);
+        self::assertInstanceOf(SaleSettings::class, $settings);
         self::assertNull($settings->saleStartDate);
         self::assertNull($settings->saleEndDate);
         self::assertNull($settings->saleEndsStock);
         self::assertNull($settings->saleComments);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | fromRawCustomFields
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function from_raw_custom_fields_returns_null_when_reason_missing(): void
+    {
+        self::assertNull(SaleSettings::fromRawCustomFields([
+            SaleCustomField::Comments->value => 'End of season',
+        ]));
+    }
+
+    #[Test]
+    public function from_raw_custom_fields_returns_null_when_reason_empty(): void
+    {
+        self::assertNull(SaleSettings::fromRawCustomFields([
+            SaleCustomField::Reason->value => '',
+            SaleCustomField::Comments->value => 'End of season',
+        ]));
+    }
+
+    #[Test]
+    public function from_raw_custom_fields_returns_null_when_reason_not_string(): void
+    {
+        self::assertNull(SaleSettings::fromRawCustomFields([
+            SaleCustomField::Reason->value => 42,
+        ]));
+    }
+
+    #[Test]
+    public function from_raw_custom_fields_parses_full_payload(): void
+    {
+        $settings = SaleSettings::fromRawCustomFields([
+            SaleCustomField::Reason->value => 'Spring clearance',
+            SaleCustomField::Comments->value => 'End of season',
+            SaleCustomField::DateStart->value => '2026-03-23',
+            SaleCustomField::DateEnd->value => '2026-04-01',
+            SaleCustomField::EndsStock->value => '5',
+        ]);
+
+        self::assertInstanceOf(SaleSettings::class, $settings);
+        self::assertSame('Spring clearance', $settings->saleReason);
+        self::assertSame('End of season', $settings->saleComments);
+        self::assertSame('2026-03-23', $settings->saleStartDate?->format('Y-m-d'));
+        self::assertSame('2026-04-01', $settings->saleEndDate?->format('Y-m-d'));
+        self::assertSame(5, $settings->saleEndsStock);
+        self::assertNull($settings->removalReason);
+    }
+
+    #[Test]
+    public function from_raw_custom_fields_nulls_empty_comments(): void
+    {
+        $settings = SaleSettings::fromRawCustomFields([
+            SaleCustomField::Reason->value => 'Spring clearance',
+            SaleCustomField::Comments->value => '',
+        ]);
+
+        self::assertInstanceOf(SaleSettings::class, $settings);
+        self::assertNull($settings->saleComments);
+    }
+
+    #[Test]
+    public function from_raw_custom_fields_nulls_non_string_comments(): void
+    {
+        $settings = SaleSettings::fromRawCustomFields([
+            SaleCustomField::Reason->value => 'Spring clearance',
+            SaleCustomField::Comments->value => ['unexpected'],
+        ]);
+
+        self::assertInstanceOf(SaleSettings::class, $settings);
+        self::assertNull($settings->saleComments);
+    }
+
+    #[Test]
+    public function from_raw_custom_fields_nulls_non_numeric_ends_stock(): void
+    {
+        $settings = SaleSettings::fromRawCustomFields([
+            SaleCustomField::Reason->value => 'Spring clearance',
+            SaleCustomField::EndsStock->value => 'not-a-number',
+        ]);
+
+        self::assertInstanceOf(SaleSettings::class, $settings);
+        self::assertNull($settings->saleEndsStock);
+    }
+
+    #[Test]
+    public function from_raw_custom_fields_nulls_empty_ends_stock(): void
+    {
+        $settings = SaleSettings::fromRawCustomFields([
+            SaleCustomField::Reason->value => 'Spring clearance',
+            SaleCustomField::EndsStock->value => '',
+        ]);
+
+        self::assertInstanceOf(SaleSettings::class, $settings);
+        self::assertNull($settings->saleEndsStock);
+    }
+
+    #[Test]
+    public function from_raw_custom_fields_nulls_non_string_ends_stock(): void
+    {
+        $settings = SaleSettings::fromRawCustomFields([
+            SaleCustomField::Reason->value => 'Spring clearance',
+            SaleCustomField::EndsStock->value => 5,
+        ]);
+
+        self::assertInstanceOf(SaleSettings::class, $settings);
+        self::assertNull($settings->saleEndsStock);
+    }
+
+    #[Test]
+    public function from_raw_custom_fields_truncates_decimal_stock_to_int(): void
+    {
+        $settings = SaleSettings::fromRawCustomFields([
+            SaleCustomField::Reason->value => 'Spring clearance',
+            SaleCustomField::EndsStock->value => '5.9',
+        ]);
+
+        self::assertInstanceOf(SaleSettings::class, $settings);
+        self::assertSame(5, $settings->saleEndsStock);
+    }
+
+    #[Test]
+    #[DataProvider('invalidDateProvider')]
+    public function from_raw_custom_fields_returns_null_date_for_invalid_string(mixed $invalidDate): void
+    {
+        $settings = SaleSettings::fromRawCustomFields([
+            SaleCustomField::Reason->value => 'Spring clearance',
+            SaleCustomField::DateStart->value => $invalidDate,
+        ]);
+
+        self::assertInstanceOf(SaleSettings::class, $settings);
+        self::assertNull($settings->saleStartDate);
+    }
+
+    /**
+     * @return array<string, array{0: mixed}>
+     */
+    public static function invalidDateProvider(): array
+    {
+        return [
+            'empty string' => [''],
+            'non-string (int)' => [123],
+            'non-string (array)' => [['2026-03-23']],
+            'unparseable' => ['not-a-date'],
+        ];
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | fromTypedCustomFields — extra branches
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function from_typed_custom_fields_parses_iso_date_string_in_string_field(): void
+    {
+        $fields = [
+            $this->stringField(SaleCustomField::Reason->value, 'Spring clearance'),
+            $this->stringField(SaleCustomField::DateStart->value, '2026-03-23'),
+        ];
+
+        $settings = SaleSettings::fromTypedCustomFields($fields);
+
+        self::assertInstanceOf(SaleSettings::class, $settings);
+        self::assertSame('2026-03-23', $settings->saleStartDate?->format('Y-m-d'));
+    }
+
+    #[Test]
+    public function from_typed_custom_fields_returns_null_date_for_unparseable_string(): void
+    {
+        $fields = [
+            $this->stringField(SaleCustomField::Reason->value, 'Spring clearance'),
+            $this->stringField(SaleCustomField::DateStart->value, 'not-a-date'),
+        ];
+
+        $settings = SaleSettings::fromTypedCustomFields($fields);
+
+        self::assertInstanceOf(SaleSettings::class, $settings);
+        self::assertNull($settings->saleStartDate);
+    }
+
+    #[Test]
+    public function from_typed_custom_fields_parses_numeric_stock_string(): void
+    {
+        $fields = [
+            $this->stringField(SaleCustomField::Reason->value, 'Spring clearance'),
+            $this->stringField(SaleCustomField::EndsStock->value, '12'),
+        ];
+
+        $settings = SaleSettings::fromTypedCustomFields($fields);
+
+        self::assertInstanceOf(SaleSettings::class, $settings);
+        self::assertSame(12, $settings->saleEndsStock);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | toCustomFieldsArray
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function to_custom_fields_array_emits_all_settings_fields(): void
+    {
+        $settings = new SaleSettings(
+            saleReason: 'Spring clearance',
+            saleComments: 'End of season',
+            saleStartDate: new DateTimeImmutable('2026-03-23'),
+            saleEndDate: new DateTimeImmutable('2026-04-01'),
+            saleEndsStock: 5,
+        );
+
+        $array = SaleSettings::toCustomFieldsArray($settings);
+
+        self::assertSame('2026-03-23', $array[SaleCustomField::DateStart->value]);
+        self::assertSame('Spring clearance', $array[SaleCustomField::Reason->value]);
+        self::assertSame('End of season', $array[SaleCustomField::Comments->value]);
+        self::assertSame('2026-04-01', $array[SaleCustomField::DateEnd->value]);
+        self::assertSame('5', $array[SaleCustomField::EndsStock->value]);
+    }
+
+    #[Test]
+    public function to_custom_fields_array_emits_empty_strings_for_null_optional_fields(): void
+    {
+        $settings = new SaleSettings(
+            saleReason: 'Flash sale',
+            saleStartDate: new DateTimeImmutable('2026-03-23'),
+        );
+
+        self::assertSame([
+            SaleCustomField::DateStart->value => '2026-03-23',
+            SaleCustomField::Reason->value => 'Flash sale',
+            SaleCustomField::Comments->value => '',
+            SaleCustomField::DateEnd->value => '',
+            SaleCustomField::EndsStock->value => '',
+        ], SaleSettings::toCustomFieldsArray($settings));
+    }
+
+    #[Test]
+    public function to_custom_fields_array_handles_null_settings_with_today_start_date(): void
+    {
+        $today = (new DateTimeImmutable())->format('Y-m-d');
+
+        $array = SaleSettings::toCustomFieldsArray(null);
+
+        self::assertSame($today, $array[SaleCustomField::DateStart->value]);
+        self::assertSame('', $array[SaleCustomField::Reason->value]);
+        self::assertSame('', $array[SaleCustomField::Comments->value]);
+        self::assertSame('', $array[SaleCustomField::DateEnd->value]);
+        self::assertSame('', $array[SaleCustomField::EndsStock->value]);
+    }
+
+    #[Test]
+    public function to_custom_fields_array_stringifies_stock(): void
+    {
+        $settings = new SaleSettings(
+            saleReason: 'Stock-only sale',
+            saleStartDate: new DateTimeImmutable('2026-03-23'),
+            saleEndsStock: 0,
+        );
+
+        $array = SaleSettings::toCustomFieldsArray($settings);
+
+        self::assertSame('0', $array[SaleCustomField::EndsStock->value]);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | toArray
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function to_array_emits_full_payload_in_atom_format(): void
+    {
+        $start = new DateTimeImmutable('2026-03-23T10:00:00+00:00');
+        $end = new DateTimeImmutable('2026-04-01T18:00:00+00:00');
+
+        $settings = new SaleSettings(
+            saleReason: 'Spring clearance',
+            saleComments: 'End of season',
+            saleStartDate: $start,
+            saleEndDate: $end,
+            saleEndsStock: 5,
+            removalReason: SaleRemovalReason::Manual,
+        );
+
+        self::assertSame([
+            'sale_reason' => 'Spring clearance',
+            'sale_comments' => 'End of season',
+            'sale_start_date' => $start->format(DateTimeInterface::ATOM),
+            'sale_end_date' => $end->format(DateTimeInterface::ATOM),
+            'sale_ends_stock' => 5,
+            'removal_reason' => 'manual',
+        ], $settings->toArray());
+    }
+
+    #[Test]
+    public function to_array_emits_nulls_for_optional_fields(): void
+    {
+        $settings = new SaleSettings(saleReason: 'Flash sale');
+
+        self::assertSame([
+            'sale_reason' => 'Flash sale',
+            'sale_comments' => null,
+            'sale_start_date' => null,
+            'sale_end_date' => null,
+            'sale_ends_stock' => null,
+            'removal_reason' => null,
+        ], $settings->toArray());
     }
 
     private function stringField(string $name, string $value): StringCustomFieldValue

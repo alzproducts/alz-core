@@ -161,6 +161,46 @@ final class ProductVariationViewTest extends TestCase
 
     /*
     |--------------------------------------------------------------------------
+    | anyOnSale
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function any_on_sale_returns_false_when_variations_null(): void
+    {
+        self::assertFalse(ProductVariationView::anyOnSale(null));
+    }
+
+    #[Test]
+    public function any_on_sale_returns_false_when_variations_empty(): void
+    {
+        self::assertFalse(ProductVariationView::anyOnSale([]));
+    }
+
+    #[Test]
+    public function any_on_sale_returns_false_when_no_variation_is_on_sale(): void
+    {
+        $variations = [
+            $this->createView(isOnSale: false),
+            $this->createView(isOnSale: false),
+        ];
+
+        self::assertFalse(ProductVariationView::anyOnSale($variations));
+    }
+
+    #[Test]
+    public function any_on_sale_returns_true_when_at_least_one_on_sale(): void
+    {
+        $variations = [
+            $this->createView(isOnSale: false),
+            $this->createView(isOnSale: true),
+        ];
+
+        self::assertTrue(ProductVariationView::anyOnSale($variations));
+    }
+
+    /*
+    |--------------------------------------------------------------------------
     | commonDefaultSupplier — composite filtering
     |--------------------------------------------------------------------------
     */
