@@ -6,9 +6,11 @@ namespace App\Application\Contracts\Conversion\CallTracking;
 
 use App\Domain\Conversion\CallTracking\ValueObjects\CallTrackingCall;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\IntId;
+use App\Domain\ValueObjects\Uuid;
 
 interface CallTrackingCallRepositoryInterface
 {
@@ -34,4 +36,12 @@ interface CallTrackingCallRepositoryInterface
      * @throws ExternalServiceUnavailableException
      */
     public function setHelpScoutConversationIdByCallSid(string $callSid, IntId $conversationId): void;
+
+    /**
+     * @throws RecordNotFoundException
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function findById(Uuid $id): CallTrackingCall;
 }

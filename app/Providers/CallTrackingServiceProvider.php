@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Application\Contracts\Conversion\CallTracking\CallConversionDispatcherInterface;
+use App\Application\Contracts\Conversion\CallTracking\CallTrackingActionRepositoryInterface;
 use App\Application\Contracts\Conversion\CallTracking\CallTrackingCallRepositoryInterface;
 use App\Application\Contracts\Conversion\CallTracking\CallTrackingNumberRepositoryInterface;
 use App\Application\Contracts\Conversion\CallTracking\CallTrackingQueryRepositoryInterface;
@@ -16,6 +18,8 @@ use App\Domain\Exceptions\InvalidConfigurationException;
 use App\Infrastructure\CallTracking\Dispatchers\QueuedInboundCallDispatcher;
 use App\Infrastructure\CallTracking\Repositories\EloquentCallTrackingCallRepository;
 use App\Infrastructure\CallTracking\Repositories\EloquentCallTrackingQueryRepository;
+use App\Infrastructure\Conversion\CallTracking\Dispatchers\QueuedCallConversionDispatcher;
+use App\Infrastructure\Conversion\CallTracking\Repositories\EloquentCallTrackingActionRepository;
 use App\Infrastructure\Conversion\CallTracking\Repositories\EloquentCallTrackingNumberRepository;
 use App\Infrastructure\Conversion\CallTracking\Repositories\EloquentCallTrackingVisitRepository;
 use Illuminate\Contracts\Support\DeferrableProvider;
@@ -35,6 +39,7 @@ final class CallTrackingServiceProvider extends ServiceProvider implements Defer
         $this->registerInboundCallBindings();
         $this->registerNumberAssignmentBindings();
         $this->registerQueryBindings();
+        $this->registerConversionBindings();
         $this->registerUseCaseConfig();
     }
 
@@ -45,6 +50,8 @@ final class CallTrackingServiceProvider extends ServiceProvider implements Defer
     public function provides(): array
     {
         return [
+            CallConversionDispatcherInterface::class,
+            CallTrackingActionRepositoryInterface::class,
             CallTrackingCallRepositoryInterface::class,
             CallTrackingNumberRepositoryInterface::class,
             CallTrackingQueryRepositoryInterface::class,
@@ -88,6 +95,19 @@ final class CallTrackingServiceProvider extends ServiceProvider implements Defer
         );
     }
 
+    private function registerConversionBindings(): void
+    {
+        $this->app->singleton(
+            CallTrackingActionRepositoryInterface::class,
+            EloquentCallTrackingActionRepository::class,
+        );
+
+        $this->app->singleton(
+            CallConversionDispatcherInterface::class,
+            QueuedCallConversionDispatcher::class,
+        );
+    }
+
     private function registerUseCaseConfig(): void
     {
         // Container resolves this for ANY PhoneNumberE164 param on the use case —
@@ -98,7 +118,16 @@ final class CallTrackingServiceProvider extends ServiceProvider implements Defer
             ->needs(PhoneNumberE164::class)
             ->give(static fn(): PhoneNumberE164 => self::resolveDefaultBusinessPhoneNumber());
 
-        $this->app->when(AssignTrackingNumberUseCase::class)
+        $this->bindAttributionWindowHours(AssignTrackingNumberUseCase::class);
+        $this->bindAttributionWindowHours(EloquentCallTrackingVisitRepository::class);
+    }
+
+    /**
+     * @param  class-string  $consumer
+     */
+    private function bindAttributionWindowHours(string $consumer): void
+    {
+        $this->app->when($consumer)
             ->needs('$attributionWindowHours')
             ->give(static fn(): int => self::requireConfigInt(
                 'call-tracking.attribution_window_hours',
