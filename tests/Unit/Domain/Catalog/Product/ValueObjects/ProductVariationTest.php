@@ -7,6 +7,7 @@ namespace Tests\Unit\Domain\Catalog\Product\ValueObjects;
 use App\Domain\Catalog\Product\ValueObjects\Gtin;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariation;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariationOption;
+use App\Domain\Catalog\Product\ValueObjects\Sku;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -353,5 +354,132 @@ final class ProductVariationTest extends TestCase
     {
         $variation = self::createVariation(['weight' => 1.5]);
         self::assertSame(1.5, $variation->weight());
+    }
+
+    // ========================================================================
+    // isSaleActive — uses own price when set, parent price as fallback
+    // ========================================================================
+
+    #[Test]
+    public function is_sale_active_true_when_sale_price_below_own_price(): void
+    {
+        $variation = self::createVariation(['price' => 29.99, 'salePrice' => 19.99]);
+
+        self::assertTrue($variation->isSaleActive(99.99));
+    }
+
+    #[Test]
+    public function is_sale_active_uses_parent_price_when_own_price_null(): void
+    {
+        $variation = self::createVariation(['price' => null, 'salePrice' => 14.99]);
+
+        self::assertTrue($variation->isSaleActive(29.99));
+    }
+
+    #[Test]
+    public function is_sale_active_false_when_sale_price_equals_resolved_price(): void
+    {
+        $variation = self::createVariation(['price' => null, 'salePrice' => 29.99]);
+
+        self::assertFalse($variation->isSaleActive(29.99));
+    }
+
+    #[Test]
+    public function is_sale_active_false_when_sale_price_null(): void
+    {
+        $variation = self::createVariation(['price' => 29.99, 'salePrice' => null]);
+
+        self::assertFalse($variation->isSaleActive(99.99));
+    }
+
+    #[Test]
+    public function is_sale_active_false_when_sale_price_zero(): void
+    {
+        $variation = self::createVariation(['price' => 29.99, 'salePrice' => 0.0]);
+
+        self::assertFalse($variation->isSaleActive(99.99));
+    }
+
+    // ========================================================================
+    // anyOnSale — static aggregate
+    // ========================================================================
+
+    #[Test]
+    public function any_on_sale_false_for_empty_list(): void
+    {
+        self::assertFalse(ProductVariation::anyOnSale([], 29.99));
+    }
+
+    #[Test]
+    public function any_on_sale_true_when_one_variation_on_sale(): void
+    {
+        $variations = [
+            self::createVariation(['price' => 29.99, 'salePrice' => null]),
+            self::createVariation(['price' => 29.99, 'salePrice' => 19.99]),
+        ];
+
+        self::assertTrue(ProductVariation::anyOnSale($variations, 29.99));
+    }
+
+    #[Test]
+    public function any_on_sale_false_when_no_variation_on_sale(): void
+    {
+        $variations = [
+            self::createVariation(['price' => 29.99, 'salePrice' => null]),
+            self::createVariation(['price' => 29.99, 'salePrice' => 29.99]),
+        ];
+
+        self::assertFalse(ProductVariation::anyOnSale($variations, 29.99));
+    }
+
+    // ========================================================================
+    // onSaleSkus — static aggregate
+    // ========================================================================
+
+    #[Test]
+    public function on_sale_skus_returns_empty_for_empty_variations(): void
+    {
+        self::assertSame([], ProductVariation::onSaleSkus([], 29.99));
+    }
+
+    #[Test]
+    public function on_sale_skus_returns_only_variations_on_sale(): void
+    {
+        $variations = [
+            self::createVariation(['sku' => 'VAR-001', 'price' => 29.99, 'salePrice' => 19.99]),
+            self::createVariation(['sku' => 'VAR-002', 'price' => 29.99, 'salePrice' => null]),
+            self::createVariation(['sku' => 'VAR-003', 'price' => 39.99, 'salePrice' => 25.00]),
+        ];
+
+        $skus = ProductVariation::onSaleSkus($variations, 99.99);
+        $values = \array_map(static fn(Sku $s): string => $s->value, $skus);
+
+        self::assertSame(['VAR-001', 'VAR-003'], $values);
+    }
+
+    #[Test]
+    public function on_sale_skus_excludes_variation_without_sku(): void
+    {
+        $variations = [
+            self::createVariation(['sku' => null, 'price' => 29.99, 'salePrice' => 19.99]),
+            self::createVariation(['sku' => 'VAR-002', 'price' => 29.99, 'salePrice' => 19.99]),
+        ];
+
+        $skus = ProductVariation::onSaleSkus($variations, 99.99);
+        $values = \array_map(static fn(Sku $s): string => $s->value, $skus);
+
+        self::assertSame(['VAR-002'], $values);
+    }
+
+    #[Test]
+    public function on_sale_skus_uses_parent_price_when_variation_price_null(): void
+    {
+        $variations = [
+            self::createVariation(['sku' => 'VAR-001', 'price' => null, 'salePrice' => 14.99]),
+        ];
+
+        $skus = ProductVariation::onSaleSkus($variations, 29.99);
+
+        self::assertSame(['VAR-001'], \array_map(static fn(Sku $s): string => $s->value, $skus));
     }
 }
