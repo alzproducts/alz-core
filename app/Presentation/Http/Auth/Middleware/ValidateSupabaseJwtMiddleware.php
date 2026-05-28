@@ -131,20 +131,17 @@ final class ValidateSupabaseJwtMiddleware
 
     private function logInvalidToken(Request $request, Throwable $e): void
     {
-        $logContext = [
+        $context = \method_exists($e, 'context') ? $e->context() : null;
+        $extra = \is_array($context) ? $context : [];
+
+        Log::channel('security')->warning('Invalid JWT token', [
             'event' => 'api.auth.invalid_token',
             'ip' => $request->ip(),
             'path' => $request->path(),
             'user_agent' => $request->userAgent(),
             'error' => $e->getMessage(),
-        ];
-        if (\method_exists($e, 'context')) {
-            $context = $e->context();
-            if (\is_array($context)) {
-                $logContext = \array_merge($logContext, $context);
-            }
-        }
-        Log::channel('security')->warning('Invalid JWT token', $logContext);
+            ...$extra,
+        ]);
     }
 
     private static function unauthorizedResponse(string $message): Response
