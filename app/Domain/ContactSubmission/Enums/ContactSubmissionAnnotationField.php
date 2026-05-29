@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\ContactSubmission\Enums;
 
 /**
- * Mutable columns of `marketing.contact_submission_annotations`.
+ * Mutable columns of `marketing.potential_conversion_annotations`.
  *
  * Backing values are the DB column names so cases can be spread directly into upsert
  * attribute arrays. All three columns are nullable in the schema, so every case is

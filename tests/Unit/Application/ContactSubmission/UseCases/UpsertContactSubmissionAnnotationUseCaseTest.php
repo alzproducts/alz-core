@@ -5,11 +5,15 @@ declare(strict_types=1);
 namespace Tests\Unit\Application\ContactSubmission\UseCases;
 
 use App\Application\ContactSubmission\Commands\UpsertAnnotationCommand;
+use App\Application\ContactSubmission\DTOs\ContactSubmissionListItemDTO;
+use App\Application\ContactSubmission\Enums\PotentialConversionSource;
 use App\Application\ContactSubmission\UseCases\UpsertContactSubmissionAnnotationUseCase;
-use App\Application\Contracts\ContactSubmission\ContactSubmissionAnnotationRepositoryInterface;
-use App\Application\Contracts\ContactSubmission\ContactSubmissionRepositoryInterface;
+use App\Application\Contracts\ContactSubmission\ContactSubmissionDashboardQueryRepositoryInterface;
+use App\Application\Contracts\ContactSubmission\PotentialConversionAnnotationRepositoryInterface;
 use App\Domain\ContactSubmission\Enums\ContactSubmissionAnnotationField;
 use App\Domain\Exceptions\Api\RecordNotFoundException;
+use App\Domain\ValueObjects\Guid;
+use DateTimeImmutable;
 use Mockery;
 use Mockery\MockInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -22,9 +26,9 @@ final class UpsertContactSubmissionAnnotationUseCaseTest extends TestCase
 {
     private const string SUBMISSION_ID = '019d9358-01fe-72c9-b123-5f452270d3c1';
 
-    private ContactSubmissionRepositoryInterface&MockInterface $submissionRepository;
+    private ContactSubmissionDashboardQueryRepositoryInterface&MockInterface $dashboardQueryRepository;
 
-    private ContactSubmissionAnnotationRepositoryInterface&MockInterface $annotationRepository;
+    private PotentialConversionAnnotationRepositoryInterface&MockInterface $annotationRepository;
 
     private LoggerInterface&MockInterface $logger;
 
@@ -34,31 +38,31 @@ final class UpsertContactSubmissionAnnotationUseCaseTest extends TestCase
     {
         parent::setUp();
 
-        $this->submissionRepository = Mockery::mock(ContactSubmissionRepositoryInterface::class);
-        $this->annotationRepository = Mockery::mock(ContactSubmissionAnnotationRepositoryInterface::class);
+        $this->dashboardQueryRepository = Mockery::mock(ContactSubmissionDashboardQueryRepositoryInterface::class);
+        $this->annotationRepository = Mockery::mock(PotentialConversionAnnotationRepositoryInterface::class);
         $this->logger = Mockery::mock(LoggerInterface::class);
 
         $this->useCase = new UpsertContactSubmissionAnnotationUseCase(
-            submissionRepository: $this->submissionRepository,
+            dashboardQueryRepository: $this->dashboardQueryRepository,
             annotationRepository: $this->annotationRepository,
             logger: $this->logger,
         );
     }
 
     #[Test]
-    public function execute_upserts_annotation_when_submission_exists(): void
+    public function execute_upserts_annotation_when_row_exists(): void
     {
         $command = new UpsertAnnotationCommand(
-            contactSubmissionId: self::SUBMISSION_ID,
+            sourceId: self::SUBMISSION_ID,
             valuesToSet: ['is_potential_quote' => true, 'notes' => 'follow up'],
             columnsToClear: [ContactSubmissionAnnotationField::QuotedAt],
         );
 
-        $this->submissionRepository
-            ->shouldReceive('existsById')
+        $this->dashboardQueryRepository
+            ->shouldReceive('findById')
             ->once()
             ->with(self::SUBMISSION_ID)
-            ->andReturnTrue();
+            ->andReturn(self::stubRow());
 
         $this->annotationRepository
             ->shouldReceive('upsert')
@@ -69,7 +73,7 @@ final class UpsertContactSubmissionAnnotationUseCaseTest extends TestCase
             ->shouldReceive('info')
             ->once()
             ->with('Upserting contact submission annotation', [
-                'contact_submission_id' => self::SUBMISSION_ID,
+                'source_id' => self::SUBMISSION_ID,
                 'fields_set' => ['is_potential_quote', 'notes'],
                 'fields_cleared' => ['quoted_at'],
             ]);
@@ -78,26 +82,26 @@ final class UpsertContactSubmissionAnnotationUseCaseTest extends TestCase
             ->shouldReceive('info')
             ->once()
             ->with('Upserted contact submission annotation', [
-                'contact_submission_id' => self::SUBMISSION_ID,
+                'source_id' => self::SUBMISSION_ID,
             ]);
 
         $this->useCase->execute($command);
     }
 
     #[Test]
-    public function execute_throws_record_not_found_and_skips_upsert_when_submission_missing(): void
+    public function execute_propagates_record_not_found_and_skips_upsert_when_row_missing(): void
     {
         $command = new UpsertAnnotationCommand(
-            contactSubmissionId: self::SUBMISSION_ID,
+            sourceId: self::SUBMISSION_ID,
             valuesToSet: ['is_potential_quote' => true],
             columnsToClear: [],
         );
 
-        $this->submissionRepository
-            ->shouldReceive('existsById')
+        $this->dashboardQueryRepository
+            ->shouldReceive('findById')
             ->once()
             ->with(self::SUBMISSION_ID)
-            ->andReturnFalse();
+            ->andThrow(new RecordNotFoundException('PotentialConversion', self::SUBMISSION_ID));
 
         $this->annotationRepository->shouldNotReceive('upsert');
 
@@ -112,8 +116,39 @@ final class UpsertContactSubmissionAnnotationUseCaseTest extends TestCase
             $this->useCase->execute($command);
             self::fail('Expected RecordNotFoundException');
         } catch (RecordNotFoundException $e) {
-            self::assertSame('ContactSubmission', $e->resourceType);
+            self::assertSame('PotentialConversion', $e->resourceType);
             self::assertSame(self::SUBMISSION_ID, $e->resourceId);
         }
+    }
+
+    private static function stubRow(): ContactSubmissionListItemDTO
+    {
+        return new ContactSubmissionListItemDTO(
+            id: Guid::fromTrusted(self::SUBMISSION_ID),
+            source: PotentialConversionSource::Form,
+            name: null,
+            email: null,
+            reason: null,
+            customerType: null,
+            orderNumber: null,
+            quantity: null,
+            product: null,
+            shopwiredCustomerId: null,
+            gclid: null,
+            msclkid: null,
+            fbclid: null,
+            utmSource: null,
+            utmMedium: null,
+            utmCampaign: null,
+            pageUrl: null,
+            createdAt: new DateTimeImmutable('2026-05-01T00:00:00+00:00'),
+            helpscoutExternalId: null,
+            leadStatus: null,
+            quoteStatus: null,
+            isPotentialQuote: null,
+            notes: null,
+            quotedAt: null,
+            callerPhoneNumber: null,
+        );
     }
 }

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Application\Conversion\CallTracking\UseCases;
 
+use App\Application\ContactSubmission\Commands\UpsertAnnotationCommand;
+use App\Application\Contracts\ContactSubmission\PotentialConversionAnnotationRepositoryInterface;
 use App\Application\Contracts\Conversion\CallTracking\CallConversionDispatcherInterface;
 use App\Application\Contracts\Conversion\CallTracking\CallTrackingActionRepositoryInterface;
 use App\Application\Contracts\DatabaseGatewayInterface;
@@ -24,13 +26,16 @@ use Webmozart\Assert\Assert;
  * Fans out one action row per eligible platform (gclid → Google, msclkid → Bing);
  * per-platform jobs upload independently so a failure on one does not block the other.
  *
- * `isPotentialQuote` is accepted but only logged — call-row annotation storage is
- * not yet implemented.
+ * Action rows + annotation are inserted in a single transaction (keyed by the call id) so the
+ * dashboard never sees a call lead row without its `is_potential_quote` classification — without
+ * this, an `is_potential_quote=true` call would land lead_status='completed' but never surface in
+ * the AwaitingQuote view. Dispatchers fire post-commit.
  */
 final readonly class SubmitCallLeadConversionUseCase
 {
     public function __construct(
         private CallTrackingActionRepositoryInterface $actionRepository,
+        private PotentialConversionAnnotationRepositoryInterface $annotationRepository,
         private DatabaseGatewayInterface $database,
         private CallConversionDispatcherInterface $dispatcher,
         private LoggerInterface $logger,
@@ -42,17 +47,18 @@ final readonly class SubmitCallLeadConversionUseCase
      * @throws DatabaseOperationFailedException
      * @throws ExternalServiceUnavailableException
      */
-    public function execute(CallTrackingVisit $visit, PhoneNumberE164 $callerPhone, bool $isPotentialQuote): void
+    public function execute(CallTrackingVisit $visit, Uuid $callId, PhoneNumberE164 $callerPhone, bool $isPotentialQuote): void
     {
         $visitId = self::requireId($visit);
 
         $this->logger->info('Submitting call lead conversion', [
             'visit_id' => $visitId->value,
+            'call_id' => $callId->value,
             'is_potential_quote' => $isPotentialQuote,
         ]);
 
         $platforms = self::resolveEligiblePlatforms($visit->attribution);
-        $actionIds = $this->writeActions($visitId, $platforms);
+        $actionIds = $this->writeActionsAndAnnotation($visitId, $callId, $isPotentialQuote, $platforms);
 
         $this->dispatchPerPlatform($visitId, $callerPhone, $actionIds);
 
@@ -71,13 +77,19 @@ final readonly class SubmitCallLeadConversionUseCase
      * @throws DatabaseOperationFailedException
      * @throws ExternalServiceUnavailableException
      */
-    private function writeActions(Uuid $visitId, array $platforms): array
+    private function writeActionsAndAnnotation(Uuid $visitId, Uuid $callId, bool $isPotentialQuote, array $platforms): array
     {
-        return $this->database->transact(function () use ($visitId, $platforms): array {
+        return $this->database->transact(function () use ($visitId, $callId, $isPotentialQuote, $platforms): array {
             $actionIds = [];
             foreach ($platforms as $platform) {
                 $actionIds[$platform->value] = $this->actionRepository->create($visitId, $platform);
             }
+
+            $this->annotationRepository->upsert(new UpsertAnnotationCommand(
+                sourceId: $callId->value,
+                valuesToSet: ['is_potential_quote' => $isPotentialQuote],
+                columnsToClear: [],
+            ));
 
             return $actionIds;
         });

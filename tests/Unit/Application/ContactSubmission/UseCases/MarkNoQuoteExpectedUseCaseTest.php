@@ -4,15 +4,18 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Application\ContactSubmission\UseCases;
 
+use App\Application\ContactSubmission\DTOs\ContactSubmissionListItemDTO;
+use App\Application\ContactSubmission\Enums\PotentialConversionSource;
 use App\Application\ContactSubmission\UseCases\MarkNoQuoteExpectedUseCase;
-use App\Application\Contracts\ContactSubmission\ContactSubmissionActionRepositoryInterface;
-use App\Application\Contracts\ContactSubmission\ContactSubmissionAnnotationRepositoryInterface;
-use App\Application\Contracts\ContactSubmission\ContactSubmissionRepositoryInterface;
+use App\Application\Contracts\ContactSubmission\ContactSubmissionDashboardQueryRepositoryInterface;
+use App\Application\Contracts\ContactSubmission\PotentialConversionAnnotationRepositoryInterface;
 use App\Domain\ContactSubmission\Enums\ActionStatus;
 use App\Domain\ContactSubmission\Enums\ActionType;
 use App\Domain\ContactSubmission\Exceptions\InvalidActionStageException;
+use App\Domain\ContactSubmission\Exceptions\OperationNotSupportedForSourceException;
 use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\ValueObjects\Guid;
+use DateTimeImmutable;
 use Mockery;
 use Mockery\MockInterface;
 use Override;
@@ -27,11 +30,9 @@ final class MarkNoQuoteExpectedUseCaseTest extends TestCase
 {
     private const string SUBMISSION_ID = '019d9358-01fe-72c9-b123-5f452270d3c1';
 
-    private ContactSubmissionRepositoryInterface&MockInterface $submissionRepository;
+    private ContactSubmissionDashboardQueryRepositoryInterface&MockInterface $dashboardQueryRepository;
 
-    private ContactSubmissionActionRepositoryInterface&MockInterface $actionRepository;
-
-    private ContactSubmissionAnnotationRepositoryInterface&MockInterface $annotationRepository;
+    private PotentialConversionAnnotationRepositoryInterface&MockInterface $annotationRepository;
 
     private LoggerInterface&MockInterface $logger;
 
@@ -42,15 +43,13 @@ final class MarkNoQuoteExpectedUseCaseTest extends TestCase
     {
         parent::setUp();
 
-        $this->submissionRepository = Mockery::mock(ContactSubmissionRepositoryInterface::class);
-        $this->actionRepository = Mockery::mock(ContactSubmissionActionRepositoryInterface::class);
-        $this->annotationRepository = Mockery::mock(ContactSubmissionAnnotationRepositoryInterface::class);
+        $this->dashboardQueryRepository = Mockery::mock(ContactSubmissionDashboardQueryRepositoryInterface::class);
+        $this->annotationRepository = Mockery::mock(PotentialConversionAnnotationRepositoryInterface::class);
         $this->logger = Mockery::mock(LoggerInterface::class);
         $this->logger->shouldReceive('info')->byDefault();
 
         $this->useCase = new MarkNoQuoteExpectedUseCase(
-            submissionRepository: $this->submissionRepository,
-            actionRepository: $this->actionRepository,
+            dashboardQueryRepository: $this->dashboardQueryRepository,
             annotationRepository: $this->annotationRepository,
             logger: $this->logger,
         );
@@ -64,24 +63,13 @@ final class MarkNoQuoteExpectedUseCaseTest extends TestCase
     }
 
     #[Test]
-    public function marks_no_quote_expected_when_lead_completed_and_no_quote_action(): void
+    public function marks_no_quote_expected_when_form_lead_completed_and_no_quote_action(): void
     {
-        $this->submissionRepository
+        $this->dashboardQueryRepository
             ->shouldReceive('findById')
             ->once()
-            ->with(self::SUBMISSION_ID);
-
-        $this->actionRepository
-            ->shouldReceive('findActionStatus')
-            ->once()
-            ->with(self::SUBMISSION_ID, ActionType::LeadReceived)
-            ->andReturn(ActionStatus::Completed);
-
-        $this->actionRepository
-            ->shouldReceive('findActionStatus')
-            ->once()
-            ->with(self::SUBMISSION_ID, ActionType::QuoteIssued)
-            ->andReturnNull();
+            ->with(self::SUBMISSION_ID)
+            ->andReturn(self::stubRow(PotentialConversionSource::Form, ActionStatus::Completed, null));
 
         $this->annotationRepository
             ->shouldReceive('markNoQuoteExpected')
@@ -95,22 +83,11 @@ final class MarkNoQuoteExpectedUseCaseTest extends TestCase
     #[Test]
     public function logs_warning_when_atomic_guard_blocks_write(): void
     {
-        $this->submissionRepository
+        $this->dashboardQueryRepository
             ->shouldReceive('findById')
             ->once()
-            ->with(self::SUBMISSION_ID);
-
-        $this->actionRepository
-            ->shouldReceive('findActionStatus')
-            ->once()
-            ->with(self::SUBMISSION_ID, ActionType::LeadReceived)
-            ->andReturn(ActionStatus::Completed);
-
-        $this->actionRepository
-            ->shouldReceive('findActionStatus')
-            ->once()
-            ->with(self::SUBMISSION_ID, ActionType::QuoteIssued)
-            ->andReturnNull();
+            ->with(self::SUBMISSION_ID)
+            ->andReturn(self::stubRow(PotentialConversionSource::Form, ActionStatus::Completed, null));
 
         $this->annotationRepository
             ->shouldReceive('markNoQuoteExpected')
@@ -123,25 +100,47 @@ final class MarkNoQuoteExpectedUseCaseTest extends TestCase
             ->once()
             ->with(
                 'markNoQuoteExpected atomic guard fired — concurrent quote action blocked the write',
-                ['submission_id' => self::SUBMISSION_ID],
+                ['source_id' => self::SUBMISSION_ID],
             );
 
         $this->useCase->execute(new Guid(self::SUBMISSION_ID));
     }
 
     #[Test]
-    public function throws_record_not_found_when_submission_missing(): void
+    public function throws_record_not_found_when_row_missing(): void
     {
-        $this->submissionRepository
+        $this->dashboardQueryRepository
             ->shouldReceive('findById')
             ->once()
-            ->andThrow(new RecordNotFoundException('ContactSubmission', self::SUBMISSION_ID));
+            ->with(self::SUBMISSION_ID)
+            ->andThrow(new RecordNotFoundException('PotentialConversion', self::SUBMISSION_ID));
 
         $this->annotationRepository->shouldNotReceive('markNoQuoteExpected');
 
         $this->expectException(RecordNotFoundException::class);
 
         $this->useCase->execute(new Guid(self::SUBMISSION_ID));
+    }
+
+    #[Test]
+    public function throws_operation_not_supported_when_row_is_a_call(): void
+    {
+        $this->dashboardQueryRepository
+            ->shouldReceive('findById')
+            ->once()
+            ->with(self::SUBMISSION_ID)
+            ->andReturn(self::stubRow(PotentialConversionSource::Call, ActionStatus::Completed, null));
+
+        $this->annotationRepository->shouldNotReceive('markNoQuoteExpected');
+
+        try {
+            $this->useCase->execute(new Guid(self::SUBMISSION_ID));
+            self::fail('Expected OperationNotSupportedForSourceException');
+        } catch (OperationNotSupportedForSourceException $e) {
+            self::assertSame(self::SUBMISSION_ID, $e->sourceId);
+            self::assertSame('call', $e->source);
+            self::assertSame('markNoQuoteExpected', $e->operation);
+        }
     }
 
     /**
@@ -159,13 +158,11 @@ final class MarkNoQuoteExpectedUseCaseTest extends TestCase
     #[DataProvider('nonCompletedLeadStatuses')]
     public function throws_invalid_action_stage_when_lead_not_completed(?ActionStatus $leadStatus): void
     {
-        $this->submissionRepository->shouldReceive('findById')->once();
-
-        $this->actionRepository
-            ->shouldReceive('findActionStatus')
+        $this->dashboardQueryRepository
+            ->shouldReceive('findById')
             ->once()
-            ->with(self::SUBMISSION_ID, ActionType::LeadReceived)
-            ->andReturn($leadStatus);
+            ->with(self::SUBMISSION_ID)
+            ->andReturn(self::stubRow(PotentialConversionSource::Form, $leadStatus, null));
 
         $this->annotationRepository->shouldNotReceive('markNoQuoteExpected');
 
@@ -191,21 +188,13 @@ final class MarkNoQuoteExpectedUseCaseTest extends TestCase
 
     #[Test]
     #[DataProvider('quoteActionStatuses')]
-    public function throws_invalid_action_stage_when_quote_action_exists_in_any_status(ActionStatus $status): void
+    public function throws_invalid_action_stage_when_quote_status_present_in_any_status(ActionStatus $status): void
     {
-        $this->submissionRepository->shouldReceive('findById')->once();
-
-        $this->actionRepository
-            ->shouldReceive('findActionStatus')
+        $this->dashboardQueryRepository
+            ->shouldReceive('findById')
             ->once()
-            ->with(self::SUBMISSION_ID, ActionType::LeadReceived)
-            ->andReturn(ActionStatus::Completed);
-
-        $this->actionRepository
-            ->shouldReceive('findActionStatus')
-            ->once()
-            ->with(self::SUBMISSION_ID, ActionType::QuoteIssued)
-            ->andReturn($status);
+            ->with(self::SUBMISSION_ID)
+            ->andReturn(self::stubRow(PotentialConversionSource::Form, ActionStatus::Completed, $status));
 
         $this->annotationRepository->shouldNotReceive('markNoQuoteExpected');
 
@@ -216,5 +205,39 @@ final class MarkNoQuoteExpectedUseCaseTest extends TestCase
             self::assertSame(ActionType::QuoteIssued, $e->action);
             self::assertSame($status, $e->currentStatus);
         }
+    }
+
+    private static function stubRow(
+        PotentialConversionSource $source,
+        ?ActionStatus $leadStatus,
+        ?ActionStatus $quoteStatus,
+    ): ContactSubmissionListItemDTO {
+        return new ContactSubmissionListItemDTO(
+            id: Guid::fromTrusted(self::SUBMISSION_ID),
+            source: $source,
+            name: null,
+            email: null,
+            reason: null,
+            customerType: null,
+            orderNumber: null,
+            quantity: null,
+            product: null,
+            shopwiredCustomerId: null,
+            gclid: null,
+            msclkid: null,
+            fbclid: null,
+            utmSource: null,
+            utmMedium: null,
+            utmCampaign: null,
+            pageUrl: null,
+            createdAt: new DateTimeImmutable('2026-05-01T00:00:00+00:00'),
+            helpscoutExternalId: null,
+            leadStatus: $leadStatus,
+            quoteStatus: $quoteStatus,
+            isPotentialQuote: null,
+            notes: null,
+            quotedAt: null,
+            callerPhoneNumber: null,
+        );
     }
 }

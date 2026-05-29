@@ -6,17 +6,17 @@ namespace App\Providers;
 
 use App\Application\Contracts\ContactSubmission\ContactFormDispatcherInterface;
 use App\Application\Contracts\ContactSubmission\ContactSubmissionActionRepositoryInterface;
-use App\Application\Contracts\ContactSubmission\ContactSubmissionAnnotationRepositoryInterface;
 use App\Application\Contracts\ContactSubmission\ContactSubmissionDashboardQueryRepositoryInterface;
 use App\Application\Contracts\ContactSubmission\ContactSubmissionRepositoryInterface;
+use App\Application\Contracts\ContactSubmission\PotentialConversionAnnotationRepositoryInterface;
 use App\Application\Contracts\EmailValidationServiceInterface;
 use App\Application\Contracts\HelpScout\ConversationWriteClientInterface;
 use App\Infrastructure\HelpScout\Dispatchers\QueuedContactFormDispatcher;
 use App\Infrastructure\HelpScout\HelpScoutClientFactory;
 use App\Infrastructure\Ingest\ContactSubmission\Repositories\EloquentContactSubmissionActionRepository;
 use App\Infrastructure\Ingest\ContactSubmission\Repositories\EloquentContactSubmissionRepository;
-use App\Infrastructure\Marketing\Repositories\EloquentContactSubmissionAnnotationRepository;
 use App\Infrastructure\Marketing\Repositories\EloquentContactSubmissionDashboardQueryRepository;
+use App\Infrastructure\Marketing\Repositories\EloquentPotentialConversionAnnotationRepository;
 use App\Infrastructure\Validation\EmailValidationService;
 use Illuminate\Contracts\Support\DeferrableProvider;
 use Illuminate\Support\ServiceProvider;
@@ -70,8 +70,8 @@ final class ContactSubmissionServiceProvider extends ServiceProvider implements 
         );
 
         $this->app->singleton(
-            ContactSubmissionAnnotationRepositoryInterface::class,
-            EloquentContactSubmissionAnnotationRepository::class,
+            PotentialConversionAnnotationRepositoryInterface::class,
+            EloquentPotentialConversionAnnotationRepository::class,
         );
     }
 
@@ -99,7 +99,7 @@ final class ContactSubmissionServiceProvider extends ServiceProvider implements 
             ContactSubmissionRepositoryInterface::class,
             ContactSubmissionActionRepositoryInterface::class,
             ContactSubmissionDashboardQueryRepositoryInterface::class,
-            ContactSubmissionAnnotationRepositoryInterface::class,
+            PotentialConversionAnnotationRepositoryInterface::class,
             ConversationWriteClientInterface::class,
             EmailValidationServiceInterface::class,
         ];

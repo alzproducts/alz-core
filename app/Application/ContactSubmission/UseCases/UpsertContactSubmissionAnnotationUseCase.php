@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Application\ContactSubmission\UseCases;
 
 use App\Application\ContactSubmission\Commands\UpsertAnnotationCommand;
-use App\Application\Contracts\ContactSubmission\ContactSubmissionAnnotationRepositoryInterface;
-use App\Application\Contracts\ContactSubmission\ContactSubmissionRepositoryInterface;
+use App\Application\Contracts\ContactSubmission\ContactSubmissionDashboardQueryRepositoryInterface;
+use App\Application\Contracts\ContactSubmission\PotentialConversionAnnotationRepositoryInterface;
 use App\Domain\ContactSubmission\Enums\ContactSubmissionAnnotationField;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\RecordNotFoundException;
@@ -15,23 +15,23 @@ use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use Psr\Log\LoggerInterface;
 
 /**
- * Write use case for partial-patch updates to a contact submission's annotation row.
+ * Write use case for partial-patch updates to a potential-conversion row's annotation.
  *
- * Verifies the parent submission exists (via a lightweight EXISTS probe) and dispatches
- * to the annotation repository's merge-patch upsert. The command already carries the
- * full change set (touched columns to set + columns to clear); columns not referenced
- * are left untouched on existing rows.
+ * Verifies the row exists in the unified dashboard view (works for both form submissions and
+ * call rows) and dispatches to the annotation repository's merge-patch upsert. The command
+ * already carries the full change set (touched columns to set + columns to clear); columns not
+ * referenced are left untouched on existing rows.
  */
 final readonly class UpsertContactSubmissionAnnotationUseCase
 {
     public function __construct(
-        private ContactSubmissionRepositoryInterface $submissionRepository,
-        private ContactSubmissionAnnotationRepositoryInterface $annotationRepository,
+        private ContactSubmissionDashboardQueryRepositoryInterface $dashboardQueryRepository,
+        private PotentialConversionAnnotationRepositoryInterface $annotationRepository,
         private LoggerInterface $logger,
     ) {}
 
     /**
-     * @throws RecordNotFoundException When the parent contact submission does not exist
+     * @throws RecordNotFoundException When the conversion row does not exist
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
@@ -39,7 +39,7 @@ final readonly class UpsertContactSubmissionAnnotationUseCase
     public function execute(UpsertAnnotationCommand $command): void
     {
         $this->logger->info('Upserting contact submission annotation', [
-            'contact_submission_id' => $command->contactSubmissionId,
+            'source_id' => $command->sourceId,
             'fields_set' => \array_keys($command->valuesToSet),
             'fields_cleared' => \array_map(
                 static fn(ContactSubmissionAnnotationField $c): string => $c->value,
@@ -47,14 +47,12 @@ final readonly class UpsertContactSubmissionAnnotationUseCase
             ),
         ]);
 
-        if (! $this->submissionRepository->existsById($command->contactSubmissionId)) {
-            throw new RecordNotFoundException('ContactSubmission', $command->contactSubmissionId);
-        }
+        $this->dashboardQueryRepository->findById($command->sourceId);
 
         $this->annotationRepository->upsert($command);
 
         $this->logger->info('Upserted contact submission annotation', [
-            'contact_submission_id' => $command->contactSubmissionId,
+            'source_id' => $command->sourceId,
         ]);
     }
 }

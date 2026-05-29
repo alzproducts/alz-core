@@ -6,6 +6,7 @@ namespace App\Presentation\Http\Api;
 
 use App\Domain\Catalog\CustomFields\Exceptions\ProductSettingsNotApplicableException;
 use App\Domain\ContactSubmission\Exceptions\InvalidActionStageException;
+use App\Domain\ContactSubmission\Exceptions\OperationNotSupportedForSourceException;
 use App\Domain\Exceptions\Api\CorruptApiKeyException;
 use App\Domain\Exceptions\Api\MissingApiKeyException;
 use App\Domain\Exceptions\Api\PermanentApiFailure;
@@ -91,6 +92,7 @@ final class InternalApiExceptionMapper
             $e instanceof ResourceNotFoundException,
             $e instanceof RecordNotFoundException => Response::HTTP_NOT_FOUND,
             $e instanceof InvalidActionStageException,
+            $e instanceof OperationNotSupportedForSourceException,
             $e instanceof DuplicateRecordException => Response::HTTP_CONFLICT,
             $e instanceof TransientApiFailure,
             $e instanceof LockAcquisitionException => Response::HTTP_SERVICE_UNAVAILABLE,
@@ -129,11 +131,17 @@ final class InternalApiExceptionMapper
             return ApiErrorTypeEnum::ValidationError;
         }
 
+        return self::errorTypeFromExceptionInstance($e);
+    }
+
+    private static function errorTypeFromExceptionInstance(Throwable $e): ?ApiErrorTypeEnum
+    {
         return match (true) {
             $e instanceof ResourceNotFoundException,
             $e instanceof RecordNotFoundException,
             $e instanceof NotFoundHttpException => ApiErrorTypeEnum::NotFound,
             $e instanceof InvalidActionStageException,
+            $e instanceof OperationNotSupportedForSourceException,
             $e instanceof DuplicateRecordException => ApiErrorTypeEnum::Conflict,
             $e instanceof TransientApiFailure,
             $e instanceof LockAcquisitionException => ApiErrorTypeEnum::ServiceUnavailable,

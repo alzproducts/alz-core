@@ -6,8 +6,8 @@ namespace Tests\Unit\Application\Conversion\UseCases;
 
 use App\Application\ContactSubmission\Commands\UpsertAnnotationCommand;
 use App\Application\Contracts\ContactSubmission\ContactSubmissionActionRepositoryInterface;
-use App\Application\Contracts\ContactSubmission\ContactSubmissionAnnotationRepositoryInterface;
 use App\Application\Contracts\ContactSubmission\ContactSubmissionRepositoryInterface;
+use App\Application\Contracts\ContactSubmission\PotentialConversionAnnotationRepositoryInterface;
 use App\Application\Contracts\Conversion\ConversionDispatcherInterface;
 use App\Application\Contracts\DatabaseGatewayInterface;
 use App\Application\Conversion\Commands\LeadConversionCommand;
@@ -61,7 +61,7 @@ final class SubmitLeadConversionUseCaseTest extends TestCase
 
     private ContactSubmissionActionRepositoryInterface&MockInterface $actionRepository;
 
-    private ContactSubmissionAnnotationRepositoryInterface&MockInterface $annotationRepository;
+    private PotentialConversionAnnotationRepositoryInterface&MockInterface $annotationRepository;
 
     private DatabaseGatewayInterface&MockInterface $database;
 
@@ -78,7 +78,7 @@ final class SubmitLeadConversionUseCaseTest extends TestCase
 
         $this->submissionRepository = Mockery::mock(ContactSubmissionRepositoryInterface::class);
         $this->actionRepository = Mockery::mock(ContactSubmissionActionRepositoryInterface::class);
-        $this->annotationRepository = Mockery::mock(ContactSubmissionAnnotationRepositoryInterface::class);
+        $this->annotationRepository = Mockery::mock(PotentialConversionAnnotationRepositoryInterface::class);
         $this->database = Mockery::mock(DatabaseGatewayInterface::class);
         $this->dispatcher = Mockery::mock(ConversionDispatcherInterface::class);
         $this->logger = Mockery::mock(LoggerInterface::class)->shouldIgnoreMissing();
@@ -137,7 +137,7 @@ final class SubmitLeadConversionUseCaseTest extends TestCase
             ->andReturn(self::GOOGLE_ACTION_ID);
 
         $this->annotationRepository->expects('upsert')
-            ->with(Mockery::on(static fn(UpsertAnnotationCommand $cmd): bool => $cmd->contactSubmissionId === self::SUBMISSION_ID
+            ->with(Mockery::on(static fn(UpsertAnnotationCommand $cmd): bool => $cmd->sourceId === self::SUBMISSION_ID
                 && $cmd->valuesToSet === ['is_potential_quote' => true]
                 && $cmd->columnsToClear === []));
 

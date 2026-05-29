@@ -10,9 +10,9 @@ use App\Application\ContactSubmission\UseCases\MarkNoQuoteExpectedUseCase;
 use App\Application\ContactSubmission\UseCases\UpsertContactSubmissionAnnotationUseCase;
 use App\Domain\ContactSubmission\Enums\ContactSubmissionView;
 use App\Domain\ContactSubmission\Exceptions\InvalidActionStageException;
+use App\Domain\ContactSubmission\Exceptions\OperationNotSupportedForSourceException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\RecordNotFoundException;
-use App\Domain\Exceptions\Data\MalformedStoredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\Shared\Pagination\ValueObjects\PageRequest;
@@ -98,9 +98,8 @@ final readonly class ContactSubmissionDashboardController
     }
 
     /**
-     * @throws RecordNotFoundException When the contact submission does not exist
-     * @throws InvalidActionStageException When the submission is past Triage stage
-     * @throws MalformedStoredDataException When stored submission JSONB is corrupted
+     * @throws RecordNotFoundException When the conversion row does not exist
+     * @throws InvalidActionStageException When the row is past Triage stage
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
@@ -113,9 +112,9 @@ final readonly class ContactSubmissionDashboardController
     }
 
     /**
-     * @throws RecordNotFoundException When the contact submission does not exist
-     * @throws InvalidActionStageException When the submission is not in Awaiting Quote stage
-     * @throws MalformedStoredDataException When stored submission JSONB is corrupted
+     * @throws RecordNotFoundException When the conversion row does not exist
+     * @throws OperationNotSupportedForSourceException When the row is a call (form-only endpoint)
+     * @throws InvalidActionStageException When the row is not in Awaiting Quote stage
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
