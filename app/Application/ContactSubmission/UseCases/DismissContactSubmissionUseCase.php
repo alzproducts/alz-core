@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Application\ContactSubmission\UseCases;
 
 use App\Application\Contracts\ContactSubmission\ContactSubmissionDashboardQueryRepositoryInterface;
-use App\Application\Contracts\ContactSubmission\PotentialConversionAnnotationRepositoryInterface;
+use App\Application\Contracts\Conversion\PotentialConversion\PotentialConversionAnnotationRepositoryInterface;
 use App\Domain\ContactSubmission\Enums\ActionType;
 use App\Domain\ContactSubmission\Exceptions\InvalidActionStageException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
@@ -64,13 +64,13 @@ final readonly class DismissContactSubmissionUseCase
      */
     private function ensureInTriageStage(string $sourceId): void
     {
-        $row = $this->dashboardQueryRepository->findById($sourceId);
+        $stage = $this->dashboardQueryRepository->findStageById($sourceId);
 
-        if ($row->leadStatus !== null) {
+        if ($stage->hasLeadAction()) {
             throw new InvalidActionStageException(
-                submissionId: $sourceId,
+                sourceId: $sourceId,
                 action: ActionType::LeadReceived,
-                currentStatus: $row->leadStatus,
+                currentStatus: $stage->leadStatus,
             );
         }
     }

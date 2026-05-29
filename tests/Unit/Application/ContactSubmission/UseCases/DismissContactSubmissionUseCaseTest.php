@@ -4,17 +4,16 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Application\ContactSubmission\UseCases;
 
-use App\Application\ContactSubmission\DTOs\ContactSubmissionListItemDTO;
-use App\Application\ContactSubmission\Enums\PotentialConversionSource;
 use App\Application\ContactSubmission\UseCases\DismissContactSubmissionUseCase;
 use App\Application\Contracts\ContactSubmission\ContactSubmissionDashboardQueryRepositoryInterface;
-use App\Application\Contracts\ContactSubmission\PotentialConversionAnnotationRepositoryInterface;
+use App\Application\Contracts\Conversion\PotentialConversion\PotentialConversionAnnotationRepositoryInterface;
 use App\Domain\ContactSubmission\Enums\ActionStatus;
 use App\Domain\ContactSubmission\Enums\ActionType;
+use App\Domain\ContactSubmission\Enums\PotentialConversionSource;
 use App\Domain\ContactSubmission\Exceptions\InvalidActionStageException;
+use App\Domain\ContactSubmission\ValueObjects\PotentialConversionStage;
 use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\ValueObjects\Guid;
-use DateTimeImmutable;
 use Mockery;
 use Mockery\MockInterface;
 use Override;
@@ -65,7 +64,7 @@ final class DismissContactSubmissionUseCaseTest extends TestCase
     public function dismisses_when_no_lead_status_present(): void
     {
         $this->dashboardQueryRepository
-            ->shouldReceive('findById')
+            ->shouldReceive('findStageById')
             ->once()
             ->with(self::SUBMISSION_ID)
             ->andReturn(self::stubRow(leadStatus: null));
@@ -82,7 +81,7 @@ final class DismissContactSubmissionUseCaseTest extends TestCase
     public function throws_record_not_found_when_row_missing(): void
     {
         $this->dashboardQueryRepository
-            ->shouldReceive('findById')
+            ->shouldReceive('findStageById')
             ->once()
             ->with(self::SUBMISSION_ID)
             ->andThrow(new RecordNotFoundException('PotentialConversion', self::SUBMISSION_ID));
@@ -110,7 +109,7 @@ final class DismissContactSubmissionUseCaseTest extends TestCase
     public function throws_invalid_action_stage_when_lead_status_present_in_any_status(ActionStatus $status): void
     {
         $this->dashboardQueryRepository
-            ->shouldReceive('findById')
+            ->shouldReceive('findStageById')
             ->once()
             ->with(self::SUBMISSION_ID)
             ->andReturn(self::stubRow(leadStatus: $status));
@@ -121,40 +120,18 @@ final class DismissContactSubmissionUseCaseTest extends TestCase
             $this->useCase->execute(new Guid(self::SUBMISSION_ID));
             self::fail('Expected InvalidActionStageException');
         } catch (InvalidActionStageException $e) {
-            self::assertSame(self::SUBMISSION_ID, $e->submissionId);
+            self::assertSame(self::SUBMISSION_ID, $e->sourceId);
             self::assertSame(ActionType::LeadReceived, $e->action);
             self::assertSame($status, $e->currentStatus);
         }
     }
 
-    private static function stubRow(?ActionStatus $leadStatus): ContactSubmissionListItemDTO
+    private static function stubRow(?ActionStatus $leadStatus): PotentialConversionStage
     {
-        return new ContactSubmissionListItemDTO(
-            id: Guid::fromTrusted(self::SUBMISSION_ID),
+        return new PotentialConversionStage(
             source: PotentialConversionSource::Form,
-            name: null,
-            email: null,
-            reason: null,
-            customerType: null,
-            orderNumber: null,
-            quantity: null,
-            product: null,
-            shopwiredCustomerId: null,
-            gclid: null,
-            msclkid: null,
-            fbclid: null,
-            utmSource: null,
-            utmMedium: null,
-            utmCampaign: null,
-            pageUrl: null,
-            createdAt: new DateTimeImmutable('2026-05-01T00:00:00+00:00'),
-            helpscoutExternalId: null,
             leadStatus: $leadStatus,
             quoteStatus: null,
-            isPotentialQuote: null,
-            notes: null,
-            quotedAt: null,
-            callerPhoneNumber: null,
         );
     }
 }

@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace App\Application\Conversion\CallTracking\UseCases;
 
-use App\Application\ContactSubmission\Commands\UpsertAnnotationCommand;
-use App\Application\Contracts\ContactSubmission\PotentialConversionAnnotationRepositoryInterface;
 use App\Application\Contracts\Conversion\CallTracking\CallConversionDispatcherInterface;
 use App\Application\Contracts\Conversion\CallTracking\CallTrackingActionRepositoryInterface;
+use App\Application\Contracts\Conversion\PotentialConversion\PotentialConversionAnnotationRepositoryInterface;
 use App\Application\Contracts\DatabaseGatewayInterface;
 use App\Application\Conversion\CallTracking\Commands\CallLeadConversionCommand;
 use App\Application\Conversion\Enums\AdPlatform;
+use App\Application\Conversion\PotentialConversion\Commands\UpsertAnnotationCommand;
 use App\Domain\ContactSubmission\ValueObjects\MarketingAttribution;
 use App\Domain\Conversion\CallTracking\ValueObjects\CallTrackingVisit;
 use App\Domain\Conversion\CallTracking\ValueObjects\PhoneNumberE164;

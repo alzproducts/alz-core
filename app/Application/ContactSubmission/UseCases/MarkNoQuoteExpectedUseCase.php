@@ -4,9 +4,8 @@ declare(strict_types=1);
 
 namespace App\Application\ContactSubmission\UseCases;
 
-use App\Application\ContactSubmission\Enums\PotentialConversionSource;
 use App\Application\Contracts\ContactSubmission\ContactSubmissionDashboardQueryRepositoryInterface;
-use App\Application\Contracts\ContactSubmission\PotentialConversionAnnotationRepositoryInterface;
+use App\Application\Contracts\Conversion\PotentialConversion\PotentialConversionAnnotationRepositoryInterface;
 use App\Domain\ContactSubmission\Enums\ActionStatus;
 use App\Domain\ContactSubmission\Enums\ActionType;
 use App\Domain\ContactSubmission\Exceptions\InvalidActionStageException;
@@ -69,17 +68,17 @@ final readonly class MarkNoQuoteExpectedUseCase
      */
     private function ensureFormRowAwaitingQuote(string $sourceId): void
     {
-        $row = $this->dashboardQueryRepository->findById($sourceId);
+        $stage = $this->dashboardQueryRepository->findStageById($sourceId);
 
-        if ($row->source !== PotentialConversionSource::Form) {
+        if (!$stage->isForm()) {
             throw new OperationNotSupportedForSourceException(
                 sourceId: $sourceId,
-                source: $row->source->value,
+                source: $stage->source->value,
                 operation: 'markNoQuoteExpected',
             );
         }
 
-        $this->ensureAwaitingQuoteStage($sourceId, $row->leadStatus, $row->quoteStatus);
+        $this->ensureAwaitingQuoteStage($sourceId, $stage->leadStatus, $stage->quoteStatus);
     }
 
     /**
@@ -89,7 +88,7 @@ final readonly class MarkNoQuoteExpectedUseCase
     {
         if ($leadStatus !== ActionStatus::Completed) {
             throw new InvalidActionStageException(
-                submissionId: $sourceId,
+                sourceId: $sourceId,
                 action: ActionType::LeadReceived,
                 currentStatus: $leadStatus,
             );
@@ -97,7 +96,7 @@ final readonly class MarkNoQuoteExpectedUseCase
 
         if ($quoteStatus !== null) {
             throw new InvalidActionStageException(
-                submissionId: $sourceId,
+                sourceId: $sourceId,
                 action: ActionType::QuoteIssued,
                 currentStatus: $quoteStatus,
             );

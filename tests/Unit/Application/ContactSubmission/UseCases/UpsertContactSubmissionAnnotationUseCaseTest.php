@@ -4,16 +4,14 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Application\ContactSubmission\UseCases;
 
-use App\Application\ContactSubmission\Commands\UpsertAnnotationCommand;
-use App\Application\ContactSubmission\DTOs\ContactSubmissionListItemDTO;
-use App\Application\ContactSubmission\Enums\PotentialConversionSource;
 use App\Application\ContactSubmission\UseCases\UpsertContactSubmissionAnnotationUseCase;
 use App\Application\Contracts\ContactSubmission\ContactSubmissionDashboardQueryRepositoryInterface;
-use App\Application\Contracts\ContactSubmission\PotentialConversionAnnotationRepositoryInterface;
+use App\Application\Contracts\Conversion\PotentialConversion\PotentialConversionAnnotationRepositoryInterface;
+use App\Application\Conversion\PotentialConversion\Commands\UpsertAnnotationCommand;
 use App\Domain\ContactSubmission\Enums\ContactSubmissionAnnotationField;
+use App\Domain\ContactSubmission\Enums\PotentialConversionSource;
+use App\Domain\ContactSubmission\ValueObjects\PotentialConversionStage;
 use App\Domain\Exceptions\Api\RecordNotFoundException;
-use App\Domain\ValueObjects\Guid;
-use DateTimeImmutable;
 use Mockery;
 use Mockery\MockInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -59,7 +57,7 @@ final class UpsertContactSubmissionAnnotationUseCaseTest extends TestCase
         );
 
         $this->dashboardQueryRepository
-            ->shouldReceive('findById')
+            ->shouldReceive('findStageById')
             ->once()
             ->with(self::SUBMISSION_ID)
             ->andReturn(self::stubRow());
@@ -98,7 +96,7 @@ final class UpsertContactSubmissionAnnotationUseCaseTest extends TestCase
         );
 
         $this->dashboardQueryRepository
-            ->shouldReceive('findById')
+            ->shouldReceive('findStageById')
             ->once()
             ->with(self::SUBMISSION_ID)
             ->andThrow(new RecordNotFoundException('PotentialConversion', self::SUBMISSION_ID));
@@ -121,34 +119,12 @@ final class UpsertContactSubmissionAnnotationUseCaseTest extends TestCase
         }
     }
 
-    private static function stubRow(): ContactSubmissionListItemDTO
+    private static function stubRow(): PotentialConversionStage
     {
-        return new ContactSubmissionListItemDTO(
-            id: Guid::fromTrusted(self::SUBMISSION_ID),
+        return new PotentialConversionStage(
             source: PotentialConversionSource::Form,
-            name: null,
-            email: null,
-            reason: null,
-            customerType: null,
-            orderNumber: null,
-            quantity: null,
-            product: null,
-            shopwiredCustomerId: null,
-            gclid: null,
-            msclkid: null,
-            fbclid: null,
-            utmSource: null,
-            utmMedium: null,
-            utmCampaign: null,
-            pageUrl: null,
-            createdAt: new DateTimeImmutable('2026-05-01T00:00:00+00:00'),
-            helpscoutExternalId: null,
             leadStatus: null,
             quoteStatus: null,
-            isPotentialQuote: null,
-            notes: null,
-            quotedAt: null,
-            callerPhoneNumber: null,
         );
     }
 }

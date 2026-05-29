@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Application\ContactSubmission\Commands;
+namespace App\Application\Conversion\PotentialConversion\Commands;
 
 use App\Domain\ContactSubmission\Enums\ContactSubmissionAnnotationField;
 use Webmozart\Assert\Assert;

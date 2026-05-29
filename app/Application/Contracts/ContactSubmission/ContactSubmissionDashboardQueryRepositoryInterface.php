@@ -6,6 +6,7 @@ namespace App\Application\Contracts\ContactSubmission;
 
 use App\Application\ContactSubmission\DTOs\ContactSubmissionListItemDTO;
 use App\Domain\ContactSubmission\Enums\ContactSubmissionView;
+use App\Domain\ContactSubmission\ValueObjects\PotentialConversionStage;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
@@ -27,7 +28,8 @@ interface ContactSubmissionDashboardQueryRepositoryInterface
     public function paginateView(ContactSubmissionView $view, PageRequest $pagination): PaginatedList;
 
     /**
-     * Fetch a single dashboard row by its source id (form submission id or call id).
+     * Fetch the workflow stage of a single dashboard row by its source id (form submission id or
+     * call id).
      *
      * Reads the unified view, so it resolves rows from either source — unlike the source-specific
      * write repositories. Used by the annotation/dismiss/no-quote use cases for existence checks
@@ -38,5 +40,5 @@ interface ContactSubmissionDashboardQueryRepositoryInterface
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      */
-    public function findById(string $sourceId): ContactSubmissionListItemDTO;
+    public function findStageById(string $sourceId): PotentialConversionStage;
 }

@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Marketing\Repositories;
 
-use App\Application\ContactSubmission\DTOs\ContactSubmissionListItemDTO;
 use App\Application\Contracts\ContactSubmission\ContactSubmissionDashboardQueryRepositoryInterface;
 use App\Domain\ContactSubmission\Enums\ContactSubmissionView;
+use App\Domain\ContactSubmission\ValueObjects\PotentialConversionStage;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
@@ -56,14 +56,14 @@ final readonly class EloquentContactSubmissionDashboardQueryRepository implement
      * @throws ExternalServiceUnavailableException
      */
     #[Override]
-    public function findById(string $sourceId): ContactSubmissionListItemDTO
+    public function findStageById(string $sourceId): PotentialConversionStage
     {
         return $this->eloquentGateway->findOrFail(
             modelClass: ContactSubmissionDashboardViewModel::class,
             column: 'id',
             value: $sourceId,
             entityTypeName: 'PotentialConversion',
-            mapper: static fn(ContactSubmissionDashboardViewModel $model) => $model->toDomain(),
+            mapper: static fn(ContactSubmissionDashboardViewModel $model) => $model->toStage(),
         );
     }
 }

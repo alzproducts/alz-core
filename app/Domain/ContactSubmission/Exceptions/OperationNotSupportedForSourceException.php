@@ -13,9 +13,10 @@ use App\Domain\Exceptions\DomainException;
  * e.g. `markNoQuoteExpected` (form-only, since calls have no quote tracking yet) called on a
  * call row. Maps to HTTP 409.
  *
- * `source` is a plain string (not the `PotentialConversionSource` enum) because that enum lives
- * in the Application layer — a Domain exception cannot import it. The throw site passes
- * `$row->source->value`.
+ * `source` is kept as a plain string (not the `PotentialConversionSource` enum) to preserve the
+ * wire/`context()` shape. The enum now lives in the Domain layer, so importing it would be legal —
+ * staying on `string` is a deliberate choice, not a layering constraint. The throw site passes
+ * `$stage->source->value`.
  */
 final class OperationNotSupportedForSourceException extends DomainException
 {

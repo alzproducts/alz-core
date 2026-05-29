@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Application\Contracts\ContactSubmission;
+namespace App\Application\Contracts\Conversion\PotentialConversion;
 
-use App\Application\ContactSubmission\Commands\UpsertAnnotationCommand;
+use App\Application\Conversion\PotentialConversion\Commands\UpsertAnnotationCommand;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;

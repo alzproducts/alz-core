@@ -319,16 +319,8 @@ return static function (Config $config): void {
     // requires explicit trailing `*` to match descendants (no implicit prefix match when
     // the pattern already contains wildcards). Two patterns are needed to cover both the
     // root DTOs namespace and nested ones.
-    // TODO(COR-180): TEMPORARY exclusion — remove after the first COR-180 commit lands.
-    // EloquentContactSubmissionDashboardQueryRepository::findById() returns the Application DTO
-    // ContactSubmissionListItemDTO to satisfy the dashboard query contract the annotation /
-    // dismiss / no-quote use cases rely on for source-agnostic existence + stage gating.
-    // Proper fix (deferred): relocate PotentialConversionSource to the Domain layer — it is a
-    // domain concept (form vs call source) — and return a pure Domain read-model from findById,
-    // so the repo no longer names an Application DTO. DELETE this andThat() exclusion then.
     $rules[] = Rule::allClasses()
                    ->that(new ResideInOneOfTheseNamespaces('App\Infrastructure\*\Repositories'))
-                   ->andThat(new NotHaveNameMatching('EloquentContactSubmissionDashboardQueryRepository'))
                    ->should(new NotDependsOnTheseNamespaces([
                        'App\Application\DTOs\*',
                        'App\Application\*\DTOs\*',

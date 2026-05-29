@@ -4,18 +4,17 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Application\ContactSubmission\UseCases;
 
-use App\Application\ContactSubmission\DTOs\ContactSubmissionListItemDTO;
-use App\Application\ContactSubmission\Enums\PotentialConversionSource;
 use App\Application\ContactSubmission\UseCases\MarkNoQuoteExpectedUseCase;
 use App\Application\Contracts\ContactSubmission\ContactSubmissionDashboardQueryRepositoryInterface;
-use App\Application\Contracts\ContactSubmission\PotentialConversionAnnotationRepositoryInterface;
+use App\Application\Contracts\Conversion\PotentialConversion\PotentialConversionAnnotationRepositoryInterface;
 use App\Domain\ContactSubmission\Enums\ActionStatus;
 use App\Domain\ContactSubmission\Enums\ActionType;
+use App\Domain\ContactSubmission\Enums\PotentialConversionSource;
 use App\Domain\ContactSubmission\Exceptions\InvalidActionStageException;
 use App\Domain\ContactSubmission\Exceptions\OperationNotSupportedForSourceException;
+use App\Domain\ContactSubmission\ValueObjects\PotentialConversionStage;
 use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\ValueObjects\Guid;
-use DateTimeImmutable;
 use Mockery;
 use Mockery\MockInterface;
 use Override;
@@ -66,7 +65,7 @@ final class MarkNoQuoteExpectedUseCaseTest extends TestCase
     public function marks_no_quote_expected_when_form_lead_completed_and_no_quote_action(): void
     {
         $this->dashboardQueryRepository
-            ->shouldReceive('findById')
+            ->shouldReceive('findStageById')
             ->once()
             ->with(self::SUBMISSION_ID)
             ->andReturn(self::stubRow(PotentialConversionSource::Form, ActionStatus::Completed, null));
@@ -84,7 +83,7 @@ final class MarkNoQuoteExpectedUseCaseTest extends TestCase
     public function logs_warning_when_atomic_guard_blocks_write(): void
     {
         $this->dashboardQueryRepository
-            ->shouldReceive('findById')
+            ->shouldReceive('findStageById')
             ->once()
             ->with(self::SUBMISSION_ID)
             ->andReturn(self::stubRow(PotentialConversionSource::Form, ActionStatus::Completed, null));
@@ -110,7 +109,7 @@ final class MarkNoQuoteExpectedUseCaseTest extends TestCase
     public function throws_record_not_found_when_row_missing(): void
     {
         $this->dashboardQueryRepository
-            ->shouldReceive('findById')
+            ->shouldReceive('findStageById')
             ->once()
             ->with(self::SUBMISSION_ID)
             ->andThrow(new RecordNotFoundException('PotentialConversion', self::SUBMISSION_ID));
@@ -126,7 +125,7 @@ final class MarkNoQuoteExpectedUseCaseTest extends TestCase
     public function throws_operation_not_supported_when_row_is_a_call(): void
     {
         $this->dashboardQueryRepository
-            ->shouldReceive('findById')
+            ->shouldReceive('findStageById')
             ->once()
             ->with(self::SUBMISSION_ID)
             ->andReturn(self::stubRow(PotentialConversionSource::Call, ActionStatus::Completed, null));
@@ -159,7 +158,7 @@ final class MarkNoQuoteExpectedUseCaseTest extends TestCase
     public function throws_invalid_action_stage_when_lead_not_completed(?ActionStatus $leadStatus): void
     {
         $this->dashboardQueryRepository
-            ->shouldReceive('findById')
+            ->shouldReceive('findStageById')
             ->once()
             ->with(self::SUBMISSION_ID)
             ->andReturn(self::stubRow(PotentialConversionSource::Form, $leadStatus, null));
@@ -191,7 +190,7 @@ final class MarkNoQuoteExpectedUseCaseTest extends TestCase
     public function throws_invalid_action_stage_when_quote_status_present_in_any_status(ActionStatus $status): void
     {
         $this->dashboardQueryRepository
-            ->shouldReceive('findById')
+            ->shouldReceive('findStageById')
             ->once()
             ->with(self::SUBMISSION_ID)
             ->andReturn(self::stubRow(PotentialConversionSource::Form, ActionStatus::Completed, $status));
@@ -211,33 +210,11 @@ final class MarkNoQuoteExpectedUseCaseTest extends TestCase
         PotentialConversionSource $source,
         ?ActionStatus $leadStatus,
         ?ActionStatus $quoteStatus,
-    ): ContactSubmissionListItemDTO {
-        return new ContactSubmissionListItemDTO(
-            id: Guid::fromTrusted(self::SUBMISSION_ID),
+    ): PotentialConversionStage {
+        return new PotentialConversionStage(
             source: $source,
-            name: null,
-            email: null,
-            reason: null,
-            customerType: null,
-            orderNumber: null,
-            quantity: null,
-            product: null,
-            shopwiredCustomerId: null,
-            gclid: null,
-            msclkid: null,
-            fbclid: null,
-            utmSource: null,
-            utmMedium: null,
-            utmCampaign: null,
-            pageUrl: null,
-            createdAt: new DateTimeImmutable('2026-05-01T00:00:00+00:00'),
-            helpscoutExternalId: null,
             leadStatus: $leadStatus,
             quoteStatus: $quoteStatus,
-            isPotentialQuote: null,
-            notes: null,
-            quotedAt: null,
-            callerPhoneNumber: null,
         );
     }
 }

@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Application\ContactSubmission\UseCases;
 
-use App\Application\ContactSubmission\Commands\UpsertAnnotationCommand;
 use App\Application\Contracts\ContactSubmission\ContactSubmissionDashboardQueryRepositoryInterface;
-use App\Application\Contracts\ContactSubmission\PotentialConversionAnnotationRepositoryInterface;
+use App\Application\Contracts\Conversion\PotentialConversion\PotentialConversionAnnotationRepositoryInterface;
+use App\Application\Conversion\PotentialConversion\Commands\UpsertAnnotationCommand;
 use App\Domain\ContactSubmission\Enums\ContactSubmissionAnnotationField;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\RecordNotFoundException;
@@ -47,7 +47,7 @@ final readonly class UpsertContactSubmissionAnnotationUseCase
             ),
         ]);
 
-        $this->dashboardQueryRepository->findById($command->sourceId);
+        $this->dashboardQueryRepository->findStageById($command->sourceId);
 
         $this->annotationRepository->upsert($command);
 

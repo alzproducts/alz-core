@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Presentation\Http\Api\DTOs;
 
-use App\Application\ContactSubmission\Commands\UpsertAnnotationCommand;
+use App\Application\Conversion\PotentialConversion\Commands\UpsertAnnotationCommand;
 use App\Domain\ContactSubmission\Enums\ContactSubmissionAnnotationField;
 use App\Domain\ValueObjects\Guid;
 use App\Presentation\Http\Api\Support\MergePatchMapper;
