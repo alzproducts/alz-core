@@ -22,6 +22,7 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration {
     public function up(): void
     {
+        // 1. Create the source-agnostic annotation table (UUID PK, no FK — source_id holds either source's UUID)
         Schema::create('marketing.potential_conversion_annotations', static function (Blueprint $table): void {
             $table->uuid('id')->primary()->default(DB::raw('gen_random_uuid()'));
 
@@ -36,8 +37,10 @@ return new class extends Migration {
             $table->timestampTz('updated_at')->useCurrent();
         });
 
+        // 2. Enforce one annotation per source row (form submission or call)
         DB::statement('CREATE UNIQUE INDEX idx_pca_source_id ON marketing.potential_conversion_annotations(source_id)');
 
+        // 3. Backfill existing form-row annotations (contact_submission_id becomes source_id)
         DB::statement(<<<'SQL'
             INSERT INTO marketing.potential_conversion_annotations
                 (id, source_id, is_potential_quote, notes, quoted_at, dismissed_at, created_at, updated_at)

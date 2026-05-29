@@ -20,8 +20,10 @@ use Illuminate\Support\Facades\DB;
 return new class extends Migration {
     public function up(): void
     {
+        // 1. Drop the view so the old annotation table it references can be dropped below
         DB::statement('DROP VIEW IF EXISTS marketing.potential_conversions_view');
 
+        // 2. Recreate the view against the new table; surface lead_status for call rows
         DB::statement(<<<'SQL'
             CREATE VIEW marketing.potential_conversions_view AS
             SELECT
@@ -153,7 +155,8 @@ return new class extends Migration {
             WHERE attributed.visit_match_count = 1
         SQL);
 
-        DB::statement('DROP TABLE marketing.contact_submission_annotations');
+        // 3. Drop the now-orphaned FK-constrained annotation table
+        DB::statement('DROP TABLE IF EXISTS marketing.contact_submission_annotations');
     }
 
     public function down(): void
