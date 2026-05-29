@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Tests\Unit\Application\ContactSubmission\Enums;
+namespace Tests\Unit\Domain\ContactSubmission\Enums;
 
-use App\Application\ContactSubmission\Enums\PotentialConversionSource;
+use App\Domain\ContactSubmission\Enums\PotentialConversionSource;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;

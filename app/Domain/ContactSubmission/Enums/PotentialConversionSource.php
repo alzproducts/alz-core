@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Application\ContactSubmission\Enums;
+namespace App\Domain\ContactSubmission\Enums;
 
 enum PotentialConversionSource: string
 {

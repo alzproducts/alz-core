@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace App\Application\Conversion\UseCases;
 
-use App\Application\ContactSubmission\Commands\UpsertAnnotationCommand;
 use App\Application\Contracts\ContactSubmission\ContactSubmissionActionRepositoryInterface;
-use App\Application\Contracts\ContactSubmission\ContactSubmissionAnnotationRepositoryInterface;
 use App\Application\Contracts\ContactSubmission\ContactSubmissionRepositoryInterface;
 use App\Application\Contracts\Conversion\ConversionDispatcherInterface;
+use App\Application\Contracts\Conversion\PotentialConversion\PotentialConversionAnnotationRepositoryInterface;
 use App\Application\Contracts\DatabaseGatewayInterface;
 use App\Application\Conversion\Commands\LeadConversionCommand;
 use App\Application\Conversion\Enums\AdPlatform;
+use App\Application\Conversion\PotentialConversion\Commands\UpsertAnnotationCommand;
 use App\Domain\ContactSubmission\Enums\ActionType;
 use App\Domain\ContactSubmission\ValueObjects\MarketingAttribution;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
@@ -36,7 +36,7 @@ final readonly class SubmitLeadConversionUseCase
     public function __construct(
         private ContactSubmissionRepositoryInterface $submissionRepository,
         private ContactSubmissionActionRepositoryInterface $actionRepository,
-        private ContactSubmissionAnnotationRepositoryInterface $annotationRepository,
+        private PotentialConversionAnnotationRepositoryInterface $annotationRepository,
         private DatabaseGatewayInterface $database,
         private ConversionDispatcherInterface $dispatcher,
         private LoggerInterface $logger,
@@ -93,7 +93,7 @@ final readonly class SubmitLeadConversionUseCase
             }
 
             $this->annotationRepository->upsert(new UpsertAnnotationCommand(
-                contactSubmissionId: $submissionId,
+                sourceId: $submissionId,
                 valuesToSet: ['is_potential_quote' => $isPotentialQuote],
                 columnsToClear: [],
             ));

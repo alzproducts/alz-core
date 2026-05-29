@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Application\ContactSubmission\DTOs;
 
-use App\Application\ContactSubmission\Enums\PotentialConversionSource;
 use App\Domain\ContactSubmission\Enums\ActionStatus;
 use App\Domain\ContactSubmission\Enums\ContactReason;
+use App\Domain\ContactSubmission\Enums\PotentialConversionSource;
 use App\Domain\Customer\Enums\CustomerType;
 use App\Domain\ValueObjects\Guid;
 use DateTimeImmutable;

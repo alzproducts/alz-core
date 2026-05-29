@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace App\Application\ContactSubmission\Commands;
+namespace App\Application\Conversion\PotentialConversion\Commands;
 
 use App\Domain\ContactSubmission\Enums\ContactSubmissionAnnotationField;
 use Webmozart\Assert\Assert;
 
 /**
- * Partial change set for `marketing.contact_submission_annotations`.
+ * Partial change set for `marketing.potential_conversion_annotations`.
  *
  * Three states encoded across two structural positions (no null overloading):
  * - column key in {@see $valuesToSet}    → write that value to the column
@@ -22,11 +22,11 @@ final readonly class UpsertAnnotationCommand
      * @param list<ContactSubmissionAnnotationField>      $columnsToClear
      */
     public function __construct(
-        public string $contactSubmissionId,
+        public string $sourceId,
         public array $valuesToSet,
         public array $columnsToClear,
     ) {
-        Assert::uuid($contactSubmissionId, 'contactSubmissionId must be a UUID');
+        Assert::uuid($sourceId, 'sourceId must be a UUID');
 
         $validColumns = \array_map(
             static fn(ContactSubmissionAnnotationField $c): string => $c->value,
