@@ -6,6 +6,7 @@ namespace App\Application\Linnworks\UpdateCostPriceBySupplier;
 
 use App\Application\Catalog\Results\CostPriceUpdateResult;
 use App\Application\Catalog\Results\FailedCostPriceUpdateResult;
+use App\Application\Contracts\Catalog\CostPriceChangeLogRepositoryInterface;
 use App\Application\Contracts\Linnworks\InventoryClientInterface;
 use App\Application\Contracts\Linnworks\InventoryUpdateClientInterface;
 use App\Application\Contracts\Linnworks\LinnworksSyncDispatcherInterface;
@@ -28,17 +29,9 @@ use Psr\Log\LoggerInterface;
 use Webmozart\Assert\Assert;
 
 /**
- * Bulk update product cost prices for a shared supplier.
- *
- * Orchestrates:
- * 1. Pre-flight validation: ensure all SKUs have the specified supplier linked
- * 2. Resolve SKUs → stockItemIds (1 API call)
- * 3. Partition resolved vs unresolved SKUs
- * 4. Resolve supplier name → GUID (1 API call)
- * 5. Fetch existing supplier stats for resolved items (1 API call, read-modify-write)
- * 6. Merge new purchase prices into fetched stats
- * 7. Send complete 15-field supplier stat objects (1 API call)
- * 8. Best-effort local DB updates for succeeded items
+ * Bulk update product cost prices for a shared supplier via read-modify-write against Linnworks,
+ * then best-effort mirror the succeeded items to the local DB and record an audit trail of the
+ * old → new deltas. Per-item failures are collected into the returned result, not thrown.
  */
 final readonly class UpdateCostPriceBySupplierUseCase
 {
@@ -49,6 +42,7 @@ final readonly class UpdateCostPriceBySupplierUseCase
         private SupplierGuidResolver $supplierGuidResolver,
         private LinnworksSyncDispatcherInterface $syncDispatcher,
         private LoggerInterface $logger,
+        private CostPriceChangeLogRepositoryInterface $changeLogRepository,
     ) {}
 
     /**
@@ -66,11 +60,11 @@ final readonly class UpdateCostPriceBySupplierUseCase
     public function execute(string $supplierName, array $commands): CostPriceUpdateResult
     {
         Assert::notEmpty($commands, 'At least one cost price command is required');
-
         $this->logStart($supplierName, $commands);
         $this->runPreFlightValidation($supplierName, $commands);
-        [$result, $skuToGuid] = $this->performBulkUpdate($supplierName, $commands);
-        $result = $this->updateLocalDatabase($supplierName, $commands, $result, $skuToGuid);
+        [$linnworksResult, $skuToGuid, $matchedStatBySku] = $this->performBulkUpdate($supplierName, $commands);
+        $result = $this->updateLocalDatabase($supplierName, $commands, $linnworksResult, $skuToGuid);
+        $this->recordChangeLog($commands, $matchedStatBySku, $linnworksResult);
         $this->dispatchReconciliationSyncs($result);
         $this->logResult($result);
 
@@ -82,7 +76,7 @@ final readonly class UpdateCostPriceBySupplierUseCase
      *
      * @param non-empty-list<UpdateCostPriceCommand> $commands
      *
-     * @return array{CostPriceUpdateResult, array<string, Guid>}
+     * @return array{CostPriceUpdateResult, array<string, Guid>, array<string, StockItemSupplierStat>}
      *
      * @throws ResourceNotFoundException When supplier not found in Linnworks
      * @throws InvalidApiRequestException When parameters invalid
@@ -92,22 +86,19 @@ final readonly class UpdateCostPriceBySupplierUseCase
      */
     private function performBulkUpdate(string $supplierName, array $commands): array
     {
-        [$resolved, $mergedStats, $allFailures, $skuToGuid] = $this->resolveAndMerge($supplierName, $commands);
-
+        [$resolved, $mergedStats, $allFailures, $skuToGuid, $matchedStatBySku] = $this->resolveAndMerge($supplierName, $commands);
         if ($resolved === [] || $mergedStats === []) {
-            return [new CostPriceUpdateResult(\count($commands), 0, $allFailures), $skuToGuid];
+            return [new CostPriceUpdateResult(\count($commands), 0, $allFailures), $skuToGuid, $matchedStatBySku];
         }
-
         $apiError = $this->tryUpdateStats($mergedStats);
-
         if ($apiError !== null) {
             $this->logBulkApiFailure($supplierName, \count($mergedStats), $apiError);
             $apiFailures = CostPriceBySupplierTransformer::buildApiFailures($resolved, 'Linnworks API error: ' . $apiError->getMessage(), $skuToGuid);
 
-            return [new CostPriceUpdateResult(\count($commands), 0, [...$allFailures, ...$apiFailures]), $skuToGuid];
+            return [new CostPriceUpdateResult(\count($commands), 0, [...$allFailures, ...$apiFailures]), $skuToGuid, $matchedStatBySku];
         }
 
-        return [new CostPriceUpdateResult(\count($commands), \count($mergedStats), $allFailures), $skuToGuid];
+        return [new CostPriceUpdateResult(\count($commands), \count($mergedStats), $allFailures), $skuToGuid, $matchedStatBySku];
     }
 
     /**
@@ -115,7 +106,7 @@ final readonly class UpdateCostPriceBySupplierUseCase
      *
      * @param non-empty-list<UpdateCostPriceCommand> $commands
      *
-     * @return array{list<UpdateCostPriceCommand>, list<StockItemSupplierStat>, list<FailedCostPriceUpdateResult>, array<string, Guid>}
+     * @return array{list<UpdateCostPriceCommand>, list<StockItemSupplierStat>, list<FailedCostPriceUpdateResult>, array<string, Guid>, array<string, StockItemSupplierStat>}
      *
      * @throws InvalidApiRequestException
      * @throws InvalidApiResponseException
@@ -127,18 +118,15 @@ final readonly class UpdateCostPriceBySupplierUseCase
     {
         $skuToGuid = $this->inventoryClient->resolveStockItemIds(CostPriceBySupplierTransformer::extractUniqueSkus($commands));
         [$resolved, $failures] = CostPriceBySupplierTransformer::partitionByResolution($commands, $skuToGuid);
-
         if ($resolved === []) {
-            return [$resolved, [], $failures, $skuToGuid];
+            return [$resolved, [], $failures, $skuToGuid, []];
         }
-
         $supplierGuid = $this->supplierGuidResolver->resolve($supplierName);
         $stockItemGuids = CostPriceBySupplierTransformer::extractStockItemGuids($resolved, $skuToGuid);
         $statsByStockItem = $this->inventoryClient->getStockSupplierStatsBulk($stockItemGuids);
+        [$mergedStats, $mergeFailures, $matchedStatBySku] = CostPriceBySupplierTransformer::mergeSupplierPrices($resolved, $skuToGuid, $supplierGuid, $statsByStockItem);
 
-        [$mergedStats, $mergeFailures] = CostPriceBySupplierTransformer::mergeSupplierPrices($resolved, $skuToGuid, $supplierGuid, $statsByStockItem);
-
-        return [$resolved, $mergedStats, [...$failures, ...$mergeFailures], $skuToGuid];
+        return [$resolved, $mergedStats, [...$failures, ...$mergeFailures], $skuToGuid, $matchedStatBySku];
     }
 
     /**
@@ -239,6 +227,25 @@ final readonly class UpdateCostPriceBySupplierUseCase
         $dbFailures = CostPriceBySupplierTransformer::buildApiFailures($commands, 'Local DB update failed: ' . $e->getMessage(), $skuToGuid);
 
         return new CostPriceUpdateResult($result->total, 0, $dbFailures);
+    }
+
+    /**
+     * Best-effort audit log, derived from the Linnworks-success result (NOT the post-`updateLocalDatabase`
+     * result) so a local-mirror downgrade cannot erase the trail of a change that did happen in Linnworks.
+     * A logging failure is swallowed — the price change already succeeded, so it must not fail the request.
+     *
+     * @param list<UpdateCostPriceCommand> $commands
+     * @param array<string, StockItemSupplierStat> $matchedStatBySku
+     */
+    private function recordChangeLog(array $commands, array $matchedStatBySku, CostPriceUpdateResult $linnworksResult): void
+    {
+        $changes = CostPriceBySupplierTransformer::buildChangeRecords($commands, $matchedStatBySku, $linnworksResult);
+
+        try {
+            $this->changeLogRepository->record($changes);
+        } catch (DatabaseOperationFailedException|DuplicateRecordException|ExternalServiceUnavailableException $e) {
+            $this->logger->error('Failed to record cost-price change log', ['error' => $e->getMessage(), 'changeCount' => \count($changes)]);
+        }
     }
 
     /**
