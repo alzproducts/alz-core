@@ -69,11 +69,7 @@ final class ShopwiredModelMustImplementMappableRule implements Rule
         $classReflection = $node->getClassReflection();
         $className = $classReflection->getName();
 
-        if (! self::isInShopwiredOrCatalogModels($className)) {
-            return false;
-        }
-
-        if (\str_ends_with($className, 'ViewModel') || \str_ends_with($className, 'ExtraDataModel')) {
+        if (! self::isInShopwiredOrCatalogModels($className) || self::isExemptBySuffix($className)) {
             return false;
         }
 
@@ -83,6 +79,17 @@ final class ShopwiredModelMustImplementMappableRule implements Rule
 
         return $classReflection->getNativeReflection()
             ->isSubclassOf('Illuminate\\Database\\Eloquent\\Model');
+    }
+
+    /**
+     * Name-suffix exemptions: read-only views, extra-data side tables, and append-only audit logs
+     * (`*LogModel`) the app never reads back into a Domain object, so no `toDomain()` is meaningful.
+     */
+    private static function isExemptBySuffix(string $className): bool
+    {
+        return \str_ends_with($className, 'ViewModel')
+            || \str_ends_with($className, 'ExtraDataModel')
+            || \str_ends_with($className, 'LogModel');
     }
 
     private static function isInShopwiredOrCatalogModels(string $className): bool

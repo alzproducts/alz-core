@@ -4,79 +4,73 @@ declare(strict_types=1);
 
 namespace App\Application\ContactSubmission\UseCases;
 
-use App\Application\Contracts\ContactSubmission\ContactSubmissionActionRepositoryInterface;
-use App\Application\Contracts\ContactSubmission\ContactSubmissionAnnotationRepositoryInterface;
-use App\Application\Contracts\ContactSubmission\ContactSubmissionRepositoryInterface;
+use App\Application\Contracts\ContactSubmission\ContactSubmissionDashboardQueryRepositoryInterface;
+use App\Application\Contracts\Conversion\PotentialConversion\PotentialConversionAnnotationRepositoryInterface;
 use App\Domain\ContactSubmission\Enums\ActionType;
 use App\Domain\ContactSubmission\Exceptions\InvalidActionStageException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\RecordNotFoundException;
-use App\Domain\Exceptions\Data\MalformedStoredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\Guid;
 use Psr\Log\LoggerInterface;
 
 /**
- * Dismiss a triage-stage contact submission.
+ * Dismiss a triage-stage potential-conversion row (form submission or call).
  *
- * Triage-only: rejects with {@see InvalidActionStageException} (→ 409) when any `lead_received`
- * action row exists for the submission, regardless of status. The atomic guard inside
- * {@see ContactSubmissionAnnotationRepositoryInterface::markDismissed} prevents TOCTOU races
+ * Triage-only: rejects with {@see InvalidActionStageException} (→ 409) when the row already has
+ * any `lead_received` status, regardless of value. The atomic guard inside
+ * {@see PotentialConversionAnnotationRepositoryInterface::markDismissed} prevents TOCTOU races
  * against concurrent lead conversion submissions.
  */
 final readonly class DismissContactSubmissionUseCase
 {
     public function __construct(
-        private ContactSubmissionRepositoryInterface $submissionRepository,
-        private ContactSubmissionActionRepositoryInterface $actionRepository,
-        private ContactSubmissionAnnotationRepositoryInterface $annotationRepository,
+        private ContactSubmissionDashboardQueryRepositoryInterface $dashboardQueryRepository,
+        private PotentialConversionAnnotationRepositoryInterface $annotationRepository,
         private LoggerInterface $logger,
     ) {}
 
     /**
-     * @throws RecordNotFoundException When the submission does not exist → HTTP 404
-     * @throws InvalidActionStageException When the submission is past Triage → HTTP 409
-     * @throws MalformedStoredDataException When stored submission JSONB is corrupted
+     * @throws RecordNotFoundException When the row does not exist → HTTP 404
+     * @throws InvalidActionStageException When the row is past Triage → HTTP 409
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      */
-    public function execute(Guid $submissionId): void
+    public function execute(Guid $sourceId): void
     {
-        $id = $submissionId->value;
+        $id = $sourceId->value;
 
         $this->logger->info('Dismissing contact submission', [
-            'submission_id' => $id,
+            'source_id' => $id,
         ]);
 
-        $this->ensureSubmissionInTriageStage($id);
+        $this->ensureInTriageStage($id);
 
         $this->annotationRepository->markDismissed($id);
 
         $this->logger->info('Dismissed contact submission', [
-            'submission_id' => $id,
+            'source_id' => $id,
         ]);
     }
 
     /**
      * @throws RecordNotFoundException
      * @throws InvalidActionStageException
-     * @throws MalformedStoredDataException
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      */
-    private function ensureSubmissionInTriageStage(string $submissionId): void
+    private function ensureInTriageStage(string $sourceId): void
     {
-        $this->submissionRepository->findById($submissionId);
+        $stage = $this->dashboardQueryRepository->findStageById($sourceId);
 
-        $leadStatus = $this->actionRepository->findActionStatus($submissionId, ActionType::LeadReceived);
-        if ($leadStatus !== null) {
+        if ($stage->hasLeadAction()) {
             throw new InvalidActionStageException(
-                submissionId: $submissionId,
+                sourceId: $sourceId,
                 action: ActionType::LeadReceived,
-                currentStatus: $leadStatus,
+                currentStatus: $stage->leadStatus,
             );
         }
     }

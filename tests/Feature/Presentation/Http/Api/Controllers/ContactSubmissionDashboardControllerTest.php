@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Tests\Feature\Presentation\Http\Api\Controllers;
 
 use App\Application\ContactSubmission\DTOs\ContactSubmissionListItemDTO;
-use App\Application\ContactSubmission\Enums\PotentialConversionSource;
 use App\Application\ContactSubmission\UseCases\DismissContactSubmissionUseCase;
 use App\Application\ContactSubmission\UseCases\ListContactSubmissionsByViewUseCase;
 use App\Application\ContactSubmission\UseCases\MarkNoQuoteExpectedUseCase;
@@ -14,6 +13,7 @@ use App\Domain\ContactSubmission\Enums\ActionStatus;
 use App\Domain\ContactSubmission\Enums\ActionType;
 use App\Domain\ContactSubmission\Enums\ContactReason;
 use App\Domain\ContactSubmission\Enums\ContactSubmissionView;
+use App\Domain\ContactSubmission\Enums\PotentialConversionSource;
 use App\Domain\ContactSubmission\Exceptions\InvalidActionStageException;
 use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Shared\Pagination\ValueObjects\PageRequest;
@@ -296,7 +296,7 @@ final class ContactSubmissionDashboardControllerTest extends TestCase
             ->once()
             ->with(Mockery::on(static fn(Guid $id): bool => $id->value === self::ACTION_SUBMISSION_ID))
             ->andThrow(new InvalidActionStageException(
-                submissionId: self::ACTION_SUBMISSION_ID,
+                sourceId: self::ACTION_SUBMISSION_ID,
                 action: ActionType::LeadReceived,
                 currentStatus: ActionStatus::Completed,
             ));
@@ -354,7 +354,7 @@ final class ContactSubmissionDashboardControllerTest extends TestCase
             ->shouldReceive('execute')
             ->once()
             ->andThrow(new InvalidActionStageException(
-                submissionId: self::ACTION_SUBMISSION_ID,
+                sourceId: self::ACTION_SUBMISSION_ID,
                 action: ActionType::QuoteIssued,
                 currentStatus: ActionStatus::Completed,
             ));

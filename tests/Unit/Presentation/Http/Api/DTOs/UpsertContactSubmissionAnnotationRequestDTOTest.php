@@ -28,13 +28,13 @@ final class UpsertContactSubmissionAnnotationRequestDTOTest extends TestCase
     }
 
     #[Test]
-    public function to_command_carries_submission_id_through(): void
+    public function to_command_carries_source_id_through(): void
     {
         $dto = new UpsertContactSubmissionAnnotationRequestDTO();
 
         $command = $dto->toCommand(Guid::fromTrusted(self::SUBMISSION_ID));
 
-        self::assertSame(self::SUBMISSION_ID, $command->contactSubmissionId);
+        self::assertSame(self::SUBMISSION_ID, $command->sourceId);
     }
 
     #[Test]

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Application\Catalog\UseCases;
 
+use App\Application\Catalog\Commands\CostPriceChangeCommand;
+use App\Application\Contracts\Catalog\CostPriceChangeLogRepositoryInterface;
 use App\Application\Contracts\Linnworks\InventoryClientInterface;
 use App\Application\Contracts\Linnworks\InventoryUpdateClientInterface;
 use App\Application\Contracts\Linnworks\LinnworksSyncDispatcherInterface;
@@ -42,6 +44,8 @@ final class UpdateCostPriceUseCaseTest extends TestCase
 
     private LoggerInterface&MockInterface $logger;
 
+    private CostPriceChangeLogRepositoryInterface&MockInterface $changeLogRepository;
+
     private UpdateCostPriceBySupplierUseCase $useCase;
 
     #[Override]
@@ -57,6 +61,8 @@ final class UpdateCostPriceUseCaseTest extends TestCase
         $this->syncDispatcher->shouldReceive('dispatchStockItemSync')->byDefault();
         $this->logger = Mockery::mock(LoggerInterface::class);
         $this->logger->shouldReceive('info')->byDefault();
+        $this->changeLogRepository = Mockery::mock(CostPriceChangeLogRepositoryInterface::class);
+        $this->changeLogRepository->shouldReceive('record')->byDefault();
 
         $this->useCase = new UpdateCostPriceBySupplierUseCase(
             $this->inventoryClient,
@@ -65,6 +71,7 @@ final class UpdateCostPriceUseCaseTest extends TestCase
             $this->supplierGuidResolver,
             $this->syncDispatcher,
             $this->logger,
+            $this->changeLogRepository,
         );
     }
 
@@ -462,5 +469,173 @@ final class UpdateCostPriceUseCaseTest extends TestCase
             ->once();
 
         $this->useCase->execute('AcmeCo', $commands);
+    }
+
+    #[Test]
+    public function it_records_cost_price_changes_for_succeeded_items(): void
+    {
+        $sku1 = Sku::fromTrusted('SKU-001');
+        $sku2 = Sku::fromTrusted('SKU-002');
+        $supplier = new ProductSupplier(supplierName: 'AcmeCo', purchasePrice: Money::exclusive(10.0), isDefault: true);
+        $supplierGuid = new Guid('00000000-0000-0000-0000-000000000001');
+        $stockId1 = '10000000-0000-0000-0000-000000000001';
+        $stockId2 = '10000000-0000-0000-0000-000000000002';
+
+        $commands = [
+            new UpdateCostPriceCommand(sku: $sku1, costPrice: Money::exclusive(10.50)),
+            new UpdateCostPriceCommand(sku: $sku2, costPrice: Money::exclusive(20.00)),
+        ];
+
+        $this->supplierRepository->shouldReceive('getSuppliersBySkus')->once()
+            ->andReturn(['SKU-001' => [$supplier], 'SKU-002' => [$supplier]]);
+        $this->inventoryClient->shouldReceive('resolveStockItemIds')->once()
+            ->andReturn(['SKU-001' => new Guid($stockId1), 'SKU-002' => new Guid($stockId2)]);
+        $this->supplierGuidResolver->shouldReceive('resolve')->with('AcmeCo')->once()->andReturn($supplierGuid);
+        $this->inventoryClient->shouldReceive('getStockSupplierStatsBulk')->once()
+            ->andReturn([
+                $stockId1 => [$this->makeSupplierStat($stockId1, $supplierGuid)],
+                $stockId2 => [$this->makeSupplierStat($stockId2, $supplierGuid)],
+            ]);
+        $this->inventoryUpdateClient->shouldReceive('updateStockSupplierStats')->once();
+        $this->supplierRepository->shouldReceive('bulkUpdatePurchasePrices')->once();
+
+        // Old price is the fetched stat price (10.00); new price is the command price.
+        $this->changeLogRepository
+            ->shouldReceive('record')
+            ->once()
+            ->with(Mockery::on(static function (array $changes): bool {
+                if (\count($changes) !== 2) {
+                    return false;
+                }
+                [$first, $second] = $changes;
+
+                return $first instanceof CostPriceChangeCommand
+                    && $first->sku->value === 'SKU-001'
+                    && $first->supplierName === 'AcmeCo'
+                    && $first->supplierId->equals(new Guid('00000000-0000-0000-0000-000000000001'))
+                    && $first->oldPrice->toNet() === 10.00
+                    && $first->newPrice->toNet() === 10.50
+                    && $second instanceof CostPriceChangeCommand
+                    && $second->sku->value === 'SKU-002'
+                    && $second->oldPrice->toNet() === 10.00
+                    && $second->newPrice->toNet() === 20.00;
+            }));
+
+        $result = $this->useCase->execute('AcmeCo', $commands);
+
+        self::assertSame(2, $result->succeeded);
+    }
+
+    #[Test]
+    public function it_excludes_no_op_changes_from_the_change_log(): void
+    {
+        // SKU-001's new price equals the existing stat price (10.00) — a no-op, must be skipped.
+        $sku1 = Sku::fromTrusted('SKU-001');
+        $sku2 = Sku::fromTrusted('SKU-002');
+        $supplier = new ProductSupplier(supplierName: 'AcmeCo', purchasePrice: Money::exclusive(10.0), isDefault: true);
+        $supplierGuid = new Guid('00000000-0000-0000-0000-000000000001');
+        $stockId1 = '10000000-0000-0000-0000-000000000001';
+        $stockId2 = '10000000-0000-0000-0000-000000000002';
+
+        $commands = [
+            new UpdateCostPriceCommand(sku: $sku1, costPrice: Money::exclusive(10.00)),
+            new UpdateCostPriceCommand(sku: $sku2, costPrice: Money::exclusive(20.00)),
+        ];
+
+        $this->supplierRepository->shouldReceive('getSuppliersBySkus')->once()
+            ->andReturn(['SKU-001' => [$supplier], 'SKU-002' => [$supplier]]);
+        $this->inventoryClient->shouldReceive('resolveStockItemIds')->once()
+            ->andReturn(['SKU-001' => new Guid($stockId1), 'SKU-002' => new Guid($stockId2)]);
+        $this->supplierGuidResolver->shouldReceive('resolve')->once()->andReturn($supplierGuid);
+        $this->inventoryClient->shouldReceive('getStockSupplierStatsBulk')->once()
+            ->andReturn([
+                $stockId1 => [$this->makeSupplierStat($stockId1, $supplierGuid)],
+                $stockId2 => [$this->makeSupplierStat($stockId2, $supplierGuid)],
+            ]);
+        $this->inventoryUpdateClient->shouldReceive('updateStockSupplierStats')->once();
+        $this->supplierRepository->shouldReceive('bulkUpdatePurchasePrices')->once();
+
+        $this->changeLogRepository
+            ->shouldReceive('record')
+            ->once()
+            ->with(Mockery::on(static fn(array $changes): bool => \count($changes) === 1 && $changes[0]->sku->value === 'SKU-002'));
+
+        $this->useCase->execute('AcmeCo', $commands);
+    }
+
+    #[Test]
+    public function it_excludes_failed_skus_from_the_change_log(): void
+    {
+        // SKU-002 never resolves → it is a failure and must not appear in the audit log.
+        $sku1 = Sku::fromTrusted('SKU-001');
+        $sku2 = Sku::fromTrusted('SKU-002');
+        $supplier = new ProductSupplier(supplierName: 'AcmeCo', purchasePrice: Money::exclusive(10.0), isDefault: true);
+        $supplierGuid = new Guid('00000000-0000-0000-0000-000000000001');
+        $stockId1 = '10000000-0000-0000-0000-000000000001';
+
+        $commands = [
+            new UpdateCostPriceCommand(sku: $sku1, costPrice: Money::exclusive(10.50)),
+            new UpdateCostPriceCommand(sku: $sku2, costPrice: Money::exclusive(20.00)),
+        ];
+
+        $this->supplierRepository->shouldReceive('getSuppliersBySkus')->once()
+            ->andReturn(['SKU-001' => [$supplier], 'SKU-002' => [$supplier]]);
+        $this->inventoryClient->shouldReceive('resolveStockItemIds')->once()
+            ->andReturn(['SKU-001' => new Guid($stockId1)]);
+        $this->supplierGuidResolver->shouldReceive('resolve')->once()->andReturn($supplierGuid);
+        $this->inventoryClient->shouldReceive('getStockSupplierStatsBulk')->once()
+            ->andReturn([$stockId1 => [$this->makeSupplierStat($stockId1, $supplierGuid)]]);
+        $this->inventoryUpdateClient->shouldReceive('updateStockSupplierStats')->once();
+        $this->supplierRepository->shouldReceive('bulkUpdatePurchasePrices')->once();
+
+        $this->changeLogRepository
+            ->shouldReceive('record')
+            ->once()
+            ->with(Mockery::on(static fn(array $changes): bool => \count($changes) === 1 && $changes[0]->sku->value === 'SKU-001'));
+
+        $this->useCase->execute('AcmeCo', $commands);
+    }
+
+    #[Test]
+    public function it_swallows_change_log_write_failure(): void
+    {
+        $sku = Sku::fromTrusted('SKU-001');
+        $supplier = new ProductSupplier(supplierName: 'AcmeCo', purchasePrice: Money::exclusive(10.0), isDefault: true);
+        $supplierGuid = new Guid('00000000-0000-0000-0000-000000000001');
+        $stockId1 = '10000000-0000-0000-0000-000000000001';
+
+        $commands = [
+            new UpdateCostPriceCommand(sku: $sku, costPrice: Money::exclusive(10.50)),
+        ];
+
+        $this->supplierRepository->shouldReceive('getSuppliersBySkus')->once()
+            ->andReturn(['SKU-001' => [$supplier]]);
+        $this->inventoryClient->shouldReceive('resolveStockItemIds')->once()
+            ->andReturn(['SKU-001' => new Guid($stockId1)]);
+        $this->supplierGuidResolver->shouldReceive('resolve')->once()->andReturn($supplierGuid);
+        $this->inventoryClient->shouldReceive('getStockSupplierStatsBulk')->once()
+            ->andReturn([$stockId1 => [$this->makeSupplierStat($stockId1, $supplierGuid)]]);
+        $this->inventoryUpdateClient->shouldReceive('updateStockSupplierStats')->once();
+        $this->supplierRepository->shouldReceive('bulkUpdatePurchasePrices')->once();
+
+        $this->changeLogRepository
+            ->shouldReceive('record')
+            ->once()
+            ->andThrow(new DatabaseOperationFailedException(
+                operation: 'record',
+                reason: 'Connection failed',
+            ));
+
+        $this->logger
+            ->shouldReceive('error')
+            ->once()
+            ->withArgs(static fn(string $message): bool => \str_contains($message, 'cost-price change log'));
+
+        $result = $this->useCase->execute('AcmeCo', $commands);
+
+        // Best-effort: the Linnworks change already succeeded, so the result is unaffected.
+        self::assertSame(1, $result->total);
+        self::assertSame(1, $result->succeeded);
+        self::assertSame([], $result->failures);
     }
 }

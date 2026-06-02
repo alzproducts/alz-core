@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Presentation\Http\Api\DTOs;
 
-use App\Application\ContactSubmission\Commands\UpsertAnnotationCommand;
+use App\Application\Conversion\PotentialConversion\Commands\UpsertAnnotationCommand;
 use App\Domain\ContactSubmission\Enums\ContactSubmissionAnnotationField;
 use App\Domain\ValueObjects\Guid;
 use App\Presentation\Http\Api\Support\MergePatchMapper;
@@ -15,7 +15,7 @@ use Spatie\LaravelData\Optional;
 use Spatie\LaravelData\Support\Validation\ValidationContext;
 
 /**
- * PUT body for `marketing.contact_submission_annotations`.
+ * PUT body for `marketing.potential_conversion_annotations`.
  *
  * Partial-update semantics via {@see Optional}:
  *  - field absent from body → property is `Optional`  → no change
@@ -46,7 +46,7 @@ final class UpsertContactSubmissionAnnotationRequestDTO extends Data
         ];
     }
 
-    public function toCommand(Guid $contactSubmissionId): UpsertAnnotationCommand
+    public function toCommand(Guid $sourceId): UpsertAnnotationCommand
     {
         $quotedAtValue = $this->quoted_at;
         if (\is_string($quotedAtValue)) {
@@ -60,7 +60,7 @@ final class UpsertContactSubmissionAnnotationRequestDTO extends Data
         ]);
 
         return new UpsertAnnotationCommand(
-            contactSubmissionId: $contactSubmissionId->value,
+            sourceId: $sourceId->value,
             valuesToSet: $valuesToSet,
             columnsToClear: $columnsToClear,
         );
