@@ -360,6 +360,13 @@ parameters:
         -
             identifier: missingType.checkedException
             path: app/Infrastructure/HelpScout/Clients/ConversationWriteClient.php
+        # HttpFactory::pool() / withHeaders() are reached via Laravel's __call magic on the injected
+        # Factory (this transport injects HttpFactory for testability instead of using the Http facade),
+        # so PHPStan reads them as static calls. Narrowed to just those two proxied methods.
+        -
+            identifier: staticMethod.dynamicCall
+            message: '#Dynamic call to static method Illuminate\\Http\\Client\\PendingRequest<false>::(pool|withHeaders)\(\)#'
+            path: app/Infrastructure/HelpScout/HelpScoutHttpTransport.php
         # List*RequestDTO::toQuery() calls enum::from() on values pre-validated by DTO rules
         # (sort_by uses 'in:...' validation, sort_direction uses In['asc','desc']).
         # PageRequest::from() uses Assert which throws InvalidArgumentException (unchecked).

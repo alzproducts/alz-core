@@ -1,7 +1,6 @@
 <?php
 
 declare(strict_types=1);
-use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use Illuminate\Auth\AuthenticationException;
 
 /**
@@ -32,11 +31,13 @@ return [
     'send_default_pii' => false,
 
     // @see: https://docs.sentry.io/platforms/php/guides/laravel/configuration/options/#ignore_exceptions
-    // Expected flows, not bugs - don't send to Sentry
-    // (Laravel still logs to security channel)
+    // Only genuinely expected flows belong here: an unauthenticated *client* request
+    // (no/invalid JWT) is routine and noisy, not a bug. Our own *outbound* auth
+    // failures (AuthenticationExpiredException — dead OAuth creds to a 3rd party) are
+    // real outages and must reach Sentry, so they are deliberately NOT ignored.
+    // (Laravel still logs ignored exceptions to the security channel)
     'ignore_exceptions' => [
         AuthenticationException::class,
-        AuthenticationExpiredException::class,
     ],
 
     // @see: https://docs.sentry.io/platforms/php/guides/laravel/configuration/options/#ignore_transactions
