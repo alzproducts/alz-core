@@ -209,6 +209,10 @@ final readonly class LinnworksHttpTransport implements LinnworksTransportInterfa
                     return $request($session);
                 } catch (RequestException $retryException) {
                     throw LinnworksErrorHandler::handleRequestException($retryException, $endpoint);
+                } catch (ConnectionException $retryException) {
+                    throw LinnworksErrorHandler::handleConnectionException($retryException);
+                } catch (Exception $retryException) {
+                    throw LinnworksErrorHandler::handleUnexpectedException($retryException);
                 }
             }
 

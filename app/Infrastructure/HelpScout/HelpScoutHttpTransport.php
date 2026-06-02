@@ -8,6 +8,7 @@ use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Infrastructure\Support\ApiRetryStrategy;
+use Closure;
 use Exception;
 use GuzzleHttp\Promise\PromiseInterface;
 use HelpScout\Api\ApiClient;
@@ -54,17 +55,12 @@ final readonly class HelpScoutHttpTransport
      */
     public function get(string $endpoint, array $queryParams = []): Response
     {
-        try {
-            return $this->createRequest()
+        return $this->executeWithAuthRetry(
+            // @phpstan-ignore missingType.checkedException, missingType.checkedException (closure exceptions caught in executeWithAuthRetry)
+            fn(): Response => $this->createRequest()
                 ->send('GET', HelpScoutConfig::BASE_URL . $endpoint, ['query' => $queryParams])
-                ->throw();
-        } catch (RequestException $e) {
-            throw HelpScoutErrorHandler::handleRequestException($e);
-        } catch (ConnectionException $e) {
-            throw HelpScoutErrorHandler::handleConnectionException($e);
-        } catch (Exception $e) {
-            throw HelpScoutErrorHandler::handleUnexpectedException($e);
-        }
+                ->throw(),
+        );
     }
 
     /**
@@ -88,17 +84,49 @@ final readonly class HelpScoutHttpTransport
             return [];
         }
 
+        $poolResults = $this->sendPool($requests);
+
+        if ($this->poolHasAuthFailure($poolResults)) {
+            $this->refreshAuthToken();
+            $poolResults = $this->sendPool($requests);
+        }
+
+        return $this->processPoolResults($poolResults);
+    }
+
+    /**
+     * Execute the concurrent GET pool with freshly-fetched auth headers.
+     *
+     * Auth headers are fetched ONCE per pool run to avoid per-request
+     * token refresh race conditions.
+     *
+     * @param array<string, array<string, mixed>> $requests Keyed array of query params
+     *
+     * @return array<string, Response|Throwable>
+     */
+    private function sendPool(array $requests): array
+    {
         /** @var array<string, string> $authHeaders */
         $authHeaders = $this->sdkClient->getAuthenticator()->getAuthHeader();
 
-        /**
-         * @var array<string, Response|Throwable> $poolResults
-         *
-         * @phpstan-ignore staticMethod.dynamicCall
-         */
-        $poolResults = $this->httpFactory->pool(fn(Pool $pool): array => $this->buildPoolGetRequests($pool, $requests, $authHeaders));
+        /** @var array<string, Response|Throwable> */
+        return $this->httpFactory->pool(fn(Pool $pool): array => $this->buildPoolGetRequests($pool, $requests, $authHeaders));
+    }
 
-        return $this->processPoolResults($poolResults);
+    /**
+     * Detect a 401 among pool results.
+     *
+     * In Http::pool an HTTP 401 arrives as a failed Response, not a thrown
+     * exception — only connection-level failures arrive as Throwable.
+     *
+     * @param array<string, Response|Throwable> $poolResults
+     */
+    private function poolHasAuthFailure(array $poolResults): bool
+    {
+        return \array_any(
+            $poolResults,
+            static fn(Response|Throwable $result): bool => $result instanceof Response && $result->status() === 401,
+        );
     }
 
     /**
@@ -200,10 +228,79 @@ final readonly class HelpScoutHttpTransport
     }
 
     /**
+     * Execute a request closure, re-minting the OAuth token and retrying once on a 401.
+     *
+     * The SDK hands out a cached bearer token without an expiry check, so an expired
+     * token yields a 401. Refreshing re-mints it in the SDK's singleton authenticator;
+     * the retried closure then sends the fresh token. A second 401 (creds genuinely
+     * revoked) is translated to AuthenticationExpiredException — no infinite loop.
+     * 403 is not retried: a refresh cannot grant missing permissions.
+     *
+     * @param-immediately-invoked-callable $request
+     *
+     * @param Closure(): Response $request
+     *
+     * @throws InvalidApiRequestException When request parameters are invalid (400)
+     * @throws AuthenticationExpiredException When credentials invalid/expired (401 after retry, or 403)
+     * @throws ExternalServiceUnavailableException When API unavailable, rate limited, or connection fails
+     */
+    private function executeWithAuthRetry(Closure $request): Response
+    {
+        try {
+            return $request();
+        } catch (RequestException $e) {
+            if ($e->response->status() === 401) {
+                $this->refreshAuthToken();
+
+                try {
+                    return $request();
+                } catch (RequestException $retryException) {
+                    throw HelpScoutErrorHandler::handleRequestException($retryException);
+                } catch (ConnectionException $retryException) {
+                    throw HelpScoutErrorHandler::handleConnectionException($retryException);
+                } catch (Exception $retryException) {
+                    throw HelpScoutErrorHandler::handleUnexpectedException($retryException);
+                }
+            }
+
+            throw HelpScoutErrorHandler::handleRequestException($e);
+        } catch (ConnectionException $e) {
+            throw HelpScoutErrorHandler::handleConnectionException($e);
+        } catch (Exception $e) {
+            throw HelpScoutErrorHandler::handleUnexpectedException($e);
+        }
+    }
+
+    /**
+     * Re-mint the OAuth access token via the SDK authenticator.
+     *
+     * The call mutates the SDK's in-memory singleton authenticator, so the next
+     * getAuthHeader() returns the fresh token. A failed re-mint means the app
+     * credentials themselves are dead (revoked/misconfigured) — a permanent outage
+     * that must surface, not routine expiry.
+     *
+     * @throws AuthenticationExpiredException When the token re-mint fails
+     */
+    private function refreshAuthToken(): void
+    {
+        try {
+            $this->sdkClient->getAuthenticator()->fetchAccessAndRefreshToken();
+        } catch (Throwable $e) {
+            Log::error(self::SERVICE_NAME . ' API token refresh failed', [
+                'error' => $e->getMessage(),
+                'exception_class' => $e::class,
+            ]);
+
+            throw new AuthenticationExpiredException(self::SERVICE_NAME, 'Token refresh failed', $e);
+        }
+    }
+
+    /**
      * Create configured HTTP request with auth and retry logic.
      *
-     * Uses the SDK's authenticator to get the OAuth2 bearer token,
-     * which handles token refresh automatically.
+     * Fetches the OAuth2 bearer token from the SDK's authenticator. Token refresh
+     * on expiry is handled explicitly by executeWithAuthRetry (the SDK's own
+     * refresh-on-401 flow is bypassed by this direct-HTTP transport).
      *
      * @throws RuntimeException When SDK fails to provide auth header (token refresh failure)
      */
@@ -212,7 +309,6 @@ final readonly class HelpScoutHttpTransport
         /** @var array<string, string> $authHeaders */
         $authHeaders = $this->sdkClient->getAuthenticator()->getAuthHeader();
 
-        /** @phpstan-ignore staticMethod.dynamicCall (Factory uses __call to proxy to PendingRequest) */
         return $this->httpFactory->withHeaders($authHeaders)
             ->retry(
                 times: $this->config->retryAttempts,
