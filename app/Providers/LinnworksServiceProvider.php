@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Application\Contracts\Catalog\CostPriceChangeLogRepositoryInterface;
 use App\Application\Contracts\DatabaseGatewayInterface;
 use App\Application\Contracts\Linnworks\ConnectivityClientInterface;
 use App\Application\Contracts\Linnworks\InventoryClientInterface;
@@ -24,6 +25,7 @@ use App\Application\Contracts\Linnworks\StockItemRepositoryInterface;
 use App\Application\Contracts\Linnworks\StockItemSupplierRepositoryInterface;
 use App\Application\Contracts\Linnworks\SupplierRepositoryInterface;
 use App\Application\Contracts\LockableCacheInterface;
+use App\Infrastructure\Catalog\Repositories\EloquentCostPriceChangeLogRepository;
 use App\Infrastructure\Linnworks\Dispatchers\QueuedLinnworksBackfillDispatcher;
 use App\Infrastructure\Linnworks\Dispatchers\QueuedLinnworksSyncDispatcher;
 use App\Infrastructure\Linnworks\Dispatchers\QueuedPurchaseOrderBackfillDispatcher;
@@ -74,6 +76,7 @@ final class LinnworksServiceProvider extends ServiceProvider implements Deferrab
         $this->registerOrderClients();
         $this->registerPurchaseOrderClients();
         $this->registerStockRepositories();
+        $this->registerCostPriceChangeLogRepository();
         $this->registerSupplierRepository();
         $this->registerOrderRepositories();
         $this->registerDispatchers();
@@ -164,6 +167,16 @@ final class LinnworksServiceProvider extends ServiceProvider implements Deferrab
         );
     }
 
+    private function registerCostPriceChangeLogRepository(): void
+    {
+        $this->app->singleton(
+            CostPriceChangeLogRepositoryInterface::class,
+            static fn(Container $app): CostPriceChangeLogRepositoryInterface => new EloquentCostPriceChangeLogRepository(
+                $app->make(EloquentGateway::class),
+            ),
+        );
+    }
+
     private function registerSupplierRepository(): void
     {
         $this->app->singleton(
@@ -211,6 +224,7 @@ final class LinnworksServiceProvider extends ServiceProvider implements Deferrab
     {
         return [
             ConnectivityClientInterface::class,
+            CostPriceChangeLogRepositoryInterface::class,
             InventoryClientInterface::class,
             InventoryFieldUpdateClientInterface::class,
             InventoryUpdateClientInterface::class,
