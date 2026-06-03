@@ -5,9 +5,7 @@ declare(strict_types=1);
 namespace App\Infrastructure\Catalog\Product\Mappers;
 
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
-use App\Domain\Catalog\CustomFields\ValueObjects\AbstractCustomFieldValue;
 use App\Domain\Catalog\Filters\ValueObjects\ProductFilter;
-use App\Domain\Catalog\Product\Enums\FreeDeliveryType;
 use App\Domain\Catalog\Product\Enums\ProductInclude;
 use App\Domain\Catalog\Product\ValueObjects\Popularity;
 use App\Domain\Catalog\Product\ValueObjects\ProductImage;
@@ -31,7 +29,6 @@ use App\Infrastructure\Linnworks\Models\StockItemSupplierModel;
 use App\Infrastructure\Shopwired\Factories\CustomFieldFactory;
 use App\Infrastructure\Shopwired\Factories\ProductFilterFactory;
 use App\Infrastructure\Shopwired\ShopwiredAdminUrlResolver;
-use DateTimeImmutable;
 
 /**
  * Assembles ProductViewModel (Eloquent) into ProductView (Domain) for API responses.
@@ -109,16 +106,17 @@ final readonly class ProductViewAssembler
             parentAvailableStock: $model->available_stock,
             parentPhysicalStock: $model->physical_stock,
             saleSettings: self::resolveSaleSettings($model, $includes),
-            freeDelivery: self::resolveFreeDelivery($typedCustomFields),
+            freeDelivery: ProductCustomFieldExtractor::freeDelivery($typedCustomFields),
             suppliers: self::resolveSuppliers($model, $includes),
             inventory: self::resolveInventory($model, $includes),
             stock: self::resolveStock($model, $includes, $allVariations),
             defaultSupplier: $defaultSupplier,
             isComposite: $stockItem?->is_composite,
             priceLastUpdatedAt: $model->price_last_updated_at?->toDateTimeImmutable(),
-            discontinued: self::extractStringField($typedCustomFields, 'discontinued'),
-            preorderDate: self::extractDateTimeField($typedCustomFields, 'preorder_date'),
-            otherStockStatus: self::extractStringField($typedCustomFields, 'other_stock_status'),
+            costPriceLastUpdatedAt: $model->cost_price_last_updated_at?->toDateTimeImmutable(),
+            discontinued: ProductCustomFieldExtractor::string($typedCustomFields, 'discontinued'),
+            preorderDate: ProductCustomFieldExtractor::dateTime($typedCustomFields, 'preorder_date'),
+            otherStockStatus: ProductCustomFieldExtractor::string($typedCustomFields, 'other_stock_status'),
         );
     }
 
@@ -222,42 +220,6 @@ final readonly class ProductViewAssembler
         }
 
         return $variations !== null ? ProductVariationView::commonDefaultSupplier($variations) : null;
-    }
-
-    /** @param list<AbstractCustomFieldValue> $typedCustomFields */
-    private static function extractStringField(array $typedCustomFields, string $fieldName): ?string
-    {
-        $field = \array_find($typedCustomFields, static fn(AbstractCustomFieldValue $cf): bool => $cf->name() === $fieldName);
-
-        if ($field === null) {
-            return null;
-        }
-
-        $value = $field->rawValue();
-
-        return \is_string($value) && $value !== '' ? $value : null;
-    }
-
-    /** @param list<AbstractCustomFieldValue> $typedCustomFields */
-    private static function extractDateTimeField(array $typedCustomFields, string $fieldName): ?DateTimeImmutable
-    {
-        $field = \array_find($typedCustomFields, static fn(AbstractCustomFieldValue $cf): bool => $cf->name() === $fieldName);
-
-        if ($field === null) {
-            return null;
-        }
-
-        $value = $field->rawValue();
-
-        return $value instanceof DateTimeImmutable ? $value : null;
-    }
-
-    /** @param list<AbstractCustomFieldValue> $typedCustomFields */
-    private static function resolveFreeDelivery(array $typedCustomFields): ?FreeDeliveryType
-    {
-        $value = self::extractStringField($typedCustomFields, 'free_delivery');
-
-        return $value !== null ? FreeDeliveryType::tryFrom($value) : null;
     }
 
     /**
