@@ -138,6 +138,7 @@ final readonly class ProductView
         /** @var list<int> */
         array $mainCategoryIds = [],
         public ?DateTimeImmutable $priceLastUpdatedAt = null,
+        public ?DateTimeImmutable $costPriceLastUpdatedAt = null,
         public ?Popularity $popularity = null,
         ?string $discontinued = null,
         ?DateTimeImmutable $preorderDate = null,
