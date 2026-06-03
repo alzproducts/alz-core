@@ -64,6 +64,7 @@ use Override;
  * @property float|null $net_margin_single_unit_min COALESCE(parent net_margin, MIN(variation net_margin_single_unit))
  * @property float|null $net_margin_single_unit_max COALESCE(parent net_margin, MAX(variation net_margin_single_unit))
  * @property CarbonImmutable|null $price_last_updated_at Most recent effective_from across the product's SKUs in operations.price_periods (NULL when no SKU has a price-period row)
+ * @property CarbonImmutable|null $cost_price_last_updated_at Most recent changed_at across the product's SKUs in catalog.cost_price_changes (NULL when cost price never changed through UpdateCostPriceBySupplierUseCase)
  * @property-read Collection<int, ProductVariationViewModel> $variations
  * @property-read StockItemModel|null $stockItem
  */
@@ -150,6 +151,7 @@ final class ProductViewModel extends Model
             'created_at' => 'immutable_datetime',
             'updated_at' => 'immutable_datetime',
             'price_last_updated_at' => 'immutable_datetime',
+            'cost_price_last_updated_at' => 'immutable_datetime',
         ];
     }
 
