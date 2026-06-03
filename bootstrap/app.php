@@ -7,6 +7,7 @@ use App\Presentation\Http\Api\InternalApiExceptionMapper;
 use App\Presentation\Http\Api\Middleware\ForceJsonResponseMiddleware;
 use App\Presentation\Http\Auth\Middleware\ValidateSupabaseJwtMiddleware;
 use App\Presentation\Http\Middleware\EnsureUserApprovedMiddleware;
+use App\Presentation\Http\Middleware\SetCloudflareClientIpMiddleware;
 use App\Presentation\Http\Middleware\SetRequestContextMiddleware;
 use App\Presentation\Http\Middleware\SetRlsContextMiddleware;
 use Illuminate\Foundation\Application;
@@ -38,6 +39,12 @@ return Application::configure(basePath: dirname(__DIR__))
         // Force JSON Accept header on /api/* so expectsJson() is always true —
         // covers routing-time 404s that fire before route-level middleware
         $middleware->prepend(ForceJsonResponseMiddleware::class);
+
+        // Behind Cloudflare, Railway rewrites X-Forwarded-For with a rotating
+        // Cloudflare egress IP; fold the real client (CF-Connecting-IP) back in
+        // so every downstream $request->ip() read is correct. Prepended last so
+        // it runs first — the rewrite must precede any $request->ip() read.
+        $middleware->prepend(SetCloudflareClientIpMiddleware::class);
 
         // Correlation IDs: trace_id for all requests, propagates to queued jobs
         $middleware->append(SetRequestContextMiddleware::class);
