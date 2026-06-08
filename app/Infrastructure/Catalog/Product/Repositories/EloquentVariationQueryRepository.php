@@ -51,7 +51,7 @@ final readonly class EloquentVariationQueryRepository implements VariationQueryR
         return $this->eloquentGateway->paginate(
             modelClass: self::VIEW_MODEL_CLASS,
             scope: self::buildScope($query),
-            relations: ['product', 'stockItem.suppliers'],
+            relations: ['product', 'stockItem.suppliers', 'extraData'],
             mapper: fn(ProductVariationViewModel $model): VariationListItem => $this->assembler->toListItem($model, $query->includes),
             perPage: $query->pagination->perPage,
             page: $query->pagination->page,
