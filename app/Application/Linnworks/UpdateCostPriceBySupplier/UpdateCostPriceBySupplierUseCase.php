@@ -95,7 +95,7 @@ final readonly class UpdateCostPriceBySupplierUseCase
             $this->logBulkApiFailure($supplierName, \count($mergedStats), $apiError);
             $apiFailures = CostPriceBySupplierTransformer::buildApiFailures($resolved, 'Linnworks API error: ' . $apiError->getMessage(), $skuToGuid);
 
-            return [new CostPriceUpdateResult(\count($commands), 0, [...$allFailures, ...$apiFailures]), $skuToGuid, $matchedStatBySku];
+            return [new CostPriceUpdateResult(\count($commands), 0, [...$allFailures, ...$apiFailures], wholeBatchWriteFailed: true), $skuToGuid, $matchedStatBySku];
         }
 
         return [new CostPriceUpdateResult(\count($commands), \count($mergedStats), $allFailures), $skuToGuid, $matchedStatBySku];

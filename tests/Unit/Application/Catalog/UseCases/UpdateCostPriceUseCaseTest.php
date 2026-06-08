@@ -157,6 +157,7 @@ final class UpdateCostPriceUseCaseTest extends TestCase
         self::assertSame(2, $result->total);
         self::assertSame(2, $result->succeeded);
         self::assertSame([], $result->failures);
+        self::assertFalse($result->wholeBatchWriteFailed);
     }
 
     #[Test]
@@ -300,6 +301,8 @@ final class UpdateCostPriceUseCaseTest extends TestCase
         self::assertSame('SKU-001', $result->failures[0]->sku->value);
         self::assertStringContainsString('Local DB update failed', $result->failures[0]->error);
         self::assertNotNull($result->failures[0]->stockItemId);
+        // The Linnworks write succeeded; only the local mirror failed — not a whole-batch write outage.
+        self::assertFalse($result->wholeBatchWriteFailed);
     }
 
     #[Test]
@@ -362,6 +365,7 @@ final class UpdateCostPriceUseCaseTest extends TestCase
         self::assertSame(0, $result->succeeded);
         self::assertCount(2, $result->failures);
         self::assertStringContainsString('Linnworks API error:', $result->failures[0]->error);
+        self::assertTrue($result->wholeBatchWriteFailed);
     }
 
     #[Test]
