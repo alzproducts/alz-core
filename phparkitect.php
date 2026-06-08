@@ -402,10 +402,10 @@ return static function (Config $config): void {
                        'App\Application\Shopwired\Enums',
                    ))
                    ->should(
-                       new MatchOneOfTheseNames(['*UseCase', '*Service', '*Transformer', '*Formatter', '*Sorter', '*Resolver', '*Interface', '*DTO', '*Exception', '*Result', '*Params', '*Command', '*Validator']),
+                       new MatchOneOfTheseNames(['*UseCase', '*Service', '*Transformer', '*Formatter', '*Parser', '*Sorter', '*Resolver', '*Interface', '*DTO', '*Exception', '*Result', '*Params', '*Command', '*Validator']),
                    )
                    ->because(
-                       'Application layer classes should be clearly identifiable as use cases, services, transformers, formatters, sorters, resolvers, interfaces, commands, validators, or parameter objects.',
+                       'Application layer classes should be clearly identifiable as use cases, services, transformers, formatters, parsers, sorters, resolvers, interfaces, commands, validators, or parameter objects.',
                    );
 
     // RULE 5: No interfaces in Infrastructure

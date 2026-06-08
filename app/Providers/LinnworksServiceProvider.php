@@ -7,6 +7,7 @@ namespace App\Providers;
 use App\Application\Contracts\Catalog\CostPriceChangeLogRepositoryInterface;
 use App\Application\Contracts\DatabaseGatewayInterface;
 use App\Application\Contracts\Linnworks\ConnectivityClientInterface;
+use App\Application\Contracts\Linnworks\CostPriceUpdateDispatcherInterface;
 use App\Application\Contracts\Linnworks\InventoryClientInterface;
 use App\Application\Contracts\Linnworks\InventoryFieldUpdateClientInterface;
 use App\Application\Contracts\Linnworks\InventoryUpdateClientInterface;
@@ -26,6 +27,7 @@ use App\Application\Contracts\Linnworks\StockItemSupplierRepositoryInterface;
 use App\Application\Contracts\Linnworks\SupplierRepositoryInterface;
 use App\Application\Contracts\LockableCacheInterface;
 use App\Infrastructure\Catalog\Repositories\EloquentCostPriceChangeLogRepository;
+use App\Infrastructure\Linnworks\Dispatchers\QueuedCostPriceUpdateDispatcher;
 use App\Infrastructure\Linnworks\Dispatchers\QueuedLinnworksBackfillDispatcher;
 use App\Infrastructure\Linnworks\Dispatchers\QueuedLinnworksSyncDispatcher;
 use App\Infrastructure\Linnworks\Dispatchers\QueuedPurchaseOrderBackfillDispatcher;
@@ -212,6 +214,7 @@ final class LinnworksServiceProvider extends ServiceProvider implements Deferrab
         $this->app->singleton(LinnworksSyncDispatcherInterface::class, QueuedLinnworksSyncDispatcher::class);
         $this->app->singleton(LinnworksBackfillDispatcherInterface::class, QueuedLinnworksBackfillDispatcher::class);
         $this->app->singleton(PurchaseOrderBackfillDispatcherInterface::class, QueuedPurchaseOrderBackfillDispatcher::class);
+        $this->app->singleton(CostPriceUpdateDispatcherInterface::class, QueuedCostPriceUpdateDispatcher::class);
     }
 
     /**
@@ -225,6 +228,7 @@ final class LinnworksServiceProvider extends ServiceProvider implements Deferrab
         return [
             ConnectivityClientInterface::class,
             CostPriceChangeLogRepositoryInterface::class,
+            CostPriceUpdateDispatcherInterface::class,
             InventoryClientInterface::class,
             InventoryFieldUpdateClientInterface::class,
             InventoryUpdateClientInterface::class,
