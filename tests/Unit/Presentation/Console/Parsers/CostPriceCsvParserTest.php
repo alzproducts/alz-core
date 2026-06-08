@@ -67,6 +67,17 @@ final class CostPriceCsvParserTest extends TestCase
     }
 
     #[Test]
+    public function it_rejects_scientific_notation_cost(): void
+    {
+        $file = $this->makeCsv("supplier,sku,cost_price\nAcmeCo,SKU-001,1e3\n");
+
+        [$batches, $errors] = $this->parser->parse($file);
+
+        self::assertSame([], $batches);
+        self::assertSame("Row 2: cost_price must be a number >= 0, got '1e3'", $errors[0]);
+    }
+
+    #[Test]
     public function it_collects_all_bad_rows_with_line_numbers_and_returns_no_batches(): void
     {
         $file = $this->makeCsv("supplier,sku,cost_price\n,SKU-001,10.50\nAcmeCo,SKU-002,-5\nAcmeCo,SKU-003,abc\nAcmeCo,,3.00\n");

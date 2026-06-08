@@ -68,23 +68,31 @@ final class UpdateCostPriceBatchJob implements ShouldQueue
     }
 
     /**
-     * @throws ValidationFailedException When any SKU lacks the specified supplier
      * @throws ResourceNotFoundException When supplier not found in Linnworks
      * @throws InvalidApiRequestException When parameters invalid
      * @throws InvalidApiResponseException When API response malformed
      * @throws AuthenticationExpiredException When credentials invalid
-     * @throws ExternalServiceUnavailableException When API/DB unavailable, or the whole batch failed to write
+     * @throws ExternalServiceUnavailableException When the whole batch failed to write to Linnworks (drives retry)
      * @throws DatabaseOperationFailedException On local DB query failure
      * @throws DuplicateRecordException On local DB constraint violation
      */
     public function handle(UpdateCostPriceBySupplierUseCase $useCase): void
     {
-        $result = $useCase->execute($this->supplierName, $this->commands);
+        try {
+            $result = $useCase->execute($this->supplierName, $this->commands);
+        } catch (ValidationFailedException $e) {
+            // A bad SKU↔supplier link is permanent operator-input error — fail straight to
+            // failed_jobs rather than burning all $tries retrying an unfixable batch.
+            $this->fail($e);
 
-        // The use case reports a whole-batch write outage as an all-failed result, preserving the
-        // synchronous endpoint's 200 + per-row reasons contract. On the queue that would silently
-        // drop the change, so surface it as a transient failure to drive retry / failed_jobs.
-        if ($result->total > 0 && $result->succeeded === 0) {
+            return;
+        }
+
+        // Retry only a genuine whole-batch Linnworks write outage. A permanently-unresolvable batch
+        // or a local-DB-mirror failure are NOT retried — they mirror the synchronous endpoint
+        // (failures logged + reconciliation syncs already dispatched), so retrying would only
+        // re-record the audit trail and re-fire those syncs without recovering anything.
+        if ($result->wholeBatchWriteFailed) {
             throw new ExternalServiceUnavailableException('Linnworks');
         }
     }
