@@ -8,8 +8,8 @@ use App\Application\Contracts\LookupTableProviderInterface;
 use App\Application\Contracts\MixpanelClientInterface;
 use App\Application\Mixpanel\UseCases\SyncLookupTableUseCase;
 use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
+use App\Infrastructure\Jobs\Middleware\ServiceCircuitBreaker;
 use App\Infrastructure\Jobs\Mixpanel\SyncCampaignLookupTableJob;
-use Illuminate\Queue\Middleware\ThrottlesExceptions;
 use Mockery;
 use Mockery\MockInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -59,7 +59,7 @@ final class SyncCampaignLookupTableJobTest extends TestCase
         $middleware = $job->middleware();
 
         $this->assertCount(2, $middleware);
-        $this->assertInstanceOf(ThrottlesExceptions::class, $middleware[0]);
+        $this->assertInstanceOf(ServiceCircuitBreaker::class, $middleware[0]);
         $this->assertInstanceOf(HandleApiExceptions::class, $middleware[1]);
     }
 

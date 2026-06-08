@@ -7,9 +7,9 @@ namespace Tests\Unit\Infrastructure\Jobs\Mixpanel;
 use App\Application\Mixpanel\Results\SyncOrdersToMixpanelResult;
 use App\Application\Mixpanel\UseCases\SyncOrdersToMixpanelUseCase;
 use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
+use App\Infrastructure\Jobs\Middleware\ServiceCircuitBreaker;
 use App\Infrastructure\Jobs\Mixpanel\SyncOrdersToMixpanelJob;
 use DateTimeImmutable;
-use Illuminate\Queue\Middleware\ThrottlesExceptions;
 use Mockery;
 use Mockery\MockInterface;
 use Override;
@@ -59,7 +59,7 @@ final class SyncOrdersToMixpanelJobTest extends TestCase
         $middleware = $this->job->middleware();
 
         $this->assertCount(2, $middleware);
-        $this->assertInstanceOf(ThrottlesExceptions::class, $middleware[0]);
+        $this->assertInstanceOf(ServiceCircuitBreaker::class, $middleware[0]);
         $this->assertInstanceOf(HandleApiExceptions::class, $middleware[1]);
     }
 

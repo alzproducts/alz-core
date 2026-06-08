@@ -6,9 +6,9 @@ namespace Tests\Unit\Infrastructure\Jobs\Mixpanel;
 
 use App\Application\AdSpend\UseCases\SyncAdSpendUseCase;
 use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
+use App\Infrastructure\Jobs\Middleware\ServiceCircuitBreaker;
 use App\Infrastructure\Jobs\Mixpanel\SyncBingAdsToMixpanelJob;
 use DateTimeImmutable;
-use Illuminate\Queue\Middleware\ThrottlesExceptions;
 use Mockery;
 use Mockery\MockInterface;
 use Override;
@@ -56,7 +56,7 @@ final class SyncBingAdsToMixpanelJobTest extends TestCase
         $middleware = $this->job->middleware();
 
         $this->assertCount(2, $middleware);
-        $this->assertInstanceOf(ThrottlesExceptions::class, $middleware[0]);
+        $this->assertInstanceOf(ServiceCircuitBreaker::class, $middleware[0]);
         $this->assertInstanceOf(HandleApiExceptions::class, $middleware[1]);
     }
 
