@@ -20,9 +20,7 @@
 /public/build
 /public/hot
 /public/storage
-/storage/*.key
-/storage/framework
-/storage/pail
+/storage
 /vendor
 Homestead.json
 Homestead.yaml
