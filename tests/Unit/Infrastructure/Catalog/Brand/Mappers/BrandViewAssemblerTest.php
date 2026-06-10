@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Infrastructure\Catalog\Brand\Mappers;
 
 use App\Domain\Catalog\Brand\Enums\BrandInclude;
+use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldValueList;
 use App\Domain\Catalog\CustomFields\ValueObjects\StringCustomFieldValue;
 use App\Infrastructure\Catalog\Brand\Mappers\BrandViewAssembler;
 use App\Infrastructure\Shopwired\Factories\CustomFieldFactory;
@@ -92,11 +93,11 @@ final class BrandViewAssemblerTest extends TestCase
             ->with(Mockery::on(static fn(array $fields): bool => ! \array_key_exists('description_2', $fields)
                     && \array_key_exists('material', $fields)
                     && $fields['material'] === 'Cotton'))
-            ->andReturn([$typedField]);
+            ->andReturn(CustomFieldValueList::from([$typedField]));
 
         $result = $this->assembler->toViewDomain($model, [BrandInclude::CustomFields]);
 
-        self::assertSame([$typedField], $result->customFields);
+        self::assertSame([$typedField], $result->customFields?->toList());
     }
 
     #[Test]
@@ -108,11 +109,11 @@ final class BrandViewAssemblerTest extends TestCase
             ->shouldReceive('fromRawFields')
             ->once()
             ->with([])
-            ->andReturn([]);
+            ->andReturn(CustomFieldValueList::empty());
 
         $result = $this->assembler->toViewDomain($model, [BrandInclude::CustomFields]);
 
-        self::assertSame([], $result->customFields);
+        self::assertSame([], $result->customFields?->toList());
     }
 
     // ========================================================================

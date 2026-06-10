@@ -9,6 +9,7 @@ use App\Domain\Catalog\CustomFields\Enums\CustomFieldType;
 use App\Domain\Catalog\CustomFields\ValueObjects\AbstractCustomFieldValue;
 use App\Domain\Catalog\CustomFields\ValueObjects\ConfiguredFieldDefinition;
 use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldDefinition;
+use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldValueList;
 use App\Domain\Catalog\CustomFields\ValueObjects\StringCustomFieldValue;
 use App\Domain\Catalog\Product\Enums\FreeDeliveryType;
 use App\Domain\Catalog\Product\ValueObjects\ProductLinks;
@@ -1061,7 +1062,7 @@ final class ProductViewTest extends TestCase
             categoryIds: $categoryIds,
             variations: $variations,
             images: [],
-            customFields: $customFields,
+            customFields: CustomFieldValueList::from($customFields),
             filters: [],
             sortOrder: null,
             createdAt: $createdAt ?? new DateTimeImmutable('2024-01-01'),

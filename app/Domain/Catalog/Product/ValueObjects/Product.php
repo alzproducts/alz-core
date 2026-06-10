@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\Catalog\Product\ValueObjects;
 
-use App\Domain\Catalog\CustomFields\ValueObjects\AbstractCustomFieldValue;
+use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldValueList;
 use App\Domain\Catalog\Filters\ValueObjects\ProductFilter;
 use App\Domain\Catalog\Product\Concerns\BasicProductTrait;
 use App\Domain\Catalog\Product\Contracts\BasicProductInterface;
@@ -58,7 +58,7 @@ final readonly class Product implements BasicProductInterface
      * @param list<ProductVariation>|null $variations Product variations (null=not provided, []=none)
      * @param list<ProductImage> $images Product images
      * @param array<string, mixed> $rawCustomFields Raw custom field data (name => value) for storage
-     * @param list<AbstractCustomFieldValue> $customFields Typed custom field values (populated on read)
+     * @param CustomFieldValueList $customFields Typed custom field values (populated on read)
      * @param array<int|string, list<string>> $rawFilters Raw filter data (optionNo => values) for storage
      * @param list<ProductFilter> $filters Typed filter values (populated on read)
      * @param int|null $sortOrder ShopWired sort order (null = unknown/not fetched)
@@ -88,7 +88,7 @@ final readonly class Product implements BasicProductInterface
         public ?array $variations,
         public array $images,
         public array $rawCustomFields,
-        public array $customFields,
+        public CustomFieldValueList $customFields,
         public array $rawFilters,
         public array $filters,
         public ?int $sortOrder,

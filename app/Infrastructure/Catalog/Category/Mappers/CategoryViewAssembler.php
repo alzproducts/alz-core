@@ -9,7 +9,7 @@ use App\Domain\Catalog\Category\ValueObjects\CategoryImage;
 use App\Domain\Catalog\Category\ValueObjects\CategoryLinks;
 use App\Domain\Catalog\Category\ValueObjects\CategoryView;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
-use App\Domain\Catalog\CustomFields\ValueObjects\AbstractCustomFieldValue;
+use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldValueList;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Data\MissingRequiredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
@@ -93,7 +93,6 @@ final readonly class CategoryViewAssembler
 
     /**
      * @param  list<CategoryInclude>  $includes
-     * @return list<AbstractCustomFieldValue>|null
      *
      * @throws InvalidCustomFieldValueException
      * @throws MissingRequiredDataException
@@ -101,7 +100,7 @@ final readonly class CategoryViewAssembler
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      */
-    private function resolveCustomFields(CategoryModel $model, array $includes): ?array
+    private function resolveCustomFields(CategoryModel $model, array $includes): ?CustomFieldValueList
     {
         return \in_array(CategoryInclude::CustomFields, $includes, true)
             ? $this->customFieldFactory->fromRawFields($model->custom_fields)

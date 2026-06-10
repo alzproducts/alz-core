@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Domain\Catalog\Product\Resolvers;
 
+use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldValueList;
 use App\Domain\Catalog\Product\Resolvers\VariationPriceResolver;
 use App\Domain\Catalog\Product\ValueObjects\Product;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariation;
@@ -297,7 +298,7 @@ final class VariationPriceResolverTest extends TestCase
             variations: [],
             images: [],
             rawCustomFields: [],
-            customFields: [],
+            customFields: CustomFieldValueList::empty(),
             rawFilters: [],
             filters: [],
             sortOrder: null,

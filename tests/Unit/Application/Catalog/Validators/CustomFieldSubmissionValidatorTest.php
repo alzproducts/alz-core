@@ -10,6 +10,7 @@ use App\Domain\Catalog\CustomFields\Enums\CustomFieldItemType;
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldType;
 use App\Domain\Catalog\CustomFields\Exceptions\CustomFieldNotFoundException;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
+use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldValueList;
 use Mockery;
 use Mockery\MockInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -41,7 +42,7 @@ final class CustomFieldSubmissionValidatorTest extends TestCase
             ->shouldReceive('fromRawFields')
             ->once()
             ->with($rawFields)
-            ->andReturn([]);
+            ->andReturn(CustomFieldValueList::empty());
 
         $validator = new CustomFieldSubmissionValidator($this->factory, $rawFields);
         $result = $validator->validate();

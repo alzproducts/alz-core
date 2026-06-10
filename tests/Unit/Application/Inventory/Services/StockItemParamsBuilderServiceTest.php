@@ -7,6 +7,7 @@ namespace Tests\Unit\Application\Inventory\Services;
 use App\Application\Inventory\Commands\GenerateVariantSkusCommand;
 use App\Application\Inventory\DTOs\VariationProcessingContextDTO;
 use App\Application\Inventory\Services\StockItemParamsBuilderService;
+use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldValueList;
 use App\Domain\Catalog\Product\Resolvers\VariationImageResolver;
 use App\Domain\Catalog\Product\Resolvers\VariationOptionMatcher;
 use App\Domain\Catalog\Product\Resolvers\VariationPriceResolver;
@@ -449,7 +450,7 @@ final class StockItemParamsBuilderServiceTest extends TestCase
             variations: [],
             images: [],
             rawCustomFields: [],
-            customFields: [],
+            customFields: CustomFieldValueList::empty(),
             rawFilters: [],
             filters: [],
             sortOrder: null,

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Infrastructure\Shopwired\Mappers;
 
+use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldValueList;
 use App\Domain\Catalog\Product\ValueObjects\Product;
 use App\Domain\Catalog\Product\ValueObjects\ProductImage;
 use App\Infrastructure\Catalog\Product\Mappers\ProductModelMapper;
@@ -162,7 +163,7 @@ final class ProductModelMapperWebhookTest extends TestCase
             variations: [],
             images: $images,
             rawCustomFields: $rawCustomFields,
-            customFields: [],
+            customFields: CustomFieldValueList::empty(),
             rawFilters: $rawFilters,
             filters: [],
             sortOrder: null,

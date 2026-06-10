@@ -51,7 +51,7 @@ final class CategoryDetailResource extends JsonResource
             $data['parent_ids'] = \array_map(static fn(IntId $id): int => $id->value, $category->parentIds);
         }
         if ($result->hasInclude(CategoryInclude::CustomFields) && $category->customFields !== null) {
-            $data['custom_fields'] = CustomFieldValueResource::collection($category->customFields)->resolve($request);
+            $data['custom_fields'] = CustomFieldValueResource::collection($category->customFields->toList())->resolve($request);
         }
         return $data;
     }

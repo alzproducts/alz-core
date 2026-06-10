@@ -8,6 +8,7 @@ use App\Application\Contracts\ChatNotificationInterface;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Application\Contracts\Shopwired\SaleSettingsRepositoryInterface;
 use App\Application\Notifications\DTOs\PriceUpdateAlertDataDTO;
+use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldValueList;
 use App\Domain\Catalog\Product\Events\ProductPricingUpdatedEvent;
 use App\Domain\Catalog\Product\ValueObjects\ProductLinks;
 use App\Domain\Catalog\Product\ValueObjects\ProductRetailPricing;
@@ -173,7 +174,7 @@ final class ProductPricingUpdatedSlackListenerTest extends TestCase
             categoryIds: [],
             variations: [],
             images: [],
-            customFields: [],
+            customFields: CustomFieldValueList::empty(),
             filters: [],
             sortOrder: null,
             createdAt: new DateTimeImmutable('2024-01-01'),

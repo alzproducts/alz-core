@@ -15,6 +15,7 @@ use App\Domain\Catalog\CustomFields\Enums\CustomFieldType;
 use App\Domain\Catalog\CustomFields\ValueObjects\AbstractCustomFieldValue;
 use App\Domain\Catalog\CustomFields\ValueObjects\ConfiguredFieldDefinition;
 use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldDefinition;
+use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldValueList;
 use App\Domain\Catalog\CustomFields\ValueObjects\StringCustomFieldValue;
 use App\Domain\Catalog\Product\Enums\ProductInclude;
 use App\Domain\Catalog\Product\ValueObjects\ProductView;
@@ -313,7 +314,7 @@ final class ReconcileProductSaleStateUseCaseTest extends TestCase
     private static function createView(array $customFields = []): ProductView&MockInterface
     {
         $view = Mockery::mock(ProductView::class);
-        $view->customFields = $customFields;
+        $view->customFields = CustomFieldValueList::from($customFields);
 
         return $view;
     }

@@ -51,8 +51,8 @@ final class CustomFieldValueFactoryTest extends TestCase
         $result = $this->factory->fromRawFields(['color' => 'Red']);
 
         self::assertCount(1, $result);
-        self::assertInstanceOf(StringCustomFieldValue::class, $result[0]);
-        self::assertSame('Red', $result[0]->rawValue());
+        self::assertInstanceOf(StringCustomFieldValue::class, $result->toList()[0]);
+        self::assertSame('Red', $result->toList()[0]->rawValue());
     }
 
     #[Test]
@@ -111,8 +111,8 @@ final class CustomFieldValueFactoryTest extends TestCase
         $result = $this->factory->fromRawFields(['preorder_date' => '2026-06-15']);
 
         self::assertCount(1, $result);
-        self::assertInstanceOf(DateTimeCustomFieldValue::class, $result[0]);
-        self::assertSame('2026-06-15', $result[0]->rawValue()->format('Y-m-d'));
+        self::assertInstanceOf(DateTimeCustomFieldValue::class, $result->toList()[0]);
+        self::assertSame('2026-06-15', $result->toList()[0]->rawValue()->format('Y-m-d'));
     }
 
     #[Test]
@@ -125,7 +125,7 @@ final class CustomFieldValueFactoryTest extends TestCase
         $result = $this->factory->fromRawFields(['preorder_date' => 1718409600]);
 
         self::assertCount(1, $result);
-        self::assertInstanceOf(DateTimeCustomFieldValue::class, $result[0]);
+        self::assertInstanceOf(DateTimeCustomFieldValue::class, $result->toList()[0]);
     }
 
     #[Test]
@@ -153,7 +153,7 @@ final class CustomFieldValueFactoryTest extends TestCase
 
         $result = $this->factory->fromRawFields(['size' => null]);
 
-        self::assertSame([], $result);
+        self::assertSame([], $result->toList());
     }
 
     #[Test]
@@ -167,7 +167,7 @@ final class CustomFieldValueFactoryTest extends TestCase
         $result = $this->factory->fromRawFields(['color' => 'Red', 'size' => null]);
 
         self::assertCount(1, $result);
-        self::assertSame('Red', $result[0]->rawValue());
+        self::assertSame('Red', $result->toList()[0]->rawValue());
     }
 
     // ========================================================================

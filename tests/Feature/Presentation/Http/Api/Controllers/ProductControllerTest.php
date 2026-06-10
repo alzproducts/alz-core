@@ -6,7 +6,14 @@ namespace Tests\Feature\Presentation\Http\Api\Controllers;
 
 use App\Application\Catalog\Queries\ProductDetailQueryParams;
 use App\Application\Catalog\Queries\ProductListQueryParams;
+use App\Application\Contracts\Catalog\CustomFieldRepositoryInterface;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
+use App\Domain\Catalog\CustomFields\Enums\CustomFieldItemType;
+use App\Domain\Catalog\CustomFields\Enums\CustomFieldType;
+use App\Domain\Catalog\CustomFields\ValueObjects\ConfiguredFieldDefinition;
+use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldDefinition;
+use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldValueList;
+use App\Domain\Catalog\CustomFields\ValueObjects\StringCustomFieldValue;
 use App\Domain\Catalog\Product\Enums\ProductFilterField;
 use App\Domain\Catalog\Product\Enums\ProductInclude;
 use App\Domain\Catalog\Product\Enums\ProductSortField;
@@ -20,6 +27,7 @@ use App\Domain\Catalog\Product\ValueObjects\ProductViewMeta;
 use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Shared\Pagination\Enums\SortDirection;
 use App\Domain\ValueObjects\PaginatedList;
+use App\Domain\ValueObjects\Uuid;
 use App\Presentation\Http\Api\Controllers\ProductController;
 use DateTimeImmutable;
 use DateTimeInterface;
@@ -930,7 +938,7 @@ final class ProductControllerTest extends TestCase
             categoryIds: [],
             variations: [$variation],
             images: [],
-            customFields: [],
+            customFields: CustomFieldValueList::empty(),
             filters: [],
             sortOrder: null,
             createdAt: new DateTimeImmutable('2024-01-01'),
@@ -1149,10 +1157,66 @@ final class ProductControllerTest extends TestCase
 
     /*
     |--------------------------------------------------------------------------
+    | Regression: COR-168 — custom-fields endpoint serialises the wrapper
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function custom_fields_endpoint_serialises_a_populated_custom_field_value_list(): void
+    {
+        // A non-empty CustomFieldValueList must reach CustomFieldValueResource::collection()
+        // via ->toList(). Handing the wrapper itself makes Laravel's CollectsResources call
+        // ->first() on the non-array object, which 500s — the bug this guards against.
+        $product = $this->createProduct(
+            id: 42,
+            title: 'Product With Custom Fields',
+            customFields: CustomFieldValueList::from([$this->stringCustomField('material', 'oak')]),
+        );
+
+        $this->productRepository
+            ->shouldReceive('findDetailedProductView')
+            ->once()
+            ->andReturn($product);
+
+        $customFieldRepository = Mockery::mock(CustomFieldRepositoryInterface::class);
+        $customFieldRepository->shouldReceive('findByItemType')->once()->andReturn([]);
+        $this->app->instance(CustomFieldRepositoryInterface::class, $customFieldRepository);
+
+        $response = $this->asApprovedUser()->getJson('/api/products/42/custom-fields');
+
+        $response->assertStatus(200);
+        $response->assertJsonCount(1, 'data');
+        $response->assertJsonPath('data.0.name', 'material');
+        $response->assertJsonPath('data.0.value', 'oak');
+    }
+
+    /*
+    |--------------------------------------------------------------------------
     | Helpers
     |--------------------------------------------------------------------------
     */
 
+
+    private function stringCustomField(string $name, string $value): StringCustomFieldValue
+    {
+        return new StringCustomFieldValue(
+            new ConfiguredFieldDefinition(
+                internalId: new Uuid('11111111-2222-3333-4444-555555555555'),
+                base: new CustomFieldDefinition(
+                    id: 1,
+                    name: $name,
+                    type: CustomFieldType::Text,
+                    label: \ucfirst($name),
+                    itemType: CustomFieldItemType::Product,
+                    sortOrder: null,
+                    allowedValues: null,
+                ),
+                generalSettings: null,
+                productSettings: null,
+            ),
+            $value,
+        );
+    }
 
     private function createProductWithVariations(): ProductView
     {
@@ -1204,7 +1268,7 @@ final class ProductControllerTest extends TestCase
             categoryIds: [],
             variations: [$variation],
             images: [],
-            customFields: [],
+            customFields: CustomFieldValueList::empty(),
             filters: [],
             sortOrder: null,
             createdAt: new DateTimeImmutable('2024-01-01'),
@@ -1224,6 +1288,7 @@ final class ProductControllerTest extends TestCase
         ?string $discontinued = null,
         ?DateTimeImmutable $preorderDate = null,
         ?string $otherStockStatus = null,
+        ?CustomFieldValueList $customFields = null,
     ): ProductView {
         return new ProductView(
             externalId: $id,
@@ -1251,7 +1316,7 @@ final class ProductControllerTest extends TestCase
             categoryIds: [],
             variations: null,
             images: [],
-            customFields: [],
+            customFields: $customFields ?? CustomFieldValueList::empty(),
             filters: [],
             sortOrder: null,
             createdAt: new DateTimeImmutable('2024-01-01'),
@@ -1327,7 +1392,7 @@ final class ProductControllerTest extends TestCase
             categoryIds: [],
             variations: null,
             images: [],
-            customFields: [],
+            customFields: CustomFieldValueList::empty(),
             filters: [],
             sortOrder: null,
             createdAt: new DateTimeImmutable('2024-01-01'),

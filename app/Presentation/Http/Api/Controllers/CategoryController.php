@@ -109,6 +109,6 @@ final readonly class CategoryController
             fieldNames: $data->fieldNames(),
         );
 
-        return CustomFieldValueResource::collection($fields);
+        return CustomFieldValueResource::collection($fields->toList());
     }
 }
