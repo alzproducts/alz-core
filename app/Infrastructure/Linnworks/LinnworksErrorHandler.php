@@ -25,6 +25,19 @@ final class LinnworksErrorHandler
     private const string SERVICE_NAME = 'Linnworks';
 
     /**
+     * Substrings identifying a transient backend failure that Linnworks wraps in an HTTP 400.
+     *
+     * The Dashboards/ExecuteCustomScriptQuery endpoint runs SQL against Linnworks' own
+     * database; when that backend is overloaded it returns a 400 whose body is a SQL Server
+     * connection-timeout message rather than a real validation error. Matched case-insensitively.
+     */
+    private const array TRANSIENT_BAD_REQUEST_SIGNATURES = [
+        'Connection Timeout Expired',
+        'pre-login handshake',
+        'timeout period elapsed',
+    ];
+
+    /**
      * Route HTTP failures to specific handlers by status code.
      */
     public static function handleRequestException(
@@ -41,22 +54,58 @@ final class LinnworksErrorHandler
     }
 
     /**
-     * Handle 400/422 Bad Request (malformed request - programming error).
+     * Handle 400/414/422 Bad Request.
+     *
+     * Normally a malformed request (permanent — no retry). EXCEPTION: Linnworks reports some
+     * transient backend failures (SQL connection timeouts) with a 400 status; those are detected
+     * by response-body signature and translated to a transient outage so the job retries instead
+     * of failing permanently.
      */
-    private static function handleBadRequest(RequestException $e): InvalidApiRequestException
+    private static function handleBadRequest(RequestException $e): InvalidApiRequestException|ExternalServiceUnavailableException
     {
-        $message = $e->response->json('Message');
+        $rawMessage = $e->response->json('Message');
+        $message = \is_string($rawMessage) ? $rawMessage : null;
 
+        if ($message !== null && self::isTransientFailureMessage($message)) {
+            return self::handleTransientBadRequest($e, $message);
+        }
+
+        return self::handlePermanentBadRequest($e, $message);
+    }
+
+    private static function handleTransientBadRequest(RequestException $e, string $message): ExternalServiceUnavailableException
+    {
+        Log::warning(self::SERVICE_NAME . ' API transient failure reported as 400', [
+            'status' => $e->response->status(),
+            'response_message' => $message,
+        ]);
+
+        return new ExternalServiceUnavailableException(self::SERVICE_NAME, previous: $e);
+    }
+
+    private static function handlePermanentBadRequest(RequestException $e, ?string $message): InvalidApiRequestException
+    {
         Log::error(self::SERVICE_NAME . ' API invalid request', [
             'status' => $e->response->status(),
             'error' => $e->getMessage(),
-            'response_message' => \is_string($message) ? $message : 'No message provided',
+            'response_message' => $message ?? 'No message provided',
         ]);
 
         return new InvalidApiRequestException(
             self::SERVICE_NAME,
-            \is_string($message) ? $message : 'Invalid request parameters',
+            $message ?? 'Invalid request parameters',
             $e,
+        );
+    }
+
+    /**
+     * Detect a Linnworks transient-failure message delivered with a 400 status.
+     */
+    private static function isTransientFailureMessage(string $message): bool
+    {
+        return \array_any(
+            self::TRANSIENT_BAD_REQUEST_SIGNATURES,
+            static fn(string $signature): bool => \mb_stripos($message, $signature) !== false,
         );
     }
 

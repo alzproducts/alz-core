@@ -10,7 +10,7 @@ use App\Application\Contracts\Shopwired\BrandRepositoryInterface;
 use App\Domain\Catalog\Brand\Enums\BrandInclude;
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldItemType;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
-use App\Domain\Catalog\CustomFields\ValueObjects\AbstractCustomFieldValue;
+use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldValueList;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
@@ -38,8 +38,6 @@ final readonly class GetBrandCustomFieldsUseCase
     /**
      * @param list<string> $fieldNames Optional filter — only return these field names
      *
-     * @return list<AbstractCustomFieldValue>
-     *
      * @throws ResourceNotFoundException When no brand matches the ID
      * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
      * @throws DatabaseOperationFailedException On query failure
@@ -48,7 +46,7 @@ final readonly class GetBrandCustomFieldsUseCase
      * @throws RecordNotFoundException When brand row not found in database
      * @throws MissingRequiredDataException When custom field definitions table is empty
      */
-    public function execute(int $brandId, array $fieldNames = []): array
+    public function execute(int $brandId, array $fieldNames = []): CustomFieldValueList
     {
         $this->logStart($brandId, $fieldNames);
 
@@ -58,10 +56,12 @@ final readonly class GetBrandCustomFieldsUseCase
         );
 
         $definitions = $this->customFieldRepository->findByItemType(CustomFieldItemType::Brand);
-        $fields = CustomFieldMergerService::mergeWithDefinitions($brand->customFields ?? [], $definitions);
-        $fields = self::filterByNames($fields, $fieldNames);
+        $fields = CustomFieldMergerService::mergeWithDefinitions(
+            $brand->customFields ?? CustomFieldValueList::empty(),
+            $definitions,
+        )->withNames($fieldNames);
 
-        $this->logEnd($brandId, \count($fields));
+        $this->logEnd($brandId, $fields->count());
 
         return $fields;
     }
@@ -83,23 +83,5 @@ final readonly class GetBrandCustomFieldsUseCase
             'brand_id' => $brandId,
             'field_count' => $fieldCount,
         ]);
-    }
-
-    /**
-     * @param list<AbstractCustomFieldValue> $fields
-     * @param list<string> $fieldNames
-     *
-     * @return list<AbstractCustomFieldValue>
-     */
-    private static function filterByNames(array $fields, array $fieldNames): array
-    {
-        if ($fieldNames === []) {
-            return $fields;
-        }
-
-        return \array_values(\array_filter(
-            $fields,
-            static fn(AbstractCustomFieldValue $field): bool => \in_array($field->name(), $fieldNames, true),
-        ));
     }
 }

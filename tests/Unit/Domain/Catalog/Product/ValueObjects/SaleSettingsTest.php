@@ -8,6 +8,7 @@ use App\Domain\Catalog\CustomFields\Enums\CustomFieldItemType;
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldType;
 use App\Domain\Catalog\CustomFields\ValueObjects\ConfiguredFieldDefinition;
 use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldDefinition;
+use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldValueList;
 use App\Domain\Catalog\CustomFields\ValueObjects\DateTimeCustomFieldValue;
 use App\Domain\Catalog\CustomFields\ValueObjects\StringCustomFieldValue;
 use App\Domain\Catalog\Product\Enums\SaleCustomField;
@@ -104,7 +105,7 @@ final class SaleSettingsTest extends TestCase
             $this->stringField(SaleCustomField::Comments->value, 'End of season'),
         ];
 
-        self::assertNull(SaleSettings::fromTypedCustomFields($fields));
+        self::assertNull(SaleSettings::fromTypedCustomFields(CustomFieldValueList::from($fields)));
     }
 
     #[Test]
@@ -115,7 +116,7 @@ final class SaleSettingsTest extends TestCase
             $this->stringField(SaleCustomField::Comments->value, 'End of season'),
         ];
 
-        self::assertNull(SaleSettings::fromTypedCustomFields($fields));
+        self::assertNull(SaleSettings::fromTypedCustomFields(CustomFieldValueList::from($fields)));
     }
 
     #[Test]
@@ -129,7 +130,7 @@ final class SaleSettingsTest extends TestCase
             $this->stringField(SaleCustomField::EndsStock->value, '5'),
         ];
 
-        $settings = SaleSettings::fromTypedCustomFields($fields);
+        $settings = SaleSettings::fromTypedCustomFields(CustomFieldValueList::from($fields));
 
         self::assertInstanceOf(SaleSettings::class, $settings);
         self::assertSame('Spring clearance', $settings->saleReason);
@@ -151,7 +152,7 @@ final class SaleSettingsTest extends TestCase
             $this->dateField(SaleCustomField::DateEnd->value, $end),
         ];
 
-        $settings = SaleSettings::fromTypedCustomFields($fields);
+        $settings = SaleSettings::fromTypedCustomFields(CustomFieldValueList::from($fields));
 
         self::assertNotNull($settings);
         self::assertSame($start, $settings->saleStartDate);
@@ -167,7 +168,7 @@ final class SaleSettingsTest extends TestCase
             $this->stringField(SaleCustomField::EndsStock->value, 'not-a-number'),
         ];
 
-        $settings = SaleSettings::fromTypedCustomFields($fields);
+        $settings = SaleSettings::fromTypedCustomFields(CustomFieldValueList::from($fields));
 
         self::assertNotNull($settings);
         self::assertNull($settings->saleComments);
@@ -181,7 +182,7 @@ final class SaleSettingsTest extends TestCase
             $this->stringField(SaleCustomField::Reason->value, 'Spring clearance'),
         ];
 
-        $settings = SaleSettings::fromTypedCustomFields($fields);
+        $settings = SaleSettings::fromTypedCustomFields(CustomFieldValueList::from($fields));
 
         self::assertInstanceOf(SaleSettings::class, $settings);
         self::assertNull($settings->saleStartDate);
@@ -353,7 +354,7 @@ final class SaleSettingsTest extends TestCase
             $this->stringField(SaleCustomField::DateStart->value, '2026-03-23'),
         ];
 
-        $settings = SaleSettings::fromTypedCustomFields($fields);
+        $settings = SaleSettings::fromTypedCustomFields(CustomFieldValueList::from($fields));
 
         self::assertInstanceOf(SaleSettings::class, $settings);
         self::assertSame('2026-03-23', $settings->saleStartDate?->format('Y-m-d'));
@@ -367,7 +368,7 @@ final class SaleSettingsTest extends TestCase
             $this->stringField(SaleCustomField::DateStart->value, 'not-a-date'),
         ];
 
-        $settings = SaleSettings::fromTypedCustomFields($fields);
+        $settings = SaleSettings::fromTypedCustomFields(CustomFieldValueList::from($fields));
 
         self::assertInstanceOf(SaleSettings::class, $settings);
         self::assertNull($settings->saleStartDate);
@@ -381,7 +382,7 @@ final class SaleSettingsTest extends TestCase
             $this->stringField(SaleCustomField::EndsStock->value, '12'),
         ];
 
-        $settings = SaleSettings::fromTypedCustomFields($fields);
+        $settings = SaleSettings::fromTypedCustomFields(CustomFieldValueList::from($fields));
 
         self::assertInstanceOf(SaleSettings::class, $settings);
         self::assertSame(12, $settings->saleEndsStock);

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\Catalog\Category\ValueObjects;
 
-use App\Domain\Catalog\CustomFields\ValueObjects\AbstractCustomFieldValue;
+use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldValueList;
 use App\Domain\ValueObjects\IntId;
 use DateTimeImmutable;
 
@@ -35,7 +35,7 @@ final readonly class CategoryView
      * @param ?string $description Primary description (null = not loaded)
      * @param ?string $description2 Secondary description (null = not loaded)
      * @param ?list<IntId> $parentIds Parent category IDs (null = not loaded)
-     * @param ?list<AbstractCustomFieldValue> $customFields Typed custom field values (null = not loaded)
+     * @param ?CustomFieldValueList $customFields Typed custom field values (null = not loaded)
      */
     public function __construct(
         public IntId $id,
@@ -53,6 +53,6 @@ final readonly class CategoryView
         public ?string $description = null,
         public ?string $description2 = null,
         public ?array $parentIds = null,
-        public ?array $customFields = null,
+        public ?CustomFieldValueList $customFields = null,
     ) {}
 }

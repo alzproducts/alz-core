@@ -12,6 +12,7 @@ use App\Domain\Catalog\CustomFields\Enums\CustomFieldType;
 use App\Domain\Catalog\CustomFields\ValueObjects\AbstractCustomFieldValue;
 use App\Domain\Catalog\CustomFields\ValueObjects\ConfiguredFieldDefinition;
 use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldDefinition;
+use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldValueList;
 use App\Domain\Catalog\CustomFields\ValueObjects\StringCustomFieldValue;
 use App\Domain\Catalog\Product\Enums\SaleRemovalReason;
 use App\Domain\Catalog\Product\ValueObjects\ProductView;
@@ -394,7 +395,7 @@ final class CheckExpiredSalesUseCaseTest extends TestCase
         $view = Mockery::mock(ProductView::class);
         $view->id = IntId::from($id);
         $view->isActive = $isActive;
-        $view->customFields = $typedFields;
+        $view->customFields = CustomFieldValueList::from($typedFields);
         $view->stockLevel = new Stock(availableStock: $availableStock, physicalStock: $availableStock);
 
         $view->shouldReceive('getCustomField')

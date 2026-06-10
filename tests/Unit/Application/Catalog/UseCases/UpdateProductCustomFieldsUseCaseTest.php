@@ -11,6 +11,7 @@ use App\Domain\Catalog\CustomFields\Enums\CustomFieldItemType;
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldType;
 use App\Domain\Catalog\CustomFields\Exceptions\CustomFieldNotFoundException;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
+use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldValueList;
 use App\Domain\Exceptions\ValidationFailedException;
 use App\Domain\ValueObjects\IntId;
 use Mockery;
@@ -61,7 +62,7 @@ final class UpdateProductCustomFieldsUseCaseTest extends TestCase
             ->shouldReceive('fromRawFields')
             ->once()
             ->with($rawFields)
-            ->andReturn([]);
+            ->andReturn(CustomFieldValueList::empty());
 
         $this->productUpdateClient
             ->shouldReceive('updateCustomFields')

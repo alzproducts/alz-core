@@ -38,7 +38,7 @@ final class BrandDetailResource extends JsonResource
         }
 
         if ($result->hasInclude(BrandInclude::CustomFields) && $brand->customFields !== null) {
-            $data['custom_fields'] = CustomFieldValueResource::collection($brand->customFields)->resolve($request);
+            $data['custom_fields'] = CustomFieldValueResource::collection($brand->customFields->toList())->resolve($request);
         }
 
         return $data;

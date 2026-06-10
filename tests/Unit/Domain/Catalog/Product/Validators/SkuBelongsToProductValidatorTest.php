@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Domain\Catalog\Product\Validators;
 
+use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldValueList;
 use App\Domain\Catalog\Product\Validators\SkuBelongsToProductResult;
 use App\Domain\Catalog\Product\Validators\SkuBelongsToProductValidator;
 use App\Domain\Catalog\Product\ValueObjects\Product;
@@ -184,7 +185,7 @@ final class SkuBelongsToProductValidatorTest extends TestCase
             variations: $variations,
             images: [],
             rawCustomFields: [],
-            customFields: [],
+            customFields: CustomFieldValueList::empty(),
             rawFilters: [],
             filters: [],
             sortOrder: null,

@@ -9,7 +9,7 @@ use App\Domain\Catalog\Brand\ValueObjects\BrandImage;
 use App\Domain\Catalog\Brand\ValueObjects\BrandLinks;
 use App\Domain\Catalog\Brand\ValueObjects\BrandView;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
-use App\Domain\Catalog\CustomFields\ValueObjects\AbstractCustomFieldValue;
+use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldValueList;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Data\MissingRequiredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
@@ -88,7 +88,6 @@ final readonly class BrandViewAssembler
 
     /**
      * @param  list<BrandInclude>  $includes
-     * @return list<AbstractCustomFieldValue>|null
      *
      * @throws InvalidCustomFieldValueException
      * @throws MissingRequiredDataException
@@ -96,7 +95,7 @@ final readonly class BrandViewAssembler
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      */
-    private function resolveCustomFields(BrandModel $model, array $includes): ?array
+    private function resolveCustomFields(BrandModel $model, array $includes): ?CustomFieldValueList
     {
         if (! \in_array(BrandInclude::CustomFields, $includes, true)) {
             return null;

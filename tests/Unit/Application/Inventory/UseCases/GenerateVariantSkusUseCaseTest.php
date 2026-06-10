@@ -13,6 +13,7 @@ use App\Application\Inventory\Services\GenerateStockItemFromVariationService;
 use App\Application\Inventory\Services\StockItemParamsBuilderService;
 use App\Application\Inventory\UseCases\GenerateVariantSkusUseCase;
 use App\Application\Shopwired\Services\ProductSyncService;
+use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldValueList;
 use App\Domain\Catalog\Product\ValueObjects\Product;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariation;
 use App\Domain\Catalog\Product\ValueObjects\Sku;
@@ -519,7 +520,7 @@ final class GenerateVariantSkusUseCaseTest extends TestCase
             variations: $variations,
             images: [],
             rawCustomFields: [],
-            customFields: [],
+            customFields: CustomFieldValueList::empty(),
             rawFilters: [],
             filters: [],
             sortOrder: null,

@@ -101,6 +101,6 @@ final readonly class ProductController
             fieldNames: $data->fieldNames(),
         );
 
-        return CustomFieldValueResource::collection($fields);
+        return CustomFieldValueResource::collection($fields->toList());
     }
 }

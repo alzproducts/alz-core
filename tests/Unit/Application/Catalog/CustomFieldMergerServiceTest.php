@@ -9,6 +9,7 @@ use App\Domain\Catalog\CustomFields\Enums\CustomFieldItemType;
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldType;
 use App\Domain\Catalog\CustomFields\ValueObjects\ConfiguredFieldDefinition;
 use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldDefinition;
+use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldValueList;
 use App\Domain\Catalog\CustomFields\ValueObjects\NullCustomFieldValue;
 use App\Domain\Catalog\CustomFields\ValueObjects\StringCustomFieldValue;
 use App\Domain\ValueObjects\Uuid;
@@ -28,12 +29,12 @@ final class CustomFieldMergerServiceTest extends TestCase
         $fieldA = new StringCustomFieldValue($defA, 'red');
         $fieldB = new StringCustomFieldValue($defB, 'large');
 
-        $result = CustomFieldMergerService::mergeWithDefinitions([$fieldA, $fieldB], [$defA, $defB]);
+        $result = CustomFieldMergerService::mergeWithDefinitions(CustomFieldValueList::from([$fieldA, $fieldB]), [$defA, $defB]);
 
         self::assertCount(2, $result);
         // sortOrder 1 (size) comes before sortOrder 2 (color)
-        self::assertSame('large', $result[0]->rawValue());
-        self::assertSame('red', $result[1]->rawValue());
+        self::assertSame('large', $result->toList()[0]->rawValue());
+        self::assertSame('red', $result->toList()[1]->rawValue());
     }
 
     #[Test]
@@ -45,12 +46,12 @@ final class CustomFieldMergerServiceTest extends TestCase
 
         $fieldA = new StringCustomFieldValue($defA, 'red');
 
-        $result = CustomFieldMergerService::mergeWithDefinitions([$fieldA], [$defA, $defB, $defC]);
+        $result = CustomFieldMergerService::mergeWithDefinitions(CustomFieldValueList::from([$fieldA]), [$defA, $defB, $defC]);
 
         self::assertCount(3, $result);
-        self::assertInstanceOf(StringCustomFieldValue::class, $result[0]);
-        self::assertInstanceOf(NullCustomFieldValue::class, $result[1]);
-        self::assertInstanceOf(NullCustomFieldValue::class, $result[2]);
+        self::assertInstanceOf(StringCustomFieldValue::class, $result->toList()[0]);
+        self::assertInstanceOf(NullCustomFieldValue::class, $result->toList()[1]);
+        self::assertInstanceOf(NullCustomFieldValue::class, $result->toList()[2]);
     }
 
     #[Test]
@@ -63,11 +64,11 @@ final class CustomFieldMergerServiceTest extends TestCase
         $fieldB = new StringCustomFieldValue($defB, 'large');
 
         // Only defA is in definitions; fieldB has no matching definition
-        $result = CustomFieldMergerService::mergeWithDefinitions([$fieldA, $fieldB], [$defA]);
+        $result = CustomFieldMergerService::mergeWithDefinitions(CustomFieldValueList::from([$fieldA, $fieldB]), [$defA]);
 
         self::assertCount(2, $result);
-        self::assertSame('red', $result[0]->rawValue());
-        self::assertSame('large', $result[1]->rawValue());
+        self::assertSame('red', $result->toList()[0]->rawValue());
+        self::assertSame('large', $result->toList()[1]->rawValue());
     }
 
     #[Test]
@@ -84,15 +85,15 @@ final class CustomFieldMergerServiceTest extends TestCase
         $field2 = new StringCustomFieldValue($def2, 'two');
 
         $result = CustomFieldMergerService::mergeWithDefinitions(
-            [$field3, $field1, $fieldNull, $field2],
+            CustomFieldValueList::from([$field3, $field1, $fieldNull, $field2]),
             [$def3, $def1, $defNull, $def2],
         );
 
         self::assertCount(4, $result);
-        self::assertSame('one', $result[0]->rawValue());
-        self::assertSame('two', $result[1]->rawValue());
-        self::assertSame('three', $result[2]->rawValue());
-        self::assertSame('null-sort', $result[3]->rawValue());
+        self::assertSame('one', $result->toList()[0]->rawValue());
+        self::assertSame('two', $result->toList()[1]->rawValue());
+        self::assertSame('three', $result->toList()[2]->rawValue());
+        self::assertSame('null-sort', $result->toList()[3]->rawValue());
     }
 
     #[Test]
@@ -104,7 +105,7 @@ final class CustomFieldMergerServiceTest extends TestCase
         $fieldA = new StringCustomFieldValue($defA, 'a');
         $fieldB = new StringCustomFieldValue($defB, 'b');
 
-        $result = CustomFieldMergerService::mergeWithDefinitions([$fieldA, $fieldB], [$defA, $defB]);
+        $result = CustomFieldMergerService::mergeWithDefinitions(CustomFieldValueList::from([$fieldA, $fieldB]), [$defA, $defB]);
 
         self::assertCount(2, $result);
     }
@@ -112,9 +113,9 @@ final class CustomFieldMergerServiceTest extends TestCase
     #[Test]
     public function empty_inputs_return_empty_result(): void
     {
-        $result = CustomFieldMergerService::mergeWithDefinitions([], []);
+        $result = CustomFieldMergerService::mergeWithDefinitions(CustomFieldValueList::empty(), []);
 
-        self::assertSame([], $result);
+        self::assertSame([], $result->toList());
     }
 
     #[Test]
@@ -126,7 +127,7 @@ final class CustomFieldMergerServiceTest extends TestCase
         $fieldA = new StringCustomFieldValue($defA, 'red');
         $fieldB = new StringCustomFieldValue($defB, 'large');
 
-        $result = CustomFieldMergerService::mergeWithDefinitions([$fieldA, $fieldB], []);
+        $result = CustomFieldMergerService::mergeWithDefinitions(CustomFieldValueList::from([$fieldA, $fieldB]), []);
 
         self::assertCount(2, $result);
     }

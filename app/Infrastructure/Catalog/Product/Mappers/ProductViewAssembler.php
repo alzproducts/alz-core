@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Infrastructure\Catalog\Product\Mappers;
 
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
+use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldValueList;
 use App\Domain\Catalog\Filters\ValueObjects\ProductFilter;
 use App\Domain\Catalog\Product\Enums\ProductInclude;
 use App\Domain\Catalog\Product\ValueObjects\Popularity;
@@ -95,7 +96,7 @@ final readonly class ProductViewAssembler
             variations: \in_array(ProductInclude::Variations, $includes, true) ? $allVariations : null,
             allVariations: $allVariations,
             images: self::buildImages($model->images),
-            customFields: \in_array(ProductInclude::CustomFields, $includes, true) ? $typedCustomFields : [],
+            customFields: \in_array(ProductInclude::CustomFields, $includes, true) ? $typedCustomFields : CustomFieldValueList::empty(),
             filters: $this->resolveFilters($model, $includes),
             sortOrder: $model->sort_order,
             popularity: Popularity::fromRank($model->popularity_rank, $model->popularity_max),
@@ -114,9 +115,9 @@ final readonly class ProductViewAssembler
             isComposite: $stockItem?->is_composite,
             priceLastUpdatedAt: $model->price_last_updated_at?->toDateTimeImmutable(),
             costPriceLastUpdatedAt: $model->cost_price_last_updated_at?->toDateTimeImmutable(),
-            discontinued: ProductCustomFieldExtractor::string($typedCustomFields, 'discontinued'),
-            preorderDate: ProductCustomFieldExtractor::dateTime($typedCustomFields, 'preorder_date'),
-            otherStockStatus: ProductCustomFieldExtractor::string($typedCustomFields, 'other_stock_status'),
+            discontinued: $typedCustomFields->stringByName('discontinued'),
+            preorderDate: $typedCustomFields->dateTimeByName('preorder_date'),
+            otherStockStatus: $typedCustomFields->stringByName('other_stock_status'),
         );
     }
 

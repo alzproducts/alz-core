@@ -9,7 +9,7 @@ use App\Application\Contracts\Catalog\CustomFieldRepositoryInterface;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldItemType;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
-use App\Domain\Catalog\CustomFields\ValueObjects\AbstractCustomFieldValue;
+use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldValueList;
 use App\Domain\Catalog\Product\Enums\ProductInclude;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\RecordNotFoundException;
@@ -37,8 +37,6 @@ final readonly class GetProductCustomFieldsUseCase
     /**
      * @param list<string> $fieldNames Optional filter — only return these field names
      *
-     * @return list<AbstractCustomFieldValue>
-     *
      * @throws ResourceNotFoundException When no product matches the ID
      * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
      * @throws DatabaseOperationFailedException On query failure
@@ -46,7 +44,7 @@ final readonly class GetProductCustomFieldsUseCase
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      * @throws RecordNotFoundException When product row not found in database
      */
-    public function execute(int $productId, array $fieldNames = []): array
+    public function execute(int $productId, array $fieldNames = []): CustomFieldValueList
     {
         $this->logStart($productId, $fieldNames);
 
@@ -56,10 +54,10 @@ final readonly class GetProductCustomFieldsUseCase
         );
 
         $definitions = $this->customFieldRepository->findByItemType(CustomFieldItemType::Product);
-        $fields = CustomFieldMergerService::mergeWithDefinitions($product->customFields, $definitions);
-        $fields = self::filterByNames($fields, $fieldNames);
+        $fields = CustomFieldMergerService::mergeWithDefinitions($product->customFields, $definitions)
+            ->withNames($fieldNames);
 
-        $this->logEnd($productId, \count($fields));
+        $this->logEnd($productId, $fields->count());
 
         return $fields;
     }
@@ -81,23 +79,5 @@ final readonly class GetProductCustomFieldsUseCase
             'product_id' => $productId,
             'field_count' => $fieldCount,
         ]);
-    }
-
-    /**
-     * @param list<AbstractCustomFieldValue> $fields
-     * @param list<string> $fieldNames
-     *
-     * @return list<AbstractCustomFieldValue>
-     */
-    private static function filterByNames(array $fields, array $fieldNames): array
-    {
-        if ($fieldNames === []) {
-            return $fields;
-        }
-
-        return \array_values(\array_filter(
-            $fields,
-            static fn(AbstractCustomFieldValue $field): bool => \in_array($field->name(), $fieldNames, true),
-        ));
     }
 }

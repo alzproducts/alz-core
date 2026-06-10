@@ -5,57 +5,82 @@ declare(strict_types=1);
 namespace App\Infrastructure\Jobs\Middleware;
 
 use App\Domain\Exceptions\Api\TransientApiFailure;
-use Illuminate\Queue\Middleware\ThrottlesExceptions;
-use Throwable;
+use Closure;
+use Illuminate\Cache\RateLimiter;
 
 /**
  * Per-service circuit breakers for queue jobs.
  *
- * Wraps {@see ThrottlesExceptions} with consistent config:
- * 10 transient failures within 5 minutes triggers a cooldown.
- * Only activates on {@see TransientApiFailure} — permanent failures pass through.
+ * Counts {@see TransientApiFailure} occurrences per service key. When the
+ * threshold is reached (10 within 5 minutes), the job is released until
+ * the cooldown expires. Below the threshold, exceptions rethrow so the
+ * Worker's own $backoff / $maxExceptions apply normally.
  */
 final class ServiceCircuitBreaker
 {
-    public static function shopwired(): ThrottlesExceptions
+    private const int MAX_FAILURES = 10;
+
+    private const int DECAY_SECONDS = 300;
+
+    private function __construct(
+        private readonly string $serviceKey,
+    ) {}
+
+    public static function shopwired(): self
     {
-        return self::create('shopwired');
+        return new self('shopwired');
     }
 
-    public static function helpscout(): ThrottlesExceptions
+    public static function helpscout(): self
     {
-        return self::create('helpscout');
+        return new self('helpscout');
     }
 
-    public static function linnworks(): ThrottlesExceptions
+    public static function linnworks(): self
     {
-        return self::create('linnworks');
+        return new self('linnworks');
     }
 
-    public static function mixpanel(): ThrottlesExceptions
+    public static function mixpanel(): self
     {
-        return self::create('mixpanel');
+        return new self('mixpanel');
     }
 
-    public static function reviewsio(): ThrottlesExceptions
+    public static function reviewsio(): self
     {
-        return self::create('reviewsio');
+        return new self('reviewsio');
     }
 
-    public static function googleAds(): ThrottlesExceptions
+    public static function googleAds(): self
     {
-        return self::create('google-ads');
+        return new self('google-ads');
     }
 
-    public static function bingAdsRest(): ThrottlesExceptions
+    public static function bingAdsRest(): self
     {
-        return self::create('bing-ads-rest');
+        return new self('bing-ads-rest');
     }
 
-    private static function create(string $serviceKey): ThrottlesExceptions
+    /**
+     * @throws TransientApiFailure
+     */
+    public function handle(object $job, Closure $next): void
     {
-        return (new ThrottlesExceptions(maxAttempts: 10, decaySeconds: 300))
-            ->by($serviceKey)
-            ->when(static fn(Throwable $e): bool => $e instanceof TransientApiFailure);
+        $limiter = \app(RateLimiter::class);
+        $key = 'service_circuit_breaker:' . $this->serviceKey;
+
+        if ($limiter->tooManyAttempts($key, self::MAX_FAILURES)) {
+            $job->release($limiter->availableIn($key) + 3);
+
+            return;
+        }
+
+        try {
+            $next($job);
+        } catch (TransientApiFailure $e) {
+            $limiter->hit($key, self::DECAY_SECONDS);
+
+            throw $e;
+        }
     }
 }

@@ -7,6 +7,7 @@ namespace Tests\Unit\Application\Shopwired\PricingUpdate\UseCases;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Application\Contracts\Shopwired\ProductUpdateClientInterface;
 use App\Application\Shopwired\PricingUpdate\UseCases\ReconcileShopwiredComparePriceUseCase;
+use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldValueList;
 use App\Domain\Catalog\Product\Enums\FreeDeliveryType;
 use App\Domain\Catalog\Product\Enums\ProductInclude;
 use App\Domain\Catalog\Product\ValueObjects\ProductLinks;
@@ -253,7 +254,7 @@ final class ReconcileShopwiredComparePriceUseCaseTest extends TestCase
             categoryIds: [],
             variations: $variations,
             images: [],
-            customFields: [],
+            customFields: CustomFieldValueList::empty(),
             filters: [],
             sortOrder: null,
             createdAt: new DateTimeImmutable('2024-01-01'),
