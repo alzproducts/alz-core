@@ -11,6 +11,7 @@ use App\Application\Shopwired\DTOs\WebhookContextDTO;
 use App\Application\Shopwired\Enums\WebhookTopic;
 use App\Application\Shopwired\UseCases\Webhooks\AbstractSyncEntityWebhookUseCase;
 use App\Application\Shopwired\UseCases\Webhooks\SyncProductUseCase;
+use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldValueList;
 use App\Domain\Catalog\Product\ValueObjects\Product;
 use App\Domain\ValueObjects\IntId;
 use DateTimeImmutable;
@@ -228,7 +229,7 @@ final class SyncProductUseCaseTest extends TestCase
             variations: [],
             images: [],
             rawCustomFields: [],
-            customFields: [],
+            customFields: CustomFieldValueList::empty(),
             rawFilters: [],
             filters: [],
             sortOrder: null,

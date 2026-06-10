@@ -12,6 +12,7 @@ use App\Application\Shopwired\PricingUpdate\Results\PriceUpdateClientResult;
 use App\Application\Shopwired\PricingUpdate\SaleStatePersistenceService;
 use App\Application\Shopwired\PricingUpdate\UseCases\UpdateProductSellingPricesUseCase;
 use App\Application\Shopwired\Services\ProductSyncService;
+use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldValueList;
 use App\Domain\Catalog\Product\Commands\UpdatePriceCommand;
 use App\Domain\Catalog\Product\Events\ProductPricingUpdatedEvent;
 use App\Domain\Catalog\Product\Events\SkuRetailPricingUpdatedEvent;
@@ -465,7 +466,7 @@ final class UpdateProductSellingPricesUseCaseTest extends TestCase
             variations: $variations,
             images: [],
             rawCustomFields: [],
-            customFields: [],
+            customFields: CustomFieldValueList::empty(),
             rawFilters: [],
             filters: [],
             sortOrder: null,

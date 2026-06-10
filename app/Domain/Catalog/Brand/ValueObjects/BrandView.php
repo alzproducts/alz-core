@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\Catalog\Brand\ValueObjects;
 
-use App\Domain\Catalog\CustomFields\ValueObjects\AbstractCustomFieldValue;
+use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldValueList;
 use App\Domain\ValueObjects\IntId;
 use DateTimeImmutable;
 
@@ -33,7 +33,7 @@ final readonly class BrandView
      * @param DateTimeImmutable $createdAt ShopWired creation timestamp
      * @param ?string $description Brand description (null = not loaded)
      * @param ?string $description2 Secondary description (null = not loaded)
-     * @param ?list<AbstractCustomFieldValue> $customFields Typed custom field values (null = not loaded)
+     * @param ?CustomFieldValueList $customFields Typed custom field values (null = not loaded)
      */
     public function __construct(
         public IntId $id,
@@ -49,6 +49,6 @@ final readonly class BrandView
         public DateTimeImmutable $createdAt,
         public ?string $description = null,
         public ?string $description2 = null,
-        public ?array $customFields = null,
+        public ?CustomFieldValueList $customFields = null,
     ) {}
 }

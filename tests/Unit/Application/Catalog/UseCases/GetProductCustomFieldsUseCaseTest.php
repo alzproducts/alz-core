@@ -12,6 +12,7 @@ use App\Domain\Catalog\CustomFields\Enums\CustomFieldType;
 use App\Domain\Catalog\CustomFields\ValueObjects\AbstractCustomFieldValue;
 use App\Domain\Catalog\CustomFields\ValueObjects\ConfiguredFieldDefinition;
 use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldDefinition;
+use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldValueList;
 use App\Domain\Catalog\CustomFields\ValueObjects\NullCustomFieldValue;
 use App\Domain\Catalog\CustomFields\ValueObjects\StringCustomFieldValue;
 use App\Domain\Catalog\Product\Enums\ProductInclude;
@@ -68,7 +69,7 @@ final class GetProductCustomFieldsUseCaseTest extends TestCase
         $this->stubProduct([$colourField]);
         $this->stubDefinitions([$colourDef, $notesDef, $sizeDef]);
 
-        $result = $this->useCase->execute(42);
+        $result = $this->useCase->execute(42)->toList();
 
         self::assertCount(3, $result);
 
@@ -101,7 +102,7 @@ final class GetProductCustomFieldsUseCaseTest extends TestCase
         $this->stubProduct([]);
         $this->stubDefinitions([$fieldC, $fieldA, $fieldNull, $fieldB]);
 
-        $result = $this->useCase->execute(42);
+        $result = $this->useCase->execute(42)->toList();
 
         self::assertCount(4, $result);
         self::assertSame('field_a', $result[0]->name());
@@ -126,7 +127,7 @@ final class GetProductCustomFieldsUseCaseTest extends TestCase
         $this->stubDefinitions([$colourDef, $notesDef, $sizeDef]);
 
         // Filter to 'colour' and 'size' — size has no value but should still appear
-        $result = $this->useCase->execute(42, ['colour', 'size']);
+        $result = $this->useCase->execute(42, ['colour', 'size'])->toList();
 
         self::assertCount(2, $result);
         self::assertSame('colour', $result[0]->name());
@@ -146,7 +147,7 @@ final class GetProductCustomFieldsUseCaseTest extends TestCase
 
         $result = $this->useCase->execute(42, ['nonexistent_field']);
 
-        self::assertSame([], $result);
+        self::assertSame([], $result->toList());
     }
 
     // ========================================================================
@@ -166,7 +167,7 @@ final class GetProductCustomFieldsUseCaseTest extends TestCase
         // Only 'known' is in definitions — 'unknown_field' should still appear
         $this->stubDefinitions([$knownDef]);
 
-        $result = $this->useCase->execute(42);
+        $result = $this->useCase->execute(42)->toList();
 
         self::assertCount(2, $result);
         // known is sorted first (sortOrder 0), unknown_field last (null sortOrder)
@@ -185,7 +186,7 @@ final class GetProductCustomFieldsUseCaseTest extends TestCase
     private function stubProduct(array $customFields): void
     {
         $product = Mockery::mock(ProductView::class);
-        $product->customFields = $customFields;
+        $product->customFields = CustomFieldValueList::from($customFields);
 
         $this->productRepository
             ->shouldReceive('findDetailedProductView')

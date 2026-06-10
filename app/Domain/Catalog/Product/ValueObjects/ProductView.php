@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\Catalog\Product\ValueObjects;
 
 use App\Domain\Catalog\CustomFields\ValueObjects\AbstractCustomFieldValue;
+use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldValueList;
 use App\Domain\Catalog\Filters\ValueObjects\ProductFilter;
 use App\Domain\Catalog\Product\Enums\FreeDeliveryType;
 use App\Domain\Shared\Money\ValueObjects\Money;
@@ -91,7 +92,6 @@ final readonly class ProductView
      *        derivations (stock, price fallbacks). Independent of the public $variations gate.
      *        Not stored — derivation-only. Defaults to $variations when omitted.
      * @param list<ProductImage> $images
-     * @param list<AbstractCustomFieldValue> $customFields
      * @param list<ProductFilter> $filters
      */
     public function __construct(
@@ -117,7 +117,7 @@ final readonly class ProductView
         array $categoryIds,
         public ?array $variations,
         public array $images,
-        public array $customFields,
+        public CustomFieldValueList $customFields,
         public array $filters,
         public ?int $sortOrder,
         public DateTimeImmutable $createdAt,
@@ -237,10 +237,7 @@ final readonly class ProductView
 
     public function getCustomField(string $name): ?AbstractCustomFieldValue
     {
-        return \array_find(
-            $this->customFields,
-            static fn(AbstractCustomFieldValue $field): bool => $field->name() === $name,
-        );
+        return $this->customFields->findByName($name);
     }
 
     public function hasCustomField(string $name): bool

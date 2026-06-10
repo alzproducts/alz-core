@@ -99,7 +99,7 @@ final class ProductDetailResource extends JsonResource
             $data['category_ids'] = \array_map(static fn(IntId $id): int => $id->value, $product->categoryIds);
         }
         if ($result->hasInclude(ProductInclude::CustomFields)) {
-            $data['custom_fields'] = CustomFieldValueResource::collection($product->customFields)->resolve($request);
+            $data['custom_fields'] = CustomFieldValueResource::collection($product->customFields->toList())->resolve($request);
         }
         if ($result->hasInclude(ProductInclude::Filters)) {
             $data['filters'] = \array_map(static fn(ProductFilter $filter): array => $filter->toArray(), $product->filters);

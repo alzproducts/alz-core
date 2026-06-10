@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Domain\Catalog\Product\ValueObjects;
 
 use App\Domain\Catalog\CustomFields\ValueObjects\AbstractCustomFieldValue;
+use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldValueList;
 use App\Domain\Catalog\Filters\ValueObjects\FilterGroupDefinition;
 use App\Domain\Catalog\Filters\ValueObjects\ProductFilter;
 use App\Domain\Catalog\Product\ValueObjects\Product;
@@ -94,7 +95,7 @@ final class ProductTest extends TestCase
             variations: $data['variations'],
             images: $data['images'],
             rawCustomFields: $data['rawCustomFields'],
-            customFields: $data['customFields'],
+            customFields: CustomFieldValueList::from($data['customFields']),
             rawFilters: $data['rawFilters'],
             filters: $data['filters'],
             sortOrder: null,

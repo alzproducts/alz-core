@@ -4,9 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\Catalog\Product\ValueObjects;
 
-use App\Domain\Catalog\CustomFields\ValueObjects\AbstractCustomFieldValue;
-use App\Domain\Catalog\CustomFields\ValueObjects\DateTimeCustomFieldValue;
-use App\Domain\Catalog\CustomFields\ValueObjects\StringCustomFieldValue;
+use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldValueList;
 use App\Domain\Catalog\Product\Enums\SaleCustomField;
 use App\Domain\Catalog\Product\Enums\SaleRemovalReason;
 use DateTimeImmutable;
@@ -44,27 +42,24 @@ final readonly class SaleSettings
      * Reconstruct SaleSettings from typed custom field values.
      *
      * Mirrors {@see self::fromRawCustomFields()} for ProductView callers that
-     * hold `list<AbstractCustomFieldValue>` rather than the raw name => value map.
+     * hold a CustomFieldValueList rather than the raw name => value map.
      * Keeps the read path typed — no raw JSONB leakage into the View.
-     *
-     * @param list<AbstractCustomFieldValue> $typedCustomFields
      */
-    public static function fromTypedCustomFields(array $typedCustomFields): ?self
+    public static function fromTypedCustomFields(CustomFieldValueList $typedCustomFields): ?self
     {
-        $reason = self::stringFieldValue($typedCustomFields, SaleCustomField::Reason->value);
-        if ($reason === null || $reason === '') {
+        $reason = $typedCustomFields->stringByName(SaleCustomField::Reason->value);
+        if ($reason === null) {
             return null;
         }
 
-        $comments = self::stringFieldValue($typedCustomFields, SaleCustomField::Comments->value);
-        $endsStockRaw = self::stringFieldValue($typedCustomFields, SaleCustomField::EndsStock->value);
+        $endsStockRaw = $typedCustomFields->stringByName(SaleCustomField::EndsStock->value);
 
         return new self(
             saleReason: $reason,
-            saleComments: $comments !== null && $comments !== '' ? $comments : null,
-            saleStartDate: self::dateFieldValue($typedCustomFields, SaleCustomField::DateStart->value),
-            saleEndDate: self::dateFieldValue($typedCustomFields, SaleCustomField::DateEnd->value),
-            saleEndsStock: $endsStockRaw !== null && $endsStockRaw !== '' && \is_numeric($endsStockRaw)
+            saleComments: $typedCustomFields->stringByName(SaleCustomField::Comments->value),
+            saleStartDate: $typedCustomFields->dateTimeByName(SaleCustomField::DateStart->value),
+            saleEndDate: $typedCustomFields->dateTimeByName(SaleCustomField::DateEnd->value),
+            saleEndsStock: $endsStockRaw !== null && \is_numeric($endsStockRaw)
                 ? (int) $endsStockRaw
                 : null,
         );
@@ -109,52 +104,6 @@ final readonly class SaleSettings
         $parsed = \date_create_immutable($value);
 
         return $parsed !== false ? $parsed : null;
-    }
-
-    /**
-     * Extract a string value from a typed custom field list by name.
-     *
-     * @param list<AbstractCustomFieldValue> $typedCustomFields
-     */
-    private static function stringFieldValue(array $typedCustomFields, string $name): ?string
-    {
-        $field = \array_find(
-            $typedCustomFields,
-            static fn(AbstractCustomFieldValue $cf): bool => $cf->name() === $name,
-        );
-
-        if (! $field instanceof StringCustomFieldValue) {
-            return null;
-        }
-
-        return $field->value;
-    }
-
-    /**
-     * Extract a DateTimeImmutable from a typed custom field list by name.
-     *
-     * Accepts both DateTime-typed fields (direct) and String-typed fields that
-     * carry ISO-8601 date strings (parsed). Mirrors {@see self::parseDateField()}
-     * for string values.
-     *
-     * @param list<AbstractCustomFieldValue> $typedCustomFields
-     */
-    private static function dateFieldValue(array $typedCustomFields, string $name): ?DateTimeImmutable
-    {
-        $field = \array_find(
-            $typedCustomFields,
-            static fn(AbstractCustomFieldValue $cf): bool => $cf->name() === $name,
-        );
-
-        if ($field instanceof DateTimeCustomFieldValue) {
-            return $field->value;
-        }
-
-        if ($field instanceof StringCustomFieldValue) {
-            return self::parseDateField($field->value);
-        }
-
-        return null;
     }
 
     /**

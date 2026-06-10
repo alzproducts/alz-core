@@ -8,6 +8,7 @@ use App\Application\Contracts\Catalog\CustomFieldRepositoryInterface;
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldItemType;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\CustomFields\ValueObjects\AbstractCustomFieldValue;
+use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldValueList;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Data\MissingRequiredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
@@ -53,15 +54,13 @@ final class CustomFieldFactory
      *
      * @param array<string, mixed> $rawFields Raw custom field data (name => value)
      *
-     * @return list<AbstractCustomFieldValue>
-     *
      * @throws DatabaseOperationFailedException When custom field registry fails to load
      * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      * @throws InvalidCustomFieldValueException When value type mismatches definition
      * @throws MissingRequiredDataException When custom field definitions table is empty
      */
-    public function fromRawFields(array $rawFields): array
+    public function fromRawFields(array $rawFields): CustomFieldValueList
     {
         $result = [];
 
@@ -73,7 +72,7 @@ final class CustomFieldFactory
             }
         }
 
-        return $result;
+        return CustomFieldValueList::from($result);
     }
 
     /**

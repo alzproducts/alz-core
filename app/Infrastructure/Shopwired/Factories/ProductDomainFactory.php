@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Shopwired\Factories;
 
+use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldValueList;
 use App\Domain\Catalog\Product\ValueObjects\Gtin;
 use App\Domain\Catalog\Product\ValueObjects\Product;
 use App\Domain\Catalog\Product\ValueObjects\ProductImage;
@@ -62,7 +63,7 @@ final class ProductDomainFactory
             variations: $this->buildVariations($response->id, $response->variations),
             images: $this->buildImages($response->images),
             rawCustomFields: $response->customFields,
-            customFields: [],
+            customFields: CustomFieldValueList::empty(),
             rawFilters: $response->filters,
             filters: [],
             sortOrder: $response->sortOrder,
@@ -107,7 +108,7 @@ final class ProductDomainFactory
                 ? []
                 : $this->buildImages($response->images),
             rawCustomFields: $response->customFields instanceof Optional ? [] : $response->customFields,
-            customFields: [],
+            customFields: CustomFieldValueList::empty(),
             rawFilters: $response->filters instanceof Optional ? [] : $response->filters,
             filters: [],
             sortOrder: $response->sortOrder,

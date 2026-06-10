@@ -6,6 +6,7 @@ namespace App\Application\Catalog;
 
 use App\Domain\Catalog\CustomFields\ValueObjects\AbstractCustomFieldValue;
 use App\Domain\Catalog\CustomFields\ValueObjects\ConfiguredFieldDefinition;
+use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldValueList;
 use App\Domain\Catalog\CustomFields\ValueObjects\NullCustomFieldValue;
 
 /**
@@ -17,33 +18,16 @@ use App\Domain\Catalog\CustomFields\ValueObjects\NullCustomFieldValue;
 final class CustomFieldMergerService
 {
     /**
-     * @param list<AbstractCustomFieldValue> $populatedFields Fields with values from the entity
+     * @param CustomFieldValueList $populatedFields Fields with values from the entity
      * @param list<ConfiguredFieldDefinition> $definitions All configured custom field definitions for the item type
-     *
-     * @return list<AbstractCustomFieldValue>
      */
-    public static function mergeWithDefinitions(array $populatedFields, array $definitions): array
+    public static function mergeWithDefinitions(CustomFieldValueList $populatedFields, array $definitions): CustomFieldValueList
     {
-        $populatedByName = self::indexByName($populatedFields);
+        $populatedByName = $populatedFields->mapByName();
         [$fields, $coveredNames] = self::buildDefinedFields($populatedByName, $definitions);
         $fields = self::appendUncoveredFields($fields, $populatedByName, $coveredNames);
 
-        return self::sortByFieldOrder($fields);
-    }
-
-    /**
-     * @param list<AbstractCustomFieldValue> $populatedFields
-     *
-     * @return array<string, AbstractCustomFieldValue>
-     */
-    private static function indexByName(array $populatedFields): array
-    {
-        $indexed = [];
-        foreach ($populatedFields as $field) {
-            $indexed[$field->name()] = $field;
-        }
-
-        return $indexed;
+        return CustomFieldValueList::from(self::sortByFieldOrder($fields));
     }
 
     /**
