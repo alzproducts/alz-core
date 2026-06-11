@@ -12,6 +12,29 @@ use Webmozart\Assert\Assert;
 final class CsvParser
 {
     /**
+     * @return array{string, ?string} File content and optional error message
+     */
+    public static function readFile(string $file): array
+    {
+        $handle = \fopen($file, 'rb');
+        if ($handle === false) {
+            return ['', "Could not open CSV file: {$file}"];
+        }
+
+        try {
+            $content = \stream_get_contents($handle);
+        } finally {
+            \fclose($handle);
+        }
+
+        if ($content === false) {
+            return ['', "Could not read CSV file: {$file}"];
+        }
+
+        return [$content, null];
+    }
+
+    /**
      * @param list<string> $expectedHeader Normalised (lowercase, trimmed) column names the first non-blank row must match
      *
      * @return array{list<array{int, list<string>}>, ?string} Data rows (1-based line number + cells), and a header error if any
