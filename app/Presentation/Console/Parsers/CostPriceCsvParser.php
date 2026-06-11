@@ -28,7 +28,7 @@ final class CostPriceCsvParser
      */
     public function parse(string $file): array
     {
-        [$content, $fileError] = $this->readFile($file);
+        [$content, $fileError] = CsvParser::readFile($file);
         if ($fileError !== null) {
             return [[], [$fileError]];
         }
@@ -39,29 +39,6 @@ final class CostPriceCsvParser
         }
 
         return $this->collectBatches($rows);
-    }
-
-    /**
-     * @return array{string, ?string} Content and optional error message
-     */
-    private function readFile(string $file): array
-    {
-        $handle = \fopen($file, 'rb');
-        if ($handle === false) {
-            return ['', "Could not open CSV file: {$file}"];
-        }
-
-        try {
-            $content = \stream_get_contents($handle);
-        } finally {
-            \fclose($handle);
-        }
-
-        if ($content === false) {
-            return ['', "Could not read CSV file: {$file}"];
-        }
-
-        return [$content, null];
     }
 
     /**

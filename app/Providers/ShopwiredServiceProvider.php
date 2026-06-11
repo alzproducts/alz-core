@@ -43,6 +43,7 @@ use App\Application\Contracts\Shopwired\ProductWebhookEventResolverInterface;
 use App\Application\Contracts\Shopwired\ProductWebhookParserInterface;
 use App\Application\Contracts\Shopwired\SaleReconciliationDispatcherInterface;
 use App\Application\Contracts\Shopwired\SaleSettingsRepositoryInterface;
+use App\Application\Contracts\Shopwired\SellingPriceUpdateDispatcherInterface;
 use App\Application\Contracts\Shopwired\ShopwiredSyncDispatcherInterface;
 use App\Application\Contracts\Shopwired\StockClientInterface;
 use App\Application\Contracts\Shopwired\WebhookClientInterface;
@@ -79,6 +80,7 @@ use App\Infrastructure\Shopwired\Clients\ProductFieldUpdateClient;
 use App\Infrastructure\Shopwired\Clients\ProductUpdateClient;
 use App\Infrastructure\Shopwired\CustomFields\UnknownCustomFieldReporter;
 use App\Infrastructure\Shopwired\Dispatchers\QueuedSaleReconciliationDispatcher;
+use App\Infrastructure\Shopwired\Dispatchers\QueuedSellingPriceUpdateDispatcher;
 use App\Infrastructure\Shopwired\Dispatchers\QueuedShopwiredSyncDispatcher;
 use App\Infrastructure\Shopwired\Factories\CustomFieldFactory;
 use App\Infrastructure\Shopwired\Factories\CustomFieldValueFactory;
@@ -306,6 +308,7 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
     {
         $this->app->singleton(ShopwiredSyncDispatcherInterface::class, QueuedShopwiredSyncDispatcher::class);
         $this->app->singleton(SaleReconciliationDispatcherInterface::class, QueuedSaleReconciliationDispatcher::class);
+        $this->app->singleton(SellingPriceUpdateDispatcherInterface::class, QueuedSellingPriceUpdateDispatcher::class);
     }
 
     private function registerSaleManagementBindings(): void
@@ -404,6 +407,7 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
             ProductWebhookParserInterface::class,
             SaleReconciliationDispatcherInterface::class,
             SaleSettingsRepositoryInterface::class,
+            SellingPriceUpdateDispatcherInterface::class,
             ShopwiredSyncDispatcherInterface::class,
             StockClientInterface::class,
             UnknownCustomFieldReporter::class,
