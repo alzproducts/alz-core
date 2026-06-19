@@ -5,15 +5,12 @@ declare(strict_types=1);
 namespace App\Infrastructure\Jobs\ReviewsIo;
 
 use App\Application\ReviewsIo\UseCases\SyncProductRatingsUseCase;
+use App\Infrastructure\Jobs\AbstractJob;
 use App\Infrastructure\Jobs\Enums\QueueName;
 use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
 use App\Infrastructure\Jobs\Middleware\ServiceCircuitBreaker;
 use DateTimeImmutable;
-use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
 use RuntimeException;
 
 /**
@@ -22,16 +19,11 @@ use RuntimeException;
  * Stage 1 of the ratings sync pipeline. Fetches ratings for all SKUs
  * and stores them in reviews_io.product_ratings.
  */
-final class SyncProductRatingsJob implements ShouldBeUnique, ShouldQueue
+final class SyncProductRatingsJob extends AbstractJob implements ShouldBeUnique
 {
-    use Dispatchable;
-    use InteractsWithQueue;
-    use Queueable;
-
     public int $tries = 10;
     public int $maxExceptions = 5;
     public int $timeout = 900;
-    public bool $failOnTimeout = true;
     public int $uniqueFor = 1200;
 
     /** @var array<int> */
@@ -51,6 +43,7 @@ final class SyncProductRatingsJob implements ShouldBeUnique, ShouldQueue
     public function middleware(): array
     {
         return [
+            ...parent::middleware(),
             ServiceCircuitBreaker::reviewsio(),
             new HandleApiExceptions(),
         ];

@@ -6,14 +6,11 @@ namespace App\Infrastructure\Jobs\Mixpanel;
 
 use App\Application\AdSpend\UseCases\SyncAdSpendUseCase;
 use App\Domain\ValueObjects\DateRange;
+use App\Infrastructure\Jobs\AbstractJob;
 use App\Infrastructure\Jobs\Enums\QueueName;
 use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
 use App\Infrastructure\Jobs\Middleware\ServiceCircuitBreaker;
 use DateTimeImmutable;
-use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
 
 /**
  * Asynchronously synchronize Bing Ads spend data to Mixpanel.
@@ -24,12 +21,8 @@ use Illuminate\Queue\InteractsWithQueue;
  * Key difference from Google Ads: Bing Ads async reporting can take longer,
  * so this job has extended timeout to accommodate report generation polling.
  */
-final class SyncBingAdsToMixpanelJob implements ShouldQueue
+final class SyncBingAdsToMixpanelJob extends AbstractJob
 {
-    use Dispatchable;
-    use InteractsWithQueue;
-    use Queueable;
-
     /**
      * Maximum number of attempts before giving up.
      *
@@ -44,11 +37,6 @@ final class SyncBingAdsToMixpanelJob implements ShouldQueue
      * don't count, only rethrown exceptions decrement this.
      */
     public int $maxExceptions = 3;
-
-    /**
-     * Fail the job if it times out.
-     */
-    public bool $failOnTimeout = true;
 
     /**
      * Job timeout in seconds.
@@ -81,6 +69,7 @@ final class SyncBingAdsToMixpanelJob implements ShouldQueue
     public function middleware(): array
     {
         return [
+            ...parent::middleware(),
             ServiceCircuitBreaker::mixpanel(),
             new HandleApiExceptions(),
         ];

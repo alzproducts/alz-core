@@ -6,14 +6,11 @@ namespace App\Infrastructure\Jobs\Linnworks;
 
 use App\Application\Contracts\Linnworks\OrderDashboardsClientInterface;
 use App\Application\Linnworks\UseCases\BackfillLinnworksOrdersUseCase;
+use App\Infrastructure\Jobs\AbstractJob;
 use App\Infrastructure\Jobs\Enums\QueueName;
 use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
 use App\Infrastructure\Jobs\Middleware\ServiceCircuitBreaker;
-use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
 
 /**
  * Backfill ALL historical Linnworks orders via SQL API.
@@ -22,18 +19,11 @@ use Illuminate\Queue\InteractsWithQueue;
  * (no date filter), then fetches full orders via v2 REST.
  * Typical runtime: ~1.5 hours for ~115k orders.
  */
-final class SyncHistoricalLinnworksOrdersJob implements ShouldBeUnique, ShouldQueue
+final class SyncHistoricalLinnworksOrdersJob extends AbstractJob implements ShouldBeUnique
 {
-    use Dispatchable;
-    use InteractsWithQueue;
-    use Queueable;
-
     public int $tries = 1;
 
     public int $maxExceptions = 1;
-
-    public bool $failOnTimeout = true;
-
     /** @var array<int> Required by JobRequiredMethodsRule; unused with $tries=1 */
     public array $backoff = [120, 600];
 
@@ -64,6 +54,7 @@ final class SyncHistoricalLinnworksOrdersJob implements ShouldBeUnique, ShouldQu
     public function middleware(): array
     {
         return [
+            ...parent::middleware(),
             ServiceCircuitBreaker::linnworks(),
             new HandleApiExceptions(),
         ];

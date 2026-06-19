@@ -14,14 +14,11 @@ use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\Exceptions\ValidationFailedException;
+use App\Infrastructure\Jobs\AbstractJob;
 use App\Infrastructure\Jobs\Enums\QueueName;
 use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
 use App\Infrastructure\Jobs\Middleware\HandleDatabaseExceptions;
 use App\Infrastructure\Jobs\Middleware\ServiceCircuitBreaker;
-use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
 
 /**
  * Apply one supplier-chunk (≤100 SKUs) of cost-price updates to Linnworks.
@@ -32,18 +29,12 @@ use Illuminate\Queue\InteractsWithQueue;
  * re-thrown as a transient outage so the job retries and — after $tries — lands in failed_jobs,
  * rather than silently dropping the price change.
  */
-final class UpdateCostPriceBatchJob implements ShouldQueue
+final class UpdateCostPriceBatchJob extends AbstractJob
 {
-    use Dispatchable;
-    use InteractsWithQueue;
-    use Queueable;
-
     public int $tries = 4;
 
     /** @var list<int> */
     public array $backoff = [60, 300, 1200];
-
-    public bool $failOnTimeout = true;
 
     public int $timeout = 60;
 
@@ -61,6 +52,7 @@ final class UpdateCostPriceBatchJob implements ShouldQueue
     public function middleware(): array
     {
         return [
+            ...parent::middleware(),
             new HandleDatabaseExceptions(),
             ServiceCircuitBreaker::linnworks(),
             new HandleApiExceptions(),

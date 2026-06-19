@@ -9,14 +9,11 @@ use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Data\InvalidEnumValueException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use App\Infrastructure\Jobs\AbstractJob;
 use App\Infrastructure\Jobs\Enums\QueueName;
 use App\Infrastructure\Jobs\Middleware\HandleDatabaseExceptions;
 use DateTimeImmutable;
-use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
 
 /**
  * 10-minute orchestrator: query products with changed Shipping Options filters and dispatch per-entity updates.
@@ -29,20 +26,13 @@ use Illuminate\Queue\InteractsWithQueue;
  *
  * @see SyncShippingOffersFiltersJob for the separate "Shipping Offers" filter (optionNo 20)
  */
-final class SyncShippingOptionsFiltersJob implements ShouldBeUnique, ShouldQueue
+final class SyncShippingOptionsFiltersJob extends AbstractJob implements ShouldBeUnique
 {
-    use Dispatchable;
-    use InteractsWithQueue;
-    use Queueable;
-
     public int $tries = 3;
 
     public int $maxExceptions = 2;
 
     public int $timeout = 120;
-
-    public bool $failOnTimeout = true;
-
     /** Tighter TTL than hourly siblings because this runs every 10 minutes. */
     public int $uniqueFor = 600;
 
@@ -63,6 +53,7 @@ final class SyncShippingOptionsFiltersJob implements ShouldBeUnique, ShouldQueue
     public function middleware(): array
     {
         return [
+            ...parent::middleware(),
             new HandleDatabaseExceptions(),
         ];
     }

@@ -7,6 +7,7 @@ namespace Tests\Unit\Infrastructure\Jobs\Mixpanel;
 use App\Application\Mixpanel\Results\SyncOrdersToMixpanelResult;
 use App\Application\Mixpanel\UseCases\SyncOrdersToMixpanelUseCase;
 use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
+use App\Infrastructure\Jobs\Middleware\MemoryTrackingMiddleware;
 use App\Infrastructure\Jobs\Middleware\ServiceCircuitBreaker;
 use App\Infrastructure\Jobs\Mixpanel\SyncOrdersToMixpanelJob;
 use DateTimeImmutable;
@@ -58,9 +59,10 @@ final class SyncOrdersToMixpanelJobTest extends TestCase
     {
         $middleware = $this->job->middleware();
 
-        $this->assertCount(2, $middleware);
-        $this->assertInstanceOf(ServiceCircuitBreaker::class, $middleware[0]);
-        $this->assertInstanceOf(HandleApiExceptions::class, $middleware[1]);
+        $this->assertCount(3, $middleware);
+        $this->assertInstanceOf(MemoryTrackingMiddleware::class, $middleware[0]);
+        $this->assertInstanceOf(ServiceCircuitBreaker::class, $middleware[1]);
+        $this->assertInstanceOf(HandleApiExceptions::class, $middleware[2]);
     }
 
     /*

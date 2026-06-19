@@ -9,12 +9,9 @@ use App\Domain\Catalog\Product\ValueObjects\ProductRetailPricing;
 use App\Domain\Catalog\Product\ValueObjects\Sku;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use App\Infrastructure\Jobs\AbstractJob;
 use App\Infrastructure\Jobs\Enums\QueueName;
 use App\Infrastructure\Jobs\Middleware\HandleDatabaseExceptions;
-use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
 
 /**
  * Records SCD2 price period when a SKU's retail pricing changes.
@@ -23,18 +20,12 @@ use Illuminate\Queue\InteractsWithQueue;
  * failures (immediate fail) while transient ExternalServiceUnavailableException
  * bubbles to the Worker for standard backoff retry.
  */
-final class RecordPricePeriodJob implements ShouldQueue
+final class RecordPricePeriodJob extends AbstractJob
 {
-    use Dispatchable;
-    use InteractsWithQueue;
-    use Queueable;
-
     public int $tries = 4;
 
     /** @var list<int> 1min, 5min, 20min */
     public array $backoff = [60, 300, 1200];
-
-    public bool $failOnTimeout = true;
 
     public int $timeout = 30;
 
@@ -49,6 +40,7 @@ final class RecordPricePeriodJob implements ShouldQueue
     public function middleware(): array
     {
         return [
+            ...parent::middleware(),
             new HandleDatabaseExceptions(),
         ];
     }

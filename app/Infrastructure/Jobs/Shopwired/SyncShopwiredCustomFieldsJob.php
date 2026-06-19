@@ -5,16 +5,13 @@ declare(strict_types=1);
 namespace App\Infrastructure\Jobs\Shopwired;
 
 use App\Application\Shopwired\UseCases\SyncCustomFieldsUseCase;
+use App\Infrastructure\Jobs\AbstractJob;
 use App\Infrastructure\Jobs\Enums\QueueName;
 use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
 use App\Infrastructure\Jobs\Middleware\ServiceCircuitBreaker;
 use App\Infrastructure\Jobs\Middleware\ServiceRateLimiter;
 use DateTimeImmutable;
-use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
 
 /**
  * Asynchronously synchronize ShopWired custom field definitions to local database.
@@ -28,12 +25,8 @@ use Illuminate\Queue\InteractsWithQueue;
  *
  * Recommended scheduling: Weekly (definitions rarely change)
  */
-final class SyncShopwiredCustomFieldsJob implements ShouldBeUnique, ShouldQueue
+final class SyncShopwiredCustomFieldsJob extends AbstractJob implements ShouldBeUnique
 {
-    use Dispatchable;
-    use InteractsWithQueue;
-    use Queueable;
-
     /**
      * Maximum number of attempts before giving up.
      */
@@ -43,9 +36,6 @@ final class SyncShopwiredCustomFieldsJob implements ShouldBeUnique, ShouldQueue
      * Maximum exceptions allowed before failing.
      */
     public int $maxExceptions = 3;
-
-    public bool $failOnTimeout = true;
-
     /**
      * Seconds to wait before retrying (exponential backoff).
      *
@@ -85,6 +75,7 @@ final class SyncShopwiredCustomFieldsJob implements ShouldBeUnique, ShouldQueue
     public function middleware(): array
     {
         return [
+            ...parent::middleware(),
             ServiceRateLimiter::shopwiredApi(),
             ServiceCircuitBreaker::shopwired(),
             new HandleApiExceptions(),

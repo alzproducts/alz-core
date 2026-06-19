@@ -8,15 +8,12 @@ use App\Application\Inventory\UseCases\SyncFullStockToShopwiredUseCase;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\Exceptions\Infrastructure\LockAcquisitionException;
+use App\Infrastructure\Jobs\AbstractJob;
 use App\Infrastructure\Jobs\Enums\QueueName;
 use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
 use App\Infrastructure\Jobs\Middleware\ServiceCircuitBreaker;
 use DateTimeImmutable;
-use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
 
 /**
  * Scheduled job: full Linnworks → ShopWired stock sync.
@@ -29,12 +26,8 @@ use Illuminate\Queue\InteractsWithQueue;
  *
  * @see SyncFullStockToShopwiredUseCase
  */
-final class SyncFullStockToShopwiredJob implements ShouldBeUnique, ShouldQueue
+final class SyncFullStockToShopwiredJob extends AbstractJob implements ShouldBeUnique
 {
-    use Dispatchable;
-    use InteractsWithQueue;
-    use Queueable;
-
     public int $tries = 4;
     public int $maxExceptions = 2;
 
@@ -42,7 +35,6 @@ final class SyncFullStockToShopwiredJob implements ShouldBeUnique, ShouldQueue
     public array $backoff = [60];
 
     public int $timeout = 90;
-    public bool $failOnTimeout = true;
 
     /**
      * Unique for 10 minutes — matches the schedule frequency.
@@ -63,6 +55,7 @@ final class SyncFullStockToShopwiredJob implements ShouldBeUnique, ShouldQueue
     public function middleware(): array
     {
         return [
+            ...parent::middleware(),
             ServiceCircuitBreaker::linnworks(),
             ServiceCircuitBreaker::shopwired(),
             new HandleApiExceptions(),

@@ -11,15 +11,12 @@ use App\Domain\Exceptions\Data\InvalidFormatException;
 use App\Domain\Exceptions\Data\MalformedStoredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use App\Infrastructure\Jobs\AbstractJob;
 use App\Infrastructure\Jobs\Enums\QueueName;
 use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
 use App\Infrastructure\Jobs\Middleware\ServiceCircuitBreaker;
 use DateTimeImmutable;
-use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
 use Throwable;
 
 /**
@@ -36,12 +33,8 @@ use Throwable;
  * - Data exceptions: Caught in handle() → fail immediately (non-API permanent failures)
  * - Unexpected Throwable: Retried by Laravel, failed() on exhaustion
  */
-final class ProcessQuoteConversionJob implements ShouldBeUnique, ShouldQueue
+final class ProcessQuoteConversionJob extends AbstractJob implements ShouldBeUnique
 {
-    use Dispatchable;
-    use InteractsWithQueue;
-    use Queueable;
-
     /**
      * Maximum attempts before permanent failure.
      * 5 attempts = initial + 4 retries (using all 4 backoff delays).
@@ -49,8 +42,6 @@ final class ProcessQuoteConversionJob implements ShouldBeUnique, ShouldQueue
     public int $tries = 5;
 
     public int $maxExceptions = 5;
-
-    public bool $failOnTimeout = true;
 
     public int $timeout = 60;
 
@@ -84,6 +75,7 @@ final class ProcessQuoteConversionJob implements ShouldBeUnique, ShouldQueue
     public function middleware(): array
     {
         return [
+            ...parent::middleware(),
             ServiceCircuitBreaker::googleAds(),
             new HandleApiExceptions(),
         ];

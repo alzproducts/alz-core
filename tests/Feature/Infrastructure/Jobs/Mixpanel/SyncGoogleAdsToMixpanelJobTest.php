@@ -11,6 +11,7 @@ use App\Domain\AdSpend\Enums\AdSource;
 use App\Domain\AdSpend\ValueObjects\CampaignMetrics;
 use App\Domain\ValueObjects\DateRange;
 use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
+use App\Infrastructure\Jobs\Middleware\MemoryTrackingMiddleware;
 use App\Infrastructure\Jobs\Middleware\ServiceCircuitBreaker;
 use App\Infrastructure\Jobs\Mixpanel\SyncGoogleAdsToMixpanelJob;
 use DateTimeImmutable;
@@ -62,9 +63,10 @@ final class SyncGoogleAdsToMixpanelJobTest extends TestCase
         $job = new SyncGoogleAdsToMixpanelJob(new DateTimeImmutable(self::TEST_DATE), new DateTimeImmutable(self::TEST_DATE));
         $middleware = $job->middleware();
 
-        $this->assertCount(2, $middleware);
-        $this->assertInstanceOf(ServiceCircuitBreaker::class, $middleware[0]);
-        $this->assertInstanceOf(HandleApiExceptions::class, $middleware[1]);
+        $this->assertCount(3, $middleware);
+        $this->assertInstanceOf(MemoryTrackingMiddleware::class, $middleware[0]);
+        $this->assertInstanceOf(ServiceCircuitBreaker::class, $middleware[1]);
+        $this->assertInstanceOf(HandleApiExceptions::class, $middleware[2]);
     }
 
     // ========================================================================

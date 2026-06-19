@@ -6,14 +6,11 @@ namespace App\Infrastructure\Jobs\Mixpanel;
 
 use App\Application\AdSpend\UseCases\SyncAdSpendUseCase;
 use App\Domain\ValueObjects\DateRange;
+use App\Infrastructure\Jobs\AbstractJob;
 use App\Infrastructure\Jobs\Enums\QueueName;
 use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
 use App\Infrastructure\Jobs\Middleware\ServiceCircuitBreaker;
 use DateTimeImmutable;
-use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
 
 /**
  * Asynchronously synchronize Google Ads spend data to Mixpanel.
@@ -21,12 +18,8 @@ use Illuminate\Queue\InteractsWithQueue;
  * Queues ad spend synchronization to prevent blocking HTTP responses.
  * Implements exponential backoff retry strategy for rate-limited API calls.
  */
-final class SyncGoogleAdsToMixpanelJob implements ShouldQueue
+final class SyncGoogleAdsToMixpanelJob extends AbstractJob
 {
-    use Dispatchable;
-    use InteractsWithQueue;
-    use Queueable;
-
     /**
      * Maximum number of attempts before giving up.
      *
@@ -41,11 +34,6 @@ final class SyncGoogleAdsToMixpanelJob implements ShouldQueue
      * don't count, only rethrown exceptions decrement this.
      */
     public int $maxExceptions = 3;
-
-    /**
-     * Fail the job if it times out.
-     */
-    public bool $failOnTimeout = true;
 
     /**
      * Seconds to wait before retrying.
@@ -76,6 +64,7 @@ final class SyncGoogleAdsToMixpanelJob implements ShouldQueue
     public function middleware(): array
     {
         return [
+            ...parent::middleware(),
             ServiceCircuitBreaker::mixpanel(),
             new HandleApiExceptions(),
         ];

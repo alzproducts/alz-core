@@ -11,14 +11,11 @@ use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\IntId;
+use App\Infrastructure\Jobs\AbstractJob;
 use App\Infrastructure\Jobs\Enums\QueueName;
 use App\Infrastructure\Jobs\Middleware\HandleDatabaseExceptions;
 use DateTimeImmutable;
-use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
 
 /**
  * Reconciles a single product's sale state against DB reality.
@@ -27,18 +24,12 @@ use Illuminate\Queue\InteractsWithQueue;
  * ShopWired webhooks to sync fresh state before checking.
  * ShouldBeUnique per product ID to avoid redundant reconciliations.
  */
-final class ReconcileProductSaleStateJob implements ShouldBeUnique, ShouldQueue
+final class ReconcileProductSaleStateJob extends AbstractJob implements ShouldBeUnique
 {
-    use Dispatchable;
-    use InteractsWithQueue;
-    use Queueable;
-
     public int $tries = 3;
 
     /** @var list<int> */
     public array $backoff = [60, 300];
-
-    public bool $failOnTimeout = true;
 
     public int $timeout = 30;
 
@@ -59,6 +50,7 @@ final class ReconcileProductSaleStateJob implements ShouldBeUnique, ShouldQueue
     public function middleware(): array
     {
         return [
+            ...parent::middleware(),
             new HandleDatabaseExceptions(),
         ];
     }

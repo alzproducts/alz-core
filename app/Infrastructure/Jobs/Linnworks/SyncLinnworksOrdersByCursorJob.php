@@ -7,15 +7,12 @@ namespace App\Infrastructure\Jobs\Linnworks;
 use App\Application\Linnworks\UseCases\SyncLinnworksCursorUseCase;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use App\Infrastructure\Jobs\AbstractJob;
 use App\Infrastructure\Jobs\Enums\QueueName;
 use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
 use App\Infrastructure\Jobs\Middleware\ServiceCircuitBreaker;
 use DateTimeImmutable;
-use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
 
 /**
  * Cursor-based incremental order sync from Linnworks.
@@ -23,12 +20,8 @@ use Illuminate\Queue\InteractsWithQueue;
  * Runs every minute. Fetches orders modified since the last cursor position.
  * Lightweight — typically processes only a few orders per run.
  */
-final class SyncLinnworksOrdersByCursorJob implements ShouldBeUnique, ShouldQueue
+final class SyncLinnworksOrdersByCursorJob extends AbstractJob implements ShouldBeUnique
 {
-    use Dispatchable;
-    use InteractsWithQueue;
-    use Queueable;
-
     /**
      * Maximum number of attempts before giving up.
      *
@@ -40,9 +33,6 @@ final class SyncLinnworksOrdersByCursorJob implements ShouldBeUnique, ShouldQueu
      * Maximum number of unhandled exceptions to allow before failing.
      */
     public int $maxExceptions = 2;
-
-    public bool $failOnTimeout = true;
-
     /**
      * Seconds to wait before retrying.
      *
@@ -81,6 +71,7 @@ final class SyncLinnworksOrdersByCursorJob implements ShouldBeUnique, ShouldQueu
     public function middleware(): array
     {
         return [
+            ...parent::middleware(),
             ServiceCircuitBreaker::linnworks(),
             new HandleApiExceptions(),
         ];

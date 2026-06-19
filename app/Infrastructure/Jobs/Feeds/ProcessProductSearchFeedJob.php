@@ -7,14 +7,11 @@ namespace App\Infrastructure\Jobs\Feeds;
 use App\Application\Feeds\ProcessProductSearchFeedUseCase;
 use App\Domain\Exceptions\Data\MalformedFeedDataException;
 use App\Domain\Exceptions\Infrastructure\StorageOperationFailedException;
+use App\Infrastructure\Jobs\AbstractJob;
 use App\Infrastructure\Jobs\Enums\QueueName;
 use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
 use DateTimeImmutable;
-use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
 
 /**
  * Process product search feed asynchronously.
@@ -23,18 +20,11 @@ use Illuminate\Queue\InteractsWithQueue;
  * display title), and uploads to cloud storage for site search consumption.
  * Scheduled daily at 1:00 AM UK time.
  */
-final class ProcessProductSearchFeedJob implements ShouldBeUnique, ShouldQueue
+final class ProcessProductSearchFeedJob extends AbstractJob implements ShouldBeUnique
 {
-    use Dispatchable;
-    use InteractsWithQueue;
-    use Queueable;
-
     public int $tries = 6;
 
     public int $maxExceptions = 3;
-
-    public bool $failOnTimeout = true;
-
     /**
      * Seconds to wait before retrying.
      *
@@ -68,7 +58,7 @@ final class ProcessProductSearchFeedJob implements ShouldBeUnique, ShouldQueue
     /** @return list<object> */
     public function middleware(): array
     {
-        return [new HandleApiExceptions()];
+        return [...parent::middleware(), new HandleApiExceptions()];
     }
 
     public function retryUntil(): DateTimeImmutable

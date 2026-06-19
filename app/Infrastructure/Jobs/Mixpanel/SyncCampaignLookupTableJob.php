@@ -5,15 +5,12 @@ declare(strict_types=1);
 namespace App\Infrastructure\Jobs\Mixpanel;
 
 use App\Application\Mixpanel\UseCases\SyncLookupTableUseCase;
+use App\Infrastructure\Jobs\AbstractJob;
 use App\Infrastructure\Jobs\Enums\QueueName;
 use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
 use App\Infrastructure\Jobs\Middleware\ServiceCircuitBreaker;
 use DateTimeImmutable;
-use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
 
 /**
  * Asynchronously synchronize campaign lookup table from Google Ads to Mixpanel.
@@ -21,12 +18,8 @@ use Illuminate\Queue\InteractsWithQueue;
  * Queues the campaign lookup table sync to avoid blocking HTTP requests.
  * Implements exponential backoff for rate limit handling.
  */
-final class SyncCampaignLookupTableJob implements ShouldBeUnique, ShouldQueue
+final class SyncCampaignLookupTableJob extends AbstractJob implements ShouldBeUnique
 {
-    use Dispatchable;
-    use InteractsWithQueue;
-    use Queueable;
-
     /**
      * Maximum number of attempts before giving up.
      *
@@ -41,11 +34,6 @@ final class SyncCampaignLookupTableJob implements ShouldBeUnique, ShouldQueue
      * don't count, only rethrown exceptions decrement this.
      */
     public int $maxExceptions = 3;
-
-    /**
-     * Fail the job if it times out.
-     */
-    public bool $failOnTimeout = true;
 
     /**
      * Seconds to wait before retrying.
@@ -84,6 +72,7 @@ final class SyncCampaignLookupTableJob implements ShouldBeUnique, ShouldQueue
     public function middleware(): array
     {
         return [
+            ...parent::middleware(),
             ServiceCircuitBreaker::mixpanel(),
             new HandleApiExceptions(),
         ];

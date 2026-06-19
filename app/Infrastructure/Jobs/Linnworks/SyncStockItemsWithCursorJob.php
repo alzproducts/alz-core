@@ -7,15 +7,12 @@ namespace App\Infrastructure\Jobs\Linnworks;
 use App\Application\Linnworks\UseCases\SyncStockItemWithCursorUseCase;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use App\Infrastructure\Jobs\AbstractJob;
 use App\Infrastructure\Jobs\Enums\QueueName;
 use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
 use App\Infrastructure\Jobs\Middleware\ServiceCircuitBreaker;
 use DateTimeImmutable;
-use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
 
 /**
  * Scheduled orchestrator for cursor-based stock item sync.
@@ -23,12 +20,8 @@ use Illuminate\Queue\InteractsWithQueue;
  * Runs every 5 minutes, detects recently-modified stock items via SQL,
  * and dispatches individual SyncStockItemJob per modified item.
  */
-final class SyncStockItemsWithCursorJob implements ShouldBeUnique, ShouldQueue
+final class SyncStockItemsWithCursorJob extends AbstractJob implements ShouldBeUnique
 {
-    use Dispatchable;
-    use InteractsWithQueue;
-    use Queueable;
-
     /**
      * Maximum number of attempts before giving up.
      *
@@ -40,9 +33,6 @@ final class SyncStockItemsWithCursorJob implements ShouldBeUnique, ShouldQueue
      * Maximum number of unhandled exceptions to allow before failing.
      */
     public int $maxExceptions = 2;
-
-    public bool $failOnTimeout = true;
-
     /**
      * Seconds to wait before retrying.
      *
@@ -83,6 +73,7 @@ final class SyncStockItemsWithCursorJob implements ShouldBeUnique, ShouldQueue
     public function middleware(): array
     {
         return [
+            ...parent::middleware(),
             ServiceCircuitBreaker::linnworks(),
             new HandleApiExceptions(),
         ];

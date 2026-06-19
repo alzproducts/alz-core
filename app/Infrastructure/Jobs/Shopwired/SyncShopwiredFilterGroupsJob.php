@@ -5,16 +5,13 @@ declare(strict_types=1);
 namespace App\Infrastructure\Jobs\Shopwired;
 
 use App\Application\Shopwired\UseCases\SyncFilterGroupsUseCase;
+use App\Infrastructure\Jobs\AbstractJob;
 use App\Infrastructure\Jobs\Enums\QueueName;
 use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
 use App\Infrastructure\Jobs\Middleware\ServiceCircuitBreaker;
 use App\Infrastructure\Jobs\Middleware\ServiceRateLimiter;
 use DateTimeImmutable;
-use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
 use RuntimeException;
 
 /**
@@ -29,12 +26,8 @@ use RuntimeException;
  *
  * Recommended scheduling: Daily (definitions rarely change)
  */
-final class SyncShopwiredFilterGroupsJob implements ShouldBeUnique, ShouldQueue
+final class SyncShopwiredFilterGroupsJob extends AbstractJob implements ShouldBeUnique
 {
-    use Dispatchable;
-    use InteractsWithQueue;
-    use Queueable;
-
     /**
      * Maximum number of attempts before giving up.
      */
@@ -44,9 +37,6 @@ final class SyncShopwiredFilterGroupsJob implements ShouldBeUnique, ShouldQueue
      * Maximum exceptions allowed before failing.
      */
     public int $maxExceptions = 3;
-
-    public bool $failOnTimeout = true;
-
     /**
      * Seconds to wait before retrying (exponential backoff).
      *
@@ -86,6 +76,7 @@ final class SyncShopwiredFilterGroupsJob implements ShouldBeUnique, ShouldQueue
     public function middleware(): array
     {
         return [
+            ...parent::middleware(),
             ServiceRateLimiter::shopwiredApi(),
             ServiceCircuitBreaker::shopwired(),
             new HandleApiExceptions(),
