@@ -7,6 +7,7 @@ namespace Tests\Unit\Infrastructure\Jobs\Linnworks;
 use App\Application\Linnworks\UseCases\SyncLinnworksCursorUseCase;
 use App\Infrastructure\Jobs\Linnworks\SyncLinnworksOrdersByCursorJob;
 use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
+use App\Infrastructure\Jobs\Middleware\MemoryTrackingMiddleware;
 use App\Infrastructure\Jobs\Middleware\ServiceCircuitBreaker;
 use Mockery;
 use Mockery\MockInterface;
@@ -63,9 +64,10 @@ final class SyncLinnworksOrdersByCursorJobTest extends TestCase
         $job = new SyncLinnworksOrdersByCursorJob();
         $middleware = $job->middleware();
 
-        $this->assertCount(2, $middleware);
-        $this->assertInstanceOf(ServiceCircuitBreaker::class, $middleware[0]);
-        $this->assertInstanceOf(HandleApiExceptions::class, $middleware[1]);
+        $this->assertCount(3, $middleware);
+        $this->assertInstanceOf(MemoryTrackingMiddleware::class, $middleware[0]);
+        $this->assertInstanceOf(ServiceCircuitBreaker::class, $middleware[1]);
+        $this->assertInstanceOf(HandleApiExceptions::class, $middleware[2]);
     }
 
     /*

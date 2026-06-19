@@ -5,14 +5,11 @@ declare(strict_types=1);
 namespace App\Infrastructure\Jobs\ContactForm;
 
 use App\Application\ContactSubmission\UseCases\CleanupStaleContactActionsUseCase;
+use App\Infrastructure\Jobs\AbstractJob;
 use App\Infrastructure\Jobs\Enums\QueueName;
 use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
 use DateTimeImmutable;
-use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
 
 /**
  * Cleans up contact submission actions stuck in 'processing' status.
@@ -20,17 +17,11 @@ use Illuminate\Queue\InteractsWithQueue;
  * Scheduled to run hourly. Delegates to UseCase which finds stale actions,
  * resets them to 'pending', and re-dispatches the processing job.
  */
-final class CleanupStaleContactActionsJob implements ShouldBeUnique, ShouldQueue
+final class CleanupStaleContactActionsJob extends AbstractJob implements ShouldBeUnique
 {
-    use Dispatchable;
-    use InteractsWithQueue;
-    use Queueable;
-
     public int $tries = 6;
 
     public int $maxExceptions = 3;
-
-    public bool $failOnTimeout = true;
 
     public int $timeout = 120;
 
@@ -60,7 +51,7 @@ final class CleanupStaleContactActionsJob implements ShouldBeUnique, ShouldQueue
     /** @return list<object> */
     public function middleware(): array
     {
-        return [new HandleApiExceptions()];
+        return [...parent::middleware(), new HandleApiExceptions()];
     }
 
     public function retryUntil(): DateTimeImmutable

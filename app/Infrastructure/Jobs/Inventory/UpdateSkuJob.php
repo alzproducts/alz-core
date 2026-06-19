@@ -11,15 +11,12 @@ use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\Exceptions\Inventory\SkuGenerationFailedException;
 use App\Domain\Exceptions\Inventory\SkuUpdateFailedException;
 use App\Domain\Inventory\Commands\UpdateSkuCommand;
+use App\Infrastructure\Jobs\AbstractJob;
 use App\Infrastructure\Jobs\Enums\QueueName;
 use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
 use App\Infrastructure\Jobs\Middleware\ServiceCircuitBreaker;
 use DateTimeImmutable;
-use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
 use Throwable;
 
 /**
@@ -41,12 +38,8 @@ use Throwable;
  *
  * @see UpdateSkuUseCase For orchestration and compensation logic
  */
-final class UpdateSkuJob implements ShouldBeUnique, ShouldQueue
+final class UpdateSkuJob extends AbstractJob implements ShouldBeUnique
 {
-    use Dispatchable;
-    use InteractsWithQueue;
-    use Queueable;
-
     /**
      * Maximum attempts before permanent failure.
      */
@@ -69,9 +62,6 @@ final class UpdateSkuJob implements ShouldBeUnique, ShouldQueue
      * Job timeout in seconds.
      */
     public int $timeout = 120;
-
-    public bool $failOnTimeout = true;
-
     /**
      * Backoff delays in seconds.
      *
@@ -107,6 +97,7 @@ final class UpdateSkuJob implements ShouldBeUnique, ShouldQueue
     public function middleware(): array
     {
         return [
+            ...parent::middleware(),
             ServiceCircuitBreaker::linnworks(),
             new HandleApiExceptions(),
         ];

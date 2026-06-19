@@ -7,16 +7,13 @@ namespace App\Infrastructure\Jobs\ReviewsIo;
 use App\Application\ReviewsIo\UseCases\UpdateShopwiredRatingsUseCase;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use App\Infrastructure\Jobs\AbstractJob;
 use App\Infrastructure\Jobs\Enums\QueueName;
 use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
 use App\Infrastructure\Jobs\Middleware\ServiceCircuitBreaker;
 use App\Infrastructure\Jobs\Middleware\ServiceRateLimiter;
 use DateTimeImmutable;
-use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
 
 /**
  * Push product ratings from local database to ShopWired custom fields.
@@ -24,16 +21,11 @@ use Illuminate\Queue\InteractsWithQueue;
  * Stage 2 of the ratings sync pipeline. Reads aggregated ratings from
  * reviews_io.product_ratings and updates ShopWired products.
  */
-final class UpdateShopwiredRatingsJob implements ShouldBeUnique, ShouldQueue
+final class UpdateShopwiredRatingsJob extends AbstractJob implements ShouldBeUnique
 {
-    use Dispatchable;
-    use InteractsWithQueue;
-    use Queueable;
-
     public int $tries = 10;
     public int $maxExceptions = 5;
     public int $timeout = 900;
-    public bool $failOnTimeout = true;
     public int $uniqueFor = 1200;
 
     /** @var array<int> */
@@ -53,6 +45,7 @@ final class UpdateShopwiredRatingsJob implements ShouldBeUnique, ShouldQueue
     public function middleware(): array
     {
         return [
+            ...parent::middleware(),
             ServiceRateLimiter::shopwiredApi(),
             ServiceCircuitBreaker::shopwired(),
             new HandleApiExceptions(),

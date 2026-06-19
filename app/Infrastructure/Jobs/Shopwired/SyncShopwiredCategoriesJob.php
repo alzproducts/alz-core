@@ -5,16 +5,13 @@ declare(strict_types=1);
 namespace App\Infrastructure\Jobs\Shopwired;
 
 use App\Application\Shopwired\UseCases\SyncCategoriesUseCase;
+use App\Infrastructure\Jobs\AbstractJob;
 use App\Infrastructure\Jobs\Enums\QueueName;
 use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
 use App\Infrastructure\Jobs\Middleware\ServiceCircuitBreaker;
 use App\Infrastructure\Jobs\Middleware\ServiceRateLimiter;
 use DateTimeImmutable;
-use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
 use RuntimeException;
 
 /**
@@ -27,18 +24,11 @@ use RuntimeException;
  *
  * Recommended scheduling: Daily (categories rarely change)
  */
-final class SyncShopwiredCategoriesJob implements ShouldBeUnique, ShouldQueue
+final class SyncShopwiredCategoriesJob extends AbstractJob implements ShouldBeUnique
 {
-    use Dispatchable;
-    use InteractsWithQueue;
-    use Queueable;
-
     public int $tries = 6;
 
     public int $maxExceptions = 3;
-
-    public bool $failOnTimeout = true;
-
     /** @var array<int> */
     public array $backoff = [30, 60, 120];
 
@@ -60,6 +50,7 @@ final class SyncShopwiredCategoriesJob implements ShouldBeUnique, ShouldQueue
     public function middleware(): array
     {
         return [
+            ...parent::middleware(),
             ServiceRateLimiter::shopwiredApi(),
             ServiceCircuitBreaker::shopwired(),
             new HandleApiExceptions(),

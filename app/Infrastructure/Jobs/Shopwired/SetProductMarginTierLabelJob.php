@@ -12,16 +12,13 @@ use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Api\ResourceNotAvailableException;
 use App\Domain\ValueObjects\IntId;
+use App\Infrastructure\Jobs\AbstractJob;
 use App\Infrastructure\Jobs\Enums\QueueName;
 use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
 use App\Infrastructure\Jobs\Middleware\ServiceCircuitBreaker;
 use App\Infrastructure\Jobs\Middleware\ServiceRateLimiter;
 use DateTimeImmutable;
-use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
 
 /**
  * Update the margin-tier label on a single product's custom_label_1 field.
@@ -30,20 +27,13 @@ use Illuminate\Queue\InteractsWithQueue;
  * via {@see SetProductMarginTierLabelUseCase} which calls ProductUpdateClientInterface
  * directly (bypasses CustomFieldSubmissionValidator, mirroring the COR-128 precedent).
  */
-final class SetProductMarginTierLabelJob implements ShouldBeUnique, ShouldQueue
+final class SetProductMarginTierLabelJob extends AbstractJob implements ShouldBeUnique
 {
-    use Dispatchable;
-    use InteractsWithQueue;
-    use Queueable;
-
     public int $tries = 6;
 
     public int $maxExceptions = 3;
 
     public int $timeout = 60;
-
-    public bool $failOnTimeout = true;
-
     /** @var array<int> */
     public array $backoff = [60, 300, 900];
 
@@ -63,6 +53,7 @@ final class SetProductMarginTierLabelJob implements ShouldBeUnique, ShouldQueue
     public function middleware(): array
     {
         return [
+            ...parent::middleware(),
             ServiceRateLimiter::shopwiredApiBulk(),
             ServiceCircuitBreaker::shopwired(),
             new HandleApiExceptions(),

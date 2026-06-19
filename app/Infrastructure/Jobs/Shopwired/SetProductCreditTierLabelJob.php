@@ -12,16 +12,13 @@ use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Api\ResourceNotAvailableException;
 use App\Domain\ValueObjects\IntId;
+use App\Infrastructure\Jobs\AbstractJob;
 use App\Infrastructure\Jobs\Enums\QueueName;
 use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
 use App\Infrastructure\Jobs\Middleware\ServiceCircuitBreaker;
 use App\Infrastructure\Jobs\Middleware\ServiceRateLimiter;
 use DateTimeImmutable;
-use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
 
 /**
  * Update the credit-tier label on a single product's custom_label_0 field.
@@ -29,20 +26,13 @@ use Illuminate\Queue\InteractsWithQueue;
  * Receives the pre-computed target tier (nullable — null clears the label
  * when a product leaves credit sales) from the orchestrator.
  */
-final class SetProductCreditTierLabelJob implements ShouldBeUnique, ShouldQueue
+final class SetProductCreditTierLabelJob extends AbstractJob implements ShouldBeUnique
 {
-    use Dispatchable;
-    use InteractsWithQueue;
-    use Queueable;
-
     public int $tries = 6;
 
     public int $maxExceptions = 3;
 
     public int $timeout = 60;
-
-    public bool $failOnTimeout = true;
-
     /** @var array<int> */
     public array $backoff = [60, 300, 900];
 
@@ -62,6 +52,7 @@ final class SetProductCreditTierLabelJob implements ShouldBeUnique, ShouldQueue
     public function middleware(): array
     {
         return [
+            ...parent::middleware(),
             ServiceRateLimiter::shopwiredApiBulk(),
             ServiceCircuitBreaker::shopwired(),
             new HandleApiExceptions(),

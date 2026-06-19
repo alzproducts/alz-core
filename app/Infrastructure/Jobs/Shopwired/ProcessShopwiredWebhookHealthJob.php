@@ -5,16 +5,13 @@ declare(strict_types=1);
 namespace App\Infrastructure\Jobs\Shopwired;
 
 use App\Application\Shopwired\UseCases\CheckShopwiredWebhookHealthUseCase;
+use App\Infrastructure\Jobs\AbstractJob;
 use App\Infrastructure\Jobs\Enums\QueueName;
 use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
 use App\Infrastructure\Jobs\Middleware\ServiceCircuitBreaker;
 use App\Infrastructure\Jobs\Middleware\ServiceRateLimiter;
 use DateTimeImmutable;
-use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
 
 /**
  * Daily health check for ShopWired webhook registrations.
@@ -22,17 +19,11 @@ use Illuminate\Queue\InteractsWithQueue;
  * Delegates to CheckShopwiredWebhookHealthUseCase for business logic.
  * Handles queue-specific concerns: retry, backoff, and failure logging.
  */
-final class ProcessShopwiredWebhookHealthJob implements ShouldBeUnique, ShouldQueue
+final class ProcessShopwiredWebhookHealthJob extends AbstractJob implements ShouldBeUnique
 {
-    use Dispatchable;
-    use InteractsWithQueue;
-    use Queueable;
-
     public int $tries = 6;
 
     public int $maxExceptions = 3;
-
-    public bool $failOnTimeout = true;
 
     public int $uniqueFor = 3600;
 
@@ -55,6 +46,7 @@ final class ProcessShopwiredWebhookHealthJob implements ShouldBeUnique, ShouldQu
     public function middleware(): array
     {
         return [
+            ...parent::middleware(),
             ServiceRateLimiter::shopwiredApi(),
             ServiceCircuitBreaker::shopwired(),
             new HandleApiExceptions(),

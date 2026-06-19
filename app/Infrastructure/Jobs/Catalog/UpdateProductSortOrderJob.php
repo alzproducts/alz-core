@@ -11,15 +11,12 @@ use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\ResourceNotAvailableException;
 use App\Domain\ValueObjects\IntId;
+use App\Infrastructure\Jobs\AbstractJob;
 use App\Infrastructure\Jobs\Enums\QueueName;
 use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
 use App\Infrastructure\Jobs\Middleware\ServiceCircuitBreaker;
 use App\Infrastructure\Jobs\Middleware\ServiceRateLimiter;
 use DateTimeImmutable;
-use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
 
 /**
  * Update the sort_order field on a single ShopWired product.
@@ -28,18 +25,11 @@ use Illuminate\Queue\InteractsWithQueue;
  * sort order difference. Runs on the bulk queue with rate limiting and
  * circuit breaker to avoid exceeding ShopWired API limits.
  */
-final class UpdateProductSortOrderJob implements ShouldQueue
+final class UpdateProductSortOrderJob extends AbstractJob
 {
-    use Dispatchable;
-    use InteractsWithQueue;
-    use Queueable;
-
     public int $tries = 6;
 
     public int $maxExceptions = 3;
-
-    public bool $failOnTimeout = true;
-
     /**
      * Seconds to wait before retrying.
      *
@@ -62,6 +52,7 @@ final class UpdateProductSortOrderJob implements ShouldQueue
     public function middleware(): array
     {
         return [
+            ...parent::middleware(),
             ServiceRateLimiter::shopwiredApiBulk(),
             ServiceCircuitBreaker::shopwired(),
             new HandleApiExceptions(),

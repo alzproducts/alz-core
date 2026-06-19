@@ -9,14 +9,11 @@ use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Data\InvalidEnumValueException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use App\Infrastructure\Jobs\AbstractJob;
 use App\Infrastructure\Jobs\Enums\QueueName;
 use App\Infrastructure\Jobs\Middleware\HandleDatabaseExceptions;
 use DateTimeImmutable;
-use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
 
 /**
  * Hourly orchestrator: query products with changed Offers filters and dispatch per-entity updates.
@@ -24,19 +21,13 @@ use Illuminate\Queue\InteractsWithQueue;
  * Does NOT call the ShopWired API directly — only queries the database view
  * and dispatches UpdateProductFilterJob per product.
  */
-final class SyncOffersFiltersJob implements ShouldBeUnique, ShouldQueue
+final class SyncOffersFiltersJob extends AbstractJob implements ShouldBeUnique
 {
-    use Dispatchable;
-    use InteractsWithQueue;
-    use Queueable;
-
     public int $tries = 4;
 
     public int $maxExceptions = 2;
 
     public int $timeout = 120;
-
-    public bool $failOnTimeout = true;
 
     public int $uniqueFor = 1200;
 
@@ -57,6 +48,7 @@ final class SyncOffersFiltersJob implements ShouldBeUnique, ShouldQueue
     public function middleware(): array
     {
         return [
+            ...parent::middleware(),
             new HandleDatabaseExceptions(),
         ];
     }

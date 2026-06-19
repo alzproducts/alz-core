@@ -8,16 +8,13 @@ use App\Application\Contracts\Linnworks\PurchaseDashboardsClientInterface;
 use App\Application\Linnworks\UseCases\SyncPurchaseOrderCoreUseCase;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use App\Infrastructure\Jobs\AbstractJob;
 use App\Infrastructure\Jobs\Enums\QueueName;
 use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
 use App\Infrastructure\Jobs\Middleware\HandleDatabaseExceptions;
 use App\Infrastructure\Jobs\Middleware\ServiceCircuitBreaker;
 use DateTimeImmutable;
-use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
 
 /**
  * Fast purchase order sync — queries OPEN/PENDING/PARTIAL + today's DELIVERED POs.
@@ -26,18 +23,11 @@ use Illuminate\Queue\InteractsWithQueue;
  * active purchase orders up-to-date without the overhead of full metadata.
  * Skipped silently when no IDs match the filter.
  */
-final class SyncFastPurchaseOrdersJob implements ShouldBeUnique, ShouldQueue
+final class SyncFastPurchaseOrdersJob extends AbstractJob implements ShouldBeUnique
 {
-    use Dispatchable;
-    use InteractsWithQueue;
-    use Queueable;
-
     public int $tries = 4;
 
     public int $maxExceptions = 2;
-
-    public bool $failOnTimeout = true;
-
     /** @var array<int> */
     public array $backoff = [30, 120];
 
@@ -67,6 +57,7 @@ final class SyncFastPurchaseOrdersJob implements ShouldBeUnique, ShouldQueue
     public function middleware(): array
     {
         return [
+            ...parent::middleware(),
             ServiceCircuitBreaker::linnworks(),
             new HandleApiExceptions(),
             new HandleDatabaseExceptions(),

@@ -8,15 +8,12 @@ use App\Application\Linnworks\UseCases\SyncStockItemUseCase;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\Guid;
+use App\Infrastructure\Jobs\AbstractJob;
 use App\Infrastructure\Jobs\Enums\QueueName;
 use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
 use App\Infrastructure\Jobs\Middleware\ServiceCircuitBreaker;
 use DateTimeImmutable;
-use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
 
 /**
  * Queue wrapper for syncing a single stock item from Linnworks.
@@ -24,12 +21,8 @@ use Illuminate\Queue\InteractsWithQueue;
  * Dispatched by SyncStockItemWithCursorUseCase for each recently-modified item.
  * Uniqueness scoped per stockItemId to prevent concurrent syncs of the same item.
  */
-final class SyncStockItemJob implements ShouldBeUnique, ShouldQueue
+final class SyncStockItemJob extends AbstractJob implements ShouldBeUnique
 {
-    use Dispatchable;
-    use InteractsWithQueue;
-    use Queueable;
-
     /**
      * Maximum number of attempts before giving up.
      */
@@ -39,9 +32,6 @@ final class SyncStockItemJob implements ShouldBeUnique, ShouldQueue
      * Maximum number of unhandled exceptions to allow before failing.
      */
     public int $maxExceptions = 3;
-
-    public bool $failOnTimeout = true;
-
     /**
      * Seconds to wait before retrying.
      *
@@ -87,6 +77,7 @@ final class SyncStockItemJob implements ShouldBeUnique, ShouldQueue
     public function middleware(): array
     {
         return [
+            ...parent::middleware(),
             ServiceCircuitBreaker::linnworks(),
             new HandleApiExceptions(),
         ];

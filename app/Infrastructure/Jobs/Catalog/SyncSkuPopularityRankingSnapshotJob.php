@@ -8,13 +8,10 @@ use App\Application\Catalog\UseCases\SnapshotSkuPopularityRankingUseCase;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use App\Infrastructure\Jobs\AbstractJob;
 use App\Infrastructure\Jobs\Enums\QueueName;
 use App\Infrastructure\Jobs\Middleware\HandleDatabaseExceptions;
-use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
 
 /**
  * Weekly job: inserts snapshot rows into catalog.sku_popularity_snapshots
@@ -30,18 +27,11 @@ use Illuminate\Queue\InteractsWithQueue;
  *
  * @see SnapshotSkuPopularityRankingUseCase
  */
-final class SyncSkuPopularityRankingSnapshotJob implements ShouldBeUnique, ShouldQueue
+final class SyncSkuPopularityRankingSnapshotJob extends AbstractJob implements ShouldBeUnique
 {
-    use Dispatchable;
-    use InteractsWithQueue;
-    use Queueable;
-
     public int $tries = 3;
 
     public int $timeout = 3600;
-
-    public bool $failOnTimeout = true;
-
     /** 6 hours — blocks double-fires within the same run window */
     public int $uniqueFor = 21600;
 
@@ -57,6 +47,7 @@ final class SyncSkuPopularityRankingSnapshotJob implements ShouldBeUnique, Shoul
     public function middleware(): array
     {
         return [
+            ...parent::middleware(),
             new HandleDatabaseExceptions(),
         ];
     }

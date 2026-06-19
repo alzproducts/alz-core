@@ -6,15 +6,12 @@ namespace App\Infrastructure\Jobs\Linnworks;
 
 use App\Application\Contracts\Linnworks\PurchaseDashboardsClientInterface;
 use App\Application\Linnworks\UseCases\SyncPurchaseOrderFullUseCase;
+use App\Infrastructure\Jobs\AbstractJob;
 use App\Infrastructure\Jobs\Enums\QueueName;
 use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
 use App\Infrastructure\Jobs\Middleware\ServiceCircuitBreaker;
 use DateTimeImmutable;
-use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
 
 /**
  * Full historical purchase order sync — fetches ALL POs with no filters.
@@ -23,18 +20,11 @@ use Illuminate\Queue\InteractsWithQueue;
  * long-running — intended for manual backfill via BackfillPurchaseOrdersCommand
  * with --all, or for ad-hoc dispatch in extraordinary circumstances.
  */
-final class SyncAllPurchaseOrdersJob implements ShouldBeUnique, ShouldQueue
+final class SyncAllPurchaseOrdersJob extends AbstractJob implements ShouldBeUnique
 {
-    use Dispatchable;
-    use InteractsWithQueue;
-    use Queueable;
-
     public int $tries = 3;
 
     public int $maxExceptions = 2;
-
-    public bool $failOnTimeout = true;
-
     /** @var array<int> */
     public array $backoff = [120, 600];
 
@@ -65,6 +55,7 @@ final class SyncAllPurchaseOrdersJob implements ShouldBeUnique, ShouldQueue
     public function middleware(): array
     {
         return [
+            ...parent::middleware(),
             ServiceCircuitBreaker::linnworks(),
             new HandleApiExceptions(),
         ];

@@ -16,14 +16,11 @@ use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\Exceptions\ValidationFailedException;
 use App\Domain\ValueObjects\IntId;
+use App\Infrastructure\Jobs\AbstractJob;
 use App\Infrastructure\Jobs\Enums\QueueName;
 use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
 use App\Infrastructure\Jobs\Middleware\HandleDatabaseExceptions;
 use App\Infrastructure\Jobs\Middleware\ServiceCircuitBreaker;
-use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -35,18 +32,12 @@ use Psr\Log\LoggerInterface;
  * job rethrows them as a transient outage to drive retries and — after $tries —
  * land in failed_jobs, rather than silently dropping the price change.
  */
-final class UpdateSellingPriceBatchJob implements ShouldQueue
+final class UpdateSellingPriceBatchJob extends AbstractJob
 {
-    use Dispatchable;
-    use InteractsWithQueue;
-    use Queueable;
-
     public int $tries = 4;
 
     /** @var list<int> */
     public array $backoff = [60, 300, 1200];
-
-    public bool $failOnTimeout = true;
 
     public int $timeout = 60;
 
@@ -66,6 +57,7 @@ final class UpdateSellingPriceBatchJob implements ShouldQueue
     public function middleware(): array
     {
         return [
+            ...parent::middleware(),
             new HandleDatabaseExceptions(),
             ServiceCircuitBreaker::shopwired(),
             new HandleApiExceptions(),

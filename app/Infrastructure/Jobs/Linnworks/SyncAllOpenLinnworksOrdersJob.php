@@ -6,14 +6,11 @@ namespace App\Infrastructure\Jobs\Linnworks;
 
 use App\Application\Contracts\Linnworks\OrderDashboardsClientInterface;
 use App\Application\Linnworks\UseCases\BackfillLinnworksOrdersUseCase;
+use App\Infrastructure\Jobs\AbstractJob;
 use App\Infrastructure\Jobs\Enums\QueueName;
 use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
 use App\Infrastructure\Jobs\Middleware\ServiceCircuitBreaker;
-use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
 
 /**
  * Hourly backup sync for all open (pending/unpaid) Linnworks orders.
@@ -22,18 +19,11 @@ use Illuminate\Queue\InteractsWithQueue;
  * full orders via the v2 REST endpoint. Ensures open orders are always
  * up-to-date even if missed by the cursor-based sync.
  */
-final class SyncAllOpenLinnworksOrdersJob implements ShouldBeUnique, ShouldQueue
+final class SyncAllOpenLinnworksOrdersJob extends AbstractJob implements ShouldBeUnique
 {
-    use Dispatchable;
-    use InteractsWithQueue;
-    use Queueable;
-
     public int $tries = 4;
 
     public int $maxExceptions = 2;
-
-    public bool $failOnTimeout = true;
-
     /** @var array<int> */
     public array $backoff = [30];
 
@@ -60,6 +50,7 @@ final class SyncAllOpenLinnworksOrdersJob implements ShouldBeUnique, ShouldQueue
     public function middleware(): array
     {
         return [
+            ...parent::middleware(),
             ServiceCircuitBreaker::linnworks(),
             new HandleApiExceptions(),
         ];
