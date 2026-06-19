@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Presentation\Http\Checkout\Resources;
 
-use App\Application\Checkout\BasketRecoveryMatchDTO;
+use App\Application\Checkout\DTOs\BasketRecoveryMatchDTO;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Override;

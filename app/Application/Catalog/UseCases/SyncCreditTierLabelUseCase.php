@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Application\Catalog\UseCases;
 
-use App\Application\Catalog\CreditTierLabels\CreditTierLabelChangeDTO;
+use App\Application\Catalog\DTOs\CreditTierLabelChangeDTO;
 use App\Application\Catalog\Enums\CreditTier;
 use App\Application\Contracts\Catalog\ProductViewQueryRepositoryInterface;
 use App\Application\Contracts\Shopwired\ShopwiredSyncDispatcherInterface;

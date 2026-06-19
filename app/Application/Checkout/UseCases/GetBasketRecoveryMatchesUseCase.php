@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Application\Checkout\UseCases;
 
-use App\Application\Checkout\BasketRecoveryMatchDTO;
+use App\Application\Checkout\DTOs\BasketRecoveryMatchDTO;
 use App\Application\Contracts\Checkout\BasketRecoveryQueryInterface;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;

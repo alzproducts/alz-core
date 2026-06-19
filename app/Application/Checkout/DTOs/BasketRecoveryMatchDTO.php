@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Application\Checkout;
+namespace App\Application\Checkout\DTOs;
 
 final readonly class BasketRecoveryMatchDTO
 {

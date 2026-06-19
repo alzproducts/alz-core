@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace App\Infrastructure\Catalog\Repositories;
 
 use App\Application\Catalog\BestSellerLabels\BestSellerLabelChangesResult;
-use App\Application\Catalog\CreditTierLabels\CreditTierLabelChangeDTO;
+use App\Application\Catalog\DTOs\CreditTierLabelChangeDTO;
+use App\Application\Catalog\DTOs\MarginTierAssignmentDTO;
 use App\Application\Catalog\Enums\BestSellerLabel;
 use App\Application\Catalog\Enums\CreditTier;
 use App\Application\Catalog\Enums\MarginTier;
-use App\Application\Catalog\MarginTiers\MarginTierAssignmentDTO;
 use App\Application\Contracts\Catalog\ProductViewQueryRepositoryInterface;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
