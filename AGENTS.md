@@ -114,7 +114,7 @@ Note: `.ai/implementation-logs/` is a local-only AI workspace and is not committ
 
 **Branching:** Base = `develop` (not `main`) | Features = `feature/{issue}-{desc}` | PRs → `develop`
 
-**Proactive commits enabled.** The agent commits/pushes after logical changes. User approves via UI.
+**Commit + PR workflow.** The agent commits and pushes to feature branches autonomously after logical changes, then opens a PR via the `/pr` skill. The PR diff is the review gate — **never merge to `develop`/`main` without explicit user PR review.** (Direct pushes to `main`/`develop` are forbidden under Safety below.) Skills that orchestrate implementation (e.g. `/work`) own their own commit timing within this policy.
 
 **Commit format:** `type(scope): description`
 Types: `feat` | `fix` | `refactor` | `test` | `docs` | `chore` | `perf` | `ci`

@@ -87,6 +87,21 @@ An offline conversion where the click ID originates from a `call_tracking_visits
 **Collision**:
 The error state where >1 visit exists for the same tracking number within the attribution window. Should be architecturally impossible at current volume (pool size guarantees ~5 day reuse). If detected: Sentry alert, row excluded from dashboard (junk data, not actionable).
 
+### Checkout & basket recovery
+
+**Basket snapshot**:
+A server-side capture of a customer's checkout intent (nominated delivery date, gift note, VAT-relief form submission) fired by JavaScript on checkout-link click. Stored in `checkout.basket_snapshots`. Workaround for ShopWired's Safari bug that drops `basket_comments` from the order payload.
+
+**Basket recovery match**:
+A probabilistic match between a **basket snapshot** and a ShopWired order, keyed on IP address (exact) + order total (exact) + a short time window (order placed within 30 minutes after the snapshot). No shared key exists between the two systems; this is the best-effort heuristic.
+_Avoid_: treating a match as deterministic — multiple orders from the same IP/total within the window produce a `multiple_orders_placed_within_timeframe` flag for human review.
+
+## Relationships (checkout)
+
+- A **basket snapshot** captures the customer's FINAL pre-checkout intent per IP (latest write wins, one snapshot per IP within the scope window)
+- A **basket recovery match** flags per-field recovery needs: "snapshot captured X AND no matched order carries X" for delivery date, gift note, and VAT relief independently
+- The **basket recovery match** reuses `shopwired.orders_deduplicated` for order dedup (one row per reference), extracting the IP downstream
+
 ## Flagged ambiguities
 
 - "label" can mean (1) a **ShopWired custom_label_N** field, or (2) the **string value** written to it. Disambiguate in conversation by saying "the `custom_label_1` field" vs "the `1 - Low margin` label value".
