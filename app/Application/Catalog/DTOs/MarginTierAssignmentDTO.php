@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Application\Catalog\MarginTiers;
+namespace App\Application\Catalog\DTOs;
 
 use App\Application\Catalog\Enums\MarginTier;
 use App\Domain\ValueObjects\IntId;

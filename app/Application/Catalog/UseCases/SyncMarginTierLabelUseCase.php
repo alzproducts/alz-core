@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Application\Catalog\UseCases;
 
+use App\Application\Catalog\DTOs\MarginTierAssignmentDTO;
 use App\Application\Catalog\Enums\MarginTier;
-use App\Application\Catalog\MarginTiers\MarginTierAssignmentDTO;
 use App\Application\Contracts\Catalog\ProductViewQueryRepositoryInterface;
 use App\Application\Contracts\Shopwired\ShopwiredSyncDispatcherInterface;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;

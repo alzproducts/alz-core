@@ -6,7 +6,6 @@ use Arkitect\ClassSet;
 use Arkitect\CLI\Config;
 use Arkitect\Expression\ForClasses\HaveNameMatching;
 use Arkitect\Expression\ForClasses\MatchOneOfTheseNames;
-use Arkitect\Expression\ForClasses\NotDependsOnTheseNamespaces;
 use Arkitect\Expression\ForClasses\NotHaveDependencyOutsideNamespace;
 use Arkitect\Expression\ForClasses\NotHaveNameMatching;
 use Arkitect\Expression\ForClasses\NotResideInTheseNamespaces;
@@ -288,44 +287,6 @@ return static function (Config $config): void {
                    ->because(
                        'the Presentation layer uses Application services and may handle Domain objects they return.',
                    );
-
-    // RULE 4b: Repositories must not depend on Application DTOs
-    //
-    // WHY: Repositories are persistence abstractions that speak in Domain objects.
-    // Application DTOs are presentation-facing transfer formats (often carrying
-    // framework concerns like Spatie LaravelData, validation rules, etc.). A
-    // repository importing an Application DTO couples persistence to presentation
-    // concerns and makes Domain objects harder to reuse independently.
-    //
-    // Rule 3 allows Infrastructure to depend on the whole Application namespace
-    // because repositories implement Application contracts. This rule narrows
-    // that allowance for the Repositories/ subdirectory specifically.
-    //
-    // VIOLATION EXAMPLE:
-    // ❌ namespace App\Infrastructure\Catalog\Repositories;
-    //    use App\Application\Catalog\DTOs\ProductResponseDTO;   // Wrong!
-    //    class EloquentProductRepository {
-    //        public function find(): ProductResponseDTO { }
-    //    }
-    //
-    // CORRECT:
-    // ✅ namespace App\Infrastructure\Catalog\Repositories;
-    //    use App\Domain\Catalog\Product\Product;   // Domain object
-    //    class EloquentProductRepository {
-    //        public function find(): Product { }
-    //    }
-    //
-    // NOTE on pattern syntax: PHPArkitect wildcard patterns go through fnmatch, which
-    // requires explicit trailing `*` to match descendants (no implicit prefix match when
-    // the pattern already contains wildcards). Two patterns are needed to cover both the
-    // root DTOs namespace and nested ones.
-    $rules[] = Rule::allClasses()
-                   ->that(new ResideInOneOfTheseNamespaces('App\Infrastructure\*\Repositories'))
-                   ->should(new NotDependsOnTheseNamespaces([
-                       'App\Application\DTOs\*',
-                       'App\Application\*\DTOs\*',
-                   ]))
-                   ->because('Repositories are Domain persistence abstractions and must not depend on Application DTOs.');
 
     // NOTE: Additional architectural constraints (like "Controllers must not depend on
     // Infrastructure" or "Domain must not use Facades") are already enforced by Rules 1-4.

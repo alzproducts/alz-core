@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Application\Contracts\Checkout\BasketRecoveryQueryInterface;
 use App\Application\Contracts\Checkout\BasketSnapshotRepositoryInterface;
+use App\Infrastructure\Ingest\Checkout\Repositories\BasketRecoveryQueryRepository;
 use App\Infrastructure\Ingest\Checkout\Repositories\EloquentBasketSnapshotRepository;
 use Illuminate\Contracts\Support\DeferrableProvider;
 use Illuminate\Support\ServiceProvider;
@@ -25,6 +27,11 @@ final class CheckoutServiceProvider extends ServiceProvider implements Deferrabl
             BasketSnapshotRepositoryInterface::class,
             EloquentBasketSnapshotRepository::class,
         );
+
+        $this->app->singleton(
+            BasketRecoveryQueryInterface::class,
+            BasketRecoveryQueryRepository::class,
+        );
     }
 
     /**
@@ -34,6 +41,7 @@ final class CheckoutServiceProvider extends ServiceProvider implements Deferrabl
     public function provides(): array
     {
         return [
+            BasketRecoveryQueryInterface::class,
             BasketSnapshotRepositoryInterface::class,
         ];
     }

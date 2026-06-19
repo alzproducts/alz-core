@@ -25,6 +25,7 @@ use App\Presentation\Http\Api\Controllers\ProductRefreshController;
 use App\Presentation\Http\Api\Controllers\ProductUpdateController;
 use App\Presentation\Http\Api\Controllers\VariationController;
 use App\Presentation\Http\Auth\Middleware\ValidateSupabaseJwtMiddleware;
+use App\Presentation\Http\Checkout\Controllers\BasketRecoveryController;
 use App\Presentation\Http\Checkout\Controllers\CheckoutSnapshotController;
 use App\Presentation\Http\ContactForm\Controllers\ContactFormController;
 use App\Presentation\Http\HelpScout\Controllers\ConversationsController;
@@ -260,6 +261,9 @@ Route::middleware([ValidateSupabaseJwtMiddleware::class, EnsureUserApprovedMiddl
             ->whereUuid('definitionUuid');
         Route::put('catalog/custom-field-definitions/{definitionUuid}/product-settings', CustomFieldProductSettingsController::class)
             ->whereUuid('definitionUuid');
+
+        // Checkout endpoints
+        Route::get('checkout/basket-recovery', BasketRecoveryController::class);
 
         // Contact submissions dashboard — staff-only, requires admin approval.
         Route::get('contact-submissions/triage', [ContactSubmissionDashboardController::class, 'triage']);
