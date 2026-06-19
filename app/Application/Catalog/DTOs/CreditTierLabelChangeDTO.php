@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Application\Catalog\CreditTierLabels;
+namespace App\Application\Catalog\DTOs;
 
 use App\Application\Catalog\Enums\CreditTier;
 use App\Domain\ValueObjects\IntId;

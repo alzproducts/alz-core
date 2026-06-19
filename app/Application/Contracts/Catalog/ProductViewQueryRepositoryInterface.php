@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Application\Contracts\Catalog;
 
 use App\Application\Catalog\BestSellerLabels\BestSellerLabelChangesResult;
-use App\Application\Catalog\CreditTierLabels\CreditTierLabelChangeDTO;
-use App\Application\Catalog\MarginTiers\MarginTierAssignmentDTO;
+use App\Application\Catalog\DTOs\CreditTierLabelChangeDTO;
+use App\Application\Catalog\DTOs\MarginTierAssignmentDTO;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
