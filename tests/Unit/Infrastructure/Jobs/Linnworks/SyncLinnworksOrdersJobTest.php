@@ -8,6 +8,7 @@ use App\Application\Linnworks\Enums\OrderSyncTier;
 use App\Application\Linnworks\UseCases\SyncLinnworksOrdersUseCase;
 use App\Infrastructure\Jobs\Linnworks\SyncLinnworksOrdersJob;
 use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
+use App\Infrastructure\Jobs\Middleware\MemoryTrackingMiddleware;
 use App\Infrastructure\Jobs\Middleware\ServiceCircuitBreaker;
 use DateTimeImmutable;
 use Mockery;
@@ -81,9 +82,10 @@ final class SyncLinnworksOrdersJobTest extends TestCase
         $job = new SyncLinnworksOrdersJob(OrderSyncTier::Hourly);
         $middleware = $job->middleware();
 
-        $this->assertCount(2, $middleware);
-        $this->assertInstanceOf(ServiceCircuitBreaker::class, $middleware[0]);
-        $this->assertInstanceOf(HandleApiExceptions::class, $middleware[1]);
+        $this->assertCount(3, $middleware);
+        $this->assertInstanceOf(MemoryTrackingMiddleware::class, $middleware[0]);
+        $this->assertInstanceOf(ServiceCircuitBreaker::class, $middleware[1]);
+        $this->assertInstanceOf(HandleApiExceptions::class, $middleware[2]);
     }
 
     /*

@@ -9,14 +9,11 @@ use App\Application\Conversion\CallTracking\UseCases\ProcessInboundCallUseCase;
 use App\Domain\Exceptions\Data\InsufficientDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use App\Infrastructure\Jobs\AbstractJob;
 use App\Infrastructure\Jobs\Enums\QueueName;
 use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
 use App\Infrastructure\Jobs\Middleware\ServiceCircuitBreaker;
 use DateTimeImmutable;
-use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\Middleware\Skip;
 
 /**
@@ -27,17 +24,11 @@ use Illuminate\Queue\Middleware\Skip;
  * - PermanentApiFailure: {@see HandleApiExceptions} middleware (fail immediately)
  * - Already-complete calls: {@see Skip} middleware (call_sid + conversation_id check)
  */
-final class ProcessInboundCallJob implements ShouldQueue
+final class ProcessInboundCallJob extends AbstractJob
 {
-    use Dispatchable;
-    use InteractsWithQueue;
-    use Queueable;
-
     public int $tries = 6;
 
     public int $maxExceptions = 3;
-
-    public bool $failOnTimeout = true;
 
     public int $timeout = 60;
 
@@ -56,6 +47,7 @@ final class ProcessInboundCallJob implements ShouldQueue
     public function middleware(): array
     {
         return [
+            ...parent::middleware(),
             // @phpstan-ignore-next-line shipmonk.checkedExceptionInCallable (Skip invokes immediately; DB exceptions bubble to queue retry)
             Skip::when(fn(): bool => \app(CallTrackingCallRepositoryInterface::class)->isFullyProcessed($this->callSid)),
             ServiceCircuitBreaker::helpscout(),

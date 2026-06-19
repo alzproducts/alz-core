@@ -7,15 +7,12 @@ namespace App\Infrastructure\Jobs\Linnworks;
 use App\Application\Linnworks\UseCases\SyncCompositeStockItemFlagsUseCase;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use App\Infrastructure\Jobs\AbstractJob;
 use App\Infrastructure\Jobs\Enums\QueueName;
 use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
 use App\Infrastructure\Jobs\Middleware\ServiceCircuitBreaker;
 use DateTimeImmutable;
-use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
 
 /**
  * Asynchronously sync is_composite flags from Linnworks.
@@ -23,12 +20,8 @@ use Illuminate\Queue\InteractsWithQueue;
  * Fetches composite parent stock item IDs via SQL Dashboards and performs
  * targeted bulk updates. Designed for hourly execution.
  */
-final class SyncCompositeStockItemFlagsJob implements ShouldBeUnique, ShouldQueue
+final class SyncCompositeStockItemFlagsJob extends AbstractJob implements ShouldBeUnique
 {
-    use Dispatchable;
-    use InteractsWithQueue;
-    use Queueable;
-
     /**
      * Maximum number of attempts before giving up.
      */
@@ -38,9 +31,6 @@ final class SyncCompositeStockItemFlagsJob implements ShouldBeUnique, ShouldQueu
      * Maximum number of unhandled exceptions to allow before failing.
      */
     public int $maxExceptions = 2;
-
-    public bool $failOnTimeout = true;
-
     /**
      * Seconds to wait before retrying.
      *
@@ -76,6 +66,7 @@ final class SyncCompositeStockItemFlagsJob implements ShouldBeUnique, ShouldQueu
     public function middleware(): array
     {
         return [
+            ...parent::middleware(),
             ServiceCircuitBreaker::linnworks(),
             new HandleApiExceptions(),
         ];

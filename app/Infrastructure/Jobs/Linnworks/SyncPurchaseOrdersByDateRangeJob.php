@@ -6,15 +6,12 @@ namespace App\Infrastructure\Jobs\Linnworks;
 
 use App\Application\Contracts\Linnworks\PurchaseDashboardsClientInterface;
 use App\Application\Linnworks\UseCases\SyncPurchaseOrderFullUseCase;
+use App\Infrastructure\Jobs\AbstractJob;
 use App\Infrastructure\Jobs\Enums\QueueName;
 use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
 use App\Infrastructure\Jobs\Middleware\ServiceCircuitBreaker;
 use DateTimeImmutable;
-use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
 
 /**
  * Normal purchase order sync for a specific date range.
@@ -24,18 +21,11 @@ use Illuminate\Queue\InteractsWithQueue;
  * for the last 7 days by LinnworksScheduleServiceProvider, or manually
  * via BackfillPurchaseOrdersCommand with --from/--to.
  */
-final class SyncPurchaseOrdersByDateRangeJob implements ShouldBeUnique, ShouldQueue
+final class SyncPurchaseOrdersByDateRangeJob extends AbstractJob implements ShouldBeUnique
 {
-    use Dispatchable;
-    use InteractsWithQueue;
-    use Queueable;
-
     public int $tries = 3;
 
     public int $maxExceptions = 2;
-
-    public bool $failOnTimeout = true;
-
     /** @var array<int> */
     public array $backoff = [60, 300];
 
@@ -69,6 +59,7 @@ final class SyncPurchaseOrdersByDateRangeJob implements ShouldBeUnique, ShouldQu
     public function middleware(): array
     {
         return [
+            ...parent::middleware(),
             ServiceCircuitBreaker::linnworks(),
             new HandleApiExceptions(),
         ];

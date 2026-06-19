@@ -5,16 +5,13 @@ declare(strict_types=1);
 namespace App\Infrastructure\Jobs\Shopwired;
 
 use App\Application\Shopwired\UseCases\SyncCustomersUseCase;
+use App\Infrastructure\Jobs\AbstractJob;
 use App\Infrastructure\Jobs\Enums\QueueName;
 use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
 use App\Infrastructure\Jobs\Middleware\ServiceCircuitBreaker;
 use App\Infrastructure\Jobs\Middleware\ServiceRateLimiter;
 use DateTimeImmutable;
-use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
 
 /**
  * Asynchronously synchronize ShopWired customers to local database.
@@ -25,12 +22,8 @@ use Illuminate\Queue\InteractsWithQueue;
  * - Full sync: SyncShopwiredCustomersJob::dispatch() — monthly, ~45 min
  * - Quick sync: SyncShopwiredCustomersJob::dispatch(5, 5) — every 6 hours, ~2 min
  */
-final class SyncShopwiredCustomersJob implements ShouldBeUnique, ShouldQueue
+final class SyncShopwiredCustomersJob extends AbstractJob implements ShouldBeUnique
 {
-    use Dispatchable;
-    use InteractsWithQueue;
-    use Queueable;
-
     /**
      * Maximum number of attempts before giving up.
      *
@@ -42,9 +35,6 @@ final class SyncShopwiredCustomersJob implements ShouldBeUnique, ShouldQueue
      * Maximum exceptions allowed before failing.
      */
     public int $maxExceptions = 3;
-
-    public bool $failOnTimeout = true;
-
     /**
      * Unique lock duration in seconds.
      *
@@ -82,6 +72,7 @@ final class SyncShopwiredCustomersJob implements ShouldBeUnique, ShouldQueue
     public function middleware(): array
     {
         return [
+            ...parent::middleware(),
             ServiceRateLimiter::shopwiredApi(),
             ServiceCircuitBreaker::shopwired(),
             new HandleApiExceptions(),

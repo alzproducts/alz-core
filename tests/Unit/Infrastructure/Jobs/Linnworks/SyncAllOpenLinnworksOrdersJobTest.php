@@ -9,6 +9,7 @@ use App\Application\Linnworks\UseCases\BackfillLinnworksOrdersUseCase;
 use App\Domain\ValueObjects\Guid;
 use App\Infrastructure\Jobs\Linnworks\SyncAllOpenLinnworksOrdersJob;
 use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
+use App\Infrastructure\Jobs\Middleware\MemoryTrackingMiddleware;
 use App\Infrastructure\Jobs\Middleware\ServiceCircuitBreaker;
 use Mockery;
 use Mockery\MockInterface;
@@ -67,9 +68,10 @@ final class SyncAllOpenLinnworksOrdersJobTest extends TestCase
         $job = new SyncAllOpenLinnworksOrdersJob();
         $middleware = $job->middleware();
 
-        $this->assertCount(2, $middleware);
-        $this->assertInstanceOf(ServiceCircuitBreaker::class, $middleware[0]);
-        $this->assertInstanceOf(HandleApiExceptions::class, $middleware[1]);
+        $this->assertCount(3, $middleware);
+        $this->assertInstanceOf(MemoryTrackingMiddleware::class, $middleware[0]);
+        $this->assertInstanceOf(ServiceCircuitBreaker::class, $middleware[1]);
+        $this->assertInstanceOf(HandleApiExceptions::class, $middleware[2]);
     }
 
     /*

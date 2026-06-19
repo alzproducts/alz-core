@@ -7,16 +7,13 @@ namespace App\Infrastructure\Jobs\Shopwired;
 use App\Application\Shopwired\UseCases\CleanupWebhookEventsUseCase;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use App\Infrastructure\Jobs\AbstractJob;
 use App\Infrastructure\Jobs\Enums\QueueName;
 use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
 use App\Infrastructure\Jobs\Middleware\ServiceCircuitBreaker;
 use App\Infrastructure\Jobs\Middleware\ServiceRateLimiter;
 use DateTimeImmutable;
-use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
 
 /**
  * Weekly retention cleanup for the shopwired.webhook_events table.
@@ -24,17 +21,11 @@ use Illuminate\Queue\InteractsWithQueue;
  * Delegates to CleanupWebhookEventsUseCase for business logic.
  * Handles queue-specific concerns: retry, backoff, and failure logging.
  */
-final class CleanupWebhookEventsJob implements ShouldBeUnique, ShouldQueue
+final class CleanupWebhookEventsJob extends AbstractJob implements ShouldBeUnique
 {
-    use Dispatchable;
-    use InteractsWithQueue;
-    use Queueable;
-
     public int $tries = 6;
 
     public int $maxExceptions = 3;
-
-    public bool $failOnTimeout = true;
 
     public int $uniqueFor = 3600;
 
@@ -57,6 +48,7 @@ final class CleanupWebhookEventsJob implements ShouldBeUnique, ShouldQueue
     public function middleware(): array
     {
         return [
+            ...parent::middleware(),
             ServiceRateLimiter::shopwiredApi(),
             ServiceCircuitBreaker::shopwired(),
             new HandleApiExceptions(),

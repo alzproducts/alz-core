@@ -7,15 +7,12 @@ namespace App\Infrastructure\Jobs\Linnworks;
 use App\Application\Linnworks\UseCases\SyncSuppliersUseCase;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use App\Infrastructure\Jobs\AbstractJob;
 use App\Infrastructure\Jobs\Enums\QueueName;
 use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
 use App\Infrastructure\Jobs\Middleware\ServiceCircuitBreaker;
 use DateTimeImmutable;
-use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
 
 /**
  * Asynchronously synchronize Linnworks supplier directory to local database.
@@ -23,12 +20,8 @@ use Illuminate\Queue\InteractsWithQueue;
  * Full-replace strategy: fetches all suppliers, upserts, and reconciles deletions.
  * Designed for hourly execution (small dataset, ~seconds runtime).
  */
-final class SyncLinnworksSuppliersJob implements ShouldBeUnique, ShouldQueue
+final class SyncLinnworksSuppliersJob extends AbstractJob implements ShouldBeUnique
 {
-    use Dispatchable;
-    use InteractsWithQueue;
-    use Queueable;
-
     /**
      * Maximum number of attempts before giving up.
      */
@@ -38,9 +31,6 @@ final class SyncLinnworksSuppliersJob implements ShouldBeUnique, ShouldQueue
      * Maximum number of unhandled exceptions to allow before failing.
      */
     public int $maxExceptions = 2;
-
-    public bool $failOnTimeout = true;
-
     /**
      * Seconds to wait before retrying.
      *
@@ -81,6 +71,7 @@ final class SyncLinnworksSuppliersJob implements ShouldBeUnique, ShouldQueue
     public function middleware(): array
     {
         return [
+            ...parent::middleware(),
             ServiceCircuitBreaker::linnworks(),
             new HandleApiExceptions(),
         ];

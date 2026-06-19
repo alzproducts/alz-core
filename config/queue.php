@@ -113,4 +113,6 @@ return [
         'table' => 'failed_jobs',
     ],
 
+    'memory_leak_threshold_bytes' => (int) env('QUEUE_MEMORY_LEAK_THRESHOLD_BYTES', 2 * 1024 * 1024),
+
 ];

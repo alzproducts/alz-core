@@ -8,32 +8,23 @@ use App\Application\Catalog\UseCases\SyncBestSellerLabelUseCase;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use App\Infrastructure\Jobs\AbstractJob;
 use App\Infrastructure\Jobs\Enums\QueueName;
 use App\Infrastructure\Jobs\Middleware\HandleDatabaseExceptions;
 use DateTimeImmutable;
-use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
 
 /**
  * Daily orchestrator: query products whose Best Sellers label diverges from
  * their popularity rank, and dispatch per-product label updates.
  */
-final class SyncBestSellerLabelJob implements ShouldBeUnique, ShouldQueue
+final class SyncBestSellerLabelJob extends AbstractJob implements ShouldBeUnique
 {
-    use Dispatchable;
-    use InteractsWithQueue;
-    use Queueable;
-
     public int $tries = 3;
 
     public int $maxExceptions = 2;
 
     public int $timeout = 120;
-
-    public bool $failOnTimeout = true;
 
     public int $uniqueFor = 3600;
 
@@ -54,6 +45,7 @@ final class SyncBestSellerLabelJob implements ShouldBeUnique, ShouldQueue
     public function middleware(): array
     {
         return [
+            ...parent::middleware(),
             new HandleDatabaseExceptions(),
         ];
     }

@@ -7,6 +7,7 @@ namespace Tests\Unit\Infrastructure\Jobs\Feeds;
 use App\Application\Feeds\ProcessProductSearchFeedUseCase;
 use App\Infrastructure\Jobs\Feeds\ProcessProductSearchFeedJob;
 use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
+use App\Infrastructure\Jobs\Middleware\MemoryTrackingMiddleware;
 use Mockery;
 use Mockery\MockInterface;
 use Override;
@@ -41,8 +42,9 @@ final class ProcessProductSearchFeedJobTest extends TestCase
     {
         $middleware = $this->job->middleware();
 
-        $this->assertCount(1, $middleware);
-        $this->assertInstanceOf(HandleApiExceptions::class, $middleware[0]);
+        $this->assertCount(2, $middleware);
+        $this->assertInstanceOf(MemoryTrackingMiddleware::class, $middleware[0]);
+        $this->assertInstanceOf(HandleApiExceptions::class, $middleware[1]);
     }
 
     #[Test]

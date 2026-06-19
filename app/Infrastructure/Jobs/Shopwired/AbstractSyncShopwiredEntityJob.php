@@ -5,16 +5,13 @@ declare(strict_types=1);
 namespace App\Infrastructure\Jobs\Shopwired;
 
 use App\Domain\ValueObjects\IntId;
+use App\Infrastructure\Jobs\AbstractJob;
 use App\Infrastructure\Jobs\Enums\QueueName;
 use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
 use App\Infrastructure\Jobs\Middleware\ServiceCircuitBreaker;
 use App\Infrastructure\Jobs\Middleware\ServiceRateLimiter;
 use DateTimeImmutable;
-use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
 
 /**
  * Base class for ShopWired entity sync jobs.
@@ -23,17 +20,11 @@ use Illuminate\Queue\InteractsWithQueue;
  * for ShopWired entity sync jobs. Error handling is delegated to
  * {@see HandleApiExceptions} middleware.
  */
-abstract class AbstractSyncShopwiredEntityJob implements ShouldBeUnique, ShouldQueue
+abstract class AbstractSyncShopwiredEntityJob extends AbstractJob implements ShouldBeUnique
 {
-    use Dispatchable;
-    use InteractsWithQueue;
-    use Queueable;
-
     public int $tries = 6;
 
     public int $maxExceptions = 3;
-
-    public bool $failOnTimeout = true;
 
     /** Lock duration in seconds — auto-releases if job gets stuck. */
     public int $uniqueFor = 300;
@@ -58,6 +49,7 @@ abstract class AbstractSyncShopwiredEntityJob implements ShouldBeUnique, ShouldQ
     public function middleware(): array
     {
         return [
+            ...parent::middleware(),
             ServiceRateLimiter::shopwiredApi(),
             ServiceCircuitBreaker::shopwired(),
             new HandleApiExceptions(),

@@ -12,33 +12,24 @@ use App\Domain\Exceptions\Data\InvalidFormatException;
 use App\Domain\Exceptions\Data\MalformedStoredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use App\Infrastructure\Jobs\AbstractJob;
 use App\Infrastructure\Jobs\Enums\QueueName;
 use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
 use App\Infrastructure\Jobs\Middleware\ServiceCircuitBreaker;
 use DateTimeImmutable;
-use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
 use Throwable;
 
 /**
  * `ShouldBeUnique` keyed by submission ID. Laravel FQCN-prefixes the lock so it does
  * not collide with `ProcessLeadConversionJob`'s lock for the same submission.
  */
-final class ProcessBingLeadConversionJob implements ShouldBeUnique, ShouldQueue
+final class ProcessBingLeadConversionJob extends AbstractJob implements ShouldBeUnique
 {
-    use Dispatchable;
-    use InteractsWithQueue;
-    use Queueable;
-
     /** Initial attempt + one retry per `$backoff` delay. */
     public int $tries = 5;
 
     public int $maxExceptions = 5;
-
-    public bool $failOnTimeout = true;
 
     public int $timeout = 60;
 
@@ -63,6 +54,7 @@ final class ProcessBingLeadConversionJob implements ShouldBeUnique, ShouldQueue
     public function middleware(): array
     {
         return [
+            ...parent::middleware(),
             ServiceCircuitBreaker::bingAdsRest(),
             new HandleApiExceptions(),
         ];

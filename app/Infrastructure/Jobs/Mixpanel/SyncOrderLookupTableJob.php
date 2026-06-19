@@ -5,15 +5,12 @@ declare(strict_types=1);
 namespace App\Infrastructure\Jobs\Mixpanel;
 
 use App\Application\Mixpanel\UseCases\SyncLookupTableUseCase;
+use App\Infrastructure\Jobs\AbstractJob;
 use App\Infrastructure\Jobs\Enums\QueueName;
 use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
 use App\Infrastructure\Jobs\Middleware\ServiceCircuitBreaker;
 use DateTimeImmutable;
-use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
 
 /**
  * Asynchronously synchronize order enrichment lookup table to Mixpanel.
@@ -23,12 +20,8 @@ use Illuminate\Queue\InteractsWithQueue;
  *
  * Implements exponential backoff for rate limit and transient error handling.
  */
-final class SyncOrderLookupTableJob implements ShouldBeUnique, ShouldQueue
+final class SyncOrderLookupTableJob extends AbstractJob implements ShouldBeUnique
 {
-    use Dispatchable;
-    use InteractsWithQueue;
-    use Queueable;
-
     /**
      * Maximum number of attempts before giving up.
      *
@@ -43,11 +36,6 @@ final class SyncOrderLookupTableJob implements ShouldBeUnique, ShouldQueue
      * don't count, only rethrown exceptions decrement this.
      */
     public int $maxExceptions = 3;
-
-    /**
-     * Fail the job if it times out.
-     */
-    public bool $failOnTimeout = true;
 
     /**
      * Job timeout in seconds.
@@ -92,6 +80,7 @@ final class SyncOrderLookupTableJob implements ShouldBeUnique, ShouldQueue
     public function middleware(): array
     {
         return [
+            ...parent::middleware(),
             ServiceCircuitBreaker::mixpanel(),
             new HandleApiExceptions(),
         ];

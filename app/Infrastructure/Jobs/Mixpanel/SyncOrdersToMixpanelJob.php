@@ -7,14 +7,11 @@ namespace App\Infrastructure\Jobs\Mixpanel;
 use App\Application\Mixpanel\UseCases\SyncOrdersToMixpanelUseCase;
 use App\Domain\Exceptions\Data\MissingRequiredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
+use App\Infrastructure\Jobs\AbstractJob;
 use App\Infrastructure\Jobs\Enums\QueueName;
 use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
 use App\Infrastructure\Jobs\Middleware\ServiceCircuitBreaker;
 use DateTimeImmutable;
-use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
 
 /**
  * Asynchronously synchronize orders to Mixpanel analytics.
@@ -43,12 +40,8 @@ use Illuminate\Queue\InteractsWithQueue;
  * Quick sync is usually sufficient since trade customers (~466) fit in ~5 pages,
  * so `maxTradePages=null` fetches 100% of trade accounts.
  */
-final class SyncOrdersToMixpanelJob implements ShouldQueue
+final class SyncOrdersToMixpanelJob extends AbstractJob
 {
-    use Dispatchable;
-    use InteractsWithQueue;
-    use Queueable;
-
     /**
      * Maximum number of attempts before giving up.
      *
@@ -63,11 +56,6 @@ final class SyncOrdersToMixpanelJob implements ShouldQueue
      * don't count, only rethrown exceptions decrement this.
      */
     public int $maxExceptions = 3;
-
-    /**
-     * Fail the job if it times out.
-     */
-    public bool $failOnTimeout = true;
 
     /**
      * Seconds to wait before retrying.
@@ -100,6 +88,7 @@ final class SyncOrdersToMixpanelJob implements ShouldQueue
     public function middleware(): array
     {
         return [
+            ...parent::middleware(),
             ServiceCircuitBreaker::mixpanel(),
             new HandleApiExceptions(),
         ];

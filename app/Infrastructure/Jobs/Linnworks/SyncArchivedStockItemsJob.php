@@ -7,15 +7,12 @@ namespace App\Infrastructure\Jobs\Linnworks;
 use App\Application\Linnworks\UseCases\SyncArchivedStockItemsUseCase;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use App\Infrastructure\Jobs\AbstractJob;
 use App\Infrastructure\Jobs\Enums\QueueName;
 use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
 use App\Infrastructure\Jobs\Middleware\ServiceCircuitBreaker;
 use DateTimeImmutable;
-use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
 
 /**
  * Asynchronously sync full archived stock items from Linnworks.
@@ -26,12 +23,8 @@ use Illuminate\Queue\InteractsWithQueue;
  * {@see SyncArchivedStockItemFlagsJob} which only flips flags on rows
  * already present locally.
  */
-final class SyncArchivedStockItemsJob implements ShouldBeUnique, ShouldQueue
+final class SyncArchivedStockItemsJob extends AbstractJob implements ShouldBeUnique
 {
-    use Dispatchable;
-    use InteractsWithQueue;
-    use Queueable;
-
     /**
      * Weekly full sync — fewer retries than the hourly flag sync.
      */
@@ -41,9 +34,6 @@ final class SyncArchivedStockItemsJob implements ShouldBeUnique, ShouldQueue
      * Maximum number of unhandled exceptions to allow before failing.
      */
     public int $maxExceptions = 2;
-
-    public bool $failOnTimeout = true;
-
     /**
      * Backoff schedule in seconds: 5 minutes, then 15 minutes.
      *
@@ -86,6 +76,7 @@ final class SyncArchivedStockItemsJob implements ShouldBeUnique, ShouldQueue
     public function middleware(): array
     {
         return [
+            ...parent::middleware(),
             ServiceCircuitBreaker::linnworks(),
             new HandleApiExceptions(),
         ];

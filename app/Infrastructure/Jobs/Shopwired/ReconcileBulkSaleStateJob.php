@@ -8,14 +8,11 @@ use App\Application\Shopwired\SaleManagement\UseCases\ReconcileBulkSaleStateUseC
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use App\Infrastructure\Jobs\AbstractJob;
 use App\Infrastructure\Jobs\Enums\QueueName;
 use App\Infrastructure\Jobs\Middleware\HandleDatabaseExceptions;
 use DateTimeImmutable;
-use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
 
 /**
  * Scheduled safety net: scans all products for sale state drift.
@@ -23,18 +20,12 @@ use Illuminate\Queue\InteractsWithQueue;
  * Runs on a schedule (e.g., hourly) to catch drift not handled by
  * the per-update reconciler. ShouldBeUnique prevents overlapping runs.
  */
-final class ReconcileBulkSaleStateJob implements ShouldBeUnique, ShouldQueue
+final class ReconcileBulkSaleStateJob extends AbstractJob implements ShouldBeUnique
 {
-    use Dispatchable;
-    use InteractsWithQueue;
-    use Queueable;
-
     public int $tries = 2;
 
     /** @var list<int> */
     public array $backoff = [300];
-
-    public bool $failOnTimeout = true;
 
     public int $timeout = 120;
 
@@ -54,6 +45,7 @@ final class ReconcileBulkSaleStateJob implements ShouldBeUnique, ShouldQueue
     public function middleware(): array
     {
         return [
+            ...parent::middleware(),
             new HandleDatabaseExceptions(),
         ];
     }
