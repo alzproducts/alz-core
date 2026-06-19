@@ -119,7 +119,7 @@ jobs:
       DB_SSLMODE: disable
       REDIS_HOST: localhost
       REDIS_PORT: 6379
-      CACHE_DRIVER: redis
+      CACHE_STORE: database
       QUEUE_CONNECTION: sync
       TELESCOPE_ENABLED: false
 
