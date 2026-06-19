@@ -15,13 +15,11 @@ use Illuminate\Queue\Middleware\RateLimited;
  */
 final class ServiceRateLimiter
 {
-    /** Standard Shopwired API: 55 req/min. */
     public static function shopwiredApi(): RateLimited
     {
         return new RateLimited('shopwired-api');
     }
 
-    /** Shopwired bulk operations: 30 req/min. */
     public static function shopwiredApiBulk(): RateLimited
     {
         return new RateLimited('shopwired-api-bulk');

@@ -58,8 +58,9 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(static function (Exceptions $exceptions): void {
-        // Validation failures are expected (user input rejected by business rules) — exclude from Sentry
-        $exceptions->dontReport(ValidationFailedException::class);
+        if (config('app.sentry_report_validation_failures') !== true) {
+            $exceptions->dontReport(ValidationFailedException::class);
+        }
 
         // Hook Sentry into Laravel's exception handler to capture all unhandled exceptions
         Integration::handles($exceptions);

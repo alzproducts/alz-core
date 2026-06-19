@@ -128,4 +128,6 @@ return [
 
     'api_key_encryption_secret' => env('API_KEY_ENCRYPTION_SECRET', ''),
 
+    'sentry_report_validation_failures' => (bool) env('SENTRY_REPORT_VALIDATION_FAILURES', false),
+
 ];
