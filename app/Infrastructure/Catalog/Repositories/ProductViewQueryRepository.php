@@ -137,6 +137,21 @@ final class ProductViewQueryRepository implements ProductViewQueryRepositoryInte
     }
 
     /**
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    #[Override]
+    public function refreshMaterializedView(): void
+    {
+        $this->eloquentGateway->query(
+            static fn(): bool => self::MODEL_CLASS::query()
+                ->getConnection()
+                ->statement('REFRESH MATERIALIZED VIEW CONCURRENTLY catalog.products_view'),
+        );
+    }
+
+    /**
      * Products with popularity_rank <= 2 that do NOT yet have the Best Sellers label.
      *
      * @return list<ProductViewModel>

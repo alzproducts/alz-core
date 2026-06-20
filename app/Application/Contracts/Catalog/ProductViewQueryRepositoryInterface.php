@@ -77,4 +77,13 @@ interface ProductViewQueryRepositoryInterface
      * @throws ExternalServiceUnavailableException
      */
     public function findCreditTierChanges(): array;
+
+    /**
+     * Refresh the catalog.products_view materialized view concurrently.
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function refreshMaterializedView(): void;
 }

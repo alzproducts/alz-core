@@ -46,6 +46,7 @@ final class CatalogScheduleServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        $this->registerProductsViewRefreshSchedule();
         $this->registerRatingFilterSchedule();
         $this->registerVatReliefFilterSchedule();
         $this->registerOffersFilterSchedule();
@@ -57,6 +58,24 @@ final class CatalogScheduleServiceProvider extends ServiceProvider
         $this->registerRelatedProductsSyncSchedule();
         $this->registerMarginTierLabelSchedule();
         $this->registerCreditTierLabelSchedule();
+    }
+
+    /**
+     * Refresh the catalog.products_view materialized view every minute.
+     *
+     * Pre-computes the expensive join plan (variation aggregation, recursive category
+     * traversal) so API reads hit a simple table scan (~5-10ms) instead of 1.1s of joins.
+     *
+     * @throws RuntimeException
+     */
+    private function registerProductsViewRefreshSchedule(): void
+    {
+        Schedule::command('catalog:refresh-products-view')
+            ->name('refresh-products-view')
+            ->everyMinute()
+            ->timezone('Europe/London')
+            ->onOneServer()
+            ->withoutOverlapping();
     }
 
     /**
