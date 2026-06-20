@@ -75,7 +75,7 @@ final class CatalogScheduleServiceProvider extends ServiceProvider
             ->everyMinute()
             ->timezone('Europe/London')
             ->onOneServer()
-            ->withoutOverlapping();
+            ->withoutOverlapping(2);
     }
 
     /**
