@@ -22,6 +22,9 @@ use RuntimeException;
 /**
  * Catalog Schedule Definitions
  *
+ * Materialized view refresh (every minute):
+ *   - catalog.products_view refresh (pre-computes expensive join plan for API reads)
+ *
  * Product-level state syncs to ShopWired product filters (three hourly + one 10-minute stock-driven):
  *   - Customer rating filter (from reviews_io.product_ratings)
  *   - VAT relief filter (from shopwired.products.vat_relief)
