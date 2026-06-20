@@ -6,10 +6,12 @@ namespace App\Providers;
 
 use App\Application\Contracts\LockableCacheInterface;
 use App\Application\Contracts\LockManagerInterface;
+use App\Application\Contracts\ResilientCacheInterface;
 use App\Infrastructure\BingAds\BingAdsSessionManager;
 use App\Infrastructure\Linnworks\LinnworksSessionManager;
 use App\Infrastructure\Locking\CacheLockManager;
 use App\Infrastructure\Support\LockableCache;
+use App\Infrastructure\Support\ResilientCache;
 use Illuminate\Cache\CacheManager;
 use Illuminate\Contracts\Support\DeferrableProvider;
 use Illuminate\Foundation\Application;
@@ -36,6 +38,7 @@ final class CacheServiceProvider extends ServiceProvider implements DeferrablePr
     {
         $this->registerDefaultCache();
         $this->registerContextualCaches();
+        $this->registerResilientCache();
         $this->registerLockManager();
     }
 
@@ -69,6 +72,17 @@ final class CacheServiceProvider extends ServiceProvider implements DeferrablePr
             ));
     }
 
+    private function registerResilientCache(): void
+    {
+        $this->app->singleton(
+            ResilientCacheInterface::class,
+            static fn(Application $app): ResilientCacheInterface => new ResilientCache(
+                cache: $app->make(CacheManager::class),
+                logger: $app->make(LoggerInterface::class),
+            ),
+        );
+    }
+
     private function registerLockManager(): void
     {
         $this->app->singleton(
@@ -90,6 +104,7 @@ final class CacheServiceProvider extends ServiceProvider implements DeferrablePr
         return [
             LockableCacheInterface::class,
             LockManagerInterface::class,
+            ResilientCacheInterface::class,
         ];
     }
 }

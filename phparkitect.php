@@ -344,13 +344,11 @@ return static function (Config $config): void {
     //
     // EXCLUSIONS:
     // - CacheTimesTrait: Trait holding shared cache duration constants
-    // - GracefulCache: Utility class for graceful cache operations
     // - Enums subdirectories: Type-safe enums don't need behavioral naming
     //
     $rules[] = Rule::allClasses()
                    ->that(new ResideInOneOfTheseNamespaces($application))
                    ->andThat(new NotHaveNameMatching('CacheTimesTrait'))
-                   ->andThat(new NotHaveNameMatching('GracefulCache'))
                    ->andThat(new NotResideInTheseNamespaces(
                        'App\Application\HelpScout\Config',
                        'App\Application\Enums',

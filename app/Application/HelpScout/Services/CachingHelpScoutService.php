@@ -8,11 +8,11 @@ use App\Application\Contracts\EscalationsConfigRepositoryInterface;
 use App\Application\Contracts\HelpScout\AgentsClientInterface;
 use App\Application\Contracts\HelpScout\ConversationsClientInterface;
 use App\Application\Contracts\HelpScout\MailboxesClientInterface;
+use App\Application\Contracts\ResilientCacheInterface;
 use App\Application\HelpScout\Queries\ConversationQueryParams;
 use App\Application\HelpScout\Support\MailboxEnrichmentService;
 use App\Application\Support\CacheTimesTrait;
 use App\Application\Support\EmailAliasResolver;
-use App\Application\Support\GracefulCache;
 use App\Domain\CustomerService\Exceptions\CustomerServiceAgentNotFoundException;
 use App\Domain\CustomerService\ValueObjects\Conversation;
 use App\Domain\CustomerService\ValueObjects\EscalationsConfig;
@@ -29,8 +29,8 @@ use LogicException;
  * Caching decorator for HelpScout API operations.
  *
  * Adds caching layer to HelpScout endpoint clients without modifying
- * the underlying implementations. Uses GracefulCache for resilient caching
- * that degrades gracefully on backend failures.
+ * the underlying implementations. Uses ResilientCacheInterface for resilient
+ * caching that degrades gracefully on backend failures.
  *
  * Cache Strategy:
  * - Agent profiles: 7 days TTL (user→agent rarely changes)
@@ -56,7 +56,7 @@ final readonly class CachingHelpScoutService
         private MailboxesClientInterface $mailboxesClient,
         private EscalationsConfigRepositoryInterface $escalationsConfigRepository,
         private MailboxEnrichmentService $enricher,
-        private GracefulCache $cache,
+        private ResilientCacheInterface $cache,
         private EmailAliasResolver $emailResolver,
     ) {}
 
