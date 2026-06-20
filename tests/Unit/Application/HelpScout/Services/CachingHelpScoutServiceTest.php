@@ -8,11 +8,11 @@ use App\Application\Contracts\EscalationsConfigRepositoryInterface;
 use App\Application\Contracts\HelpScout\AgentsClientInterface;
 use App\Application\Contracts\HelpScout\ConversationsClientInterface;
 use App\Application\Contracts\HelpScout\MailboxesClientInterface;
+use App\Application\Contracts\ResilientCacheInterface;
 use App\Application\HelpScout\Queries\ConversationQueryParams;
 use App\Application\HelpScout\Services\CachingHelpScoutService;
 use App\Application\HelpScout\Support\MailboxEnrichmentService;
 use App\Application\Support\EmailAliasResolver;
-use App\Application\Support\GracefulCache;
 use App\Domain\CustomerService\Exceptions\CustomerServiceAgentNotFoundException;
 use App\Domain\CustomerService\ValueObjects\Conversation;
 use App\Domain\CustomerService\ValueObjects\EscalationsConfig;
@@ -45,7 +45,7 @@ final class CachingHelpScoutServiceTest extends TestCase
 
     private MailboxEnrichmentService&MockInterface $mockEnricher;
 
-    private GracefulCache&MockInterface $mockCache;
+    private ResilientCacheInterface&MockInterface $mockCache;
 
     private EmailAliasResolver $emailResolver;
 
@@ -60,7 +60,7 @@ final class CachingHelpScoutServiceTest extends TestCase
         $this->mockMailboxesClient = Mockery::mock(MailboxesClientInterface::class);
         $this->mockEscalationsConfigRepository = Mockery::mock(EscalationsConfigRepositoryInterface::class);
         $this->mockEnricher = Mockery::mock(MailboxEnrichmentService::class);
-        $this->mockCache = Mockery::mock(GracefulCache::class);
+        $this->mockCache = Mockery::mock(ResilientCacheInterface::class);
         $this->emailResolver = new EmailAliasResolver([]);
 
         $this->service = new CachingHelpScoutService(

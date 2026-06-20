@@ -56,7 +56,7 @@ Throwing checked exception ExternalServiceUnavailableException in arrow function
 
 This tells PHPStan the closure executes synchronously within the method, so exceptions propagate normally.
 
-**Example from codebase:** `app/Application/Support/GracefulCache.php:37`
+**Example from codebase:** `app/Application/Contracts/ResilientCacheInterface.php`
 
 ```php
 /**
@@ -449,6 +449,6 @@ How many @throws need ignoring?
 - [ShipMonk PHPStan Rules Documentation](https://github.com/shipmonk-rnd/phpstan-rules)
 - [PHPStan Exception Rules](https://github.com/pepakriz/phpstan-exception-rules)
 - Related codebase files:
-  - `app/Application/Support/GracefulCache.php` - Best practice example
+  - `app/Application/Contracts/ResilientCacheInterface.php` - Best practice example
   - `phpstan.neon` - Global configuration
   - `bootstrap/app.php` - Inline ignore examples

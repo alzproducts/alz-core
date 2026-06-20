@@ -212,12 +212,17 @@ parameters:
             identifier: alz.noStaticProperties
             path: app/DevTools/PHPStan/Rules/Infrastructure/NoSdkExceptionsInThrowsRule.php
         # Graceful cache degradation: return null on infrastructure failure is the design intent (#211).
-        # GracefulCache and LockableCache are explicitly designed to degrade gracefully.
+        # ResilientCache and LockableCache are explicitly designed to degrade gracefully.
         -
             identifier: alz.noCatchReturnEmpty
             paths:
-                - app/Application/Support/GracefulCache.php
+                - app/Infrastructure/Support/ResilientCache.php
                 - app/Infrastructure/Support/LockableCache.php
+        # Redis serializes integers as strings — ResilientCache::rememberInt() casts back to int.
+        # PHPStan infers the template return type as ?int, flagging the cast as useless.
+        -
+            identifier: cast.useless
+            path: app/Infrastructure/Support/ResilientCache.php
         # Batch processing / data parsing: return null for individual item failures (#211).
         # The batch orchestrator collects results and reports failures separately.
         # Data parsing returns null for invalid external data (GTIN, dates, ratings).

@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Application\HelpScout\Support;
 
 use App\Application\Contracts\HelpScout\MailboxesClientInterface;
+use App\Application\Contracts\ResilientCacheInterface;
 use App\Application\Support\CacheTimesTrait;
-use App\Application\Support\GracefulCache;
 use App\Domain\CustomerService\ValueObjects\Conversation;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
@@ -25,7 +25,7 @@ final readonly class MailboxEnrichmentService
 
     public function __construct(
         private MailboxesClientInterface $mailboxesClient,
-        private GracefulCache $cache,
+        private ResilientCacheInterface $cache,
     ) {}
 
     /**
