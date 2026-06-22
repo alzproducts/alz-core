@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\Application\HelpScout\Support;
 
 use App\Application\Contracts\HelpScout\MailboxesClientInterface;
+use App\Application\Contracts\ResilientCacheInterface;
 use App\Application\HelpScout\Support\MailboxEnrichmentService;
-use App\Application\Support\GracefulCache;
 use App\Domain\CustomerService\ValueObjects\Conversation;
 use App\Domain\CustomerService\ValueObjects\Mailbox;
 use Closure;
@@ -22,7 +22,7 @@ final class MailboxEnrichmentServiceTest extends TestCase
 {
     private MailboxesClientInterface&MockInterface $mockMailboxesClient;
 
-    private GracefulCache&MockInterface $mockCache;
+    private ResilientCacheInterface&MockInterface $mockCache;
 
     private MailboxEnrichmentService $service;
 
@@ -31,7 +31,7 @@ final class MailboxEnrichmentServiceTest extends TestCase
         parent::setUp();
 
         $this->mockMailboxesClient = Mockery::mock(MailboxesClientInterface::class);
-        $this->mockCache = Mockery::mock(GracefulCache::class);
+        $this->mockCache = Mockery::mock(ResilientCacheInterface::class);
 
         $this->service = new MailboxEnrichmentService(
             $this->mockMailboxesClient,

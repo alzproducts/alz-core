@@ -18,37 +18,44 @@ final class MemoryTrackingMiddleware
 
     public function handle(object $job, Closure $next): void
     {
-        $before = \memory_get_usage(true);
+        $realBefore = \memory_get_usage(true);
+        $heapBefore = \memory_get_usage(false);
 
         try {
             $next($job);
         } finally {
-            $this->logMemoryUsage($job, $before);
+            $this->logMemoryUsage($job, $realBefore, $heapBefore);
         }
     }
 
-    private function logMemoryUsage(object $job, int $before): void
+    private function logMemoryUsage(object $job, int $realBefore, int $heapBefore): void
     {
-        $after = \memory_get_usage(true);
-        $delta = $after - $before;
+        $realAfter = \memory_get_usage(true);
+        $heapAfter = \memory_get_usage(false);
+        $realDelta = $realAfter - $realBefore;
+        $heapDelta = $heapAfter - $heapBefore;
 
         Log::info('Job memory snapshot', [
             'job' => $job::class,
-            'memory_before_mb' => self::toMb($before),
-            'memory_after_mb' => self::toMb($after),
-            'memory_delta_mb' => self::toMb($delta),
+            'memory_before_mb' => self::toMb($realBefore),
+            'memory_after_mb' => self::toMb($realAfter),
+            'memory_delta_mb' => self::toMb($realDelta),
             'memory_peak_mb' => self::toMb(\memory_get_peak_usage(true)),
+            'heap_before_mb' => self::toMb($heapBefore),
+            'heap_after_mb' => self::toMb($heapAfter),
+            'heap_delta_mb' => self::toMb($heapDelta),
         ]);
 
-        $this->logThresholdWarning($job, $delta);
+        $this->logThresholdWarning($job, $heapDelta, $realDelta);
     }
 
-    private function logThresholdWarning(object $job, int $delta): void
+    private function logThresholdWarning(object $job, int $heapDelta, int $realDelta): void
     {
-        if ($this->threshold > 0 && $delta > $this->threshold) {
+        if ($this->threshold > 0 && $heapDelta > $this->threshold) {
             Log::warning('Job memory growth exceeded threshold', [
                 'job' => $job::class,
-                'delta_mb' => self::toMb($delta),
+                'heap_delta_mb' => self::toMb($heapDelta),
+                'delta_mb' => self::toMb($realDelta),
                 'threshold_mb' => self::toMb($this->threshold),
             ]);
         }
