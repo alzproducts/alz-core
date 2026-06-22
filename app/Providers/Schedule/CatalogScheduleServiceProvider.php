@@ -10,6 +10,7 @@ use App\Infrastructure\Jobs\Catalog\SyncCreditTierLabelJob;
 use App\Infrastructure\Jobs\Catalog\SyncMarginTierLabelJob;
 use App\Infrastructure\Jobs\Catalog\SyncOffersFiltersJob;
 use App\Infrastructure\Jobs\Catalog\SyncProductSortOrdersJob;
+use App\Infrastructure\Jobs\Catalog\SyncProductsViewJob;
 use App\Infrastructure\Jobs\Catalog\SyncRatingFiltersJob;
 use App\Infrastructure\Jobs\Catalog\SyncRelatedProductsJob;
 use App\Infrastructure\Jobs\Catalog\SyncShippingOffersFiltersJob;
@@ -73,8 +74,8 @@ final class CatalogScheduleServiceProvider extends ServiceProvider
      */
     private function registerProductsViewRefreshSchedule(): void
     {
-        Schedule::command('catalog:refresh-products-view')
-            ->name('refresh-products-view')
+        Schedule::job(new SyncProductsViewJob())
+            ->name('sync-products-view')
             ->everyMinute()
             ->timezone('Europe/London')
             ->onOneServer()
