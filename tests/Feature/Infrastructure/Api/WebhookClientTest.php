@@ -7,7 +7,9 @@ namespace Tests\Feature\Infrastructure\Api;
 use App\Application\Shopwired\DTOs\WebhookDTO;
 use App\Infrastructure\Shopwired\Clients\WebhookClient;
 use App\Infrastructure\Shopwired\ShopwiredConfig;
+use App\Infrastructure\Shopwired\ShopwiredErrorHandler;
 use App\Infrastructure\Shopwired\ShopwiredHttpTransport;
+use App\Infrastructure\Support\TransientLogThrottle;
 use Illuminate\Support\Facades\Http;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -32,7 +34,7 @@ final class WebhookClientTest extends TestCase
             apiSecret: 'test-secret',
         );
 
-        $this->client = new WebhookClient(new ShopwiredHttpTransport($config));
+        $this->client = new WebhookClient(new ShopwiredHttpTransport($config, new ShopwiredErrorHandler(\app(TransientLogThrottle::class))));
     }
 
     #[Test]

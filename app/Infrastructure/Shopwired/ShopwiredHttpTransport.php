@@ -51,6 +51,7 @@ final readonly class ShopwiredHttpTransport implements ShopwiredTransportInterfa
 
     public function __construct(
         private ShopwiredConfig $config,
+        private ShopwiredErrorHandler $errorHandler,
     ) {}
 
     /**
@@ -79,12 +80,12 @@ final readonly class ShopwiredHttpTransport implements ShopwiredTransportInterfa
                 ->send('GET', $endpoint, ['query' => $query])
                 ->throw();
         } catch (RequestException $e) {
-            throw ShopwiredErrorHandler::handleRequestException($e, $endpoint);
+            throw $this->errorHandler->handleRequestException($e, $endpoint);
         } catch (ConnectionException $e) {
-            throw ShopwiredErrorHandler::handleConnectionException($e);
+            throw $this->errorHandler->handleConnectionException($e);
         } catch (Exception $e) {
             // Catch-all for unexpected exceptions from Guzzle/Laravel internals
-            throw ShopwiredErrorHandler::handleUnexpectedException($e);
+            throw $this->errorHandler->handleUnexpectedException($e);
         }
     }
 
@@ -114,12 +115,12 @@ final readonly class ShopwiredHttpTransport implements ShopwiredTransportInterfa
                 ->send('POST', $endpoint, ['json' => $data])
                 ->throw();
         } catch (RequestException $e) {
-            throw ShopwiredErrorHandler::handleRequestException($e, $endpoint);
+            throw $this->errorHandler->handleRequestException($e, $endpoint);
         } catch (ConnectionException $e) {
-            throw ShopwiredErrorHandler::handleConnectionException($e);
+            throw $this->errorHandler->handleConnectionException($e);
         } catch (Exception $e) {
             // Catch-all for unexpected exceptions from Guzzle/Laravel internals
-            throw ShopwiredErrorHandler::handleUnexpectedException($e);
+            throw $this->errorHandler->handleUnexpectedException($e);
         }
     }
 
@@ -149,12 +150,12 @@ final readonly class ShopwiredHttpTransport implements ShopwiredTransportInterfa
                 ->send('PUT', $endpoint, ['json' => $data])
                 ->throw();
         } catch (RequestException $e) {
-            throw ShopwiredErrorHandler::handleRequestException($e, $endpoint);
+            throw $this->errorHandler->handleRequestException($e, $endpoint);
         } catch (ConnectionException $e) {
-            throw ShopwiredErrorHandler::handleConnectionException($e);
+            throw $this->errorHandler->handleConnectionException($e);
         } catch (Exception $e) {
             // Catch-all for unexpected exceptions from Guzzle/Laravel internals
-            throw ShopwiredErrorHandler::handleUnexpectedException($e);
+            throw $this->errorHandler->handleUnexpectedException($e);
         }
     }
 
@@ -219,7 +220,7 @@ final readonly class ShopwiredHttpTransport implements ShopwiredTransportInterfa
              */
             $poolResults = Http::pool(fn(Pool $pool): array => $this->buildPoolRequests($pool, $requests));
         } catch (RuntimeException $e) {
-            throw ShopwiredErrorHandler::handleUnexpectedException($e);
+            throw $this->errorHandler->handleUnexpectedException($e);
         }
 
         /** @var array<string, Response> $responses */
@@ -260,11 +261,11 @@ final readonly class ShopwiredHttpTransport implements ShopwiredTransportInterfa
             ]);
 
             if ($result instanceof ConnectionException) {
-                throw ShopwiredErrorHandler::handleConnectionException($result);
+                throw $this->errorHandler->handleConnectionException($result);
             }
 
             if ($result instanceof RequestException) {
-                throw ShopwiredErrorHandler::handleRequestException($result, $requests[$key]['endpoint'] ?? 'unknown');
+                throw $this->errorHandler->handleRequestException($result, $requests[$key]['endpoint'] ?? 'unknown');
             }
 
             throw new ExternalServiceUnavailableException(self::SERVICE_NAME, previous: $result);
@@ -278,7 +279,7 @@ final readonly class ShopwiredHttpTransport implements ShopwiredTransportInterfa
             try {
                 $result->throw();
             } catch (RequestException $e) {
-                throw ShopwiredErrorHandler::handleRequestException($e, $requests[$key]['endpoint']);
+                throw $this->errorHandler->handleRequestException($e, $requests[$key]['endpoint']);
             }
         }
 

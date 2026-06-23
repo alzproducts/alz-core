@@ -26,6 +26,7 @@ use App\Infrastructure\Shopwired\Clients\StockClient;
 use App\Infrastructure\Shopwired\Clients\WebhookClient;
 use App\Infrastructure\Shopwired\Contracts\ShopwiredTransportInterface;
 use App\Infrastructure\Shopwired\Enums\ShopwiredLogLevel;
+use App\Infrastructure\Support\TransientLogThrottle;
 use Illuminate\Support\Facades\Config;
 
 /**
@@ -166,7 +167,8 @@ final class ShopwiredClientFactory
             timeout: Config::integer('shopwired.timeout', 30),
         );
 
-        $baseTransport = new ShopwiredHttpTransport($config);
+        $errorHandler = new ShopwiredErrorHandler(\app(TransientLogThrottle::class));
+        $baseTransport = new ShopwiredHttpTransport($config, $errorHandler);
 
         $logLevel = \config('shopwired.log_level');
 

@@ -9,6 +9,7 @@ use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\UnexpectedApiResultException;
 use App\Domain\Exceptions\InvalidConfigurationException;
+use App\Infrastructure\Support\TransientLogThrottle;
 use Microsoft\BingAds\V13\CustomerManagement\CurrencyCode;
 
 /**
@@ -30,7 +31,8 @@ final class BingAdsClientFactory
     public static function create(BingAdsSessionManager $sessionManager): BingAdsClientInterface
     {
         $config = self::createConfig();
-        $transport = new BingAdsTransport($sessionManager, $config);
+        $logThrottle = \app(TransientLogThrottle::class);
+        $transport = new BingAdsTransport($sessionManager, $config, $logThrottle);
 
         self::validateCurrency($transport);
 
@@ -41,7 +43,7 @@ final class BingAdsClientFactory
         BingAdsSessionManager $sessionManager,
         BingAdsConfig $config,
     ): BingAdsConversionClient {
-        $transport = new BingAdsConversionTransport($sessionManager, $config);
+        $transport = new BingAdsConversionTransport($sessionManager, $config, \app(TransientLogThrottle::class));
 
         return new BingAdsConversionClient($transport);
     }

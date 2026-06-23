@@ -14,6 +14,7 @@ use App\Infrastructure\ReviewsIo\ReviewsIoClient;
 use App\Infrastructure\ReviewsIo\ReviewsIoConfig;
 use App\Infrastructure\ReviewsIo\ReviewsIoHttpTransport;
 use App\Infrastructure\ReviewsIo\Validation\ValidSku;
+use App\Infrastructure\Support\TransientLogThrottle;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
@@ -68,7 +69,7 @@ final class ReviewsIoClientTest extends TestCase
             retryDelay: $retryDelay,
         );
 
-        $transport = new ReviewsIoHttpTransport($config);
+        $transport = new ReviewsIoHttpTransport($config, \app(TransientLogThrottle::class));
 
         return new ReviewsIoClient($transport);
     }

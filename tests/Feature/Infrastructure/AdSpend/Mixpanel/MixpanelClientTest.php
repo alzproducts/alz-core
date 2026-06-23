@@ -13,6 +13,7 @@ use App\Domain\Exceptions\Api\PayloadSerializationException;
 use App\Infrastructure\Mixpanel\MixpanelClient;
 use App\Infrastructure\Mixpanel\MixpanelConfig;
 use App\Infrastructure\Mixpanel\MixpanelHttpTransport;
+use App\Infrastructure\Support\TransientLogThrottle;
 use Illuminate\Http\Client\Request;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
@@ -58,7 +59,7 @@ final class MixpanelClientTest extends TestCase
             lookupTableIds: self::LOOKUP_TABLE_IDS,
         );
 
-        $transport = new MixpanelHttpTransport($config);
+        $transport = new MixpanelHttpTransport($config, \app(TransientLogThrottle::class));
 
         $this->client = new MixpanelClient($transport, $config);
     }

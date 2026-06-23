@@ -9,6 +9,7 @@ use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Infrastructure\Mixpanel\MixpanelConfig;
 use App\Infrastructure\Mixpanel\MixpanelHttpTransport;
+use App\Infrastructure\Support\TransientLogThrottle;
 use Exception;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
@@ -67,7 +68,7 @@ final class MixpanelHttpTransportTest extends TestCase
             retryDelay: self::TEST_RETRY_DELAY_MS,
         );
 
-        $this->transport = new MixpanelHttpTransport($this->config);
+        $this->transport = new MixpanelHttpTransport($this->config, \app(TransientLogThrottle::class));
     }
 
     /*

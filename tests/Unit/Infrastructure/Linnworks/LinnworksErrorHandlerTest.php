@@ -7,10 +7,13 @@ namespace Tests\Unit\Infrastructure\Linnworks;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Infrastructure\Linnworks\LinnworksErrorHandler;
+use App\Infrastructure\Support\TransientLogThrottle;
 use GuzzleHttp\Psr7\Response as Psr7Response;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Log;
+use Mockery;
+use Mockery\MockInterface;
 use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -31,13 +34,20 @@ final class LinnworksErrorHandlerTest extends TestCase
 {
     private const string ENDPOINT = '/api/Dashboards/ExecuteCustomScriptQuery';
 
+    private LinnworksErrorHandler $handler;
+
     #[Override]
     protected function setUp(): void
     {
         parent::setUp();
 
-        // Handler logs before translating; swallow writes without asserting on them.
         Log::spy();
+
+        /** @var TransientLogThrottle&MockInterface $logThrottle */
+        $logThrottle = Mockery::mock(TransientLogThrottle::class);
+        $logThrottle->allows('check')->andReturn(5);
+
+        $this->handler = new LinnworksErrorHandler($logThrottle);
     }
 
     /**
@@ -58,7 +68,7 @@ final class LinnworksErrorHandlerTest extends TestCase
     #[DataProvider('transientBadRequestBodies')]
     public function it_translates_a_transient_400_into_a_retryable_outage(string $message): void
     {
-        $result = LinnworksErrorHandler::handleRequestException(
+        $result = $this->handler->handleRequestException(
             self::requestException(400, ['Code' => null, 'Message' => $message]),
             self::ENDPOINT,
         );
@@ -71,7 +81,7 @@ final class LinnworksErrorHandlerTest extends TestCase
     #[Test]
     public function it_translates_a_genuine_400_into_a_permanent_invalid_request(): void
     {
-        $result = LinnworksErrorHandler::handleRequestException(
+        $result = $this->handler->handleRequestException(
             self::requestException(400, ['Code' => 'BadRequest', 'Message' => 'fkSupplierId is not a valid GUID']),
             self::ENDPOINT,
         );
@@ -83,7 +93,7 @@ final class LinnworksErrorHandlerTest extends TestCase
     #[Test]
     public function it_falls_back_to_a_permanent_invalid_request_when_no_message_present(): void
     {
-        $result = LinnworksErrorHandler::handleRequestException(
+        $result = $this->handler->handleRequestException(
             self::requestException(400, ['Code' => 'BadRequest']),
             self::ENDPOINT,
         );

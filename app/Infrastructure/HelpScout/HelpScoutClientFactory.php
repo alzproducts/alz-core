@@ -18,6 +18,7 @@ use App\Infrastructure\HelpScout\Clients\UsersClient;
 use App\Infrastructure\HelpScout\Mappers\CustomerMapper;
 use App\Infrastructure\HelpScout\Services\NameFormatterService;
 use App\Infrastructure\HelpScout\Services\PhoneFormatterService;
+use App\Infrastructure\Support\TransientLogThrottle;
 use HelpScout\Api\ApiClient;
 use HelpScout\Api\ApiClientFactory as SdkClientFactory;
 use Illuminate\Http\Client\Factory as HttpFactory;
@@ -95,6 +96,7 @@ final class HelpScoutClientFactory
             self::getConfig(),
             self::getSdkClient(),
             \app(HttpFactory::class),
+            new HelpScoutErrorHandler(\app(TransientLogThrottle::class)),
         );
     }
 

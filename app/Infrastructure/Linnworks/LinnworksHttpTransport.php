@@ -44,6 +44,7 @@ final readonly class LinnworksHttpTransport implements LinnworksTransportInterfa
     public function __construct(
         private LinnworksConfig $config,
         private LinnworksSessionManager $sessionManager,
+        private LinnworksErrorHandler $errorHandler,
     ) {}
 
     /**
@@ -208,19 +209,19 @@ final readonly class LinnworksHttpTransport implements LinnworksTransportInterfa
                 try {
                     return $request($session);
                 } catch (RequestException $retryException) {
-                    throw LinnworksErrorHandler::handleRequestException($retryException, $endpoint);
+                    throw $this->errorHandler->handleRequestException($retryException, $endpoint);
                 } catch (ConnectionException $retryException) {
-                    throw LinnworksErrorHandler::handleConnectionException($retryException);
+                    throw $this->errorHandler->handleConnectionException($retryException);
                 } catch (Exception $retryException) {
-                    throw LinnworksErrorHandler::handleUnexpectedException($retryException);
+                    throw $this->errorHandler->handleUnexpectedException($retryException);
                 }
             }
 
-            throw LinnworksErrorHandler::handleRequestException($e, $endpoint);
+            throw $this->errorHandler->handleRequestException($e, $endpoint);
         } catch (ConnectionException $e) {
-            throw LinnworksErrorHandler::handleConnectionException($e);
+            throw $this->errorHandler->handleConnectionException($e);
         } catch (Exception $e) {
-            throw LinnworksErrorHandler::handleUnexpectedException($e);
+            throw $this->errorHandler->handleUnexpectedException($e);
         }
     }
 

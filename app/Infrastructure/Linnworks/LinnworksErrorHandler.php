@@ -9,20 +9,17 @@ use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Infrastructure\Support\RetryAfterParser;
+use App\Infrastructure\Support\TransientLogThrottle;
 use Exception;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Log;
 
-/**
- * Error handler for Linnworks HTTP transport.
- *
- * Translates HTTP exceptions to domain exceptions with logging.
- * Stateless — all methods are static.
- */
-final class LinnworksErrorHandler
+final readonly class LinnworksErrorHandler
 {
     private const string SERVICE_NAME = 'Linnworks';
+
+    private const string SERVICE_KEY = 'linnworks';
 
     /**
      * Substrings identifying a transient backend failure that Linnworks wraps in an HTTP 400.
@@ -37,19 +34,23 @@ final class LinnworksErrorHandler
         'timeout period elapsed',
     ];
 
+    public function __construct(
+        private TransientLogThrottle $logThrottle,
+    ) {}
+
     /**
      * Route HTTP failures to specific handlers by status code.
      */
-    public static function handleRequestException(
+    public function handleRequestException(
         RequestException $e,
         string $endpoint,
     ): InvalidApiRequestException|AuthenticationExpiredException|ResourceNotFoundException|ExternalServiceUnavailableException {
         return match ($e->response->status()) {
-            400, 414, 422 => self::handleBadRequest($e),
+            400, 414, 422 => $this->handleBadRequest($e),
             401, 403 => self::handleAuthenticationFailure($e),
             404 => self::handleNotFound($e, $endpoint),
             429 => self::handleRateLimit($e),
-            default => self::handleServerError($e),
+            default => $this->handleServerError($e),
         };
     }
 
@@ -61,19 +62,19 @@ final class LinnworksErrorHandler
      * by response-body signature and translated to a transient outage so the job retries instead
      * of failing permanently.
      */
-    private static function handleBadRequest(RequestException $e): InvalidApiRequestException|ExternalServiceUnavailableException
+    private function handleBadRequest(RequestException $e): InvalidApiRequestException|ExternalServiceUnavailableException
     {
         $rawMessage = $e->response->json('Message');
         $message = \is_string($rawMessage) ? $rawMessage : null;
 
         if ($message !== null && self::isTransientFailureMessage($message)) {
-            return self::handleTransientBadRequest($e, $message);
+            return $this->handleTransientBadRequest($e, $message);
         }
 
         return self::handlePermanentBadRequest($e, $message);
     }
 
-    private static function handleTransientBadRequest(RequestException $e, string $message): ExternalServiceUnavailableException
+    private function handleTransientBadRequest(RequestException $e, string $message): ExternalServiceUnavailableException
     {
         Log::warning(self::SERVICE_NAME . ' API transient failure reported as 400', [
             'status' => $e->response->status(),
@@ -159,9 +160,9 @@ final class LinnworksErrorHandler
     /**
      * Handle 5xx and other server errors (transient).
      */
-    private static function handleServerError(RequestException $e): ExternalServiceUnavailableException
+    public function handleServerError(RequestException $e): ExternalServiceUnavailableException
     {
-        Log::error(self::SERVICE_NAME . ' API request failed', [
+        $this->logTransient(self::SERVICE_NAME . ' API request failed', [
             'status' => $e->response->status(),
             'error' => $e->getMessage(),
         ]);
@@ -172,9 +173,9 @@ final class LinnworksErrorHandler
     /**
      * Handle connection failures (network errors, timeouts).
      */
-    public static function handleConnectionException(ConnectionException $e): ExternalServiceUnavailableException
+    public function handleConnectionException(ConnectionException $e): ExternalServiceUnavailableException
     {
-        Log::error(self::SERVICE_NAME . ' API connection failed', [
+        $this->logTransient(self::SERVICE_NAME . ' API connection failed', [
             'error' => $e->getMessage(),
         ]);
 
@@ -184,13 +185,27 @@ final class LinnworksErrorHandler
     /**
      * Handle unexpected exceptions from Guzzle/Laravel internals.
      */
-    public static function handleUnexpectedException(Exception $e): ExternalServiceUnavailableException
+    public function handleUnexpectedException(Exception $e): ExternalServiceUnavailableException
     {
-        Log::error(self::SERVICE_NAME . ' API unexpected error', [
+        $this->logTransient(self::SERVICE_NAME . ' API unexpected error', [
             'exception' => $e::class,
             'error' => $e->getMessage(),
         ]);
 
         return new ExternalServiceUnavailableException(self::SERVICE_NAME, previous: $e);
+    }
+
+    /**
+     * @param array<string, mixed> $context
+     */
+    private function logTransient(string $message, array $context): void
+    {
+        $window = $this->logThrottle->check(self::SERVICE_KEY);
+
+        if ($window !== null) {
+            Log::error($message, [...$context, 'note' => "Subsequent transient failures suppressed for {$window} minutes"]);
+        } else {
+            Log::warning($message, $context);
+        }
     }
 }

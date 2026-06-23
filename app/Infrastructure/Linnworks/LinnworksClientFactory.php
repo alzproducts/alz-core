@@ -27,6 +27,7 @@ use App\Infrastructure\Linnworks\Clients\PurchaseOrderUpdateClient;
 use App\Infrastructure\Linnworks\Clients\StockDashboardsClient;
 use App\Infrastructure\Linnworks\Contracts\LinnworksTransportInterface;
 use App\Infrastructure\Linnworks\Enums\LinnworksLogLevel;
+use App\Infrastructure\Support\TransientLogThrottle;
 use DateMalformedStringException;
 use Illuminate\Support\Facades\Config;
 
@@ -203,8 +204,7 @@ final class LinnworksClientFactory
      */
     private static function createTransport(): LinnworksTransportInterface
     {
-        $baseTransport = new LinnworksHttpTransport(self::getConfig(), self::getSessionManager());
-
+        $baseTransport = self::createBaseTransport();
         $logLevel = \config('linnworks.log_level');
 
         if (!\is_string($logLevel) || $logLevel === '') {
@@ -221,6 +221,15 @@ final class LinnworksClientFactory
         }
 
         return new LoggingLinnworksTransport($baseTransport, $parsedLogLevel);
+    }
+
+    private static function createBaseTransport(): LinnworksHttpTransport
+    {
+        return new LinnworksHttpTransport(
+            self::getConfig(),
+            self::getSessionManager(),
+            new LinnworksErrorHandler(\app(TransientLogThrottle::class)),
+        );
     }
 
     /**
