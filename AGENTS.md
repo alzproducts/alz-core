@@ -124,6 +124,11 @@ Types: `feat` | `fix` | `refactor` | `test` | `docs` | `chore` | `perf` | `ci`
 - Never implement on `main`, `develop`, or a `worktree/*` branch. Worktree branches are scratch/session containers, not feature branches.
 - Do not switch to unrelated branches mid-task.
 
+**Updating an existing PR:** never edit a PR's files via raw paths from the `develop` checkout — bind the session to its branch first.
+- `EnterWorktree` by `path` (existing worktree) or `name` (new); confirm the branch + that HEAD matches the PR head before editing.
+- Edit only PR-relevant files; leave unrelated worktree changes (e.g. `.claude/settings.json`) unstaged.
+- Commit (conventional format), push to the PR branch, then `ExitWorktree` with `keep`.
+
 ## Development Environment
 
 **PHP**: Native PHP 8.4 via Homebrew (not Docker/Sail)
