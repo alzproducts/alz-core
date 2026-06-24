@@ -11,13 +11,14 @@ use Illuminate\Notifications\Slack\BlockKit\Blocks\SectionBlock;
 use Illuminate\Notifications\Slack\SlackMessage;
 
 /**
- * Slack notification for admin alerts requiring investigation.
+ * Slack notification for alerts requiring investigation.
  *
  * Displays title, message body, optional context fields, and the timestamp
  * from when the originating event was fired (not when the queue processed it).
  * Queuing is handled by the listener — this notification runs synchronously within it.
+ * The target channel (admin vs manager) is chosen by the caller, not this class.
  */
-final class AdminAlertNotification extends Notification
+final class AlertNotification extends Notification
 {
     /**
      * @param array<string, mixed> $context

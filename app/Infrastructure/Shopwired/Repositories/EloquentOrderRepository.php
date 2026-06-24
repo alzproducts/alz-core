@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Infrastructure\Shopwired\Repositories;
 
 use App\Application\Contracts\Shopwired\OrderRepositoryInterface;
+use App\Application\Shopwired\Enums\OrderQueryMode;
 use App\Domain\Catalog\Order\ValueObjects\Order;
 use App\Domain\Catalog\Order\ValueObjects\OrderAdminComment;
 use App\Domain\Catalog\Order\ValueObjects\OrderDiscount;
@@ -24,6 +25,7 @@ use App\Infrastructure\Shopwired\Models\OrderModel;
 use App\Infrastructure\Shopwired\Models\OrderProductModel;
 use App\Infrastructure\Shopwired\Models\OrderRefundModel;
 use DateTimeImmutable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Override;
 
@@ -154,8 +156,9 @@ final class EloquentOrderRepository extends AbstractEloquentRepository implement
     /**
      * {@inheritDoc}
      *
-     * Returns deduplicated orders (one per reference) using the orders_deduplicated view.
-     * Excludes orders from test customer emails (configured in shopwired.excluded_customer_emails).
+     * Filtered mode reads the orders_deduplicated view (one per reference) and excludes
+     * test customer emails (configured in shopwired.excluded_customer_emails). Raw mode
+     * reads the orders table directly with no filtering.
      *
      * @return list<Order>
      *
@@ -165,50 +168,21 @@ final class EloquentOrderRepository extends AbstractEloquentRepository implement
      *
      * @see shopwired.orders_deduplicated - View handling deduplication
      */
-    public function getOrdersInDateRange(DateTimeImmutable $from, DateTimeImmutable $to): array
+    public function getOrdersInDateRange(DateTimeImmutable $from, DateTimeImmutable $to, OrderQueryMode $mode): array
     {
-        return $this->eloquentGateway->query(static function () use ($from, $to): array {
-            $query = self::MODEL_CLASS::query()
-                ->from('shopwired.orders_deduplicated')
+        return $this->eloquentGateway->query(static function () use ($from, $to, $mode): array {
+            $base = self::MODEL_CLASS::query()
                 ->whereBetween('order_placed_at', [$from, $to])
                 ->with(self::EAGER_LOAD_RELATIONS)
                 ->orderBy('order_placed_at');
 
-            /** @var list<string> $excludedEmails */
-            $excludedEmails = \config('shopwired.excluded_customer_emails', []);
-
-            if ($excludedEmails !== []) {
-                $query->whereNotIn('billing_email', $excludedEmails);
-            }
+            $query = match ($mode) {
+                OrderQueryMode::Filtered => self::applyBusinessFilters($base),
+                OrderQueryMode::Raw => $base,
+            };
 
             return \array_values(
                 $query->get()
-                    ->map(static fn(OrderModel $model): Order => OrderModelMapper::fromModelWithRelations($model))
-                    ->all(),
-            );
-        });
-    }
-
-    /**
-     * {@inheritDoc}
-     *
-     * @return list<Order>
-     *
-     * @throws DatabaseOperationFailedException
-     * @throws DuplicateRecordException
-     * @throws ExternalServiceUnavailableException
-     */
-    public function getAllOrdersInDateRange(DateTimeImmutable $from, DateTimeImmutable $to): array
-    {
-        return $this->eloquentGateway->query(static function () use ($from, $to): array {
-            $models = self::MODEL_CLASS::query()
-                ->whereBetween('order_placed_at', [$from, $to])
-                ->with(self::EAGER_LOAD_RELATIONS)
-                ->orderBy('order_placed_at')
-                ->get();
-
-            return \array_values(
-                $models
                     ->map(static fn(OrderModel $model): Order => OrderModelMapper::fromModelWithRelations($model))
                     ->all(),
             );
@@ -373,6 +347,32 @@ final class EloquentOrderRepository extends AbstractEloquentRepository implement
     // ─────────────────────────────────────────────────────────────────────────
     // Query Helpers
     // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Apply business filters for OrderQueryMode::Filtered reads.
+     *
+     * Switches to the deduplicated view (one row per reference) and excludes
+     * configured test customer emails.
+     *
+     * @param Builder<OrderModel> $query
+     *
+     * @return Builder<OrderModel>
+     *
+     * @see shopwired.orders_deduplicated - View handling deduplication
+     */
+    private static function applyBusinessFilters(Builder $query): Builder
+    {
+        $query->from('shopwired.orders_deduplicated');
+
+        /** @var list<string> $excludedEmails */
+        $excludedEmails = \config('shopwired.excluded_customer_emails', []);
+
+        if ($excludedEmails !== []) {
+            $query->whereNotIn('billing_email', $excludedEmails);
+        }
+
+        return $query;
+    }
 
     /**
      * Select the preferred order from a collection sharing the same reference.

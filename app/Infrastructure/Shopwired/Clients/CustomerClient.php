@@ -92,68 +92,6 @@ final readonly class CustomerClient implements CustomerClientInterface
     ) {}
 
     /**
-     * List all NON-TRADE customers with embedded data (paginated fetch).
-     *
-     * Uses created_desc (newest first) so recent customers are prioritized if sync fails mid-way.
-     * Non-trade customers only (trade=0 / trade filter omitted).
-     *
-     * @return list<DomainCustomer>
-     *
-     * @throws InvalidApiRequestException When request parameters are invalid (400)
-     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
-     * @throws ResourceNotAvailableException When resource not found (404)
-     * @throws ExternalServiceUnavailableException When API unavailable or connection fails
-     * @throws InvalidApiResponseException When response parsing fails (API contract violation)
-     */
-    public function listAllNonTradeCustomers(): array
-    {
-        $params = CustomerQueryParams::forBulkFetch()
-            ->withBaseParams(
-                ShopwiredQueryParams::forBulkFetch()
-                    ->withEmbeds(self::DEFAULT_EMBEDS)
-                    ->withFields(self::DEFAULT_FIELDS),
-            )
-            ->withSort(CustomerSort::CreatedDesc);
-
-        return ShopwiredPaginator::fetchAll(
-            params: $params,
-            fetchPage: fn(CustomerQueryParams $p): array => $this->fetchCustomerPage($p),
-            knownTotal: $this->getNonTradeCustomerCount(),
-        );
-    }
-
-    /**
-     * List all TRADE customers with embedded data (paginated fetch).
-     *
-     * Trade customers only (trade=1). Uses created_desc (newest first).
-     *
-     * @return list<DomainCustomer>
-     *
-     * @throws InvalidApiRequestException When request parameters are invalid (400)
-     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
-     * @throws ResourceNotAvailableException When resource not found (404)
-     * @throws ExternalServiceUnavailableException When API unavailable or connection fails
-     * @throws InvalidApiResponseException When response parsing fails (API contract violation)
-     */
-    public function listAllTradeCustomers(): array
-    {
-        $params = CustomerQueryParams::forBulkFetch()
-            ->withTrade(true)
-            ->withBaseParams(
-                ShopwiredQueryParams::forBulkFetch()
-                    ->withEmbeds(self::DEFAULT_EMBEDS)
-                    ->withFields(self::DEFAULT_FIELDS),
-            )
-            ->withSort(CustomerSort::CreatedDesc);
-
-        return ShopwiredPaginator::fetchAll(
-            params: $params,
-            fetchPage: fn(CustomerQueryParams $p): array => $this->fetchCustomerPage($p),
-            knownTotal: $this->getTradeCustomerCount(),
-        );
-    }
-
-    /**
      * Iterate NON-TRADE customers in batches (memory-efficient).
      *
      * Uses created_desc (newest first) so recent customers are prioritized if sync fails mid-way.
@@ -167,7 +105,7 @@ final readonly class CustomerClient implements CustomerClientInterface
      * @throws ExternalServiceUnavailableException When API unavailable or connection fails
      * @throws InvalidApiResponseException When response parsing fails (API contract violation)
      */
-    public function iterateNonTradeCustomerBatches(): Generator
+    private function iterateNonTradeCustomerBatches(): Generator
     {
         // IMPORTANT: withSort() must come AFTER withBaseParams() because
         // withBaseParams() replaces the entire base params object
@@ -271,31 +209,6 @@ final readonly class CustomerClient implements CustomerClientInterface
     }
 
     /**
-     * List non-trade customers (single page, default parameters).
-     *
-     * Returns first page of non-trade customers without embeds or custom fields.
-     *
-     * @return list<DomainCustomer>
-     *
-     * @throws InvalidApiRequestException When request parameters are invalid (400)
-     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
-     * @throws ResourceNotAvailableException When resource not found (404)
-     * @throws ExternalServiceUnavailableException When API unavailable or connection fails
-     * @throws InvalidApiResponseException When response parsing fails (API contract violation)
-     */
-    public function listNonTradeCustomers(): array
-    {
-        $params = (new ShopwiredQueryParams())
-            ->withEmbeds(self::DEFAULT_EMBEDS)
-            ->withFields(self::DEFAULT_FIELDS);
-
-        $response = $this->transport->get(self::ENDPOINT_CUSTOMERS, $params->toArray());
-
-        /** @var list<DomainCustomer> */
-        return self::parseArrayToDomain($response->json(), CustomerResponse::class);
-    }
-
-    /**
      * Get a single customer by ID.
      *
      * Works for both trade and non-trade customers — the ID is globally unique.
@@ -329,7 +242,7 @@ final readonly class CustomerClient implements CustomerClientInterface
      * @throws ExternalServiceUnavailableException When API unavailable or connection fails
      * @throws InvalidApiResponseException When response parsing fails (API contract violation)
      */
-    public function getNonTradeCustomerCount(): int
+    private function getNonTradeCustomerCount(): int
     {
         $response = $this->transport->get(self::ENDPOINT_CUSTOMERS . '/count');
 
@@ -347,7 +260,7 @@ final readonly class CustomerClient implements CustomerClientInterface
      * @throws ExternalServiceUnavailableException When API unavailable or connection fails
      * @throws InvalidApiResponseException When response parsing fails (API contract violation)
      */
-    public function getTradeCustomerCount(): int
+    private function getTradeCustomerCount(): int
     {
         $response = $this->transport->get(
             self::ENDPOINT_CUSTOMERS . '/count',

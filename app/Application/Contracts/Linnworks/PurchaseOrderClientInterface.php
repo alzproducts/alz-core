@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Application\Contracts\Linnworks;
 
+use App\Application\Linnworks\Enums\PurchaseOrderDepth;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
@@ -29,7 +30,16 @@ use JsonException;
 interface PurchaseOrderClientInterface
 {
     /**
-     * Get a purchase order header by ID.
+     * Get a purchase order at the requested embed depth.
+     *
+     * Header = single Get_PurchaseOrder call (header only).
+     * Core   = single Get_PurchaseOrder call assembled into the core VO
+     *          (header, note count, items, additional costs, delivered records);
+     *          use for rapid polling of OPEN/PENDING purchase orders.
+     * Full   = core plus notes and extended properties (3 API calls); use for
+     *          historical backfill where complete data is required.
+     *
+     * @return ($depth is PurchaseOrderDepth::Header ? PurchaseOrderHeader : ($depth is PurchaseOrderDepth::Core ? PurchaseOrderCore : PurchaseOrderFull))
      *
      * @throws ResourceNotFoundException When PO doesn't exist
      * @throws AuthenticationExpiredException When credentials are invalid
@@ -37,37 +47,7 @@ interface PurchaseOrderClientInterface
      * @throws InvalidApiRequestException When request parameters are invalid
      * @throws InvalidApiResponseException When API response structure is invalid
      */
-    public function getPurchaseOrderHeader(Guid $purchaseId): PurchaseOrderHeader;
-
-    /**
-     * Get a purchase order with all data from a single API call.
-     *
-     * Returns header, note count, items, additional costs, and delivered
-     * records in a single Get_PurchaseOrder request. Use for rapid polling
-     * of OPEN/PENDING purchase orders.
-     *
-     * @throws ResourceNotFoundException When PO doesn't exist
-     * @throws AuthenticationExpiredException When credentials are invalid
-     * @throws ExternalServiceUnavailableException When API is unavailable
-     * @throws InvalidApiRequestException When request parameters are invalid
-     * @throws InvalidApiResponseException When API response structure is invalid
-     */
-    public function getPurchaseOrderCore(Guid $purchaseId): PurchaseOrderCore;
-
-    /**
-     * Get a complete purchase order with all metadata (3 API calls).
-     *
-     * Calls Get_PurchaseOrder + Get_PurchaseOrderNote +
-     * Get_PurchaseOrderExtendedProperty. Use for historical backfill
-     * where complete data including notes and extended properties is required.
-     *
-     * @throws ResourceNotFoundException When PO doesn't exist
-     * @throws AuthenticationExpiredException When credentials are invalid
-     * @throws ExternalServiceUnavailableException When API is unavailable
-     * @throws InvalidApiRequestException When request parameters are invalid
-     * @throws InvalidApiResponseException When API response structure is invalid
-     */
-    public function getPurchaseOrderFull(Guid $purchaseId): PurchaseOrderFull;
+    public function getPurchaseOrder(Guid $purchaseId, PurchaseOrderDepth $depth): PurchaseOrderHeader|PurchaseOrderCore|PurchaseOrderFull;
 
     /**
      * Search purchase orders by criteria.

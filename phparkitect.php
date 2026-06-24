@@ -358,6 +358,7 @@ return static function (Config $config): void {
                        'App\Application\HelpScout\Queries\Conversation\Enums',
                        'App\Application\Inventory\Enums',
                        'App\Application\Linnworks\Enums',
+                       'App\Application\Notifications\Enums',
                        'App\Application\Shopwired\Enums',
                    ))
                    ->should(

@@ -9,6 +9,7 @@ use App\Application\Contracts\MixpanelClientInterface;
 use App\Application\Contracts\Shopwired\CustomerRepositoryInterface;
 use App\Application\Contracts\Shopwired\OrderRepositoryInterface;
 use App\Application\Mixpanel\Results\SyncOrdersToMixpanelResult;
+use App\Application\Shopwired\Enums\OrderQueryMode;
 use App\Domain\Catalog\Order\ValueObjects\Order;
 use App\Domain\Catalog\Order\ValueObjects\OrderAnalyticsHashMatcher;
 use App\Domain\Catalog\Order\ValueObjects\OrderProduct;
@@ -107,7 +108,7 @@ final readonly class SyncOrdersToMixpanelUseCase
         ]);
 
         // Step 2: Get orders from local database
-        $orders = $this->orderRepository->getOrdersInDateRange($from, $adjustedTo);
+        $orders = $this->orderRepository->getOrdersInDateRange($from, $adjustedTo, OrderQueryMode::Filtered);
 
         if ($orders === []) {
             $this->logger->info('No orders found in date range', [

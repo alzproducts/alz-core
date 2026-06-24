@@ -6,6 +6,7 @@ namespace App\Application\Linnworks\UseCases;
 
 use App\Application\Contracts\Linnworks\PurchaseOrderClientInterface;
 use App\Application\Contracts\Linnworks\PurchaseOrderSyncRepositoryInterface;
+use App\Application\Linnworks\Enums\PurchaseOrderDepth;
 use App\Application\Results\SyncResult;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
@@ -118,7 +119,7 @@ final readonly class SyncPurchaseOrderFullUseCase
     private function fetchFull(Guid $id, int $bufferSize): PurchaseOrderFull
     {
         $this->logger->debug('Fetching purchase order full', ['purchase_id' => $id->value]);
-        $full = $this->purchaseOrderClient->getPurchaseOrderFull($id);
+        $full = $this->purchaseOrderClient->getPurchaseOrder($id, PurchaseOrderDepth::Full);
         $this->logger->debug('Fetched purchase order full', [
             'purchase_id' => $id->value,
             'buffer_size' => $bufferSize + 1,
