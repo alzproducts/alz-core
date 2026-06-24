@@ -26,9 +26,9 @@ use Generator;
  * Handles customer retrieval operations from the ShopWired API.
  * HTTP concerns (auth, retry, timeout) are delegated to ShopwiredHttpTransport.
  *
- * NOTE: Methods are explicitly named (NonTrade/Trade) because the ShopWired API
- * does not support fetching all customers in a single request. See interface
- * docblock for full explanation of the trade vs non-trade distinction.
+ * The ShopWired API cannot return both customer types in one request, so the
+ * trade/non-trade split is handled by private per-type batch builders and
+ * hidden behind the public iterateCustomerBatches(). See the interface docblock.
  *
  * @see https://shopwired.readme.io/reference/listcustomers
  */
