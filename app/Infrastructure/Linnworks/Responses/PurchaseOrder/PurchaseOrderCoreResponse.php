@@ -18,7 +18,7 @@ use Spatie\LaravelData\Data;
  *
  * Maps the Core subset: header, note count, and items.
  * Additional costs and delivered records are parsed separately
- * by getPurchaseOrderFull() for the Full sync path.
+ * for the PurchaseOrderDepth::Full read path.
  *
  * @template-pattern Infrastructure Response DTO
  */

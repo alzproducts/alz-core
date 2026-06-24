@@ -7,6 +7,7 @@ namespace App\Application\Linnworks\UseCases\PurchaseOrder;
 use App\Application\Contracts\Linnworks\PurchaseOrderClientInterface;
 use App\Application\Contracts\Linnworks\PurchaseOrderUpdateClientInterface;
 use App\Application\Linnworks\DTOs\PurchaseOrder\PurchaseOrderHeaderUpdateDTO;
+use App\Application\Linnworks\Enums\PurchaseOrderDepth;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
@@ -46,7 +47,7 @@ final readonly class UpdatePurchaseOrderHeaderUseCase
             'fields' => $command->changedFields(),
         ]);
 
-        $current = $this->readClient->getPurchaseOrderHeader($command->purchaseId);
+        $current = $this->readClient->getPurchaseOrder($command->purchaseId, PurchaseOrderDepth::Header);
 
         $updateParams = PurchaseOrderHeaderUpdateDTO::fromHeaderWithOverrides($current, $command);
 

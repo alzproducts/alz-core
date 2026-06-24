@@ -6,6 +6,7 @@ namespace App\Presentation\Console\Commands\Shopwired;
 
 use App\Application\Contracts\Shopwired\OrderClientInterface;
 use App\Application\Contracts\Shopwired\OrderRepositoryInterface;
+use App\Application\Shopwired\Enums\OrderQueryMode;
 use App\Domain\Catalog\Order\ValueObjects\Order;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
@@ -109,7 +110,7 @@ final class ShopwiredAuditOrderSyncCommand extends Command
     private function fetchAndCountDb(OrderRepositoryInterface $repository, DateTimeImmutable $from, DateTimeImmutable $to): array
     {
         $this->info('Fetching orders from database...');
-        $orders = $repository->getAllOrdersInDateRange($from, $to);
+        $orders = $repository->getOrdersInDateRange($from, $to, OrderQueryMode::Raw);
 
         return $this->extractDbCounts($orders);
     }
