@@ -16,6 +16,7 @@ use App\Infrastructure\BingAds\BingAdsConversionService;
 use App\Infrastructure\BingAds\BingAdsSessionManager;
 use App\Infrastructure\Jobs\Mixpanel\SyncBingAdsToMixpanelJob;
 use App\Infrastructure\Phone\PhoneNormalisationService;
+use App\Infrastructure\Support\TransientLogThrottle;
 use Illuminate\Contracts\Container\BindingResolutionException;
 use Illuminate\Contracts\Container\Container;
 use Illuminate\Contracts\Support\DeferrableProvider;
@@ -73,6 +74,7 @@ final class BingAdsServiceProvider extends ServiceProvider implements Deferrable
             BingAdsClientInterface::class,
             static fn(Container $app): BingAdsClientInterface => BingAdsClientFactory::create(
                 $app->make(BingAdsSessionManager::class),
+                $app->make(TransientLogThrottle::class),
             ),
         );
     }
@@ -105,6 +107,7 @@ final class BingAdsServiceProvider extends ServiceProvider implements Deferrable
             static fn(Container $app): BingAdsConversionClient => BingAdsClientFactory::createConversionClient(
                 $app->make(BingAdsSessionManager::class),
                 $app->make(BingAdsConfig::class),
+                $app->make(TransientLogThrottle::class),
             ),
         );
     }
