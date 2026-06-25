@@ -18,6 +18,7 @@ use App\Infrastructure\HelpScout\Clients\UsersClient;
 use App\Infrastructure\HelpScout\Mappers\CustomerMapper;
 use App\Infrastructure\HelpScout\Services\NameFormatterService;
 use App\Infrastructure\HelpScout\Services\PhoneFormatterService;
+use App\Infrastructure\Support\TransientLogThrottle;
 use HelpScout\Api\ApiClient;
 use HelpScout\Api\ApiClientFactory as SdkClientFactory;
 use Illuminate\Http\Client\Factory as HttpFactory;
@@ -45,9 +46,9 @@ final class HelpScoutClientFactory
     /**
      * Create the conversations read client.
      */
-    public static function createConversationsClient(): ConversationsClientInterface
+    public static function createConversationsClient(TransientLogThrottle $logThrottle): ConversationsClientInterface
     {
-        return new ConversationsClient(self::getTransport());
+        return new ConversationsClient(self::getTransport($logThrottle));
     }
 
     /**
@@ -65,36 +66,37 @@ final class HelpScoutClientFactory
     /**
      * Create the mailboxes client.
      */
-    public static function createMailboxesClient(): MailboxesClientInterface
+    public static function createMailboxesClient(TransientLogThrottle $logThrottle): MailboxesClientInterface
     {
-        return new MailboxesClient(self::getTransport());
+        return new MailboxesClient(self::getTransport($logThrottle));
     }
 
     /**
      * Create the users/agents client.
      */
-    public static function createUsersClient(): AgentsClientInterface
+    public static function createUsersClient(TransientLogThrottle $logThrottle): AgentsClientInterface
     {
-        return new UsersClient(self::getTransport());
+        return new UsersClient(self::getTransport($logThrottle));
     }
 
     /**
      * Create the connectivity client for health checks.
      */
-    public static function createConnectivityClient(): ConnectivityClientInterface
+    public static function createConnectivityClient(TransientLogThrottle $logThrottle): ConnectivityClientInterface
     {
-        return new ConnectivityClient(self::getTransport());
+        return new ConnectivityClient(self::getTransport($logThrottle));
     }
 
     /**
      * Get the shared HTTP transport (lazy singleton).
      */
-    private static function getTransport(): HelpScoutHttpTransport
+    private static function getTransport(TransientLogThrottle $logThrottle): HelpScoutHttpTransport
     {
         return self::$transport ??= new HelpScoutHttpTransport(
             self::getConfig(),
             self::getSdkClient(),
             \app(HttpFactory::class),
+            new HelpScoutErrorHandler($logThrottle),
         );
     }
 

@@ -19,6 +19,7 @@ use App\Infrastructure\Mixpanel\LookupTables\OrderLookupTableProvider;
 use App\Infrastructure\Mixpanel\LookupTables\ProductLookupTableProvider;
 use App\Infrastructure\Mixpanel\MixpanelClientFactory;
 use App\Infrastructure\Mixpanel\MixpanelConfig;
+use App\Infrastructure\Support\TransientLogThrottle;
 use Illuminate\Contracts\Container\BindingResolutionException;
 use Illuminate\Contracts\Container\Container;
 use Illuminate\Contracts\Support\DeferrableProvider;
@@ -55,7 +56,7 @@ final class MixpanelServiceProvider extends ServiceProvider implements Deferrabl
     {
         $this->app->singleton(MixpanelSyncDispatcherInterface::class, QueuedMixpanelSyncDispatcher::class);
         $this->app->singleton(MixpanelConfig::class, static fn(): MixpanelConfig => MixpanelClientFactory::createConfig());
-        $this->app->singleton(MixpanelClientInterface::class, static fn(): MixpanelClientInterface => MixpanelClientFactory::create());
+        $this->app->singleton(MixpanelClientInterface::class, static fn(Container $app): MixpanelClientInterface => MixpanelClientFactory::create($app->make(TransientLogThrottle::class)));
     }
 
     private function registerOrderSync(): void

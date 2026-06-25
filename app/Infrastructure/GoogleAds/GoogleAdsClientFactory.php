@@ -6,6 +6,7 @@ namespace App\Infrastructure\GoogleAds;
 
 use App\Application\Contracts\GoogleAdsClientInterface;
 use App\Domain\Exceptions\InvalidConfigurationException;
+use App\Infrastructure\Support\TransientLogThrottle;
 use Google\Ads\GoogleAds\Lib\OAuth2TokenBuilder;
 use Google\Ads\GoogleAds\Lib\V22\GoogleAdsClient as SdkGoogleAdsClient;
 use Google\Ads\GoogleAds\Lib\V22\GoogleAdsClientBuilder;
@@ -18,20 +19,20 @@ use Google\Ads\GoogleAds\Lib\V22\GoogleAdsClientBuilder;
  */
 final class GoogleAdsClientFactory
 {
-    public static function create(): GoogleAdsClientInterface
+    public static function create(TransientLogThrottle $logThrottle): GoogleAdsClientInterface
     {
         $config = self::createConfig();
         $sdkClient = self::buildSdkClient($config);
-        $transport = new GoogleAdsTransport($sdkClient, $config);
+        $transport = new GoogleAdsTransport($sdkClient, $config, $logThrottle);
 
         return new GoogleAdsClient($transport);
     }
 
-    public static function createConversionClient(): GoogleAdsConversionClient
+    public static function createConversionClient(TransientLogThrottle $logThrottle): GoogleAdsConversionClient
     {
         $config = self::createConversionConfig();
         $sdkClient = self::buildSdkClient($config);
-        $transport = new GoogleAdsTransport($sdkClient, $config);
+        $transport = new GoogleAdsTransport($sdkClient, $config, $logThrottle);
 
         return new GoogleAdsConversionClient($transport, $config);
     }

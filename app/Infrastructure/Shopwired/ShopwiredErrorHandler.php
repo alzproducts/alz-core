@@ -9,27 +9,28 @@ use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\ResourceNotAvailableException;
 use App\Infrastructure\Support\RetryAfterParser;
+use App\Infrastructure\Support\TransientLogThrottle;
 use Exception;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Log;
 
-/**
- * Error handler for Shopwired HTTP transport.
- *
- * Translates HTTP exceptions to domain exceptions with logging.
- * Stateless — all methods are static.
- */
-final class ShopwiredErrorHandler
+final readonly class ShopwiredErrorHandler
 {
     private const string SERVICE_NAME = 'Shopwired';
+
+    private const string SERVICE_KEY = 'shopwired';
+
+    public function __construct(
+        private TransientLogThrottle $logThrottle,
+    ) {}
 
     /**
      * Route HTTP failures to specific handlers by status code.
      *
      * @param string $endpoint The endpoint that was called (for 404 context)
      */
-    public static function handleRequestException(
+    public function handleRequestException(
         RequestException $e,
         string $endpoint,
     ): InvalidApiRequestException|AuthenticationExpiredException|ResourceNotAvailableException|ExternalServiceUnavailableException {
@@ -38,7 +39,7 @@ final class ShopwiredErrorHandler
             401, 403 => self::handleAuthenticationFailure($e),
             404 => self::handleNotFound($e, $endpoint),
             429 => self::handleRateLimit($e),
-            default => self::handleServerError($e),
+            default => $this->handleServerError($e),
         };
     }
 
@@ -115,9 +116,9 @@ final class ShopwiredErrorHandler
     /**
      * Handle 5xx and other server errors (transient).
      */
-    private static function handleServerError(RequestException $e): ExternalServiceUnavailableException
+    public function handleServerError(RequestException $e): ExternalServiceUnavailableException
     {
-        Log::error(self::SERVICE_NAME . ' API request failed', [
+        $this->logThrottle->logTransient(self::SERVICE_KEY, self::SERVICE_NAME . ' API request failed', [
             'status' => $e->response->status(),
             'error' => $e->getMessage(),
         ]);
@@ -128,9 +129,9 @@ final class ShopwiredErrorHandler
     /**
      * Handle connection failures (network errors, timeouts).
      */
-    public static function handleConnectionException(ConnectionException $e): ExternalServiceUnavailableException
+    public function handleConnectionException(ConnectionException $e): ExternalServiceUnavailableException
     {
-        Log::error(self::SERVICE_NAME . ' API connection failed', [
+        $this->logThrottle->logTransient(self::SERVICE_KEY, self::SERVICE_NAME . ' API connection failed', [
             'error' => $e->getMessage(),
         ]);
 
@@ -140,13 +141,14 @@ final class ShopwiredErrorHandler
     /**
      * Handle unexpected exceptions from Guzzle/Laravel internals.
      */
-    public static function handleUnexpectedException(Exception $e): ExternalServiceUnavailableException
+    public function handleUnexpectedException(Exception $e): ExternalServiceUnavailableException
     {
-        Log::error(self::SERVICE_NAME . ' API unexpected error', [
+        $this->logThrottle->logTransient(self::SERVICE_KEY, self::SERVICE_NAME . ' API unexpected error', [
             'exception' => $e::class,
             'error' => $e->getMessage(),
         ]);
 
         return new ExternalServiceUnavailableException(self::SERVICE_NAME, previous: $e);
     }
+
 }

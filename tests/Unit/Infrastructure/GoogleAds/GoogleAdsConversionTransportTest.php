@@ -9,6 +9,7 @@ use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Infrastructure\GoogleAds\GoogleAdsConfig;
 use App\Infrastructure\GoogleAds\GoogleAdsTransport;
+use App\Infrastructure\Support\TransientLogThrottle;
 use Google\Ads\GoogleAds\Lib\V22\GoogleAdsClient as SdkGoogleAdsClient;
 use Google\Ads\GoogleAds\V22\Services\Client\ConversionUploadServiceClient;
 use Google\Ads\GoogleAds\V22\Services\UploadClickConversionsRequest;
@@ -59,7 +60,7 @@ final class GoogleAdsConversionTransportTest extends TestCase
             ->shouldReceive('getConversionUploadServiceClient')
             ->andReturn($this->mockServiceClient);
 
-        $this->transport = new GoogleAdsTransport($this->mockSdkClient, $config);
+        $this->transport = new GoogleAdsTransport($this->mockSdkClient, $config, \app(TransientLogThrottle::class));
     }
 
     #[Test]

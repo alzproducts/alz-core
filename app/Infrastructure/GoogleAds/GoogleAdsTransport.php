@@ -8,6 +8,7 @@ use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Infrastructure\Support\RetryAfterParser;
+use App\Infrastructure\Support\TransientLogThrottle;
 use Google\Ads\GoogleAds\Lib\V22\GoogleAdsClient as SdkGoogleAdsClient;
 use Google\Ads\GoogleAds\V22\Services\SearchGoogleAdsRequest;
 use Google\Ads\GoogleAds\V22\Services\UploadClickConversionsRequest;
@@ -41,9 +42,12 @@ final readonly class GoogleAdsTransport
 {
     private const string SERVICE_NAME = 'Google Ads';
 
+    private const string SERVICE_KEY = 'google-ads';
+
     public function __construct(
         private SdkGoogleAdsClient $sdkClient,
         private GoogleAdsConfig $config,
+        private TransientLogThrottle $logThrottle,
     ) {}
 
     /**
@@ -153,7 +157,7 @@ final readonly class GoogleAdsTransport
      */
     private function handleServerError(ApiException $e): ExternalServiceUnavailableException
     {
-        Log::error(self::SERVICE_NAME . ' API error', [
+        $this->logThrottle->logTransient(self::SERVICE_KEY, self::SERVICE_NAME . ' API error', [
             'code' => $e->getCode(),
             'error' => $e->getMessage(),
         ]);

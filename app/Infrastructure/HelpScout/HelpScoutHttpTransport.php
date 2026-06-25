@@ -39,6 +39,7 @@ final readonly class HelpScoutHttpTransport
         private HelpScoutConfig $config,
         private ApiClient $sdkClient,
         private HttpFactory $httpFactory,
+        private HelpScoutErrorHandler $errorHandler,
     ) {}
 
     /**
@@ -196,7 +197,7 @@ final readonly class HelpScoutHttpTransport
             try {
                 $result->throw();
             } catch (RequestException $e) {
-                throw HelpScoutErrorHandler::handleRequestException($e);
+                throw $this->errorHandler->handleRequestException($e);
             }
         }
 
@@ -217,11 +218,11 @@ final readonly class HelpScoutHttpTransport
         ]);
 
         if ($throwable instanceof ConnectionException) {
-            throw HelpScoutErrorHandler::handleConnectionException($throwable);
+            throw $this->errorHandler->handleConnectionException($throwable);
         }
 
         if ($throwable instanceof RequestException) {
-            throw HelpScoutErrorHandler::handleRequestException($throwable);
+            throw $this->errorHandler->handleRequestException($throwable);
         }
 
         throw new ExternalServiceUnavailableException(self::SERVICE_NAME, previous: $throwable);
@@ -255,19 +256,19 @@ final readonly class HelpScoutHttpTransport
                 try {
                     return $request();
                 } catch (RequestException $retryException) {
-                    throw HelpScoutErrorHandler::handleRequestException($retryException);
+                    throw $this->errorHandler->handleRequestException($retryException);
                 } catch (ConnectionException $retryException) {
-                    throw HelpScoutErrorHandler::handleConnectionException($retryException);
+                    throw $this->errorHandler->handleConnectionException($retryException);
                 } catch (Exception $retryException) {
-                    throw HelpScoutErrorHandler::handleUnexpectedException($retryException);
+                    throw $this->errorHandler->handleUnexpectedException($retryException);
                 }
             }
 
-            throw HelpScoutErrorHandler::handleRequestException($e);
+            throw $this->errorHandler->handleRequestException($e);
         } catch (ConnectionException $e) {
-            throw HelpScoutErrorHandler::handleConnectionException($e);
+            throw $this->errorHandler->handleConnectionException($e);
         } catch (Exception $e) {
-            throw HelpScoutErrorHandler::handleUnexpectedException($e);
+            throw $this->errorHandler->handleUnexpectedException($e);
         }
     }
 
