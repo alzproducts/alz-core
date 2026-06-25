@@ -162,7 +162,7 @@ final readonly class LinnworksErrorHandler
      */
     public function handleServerError(RequestException $e): ExternalServiceUnavailableException
     {
-        $this->logTransient(self::SERVICE_NAME . ' API request failed', [
+        $this->logThrottle->logTransient(self::SERVICE_KEY, self::SERVICE_NAME . ' API request failed', [
             'status' => $e->response->status(),
             'error' => $e->getMessage(),
         ]);
@@ -175,7 +175,7 @@ final readonly class LinnworksErrorHandler
      */
     public function handleConnectionException(ConnectionException $e): ExternalServiceUnavailableException
     {
-        $this->logTransient(self::SERVICE_NAME . ' API connection failed', [
+        $this->logThrottle->logTransient(self::SERVICE_KEY, self::SERVICE_NAME . ' API connection failed', [
             'error' => $e->getMessage(),
         ]);
 
@@ -187,7 +187,7 @@ final readonly class LinnworksErrorHandler
      */
     public function handleUnexpectedException(Exception $e): ExternalServiceUnavailableException
     {
-        $this->logTransient(self::SERVICE_NAME . ' API unexpected error', [
+        $this->logThrottle->logTransient(self::SERVICE_KEY, self::SERVICE_NAME . ' API unexpected error', [
             'exception' => $e::class,
             'error' => $e->getMessage(),
         ]);
@@ -195,17 +195,4 @@ final readonly class LinnworksErrorHandler
         return new ExternalServiceUnavailableException(self::SERVICE_NAME, previous: $e);
     }
 
-    /**
-     * @param array<string, mixed> $context
-     */
-    private function logTransient(string $message, array $context): void
-    {
-        $window = $this->logThrottle->check(self::SERVICE_KEY);
-
-        if ($window !== null) {
-            Log::error($message, [...$context, 'note' => "Subsequent transient failures suppressed for {$window} minutes"]);
-        } else {
-            Log::warning($message, $context);
-        }
-    }
 }

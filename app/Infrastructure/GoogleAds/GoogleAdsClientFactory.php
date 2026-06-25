@@ -19,20 +19,20 @@ use Google\Ads\GoogleAds\Lib\V22\GoogleAdsClientBuilder;
  */
 final class GoogleAdsClientFactory
 {
-    public static function create(): GoogleAdsClientInterface
+    public static function create(TransientLogThrottle $logThrottle): GoogleAdsClientInterface
     {
         $config = self::createConfig();
         $sdkClient = self::buildSdkClient($config);
-        $transport = new GoogleAdsTransport($sdkClient, $config, \app(TransientLogThrottle::class));
+        $transport = new GoogleAdsTransport($sdkClient, $config, $logThrottle);
 
         return new GoogleAdsClient($transport);
     }
 
-    public static function createConversionClient(): GoogleAdsConversionClient
+    public static function createConversionClient(TransientLogThrottle $logThrottle): GoogleAdsConversionClient
     {
         $config = self::createConversionConfig();
         $sdkClient = self::buildSdkClient($config);
-        $transport = new GoogleAdsTransport($sdkClient, $config, \app(TransientLogThrottle::class));
+        $transport = new GoogleAdsTransport($sdkClient, $config, $logThrottle);
 
         return new GoogleAdsConversionClient($transport, $config);
     }

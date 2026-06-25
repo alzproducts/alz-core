@@ -312,7 +312,7 @@ final class BingAdsTransport
             }
 
             if ($status === ReportRequestStatusType::Error) {
-                $this->logTransient(self::SERVICE_NAME . ' report generation failed', [
+                $this->logThrottle->logTransient(self::SERVICE_KEY, self::SERVICE_NAME . ' report generation failed', [
                     'requestId' => $reportRequestId,
                     'attempts' => $attempt,
                 ]);
@@ -602,7 +602,7 @@ final class BingAdsTransport
      */
     private function handleServerError(Exception $e): ExternalServiceUnavailableException
     {
-        $this->logTransient(self::SERVICE_NAME . ' error', [
+        $this->logThrottle->logTransient(self::SERVICE_KEY, self::SERVICE_NAME . ' error', [
             'type' => $e::class,
             'code' => $e->getCode(),
             'error' => $e->getMessage(),
@@ -611,17 +611,4 @@ final class BingAdsTransport
         return new ExternalServiceUnavailableException(self::SERVICE_NAME, previous: $e);
     }
 
-    /**
-     * @param array<string, mixed> $context
-     */
-    private function logTransient(string $message, array $context): void
-    {
-        $window = $this->logThrottle->check(self::SERVICE_KEY);
-
-        if ($window !== null) {
-            Log::error($message, [...$context, 'note' => "Subsequent transient failures suppressed for {$window} minutes"]);
-        } else {
-            Log::warning($message, $context);
-        }
-    }
 }

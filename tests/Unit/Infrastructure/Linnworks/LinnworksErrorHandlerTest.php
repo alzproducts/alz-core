@@ -45,7 +45,7 @@ final class LinnworksErrorHandlerTest extends TestCase
 
         /** @var TransientLogThrottle&MockInterface $logThrottle */
         $logThrottle = Mockery::mock(TransientLogThrottle::class);
-        $logThrottle->allows('check')->andReturn(5);
+        $logThrottle->allows('logTransient');
 
         $this->handler = new LinnworksErrorHandler($logThrottle);
     }

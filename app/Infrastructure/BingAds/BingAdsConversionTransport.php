@@ -191,7 +191,7 @@ final readonly class BingAdsConversionTransport
 
     private function handleHttpError(RestApiException $e, ?string $trackingId): ExternalServiceUnavailableException
     {
-        $this->logTransient(self::SERVICE_NAME . ' API error', [
+        $this->logThrottle->logTransient(self::SERVICE_KEY, self::SERVICE_NAME . ' API error', [
             'status' => $e->getCode(),
             'error' => $e->getMessage(),
             'tracking_id' => $trackingId,
@@ -202,26 +202,12 @@ final readonly class BingAdsConversionTransport
 
     private function handleServerError(Exception $e): ExternalServiceUnavailableException
     {
-        $this->logTransient(self::SERVICE_NAME . ' unexpected error', [
+        $this->logThrottle->logTransient(self::SERVICE_KEY, self::SERVICE_NAME . ' unexpected error', [
             'exception' => $e::class,
             'error' => $e->getMessage(),
         ]);
 
         return new ExternalServiceUnavailableException(self::SERVICE_NAME, previous: $e);
-    }
-
-    /**
-     * @param array<string, mixed> $context
-     */
-    private function logTransient(string $message, array $context): void
-    {
-        $window = $this->logThrottle->check(self::SERVICE_KEY);
-
-        if ($window !== null) {
-            Log::error($message, [...$context, 'note' => "Subsequent transient failures suppressed for {$window} minutes"]);
-        } else {
-            Log::warning($message, $context);
-        }
     }
 
     private function extractTrackingId(RestApiException $e): ?string

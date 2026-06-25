@@ -16,6 +16,7 @@ use App\Infrastructure\Jobs\Mixpanel\SyncCampaignLookupTableJob;
 use App\Infrastructure\Jobs\Mixpanel\SyncGoogleAdsToMixpanelJob;
 use App\Infrastructure\Mixpanel\LookupTables\CampaignLookupTableProvider;
 use App\Infrastructure\Phone\PhoneNormalisationService;
+use App\Infrastructure\Support\TransientLogThrottle;
 use Illuminate\Contracts\Container\BindingResolutionException;
 use Illuminate\Contracts\Container\Container;
 use Illuminate\Contracts\Support\DeferrableProvider;
@@ -55,7 +56,7 @@ final class GoogleAdsServiceProvider extends ServiceProvider implements Deferrab
     {
         $this->app->singleton(
             GoogleAdsClientInterface::class,
-            static fn(): GoogleAdsClientInterface => GoogleAdsClientFactory::create(),
+            static fn(Container $app): GoogleAdsClientInterface => GoogleAdsClientFactory::create($app->make(TransientLogThrottle::class)),
         );
     }
 
@@ -63,7 +64,7 @@ final class GoogleAdsServiceProvider extends ServiceProvider implements Deferrab
     {
         $this->app->singleton(
             GoogleAdsConversionClient::class,
-            static fn(): GoogleAdsConversionClient => GoogleAdsClientFactory::createConversionClient(),
+            static fn(Container $app): GoogleAdsConversionClient => GoogleAdsClientFactory::createConversionClient($app->make(TransientLogThrottle::class)),
         );
 
         $this->app->singleton(

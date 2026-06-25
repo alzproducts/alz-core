@@ -23,7 +23,7 @@ final class ReviewsIoClientFactory
     /**
      * Create a fully configured ReviewsIoClient instance.
      */
-    public static function create(): ReviewsIoClientInterface
+    public static function create(TransientLogThrottle $logThrottle): ReviewsIoClientInterface
     {
         [$apiKey, $storeId] = self::validateCredentials();
 
@@ -35,7 +35,7 @@ final class ReviewsIoClientFactory
             retryDelay: Config::integer('reviewsio.retry_delay', 100),
         );
 
-        return new ReviewsIoClient(new ReviewsIoHttpTransport($config, \app(TransientLogThrottle::class)));
+        return new ReviewsIoClient(new ReviewsIoHttpTransport($config, $logThrottle));
     }
 
     /**

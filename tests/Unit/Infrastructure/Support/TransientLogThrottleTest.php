@@ -34,7 +34,6 @@ final class TransientLogThrottleTest extends TestCase
 
         $this->mockCache = Mockery::mock(CacheManager::class);
         $this->mockLogger = Mockery::mock(LoggerInterface::class);
-        $this->mockLogger->shouldReceive('warning')->byDefault();
         $this->mockStore = Mockery::mock(Repository::class);
 
         $this->mockCache->shouldReceive('store')
@@ -49,7 +48,7 @@ final class TransientLogThrottleTest extends TestCase
     }
 
     #[Test]
-    public function first_failure_returns_initial_window_minutes(): void
+    public function first_failure_logs_at_error_with_suppression_note(): void
     {
         $this->mockStore->shouldReceive('get')
             ->with('transient_log_throttle:linnworks:escalation', 0)
@@ -65,13 +64,18 @@ final class TransientLogThrottleTest extends TestCase
             ->with('transient_log_throttle:linnworks:escalation', 1, 60 * 60)
             ->once();
 
-        $result = $this->throttle->check('linnworks');
+        $this->mockLogger->shouldReceive('error')
+            ->with('Linnworks API failed', Mockery::on(
+                static fn(array $ctx): bool => $ctx['status'] === 500
+                    && $ctx['note'] === 'Subsequent transient failures suppressed for 5 minutes',
+            ))
+            ->once();
 
-        $this->assertSame(5, $result);
+        $this->throttle->logTransient('linnworks', 'Linnworks API failed', ['status' => 500]);
     }
 
     #[Test]
-    public function subsequent_failure_within_window_returns_null(): void
+    public function subsequent_failure_within_window_logs_at_warning(): void
     {
         $this->mockStore->shouldReceive('get')
             ->with('transient_log_throttle:shopwired:escalation', 0)
@@ -85,15 +89,16 @@ final class TransientLogThrottleTest extends TestCase
 
         $this->mockStore->shouldNotReceive('put');
 
-        $result = $this->throttle->check('shopwired');
+        $this->mockLogger->shouldReceive('warning')
+            ->with('ShopWired API failed', ['status' => 503])
+            ->once();
 
-        $this->assertNull($result);
+        $this->throttle->logTransient('shopwired', 'ShopWired API failed', ['status' => 503]);
     }
 
     #[Test]
     public function exponential_backoff_doubles_window_on_each_escalation(): void
     {
-        // escalation count = 1 → window = 5 * 2^1 = 10
         $this->mockStore->shouldReceive('get')
             ->with('transient_log_throttle:linnworks:escalation', 0)
             ->once()
@@ -108,15 +113,18 @@ final class TransientLogThrottleTest extends TestCase
             ->with('transient_log_throttle:linnworks:escalation', 2, 60 * 60)
             ->once();
 
-        $result = $this->throttle->check('linnworks');
+        $this->mockLogger->shouldReceive('error')
+            ->with('Linnworks API failed', Mockery::on(
+                static fn(array $ctx): bool => $ctx['note'] === 'Subsequent transient failures suppressed for 10 minutes',
+            ))
+            ->once();
 
-        $this->assertSame(10, $result);
+        $this->throttle->logTransient('linnworks', 'Linnworks API failed', ['status' => 500]);
     }
 
     #[Test]
     public function window_caps_at_thirty_minutes(): void
     {
-        // escalation count = 3 → window = 5 * 2^3 = 40, capped to 30
         $this->mockStore->shouldReceive('get')
             ->with('transient_log_throttle:mixpanel:escalation', 0)
             ->once()
@@ -131,15 +139,18 @@ final class TransientLogThrottleTest extends TestCase
             ->with('transient_log_throttle:mixpanel:escalation', 4, 60 * 60)
             ->once();
 
-        $result = $this->throttle->check('mixpanel');
+        $this->mockLogger->shouldReceive('error')
+            ->with('Mixpanel API failed', Mockery::on(
+                static fn(array $ctx): bool => $ctx['note'] === 'Subsequent transient failures suppressed for 30 minutes',
+            ))
+            ->once();
 
-        $this->assertSame(30, $result);
+        $this->throttle->logTransient('mixpanel', 'Mixpanel API failed', ['status' => 500]);
     }
 
     #[Test]
     public function cap_remains_at_thirty_for_higher_escalation_counts(): void
     {
-        // escalation count = 10 → window = 5 * 2^10 = 5120, capped to 30
         $this->mockStore->shouldReceive('get')
             ->with('transient_log_throttle:helpscout:escalation', 0)
             ->once()
@@ -154,9 +165,13 @@ final class TransientLogThrottleTest extends TestCase
             ->with('transient_log_throttle:helpscout:escalation', 11, 60 * 60)
             ->once();
 
-        $result = $this->throttle->check('helpscout');
+        $this->mockLogger->shouldReceive('error')
+            ->with('HelpScout API failed', Mockery::on(
+                static fn(array $ctx): bool => $ctx['note'] === 'Subsequent transient failures suppressed for 30 minutes',
+            ))
+            ->once();
 
-        $this->assertSame(30, $result);
+        $this->throttle->logTransient('helpscout', 'HelpScout API failed', ['status' => 500]);
     }
 
     #[Test]
@@ -173,15 +188,20 @@ final class TransientLogThrottleTest extends TestCase
             ))
             ->once();
 
-        $result = $this->throttle->check('linnworks');
+        $this->mockLogger->shouldReceive('error')
+            ->with('Linnworks API failed', Mockery::on(
+                static fn(array $ctx): bool => $ctx['status'] === 500
+                    && $ctx['note'] === 'Subsequent transient failures suppressed for 5 minutes',
+            ))
+            ->once();
 
-        $this->assertSame(5, $result);
+        $this->throttle->logTransient('linnworks', 'Linnworks API failed', ['status' => 500]);
     }
 
     #[Test]
     public function services_are_independent(): void
     {
-        // linnworks: first failure → escalate
+        // linnworks: first failure → error log
         $this->mockStore->shouldReceive('get')
             ->with('transient_log_throttle:linnworks:escalation', 0)
             ->once()
@@ -196,7 +216,7 @@ final class TransientLogThrottleTest extends TestCase
             ->with('transient_log_throttle:linnworks:escalation', 1, 60 * 60)
             ->once();
 
-        // shopwired: also first failure → escalate (not suppressed by linnworks)
+        // shopwired: also first failure → error log (not suppressed by linnworks)
         $this->mockStore->shouldReceive('get')
             ->with('transient_log_throttle:shopwired:escalation', 0)
             ->once()
@@ -211,17 +231,21 @@ final class TransientLogThrottleTest extends TestCase
             ->with('transient_log_throttle:shopwired:escalation', 1, 60 * 60)
             ->once();
 
-        $linnworksResult = $this->throttle->check('linnworks');
-        $shopwiredResult = $this->throttle->check('shopwired');
+        $this->mockLogger->shouldReceive('error')
+            ->with('Linnworks API failed', Mockery::type('array'))
+            ->once();
 
-        $this->assertSame(5, $linnworksResult);
-        $this->assertSame(5, $shopwiredResult);
+        $this->mockLogger->shouldReceive('error')
+            ->with('ShopWired API failed', Mockery::type('array'))
+            ->once();
+
+        $this->throttle->logTransient('linnworks', 'Linnworks API failed', ['status' => 500]);
+        $this->throttle->logTransient('shopwired', 'ShopWired API failed', ['status' => 500]);
     }
 
     #[Test]
-    public function second_escalation_window_is_ten_minutes(): void
+    public function second_escalation_window_is_twenty_minutes(): void
     {
-        // escalation count = 2 → window = 5 * 2^2 = 20
         $this->mockStore->shouldReceive('get')
             ->with('transient_log_throttle:google-ads:escalation', 0)
             ->once()
@@ -236,8 +260,12 @@ final class TransientLogThrottleTest extends TestCase
             ->with('transient_log_throttle:google-ads:escalation', 3, 60 * 60)
             ->once();
 
-        $result = $this->throttle->check('google-ads');
+        $this->mockLogger->shouldReceive('error')
+            ->with('Google Ads API failed', Mockery::on(
+                static fn(array $ctx): bool => $ctx['note'] === 'Subsequent transient failures suppressed for 20 minutes',
+            ))
+            ->once();
 
-        $this->assertSame(20, $result);
+        $this->throttle->logTransient('google-ads', 'Google Ads API failed', ['status' => 500]);
     }
 }

@@ -48,81 +48,81 @@ final class ShopwiredClientFactory
     /**
      * Create the connectivity client for API health checks.
      */
-    public static function createConnectivityClient(): ConnectivityClientInterface
+    public static function createConnectivityClient(TransientLogThrottle $logThrottle): ConnectivityClientInterface
     {
-        return new ShopwiredClient(self::getTransport());
+        return new ShopwiredClient(self::getTransport($logThrottle));
     }
 
     /**
      * Create the brand client for brand operations.
      */
-    public static function createBrandClient(): BrandClientInterface
+    public static function createBrandClient(TransientLogThrottle $logThrottle): BrandClientInterface
     {
-        return new BrandClient(self::getTransport());
+        return new BrandClient(self::getTransport($logThrottle));
     }
 
     /**
      * Create the category client for category operations.
      */
-    public static function createCategoryClient(): CategoryClientInterface
+    public static function createCategoryClient(TransientLogThrottle $logThrottle): CategoryClientInterface
     {
-        return new CategoryClient(self::getTransport());
+        return new CategoryClient(self::getTransport($logThrottle));
     }
 
     /**
      * Create the custom field client for custom field definitions.
      */
-    public static function createCustomFieldClient(): CustomFieldClientInterface
+    public static function createCustomFieldClient(TransientLogThrottle $logThrottle): CustomFieldClientInterface
     {
-        return new CustomFieldClient(self::getTransport());
+        return new CustomFieldClient(self::getTransport($logThrottle));
     }
 
     /**
      * Create the filter group client for filter group definitions.
      */
-    public static function createFilterGroupClient(): FilterGroupClientInterface
+    public static function createFilterGroupClient(TransientLogThrottle $logThrottle): FilterGroupClientInterface
     {
-        return new FilterGroupClient(self::getTransport());
+        return new FilterGroupClient(self::getTransport($logThrottle));
     }
 
     /**
      * Create the customer client for customer operations.
      */
-    public static function createCustomerClient(): CustomerClientInterface
+    public static function createCustomerClient(TransientLogThrottle $logThrottle): CustomerClientInterface
     {
-        return new CustomerClient(self::getTransport());
+        return new CustomerClient(self::getTransport($logThrottle));
     }
 
     /**
      * Create the order client for order operations.
      */
-    public static function createOrderClient(): OrderClientInterface
+    public static function createOrderClient(TransientLogThrottle $logThrottle): OrderClientInterface
     {
-        return new OrderClient(self::getTransport());
+        return new OrderClient(self::getTransport($logThrottle));
     }
 
     /**
      * Create the stock client for stock quantity updates.
      */
-    public static function createStockClient(): StockClientInterface
+    public static function createStockClient(TransientLogThrottle $logThrottle): StockClientInterface
     {
-        return new StockClient(self::getTransport());
+        return new StockClient(self::getTransport($logThrottle));
     }
 
     /**
      * Create the price update client for batch price updates.
      */
-    public static function createPriceUpdateClient(): PriceUpdateClientInterface
+    public static function createPriceUpdateClient(TransientLogThrottle $logThrottle): PriceUpdateClientInterface
     {
-        return new PriceUpdateClient(self::getTransport());
+        return new PriceUpdateClient(self::getTransport($logThrottle));
     }
 
     /**
      * Create the webhook client for webhook health monitoring.
      */
-    public static function createWebhookClient(): WebhookClientInterface
+    public static function createWebhookClient(TransientLogThrottle $logThrottle): WebhookClientInterface
     {
-        return new WebhookClient(self::getTransport());
+        return new WebhookClient(self::getTransport($logThrottle));
     }
 
     /**
@@ -134,9 +134,9 @@ final class ShopwiredClientFactory
      * Note: Made public for ServiceProvider to wire ProductClient with its
      * scoped dependencies (ProductDomainFactory).
      */
-    public static function getTransport(): ShopwiredTransportInterface
+    public static function getTransport(TransientLogThrottle $logThrottle): ShopwiredTransportInterface
     {
-        return self::$transport ??= self::createTransport();
+        return self::$transport ??= self::createTransport($logThrottle);
     }
 
     /**
@@ -148,7 +148,7 @@ final class ShopwiredClientFactory
      *
      * @throws InvalidConfigurationException When credentials missing or log level invalid
      */
-    private static function createTransport(): ShopwiredTransportInterface
+    private static function createTransport(TransientLogThrottle $logThrottle): ShopwiredTransportInterface
     {
         $apiKey = \config('shopwired.api_key');
         $apiSecret = \config('shopwired.api_secret');
@@ -167,7 +167,7 @@ final class ShopwiredClientFactory
             timeout: Config::integer('shopwired.timeout', 30),
         );
 
-        $errorHandler = new ShopwiredErrorHandler(\app(TransientLogThrottle::class));
+        $errorHandler = new ShopwiredErrorHandler($logThrottle);
         $baseTransport = new ShopwiredHttpTransport($config, $errorHandler);
 
         $logLevel = \config('shopwired.log_level');

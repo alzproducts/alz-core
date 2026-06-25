@@ -62,30 +62,30 @@ final class LinnworksClientFactory
     /**
      * Create the inventory client for stock item operations.
      */
-    public static function createInventoryClient(): InventoryClientInterface
+    public static function createInventoryClient(TransientLogThrottle $logThrottle): InventoryClientInterface
     {
-        return new InventoryClient(self::getTransport());
+        return new InventoryClient(self::getTransport($logThrottle));
     }
 
     /**
      * Create the inventory update client for modifying stock items.
      */
-    public static function createInventoryUpdateClient(): InventoryUpdateClientInterface
+    public static function createInventoryUpdateClient(TransientLogThrottle $logThrottle): InventoryUpdateClientInterface
     {
         return new InventoryUpdateClient(
-            self::getTransport(),
-            self::createInventoryClient(),
+            self::getTransport($logThrottle),
+            self::createInventoryClient($logThrottle),
         );
     }
 
     /**
      * Create the inventory field update client for type-safe field updates.
      */
-    public static function createInventoryFieldUpdateClient(): InventoryFieldUpdateClientInterface
+    public static function createInventoryFieldUpdateClient(TransientLogThrottle $logThrottle): InventoryFieldUpdateClientInterface
     {
         return new InventoryFieldUpdateClient(
-            self::getTransport(),
-            self::createInventoryClient(),
+            self::getTransport($logThrottle),
+            self::createInventoryClient($logThrottle),
         );
     }
 
@@ -94,57 +94,57 @@ final class LinnworksClientFactory
      *
      * @internal Use createStockDashboardsClient() for stock-related queries.
      */
-    public static function createDashboardsClient(): DashboardsClient
+    public static function createDashboardsClient(TransientLogThrottle $logThrottle): DashboardsClient
     {
-        return new DashboardsClient(self::getTransport());
+        return new DashboardsClient(self::getTransport($logThrottle));
     }
 
     /**
      * Create the order client for processed order operations.
      */
-    public static function createOrderClient(): OrderClientInterface
+    public static function createOrderClient(TransientLogThrottle $logThrottle): OrderClientInterface
     {
-        return new OrderClient(self::getTransport());
+        return new OrderClient(self::getTransport($logThrottle));
     }
 
     /**
      * Create the order dashboards client for order-related SQL queries.
      */
-    public static function createOrderDashboardsClient(): OrderDashboardsClient
+    public static function createOrderDashboardsClient(TransientLogThrottle $logThrottle): OrderDashboardsClient
     {
-        return new OrderDashboardsClient(self::createDashboardsClient());
+        return new OrderDashboardsClient(self::createDashboardsClient($logThrottle));
     }
 
     /**
      * Create the purchase order read client.
      */
-    public static function createPurchaseOrderClient(): PurchaseOrderClientInterface
+    public static function createPurchaseOrderClient(TransientLogThrottle $logThrottle): PurchaseOrderClientInterface
     {
-        return new PurchaseOrderClient(self::getTransport());
+        return new PurchaseOrderClient(self::getTransport($logThrottle));
     }
 
     /**
      * Create the purchase order write client.
      */
-    public static function createPurchaseOrderUpdateClient(): PurchaseOrderUpdateClientInterface
+    public static function createPurchaseOrderUpdateClient(TransientLogThrottle $logThrottle): PurchaseOrderUpdateClientInterface
     {
-        return new PurchaseOrderUpdateClient(self::getTransport());
+        return new PurchaseOrderUpdateClient(self::getTransport($logThrottle));
     }
 
     /**
      * Create the purchase dashboards client for purchase-order-related SQL queries.
      */
-    public static function createPurchaseDashboardsClient(): PurchaseDashboardsClient
+    public static function createPurchaseDashboardsClient(TransientLogThrottle $logThrottle): PurchaseDashboardsClient
     {
-        return new PurchaseDashboardsClient(self::createDashboardsClient());
+        return new PurchaseDashboardsClient(self::createDashboardsClient($logThrottle));
     }
 
     /**
      * Create the stock dashboards client for stock-related SQL queries.
      */
-    public static function createStockDashboardsClient(): StockDashboardsClient
+    public static function createStockDashboardsClient(TransientLogThrottle $logThrottle): StockDashboardsClient
     {
-        return new StockDashboardsClient(self::createDashboardsClient());
+        return new StockDashboardsClient(self::createDashboardsClient($logThrottle));
     }
 
     /**
@@ -170,9 +170,9 @@ final class LinnworksClientFactory
      *
      * Conditionally wraps transport with logging decorator based on config.
      */
-    private static function getTransport(): LinnworksTransportInterface
+    private static function getTransport(TransientLogThrottle $logThrottle): LinnworksTransportInterface
     {
-        return self::$transport ??= self::createTransport();
+        return self::$transport ??= self::createTransport($logThrottle);
     }
 
     /**
@@ -202,9 +202,9 @@ final class LinnworksClientFactory
      *
      * @throws InvalidConfigurationException When log level value is invalid
      */
-    private static function createTransport(): LinnworksTransportInterface
+    private static function createTransport(TransientLogThrottle $logThrottle): LinnworksTransportInterface
     {
-        $baseTransport = self::createBaseTransport();
+        $baseTransport = self::createBaseTransport($logThrottle);
         $logLevel = \config('linnworks.log_level');
 
         if (!\is_string($logLevel) || $logLevel === '') {
@@ -223,12 +223,12 @@ final class LinnworksClientFactory
         return new LoggingLinnworksTransport($baseTransport, $parsedLogLevel);
     }
 
-    private static function createBaseTransport(): LinnworksHttpTransport
+    private static function createBaseTransport(TransientLogThrottle $logThrottle): LinnworksHttpTransport
     {
         return new LinnworksHttpTransport(
             self::getConfig(),
             self::getSessionManager(),
-            new LinnworksErrorHandler(\app(TransientLogThrottle::class)),
+            new LinnworksErrorHandler($logThrottle),
         );
     }
 

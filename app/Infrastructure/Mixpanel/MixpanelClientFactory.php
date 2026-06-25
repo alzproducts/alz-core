@@ -18,10 +18,10 @@ use App\Infrastructure\Support\TransientLogThrottle;
  */
 final class MixpanelClientFactory
 {
-    public static function create(): MixpanelClientInterface
+    public static function create(TransientLogThrottle $logThrottle): MixpanelClientInterface
     {
         $config = self::createConfig();
-        $transport = self::createTransport($config);
+        $transport = self::createTransport($config, $logThrottle);
 
         return new MixpanelClient($transport, $config);
     }
@@ -31,11 +31,9 @@ final class MixpanelClientFactory
      *
      * @throws InvalidConfigurationException When log level is invalid
      */
-    private static function createTransport(MixpanelConfig $config): MixpanelTransportInterface
+    private static function createTransport(MixpanelConfig $config, TransientLogThrottle $logThrottle): MixpanelTransportInterface
     {
         $logLevel = \config('mixpanel.log_level');
-
-        $logThrottle = \app(TransientLogThrottle::class);
 
         if (!\is_string($logLevel) || $logLevel === '') {
             return new MixpanelHttpTransport($config, $logThrottle);

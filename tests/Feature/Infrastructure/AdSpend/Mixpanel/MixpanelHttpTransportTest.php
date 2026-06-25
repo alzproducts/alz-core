@@ -329,21 +329,6 @@ final class MixpanelHttpTransportTest extends TestCase
     }
 
     #[Test]
-    public function it_logs_error_for_non_429_request_exceptions(): void
-    {
-        Http::fake(['*' => Http::response([], 500)]);
-        Log::shouldReceive('error')
-            ->once()
-            ->withArgs(static fn(string $message): bool => \str_contains($message, 'request failed'));
-
-        try {
-            $this->transport->request('POST', self::TEST_DATA_API_BASE_URL . '/import', '{}', 'application/json');
-        } catch (ExternalServiceUnavailableException) {
-            // Expected
-        }
-    }
-
-    #[Test]
     public function it_preserves_original_request_exception(): void
     {
         Http::fake(['*' => Http::response([], 500)]);
@@ -373,23 +358,6 @@ final class MixpanelHttpTransportTest extends TestCase
         $this->expectException(ExternalServiceUnavailableException::class);
 
         $this->transport->request('GET', self::TEST_DATA_API_BASE_URL . '/api/app/me');
-    }
-
-    #[Test]
-    public function it_logs_error_for_connection_exceptions(): void
-    {
-        Http::fake(static function (): never {
-            throw new ConnectionException('Connection refused');
-        });
-        Log::shouldReceive('error')
-            ->once()
-            ->withArgs(static fn(string $message): bool => \str_contains($message, 'connection failed'));
-
-        try {
-            $this->transport->request('GET', self::TEST_DATA_API_BASE_URL . '/api/app/me');
-        } catch (ExternalServiceUnavailableException) {
-            // Expected
-        }
     }
 
     #[Test]
@@ -490,23 +458,4 @@ final class MixpanelHttpTransportTest extends TestCase
         }
     }
 
-    #[Test]
-    public function it_logs_error_for_unexpected_exceptions(): void
-    {
-        Http::fake(static function (): never {
-            throw new Exception('Unexpected internal error');
-        });
-
-        Log::shouldReceive('error')
-            ->once()
-            ->withArgs(static fn(string $message, array $context): bool => \str_contains($message, 'unexpected error')
-                    && $context['exception'] === 'Exception'
-                    && \str_contains($context['error'], 'Unexpected internal error'));
-
-        try {
-            $this->transport->request('GET', self::TEST_DATA_API_BASE_URL . '/api/app/me');
-        } catch (ExternalServiceUnavailableException) {
-            // Expected
-        }
-    }
 }
