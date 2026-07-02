@@ -4,56 +4,82 @@ declare(strict_types=1);
 
 namespace App\Application\Catalog\UseCases;
 
-use App\Application\Catalog\BestSellerLabels\BestSellerLabelChangesResult;
+use App\Application\Catalog\BestSellerLabels\BestSellerLabelAssignmentDTO;
 use App\Application\Catalog\Enums\BestSellerLabel;
+use App\Application\Catalog\Enums\CustomLabelField;
+use App\Application\Contracts\Catalog\CatalogSyncDispatcherInterface;
 use App\Application\Contracts\Catalog\ProductViewQueryRepositoryInterface;
-use App\Application\Contracts\Shopwired\ShopwiredSyncDispatcherInterface;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Data\InvalidEnumValueException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use Override;
 use Psr\Log\LoggerInterface;
 
-final readonly class SyncBestSellerLabelUseCase
+/**
+ * @extends AbstractDriftSyncUseCase<BestSellerLabelAssignmentDTO>
+ */
+final readonly class SyncBestSellerLabelUseCase extends AbstractDriftSyncUseCase
 {
     public function __construct(
         private ProductViewQueryRepositoryInterface $productViewQueryRepo,
-        private ShopwiredSyncDispatcherInterface $dispatcher,
-        private LoggerInterface $logger,
-    ) {}
+        private CatalogSyncDispatcherInterface $dispatcher,
+        LoggerInterface $logger,
+    ) {
+        parent::__construct($logger);
+    }
 
     /**
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
+     * @throws InvalidEnumValueException
      */
     public function execute(): void
     {
-        $this->logger->info('SyncBestSellerLabel: checking for label drift');
-
-        $changes = $this->productViewQueryRepo->findBestSellerLabelChanges();
-
-        if (! $changes->hasChanges()) {
-            $this->logger->info('SyncBestSellerLabel: no label changes needed');
-
-            return;
-        }
-
-        $this->dispatchChanges($changes);
-
-        $this->logger->info('SyncBestSellerLabel: dispatched label updates', [
-            'dispatched_add' => \count($changes->toAdd),
-            'dispatched_remove' => \count($changes->toRemove),
-        ]);
+        $this->process();
     }
 
-    private function dispatchChanges(BestSellerLabelChangesResult $changes): void
+    /** @return list<BestSellerLabelAssignmentDTO> */
+    #[Override]
+    protected function fetchDrift(): array
     {
+        $changes = $this->productViewQueryRepo->findBestSellerLabelChanges();
+
+        $items = [];
+
         foreach ($changes->toAdd as $productId) {
-            $this->dispatcher->dispatchBestSellerLabelUpdate($productId, BestSellerLabel::BestSellers->value);
+            $items[] = new BestSellerLabelAssignmentDTO($productId, BestSellerLabel::BestSellers->value);
         }
 
         foreach ($changes->toRemove as $productId) {
-            $this->dispatcher->dispatchBestSellerLabelUpdate($productId, null);
+            $items[] = new BestSellerLabelAssignmentDTO($productId, null);
         }
+
+        return $items;
+    }
+
+    #[Override]
+    protected function dispatchOne(object $item): void
+    {
+        /** @var BestSellerLabelAssignmentDTO $item */
+        $this->dispatcher->dispatchLabelUpdate(
+            $item->productId,
+            CustomLabelField::BestSellers,
+            $item->label,
+        );
+    }
+
+    #[Override]
+    protected function syncName(): string
+    {
+        return 'SyncBestSellerLabel';
+    }
+
+    #[Override]
+    protected function countKey(object $item): string
+    {
+        /** @var BestSellerLabelAssignmentDTO $item */
+        return $item->label !== null ? 'dispatched_add' : 'dispatched_remove';
     }
 }

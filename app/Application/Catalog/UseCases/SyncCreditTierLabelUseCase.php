@@ -6,70 +6,69 @@ namespace App\Application\Catalog\UseCases;
 
 use App\Application\Catalog\DTOs\CreditTierLabelChangeDTO;
 use App\Application\Catalog\Enums\CreditTier;
+use App\Application\Catalog\Enums\CustomLabelField;
+use App\Application\Contracts\Catalog\CatalogSyncDispatcherInterface;
 use App\Application\Contracts\Catalog\ProductViewQueryRepositoryInterface;
-use App\Application\Contracts\Shopwired\ShopwiredSyncDispatcherInterface;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Data\InvalidEnumValueException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use Override;
 use Psr\Log\LoggerInterface;
 
-final readonly class SyncCreditTierLabelUseCase
+/**
+ * @extends AbstractDriftSyncUseCase<CreditTierLabelChangeDTO>
+ */
+final readonly class SyncCreditTierLabelUseCase extends AbstractDriftSyncUseCase
 {
     public function __construct(
         private ProductViewQueryRepositoryInterface $productViewQueryRepo,
-        private ShopwiredSyncDispatcherInterface $dispatcher,
-        private LoggerInterface $logger,
-    ) {}
+        private CatalogSyncDispatcherInterface $dispatcher,
+        LoggerInterface $logger,
+    ) {
+        parent::__construct($logger);
+    }
 
     /**
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
+     * @throws InvalidEnumValueException
      */
     public function execute(): void
     {
-        $this->logger->info('SyncCreditTierLabel: checking for label drift');
-
-        $changes = $this->productViewQueryRepo->findCreditTierChanges();
-
-        if ($changes === []) {
-            $this->logger->info('SyncCreditTierLabel: no label changes needed');
-
-            return;
-        }
-
-        $counts = $this->dispatchAndCount($changes);
-
-        $this->logger->info('SyncCreditTierLabel: dispatched label updates', $counts);
+        $this->process();
     }
 
-    /**
-     * @param list<CreditTierLabelChangeDTO> $changes
-     * @return array<string, int>
-     */
-    private function dispatchAndCount(array $changes): array
+    /** @return list<CreditTierLabelChangeDTO> */
+    #[Override]
+    protected function fetchDrift(): array
     {
-        $counts = [
-            'dispatched_tier1'   => 0,
-            'dispatched_tier2'   => 0,
-            'dispatched_tier3'   => 0,
-            'dispatched_cleared' => 0,
-        ];
-
-        foreach ($changes as $change) {
-            $this->dispatcher->dispatchCreditTierLabelUpdate($change->productId, $change->targetTier);
-            ++$counts[self::tierToLogKey($change->targetTier)];
-        }
-
-        return $counts;
+        return $this->productViewQueryRepo->findCreditTierChanges();
     }
 
-    /**
-     * @return 'dispatched_tier1'|'dispatched_tier2'|'dispatched_tier3'|'dispatched_cleared'
-     */
-    private static function tierToLogKey(?CreditTier $tier): string
+    #[Override]
+    protected function dispatchOne(object $item): void
     {
-        return match ($tier) {
+        /** @var CreditTierLabelChangeDTO $item */
+        $this->dispatcher->dispatchLabelUpdate(
+            $item->productId,
+            CustomLabelField::CreditTier,
+            $item->targetTier?->value,
+        );
+    }
+
+    #[Override]
+    protected function syncName(): string
+    {
+        return 'SyncCreditTierLabel';
+    }
+
+    #[Override]
+    protected function countKey(object $item): string
+    {
+        /** @var CreditTierLabelChangeDTO $item */
+        return match ($item->targetTier) {
             CreditTier::Tier1 => 'dispatched_tier1',
             CreditTier::Tier2 => 'dispatched_tier2',
             CreditTier::Tier3 => 'dispatched_tier3',
