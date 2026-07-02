@@ -10,6 +10,7 @@ use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Infrastructure\Support\ApiRetryStrategy;
 use App\Infrastructure\Support\RetryAfterParser;
+use App\Infrastructure\Support\TransientLogThrottle;
 use Exception;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
@@ -38,8 +39,11 @@ final readonly class ReviewsIoHttpTransport
 {
     private const string SERVICE_NAME = 'Reviews.io';
 
+    private const string SERVICE_KEY = 'reviewsio';
+
     public function __construct(
         private ReviewsIoConfig $config,
+        private TransientLogThrottle $logThrottle,
     ) {}
 
     /**
@@ -184,7 +188,7 @@ final readonly class ReviewsIoHttpTransport
      */
     private function handleServerError(RequestException $e): ExternalServiceUnavailableException
     {
-        Log::error(self::SERVICE_NAME . ' API request failed', [
+        $this->logThrottle->logTransient(self::SERVICE_KEY, self::SERVICE_NAME . ' API request failed', [
             'status' => $e->response->status(),
             'error' => $e->getMessage(),
         ]);
@@ -197,7 +201,7 @@ final readonly class ReviewsIoHttpTransport
      */
     private function handleConnectionException(ConnectionException $e): ExternalServiceUnavailableException
     {
-        Log::error(self::SERVICE_NAME . ' API connection failed', [
+        $this->logThrottle->logTransient(self::SERVICE_KEY, self::SERVICE_NAME . ' API connection failed', [
             'error' => $e->getMessage(),
         ]);
 
@@ -212,11 +216,12 @@ final readonly class ReviewsIoHttpTransport
      */
     private function handleUnexpectedException(Exception $e): ExternalServiceUnavailableException
     {
-        Log::error(self::SERVICE_NAME . ' API unexpected error', [
+        $this->logThrottle->logTransient(self::SERVICE_KEY, self::SERVICE_NAME . ' API unexpected error', [
             'exception' => $e::class,
             'error' => $e->getMessage(),
         ]);
 
         return new ExternalServiceUnavailableException(self::SERVICE_NAME, previous: $e);
     }
+
 }

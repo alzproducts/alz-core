@@ -8,6 +8,7 @@ use App\Application\Contracts\MixpanelClientInterface;
 use App\Domain\Exceptions\InvalidConfigurationException;
 use App\Infrastructure\Mixpanel\Contracts\MixpanelTransportInterface;
 use App\Infrastructure\Mixpanel\Enums\MixpanelLogLevel;
+use App\Infrastructure\Support\TransientLogThrottle;
 
 /**
  * Factory for creating MixpanelClient with all dependencies.
@@ -17,10 +18,10 @@ use App\Infrastructure\Mixpanel\Enums\MixpanelLogLevel;
  */
 final class MixpanelClientFactory
 {
-    public static function create(): MixpanelClientInterface
+    public static function create(TransientLogThrottle $logThrottle): MixpanelClientInterface
     {
         $config = self::createConfig();
-        $transport = self::createTransport($config);
+        $transport = self::createTransport($config, $logThrottle);
 
         return new MixpanelClient($transport, $config);
     }
@@ -30,12 +31,12 @@ final class MixpanelClientFactory
      *
      * @throws InvalidConfigurationException When log level is invalid
      */
-    private static function createTransport(MixpanelConfig $config): MixpanelTransportInterface
+    private static function createTransport(MixpanelConfig $config, TransientLogThrottle $logThrottle): MixpanelTransportInterface
     {
         $logLevel = \config('mixpanel.log_level');
 
         if (!\is_string($logLevel) || $logLevel === '') {
-            return new MixpanelHttpTransport($config);
+            return new MixpanelHttpTransport($config, $logThrottle);
         }
 
         $parsed = MixpanelLogLevel::tryFrom($logLevel);
@@ -47,7 +48,7 @@ final class MixpanelClientFactory
             );
         }
 
-        return new LoggingMixpanelTransport(new MixpanelHttpTransport($config), $parsed);
+        return new LoggingMixpanelTransport(new MixpanelHttpTransport($config, $logThrottle), $parsed);
     }
 
     /**

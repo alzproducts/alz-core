@@ -14,6 +14,7 @@ use App\Application\HelpScout\UseCases\GetEscalationsUseCase;
 use App\Application\Support\EmailAliasResolver;
 use App\Domain\ValueObjects\IntId;
 use App\Infrastructure\HelpScout\HelpScoutClientFactory;
+use App\Infrastructure\Support\TransientLogThrottle;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Contracts\Support\DeferrableProvider;
 use Illuminate\Support\Facades\Config;
@@ -55,19 +56,19 @@ final class HelpScoutServiceProvider extends ServiceProvider implements Deferrab
     {
         $this->app->singleton(
             ConversationsClientInterface::class,
-            static fn(): ConversationsClientInterface => HelpScoutClientFactory::createConversationsClient(),
+            static fn(Application $app): ConversationsClientInterface => HelpScoutClientFactory::createConversationsClient($app->make(TransientLogThrottle::class)),
         );
         $this->app->singleton(
             MailboxesClientInterface::class,
-            static fn(): MailboxesClientInterface => HelpScoutClientFactory::createMailboxesClient(),
+            static fn(Application $app): MailboxesClientInterface => HelpScoutClientFactory::createMailboxesClient($app->make(TransientLogThrottle::class)),
         );
         $this->app->singleton(
             AgentsClientInterface::class,
-            static fn(): AgentsClientInterface => HelpScoutClientFactory::createUsersClient(),
+            static fn(Application $app): AgentsClientInterface => HelpScoutClientFactory::createUsersClient($app->make(TransientLogThrottle::class)),
         );
         $this->app->singleton(
             ConnectivityClientInterface::class,
-            static fn(): ConnectivityClientInterface => HelpScoutClientFactory::createConnectivityClient(),
+            static fn(Application $app): ConnectivityClientInterface => HelpScoutClientFactory::createConnectivityClient($app->make(TransientLogThrottle::class)),
         );
     }
 

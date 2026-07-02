@@ -6,6 +6,7 @@ namespace App\Infrastructure\ReviewsIo;
 
 use App\Application\Contracts\ReviewsIoClientInterface;
 use App\Domain\Exceptions\InvalidConfigurationException;
+use App\Infrastructure\Support\TransientLogThrottle;
 use Illuminate\Support\Facades\Config;
 
 /**
@@ -22,7 +23,7 @@ final class ReviewsIoClientFactory
     /**
      * Create a fully configured ReviewsIoClient instance.
      */
-    public static function create(): ReviewsIoClientInterface
+    public static function create(TransientLogThrottle $logThrottle): ReviewsIoClientInterface
     {
         [$apiKey, $storeId] = self::validateCredentials();
 
@@ -34,7 +35,7 @@ final class ReviewsIoClientFactory
             retryDelay: Config::integer('reviewsio.retry_delay', 100),
         );
 
-        return new ReviewsIoClient(new ReviewsIoHttpTransport($config));
+        return new ReviewsIoClient(new ReviewsIoHttpTransport($config, $logThrottle));
     }
 
     /**

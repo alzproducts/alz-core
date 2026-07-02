@@ -10,6 +10,7 @@ use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Infrastructure\Mixpanel\Contracts\MixpanelTransportInterface;
 use App\Infrastructure\Support\ApiRetryStrategy;
 use App\Infrastructure\Support\RetryAfterParser;
+use App\Infrastructure\Support\TransientLogThrottle;
 use Exception;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
@@ -38,8 +39,11 @@ final readonly class MixpanelHttpTransport implements MixpanelTransportInterface
 {
     private const string SERVICE_NAME = 'Mixpanel';
 
+    private const string SERVICE_KEY = 'mixpanel';
+
     public function __construct(
         private MixpanelConfig $config,
+        private TransientLogThrottle $logThrottle,
     ) {}
 
     /**
@@ -206,7 +210,7 @@ final readonly class MixpanelHttpTransport implements MixpanelTransportInterface
      */
     private function handleServerError(RequestException $e): ExternalServiceUnavailableException
     {
-        Log::error(self::SERVICE_NAME . ' API request failed', [
+        $this->logThrottle->logTransient(self::SERVICE_KEY, self::SERVICE_NAME . ' API request failed', [
             'status' => $e->response->status(),
             'error' => $e->getMessage(),
         ]);
@@ -219,7 +223,7 @@ final readonly class MixpanelHttpTransport implements MixpanelTransportInterface
      */
     private function handleConnectionException(ConnectionException $e): ExternalServiceUnavailableException
     {
-        Log::error(self::SERVICE_NAME . ' API connection failed', [
+        $this->logThrottle->logTransient(self::SERVICE_KEY, self::SERVICE_NAME . ' API connection failed', [
             'error' => $e->getMessage(),
         ]);
 
@@ -231,11 +235,12 @@ final readonly class MixpanelHttpTransport implements MixpanelTransportInterface
      */
     private function handleUnexpectedException(Exception $e): ExternalServiceUnavailableException
     {
-        Log::error(self::SERVICE_NAME . ' API unexpected error', [
+        $this->logThrottle->logTransient(self::SERVICE_KEY, self::SERVICE_NAME . ' API unexpected error', [
             'exception' => $e::class,
             'error' => $e->getMessage(),
         ]);
 
         return new ExternalServiceUnavailableException(self::SERVICE_NAME, previous: $e);
     }
+
 }

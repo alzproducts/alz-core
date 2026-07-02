@@ -5,18 +5,19 @@ declare(strict_types=1);
 namespace App\Infrastructure\Notifications;
 
 use App\Application\Contracts\ChatNotificationInterface;
+use App\Application\Notifications\DTOs\AlertNotificationDataDTO;
 use App\Application\Notifications\DTOs\PriceUpdateAlertDataDTO;
 use App\Application\Notifications\DTOs\VariantSkuNotificationDataDTO;
+use App\Application\Notifications\Enums\AlertAudience;
 use App\Domain\ContactSubmission\ValueObjects\ContactSubmission;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\InvalidConfigurationException;
 use App\Domain\ValueObjects\IntId;
-use App\Infrastructure\Notifications\Slack\AdminAlertNotification;
+use App\Infrastructure\Notifications\Slack\AlertNotification;
 use App\Infrastructure\Notifications\Slack\ContactFormFailedNotification;
 use App\Infrastructure\Notifications\Slack\ContactFormProcessedNotification;
 use App\Infrastructure\Notifications\Slack\ProductPricingUpdatedNotification;
 use App\Infrastructure\Notifications\Slack\VariantSkusGeneratedNotification;
-use DateTimeImmutable;
 use Exception;
 use Illuminate\Contracts\Notifications\Dispatcher as NotificationDispatcher;
 use Illuminate\Notifications\AnonymousNotifiable;
@@ -48,31 +49,16 @@ final readonly class SlackChatNotificationClient implements ChatNotificationInte
      * @throws InvalidConfigurationException When target channel is not configured
      * @throws ExternalServiceUnavailableException On delivery failure
      */
-    public function sendAdminAlert(
-        string $title,
-        string $message,
-        array $context,
-        DateTimeImmutable $firedAt,
-    ): void {
-        $this->send(
-            self::CHANNEL_ADMIN_ALERTS,
-            new AdminAlertNotification($title, $message, $context, $firedAt),
-        );
-    }
+    public function sendAlert(AlertAudience $audience, AlertNotificationDataDTO $data): void
+    {
+        $channel = match ($audience) {
+            AlertAudience::Admin => self::CHANNEL_ADMIN_ALERTS,
+            AlertAudience::Manager => self::CHANNEL_MANAGER_ALERTS,
+        };
 
-    /**
-     * @throws InvalidConfigurationException When target channel is not configured
-     * @throws ExternalServiceUnavailableException On delivery failure
-     */
-    public function sendManagerAlert(
-        string $title,
-        string $message,
-        array $context,
-        DateTimeImmutable $firedAt,
-    ): void {
         $this->send(
-            self::CHANNEL_MANAGER_ALERTS,
-            new AdminAlertNotification($title, $message, $context, $firedAt),
+            $channel,
+            new AlertNotification($data->title, $data->message, $data->context, $data->firedAt),
         );
     }
 

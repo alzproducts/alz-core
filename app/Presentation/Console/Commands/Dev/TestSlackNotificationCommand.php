@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Presentation\Console\Commands\Dev;
 
 use App\Application\Contracts\ChatNotificationInterface;
+use App\Application\Notifications\DTOs\AlertNotificationDataDTO;
 use App\Application\Notifications\DTOs\PriceUpdateAlertDataDTO;
 use App\Application\Notifications\DTOs\VariantSkuNotificationDataDTO;
+use App\Application\Notifications\Enums\AlertAudience;
 use App\Domain\Catalog\Product\ValueObjects\ProductRetailPricing;
 use App\Domain\Catalog\Product\ValueObjects\Sku;
 use App\Domain\Catalog\Product\ValueObjects\SkuPriceChange;
@@ -166,14 +168,17 @@ final class TestSlackNotificationCommand extends Command
      */
     private function sendAdminAlert(): void
     {
-        $this->chat->sendAdminAlert(
-            title: 'Test Admin Alert',
-            message: 'This is a test admin alert from `slack:test --notification=admin-alert`.',
-            context: [
-                'environment' => \app()->environment(),
-                'triggered_by' => 'slack:test command',
-            ],
-            firedAt: new DateTimeImmutable(),
+        $this->chat->sendAlert(
+            AlertAudience::Admin,
+            new AlertNotificationDataDTO(
+                title: 'Test Admin Alert',
+                message: 'This is a test admin alert from `slack:test --notification=admin-alert`.',
+                context: [
+                    'environment' => \app()->environment(),
+                    'triggered_by' => 'slack:test command',
+                ],
+                firedAt: new DateTimeImmutable(),
+            ),
         );
     }
 

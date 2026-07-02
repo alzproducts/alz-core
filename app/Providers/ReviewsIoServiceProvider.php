@@ -10,6 +10,8 @@ use App\Application\Contracts\ReviewsIoClientInterface;
 use App\Infrastructure\ReviewsIo\Repositories\ChangedRatingQueryRepository;
 use App\Infrastructure\ReviewsIo\Repositories\EloquentProductRatingRepository;
 use App\Infrastructure\ReviewsIo\ReviewsIoClientFactory;
+use App\Infrastructure\Support\TransientLogThrottle;
+use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Contracts\Support\DeferrableProvider;
 use Illuminate\Support\ServiceProvider;
 use Override;
@@ -36,7 +38,7 @@ final class ReviewsIoServiceProvider extends ServiceProvider implements Deferrab
     {
         $this->app->singleton(
             ReviewsIoClientInterface::class,
-            static fn(): ReviewsIoClientInterface => ReviewsIoClientFactory::create(),
+            static fn(Application $app): ReviewsIoClientInterface => ReviewsIoClientFactory::create($app->make(TransientLogThrottle::class)),
         );
 
         $this->app->scoped(

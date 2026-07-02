@@ -10,7 +10,9 @@ use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\ResourceNotAvailableException;
 use App\Infrastructure\Shopwired\ShopwiredClient;
 use App\Infrastructure\Shopwired\ShopwiredConfig;
+use App\Infrastructure\Shopwired\ShopwiredErrorHandler;
 use App\Infrastructure\Shopwired\ShopwiredHttpTransport;
+use App\Infrastructure\Support\TransientLogThrottle;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
@@ -70,7 +72,7 @@ final class ShopwiredClientTest extends TestCase
             timeout: $timeout,
         );
 
-        return new ShopwiredHttpTransport($config);
+        return new ShopwiredHttpTransport($config, new ShopwiredErrorHandler(\app(TransientLogThrottle::class)));
     }
 
     /*
@@ -417,7 +419,7 @@ final class ShopwiredClientTest extends TestCase
             baseUrl: $baseUrl,
         );
 
-        $transport = new ShopwiredHttpTransport($config);
+        $transport = new ShopwiredHttpTransport($config, new ShopwiredErrorHandler(\app(TransientLogThrottle::class)));
         $client = new ShopwiredClient($transport);
 
         Http::fake(['*' => Http::response(['business_name' => 'Test Store'], 200)]);

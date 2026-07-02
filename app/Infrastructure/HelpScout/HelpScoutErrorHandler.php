@@ -8,32 +8,33 @@ use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Infrastructure\Support\RetryAfterParser;
+use App\Infrastructure\Support\TransientLogThrottle;
 use Exception;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Log;
 
-/**
- * Error handler for HelpScout HTTP transport.
- *
- * Translates HTTP exceptions to domain exceptions with logging.
- * Stateless — all methods are static.
- */
-final class HelpScoutErrorHandler
+final readonly class HelpScoutErrorHandler
 {
     private const string SERVICE_NAME = 'HelpScout';
+
+    private const string SERVICE_KEY = 'helpscout';
+
+    public function __construct(
+        private TransientLogThrottle $logThrottle,
+    ) {}
 
     /**
      * Route HTTP failures to specific handlers by status code.
      */
-    public static function handleRequestException(
+    public function handleRequestException(
         RequestException $e,
     ): InvalidApiRequestException|AuthenticationExpiredException|ExternalServiceUnavailableException {
         return match ($e->response->status()) {
             400, 422 => self::handleBadRequest($e),
             401, 403 => self::handleAuthenticationFailure($e),
             429 => self::handleRateLimit($e),
-            default => self::handleServerError($e),
+            default => $this->handleServerError($e),
         };
     }
 
@@ -96,9 +97,9 @@ final class HelpScoutErrorHandler
     /**
      * Handle 5xx and other server errors (transient).
      */
-    private static function handleServerError(RequestException $e): ExternalServiceUnavailableException
+    public function handleServerError(RequestException $e): ExternalServiceUnavailableException
     {
-        Log::error(self::SERVICE_NAME . ' API request failed', [
+        $this->logThrottle->logTransient(self::SERVICE_KEY, self::SERVICE_NAME . ' API request failed', [
             'status' => $e->response->status(),
             'error' => $e->getMessage(),
         ]);
@@ -109,9 +110,9 @@ final class HelpScoutErrorHandler
     /**
      * Handle connection failures (network errors, timeouts).
      */
-    public static function handleConnectionException(ConnectionException $e): ExternalServiceUnavailableException
+    public function handleConnectionException(ConnectionException $e): ExternalServiceUnavailableException
     {
-        Log::error(self::SERVICE_NAME . ' API connection failed', [
+        $this->logThrottle->logTransient(self::SERVICE_KEY, self::SERVICE_NAME . ' API connection failed', [
             'error' => $e->getMessage(),
         ]);
 
@@ -121,13 +122,14 @@ final class HelpScoutErrorHandler
     /**
      * Handle unexpected exceptions (Guzzle internals, retry edge cases).
      */
-    public static function handleUnexpectedException(Exception $e): ExternalServiceUnavailableException
+    public function handleUnexpectedException(Exception $e): ExternalServiceUnavailableException
     {
-        Log::error(self::SERVICE_NAME . ' API unexpected error', [
+        $this->logThrottle->logTransient(self::SERVICE_KEY, self::SERVICE_NAME . ' API unexpected error', [
             'exception' => $e::class,
             'error' => $e->getMessage(),
         ]);
 
         return new ExternalServiceUnavailableException(self::SERVICE_NAME, previous: $e);
     }
+
 }

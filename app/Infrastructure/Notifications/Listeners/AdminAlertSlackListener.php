@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Infrastructure\Notifications\Listeners;
 
 use App\Application\Contracts\ChatNotificationInterface;
+use App\Application\Notifications\DTOs\AlertNotificationDataDTO;
+use App\Application\Notifications\Enums\AlertAudience;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\InvalidConfigurationException;
 use App\Domain\Notifications\Events\AdminAlertEvent;
@@ -34,11 +36,14 @@ final class AdminAlertSlackListener implements ShouldQueue
      */
     public function handle(AdminAlertEvent $event): void
     {
-        $this->chat->sendAdminAlert(
-            title: $event->title,
-            message: $event->message,
-            context: $event->context,
-            firedAt: $event->firedAt,
+        $this->chat->sendAlert(
+            AlertAudience::Admin,
+            new AlertNotificationDataDTO(
+                title: $event->title,
+                message: $event->message,
+                context: $event->context,
+                firedAt: $event->firedAt,
+            ),
         );
     }
 

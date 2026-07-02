@@ -8,6 +8,7 @@ use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
+use App\Infrastructure\Support\TransientLogThrottle;
 use Exception;
 use Illuminate\Support\Facades\Log;
 use Microsoft\MsAds\Rest\Api\CampaignManagementServiceApi;
@@ -31,9 +32,12 @@ final readonly class BingAdsConversionTransport
 {
     private const string SERVICE_NAME = 'Bing Ads REST';
 
+    private const string SERVICE_KEY = 'bing-ads-rest';
+
     public function __construct(
         private BingAdsSessionManager $sessionManager,
         private BingAdsConfig $config,
+        private TransientLogThrottle $logThrottle,
     ) {}
 
     /**
@@ -187,7 +191,7 @@ final readonly class BingAdsConversionTransport
 
     private function handleHttpError(RestApiException $e, ?string $trackingId): ExternalServiceUnavailableException
     {
-        Log::error(self::SERVICE_NAME . ' API error', [
+        $this->logThrottle->logTransient(self::SERVICE_KEY, self::SERVICE_NAME . ' API error', [
             'status' => $e->getCode(),
             'error' => $e->getMessage(),
             'tracking_id' => $trackingId,
@@ -198,7 +202,7 @@ final readonly class BingAdsConversionTransport
 
     private function handleServerError(Exception $e): ExternalServiceUnavailableException
     {
-        Log::error(self::SERVICE_NAME . ' unexpected error', [
+        $this->logThrottle->logTransient(self::SERVICE_KEY, self::SERVICE_NAME . ' unexpected error', [
             'exception' => $e::class,
             'error' => $e->getMessage(),
         ]);

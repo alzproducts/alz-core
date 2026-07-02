@@ -9,6 +9,7 @@ namespace App\Infrastructure\BingAds;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\ValueObjects\DateRange;
+use App\Infrastructure\Support\TransientLogThrottle;
 use DateTimeImmutable;
 use Exception;
 use Illuminate\Http\Client\ConnectionException;
@@ -58,6 +59,8 @@ use ZipArchive;
 final class BingAdsTransport
 {
     private const string SERVICE_NAME = 'Bing Ads';
+
+    private const string SERVICE_KEY = 'bing-ads';
 
     /**
      * SOAP fault codes indicating authentication failure.
@@ -114,6 +117,7 @@ final class BingAdsTransport
     public function __construct(
         private readonly BingAdsSessionManager $sessionManager,
         private readonly BingAdsConfig $config,
+        private readonly TransientLogThrottle $logThrottle,
     ) {}
 
     /**
@@ -179,7 +183,7 @@ final class BingAdsTransport
             ]);
 
             // Poll for completion
-            $downloadUrl = self::pollUntilComplete($soapClient, $reportRequestId);
+            $downloadUrl = $this->pollUntilComplete($soapClient, $reportRequestId);
 
             if ($downloadUrl === null) {
                 return null; // No data for date range
@@ -278,7 +282,7 @@ final class BingAdsTransport
      * @throws SoapFault When SOAP call fails
      * @throws ExternalServiceUnavailableException When report generation fails or times out
      */
-    private static function pollUntilComplete(SoapClient $soapClient, string $reportRequestId): ?string
+    private function pollUntilComplete(SoapClient $soapClient, string $reportRequestId): ?string
     {
         $pollRequest = new PollGenerateReportRequest();
         $pollRequest->ReportRequestId = $reportRequestId;
@@ -308,7 +312,7 @@ final class BingAdsTransport
             }
 
             if ($status === ReportRequestStatusType::Error) {
-                Log::error(self::SERVICE_NAME . ' report generation failed', [
+                $this->logThrottle->logTransient(self::SERVICE_KEY, self::SERVICE_NAME . ' report generation failed', [
                     'requestId' => $reportRequestId,
                     'attempts' => $attempt,
                 ]);
@@ -598,7 +602,7 @@ final class BingAdsTransport
      */
     private function handleServerError(Exception $e): ExternalServiceUnavailableException
     {
-        Log::error(self::SERVICE_NAME . ' error', [
+        $this->logThrottle->logTransient(self::SERVICE_KEY, self::SERVICE_NAME . ' error', [
             'type' => $e::class,
             'code' => $e->getCode(),
             'error' => $e->getMessage(),
@@ -606,4 +610,5 @@ final class BingAdsTransport
 
         return new ExternalServiceUnavailableException(self::SERVICE_NAME, previous: $e);
     }
+
 }

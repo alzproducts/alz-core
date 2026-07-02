@@ -7,7 +7,9 @@ namespace Tests\Integration\Infrastructure\HelpScout;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Infrastructure\HelpScout\HelpScoutConfig;
+use App\Infrastructure\HelpScout\HelpScoutErrorHandler;
 use App\Infrastructure\HelpScout\HelpScoutHttpTransport;
+use App\Infrastructure\Support\TransientLogThrottle;
 use HelpScout\Api\ApiClient;
 use HelpScout\Api\Http\Authenticator;
 use Illuminate\Http\Client\Factory as HttpFactory;
@@ -58,7 +60,7 @@ final class HelpScoutHttpTransportTest extends TestCase
         /** @var HttpFactory $factory */
         $factory = Http::getFacadeRoot();
 
-        $this->transport = new HelpScoutHttpTransport($config, $sdkClient, $factory);
+        $this->transport = new HelpScoutHttpTransport($config, $sdkClient, $factory, new HelpScoutErrorHandler(\app(TransientLogThrottle::class)));
     }
 
     /*

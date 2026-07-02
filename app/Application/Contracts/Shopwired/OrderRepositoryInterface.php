@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Application\Contracts\Shopwired;
 
 use App\Application\Contracts\RepositoryWriteInterface;
+use App\Application\Shopwired\Enums\OrderQueryMode;
 use App\Domain\Catalog\Order\ValueObjects\Order;
 use App\Domain\Catalog\Order\ValueObjects\OrderRefund;
 use App\Domain\Catalog\Order\ValueObjects\OrderStatus;
@@ -40,36 +41,22 @@ interface OrderRepositoryInterface extends RepositoryWriteInterface
     public function getByReference(int $reference): Order;
 
     /**
-     * Get orders placed within a date range (inclusive).
+     * Get orders placed within a date range (inclusive), filtered by `order_placed_at`.
      *
-     * Orders are filtered by `order_placed_at` timestamp.
      * Results include all relations (products, discounts, refunds, comments).
      *
-     * Note: This method applies business filters (test email exclusion, duplicate
-     * deduplication). For raw unfiltered data, use getAllOrdersInDateRange().
+     * Mode selects the filtering applied:
+     * - OrderQueryMode::Filtered — business view: test-email exclusion + reference
+     *   deduplication (reads the orders_deduplicated view). Use for business operations.
+     * - OrderQueryMode::Raw — raw database contents, no filtering (test orders and
+     *   duplicate cancelled/active references included). Use for auditing/debugging.
      *
      * @return list<Order>
      *
      * @throws DatabaseOperationFailedException On query failure
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      */
-    public function getOrdersInDateRange(DateTimeImmutable $from, DateTimeImmutable $to): array;
-
-    /**
-     * Get ALL orders placed within a date range (no filtering).
-     *
-     * Returns raw database contents without any business filtering:
-     * - Includes test customer orders
-     * - Includes duplicate references (cancelled + active versions)
-     *
-     * Use this for auditing/debugging. For business operations, use getOrdersInDateRange().
-     *
-     * @return list<Order>
-     *
-     * @throws DatabaseOperationFailedException On query failure
-     * @throws ExternalServiceUnavailableException When database temporarily unavailable
-     */
-    public function getAllOrdersInDateRange(DateTimeImmutable $from, DateTimeImmutable $to): array;
+    public function getOrdersInDateRange(DateTimeImmutable $from, DateTimeImmutable $to, OrderQueryMode $mode): array;
 
     /**
      * Upsert an order from webhook data.

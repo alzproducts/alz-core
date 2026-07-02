@@ -40,6 +40,7 @@ use App\Infrastructure\Linnworks\Repositories\EloquentStockItemRepository;
 use App\Infrastructure\Linnworks\Repositories\EloquentStockItemSupplierRepository;
 use App\Infrastructure\Linnworks\Repositories\EloquentSupplierRepository;
 use App\Infrastructure\Persistence\EloquentGateway;
+use App\Infrastructure\Support\TransientLogThrottle;
 use Illuminate\Contracts\Container\Container;
 use Illuminate\Contracts\Support\DeferrableProvider;
 use Illuminate\Support\Facades\Config;
@@ -103,7 +104,7 @@ final class LinnworksServiceProvider extends ServiceProvider implements Deferrab
         );
         $this->app->singleton(
             StockDashboardsClientInterface::class,
-            static fn(): StockDashboardsClientInterface => LinnworksClientFactory::createStockDashboardsClient(),
+            static fn(Container $app): StockDashboardsClientInterface => LinnworksClientFactory::createStockDashboardsClient($app->make(TransientLogThrottle::class)),
         );
     }
 
@@ -111,15 +112,15 @@ final class LinnworksServiceProvider extends ServiceProvider implements Deferrab
     {
         $this->app->singleton(
             InventoryClientInterface::class,
-            static fn(): InventoryClientInterface => LinnworksClientFactory::createInventoryClient(),
+            static fn(Container $app): InventoryClientInterface => LinnworksClientFactory::createInventoryClient($app->make(TransientLogThrottle::class)),
         );
         $this->app->singleton(
             InventoryUpdateClientInterface::class,
-            static fn(): InventoryUpdateClientInterface => LinnworksClientFactory::createInventoryUpdateClient(),
+            static fn(Container $app): InventoryUpdateClientInterface => LinnworksClientFactory::createInventoryUpdateClient($app->make(TransientLogThrottle::class)),
         );
         $this->app->singleton(
             InventoryFieldUpdateClientInterface::class,
-            static fn(): InventoryFieldUpdateClientInterface => LinnworksClientFactory::createInventoryFieldUpdateClient(),
+            static fn(Container $app): InventoryFieldUpdateClientInterface => LinnworksClientFactory::createInventoryFieldUpdateClient($app->make(TransientLogThrottle::class)),
         );
     }
 
@@ -127,11 +128,11 @@ final class LinnworksServiceProvider extends ServiceProvider implements Deferrab
     {
         $this->app->singleton(
             OrderDashboardsClientInterface::class,
-            static fn(): OrderDashboardsClientInterface => LinnworksClientFactory::createOrderDashboardsClient(),
+            static fn(Container $app): OrderDashboardsClientInterface => LinnworksClientFactory::createOrderDashboardsClient($app->make(TransientLogThrottle::class)),
         );
         $this->app->singleton(
             OrderClientInterface::class,
-            static fn(): OrderClientInterface => LinnworksClientFactory::createOrderClient(),
+            static fn(Container $app): OrderClientInterface => LinnworksClientFactory::createOrderClient($app->make(TransientLogThrottle::class)),
         );
     }
 
@@ -139,15 +140,15 @@ final class LinnworksServiceProvider extends ServiceProvider implements Deferrab
     {
         $this->app->singleton(
             PurchaseOrderClientInterface::class,
-            static fn(): PurchaseOrderClientInterface => LinnworksClientFactory::createPurchaseOrderClient(),
+            static fn(Container $app): PurchaseOrderClientInterface => LinnworksClientFactory::createPurchaseOrderClient($app->make(TransientLogThrottle::class)),
         );
         $this->app->singleton(
             PurchaseOrderUpdateClientInterface::class,
-            static fn(): PurchaseOrderUpdateClientInterface => LinnworksClientFactory::createPurchaseOrderUpdateClient(),
+            static fn(Container $app): PurchaseOrderUpdateClientInterface => LinnworksClientFactory::createPurchaseOrderUpdateClient($app->make(TransientLogThrottle::class)),
         );
         $this->app->singleton(
             PurchaseDashboardsClientInterface::class,
-            static fn(): PurchaseDashboardsClientInterface => LinnworksClientFactory::createPurchaseDashboardsClient(),
+            static fn(Container $app): PurchaseDashboardsClientInterface => LinnworksClientFactory::createPurchaseDashboardsClient($app->make(TransientLogThrottle::class)),
         );
     }
 

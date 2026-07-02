@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Infrastructure\Notifications\Listeners;
 
 use App\Application\Contracts\ChatNotificationInterface;
+use App\Application\Notifications\DTOs\AlertNotificationDataDTO;
+use App\Application\Notifications\Enums\AlertAudience;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\InvalidConfigurationException;
 use DateTimeImmutable;
@@ -31,14 +33,17 @@ final class HorizonLongWaitSlackListener
      */
     public function handle(LongWaitDetected $event): void
     {
-        $this->chat->sendAdminAlert(
-            title: 'Queue Long Wait Detected',
-            message: "Queue `{$event->queue}` on connection `{$event->connection}` has exceeded its wait threshold.",
-            context: [
-                'connection' => $event->connection,
-                'queue' => $event->queue,
-            ],
-            firedAt: new DateTimeImmutable(),
+        $this->chat->sendAlert(
+            AlertAudience::Admin,
+            new AlertNotificationDataDTO(
+                title: 'Queue Long Wait Detected',
+                message: "Queue `{$event->queue}` on connection `{$event->connection}` has exceeded its wait threshold.",
+                context: [
+                    'connection' => $event->connection,
+                    'queue' => $event->queue,
+                ],
+                firedAt: new DateTimeImmutable(),
+            ),
         );
     }
 

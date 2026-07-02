@@ -12,6 +12,7 @@ use App\Infrastructure\Linnworks\LinnworksSessionManager;
 use App\Infrastructure\Locking\CacheLockManager;
 use App\Infrastructure\Support\LockableCache;
 use App\Infrastructure\Support\ResilientCache;
+use App\Infrastructure\Support\TransientLogThrottle;
 use Illuminate\Cache\CacheManager;
 use Illuminate\Contracts\Support\DeferrableProvider;
 use Illuminate\Foundation\Application;
@@ -39,6 +40,7 @@ final class CacheServiceProvider extends ServiceProvider implements DeferrablePr
         $this->registerDefaultCache();
         $this->registerContextualCaches();
         $this->registerResilientCache();
+        $this->registerTransientLogThrottle();
         $this->registerLockManager();
     }
 
@@ -83,6 +85,17 @@ final class CacheServiceProvider extends ServiceProvider implements DeferrablePr
         );
     }
 
+    private function registerTransientLogThrottle(): void
+    {
+        $this->app->singleton(
+            TransientLogThrottle::class,
+            static fn(Application $app): TransientLogThrottle => new TransientLogThrottle(
+                cache: $app->make(CacheManager::class),
+                logger: $app->make(LoggerInterface::class),
+            ),
+        );
+    }
+
     private function registerLockManager(): void
     {
         $this->app->singleton(
@@ -105,6 +118,7 @@ final class CacheServiceProvider extends ServiceProvider implements DeferrablePr
             LockableCacheInterface::class,
             LockManagerInterface::class,
             ResilientCacheInterface::class,
+            TransientLogThrottle::class,
         ];
     }
 }

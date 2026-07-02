@@ -4,13 +4,14 @@ declare(strict_types=1);
 
 namespace App\Application\Contracts;
 
+use App\Application\Notifications\DTOs\AlertNotificationDataDTO;
 use App\Application\Notifications\DTOs\PriceUpdateAlertDataDTO;
 use App\Application\Notifications\DTOs\VariantSkuNotificationDataDTO;
+use App\Application\Notifications\Enums\AlertAudience;
 use App\Domain\ContactSubmission\ValueObjects\ContactSubmission;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\InvalidConfigurationException;
 use App\Domain\ValueObjects\IntId;
-use DateTimeImmutable;
 
 /**
  * Sends chat notifications with domain-level data.
@@ -22,30 +23,12 @@ use DateTimeImmutable;
 interface ChatNotificationInterface
 {
     /**
-     * @param array<string, mixed> $context Key-value pairs shown as context in the notification
+     * Send an alert to the channel for the given audience.
      *
      * @throws InvalidConfigurationException When target channel is not configured
      * @throws ExternalServiceUnavailableException On delivery failure
      */
-    public function sendAdminAlert(
-        string $title,
-        string $message,
-        array $context,
-        DateTimeImmutable $firedAt,
-    ): void;
-
-    /**
-     * @param array<string, mixed> $context Key-value pairs shown as context in the notification
-     *
-     * @throws InvalidConfigurationException When target channel is not configured
-     * @throws ExternalServiceUnavailableException On delivery failure
-     */
-    public function sendManagerAlert(
-        string $title,
-        string $message,
-        array $context,
-        DateTimeImmutable $firedAt,
-    ): void;
+    public function sendAlert(AlertAudience $audience, AlertNotificationDataDTO $data): void;
 
     /**
      * @throws InvalidConfigurationException When target channel is not configured

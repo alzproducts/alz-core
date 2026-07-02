@@ -106,6 +106,7 @@ use App\Infrastructure\Shopwired\Resolvers\ShopwiredProductWebhookEventResolver;
 use App\Infrastructure\Shopwired\Services\EloquentWebhookIdempotencyService;
 use App\Infrastructure\Shopwired\Services\ProductIdentifierResolver;
 use App\Infrastructure\Shopwired\ShopwiredClientFactory;
+use App\Infrastructure\Support\TransientLogThrottle;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Contracts\Support\DeferrableProvider;
 use Illuminate\Support\ServiceProvider;
@@ -146,16 +147,16 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
 
     private function registerSingletonClients(): void
     {
-        $this->app->singleton(ConnectivityClientInterface::class, static fn(): ConnectivityClientInterface => ShopwiredClientFactory::createConnectivityClient());
-        $this->app->singleton(BrandClientInterface::class, static fn(): BrandClientInterface => ShopwiredClientFactory::createBrandClient());
-        $this->app->singleton(CategoryClientInterface::class, static fn(): CategoryClientInterface => ShopwiredClientFactory::createCategoryClient());
-        $this->app->singleton(CustomFieldClientInterface::class, static fn(): CustomFieldClientInterface => ShopwiredClientFactory::createCustomFieldClient());
-        $this->app->singleton(FilterGroupClientInterface::class, static fn(): FilterGroupClientInterface => ShopwiredClientFactory::createFilterGroupClient());
-        $this->app->singleton(CustomerClientInterface::class, static fn(): CustomerClientInterface => ShopwiredClientFactory::createCustomerClient());
-        $this->app->singleton(OrderClientInterface::class, static fn(): OrderClientInterface => ShopwiredClientFactory::createOrderClient());
-        $this->app->singleton(StockClientInterface::class, static fn(): StockClientInterface => ShopwiredClientFactory::createStockClient());
-        $this->app->singleton(PriceUpdateClientInterface::class, static fn(): PriceUpdateClientInterface => ShopwiredClientFactory::createPriceUpdateClient());
-        $this->app->singleton(WebhookClientInterface::class, static fn(): WebhookClientInterface => ShopwiredClientFactory::createWebhookClient());
+        $this->app->singleton(ConnectivityClientInterface::class, static fn(Application $app): ConnectivityClientInterface => ShopwiredClientFactory::createConnectivityClient($app->make(TransientLogThrottle::class)));
+        $this->app->singleton(BrandClientInterface::class, static fn(Application $app): BrandClientInterface => ShopwiredClientFactory::createBrandClient($app->make(TransientLogThrottle::class)));
+        $this->app->singleton(CategoryClientInterface::class, static fn(Application $app): CategoryClientInterface => ShopwiredClientFactory::createCategoryClient($app->make(TransientLogThrottle::class)));
+        $this->app->singleton(CustomFieldClientInterface::class, static fn(Application $app): CustomFieldClientInterface => ShopwiredClientFactory::createCustomFieldClient($app->make(TransientLogThrottle::class)));
+        $this->app->singleton(FilterGroupClientInterface::class, static fn(Application $app): FilterGroupClientInterface => ShopwiredClientFactory::createFilterGroupClient($app->make(TransientLogThrottle::class)));
+        $this->app->singleton(CustomerClientInterface::class, static fn(Application $app): CustomerClientInterface => ShopwiredClientFactory::createCustomerClient($app->make(TransientLogThrottle::class)));
+        $this->app->singleton(OrderClientInterface::class, static fn(Application $app): OrderClientInterface => ShopwiredClientFactory::createOrderClient($app->make(TransientLogThrottle::class)));
+        $this->app->singleton(StockClientInterface::class, static fn(Application $app): StockClientInterface => ShopwiredClientFactory::createStockClient($app->make(TransientLogThrottle::class)));
+        $this->app->singleton(PriceUpdateClientInterface::class, static fn(Application $app): PriceUpdateClientInterface => ShopwiredClientFactory::createPriceUpdateClient($app->make(TransientLogThrottle::class)));
+        $this->app->singleton(WebhookClientInterface::class, static fn(Application $app): WebhookClientInterface => ShopwiredClientFactory::createWebhookClient($app->make(TransientLogThrottle::class)));
     }
 
     private function registerScopedReadClient(): void
@@ -163,7 +164,7 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
         $this->app->scoped(
             ProductClientInterface::class,
             static fn(Application $app): ProductClientInterface => new ProductClient(
-                ShopwiredClientFactory::getTransport(),
+                ShopwiredClientFactory::getTransport($app->make(TransientLogThrottle::class)),
                 $app->make(ProductDomainFactory::class),
             ),
         );
@@ -174,14 +175,14 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
         $this->app->scoped(
             ProductUpdateClientInterface::class,
             static fn(Application $app): ProductUpdateClientInterface => new ProductUpdateClient(
-                ShopwiredClientFactory::getTransport(),
+                ShopwiredClientFactory::getTransport($app->make(TransientLogThrottle::class)),
                 $app->make(ProductClientInterface::class),
             ),
         );
         $this->app->scoped(
             BasicProductUpdateClientInterface::class,
             static fn(Application $app): BasicProductUpdateClientInterface => new BasicProductUpdateClient(
-                ShopwiredClientFactory::getTransport(),
+                ShopwiredClientFactory::getTransport($app->make(TransientLogThrottle::class)),
                 $app->make(ProductRepositoryInterface::class),
             ),
         );
@@ -189,13 +190,13 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
 
     private function registerUpdateClients(): void
     {
-        $this->app->singleton(ProductFieldUpdateClientInterface::class, static fn(): ProductFieldUpdateClientInterface => new ProductFieldUpdateClient(ShopwiredClientFactory::getTransport()));
-        $this->app->singleton(CustomerFieldUpdateClientInterface::class, static fn(): CustomerFieldUpdateClientInterface => new CustomerFieldUpdateClient(ShopwiredClientFactory::getTransport()));
+        $this->app->singleton(ProductFieldUpdateClientInterface::class, static fn(Application $app): ProductFieldUpdateClientInterface => new ProductFieldUpdateClient(ShopwiredClientFactory::getTransport($app->make(TransientLogThrottle::class))));
+        $this->app->singleton(CustomerFieldUpdateClientInterface::class, static fn(Application $app): CustomerFieldUpdateClientInterface => new CustomerFieldUpdateClient(ShopwiredClientFactory::getTransport($app->make(TransientLogThrottle::class))));
 
         $this->app->singleton(
             CategoryUpdateClientInterface::class,
             static fn(Application $app): CategoryUpdateClientInterface => new CategoryUpdateClient(
-                ShopwiredClientFactory::getTransport(),
+                ShopwiredClientFactory::getTransport($app->make(TransientLogThrottle::class)),
                 $app->make(CategoryClientInterface::class),
             ),
         );
@@ -203,7 +204,7 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
         $this->app->singleton(
             BrandUpdateClientInterface::class,
             static fn(Application $app): BrandUpdateClientInterface => new BrandUpdateClient(
-                ShopwiredClientFactory::getTransport(),
+                ShopwiredClientFactory::getTransport($app->make(TransientLogThrottle::class)),
                 $app->make(BrandClientInterface::class),
             ),
         );

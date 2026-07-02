@@ -9,9 +9,11 @@ use App\Domain\ValueObjects\Guid;
 use App\Infrastructure\Linnworks\Clients\DashboardsClient;
 use App\Infrastructure\Linnworks\Clients\StockDashboardsClient;
 use App\Infrastructure\Linnworks\LinnworksConfig;
+use App\Infrastructure\Linnworks\LinnworksErrorHandler;
 use App\Infrastructure\Linnworks\LinnworksHttpTransport;
 use App\Infrastructure\Linnworks\LinnworksSession;
 use App\Infrastructure\Linnworks\LinnworksSessionManager;
+use App\Infrastructure\Support\TransientLogThrottle;
 use DateTimeImmutable;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
@@ -57,7 +59,7 @@ final class StockDashboardsClientTest extends TestCase
             installationToken: 'test-install-token',
         );
 
-        $transport = new LinnworksHttpTransport($config, $this->sessionManager);
+        $transport = new LinnworksHttpTransport($config, $this->sessionManager, new LinnworksErrorHandler(\app(TransientLogThrottle::class)));
         $dashboardsClient = new DashboardsClient($transport);
         $this->client = new StockDashboardsClient($dashboardsClient);
     }

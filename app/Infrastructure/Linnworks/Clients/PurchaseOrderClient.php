@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Infrastructure\Linnworks\Clients;
 
 use App\Application\Contracts\Linnworks\PurchaseOrderClientInterface;
+use App\Application\Linnworks\Enums\PurchaseOrderDepth;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
@@ -48,13 +49,31 @@ final readonly class PurchaseOrderClient implements PurchaseOrderClientInterface
     /**
      * {@inheritDoc}
      *
+     * @return ($depth is PurchaseOrderDepth::Header ? PurchaseOrderHeader : ($depth is PurchaseOrderDepth::Core ? PurchaseOrderCore : PurchaseOrderFull))
+     *
      * @throws ResourceNotFoundException When PO doesn't exist
      * @throws AuthenticationExpiredException When credentials are invalid
      * @throws ExternalServiceUnavailableException When API is unavailable
      * @throws InvalidApiRequestException When request parameters are invalid
      * @throws InvalidApiResponseException When API response structure is invalid
      */
-    public function getPurchaseOrderHeader(Guid $purchaseId): PurchaseOrderHeader
+    public function getPurchaseOrder(Guid $purchaseId, PurchaseOrderDepth $depth): PurchaseOrderHeader|PurchaseOrderCore|PurchaseOrderFull
+    {
+        return match ($depth) {
+            PurchaseOrderDepth::Header => $this->buildHeader($purchaseId),
+            PurchaseOrderDepth::Core => $this->buildCore($purchaseId),
+            PurchaseOrderDepth::Full => $this->buildFull($purchaseId),
+        };
+    }
+
+    /**
+     * @throws ResourceNotFoundException When PO doesn't exist
+     * @throws AuthenticationExpiredException When credentials are invalid
+     * @throws ExternalServiceUnavailableException When API is unavailable
+     * @throws InvalidApiRequestException When request parameters are invalid
+     * @throws InvalidApiResponseException When API response structure is invalid
+     */
+    private function buildHeader(Guid $purchaseId): PurchaseOrderHeader
     {
         $response = $this->transport->postFormParams(
             endpoint: '/api/PurchaseOrder/Get_PurchaseOrder',
@@ -76,15 +95,13 @@ final readonly class PurchaseOrderClient implements PurchaseOrderClientInterface
     }
 
     /**
-     * {@inheritDoc}
-     *
      * @throws ResourceNotFoundException When PO doesn't exist
      * @throws AuthenticationExpiredException When credentials are invalid
      * @throws ExternalServiceUnavailableException When API is unavailable
      * @throws InvalidApiRequestException When request parameters are invalid
      * @throws InvalidApiResponseException When API response structure is invalid
      */
-    public function getPurchaseOrderCore(Guid $purchaseId): PurchaseOrderCore
+    private function buildCore(Guid $purchaseId): PurchaseOrderCore
     {
         /** @var PurchaseOrderCore */
         return self::parseSingleToDomain(
@@ -94,15 +111,13 @@ final readonly class PurchaseOrderClient implements PurchaseOrderClientInterface
     }
 
     /**
-     * {@inheritDoc}
-     *
      * @throws ResourceNotFoundException When PO doesn't exist
      * @throws AuthenticationExpiredException When credentials are invalid
      * @throws ExternalServiceUnavailableException When API is unavailable
      * @throws InvalidApiRequestException When request parameters are invalid
      * @throws InvalidApiResponseException When API response structure is invalid
      */
-    public function getPurchaseOrderFull(Guid $purchaseId): PurchaseOrderFull
+    private function buildFull(Guid $purchaseId): PurchaseOrderFull
     {
         $data = $this->fetchRawPurchaseOrder($purchaseId);
 

@@ -54,26 +54,11 @@ Note: `railway run` is local-only with env vars, not remote execution.
 
 **When updating**: Add only what's essential. Remove outdated sections. Optimize for LLM parsing speed.
 
-## ⚠️ Important: User Approval Required
+## ⚠️ Important: Handling Hurdles Mid-Task
 
-**Discuss with user before proceeding** on:
-- Clean Architecture decisions (naming, layer placement, pattern choices)
-- Linting/PHPArkitect failures that aren't obvious syntax errors
-- Any architectural trade-offs or deviations from established patterns
-- Changes to custom PHPStan rules, PHPArkitect rules, or Deptrac config
-
-**Use `AskUserQuestion` tool** when presenting options or seeking decisions.
-
-**Rationale**: These decisions shape the codebase long-term. User should make informed choices, not have them silently resolved.
-
-## ⚠️ Important: Scope Creep
-
-When discovering issues tangential to the task (bugs, inconsistencies):
-1. **Flag it** — note the discovery before acting
-2. **Present options** — don't silently fix without approval
-3. **Exception**: Obvious typos/syntax errors can be fixed inline
-
-**Rationale**: Expanding scope without consent leads to unexpected changes, harder reviews, and violated trust.
+- **Anchor to existing patterns.** When a hurdle has more than one valid resolution (a lint failure with multiple fixes, an architectural fork, a naming/layer/pattern choice, a deviation from the plan's literal spec), prefer the one that conforms to an established sibling/adjacent pattern over inventing a new one. A fix that matches what neighbouring code already does is almost always right.
+- **Default to resolving, not blocking.** Pick the best-supported option and keep moving; record the decision and its rationale in the implementation log, and surface any **new or deviated architectural pattern or approach** in the PR description so it's reviewable at the gate (the PR diff is the review gate).
+- **Escalate genuine blockers** (use `AskUserQuestion`): irreversible/destructive actions, anything touching live/production data or external mutation (see Railway / Safety rules), or a true fork with no codebase precedent and no sensible default.
 
 ## Tool Usage
 
@@ -138,6 +123,8 @@ Types: `feat` | `fix` | `refactor` | `test` | `docs` | `chore` | `perf` | `ci`
 - Before editing any file for a plan/issue, check the current branch. If the plan names a branch (e.g. `feature/{issue}-{desc}`) and HEAD isn't already on it, create it from `develop` first — applies whether or not a skill is orchestrating the work.
 - Never implement on `main`, `develop`, or a `worktree/*` branch. Worktree branches are scratch/session containers, not feature branches.
 - Do not switch to unrelated branches mid-task.
+
+**Updating an existing PR:** `EnterWorktree` (by `path`) to bind the session to the PR's branch before editing — editing via raw paths from the `develop` checkout strands the change (commits land on `develop`, not the branch). Commit + push there. Do not `ExitWorktree` afterward — successive PR edits reuse the worktree; the user runs cleanup.
 
 ## Development Environment
 
