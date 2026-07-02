@@ -57,6 +57,11 @@ abstract readonly class AbstractDriftSyncUseCase
     /**
      * @param list<T> $drift
      * @return array<string, int>
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     * @throws InvalidEnumValueException
      */
     private function dispatchAllAndCount(array $drift): array
     {
