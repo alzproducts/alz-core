@@ -49,6 +49,17 @@ abstract readonly class AbstractDriftSyncUseCase
             return;
         }
 
+        $counts = $this->dispatchAllAndCount($drift);
+
+        $this->logger->info("{$name}: dispatched drift corrections", $counts);
+    }
+
+    /**
+     * @param list<T> $drift
+     * @return array<string, int>
+     */
+    private function dispatchAllAndCount(array $drift): array
+    {
         $total = 0;
         $breakdown = [];
 
@@ -63,7 +74,7 @@ abstract readonly class AbstractDriftSyncUseCase
             }
         }
 
-        $this->logger->info("{$name}: dispatched drift corrections", ['count' => $total] + $breakdown);
+        return ['count' => $total] + $breakdown;
     }
 
     /**

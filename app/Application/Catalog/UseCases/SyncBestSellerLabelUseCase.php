@@ -77,7 +77,7 @@ final readonly class SyncBestSellerLabelUseCase extends AbstractDriftSyncUseCase
     }
 
     #[Override]
-    protected function countKey(object $item): ?string
+    protected function countKey(object $item): string
     {
         /** @var BestSellerLabelAssignmentDTO $item */
         return $item->label !== null ? 'dispatched_add' : 'dispatched_remove';

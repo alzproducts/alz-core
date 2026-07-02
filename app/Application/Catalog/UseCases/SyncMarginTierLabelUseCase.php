@@ -65,7 +65,7 @@ final readonly class SyncMarginTierLabelUseCase extends AbstractDriftSyncUseCase
     }
 
     #[Override]
-    protected function countKey(object $item): ?string
+    protected function countKey(object $item): string
     {
         /** @var MarginTierAssignmentDTO $item */
         return 'dispatched_' . match ($item->targetLabel) {

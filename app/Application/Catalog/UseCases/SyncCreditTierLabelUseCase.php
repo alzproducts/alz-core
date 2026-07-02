@@ -65,7 +65,7 @@ final readonly class SyncCreditTierLabelUseCase extends AbstractDriftSyncUseCase
     }
 
     #[Override]
-    protected function countKey(object $item): ?string
+    protected function countKey(object $item): string
     {
         /** @var CreditTierLabelChangeDTO $item */
         return match ($item->targetTier) {

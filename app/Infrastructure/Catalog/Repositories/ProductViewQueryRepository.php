@@ -7,6 +7,7 @@ namespace App\Infrastructure\Catalog\Repositories;
 use App\Application\Catalog\BestSellerLabels\BestSellerLabelChangesResult;
 use App\Application\Catalog\DTOs\CreditTierLabelChangeDTO;
 use App\Application\Catalog\DTOs\MarginTierAssignmentDTO;
+use App\Application\Catalog\Enums\BestSellerLabel;
 use App\Application\Catalog\Enums\CreditTier;
 use App\Application\Catalog\Enums\CustomLabelField;
 use App\Application\Catalog\Enums\MarginTier;
