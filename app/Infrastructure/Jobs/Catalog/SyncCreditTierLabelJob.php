@@ -6,6 +6,7 @@ namespace App\Infrastructure\Jobs\Catalog;
 
 use App\Application\Catalog\UseCases\SyncCreditTierLabelUseCase;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Data\InvalidEnumValueException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Infrastructure\Jobs\AbstractJob;
@@ -55,6 +56,7 @@ final class SyncCreditTierLabelJob extends AbstractJob implements ShouldBeUnique
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
+     * @throws InvalidEnumValueException
      */
     public function handle(SyncCreditTierLabelUseCase $useCase): void
     {

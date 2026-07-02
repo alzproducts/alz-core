@@ -15,6 +15,4 @@ enum CreditTier: string
     case Tier1 = 'Credit - Tier 1';
     case Tier2 = 'Credit - Tier 2';
     case Tier3 = 'Credit - Tier 3';
-
-    public const string FIELD = 'custom_label_0';
 }

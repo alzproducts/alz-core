@@ -7,8 +7,8 @@ namespace App\Infrastructure\Catalog\Repositories;
 use App\Application\Catalog\BestSellerLabels\BestSellerLabelChangesResult;
 use App\Application\Catalog\DTOs\CreditTierLabelChangeDTO;
 use App\Application\Catalog\DTOs\MarginTierAssignmentDTO;
-use App\Application\Catalog\Enums\BestSellerLabel;
 use App\Application\Catalog\Enums\CreditTier;
+use App\Application\Catalog\Enums\CustomLabelField;
 use App\Application\Catalog\Enums\MarginTier;
 use App\Application\Contracts\Catalog\ProductViewQueryRepositoryInterface;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
@@ -29,7 +29,7 @@ final class ProductViewQueryRepository implements ProductViewQueryRepositoryInte
     /** @var class-string<ProductViewModel> */
     private const string MODEL_CLASS = ProductViewModel::class;
 
-    private const string LABEL_TEXT_PATH = "custom_fields->>'" . BestSellerLabel::FIELD . "'";
+    private const string LABEL_TEXT_PATH = "custom_fields->>'" . CustomLabelField::BestSellers->value . "'";
 
     public function __construct(
         private readonly EloquentGateway $eloquentGateway,

@@ -11,22 +11,21 @@ use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Data\InvalidEnumValueException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use Override;
 use Psr\Log\LoggerInterface;
 
 /**
- * Orchestrate hourly sync of ShopWired "Offers → On Sale" product filters.
- *
- * Queries the merge-preserving SQL view for products whose Offers filter slot
- * has drifted from the canonical sale-active rule, then dispatches one
- * per-entity job per product to apply the update.
+ * @extends AbstractDriftSyncUseCase<ProductFilterChangeCommand>
  */
-final readonly class SyncOffersFiltersUseCase
+final readonly class SyncOffersFiltersUseCase extends AbstractDriftSyncUseCase
 {
     public function __construct(
         private OffersFilterQueryRepositoryInterface $offersFilterRepo,
         private CatalogSyncDispatcherInterface $dispatcher,
-        private LoggerInterface $logger,
-    ) {}
+        LoggerInterface $logger,
+    ) {
+        parent::__construct($logger);
+    }
 
     /**
      * @throws DatabaseOperationFailedException
@@ -36,32 +35,30 @@ final readonly class SyncOffersFiltersUseCase
      */
     public function execute(): void
     {
-        $this->logger->info('SyncOffersFilters: starting');
-
-        $changes = $this->offersFilterRepo->getProductsWithChangedOffersFilters();
-
-        if ($changes === []) {
-            $this->logger->info('SyncOffersFilters: no products with changed Offers filters');
-
-            return;
-        }
-
-        $this->dispatchAll($changes);
-
-        $this->logger->info('SyncOffersFilters: dispatched Offers filter updates', [
-            'count' => \count($changes),
-        ]);
+        $this->process();
     }
 
-    /** @param list<ProductFilterChangeCommand> $changes */
-    private function dispatchAll(array $changes): void
+    /** @return list<ProductFilterChangeCommand> */
+    #[Override]
+    protected function fetchDrift(): array
     {
-        foreach ($changes as $change) {
-            $this->dispatcher->dispatchFilterUpdate(
-                $change->productId,
-                $change->optionNo,
-                $change->filterValuesForDispatch(),
-            );
-        }
+        return $this->offersFilterRepo->getProductsWithChangedOffersFilters();
+    }
+
+    #[Override]
+    protected function dispatchOne(object $item): void
+    {
+        /** @var ProductFilterChangeCommand $item */
+        $this->dispatcher->dispatchFilterUpdate(
+            $item->productId,
+            $item->optionNo,
+            $item->filterValuesForDispatch(),
+        );
+    }
+
+    #[Override]
+    protected function syncName(): string
+    {
+        return 'SyncOffersFilters';
     }
 }
