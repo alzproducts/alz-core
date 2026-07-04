@@ -54,25 +54,6 @@ final class EloquentBrandRepository extends AbstractEloquentRepository implement
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      */
-    public function findAll(): array
-    {
-        return $this->eloquentGateway->query(static fn(): array => \array_values(
-            BrandModel::query()
-                ->orderBy('sort_order')
-                ->orderBy('title')
-                ->get()
-                ->map(static fn(BrandModel $model): Brand => $model->toDomain())
-                ->all(),
-        ));
-    }
-
-    /**
-     * {@inheritDoc}
-     *
-     * @throws DatabaseOperationFailedException
-     * @throws DuplicateRecordException
-     * @throws ExternalServiceUnavailableException
-     */
     public function saveFromWebhook(Brand $brand, array $presentEmbeds = []): void
     {
         $attributes = BrandModel::fromDomainAttributes($brand);

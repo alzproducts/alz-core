@@ -11,7 +11,7 @@ Query classes in this directory use a **co-located Row DTO pattern**: the `*Row`
 
 ## Template
 
-Use `StockItemBySkuQuery.php` as the canonical template when creating new queries.
+Use `DeltaStockLevelQuery.php` as the canonical template when creating new queries.
 
 **Structure:**
 ```php
@@ -37,5 +37,5 @@ final readonly class ExampleQuery extends AbstractLinnworksQuery
 
 ## Naming Convention
 
-- Query: `{Purpose}Query` (e.g., `StockItemBySkuQuery`)
-- Row: `{Purpose}Row` (e.g., `StockItemBySkuRow`)
+- Query: `{Purpose}Query` (e.g., `DeltaStockLevelQuery`)
+- Row: `{Purpose}Row` (e.g., `DeltaStockLevelRow`)

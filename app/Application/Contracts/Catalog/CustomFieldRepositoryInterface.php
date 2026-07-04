@@ -30,15 +30,6 @@ use App\Domain\ValueObjects\Uuid;
 interface CustomFieldRepositoryInterface extends RepositoryWriteInterface
 {
     /**
-     * Find a custom field definition by its name.
-     *
-     * @throws DatabaseOperationFailedException On query failure
-     * @throws DuplicateRecordException On constraint violation
-     * @throws ExternalServiceUnavailableException When database temporarily unavailable
-     */
-    public function findByName(string $name): ?ConfiguredFieldDefinition;
-
-    /**
      * Get all custom field definitions for a specific item type.
      *
      * @return list<ConfiguredFieldDefinition>

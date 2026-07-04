@@ -26,16 +26,6 @@ use App\Domain\ValueObjects\PaginatedList;
 interface CategoryRepositoryInterface extends RepositoryWriteInterface
 {
     /**
-     * Get all categories, ordered by sort_order.
-     *
-     * @return list<Category>
-     *
-     * @throws DatabaseOperationFailedException On query failure
-     * @throws ExternalServiceUnavailableException When database temporarily unavailable
-     */
-    public function findAll(): array;
-
-    /**
      * Upsert a category from webhook data.
      *
      * When $presentEmbeds is non-empty, only persists embed columns that were

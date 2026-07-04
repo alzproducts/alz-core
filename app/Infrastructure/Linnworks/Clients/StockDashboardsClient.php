@@ -22,7 +22,6 @@ use App\Infrastructure\Linnworks\Queries\CompositeStockItemFlagsQuery;
 use App\Infrastructure\Linnworks\Queries\DeltaStockLevelQuery;
 use App\Infrastructure\Linnworks\Queries\FullStockLevelQuery;
 use App\Infrastructure\Linnworks\Queries\ModifiedStockItemQuery;
-use App\Infrastructure\Linnworks\Queries\StockItemBySkuQuery;
 use DateTimeImmutable;
 
 /**
@@ -38,25 +37,6 @@ final readonly class StockDashboardsClient implements StockDashboardsClientInter
     public function __construct(
         private DashboardsClient $dashboardsClient,
     ) {}
-
-    /**
-     * {@inheritDoc}
-     *
-     * @throws InvalidApiResponseException When query fails
-     * @throws InvalidApiRequestException When request parameters are invalid
-     * @throws AuthenticationExpiredException When credentials invalid
-     * @throws ResourceNotFoundException When resource not found
-     * @throws ExternalServiceUnavailableException When API unavailable
-     */
-    public function findStockItemsBySku(array $skus): array
-    {
-        if ($skus === []) {
-            return [];
-        }
-
-        /** @var array<string, Guid> */
-        return $this->dashboardsClient->execute(new StockItemBySkuQuery($skus));
-    }
 
     /**
      * {@inheritDoc}

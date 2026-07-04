@@ -6,7 +6,6 @@ namespace App\Infrastructure\Shopwired\Clients;
 
 use App\Application\Contracts\Shopwired\OrderClientInterface;
 use App\Domain\Catalog\Order\ValueObjects\Order as DomainOrder;
-use App\Domain\Catalog\Order\ValueObjects\OrderLifecycleStatus;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
@@ -14,9 +13,7 @@ use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Api\ResourceNotAvailableException;
 use App\Infrastructure\Shopwired\Contracts\ShopwiredTransportInterface;
 use App\Infrastructure\Shopwired\Enums\OrderSort;
-use App\Infrastructure\Shopwired\Mappers\OrderLifecycleStatusMapper;
 use App\Infrastructure\Shopwired\OrderQueryParams;
-use App\Infrastructure\Shopwired\Requests\OrderStatusUpdateOptions;
 use App\Infrastructure\Shopwired\Responses\OrderResponse;
 use App\Infrastructure\Shopwired\ShopwiredPaginator;
 use App\Infrastructure\Shopwired\ShopwiredQueryParams;
@@ -26,10 +23,6 @@ use Generator;
 
 /**
  * ShopWired Orders API Client.
- *
- * Two-mode approach:
- * - Standard: All fields + embeds, NO products, NO customFields
- * - Detail: Standard + products + customFields
  *
  * HTTP concerns (auth, retry, timeout) delegated to ShopwiredHttpTransport.
  *
@@ -42,12 +35,11 @@ final readonly class OrderClient implements OrderClientInterface
     private const string ENDPOINT_ORDERS = 'orders';
 
     /**
-     * Fields for STANDARD requests.
-     * All order data except products and customFields (Detail-only).
+     * Fields included in order requests.
      *
      * @var list<string>
      */
-    private const array STANDARD_FIELDS = [
+    private const array FIELDS = [
         'id',
         'reference',
         'created',
@@ -83,26 +75,16 @@ final readonly class OrderClient implements OrderClientInterface
         'partialPayments',
         'adminComments',
         'fileArchives',
-    ];
-
-    /**
-     * Fields for DETAIL requests.
-     * Standard + products + customFields.
-     *
-     * @var list<string>
-     */
-    private const array DETAIL_FIELDS = [
-        ...self::STANDARD_FIELDS,
         'products',
         'customFields',
     ];
 
     /**
-     * Embeds for STANDARD requests.
+     * Embeds included in order requests.
      *
      * @var list<string>
      */
-    private const array STANDARD_EMBEDS = [
+    private const array EMBEDS = [
         'status',
         'billing_address',
         'shipping_address',
@@ -115,16 +97,6 @@ final readonly class OrderClient implements OrderClientInterface
         'partial_payments',
         'admin_comments',
         'file_archives',
-    ];
-
-    /**
-     * Embeds for DETAIL requests.
-     * Standard + products + custom_fields.
-     *
-     * @var list<string>
-     */
-    private const array DETAIL_EMBEDS = [
-        ...self::STANDARD_EMBEDS,
         'products',
         'custom_fields',
     ];
@@ -142,32 +114,6 @@ final readonly class OrderClient implements OrderClientInterface
      * @throws ExternalServiceUnavailableException When API unavailable or connection fails
      * @throws InvalidApiResponseException When response parsing fails (API contract violation)
      */
-    public function listOrdersInRangeWithDetails(DateTimeImmutable $from, DateTimeImmutable $to): array
-    {
-        $params = OrderQueryParams::forBulkFetch()
-            ->withFrom($from->getTimestamp())
-            ->withTo($to->getTimestamp())
-            ->withBaseParams(
-                ShopwiredQueryParams::forBulkFetch()
-                    ->withEmbeds(self::DETAIL_EMBEDS)
-                    ->withFields(self::DETAIL_FIELDS),
-            );
-
-        return ShopwiredPaginator::fetchAll(
-            params: $params,
-            fetchPage: fn(OrderQueryParams $p): array => $this->fetchOrderPage($p),
-        );
-    }
-
-    /**
-     * @return list<DomainOrder>
-     *
-     * @throws InvalidApiRequestException When request parameters are invalid (400)
-     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
-     * @throws ResourceNotAvailableException When resource not found (404)
-     * @throws ExternalServiceUnavailableException When API unavailable or connection fails
-     * @throws InvalidApiResponseException When response parsing fails (API contract violation)
-     */
     public function listOrdersInRange(DateTimeImmutable $from, DateTimeImmutable $to): array
     {
         $params = OrderQueryParams::forBulkFetch()
@@ -175,8 +121,8 @@ final readonly class OrderClient implements OrderClientInterface
             ->withTo($to->getTimestamp())
             ->withBaseParams(
                 ShopwiredQueryParams::forBulkFetch()
-                    ->withEmbeds(self::STANDARD_EMBEDS)
-                    ->withFields(self::STANDARD_FIELDS),
+                    ->withEmbeds(self::EMBEDS)
+                    ->withFields(self::FIELDS),
             );
 
         return ShopwiredPaginator::fetchAll(
@@ -195,8 +141,8 @@ final readonly class OrderClient implements OrderClientInterface
     public function getOrderById(int $id): DomainOrder
     {
         $params = new ShopwiredQueryParams()
-            ->withEmbeds(self::DETAIL_EMBEDS)
-            ->withFields(self::DETAIL_FIELDS);
+            ->withEmbeds(self::EMBEDS)
+            ->withFields(self::FIELDS);
 
         $response = $this->transport->getResource(
             resourceType: 'Order',
@@ -207,85 +153,6 @@ final readonly class OrderClient implements OrderClientInterface
 
         /** @var DomainOrder */
         return self::parseSingleToDomain($response->json(), OrderResponse::class);
-    }
-
-    /**
-     * @throws InvalidApiRequestException When request parameters are invalid (400)
-     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
-     * @throws ResourceNotAvailableException When resource not found (404)
-     * @throws ExternalServiceUnavailableException When API unavailable or connection fails
-     * @throws InvalidApiResponseException When response parsing fails (API contract violation)
-     */
-    public function getOrderCount(): int
-    {
-        $response = $this->transport->get(self::ENDPOINT_ORDERS . '/count');
-
-        return self::parseCountResponse($response->json());
-    }
-
-    /**
-     * @throws InvalidApiRequestException When request parameters are invalid (400)
-     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
-     * @throws ResourceNotAvailableException When resource not found (404)
-     * @throws ExternalServiceUnavailableException When API unavailable or connection fails
-     * @throws InvalidApiResponseException When response parsing fails (API contract violation)
-     */
-    public function getOrderCountByStatus(int $statusId): int
-    {
-        $response = $this->transport->get(
-            self::ENDPOINT_ORDERS . '/count',
-            ['status' => $statusId],
-        );
-
-        return self::parseCountResponse($response->json());
-    }
-
-    /**
-     * @return list<DomainOrder>
-     *
-     * @throws InvalidApiRequestException When request parameters are invalid (400)
-     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
-     * @throws ResourceNotAvailableException When resource not found (404)
-     * @throws ExternalServiceUnavailableException When API unavailable or connection fails
-     * @throws InvalidApiResponseException When response parsing fails (API contract violation)
-     */
-    public function searchOrders(string $keyword): array
-    {
-        $response = $this->transport->get(
-            self::ENDPOINT_ORDERS . '/search',
-            ['keywords' => $keyword],
-        );
-
-        /** @var list<DomainOrder> */
-        return self::parseWrappedArrayToDomain($response->json(), OrderResponse::class);
-    }
-
-    /**
-     * @throws InvalidApiRequestException When request parameters are invalid (400)
-     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
-     * @throws ResourceNotAvailableException When order not found (404)
-     * @throws ExternalServiceUnavailableException When API unavailable or connection fails
-     */
-    public function updateOrderStatus(
-        int $orderId,
-        OrderLifecycleStatus $status,
-        bool $notifyCustomer = false,
-        ?string $trackingUrl = null,
-    ): void {
-        $options = new OrderStatusUpdateOptions(
-            sendEmail: $notifyCustomer,
-            trackingUrl: $trackingUrl,
-        );
-
-        $data = [
-            'status' => OrderLifecycleStatusMapper::toShopwiredId($status),
-            ...$options->toArray(),
-        ];
-
-        $this->transport->post(
-            self::ENDPOINT_ORDERS . '/' . $orderId . '/status',
-            $data,
-        );
     }
 
     /**
@@ -316,8 +183,6 @@ final readonly class OrderClient implements OrderClientInterface
      * Orders sorted by date descending (newest first) for resilience:
      * if sync fails mid-way, recent orders are already captured.
      *
-     * Uses Detail mode to include products and customFields.
-     *
      * @param int|null $maxPages Maximum pages to fetch (null = all)
      *
      * @return Generator<int, list<DomainOrder>, mixed, void>
@@ -335,8 +200,8 @@ final readonly class OrderClient implements OrderClientInterface
         $params = OrderQueryParams::forBulkFetch()
             ->withBaseParams(
                 ShopwiredQueryParams::forBulkFetch()
-                    ->withEmbeds(self::DETAIL_EMBEDS)
-                    ->withFields(self::DETAIL_FIELDS),
+                    ->withEmbeds(self::EMBEDS)
+                    ->withFields(self::FIELDS),
             )
             ->withSort(OrderSort::DateDesc);
 

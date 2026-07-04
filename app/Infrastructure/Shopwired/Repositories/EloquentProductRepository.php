@@ -32,7 +32,6 @@ use App\Infrastructure\Catalog\Product\Models\ProductViewModel;
 use App\Infrastructure\Persistence\EloquentGateway;
 use App\Infrastructure\Repositories\AbstractEloquentRepository;
 use Closure;
-use Generator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Log;
@@ -500,28 +499,6 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
     /**
      * {@inheritDoc}
      *
-     * Uses lazy() with chunk size of 100 to balance memory efficiency with query overhead.
-     *
-     * @return Generator<int, Product>
-     *
-     * @throws DatabaseOperationFailedException During iteration - query failure
-     * @throws DuplicateRecordException On constraint violation
-     * @throws ExternalServiceUnavailableException During iteration - DB unavailable
-     * @throws InvalidCustomFieldValueException During iteration - value type mismatch
-     * @throws MissingRequiredDataException When custom field definitions table is empty
-     */
-    public function streamAll(): Generator
-    {
-        yield from $this->eloquentGateway->streamAll(
-            modelClass: self::MODEL_CLASS,
-            relations: self::EAGER_LOAD_RELATIONS,
-            mapper: fn(ProductModel $model): Product => $this->mapModelToDomain($model),
-        );
-    }
-
-    /**
-     * {@inheritDoc}
-     *
      * Uses SQL UNION for single-pass query across both tables.
      *
      * @return list<string>
@@ -714,29 +691,6 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
 
         // Load parent product with variations
         return $this->getProduct(IntId::from($productExternalId));
-    }
-
-    /**
-     * {@inheritDoc}
-     *
-     * @return list<Product>
-     *
-     * @throws InvalidCustomFieldValueException
-     * @throws DatabaseOperationFailedException
-     * @throws DuplicateRecordException
-     * @throws ExternalServiceUnavailableException
-     */
-    public function getProductsOnSale(): array
-    {
-        return $this->eloquentGateway->query(function (): array {
-            $query = self::MODEL_CLASS::query()->with(self::EAGER_LOAD_RELATIONS);
-            self::whereAnySaleActive($query);
-
-            /** @var list<Product> */
-            return $query->get()
-                ->map(fn(ProductModel $model): Product => $this->mapModelToDomain($model))
-                ->all();
-        });
     }
 
     /**
