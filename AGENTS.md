@@ -6,6 +6,8 @@ This file provides guidance to AI coding agents working on this repository.
 
 > **Note**: `${FRONTEND_APP}` placeholders in this codebase resolve via the `FRONTEND_APP` env var in `.claude/settings.local.json`.
 
+Linear team: COR
+
 ## ⚠️ Important: Stop Hooks
 
 **Account-level stop hooks run automatically when you finish responding.** These hooks execute:
