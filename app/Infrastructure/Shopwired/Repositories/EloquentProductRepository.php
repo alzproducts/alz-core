@@ -125,15 +125,23 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
                 };
             }
 
-            if ($query->sortField !== null) {
-                $q->orderBy(ProductSortFieldMapper::toColumn($query->sortField), $query->sortDirection->value);
-            } elseif ($searchTerm !== null) {
-                $q->orderByRaw(
-                    "ts_rank(to_tsvector('english', title), websearch_to_tsquery('english', ?)) DESC",
-                    [$searchTerm],
-                )->orderBy('title')->orderBy('id');
-            }
+            self::applyOrdering($q, $query, \is_string($searchTerm) ? $searchTerm : null);
         };
+    }
+
+    /**
+     * @param Builder<Model> $q
+     */
+    private static function applyOrdering(Builder $q, ProductListQueryParams $query, ?string $searchTerm): void
+    {
+        if ($query->sortField !== null) {
+            $q->orderBy(ProductSortFieldMapper::toColumn($query->sortField), $query->sortDirection->value);
+        } elseif ($searchTerm !== null) {
+            $q->orderByRaw(
+                "ts_rank(to_tsvector('english', title), websearch_to_tsquery('english', ?)) DESC",
+                [$searchTerm],
+            )->orderBy('title')->orderBy('id');
+        }
     }
 
     /**

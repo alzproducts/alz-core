@@ -109,26 +109,15 @@ final class ListProductsRequestDTO extends Data
      */
     private function buildFilters(): array
     {
-        $filters = [];
-        if ($this->is_active !== null) {
-            $filters[ProductFilterField::IsActive->value] = $this->is_active;
-        }
-        if ($this->category_id !== null) {
-            $filters[ProductFilterField::CategoryId->value] = $this->category_id;
-        }
-        if ($this->is_on_sale !== null) {
-            $filters[ProductFilterField::IsOnSale->value] = $this->is_on_sale;
-        }
-        if ($this->sku !== null) {
-            $filters[ProductFilterField::Sku->value] = $this->sku;
-        }
-        if ($this->has_free_delivery !== null) {
-            $filters[ProductFilterField::HasFreeDelivery->value] = $this->has_free_delivery;
-        }
-        $trimmedSearch = $this->search !== null ? \trim($this->search) : '';
-        if ($trimmedSearch !== '') {
-            $filters[ProductFilterField::Search->value] = $trimmedSearch;
-        }
-        return $filters;
+        $trimmedSearch = $this->search !== null ? \mb_trim($this->search) : '';
+
+        return \array_filter([
+            ProductFilterField::IsActive->value => $this->is_active,
+            ProductFilterField::CategoryId->value => $this->category_id,
+            ProductFilterField::IsOnSale->value => $this->is_on_sale,
+            ProductFilterField::Sku->value => $this->sku,
+            ProductFilterField::HasFreeDelivery->value => $this->has_free_delivery,
+            ProductFilterField::Search->value => $trimmedSearch !== '' ? $trimmedSearch : null,
+        ], static fn (mixed $v): bool => $v !== null);
     }
 }
