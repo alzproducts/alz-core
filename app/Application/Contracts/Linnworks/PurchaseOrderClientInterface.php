@@ -75,7 +75,6 @@ interface PurchaseOrderClientInterface
      */
     public function getPurchaseOrderExtendedProperties(Guid $purchaseId): array;
 
-
     /**
      * Get notes for a purchase order.
      *

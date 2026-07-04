@@ -121,7 +121,6 @@ final class LinnworksClientFactory
         return new PurchaseOrderClient(self::getTransport($logThrottle));
     }
 
-
     /**
      * Create the purchase dashboards client for purchase-order-related SQL queries.
      */

@@ -262,7 +262,6 @@ final readonly class PurchaseOrderClient implements PurchaseOrderClientInterface
         );
     }
 
-
     /**
      * {@inheritDoc}
      *
