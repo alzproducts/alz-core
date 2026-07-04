@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Infrastructure\Jobs\Shopwired;
+namespace App\Infrastructure\Jobs\Catalog;
 
-use App\Application\Catalog\Enums\MarginTier;
-use App\Application\Catalog\UseCases\SetProductMarginTierLabelUseCase;
+use App\Application\Catalog\Enums\CustomLabelField;
+use App\Application\Contracts\Shopwired\ProductUpdateClientInterface;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
@@ -20,33 +20,28 @@ use App\Infrastructure\Jobs\Middleware\ServiceRateLimiter;
 use DateTimeImmutable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 
-/**
- * Update the margin-tier label on a single product's custom_label_1 field.
- *
- * Receives pre-computed target labels from the orchestrator — applies them
- * via {@see SetProductMarginTierLabelUseCase} which calls ProductUpdateClientInterface
- * directly (bypasses CustomFieldSubmissionValidator, mirroring the COR-128 precedent).
- */
-final class SetProductMarginTierLabelJob extends AbstractJob implements ShouldBeUnique
+final class SetProductLabelJob extends AbstractJob implements ShouldBeUnique
 {
     public int $tries = 6;
 
     public int $maxExceptions = 3;
 
     public int $timeout = 60;
+
     /** @var array<int> */
     public array $backoff = [60, 300, 900];
 
     public function __construct(
         public readonly IntId $productId,
-        public readonly MarginTier $label,
+        public readonly CustomLabelField $field,
+        public readonly ?string $value,
     ) {
         $this->onQueue(QueueName::Bulk->value);
     }
 
     public function uniqueId(): string
     {
-        return (string) $this->productId->value;
+        return $this->productId->value . ':' . $this->field->value;
     }
 
     /** @return list<object> */
@@ -72,8 +67,11 @@ final class SetProductMarginTierLabelJob extends AbstractJob implements ShouldBe
      * @throws ExternalServiceUnavailableException
      * @throws InvalidApiResponseException
      */
-    public function handle(SetProductMarginTierLabelUseCase $useCase): void
+    public function handle(ProductUpdateClientInterface $updateClient): void
     {
-        $useCase->execute($this->productId, $this->label);
+        $updateClient->updateCustomFields(
+            $this->productId->value,
+            [$this->field->value => $this->value],
+        );
     }
 }

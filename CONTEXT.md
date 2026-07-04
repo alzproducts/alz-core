@@ -15,11 +15,17 @@ One of four mutually-exclusive labels (`1 - Low margin`, `2 - Standard margin`, 
 The value `(net_margin_single_unit_min + net_margin_single_unit_max) / 2` compared against margin-tier thresholds. Smooths single-outlier variations without computing a true per-variation average.
 
 **ShopWired custom_label_N**:
-ShopWired's `custom_label_N` series of single-select string custom fields on products. Two known owners in this codebase: `custom_label_4` → Best Sellers, `custom_label_1` → Margin tier. Design intent: each field is written by exactly one sync (see **Drift** below for why).
+ShopWired's `custom_label_N` series of single-select string custom fields on products. Three known owners in this codebase: `custom_label_0` → Credit tier, `custom_label_1` → Margin tier, `custom_label_4` → Best Sellers. Design intent: each field is written by exactly one **drift sync** (see **Drift** below for why).
 _Avoid_: treating these as value-list/array fields. Despite the "label" naming, they are single-select strings — the confusion previously produced a silent-write bug.
 
 **Drift**:
-The state when a product's current `custom_label_N` value differs from the value the sync would compute now. Detected by a single SQL query per sync and resolved by dispatching per-product update jobs.
+The state when a product's current synced attribute — a `custom_label_N` value or a filter value set — differs from the value the owning sync would compute now. Detected by a single SQL query per sync and resolved by dispatching per-product update jobs.
+
+**Drift sync**:
+A scheduled sync that detects **drift** with one SQL query and corrects it by dispatching one update job per drifted product. Eight exist: three label syncs (credit tier, margin tier, Best Sellers) and five filter syncs (VAT relief, rating, offers, shipping offers, shipping options).
+
+**Credit tier**:
+One of three labels (`Credit - Tier 1` … `Credit - Tier 3`) assigned to a ShopWired product on `custom_label_0` from the credit product popularity snapshot. A product with no credit sales in the latest snapshot has no tier — its field is cleared.
 
 **Best Sellers label**:
 The string `"Best Sellers"` written to `custom_label_4` for products with `popularity_rank <= 2`.

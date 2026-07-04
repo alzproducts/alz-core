@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Application\Contracts\Shopwired;
 
-use App\Application\Catalog\Enums\CreditTier;
-use App\Application\Catalog\Enums\MarginTier;
 use App\Domain\Catalog\Product\Commands\SetFreeDeliveryCommand;
 use App\Domain\ValueObjects\IntId;
 use DateTimeImmutable;
@@ -66,22 +64,4 @@ interface ShopwiredSyncDispatcherInterface
         array $relatedProductIds,
     ): void;
 
-    /**
-     * Dispatch a job to set the Best Sellers label on a product's custom_label_4 field.
-     *
-     * @param string|null $label Label value, or null to clear the field.
-     */
-    public function dispatchBestSellerLabelUpdate(IntId $productId, ?string $label): void;
-
-    /**
-     * Dispatch a job to set the margin-tier label on a product's custom_label_1 field.
-     */
-    public function dispatchMarginTierLabelUpdate(IntId $productId, MarginTier $label): void;
-
-    /**
-     * Dispatch a job to set the credit-tier label on a product's custom_label_0 field.
-     *
-     * `null` tier clears the field (product has no credit sales in the latest snapshot).
-     */
-    public function dispatchCreditTierLabelUpdate(IntId $productId, ?CreditTier $tier): void;
 }
