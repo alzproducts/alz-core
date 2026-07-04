@@ -51,7 +51,7 @@ final readonly class SyncOrdersRangeUseCase
     public function execute(DateTimeImmutable $from, DateTimeImmutable $to): SyncResult
     {
         // Fetch orders from ShopWired API (with full details for persistence)
-        $orders = $this->orderClient->listOrdersInRangeWithDetails($from, $to);
+        $orders = $this->orderClient->listOrdersInRange($from, $to);
 
         if ($orders === []) {
             $this->logger->info('No orders found in date range', [

@@ -95,7 +95,7 @@ final class ShopwiredAuditOrderSyncCommand extends Command
     private function fetchAndCountApi(OrderClientInterface $client, DateTimeImmutable $from, DateTimeImmutable $to): array
     {
         $this->info('Fetching orders from ShopWired API...');
-        $orders = $client->listOrdersInRangeWithDetails($from, $to);
+        $orders = $client->listOrdersInRange($from, $to);
         [$ids, $lineCount] = $this->extractApiCounts($orders);
 
         return [$orders, $ids, $lineCount];

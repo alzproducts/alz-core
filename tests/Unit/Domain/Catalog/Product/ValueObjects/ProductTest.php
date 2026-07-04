@@ -302,56 +302,9 @@ final class ProductTest extends TestCase
         self::assertSame(40, $product->totalStock());
     }
 
-    #[Test]
-    public function is_in_stock_true_when_positive_stock(): void
-    {
-        $product = self::createProduct(['stock' => 1]);
-        self::assertTrue($product->isInStock());
-    }
-
-    #[Test]
-    public function is_in_stock_false_when_zero_stock(): void
-    {
-        $product = self::createProduct(['stock' => 0]);
-        self::assertFalse($product->isInStock());
-    }
-
-    #[Test]
-    public function is_in_stock_false_when_negative_stock(): void
-    {
-        $product = self::createProduct(['stock' => -5]);
-        self::assertFalse($product->isInStock());
-    }
-
-    #[Test]
-    public function is_in_stock_uses_variation_totals(): void
-    {
-        // Arrange - master stock is 0, but variations have stock
-        $variations = [
-            self::createVariation(1, 'VAR-001', 10),
-        ];
-        $product = self::createProduct(['stock' => 0], variations: $variations);
-
-        // Assert
-        self::assertTrue($product->isInStock());
-    }
-
-    #[Test]
-    public function get_stock_level_returns_total_stock(): void
-    {
-        // Arrange
-        $variations = [
-            self::createVariation(1, 'VAR-001', 25),
-            self::createVariation(2, 'VAR-002', 15),
-        ];
-        $product = self::createProduct(variations: $variations);
-
-        // Assert
-        self::assertSame(40, $product->getStockLevel());
-    }
 
     // ========================================================================
-    // Sale Price Logic (from BasicProductTrait)
+    // Sale Price Logic
     // ========================================================================
 
     #[Test]
@@ -521,45 +474,6 @@ final class ProductTest extends TestCase
         $product = self::createProduct(['sku' => null, 'variations' => []]);
 
         self::assertSame([], $product->allSkus());
-    }
-
-    // ========================================================================
-    // Interface Methods
-    // ========================================================================
-
-    #[Test]
-    public function sku_method_returns_sku(): void
-    {
-        $product = self::createProduct(['sku' => 'ABC-123']);
-        self::assertSame('ABC-123', $product->sku());
-    }
-
-    #[Test]
-    public function price_method_returns_price(): void
-    {
-        $product = self::createProduct(['price' => 49.99]);
-        self::assertSame(49.99, $product->price());
-    }
-
-    #[Test]
-    public function cost_price_method_returns_cost_price(): void
-    {
-        $product = self::createProduct(['costPrice' => 25.00]);
-        self::assertSame(25.00, $product->costPrice());
-    }
-
-    #[Test]
-    public function sale_price_method_returns_sale_price(): void
-    {
-        $product = self::createProduct(['salePrice' => 19.99]);
-        self::assertSame(19.99, $product->salePrice());
-    }
-
-    #[Test]
-    public function weight_method_returns_weight(): void
-    {
-        $product = self::createProduct(['weight' => 1.5]);
-        self::assertSame(1.5, $product->weight());
     }
 
     // ========================================================================

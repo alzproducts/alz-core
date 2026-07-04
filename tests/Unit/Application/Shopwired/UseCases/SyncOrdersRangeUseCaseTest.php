@@ -68,7 +68,7 @@ final class SyncOrdersRangeUseCaseTest extends TestCase
         $to = new DateTimeImmutable('2024-01-02');
 
         $this->orderClient
-            ->shouldReceive('listOrdersInRangeWithDetails')
+            ->shouldReceive('listOrdersInRange')
             ->once()
             ->with($from, $to)
             ->andReturn([]);
@@ -100,7 +100,7 @@ final class SyncOrdersRangeUseCaseTest extends TestCase
         $orders = [$this->createOrder(1), $this->createOrder(2)];
 
         $this->orderClient
-            ->shouldReceive('listOrdersInRangeWithDetails')
+            ->shouldReceive('listOrdersInRange')
             ->once()
             ->andReturn($orders);
 
@@ -140,7 +140,7 @@ final class SyncOrdersRangeUseCaseTest extends TestCase
         $failedRefs = [2, 3];
 
         $this->orderClient
-            ->shouldReceive('listOrdersInRangeWithDetails')
+            ->shouldReceive('listOrdersInRange')
             ->once()
             ->andReturn($orders);
 

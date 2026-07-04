@@ -12,7 +12,6 @@ use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Data\InvalidSkuException;
-use App\Domain\Inventory\ValueObjects\StockItem;
 use App\Domain\Inventory\ValueObjects\StockItemFull;
 use App\Domain\Inventory\ValueObjects\StockItemSupplierStat;
 use App\Domain\Inventory\ValueObjects\Supplier;
@@ -20,7 +19,6 @@ use App\Domain\ValueObjects\Guid;
 use App\Infrastructure\Linnworks\Contracts\LinnworksTransportInterface;
 use App\Infrastructure\Linnworks\Responses\SkuStockIdMappingResponse;
 use App\Infrastructure\Linnworks\Responses\StockItemFullResponse;
-use App\Infrastructure\Linnworks\Responses\StockItemResponse;
 use App\Infrastructure\Linnworks\Responses\StockSupplierStatResponse;
 use App\Infrastructure\Linnworks\Responses\SupplierResponse;
 use App\Infrastructure\Linnworks\Support\LinnworksResponseParserTrait;
@@ -67,20 +65,6 @@ final readonly class InventoryClient implements InventoryClientInterface
     public function __construct(
         private LinnworksTransportInterface $transport,
     ) {}
-
-    /**
-     * @throws ResourceNotFoundException When item doesn't exist
-     * @throws AuthenticationExpiredException When credentials are invalid
-     * @throws ExternalServiceUnavailableException When API is unavailable
-     * @throws InvalidApiRequestException When request parameters are invalid
-     * @throws InvalidApiResponseException When API response structure is invalid
-     */
-    public function getStockItemBySku(string $sku): StockItem
-    {
-        $stockItemId = $this->resolveSkuToStockItemId($sku);
-
-        return $this->fetchStockItemById($stockItemId->value);
-    }
 
     /**
      * Get StockItemId mappings for multiple SKUs.
@@ -176,32 +160,6 @@ final readonly class InventoryClient implements InventoryClientInterface
         }
 
         return new Guid($match->stockItemId);
-    }
-
-    /**
-     * Fetch full stock item details by StockItemId.
-     *
-     * @throws ResourceNotFoundException When item doesn't exist
-     * @throws AuthenticationExpiredException When credentials are invalid
-     * @throws ExternalServiceUnavailableException When API is unavailable
-     * @throws InvalidApiRequestException When request parameters are invalid
-     * @throws InvalidApiResponseException When API response structure is invalid
-     */
-    private function fetchStockItemById(string $stockItemId): StockItem
-    {
-        $response = $this->transport->get(
-            endpoint: '/api/Inventory/GetInventoryItemById',
-            query: ['id' => $stockItemId],
-        );
-
-        $data = $response->json();
-
-        if ($data === null) {
-            throw new ResourceNotFoundException(self::SERVICE_NAME, 'StockItem', $stockItemId);
-        }
-
-        /** @var StockItem */
-        return self::parseSingleToDomain($data, StockItemResponse::class);
     }
 
     /**

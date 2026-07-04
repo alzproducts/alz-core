@@ -33,14 +33,6 @@ return self::parseWrappedArrayToDomain($response->json(), Order::class);
 return self::parseSingleToDomain($response->json(), Order::class);
 ```
 
-## Two-Mode Pattern (Orders)
-
-Orders use Standard vs Detail modes:
-- **Standard**: Lightweight (no `products`/`customFields`)
-- **Detail**: Complete data (all fields)
-
-See `OrderClient.php` constants: `STANDARD_FIELDS`, `DETAIL_FIELDS`, `STANDARD_EMBEDS`, `DETAIL_EMBEDS`.
-
 ## Embed Return Formats
 
 **Embeds return different formats depending on the embed type.** Always check API documentation for each embed.

@@ -6,8 +6,6 @@ namespace App\Domain\Catalog\Product\ValueObjects;
 
 use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldValueList;
 use App\Domain\Catalog\Filters\ValueObjects\ProductFilter;
-use App\Domain\Catalog\Product\Concerns\BasicProductTrait;
-use App\Domain\Catalog\Product\Contracts\BasicProductInterface;
 use App\Infrastructure\Shopwired\Factories\ProductDomainFactory;
 use DateTimeImmutable;
 use Webmozart\Assert\Assert;
@@ -32,9 +30,8 @@ use Webmozart\Assert\Assert;
  *
  * @see https://shopwired.readme.io/reference/getproduct
  */
-final readonly class Product implements BasicProductInterface
+final readonly class Product
 {
-    use BasicProductTrait;
     /**
      * @param int $id ShopWired product ID (external identifier)
      * @param string|null $sku Master SKU
@@ -122,41 +119,21 @@ final readonly class Product implements BasicProductInterface
         ));
     }
 
-    // BasicProductInterface implementation (isOnSale, effectivePrice provided by BasicProductTrait)
-
-    public function sku(): ?string
+    public function isOnSale(): bool
     {
-        return $this->sku;
+        return self::isSaleActive($this->salePrice, $this->price);
     }
 
-    public function price(): float
+    public function effectivePrice(): float
     {
+        if (self::isSaleActive($this->salePrice, $this->price)) {
+            /** @var float $salePrice isSaleActive guarantees non-null, positive salePrice */
+            $salePrice = $this->salePrice;
+
+            return $salePrice;
+        }
+
         return $this->price;
-    }
-
-    public function costPrice(): ?float
-    {
-        return $this->costPrice;
-    }
-
-    public function salePrice(): ?float
-    {
-        return $this->salePrice;
-    }
-
-    public function weight(): ?float
-    {
-        return $this->weight;
-    }
-
-    public function isInStock(): bool
-    {
-        return $this->totalStock() > 0;
-    }
-
-    public function getStockLevel(): int
-    {
-        return $this->totalStock();
     }
 
     /** @return list<Sku> */
