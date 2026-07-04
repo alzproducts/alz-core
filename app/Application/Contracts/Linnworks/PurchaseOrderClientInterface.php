@@ -10,7 +10,6 @@ use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
-use App\Domain\Linnworks\ValueObjects\PurchaseOrderAdditionalCost;
 use App\Domain\Linnworks\ValueObjects\PurchaseOrderCore;
 use App\Domain\Linnworks\ValueObjects\PurchaseOrderExtendedProperty;
 use App\Domain\Linnworks\ValueObjects\PurchaseOrderFull;
@@ -22,8 +21,6 @@ use JsonException;
 
 /**
  * Contract for Linnworks PurchaseOrder read operations.
- *
- * Write operations are defined in PurchaseOrderUpdateClientInterface.
  *
  * @template-pattern Application Contract Interface
  */
@@ -77,32 +74,6 @@ interface PurchaseOrderClientInterface
      * @throws ResourceNotFoundException When resource not found
      */
     public function getPurchaseOrderExtendedProperties(Guid $purchaseId): array;
-
-    /**
-     * Get additional costs for a purchase order.
-     *
-     * @return list<PurchaseOrderAdditionalCost>
-     *
-     * @throws AuthenticationExpiredException When credentials are invalid
-     * @throws ExternalServiceUnavailableException When API is unavailable
-     * @throws InvalidApiRequestException When request parameters are invalid
-     * @throws InvalidApiResponseException When API response structure is invalid
-     * @throws ResourceNotFoundException When resource not found
-     */
-    public function getAdditionalCosts(Guid $purchaseId): array;
-
-    /**
-     * Get available additional cost types.
-     *
-     * @return array<string, mixed>
-     *
-     * @throws AuthenticationExpiredException When credentials are invalid
-     * @throws ExternalServiceUnavailableException When API is unavailable
-     * @throws InvalidApiRequestException When request parameters are invalid
-     * @throws InvalidApiResponseException When API response structure is invalid
-     * @throws ResourceNotFoundException When resource not found
-     */
-    public function getAdditionalCostTypes(): array;
 
     /**
      * Get notes for a purchase order.

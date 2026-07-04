@@ -34,8 +34,6 @@ use JsonException;
 /**
  * Linnworks PurchaseOrder read operations client.
  *
- * Write operations are handled by PurchaseOrderUpdateClient.
- *
  * @template-pattern Infrastructure API Client
  */
 final readonly class PurchaseOrderClient implements PurchaseOrderClientInterface
@@ -261,55 +259,6 @@ final readonly class PurchaseOrderClient implements PurchaseOrderClientInterface
         return self::parseWrappedArrayToDomain(
             $response->json(),
             PurchaseOrderExtendedPropertyResponse::class,
-        );
-    }
-
-    /**
-     * {@inheritDoc}
-     *
-     * @return list<PurchaseOrderAdditionalCost>
-     *
-     * @throws AuthenticationExpiredException When credentials are invalid
-     * @throws ExternalServiceUnavailableException When API is unavailable
-     * @throws InvalidApiRequestException When request parameters are invalid
-     * @throws InvalidApiResponseException When API response structure is invalid
-     * @throws ResourceNotFoundException When resource not found
-     */
-    public function getAdditionalCosts(Guid $purchaseId): array
-    {
-        $response = $this->transport->post(
-            endpoint: '/api/PurchaseOrder/Get_Additional_Cost',
-            data: ['PurchaseId' => $purchaseId->value],
-        );
-
-        // Note: This endpoint returns lowercase 'items' (not 'Items')
-        /** @var list<PurchaseOrderAdditionalCost> */
-        return self::parseWrappedArrayToDomain(
-            $response->json(),
-            PurchaseOrderAdditionalCostResponse::class,
-            'items',
-        );
-    }
-
-    /**
-     * {@inheritDoc}
-     *
-     * @throws AuthenticationExpiredException When credentials are invalid
-     * @throws ExternalServiceUnavailableException When API is unavailable
-     * @throws InvalidApiRequestException When request parameters are invalid
-     * @throws InvalidApiResponseException When API response structure is invalid
-     * @throws ResourceNotFoundException When resource not found
-     */
-    public function getAdditionalCostTypes(): array
-    {
-        $response = $this->transport->postFormParams(
-            endpoint: '/api/PurchaseOrder/Get_AdditionalCostTypes',
-        );
-
-        /** @var array<string, mixed> */
-        return self::validateArrayResponse(
-            $response->json(),
-            'Get_AdditionalCostTypes returned non-array response',
         );
     }
 

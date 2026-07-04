@@ -30,6 +30,10 @@ One of three labels (`Credit - Tier 1` … `Credit - Tier 3`) assigned to a Shop
 **Best Sellers label**:
 The string `"Best Sellers"` written to `custom_label_4` for products with `popularity_rank <= 2`.
 
+**Product search**:
+The free-text `search` filter on the products list API. Matches whole words of the product **title** with English stemming ("lamp" finds "lamps"); results order by relevance unless the caller requests an explicit sort.
+_Avoid_: expecting substring or prefix behaviour — "lam" does not find "lamp". SKU lookup is the separate exact-match `sku` filter, not product search.
+
 ### Pricing & margin
 
 **Net margin (single unit)**:
