@@ -108,9 +108,10 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
             $resolvedFilters[] = [ProductFilterField::from($field), $value];
         }
 
-        return static function (Builder $q) use ($resolvedFilters, $query): void {
-            $searchTerm = null;
+        $searchFilter = $query->filters[ProductFilterField::Search->value] ?? null;
+        $searchTerm = \is_string($searchFilter) ? $searchFilter : null;
 
+        return static function (Builder $q) use ($resolvedFilters, $query, $searchTerm): void {
             foreach ($resolvedFilters as [$filter, $value]) {
                 $_ = match ($filter) {
                     ProductFilterField::IsActive => $q->where('is_active', $value),
@@ -120,12 +121,12 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
                     ProductFilterField::HasFreeDelivery => $q->where('has_free_delivery', $value),
                     ProductFilterField::Search => $q->whereRaw(
                         "to_tsvector('english', title) @@ websearch_to_tsquery('english', ?)",
-                        [$searchTerm = $value],
+                        [$value],
                     ),
                 };
             }
 
-            self::applyOrdering($q, $query, \is_string($searchTerm) ? $searchTerm : null);
+            self::applyOrdering($q, $query, $searchTerm);
         };
     }
 
