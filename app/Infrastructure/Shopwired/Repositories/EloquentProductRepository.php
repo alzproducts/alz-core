@@ -109,6 +109,8 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
         }
 
         return static function (Builder $q) use ($resolvedFilters, $query): void {
+            $searchTerm = null;
+
             foreach ($resolvedFilters as [$filter, $value]) {
                 $_ = match ($filter) {
                     ProductFilterField::IsActive => $q->where('is_active', $value),
@@ -116,11 +118,20 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
                     ProductFilterField::IsOnSale => $q->where('is_on_sale', $value),
                     ProductFilterField::Sku => $q->where('sku', $value),
                     ProductFilterField::HasFreeDelivery => $q->where('has_free_delivery', $value),
+                    ProductFilterField::Search => $q->whereRaw(
+                        "to_tsvector('english', title) @@ websearch_to_tsquery('english', ?)",
+                        [$searchTerm = $value],
+                    ),
                 };
             }
 
             if ($query->sortField !== null) {
                 $q->orderBy(ProductSortFieldMapper::toColumn($query->sortField), $query->sortDirection->value);
+            } elseif ($searchTerm !== null) {
+                $q->orderByRaw(
+                    "ts_rank(to_tsvector('english', title), websearch_to_tsquery('english', ?)) DESC",
+                    [$searchTerm],
+                )->orderBy('title')->orderBy('id');
             }
         };
     }
