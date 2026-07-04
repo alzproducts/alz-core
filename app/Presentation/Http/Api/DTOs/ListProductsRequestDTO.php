@@ -118,6 +118,6 @@ final class ListProductsRequestDTO extends Data
             ProductFilterField::Sku->value => $this->sku,
             ProductFilterField::HasFreeDelivery->value => $this->has_free_delivery,
             ProductFilterField::Search->value => $trimmedSearch !== '' ? $trimmedSearch : null,
-        ], static fn (mixed $v): bool => $v !== null);
+        ], static fn(mixed $v): bool => $v !== null);
     }
 }
