@@ -10,7 +10,6 @@ use App\Application\Contracts\Linnworks\InventoryFieldUpdateClientInterface;
 use App\Application\Contracts\Linnworks\InventoryUpdateClientInterface;
 use App\Application\Contracts\Linnworks\OrderClientInterface;
 use App\Application\Contracts\Linnworks\PurchaseOrderClientInterface;
-use App\Application\Contracts\Linnworks\PurchaseOrderUpdateClientInterface;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\InvalidConfigurationException;
@@ -23,7 +22,6 @@ use App\Infrastructure\Linnworks\Clients\OrderClient;
 use App\Infrastructure\Linnworks\Clients\OrderDashboardsClient;
 use App\Infrastructure\Linnworks\Clients\PurchaseDashboardsClient;
 use App\Infrastructure\Linnworks\Clients\PurchaseOrderClient;
-use App\Infrastructure\Linnworks\Clients\PurchaseOrderUpdateClient;
 use App\Infrastructure\Linnworks\Clients\StockDashboardsClient;
 use App\Infrastructure\Linnworks\Contracts\LinnworksTransportInterface;
 use App\Infrastructure\Linnworks\Enums\LinnworksLogLevel;
@@ -123,13 +121,6 @@ final class LinnworksClientFactory
         return new PurchaseOrderClient(self::getTransport($logThrottle));
     }
 
-    /**
-     * Create the purchase order write client.
-     */
-    public static function createPurchaseOrderUpdateClient(TransientLogThrottle $logThrottle): PurchaseOrderUpdateClientInterface
-    {
-        return new PurchaseOrderUpdateClient(self::getTransport($logThrottle));
-    }
 
     /**
      * Create the purchase dashboards client for purchase-order-related SQL queries.
