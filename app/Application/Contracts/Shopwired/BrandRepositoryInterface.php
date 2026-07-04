@@ -25,7 +25,6 @@ use App\Domain\ValueObjects\PaginatedList;
 interface BrandRepositoryInterface extends RepositoryWriteInterface
 {
     /**
-    /**
      * Upsert a brand from webhook data.
      *
      * When $presentEmbeds is non-empty, only persists embed columns that were

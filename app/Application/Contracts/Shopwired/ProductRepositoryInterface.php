@@ -165,9 +165,6 @@ interface ProductRepositoryInterface extends RepositoryWriteInterface
     public function getVariation(Sku|IntId $identifier): ProductVariation;
 
     /**
-     * Stream all products with full data (memory-efficient).
-     *
-    /**
      * Get all unique SKUs from products and variations.
      *
      * Returns distinct SKUs from both master products and variations.

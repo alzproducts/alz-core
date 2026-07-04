@@ -15,9 +15,9 @@ use Webmozart\Assert\Assert;
  * Contains business-essential fields only - infrastructure details
  * like fees, partial payments, weights stay in Infrastructure DTOs.
  *
- * Two-mode approach:
- * - Standard: products=null, customFields=null (not requested)
- * - Detail: products=[], customFields=[] (requested, possibly empty)
+ * Nullable collections indicate partial data:
+ * - null = not provided (webhook partial update or embed not requested)
+ * - [] = provided but empty
  *
  * @property array<int, OrderProduct>|null $products Null=not provided, []=empty
  * @property array<int, OrderDiscount>|null $discounts Null=not provided (webhook partial update), []=empty

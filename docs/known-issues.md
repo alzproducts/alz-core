@@ -39,8 +39,6 @@ None needed currently. Use `external_id` for precise customer lookup.
 
 ---
 
----
-
 ## Product Variations with Missing SKUs
 
 **Added:** 2026-01-22

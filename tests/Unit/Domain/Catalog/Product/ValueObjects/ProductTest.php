@@ -302,7 +302,6 @@ final class ProductTest extends TestCase
         self::assertSame(40, $product->totalStock());
     }
 
-
     // ========================================================================
     // Sale Price Logic
     // ========================================================================

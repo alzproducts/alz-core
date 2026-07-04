@@ -116,8 +116,6 @@ final class ShopwiredAuditOrderSyncCommand extends Command
     }
 
     /**
-     * Parse a date option or return the default.
-     *
      * @throws ValueError When setTime receives invalid values (impossible with 0,0,0)
      */
     private function parseDate(?string $dateString, DateTimeImmutable $default): DateTimeImmutable
@@ -138,8 +136,6 @@ final class ShopwiredAuditOrderSyncCommand extends Command
     }
 
     /**
-     * Extract order IDs and line count from API orders.
-     *
      * @param list<Order> $apiOrders
      *
      * @return array{list<int>, int} [orderIds, orderLineCount]
@@ -158,8 +154,6 @@ final class ShopwiredAuditOrderSyncCommand extends Command
     }
 
     /**
-     * Extract order IDs and line count from database orders.
-     *
      * @param list<Order> $dbOrders
      *
      * @return array{list<int>, int} [orderIds, orderLineCount]
@@ -178,8 +172,6 @@ final class ShopwiredAuditOrderSyncCommand extends Command
     }
 
     /**
-     * Display the comparison table.
-     *
      * @param list<int> $apiOrderIds
      * @param list<int> $dbOrderIds
      */
@@ -203,9 +195,6 @@ final class ShopwiredAuditOrderSyncCommand extends Command
         );
     }
 
-    /**
-     * Format a difference value with +/- prefix.
-     */
     private function formatDiff(int $diff): string
     {
         if ($diff === 0) {
@@ -216,8 +205,6 @@ final class ShopwiredAuditOrderSyncCommand extends Command
     }
 
     /**
-     * Display summary of missing items.
-     *
      * @param array<int> $missingOrderIds
      */
     private function displayMissingSummary(array $missingOrderIds, int $orderLineDiff): void
@@ -232,8 +219,6 @@ final class ShopwiredAuditOrderSyncCommand extends Command
     }
 
     /**
-     * Display summary of extra orders in database.
-     *
      * @param list<int> $dbOrderIds
      * @param list<int> $apiOrderIds
      */
@@ -251,8 +236,6 @@ final class ShopwiredAuditOrderSyncCommand extends Command
     }
 
     /**
-     * Display detailed missing items if --show-missing flag is set.
-     *
      * @param list<Order> $apiOrders
      * @param array<int> $missingOrderIds
      */

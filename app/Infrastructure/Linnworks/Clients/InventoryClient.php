@@ -34,10 +34,7 @@ final readonly class InventoryClient implements InventoryClientInterface
     use LinnworksResponseParserTrait;
 
     /**
-     * Data requirements for full stock item responses.
-     *
-     * Used by both GetStockItemsFull and GetStockItemsFullByIds endpoints
-     * to ensure consistent data is returned.
+     * Data requirements for GetStockItemsFull endpoint.
      *
      * @var list<string>
      */
