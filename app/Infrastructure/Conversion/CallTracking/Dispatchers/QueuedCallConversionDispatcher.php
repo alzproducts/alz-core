@@ -6,6 +6,7 @@ namespace App\Infrastructure\Conversion\CallTracking\Dispatchers;
 
 use App\Application\Contracts\Conversion\CallTracking\CallConversionDispatcherInterface;
 use App\Application\Conversion\CallTracking\Commands\CallLeadConversionCommand;
+use App\Application\Conversion\Enums\AdPlatform;
 use App\Infrastructure\Jobs\Conversion\CallTracking\ProcessBingCallLeadConversionJob;
 use App\Infrastructure\Jobs\Conversion\CallTracking\ProcessGoogleCallLeadConversionJob;
 use Override;
@@ -16,22 +17,19 @@ use Override;
 final readonly class QueuedCallConversionDispatcher implements CallConversionDispatcherInterface
 {
     #[Override]
-    public function dispatchGoogleCallLeadConversion(CallLeadConversionCommand $command): void
+    public function dispatchCallLeadConversion(AdPlatform $platform, CallLeadConversionCommand $command): void
     {
-        ProcessGoogleCallLeadConversionJob::dispatch(
-            $command->visitId->value,
-            $command->actionId->value,
-            $command->callerPhone->value,
-        );
-    }
-
-    #[Override]
-    public function dispatchBingCallLeadConversion(CallLeadConversionCommand $command): void
-    {
-        ProcessBingCallLeadConversionJob::dispatch(
-            $command->visitId->value,
-            $command->actionId->value,
-            $command->callerPhone->value,
-        );
+        match ($platform) {
+            AdPlatform::Google => ProcessGoogleCallLeadConversionJob::dispatch(
+                $command->visitId->value,
+                $command->actionId->value,
+                $command->callerPhone->value,
+            ),
+            AdPlatform::Bing => ProcessBingCallLeadConversionJob::dispatch(
+                $command->visitId->value,
+                $command->actionId->value,
+                $command->callerPhone->value,
+            ),
+        };
     }
 }

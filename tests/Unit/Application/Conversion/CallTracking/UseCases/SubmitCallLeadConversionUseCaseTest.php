@@ -96,8 +96,7 @@ final class SubmitCallLeadConversionUseCaseTest extends TestCase
         $this->database->shouldNotReceive('transact');
         $this->actionRepository->shouldNotReceive('create');
         $this->annotationRepository->shouldNotReceive('upsert');
-        $this->dispatcher->shouldNotReceive('dispatchGoogleCallLeadConversion');
-        $this->dispatcher->shouldNotReceive('dispatchBingCallLeadConversion');
+        $this->dispatcher->shouldNotReceive('dispatchCallLeadConversion');
 
         try {
             $this->execute(gclid: null, msclkid: null, isPotentialQuote: true);
@@ -124,11 +123,12 @@ final class SubmitCallLeadConversionUseCaseTest extends TestCase
                 && $cmd->columnsToClear === []));
 
         $captured = null;
-        $this->dispatcher->expects('dispatchGoogleCallLeadConversion')
-            ->andReturnUsing(static function (CallLeadConversionCommand $cmd) use (&$captured): void {
+        $this->dispatcher->expects('dispatchCallLeadConversion')
+            ->with(AdPlatform::Google, Mockery::on(static function (CallLeadConversionCommand $cmd) use (&$captured): bool {
                 $captured = $cmd;
-            });
-        $this->dispatcher->shouldNotReceive('dispatchBingCallLeadConversion');
+
+                return true;
+            }));
 
         $this->execute(gclid: self::GCLID, msclkid: null, isPotentialQuote: true);
 
@@ -151,7 +151,8 @@ final class SubmitCallLeadConversionUseCaseTest extends TestCase
             ->with(Mockery::on(static fn(UpsertAnnotationCommand $cmd): bool => $cmd->sourceId === self::CALL_ID
                 && $cmd->valuesToSet === ['is_potential_quote' => false]));
 
-        $this->dispatcher->expects('dispatchGoogleCallLeadConversion');
+        $this->dispatcher->expects('dispatchCallLeadConversion')
+            ->with(AdPlatform::Google, Mockery::type(CallLeadConversionCommand::class));
 
         $this->execute(gclid: self::GCLID, msclkid: null, isPotentialQuote: false);
     }

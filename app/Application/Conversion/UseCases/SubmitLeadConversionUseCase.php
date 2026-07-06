@@ -109,12 +109,14 @@ final readonly class SubmitLeadConversionUseCase
     {
         if (isset($actionIds[AdPlatform::Google->value])) {
             $this->dispatcher->dispatchLeadConversion(
+                AdPlatform::Google,
                 new LeadConversionCommand($submissionId, Uuid::fromTrusted($actionIds[AdPlatform::Google->value])),
             );
         }
 
         if (isset($actionIds[AdPlatform::Bing->value])) {
-            $this->dispatcher->dispatchBingLeadConversion(
+            $this->dispatcher->dispatchLeadConversion(
+                AdPlatform::Bing,
                 new LeadConversionCommand($submissionId, Uuid::fromTrusted($actionIds[AdPlatform::Bing->value])),
             );
         }

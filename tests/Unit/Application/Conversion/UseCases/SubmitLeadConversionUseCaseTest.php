@@ -111,7 +111,6 @@ final class SubmitLeadConversionUseCaseTest extends TestCase
         $this->actionRepository->shouldNotReceive('create');
         $this->annotationRepository->shouldNotReceive('upsert');
         $this->dispatcher->shouldNotReceive('dispatchLeadConversion');
-        $this->dispatcher->shouldNotReceive('dispatchBingLeadConversion');
 
         try {
             $this->useCase->execute(new Uuid(self::SUBMISSION_ID), true);
@@ -143,10 +142,11 @@ final class SubmitLeadConversionUseCaseTest extends TestCase
 
         $captured = null;
         $this->dispatcher->expects('dispatchLeadConversion')
-            ->andReturnUsing(static function (LeadConversionCommand $cmd) use (&$captured): void {
+            ->with(AdPlatform::Google, Mockery::on(static function (LeadConversionCommand $cmd) use (&$captured): bool {
                 $captured = $cmd;
-            });
-        $this->dispatcher->shouldNotReceive('dispatchBingLeadConversion');
+
+                return true;
+            }));
 
         $this->useCase->execute(new Uuid(self::SUBMISSION_ID), true);
 
@@ -172,11 +172,12 @@ final class SubmitLeadConversionUseCaseTest extends TestCase
         $this->annotationRepository->expects('upsert');
 
         $captured = null;
-        $this->dispatcher->expects('dispatchBingLeadConversion')
-            ->andReturnUsing(static function (LeadConversionCommand $cmd) use (&$captured): void {
+        $this->dispatcher->expects('dispatchLeadConversion')
+            ->with(AdPlatform::Bing, Mockery::on(static function (LeadConversionCommand $cmd) use (&$captured): bool {
                 $captured = $cmd;
-            });
-        $this->dispatcher->shouldNotReceive('dispatchLeadConversion');
+
+                return true;
+            }));
 
         $this->useCase->execute(new Uuid(self::SUBMISSION_ID), true);
 
@@ -207,13 +208,17 @@ final class SubmitLeadConversionUseCaseTest extends TestCase
         $googleCmd = null;
         $bingCmd = null;
         $this->dispatcher->expects('dispatchLeadConversion')
-            ->andReturnUsing(static function (LeadConversionCommand $cmd) use (&$googleCmd): void {
+            ->with(AdPlatform::Google, Mockery::on(static function (LeadConversionCommand $cmd) use (&$googleCmd): bool {
                 $googleCmd = $cmd;
-            });
-        $this->dispatcher->expects('dispatchBingLeadConversion')
-            ->andReturnUsing(static function (LeadConversionCommand $cmd) use (&$bingCmd): void {
+
+                return true;
+            }));
+        $this->dispatcher->expects('dispatchLeadConversion')
+            ->with(AdPlatform::Bing, Mockery::on(static function (LeadConversionCommand $cmd) use (&$bingCmd): bool {
                 $bingCmd = $cmd;
-            });
+
+                return true;
+            }));
 
         $this->useCase->execute(new Uuid(self::SUBMISSION_ID), true);
 
@@ -238,7 +243,8 @@ final class SubmitLeadConversionUseCaseTest extends TestCase
         $this->annotationRepository->expects('upsert')
             ->with(Mockery::on(static fn(UpsertAnnotationCommand $cmd): bool => $cmd->valuesToSet === ['is_potential_quote' => false]));
 
-        $this->dispatcher->expects('dispatchLeadConversion');
+        $this->dispatcher->expects('dispatchLeadConversion')
+            ->with(AdPlatform::Google, Mockery::type(LeadConversionCommand::class));
 
         $this->useCase->execute(new Uuid(self::SUBMISSION_ID), false);
     }
@@ -253,7 +259,6 @@ final class SubmitLeadConversionUseCaseTest extends TestCase
             ->andThrow(new RuntimeException('boom'));
 
         $this->dispatcher->shouldNotReceive('dispatchLeadConversion');
-        $this->dispatcher->shouldNotReceive('dispatchBingLeadConversion');
 
         $this->expectException(RuntimeException::class);
 

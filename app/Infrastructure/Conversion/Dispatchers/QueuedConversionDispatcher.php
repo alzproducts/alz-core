@@ -7,6 +7,7 @@ namespace App\Infrastructure\Conversion\Dispatchers;
 use App\Application\Contracts\Conversion\ConversionDispatcherInterface;
 use App\Application\Conversion\Commands\LeadConversionCommand;
 use App\Application\Conversion\Commands\QuoteConversionCommand;
+use App\Application\Conversion\Enums\AdPlatform;
 use App\Infrastructure\Jobs\Conversion\ProcessBingLeadConversionJob;
 use App\Infrastructure\Jobs\Conversion\ProcessLeadConversionJob;
 use App\Infrastructure\Jobs\Conversion\ProcessQuoteConversionJob;
@@ -19,15 +20,12 @@ use Override;
 final readonly class QueuedConversionDispatcher implements ConversionDispatcherInterface
 {
     #[Override]
-    public function dispatchLeadConversion(LeadConversionCommand $command): void
+    public function dispatchLeadConversion(AdPlatform $platform, LeadConversionCommand $command): void
     {
-        ProcessLeadConversionJob::dispatch($command->submissionId->value, $command->actionId->value);
-    }
-
-    #[Override]
-    public function dispatchBingLeadConversion(LeadConversionCommand $command): void
-    {
-        ProcessBingLeadConversionJob::dispatch($command->submissionId->value, $command->actionId->value);
+        match ($platform) {
+            AdPlatform::Google => ProcessLeadConversionJob::dispatch($command->submissionId->value, $command->actionId->value),
+            AdPlatform::Bing => ProcessBingLeadConversionJob::dispatch($command->submissionId->value, $command->actionId->value),
+        };
     }
 
     #[Override]
