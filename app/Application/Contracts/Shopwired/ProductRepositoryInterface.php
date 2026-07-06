@@ -189,18 +189,6 @@ interface ProductRepositoryInterface extends RepositoryWriteInterface
     public function deleteByExternalId(IntId $externalId): void;
 
     /**
-     * Get all products currently on sale (non-null, non-zero sale price).
-     *
-     * @return list<Product>
-     *
-     * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
-     * @throws DatabaseOperationFailedException On query failure
-     * @throws DuplicateRecordException On constraint violation
-     * @throws ExternalServiceUnavailableException When database temporarily unavailable
-     */
-    public function getProductsOnSale(): array;
-
-    /**
      * Get all on-sale products as read-side ProductView projections.
      *
      * Eager-loads variations and typed custom fields so the View-based
