@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Infrastructure\Notifications\Listeners;
 
+use App\Application\Catalog\Queries\ProductDetailQueryParams;
 use App\Application\Contracts\ChatNotificationInterface;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Application\Contracts\Shopwired\SaleSettingsRepositoryInterface;
