@@ -6,6 +6,7 @@ namespace Tests\Unit\Application\Shopwired\UseCases\Webhooks;
 
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Application\Contracts\Shopwired\ShopwiredSyncDispatcherInterface;
+use App\Application\Shopwired\Enums\ShopwiredEntityType;
 use App\Application\Contracts\Shopwired\WebhookIdempotencyServiceInterface;
 use App\Application\Shopwired\DTOs\WebhookContextDTO;
 use App\Application\Shopwired\Enums\WebhookTopic;
@@ -85,9 +86,9 @@ final class SyncProductUseCaseTest extends TestCase
             ->once()
             ->with(Mockery::on(static fn(IntId $id): bool => $id->value === 12345), WebhookTopic::ProductUpdated, 1, $eventTime);
 
-        $this->dispatcher->shouldReceive('dispatchProductSync')
+        $this->dispatcher->shouldReceive('dispatchEntitySync')
             ->once()
-            ->with(Mockery::on(static fn(IntId $id): bool => $id->value === 12345));
+            ->with(ShopwiredEntityType::Product, Mockery::on(static fn(IntId $id): bool => $id->value === 12345));
 
         $this->logger->shouldReceive('info')
             ->once()
@@ -121,8 +122,9 @@ final class SyncProductUseCaseTest extends TestCase
         $this->idempotency->shouldReceive('record')
             ->once();
 
-        $this->dispatcher->shouldReceive('dispatchProductSync')
-            ->once();
+        $this->dispatcher->shouldReceive('dispatchEntitySync')
+            ->once()
+            ->with(ShopwiredEntityType::Product, Mockery::any());
 
         $this->logger->shouldReceive('info')
             ->once()
@@ -151,7 +153,7 @@ final class SyncProductUseCaseTest extends TestCase
         $this->idempotency->shouldNotReceive('isSuperseded');
         $this->repository->shouldNotReceive('saveFromWebhook');
         $this->idempotency->shouldNotReceive('record');
-        $this->dispatcher->shouldNotReceive('dispatchProductSync');
+        $this->dispatcher->shouldNotReceive('dispatchEntitySync');
 
         $this->logger->shouldReceive('info')
             ->once()
@@ -184,7 +186,7 @@ final class SyncProductUseCaseTest extends TestCase
 
         $this->repository->shouldNotReceive('saveFromWebhook');
         $this->idempotency->shouldNotReceive('record');
-        $this->dispatcher->shouldNotReceive('dispatchProductSync');
+        $this->dispatcher->shouldNotReceive('dispatchEntitySync');
 
         $this->logger->shouldReceive('info')
             ->once()

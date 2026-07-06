@@ -6,6 +6,7 @@ namespace App\Application\Shopwired\UseCases\Webhooks;
 
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Application\Contracts\Shopwired\ShopwiredSyncDispatcherInterface;
+use App\Application\Shopwired\Enums\ShopwiredEntityType;
 use App\Application\Contracts\Shopwired\WebhookIdempotencyServiceInterface;
 use App\Application\Shopwired\DTOs\WebhookContextDTO;
 use App\Domain\Catalog\Product\ValueObjects\Product;
@@ -63,7 +64,7 @@ final readonly class SyncProductUseCase extends AbstractSyncEntityWebhookUseCase
     #[Override]
     protected function dispatchSyncJob(IntId $entityId): void
     {
-        $this->dispatcher->dispatchProductSync($entityId);
+        $this->dispatcher->dispatchEntitySync(ShopwiredEntityType::Product, $entityId);
     }
 
     #[Override]

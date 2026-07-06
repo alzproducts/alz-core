@@ -6,6 +6,7 @@ namespace App\Application\Shopwired\UseCases\Webhooks;
 
 use App\Application\Contracts\Shopwired\CategoryRepositoryInterface;
 use App\Application\Contracts\Shopwired\ShopwiredSyncDispatcherInterface;
+use App\Application\Shopwired\Enums\ShopwiredEntityType;
 use App\Application\Contracts\Shopwired\WebhookIdempotencyServiceInterface;
 use App\Application\Shopwired\DTOs\WebhookContextDTO;
 use App\Domain\Catalog\Category\ValueObjects\Category;
@@ -63,7 +64,7 @@ final readonly class SyncCategoryUseCase extends AbstractSyncEntityWebhookUseCas
     #[Override]
     protected function dispatchSyncJob(IntId $entityId): void
     {
-        $this->dispatcher->dispatchCategorySync($entityId);
+        $this->dispatcher->dispatchEntitySync(ShopwiredEntityType::Category, $entityId);
     }
 
     #[Override]

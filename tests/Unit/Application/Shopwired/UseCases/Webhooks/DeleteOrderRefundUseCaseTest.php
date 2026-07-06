@@ -6,6 +6,7 @@ namespace Tests\Unit\Application\Shopwired\UseCases\Webhooks;
 
 use App\Application\Contracts\Shopwired\OrderRepositoryInterface;
 use App\Application\Contracts\Shopwired\ShopwiredSyncDispatcherInterface;
+use App\Application\Shopwired\Enums\ShopwiredEntityType;
 use App\Application\Shopwired\UseCases\Webhooks\DeleteOrderRefundUseCase;
 use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Notifications\Events\ManagerAlertEvent;
@@ -63,9 +64,9 @@ final class DeleteOrderRefundUseCaseTest extends TestCase
             ->once()
             ->with($orderId, $refundId);
 
-        $this->dispatcher->shouldReceive('dispatchOrderSync')
+        $this->dispatcher->shouldReceive('dispatchEntitySync')
             ->once()
-            ->with($orderId);
+            ->with(ShopwiredEntityType::Order, $orderId);
 
         $this->logger->shouldReceive('info')
             ->once()

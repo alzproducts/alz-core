@@ -6,6 +6,7 @@ namespace Tests\Feature\Application\Shopwired\UseCases\Webhooks;
 
 use App\Application\Contracts\Shopwired\OrderRepositoryInterface;
 use App\Application\Contracts\Shopwired\ShopwiredSyncDispatcherInterface;
+use App\Application\Shopwired\Enums\ShopwiredEntityType;
 use App\Application\Contracts\Shopwired\WebhookIdempotencyServiceInterface;
 use App\Application\Shopwired\DTOs\WebhookContextDTO;
 use App\Application\Shopwired\Enums\WebhookTopic;
@@ -92,7 +93,7 @@ final class SyncOrderUseCaseTest extends TestCase
         $this->idempotency->shouldNotReceive('isSuperseded');
         $this->repository->shouldNotReceive('saveFromWebhook');
         $this->idempotency->shouldNotReceive('record');
-        $this->dispatcher->shouldNotReceive('dispatchOrderSync');
+        $this->dispatcher->shouldNotReceive('dispatchEntitySync');
 
         $this->useCase->execute(
             context: new WebhookContextDTO($staleEventTime, 99, WebhookTopic::OrderUpdated),
@@ -126,7 +127,7 @@ final class SyncOrderUseCaseTest extends TestCase
 
         $this->repository->shouldNotReceive('saveFromWebhook');
         $this->idempotency->shouldNotReceive('record');
-        $this->dispatcher->shouldNotReceive('dispatchOrderSync');
+        $this->dispatcher->shouldNotReceive('dispatchEntitySync');
 
         $this->useCase->execute(
             context: new WebhookContextDTO($eventTime, 99, WebhookTopic::OrderUpdated),
@@ -158,8 +159,9 @@ final class SyncOrderUseCaseTest extends TestCase
         $this->idempotency->shouldReceive('record')
             ->once();
 
-        $this->dispatcher->shouldReceive('dispatchOrderSync')
-            ->once();
+        $this->dispatcher->shouldReceive('dispatchEntitySync')
+            ->once()
+            ->with(ShopwiredEntityType::Order, Mockery::any());
 
         $this->logger->shouldReceive('info')
             ->once()
@@ -193,8 +195,9 @@ final class SyncOrderUseCaseTest extends TestCase
         $this->idempotency->shouldReceive('record')
             ->once();
 
-        $this->dispatcher->shouldReceive('dispatchOrderSync')
-            ->once();
+        $this->dispatcher->shouldReceive('dispatchEntitySync')
+            ->once()
+            ->with(ShopwiredEntityType::Order, Mockery::any());
 
         $this->logger->shouldReceive('info')
             ->once()

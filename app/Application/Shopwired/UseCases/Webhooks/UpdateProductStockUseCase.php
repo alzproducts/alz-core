@@ -6,6 +6,7 @@ namespace App\Application\Shopwired\UseCases\Webhooks;
 
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Application\Contracts\Shopwired\ShopwiredSyncDispatcherInterface;
+use App\Application\Shopwired\Enums\ShopwiredEntityType;
 use App\Application\Contracts\Shopwired\WebhookIdempotencyServiceInterface;
 use App\Application\Shopwired\DTOs\StockChangeDataDTO;
 use App\Application\Shopwired\DTOs\WebhookContextDTO;
@@ -62,7 +63,7 @@ final readonly class UpdateProductStockUseCase
         $this->productRepository->updateStock($data->sku, $data->isVariation, $data->newQuantity);
         $this->idempotency->record($data->productId, $context->topic, $context->webhookId, $context->eventTime);
 
-        $this->dispatcher->dispatchProductSync($data->productId);
+        $this->dispatcher->dispatchEntitySync(ShopwiredEntityType::Product, $data->productId);
 
         $this->logger->info('Product stock webhook processed — sync queued', $logContext);
     }

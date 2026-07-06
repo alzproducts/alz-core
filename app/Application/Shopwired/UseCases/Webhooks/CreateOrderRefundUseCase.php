@@ -6,6 +6,7 @@ namespace App\Application\Shopwired\UseCases\Webhooks;
 
 use App\Application\Contracts\Shopwired\OrderRepositoryInterface;
 use App\Application\Contracts\Shopwired\ShopwiredSyncDispatcherInterface;
+use App\Application\Shopwired\Enums\ShopwiredEntityType;
 use App\Domain\Catalog\Order\ValueObjects\OrderRefund;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\RecordNotFoundException;
@@ -58,7 +59,7 @@ final readonly class CreateOrderRefundUseCase
             return;
         }
 
-        $this->dispatcher->dispatchOrderSync($orderId);
+        $this->dispatcher->dispatchEntitySync(ShopwiredEntityType::Order, $orderId);
 
         $this->logger->info('Order refund webhook processed — sync queued', $context);
     }

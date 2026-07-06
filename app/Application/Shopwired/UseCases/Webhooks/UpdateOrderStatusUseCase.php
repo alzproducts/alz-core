@@ -8,6 +8,7 @@ use App\Application\Contracts\Shopwired\OrderRepositoryInterface;
 use App\Application\Contracts\Shopwired\ShopwiredSyncDispatcherInterface;
 use App\Application\Contracts\Shopwired\WebhookIdempotencyServiceInterface;
 use App\Application\Shopwired\DTOs\WebhookContextDTO;
+use App\Application\Shopwired\Enums\ShopwiredEntityType;
 use App\Domain\Catalog\Order\ValueObjects\OrderStatus;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\RecordNotFoundException;
@@ -53,12 +54,12 @@ final readonly class UpdateOrderStatusUseCase
             $this->orderRepository->updateStatus($orderId, $status);
         } catch (RecordNotFoundException) {
             $this->logger->warning('Order not found locally — dispatching sync to backfill', $logContext);
-            $this->dispatcher->dispatchOrderSync($orderId);
+            $this->dispatcher->dispatchEntitySync(ShopwiredEntityType::Order, $orderId);
             return;
         }
 
         $this->idempotency->record($orderId, $context->topic, $context->webhookId, $context->eventTime);
-        $this->dispatcher->dispatchOrderSync($orderId);
+        $this->dispatcher->dispatchEntitySync(ShopwiredEntityType::Order, $orderId);
         $this->logger->info('Order status webhook processed — sync queued', $logContext);
     }
 

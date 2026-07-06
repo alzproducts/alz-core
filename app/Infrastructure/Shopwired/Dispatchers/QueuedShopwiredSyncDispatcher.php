@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Infrastructure\Shopwired\Dispatchers;
 
 use App\Application\Contracts\Shopwired\ShopwiredSyncDispatcherInterface;
+use App\Application\Shopwired\Enums\ShopwiredEntityType;
 use App\Domain\Catalog\Product\Commands\SetFreeDeliveryCommand;
 use App\Domain\ValueObjects\IntId;
 use App\Infrastructure\Jobs\Shopwired\ReconcileShopwiredComparePriceJob;
@@ -29,33 +30,15 @@ use Override;
 final readonly class QueuedShopwiredSyncDispatcher implements ShopwiredSyncDispatcherInterface
 {
     #[Override]
-    public function dispatchOrderSync(IntId $entityId): void
+    public function dispatchEntitySync(ShopwiredEntityType $type, IntId $entityId): void
     {
-        SyncShopwiredOrderJob::dispatch($entityId);
-    }
-
-    #[Override]
-    public function dispatchProductSync(IntId $entityId): void
-    {
-        SyncShopwiredProductJob::dispatch($entityId);
-    }
-
-    #[Override]
-    public function dispatchCustomerSync(IntId $entityId): void
-    {
-        SyncShopwiredCustomerJob::dispatch($entityId);
-    }
-
-    #[Override]
-    public function dispatchBrandSync(IntId $entityId): void
-    {
-        SyncShopwiredBrandJob::dispatch($entityId);
-    }
-
-    #[Override]
-    public function dispatchCategorySync(IntId $entityId): void
-    {
-        SyncShopwiredCategoryJob::dispatch($entityId);
+        match ($type) {
+            ShopwiredEntityType::Order => SyncShopwiredOrderJob::dispatch($entityId),
+            ShopwiredEntityType::Product => SyncShopwiredProductJob::dispatch($entityId),
+            ShopwiredEntityType::Customer => SyncShopwiredCustomerJob::dispatch($entityId),
+            ShopwiredEntityType::Brand => SyncShopwiredBrandJob::dispatch($entityId),
+            ShopwiredEntityType::Category => SyncShopwiredCategoryJob::dispatch($entityId),
+        };
     }
 
     #[Override]
