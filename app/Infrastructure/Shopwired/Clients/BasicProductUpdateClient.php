@@ -26,7 +26,7 @@ use App\Infrastructure\Shopwired\Contracts\ShopwiredTransportInterface;
  * the correct endpoint. Uses partial PUT semantics (missing fields unchanged).
  *
  * When `ProductType` is provided in command, uses targeted single-table lookup.
- * Otherwise falls back to searching both tables via `getBasicProduct()`.
+ * Otherwise falls back to searching both tables.
  *
  * Endpoint routing:
  * - Product: PUT products/{id}
@@ -83,11 +83,7 @@ final readonly class BasicProductUpdateClient implements BasicProductUpdateClien
      */
     private function resolveEntity(UpdateBasicProductCommand $command): Product|ProductVariation
     {
-        return match ($command->type) {
-            ProductType::Main => $this->productRepository->getProduct($command->identifier),
-            ProductType::Variation => $this->productRepository->getVariation($command->identifier),
-            null => $this->productRepository->getBasicProduct($command->identifier),
-        };
+        return $this->productRepository->getProduct($command->identifier, $command->type);
     }
 
     /**

@@ -8,13 +8,14 @@ use App\Application\Catalog\Queries\ProductDetailQueryParams;
 use App\Application\Catalog\Queries\ProductListQueryParams;
 use App\Application\Contracts\RepositoryWriteInterface;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
-use App\Domain\Catalog\Product\Enums\ProductInclude;
+use App\Domain\Catalog\Product\Enums\ProductType;
 use App\Domain\Catalog\Product\ValueObjects\Product;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariation;
 use App\Domain\Catalog\Product\ValueObjects\ProductView;
 use App\Domain\Catalog\Product\ValueObjects\Sku;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\RecordNotFoundException;
+use App\Domain\Exceptions\Data\MissingRequiredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\IntId;
@@ -99,56 +100,21 @@ interface ProductRepositoryInterface extends RepositoryWriteInterface
     /**
      * Get a product or variation by identifier.
      *
-     * Accepts either SKU or IntId:
-     * - SKU: Searches products (master SKU) then variations (variant SKU)
-     * - IntId: Looks up variation directly by external ID
+     * Behaviour depends on `$type`:
+     * - `ProductType::Main` (default): single-table product lookup
+     * - `ProductType::Variation`: single-table variation lookup
+     * - `null`: searches products then variations (fallback)
      *
-     * Use this when you need to look up without knowing whether
-     * it's a parent product or a specific variation.
-     *
-     * @param Sku|IntId $identifier SKU to search, or variation external ID
+     * @return ($type is null ? Product|ProductVariation : ($type is ProductType::Main ? Product : ProductVariation))
      *
      * @throws RecordNotFoundException When no product or variation matches
-     * @throws DatabaseOperationFailedException On query failure
-     * @throws ExternalServiceUnavailableException When database temporarily unavailable
-     */
-    public function getBasicProduct(Sku|IntId $identifier): Product|ProductVariation;
-
-    /**
-     * Get a product by identifier (SKU or external ID).
-     *
-     * Returns the complete Product value object including variations, images,
-     * and typed custom field values.
-     *
-     * Use when the caller knows they want a Product (not a variation).
-     *
-     * @param Sku|IntId $identifier Product SKU or external ID
-     *
-     * @throws RecordNotFoundException When no product matches the identifier
      * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
      * @throws DatabaseOperationFailedException On query failure
+     * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
+     * @throws MissingRequiredDataException When custom field definitions table is empty
      */
-    public function getProduct(Sku|IntId $identifier): Product;
-
-    /**
-     * Get a variation by identifier (SKU or external ID).
-     *
-     * Returns the ProductVariation value object.
-     *
-     * Use when the caller knows they want a Variation (not a parent product).
-     *
-     * **Prefer SKU over IntId:** ShopWired variation external IDs regenerate when the
-     * parent product is saved, making them unstable identifiers. Use SKU when available
-     * for reliable lookups. Only use IntId for SKU-less variations that were just synced.
-     *
-     * @param Sku|IntId $identifier Variation SKU or external ID
-     *
-     * @throws RecordNotFoundException When no variation matches the identifier
-     * @throws DatabaseOperationFailedException On query failure
-     * @throws ExternalServiceUnavailableException When database temporarily unavailable
-     */
-    public function getVariation(Sku|IntId $identifier): ProductVariation;
+    public function getProduct(Sku|IntId $identifier, ?ProductType $type = ProductType::Main): Product|ProductVariation;
 
     /**
      * Get all unique SKUs from products and variations.
