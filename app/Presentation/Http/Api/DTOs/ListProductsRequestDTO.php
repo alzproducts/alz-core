@@ -50,6 +50,8 @@ final class ListProductsRequestDTO extends Data
         public readonly ?bool $has_free_delivery = null,
         #[Nullable, BooleanType]
         public readonly ?bool $is_active = null,
+        #[Nullable, StringType]
+        public readonly ?string $search = null,
     ) {}
 
     /**
@@ -63,6 +65,7 @@ final class ListProductsRequestDTO extends Data
             'sort_direction' => ['nullable', 'string', 'in:' . \implode(',', \array_column(SortDirection::cases(), 'value'))],
             'category_id' => ['nullable', 'integer', 'min:1'],
             'sku' => ['nullable', 'string', 'max:100'],
+            'search' => ['nullable', 'string', 'max:200'],
         ];
     }
 
@@ -83,12 +86,19 @@ final class ListProductsRequestDTO extends Data
      */
     public function toQuery(): ProductListQueryParams
     {
+        $filters = $this->buildFilters();
+        $hasSearch = isset($filters[ProductFilterField::Search->value]);
+
         return new ProductListQueryParams(
             pagination: PageRequest::from(page: $this->page, perPage: $this->per_page),
             includes: \array_map(ProductInclude::fromValue(...), $this->validatedIncludes()),
-            sortField: $this->sort_by !== null ? ProductSortField::from($this->sort_by) : ProductSortField::Title,
+            sortField: match (true) {
+                $this->sort_by !== null => ProductSortField::from($this->sort_by),
+                $hasSearch => null,
+                default => ProductSortField::Title,
+            },
             sortDirection: $this->sort_direction !== null ? SortDirection::from($this->sort_direction) : SortDirection::Asc,
-            filters: $this->buildFilters(),
+            filters: $filters,
         );
     }
 
@@ -99,22 +109,15 @@ final class ListProductsRequestDTO extends Data
      */
     private function buildFilters(): array
     {
-        $filters = [];
-        if ($this->is_active !== null) {
-            $filters[ProductFilterField::IsActive->value] = $this->is_active;
-        }
-        if ($this->category_id !== null) {
-            $filters[ProductFilterField::CategoryId->value] = $this->category_id;
-        }
-        if ($this->is_on_sale !== null) {
-            $filters[ProductFilterField::IsOnSale->value] = $this->is_on_sale;
-        }
-        if ($this->sku !== null) {
-            $filters[ProductFilterField::Sku->value] = $this->sku;
-        }
-        if ($this->has_free_delivery !== null) {
-            $filters[ProductFilterField::HasFreeDelivery->value] = $this->has_free_delivery;
-        }
-        return $filters;
+        $trimmedSearch = $this->search !== null ? \mb_trim($this->search) : '';
+
+        return \array_filter([
+            ProductFilterField::IsActive->value => $this->is_active,
+            ProductFilterField::CategoryId->value => $this->category_id,
+            ProductFilterField::IsOnSale->value => $this->is_on_sale,
+            ProductFilterField::Sku->value => $this->sku,
+            ProductFilterField::HasFreeDelivery->value => $this->has_free_delivery,
+            ProductFilterField::Search->value => $trimmedSearch !== '' ? $trimmedSearch : null,
+        ], static fn(mixed $v): bool => $v !== null);
     }
 }
