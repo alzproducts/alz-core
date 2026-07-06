@@ -56,20 +56,6 @@ interface ProductRepositoryInterface extends RepositoryWriteInterface
     public function findProductView(ProductDetailQueryParams $query): ProductView;
 
     /**
-     * Convenience wrapper over {@see self::findProductView()} for call sites that
-     * already hold a typed product ID and only need to choose embeds.
-     *
-     * @param list<ProductInclude> $includes Embeds to load (empty = defaults)
-     *
-     * @throws RecordNotFoundException When no product matches the ID
-     * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
-     * @throws DatabaseOperationFailedException On query failure
-     * @throws DuplicateRecordException On constraint violation
-     * @throws ExternalServiceUnavailableException When database temporarily unavailable
-     */
-    public function findDetailedProductView(IntId $productId, array $includes = []): ProductView;
-
-    /**
      * Get all product external IDs stored locally.
      *
      * Returns ShopWired product IDs for all products in the database.

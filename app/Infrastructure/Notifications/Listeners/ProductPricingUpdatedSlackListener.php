@@ -6,6 +6,7 @@ namespace App\Infrastructure\Notifications\Listeners;
 
 use App\Application\Contracts\ChatNotificationInterface;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
+use App\Application\Catalog\Queries\ProductDetailQueryParams;
 use App\Application\Contracts\Shopwired\SaleSettingsRepositoryInterface;
 use App\Application\Notifications\DTOs\PriceUpdateAlertDataDTO;
 use App\Domain\Catalog\Product\Events\ProductPricingUpdatedEvent;
@@ -67,7 +68,7 @@ final class ProductPricingUpdatedSlackListener implements ShouldQueue
     private function enrichProductContext(ProductPricingUpdatedEvent $event): array
     {
         try {
-            $view = $this->productRepository->findDetailedProductView($event->productId);
+            $view = $this->productRepository->findProductView(new ProductDetailQueryParams($event->productId));
 
             return [$view->title, $view->links->publicUrl];
         } catch (Exception $e) { // @ignoreException - enrichment is best-effort, notification still sends

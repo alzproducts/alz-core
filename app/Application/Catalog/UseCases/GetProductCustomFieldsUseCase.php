@@ -6,6 +6,7 @@ namespace App\Application\Catalog\UseCases;
 
 use App\Application\Catalog\CustomFieldMergerService;
 use App\Application\Contracts\Catalog\CustomFieldRepositoryInterface;
+use App\Application\Catalog\Queries\ProductDetailQueryParams;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldItemType;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
@@ -48,9 +49,8 @@ final readonly class GetProductCustomFieldsUseCase
     {
         $this->logStart($productId, $fieldNames);
 
-        $product = $this->productRepository->findDetailedProductView(
-            IntId::from($productId),
-            [ProductInclude::CustomFields],
+        $product = $this->productRepository->findProductView(
+            new ProductDetailQueryParams(IntId::from($productId), [ProductInclude::CustomFields]),
         );
 
         $definitions = $this->customFieldRepository->findByItemType(CustomFieldItemType::Product);

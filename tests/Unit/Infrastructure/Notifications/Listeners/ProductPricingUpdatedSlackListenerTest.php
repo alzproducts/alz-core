@@ -62,9 +62,9 @@ final class ProductPricingUpdatedSlackListenerTest extends TestCase
         $event = self::createEvent();
         $view = self::createProductView();
 
-        $this->productRepo->shouldReceive('findDetailedProductView')
+        $this->productRepo->shouldReceive('findProductView')
             ->once()
-            ->with(Mockery::on(static fn(IntId $id): bool => $id->value === 42))
+            ->with(Mockery::on(static fn(ProductDetailQueryParams $q): bool => $q->productId->value === 42))
             ->andReturn($view);
 
         $this->chat->shouldReceive('sendPriceUpdateAlert')
@@ -83,7 +83,7 @@ final class ProductPricingUpdatedSlackListenerTest extends TestCase
     {
         $event = self::createEvent();
 
-        $this->productRepo->shouldReceive('findDetailedProductView')
+        $this->productRepo->shouldReceive('findProductView')
             ->once()
             ->andThrow(new ResourceNotFoundException('Shopwired', 'product', '42'));
 

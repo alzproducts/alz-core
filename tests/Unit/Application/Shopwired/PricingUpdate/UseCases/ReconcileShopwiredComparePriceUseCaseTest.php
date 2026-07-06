@@ -10,6 +10,7 @@ use App\Application\Shopwired\PricingUpdate\UseCases\ReconcileShopwiredComparePr
 use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldValueList;
 use App\Domain\Catalog\Product\Enums\FreeDeliveryType;
 use App\Domain\Catalog\Product\Enums\ProductInclude;
+use App\Application\Catalog\Queries\ProductDetailQueryParams;
 use App\Domain\Catalog\Product\ValueObjects\ProductLinks;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariationView;
 use App\Domain\Catalog\Product\ValueObjects\ProductView;
@@ -66,9 +67,9 @@ final class ReconcileShopwiredComparePriceUseCaseTest extends TestCase
             ],
         );
 
-        $this->productRepo->shouldReceive('findDetailedProductView')
+        $this->productRepo->shouldReceive('findProductView')
             ->once()
-            ->with(Mockery::on(static fn(IntId $id): bool => $id->value === 42), [ProductInclude::Variations])
+            ->with(Mockery::on(static fn(ProductDetailQueryParams $q): bool => $q->productId->value === 42 && $q->includes === [ProductInclude::Variations]))
             ->andReturn($view);
 
         $this->productUpdateClient->shouldReceive('updateComparePrice')
@@ -89,7 +90,7 @@ final class ReconcileShopwiredComparePriceUseCaseTest extends TestCase
             ],
         );
 
-        $this->productRepo->shouldReceive('findDetailedProductView')
+        $this->productRepo->shouldReceive('findProductView')
             ->once()
             ->andReturn($view);
 
@@ -113,7 +114,7 @@ final class ReconcileShopwiredComparePriceUseCaseTest extends TestCase
             ],
         );
 
-        $this->productRepo->shouldReceive('findDetailedProductView')
+        $this->productRepo->shouldReceive('findProductView')
             ->once()
             ->andReturn($view);
 
@@ -135,7 +136,7 @@ final class ReconcileShopwiredComparePriceUseCaseTest extends TestCase
             ],
         );
 
-        $this->productRepo->shouldReceive('findDetailedProductView')
+        $this->productRepo->shouldReceive('findProductView')
             ->once()
             ->andReturn($view);
 
@@ -155,7 +156,7 @@ final class ReconcileShopwiredComparePriceUseCaseTest extends TestCase
             variations: [],
         );
 
-        $this->productRepo->shouldReceive('findDetailedProductView')
+        $this->productRepo->shouldReceive('findProductView')
             ->once()
             ->andReturn($view);
 
@@ -175,7 +176,7 @@ final class ReconcileShopwiredComparePriceUseCaseTest extends TestCase
             variations: [],
         );
 
-        $this->productRepo->shouldReceive('findDetailedProductView')
+        $this->productRepo->shouldReceive('findProductView')
             ->once()
             ->andReturn($view);
 

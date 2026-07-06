@@ -6,6 +6,7 @@ namespace App\Application\Shopwired\SaleManagement\UseCases;
 
 use App\Application\Contracts\Shopwired\ProductFieldUpdateClientInterface;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
+use App\Application\Catalog\Queries\ProductDetailQueryParams;
 use App\Application\Contracts\Shopwired\ProductUpdateClientInterface;
 use App\Application\Contracts\Shopwired\SaleSettingsRepositoryInterface;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
@@ -50,7 +51,7 @@ final readonly class RemoveProductFromSaleUseCase
      */
     public function execute(IntId $productId): void
     {
-        $view = $this->productRepo->findDetailedProductView($productId);
+        $view = $this->productRepo->findProductView(new ProductDetailQueryParams($productId));
         $fieldUpdates = self::buildRemovalFieldUpdates($view, $this->saleCategoryId);
 
         if ($fieldUpdates !== []) {

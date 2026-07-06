@@ -1174,7 +1174,7 @@ final class ProductControllerTest extends TestCase
         );
 
         $this->productRepository
-            ->shouldReceive('findDetailedProductView')
+            ->shouldReceive('findProductView')
             ->once()
             ->andReturn($product);
 

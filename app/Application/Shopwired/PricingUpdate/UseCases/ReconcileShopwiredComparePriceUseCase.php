@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Application\Shopwired\PricingUpdate\UseCases;
 
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
+use App\Application\Catalog\Queries\ProductDetailQueryParams;
 use App\Application\Contracts\Shopwired\ProductUpdateClientInterface;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\Product\Enums\ProductInclude;
@@ -59,7 +60,7 @@ final readonly class ReconcileShopwiredComparePriceUseCase
             'product_id' => $productId->value,
         ]);
 
-        $productView = $this->productRepo->findDetailedProductView($productId, [ProductInclude::Variations]);
+        $productView = $this->productRepo->findProductView(new ProductDetailQueryParams($productId, [ProductInclude::Variations]));
 
         $target = $productView->uniformRrp()?->toGross();
 

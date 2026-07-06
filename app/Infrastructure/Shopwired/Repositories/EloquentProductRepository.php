@@ -175,21 +175,6 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
     /**
      * {@inheritDoc}
      *
-     * @throws RecordNotFoundException
-     * @throws InvalidCustomFieldValueException
-     * @throws MissingRequiredDataException
-     * @throws DatabaseOperationFailedException
-     * @throws DuplicateRecordException
-     * @throws ExternalServiceUnavailableException
-     */
-    public function findDetailedProductView(IntId $productId, array $includes = []): ProductView
-    {
-        return $this->findProductView(new ProductDetailQueryParams($productId, $includes));
-    }
-
-    /**
-     * {@inheritDoc}
-     *
      * @param Product $entity
      *
      * @throws DatabaseOperationFailedException

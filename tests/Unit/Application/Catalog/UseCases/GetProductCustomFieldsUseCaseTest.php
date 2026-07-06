@@ -16,6 +16,7 @@ use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldValueList;
 use App\Domain\Catalog\CustomFields\ValueObjects\NullCustomFieldValue;
 use App\Domain\Catalog\CustomFields\ValueObjects\StringCustomFieldValue;
 use App\Domain\Catalog\Product\Enums\ProductInclude;
+use App\Application\Catalog\Queries\ProductDetailQueryParams;
 use App\Domain\Catalog\Product\ValueObjects\ProductView;
 use App\Domain\ValueObjects\IntId;
 use App\Domain\ValueObjects\Uuid;
@@ -189,12 +190,9 @@ final class GetProductCustomFieldsUseCaseTest extends TestCase
         $product->customFields = CustomFieldValueList::from($customFields);
 
         $this->productRepository
-            ->shouldReceive('findDetailedProductView')
+            ->shouldReceive('findProductView')
             ->once()
-            ->with(
-                Mockery::on(static fn(IntId $id): bool => $id->value === 42),
-                [ProductInclude::CustomFields],
-            )
+            ->with(Mockery::on(static fn(ProductDetailQueryParams $q): bool => $q->productId->value === 42 && $q->includes === [ProductInclude::CustomFields]))
             ->andReturn($product);
     }
 

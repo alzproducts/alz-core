@@ -18,6 +18,7 @@ use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldDefinition;
 use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldValueList;
 use App\Domain\Catalog\CustomFields\ValueObjects\StringCustomFieldValue;
 use App\Domain\Catalog\Product\Enums\ProductInclude;
+use App\Application\Catalog\Queries\ProductDetailQueryParams;
 use App\Domain\Catalog\Product\ValueObjects\ProductView;
 use App\Domain\Catalog\Product\ValueObjects\SaleSettings;
 use App\Domain\ValueObjects\IntId;
@@ -87,7 +88,7 @@ final class ReconcileProductSaleStateUseCaseTest extends TestCase
             ->andReturnFalse();
 
         // Must NOT load product or dispatch anything
-        $this->productRepo->shouldNotReceive('findDetailedProductView');
+        $this->productRepo->shouldNotReceive('findProductView');
         $this->dispatcher->shouldNotReceive('dispatchAddToSale');
         $this->dispatcher->shouldNotReceive('dispatchRemoveFromSale');
         $this->saleSettingsRepo->shouldNotReceive('findByProduct');
@@ -114,12 +115,9 @@ final class ReconcileProductSaleStateUseCaseTest extends TestCase
         );
 
         $this->productRepo->shouldReceive('hasSaleStateDrift')->once()->andReturnTrue();
-        $this->productRepo->shouldReceive('findDetailedProductView')
+        $this->productRepo->shouldReceive('findProductView')
             ->once()
-            ->with(
-                Mockery::on(static fn(IntId $id): bool => $id->value === 10),
-                [ProductInclude::CustomFields],
-            )
+            ->with(Mockery::on(static fn(ProductDetailQueryParams $q): bool => $q->productId->value === 10 && $q->includes === [ProductInclude::CustomFields]))
             ->andReturn($view);
 
         $this->specification->shouldReceive('evaluate')
@@ -161,12 +159,9 @@ final class ReconcileProductSaleStateUseCaseTest extends TestCase
         );
 
         $this->productRepo->shouldReceive('hasSaleStateDrift')->once()->andReturnTrue();
-        $this->productRepo->shouldReceive('findDetailedProductView')
+        $this->productRepo->shouldReceive('findProductView')
             ->once()
-            ->with(
-                Mockery::on(static fn(IntId $id): bool => $id->value === 20),
-                [ProductInclude::CustomFields],
-            )
+            ->with(Mockery::on(static fn(ProductDetailQueryParams $q): bool => $q->productId->value === 20 && $q->includes === [ProductInclude::CustomFields]))
             ->andReturn($view);
 
         $this->specification->shouldReceive('evaluate')
@@ -202,7 +197,7 @@ final class ReconcileProductSaleStateUseCaseTest extends TestCase
         );
 
         $this->productRepo->shouldReceive('hasSaleStateDrift')->once()->andReturnTrue();
-        $this->productRepo->shouldReceive('findDetailedProductView')->once()->andReturn($view);
+        $this->productRepo->shouldReceive('findProductView')->once()->andReturn($view);
         $this->specification->shouldReceive('evaluate')->once()->andReturn($result);
 
         $this->dispatcher->shouldNotReceive('dispatchAddToSale');
@@ -235,7 +230,7 @@ final class ReconcileProductSaleStateUseCaseTest extends TestCase
         );
 
         $this->productRepo->shouldReceive('hasSaleStateDrift')->once()->andReturnTrue();
-        $this->productRepo->shouldReceive('findDetailedProductView')->once()->andReturn($view);
+        $this->productRepo->shouldReceive('findProductView')->once()->andReturn($view);
         $this->specification->shouldReceive('evaluate')->once()->andReturn($result);
 
         // No DB row — triggers fallback build + persist
@@ -280,7 +275,7 @@ final class ReconcileProductSaleStateUseCaseTest extends TestCase
         );
 
         $this->productRepo->shouldReceive('hasSaleStateDrift')->once()->andReturnTrue();
-        $this->productRepo->shouldReceive('findDetailedProductView')->once()->andReturn($view);
+        $this->productRepo->shouldReceive('findProductView')->once()->andReturn($view);
         $this->specification->shouldReceive('evaluate')->once()->andReturn($result);
 
         $this->saleSettingsRepo->shouldReceive('findByProduct')
