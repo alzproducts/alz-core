@@ -132,12 +132,6 @@ final readonly class LinnworksHttpTransport implements LinnworksTransportInterfa
     }
 
     /**
-     * Perform POST request with raw JSON body.
-     *
-     * Unlike post(), this sends JSON directly in the request body (not wrapped
-     * in a 'request' form parameter). Used by Linnworks endpoints like
-     * UpdateInventoryItemField that expect application/json content type.
-     *
      * @param array<string, scalar|array<mixed>|null> $data Request body data (sent as JSON)
      *
      * @throws InvalidApiRequestException When request parameters are invalid (400)
@@ -159,12 +153,6 @@ final readonly class LinnworksHttpTransport implements LinnworksTransportInterfa
     }
 
     /**
-     * Perform POST request with raw form-encoded parameters.
-     *
-     * Unlike post(), this sends parameters directly as form fields (not wrapped
-     * in a 'request' JSON blob). Used by Linnworks endpoints like GetStockItemsFull
-     * that expect query-string style parameters in the POST body.
-     *
      * Array/object values are automatically JSON-encoded as string values.
      *
      * @param array<string, scalar|array<mixed>|null> $data Form parameters (arrays will be JSON-encoded)

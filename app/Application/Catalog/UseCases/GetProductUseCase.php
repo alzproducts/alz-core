@@ -10,6 +10,7 @@ use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Domain\Exceptions\Data\MissingRequiredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use Psr\Log\LoggerInterface;
@@ -33,6 +34,7 @@ final readonly class GetProductUseCase
      * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      * @throws RecordNotFoundException When product row not found in database
+     * @throws MissingRequiredDataException When custom field definitions table is empty
      */
     public function execute(ProductDetailQueryParams $query): GetProductResult
     {

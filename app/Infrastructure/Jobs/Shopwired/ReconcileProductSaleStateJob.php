@@ -8,6 +8,7 @@ use App\Application\Shopwired\SaleManagement\UseCases\ReconcileProductSaleStateU
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\RecordNotFoundException;
+use App\Domain\Exceptions\Data\MissingRequiredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\IntId;
@@ -66,6 +67,7 @@ final class ReconcileProductSaleStateJob extends AbstractJob implements ShouldBe
      * @throws DatabaseOperationFailedException On query failure
      * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database unavailable
+     * @throws MissingRequiredDataException When custom field definitions table is empty
      */
     public function handle(ReconcileProductSaleStateUseCase $useCase): void
     {

@@ -14,7 +14,7 @@ use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldValueList;
 use App\Domain\Catalog\Product\Enums\ProductInclude;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\RecordNotFoundException;
-use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Domain\Exceptions\Data\MissingRequiredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\IntId;
@@ -38,12 +38,12 @@ final readonly class GetProductCustomFieldsUseCase
     /**
      * @param list<string> $fieldNames Optional filter — only return these field names
      *
-     * @throws ResourceNotFoundException When no product matches the ID
      * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
      * @throws DatabaseOperationFailedException On query failure
      * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      * @throws RecordNotFoundException When product row not found in database
+     * @throws MissingRequiredDataException When custom field definitions table is empty
      */
     public function execute(int $productId, array $fieldNames = []): CustomFieldValueList
     {

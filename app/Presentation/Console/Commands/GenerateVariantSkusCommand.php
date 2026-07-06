@@ -107,9 +107,6 @@ final class GenerateVariantSkusCommand extends Command
         );
     }
 
-    /**
-     * Display success result, dispatch notification event, and return appropriate exit code.
-     */
     private function displaySuccessResult(GenerateVariantSkusResult $result): int
     {
         $this->table(
@@ -155,9 +152,6 @@ final class GenerateVariantSkusCommand extends Command
         }
     }
 
-    /**
-     * Handle UseCase execution errors with user-friendly messages.
-     */
     private function handleExecutionError(
         ResourceNotFoundException|RecordNotFoundException|InvalidTemplateException|LockAcquisitionException|AuthenticationExpiredException|ExternalServiceUnavailableException|InvalidApiRequestException|InvalidApiResponseException|DatabaseOperationFailedException|DuplicateRecordException $e,
     ): int {
@@ -215,9 +209,6 @@ final class GenerateVariantSkusCommand extends Command
         };
     }
 
-    /**
-     * Parse and validate product ID argument.
-     */
     private function parseProductId(mixed $value): ?IntId
     {
         if (!\is_string($value) || !\ctype_digit($value)) {
@@ -237,9 +228,6 @@ final class GenerateVariantSkusCommand extends Command
         return IntId::from($intValue);
     }
 
-    /**
-     * Parse and validate template SKU argument.
-     */
     private function parseTemplateSku(mixed $value): ?Sku
     {
         if (!\is_string($value)) {

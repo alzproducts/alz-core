@@ -14,7 +14,7 @@ use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Api\ResourceNotAvailableException;
-use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Domain\Exceptions\Data\MissingRequiredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\IntId;
@@ -39,7 +39,6 @@ final readonly class UpdateProductCategoryMembershipUseCase
      * @param  list<IntId>  $addCategoryIds     Categories to add (ignored if product is already a member)
      * @param  list<IntId>  $removeCategoryIds  Categories to remove (ignored if product is not a member)
      *
-     * @throws ResourceNotFoundException When product not found in DB
      * @throws InvalidCustomFieldValueException When custom field mapping fails
      * @throws ResourceNotAvailableException When product not found on API
      * @throws InvalidApiRequestException When request parameters invalid
@@ -48,6 +47,7 @@ final readonly class UpdateProductCategoryMembershipUseCase
      * @throws DatabaseOperationFailedException On DB query failure
      * @throws DuplicateRecordException On DB constraint violation
      * @throws RecordNotFoundException When product row not found in database
+     * @throws MissingRequiredDataException When custom field definitions table is empty
      */
     public function execute(IntId $productId, array $addCategoryIds, array $removeCategoryIds): void
     {

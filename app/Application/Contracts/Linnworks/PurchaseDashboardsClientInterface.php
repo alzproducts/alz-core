@@ -19,8 +19,6 @@ use App\Domain\ValueObjects\Guid;
  *
  * Uses the Dashboards/ExecuteCustomScriptQuery endpoint for direct
  * database access, bypassing API pagination and date limits.
- *
- * @template-pattern Application Contract Interface
  */
 interface PurchaseDashboardsClientInterface
 {

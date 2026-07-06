@@ -14,7 +14,6 @@ use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Api\ResourceNotAvailableException;
-use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Data\MissingRequiredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
@@ -43,7 +42,6 @@ final readonly class ReconcileShopwiredComparePriceUseCase
     ) {}
 
     /**
-     * @throws ResourceNotFoundException When product not found
      * @throws ResourceNotAvailableException When ShopWired product not found for update
      * @throws InvalidApiRequestException When API request invalid
      * @throws AuthenticationExpiredException When credentials expired

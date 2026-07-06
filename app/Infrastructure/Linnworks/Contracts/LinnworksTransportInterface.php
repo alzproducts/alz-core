@@ -41,6 +41,7 @@ interface LinnworksTransportInterface
      *
      * @param string $endpoint API endpoint path
      * @param array<string, scalar|array<mixed>|null> $data Request body data
+     * @param BodyEncoding $encoding How $data is encoded onto the request body
      *
      * @return Response Successful HTTP response
      *

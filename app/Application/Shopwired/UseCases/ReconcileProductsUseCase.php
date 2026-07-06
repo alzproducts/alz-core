@@ -22,15 +22,6 @@ use Psr\Log\LoggerInterface;
  * Compares local product IDs against ShopWired API and deletes any that
  * exist locally but not in ShopWired. This handles products deleted from
  * the ShopWired admin or recreated with the same SKU.
- *
- * Algorithm:
- * 1. Fetch all product external_ids from ShopWired API (lightweight - IDs only)
- * 2. Query local DB for all product external_ids
- * 3. Find orphans: local_ids - api_ids
- * 4. Delete orphaned products (cascade deletes variations)
- *
- * Usage:
- * - Run after main sync completes to clean up deleted products
  */
 final readonly class ReconcileProductsUseCase
 {
@@ -56,14 +47,13 @@ final readonly class ReconcileProductsUseCase
     {
         $this->logger->info('Starting product reconciliation from ShopWired');
 
-        // Fetch all IDs from ShopWired (lightweight - IDs only)
+        // Lightweight — IDs only, avoids fetching full product payloads
         $apiProductIds = $this->productClient->getAllProductIds();
 
-        // Fetch all local product IDs
         $localProductIds = $this->productRepository->getAllExternalIds(ExternalIdScope::Product);
 
-        // Safety check: if API returns empty but we have local products, abort
-        // This prevents accidental mass deletion if API fails silently
+        // Abort if the API returned nothing but local has products — protects
+        // against mass deletion triggered by a silent API failure
         if ($apiProductIds === [] && $localProductIds !== []) {
             $this->logger->warning('Product reconciliation aborted: API returned 0 products but local DB has products', [
                 'local_count' => \count($localProductIds),
@@ -73,7 +63,6 @@ final readonly class ReconcileProductsUseCase
             return ReconcileResult::skipped(localCount: \count($localProductIds));
         }
 
-        // Find orphans: products in local DB but not in ShopWired
         $orphanedIds = \array_values(\array_diff($localProductIds, $apiProductIds));
 
         if ($orphanedIds === []) {
@@ -88,7 +77,7 @@ final readonly class ReconcileProductsUseCase
             );
         }
 
-        // Delete orphaned products (variations cascade-deleted via FK)
+        // Variations cascade-deleted via FK constraint
         /** @var int<0, max> $deletedCount */
         $deletedCount = $this->productRepository->deleteByExternalIds($orphanedIds);
 

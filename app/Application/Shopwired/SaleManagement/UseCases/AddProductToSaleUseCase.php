@@ -20,6 +20,7 @@ use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Api\ResourceNotAvailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Domain\Exceptions\Data\MissingRequiredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\IntId;
@@ -42,7 +43,7 @@ final readonly class AddProductToSaleUseCase
     ) {}
 
     /**
-     * @throws ResourceNotFoundException When product not found in DB or sale settings missing (permanent)
+     * @throws ResourceNotFoundException When sale settings missing after category applied (permanent)
      * @throws DuplicateRecordException On sale settings DB constraint violation
      * @throws InvalidCustomFieldValueException When custom field mapping fails
      * @throws DatabaseOperationFailedException On DB query failure
@@ -52,6 +53,7 @@ final readonly class AddProductToSaleUseCase
      * @throws AuthenticationExpiredException When credentials invalid
      * @throws ExternalServiceUnavailableException When API or DB unavailable
      * @throws InvalidApiResponseException When response parsing fails
+     * @throws MissingRequiredDataException When custom field definitions table is empty
      */
     public function execute(IntId $productId): void
     {

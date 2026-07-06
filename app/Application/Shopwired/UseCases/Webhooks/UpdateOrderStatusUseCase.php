@@ -12,7 +12,6 @@ use App\Application\Shopwired\Enums\ShopwiredEntityType;
 use App\Domain\Catalog\Order\ValueObjects\OrderStatus;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\RecordNotFoundException;
-use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\IntId;
@@ -36,7 +35,6 @@ final readonly class UpdateOrderStatusUseCase
     ) {}
 
     /**
-     * @throws ResourceNotFoundException
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException

@@ -11,7 +11,7 @@ use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Api\ResourceNotAvailableException;
-use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Domain\Exceptions\Data\MissingRequiredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\IntId;
@@ -69,7 +69,6 @@ final class UpdateProductCategoryMembershipJob extends AbstractJob
 
     /**
      * @throws RecordNotFoundException When product row not found in local DB
-     * @throws ResourceNotFoundException When product not found on ShopWired API
      * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
      * @throws ResourceNotAvailableException When product not found on API
      * @throws InvalidApiRequestException When request parameters invalid
@@ -77,6 +76,7 @@ final class UpdateProductCategoryMembershipJob extends AbstractJob
      * @throws ExternalServiceUnavailableException When API or DB unavailable
      * @throws DatabaseOperationFailedException On DB query failure
      * @throws DuplicateRecordException On DB constraint violation
+     * @throws MissingRequiredDataException When custom field definitions table is empty
      */
     public function handle(UpdateProductCategoryMembershipUseCase $useCase): void
     {

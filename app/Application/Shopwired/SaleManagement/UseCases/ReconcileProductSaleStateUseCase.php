@@ -15,7 +15,7 @@ use App\Domain\Catalog\Product\ValueObjects\ProductView;
 use App\Domain\Catalog\Product\ValueObjects\SaleSettings;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\RecordNotFoundException;
-use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Domain\Exceptions\Data\MissingRequiredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\IntId;
@@ -39,12 +39,12 @@ final readonly class ReconcileProductSaleStateUseCase
     ) {}
 
     /**
-     * @throws ResourceNotFoundException When product not found in DB
      * @throws InvalidCustomFieldValueException When custom field mapping fails
      * @throws DatabaseOperationFailedException On query failure
      * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database unavailable
      * @throws RecordNotFoundException When product row not found in database
+     * @throws MissingRequiredDataException When custom field definitions table is empty
      */
     public function execute(IntId $productId): void
     {

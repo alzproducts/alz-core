@@ -65,8 +65,6 @@ final class ShopwiredAuditProductSyncCommand extends Command
     }
 
     /**
-     * Extract product and variation IDs from API response.
-     *
      * @param list<Product> $apiProducts
      *
      * @return array{list<int>, list<int>} [productIds, variationIds]
@@ -88,8 +86,6 @@ final class ShopwiredAuditProductSyncCommand extends Command
     }
 
     /**
-     * Get product and variation IDs from database.
-     *
      * @return array{list<int>, list<int>} [productIds, variationIds]
      *
      * @throws DatabaseOperationFailedException
@@ -104,8 +100,6 @@ final class ShopwiredAuditProductSyncCommand extends Command
     }
 
     /**
-     * Display the comparison table.
-     *
      * @param list<int> $apiProductIds
      * @param list<int> $apiVariationIds
      * @param list<int> $dbProductIds
@@ -129,8 +123,6 @@ final class ShopwiredAuditProductSyncCommand extends Command
     }
 
     /**
-     * Display summary of missing items.
-     *
      * @param array<int> $missingProductIds
      * @param array<int> $missingVariationIds
      */
@@ -143,8 +135,6 @@ final class ShopwiredAuditProductSyncCommand extends Command
     }
 
     /**
-     * Display summary of extra items in database (deleted from API).
-     *
      * @param list<int> $dbProductIds
      * @param list<int> $dbVariationIds
      * @param list<int> $apiProductIds
@@ -170,8 +160,6 @@ final class ShopwiredAuditProductSyncCommand extends Command
     }
 
     /**
-     * Display detailed missing items if --show-missing flag is set.
-     *
      * @param list<Product> $apiProducts
      * @param array<int> $missingProductIds
      * @param array<int> $missingVariationIds
@@ -223,8 +211,6 @@ final class ShopwiredAuditProductSyncCommand extends Command
     }
 
     /**
-     * Show missing product IDs with their SKU and title for easier debugging.
-     *
      * @param list<Product> $apiProducts
      * @param array<int> $missingIds
      */

@@ -117,7 +117,6 @@ final readonly class HandleOrderWebhookService
      * @throws ExternalServiceUnavailableException
      * @throws InvalidApiResponseException
      * @throws RecordNotFoundException When order row not found in database
-     * @throws ResourceNotFoundException
      */
     private function handleRefundCreated(WebhookContextDTO $context, array $data): void
     {

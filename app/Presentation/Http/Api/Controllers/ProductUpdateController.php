@@ -95,9 +95,6 @@ final readonly class ProductUpdateController
     /**
      * Update free delivery type on multiple products.
      *
-     * Dispatches jobs to update the free_delivery custom field.
-     * Returns 202 Accepted with job dispatch summary.
-     *
      * @throws ValueError When free delivery type is invalid (should not happen after validation)
      */
     public function updateFreeDelivery(UpdateFreeDeliveryRequestDTO $data): JsonResponse

@@ -56,6 +56,7 @@ interface ProductRepositoryInterface extends RepositoryWriteInterface
      * @throws DatabaseOperationFailedException On query failure
      * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
+     * @throws MissingRequiredDataException When custom field definitions table is empty
      */
     public function findProductView(ProductDetailQueryParams $query): ProductView;
 
@@ -134,8 +135,8 @@ interface ProductRepositoryInterface extends RepositoryWriteInterface
     /**
      * Update stock quantity for a product or variation by SKU.
      *
-     * Used by `product.stock_changed` webhook. Updates the stock column
-     * on either the products or product_variations table.
+     * Updates the stock column on either the products or product_variations
+     * table, depending on `$isVariation`.
      *
      * @param Sku $sku SKU of the product or variation to update
      * @param bool $isVariation Whether the SKU refers to a variation
@@ -178,7 +179,7 @@ interface ProductRepositoryInterface extends RepositoryWriteInterface
     /**
      * Delete a product by its ShopWired external ID.
      *
-     * Used by `product.deleted` webhook. Cascades to variations via FK constraint.
+     * Cascades to variations via FK constraint.
      *
      * @throws RecordNotFoundException When no product found with this external ID
      * @throws DatabaseOperationFailedException On deletion failure
@@ -186,6 +187,18 @@ interface ProductRepositoryInterface extends RepositoryWriteInterface
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      */
     public function deleteByExternalId(IntId $externalId): void;
+
+    /**
+     * Get all products currently on sale (non-null, non-zero sale price).
+     *
+     * @return list<Product>
+     *
+     * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
+     * @throws DatabaseOperationFailedException On query failure
+     * @throws DuplicateRecordException On constraint violation
+     * @throws ExternalServiceUnavailableException When database temporarily unavailable
+     */
+    public function getProductsOnSale(): array;
 
     /**
      * Get all on-sale products as read-side ProductView projections.
@@ -237,7 +250,7 @@ interface ProductRepositoryInterface extends RepositoryWriteInterface
      * Find all products with sale state drift.
      *
      * Scans the entire catalog for products where DB sale state is
-     * inconsistent with expected state. Used by the bulk reconciliation job.
+     * inconsistent with expected state.
      *
      * @param int $saleCategoryId The ShopWired sale category ID
      *

@@ -89,7 +89,7 @@ final readonly class GenerateVariantSkusUseCase
             'is_standard_sign' => $command->isStandardSign,
         ]);
 
-        // 1. Fetch ShopWired product and sync to local DB (so variation lookups work)
+        // Sync locally first — variation lookups below depend on the local copy
         $product = $this->productSyncService->refreshById($command->productId->value);
 
         if ($product->variations === null || $product->variations === []) {
@@ -98,11 +98,9 @@ final readonly class GenerateVariantSkusUseCase
             return GenerateVariantSkusResult::noVariations($product->title);
         }
 
-        // 2. Fetch Linnworks template item
         $template = $this->inventoryClient->getStockItemFull($command->templateSku);
         $this->validateTemplate($template);
 
-        // 3. Filter to variations without SKUs
         $skuLessVariations = self::filterSkuLessVariations($product->variations);
 
         if ($skuLessVariations === []) {
@@ -114,12 +112,10 @@ final readonly class GenerateVariantSkusUseCase
             return GenerateVariantSkusResult::allSkipped(\count($product->variations), $product->title);
         }
 
-        // 4. If standard sign mode, load reference product for price matching
         $standardSignVariations = $command->isStandardSign
             ? $this->loadStandardSignVariations()
             : null;
 
-        // 5. Process each SKU-less variation
         $created = 0;
         $failed = 0;
         /** @var list<string> $createdVariants */
@@ -144,7 +140,7 @@ final readonly class GenerateVariantSkusUseCase
             }
         }
 
-        // 6. Refresh local product from API
+        // Refresh again to pick up the newly generated SKUs
         $this->productSyncService->refreshById($command->productId->value);
 
         $this->logger->info('Variant SKU generation completed', [

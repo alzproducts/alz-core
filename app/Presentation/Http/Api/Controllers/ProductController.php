@@ -14,6 +14,7 @@ use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Data\InvalidEnumValueException;
+use App\Domain\Exceptions\Data\MissingRequiredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\IntId;
@@ -34,6 +35,7 @@ use Illuminate\Http\Resources\Json\ResourceCollection;
  * @throws DuplicateRecordException
  * @throws ExternalServiceUnavailableException
  * @throws ResourceNotFoundException
+ * @throws MissingRequiredDataException
  */
 final readonly class ProductController
 {
@@ -71,6 +73,7 @@ final readonly class ProductController
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      * @throws RecordNotFoundException When product row not found in database
      * @throws InvalidEnumValueException
+     * @throws MissingRequiredDataException When custom field definitions table is empty
      */
     public function show(int $productId, ShowProductRequestDTO $data): ProductDetailResource
     {
@@ -93,6 +96,7 @@ final readonly class ProductController
      * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      * @throws RecordNotFoundException When product row not found in database
+     * @throws MissingRequiredDataException When custom field definitions table is empty
      */
     public function customFields(int $productId, GetProductCustomFieldsRequestDTO $data): ResourceCollection
     {
