@@ -29,3 +29,13 @@ Migrations are exempt from the "no `DB::` facade" rule — they run outside `Dat
 ## Postgres Identifier Truncation
 
 Postgres truncates identifiers at 63 characters. If `->unique()` + `->foreign()` on long table+column combinations both truncate to the same name, the migration fails with `SQLSTATE 42710` (duplicate object) and the transaction rollback erases the evidence. Shorten names explicitly when nearing the limit.
+
+## Materialized View Recreation
+
+`DROP MATERIALIZED VIEW` destroys all dependent indexes. When a migration recreates a materialized view:
+
+- DO search prior migrations for `CREATE INDEX ... ON <schema>.<view_name>` and `CREATE UNIQUE INDEX ... ON <schema>.<view_name>` to discover every dependent index
+- DO recreate all discovered indexes after the `CREATE MATERIALIZED VIEW` statement
+- DO preserve the original index expression exactly — expression indexes (e.g. GIN on `to_tsvector(...)`) silently degrade to sequential scans if the expression drifts
+
+**Why**: unique indexes fail loudly (`REFRESH CONCURRENTLY` errors without one), but expression indexes fail silently — queries return correct results, just slower. No test or alert catches the missing index.
