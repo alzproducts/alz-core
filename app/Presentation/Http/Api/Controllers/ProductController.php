@@ -12,7 +12,6 @@ use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\Product\Enums\ProductInclude;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\RecordNotFoundException;
-use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Data\InvalidEnumValueException;
 use App\Domain\Exceptions\Data\MissingRequiredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
@@ -34,7 +33,6 @@ use Illuminate\Http\Resources\Json\ResourceCollection;
  * @throws DatabaseOperationFailedException
  * @throws DuplicateRecordException
  * @throws ExternalServiceUnavailableException
- * @throws ResourceNotFoundException
  * @throws MissingRequiredDataException
  */
 final readonly class ProductController
@@ -66,7 +64,6 @@ final readonly class ProductController
     /**
      * Show a single product by ShopWired external ID with optional embeds.
      *
-     * @throws ResourceNotFoundException When product not found
      * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
      * @throws DatabaseOperationFailedException On query failure
      * @throws DuplicateRecordException On constraint violation
@@ -90,7 +87,6 @@ final readonly class ProductController
     /**
      * Get enriched custom fields for a product.
      *
-     * @throws ResourceNotFoundException When product not found
      * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
      * @throws DatabaseOperationFailedException On query failure
      * @throws DuplicateRecordException On constraint violation

@@ -40,11 +40,11 @@ $client = app(InventoryClientInterface::class);
 
 Linnworks uses inconsistent formats across endpoints:
 
-| Format | Transport Method | Example |
-|--------|------------------|---------|
-| JSON wrapper | `post()` | `request={JSON}` |
-| Raw form params | `postFormParams()` | `key=val&arr=["json"]` |
-| JSON body (GET-like reads) | `postJson()` | `Content-Type: application/json` |
+| Format | BodyEncoding | Example |
+|--------|-------------|---------|
+| JSON wrapper | `BodyEncoding::RequestWrapped` | `request={JSON}` |
+| Raw form params | `BodyEncoding::FormParams` | `key=val&arr=["json"]` |
+| JSON body (GET-like reads) | `BodyEncoding::Json` | `Content-Type: application/json` |
 
 **When 400 Bad Request**: Check legacy project for correct format.
 
