@@ -32,7 +32,7 @@ final readonly class QueuedShopwiredSyncDispatcher implements ShopwiredSyncDispa
     #[Override]
     public function dispatchEntitySync(ShopwiredEntityType $type, IntId $entityId): void
     {
-        match ($type) {
+        $_ = match ($type) {
             ShopwiredEntityType::Order => SyncShopwiredOrderJob::dispatch($entityId),
             ShopwiredEntityType::Product => SyncShopwiredProductJob::dispatch($entityId),
             ShopwiredEntityType::Customer => SyncShopwiredCustomerJob::dispatch($entityId),

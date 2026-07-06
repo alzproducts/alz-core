@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Application\Shopwired\SaleManagement\UseCases;
 
-use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Application\Catalog\Queries\ProductDetailQueryParams;
+use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Application\Contracts\Shopwired\SaleReconciliationDispatcherInterface;
 use App\Application\Contracts\Shopwired\SaleSettingsRepositoryInterface;
 use App\Application\Shopwired\SaleManagement\Resolvers\ProductSaleStateResolver;

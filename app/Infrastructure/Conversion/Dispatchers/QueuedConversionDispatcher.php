@@ -22,7 +22,7 @@ final readonly class QueuedConversionDispatcher implements ConversionDispatcherI
     #[Override]
     public function dispatchLeadConversion(AdPlatform $platform, LeadConversionCommand $command): void
     {
-        match ($platform) {
+        $_ = match ($platform) {
             AdPlatform::Google => ProcessLeadConversionJob::dispatch($command->submissionId->value, $command->actionId->value),
             AdPlatform::Bing => ProcessBingLeadConversionJob::dispatch($command->submissionId->value, $command->actionId->value),
         };

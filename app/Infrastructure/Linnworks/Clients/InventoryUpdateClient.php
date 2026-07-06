@@ -203,16 +203,16 @@ final readonly class InventoryUpdateClient implements InventoryUpdateClientInter
             $this->transport->post(
                 endpoint: '/api/Inventory/UpdateInventoryItemExtendedProperties',
                 data: ['inventoryItemExtendedProperties' => $updates],
-            encoding: BodyEncoding::FormParams,
-        );
+                encoding: BodyEncoding::FormParams,
+            );
         }
 
         if ($creates !== []) {
             $this->transport->post(
                 endpoint: '/api/Inventory/CreateInventoryItemExtendedProperties',
                 data: ['inventoryItemExtendedProperties' => $creates],
-            encoding: BodyEncoding::FormParams,
-        );
+                encoding: BodyEncoding::FormParams,
+            );
         }
     }
 

@@ -17,6 +17,7 @@ use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Api\ResourceNotAvailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Data\InvalidSkuException;
+use App\Domain\Exceptions\Data\MissingRequiredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\Exceptions\Infrastructure\LockAcquisitionException;
@@ -53,6 +54,7 @@ final class GenerateVariantSkusCommand extends Command
     /**
      * @throws InvalidCustomFieldValueException When product custom fields invalid
      * @throws ResourceNotAvailableException When ShopWired resource not yet available
+     * @throws MissingRequiredDataException When custom field definitions table is empty
      */
     public function handle(GenerateVariantSkusUseCase $useCase): int
     {

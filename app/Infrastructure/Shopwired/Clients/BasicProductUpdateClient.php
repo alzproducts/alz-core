@@ -16,7 +16,9 @@ use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Api\ResourceNotAvailableException;
+use App\Domain\Exceptions\Data\MissingRequiredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
+use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Infrastructure\Shopwired\Contracts\ShopwiredTransportInterface;
 
 /**
@@ -53,6 +55,8 @@ final readonly class BasicProductUpdateClient implements BasicProductUpdateClien
      * @throws AuthenticationExpiredException When credentials invalid
      * @throws ExternalServiceUnavailableException When API unavailable
      * @throws DatabaseOperationFailedException When local lookup fails
+     * @throws DuplicateRecordException On constraint violation
+     * @throws MissingRequiredDataException When custom field definitions table is empty
      */
     public function update(UpdateBasicProductCommand $command): void
     {
@@ -80,6 +84,8 @@ final readonly class BasicProductUpdateClient implements BasicProductUpdateClien
      * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
      * @throws DatabaseOperationFailedException When local lookup fails
      * @throws ExternalServiceUnavailableException When database unavailable
+     * @throws DuplicateRecordException On constraint violation
+     * @throws MissingRequiredDataException When custom field definitions table is empty
      */
     private function resolveEntity(UpdateBasicProductCommand $command): Product|ProductVariation
     {

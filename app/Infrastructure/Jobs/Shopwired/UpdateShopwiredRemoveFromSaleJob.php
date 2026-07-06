@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Jobs\Shopwired;
 
-use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Application\Catalog\Queries\ProductDetailQueryParams;
+use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Application\Shopwired\SaleManagement\UseCases\RemoveProductFromSaleUseCase;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;

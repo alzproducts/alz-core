@@ -40,7 +40,7 @@ interface LinnworksTransportInterface
      * Perform POST request to Linnworks API.
      *
      * @param string $endpoint API endpoint path
-     * @param array<string, mixed> $data Request body data
+     * @param array<string, scalar|array<mixed>|null> $data Request body data
      *
      * @return Response Successful HTTP response
      *

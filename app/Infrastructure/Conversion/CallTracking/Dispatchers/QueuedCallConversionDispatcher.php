@@ -19,7 +19,7 @@ final readonly class QueuedCallConversionDispatcher implements CallConversionDis
     #[Override]
     public function dispatchCallLeadConversion(AdPlatform $platform, CallLeadConversionCommand $command): void
     {
-        match ($platform) {
+        $_ = match ($platform) {
             AdPlatform::Google => ProcessGoogleCallLeadConversionJob::dispatch(
                 $command->visitId->value,
                 $command->actionId->value,

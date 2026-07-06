@@ -15,7 +15,9 @@ use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Domain\Exceptions\Data\MissingRequiredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
+use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\Inventory\Enums\ExtendedPropertyName;
 use App\Domain\Inventory\ValueObjects\ExtendedPropertyWrite;
 use App\Domain\ValueObjects\IntId;
@@ -70,10 +72,12 @@ final class UpdateLinnworksSellingPriceEpsJob extends AbstractJob
      * @throws ResourceNotFoundException When stock item not found in Linnworks
      * @throws InvalidCustomFieldValueException When custom field mapping fails
      * @throws DatabaseOperationFailedException On DB query failure
+     * @throws DuplicateRecordException On constraint violation
      * @throws InvalidApiRequestException When parameters invalid
      * @throws InvalidApiResponseException When API response malformed
      * @throws AuthenticationExpiredException When credentials invalid
      * @throws ExternalServiceUnavailableException When API or DB unavailable
+     * @throws MissingRequiredDataException When custom field definitions table is empty
      */
     public function handle(
         ProductRepositoryInterface $productRepo,

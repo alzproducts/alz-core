@@ -9,6 +9,7 @@ use App\Application\Shopwired\BulkSellingPriceUpdate\Results\BulkSellingPriceDis
 use App\Domain\Catalog\Product\Commands\UpdatePriceCommand;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
+use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\Exceptions\ValidationFailedException;
 use App\Presentation\Console\Parsers\SellingPriceCsvParser;
 use Illuminate\Console\Command;
@@ -39,6 +40,7 @@ final class BulkUpdateSellingPricesCommand extends Command
 
     /**
      * @throws DatabaseOperationFailedException On SKU map query failure
+     * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      */
     public function handle(DispatchBulkSellingPriceJobsUseCase $useCase, SellingPriceCsvParser $parser): int
@@ -67,6 +69,7 @@ final class BulkUpdateSellingPricesCommand extends Command
      * @param non-empty-list<UpdatePriceCommand> $commands
      *
      * @throws DatabaseOperationFailedException On SKU map query failure
+     * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      */
     private function dispatchOrPreview(DispatchBulkSellingPriceJobsUseCase $useCase, array $commands): int

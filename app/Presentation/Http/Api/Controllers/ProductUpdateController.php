@@ -18,6 +18,7 @@ use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Api\ResourceNotAvailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Data\InvalidSkuException;
+use App\Domain\Exceptions\Data\MissingRequiredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\Exceptions\Infrastructure\LockAcquisitionException;
@@ -130,6 +131,7 @@ final readonly class ProductUpdateController
      * @throws LockAcquisitionException When SKU generation lock unavailable (503)
      * @throws DatabaseOperationFailedException When local refresh fails
      * @throws DuplicateRecordException When local refresh encounters duplicate
+     * @throws MissingRequiredDataException When custom field definitions table is empty
      */
     public function generateVariantSkus(int $productId, GenerateVariantSkusRequestDTO $data): GenerateVariantSkusResponseDTO
     {

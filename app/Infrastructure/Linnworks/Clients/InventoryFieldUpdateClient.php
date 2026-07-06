@@ -87,8 +87,8 @@ final readonly class InventoryFieldUpdateClient implements InventoryFieldUpdateC
                     'fieldValue' => $update->value,
                     'locationId' => $resolvedLocationId,
                 ],
-            encoding: BodyEncoding::FormParams,
-        );
+                encoding: BodyEncoding::FormParams,
+            );
         }
     }
 

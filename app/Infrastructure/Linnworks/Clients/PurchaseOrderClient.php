@@ -229,7 +229,6 @@ final readonly class PurchaseOrderClient implements PurchaseOrderClientInterface
         $currentPage = $data['CurrentPageNumber'] ?? 1;
         /** @var int $perPage */
         $perPage = $data['EntriesPerPage'] ?? 50;
-
         /** @var list<PurchaseOrderHeader> $headers */
         $headers = self::parseDirectArrayToDomain($results, PurchaseOrderHeaderResponse::class);
 

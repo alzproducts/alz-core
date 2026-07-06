@@ -24,6 +24,7 @@ use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Api\ResourceNotAvailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Domain\Exceptions\Data\MissingRequiredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\Exceptions\Infrastructure\LockAcquisitionException;
@@ -76,6 +77,7 @@ final readonly class GenerateVariantSkusUseCase
      * @throws DuplicateRecordException When local refresh encounters duplicate
      * @throws InvalidTemplateException When template has no default supplier
      * @throws InvalidCustomFieldValueException When product custom fields invalid
+     * @throws MissingRequiredDataException When custom field definitions table is empty
      */
     public function execute(GenerateVariantSkusCommand $command): GenerateVariantSkusResult
     {
@@ -203,7 +205,9 @@ final readonly class GenerateVariantSkusUseCase
      * @throws RecordNotFoundException When standard sign product not found in local DB
      * @throws ExternalServiceUnavailableException When ShopWired API unavailable
      * @throws DatabaseOperationFailedException When local DB query fails
+     * @throws DuplicateRecordException On constraint violation
      * @throws InvalidCustomFieldValueException When product custom fields invalid
+     * @throws MissingRequiredDataException When custom field definitions table is empty
      */
     private function loadStandardSignVariations(): array
     {

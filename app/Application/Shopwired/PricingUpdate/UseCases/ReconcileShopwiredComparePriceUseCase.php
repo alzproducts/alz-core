@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Application\Shopwired\PricingUpdate\UseCases;
 
-use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Application\Catalog\Queries\ProductDetailQueryParams;
+use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Application\Contracts\Shopwired\ProductUpdateClientInterface;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\Product\Enums\ProductInclude;

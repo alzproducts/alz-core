@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Application\Shopwired\CategoryMembership\UseCases;
 
+use App\Application\Catalog\Queries\ProductDetailQueryParams;
 use App\Application\Contracts\Shopwired\ProductFieldUpdateClientInterface;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
-use App\Application\Catalog\Queries\ProductDetailQueryParams;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\Product\ValueObjects\ProductFieldUpdate;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;

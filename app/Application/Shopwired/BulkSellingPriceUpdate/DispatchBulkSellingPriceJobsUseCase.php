@@ -6,11 +6,12 @@ namespace App\Application\Shopwired\BulkSellingPriceUpdate;
 
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Application\Contracts\Shopwired\SellingPriceUpdateDispatcherInterface;
-use App\Application\Shopwired\Enums\SkuListShape;
 use App\Application\Shopwired\BulkSellingPriceUpdate\Results\BulkSellingPriceDispatchResult;
+use App\Application\Shopwired\Enums\SkuListShape;
 use App\Domain\Catalog\Product\Commands\UpdatePriceCommand;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
+use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\Exceptions\ValidationFailedException;
 use App\Domain\ValueObjects\IntId;
 use Psr\Log\LoggerInterface;
@@ -36,6 +37,7 @@ final readonly class DispatchBulkSellingPriceJobsUseCase
      *
      * @throws ValidationFailedException When any SKU does not resolve to a local product
      * @throws DatabaseOperationFailedException On SKU map query failure
+     * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      */
     public function execute(array $commands): BulkSellingPriceDispatchResult
@@ -79,6 +81,7 @@ final readonly class DispatchBulkSellingPriceJobsUseCase
      *
      * @throws ValidationFailedException When any SKU does not resolve to a local product
      * @throws DatabaseOperationFailedException On SKU map query failure
+     * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      */
     private function groupByProduct(array $commands): array
@@ -123,6 +126,7 @@ final readonly class DispatchBulkSellingPriceJobsUseCase
      * @return array<string, int> SKU value → product external ID
      *
      * @throws DatabaseOperationFailedException On query failure
+     * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      */
     private function buildSkuToProductMap(): array

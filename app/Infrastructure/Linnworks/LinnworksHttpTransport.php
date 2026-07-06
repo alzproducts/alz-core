@@ -77,7 +77,7 @@ final readonly class LinnworksHttpTransport implements LinnworksTransportInterfa
      * Perform POST request to Linnworks API.
      *
      * @param string $endpoint API endpoint path
-     * @param array<string, mixed> $data Request body data
+     * @param array<string, scalar|array<mixed>|null> $data Request body data
      *
      * @return Response Successful HTTP response
      *
@@ -96,6 +96,15 @@ final readonly class LinnworksHttpTransport implements LinnworksTransportInterfa
         };
     }
 
+    /**
+     * @param array<string, scalar|array<mixed>|null> $data Request body data (JSON-encoded and sent as form 'request' parameter)
+     *
+     * @throws InvalidApiRequestException When request parameters are invalid (400) or data not serializable
+     * @throws InvalidApiResponseException When session data is malformed (API contract violation)
+     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
+     * @throws ResourceNotFoundException When resource not found (404)
+     * @throws ExternalServiceUnavailableException When API unavailable, rate limited, or connection fails
+     */
     private function postRequestWrapped(string $endpoint, array $data): Response
     {
         try {
@@ -122,6 +131,21 @@ final readonly class LinnworksHttpTransport implements LinnworksTransportInterfa
         );
     }
 
+    /**
+     * Perform POST request with raw JSON body.
+     *
+     * Unlike post(), this sends JSON directly in the request body (not wrapped
+     * in a 'request' form parameter). Used by Linnworks endpoints like
+     * UpdateInventoryItemField that expect application/json content type.
+     *
+     * @param array<string, scalar|array<mixed>|null> $data Request body data (sent as JSON)
+     *
+     * @throws InvalidApiRequestException When request parameters are invalid (400)
+     * @throws InvalidApiResponseException When session data is malformed (API contract violation)
+     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
+     * @throws ResourceNotFoundException When resource not found (404)
+     * @throws ExternalServiceUnavailableException When API unavailable, rate limited, or connection fails
+     */
     private function postJson(string $endpoint, array $data): Response
     {
         return $this->executeWithAuthRetry(
@@ -134,9 +158,25 @@ final readonly class LinnworksHttpTransport implements LinnworksTransportInterfa
         );
     }
 
+    /**
+     * Perform POST request with raw form-encoded parameters.
+     *
+     * Unlike post(), this sends parameters directly as form fields (not wrapped
+     * in a 'request' JSON blob). Used by Linnworks endpoints like GetStockItemsFull
+     * that expect query-string style parameters in the POST body.
+     *
+     * Array/object values are automatically JSON-encoded as string values.
+     *
+     * @param array<string, scalar|array<mixed>|null> $data Form parameters (arrays will be JSON-encoded)
+     *
+     * @throws InvalidApiRequestException When request parameters are invalid (400)
+     * @throws InvalidApiResponseException When session data is malformed (API contract violation)
+     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
+     * @throws ResourceNotFoundException When resource not found (404)
+     * @throws ExternalServiceUnavailableException When API unavailable, rate limited, or connection fails
+     */
     private function postFormParams(string $endpoint, array $data): Response
     {
-        /** @var array<string, scalar|array<mixed>|null> $data */
         $formParams = LinnworksParamConverter::convertToFormParams($data, $endpoint);
 
         return $this->executeWithAuthRetry(
