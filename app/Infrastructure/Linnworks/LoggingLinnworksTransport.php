@@ -10,6 +10,7 @@ use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Infrastructure\Linnworks\Contracts\LinnworksTransportInterface;
+use App\Infrastructure\Linnworks\Enums\BodyEncoding;
 use App\Infrastructure\Linnworks\Enums\LinnworksLogLevel;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Log;
@@ -62,50 +63,18 @@ final readonly class LoggingLinnworksTransport implements LinnworksTransportInte
      * @throws ResourceNotFoundException When resource not found (404)
      * @throws ExternalServiceUnavailableException When API unavailable, rate limited, or connection fails
      */
-    public function post(string $endpoint, array $data = []): Response
+    public function post(string $endpoint, array $data = [], BodyEncoding $encoding = BodyEncoding::RequestWrapped): Response
     {
-        $this->logRequest('POST', $endpoint, $data);
+        $logLabel = match ($encoding) {
+            BodyEncoding::RequestWrapped => 'POST',
+            BodyEncoding::Json => 'POST_JSON',
+            BodyEncoding::FormParams => 'POST_FORM',
+        };
+
+        $this->logRequest($logLabel, $endpoint, $data);
         $start = \microtime(true);
 
-        $response = $this->inner->post($endpoint, $data);
-
-        $this->logResponse($endpoint, $response, \microtime(true) - $start);
-
-        return $response;
-    }
-
-    /**
-     * @throws InvalidApiRequestException When request parameters are invalid (400)
-     * @throws InvalidApiResponseException When session data is malformed (API contract violation)
-     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
-     * @throws ResourceNotFoundException When resource not found (404)
-     * @throws ExternalServiceUnavailableException When API unavailable, rate limited, or connection fails
-     */
-    public function postJson(string $endpoint, array $data = []): Response
-    {
-        $this->logRequest('POST_JSON', $endpoint, $data);
-        $start = \microtime(true);
-
-        $response = $this->inner->postJson($endpoint, $data);
-
-        $this->logResponse($endpoint, $response, \microtime(true) - $start);
-
-        return $response;
-    }
-
-    /**
-     * @throws InvalidApiRequestException When request parameters are invalid (400)
-     * @throws InvalidApiResponseException When session data is malformed (API contract violation)
-     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
-     * @throws ResourceNotFoundException When resource not found (404)
-     * @throws ExternalServiceUnavailableException When API unavailable, rate limited, or connection fails
-     */
-    public function postFormParams(string $endpoint, array $params = []): Response
-    {
-        $this->logRequest('POST_FORM', $endpoint, $params);
-        $start = \microtime(true);
-
-        $response = $this->inner->postFormParams($endpoint, $params);
+        $response = $this->inner->post($endpoint, $data, $encoding);
 
         $this->logResponse($endpoint, $response, \microtime(true) - $start);
 

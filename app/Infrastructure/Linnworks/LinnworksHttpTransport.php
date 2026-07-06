@@ -10,6 +10,7 @@ use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Infrastructure\Linnworks\Contracts\LinnworksTransportInterface;
+use App\Infrastructure\Linnworks\Enums\BodyEncoding;
 use App\Infrastructure\Support\ApiRetryStrategy;
 use Closure;
 use DateMalformedStringException;
@@ -76,7 +77,7 @@ final readonly class LinnworksHttpTransport implements LinnworksTransportInterfa
      * Perform POST request to Linnworks API.
      *
      * @param string $endpoint API endpoint path
-     * @param array<string, mixed> $data Request body data (JSON-encoded and sent as form 'request' parameter)
+     * @param array<string, mixed> $data Request body data
      *
      * @return Response Successful HTTP response
      *
@@ -86,13 +87,20 @@ final readonly class LinnworksHttpTransport implements LinnworksTransportInterfa
      * @throws ResourceNotFoundException When resource not found (404)
      * @throws ExternalServiceUnavailableException When API unavailable, rate limited, or connection fails
      */
-    public function post(string $endpoint, array $data = []): Response
+    public function post(string $endpoint, array $data = [], BodyEncoding $encoding = BodyEncoding::RequestWrapped): Response
     {
-        // Linnworks API expects form-encoded POST with 'request' containing JSON
+        return match ($encoding) {
+            BodyEncoding::RequestWrapped => $this->postRequestWrapped($endpoint, $data),
+            BodyEncoding::Json => $this->postJson($endpoint, $data),
+            BodyEncoding::FormParams => $this->postFormParams($endpoint, $data),
+        };
+    }
+
+    private function postRequestWrapped(string $endpoint, array $data): Response
+    {
         try {
             $formData = $data === [] ? [] : ['request' => \json_encode($data, \JSON_THROW_ON_ERROR)];
         } catch (JsonException $e) {
-            // Programming error: caller passed unserializable data
             Log::error(self::SERVICE_NAME . ' failed to serialize request data', [
                 'endpoint' => $endpoint,
                 'error' => $e->getMessage(),
@@ -114,25 +122,7 @@ final readonly class LinnworksHttpTransport implements LinnworksTransportInterfa
         );
     }
 
-    /**
-     * Perform POST request with raw JSON body.
-     *
-     * Unlike post(), this sends JSON directly in the request body (not wrapped
-     * in a 'request' form parameter). Used by Linnworks endpoints like
-     * UpdateInventoryItemField that expect application/json content type.
-     *
-     * @param string $endpoint API endpoint path
-     * @param array<string, mixed> $data Request body data (sent as JSON)
-     *
-     * @return Response Successful HTTP response
-     *
-     * @throws InvalidApiRequestException When request parameters are invalid (400)
-     * @throws InvalidApiResponseException When session data is malformed (API contract violation)
-     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
-     * @throws ResourceNotFoundException When resource not found (404)
-     * @throws ExternalServiceUnavailableException When API unavailable, rate limited, or connection fails
-     */
-    public function postJson(string $endpoint, array $data = []): Response
+    private function postJson(string $endpoint, array $data): Response
     {
         return $this->executeWithAuthRetry(
             // @phpstan-ignore missingType.checkedException, missingType.checkedException (closure exceptions caught in executeWithAuthRetry)
@@ -144,29 +134,10 @@ final readonly class LinnworksHttpTransport implements LinnworksTransportInterfa
         );
     }
 
-    /**
-     * Perform POST request with raw form-encoded parameters.
-     *
-     * Unlike post(), this sends parameters directly as form fields (not wrapped
-     * in a 'request' JSON blob). Used by Linnworks endpoints like GetStockItemsFull
-     * that expect query-string style parameters in the POST body.
-     *
-     * Array/object values are automatically JSON-encoded as string values.
-     *
-     * @param string $endpoint API endpoint path
-     * @param array<string, scalar|array<mixed>|null> $params Form parameters (arrays will be JSON-encoded)
-     *
-     * @return Response Successful HTTP response
-     *
-     * @throws InvalidApiRequestException When request parameters are invalid (400)
-     * @throws InvalidApiResponseException When session data is malformed (API contract violation)
-     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
-     * @throws ResourceNotFoundException When resource not found (404)
-     * @throws ExternalServiceUnavailableException When API unavailable, rate limited, or connection fails
-     */
-    public function postFormParams(string $endpoint, array $params = []): Response
+    private function postFormParams(string $endpoint, array $data): Response
     {
-        $formParams = LinnworksParamConverter::convertToFormParams($params, $endpoint);
+        /** @var array<string, scalar|array<mixed>|null> $data */
+        $formParams = LinnworksParamConverter::convertToFormParams($data, $endpoint);
 
         return $this->executeWithAuthRetry(
             // @phpstan-ignore missingType.checkedException, missingType.checkedException (closure exceptions caught in executeWithAuthRetry)

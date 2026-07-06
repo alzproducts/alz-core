@@ -20,6 +20,7 @@ use App\Domain\Inventory\ValueObjects\StockItemSupplierStat;
 use App\Domain\Inventory\ValueObjects\SupplierLinkParams;
 use App\Domain\ValueObjects\Guid;
 use App\Infrastructure\Linnworks\Contracts\LinnworksTransportInterface;
+use App\Infrastructure\Linnworks\Enums\BodyEncoding;
 use App\Infrastructure\Linnworks\Requests\AddInventoryItemRequest;
 use App\Infrastructure\Linnworks\Requests\CreateStockSupplierStatRequest;
 use App\Infrastructure\Linnworks\Requests\ExtendedPropertyRequest;
@@ -55,13 +56,14 @@ final readonly class InventoryUpdateClient implements InventoryUpdateClientInter
     {
         $stockItemId = $this->inventoryClient->resolveStockItemId($identifier);
 
-        $this->transport->postFormParams(
+        $this->transport->post(
             endpoint: '/api/Inventory/UpdateInventoryItemField',
-            params: [
+            data: [
                 'inventoryItemId' => $stockItemId->value,
                 'fieldName' => LinnworksInventoryField::SKU->value,
                 'fieldValue' => $newSku->value,
             ],
+            encoding: BodyEncoding::FormParams,
         );
     }
 
@@ -80,9 +82,10 @@ final readonly class InventoryUpdateClient implements InventoryUpdateClientInter
 
         $request = AddInventoryItemRequest::fromCommand($stockItemId, $categoryId, $command);
 
-        $this->transport->postFormParams(
+        $this->transport->post(
             endpoint: '/api/Inventory/AddInventoryItem',
-            params: ['inventoryItem' => $request->toArray()],
+            data: ['inventoryItem' => $request->toArray()],
+            encoding: BodyEncoding::FormParams,
         );
 
         return $stockItemId;
@@ -103,9 +106,10 @@ final readonly class InventoryUpdateClient implements InventoryUpdateClientInter
 
         $request = CreateStockSupplierStatRequest::fromResolved($stockItemId, $params);
 
-        $this->transport->postFormParams(
+        $this->transport->post(
             endpoint: '/api/Inventory/CreateStockSupplierStat',
-            params: ['itemSuppliers' => [$request->toArray()]],
+            data: ['itemSuppliers' => [$request->toArray()]],
+            encoding: BodyEncoding::FormParams,
         );
     }
 
@@ -196,17 +200,19 @@ final readonly class InventoryUpdateClient implements InventoryUpdateClientInter
         );
 
         if ($updates !== []) {
-            $this->transport->postFormParams(
+            $this->transport->post(
                 endpoint: '/api/Inventory/UpdateInventoryItemExtendedProperties',
-                params: ['inventoryItemExtendedProperties' => $updates],
-            );
+                data: ['inventoryItemExtendedProperties' => $updates],
+            encoding: BodyEncoding::FormParams,
+        );
         }
 
         if ($creates !== []) {
-            $this->transport->postFormParams(
+            $this->transport->post(
                 endpoint: '/api/Inventory/CreateInventoryItemExtendedProperties',
-                params: ['inventoryItemExtendedProperties' => $creates],
-            );
+                data: ['inventoryItemExtendedProperties' => $creates],
+            encoding: BodyEncoding::FormParams,
+        );
         }
     }
 
@@ -258,9 +264,10 @@ final readonly class InventoryUpdateClient implements InventoryUpdateClientInter
     public function updateStockSupplierStats(array $supplierStats): void
     {
         $payload = UpdateStockSupplierStatRequest::buildBulkPayload($supplierStats);
-        $this->transport->postFormParams(
+        $this->transport->post(
             endpoint: '/api/Inventory/UpdateStockSupplierStat',
-            params: ['itemSuppliers' => $payload],
+            data: ['itemSuppliers' => $payload],
+            encoding: BodyEncoding::FormParams,
         );
     }
 
@@ -275,9 +282,10 @@ final readonly class InventoryUpdateClient implements InventoryUpdateClientInter
      */
     private function createExtendedProperty(ExtendedPropertyWrite $property, Guid $stockItemId): void
     {
-        $this->transport->postFormParams(
+        $this->transport->post(
             endpoint: '/api/Inventory/CreateInventoryItemExtendedProperties',
-            params: ['inventoryItemExtendedProperties' => [ExtendedPropertyRequest::fromWrite($property, $stockItemId)->toArray()]],
+            data: ['inventoryItemExtendedProperties' => [ExtendedPropertyRequest::fromWrite($property, $stockItemId)->toArray()]],
+            encoding: BodyEncoding::FormParams,
         );
     }
 
@@ -299,9 +307,10 @@ final readonly class InventoryUpdateClient implements InventoryUpdateClientInter
             $stockItemIds,
         );
 
-        $this->transport->postFormParams(
+        $this->transport->post(
             endpoint: '/api/Inventory/DeleteInventoryItems',
-            params: ['inventoryItemIds' => $ids],
+            data: ['inventoryItemIds' => $ids],
+            encoding: BodyEncoding::FormParams,
         );
     }
 }

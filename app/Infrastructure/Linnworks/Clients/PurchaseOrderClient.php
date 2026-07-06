@@ -21,6 +21,7 @@ use App\Domain\Linnworks\ValueObjects\PurchaseOrderNote;
 use App\Domain\ValueObjects\Guid;
 use App\Domain\ValueObjects\PaginatedList;
 use App\Infrastructure\Linnworks\Contracts\LinnworksTransportInterface;
+use App\Infrastructure\Linnworks\Enums\BodyEncoding;
 use App\Infrastructure\Linnworks\Requests\GetPurchaseOrdersWithStockItemsRequest;
 use App\Infrastructure\Linnworks\Responses\PurchaseOrder\PurchaseOrderAdditionalCostResponse;
 use App\Infrastructure\Linnworks\Responses\PurchaseOrder\PurchaseOrderCoreResponse;
@@ -73,9 +74,10 @@ final readonly class PurchaseOrderClient implements PurchaseOrderClientInterface
      */
     private function buildHeader(Guid $purchaseId): PurchaseOrderHeader
     {
-        $response = $this->transport->postFormParams(
+        $response = $this->transport->post(
             endpoint: '/api/PurchaseOrder/Get_PurchaseOrder',
-            params: ['pkPurchaseId' => $purchaseId->value],
+            data: ['pkPurchaseId' => $purchaseId->value],
+            encoding: BodyEncoding::FormParams,
         );
 
         /** @var array<string, mixed>|null $data */
@@ -144,9 +146,10 @@ final readonly class PurchaseOrderClient implements PurchaseOrderClientInterface
      */
     private function fetchRawPurchaseOrder(Guid $purchaseId): array
     {
-        $response = $this->transport->postFormParams(
+        $response = $this->transport->post(
             endpoint: '/api/PurchaseOrder/Get_PurchaseOrder',
-            params: ['pkPurchaseId' => $purchaseId->value],
+            data: ['pkPurchaseId' => $purchaseId->value],
+            encoding: BodyEncoding::FormParams,
         );
 
         $data = $response->json();
@@ -207,9 +210,10 @@ final readonly class PurchaseOrderClient implements PurchaseOrderClientInterface
      */
     public function searchPurchaseOrders(array $searchParams): PaginatedList
     {
-        $response = $this->transport->postFormParams(
+        $response = $this->transport->post(
             endpoint: '/api/PurchaseOrder/Search_PurchaseOrders',
-            params: ['searchParameter' => \json_encode($searchParams, JSON_THROW_ON_ERROR)],
+            data: ['searchParameter' => \json_encode($searchParams, JSON_THROW_ON_ERROR)],
+            encoding: BodyEncoding::FormParams,
         );
 
         $data = self::validateArrayResponse(
@@ -275,9 +279,10 @@ final readonly class PurchaseOrderClient implements PurchaseOrderClientInterface
      */
     public function getPurchaseOrderNotes(Guid $purchaseId): array
     {
-        $response = $this->transport->postFormParams(
+        $response = $this->transport->post(
             endpoint: '/api/PurchaseOrder/Get_PurchaseOrderNote',
-            params: ['pkPurchaseId' => $purchaseId->value],
+            data: ['pkPurchaseId' => $purchaseId->value],
+            encoding: BodyEncoding::FormParams,
         );
 
         $data = $response->json();
@@ -304,9 +309,10 @@ final readonly class PurchaseOrderClient implements PurchaseOrderClientInterface
     {
         $request = GetPurchaseOrdersWithStockItemsRequest::fromResolved($stockItemId, $locationIds);
 
-        $response = $this->transport->postFormParams(
+        $response = $this->transport->post(
             endpoint: '/api/PurchaseOrder/GetPurchaseOrdersWithStockItems',
-            params: ['purchaseOrder' => \json_encode($request->toArray(), JSON_THROW_ON_ERROR)],
+            data: ['purchaseOrder' => \json_encode($request->toArray(), JSON_THROW_ON_ERROR)],
+            encoding: BodyEncoding::FormParams,
         );
 
         /** @var list<string> $rawIds */

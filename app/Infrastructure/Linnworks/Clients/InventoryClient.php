@@ -17,6 +17,7 @@ use App\Domain\Inventory\ValueObjects\StockItemSupplierStat;
 use App\Domain\Inventory\ValueObjects\Supplier;
 use App\Domain\ValueObjects\Guid;
 use App\Infrastructure\Linnworks\Contracts\LinnworksTransportInterface;
+use App\Infrastructure\Linnworks\Enums\BodyEncoding;
 use App\Infrastructure\Linnworks\Responses\SkuStockIdMappingResponse;
 use App\Infrastructure\Linnworks\Responses\StockItemFullResponse;
 use App\Infrastructure\Linnworks\Responses\StockSupplierStatResponse;
@@ -208,15 +209,16 @@ final readonly class InventoryClient implements InventoryClientInterface
      */
     private function fetchStockItemsFullPage(int $pageNumber, int $entriesPerPage): array
     {
-        $response = $this->transport->postFormParams(
+        $response = $this->transport->post(
             endpoint: '/api/Stock/GetStockItemsFull',
-            params: [
+            data: [
                 'dataRequirements' => self::DATA_REQUIREMENTS_FULL,
                 'loadCompositeParents' => true,
                 'loadVariationParents' => false,
                 'entriesPerPage' => $entriesPerPage,
                 'pageNumber' => $pageNumber,
             ],
+            encoding: BodyEncoding::FormParams,
         );
 
         /** @var list<StockItemFull> */
@@ -346,9 +348,10 @@ final readonly class InventoryClient implements InventoryClientInterface
             $stockItemIds,
         );
 
-        $response = $this->transport->postJson(
+        $response = $this->transport->post(
             endpoint: '/api/Inventory/GetStockSupplierStatsBulk',
             data: ['inventoryItemIds' => $guidStrings],
+            encoding: BodyEncoding::Json,
         );
 
         /** @var list<StockItemSupplierStat> */

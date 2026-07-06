@@ -17,6 +17,7 @@ use App\Domain\Inventory\Enums\LinnworksInventoryField;
 use App\Domain\Inventory\ValueObjects\InventoryFieldUpdate;
 use App\Domain\ValueObjects\Guid;
 use App\Infrastructure\Linnworks\Contracts\LinnworksTransportInterface;
+use App\Infrastructure\Linnworks\Enums\BodyEncoding;
 use App\Infrastructure\Linnworks\Enums\LinnworksLocation;
 
 /**
@@ -78,15 +79,16 @@ final readonly class InventoryFieldUpdateClient implements InventoryFieldUpdateC
         $resolvedLocationId = $locationId !== null ? $locationId->value : LinnworksLocation::Default->value;
 
         foreach ($updates as $update) {
-            $this->transport->postFormParams(
+            $this->transport->post(
                 endpoint: '/api/Inventory/UpdateInventoryItemLocationField',
-                params: [
+                data: [
                     'inventoryItemId' => $stockItemId->value,
                     'fieldName' => self::mapField($update->field)->value,
                     'fieldValue' => $update->value,
                     'locationId' => $resolvedLocationId,
                 ],
-            );
+            encoding: BodyEncoding::FormParams,
+        );
         }
     }
 
