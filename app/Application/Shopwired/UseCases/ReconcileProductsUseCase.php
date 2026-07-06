@@ -6,6 +6,7 @@ namespace App\Application\Shopwired\UseCases;
 
 use App\Application\Contracts\Shopwired\ProductClientInterface;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
+use App\Application\Shopwired\Enums\ExternalIdScope;
 use App\Application\Shopwired\Results\ReconcileResult;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
@@ -59,7 +60,7 @@ final readonly class ReconcileProductsUseCase
         $apiProductIds = $this->productClient->getAllProductIds();
 
         // Fetch all local product IDs
-        $localProductIds = $this->productRepository->getAllExternalIds();
+        $localProductIds = $this->productRepository->getAllExternalIds(ExternalIdScope::Product);
 
         // Safety check: if API returns empty but we have local products, abort
         // This prevents accidental mass deletion if API fails silently

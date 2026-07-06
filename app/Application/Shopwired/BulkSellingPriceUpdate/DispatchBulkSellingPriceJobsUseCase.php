@@ -6,6 +6,7 @@ namespace App\Application\Shopwired\BulkSellingPriceUpdate;
 
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Application\Contracts\Shopwired\SellingPriceUpdateDispatcherInterface;
+use App\Application\Shopwired\Enums\SkuListShape;
 use App\Application\Shopwired\BulkSellingPriceUpdate\Results\BulkSellingPriceDispatchResult;
 use App\Domain\Catalog\Product\Commands\UpdatePriceCommand;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
@@ -127,7 +128,7 @@ final readonly class DispatchBulkSellingPriceJobsUseCase
     private function buildSkuToProductMap(): array
     {
         $bySku = [];
-        foreach ($this->productRepo->getSkusGroupedByProductId() as $productId => $skus) {
+        foreach ($this->productRepo->getAllSkus(SkuListShape::GroupedByProduct) as $productId => $skus) {
             foreach ($skus as $sku) {
                 $bySku[$sku] = $productId;
             }

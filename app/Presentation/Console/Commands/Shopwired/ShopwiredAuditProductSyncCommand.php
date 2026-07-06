@@ -6,6 +6,7 @@ namespace App\Presentation\Console\Commands\Shopwired;
 
 use App\Application\Contracts\Shopwired\ProductClientInterface;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
+use App\Application\Shopwired\Enums\ExternalIdScope;
 use App\Domain\Catalog\Product\ValueObjects\Product;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
@@ -96,8 +97,8 @@ final class ShopwiredAuditProductSyncCommand extends Command
      */
     private function getDbIds(ProductRepositoryInterface $productRepository): array
     {
-        $productIds = $productRepository->getAllExternalIds();
-        $variationIds = $productRepository->getAllVariationExternalIds();
+        $productIds = $productRepository->getAllExternalIds(ExternalIdScope::Product);
+        $variationIds = $productRepository->getAllExternalIds(ExternalIdScope::Variation);
 
         return [$productIds, $variationIds];
     }

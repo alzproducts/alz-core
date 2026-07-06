@@ -9,6 +9,8 @@ use App\Application\Catalog\Queries\ProductListQueryParams;
 use App\Application\Contracts\DatabaseGatewayInterface;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
+use App\Application\Shopwired\Enums\ExternalIdScope;
+use App\Application\Shopwired\Enums\SkuListShape;
 use App\Domain\Catalog\Product\Enums\ProductFilterField;
 use App\Domain\Catalog\Product\Enums\ProductInclude;
 use App\Domain\Catalog\Product\Enums\ProductType;
@@ -33,6 +35,7 @@ use App\Infrastructure\Catalog\Product\Models\ProductViewModel;
 use App\Infrastructure\Persistence\EloquentGateway;
 use App\Infrastructure\Repositories\AbstractEloquentRepository;
 use Closure;
+use Generator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Log;
@@ -276,30 +279,16 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      */
-    public function getAllExternalIds(): array
+    public function getAllExternalIds(ExternalIdScope $scope): array
     {
-        return $this->eloquentGateway->query(static function (): array {
-            /** @var list<int> */
-            return self::MODEL_CLASS::query()
-                ->pluck('external_id')
-                ->all();
-        });
-    }
+        $modelClass = match ($scope) {
+            ExternalIdScope::Product => self::MODEL_CLASS,
+            ExternalIdScope::Variation => ProductVariationModel::class,
+        };
 
-    /**
-     * {@inheritDoc}
-     *
-     * @return list<int>
-     *
-     * @throws DatabaseOperationFailedException
-     * @throws DuplicateRecordException
-     * @throws ExternalServiceUnavailableException
-     */
-    public function getAllVariationExternalIds(): array
-    {
-        return $this->eloquentGateway->query(static function (): array {
+        return $this->eloquentGateway->query(static function () use ($modelClass): array {
             /** @var list<int> */
-            return ProductVariationModel::query()
+            return $modelClass::query()
                 ->pluck('external_id')
                 ->all();
         });
@@ -458,15 +447,50 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
     /**
      * {@inheritDoc}
      *
-     * Uses SQL UNION for single-pass query across both tables.
+     * Uses lazy() with chunk size of 100 to balance memory efficiency with query overhead.
      *
+     * @return Generator<int, Product>
+     *
+     * @throws DatabaseOperationFailedException During iteration - query failure
+     * @throws DuplicateRecordException On constraint violation
+     * @throws ExternalServiceUnavailableException During iteration - DB unavailable
+     * @throws InvalidCustomFieldValueException During iteration - value type mismatch
+     * @throws MissingRequiredDataException When custom field definitions table is empty
+     */
+    public function streamAll(): Generator
+    {
+        yield from $this->eloquentGateway->streamAll(
+            modelClass: self::MODEL_CLASS,
+            relations: self::EAGER_LOAD_RELATIONS,
+            mapper: fn(ProductModel $model): Product => $this->mapModelToDomain($model),
+        );
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @return ($shape is SkuListShape::GroupedByProduct ? array<int, list<string>> : list<string>)
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function getAllSkus(SkuListShape $shape = SkuListShape::Flat): array
+    {
+        return match ($shape) {
+            SkuListShape::Flat => $this->getAllSkusFlat(),
+            SkuListShape::GroupedByProduct => $this->getAllSkusGrouped(),
+        };
+    }
+
+    /**
      * @return list<string>
      *
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      */
-    public function getAllSkus(): array
+    private function getAllSkusFlat(): array
     {
         return $this->eloquentGateway->query(static function (): array {
             /** @var list<string> */
@@ -486,17 +510,13 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
     }
 
     /**
-     * {@inheritDoc}
-     *
-     * Single raw SQL query using UNION + json_agg for efficient grouping.
-     *
      * @return array<int, list<string>>
      *
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      */
-    public function getSkusGroupedByProductId(): array
+    private function getAllSkusGrouped(): array
     {
         return $this->eloquentGateway->query(static function (): array {
             $sql = <<<'SQL'

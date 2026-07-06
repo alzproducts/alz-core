@@ -7,6 +7,8 @@ namespace App\Application\Contracts\Shopwired;
 use App\Application\Catalog\Queries\ProductDetailQueryParams;
 use App\Application\Catalog\Queries\ProductListQueryParams;
 use App\Application\Contracts\RepositoryWriteInterface;
+use App\Application\Shopwired\Enums\ExternalIdScope;
+use App\Application\Shopwired\Enums\SkuListShape;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\Product\Enums\ProductType;
 use App\Domain\Catalog\Product\ValueObjects\Product;
@@ -20,6 +22,7 @@ use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\IntId;
 use App\Domain\ValueObjects\PaginatedList;
+use Generator;
 
 /**
  * Repository for ShopWired product persistence.
@@ -57,30 +60,14 @@ interface ProductRepositoryInterface extends RepositoryWriteInterface
     public function findProductView(ProductDetailQueryParams $query): ProductView;
 
     /**
-     * Get all product external IDs stored locally.
+     * Get all external IDs for products or variations.
      *
-     * Returns ShopWired product IDs for all products in the database.
-     * Use for reconciliation to compare against API product IDs.
-     *
-     * @return list<int> ShopWired product IDs
+     * @return list<int> ShopWired external IDs
      *
      * @throws DatabaseOperationFailedException On query failure
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      */
-    public function getAllExternalIds(): array;
-
-    /**
-     * Get all variation external IDs stored locally.
-     *
-     * Returns ShopWired variation IDs for all product variations in the database.
-     * Use for reconciliation to compare against API variation IDs.
-     *
-     * @return list<int> ShopWired variation IDs
-     *
-     * @throws DatabaseOperationFailedException On query failure
-     * @throws ExternalServiceUnavailableException When database temporarily unavailable
-     */
-    public function getAllVariationExternalIds(): array;
+    public function getAllExternalIds(ExternalIdScope $scope): array;
 
     /**
      * Delete products by their ShopWired external IDs.
@@ -117,29 +104,32 @@ interface ProductRepositoryInterface extends RepositoryWriteInterface
     public function getProduct(Sku|IntId $identifier, ?ProductType $type = ProductType::Main): Product|ProductVariation;
 
     /**
-     * Get all unique SKUs from products and variations.
+     * Stream all products with full data (memory-efficient).
      *
-     * Returns distinct SKUs from both master products and variations.
-     * Used for bulk operations (Reviews.io sync, feed generation, etc.)
+     * Yields Product objects one at a time using a generator pattern.
+     * Each product includes variations, images, and typed custom fields.
      *
-     * @return list<string> Unique SKU values
+     * IMPORTANT: Exceptions throw during iteration, not at method call.
+     * Wrap the foreach loop in try/catch, not the streamAll() call.
      *
-     * @throws DatabaseOperationFailedException On query failure
-     * @throws ExternalServiceUnavailableException When database temporarily unavailable
+     * @return Generator<int, Product> Yields products (array index as key)
+     *
+     * @throws InvalidCustomFieldValueException During iteration - value type mismatch
+     * @throws DatabaseOperationFailedException During iteration - query failure
+     * @throws ExternalServiceUnavailableException During iteration - DB unavailable
      */
-    public function getAllSkus(): array;
+    public function streamAll(): Generator;
 
     /**
-     * Get all SKUs grouped by product external ID.
+     * Get all SKUs from products and variations.
      *
-     * Returns a map: product external ID => list of SKUs (master + variations).
-     *
-     * @return array<int, list<string>>
+     * @return ($shape is SkuListShape::GroupedByProduct ? array<int, list<string>> : list<string>)
      *
      * @throws DatabaseOperationFailedException On query failure
+     * @throws DuplicateRecordException On constraint violation
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      */
-    public function getSkusGroupedByProductId(): array;
+    public function getAllSkus(SkuListShape $shape = SkuListShape::Flat): array;
 
     /**
      * Update stock quantity for a product or variation by SKU.
