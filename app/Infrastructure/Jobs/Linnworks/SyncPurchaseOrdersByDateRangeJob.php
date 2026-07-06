@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Infrastructure\Jobs\Linnworks;
 
 use App\Application\Contracts\Linnworks\PurchaseDashboardsClientInterface;
+use App\Application\Linnworks\Queries\PurchaseOrderIdQueryParams;
 use App\Application\Linnworks\UseCases\SyncPurchaseOrderFullUseCase;
 use App\Infrastructure\Jobs\AbstractJob;
 use App\Infrastructure\Jobs\Enums\QueueName;
@@ -74,7 +75,9 @@ final class SyncPurchaseOrdersByDateRangeJob extends AbstractJob implements Shou
         SyncPurchaseOrderFullUseCase $useCase,
         PurchaseDashboardsClientInterface $dashboardsClient,
     ): void {
-        $ids = $dashboardsClient->getPurchaseOrderIdsByDateRange($this->from, $this->to);
+        $ids = $dashboardsClient->getPurchaseOrderIds(
+            PurchaseOrderIdQueryParams::byDateRange($this->from, $this->to),
+        );
 
         if ($ids !== []) {
             $useCase->execute($ids);

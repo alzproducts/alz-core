@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Infrastructure\Jobs\Linnworks;
 
 use App\Application\Contracts\Linnworks\PurchaseDashboardsClientInterface;
+use App\Application\Linnworks\Queries\PurchaseOrderIdQueryParams;
 use App\Application\Linnworks\UseCases\SyncPurchaseOrderFullUseCase;
 use App\Infrastructure\Jobs\AbstractJob;
 use App\Infrastructure\Jobs\Enums\QueueName;
@@ -70,7 +71,7 @@ final class SyncAllPurchaseOrdersJob extends AbstractJob implements ShouldBeUniq
         SyncPurchaseOrderFullUseCase $useCase,
         PurchaseDashboardsClientInterface $dashboardsClient,
     ): void {
-        $ids = $dashboardsClient->getAllPurchaseOrderIds();
+        $ids = $dashboardsClient->getPurchaseOrderIds(PurchaseOrderIdQueryParams::all());
 
         if ($ids !== []) {
             $useCase->execute($ids);

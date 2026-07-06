@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Infrastructure\Jobs\Linnworks;
 
 use App\Application\Contracts\Linnworks\PurchaseDashboardsClientInterface;
+use App\Application\Linnworks\Queries\PurchaseOrderIdQueryParams;
 use App\Application\Linnworks\UseCases\SyncPurchaseOrderCoreUseCase;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
@@ -83,9 +84,8 @@ final class SyncFastPurchaseOrdersJob extends AbstractJob implements ShouldBeUni
     ): void {
         $createdSince = \now()->startOfMonth()->subMonths(6)->toDateTimeImmutable();
 
-        $ids = $dashboardsClient->getFastSyncPurchaseOrderIds(
-            createdSince: $createdSince,
-            includeDeliveredToday: true,
+        $ids = $dashboardsClient->getPurchaseOrderIds(
+            PurchaseOrderIdQueryParams::fastSync($createdSince),
         );
 
         if ($ids !== []) {

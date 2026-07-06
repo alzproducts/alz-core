@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Application\Contracts\Linnworks;
 
+use App\Application\Linnworks\Queries\PurchaseOrderIdQueryParams;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
@@ -12,7 +13,6 @@ use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Linnworks\ValueObjects\PurchaseOrderHeader;
 use App\Domain\Linnworks\ValueObjects\PurchaseOrderItem;
 use App\Domain\ValueObjects\Guid;
-use DateTimeImmutable;
 
 /**
  * Contract for Linnworks purchase-order-related SQL queries.
@@ -25,10 +25,7 @@ use DateTimeImmutable;
 interface PurchaseDashboardsClientInterface
 {
     /**
-     * Retrieve purchase order IDs for fast sync (OPEN/PENDING/PARTIAL + today's DELIVERED).
-     *
-     * Returns POs at the default warehouse (OurWarehouse) created since the given date,
-     * plus optionally DELIVERED POs with a delivery date of today.
+     * Retrieve purchase order IDs filtered by the query's scope.
      *
      * @return list<Guid> Purchase order IDs ordered by DateOfPurchase ASC
      *
@@ -38,44 +35,7 @@ interface PurchaseDashboardsClientInterface
      * @throws ResourceNotFoundException When resource not found
      * @throws ExternalServiceUnavailableException When API unavailable
      */
-    public function getFastSyncPurchaseOrderIds(
-        DateTimeImmutable $createdSince,
-        bool $includeDeliveredToday = true,
-    ): array;
-
-    /**
-     * Retrieve purchase order IDs where DateOfDelivery or DateOfPurchase falls in range.
-     *
-     * Returns all POs (any status, any warehouse) for the given date window.
-     * Used for normal daily sync.
-     *
-     * @return list<Guid> Purchase order IDs ordered by DateOfPurchase ASC
-     *
-     * @throws InvalidApiResponseException When query fails or response malformed
-     * @throws InvalidApiRequestException When request parameters are invalid
-     * @throws AuthenticationExpiredException When credentials invalid
-     * @throws ResourceNotFoundException When resource not found
-     * @throws ExternalServiceUnavailableException When API unavailable
-     */
-    public function getPurchaseOrderIdsByDateRange(
-        DateTimeImmutable $from,
-        DateTimeImmutable $to,
-    ): array;
-
-    /**
-     * Retrieve all purchase order IDs with no filters.
-     *
-     * Returns every PO ID — all statuses, all warehouses. Use for full backfill only.
-     *
-     * @return list<Guid> Purchase order IDs ordered by DateOfPurchase ASC
-     *
-     * @throws InvalidApiResponseException When query fails or response malformed
-     * @throws InvalidApiRequestException When request parameters are invalid
-     * @throws AuthenticationExpiredException When credentials invalid
-     * @throws ResourceNotFoundException When resource not found
-     * @throws ExternalServiceUnavailableException When API unavailable
-     */
-    public function getAllPurchaseOrderIds(): array;
+    public function getPurchaseOrderIds(PurchaseOrderIdQueryParams $query): array;
 
     /**
      * Batch-fetch purchase order headers with computed counts.

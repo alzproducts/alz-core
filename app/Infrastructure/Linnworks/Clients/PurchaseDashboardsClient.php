@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Infrastructure\Linnworks\Clients;
 
 use App\Application\Contracts\Linnworks\PurchaseDashboardsClientInterface;
+use App\Application\Linnworks\Enums\PurchaseOrderIdScope;
+use App\Application\Linnworks\Queries\PurchaseOrderIdQueryParams;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
@@ -19,6 +21,7 @@ use App\Infrastructure\Linnworks\Queries\PurchaseOrderHeadersBatchQuery;
 use App\Infrastructure\Linnworks\Queries\PurchaseOrderIdsByDateRangeQuery;
 use App\Infrastructure\Linnworks\Queries\PurchaseOrderItemsBatchQuery;
 use DateTimeImmutable;
+use Webmozart\Assert\Assert;
 
 /**
  * Purchase-order-related queries via Linnworks Dashboards SQL API.
@@ -45,52 +48,31 @@ final readonly class PurchaseDashboardsClient implements PurchaseDashboardsClien
      * @throws ResourceNotFoundException When resource not found
      * @throws ExternalServiceUnavailableException When API unavailable
      */
-    public function getFastSyncPurchaseOrderIds(
-        DateTimeImmutable $createdSince,
-        bool $includeDeliveredToday = true,
-    ): array {
-        /** @var list<Guid> */
-        return $this->dashboardsClient->execute(
-            new FastPurchaseOrderIdsQuery($createdSince, $includeDeliveredToday),
-        );
-    }
-
-    /**
-     * {@inheritDoc}
-     *
-     * @return list<Guid>
-     *
-     * @throws InvalidApiResponseException When query fails
-     * @throws InvalidApiRequestException When request parameters are invalid
-     * @throws AuthenticationExpiredException When credentials invalid
-     * @throws ResourceNotFoundException When resource not found
-     * @throws ExternalServiceUnavailableException When API unavailable
-     */
-    public function getPurchaseOrderIdsByDateRange(
-        DateTimeImmutable $from,
-        DateTimeImmutable $to,
-    ): array {
-        /** @var list<Guid> */
-        return $this->dashboardsClient->execute(
-            new PurchaseOrderIdsByDateRangeQuery($from, $to),
-        );
-    }
-
-    /**
-     * {@inheritDoc}
-     *
-     * @return list<Guid>
-     *
-     * @throws InvalidApiResponseException When query fails
-     * @throws InvalidApiRequestException When request parameters are invalid
-     * @throws AuthenticationExpiredException When credentials invalid
-     * @throws ResourceNotFoundException When resource not found
-     * @throws ExternalServiceUnavailableException When API unavailable
-     */
-    public function getAllPurchaseOrderIds(): array
+    public function getPurchaseOrderIds(PurchaseOrderIdQueryParams $query): array
     {
+        $infraQuery = match ($query->scope) {
+            PurchaseOrderIdScope::FastSync => $this->buildFastSyncQuery($query),
+            PurchaseOrderIdScope::DateRange => $this->buildDateRangeQuery($query),
+            PurchaseOrderIdScope::All => new AllPurchaseOrderIdsQuery(),
+        };
+
         /** @var list<Guid> */
-        return $this->dashboardsClient->execute(new AllPurchaseOrderIdsQuery());
+        return $this->dashboardsClient->execute($infraQuery);
+    }
+
+    private function buildFastSyncQuery(PurchaseOrderIdQueryParams $query): FastPurchaseOrderIdsQuery
+    {
+        Assert::notNull($query->createdSince);
+
+        return new FastPurchaseOrderIdsQuery($query->createdSince, $query->includeDeliveredToday);
+    }
+
+    private function buildDateRangeQuery(PurchaseOrderIdQueryParams $query): PurchaseOrderIdsByDateRangeQuery
+    {
+        Assert::notNull($query->from);
+        Assert::notNull($query->to);
+
+        return new PurchaseOrderIdsByDateRangeQuery($query->from, $query->to);
     }
 
     /**

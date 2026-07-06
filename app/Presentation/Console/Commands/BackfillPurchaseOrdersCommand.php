@@ -6,6 +6,7 @@ namespace App\Presentation\Console\Commands;
 
 use App\Application\Contracts\Linnworks\PurchaseDashboardsClientInterface;
 use App\Application\Contracts\Linnworks\PurchaseOrderBackfillDispatcherInterface;
+use App\Application\Linnworks\Queries\PurchaseOrderIdQueryParams;
 use App\Application\Linnworks\UseCases\SyncPurchaseOrderFullUseCase;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
@@ -153,7 +154,7 @@ final class BackfillPurchaseOrdersCommand extends Command
         $this->warn('This will sync ALL purchase orders from Linnworks.');
         $this->newLine();
         $this->info('Querying Linnworks SQL API for all purchase order IDs...');
-        $ids = $dashboardsClient->getAllPurchaseOrderIds();
+        $ids = $dashboardsClient->getPurchaseOrderIds(PurchaseOrderIdQueryParams::all());
 
         if ($ids === []) {
             $this->warn('No purchase orders found.');
@@ -181,7 +182,9 @@ final class BackfillPurchaseOrdersCommand extends Command
         DateTimeImmutable $to,
     ): ?array {
         $this->info("Querying Linnworks SQL API for purchase order IDs ({$from->format('Y-m-d')} to {$to->format('Y-m-d')})...");
-        $ids = $dashboardsClient->getPurchaseOrderIdsByDateRange($from, $to);
+        $ids = $dashboardsClient->getPurchaseOrderIds(
+            PurchaseOrderIdQueryParams::byDateRange($from, $to),
+        );
 
         if ($ids === []) {
             $this->warn('No purchase orders found in the specified date range.');
