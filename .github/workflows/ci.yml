@@ -276,6 +276,25 @@ jobs:
       - name: Run Psalm taint analysis
         run: make psalm-ci
 
+  # Gate job: always runs, aggregates conditional job results into a single
+  # required check. Prevents docs-only PRs from being blocked by skipped checks.
+  gate:
+    name: CI Gate
+    runs-on: ubuntu-24.04
+    needs: [code-style, tests, security, taint-analysis]
+    if: always()
+    steps:
+      - name: Check results
+        run: |
+          results=("${{ needs.code-style.result }}" "${{ needs.tests.result }}" "${{ needs.security.result }}" "${{ needs.taint-analysis.result }}")
+          for result in "${results[@]}"; do
+            if [[ "$result" == "failure" || "$result" == "cancelled" ]]; then
+              echo "❌ A required job failed or was cancelled: $result"
+              exit 1
+            fi
+          done
+          echo "✅ All required jobs passed or were skipped"
+
   # Layer-Specific Mutation Testing (see tests/TestingStrategy.md)
   # Only runs on PRs to main (develop->main promotion) - informational, non-blocking
   # Jobs run in parallel for faster feedback
