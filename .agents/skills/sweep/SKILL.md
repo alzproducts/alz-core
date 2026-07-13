@@ -1,7 +1,7 @@
 ---
 name: sweep
 description: Post-implementation quality sweep — review and fix common issues before human review
-allowed-tools: Bash(git *), Bash(make *), Agent, mcp__sequential-thinking__sequentialthinking, mcp__phpstorm__*, mcp__webstorm__*, mcp__intellij__*, Read, Grep, Glob, Edit, Write, AskUserQuestion, TaskCreate, TaskUpdate, TaskList, TaskGet
+allowed-tools: Bash(git *), Bash(make *), Bash(grep *), Agent, mcp__sequential-thinking__sequentialthinking, mcp__phpstorm__*, mcp__webstorm__*, mcp__intellij__*, Read, Edit, Write, AskUserQuestion, TaskCreate, TaskUpdate, TaskList, TaskGet
 ---
 
 # Post-Implementation Quality Sweep
