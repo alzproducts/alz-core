@@ -33,23 +33,8 @@ jobs:
       - uses: dorny/paths-filter@v3
         id: filter
         with:
-          filters: |
-            code:
-              - 'app/**'
-              - 'config/**'
-              - 'database/**'
-              - 'routes/**'
-              - 'tests/**'
-              - 'composer.json'
-              - 'composer.lock'
-              - 'phpstan.neon'
-              - 'phpunit.xml'
-              - 'phpunit-*.xml'
-              - 'pint.json'
-              - 'psalm.xml'
-              - 'deptrac.yaml'
-              - 'phparkitect.php'
-              - '.github/workflows/**'
+          # Shared with review-gate.yml — see .github/filters.yml
+          filters: .github/filters.yml
 
   # Fast feedback: Code style + static analysis (runs PHPStan, Pint, PHPArkitect, Deptrac, TLint)
   code-style:

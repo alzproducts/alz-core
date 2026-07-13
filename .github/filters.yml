@@ -1,0 +1,20 @@
+# Shared dorny/paths-filter definitions.
+# Referenced by ci.yml and review-gate.yml so the "is there reviewable code
+# here?" decision stays identical across every gate — change a path once, both
+# workflows follow. Docs-only PRs (no match below) skip lint, tests, and review.
+code:
+  - 'app/**'
+  - 'config/**'
+  - 'database/**'
+  - 'routes/**'
+  - 'tests/**'
+  - 'composer.json'
+  - 'composer.lock'
+  - 'phpstan.neon'
+  - 'phpunit.xml'
+  - 'phpunit-*.xml'
+  - 'pint.json'
+  - 'psalm.xml'
+  - 'deptrac.yaml'
+  - 'phparkitect.php'
+  - '.github/workflows/**'
