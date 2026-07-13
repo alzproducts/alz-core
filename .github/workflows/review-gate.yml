@@ -11,6 +11,7 @@ concurrency:
 permissions:
   contents: read
   pull-requests: write
+  id-token: write   # claude-code-action exchanges a GitHub OIDC token to authenticate
 
 jobs:
   # Detect what changed — skip the review on docs-only PRs (mirrors ci.yml).
