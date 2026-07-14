@@ -9,8 +9,10 @@ use App\Application\Contracts\ContactSubmission\ContactSubmissionRepositoryInter
 use App\Application\Contracts\Conversion\ConversionDispatcherInterface;
 use App\Application\Conversion\Commands\QuoteConversionCommand;
 use App\Application\Conversion\Enums\AdPlatform;
+use App\Application\Conversion\Services\AdPlatformAdapterResolverService;
 use App\Domain\ContactSubmission\Enums\ActionType;
 use App\Domain\ContactSubmission\ValueObjects\MarketingAttribution;
+use App\Domain\Conversion\Enums\ConversionType;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Data\InsufficientDataException;
@@ -25,13 +27,16 @@ use Psr\Log\LoggerInterface;
 
 /**
  * Requires a Completed LeadReceived action before a quote may be issued.
- * Quote value + staff-supplied timestamp are uploaded to Google Ads.
+ * Quote value + staff-supplied timestamp are uploaded to each ad platform whose
+ * adapter supports quote conversions and has a click ID present.
  *
- * Bing quotes are not yet wired; the gate accepts msclkid-only submissions
- * but Google quote dispatch will mark those actions Failed downstream.
+ * A submission whose only click ID belongs to a platform that cannot receive
+ * quotes (e.g. msclkid-only — Bing does not support quote conversions) creates
+ * zero action rows and is logged, rather than dispatched to a doomed upload.
  *
- * No transaction: only one row is written, and the partial unique index
- * `(submission_id, action_type, ad_platform)` resolves the hasCompletedAction → create race.
+ * No transaction: at most one platform supports quotes today, and the partial
+ * unique index `(submission_id, action_type, ad_platform)` resolves the
+ * hasCompletedAction → create race.
  */
 final readonly class SubmitQuoteConversionUseCase
 {
@@ -39,6 +44,7 @@ final readonly class SubmitQuoteConversionUseCase
         private ContactSubmissionRepositoryInterface $submissionRepository,
         private ContactSubmissionActionRepositoryInterface $actionRepository,
         private ConversionDispatcherInterface $dispatcher,
+        private AdPlatformAdapterResolverService $adapterResolver,
         private LoggerInterface $logger,
     ) {}
 
@@ -62,17 +68,27 @@ final readonly class SubmitQuoteConversionUseCase
         ]);
 
         $submission = $this->submissionRepository->findById($submissionId);
-        self::ensureAdClickIdPresent($submission->attribution);
+
+        $platforms = $this->eligiblePlatformsToDispatch($submission->attribution, ['submission_id' => $submissionId]);
+        if ($platforms === []) {
+            return;
+        }
+
         $this->ensureLeadCompleted($submissionId);
 
-        $actionId = $this->actionRepository->create($submissionId, ActionType::QuoteIssued, AdPlatform::Google);
+        foreach ($platforms as $platform) {
+            $actionId = $this->actionRepository->create($submissionId, ActionType::QuoteIssued, $platform);
 
-        $this->dispatcher->dispatchQuoteConversion(self::buildCommand($submissionId, $actionId, $value, $convertedAt));
+            $this->dispatcher->dispatchQuoteConversion(
+                self::buildCommand($submissionId, $actionId, $value, $convertedAt, $platform),
+            );
 
-        $this->logger->info('Quote conversion dispatched', [
-            'submission_id' => $submissionId,
-            'action_id' => $actionId,
-        ]);
+            $this->logger->info('Quote conversion dispatched', [
+                'submission_id' => $submissionId,
+                'action_id' => $actionId,
+                'platform' => $platform->value,
+            ]);
+        }
     }
 
     /**
@@ -81,7 +97,7 @@ final readonly class SubmitQuoteConversionUseCase
      *
      * @throws MalformedStoredDataException
      */
-    private static function buildCommand(string $submissionId, string $actionId, float $value, string $convertedAt): QuoteConversionCommand
+    private static function buildCommand(string $submissionId, string $actionId, float $value, string $convertedAt, AdPlatform $platform): QuoteConversionCommand
     {
         try {
             $convertedAtTime = new DateTimeImmutable($convertedAt);
@@ -98,17 +114,39 @@ final readonly class SubmitQuoteConversionUseCase
             actionId: Uuid::fromTrusted($actionId),
             value: Money::exclusive($value),
             convertedAt: $convertedAtTime,
+            platform: $platform,
         );
     }
 
     /**
-     * @throws InsufficientDataException
+     * Platforms an upload can actually be attempted on, resolved through the
+     * adapter seam. Distinguishes a hard data error (no click ID at all) from a
+     * graceful skip (a click ID whose platform cannot receive a quote).
+     *
+     * @param array<string, mixed> $logContext
+     *
+     * @return list<AdPlatform> empty means nothing to dispatch (already logged)
+     *
+     * @throws InsufficientDataException When no ad-platform click ID is present at all
      */
-    private static function ensureAdClickIdPresent(MarketingAttribution $attribution): void
+    private function eligiblePlatformsToDispatch(MarketingAttribution $attribution, array $logContext): array
     {
-        if ($attribution->gclid === null && $attribution->msclkid === null) {
+        if ($this->adapterResolver->platformsWithClickId($attribution) === []) {
             throw new InsufficientDataException('ContactSubmission', 'a gclid or msclkid for conversion tracking');
         }
+
+        $eligible = $this->adapterResolver->eligiblePlatforms(ConversionType::QuoteIssued, $attribution);
+        if ($eligible === []) {
+            $this->logger->error('No ad platform supports quote conversions — skipping upload', $logContext);
+
+            return [];
+        }
+
+        if (\count($eligible) < \count($this->adapterResolver->platformsWithClickId($attribution))) {
+            $this->logger->info('Some ad platforms with a click ID do not support quote conversions — skipping them', $logContext);
+        }
+
+        return $eligible;
     }
 
     /**

@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace App\Infrastructure\Jobs\Conversion;
+namespace App\Infrastructure\Jobs\Conversion\CallTracking;
 
-use App\Application\Conversion\UseCases\HandleLeadConversionFailureUseCase;
-use App\Application\Conversion\UseCases\ProcessBingLeadConversionUseCase;
+use App\Application\Conversion\CallTracking\UseCases\HandleCallLeadConversionFailureUseCase;
+use App\Application\Conversion\CallTracking\UseCases\ProcessCallLeadConversionUseCase;
+use App\Application\Conversion\Enums\AdPlatform;
 use App\Domain\Conversion\Exceptions\UnsupportedConversionTypeException;
 use App\Domain\Exceptions\Data\InsufficientDataException;
 use App\Domain\Exceptions\Data\InvalidFormatException;
-use App\Domain\Exceptions\Data\MalformedStoredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Infrastructure\Jobs\AbstractJob;
@@ -21,12 +21,13 @@ use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Throwable;
 
 /**
- * `ShouldBeUnique` keyed by submission ID. Laravel FQCN-prefixes the lock so it does
- * not collide with `ProcessLeadConversionJob`'s lock for the same submission.
+ * Uploads a call-sourced lead conversion to the given ad platform asynchronously.
+ *
+ * `ShouldBeUnique` is keyed on `visitId:platform` so the Google and Bing jobs for
+ * the same visit never dedupe each other while one is still processing.
  */
-final class ProcessBingLeadConversionJob extends AbstractJob implements ShouldBeUnique
+final class ProcessCallLeadConversionJob extends AbstractJob implements ShouldBeUnique
 {
-    /** Initial attempt + one retry per `$backoff` delay. */
     public int $tries = 5;
 
     public int $maxExceptions = 5;
@@ -39,23 +40,30 @@ final class ProcessBingLeadConversionJob extends AbstractJob implements ShouldBe
     public int $uniqueFor = 300;
 
     public function __construct(
-        public readonly string $submissionId,
+        public readonly string $visitId,
         public readonly string $actionId,
+        public readonly string $callerPhone,
+        public readonly AdPlatform $platform,
     ) {
         $this->onQueue(QueueName::Default->value);
     }
 
     public function uniqueId(): string
     {
-        return $this->submissionId;
+        return $this->visitId . ':' . $this->platform->value;
     }
 
     /** @return list<object> */
     public function middleware(): array
     {
+        $circuitBreaker = match ($this->platform) {
+            AdPlatform::Google => ServiceCircuitBreaker::googleAds(),
+            AdPlatform::Bing => ServiceCircuitBreaker::bingAdsRest(),
+        };
+
         return [
             ...parent::middleware(),
-            ServiceCircuitBreaker::bingAdsRest(),
+            $circuitBreaker,
             new HandleApiExceptions(),
         ];
     }
@@ -69,25 +77,21 @@ final class ProcessBingLeadConversionJob extends AbstractJob implements ShouldBe
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      */
-    public function handle(ProcessBingLeadConversionUseCase $useCase): void
+    public function handle(ProcessCallLeadConversionUseCase $useCase): void
     {
         try {
-            $useCase->execute($this->submissionId, $this->actionId);
-        } catch (InsufficientDataException|InvalidFormatException|MalformedStoredDataException|UnsupportedConversionTypeException $e) {
+            $useCase->execute($this->visitId, $this->actionId, $this->callerPhone, $this->platform);
+        } catch (InsufficientDataException|InvalidFormatException|UnsupportedConversionTypeException $e) {
             $this->fail($e);
         }
     }
 
-    /**
-     * Delegates to {@see HandleLeadConversionFailureUseCase} — marks the action Failed
-     * directly rather than dispatching another job, to avoid an infinite cleanup loop.
-     */
     public function failed(Throwable $exception): void
     {
-        /** @var HandleLeadConversionFailureUseCase $useCase */
-        $useCase = \app(HandleLeadConversionFailureUseCase::class);
+        /** @var HandleCallLeadConversionFailureUseCase $useCase */
+        $useCase = \app(HandleCallLeadConversionFailureUseCase::class);
         $useCase->execute(
-            submissionId: $this->submissionId,
+            visitId: $this->visitId,
             actionId: $this->actionId,
             exceptionMessage: $exception->getMessage(),
             attempts: $this->attempts(),

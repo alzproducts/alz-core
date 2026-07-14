@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Application\Conversion\Commands;
 
+use App\Application\Conversion\Enums\AdPlatform;
 use App\Domain\ValueObjects\Uuid;
 
 /**
@@ -17,5 +18,6 @@ final readonly class LeadConversionCommand
     public function __construct(
         public Uuid $submissionId,
         public Uuid $actionId,
+        public AdPlatform $platform,
     ) {}
 }

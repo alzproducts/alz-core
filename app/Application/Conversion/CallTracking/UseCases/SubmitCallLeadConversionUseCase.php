@@ -11,9 +11,11 @@ use App\Application\Contracts\DatabaseGatewayInterface;
 use App\Application\Conversion\CallTracking\Commands\CallLeadConversionCommand;
 use App\Application\Conversion\Enums\AdPlatform;
 use App\Application\Conversion\PotentialConversion\Commands\UpsertAnnotationCommand;
+use App\Application\Conversion\Services\AdPlatformAdapterResolverService;
 use App\Domain\ContactSubmission\ValueObjects\MarketingAttribution;
 use App\Domain\Conversion\CallTracking\ValueObjects\CallTrackingVisit;
 use App\Domain\Conversion\CallTracking\ValueObjects\PhoneNumberE164;
+use App\Domain\Conversion\Enums\ConversionType;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Data\InsufficientDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
@@ -38,6 +40,7 @@ final readonly class SubmitCallLeadConversionUseCase
         private PotentialConversionAnnotationRepositoryInterface $annotationRepository,
         private DatabaseGatewayInterface $database,
         private CallConversionDispatcherInterface $dispatcher,
+        private AdPlatformAdapterResolverService $adapterResolver,
         private LoggerInterface $logger,
     ) {}
 
@@ -57,10 +60,17 @@ final readonly class SubmitCallLeadConversionUseCase
             'is_potential_quote' => $isPotentialQuote,
         ]);
 
-        $platforms = self::resolveEligiblePlatforms($visit->attribution);
+        $platforms = $this->eligiblePlatformsToDispatch(
+            $visit->attribution,
+            ['visit_id' => $visitId->value, 'call_id' => $callId->value],
+        );
+        if ($platforms === []) {
+            return;
+        }
+
         $actionIds = $this->writeActionsAndAnnotation($visitId, $callId, $isPotentialQuote, $platforms);
 
-        $this->dispatchPerPlatform($visitId, $callerPhone, $actionIds);
+        $this->dispatchPerPlatform($visitId, $callerPhone, $platforms, $actionIds);
 
         $this->logger->info('Call lead conversion dispatched', [
             'visit_id' => $visitId->value,
@@ -96,43 +106,50 @@ final readonly class SubmitCallLeadConversionUseCase
     }
 
     /**
-     * @param  array<value-of<AdPlatform>, Uuid>  $actionIds
+     * @param  list<AdPlatform>                    $platforms
+     * @param  array<value-of<AdPlatform>, Uuid>   $actionIds
      */
-    private function dispatchPerPlatform(Uuid $visitId, PhoneNumberE164 $callerPhone, array $actionIds): void
+    private function dispatchPerPlatform(Uuid $visitId, PhoneNumberE164 $callerPhone, array $platforms, array $actionIds): void
     {
-        if (isset($actionIds[AdPlatform::Google->value])) {
-            $this->dispatcher->dispatchGoogleCallLeadConversion(
-                new CallLeadConversionCommand($visitId, $actionIds[AdPlatform::Google->value], $callerPhone),
-            );
-        }
-
-        if (isset($actionIds[AdPlatform::Bing->value])) {
-            $this->dispatcher->dispatchBingCallLeadConversion(
-                new CallLeadConversionCommand($visitId, $actionIds[AdPlatform::Bing->value], $callerPhone),
-            );
+        foreach ($platforms as $platform) {
+            $this->dispatcher->dispatchCallLeadConversion(new CallLeadConversionCommand(
+                $visitId,
+                $actionIds[$platform->value],
+                $callerPhone,
+                $platform,
+            ));
         }
     }
 
     /**
-     * @return list<AdPlatform>
+     * Platforms an upload can actually be attempted on, resolved through the
+     * adapter seam. Distinguishes a hard data error (no click ID at all) from a
+     * graceful skip (a click ID whose platform cannot receive this conversion).
      *
-     * @throws InsufficientDataException When neither gclid nor msclkid is present
+     * @param array<string, mixed> $logContext
+     *
+     * @return list<AdPlatform> empty means nothing to dispatch (already logged)
+     *
+     * @throws InsufficientDataException When no ad-platform click ID is present at all
      */
-    private static function resolveEligiblePlatforms(MarketingAttribution $attribution): array
+    private function eligiblePlatformsToDispatch(MarketingAttribution $attribution, array $logContext): array
     {
-        $platforms = [];
-        if ($attribution->gclid !== null) {
-            $platforms[] = AdPlatform::Google;
-        }
-        if ($attribution->msclkid !== null) {
-            $platforms[] = AdPlatform::Bing;
-        }
-
-        if ($platforms === []) {
+        if ($this->adapterResolver->platformsWithClickId($attribution) === []) {
             throw new InsufficientDataException('CallTrackingVisit', 'a gclid or msclkid for conversion tracking');
         }
 
-        return $platforms;
+        $eligible = $this->adapterResolver->eligiblePlatforms(ConversionType::LeadReceived, $attribution);
+        if ($eligible === []) {
+            $this->logger->error('No ad platform supports this conversion — skipping upload', $logContext);
+
+            return [];
+        }
+
+        if (\count($eligible) < \count($this->adapterResolver->platformsWithClickId($attribution))) {
+            $this->logger->info('Some ad platforms with a click ID do not support this conversion — skipping them', $logContext);
+        }
+
+        return $eligible;
     }
 
     private static function requireId(CallTrackingVisit $visit): Uuid

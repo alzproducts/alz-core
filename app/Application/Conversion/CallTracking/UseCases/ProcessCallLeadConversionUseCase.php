@@ -4,11 +4,12 @@ declare(strict_types=1);
 
 namespace App\Application\Conversion\CallTracking\UseCases;
 
-use App\Application\Contracts\BingAdsConversionInterface;
+use App\Application\Contracts\Conversion\AdPlatformConversionAdapterInterface;
 use App\Application\Contracts\Conversion\CallTracking\CallTrackingActionRepositoryInterface;
 use App\Application\Contracts\Conversion\CallTracking\CallTrackingVisitRepositoryInterface;
-use App\Application\Conversion\BingConversionUploadDTO;
-use App\Domain\ContactSubmission\ValueObjects\Msclkid;
+use App\Application\Conversion\ConversionUploadDTO;
+use App\Application\Conversion\Enums\AdPlatform;
+use App\Application\Conversion\Services\AdPlatformAdapterResolverService;
 use App\Domain\Conversion\CallTracking\ValueObjects\CallTrackingVisit;
 use App\Domain\Conversion\CallTracking\ValueObjects\PhoneNumberE164;
 use App\Domain\Conversion\Enums\ConversionType;
@@ -26,41 +27,45 @@ use App\Domain\ValueObjects\Uuid;
 use Psr\Log\LoggerInterface;
 
 /**
- * Uploads a call-sourced lead conversion to Bing Ads. Sibling of
- * {@see ProcessGoogleCallLeadConversionUseCase}. Idempotent — terminal re-runs are no-ops.
+ * Uploads a call-sourced lead conversion to an ad platform (Google, Bing, …),
+ * resolved from the passed {@see AdPlatform} via the adapter seam.
+ *
+ * Called by ProcessCallLeadConversionJob after the action is created in pending
+ * state. Idempotent — terminal re-runs are no-ops.
  */
-final readonly class ProcessBingCallLeadConversionUseCase
+final readonly class ProcessCallLeadConversionUseCase
 {
-    /** Bing Ads returns no receipt ID for uploaded conversions; sentinel keeps `external_id` populated. */
+    /** Ad platforms return no receipt ID for uploaded conversions; sentinel keeps `external_id` populated. */
     private const string COMPLETION_RECEIPT = 'uploaded';
 
     public function __construct(
         private CallTrackingVisitRepositoryInterface $visitRepository,
         private CallTrackingActionRepositoryInterface $actionRepository,
-        private BingAdsConversionInterface $conversionClient,
+        private AdPlatformAdapterResolverService $adapterResolver,
         private LoggerInterface $logger,
     ) {}
 
     /**
-     * @throws ExternalServiceUnavailableException
-     * @throws AuthenticationExpiredException
-     * @throws InvalidApiRequestException
-     * @throws InvalidApiResponseException
-     * @throws UnsupportedConversionTypeException
-     * @throws RecordNotFoundException
+     * @throws ExternalServiceUnavailableException When the ad platform/DB unavailable (transient — retry)
+     * @throws AuthenticationExpiredException When ad platform credentials invalid (permanent)
+     * @throws InvalidApiRequestException When the ad platform rejects the conversion (permanent)
+     * @throws InvalidApiResponseException When the ad platform API response is malformed (permanent)
+     * @throws UnsupportedConversionTypeException When the platform does not support lead conversions (permanent)
+     * @throws RecordNotFoundException When the visit no longer exists
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
-     * @throws InsufficientDataException When msclkid or visit timestamp is missing
-     * @throws InvalidFormatException When stored msclkid has an invalid format (permanent)
+     * @throws InsufficientDataException When the click ID or visit timestamp is missing (permanent)
+     * @throws InvalidFormatException When the stored click ID has an invalid format (permanent)
      */
-    public function execute(string $visitId, string $actionId, string $callerPhone): void
+    public function execute(string $visitId, string $actionId, string $callerPhone, AdPlatform $platform): void
     {
-        $this->logger->info('Processing Bing call lead conversion', [
+        $this->logger->info('Processing call lead conversion', [
             'visit_id' => $visitId,
             'action_id' => $actionId,
+            'platform' => $platform->value,
         ]);
 
-        if ($this->isAlreadyTerminal($visitId, $actionId)) {
+        if ($this->isAlreadyTerminal($visitId, $actionId, $platform)) {
             return;
         }
 
@@ -69,8 +74,9 @@ final readonly class ProcessBingCallLeadConversionUseCase
 
         $visit = $this->visitRepository->findById(Uuid::fromTrusted($visitId));
         $phone = PhoneNumberE164::from($callerPhone);
+        $adapter = $this->adapterResolver->adapterFor($platform);
 
-        $this->uploadAndMarkComplete($visit, $phone, $visitId, $actionId);
+        $this->uploadAndMarkComplete($adapter, $visit, $phone, $visitId, $actionId, $platform);
     }
 
     /**
@@ -78,14 +84,15 @@ final readonly class ProcessBingCallLeadConversionUseCase
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      */
-    private function isAlreadyTerminal(string $visitId, string $actionId): bool
+    private function isAlreadyTerminal(string $visitId, string $actionId, AdPlatform $platform): bool
     {
         $isTerminal = $this->actionRepository->getStatus($actionId)?->isTerminal() === true;
 
         if ($isTerminal) {
-            $this->logger->info('Bing call lead conversion action already terminal — skipping', [
+            $this->logger->info('Call lead conversion action already terminal — skipping', [
                 'visit_id' => $visitId,
                 'action_id' => $actionId,
+                'platform' => $platform->value,
             ]);
         }
 
@@ -103,29 +110,38 @@ final readonly class ProcessBingCallLeadConversionUseCase
      * @throws InsufficientDataException
      * @throws InvalidFormatException
      */
-    private function uploadAndMarkComplete(CallTrackingVisit $visit, PhoneNumberE164 $phone, string $visitId, string $actionId): void
-    {
-        $data = self::buildConversionUploadDTO($visit, $phone);
+    private function uploadAndMarkComplete(
+        AdPlatformConversionAdapterInterface $adapter,
+        CallTrackingVisit $visit,
+        PhoneNumberE164 $phone,
+        string $visitId,
+        string $actionId,
+        AdPlatform $platform,
+    ): void {
+        $data = self::buildConversionUploadDTO($adapter, $visit, $phone);
 
-        $this->conversionClient->uploadOfflineConversion(ConversionType::LeadReceived, $data);
+        $adapter->upload(ConversionType::LeadReceived, $data);
 
         $this->actionRepository->markCompleted($actionId, self::COMPLETION_RECEIPT);
 
-        $this->logger->info('Bing call lead conversion uploaded', [
+        $this->logger->info('Call lead conversion uploaded', [
             'visit_id' => $visitId,
             'action_id' => $actionId,
+            'platform' => $platform->value,
         ]);
     }
 
     /**
      * @throws InsufficientDataException
-     * @throws InvalidFormatException
      */
-    private static function buildConversionUploadDTO(CallTrackingVisit $visit, PhoneNumberE164 $phone): BingConversionUploadDTO
-    {
-        $msclkid = $visit->attribution->msclkid;
-        if ($msclkid === null) {
-            throw new InsufficientDataException('CallTrackingVisit', 'an msclkid for Bing Ads conversion upload');
+    private static function buildConversionUploadDTO(
+        AdPlatformConversionAdapterInterface $adapter,
+        CallTrackingVisit $visit,
+        PhoneNumberE164 $phone,
+    ): ConversionUploadDTO {
+        $clickId = $adapter->extractClickId($visit->attribution);
+        if ($clickId === null) {
+            throw new InsufficientDataException('CallTrackingVisit', 'a click ID for the ad platform conversion upload');
         }
 
         $createdAt = $visit->createdAt;
@@ -133,8 +149,8 @@ final readonly class ProcessBingCallLeadConversionUseCase
             throw new InsufficientDataException('CallTrackingVisit', 'a visit timestamp for conversion time');
         }
 
-        return new BingConversionUploadDTO(
-            msclkid: Msclkid::from($msclkid)->value,
+        return new ConversionUploadDTO(
+            clickId: $clickId,
             email: null,
             convertedAt: $createdAt,
             value: null,

@@ -6,10 +6,10 @@ namespace App\Providers;
 
 use App\Application\AdSpend\UseCases\SyncAdSpendUseCase;
 use App\Application\Contracts\GoogleAdsClientInterface;
-use App\Application\Contracts\GoogleAdsConversionInterface;
 use App\Application\Contracts\MixpanelClientInterface;
 use App\Application\Mixpanel\UseCases\SyncLookupTableUseCase;
 use App\Infrastructure\GoogleAds\GoogleAdsClientFactory;
+use App\Infrastructure\GoogleAds\GoogleAdsConversionAdapter;
 use App\Infrastructure\GoogleAds\GoogleAdsConversionClient;
 use App\Infrastructure\GoogleAds\GoogleAdsConversionService;
 use App\Infrastructure\Jobs\Mixpanel\SyncCampaignLookupTableJob;
@@ -68,11 +68,18 @@ final class GoogleAdsServiceProvider extends ServiceProvider implements Deferrab
         );
 
         $this->app->singleton(
-            GoogleAdsConversionInterface::class,
+            GoogleAdsConversionService::class,
             static fn(Container $app): GoogleAdsConversionService => new GoogleAdsConversionService(
                 $app->make(GoogleAdsConversionClient::class),
                 GoogleAdsClientFactory::createConversionConfig(),
                 new PhoneNormalisationService(),
+            ),
+        );
+
+        $this->app->singleton(
+            GoogleAdsConversionAdapter::class,
+            static fn(Container $app): GoogleAdsConversionAdapter => new GoogleAdsConversionAdapter(
+                $app->make(GoogleAdsConversionService::class),
             ),
         );
     }
@@ -122,7 +129,8 @@ final class GoogleAdsServiceProvider extends ServiceProvider implements Deferrab
         return [
             GoogleAdsClientInterface::class,
             GoogleAdsConversionClient::class,
-            GoogleAdsConversionInterface::class,
+            GoogleAdsConversionService::class,
+            GoogleAdsConversionAdapter::class,
         ];
     }
 }

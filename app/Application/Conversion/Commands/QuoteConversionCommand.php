@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Application\Conversion\Commands;
 
+use App\Application\Conversion\Enums\AdPlatform;
 use App\Domain\Shared\Money\ValueObjects\Money;
 use App\Domain\ValueObjects\Uuid;
 use DateTimeImmutable;
@@ -23,5 +24,6 @@ final readonly class QuoteConversionCommand
         public Uuid $actionId,
         public Money $value,
         public DateTimeImmutable $convertedAt,
+        public AdPlatform $platform,
     ) {}
 }
