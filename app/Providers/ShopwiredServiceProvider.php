@@ -86,6 +86,7 @@ use App\Infrastructure\Shopwired\Factories\CustomFieldFactory;
 use App\Infrastructure\Shopwired\Factories\CustomFieldValueFactory;
 use App\Infrastructure\Shopwired\Factories\ProductDomainFactory;
 use App\Infrastructure\Shopwired\Factories\ProductFilterFactory;
+use App\Infrastructure\Shopwired\Filters\UnknownFilterGroupReporter;
 use App\Infrastructure\Shopwired\Parsers\ShopwiredBrandWebhookParser;
 use App\Infrastructure\Shopwired\Parsers\ShopwiredCategoryWebhookParser;
 use App\Infrastructure\Shopwired\Parsers\ShopwiredCustomerWebhookParser;
@@ -233,6 +234,8 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
         $this->app->scoped(UnknownCustomFieldReporter::class);
         $this->registerCustomFieldValueFactories();
         $this->registerCustomFieldFactories();
+        // Scoped: aggregates unknown-optionNo warnings into one summary per request — never singleton.
+        $this->app->scoped(UnknownFilterGroupReporter::class);
         $this->app->scoped(ProductFilterFactory::class);
         $this->app->scoped(ProductVariationModelMapper::class);
         $this->app->scoped(ProductModelMapper::class);
@@ -412,6 +415,7 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
             ShopwiredSyncDispatcherInterface::class,
             StockClientInterface::class,
             UnknownCustomFieldReporter::class,
+            UnknownFilterGroupReporter::class,
             WebhookClientInterface::class,
             WebhookIdempotencyServiceInterface::class,
         ];

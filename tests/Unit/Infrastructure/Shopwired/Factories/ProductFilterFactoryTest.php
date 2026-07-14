@@ -7,6 +7,7 @@ namespace Tests\Unit\Infrastructure\Shopwired\Factories;
 use App\Application\Contracts\Shopwired\FilterGroupRepositoryInterface;
 use App\Domain\Catalog\Filters\ValueObjects\FilterGroupDefinition;
 use App\Infrastructure\Shopwired\Factories\ProductFilterFactory;
+use App\Infrastructure\Shopwired\Filters\UnknownFilterGroupReporter;
 use Illuminate\Support\Facades\Log;
 use Mockery;
 use Mockery\MockInterface;
@@ -26,7 +27,7 @@ final class ProductFilterFactoryTest extends TestCase
         parent::setUp();
 
         $this->repository = Mockery::mock(FilterGroupRepositoryInterface::class);
-        $this->factory = new ProductFilterFactory($this->repository);
+        $this->factory = new ProductFilterFactory($this->repository, new UnknownFilterGroupReporter);
     }
 
     // ========================================================================
@@ -79,7 +80,7 @@ final class ProductFilterFactoryTest extends TestCase
     // ========================================================================
 
     #[Test]
-    public function it_skips_unknown_option_no_and_logs_warning(): void
+    public function it_skips_unknown_option_no_and_records_it_for_summary(): void
     {
         $sizeDefinition = new FilterGroupDefinition(id: 1, title: 'Size', optionNo: 1, sortOrder: 0);
 
@@ -87,10 +88,11 @@ final class ProductFilterFactoryTest extends TestCase
             ->once()
             ->andReturn([$sizeDefinition]);
 
+        // Reporter aggregates and emits one summary at request termination, not per unknown optionNo.
         Log::shouldReceive('warning')
             ->once()
-            ->with('Unknown filter group optionNo in product - re-run SyncFilterGroupsJob', [
-                'option_no' => 999,
+            ->with('Unknown filter group optionNos encountered - re-run SyncFilterGroupsJob', [
+                'by_option_no' => [999 => 1],
             ]);
 
         $rawFilters = [
@@ -103,6 +105,8 @@ final class ProductFilterFactoryTest extends TestCase
         // Should only return the known filter, skipping the unknown
         self::assertCount(1, $result);
         self::assertSame('Size', $result[0]->title());
+
+        $this->app->terminate();
     }
 
     // ========================================================================
