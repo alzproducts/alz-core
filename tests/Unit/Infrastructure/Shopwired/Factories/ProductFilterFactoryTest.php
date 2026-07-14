@@ -6,6 +6,7 @@ namespace Tests\Unit\Infrastructure\Shopwired\Factories;
 
 use App\Application\Contracts\Shopwired\FilterGroupRepositoryInterface;
 use App\Domain\Catalog\Filters\ValueObjects\FilterGroupDefinition;
+use App\Infrastructure\Jobs\Shopwired\SyncShopwiredFilterGroupsJob;
 use App\Infrastructure\Shopwired\Factories\ProductFilterFactory;
 use App\Infrastructure\Shopwired\Filters\UnknownFilterGroupReporter;
 use Illuminate\Support\Facades\Log;
@@ -91,7 +92,8 @@ final class ProductFilterFactoryTest extends TestCase
         // Reporter aggregates and emits one summary at request termination, not per unknown optionNo.
         Log::shouldReceive('warning')
             ->once()
-            ->with('Unknown filter group optionNos encountered - re-run SyncShopwiredFilterGroupsJob', [
+            ->with('Unknown filter group optionNos encountered - definitions out of sync with ShopWired', [
+                'resync_job' => SyncShopwiredFilterGroupsJob::class,
                 'by_option_no' => [999 => 1],
             ]);
 

@@ -9,6 +9,7 @@ use App\Domain\Catalog\Filters\ValueObjects\ProductFilter;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use App\Infrastructure\Jobs\Shopwired\SyncShopwiredFilterGroupsJob;
 use App\Infrastructure\Shopwired\Filters\FilterGroupRegistry;
 use App\Infrastructure\Shopwired\Filters\UnknownFilterGroupReporter;
 
@@ -35,7 +36,7 @@ final class ProductFilterFactory
      *
      * Unknown optionNo values are counted and skipped, then emitted as a single
      * per-request summary warning (may indicate filter group definitions are out
-     * of sync - re-run SyncShopwiredFilterGroupsJob).
+     * of sync - re-run {@see SyncShopwiredFilterGroupsJob}).
      *
      * @param array<int|string, list<string>> $rawFilters Raw filter data (optionNo => values)
      *

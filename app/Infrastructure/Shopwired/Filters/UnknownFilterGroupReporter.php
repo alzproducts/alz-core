@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Shopwired\Filters;
 
+use App\Infrastructure\Jobs\Shopwired\SyncShopwiredFilterGroupsJob;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -48,7 +49,8 @@ final class UnknownFilterGroupReporter
             return;
         }
 
-        Log::warning('Unknown filter group optionNos encountered - re-run SyncShopwiredFilterGroupsJob', [
+        Log::warning('Unknown filter group optionNos encountered - definitions out of sync with ShopWired', [
+            'resync_job' => SyncShopwiredFilterGroupsJob::class,
             'by_option_no' => $this->countsByOptionNo,
         ]);
     }

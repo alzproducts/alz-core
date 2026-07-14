@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Infrastructure\Shopwired\Filters;
 
+use App\Infrastructure\Jobs\Shopwired\SyncShopwiredFilterGroupsJob;
 use App\Infrastructure\Shopwired\Filters\UnknownFilterGroupReporter;
 use Illuminate\Support\Facades\Log;
 use Override;
@@ -30,8 +31,8 @@ final class UnknownFilterGroupReporterTest extends TestCase
         Log::shouldReceive('warning')
             ->once()
             ->with(
-                'Unknown filter group optionNos encountered - re-run SyncShopwiredFilterGroupsJob',
-                ['by_option_no' => [999 => 1]],
+                'Unknown filter group optionNos encountered - definitions out of sync with ShopWired',
+                ['resync_job' => SyncShopwiredFilterGroupsJob::class, 'by_option_no' => [999 => 1]],
             );
 
         $this->reporter->record(999);
@@ -45,8 +46,8 @@ final class UnknownFilterGroupReporterTest extends TestCase
         Log::shouldReceive('warning')
             ->once()
             ->with(
-                'Unknown filter group optionNos encountered - re-run SyncShopwiredFilterGroupsJob',
-                ['by_option_no' => [999 => 3]],
+                'Unknown filter group optionNos encountered - definitions out of sync with ShopWired',
+                ['resync_job' => SyncShopwiredFilterGroupsJob::class, 'by_option_no' => [999 => 3]],
             );
 
         $this->reporter->record(999);
@@ -62,8 +63,8 @@ final class UnknownFilterGroupReporterTest extends TestCase
         Log::shouldReceive('warning')
             ->once()
             ->with(
-                'Unknown filter group optionNos encountered - re-run SyncShopwiredFilterGroupsJob',
-                ['by_option_no' => [999 => 2, 1234 => 1]],
+                'Unknown filter group optionNos encountered - definitions out of sync with ShopWired',
+                ['resync_job' => SyncShopwiredFilterGroupsJob::class, 'by_option_no' => [999 => 2, 1234 => 1]],
             );
 
         $this->reporter->record(999);
