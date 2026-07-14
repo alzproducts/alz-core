@@ -147,7 +147,8 @@ final readonly class SubmitQuoteConversionUseCase
      */
     private function eligiblePlatformsToDispatch(MarketingAttribution $attribution, array $logContext): array
     {
-        if ($this->adapterResolver->platformsWithClickId($attribution) === []) {
+        $withClickId = $this->adapterResolver->platformsWithClickId($attribution);
+        if ($withClickId === []) {
             throw new InsufficientDataException('ContactSubmission', 'a gclid or msclkid for conversion tracking');
         }
 
@@ -158,7 +159,7 @@ final readonly class SubmitQuoteConversionUseCase
             return [];
         }
 
-        if (\count($eligible) < \count($this->adapterResolver->platformsWithClickId($attribution))) {
+        if (\count($eligible) < \count($withClickId)) {
             $this->logger->info('Some ad platforms with a click ID do not support quote conversions — skipping them', $logContext);
         }
 
