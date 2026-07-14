@@ -123,8 +123,6 @@ final readonly class ProcessQuoteConversionUseCase
     }
 
     /**
-     * Upload to the ad platform then mark the action complete.
-     *
      * @throws ExternalServiceUnavailableException When the ad platform/DB unavailable
      * @throws AuthenticationExpiredException When ad platform credentials invalid
      * @throws InvalidApiRequestException When the ad platform rejects the conversion
