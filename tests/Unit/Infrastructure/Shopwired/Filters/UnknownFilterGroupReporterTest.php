@@ -30,7 +30,7 @@ final class UnknownFilterGroupReporterTest extends TestCase
         Log::shouldReceive('warning')
             ->once()
             ->with(
-                'Unknown filter group optionNos encountered - re-run SyncFilterGroupsJob',
+                'Unknown filter group optionNos encountered - re-run SyncShopwiredFilterGroupsJob',
                 ['by_option_no' => [999 => 1]],
             );
 
@@ -45,7 +45,7 @@ final class UnknownFilterGroupReporterTest extends TestCase
         Log::shouldReceive('warning')
             ->once()
             ->with(
-                'Unknown filter group optionNos encountered - re-run SyncFilterGroupsJob',
+                'Unknown filter group optionNos encountered - re-run SyncShopwiredFilterGroupsJob',
                 ['by_option_no' => [999 => 3]],
             );
 
@@ -62,7 +62,7 @@ final class UnknownFilterGroupReporterTest extends TestCase
         Log::shouldReceive('warning')
             ->once()
             ->with(
-                'Unknown filter group optionNos encountered - re-run SyncFilterGroupsJob',
+                'Unknown filter group optionNos encountered - re-run SyncShopwiredFilterGroupsJob',
                 ['by_option_no' => [999 => 2, 1234 => 1]],
             );
 

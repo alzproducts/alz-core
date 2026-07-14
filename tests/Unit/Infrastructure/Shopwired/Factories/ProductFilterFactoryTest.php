@@ -91,7 +91,7 @@ final class ProductFilterFactoryTest extends TestCase
         // Reporter aggregates and emits one summary at request termination, not per unknown optionNo.
         Log::shouldReceive('warning')
             ->once()
-            ->with('Unknown filter group optionNos encountered - re-run SyncFilterGroupsJob', [
+            ->with('Unknown filter group optionNos encountered - re-run SyncShopwiredFilterGroupsJob', [
                 'by_option_no' => [999 => 1],
             ]);
 

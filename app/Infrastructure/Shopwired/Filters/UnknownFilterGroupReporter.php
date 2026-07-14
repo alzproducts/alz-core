@@ -48,7 +48,7 @@ final class UnknownFilterGroupReporter
             return;
         }
 
-        Log::warning('Unknown filter group optionNos encountered - re-run SyncFilterGroupsJob', [
+        Log::warning('Unknown filter group optionNos encountered - re-run SyncShopwiredFilterGroupsJob', [
             'by_option_no' => $this->countsByOptionNo,
         ]);
     }

@@ -35,7 +35,7 @@ final class ProductFilterFactory
      *
      * Unknown optionNo values are counted and skipped, then emitted as a single
      * per-request summary warning (may indicate filter group definitions are out
-     * of sync - re-run SyncFilterGroupsJob).
+     * of sync - re-run SyncShopwiredFilterGroupsJob).
      *
      * @param array<int|string, list<string>> $rawFilters Raw filter data (optionNo => values)
      *
