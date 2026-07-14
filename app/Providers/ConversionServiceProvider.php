@@ -18,8 +18,9 @@ use Override;
  * Conversion Service Provider.
  *
  * Deferred provider for offline-conversion tracking. Binds the platform-agnostic
- * conversion dispatcher; lives in its own bounded context rather than under any
- * specific ad-platform provider — future fan-out (Bing, etc.) will register here.
+ * conversion dispatcher and the ad-platform adapter resolver (with its explicit
+ * Google + Bing adapter list); lives in its own bounded context rather than under
+ * any single ad-platform provider.
  */
 final class ConversionServiceProvider extends ServiceProvider implements DeferrableProvider
 {
