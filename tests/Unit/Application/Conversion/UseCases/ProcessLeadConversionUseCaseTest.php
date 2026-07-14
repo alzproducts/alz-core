@@ -101,7 +101,7 @@ final class ProcessLeadConversionUseCaseTest extends TestCase
 
         $skipLogged = false;
         $this->logger->allows('info')->andReturnUsing(static function (string $message) use (&$skipLogged): void {
-            if (str_contains($message, 'already terminal')) {
+            if (\str_contains($message, 'already terminal')) {
                 $skipLogged = true;
             }
         });

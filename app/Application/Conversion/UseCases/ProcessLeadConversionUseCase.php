@@ -23,6 +23,7 @@ use App\Domain\Exceptions\Data\InvalidFormatException;
 use App\Domain\Exceptions\Data\MalformedStoredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use DateTimeImmutable;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -78,7 +79,7 @@ final readonly class ProcessLeadConversionUseCase
         $submission = $this->submissionRepository->findById($submissionId);
         $adapter = $this->adapterResolver->adapterFor($platform);
 
-        $this->uploadAndMarkComplete($adapter, $submission, $submissionId, $actionId, $platform);
+        $this->uploadAndMarkComplete($adapter, $submission, $submissionId, $actionId);
     }
 
     /**
@@ -120,7 +121,6 @@ final readonly class ProcessLeadConversionUseCase
         ContactSubmission $submission,
         string $submissionId,
         string $actionId,
-        AdPlatform $platform,
     ): void {
         $data = self::buildConversionUploadDTO($adapter, $submission);
 
@@ -131,7 +131,7 @@ final readonly class ProcessLeadConversionUseCase
         $this->logger->info('Lead conversion uploaded', [
             'submission_id' => $submissionId,
             'action_id' => $actionId,
-            'platform' => $platform->value,
+            'platform' => $adapter->platform()->value,
         ]);
     }
 
@@ -147,17 +147,25 @@ final readonly class ProcessLeadConversionUseCase
             throw new InsufficientDataException('ContactSubmission', 'a click ID for the ad platform conversion upload');
         }
 
+        return new ConversionUploadDTO(
+            clickId: $clickId,
+            email: $submission->form->email,
+            convertedAt: self::requireConvertedAt($submission),
+            value: null,
+            phone: $submission->form->phone,
+        );
+    }
+
+    /**
+     * @throws InsufficientDataException
+     */
+    private static function requireConvertedAt(ContactSubmission $submission): DateTimeImmutable
+    {
         $submittedAt = $submission->submittedAt;
         if ($submittedAt === null) {
             throw new InsufficientDataException('ContactSubmission', 'a submission timestamp for conversion time');
         }
 
-        return new ConversionUploadDTO(
-            clickId: $clickId,
-            email: $submission->form->email,
-            convertedAt: $submittedAt,
-            value: null,
-            phone: $submission->form->phone,
-        );
+        return $submittedAt;
     }
 }

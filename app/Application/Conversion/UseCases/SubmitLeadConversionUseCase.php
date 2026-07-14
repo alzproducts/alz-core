@@ -56,10 +56,7 @@ final readonly class SubmitLeadConversionUseCase
     public function execute(Uuid $submissionId, bool $isPotentialQuote): void
     {
         $id = $submissionId->value;
-        $this->logger->info('Submitting lead conversion', [
-            'submission_id' => $id,
-            'is_potential_quote' => $isPotentialQuote,
-        ]);
+        $this->logSubmitting($id, $isPotentialQuote);
 
         $submission = $this->submissionRepository->findById($id);
 
@@ -72,8 +69,24 @@ final readonly class SubmitLeadConversionUseCase
 
         $this->dispatchPerPlatform($submissionId, $platforms, $actionIds);
 
+        $this->logDispatched($id, $actionIds);
+    }
+
+    private function logSubmitting(string $submissionId, bool $isPotentialQuote): void
+    {
+        $this->logger->info('Submitting lead conversion', [
+            'submission_id' => $submissionId,
+            'is_potential_quote' => $isPotentialQuote,
+        ]);
+    }
+
+    /**
+     * @param array<value-of<AdPlatform>, string> $actionIds
+     */
+    private function logDispatched(string $submissionId, array $actionIds): void
+    {
         $this->logger->info('Lead conversion dispatched', [
-            'submission_id' => $id,
+            'submission_id' => $submissionId,
             'action_ids' => $actionIds,
             'platforms' => \array_keys($actionIds),
         ]);
@@ -117,9 +130,14 @@ final readonly class SubmitLeadConversionUseCase
     private function dispatchPerPlatform(Uuid $submissionId, array $platforms, array $actionIds): void
     {
         foreach ($platforms as $platform) {
+            $actionId = $actionIds[$platform->value] ?? null;
+            if ($actionId === null) {
+                continue;
+            }
+
             $this->dispatcher->dispatchLeadConversion(new LeadConversionCommand(
                 $submissionId,
-                Uuid::fromTrusted($actionIds[$platform->value]),
+                Uuid::fromTrusted($actionId),
                 $platform,
             ));
         }

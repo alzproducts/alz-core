@@ -24,6 +24,7 @@ use App\Domain\Exceptions\Data\InvalidFormatException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\Uuid;
+use DateTimeImmutable;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -59,11 +60,7 @@ final readonly class ProcessCallLeadConversionUseCase
      */
     public function execute(string $visitId, string $actionId, string $callerPhone, AdPlatform $platform): void
     {
-        $this->logger->info('Processing call lead conversion', [
-            'visit_id' => $visitId,
-            'action_id' => $actionId,
-            'platform' => $platform->value,
-        ]);
+        $this->logProcessing($visitId, $actionId, $platform);
 
         if ($this->isAlreadyTerminal($visitId, $actionId, $platform)) {
             return;
@@ -76,7 +73,17 @@ final readonly class ProcessCallLeadConversionUseCase
         $phone = PhoneNumberE164::from($callerPhone);
         $adapter = $this->adapterResolver->adapterFor($platform);
 
-        $this->uploadAndMarkComplete($adapter, $visit, $phone, $visitId, $actionId, $platform);
+        $data = self::buildConversionUploadDTO($adapter, $visit, $phone);
+        $this->uploadAndMarkComplete($adapter, $visitId, $actionId, $data);
+    }
+
+    private function logProcessing(string $visitId, string $actionId, AdPlatform $platform): void
+    {
+        $this->logger->info('Processing call lead conversion', [
+            'visit_id' => $visitId,
+            'action_id' => $actionId,
+            'platform' => $platform->value,
+        ]);
     }
 
     /**
@@ -107,19 +114,14 @@ final readonly class ProcessCallLeadConversionUseCase
      * @throws UnsupportedConversionTypeException
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
-     * @throws InsufficientDataException
      * @throws InvalidFormatException
      */
     private function uploadAndMarkComplete(
         AdPlatformConversionAdapterInterface $adapter,
-        CallTrackingVisit $visit,
-        PhoneNumberE164 $phone,
         string $visitId,
         string $actionId,
-        AdPlatform $platform,
+        ConversionUploadDTO $data,
     ): void {
-        $data = self::buildConversionUploadDTO($adapter, $visit, $phone);
-
         $adapter->upload(ConversionType::LeadReceived, $data);
 
         $this->actionRepository->markCompleted($actionId, self::COMPLETION_RECEIPT);
@@ -127,7 +129,7 @@ final readonly class ProcessCallLeadConversionUseCase
         $this->logger->info('Call lead conversion uploaded', [
             'visit_id' => $visitId,
             'action_id' => $actionId,
-            'platform' => $platform->value,
+            'platform' => $adapter->platform()->value,
         ]);
     }
 
@@ -144,17 +146,25 @@ final readonly class ProcessCallLeadConversionUseCase
             throw new InsufficientDataException('CallTrackingVisit', 'a click ID for the ad platform conversion upload');
         }
 
+        return new ConversionUploadDTO(
+            clickId: $clickId,
+            email: null,
+            convertedAt: self::requireCreatedAt($visit),
+            value: null,
+            phone: $phone->value,
+        );
+    }
+
+    /**
+     * @throws InsufficientDataException
+     */
+    private static function requireCreatedAt(CallTrackingVisit $visit): DateTimeImmutable
+    {
         $createdAt = $visit->createdAt;
         if ($createdAt === null) {
             throw new InsufficientDataException('CallTrackingVisit', 'a visit timestamp for conversion time');
         }
 
-        return new ConversionUploadDTO(
-            clickId: $clickId,
-            email: null,
-            convertedAt: $createdAt,
-            value: null,
-            phone: $phone->value,
-        );
+        return $createdAt;
     }
 }

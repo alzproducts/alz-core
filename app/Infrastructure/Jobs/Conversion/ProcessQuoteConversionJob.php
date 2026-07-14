@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Infrastructure\Jobs\Conversion;
 
 use App\Application\Conversion\Enums\AdPlatform;
+use App\Application\Conversion\QuoteConversionDetailsDTO;
 use App\Application\Conversion\UseCases\HandleQuoteConversionFailureUseCase;
 use App\Application\Conversion\UseCases\ProcessQuoteConversionUseCase;
 use App\Domain\Conversion\Exceptions\UnsupportedConversionTypeException;
@@ -100,7 +101,12 @@ final class ProcessQuoteConversionJob extends AbstractJob implements ShouldBeUni
     public function handle(ProcessQuoteConversionUseCase $useCase): void
     {
         try {
-            $useCase->execute($this->submissionId, $this->actionId, $this->value, $this->convertedAt, $this->platform);
+            $useCase->execute(
+                $this->submissionId,
+                $this->actionId,
+                new QuoteConversionDetailsDTO($this->value, $this->convertedAt),
+                $this->platform,
+            );
         } catch (InsufficientDataException|InvalidFormatException|MalformedStoredDataException|UnsupportedConversionTypeException $e) {
             $this->fail($e);
         }

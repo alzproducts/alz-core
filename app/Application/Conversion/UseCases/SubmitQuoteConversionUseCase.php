@@ -9,6 +9,7 @@ use App\Application\Contracts\ContactSubmission\ContactSubmissionRepositoryInter
 use App\Application\Contracts\Conversion\ConversionDispatcherInterface;
 use App\Application\Conversion\Commands\QuoteConversionCommand;
 use App\Application\Conversion\Enums\AdPlatform;
+use App\Application\Conversion\QuoteConversionDetailsDTO;
 use App\Application\Conversion\Services\AdPlatformAdapterResolverService;
 use App\Domain\ContactSubmission\Enums\ActionType;
 use App\Domain\ContactSubmission\ValueObjects\MarketingAttribution;
@@ -61,11 +62,7 @@ final readonly class SubmitQuoteConversionUseCase
      */
     public function execute(string $submissionId, float $value, string $convertedAt): void
     {
-        $this->logger->info('Submitting quote conversion', [
-            'submission_id' => $submissionId,
-            'value' => $value,
-            'converted_at' => $convertedAt,
-        ]);
+        $this->logSubmitting($submissionId, $value, $convertedAt);
 
         $submission = $this->submissionRepository->findById($submissionId);
 
@@ -76,19 +73,38 @@ final readonly class SubmitQuoteConversionUseCase
 
         $this->ensureLeadCompleted($submissionId);
 
+        $details = new QuoteConversionDetailsDTO($value, $convertedAt);
         foreach ($platforms as $platform) {
-            $actionId = $this->actionRepository->create($submissionId, ActionType::QuoteIssued, $platform);
-
-            $this->dispatcher->dispatchQuoteConversion(
-                self::buildCommand($submissionId, $actionId, $value, $convertedAt, $platform),
-            );
-
-            $this->logger->info('Quote conversion dispatched', [
-                'submission_id' => $submissionId,
-                'action_id' => $actionId,
-                'platform' => $platform->value,
-            ]);
+            $this->dispatchForPlatform($submissionId, $details, $platform);
         }
+    }
+
+    private function logSubmitting(string $submissionId, float $value, string $convertedAt): void
+    {
+        $this->logger->info('Submitting quote conversion', [
+            'submission_id' => $submissionId,
+            'value' => $value,
+            'converted_at' => $convertedAt,
+        ]);
+    }
+
+    /**
+     * @throws DuplicateRecordException
+     * @throws DatabaseOperationFailedException
+     * @throws ExternalServiceUnavailableException
+     * @throws MalformedStoredDataException
+     */
+    private function dispatchForPlatform(string $submissionId, QuoteConversionDetailsDTO $details, AdPlatform $platform): void
+    {
+        $actionId = $this->actionRepository->create($submissionId, ActionType::QuoteIssued, $platform);
+
+        $this->dispatcher->dispatchQuoteConversion(self::buildCommand($submissionId, $actionId, $details, $platform));
+
+        $this->logger->info('Quote conversion dispatched', [
+            'submission_id' => $submissionId,
+            'action_id' => $actionId,
+            'platform' => $platform->value,
+        ]);
     }
 
     /**
@@ -97,10 +113,10 @@ final readonly class SubmitQuoteConversionUseCase
      *
      * @throws MalformedStoredDataException
      */
-    private static function buildCommand(string $submissionId, string $actionId, float $value, string $convertedAt, AdPlatform $platform): QuoteConversionCommand
+    private static function buildCommand(string $submissionId, string $actionId, QuoteConversionDetailsDTO $details, AdPlatform $platform): QuoteConversionCommand
     {
         try {
-            $convertedAtTime = new DateTimeImmutable($convertedAt);
+            $convertedAtTime = new DateTimeImmutable($details->convertedAt);
         } catch (DateMalformedStringException $e) {
             throw new MalformedStoredDataException(
                 'ConversionRequest',
@@ -112,7 +128,7 @@ final readonly class SubmitQuoteConversionUseCase
         return new QuoteConversionCommand(
             submissionId: Uuid::fromTrusted($submissionId),
             actionId: Uuid::fromTrusted($actionId),
-            value: Money::exclusive($value),
+            value: Money::exclusive($details->value),
             convertedAt: $convertedAtTime,
             platform: $platform,
         );

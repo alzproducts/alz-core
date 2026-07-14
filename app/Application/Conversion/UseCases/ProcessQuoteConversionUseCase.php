@@ -9,6 +9,7 @@ use App\Application\Contracts\ContactSubmission\ContactSubmissionRepositoryInter
 use App\Application\Contracts\Conversion\AdPlatformConversionAdapterInterface;
 use App\Application\Conversion\ConversionUploadDTO;
 use App\Application\Conversion\Enums\AdPlatform;
+use App\Application\Conversion\QuoteConversionDetailsDTO;
 use App\Application\Conversion\Services\AdPlatformAdapterResolverService;
 use App\Domain\ContactSubmission\ValueObjects\ContactSubmission;
 use App\Domain\Conversion\Enums\ConversionType;
@@ -58,9 +59,6 @@ final readonly class ProcessQuoteConversionUseCase
     ) {}
 
     /**
-     * @param float $value GBP ex-VAT amount to send to the ad platform
-     * @param string $convertedAt ATOM-formatted timestamp produced by the dispatcher
-     *
      * @throws ExternalServiceUnavailableException When the ad platform/DB unavailable (transient — retry)
      * @throws AuthenticationExpiredException When ad platform credentials invalid (permanent)
      * @throws InvalidApiRequestException When the ad platform rejects the conversion (permanent)
@@ -73,15 +71,9 @@ final readonly class ProcessQuoteConversionUseCase
      * @throws InsufficientDataException When the click ID is missing (permanent)
      * @throws InvalidFormatException When the stored click ID has an invalid format (permanent)
      */
-    public function execute(string $submissionId, string $actionId, float $value, string $convertedAt, AdPlatform $platform): void
+    public function execute(string $submissionId, string $actionId, QuoteConversionDetailsDTO $details, AdPlatform $platform): void
     {
-        $this->logger->info('Processing quote conversion', [
-            'submission_id' => $submissionId,
-            'action_id' => $actionId,
-            'value' => $value,
-            'converted_at' => $convertedAt,
-            'platform' => $platform->value,
-        ]);
+        $this->logProcessing($submissionId, $actionId, $details, $platform);
 
         if ($this->isAlreadyTerminal($submissionId, $actionId, $platform)) {
             return;
@@ -92,9 +84,20 @@ final readonly class ProcessQuoteConversionUseCase
 
         $submission = $this->submissionRepository->findById($submissionId);
         $adapter = $this->adapterResolver->adapterFor($platform);
-        $data = self::buildConversionUploadDTO($adapter, $submission, $value, self::parseConvertedAt($convertedAt));
+        $data = self::buildConversionUploadDTO($adapter, $submission, $details->value, self::parseConvertedAt($details->convertedAt));
 
-        $this->uploadAndMarkComplete($adapter, $submissionId, $actionId, $platform, $data);
+        $this->uploadAndMarkComplete($adapter, $submissionId, $actionId, $data);
+    }
+
+    private function logProcessing(string $submissionId, string $actionId, QuoteConversionDetailsDTO $details, AdPlatform $platform): void
+    {
+        $this->logger->info('Processing quote conversion', [
+            'submission_id' => $submissionId,
+            'action_id' => $actionId,
+            'value' => $details->value,
+            'converted_at' => $details->convertedAt,
+            'platform' => $platform->value,
+        ]);
     }
 
     /**
@@ -134,7 +137,6 @@ final readonly class ProcessQuoteConversionUseCase
         AdPlatformConversionAdapterInterface $adapter,
         string $submissionId,
         string $actionId,
-        AdPlatform $platform,
         ConversionUploadDTO $data,
     ): void {
         $adapter->upload(ConversionType::QuoteIssued, $data);
@@ -144,7 +146,7 @@ final readonly class ProcessQuoteConversionUseCase
         $this->logger->info('Quote conversion uploaded', [
             'submission_id' => $submissionId,
             'action_id' => $actionId,
-            'platform' => $platform->value,
+            'platform' => $adapter->platform()->value,
         ]);
     }
 

@@ -53,12 +53,7 @@ final readonly class SubmitCallLeadConversionUseCase
     public function execute(CallTrackingVisit $visit, Uuid $callId, PhoneNumberE164 $callerPhone, bool $isPotentialQuote): void
     {
         $visitId = self::requireId($visit);
-
-        $this->logger->info('Submitting call lead conversion', [
-            'visit_id' => $visitId->value,
-            'call_id' => $callId->value,
-            'is_potential_quote' => $isPotentialQuote,
-        ]);
+        $this->logSubmitting($visitId, $callId, $isPotentialQuote);
 
         $platforms = $this->eligiblePlatformsToDispatch(
             $visit->attribution,
@@ -72,6 +67,23 @@ final readonly class SubmitCallLeadConversionUseCase
 
         $this->dispatchPerPlatform($visitId, $callerPhone, $platforms, $actionIds);
 
+        $this->logDispatched($visitId, $actionIds);
+    }
+
+    private function logSubmitting(Uuid $visitId, Uuid $callId, bool $isPotentialQuote): void
+    {
+        $this->logger->info('Submitting call lead conversion', [
+            'visit_id' => $visitId->value,
+            'call_id' => $callId->value,
+            'is_potential_quote' => $isPotentialQuote,
+        ]);
+    }
+
+    /**
+     * @param array<value-of<AdPlatform>, Uuid> $actionIds
+     */
+    private function logDispatched(Uuid $visitId, array $actionIds): void
+    {
         $this->logger->info('Call lead conversion dispatched', [
             'visit_id' => $visitId->value,
             'action_ids' => \array_map(static fn(Uuid $id): string => $id->value, $actionIds),
@@ -112,9 +124,14 @@ final readonly class SubmitCallLeadConversionUseCase
     private function dispatchPerPlatform(Uuid $visitId, PhoneNumberE164 $callerPhone, array $platforms, array $actionIds): void
     {
         foreach ($platforms as $platform) {
+            $actionId = $actionIds[$platform->value] ?? null;
+            if ($actionId === null) {
+                continue;
+            }
+
             $this->dispatcher->dispatchCallLeadConversion(new CallLeadConversionCommand(
                 $visitId,
-                $actionIds[$platform->value],
+                $actionId,
                 $callerPhone,
                 $platform,
             ));

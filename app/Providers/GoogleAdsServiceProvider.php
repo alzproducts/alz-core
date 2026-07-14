@@ -48,6 +48,7 @@ final class GoogleAdsServiceProvider extends ServiceProvider implements Deferrab
     {
         $this->registerClient();
         $this->registerConversionClient();
+        $this->registerConversionAdapter();
         $this->registerAdSpendBinding();
         $this->registerLookupTableBinding();
     }
@@ -75,7 +76,10 @@ final class GoogleAdsServiceProvider extends ServiceProvider implements Deferrab
                 new PhoneNormalisationService(),
             ),
         );
+    }
 
+    private function registerConversionAdapter(): void
+    {
         $this->app->singleton(
             GoogleAdsConversionAdapter::class,
             static fn(Container $app): GoogleAdsConversionAdapter => new GoogleAdsConversionAdapter(
