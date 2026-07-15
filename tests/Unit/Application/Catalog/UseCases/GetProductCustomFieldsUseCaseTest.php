@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Application\Catalog\UseCases;
 
+use App\Application\Catalog\Services\CustomFieldStalenessRecovery;
 use App\Application\Catalog\UseCases\GetProductCustomFieldsUseCase;
 use App\Application\Contracts\Catalog\CustomFieldRepositoryInterface;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
+use App\Application\Contracts\Shopwired\ShopwiredSyncDispatcherInterface;
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldItemType;
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldType;
 use App\Domain\Catalog\CustomFields\ValueObjects\AbstractCustomFieldValue;
@@ -46,9 +48,15 @@ final class GetProductCustomFieldsUseCaseTest extends TestCase
         $this->logger = Mockery::mock(LoggerInterface::class);
         $this->logger->shouldReceive('info')->byDefault();
 
+        $recovery = new CustomFieldStalenessRecovery(
+            Mockery::mock(ShopwiredSyncDispatcherInterface::class),
+            $this->logger,
+        );
+
         $this->useCase = new GetProductCustomFieldsUseCase(
             $this->productRepository,
             $this->customFieldRepository,
+            $recovery,
             $this->logger,
         );
     }
