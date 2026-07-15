@@ -12,6 +12,7 @@ use Mockery;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Psr\Log\LoggerInterface;
+use RuntimeException;
 use Tests\TestCase;
 
 #[CoversClass(CustomFieldStalenessRecoveryService::class)]
@@ -53,6 +54,34 @@ final class CustomFieldStalenessRecoveryServiceTest extends TestCase
                 throw $staleness;
             });
             self::fail('Expected InvalidCustomFieldValueException to be rethrown');
+        } catch (InvalidCustomFieldValueException $caught) {
+            self::assertSame($staleness, $caught);
+        }
+    }
+
+    #[Test]
+    public function rethrows_staleness_exception_even_when_dispatch_fails(): void
+    {
+        $staleness = new InvalidCustomFieldValueException('colour', CustomFieldType::Text, 'array', ['unexpected']);
+
+        $dispatcher = Mockery::mock(ShopwiredSyncDispatcherInterface::class);
+        $dispatcher->shouldReceive('dispatchCustomFieldsSync')
+            ->once()
+            ->andThrow(new RuntimeException('queue unreachable'));
+
+        $logger = Mockery::mock(LoggerInterface::class);
+        $logger->shouldReceive('warning')->once();
+        $logger->shouldReceive('error')
+            ->once()
+            ->with('Failed to dispatch custom field staleness resync', ['dispatch_error' => 'queue unreachable']);
+
+        $recovery = new CustomFieldStalenessRecoveryService($dispatcher, $logger);
+
+        try {
+            $recovery->withRecovery(static function () use ($staleness): string {
+                throw $staleness;
+            });
+            self::fail('Expected InvalidCustomFieldValueException to surface despite dispatch failure');
         } catch (InvalidCustomFieldValueException $caught) {
             self::assertSame($staleness, $caught);
         }

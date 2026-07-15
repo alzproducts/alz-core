@@ -8,6 +8,7 @@ use App\Application\Contracts\Shopwired\ShopwiredSyncDispatcherInterface;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use Closure;
 use Psr\Log\LoggerInterface;
+use Throwable;
 
 /**
  * Self-heals custom field staleness: when reading enriched custom fields fails
@@ -42,7 +43,14 @@ final readonly class CustomFieldStalenessRecoveryService
             return $work();
         } catch (InvalidCustomFieldValueException $e) {
             $this->logger->warning('Custom field staleness detected — dispatching definitions resync', $e->context());
-            $this->dispatcher->dispatchCustomFieldsSync();
+
+            try {
+                $this->dispatcher->dispatchCustomFieldsSync();
+            } catch (Throwable $dispatchError) { // @ignoreException - best-effort self-heal: a queue failure must never mask the domain exception
+                $this->logger->error('Failed to dispatch custom field staleness resync', [
+                    'dispatch_error' => $dispatchError->getMessage(),
+                ]);
+            }
 
             throw $e;
         }
