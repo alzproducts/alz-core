@@ -18,7 +18,7 @@ use Psr\Log\LoggerInterface;
  * Recovery is best-effort — the exception still surfaces to the caller; the
  * dispatch just shortens the window before the retry succeeds.
  */
-final readonly class CustomFieldStalenessRecovery
+final readonly class CustomFieldStalenessRecoveryService
 {
     public function __construct(
         private ShopwiredSyncDispatcherInterface $dispatcher,

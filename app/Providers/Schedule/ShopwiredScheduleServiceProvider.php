@@ -12,8 +12,6 @@ use App\Infrastructure\Jobs\Shopwired\ReconcileShopwiredProductsJob;
 use App\Infrastructure\Jobs\Shopwired\SyncShopwiredBrandsJob;
 use App\Infrastructure\Jobs\Shopwired\SyncShopwiredCategoriesJob;
 use App\Infrastructure\Jobs\Shopwired\SyncShopwiredCustomersJob;
-use App\Infrastructure\Jobs\Shopwired\SyncShopwiredCustomFieldsJob;
-use App\Infrastructure\Jobs\Shopwired\SyncShopwiredFilterGroupsJob;
 use App\Infrastructure\Jobs\Shopwired\SyncShopwiredOrdersJob;
 use App\Infrastructure\Jobs\Shopwired\SyncShopwiredProductsJob;
 use Carbon\Carbon;
@@ -47,8 +45,6 @@ final class ShopwiredScheduleServiceProvider extends ServiceProvider
         $this->registerOrderSchedules($skipDuringMonthlySync);
         $this->registerCustomerSchedules($skipDuringMonthlySync);
         $this->registerProductSchedules();
-        $this->registerCustomFieldSchedule();
-        $this->registerFilterGroupSchedule();
         $this->registerCategorySchedules();
         $this->registerBrandSchedules();
         $this->registerWebhookHealthSchedule();
@@ -112,40 +108,6 @@ final class ShopwiredScheduleServiceProvider extends ServiceProvider
             ->when(static fn(): bool => Carbon::now('Europe/London')->day <= 7)
             ->onOneServer()
             ->withoutOverlapping(260);
-    }
-
-    /**
-     * ShopWired Custom Field Definitions Sync: hourly sync of schema metadata (~100-150 definitions).
-     *
-     * Custom field definitions describe what custom fields exist for products, categories,
-     * customers, etc. Small, stable dataset that changes infrequently but is upstream
-     * of category/product syncs — hourly ensures definitions are fresh before daily data syncs.
-     */
-    private function registerCustomFieldSchedule(): void
-    {
-        Schedule::job(new SyncShopwiredCustomFieldsJob())
-            ->name('sync-shopwired-custom-fields')
-            ->hourly()
-            ->timezone('Europe/London')
-            ->onOneServer()
-            ->withoutOverlapping(5);
-    }
-
-    /**
-     * ShopWired Filter Group Sync: hourly sync of faceted-nav group definitions.
-     *
-     * Filter groups map option numbers to faceted-navigation groups. Unknown groups
-     * fail silently (FilterGroupRegistry::findByOptionNo returns null), producing stale
-     * facets with no error signal — hourly polling keeps the registry current.
-     */
-    private function registerFilterGroupSchedule(): void
-    {
-        Schedule::job(new SyncShopwiredFilterGroupsJob())
-            ->name('sync-shopwired-filter-groups')
-            ->hourly()
-            ->timezone('Europe/London')
-            ->onOneServer()
-            ->withoutOverlapping(5);
     }
 
     /**

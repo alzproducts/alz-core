@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Application\Catalog\UseCases;
 
-use App\Application\Catalog\Services\CustomFieldStalenessRecovery;
+use App\Application\Catalog\Services\CustomFieldStalenessRecoveryService;
 use App\Application\Catalog\UseCases\GetProductCustomFieldsUseCase;
 use App\Application\Contracts\Catalog\CustomFieldRepositoryInterface;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
@@ -48,7 +48,7 @@ final class GetProductCustomFieldsUseCaseTest extends TestCase
         $this->logger = Mockery::mock(LoggerInterface::class);
         $this->logger->shouldReceive('info')->byDefault();
 
-        $recovery = new CustomFieldStalenessRecovery(
+        $recovery = new CustomFieldStalenessRecoveryService(
             Mockery::mock(ShopwiredSyncDispatcherInterface::class),
             $this->logger,
         );

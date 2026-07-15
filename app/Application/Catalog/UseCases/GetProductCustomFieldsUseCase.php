@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Application\Catalog\UseCases;
 
 use App\Application\Catalog\CustomFieldMergerService;
-use App\Application\Catalog\Services\CustomFieldStalenessRecovery;
+use App\Application\Catalog\Services\CustomFieldStalenessRecoveryService;
 use App\Application\Contracts\Catalog\CustomFieldRepositoryInterface;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldItemType;
@@ -32,7 +32,7 @@ final readonly class GetProductCustomFieldsUseCase
     public function __construct(
         private ProductRepositoryInterface $productRepository,
         private CustomFieldRepositoryInterface $customFieldRepository,
-        private CustomFieldStalenessRecovery $recovery,
+        private CustomFieldStalenessRecoveryService $recovery,
         private LoggerInterface $logger,
     ) {}
 

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Application\Catalog\Services;
 
-use App\Application\Catalog\Services\CustomFieldStalenessRecovery;
+use App\Application\Catalog\Services\CustomFieldStalenessRecoveryService;
 use App\Application\Contracts\Shopwired\ShopwiredSyncDispatcherInterface;
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldType;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
@@ -14,8 +14,8 @@ use PHPUnit\Framework\Attributes\Test;
 use Psr\Log\LoggerInterface;
 use Tests\TestCase;
 
-#[CoversClass(CustomFieldStalenessRecovery::class)]
-final class CustomFieldStalenessRecoveryTest extends TestCase
+#[CoversClass(CustomFieldStalenessRecoveryService::class)]
+final class CustomFieldStalenessRecoveryServiceTest extends TestCase
 {
     #[Test]
     public function returns_callable_result_and_dispatches_nothing_when_no_staleness(): void
@@ -26,7 +26,7 @@ final class CustomFieldStalenessRecoveryTest extends TestCase
         $logger = Mockery::mock(LoggerInterface::class);
         $logger->shouldNotReceive('warning');
 
-        $recovery = new CustomFieldStalenessRecovery($dispatcher, $logger);
+        $recovery = new CustomFieldStalenessRecoveryService($dispatcher, $logger);
 
         $result = $recovery->withRecovery(static fn(): string => 'fields');
 
@@ -46,7 +46,7 @@ final class CustomFieldStalenessRecoveryTest extends TestCase
             ->once()
             ->with('Custom field staleness detected — dispatching definitions resync', $staleness->context());
 
-        $recovery = new CustomFieldStalenessRecovery($dispatcher, $logger);
+        $recovery = new CustomFieldStalenessRecoveryService($dispatcher, $logger);
 
         try {
             $recovery->withRecovery(static function () use ($staleness): string {
