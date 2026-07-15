@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Application\Catalog\UseCases;
 
 use App\Application\Catalog\CustomFieldMergerService;
+use App\Application\Catalog\Services\CustomFieldStalenessRecovery;
 use App\Application\Contracts\Catalog\CustomFieldRepositoryInterface;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldItemType;
@@ -31,6 +32,7 @@ final readonly class GetProductCustomFieldsUseCase
     public function __construct(
         private ProductRepositoryInterface $productRepository,
         private CustomFieldRepositoryInterface $customFieldRepository,
+        private CustomFieldStalenessRecovery $recovery,
         private LoggerInterface $logger,
     ) {}
 
@@ -46,20 +48,22 @@ final readonly class GetProductCustomFieldsUseCase
      */
     public function execute(int $productId, array $fieldNames = []): CustomFieldValueList
     {
-        $this->logStart($productId, $fieldNames);
+        return $this->recovery->withRecovery(function () use ($productId, $fieldNames): CustomFieldValueList {
+            $this->logStart($productId, $fieldNames);
 
-        $product = $this->productRepository->findDetailedProductView(
-            IntId::from($productId),
-            [ProductInclude::CustomFields],
-        );
+            $product = $this->productRepository->findDetailedProductView(
+                IntId::from($productId),
+                [ProductInclude::CustomFields],
+            );
 
-        $definitions = $this->customFieldRepository->findByItemType(CustomFieldItemType::Product);
-        $fields = CustomFieldMergerService::mergeWithDefinitions($product->customFields, $definitions)
-            ->withNames($fieldNames);
+            $definitions = $this->customFieldRepository->findByItemType(CustomFieldItemType::Product);
+            $fields = CustomFieldMergerService::mergeWithDefinitions($product->customFields, $definitions)
+                ->withNames($fieldNames);
 
-        $this->logEnd($productId, $fields->count());
+            $this->logEnd($productId, $fields->count());
 
-        return $fields;
+            return $fields;
+        });
     }
 
     /**

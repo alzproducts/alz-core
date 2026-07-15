@@ -12,6 +12,8 @@ use App\Infrastructure\Jobs\Shopwired\SetProductFreeDeliveryJob;
 use App\Infrastructure\Jobs\Shopwired\SyncShopwiredBrandJob;
 use App\Infrastructure\Jobs\Shopwired\SyncShopwiredCategoryJob;
 use App\Infrastructure\Jobs\Shopwired\SyncShopwiredCustomerJob;
+use App\Infrastructure\Jobs\Shopwired\SyncShopwiredCustomFieldsJob;
+use App\Infrastructure\Jobs\Shopwired\SyncShopwiredFilterGroupsJob;
 use App\Infrastructure\Jobs\Shopwired\SyncShopwiredOrderJob;
 use App\Infrastructure\Jobs\Shopwired\SyncShopwiredOrdersRangeJob;
 use App\Infrastructure\Jobs\Shopwired\SyncShopwiredProductJob;
@@ -68,6 +70,18 @@ final readonly class QueuedShopwiredSyncDispatcher implements ShopwiredSyncDispa
     public function dispatchAllProductsSync(): void
     {
         SyncShopwiredProductsJob::dispatch();
+    }
+
+    #[Override]
+    public function dispatchCustomFieldsSync(): void
+    {
+        SyncShopwiredCustomFieldsJob::dispatch();
+    }
+
+    #[Override]
+    public function dispatchFilterGroupsSync(): void
+    {
+        SyncShopwiredFilterGroupsJob::dispatch();
     }
 
     #[Override]

@@ -36,6 +36,22 @@ interface ShopwiredSyncDispatcherInterface
      */
     public function dispatchAllProductsSync(): void;
 
+    /**
+     * Dispatch a full ShopWired custom field definitions sync.
+     *
+     * Deduplicated by ShouldBeUnique on the underlying job — a dispatch while
+     * another run is in flight is a silent no-op.
+     */
+    public function dispatchCustomFieldsSync(): void;
+
+    /**
+     * Dispatch a full ShopWired filter groups sync.
+     *
+     * Deduplicated by ShouldBeUnique on the underlying job — a dispatch while
+     * another run is in flight is a silent no-op.
+     */
+    public function dispatchFilterGroupsSync(): void;
+
     public function dispatchFreeDeliveryUpdate(SetFreeDeliveryCommand $command): void;
 
     public function dispatchReconcileComparePrice(IntId $productId): void;

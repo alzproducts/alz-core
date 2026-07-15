@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Application\Catalog\UseCases;
 
 use App\Application\Catalog\CustomFieldMergerService;
+use App\Application\Catalog\Services\CustomFieldStalenessRecovery;
 use App\Application\Contracts\Catalog\CustomFieldRepositoryInterface;
 use App\Application\Contracts\Shopwired\CategoryRepositoryInterface;
 use App\Domain\Catalog\Category\Enums\CategoryInclude;
@@ -32,6 +33,7 @@ final readonly class GetCategoryCustomFieldsUseCase
     public function __construct(
         private CategoryRepositoryInterface $categoryRepository,
         private CustomFieldRepositoryInterface $customFieldRepository,
+        private CustomFieldStalenessRecovery $recovery,
         private LoggerInterface $logger,
     ) {}
 
@@ -48,22 +50,24 @@ final readonly class GetCategoryCustomFieldsUseCase
      */
     public function execute(int $categoryId, array $fieldNames = []): CustomFieldValueList
     {
-        $this->logStart($categoryId, $fieldNames);
+        return $this->recovery->withRecovery(function () use ($categoryId, $fieldNames): CustomFieldValueList {
+            $this->logStart($categoryId, $fieldNames);
 
-        $category = $this->categoryRepository->findCategoryForApi(
-            IntId::from($categoryId),
-            [CategoryInclude::CustomFields],
-        );
+            $category = $this->categoryRepository->findCategoryForApi(
+                IntId::from($categoryId),
+                [CategoryInclude::CustomFields],
+            );
 
-        $definitions = $this->customFieldRepository->findByItemType(CustomFieldItemType::Category);
-        $fields = CustomFieldMergerService::mergeWithDefinitions(
-            $category->customFields ?? CustomFieldValueList::empty(),
-            $definitions,
-        )->withNames($fieldNames);
+            $definitions = $this->customFieldRepository->findByItemType(CustomFieldItemType::Category);
+            $fields = CustomFieldMergerService::mergeWithDefinitions(
+                $category->customFields ?? CustomFieldValueList::empty(),
+                $definitions,
+            )->withNames($fieldNames);
 
-        $this->logEnd($categoryId, $fields->count());
+            $this->logEnd($categoryId, $fields->count());
 
-        return $fields;
+            return $fields;
+        });
     }
 
     /**

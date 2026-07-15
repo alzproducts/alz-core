@@ -156,6 +156,20 @@ fi
 log_success "Laravel optimization completed"
 
 # ------------------------------------------------------------------------------
+# Baseline sync dispatch (optional, set DISPATCH_BASELINE_SYNCS=true to enable)
+# ------------------------------------------------------------------------------
+if [ "${DISPATCH_BASELINE_SYNCS}" = "true" ]; then
+    log_info "Dispatching baseline sync jobs..."
+    if php artisan app:dispatch-baseline-syncs; then
+        log_success "Baseline sync jobs dispatched"
+    else
+        log_warning "Failed to dispatch baseline sync jobs (non-fatal)"
+    fi
+else
+    log_info "Baseline sync dispatch disabled (set DISPATCH_BASELINE_SYNCS=true to enable)"
+fi
+
+# ------------------------------------------------------------------------------
 # Octane configuration summary
 # ------------------------------------------------------------------------------
 log_info "Octane Configuration:"

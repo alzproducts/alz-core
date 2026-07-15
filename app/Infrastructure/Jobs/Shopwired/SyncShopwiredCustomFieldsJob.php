@@ -23,7 +23,7 @@ use Illuminate\Contracts\Queue\ShouldBeUnique;
  * Usage:
  * - SyncShopwiredCustomFieldsJob::dispatch()
  *
- * Recommended scheduling: Weekly (definitions rarely change)
+ * Scheduled: Hourly (see ShopwiredScheduleServiceProvider)
  */
 final class SyncShopwiredCustomFieldsJob extends AbstractJob implements ShouldBeUnique
 {
