@@ -36,6 +36,7 @@ final class DispatchBaselineSyncsCommand extends Command
             return self::SUCCESS;
         } catch (Throwable $e) { // @ignoreException - deploy-time dispatch: report failure via exit code, never crash the container
             $this->error('Failed to dispatch baseline sync jobs: ' . $e->getMessage());
+            $this->line('  Check: queue connection is configured and reachable');
 
             return self::FAILURE;
         }
