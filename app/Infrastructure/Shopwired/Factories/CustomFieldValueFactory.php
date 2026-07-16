@@ -197,8 +197,7 @@ final class CustomFieldValueFactory implements CustomFieldValueFactoryInterface
             }
         }
 
-        /** @var list<int> $value */
-        return new ProductListCustomFieldValue($definition, $value);
+        return new ProductListCustomFieldValue($definition, \array_values($value));
     }
 
     /**
